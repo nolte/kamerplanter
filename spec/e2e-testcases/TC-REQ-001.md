@@ -2,7 +2,7 @@
 req_id: REQ-001
 title: Stammdatenverwaltung von Pflanzen-Entitätszyklen
 category: Stammdaten
-test_count: 81
+test_count: 98
 coverage_areas:
   - Core-Lifecycle-Journey — Pflanzeninstanz anlegen & bearbeiten (self-provisioning)
   - BotanicalFamily CRUD
@@ -34,8 +34,10 @@ coverage_areas:
   - Stammdaten-Promotion (Tenant→Global durch KA-Admin)
   - Mobile Card-Ansicht
   - Auth & Redirect unauthenticated
-generated: "2026-03-21"
-version: "4.0"
+  - Pflanzeninstanz — Listenansicht, Erstellen-Dialog & Detailseite (generische UI-Bausteine)
+  - Fehlerzustände — Netzwerk- und Serverfehler (Ergänzung Edge Cases)
+generated: "2026-07-29"
+version: "4.1"
 ---
 
 # Testfälle REQ-001: Stammdatenverwaltung
@@ -2262,11 +2264,391 @@ version: "4.0"
 
 ---
 
+## Gruppe 22: Pflanzeninstanz — Listenansicht, Erstellen-Dialog & Detailseite
+
+*Kontext: Diese Gruppe deckt die generischen UI-Bausteine der Pflanzeninstanz-Verwaltung ab (Listenrendering, Spalten, Suche, Sortierung, Dialog-Interaktionen, Detailseiten-Komponenten) — unabhängig von der Datenkorrektheit einer konkret angelegten Instanz, die Gruppe 21 (Core-Lifecycle-Journey) prüft.*
+
+---
+
+## TC-001-082: Pflanzeninstanz-Liste wird geladen und angezeigt
+
+**Requirement**: REQ-001 §2 — PlantInstanceListPage
+**Priority**: Critical
+**Category**: Listenansicht
+**Preconditions**:
+- Nutzer ist angemeldet
+
+**Test Steps**:
+1. Nutzer navigiert zu `/pflanzen/plant-instances`
+2. Nutzer wartet, bis die Seite vollständig geladen hat (kein Lade-Spinner mehr sichtbar)
+
+**Expected Results**:
+- Die Pflanzeninstanz-Listenseite ist sichtbar
+- Kein Fehler-Banner ist sichtbar
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, liste, stammdaten]
+
+---
+
+## TC-001-083: Pflanzeninstanz-Liste zeigt Tabellenspalten
+
+**Requirement**: REQ-001 §2 — PlantInstanceListPage Tabellenspalten
+**Priority**: High
+**Category**: Listenansicht
+**Preconditions**:
+- Nutzer ist auf `/pflanzen/plant-instances`
+- Mindestens eine Pflanzeninstanz ist vorhanden
+
+**Test Steps**:
+1. Nutzer betrachtet die Spaltenüberschriften der Tabelle
+
+**Expected Results**:
+- Tabelle zeigt mindestens zwei Spaltenüberschriften
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, liste, spalten]
+
+---
+
+## TC-001-084: Erstellen-Button ist auf der Pflanzeninstanz-Liste sichtbar
+
+**Requirement**: REQ-001 §2 — Pflanzeninstanz-Anlage, PlantInstanceListPage
+**Priority**: Critical
+**Category**: Listenansicht
+**Preconditions**:
+- Nutzer ist auf `/pflanzen/plant-instances`
+
+**Test Steps**:
+1. Nutzer betrachtet den Seitenkopf der Liste
+
+**Expected Results**:
+- Button "Erstellen" ist sichtbar
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, liste, erstellen-button]
+
+---
+
+## TC-001-085: Zähler "Zeigt X von Y" wird bei vorhandenen Pflanzeninstanzen angezeigt
+
+**Requirement**: REQ-001 §2 — PlantInstanceListPage Zähler
+**Priority**: Low
+**Category**: Listenansicht
+**Preconditions**:
+- Nutzer ist auf `/pflanzen/plant-instances`
+- Mindestens eine Pflanzeninstanz ist vorhanden
+
+**Test Steps**:
+1. Nutzer betrachtet den Bereich mit dem Zeilenzähler
+
+**Expected Results**:
+- Ein nicht-leerer Zähler-Text (z.B. "Zeigt 1–10 von X Einträgen") ist sichtbar
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, liste, zaehler]
+
+---
+
+## TC-001-086: Erstellen-Dialog für Pflanzeninstanz öffnet sich per Klick
+
+**Requirement**: REQ-001 §2 — PlantInstanceCreateDialog
+**Priority**: Critical
+**Category**: Dialog
+**Preconditions**:
+- Nutzer ist auf `/pflanzen/plant-instances`
+
+**Test Steps**:
+1. Nutzer klickt auf den Button "Erstellen"
+
+**Expected Results**:
+- Der Erstellen-Dialog für eine Pflanzeninstanz öffnet sich
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, dialog, erstellen]
+
+---
+
+## TC-001-087: Pflanzeninstanz erstellen — Pflichtfeld "Art" leer wird verhindert
+
+**Requirement**: REQ-001 §3 — PlantInstanceDefinition.species_key Pflichtfeld
+**Priority**: Critical
+**Category**: Formvalidierung
+**Preconditions**:
+- Erstellen-Dialog für Pflanzeninstanz ist geöffnet
+
+**Test Steps**:
+1. Nutzer lässt das Feld "Art" leer
+2. Nutzer klickt auf "Erstellen"
+
+**Expected Results**:
+- Dialog bleibt geöffnet, Pflanzeninstanz wird NICHT erstellt
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, formvalidierung, pflichtfeld, art]
+
+---
+
+## TC-001-088: Abbrechen im Pflanzeninstanz-Erstellen-Dialog verwirft die Eingabe
+
+**Requirement**: REQ-001 §2 — PlantInstanceCreateDialog Abbrechen
+**Priority**: High
+**Category**: Dialog
+**Preconditions**:
+- Erstellen-Dialog für Pflanzeninstanz ist geöffnet
+
+**Test Steps**:
+1. Nutzer klickt auf "Abbrechen"
+
+**Expected Results**:
+- Dialog schließt sich ohne dass eine Pflanzeninstanz erstellt wird
+- Zeilenanzahl der Liste bleibt unverändert
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, dialog, abbrechen]
+
+---
+
+## TC-001-089: Klick auf Zeile navigiert zur Pflanzeninstanz-Detailseite
+
+**Requirement**: REQ-001 §2 — PlantInstanceListPage Navigation
+**Priority**: Critical
+**Category**: Navigation
+**Preconditions**:
+- Mindestens eine Pflanzeninstanz ist in der Liste vorhanden
+
+**Test Steps**:
+1. Nutzer klickt auf eine Zeile in der Pflanzeninstanz-Tabelle
+
+**Expected Results**:
+- Browser navigiert zur Detailseite `/pflanzen/plant-instances/{key}`
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, navigation, detailseite]
+
+---
+
+## TC-001-090: Pflanzeninstanz-Detailseite zeigt Pflanzeninfo-Karte
+
+**Requirement**: REQ-001 §2 — PlantInstanceDetailPage
+**Priority**: High
+**Category**: Detailansicht
+**Preconditions**:
+- Nutzer ist auf der Detailseite einer Pflanzeninstanz
+
+**Test Steps**:
+1. Nutzer betrachtet die Detailseite
+
+**Expected Results**:
+- Die Pflanzeninfo-Karte ist sichtbar
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, detailansicht, info-karte]
+
+---
+
+## TC-001-091: Pflanzeninstanz-Detailseite zeigt aktuelle Phase (REQ-003)
+
+**Requirement**: REQ-001 §2 / REQ-003 — Phasensteuerung, aktuelle Phase auf der Detailseite
+**Priority**: High
+**Category**: Detailansicht
+**Preconditions**:
+- Nutzer ist auf der Detailseite einer Pflanzeninstanz
+
+**Test Steps**:
+1. Nutzer betrachtet den Bereich mit der aktuellen Phase
+
+**Expected Results**:
+- Ein nicht-leerer Text mit der aktuellen Phase ist sichtbar
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, detailansicht, aktuelle-phase, req-003]
+
+---
+
+## TC-001-092: Tab "Phasen" zeigt Phasenverlauf der Pflanzeninstanz (REQ-003)
+
+**Requirement**: REQ-001 §2 / REQ-003 — Phasenverlauf, PlantInstanceDetailPage Tab "Phasen"
+**Priority**: High
+**Category**: Detailansicht
+**Preconditions**:
+- Nutzer ist auf der Detailseite einer Pflanzeninstanz
+
+**Test Steps**:
+1. Nutzer klickt auf den Tab "Phasen"
+
+**Expected Results**:
+- Der Tab-Inhalt mit dem Phasenverlauf ist sichtbar
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, detailansicht, phasen-tab, req-003]
+
+---
+
+## TC-001-093: Suchfeld filtert die Pflanzeninstanz-Tabelle
+
+**Requirement**: REQ-001 §2 — PlantInstanceListPage Suche
+**Priority**: High
+**Category**: Listenansicht
+**Preconditions**:
+- Nutzer ist auf `/pflanzen/plant-instances`
+- Mindestens eine Pflanzeninstanz ist vorhanden
+
+**Test Steps**:
+1. Nutzer gibt in das Suchfeld einen Begriff ein, der keiner Pflanzeninstanz entspricht
+
+**Expected Results**:
+- Die gefilterte Zeilenanzahl ist kleiner oder gleich der Ausgangszahl
+- Ein Such-Chip ist sichtbar
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, liste, suche]
+
+---
+
+## TC-001-094: Sortierung per Spaltenklick zeigt Sortier-Chip
+
+**Requirement**: REQ-001 §2 — PlantInstanceListPage Sortierung
+**Priority**: Medium
+**Category**: Listenansicht
+**Preconditions**:
+- Nutzer ist auf `/pflanzen/plant-instances` (Desktop-Ansicht)
+- Tabelle zeigt Spaltenüberschriften
+
+**Test Steps**:
+1. Nutzer klickt auf die erste Spaltenüberschrift
+
+**Expected Results**:
+- Ein Sortier-Chip erscheint
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, liste, sortierung]
+
+---
+
+## TC-001-095: Ungültige Pflanzeninstanz-ID zeigt Fehleranzeige
+
+**Requirement**: REQ-001 §2 — PlantInstanceDetailPage, ErrorDisplay-Komponente
+**Priority**: Medium
+**Category**: Fehlermeldung
+**Preconditions**:
+- Nutzer kennt eine nicht existente Pflanzeninstanz-ID
+
+**Test Steps**:
+1. Nutzer navigiert direkt zu `/pflanzen/plant-instances/nicht-existente-id`
+
+**Expected Results**:
+- Die Fehleranzeige (ErrorDisplay-Komponente, data-testid="error-display") ist sichtbar anstelle der Detailansicht
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, fehlermeldung, 404, error-display]
+
+---
+
+## TC-001-096: Filter zurücksetzen stellt die volle Pflanzeninstanz-Liste wieder her
+
+**Requirement**: REQ-001 §2 — PlantInstanceListPage Filter-Reset
+**Priority**: Medium
+**Category**: Listenansicht
+**Preconditions**:
+- Nutzer ist auf `/pflanzen/plant-instances`
+- Mindestens eine Pflanzeninstanz ist vorhanden
+- Ein Such-/Filterzustand ist aktiv
+
+**Test Steps**:
+1. Nutzer klickt auf "Filter zurücksetzen"
+
+**Expected Results**:
+- Die Zeilenanzahl kehrt zur ungefilterten Ausgangszahl zurück
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, plant-instance, liste, filter-reset]
+
+---
+
+## Gruppe 23: Fehlerzustände — Netzwerk- und Serverfehler (Ergänzung zu Gruppe 17)
+
+---
+
+## TC-001-097: Netzwerkfehler beim Laden einer Stammdaten-Liste zeigt Fehleranzeige
+
+**Requirement**: REQ-001 §2 / NFR-006 — Fehlerbehandlung bei nicht erreichbarem Backend
+**Priority**: Medium
+**Category**: Fehlermeldung
+**Preconditions**:
+- Backend ist nicht erreichbar (z.B. gestoppt)
+
+**Test Steps**:
+1. Nutzer navigiert zu einer Stammdaten-Listenseite (z.B. `/stammdaten/botanical-families`)
+
+**Expected Results**:
+- Eine Fehleranzeige oder Fehlerbenachrichtigung erscheint anstelle der Tabelle
+- Fehlermeldung enthält keine internen Systemdetails
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, fehlermeldung, netzwerkfehler, nfr-006]
+
+---
+
+## TC-001-098: Serverfehler (500) beim Laden einer Stammdaten-Liste zeigt Fehlerbenachrichtigung
+
+**Requirement**: REQ-001 §2 / NFR-006 — Fehlerbehandlung bei Serverfehler
+**Priority**: Medium
+**Category**: Fehlermeldung
+**Preconditions**:
+- Backend antwortet mit HTTP 500 auf die Listenanfrage
+
+**Test Steps**:
+1. Nutzer navigiert zu einer Stammdaten-Listenseite, während das Backend einen Serverfehler liefert
+
+**Expected Results**:
+- Eine Fehlerbenachrichtigung (Snackbar/Alert) erscheint
+
+**Postconditions**:
+- Keine Daueränderung
+
+**Tags**: [req-001, fehlermeldung, serverfehler, 500, nfr-006]
+
+---
+
 ## Abdeckungs-Matrix
 
 | Spezifikations-Abschnitt | Beschreibung | Testfälle |
 |---|---|---|
 | Core-Lifecycle-Journey (Anlegen & Bearbeiten, self-provisioning) | Test-Spezies+Sorte+Pflanzeninstanz anlegen, Liste/Detail, Attribute editieren + Persistenz | TC-001-079 bis TC-001-081 |
+| Pflanzeninstanz — Listenansicht, Erstellen-Dialog & Detailseite | Listenrendering, Spalten, Suche, Sortierung, Dialog-Interaktionen, Detailseiten-Komponenten | TC-001-082 bis TC-001-096 |
 | §2 BotanicalFamily Knoten | Listenansicht, CRUD, Formularfelder, pH-Felder | TC-001-001 bis TC-001-018 |
 | §2 Species Knoten | Listenansicht, Filter, CRUD, Tabs | TC-001-019 bis TC-001-035 |
 | §2 Cultivar Knoten | Sorten-Tab, CRUD, Detailseite, Autoflower, Phasen-Gießen | TC-001-036 bis TC-001-046 |
@@ -2286,3 +2668,4 @@ version: "4.0"
 | UX-Muster | UnsavedChangesGuard, Mobile Cards | TC-001-014, TC-001-056, TC-001-066, TC-001-067 |
 | REQ-021 Erfahrungsstufen | ExpertiseFieldWrapper | TC-001-029, TC-001-074 |
 | Fehler/Edge Cases | 404, pH-Optional, Order-Optional | TC-001-068, TC-001-069, TC-001-075, TC-001-077 |
+| Fehlerzustände — Netzwerk & Server (Ergänzung Gruppe 17) | Netzwerkfehler, Serverfehler (500) bei Stammdaten-Listen | TC-001-097, TC-001-098 |

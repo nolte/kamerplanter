@@ -6,10 +6,12 @@ sowie den anonym erreichbaren ``/api/v1/privacy/policy``-Endpoint.
 
 Spec: ``spec/req/REQ-025_Datenschutz-Betroffenenrechte.md``
 
-Spec-TC Mapping:
-  TC-REQ-025-001  ->  §4 Frontend, §3.7  PrivacySettingsPage rendert mit 4 Tabs
-  TC-REQ-025-002  ->  §3.6, §1.1         ``GET /privacy/policy`` ist anonym
-                                          ohne JWT erreichbar
+Spec-TC Mapping (test -> spec/e2e-testcases/TC-REQ-025.md):
+  test_privacy_page_renders_with_four_tabs  -> TC-025-001
+  test_privacy_policy_endpoint_anonymous    -> TC-025-035
+    (NICHT TC-025-002, das den Redirect fuer die geschuetzte
+    PrivacySettingsPage bei fehlender Anmeldung beschreibt -- ein anderes
+    Thema als der oeffentliche Privacy-Policy-Endpoint.)
 """
 
 from __future__ import annotations
@@ -58,7 +60,7 @@ def _fetch_privacy_policy(driver: WebDriver, base_url: str) -> dict[str, Any]:
     return json.loads(result["body"])
 
 
-# -- TC-REQ-025-001: Privacy settings page -----------------------------------
+# -- TC-025-001: Privacy settings page -----------------------------------
 
 
 class TestPrivacySettingsPage:
@@ -72,10 +74,10 @@ class TestPrivacySettingsPage:
         base_url: str,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-025-001: PrivacySettingsPage zeigt vier Tabs.
+        """TC-025-001: PrivacySettingsPage zeigt vier Tabs.
 
-        Spec: REQ-025 §4 Frontend — Einwilligungen, Datenexport,
-        Konto-Loeschung, Verarbeitungseinschraenkung.
+        Spec: REQ-025 §4.1 -- Einwilligungen, Datenexport,
+        Account loeschen, Verarbeitungseinschraenkung.
         """
         privacy_page = PrivacySettingsPage(browser, base_url)
         privacy_page.open()
@@ -86,7 +88,7 @@ class TestPrivacySettingsPage:
             )
         except Exception:
             screenshot(
-                "TC-REQ-025-001_privacy-page-not-found",
+                "TC-025-001_privacy-page-not-found",
                 "PrivacySettingsPage konnte nicht geladen werden",
             )
             pytest.skip(
@@ -95,17 +97,17 @@ class TestPrivacySettingsPage:
             )
 
         screenshot(
-            "TC-REQ-025-001_privacy-page-loaded",
+            "TC-025-001_privacy-page-loaded",
             "PrivacySettingsPage nach initialem Laden",
         )
 
         for tab_name in ("consents", "export", "erasure", "restrict"):
             assert privacy_page.is_tab_visible(tab_name), (
-                f"TC-REQ-025-001 FAIL: Tab '{tab_name}' nicht gefunden oder nicht sichtbar"
+                f"TC-025-001 FAIL: Tab '{tab_name}' nicht gefunden oder nicht sichtbar"
             )
 
 
-# -- TC-REQ-025-002: Public privacy policy endpoint --------------------------
+# -- TC-025-035: Public privacy policy endpoint --------------------------
 
 
 class TestPrivacyPolicyEndpoint:
@@ -123,24 +125,25 @@ class TestPrivacyPolicyEndpoint:
         base_url: str,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-025-002: ``GET /privacy/policy`` liefert anonym 200 + Schema.
+        """TC-025-035: ``GET /privacy/policy`` liefert anonym 200 + Schema.
 
-        Spec: REQ-025 §3.6, §1.1 — Public access, kein Auth-Header.
+        Spec: REQ-025 §3.6, §3.2 PrivacyService.get_privacy_policy,
+        AK-15 -- Public access, kein Auth-Header.
         """
         payload = _fetch_privacy_policy(browser, base_url)
 
         screenshot(
-            "TC-REQ-025-002_privacy-policy-endpoint",
+            "TC-025-035_privacy-policy-endpoint",
             "Browser nach Privacy-Policy-Abfrage (Public, ohne JWT)",
         )
 
         assert "version" in payload, (
-            f"TC-REQ-025-002 FAIL: Response sollte Feld 'version' enthalten, war: {list(payload)}"
+            f"TC-025-035 FAIL: Response sollte Feld 'version' enthalten, war: {list(payload)}"
         )
         assert "purposes" in payload, (
-            f"TC-REQ-025-002 FAIL: Response sollte Feld 'purposes' enthalten, war: {list(payload)}"
+            f"TC-025-035 FAIL: Response sollte Feld 'purposes' enthalten, war: {list(payload)}"
         )
         assert isinstance(payload["purposes"], list), (
-            "TC-REQ-025-002 FAIL: 'purposes' muss Liste sein, "
+            "TC-025-035 FAIL: 'purposes' muss Liste sein, "
             f"war: {type(payload['purposes']).__name__}"
         )

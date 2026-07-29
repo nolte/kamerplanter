@@ -1,20 +1,32 @@
 """E2E tests for REQ-001 / REQ-003 — Plant Instance (Pflanzen) management.
 
 Spec-TC Mapping (test TC -> spec/e2e-testcases/):
-  TC-REQ-001-PI-001  ->  TC-001-*     Plant instance list page renders with data-testid
-  TC-REQ-001-PI-002  ->  TC-001-*     List displays DataTable with column headers
-  TC-REQ-001-PI-003  ->  TC-001-*     Create button is visible on list page
-  TC-REQ-001-PI-004  ->  TC-001-*     Create dialog opens on button click
-  TC-REQ-001-PI-005  ->  TC-001-*     Create plant instance with valid data (Happy Path)
-  TC-REQ-001-PI-006  ->  TC-001-*     Submit without species shows validation error
-  TC-REQ-001-PI-007  ->  TC-001-*     Cancel closes dialog without creating
-  TC-REQ-001-PI-008  ->  TC-001-*     Click on row navigates to detail page
-  TC-REQ-001-PI-009  ->  TC-003-*     Detail page shows plant-info-card
-  TC-REQ-001-PI-010  ->  TC-003-*     Detail page shows current phase
-  TC-REQ-001-PI-011  ->  TC-003-*     Phases tab shows phase history
-  TC-REQ-001-PI-012  ->  TC-001-*     Search filters plant instance table
-  TC-REQ-001-PI-013  ->  TC-001-*     Sort by column header shows sort chip
-  TC-REQ-001-PI-014  ->  TC-001-*     Non-existent plant-instance key shows error
+  TC-REQ-001-PI-001  ->  TC-001-082   Plant instance list page renders with data-testid
+  TC-REQ-001-PI-002  ->  TC-001-083   List displays DataTable with column headers
+  TC-REQ-001-PI-003  ->  TC-001-084   Create button is visible on list page
+  TC-REQ-001-PI-003b ->  TC-001-085   Showing count text is displayed when rows exist
+  TC-REQ-001-PI-004  ->  TC-001-086   Create dialog opens on button click
+  TC-REQ-001-PI-005  ->  TC-001-080   Create plant instance with valid data (Happy Path;
+                                      shares the Core-Journey creation case -- this test
+                                      exercises a narrower slice of the same behaviour)
+  TC-REQ-001-PI-006  ->  TC-001-087   Submit without species shows validation error
+  TC-REQ-001-PI-007  ->  TC-001-088   Cancel closes dialog without creating
+  TC-REQ-001-PI-008  ->  TC-001-089   Click on row navigates to detail page
+  TC-REQ-001-PI-009  ->  TC-001-090   Detail page shows plant-info-card
+  TC-REQ-001-PI-010  ->  TC-001-091   Detail page shows current phase
+  TC-REQ-001-PI-011  ->  TC-001-092   Phases tab shows phase history
+  TC-REQ-001-PI-012  ->  TC-001-093   Search filters plant instance table
+  TC-REQ-001-PI-013  ->  TC-001-094   Sort by column header shows sort chip
+  TC-REQ-001-PI-014  ->  TC-001-095   Non-existent plant-instance key shows error
+  TC-REQ-001-PI-015  ->  TC-001-096   Reset filters restores the full list
+
+Of the 16 tests below, only PI-005 maps onto an already-declared case (TC-001-080,
+the Core-Journey creation happy path); the spec previously described no generic
+list-page/dialog/detail-page rendering behaviour for plant instances at all
+(Gruppe 21 only covers the self-provisioning journey's data-correctness
+assertions), so TC-001-082 through TC-001-096 were newly declared in
+spec/e2e-testcases/TC-REQ-001.md (Gruppe 22) rather than guessed from the
+numeric "TC-REQ-001-PI-NNN -> TC-001-NNN" coincidence.
 """
 
 from __future__ import annotations
@@ -49,7 +61,7 @@ def plant_detail(browser: WebDriver, base_url: str) -> PlantInstanceDetailPage:
     return PlantInstanceDetailPage(browser, base_url)
 
 
-# -- TC-REQ-001-PI-001 to TC-REQ-001-PI-003: List Page -----------------------
+# -- TC-001-082 to TC-001-085: List Page --------------------------------------
 
 
 class TestPlantInstanceListPage:
@@ -61,9 +73,9 @@ class TestPlantInstanceListPage:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-001: PlantInstanceListPage renders with data-testid.
+        """TC-001-082: PlantInstanceListPage renders with data-testid.
 
-        Spec: TC-001 -- Pflanzinstanz-Listenansicht wird geladen.
+        Spec: TC-001-082 -- Pflanzeninstanz-Liste wird geladen und angezeigt.
         """
         plant_list.open()
         screenshot(
@@ -84,9 +96,9 @@ class TestPlantInstanceListPage:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-002: DataTable renders with expected column headers.
+        """TC-001-083: DataTable renders with expected column headers.
 
-        Spec: TC-001 -- Listenansicht zeigt Spalten.
+        Spec: TC-001-083 -- Pflanzeninstanz-Liste zeigt Tabellenspalten.
         """
         plant_list.open()
         screenshot(
@@ -107,9 +119,9 @@ class TestPlantInstanceListPage:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-003: Create button is visible on the list page.
+        """TC-001-084: Create button is visible on the list page.
 
-        Spec: TC-001 -- Erstellen-Button sichtbar auf Listenansicht.
+        Spec: TC-001-084 -- Erstellen-Button ist auf der Pflanzeninstanz-Liste sichtbar.
         """
         plant_list.open()
         screenshot(
@@ -128,9 +140,10 @@ class TestPlantInstanceListPage:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-003b: Showing count text is displayed when rows exist.
+        """TC-001-085: Showing count text is displayed when rows exist.
 
-        Spec: TC-001 -- Zeigt-Zaehler.
+        Spec: TC-001-085 -- Zaehler "Zeigt X von Y" wird bei vorhandenen
+        Pflanzeninstanzen angezeigt.
         """
         plant_list.open()
         screenshot(
@@ -145,7 +158,7 @@ class TestPlantInstanceListPage:
         assert count_text, "TC-REQ-001-PI-003b FAIL: Expected non-empty showing count text"
 
 
-# -- TC-REQ-001-PI-004 to TC-REQ-001-PI-007: Create Dialog -------------------
+# -- TC-001-086 to TC-001-088: Create Dialog ----------------------------------
 
 
 class TestPlantInstanceCreateDialog:
@@ -157,9 +170,9 @@ class TestPlantInstanceCreateDialog:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-004: Clicking create button opens the PlantInstanceCreateDialog.
+        """TC-001-086: Clicking create button opens the PlantInstanceCreateDialog.
 
-        Spec: TC-001 -- Erstellen-Dialog oeffnet sich.
+        Spec: TC-001-086 -- Erstellen-Dialog fuer Pflanzeninstanz oeffnet sich per Klick.
         """
         plant_list.open()
         screenshot(
@@ -183,9 +196,14 @@ class TestPlantInstanceCreateDialog:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-005: Create a plant instance with species + name (Happy Path).
+        """TC-001-080: Create a plant instance with species + name (Happy Path).
 
-        Spec: TC-001 -- Pflanze erfolgreich erstellen.
+        Spec: TC-001-080 -- Core-Journey: Pflanzeninstanz anlegen und in Liste
+        verifizieren. This test exercises the same create-dialog-happy-path
+        behaviour as the Core-Journey case with a first-available species
+        rather than a self-provisioned one; the case is shared rather than
+        duplicated (many-to-one is expected, see the module's docstring
+        traceability check).
         Selects the first available species via the autocomplete, enters a
         unique plant name, and verifies the new entry appears in the list.
         """
@@ -238,9 +256,10 @@ class TestPlantInstanceCreateDialog:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-006: Submitting without species triggers validation error (NFR-006).
+        """TC-001-087: Submitting without species triggers validation error (NFR-006).
 
-        Spec: TC-001 -- Pflichtfeld-Validierung — species_key ist Pflichtfeld.
+        Spec: TC-001-087 -- Pflanzeninstanz erstellen: Pflichtfeld "Art" leer
+        wird verhindert.
         """
         plant_list.open()
         plant_list.click_create()
@@ -268,9 +287,10 @@ class TestPlantInstanceCreateDialog:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-007: Cancel in create dialog closes without saving.
+        """TC-001-088: Cancel in create dialog closes without saving.
 
-        Spec: TC-001 -- Abbrechen schliesst Dialog ohne Aenderungen.
+        Spec: TC-001-088 -- Abbrechen im Pflanzeninstanz-Erstellen-Dialog
+        verwirft die Eingabe.
         """
         plant_list.open()
         initial_count = plant_list.get_row_count()
@@ -297,7 +317,7 @@ class TestPlantInstanceCreateDialog:
         )
 
 
-# -- TC-REQ-001-PI-008 to TC-REQ-001-PI-011: Detail Page ---------------------
+# -- TC-001-089 to TC-001-092: Detail Page ------------------------------------
 
 
 class TestPlantInstanceDetailPage:
@@ -309,9 +329,10 @@ class TestPlantInstanceDetailPage:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-008: Clicking a row navigates to the detail page.
+        """TC-001-089: Clicking a row navigates to the detail page.
 
-        Spec: TC-001 -- Klick auf Pflanze navigiert zur Detailseite.
+        Spec: TC-001-089 -- Klick auf Zeile navigiert zur
+        Pflanzeninstanz-Detailseite.
         """
         plant_list.open()
         screenshot(
@@ -341,9 +362,9 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-009: Detail page renders the plant-info-card.
+        """TC-001-090: Detail page renders the plant-info-card.
 
-        Spec: TC-001/TC-003 -- Pflanzendetailseite zeigt Pflanzeninfo.
+        Spec: TC-001-090 -- Pflanzeninstanz-Detailseite zeigt Pflanzeninfo-Karte.
         """
         plant_list.open()
 
@@ -370,9 +391,9 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-010: Detail page shows the current phase chip (REQ-003).
+        """TC-001-091: Detail page shows the current phase chip (REQ-003).
 
-        Spec: TC-003 -- Aktuelle Phase ist sichtbar auf der Detailseite.
+        Spec: TC-001-091 -- Pflanzeninstanz-Detailseite zeigt aktuelle Phase.
         """
         plant_list.open()
 
@@ -397,9 +418,10 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-011: Phases tab renders the phase history (REQ-003).
+        """TC-001-092: Phases tab renders the phase history (REQ-003).
 
-        Spec: TC-003 -- Phasen-Tab zeigt Phasenverlauf-Tabelle.
+        Spec: TC-001-092 -- Tab "Phasen" zeigt Phasenverlauf der
+        Pflanzeninstanz.
         """
         plant_list.open()
 
@@ -423,7 +445,7 @@ class TestPlantInstanceDetailPage:
         )
 
 
-# -- TC-REQ-001-PI-012 to TC-REQ-001-PI-014: Search, Sort, Error -------------
+# -- TC-001-093 to TC-001-096: Search, Sort, Error ----------------------------
 
 
 class TestPlantInstanceSearchAndSort:
@@ -435,9 +457,9 @@ class TestPlantInstanceSearchAndSort:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-012: Search input filters the plant instance table.
+        """TC-001-093: Search input filters the plant instance table.
 
-        Spec: TC-001 -- Pflanzentabelle ist durchsuchbar.
+        Spec: TC-001-093 -- Suchfeld filtert die Pflanzeninstanz-Tabelle.
         """
         plant_list.open()
 
@@ -473,9 +495,9 @@ class TestPlantInstanceSearchAndSort:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-013: Clicking a column header activates the sort chip.
+        """TC-001-094: Clicking a column header activates the sort chip.
 
-        Spec: TC-001 -- Sortierung per Spaltenklick.
+        Spec: TC-001-094 -- Sortierung per Spaltenklick zeigt Sortier-Chip.
         """
         plant_list.open()
         headers = plant_list.get_column_headers()
@@ -509,9 +531,9 @@ class TestPlantInstanceSearchAndSort:
         plant_detail: PlantInstanceDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-014: Navigating to a non-existent key shows an error (NFR-006).
+        """TC-001-095: Navigating to a non-existent key shows an error (NFR-006).
 
-        Spec: TC-001 -- Nicht-existente Pflanze zeigt Fehleranzeige.
+        Spec: TC-001-095 -- Ungueltige Pflanzeninstanz-ID zeigt Fehleranzeige.
         """
         plant_detail.open("NONEXISTENT-PLANT-KEY-99999")
         screenshot(
@@ -529,9 +551,10 @@ class TestPlantInstanceSearchAndSort:
         plant_list: PlantInstanceListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-PI-015: Reset filters restores the full plant instance list.
+        """TC-001-096: Reset filters restores the full plant instance list.
 
-        Spec: TC-001 -- Filter zuruecksetzen stellt volle Liste wieder her.
+        Spec: TC-001-096 -- Filter zuruecksetzen stellt die volle
+        Pflanzeninstanz-Liste wieder her.
         """
         plant_list.open()
 

@@ -29,21 +29,23 @@ def feeding_list(browser: WebDriver, base_url: str) -> FeedingEventListPage:
     return FeedingEventListPage(browser, base_url)
 
 
-# -- TC-REQ-004-040 to TC-REQ-004-045: Feeding Event List Page ---------------
+# -- TC-004-093 to TC-004-095: Feeding Event List Page ------------------------
 
 
 class TestFeedingEventListPage:
-    """Feeding event list display and interaction."""
+    """Feeding event list display and interaction (Spec: TC-004-093, TC-004-094, TC-004-095)."""
 
     @pytest.mark.smoke
     def test_feeding_event_page_loads(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-040: Feeding event list page loads with correct structure.
+        """TC-004-093: Feeding event list page loads with correct structure.
 
         Given the user navigates to the feeding events page,
         When the page has finished loading,
         Then the page container and data table are present.
+
+        Spec: TC-004-093 -- FeedingEvent-Liste aufrufen und Grundstruktur pruefen.
         """
         feeding_list.open()
         screenshot(
@@ -59,11 +61,13 @@ class TestFeedingEventListPage:
     def test_create_button_visible(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-041: Create button is visible on the feeding event list page.
+        """TC-004-093: Create button is visible on the feeding event list page.
 
         Given the feeding event list page is loaded,
         When the user inspects the page header,
         Then a create button is visible and clickable.
+
+        Spec: TC-004-093 -- FeedingEvent-Liste aufrufen und Grundstruktur pruefen.
         """
         feeding_list.open()
         screenshot(
@@ -80,11 +84,13 @@ class TestFeedingEventListPage:
     def test_feeding_event_list_has_columns(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-042: Feeding event list shows relevant columns.
+        """TC-004-093: Feeding event list shows relevant columns.
 
         Given the feeding event list page is loaded,
         When the data table is rendered,
         Then column headers for timestamp, plant, method, volume are present.
+
+        Spec: TC-004-093 -- FeedingEvent-Liste aufrufen und Grundstruktur pruefen.
         """
         feeding_list.open()
         screenshot(
@@ -108,11 +114,13 @@ class TestFeedingEventListPage:
     def test_feeding_event_search_filters_results(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-043: Searching the feeding event list filters visible rows.
+        """TC-004-094: Searching the feeding event list filters visible rows.
 
         Given the feeding event list page has at least one row,
         When the user enters a non-matching search term,
         Then the row count decreases or shows zero results.
+
+        Spec: TC-004-094 -- FeedingEvent-Liste -- Freitextsuche filtert Ergebnisse.
         """
         feeding_list.open()
         initial_count = feeding_list.get_row_count()
@@ -143,11 +151,13 @@ class TestFeedingEventListPage:
     def test_feeding_event_sort_by_column(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-044: Clicking a column header sorts the feeding event list.
+        """TC-004-095: Clicking a column header sorts the feeding event list.
 
         Given the feeding event list has visible rows,
         When the user clicks a column header,
         Then the table rows are re-ordered without errors.
+
+        Spec: TC-004-095 -- FeedingEvent-Liste -- Sortierung ueber Spaltenkopf.
         """
         feeding_list.open()
         if feeding_list.get_row_count() == 0:
@@ -191,11 +201,13 @@ class TestFeedingEventListPage:
     def test_feeding_event_showing_count_or_empty_state(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-045: Feeding event list shows either a row count label or empty state.
+        """TC-004-093: Feeding event list shows either a row count label or empty state.
 
         Given the feeding event list page is loaded,
         When the data table is rendered,
         Then either a 'showing X of Y' count or an empty state illustration is shown.
+
+        Spec: TC-004-093 -- FeedingEvent-Liste aufrufen und Grundstruktur pruefen.
         """
         feeding_list.open()
         screenshot(
@@ -210,21 +222,25 @@ class TestFeedingEventListPage:
         )
 
 
-# -- TC-REQ-004-050 to TC-REQ-004-057: Create Dialog -------------------------
+# -- TC-004-096 to TC-004-100: Create Dialog ----------------------------------
 
 
 class TestFeedingEventCreateDialog:
-    """Feeding event create dialog and form validation."""
+    """Feeding event create dialog and form validation (Spec: TC-004-096, TC-004-097,
+    TC-004-098, TC-004-099, TC-004-100).
+    """
 
     @pytest.mark.core_crud
     def test_create_dialog_opens(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-050: Clicking 'Create' opens the feeding event create dialog.
+        """TC-004-096: Clicking 'Create' opens the feeding event create dialog.
 
         Given the feeding event list page is loaded,
         When the user clicks the create button,
         Then the create dialog is displayed with form fields.
+
+        Spec: TC-004-096 -- FeedingEvent-Erstellen-Dialog oeffnet sich.
         """
         feeding_list.open()
         screenshot(
@@ -246,11 +262,14 @@ class TestFeedingEventCreateDialog:
     def test_create_dialog_has_required_fields(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-051: Create dialog contains plant, method, and volume fields.
+        """TC-004-097: Create dialog contains plant, method, and volume fields.
 
         Given the create dialog is open,
         When the user inspects the form,
         Then plant_key, application_method, and volume_applied_liters fields are present.
+
+        Spec: TC-004-097 -- FeedingEvent-Erstellen-Dialog -- vollstaendiges
+        Formularfeld-Inventar.
         """
         feeding_list.open()
         feeding_list.click_create()
@@ -276,11 +295,14 @@ class TestFeedingEventCreateDialog:
     def test_create_dialog_has_measurement_fields(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-052: Create dialog contains EC and pH measurement fields.
+        """TC-004-097: Create dialog contains EC and pH measurement fields.
 
         Given the create dialog is open,
         When the user scrolls through the form,
         Then EC before/after and pH before/after measurement fields are present.
+
+        Spec: TC-004-097 -- FeedingEvent-Erstellen-Dialog -- vollstaendiges
+        Formularfeld-Inventar.
         """
         feeding_list.open()
         feeding_list.click_create()
@@ -304,11 +326,14 @@ class TestFeedingEventCreateDialog:
     def test_validation_empty_plant_key(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-053: Submitting without selecting a plant shows validation error.
+        """TC-004-098: Submitting without selecting a plant shows validation error.
 
         Given the create dialog is open,
         When the user submits without selecting a plant,
         Then the dialog remains open (form is not submitted).
+
+        Spec: TC-004-098 -- FeedingEvent erstellen -- Pflichtfeld-Validierung
+        (Pflanze fehlt).
         """
         feeding_list.open()
         feeding_list.click_create()
@@ -337,11 +362,14 @@ class TestFeedingEventCreateDialog:
     def test_cancel_create_dialog_closes(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-054: Cancelling the create dialog closes it without saving.
+        """TC-004-099: Cancelling the create dialog closes it without saving.
 
         Given the create dialog is open,
         When the user clicks cancel,
         Then the dialog closes and no new feeding event is created.
+
+        Spec: TC-004-099 -- FeedingEvent-Erstellen-Dialog -- Abbrechen ohne
+        Speichern.
         """
         feeding_list.open()
         initial_count = feeding_list.get_row_count()
@@ -380,11 +408,14 @@ class TestFeedingEventCreateDialog:
     def test_cancel_resets_form_on_reopen(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-055: Reopening the create dialog after cancel shows a clean form.
+        """TC-004-100: Reopening the create dialog after cancel shows a clean form.
 
         Given the user has filled fields and cancelled,
         When the user reopens the create dialog,
         Then the form fields are reset to defaults.
+
+        Spec: TC-004-100 -- FeedingEvent-Erstellen-Dialog -- Formular wird nach
+        Abbrechen zurueckgesetzt.
         """
         feeding_list.open()
         feeding_list.click_create()
@@ -421,11 +452,14 @@ class TestFeedingEventCreateDialog:
     def test_create_dialog_has_runoff_fields(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-056: Create dialog contains runoff measurement fields.
+        """TC-004-097: Create dialog contains runoff measurement fields.
 
         Given the create dialog is open,
         When the user scrolls to the runoff section,
         Then runoff EC, pH, and volume fields are present.
+
+        Spec: TC-004-097 -- FeedingEvent-Erstellen-Dialog -- vollstaendiges
+        Formularfeld-Inventar.
         """
         feeding_list.open()
         feeding_list.click_create()
@@ -444,11 +478,14 @@ class TestFeedingEventCreateDialog:
     def test_create_dialog_has_notes_field(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-057: Create dialog contains a notes textarea.
+        """TC-004-097: Create dialog contains a notes textarea.
 
         Given the create dialog is open,
         When the user inspects the form,
         Then a multiline notes field is present.
+
+        Spec: TC-004-097 -- FeedingEvent-Erstellen-Dialog -- vollstaendiges
+        Formularfeld-Inventar.
         """
         feeding_list.open()
         feeding_list.click_create()

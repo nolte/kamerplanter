@@ -2,7 +2,7 @@
 req_id: REQ-002
 title: "Standortverwaltung — Räumliche Platzierung und Standort-Hierarchie"
 category: Infrastruktur
-test_count: 66
+test_count: 78
 coverage_areas:
   - Site-Listenseite (SiteListPage)
   - Site-Erstellen-Dialog (SiteCreateDialog)
@@ -20,8 +20,8 @@ coverage_areas:
   - Lichtzeiten-Verwaltung
   - Properties-Vererbung
 generated: 2026-03-21
-updated: 2026-04-02
-version: "4.2"
+updated: 2026-07-29
+version: "4.3"
 ---
 
 # TC-REQ-002: Standortverwaltung
@@ -1816,6 +1816,302 @@ Diese Gruppe deckt die Soft-Warnungen ab, die auf der Site-Detailseite im Abschn
 
 ---
 
+## 21. Ergänzende Testfälle — Detailseiten-Bearbeitungsformulare (E2E-Abgleich #839)
+
+Diese Gruppe schließt eine Lücke, die beim Abgleich der E2E-Suite gegen dieses Dokument sichtbar wurde: `tests/e2e/test_req002_standorte.py` deckt seit längerem das Laden, Vorbefüllen, Bearbeiten und Löschen der Site-, Location- und Slot-Detailseiten ab, aber ein Teil dieser Fälle war nie als eigener Testfall hier verzeichnet — die Docstrings der Tests referenzierten IDs, die kein Dokument je vergeben hatte. Die Fälle unten benennen genau das Verhalten, das die betroffenen Tests tatsächlich prüfen (nicht mehr und nicht weniger).
+
+### TC-002-067: Site-Liste rendert konsistenten Zustand unabhängig von der Datenmenge
+
+**Requirement**: REQ-002 § 6 — Hierarchische Struktur (DoD)
+**Priority**: Low
+**Category**: Robustheit
+**Preconditions**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert zu `/standorte/sites`
+2. Nutzer betrachtet den Seiteninhalt, unabhängig davon ob bereits Standorte angelegt sind
+
+**Erwartete Ergebnisse**:
+- Ist kein Standort vorhanden, zeigt die Seite entweder den Empty-State-Hinweis oder eine leere Kartenliste — nie eine unerklärte leere Fläche
+- Sind Standorte vorhanden, werden sie als Karten angezeigt
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-001 (Empty State im Detail), TC-002-002 (gefüllte Liste im Detail)
+
+**Tags**: [REQ-002, site, listenansicht, robustheit]
+
+---
+
+### TC-002-068: Standort erstellen — Dialog öffnet sich mit Formularfeldern
+
+**Requirement**: REQ-002 § 6 — Hierarchische Struktur: Site implementiert (DoD)
+**Priority**: High
+**Category**: Dialog
+**Preconditions**:
+- Nutzer befindet sich auf `/standorte/sites`
+
+**Testschritte**:
+1. Nutzer klickt auf "Standort erstellen"
+
+**Erwartete Ergebnisse**:
+- Der Dialog "Standort erstellen" öffnet sich
+- Das Eingabefeld "Name" ist sichtbar und eingabebereit
+
+**Nachbedingungen**:
+- Keine Daten verändert (Dialog bleibt offen)
+
+**Siehe auch**: TC-002-005 (vollständiger Erstellen-Happy-Path inkl. Absenden), TC-002-006, TC-002-007
+
+**Tags**: [REQ-002, site, dialog, erstellen]
+
+---
+
+### TC-002-069: Site-Detailseite — "Abbrechen" navigiert zurück zur Standortliste
+
+**Requirement**: REQ-002 § 6 — Hierarchische Struktur (DoD)
+**Priority**: Medium
+**Category**: Navigation
+**Preconditions**:
+- Nutzer ist auf der Detailseite eines bestehenden Standorts
+
+**Testschritte**:
+1. Nutzer klickt auf den "Abbrechen"-Button des Bearbeitungsformulars
+
+**Erwartete Ergebnisse**:
+- Der Browser navigiert zurück zur Standortliste (`/standorte`)
+- Keine Änderungen werden gespeichert
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-010 (Speichern-Pfad desselben Formulars), TC-002-011 (UnsavedChangesGuard bei Wegnavigieren über die Seitennavigation — anderer Mechanismus)
+
+**Tags**: [REQ-002, site, formular, abbrechen, navigation]
+
+---
+
+### TC-002-070: Unbekannter Site-Key zeigt Fehleranzeige oder Weiterleitung
+
+**Requirement**: REQ-002 § 6 — Hierarchische Struktur (DoD)
+**Priority**: Medium
+**Category**: Fehlermeldung
+**Preconditions**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert direkt zu einer Site-Detail-URL mit nicht existierendem Key (z. B. `/standorte/sites/nonexistent-key-99999`)
+
+**Erwartete Ergebnisse**:
+- Entweder erscheint eine Fehleranzeige (ErrorDisplay) auf der Seite
+- Oder der Browser navigiert von der ungültigen URL weg (z. B. Redirect)
+- In keinem Fall werden Formularfelder mit falschen oder leeren Standortdaten angezeigt, als handle es sich um einen validen Standort
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-075 (analoge Location-Variante)
+
+**Tags**: [REQ-002, site, fehlermeldung, unbekannter-key]
+
+---
+
+### TC-002-071: Location-Daten bearbeiten und speichern
+
+**Requirement**: REQ-002 § 2 — LocationDefinition: name min_length=1; § 6 — Hierarchische Struktur (DoD)
+**Priority**: Critical
+**Category**: Happy Path
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Eine Location existiert und ihre Detailseite ist geöffnet
+
+**Testschritte**:
+1. Nutzer betrachtet das Bearbeitungsformular auf der Location-Detailseite
+2. Nutzer stellt fest, dass das Feld "Name" mit dem aktuellen Namen der Location vorbelegt ist
+3. Nutzer ändert den Wert im Feld "Name"
+4. Nutzer betrachtet die Buttons "Speichern" und "Abbrechen"
+
+**Erwartete Ergebnisse**:
+- Das Feld "Name" ist beim Laden der Seite mit dem bestehenden Namen der Location vorbelegt
+- Der geänderte Wert erscheint sofort im Feld
+- "Speichern"- und "Abbrechen"-Button sind sichtbar und klickbar
+
+**Nachbedingungen**:
+- Ohne Klick auf "Speichern" bleibt die Location unverändert
+
+**Siehe auch**: TC-002-010 (analoge Site-Variante)
+
+**Tags**: [REQ-002, location, bearbeiten, formular, happy-path]
+
+---
+
+### TC-002-072: Location löschen — Bestätigungsdialog öffnet sich
+
+**Requirement**: REQ-002 § 3 — Kaskadierendes Löschen (DoD)
+**Priority**: High
+**Category**: Dialog
+**Preconditions**:
+- Nutzer ist auf der Detailseite einer Location
+
+**Testschritte**:
+1. Nutzer klickt auf den "Löschen"-Button
+
+**Erwartete Ergebnisse**:
+- ConfirmDialog öffnet sich mit Bestätigungstext
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-032 (vollständiger Löschvorgang ohne belegte Slots), TC-002-033 (blockiert bei belegtem Slot), TC-002-012 (analoge Site-Variante)
+
+**Tags**: [REQ-002, location, löschen, confirm-dialog]
+
+---
+
+### TC-002-073: Location löschen — Abbrechen im Bestätigungsdialog bewahrt Daten
+
+**Requirement**: REQ-002 § 3 — Kaskadierendes Löschen (DoD)
+**Priority**: Medium
+**Category**: Dialog
+**Preconditions**:
+- Nutzer hat den Löschen-Bestätigungsdialog einer Location geöffnet
+
+**Testschritte**:
+1. Nutzer klickt auf "Abbrechen" im Dialog
+
+**Erwartete Ergebnisse**:
+- Dialog schließt sich
+- Nutzer bleibt auf der Location-Detailseite (URL unverändert)
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-013 (analoge Site-Variante)
+
+**Tags**: [REQ-002, location, löschen, abbrechen, confirm-dialog]
+
+---
+
+### TC-002-074: Location-Detailseite zeigt "Bewässerung erfassen"-Button
+
+**Requirement**: REQ-002 § 6 — Hierarchische Struktur (DoD); Bewässerungs-Erfassung im Standortkontext (REQ-014)
+**Priority**: Medium
+**Category**: Detailansicht
+**Preconditions**:
+- Nutzer ist auf der Detailseite einer Location
+
+**Testschritte**:
+1. Nutzer betrachtet die Location-Detailseite
+
+**Erwartete Ergebnisse**:
+- Der Button "Bewässerung erfassen" ist sichtbar
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Tags**: [REQ-002, location, bewässerung, REQ-014, detailansicht]
+
+---
+
+### TC-002-075: Unbekannter Location-Key zeigt Fehleranzeige
+
+**Requirement**: REQ-002 § 6 — Hierarchische Struktur (DoD)
+**Priority**: Medium
+**Category**: Fehlermeldung
+**Preconditions**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert direkt zu einer Location-Detail-URL mit nicht existierendem Key
+
+**Erwartete Ergebnisse**:
+- Eine Fehleranzeige (ErrorDisplay) erscheint auf der Seite
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-070 (analoge Site-Variante)
+
+**Tags**: [REQ-002, location, fehlermeldung, unbekannter-key]
+
+---
+
+### TC-002-076: Slot-Detailseite zeigt Bearbeitungsformular mit vorausgefüllten Feldern
+
+**Requirement**: REQ-002 § 2 — SlotDefinition: id, capacity_plants; § 6 — Slot implementiert (DoD)
+**Priority**: High
+**Category**: Detailansicht
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Ein Slot existiert und seine Detailseite ist geöffnet
+
+**Testschritte**:
+1. Nutzer navigiert zur Slot-Detailseite
+2. Nutzer betrachtet den Seitentitel
+3. Nutzer betrachtet das Feld "Stellplatz-ID"
+4. Nutzer betrachtet das Feld "Kapazität"
+
+**Erwartete Ergebnisse**:
+- Der Seitentitel zeigt die Slot-ID; keine Fehleranzeige erscheint
+- Das Feld "Stellplatz-ID" ist mit der bestehenden ID vorbelegt
+- Das Feld "Kapazität" ist mit einem Wert ≥ 1 vorbelegt
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-040 (Belegungs-Status auf derselben Seite — dort mit Fokus auf den "Belegt"-Indikator statt auf das Bearbeitungsformular)
+
+**Tags**: [REQ-002, slot, detailansicht, bearbeitungsformular]
+
+---
+
+### TC-002-077: Slot löschen — Bestätigungsdialog öffnet sich
+
+**Requirement**: REQ-002 § 3 — Kaskadierendes Löschen: occupied Slots blockieren (DoD)
+**Priority**: High
+**Category**: Dialog
+**Preconditions**:
+- Nutzer ist auf der Detailseite eines Slots
+
+**Testschritte**:
+1. Nutzer klickt auf den "Löschen"-Button
+
+**Erwartete Ergebnisse**:
+- ConfirmDialog öffnet sich mit Bestätigungstext
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-041 (Löschung blockiert bei belegtem Slot)
+
+**Tags**: [REQ-002, slot, löschen, confirm-dialog]
+
+---
+
+### TC-002-078: Slot löschen — Abbrechen im Bestätigungsdialog bewahrt Daten
+
+**Requirement**: REQ-002 § 3 — Kaskadierendes Löschen (DoD)
+**Priority**: Medium
+**Category**: Dialog
+**Preconditions**:
+- Nutzer hat den Löschen-Bestätigungsdialog eines Slots geöffnet
+
+**Testschritte**:
+1. Nutzer klickt auf "Abbrechen" im Dialog
+
+**Erwartete Ergebnisse**:
+- Dialog schließt sich
+- Nutzer bleibt auf der Slot-Detailseite (URL unverändert)
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Tags**: [REQ-002, slot, löschen, abbrechen, confirm-dialog]
+
+---
+
 ## Coverage-Matrix
 
 | Spec-Abschnitt | Beschreibung | Testfall-IDs |
@@ -1823,8 +2119,8 @@ Diese Gruppe deckt die Soft-Warnungen ab, die auf der Site-Detailseite im Abschn
 | § 1 Business Case — Site | Site-Grundstruktur | TC-002-001 bis TC-002-013 |
 | § 1 Wasserquellen-Konfiguration | WaterSource, TapWaterProfile, RoWaterProfile | TC-002-008, TC-002-009, TC-002-014 bis TC-002-020 |
 | § 1 Wasseranalyse-Warnungen | Messalter, RO-Membran, GH-Plausibilität, Negativtest | TC-002-063 bis TC-002-066 |
-| § 2 ArangoDB — Location | Location-Properties, Verschachtelung | TC-002-021 bis TC-002-034 |
-| § 2 ArangoDB — Slot | Slot-Properties | TC-002-035 bis TC-002-041 |
+| § 2 ArangoDB — Location | Location-Properties, Verschachtelung | TC-002-021 bis TC-002-034, TC-002-071 bis TC-002-075 |
+| § 2 ArangoDB — Slot | Slot-Properties | TC-002-035 bis TC-002-041, TC-002-076 bis TC-002-078 |
 | § 2 Lichtzeiten-Verwaltung | lights_on, lights_off, use_dynamic_sunrise | TC-002-027, TC-002-028, TC-002-029, TC-002-054, TC-002-055 |
 | § 2 LocationType-Collection | 10 System-Seeds, CRUD | TC-002-042 bis TC-002-046 |
 | § 3 Fruchtfolge-Engine | CropRotationValidator, 3-Jahres-Fenster | TC-002-047 bis TC-002-049 |
@@ -1834,7 +2130,9 @@ Diese Gruppe deckt die Soft-Warnungen ab, die auf der Site-Detailseite im Abschn
 | § 6 Testszenarien 1–7 | Spec-Szenarien als Browser-Testfälle | TC-002-047, TC-002-050, TC-002-052, TC-002-053, TC-002-033 |
 | REQ-021 Integration | Erfahrungsstufen, Feldvisibilität | TC-002-058, TC-002-059 |
 | REQ-013 Integration | Pflanzdurchläufe-Sektion auf Site | TC-002-060 |
+| REQ-014 Integration | Bewässerung-erfassen-Button auf Location | TC-002-074 |
 | Edge Cases / Grenzwerte | Minimale Pflichtdaten, Bereichsgrenzen | TC-002-061, TC-002-062 |
+| Robustheit / Fehlerzustände (E2E-Abgleich #839) | Konsistenter Listenzustand, unbekannte Keys, Detailformulare | TC-002-067 bis TC-002-078 |
 
 ### Nicht abgedeckte Bereiche (Spec vorhanden, Frontend noch nicht implementiert)
 
@@ -1845,3 +2143,4 @@ Diese Gruppe deckt die Soft-Warnungen ab, die auf der Site-Detailseite im Abschn
 | Mobile QR-Code-Scanning für Slots | Feature noch nicht implementiert |
 | Mischkultur-Overlay auf Beet-Layout | Feature noch nicht implementiert (G-004 Review) |
 | GPS-Eingabefelder auf Location-Ebene | Keine UI-Felder in LocationCreateDialog sichtbar |
+| Site-Liste: Suche/Sortierung/Filter-Reset/Showing-Count (DataTable) | SiteListPage rendert Akkordeon-Karten ohne Suchfeld, Sortier-Header oder Paginierungs-Fußzeile — die entsprechenden E2E-Tests sind seit #839 bewusst `@pytest.mark.skip`, ihre TC-IDs bleiben unaufgelöst statt einen nicht existierenden Fall zu behaupten (TC-REQ-002-008, TC-REQ-002-009, TC-REQ-002-010, TC-REQ-002-012 in `tests/e2e/test_req002_standorte.py`) |

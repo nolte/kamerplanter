@@ -7,12 +7,13 @@ im Full-Modus und passen ihre Erwartungen anhand der CLI-Option
 
 Spec: ``spec/req/REQ-027_Light-Modus.md`` (v1.4)
 
-Spec-TC Mapping:
-  TC-REQ-027-001  ->  §1, §6.1   ``GET /api/v1/mode`` liefert mode + features
-  TC-REQ-027-002  ->  §1, §2.1   Feature-Flags ``auth``/``multi_tenant``/
-                                  ``privacy_consent`` korrespondieren mit Modus
-  TC-REQ-027-003  ->  §1.1       Mode-Endpoint ist anonym ohne JWT erreichbar
-                                  (Public Endpoint)
+Spec-TC Mapping (test -> spec/e2e-testcases/TC-REQ-027.md):
+  test_mode_endpoint_returns_shape       -> TC-027-053
+    (JSON-Schema von GET /api/v1/mode -- NICHT TC-027-001, das die
+    Direktweiterleitung zum Dashboard beschreibt, ein reines
+    Routing-Verhalten statt einer API-Antwortform.)
+  test_mode_features_match_app_mode      -> TC-027-054
+  test_mode_endpoint_reachable_without_auth -> TC-027-055
 
 Diese Tests sind read-only und idempotent — sie modifizieren keinen State
 am Backend. Der Mode-Endpoint ist in beiden Modi aktiv (siehe
@@ -62,13 +63,13 @@ def _fetch_mode(driver: WebDriver, base_url: str) -> dict[str, Any]:
     return json.loads(result["body"])
 
 
-# -- TC-REQ-027-001 to TC-REQ-027-003: Mode endpoint -------------------------
+# -- TC-027-053 to TC-027-055: Mode endpoint ----------------------------------
 
 
 class TestModeEndpoint:
     """REQ-027 Mode-Endpoint — Public discovery of deployment configuration.
 
-    Spec: REQ-027 §1 (Kernkonzepte), §6.1 (Lifespan / Mode). Der Endpoint
+    Spec: REQ-027 §1 (Kernkonzepte), §6.3 (Mode-Endpunkt). Der Endpoint
     ist in beiden Modi aktiv und ohne Auth erreichbar, damit das Frontend
     seine UI-Anteile (Login, Tenant-Switcher, Consent-Banner) anhand des
     Backend-Modus tunen kann.
@@ -81,15 +82,15 @@ class TestModeEndpoint:
         base_url: str,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-027-001: ``GET /api/v1/mode`` liefert ``mode`` + ``features``.
+        """TC-027-053: ``GET /api/v1/mode`` liefert ``mode`` + ``features``.
 
-        Spec: REQ-027 §1 — Eine einzige Environment-Variable
+        Spec: REQ-027 §6.3 -- Eine einzige Environment-Variable
         ``KAMERPLANTER_MODE`` steuert den Betriebsmodus; der Endpoint ist
         die kanonische Quelle fuer Feature-Flags zur Laufzeit.
         """
         payload = _fetch_mode(browser, base_url)
         screenshot(
-            "req027_001_mode_endpoint",
+            "TC-027-053_mode_endpoint",
             "Browser nach Mode-Endpoint-Abfrage (Public, ohne JWT)",
         )
 
@@ -117,17 +118,17 @@ class TestModeEndpoint:
         app_mode: str,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-027-002: Feature-Flags entsprechen dem deklarierten Modus.
+        """TC-027-054: Feature-Flags entsprechen dem deklarierten Modus.
 
-        Spec: REQ-027 §1 ``KAMERPLANTER_MODE``, §2.1 (Was deaktiviert ist).
-        Im Light-Modus sind ``auth``/``multi_tenant``/``privacy_consent``
+        Spec: REQ-027 §6.3, §2.1 (Feature-Visibility-Matrix). Im Light-
+        Modus sind ``auth``/``multi_tenant``/``privacy_consent``
         deaktiviert; im Full-Modus aktiv. Stellt sicher, dass die CLI-
         Option ``--app-mode`` mit der tatsaechlichen Backend-Konfiguration
         konsistent ist (Test-Harness-Sanity-Check).
         """
         payload = _fetch_mode(browser, base_url)
         screenshot(
-            "req027_002_mode_features",
+            "TC-027-054_mode_features",
             f"Mode-Response im {app_mode}-Modus",
         )
 
@@ -149,19 +150,20 @@ class TestModeEndpoint:
         base_url: str,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-027-003: Mode-Endpoint ist anonym (ohne JWT) erreichbar.
+        """TC-027-055: Mode-Endpunkt ist anonym (ohne JWT) erreichbar.
 
-        Spec: REQ-027 §1.1 — Das Frontend muss den Modus erkennen koennen,
-        BEVOR ein User authentifiziert ist. Der Endpoint darf daher nicht
-        hinter einer Auth-Pruefung liegen. Der Test ruft ihn explizit ohne
-        Cookies/Authorization-Header auf (``credentials: 'omit'``).
+        Spec: REQ-027 §1.1, §6.3 -- Das Frontend muss den Modus erkennen
+        koennen, BEVOR ein User authentifiziert ist. Der Endpoint darf
+        daher nicht hinter einer Auth-Pruefung liegen. Der Test ruft ihn
+        explizit ohne Cookies/Authorization-Header auf
+        (``credentials: 'omit'``).
         """
         # _fetch_mode setzt credentials:'omit' und sendet keinen
         # Authorization-Header — gelingt der Call mit Status 200, ist der
         # Endpoint nachweislich public.
         payload = _fetch_mode(browser, base_url)
         screenshot(
-            "req027_003_mode_anonymous",
+            "TC-027-055_mode_anonymous",
             "Mode-Endpoint anonym (credentials='omit') erreichbar",
         )
 

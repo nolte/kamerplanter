@@ -21,15 +21,21 @@ To prevent any accidental native print dialog from a misbehaving page
 that *also* calls ``window.print()``, the host browser's ``window.print``
 is shadowed with a no-op before each test.
 
-Spec-TC Mapping:
-  TC-REQ-032-001  ->  REQ-032 §6.1   PrintButton sichtbar auf PflegeDashboardPage
-  TC-REQ-032-002  ->  REQ-032 §6.1   PrintButton hat barrierefreies aria-label
-  TC-REQ-032-003  ->  REQ-032 §3.2   Klick triggert Download-Workflow ohne Crash
-  TC-REQ-032-004  ->  REQ-032 §6.1   PrintButton auf NutrientPlanDetailPage (optional)
+Spec-TC Mapping (test -> spec/e2e-testcases/TC-REQ-032.md):
+  test_print_button_visible_on_pflege_dashboard  -> TC-032-038
+    (PrintButton in der Pflege-Dashboard-Toolbar -- NICHT TC-032-001, das
+    die Nährstoffplan-Detailseite beschreibt; siehe test_print_button_on_
+    nutrient_plan_detail unten.)
+  test_print_button_has_accessible_label         -> TC-032-048
+  test_print_button_click_runs_workflow          -> TC-032-049
+  test_print_button_on_nutrient_plan_detail      -> TC-032-001
 """
 
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Callable
 
@@ -74,11 +80,11 @@ def nutrient_plan_detail(browser: WebDriver, base_url: str) -> NutrientPlanDetai
     return NutrientPlanDetailPage(browser, base_url)
 
 
-# -- TC-REQ-032-001 / 002: PrintButton presence and a11y ---------------------
+# -- TC-032-038, TC-032-048, TC-032-049: PrintButton on the Pflege-Dashboard --
 
 
 class TestPrintButtonPresence:
-    """PrintButton is rendered on opted-in pages with a11y attributes (Spec: REQ-032 §6.1)."""
+    """PrintButton is rendered on opted-in pages with a11y attributes (Spec: REQ-032 §6.1, §8)."""
 
     @pytest.mark.smoke
     def test_print_button_visible_on_pflege_dashboard(
@@ -87,24 +93,24 @@ class TestPrintButtonPresence:
         print_button: PrintButtonPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-032-001: PrintButton ist auf der Pflege-Dashboard-Seite sichtbar.
+        """TC-032-038: PrintButton ist auf der Pflege-Dashboard-Seite sichtbar.
 
-        Spec: REQ-032 §6.1 -- PrintButton-Platzierung in Toolbar / Aktionsleiste
-        der jeweiligen Detail- oder Listenansicht (hier: Pflege-Checkliste).
+        Spec: REQ-032 §2.2 -- Pflege-Checkliste Druckzugang; §6.1 --
+        PrintButton-Platzierung in der Toolbar der Pflege-Dashboard-Seite.
         """
         pflege.open()
         screenshot(
-            "TC-REQ-032-001_pflege-dashboard-with-print-button",
+            "TC-032-038_pflege-dashboard-with-print-button",
             "Pflege-Dashboard mit PrintButton in der Aktionsleiste",
         )
 
         assert print_button.is_present(), (
-            "TC-REQ-032-001 FAIL: Erwartet [data-testid='print-button'] "
+            "TC-032-038 FAIL: Erwartet [data-testid='print-button'] "
             "auf der Pflege-Dashboard-Seite (PflegeDashboardPage hostet die "
             "Pflege-Checkliste-Druckansicht laut REQ-032 §2.2)."
         )
         assert print_button.is_visible(), (
-            "TC-REQ-032-001 FAIL: PrintButton ist im DOM aber nicht sichtbar — "
+            "TC-032-038 FAIL: PrintButton ist im DOM aber nicht sichtbar — "
             "moeglicherweise vom PageTitle-Action-Slot verdeckt."
         )
 
@@ -115,7 +121,7 @@ class TestPrintButtonPresence:
         print_button: PrintButtonPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-032-002: PrintButton stellt ein aria-label fuer Screenreader bereit.
+        """TC-032-048: PrintButton stellt ein aria-label fuer Screenreader bereit.
 
         Spec: REQ-032 §8 -- Barrierefreiheit. PrintButton-Komponente belegt
         ``aria-label`` mit dem optionalen ``label``-Prop oder dem i18n-Default
@@ -123,22 +129,22 @@ class TestPrintButtonPresence:
         """
         pflege.open()
         screenshot(
-            "TC-REQ-032-002_print-button-aria-label",
+            "TC-032-048_print-button-aria-label",
             "PrintButton aria-label fuer Screenreader",
         )
 
         aria = print_button.get_aria_label()
         assert aria, (
-            "TC-REQ-032-002 FAIL: Erwartet ein nicht-leeres aria-label am "
+            "TC-032-048 FAIL: Erwartet ein nicht-leeres aria-label am "
             f"PrintButton fuer Screenreader-Zugaenglichkeit, bekam: '{aria}'"
         )
 
 
-# -- TC-REQ-032-003: Click triggers the download workflow --------------------
+# -- TC-032-049: Click completes the workflow (success or graceful error) ----
 
 
 class TestPrintButtonClick:
-    """Clicking the PrintButton runs the onPrint() workflow (Spec: REQ-032 §3.2)."""
+    """Clicking the PrintButton runs the onPrint() workflow (Spec: REQ-032 §3.2, §6.1)."""
 
     @pytest.mark.smoke
     def test_print_button_click_runs_workflow(
@@ -147,10 +153,11 @@ class TestPrintButtonClick:
         print_button: PrintButtonPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-032-003: Klick auf PrintButton startet onPrint() und kehrt in idle-Zustand zurueck.
+        """TC-032-049: Klick auf PrintButton startet onPrint() und kehrt in idle-Zustand zurueck.
 
-        Spec: REQ-032 §3.2 -- Backend-PDF-Export. Der Klick auf den Button
-        ruft ``downloadCareChecklistPdf()`` auf, was den Backend-Endpoint
+        Spec: REQ-032 §3.2 -- Backend-PDF-Export; §6.1 -- PrintButton-
+        Zustandsautomat. Der Klick auf den Button ruft
+        ``downloadCareChecklistPdf()`` auf, was den Backend-Endpoint
         ``GET /api/v1/t/{slug}/print/care-checklist`` anstoesst. Wir asserten
         nicht den Datei-Inhalt (Headless-Chrome-Download geht an einen
         temporaeren Pfad), sondern dass die Komponente nach dem Klick
@@ -160,12 +167,12 @@ class TestPrintButtonClick:
         """
         pflege.open()
         screenshot(
-            "TC-REQ-032-003_before-click",
+            "TC-032-049_before-click",
             "PrintButton vor dem Klick (idle, Print-Icon sichtbar)",
         )
 
         assert not print_button.is_disabled(), (
-            "TC-REQ-032-003 FAIL: PrintButton sollte vor dem Klick aktiv sein"
+            "TC-032-049 FAIL: PrintButton sollte vor dem Klick aktiv sein"
         )
 
         print_button.click()
@@ -175,7 +182,7 @@ class TestPrintButtonClick:
         print_button.wait_for_completion(timeout=30)
 
         screenshot(
-            "TC-REQ-032-003_after-click",
+            "TC-032-049_after-click",
             "PrintButton nach abgeschlossenem onPrint()-Workflow",
         )
 
@@ -186,24 +193,23 @@ class TestPrintButtonClick:
             snackbar_text = print_button.wait_for_snackbar(timeout=10)
         except Exception:
             screenshot(
-                "TC-REQ-032-003_no-snackbar",
+                "TC-032-049_no-snackbar",
                 "Kein Snackbar -- Workflow lief evtl. zu schnell durch",
             )
             # Even without a snackbar the button must be re-enabled and idle —
             # that alone proves the click reached the component without crash.
             assert not print_button.is_disabled(), (
-                "TC-REQ-032-003 FAIL: PrintButton blieb nach dem Klick "
+                "TC-032-049 FAIL: PrintButton blieb nach dem Klick "
                 "deaktiviert -- onPrint() vermutlich haengt im Loading-State"
             )
             return
 
         assert snackbar_text, (
-            f"TC-REQ-032-003 FAIL: Snackbar nach Klick erwartet, "
-            f"bekam leeren Text: '{snackbar_text}'"
+            f"TC-032-049 FAIL: Snackbar nach Klick erwartet, bekam leeren Text: '{snackbar_text}'"
         )
 
 
-# -- TC-REQ-032-004: PrintButton on NutrientPlan detail page (optional) ------
+# -- TC-032-001: PrintButton on NutrientPlan detail page ---------------------
 
 
 class TestPrintButtonOnNutrientPlan:
@@ -218,7 +224,7 @@ class TestPrintButtonOnNutrientPlan:
         base_url: str,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-032-004: PrintButton ist auf der NutrientPlanDetailPage sichtbar (sofern Plan existiert).
+        """TC-032-001: PrintButton ist auf der NutrientPlanDetailPage sichtbar (sofern Plan existiert).
 
         Spec: REQ-032 §2.1 + §6.1 -- Naehrstoffplan als druckbares Dokument.
         Da die Demo-Instanz nicht garantiert einen NutrientPlan mit
@@ -227,10 +233,6 @@ class TestPrintButtonOnNutrientPlan:
         """
         # Discover any nutrient plan via the list endpoint.  Skip cleanly
         # if the demo instance has no plans seeded.
-        import json
-        import urllib.error
-        import urllib.request
-
         token = e2e_seed_data.get("access_token")
         slug = e2e_seed_data.get("tenant_slug", "mein-garten")
         url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/nutrient-plans"
@@ -243,30 +245,30 @@ class TestPrintButtonOnNutrientPlan:
                 plans = json.loads(resp.read())
         except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
             pytest.skip(
-                "TC-REQ-032-004 SKIP: NutrientPlan-Liste nicht erreichbar -- "
+                "TC-032-001 SKIP: NutrientPlan-Liste nicht erreichbar -- "
                 "PrintButton-Pruefung auf Detailseite uebersprungen."
             )
 
         if not isinstance(plans, list) or not plans:
             pytest.skip(
-                "TC-REQ-032-004 SKIP: Keine NutrientPlans auf der Demo-Instanz -- "
+                "TC-032-001 SKIP: Keine NutrientPlans auf der Demo-Instanz -- "
                 "PrintButton-Pruefung auf Detailseite uebersprungen."
             )
 
         plan_key = plans[0].get("key")
         if not plan_key:
             pytest.skip(
-                "TC-REQ-032-004 SKIP: NutrientPlan ohne 'key' -- "
+                "TC-032-001 SKIP: NutrientPlan ohne 'key' -- "
                 "PrintButton-Pruefung auf Detailseite uebersprungen."
             )
 
         nutrient_plan_detail.open(plan_key)
         screenshot(
-            "TC-REQ-032-004_nutrient-plan-detail-with-print-button",
+            "TC-032-001_nutrient-plan-detail-with-print-button",
             f"NutrientPlanDetailPage fuer Plan {plan_key} mit PrintButton",
         )
 
         assert print_button.is_present(), (
-            "TC-REQ-032-004 FAIL: Erwartet [data-testid='print-button'] auf "
+            "TC-032-001 FAIL: Erwartet [data-testid='print-button'] auf "
             "NutrientPlanDetailPage (siehe NutrientPlanDetailPage.tsx Zeile 1030)."
         )

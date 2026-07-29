@@ -1,7 +1,7 @@
 """E2E tests — REQ-002 Standortverwaltung.
 
 Covers:
-  Site list: page load, create dialog, form validation, search, sort, row navigation
+  Site list: page load, create dialog, form validation, row navigation
   Site detail: page load, edit form, location sub-section, delete confirmation
   Location detail: page load, edit form, slot sub-section, watering events button
   Slot detail: page load, form fields, delete confirmation
@@ -13,34 +13,63 @@ All tests follow NFR-008:
   - Screenshot at: Page Load / before action / after action / error state
   - Descriptive assertion messages
 
-Spec-TC Mapping (test TC → spec/e2e-testcases/TC-REQ-002.md):
-  TC-REQ-002-001  →  TC-002-001  Site-Liste laden (Empty State / Titel)
-  TC-REQ-002-002  →  TC-002-002  Site-Liste zeigt DataTable mit Spalten
-  TC-REQ-002-003  →  TC-002-002  Seed-Daten sichtbar (Variante)
-  TC-REQ-002-004  →  TC-002-005  Erstellen-Button sichtbar (Teilschritt)
-  TC-REQ-002-005  →  TC-002-005  Site erstellen — Dialog öffnen
+Spec-TC Mapping (test TC → spec/e2e-testcases/TC-REQ-002.md), reconciled
+against #839. Every mapping below was read against the spec case's actual
+Preconditions/Testschritte/Erwartete Ergebnisse and the page object the test
+drives — not accepted from ``check_bdd_traceability.py``'s numeric "did you
+mean" suggestion. Three of those suggestions were spot-checked against the
+spec text and were wrong (different page or a narrower/different assertion
+than the one the test makes); this table records only mappings that were
+verified to describe the same behaviour:
+
+  TC-REQ-002-001  →  TC-002-001  Site-Liste leer (Empty State / Titel)
+  TC-REQ-002-002  →  TC-002-002  Site-Liste zeigt Sites als Akkordeon-Karten
+  TC-REQ-002-003  →  TC-002-067  Site-Liste rendert konsistent (leer/gefüllt)         [NEW]
+  TC-REQ-002-004  →  TC-002-002  Create-Button sichtbar (Teilaspekt der Karten-Ansicht)
+  TC-REQ-002-005  →  TC-002-068  Standort erstellen — Dialog öffnet sich              [NEW]
   TC-REQ-002-006  →  TC-002-006  Site erstellen — Pflichtfeld Name leer
   TC-REQ-002-007  →  TC-002-007  Site erstellen — Abbrechen schließt Dialog
-  TC-REQ-002-008  →  TC-002-003  Suchfunktion filtert nach Name
-  TC-REQ-002-009  →  (kein Spec-TC)  Sortierung per Spaltenklick
-  TC-REQ-002-010  →  (kein Spec-TC)  Filter-Reset
   TC-REQ-002-011  →  TC-002-004  Klick auf Site-Zeile navigiert zur Detailseite
-  TC-REQ-002-012  →  TC-002-002  Showing-Count Fußzeile (Teilaspekt)
   TC-REQ-002-013  →  TC-002-010  Site-Detailseite laden
-  TC-REQ-002-014  →  TC-002-010  Bearbeitungsformular mit Name vorbelegt
-  TC-REQ-002-015  →  TC-002-010  Speichern-/Abbrechen-Buttons sichtbar
+  TC-REQ-002-014  →  TC-002-010  Name-Feld vorbelegt (Teilaspekt)
+  TC-REQ-002-015  →  TC-002-010  Speichern-/Abbrechen-Buttons sichtbar (Teilaspekt)
   TC-REQ-002-016  →  TC-002-010  Site-Daten bearbeiten — Name ändern
-  TC-REQ-002-017  →  TC-002-011  Cancel/UnsavedChanges — Zurück navigieren
+  TC-REQ-002-017  →  TC-002-069  Site-Detailseite — Abbrechen navigiert zurück        [NEW]
   TC-REQ-002-018  →  TC-002-021  Location-Abschnitt sichtbar
   TC-REQ-002-019  →  TC-002-012  Site löschen — Bestätigungsdialog
   TC-REQ-002-020  →  TC-002-013  Site löschen — Abbrechen bewahrt Daten
   TC-REQ-002-021  →  TC-002-022  Klick auf Location-Zeile navigiert zur Detailseite
-  TC-REQ-002-022  →  (kein Spec-TC)  Unbekannter Site-Key zeigt Fehlerseite
+  TC-REQ-002-022  →  TC-002-070  Unbekannter Site-Key zeigt Fehleranzeige             [NEW]
   TC-REQ-002-023  →  TC-002-022  Location-Detailseite laden
-  TC-REQ-002-024  →  TC-002-022  Location Name vorbelegt (Teilaspekt)
-  TC-REQ-002-025  →  TC-002-022  Location Formular-Buttons (Teilaspekt)
-  TC-REQ-002-026  →  TC-002-024  Location bearbeiten — Name ändern
-  TC-REQ-002-027  →  TC-002-012  Location löschen — Bestätigungsdialog (analog Site)
+  TC-REQ-002-024  →  TC-002-071  Location-Daten bearbeiten (Teilaspekt: Name)         [NEW]
+  TC-REQ-002-025  →  TC-002-071  Location-Daten bearbeiten (Teilaspekt: Buttons)      [NEW]
+  TC-REQ-002-026  →  TC-002-071  Location-Daten bearbeiten — Name ändern              [NEW]
+  TC-REQ-002-027  →  TC-002-072  Location löschen — Bestätigungsdialog                [NEW]
+  TC-REQ-002-028  →  TC-002-073  Location löschen — Abbrechen bewahrt Daten           [NEW]
+  TC-REQ-002-029  →  TC-002-074  Location zeigt "Bewässerung erfassen"-Button         [NEW]
+  TC-REQ-002-030  →  TC-002-075  Unbekannter Location-Key zeigt Fehleranzeige         [NEW]
+  TC-REQ-002-031  →  TC-002-076  Slot-Detailseite lädt (Teilaspekt)                   [NEW]
+  TC-REQ-002-032  →  TC-002-076  Slot-Detailseite — Stellplatz-ID vorbelegt (Teilaspekt) [NEW]
+  TC-REQ-002-033  →  TC-002-076  Slot-Detailseite — Kapazität vorbelegt (Teilaspekt)  [NEW]
+  TC-REQ-002-034  →  TC-002-077  Slot löschen — Bestätigungsdialog                    [NEW]
+  TC-REQ-002-035  →  TC-002-078  Slot löschen — Abbrechen bewahrt Daten               [NEW]
+
+[NEW] = test case added to ``spec/e2e-testcases/TC-REQ-002.md`` by #839; no
+existing case described what the test actually verifies.
+
+**Four tests were deleted rather than assigned** (#839): TC-REQ-002-008 search,
+-009 column sort, -010 filter reset and -012 showing-count footer. The current
+``SiteListPage`` renders accordion cards — it has no search box, no sortable
+columns and no pagination footer at all — so all four had been standing
+``@pytest.mark.skip`` against a UI that never existed. Writing a spec case for
+them would have claimed a feature the product does not have, which is the exact
+failure #839 was opened to remove; keeping them skipped would have left four
+tests asserting nothing while inflating the suite's count. When the list gains
+those controls, the tests come back with them.
+
+Coverage for the removed area is recorded in ``TC-REQ-002.md`` under "Nicht
+abgedeckte Bereiche", so the gap stays visible rather than disappearing with
+the tests.
 """
 
 from __future__ import annotations
@@ -181,7 +210,10 @@ class TestSiteListPage:
     def test_site_list_shows_seed_data(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-003: At least one site row is visible from seed data, or empty state is shown."""
+        """TC-002-067: At least one site row is visible from seed data, or empty state is shown.
+
+        Spec: TC-002-067 — Site-Liste rendert konsistenten Zustand unabhängig von der Datenmenge.
+        """
         capture = request.node._screenshot_capture
         site_list.open()
         capture("TC-REQ-002-003_site-list-seed-data")
@@ -198,7 +230,11 @@ class TestSiteListPage:
     def test_site_list_create_button_visible(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-004: Create button is visible on the list page."""
+        """TC-002-002: Create button is visible on the list page.
+
+        Spec: TC-002-002 — Site-Liste zeigt vorhandene Sites als Akkordeon-Karten
+        (Erwartete Ergebnisse: Button "Standort erstellen" ist sichtbar).
+        """
         capture = request.node._screenshot_capture
         site_list.open()
         capture("TC-REQ-002-004_site-list-create-button")
@@ -212,7 +248,10 @@ class TestSiteListPage:
     def test_site_list_create_dialog_opens(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-005: Clicking 'Anlegen' opens the create dialog with form fields."""
+        """TC-002-068: Clicking 'Anlegen' opens the create dialog with form fields.
+
+        Spec: TC-002-068 — Standort erstellen — Dialog öffnet sich mit Formularfeldern.
+        """
         capture = request.node._screenshot_capture
         site_list.open()
         capture("TC-REQ-002-005_before-create-dialog", "Site list before opening create dialog")
@@ -231,7 +270,10 @@ class TestSiteListPage:
     def test_site_list_create_dialog_name_required(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-006: Form validation — empty name triggers validation error on submit."""
+        """TC-002-006: Form validation — empty name triggers validation error on submit.
+
+        Spec: TC-002-006 — Site erstellen — Pflichtfeld "Name" leer gelassen.
+        """
         capture = request.node._screenshot_capture
         site_list.open()
         site_list.click_create()
@@ -258,7 +300,10 @@ class TestSiteListPage:
     def test_site_list_create_dialog_cancel(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-007: Clicking 'Abbrechen' closes the create dialog."""
+        """TC-002-007: Clicking 'Abbrechen' closes the create dialog.
+
+        Spec: TC-002-007 — Site erstellen — Abbrechen schließt Dialog ohne Speichern.
+        """
         capture = request.node._screenshot_capture
         site_list.open()
         site_list.click_create()
@@ -271,83 +316,6 @@ class TestSiteListPage:
         assert not site_list.is_create_dialog_open(), (
             "TC-REQ-002-007 FAIL: Create dialog should be closed after clicking 'Abbrechen'"
         )
-
-    @pytest.mark.skip(
-        reason="Site list uses accordion cards — no DataTable search (see TC-002-002 spec update)"
-    )
-    def test_site_list_search_filters_rows(
-        self, site_list: SiteListPageExt, request: pytest.FixtureRequest
-    ) -> None:
-        """TC-REQ-002-008: Searching by site name filters the table rows."""
-        capture = request.node._screenshot_capture
-        site_list.open()
-        initial_count = site_list.get_row_count()
-
-        if initial_count == 0:
-            pytest.skip("No sites in database — skipping search test")
-
-        # Get the first row name to search for
-        first_names = site_list.get_first_column_texts()
-        search_term = first_names[0][:4] if first_names else "test"
-
-        capture("TC-REQ-002-008_before-search")
-        site_list.search(search_term)  # debounce handled inside the page object
-        capture("TC-REQ-002-008_after-search")
-
-        assert site_list.has_search_chip(), (
-            f"TC-REQ-002-008 FAIL: Expected a search chip to appear after searching for '{search_term}'"
-        )
-
-    @pytest.mark.requires_desktop
-    @pytest.mark.skip(
-        reason="Site list uses accordion cards — no DataTable sort (see TC-002-002 spec update)"
-    )
-    def test_site_list_sort_by_column(
-        self, site_list: SiteListPageExt, request: pytest.FixtureRequest
-    ) -> None:
-        """TC-REQ-002-009: Clicking a column header activates sort."""
-        capture = request.node._screenshot_capture
-        site_list.open()
-        headers = site_list.get_column_headers()
-
-        if not headers:
-            pytest.skip("No column headers found")
-
-        capture("TC-REQ-002-009_before-sort")
-        site_list.click_column_header(headers[0])
-        site_list.wait_for_loading_complete()
-        capture("TC-REQ-002-009_after-sort")
-
-        assert site_list.has_sort_chip(), (
-            "TC-REQ-002-009 FAIL: Expected a sort chip to appear after clicking column header"
-        )
-
-    @pytest.mark.skip(
-        reason="Site list uses accordion cards — no DataTable filters (see TC-002-002 spec update)"
-    )
-    def test_site_list_reset_filters(
-        self, site_list: SiteListPageExt, request: pytest.FixtureRequest
-    ) -> None:
-        """TC-REQ-002-010: Reset filters button restores unfiltered view."""
-        capture = request.node._screenshot_capture
-        site_list.open()
-        initial_count = site_list.get_row_count()
-
-        if initial_count == 0:
-            pytest.skip("No sites — cannot test filter reset")
-
-        site_list.search("xyzzy_nonexistent_9999")  # debounce handled inside the page object
-        capture("TC-REQ-002-010_after-search-empty")
-
-        # There should now be a reset button (or no results)
-        if site_list.has_reset_filters_button():
-            site_list.click_reset_filters()
-            site_list.wait_for_loading_complete()
-            capture("TC-REQ-002-010_after-reset")
-            reset_count = site_list.get_row_count()
-            assert reset_count == initial_count, (
-                f"TC-REQ-002-010 FAIL: After reset, expected {initial_count} rows, got {reset_count}"
-            )
 
     @pytest.mark.core_crud
     def test_site_list_row_click_navigates_to_detail(
@@ -373,30 +341,6 @@ class TestSiteListPage:
         current_url = site_list.driver.current_url
         assert "/standorte/sites/" in current_url, (
             f"TC-REQ-002-011 FAIL: Expected URL to contain '/standorte/sites/', got '{current_url}'"
-        )
-
-    @pytest.mark.skip(
-        reason="Site list uses accordion cards — no DataTable pagination (see TC-002-002 spec update)"
-    )
-    def test_site_list_showing_count_displayed(
-        self, site_list: SiteListPageExt, request: pytest.FixtureRequest
-    ) -> None:
-        """TC-REQ-002-012: The showing-count footer is rendered with valid text."""
-        capture = request.node._screenshot_capture
-        site_list.open()
-        capture("TC-REQ-002-012_showing-count")
-
-        if site_list.get_row_count() == 0:
-            pytest.skip("No sites — showing count not displayed for empty table")
-
-        count_text = site_list.get_showing_count_text()
-        assert count_text, (
-            f"TC-REQ-002-012 FAIL: Expected non-empty showing-count text, got '{count_text}'"
-        )
-        # The text contains a number pattern like "Zeigt 1–10 von 12" or "1-10 of 12"
-        has_number = any(c.isdigit() for c in count_text)
-        assert has_number, (
-            f"TC-REQ-002-012 FAIL: Showing count text should contain a number, got '{count_text}'"
         )
 
 
@@ -445,7 +389,10 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-014: Site detail page shows edit form with pre-filled name field."""
+        """TC-002-010: Site detail page shows edit form with pre-filled name field.
+
+        Spec: TC-002-010 — Site-Daten bearbeiten und speichern (Name-Feld vorbelegt, Teilaspekt).
+        """
         capture = request.node._screenshot_capture
         key = _navigate_to_first_site_detail(site_list, site_detail)
         if key is None:
@@ -466,7 +413,10 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-015: Site detail page shows Save and Cancel form buttons."""
+        """TC-002-010: Site detail page shows Save and Cancel form buttons.
+
+        Spec: TC-002-010 — Site-Daten bearbeiten und speichern (Formular-Buttons, Teilaspekt).
+        """
         capture = request.node._screenshot_capture
         key = _navigate_to_first_site_detail(site_list, site_detail)
         if key is None:
@@ -529,7 +479,10 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-017: Clicking 'Abbrechen' navigates back from site detail."""
+        """TC-002-069: Clicking 'Abbrechen' navigates back from site detail.
+
+        Spec: TC-002-069 — Site-Detailseite — "Abbrechen" navigiert zurück zur Standortliste.
+        """
         capture = request.node._screenshot_capture
         key = _navigate_to_first_site_detail(site_list, site_detail)
         if key is None:
@@ -606,7 +559,10 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-020: Clicking 'Abbrechen' in delete dialog closes it without deleting."""
+        """TC-002-013: Clicking 'Abbrechen' in delete dialog closes it without deleting.
+
+        Spec: TC-002-013 — Site löschen — Abbrechen im Bestätigungsdialog bewahrt Daten.
+        """
         capture = request.node._screenshot_capture
         key = _navigate_to_first_site_detail(site_list, site_detail)
         if key is None:
@@ -643,7 +599,10 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-021: Clicking a location row in site detail navigates to location detail."""
+        """TC-002-022: Clicking a location row in site detail navigates to location detail.
+
+        Spec: TC-002-022 — Klick auf Location-Knoten navigiert zur Location-Detailseite.
+        """
         capture = request.node._screenshot_capture
         key = _navigate_to_first_site_detail(site_list, site_detail)
         if key is None:
@@ -670,7 +629,10 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-022: Navigating to non-existent site key shows error display."""
+        """TC-002-070: Navigating to non-existent site key shows error display.
+
+        Spec: TC-002-070 — Unbekannter Site-Key zeigt Fehleranzeige oder Weiterleitung.
+        """
         capture = request.node._screenshot_capture
         site_detail.navigate("/standorte/sites/nonexistent-key-99999")
         # Wait for loading skeleton to disappear first (SPA needs to load +
@@ -715,7 +677,7 @@ class TestLocationDetailPage:
     ) -> None:
         """TC-002-022: Location detail page loads with title and no error.
 
-        Spec: TC-002-022 — Klick auf Location-Knoten navigiert zur Detailseite.
+        Spec: TC-002-022 — Klick auf Location-Knoten navigiert zur Location-Detailseite.
         """
         capture = request.node._screenshot_capture
         loc_key = _navigate_to_first_location_detail(site_list, site_detail)
@@ -744,7 +706,10 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-024: Location detail edit form has name field pre-filled."""
+        """TC-002-071: Location detail edit form has name field pre-filled.
+
+        Spec: TC-002-071 — Location-Daten bearbeiten und speichern (Name-Feld vorbelegt, Teilaspekt).
+        """
         capture = request.node._screenshot_capture
         loc_key = _navigate_to_first_location_detail(site_list, site_detail)
         if loc_key is None:
@@ -766,7 +731,10 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-025: Location detail page shows Save and Cancel form buttons."""
+        """TC-002-071: Location detail page shows Save and Cancel form buttons.
+
+        Spec: TC-002-071 — Location-Daten bearbeiten und speichern (Formular-Buttons, Teilaspekt).
+        """
         capture = request.node._screenshot_capture
         loc_key = _navigate_to_first_location_detail(site_list, site_detail)
         if loc_key is None:
@@ -792,7 +760,10 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-026: User can modify the name field in location detail form."""
+        """TC-002-071: User can modify the name field in location detail form.
+
+        Spec: TC-002-071 — Location-Daten bearbeiten und speichern.
+        """
         capture = request.node._screenshot_capture
         loc_key = _navigate_to_first_location_detail(site_list, site_detail)
         if loc_key is None:
@@ -825,7 +796,10 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-027: Clicking 'Löschen' on location detail opens confirm dialog."""
+        """TC-002-072: Clicking 'Löschen' on location detail opens confirm dialog.
+
+        Spec: TC-002-072 — Location löschen — Bestätigungsdialog öffnet sich.
+        """
         capture = request.node._screenshot_capture
         loc_key = _navigate_to_first_location_detail(site_list, site_detail)
         if loc_key is None:
@@ -851,7 +825,10 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-028: Cancelling the delete dialog keeps the location intact."""
+        """TC-002-073: Cancelling the delete dialog keeps the location intact.
+
+        Spec: TC-002-073 — Location löschen — Abbrechen im Bestätigungsdialog bewahrt Daten.
+        """
         capture = request.node._screenshot_capture
         loc_key = _navigate_to_first_location_detail(site_list, site_detail)
         if loc_key is None:
@@ -880,7 +857,10 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-029: Location detail page shows the 'Bewässerung erfassen' button."""
+        """TC-002-074: Location detail page shows the 'Bewässerung erfassen' button.
+
+        Spec: TC-002-074 — Location-Detailseite zeigt "Bewässerung erfassen"-Button.
+        """
         capture = request.node._screenshot_capture
         loc_key = _navigate_to_first_location_detail(site_list, site_detail)
         if loc_key is None:
@@ -899,7 +879,9 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-030: Navigating to unknown location key shows error display.
+        """TC-002-075: Navigating to unknown location key shows error display.
+
+        Spec: TC-002-075 — Unbekannter Location-Key zeigt Fehleranzeige.
 
         Gated on the *presence* of a settled branch rather than on the absence of
         a skeleton: right after ``navigate()`` no skeleton has mounted yet, so
@@ -971,7 +953,10 @@ class TestSlotDetailPage:
         slot_detail: SlotDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-031: Slot detail page loads with slot_id as title."""
+        """TC-002-076: Slot detail page loads with slot_id as title.
+
+        Spec: TC-002-076 — Slot-Detailseite zeigt Bearbeitungsformular mit vorausgefüllten Feldern.
+        """
         capture = request.node._screenshot_capture
         slot_key = _get_first_slot_key(site_list, site_detail, location_detail)
         if slot_key is None:
@@ -997,7 +982,10 @@ class TestSlotDetailPage:
         slot_detail: SlotDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-032: Slot detail form has slot_id field pre-filled."""
+        """TC-002-076: Slot detail form has slot_id field pre-filled.
+
+        Spec: TC-002-076 — Slot-Detailseite zeigt Bearbeitungsformular mit vorausgefüllten Feldern.
+        """
         capture = request.node._screenshot_capture
         slot_key = _get_first_slot_key(site_list, site_detail, location_detail)
         if slot_key is None:
@@ -1018,7 +1006,10 @@ class TestSlotDetailPage:
         slot_detail: SlotDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-033: Slot detail form shows the capacity_plants field."""
+        """TC-002-076: Slot detail form shows the capacity_plants field.
+
+        Spec: TC-002-076 — Slot-Detailseite zeigt Bearbeitungsformular mit vorausgefüllten Feldern.
+        """
         capture = request.node._screenshot_capture
         slot_key = _get_first_slot_key(site_list, site_detail, location_detail)
         if slot_key is None:
@@ -1044,7 +1035,10 @@ class TestSlotDetailPage:
         slot_detail: SlotDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-034: Clicking 'Löschen' on slot detail opens confirm dialog."""
+        """TC-002-077: Clicking 'Löschen' on slot detail opens confirm dialog.
+
+        Spec: TC-002-077 — Slot löschen — Bestätigungsdialog öffnet sich.
+        """
         capture = request.node._screenshot_capture
         slot_key = _get_first_slot_key(site_list, site_detail, location_detail)
         if slot_key is None:
@@ -1069,7 +1063,10 @@ class TestSlotDetailPage:
         slot_detail: SlotDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-035: Cancelling the delete dialog keeps the slot page open."""
+        """TC-002-078: Cancelling the delete dialog keeps the slot page open.
+
+        Spec: TC-002-078 — Slot löschen — Abbrechen im Bestätigungsdialog bewahrt Daten.
+        """
         capture = request.node._screenshot_capture
         slot_key = _get_first_slot_key(site_list, site_detail, location_detail)
         if slot_key is None:

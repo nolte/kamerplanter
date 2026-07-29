@@ -2,7 +2,7 @@
 req_id: REQ-028
 title: Mischkultur & Companion Planting
 category: Pflanzenplanung
-test_count: 42
+test_count: 45
 coverage_areas:
   - CompanionPlantingPage (Stammdaten-Verwaltung der Beziehungen)
   - Artenauswahl-Dropdown (Spezies-Level Kompatibilitaetsanzeige)
@@ -22,8 +22,9 @@ coverage_areas:
   - Effekt-Typ-Icons und Score-Badges
   - Bidirektionale Edge-Darstellung
   - Fehlermeldungen und Validierungsmeldungen
+  - Route-Erreichbarkeit (Smoke) fuer Companion-Planting- und Fruchtfolge-Seite
 generated: 2026-03-21
-version: "1.0"
+version: "1.1"
 ---
 
 # TC-REQ-028: Mischkultur & Companion Planting
@@ -1143,6 +1144,85 @@ im PlantingRun-Create-Dialog und -Detail, das alle Mitglieder nutzen koennen.
 
 ---
 
+## 11. Route-Erreichbarkeit (Smoke) — Companion-Planting- und Fruchtfolge-Seite
+
+Diese drei Faelle decken die schlanken Selenium-Scaffold-Pruefungen ab, die lediglich die
+Grunderreichbarkeit einer Seite (Titel/Auswahlfeld rendert, kein Absturz) verifizieren — bewusst
+schwaecher als TC-028-001/003/006, die zusaetzlich konkrete Leer- oder Ladezustaende voraussetzen.
+
+### TC-028-043: Companion-Planting-Seite laedt mit nicht-leerem Seitentitel (Smoke)
+
+**Requirement**: REQ-028 § 7 — UI-Integration, CompanionPlantingPage (Basis-Erreichbarkeit)
+**Priority**: Medium
+**Category**: Smoke
+**Vorbedingungen**:
+- Nutzer ist eingeloggt (beliebige Rolle)
+
+**Testschritte**:
+1. Nutzer navigiert zur Companion-Planting-Seite (`/stammdaten/companion-planting`)
+
+**Erwartete Ergebnisse**:
+- Die Seite laedt ohne Fehler
+- Ein nicht-leerer Seitentitel ist sichtbar
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-028, companion-planting-page, smoke, seiten-erreichbarkeit]
+
+---
+
+### TC-028-044: Fruchtfolge-Seite laedt und zeigt Familien-Auswahl (Smoke)
+
+**Requirement**: REQ-028 § 6.4 — Fruchtfolge-UI als Grundlage fuer den 4-Jahres-Zyklus (Basis-Erreichbarkeit)
+**Priority**: Medium
+**Category**: Smoke
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert zur Fruchtfolge-Seite (`/stammdaten/crop-rotation`)
+
+**Erwartete Ergebnisse**:
+- Die Seite laedt ohne Fehler, ein nicht-leerer Seitentitel ist sichtbar
+- Eine Familien-Auswahl (Dropdown oder Liste) rendert, auch wenn leer
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-028, fruchtfolge, crop-rotation-page, smoke, familien-auswahl]
+
+Hinweis: Diese Seite wird ausserdem von REQ-001 (TC-001-050 bis TC-001-052) ueber konkrete
+CRITICAL/WARNING/OK-Warnszenarien abgedeckt; dieser Fall deckt nur die REQ-028-spezifische
+Grunderreichbarkeit ab, die TC-028-045 (4-Jahres-Wartezeit-Konfiguration) voraussetzt.
+
+---
+
+### TC-028-045: Fruchtfolge-"Nachfolger hinzufuegen"-Dialog akzeptiert 4-Jahres-Wartezeit
+
+**Requirement**: REQ-028 § 6.4 — Familien-Selbstinkompatibilitaet (severe) erzwingt mehrjaehrigen Wechsel; CLAUDE.md "Fruchtfolge — 4-Jahres-Zyklus"
+**Priority**: High
+**Category**: Formvalidierung
+**Vorbedingungen**:
+- Nutzer ist auf der Fruchtfolge-Seite (`/stammdaten/crop-rotation`)
+- Mindestens 2 Familien sind waehlbar
+
+**Testschritte**:
+1. Nutzer waehlt eine Ausgangsfamilie
+2. Nutzer klickt "Nachfolger hinzufuegen"
+3. Nutzer setzt das Feld "Wartezeit (Jahre)" auf "4"
+
+**Erwartete Ergebnisse**:
+- Der Dialog oeffnet sich
+- Das Wartezeit-Feld akzeptiert den Wert "4" und zeigt ihn an
+
+**Nachbedingungen**:
+- Kein Eintrag gespeichert (Dialog wird nicht committet)
+
+**Tags**: [req-028, fruchtfolge, wartezeit, 4-jahre, formvalidierung, dialog]
+
+---
+
 ## Abdeckungs-Matrix
 
 | Spec-Sektion | Beschreibung | Testfaelle |
@@ -1159,7 +1239,7 @@ im PlantingRun-Create-Dialog und -Detail, das alle Mitglieder nutzen koennen.
 | § 5.2 PlantingRun-Integration | POST validate-compatibility | TC-028-023, TC-028-024, TC-028-025 |
 | § 6.2 compatible_with Seed-Daten | 25 Paare aus plant-info Dokumenten | TC-028-004, TC-028-031 |
 | § 6.3 incompatible_with Seed-Daten | 15 Paare | TC-028-005, TC-028-032 |
-| § 6.4 Familien-Level Seed-Daten | 8+3 bidirektionale Familien-Paare | TC-028-017 |
+| § 6.4 Familien-Level Seed-Daten | 8+3 bidirektionale Familien-Paare | TC-028-017, TC-028-044, TC-028-045 |
 | § 7.1 Mischkultur-Partner-Panel | Quick-Add, Expertise-Level, Familien-Badge | TC-028-015, TC-028-016, TC-028-017, TC-028-018, TC-028-019, TC-028-020, TC-028-022 |
 | § 7.2 Kompatibilitaets-Badge | Run-Header gruen/gelb/rot, Detail-Dialog | TC-028-023, TC-028-024, TC-028-025, TC-028-026 |
 | § 7.3 Beetplan-Visualisierung | Gruen/Rot/Grau Linien, Tooltip | TC-028-027, TC-028-028, TC-028-029, TC-028-030 |
@@ -1170,3 +1250,4 @@ im PlantingRun-Create-Dialog und -Detail, das alle Mitglieder nutzen koennen.
 | Fehlerbehandlung | Netzwerkfehler, Backend-Fehler | TC-028-038, TC-028-039 |
 | Leer-Zustaende | Kein ausgewaehlt, Keine Beziehungen | TC-028-001, TC-028-006 |
 | Formvalidierung | Selbstbeziehung, Button-Deaktivierung | TC-028-010, TC-028-014 |
+| Route-Erreichbarkeit (Smoke) | Companion-Planting- und Fruchtfolge-Seite | TC-028-043, TC-028-044, TC-028-045 |

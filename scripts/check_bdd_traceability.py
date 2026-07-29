@@ -60,30 +60,19 @@ DEFAULT_FEATURE_ROOTS = ("tests/e2e/features",)
 DEFAULT_SPEC_ROOTS = ("spec/e2e-testcases",)
 DEFAULT_DOCSTRING_ROOTS = ("tests/e2e",)
 
-#: Classic tests that declare no TC-ID at all, measured after the #775
-#: reconciliation. A ratchet, not a target: the check fails if the number grows,
-#: so no new untagged test can be added, and the debt can only shrink.
-MAX_UNTAGGED_DOCSTRING_TESTS = 40
+# Both shrink-only ratchets that used to live here are gone (#839). They held a
+# capped debt — 40 tests without any TC-ID and 59 declaring an ID no spec
+# document knew — while the reconciliation from #775 was worked off file by
+# file. All 99 are resolved: 14 mapped to an existing case after reading what
+# the test asserts, 65 new spec cases were written where none described the
+# behaviour, and 4 tests were deleted because they asserted a DataTable that
+# ``SiteListPage`` does not have.
+#
+# There is nothing left to cap, so both classes are now plain defects: an
+# unresolved ID or a missing one fails the check outright. A baseline pinned to
+# zero would be dead mechanism dressed as policy — the same call made for
+# ``check_utc_calendar_day.py`` in #858.
 
-#: Classic tests whose first docstring line carries a *test-local* ID that no
-#: spec document declares — the drift #775 measured, minus the 620 functions
-#: that carried their own verified ``Spec:`` cross-reference and could therefore
-#: be reconciled mechanically.
-#:
-#: These are deliberately **not** resolved by pattern. `suggest_alternative`
-#: offers a tempting one-to-one for most of them (``TC-REQ-027-001`` →
-#: ``TC-027-001``), and spot-checking three showed the suggestion is a numeric
-#: coincidence rather than a match: ``test_mode_endpoint_returns_shape`` checks
-#: an API response shape while ``TC-027-001`` specifies "app start without a
-#: login screen", and ``test_print_button_visible_on_pflege_dashboard`` points
-#: at the care dashboard while ``TC-032-001`` specifies the nutrient-plan detail
-#: page. Accepting them would restate the exact defect #775 exists to remove —
-#: a number that looks like traceability and is not.
-#:
-#: So they stay recorded rather than invented, under the same shrink-only
-#: ratchet: a *new* unresolvable ID fails the check immediately, and the known
-#: ones can only be worked off by a human who knows what each test verifies.
-MAX_UNRESOLVED_DOCSTRING_IDS = 59
 PROTOCOL_PLUGIN = REPO_ROOT / "tests" / "e2e" / "protocol_plugin.py"
 GHERKIN_MODULE = REPO_ROOT / "tests" / "e2e" / "_gherkin.py"
 
@@ -219,7 +208,9 @@ def load_tc_id_pattern(plugin_path: Path = PROTOCOL_PLUGIN) -> re.Pattern[str]:
     )
     pattern = getattr(module, "TC_ID_PATTERN", None)
     if not isinstance(pattern, re.Pattern):
-        raise TraceabilityError(f"{plugin_path} exposes no TC_ID_PATTERN — cannot validate tags")
+        raise TraceabilityError(
+            f"{plugin_path} exposes no TC_ID_PATTERN — cannot validate tags"
+        )
     return pattern
 
 
@@ -242,9 +233,13 @@ def load_gherkin_module(module_path: Path = GHERKIN_MODULE) -> ModuleType:
         TraceabilityError: If the module is missing or exposes neither symbol.
     """
     module = _load_module_by_path(
-        "_bdd_traceability_gherkin", module_path, "the canonical Gherkin line classifier"
+        "_bdd_traceability_gherkin",
+        module_path,
+        "the canonical Gherkin line classifier",
     )
-    missing = [name for name in ("iter_lines", "GherkinLineKind") if not hasattr(module, name)]
+    missing = [
+        name for name in ("iter_lines", "GherkinLineKind") if not hasattr(module, name)
+    ]
     if missing:
         raise TraceabilityError(
             f"{module_path} exposes no {', '.join(missing)} — cannot classify feature lines"
@@ -270,7 +265,9 @@ def _dialect_for(lines: list[str]) -> dict[str, tuple[str, ...]]:
     return _DIALECTS[_FALLBACK_DIALECT]
 
 
-def _keyword_of(line: str, dialect: dict[str, tuple[str, ...]]) -> tuple[str, str] | None:
+def _keyword_of(
+    line: str, dialect: dict[str, tuple[str, ...]]
+) -> tuple[str, str] | None:
     """Classify a Gherkin line as ``(kind, title)`` — or None if it is not a keyword line.
 
     Args:
@@ -416,7 +413,9 @@ def parse_spec_document(path: Path) -> list[SpecCase]:
     """Extract the declared test cases from one ``spec/e2e-testcases`` document."""
     cases: list[SpecCase] = []
     in_fence = False
-    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for lineno, raw in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         if _MARKDOWN_FENCE.match(raw):
             in_fence = not in_fence
             continue
@@ -479,7 +478,9 @@ class DocstringClaim:
     func: str
 
 
-def collect_docstring_claims(roots: list[Path], tc_pattern: re.Pattern[str]) -> list[DocstringClaim]:
+def collect_docstring_claims(
+    roots: list[Path], tc_pattern: re.Pattern[str]
+) -> list[DocstringClaim]:
     """Index the TC-ID every classic test declares in its docstring.
 
     The classic Selenium suite declares its IDs in docstrings rather than in
@@ -568,8 +569,7 @@ def report_docstring_channel(
     Two defect classes, mirroring the Gherkin channel:
 
     * **orphan** — a first-line ID that no spec document declares.
-    * **regression in untagged tests** — more tests without any ID than the
-      recorded baseline, i.e. somebody added one.
+    * **untagged test** — a test that declares no ID at all.
 
     What is deliberately *not* a defect: a spec case claimed by more than one
     test. 115 such many-to-one links exist and every one of them is legitimate —
@@ -591,49 +591,36 @@ def report_docstring_channel(
     print()
     print("Docstring traceability check (classic suite)")
     print(f"  tests:    {len(claims)} function(s) — {len(tagged)} declare a TC-ID")
-    print(f"  resolved: {len(claimed)} distinct spec case(s); {shared} claimed by more than one test")
+    print(
+        f"  resolved: {len(claimed)} distinct spec case(s); {shared} claimed by more than one test"
+    )
 
     defects = 0
-    if len(orphans) > MAX_UNRESOLVED_DOCSTRING_IDS:
+    if orphans:
         print()
-        print(
-            f"  {len(orphans)} ID(s) resolve to nothing in the specification, above the recorded "
-            f"baseline of {MAX_UNRESOLVED_DOCSTRING_IDS}."
-        )
+        print(f"  {len(orphans)} ID(s) resolve to nothing in the specification.")
         print("  A test's TC-ID must name a case the specification declares.")
+        print(
+            "  The 'did you mean' below is a *string* suggestion, not a match — #839 "
+            "checked three of them against the spec text and all three were wrong."
+        )
         for c in orphans[-10:]:
             hint = suggest_alternative(c.tc_id or "", cases)
             suffix = f"  (did you mean {hint}?)" if hint else ""
             print(f"    {_relative(c.path)}:{c.line}  {c.func}  {c.tc_id}{suffix}")
         defects += 1
-    elif orphans:
-        print(
-            f"  {len(orphans)} ID(s) resolve to nothing in the specification "
-            f"(baseline {MAX_UNRESOLVED_DOCSTRING_IDS}, shrink-only — informational)"
-        )
-        if len(orphans) < MAX_UNRESOLVED_DOCSTRING_IDS:
-            print(f"  Baseline can be lowered to {len(orphans)} in MAX_UNRESOLVED_DOCSTRING_IDS.")
 
-    if len(untagged) > MAX_UNTAGGED_DOCSTRING_TESTS:
+    if untagged:
         print()
-        print(
-            f"  {len(untagged)} test(s) declare no TC-ID, above the recorded baseline of "
-            f"{MAX_UNTAGGED_DOCSTRING_TESTS}."
-        )
+        print(f"  {len(untagged)} test(s) declare no TC-ID.")
         print("  A new test must state which specified case it verifies.")
+        print(
+            "  If no case describes it, write one in spec/e2e-testcases/ — that is the "
+            "honest outcome, not forcing the test onto a case that means something else."
+        )
         for c in untagged[-10:]:
             print(f"    {_relative(c.path)}:{c.line}  {c.func}")
         defects += 1
-    elif untagged:
-        print(
-            f"  {len(untagged)} test(s) declare no TC-ID "
-            f"(baseline {MAX_UNTAGGED_DOCSTRING_TESTS}, shrink-only — informational)"
-        )
-        if len(untagged) < MAX_UNTAGGED_DOCSTRING_TESTS:
-            print(
-                f"  Baseline can be lowered to {len(untagged)} in "
-                "MAX_UNTAGGED_DOCSTRING_TESTS."
-            )
 
     return defects
 
@@ -716,7 +703,9 @@ def report(
         f"{len(unimplemented)} do not yet (not a defect — automation coverage grows over time)"
     )
     if duplicates:
-        print(f"  info: {len(duplicates)} test-case ID(s) declared more than once: {', '.join(duplicates)}")
+        print(
+            f"  info: {len(duplicates)} test-case ID(s) declared more than once: {', '.join(duplicates)}"
+        )
     if list_unimplemented:
         by_document: dict[str, list[str]] = {}
         for tc_id in unimplemented:
@@ -739,13 +728,13 @@ def report(
     print(f"OK — all {len(scenarios)} scenario(s) resolve to a declared test case.")
     if docstring_claims is not None:
         resolved = sum(1 for c in docstring_claims if c.tc_id and c.tc_id in cases)
-        # Deliberately states the resolved count against the total rather than
-        # claiming "all": the two ratchets above hold a known, capped remainder,
-        # and a summary that rounded that away would be the same kind of
-        # comfortable-but-false green these checks exist to prevent.
+        # States the resolved count against the total rather than claiming
+        # "all": if the two ever diverge the summary has to say so out loud.
+        # Since #839 they are equal — an unresolved or untagged test is a hard
+        # defect now, so reaching this line at all means the numbers match.
         print(
             f"OK — {resolved} of {len(docstring_claims)} classic test(s) resolve to a declared "
-            "test case; the remainder is within the recorded baselines."
+            "test case."
         )
     return EXIT_OK
 
@@ -755,7 +744,9 @@ def report(
 
 def _resolve(paths: list[str]) -> list[Path]:
     """Resolve CLI paths against the repository root when they are relative."""
-    return [Path(path) if Path(path).is_absolute() else REPO_ROOT / path for path in paths]
+    return [
+        Path(path) if Path(path).is_absolute() else REPO_ROOT / path for path in paths
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -815,7 +806,9 @@ def main(argv: list[str] | None = None) -> int:
         cases, duplicates, documents = collect_spec_cases(spec_roots)
         docstring_claims = None
         if not args.no_docstring_channel:
-            docstring_roots = _resolve(args.docstring_root or list(DEFAULT_DOCSTRING_ROOTS))
+            docstring_roots = _resolve(
+                args.docstring_root or list(DEFAULT_DOCSTRING_ROOTS)
+            )
             docstring_claims = collect_docstring_claims(docstring_roots, tc_pattern)
     except TraceabilityError as exc:
         print(f"check_bdd_traceability: {exc}", file=sys.stderr)

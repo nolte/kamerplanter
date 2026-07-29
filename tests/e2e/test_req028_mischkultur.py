@@ -16,13 +16,18 @@ Fokus REQ-028:
 - Selbst-Inkompatibilitaet einer Familie (Familien-Level family_incompatible_with)
   laesst sich anzeigen (Spec §6.4: Solanaceae↔Solanaceae severe)
 
-Spec-TC Mapping (test TC -> Spec-Szenarien in REQ-028 §10 / §1.1):
-  TC-REQ-028-001  ->  §1.1 Szenario 1, §10 Szenario 1   Companion-Page laedt mit Eintrag
-  TC-REQ-028-002  ->  §1.1 Szenario 1, §10 Szenario 1   Empfehlungen werden fuer Primary-Spezies geladen
-  TC-REQ-028-003  ->  §6.2 Seed-Daten, §7.1 Score-Badge Score-Chip ist an Empfehlungen sichtbar
-  TC-REQ-028-004  ->  §10 Szenario 1                    Inkompatibilitaets-Liste rendert getrennt von Kompatibilitaeten
-  TC-REQ-028-005  ->  §6.4 Familien-Level Seed-Daten    Fruchtfolge-Page zeigt Wartezeit-Konfiguration (4-Jahres-Zyklus)
-  TC-REQ-028-006  ->  §1.1 Szenario 4                   Fruchtfolge-Dialog erlaubt 4-Jahres-Wartezeit (Familien-Selbstinkompatibilitaet)
+Spec-TC Mapping (test -> spec/e2e-testcases/TC-REQ-028.md):
+  test_companion_page_loads_for_req028                       -> TC-028-043
+    (Smoke: Seite laedt mit nicht-leerem Titel -- ein engerer/schwaecherer Fall
+    als TC-028-001, das zusaetzlich den spezifischen Leer-Zustand voraussetzt.)
+  test_recommendations_load_for_primary_species               -> TC-028-003
+  test_compatible_recommendations_show_score_badge             -> TC-028-004
+  test_compatible_and_incompatible_lists_render_separately     -> TC-028-003
+  test_crop_rotation_page_loads_for_req028                    -> TC-028-044
+    (Smoke: Fruchtfolge-Seite laedt mit Familien-Auswahl -- die konkreten
+    CRITICAL/WARNING/OK-Warnszenarien fuer dieselbe Seite gehoeren zu
+    TC-001-050 bis TC-001-052, nicht zu diesem REQ-028-Testfall.)
+  test_rotation_dialog_supports_four_year_wait                -> TC-028-045
 """
 
 from __future__ import annotations
@@ -51,7 +56,7 @@ def rotation_page(browser: WebDriver, base_url: str) -> CropRotationPage:
     return CropRotationPage(browser, base_url)
 
 
-# -- TC-028-001 to TC-028-004: Companion-Empfehlungs-Engine -------------------
+# -- TC-028-043, TC-028-003, TC-028-004: Companion-Empfehlungs-Engine ---------
 
 
 class TestCompanionRecommendationEngine:
@@ -70,20 +75,21 @@ class TestCompanionRecommendationEngine:
         companion_page: CompanionPlantingPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-028-001: Mischkultur-Page laedt erfolgreich.
+        """TC-028-043: Mischkultur-Page laedt erfolgreich (Smoke).
 
         Spec: REQ-028 §7.1 -- Mischkultur-Partner-Panel ist Einstieg in die
-        Empfehlungs-UI.
+        Empfehlungs-UI. Prueft nur die Grunderreichbarkeit (nicht-leerer
+        Titel); der spezifische Leer-Zustand ist TC-028-001.
         """
         companion_page.open()
         screenshot(
-            "TC-REQ-028-001_mischkultur-page-loaded",
+            "TC-028-043_mischkultur-page-loaded",
             "Mischkultur-Seite (Companion Planting) nach initialem Laden",
         )
 
         title = companion_page.get_title()
         assert title, (
-            "TC-REQ-028-001 FAIL: Erwartet nicht-leeren Page-Titel auf der Mischkultur-Seite. "
+            "TC-028-043 FAIL: Erwartet nicht-leeren Page-Titel auf der Mischkultur-Seite. "
             f"Bekommen: {title!r}"
         )
 
@@ -93,7 +99,7 @@ class TestCompanionRecommendationEngine:
         companion_page: CompanionPlantingPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-028-002: Nach Auswahl einer Primary-Spezies werden Empfehlungen geladen.
+        """TC-028-003: Nach Auswahl einer Primary-Spezies werden Empfehlungen geladen.
 
         Spec: REQ-028 §1.1 Szenario 1 -- "Tomate + was passt dazu?", §3.1
         4-Schritt-Algorithmus liefert recommended_companions + incompatible_species.
@@ -105,7 +111,7 @@ class TestCompanionRecommendationEngine:
             pytest.skip("Keine Spezies fuer Mischkultur-Empfehlung vorhanden")
 
         screenshot(
-            "TC-REQ-028-002_before-primary-select",
+            "TC-028-003_before-primary-select",
             "Mischkultur-Seite vor Auswahl der Primary-Spezies",
         )
 
@@ -114,7 +120,7 @@ class TestCompanionRecommendationEngine:
         companion_page.wait_for_loading_complete()
 
         screenshot(
-            "TC-REQ-028-002_after-primary-select",
+            "TC-028-003_after-primary-select",
             f"Mischkultur-Empfehlungen nach Auswahl von {primary}",
         )
 
@@ -125,11 +131,11 @@ class TestCompanionRecommendationEngine:
         incompatible = companion_page.get_incompatible_species()
 
         assert isinstance(compatible, list), (
-            "TC-REQ-028-002 FAIL: recommended_companions-Liste muss in der UI rendern "
+            "TC-028-003 FAIL: recommended_companions-Liste muss in der UI rendern "
             "(REQ-028 §4.2 CompanionAdvice.recommended_companions)"
         )
         assert isinstance(incompatible, list), (
-            "TC-REQ-028-002 FAIL: incompatible_species-Liste muss in der UI rendern "
+            "TC-028-003 FAIL: incompatible_species-Liste muss in der UI rendern "
             "(REQ-028 §4.2 CompanionAdvice.incompatible_species)"
         )
 
@@ -139,7 +145,7 @@ class TestCompanionRecommendationEngine:
         companion_page: CompanionPlantingPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-028-003: Kompatible Empfehlungen zeigen Score-Badge / -Chip.
+        """TC-028-004: Kompatible Empfehlungen zeigen Score-Badge / -Chip.
 
         Spec: REQ-028 §6.2 Seed-Daten (Score-Spalte), §7.1 UI -- Score-Badge
         ist Pflicht-Bestandteil des Mischkultur-Partner-Panels.
@@ -174,20 +180,20 @@ class TestCompanionRecommendationEngine:
             )
 
         screenshot(
-            "TC-REQ-028-003_score-badge",
+            "TC-028-004_score-badge",
             f"Score-Chips an kompatiblen Empfehlungen fuer {candidate}",
         )
 
         # Score-Chip-Verifikation: Im CompanionPlantingPage.tsx wird pro
         # ListItem ein <Chip label={`Bewertung: ${c.score}`}> gerendert.
         assert companion_page.has_compatible_card(), (
-            "TC-REQ-028-003 FAIL: Erwartet 'Kompatible Arten'-Card auf der "
+            "TC-028-004 FAIL: Erwartet 'Kompatible Arten'-Card auf der "
             "Mischkultur-Seite (REQ-028 §7.1)"
         )
 
         chip_count = companion_page.get_compatible_card_chip_count()
         assert chip_count > 0, (
-            "TC-REQ-028-003 FAIL: Erwartet mindestens einen Score-Chip an "
+            "TC-028-004 FAIL: Erwartet mindestens einen Score-Chip an "
             "kompatibler Empfehlung (REQ-028 §6.2 + §7.1 Score-Badge)"
         )
 
@@ -197,7 +203,7 @@ class TestCompanionRecommendationEngine:
         companion_page: CompanionPlantingPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-028-004: Engine-Output trennt kompatible von inkompatiblen Spezies.
+        """TC-028-003: Engine-Output trennt kompatible von inkompatiblen Spezies.
 
         Spec: REQ-028 §10 Szenario 1 -- recommended_companions UND
         incompatible_species werden getrennt geliefert; §7.1 UI: zwei
@@ -213,21 +219,20 @@ class TestCompanionRecommendationEngine:
         companion_page.wait_for_loading_complete()
 
         screenshot(
-            "TC-REQ-028-004_dual-list-rendering",
+            "TC-028-003_dual-list-rendering",
             "Mischkultur-Seite zeigt kompatible und inkompatible Listen getrennt",
         )
 
         assert companion_page.has_compatible_card(), (
-            "TC-REQ-028-004 FAIL: 'Kompatible Arten'-Card fehlt "
+            "TC-028-003 FAIL: 'Kompatible Arten'-Card fehlt "
             "(REQ-028 §7.1 Mischkultur-Partner-Panel zwei Bereiche)"
         )
         assert companion_page.has_incompatible_card(), (
-            "TC-REQ-028-004 FAIL: 'Inkompatible Arten'-Card fehlt "
-            "(REQ-028 §7.1 'Vermeiden'-Bereich)"
+            "TC-028-003 FAIL: 'Inkompatible Arten'-Card fehlt (REQ-028 §7.1 'Vermeiden'-Bereich)"
         )
 
 
-# -- TC-028-005 to TC-028-006: Fruchtfolge / 4-Jahres-Zyklus ------------------
+# -- TC-028-044, TC-028-045: Fruchtfolge / 4-Jahres-Zyklus --------------------
 
 
 class TestCropRotationCycle:
@@ -239,9 +244,12 @@ class TestCropRotationCycle:
     Schwachzehrer -> Gruenduengung)".
 
     Abgrenzung zu REQ-001-Tests:
-    - REQ-001 testet das Anlegen eines Nachfolger-Eintrags (Stammdaten-CRUD).
-    - REQ-028 testet, dass die Fruchtfolge-UI das 4-Jahres-Wartezeit-Feld
-      korrekt anbietet und so den Zyklus erzwingen kann.
+    - REQ-001 testet das Anlegen eines Nachfolger-Eintrags (Stammdaten-CRUD)
+      und die konkreten CRITICAL/WARNING/OK-Warnszenarien (TC-001-050 bis
+      TC-001-052).
+    - REQ-028 testet, dass die Fruchtfolge-UI grundsaetzlich erreichbar ist
+      und das 4-Jahres-Wartezeit-Feld korrekt anbietet, um den Zyklus zu
+      erzwingen (TC-028-044, TC-028-045).
     """
 
     @pytest.mark.smoke
@@ -250,7 +258,7 @@ class TestCropRotationCycle:
         rotation_page: CropRotationPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-028-005: Fruchtfolge-Seite laedt und zeigt Familien-Auswahl.
+        """TC-028-044: Fruchtfolge-Seite laedt und zeigt Familien-Auswahl (Smoke).
 
         Spec: REQ-028 §6.4 -- Fruchtfolge-Validator basiert auf
         family_incompatible_with-Edges (Solanaceae↔Solanaceae severe).
@@ -258,19 +266,19 @@ class TestCropRotationCycle:
         """
         rotation_page.open()
         screenshot(
-            "TC-REQ-028-005_fruchtfolge-page-loaded",
+            "TC-028-044_fruchtfolge-page-loaded",
             "Fruchtfolge-Seite nach initialem Laden",
         )
 
         title = rotation_page.get_title()
         assert title, (
-            "TC-REQ-028-005 FAIL: Erwartet nicht-leeren Page-Titel auf der "
+            "TC-028-044 FAIL: Erwartet nicht-leeren Page-Titel auf der "
             f"Fruchtfolge-Seite. Bekommen: {title!r}"
         )
 
         family_options = rotation_page.get_family_options()
         assert isinstance(family_options, list), (
-            "TC-REQ-028-005 FAIL: Familien-Auswahl muss in der UI rendern "
+            "TC-028-044 FAIL: Familien-Auswahl muss in der UI rendern "
             "(REQ-028 §6.4 Familien-Level Seed-Daten)"
         )
 
@@ -280,7 +288,7 @@ class TestCropRotationCycle:
         rotation_page: CropRotationPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-028-006: Fruchtfolge-Dialog akzeptiert 4-Jahres-Wartezeit.
+        """TC-028-045: Fruchtfolge-Dialog akzeptiert 4-Jahres-Wartezeit.
 
         Spec: REQ-028 §6.4 Familien-Selbstinkompatibilitaet (severe), CLAUDE.md
         "Fruchtfolge -- 4-Jahres-Zyklus". Das ``wait_years``-Feld muss Werte
@@ -302,7 +310,7 @@ class TestCropRotationCycle:
 
         rotation_page.select_family(family_options[0])
         screenshot(
-            "TC-REQ-028-006_before-dialog",
+            "TC-028-045_before-dialog",
             f"Fruchtfolge-Seite vor Dialog-Oeffnung fuer {family_options[0]}",
         )
 
@@ -310,7 +318,7 @@ class TestCropRotationCycle:
         rotation_page.set_dialog_wait_years("4")
 
         screenshot(
-            "TC-REQ-028-006_dialog-four-year-wait",
+            "TC-028-045_dialog-four-year-wait",
             "Fruchtfolge-Dialog mit 4-Jahres-Wartezeit (REQ-028 4-Jahres-Zyklus)",
         )
 
@@ -318,7 +326,7 @@ class TestCropRotationCycle:
         # der 4-Jahres-Zyklus aus REQ-028 §6.4 / CLAUDE.md konfigurierbar.
         actual_value = rotation_page.get_dialog_wait_years_value()
         assert actual_value == "4", (
-            f"TC-REQ-028-006 FAIL: Erwartet wait_years='4' (4-Jahres-Zyklus, "
+            f"TC-028-045 FAIL: Erwartet wait_years='4' (4-Jahres-Zyklus, "
             f"REQ-028 §6.4), bekommen wait_years={actual_value!r}"
         )
 
