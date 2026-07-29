@@ -41,6 +41,11 @@ dependencies = [
     # REQ-037 — FAO-56 Penman-Monteith / Hargreaves reference evapotranspiration.
     # BSD-3-Clause (a maintained fork of PyETo); verified importable on Python 3.14.
     "aquacropeto>=0.1.1,<1.0.0",
+    # #777 — optional error tracking. Always installed so that setting SENTRY_DSN
+    # in a deployment is enough to enable reporting; with no DSN the SDK is never
+    # initialised and the process is unchanged. The [fastapi] extra pulls the
+    # Starlette/FastAPI integration that installs the global exception handler.
+    "sentry-sdk[fastapi]>=2.20.0,<3.0.0",
 ]
 
 [project.optional-dependencies]

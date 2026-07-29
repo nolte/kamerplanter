@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import patch
 
+from app.common.datetimes import today_utc
 from app.common.enums import CareStyleType, ConfirmAction, ReminderType, WateringMethod
 from app.domain.engines.care_reminder_engine import (
     CARE_STYLE_PRESETS,
@@ -114,21 +115,30 @@ class TestCalculateDueDate:
 
 
 class TestCalculateUrgency:
+    """Urgency is measured against the UTC calendar day, not the local one.
+
+    ``calculate_urgency`` compares against ``today_utc()`` (#812). These cases
+    used ``date.today()`` — the *local* date — which agrees with it only on a
+    UTC host. CI runs on UTC, so the mismatch was invisible there and the tests
+    turned red only for the hours a developer's own timezone sat on the far side
+    of midnight: green for the wrong reason the rest of the day.
+    """
+
     engine = CareReminderEngine()
 
     def test_overdue(self):
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = today_utc() - timedelta(days=1)
         assert self.engine.calculate_urgency(yesterday) == "overdue"
 
     def test_due_today(self):
-        assert self.engine.calculate_urgency(date.today()) == "due_today"
+        assert self.engine.calculate_urgency(today_utc()) == "due_today"
 
     def test_upcoming(self):
-        tomorrow = date.today() + timedelta(days=1)
+        tomorrow = today_utc() + timedelta(days=1)
         assert self.engine.calculate_urgency(tomorrow) == "upcoming"
 
     def test_not_due(self):
-        future = date.today() + timedelta(days=5)
+        future = today_utc() + timedelta(days=5)
         assert self.engine.calculate_urgency(future) == "not_due"
 
     def test_none_returns_not_due(self):

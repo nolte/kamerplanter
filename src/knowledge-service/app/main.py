@@ -12,6 +12,7 @@ from app.config import settings
 from app.embedding import EmbeddingEngine
 from app.ingestor import KnowledgeIngestor
 from app.llm import create_llm_adapter
+from app.observability.error_tracking import init_error_tracking, resolve_release
 from app.prompt_engine import PromptEngine
 from app.reranker import RerankerEngine
 from app.schemas import (
@@ -30,6 +31,17 @@ from app.vectordb.repository import VectorChunk
 from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
+
+#: Single source for the version reported to OpenAPI and used as the release
+#: fallback, so the two can never disagree about which build is running.
+SERVICE_VERSION = "1.0.0"
+
+# Optional error tracking (#777), at process entry and before any request is
+# served. No-op without SENTRY_DSN.
+init_error_tracking(
+    component="knowledge-service",
+    release=resolve_release("kamerplanter-knowledge-service", SERVICE_VERSION),
+)
 
 _VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 
@@ -126,7 +138,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Kamerplanter Knowledge Service",
     description="RAG-based plant knowledge assistant",
-    version="1.0.0",
+    version=SERVICE_VERSION,
     lifespan=lifespan,
     # Service-token auth on every route; the dependency exempts probe paths
     # (/health, /ready) so kubelet checks keep working (AP-4, INF-S1).

@@ -116,6 +116,16 @@ tasks:
 
   # ── Shared libs ─────────────────────────────────────────────
 
+  errortracking:sync:
+    desc: Sync the shared kp_errortracking module into the backend and both services
+    cmds:
+      - python src/libs/kp_errortracking/sync.py
+
+  errortracking:check:
+    desc: Verify the kp_errortracking service copies are in sync (also a pre-commit gate)
+    cmds:
+      - python src/libs/kp_errortracking/sync.py --check
+
   vectordb:sync:
     desc: Sync the shared kp_vectordb infra (connection/schema/config) into both services
     cmds:
