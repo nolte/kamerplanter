@@ -158,9 +158,15 @@ def provision_plant(
             f"Self-provisioning failed: plant instance '{instance_id}' did not "
             f"appear in the list after creation"
         )
+    # Await a URL that is *different* from the one being left, not merely one
+    # matching the detail route. `wait_for_url_contains` would be satisfied at
+    # once whenever a previous test left the browser on some plant's detail page,
+    # and the key read back would be that plant's — silently provisioning one
+    # plant and returning another's identity (#835).
+    before = list_page.driver.current_url
     list_page.click_row(0)
-    list_page.wait_for_url_contains("/pflanzen/plant-instances/")
-    key = list_page.driver.current_url.rstrip("/").rsplit("/", 1)[-1]
+    url = list_page.wait_for_url_change(before, "/pflanzen/plant-instances/")
+    key = url.rstrip("/").rsplit("/", 1)[-1]
     return key, instance_id
 
 

@@ -522,8 +522,30 @@ class BasePage:
         return state.locator
 
     def wait_for_url_contains(self, fragment: str, timeout: int = DEFAULT_TIMEOUT) -> None:
-        """Wait until the current URL contains *fragment*."""
-        WebDriverWait(self.driver, timeout).until(EC.url_contains(fragment))
+        """Wait until the current URL contains *fragment*.
+
+        Satisfied immediately when the URL *already* contains it, so this is only
+        a sound post-condition for a navigation that leaves a URL family the test
+        was not already inside. To await a transition *within* one family — one
+        detail page to another — use :meth:`wait_for_url_change`.
+        """
+        self.poll(timeout).until(EC.url_contains(fragment))
+
+    def wait_for_url_change(
+        self, previous: str, fragment: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str:
+        """Wait until the URL both differs from *previous* and contains *fragment*.
+
+        The post-condition :meth:`wait_for_url_contains` cannot express. Waiting
+        for a fragment that is already present is a check that cannot fail: it
+        returns at once and the caller reads the URL it was *leaving*. #835 found
+        that in `provision_plant`, which derived a plant key that way — the
+        implicit wait had been delaying the click just enough that the URL was
+        usually the new one by the time it was read, so the journeys asserted
+        against a plant from an earlier test.
+        """
+        self.poll(timeout).until(lambda d: d.current_url != previous and fragment in d.current_url)
+        return self.driver.current_url
 
     # ── Queries ───────────────────────────────────────────────────────────
 
@@ -1787,6 +1809,12 @@ class BasePage:
         create. A wrong row that reads as success is worse than the exception it
         replaced, so failing to re-find the same row raises instead of falling
         back.
+
+        Identity is the *identifying cell*, not ``row.text``. The full row text
+        is not stable across renders — a row carries cells that fill in
+        asynchronously (a last-watering date, a next-task chip render as ``—``
+        first), so matching on it rejected rows that were still there and merely
+        further along. #835 hit that too, one fix later.
         """
         locator = rows_locator or self.DATA_TABLE_ROWS
         identity: str | None = None
@@ -1798,15 +1826,17 @@ class BasePage:
                 # First attempt: nothing has been clicked yet, so the index is
                 # still the caller's own selection and safe to resolve.
                 row = self.require_index(rows, index, what)
-                identity = row.text or ""
+                identity = self.get_row_primary_text(row, col_id)
             else:
-                matches = [row for row in rows if (row.text or "") == identity]
+                matches = [
+                    row for row in rows if self.get_row_primary_text(row, col_id) == identity
+                ]
                 if not matches:
                     raise AssertionError(
-                        f"{what} at index {index} went stale mid-click and the "
-                        f"table no longer contains it. Refusing to fall back to "
+                        f"{what} identified by {identity!r} went stale mid-click and "
+                        f"the table no longer offers it. Refusing to fall back to "
                         f"index {index}, which after a re-render would activate a "
-                        f"different record. Row text was: {identity!r}"
+                        f"different record."
                     )
                 row = matches[0]
             self.click_row_via_column(row, col_id)
