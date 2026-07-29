@@ -1774,16 +1774,42 @@ class BasePage:
     ) -> None:
         """Activate the *index*-th `DataTable` row through its *col_id* cell.
 
-        The row lookup and the click are one retryable unit: a filtered table
-        re-renders, and a row captured from the previous render is stale by the
-        time the click resolves its cell. See :meth:`retry_on_stale` — until #835
-        removed the implicit wait, that race was hidden rather than absent.
+        The lookup and the click are one retryable unit, because a re-rendering
+        table makes a row captured from the previous render stale before the click
+        resolves its cell.
+
+        **The retry re-selects by row identity, never by index again.** An index
+        only means anything relative to one render: re-taking ``rows[index]``
+        after a re-render is how an index-based click silently opens a *different*
+        record. #835 measured exactly that — retrying by index turned a loud
+        `StaleElementReferenceException` into four journey tests that opened the
+        globally-first plant and then asserted against the one they meant to
+        create. A wrong row that reads as success is worse than the exception it
+        replaced, so failing to re-find the same row raises instead of falling
+        back.
         """
         locator = rows_locator or self.DATA_TABLE_ROWS
+        identity: str | None = None
 
         def _click() -> None:
+            nonlocal identity
             rows = self.driver.find_elements(*locator)
-            self.click_row_via_column(self.require_index(rows, index, what), col_id)
+            if identity is None:
+                # First attempt: nothing has been clicked yet, so the index is
+                # still the caller's own selection and safe to resolve.
+                row = self.require_index(rows, index, what)
+                identity = row.text or ""
+            else:
+                matches = [row for row in rows if (row.text or "") == identity]
+                if not matches:
+                    raise AssertionError(
+                        f"{what} at index {index} went stale mid-click and the "
+                        f"table no longer contains it. Refusing to fall back to "
+                        f"index {index}, which after a re-render would activate a "
+                        f"different record. Row text was: {identity!r}"
+                    )
+                row = matches[0]
+            self.click_row_via_column(row, col_id)
 
         self.retry_on_stale(_click)
 
