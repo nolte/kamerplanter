@@ -256,6 +256,70 @@ class SpeciesListResponse(BaseModel):
     limit: int
 ```
 
+### 5.3 Beispiele an Request/Response-Schemas
+
+**Regel:** Jedes **neue oder geänderte** Request-/Response-Schema traegt mindestens
+ein Beispiel. Bestehende, unberuehrte Schemas werden **nicht** nachtraeglich
+bestueckt.
+
+```python
+from pydantic import BaseModel, ConfigDict, Field
+
+# RICHTIG — ein vollstaendiges Beispiel am Modell
+class SpeciesCreate(BaseModel):
+    scientific_name: str = Field(min_length=1, max_length=200)
+    common_name: str | None = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "scientific_name": "Monstera deliciosa",
+                    "common_name": "Fensterblatt",
+                }
+            ]
+        }
+    )
+
+# AUCH RICHTIG — pro Feld, wenn nur einzelne Werte erklaerungsbeduerftig sind
+class TankStateCreate(BaseModel):
+    ec_ms_cm: float = Field(ge=0, examples=[1.8])
+    ph: float = Field(ge=0, le=14, examples=[5.9])
+
+# FALSCH — erfuellt die Pruefung, erklaert nichts
+class SpeciesCreate(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{}]})
+```
+
+Ein Beispiel ist ein **realistischer Wert aus der Domaene**, kein Platzhalter:
+`"Monstera deliciosa"` statt `"string"`, `1.8` statt `0`. Es steht im
+veroeffentlichten OpenAPI-Dokument und ist damit oft das Erste, was ein
+Konsument von einem Endpunkt sieht.
+
+**Warum kein Nachruesten des Bestands.** Beim Audit vom 2026-07-24 trugen 711
+Request-/Response-Modelle in 72 Modulen **kein einziges** Beispiel. Ein Sweep
+darueber waere in dem Moment veraltet, in dem sich das erste Schema aendert —
+deshalb waechst die Abdeckung mit der normalen Arbeit am jeweiligen Feature.
+
+> Der Audit-Bericht nennt 708. Die Zahl stammt aus einem `grep` nach
+> `class …(BaseModel)` und uebersieht die drei Modelle, die von einem anderen
+> Schema erben (`RequirementProfileResponse`, `NutrientProfileResponse`,
+> `StarterKitTenantResponse`). Alle drei sind echte Response-Bodies im
+> veroeffentlichten Dokument; massgeblich ist die AST-Zaehlung des Skripts.
+
+**Durchsetzung.** `scripts/check_schema_examples.py` zaehlt die Modelle ohne
+Beispiel gegen eine festgehaltene Baseline und laeuft als pre-commit-Hook in der
+required `static`-Lane. Die Pruefung ist **shrink-only**: Sie wird rot, wenn die
+Zahl steigt, und meldet beim Sinken die neue, niedrigere Zahl, damit die Baseline
+von Hand nachgezogen wird. Ein Sinken macht die Pruefung bewusst **nicht** rot —
+sonst blockierte jedes Refactoring, das ein Schema-Modul nur loescht oder
+umbenennt.
+
+!!! warning "Ein gruenes Gate heisst nicht 'die API ist dokumentiert'"
+    Die Baseline **stundet** die Beispiel-Schuld, sie tilgt sie nicht. Sie haelt
+    nur fest, dass sie nicht weiter waechst. Wer wissen will, wie gut die API
+    beschrieben ist, liest die Zahl in der Baseline — nicht die Farbe des Gates.
+
 ---
 
 ## 6. FastAPI-Patterns
