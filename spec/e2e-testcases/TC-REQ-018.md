@@ -2,7 +2,7 @@
 req_id: REQ-018
 title: Umgebungssteuerung, Aktorik-Integration & Automatisierungsregeln
 category: Automatisierung
-test_count: 72
+test_count: 73
 coverage_areas:
   - Aktoren-Verwaltung (CRUD, Typen, Protokolle)
   - Location-Zuordnung von Aktoren
@@ -28,8 +28,9 @@ coverage_areas:
   - HA-Visibility-Toggle (ha_token_set Logik)
   - Dry-Run Regeltest
   - Manuelle Aktoren (Fallback-Task-Erzeugung)
+  - Route-Erreichbarkeit (Smoke) fuer die Umgebungssteuerungs-Einstiegsseite
 generated: 2026-03-21
-version: "1.2"
+version: "1.3"
 ---
 
 # TC-REQ-018: Umgebungssteuerung & Aktorik
@@ -1930,6 +1931,30 @@ REQ-018 schliesst den Regelkreis zwischen Sensorik (REQ-005, Input) und Aktorik 
 
 ---
 
+## 20. Route-Erreichbarkeit (Smoke)
+
+### TC-018-073: Umgebungssteuerungs-Einstiegsseite ist erreichbar (Smoke)
+
+**Requirement**: REQ-018 § 3 (Route-Verdrahtung als Voraussetzung fuer alle weiteren Umgebungssteuerungs-Faelle)
+**Priority**: Medium
+**Category**: Smoke
+**Preconditions**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert zur Umgebungssteuerungs-Einstiegsseite (`/environment-control`)
+
+**Erwartete Ergebnisse**:
+- Die Seite laedt ohne Fehler
+- Ein Markierungstext oder -bereich fuer "Umgebungssteuerung" ist sichtbar
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-018, environment-control, smoke, route-erreichbarkeit]
+
+---
+
 ## Coverage-Zusammenfassung
 
 | Spezifikations-Abschnitt | Beschreibung | Testfaelle |
@@ -1961,3 +1986,4 @@ REQ-018 schliesst den Regelkreis zwischen Sensorik (REQ-005, Input) und Aktorik 
 | § 4 Authentifizierung & Autorisierung | Admin/Grower/Mitglied-Berechtigungen | TC-018-057, TC-018-058, TC-018-072 |
 | Grenzwerte (Boundary) | ge/le Validierungen aus Pydantic-Modellen | TC-018-059–063 |
 | Edge Cases | Offline-Aktor, leere Listen, Ueberschreibungs-Logik | TC-018-064, TC-018-068, TC-018-070 |
+| Route-Erreichbarkeit (Smoke) | Umgebungssteuerungs-Einstiegsseite | TC-018-073 |

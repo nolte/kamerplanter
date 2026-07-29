@@ -2,7 +2,7 @@
 req_id: REQ-032
 title: Druckansichten & Export
 category: Ausgabe & Dokumentation
-test_count: 47
+test_count: 49
 coverage_areas:
   - PrintButton-Komponente (Browser-Druck und PDF-Download)
   - Browser-Druckansicht (CSS @media print)
@@ -22,8 +22,9 @@ coverage_areas:
   - Fehlerzustände (keine Daten, PDF-Generierungsfehler, Timeout)
   - Berechtigungsprüfung (viewer, grower, admin)
   - i18n (DE / EN Locale-Auswahl)
+  - Barrierefreiheit (aria-label am PrintButton)
 generated: "2026-04-02"
-version: "1.1"
+version: "1.2"
 ---
 
 # TC-REQ-032: Druckansichten & Export
@@ -1436,6 +1437,57 @@ URL-Muster (Print-Endpunkte werden vom Browser automatisch als Download ausgelö
 
 ---
 
+## 11. Barrierefreiheit und Workflow-Abschluss
+
+### TC-032-048: PrintButton stellt ein aria-label für Screenreader bereit
+
+**Requirement**: REQ-032 §8 — Barrierefreiheit
+**Priority**: High
+**Category**: Barrierefreiheit
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Pflege-Dashboard (oder eine andere Seite mit PrintButton) ist geöffnet
+
+**Testschritte**:
+1. Nutzer (bzw. ein Screenreader) prüft das `aria-label`-Attribut des PrintButton
+
+**Erwartete Ergebnisse**:
+- Der PrintButton belegt ein nicht-leeres `aria-label` (entweder ein übergebenes `label`-Prop oder der i18n-Default `print.downloadPdf`)
+- Ein Screenreader kann die Funktion des Buttons ohne visuellen Kontext ansagen
+
+**Nachbedingungen**:
+- Keine Statusänderung
+
+**Tags**: [req-032, print-button, accessibility, aria-label, screenreader]
+
+---
+
+### TC-032-049: Klick auf PrintButton im Pflege-Dashboard schließt den Workflow ab (Erfolg oder graceful Fehler)
+
+**Requirement**: REQ-032 §3.2 — PDF-Export; §6.1 — PrintButton-Zustandsautomat
+**Priority**: Medium
+**Category**: Zustandswechsel
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Pflege-Dashboard ist geöffnet, PrintButton ist aktiviert (siehe TC-032-038)
+
+**Testschritte**:
+1. Nutzer klickt auf den PrintButton
+2. Nutzer wartet, bis der Lade-Zustand (Spinner) wieder verschwindet
+
+**Erwartete Ergebnisse**:
+- Der Button wechselt beim Klick in einen Lade-Zustand
+- Nach Abschluss der Anfrage kehrt der Button in den bedienbaren (nicht deaktivierten) Zustand zurück
+- Entweder erscheint eine Erfolgs-Snackbar (PDF-Download gestartet) oder eine Fehler-Snackbar (z.B. wenn kein Template registriert ist) — beides beweist, dass die UI→API-Verkettung durchlaufen wurde
+- In keinem Fall bleibt der Button dauerhaft im Lade-Zustand hängen
+
+**Nachbedingungen**:
+- PrintButton ist wieder bedienbar
+
+**Tags**: [req-032, print-button, workflow, snackbar, graceful-error]
+
+---
+
 ## Coverage-Matrix
 
 | Spec-Abschnitt | Beschreibung | Testfälle |
@@ -1450,10 +1502,10 @@ URL-Muster (Print-Endpunkte werden vom Browser automatisch als Download ausgelö
 | §2.7 Sammelausdruck | Mehrfachauswahl, Grid | TC-032-017, TC-032-018, TC-032-019, TC-032-020, TC-032-021 |
 | §2.8 | Kalender-Übersicht | TC-032-027 |
 | §3.1 | Browser-Druckansicht (@media print) | TC-032-003, TC-032-004, TC-032-005, TC-032-041 |
-| §3.2 | PDF-Export | TC-032-006, TC-032-007, TC-032-008, TC-032-009, TC-032-010, TC-032-029, TC-032-030, TC-032-032, TC-032-042 |
+| §3.2 | PDF-Export | TC-032-006, TC-032-007, TC-032-008, TC-032-009, TC-032-010, TC-032-029, TC-032-030, TC-032-032, TC-032-042, TC-032-049 |
 | §3.3 | CSV-Export | TC-032-022, TC-032-023, TC-032-024 |
 | §5 | API Query-Parameter | TC-032-010, TC-032-031 |
-| §6.1 | PrintButton-Komponente | TC-032-001, TC-032-002, TC-032-009, TC-032-038, TC-032-046, TC-032-047 |
+| §6.1 | PrintButton-Komponente | TC-032-001, TC-032-002, TC-032-009, TC-032-038, TC-032-046, TC-032-047, TC-032-049 |
 | §6.2 | PlantLabelDialog | TC-032-011 bis TC-032-016, TC-032-017, TC-032-018, TC-032-031 |
 | §7 | Berechtigungen | TC-032-033, TC-032-034, TC-032-035 |
-| §8 | NFR (Performance, i18n, A4) | TC-032-010, TC-032-044, TC-032-045 |
+| §8 | NFR (Performance, i18n, A4, Barrierefreiheit) | TC-032-010, TC-032-044, TC-032-045, TC-032-048 |

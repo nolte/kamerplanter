@@ -7,9 +7,18 @@ conditions that are difficult to reproduce in standard E2E runs. These tests use
 pragmatic approaches to verify error handling UX where possible.
 
 Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-001.md):
-  TC-REQ-001-076  ->  (no direct spec TC)  Netzwerkfehler zeigt Fehlermeldung
-  TC-REQ-001-077  ->  (no direct spec TC)  Serverfehler (500) zeigt Fehlermeldung
+  TC-REQ-001-076  ->  TC-001-097  Netzwerkfehler zeigt Fehlermeldung
+  TC-REQ-001-077  ->  TC-001-098  Serverfehler (500) zeigt Fehlermeldung
   TC-REQ-001-028  ->  TC-001-068  Ungueltige URL — Botanische Familie nicht gefunden
+
+The previous first-line IDs (TC-REQ-001-076 / TC-REQ-001-077) resolved to
+nothing in the specification: no case for network/server-error UX existed
+under spec/e2e-testcases/. Rather than reuse the numerically adjacent
+TC-001-076 ("Species wissenschaftlicher Name — dreiteilige Namen ohne
+Hybrid-Symbol") or TC-001-077 ("Botanische Familie — Ordnung leer lassen ist
+erlaubt") — both unrelated formvalidation cases, not error-handling ones — two
+new cases (TC-001-097, TC-001-098) were declared in Gruppe 23 of
+spec/e2e-testcases/TC-REQ-001.md.
 """
 
 from __future__ import annotations
@@ -34,16 +43,17 @@ def detail_page(browser: WebDriver, base_url: str) -> BotanicalFamilyDetailPage:
 
 
 class TestErrorHandling:
-    """Error handling and notifications (Spec: TC-001-068)."""
+    """Error handling and notifications (Spec: TC-001-068, TC-001-097, TC-001-098)."""
 
     @pytest.mark.skip(reason="Requires backend to be stopped; run manually")
     @pytest.mark.smoke
     def test_network_error_shows_notification(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-076: Network error shows error notification.
+        """TC-001-097: Network error shows error notification.
 
-        Spec: (no direct spec TC) -- Netzwerkfehler zeigt Fehlerbenachrichtigung.
+        Spec: TC-001-097 -- Netzwerkfehler beim Laden einer Stammdaten-Liste
+        zeigt Fehleranzeige.
 
         This test requires the backend to be unreachable. In a standard E2E run
         with a running backend, this test is skipped. To test manually:
@@ -66,9 +76,10 @@ class TestErrorHandling:
     def test_server_error_shows_notification(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-077: Server error (500) shows error notification.
+        """TC-001-098: Server error (500) shows error notification.
 
-        Spec: (no direct spec TC) -- Serverfehler (500) zeigt Fehlerbenachrichtigung.
+        Spec: TC-001-098 -- Serverfehler (500) beim Laden einer
+        Stammdaten-Liste zeigt Fehlerbenachrichtigung.
 
         This test requires the backend to return a 500 error. In standard E2E
         this cannot be reliably triggered without mocking or a special test endpoint.

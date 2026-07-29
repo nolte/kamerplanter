@@ -2,7 +2,7 @@
 req_id: REQ-026
 title: Aquaponik-Management — Fisch-Pflanzen-Kreislaufsysteme
 category: Aquaponik
-test_count: 68
+test_count: 69
 coverage_areas:
   - Aquaponik-System CRUD (AquaponicSystemListPage, AquaponicSystemDetailPage)
   - Systemtyp-Validierung (Media-Bed vs. DWC/NFT/Hybrid/Wicking — Biofilter-Pflicht)
@@ -25,8 +25,9 @@ coverage_areas:
   - Fischgesundheit-Monitor (HealthAlertSection — Mortalitätsrate, Fressverhalten)
   - Saisonale Dormanz und Ramp-up (Outdoor-Systeme)
   - Formularvalidierung (Pflichtfelder, Enum-Werte, Grenzwerte)
+  - Route-Erreichbarkeit (Smoke) für die Aquaponik-Einstiegsseite
 generated: 2026-03-21
-version: "1.0"
+version: "1.1"
 ---
 
 # TC-REQ-026: Aquaponik-Management — Fisch-Pflanzen-Kreislaufsysteme
@@ -1829,6 +1830,30 @@ REQ-026 führt Aquaponik als eigenständiges Anwendungsgebiet ein: Fischbestands
 
 ---
 
+## 16. Route-Erreichbarkeit (Smoke)
+
+### TC-026-069: Aquaponik-Einstiegsseite ist erreichbar (Smoke)
+
+**Requirement**: REQ-026 § 4.1 (Route-Verdrahtung als Voraussetzung für alle weiteren Aquaponik-Fälle)
+**Priority**: Medium
+**Category**: Smoke
+**Preconditions**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert zur Aquaponik-Einstiegsseite (`/aquaponik`)
+
+**Erwartete Ergebnisse**:
+- Die Seite lädt ohne Fehler
+- Ein Markierungstext oder -bereich für "Aquaponik" ist sichtbar
+
+**Nachbedingungen**:
+- Kein Status geändert
+
+**Tags**: [req-026, aquaponik, smoke, route-erreichbarkeit]
+
+---
+
 ## Coverage-Übersicht
 
 | Spezifikationsabschnitt | Beabdeckte Testfälle |
@@ -1865,3 +1890,4 @@ REQ-026 führt Aquaponik als eigenständiges Anwendungsgebiet ein: Fischbestands
 | § 7 DoD-Prüfpunkte (alle) | Verteilt über alle Testfälle |
 | § 7 Testszenarien 1–8 | TC-026-015 (S1), TC-026-023 (S2), TC-026-034 (S3), TC-026-047 (S4), TC-026-005 (S5), TC-026-039 (S6), TC-026-042 (S7), TC-026-029 (S8) |
 | Formularvalidierung (alle Schemas) | TC-026-008, TC-026-010, TC-026-025, TC-026-026, TC-026-045, TC-026-066, TC-026-067, TC-026-068 |
+| Route-Erreichbarkeit (Smoke) | TC-026-069 |

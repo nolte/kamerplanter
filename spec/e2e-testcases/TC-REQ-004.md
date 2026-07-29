@@ -2,7 +2,7 @@
 req_id: REQ-004 + REQ-004-A
 title: Dynamische Nährstoff- und Dünge-Engine (inkl. EC-Budget-Kalkulation)
 category: Bewässerung & Düngung
-test_count: 92
+test_count: 113
 coverage_areas:
   - Core-Lifecycle-Journey — Gießen & Düngen (self-provisioning)
   - Cross-View-Konsistenz eines Gießvorgangs (Gießprotokoll global + Instanz-Tab + Aufgabenverlauf)
@@ -18,6 +18,8 @@ coverage_areas:
   - Dosierungsrechner-Tab (NED normalisierte Referenzdosierung)
   - Foliar-Warnung Blütephase
   - FeedingEvent (Dokumentation, Filter, Export)
+  - FeedingEvent-Liste & Erstellen-Dialog (generische UI-Mechanik)
+  - Gießprotokoll (WateringLogListPage, WateringLogCreateDialog, WateringLogDetailPage)
   - Lagerbestand-Tracking und Niedrigbestand-Warnung
 generated: 2026-03-21
 version: REQ-004 v3.4, REQ-004-A v1.1
@@ -2361,6 +2363,488 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 
 ---
 
+## Gruppe P — FeedingEvent-Liste & Erstellen-Dialog (generische UI-Mechanik)
+
+*Kontext: Diese Gruppe deckt die generischen Listen- und Dialog-Mechaniken der FeedingEvent-Seite ab (Seitenaufbau, Suche, Sortierung, Formularfeld-Inventar des Erstellen-Dialogs, Abbrechen-Verhalten). Die fachlichen FeedingEvent-Szenarien (Erfassen mit Werten, Foliar-Warnung, Zeitraum-/Run-Filter, CSV-Export) sind bereits in Gruppe H (TC-004-048 bis TC-004-054) beschrieben; diese Gruppe ergänzt die dort nicht abgedeckte reine UI-Mechanik.*
+
+---
+
+## TC-004-093: FeedingEvent-Liste aufrufen und Grundstruktur prüfen
+
+**Requirement**: REQ-004 §3 (FeedingEvent), §7 DoD „Dosierungs-Historie"; UI-NFR-010 (Listen-Grundstruktur)
+**Priority**: High
+**Category**: Happy Path / Listenansicht
+**Preconditions**:
+- Nutzer ist eingeloggt und befindet sich in einem Tenant.
+
+**Test Steps**:
+1. Nutzer navigiert zu „Düngung" → „Düngungsprotokoll".
+2. Nutzer beobachtet die geladene Seite.
+
+**Expected Results**:
+- Der Seitencontainer der FeedingEvent-Liste ist sichtbar.
+- Ein „Erstellen"-Button ist sichtbar und klickbar.
+- Entweder eine Datentabelle mit Spaltenköpfen (u. a. Zeitpunkt, Pflanze, Methode, Volumen) oder ein Leerzustand ist sichtbar.
+- Sind Zeilen vorhanden, zeigt die Seite eine „Zeigt X von Y"-Anzahl an; andernfalls ist der Leerzustand sichtbar.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, feeding-event, list, structure]
+
+---
+
+## TC-004-094: FeedingEvent-Liste — Freitextsuche filtert Ergebnisse
+
+**Requirement**: REQ-004 §7 DoD „FeedingEvent-Filter"
+**Priority**: Medium
+**Category**: Listenansicht / Filterung
+**Preconditions**:
+- Mindestens ein FeedingEvent ist vorhanden.
+
+**Test Steps**:
+1. Nutzer öffnet das Düngungsprotokoll.
+2. Nutzer gibt im Suchfeld einen nicht existierenden Suchbegriff ein.
+
+**Expected Results**:
+- Die Zeilenanzahl sinkt gegenüber dem ungefilterten Zustand (bis auf null Treffer).
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, feeding-event, filter, search]
+
+---
+
+## TC-004-095: FeedingEvent-Liste — Sortierung über Spaltenkopf
+
+**Requirement**: REQ-004 §7 DoD „FeedingEvent-Filter"; UI-NFR-010 (Tabellensortierung)
+**Priority**: Medium
+**Category**: Listenansicht
+**Preconditions**:
+- Mindestens zwei FeedingEvents mit unterschiedlichen Werten in der ersten Spalte sind vorhanden.
+
+**Test Steps**:
+1. Nutzer öffnet das Düngungsprotokoll (Desktop-Viewport).
+2. Nutzer klickt auf den ersten Spaltenkopf.
+
+**Expected Results**:
+- Die Tabelle bleibt mit Zeilen gefüllt.
+- Die Zeilenreihenfolge der ersten Spalte ändert sich gegenüber dem Zustand vor dem Klick.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, feeding-event, list, sort]
+
+---
+
+## TC-004-096: FeedingEvent-Erstellen-Dialog öffnet sich
+
+**Requirement**: REQ-004 §3 (FeedingEvent), §7 DoD „Dosierungs-Historie"
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- FeedingEvent-Liste ist geladen.
+
+**Test Steps**:
+1. Nutzer klickt auf „Erstellen".
+
+**Expected Results**:
+- Der Erstellen-Dialog wird mit Formularfeldern angezeigt.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, feeding-event, create, dialog]
+
+---
+
+## TC-004-097: FeedingEvent-Erstellen-Dialog — vollständiges Formularfeld-Inventar
+
+**Requirement**: REQ-004 §3 (FeedingEvent-Modell: plant_key, application_method, volume_applied_liters, measured_ec_before/after, measured_ph_before/after, runoff_ec, runoff_ph, runoff_volume_liters, notes)
+**Priority**: High
+**Category**: Formularprüfung
+**Preconditions**:
+- Der Erstellen-Dialog ist geöffnet.
+
+**Test Steps**:
+1. Nutzer inspiziert das Formular.
+
+**Expected Results**:
+- Felder für Pflanze (plant_key), Applikationsmethode und Volumen (volume_applied_liters) sind vorhanden.
+- Felder für EC vorher/nachher und pH vorher/nachher sind vorhanden.
+- Felder für Runoff-EC, Runoff-pH und Runoff-Volumen sind vorhanden.
+- Ein mehrzeiliges Notizfeld ist vorhanden.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, feeding-event, create, form-fields]
+
+---
+
+## TC-004-098: FeedingEvent erstellen — Pflichtfeld-Validierung (Pflanze fehlt)
+
+**Requirement**: REQ-004 §3 (FeedingEvent: plant_key Pflichtfeld)
+**Priority**: High
+**Category**: Formvalidierung
+**Preconditions**:
+- Der Erstellen-Dialog ist geöffnet, keine Pflanze ausgewählt.
+
+**Test Steps**:
+1. Nutzer klickt „Speichern", ohne eine Pflanze auszuwählen.
+
+**Expected Results**:
+- Der Dialog bleibt geöffnet; das Formular wird nicht abgeschickt.
+
+**Postconditions**:
+- Kein FeedingEvent wurde erstellt.
+
+**Tags**: [REQ-004, feeding-event, create, validation]
+
+---
+
+## TC-004-099: FeedingEvent-Erstellen-Dialog — Abbrechen ohne Speichern
+
+**Requirement**: REQ-004 §3 (FeedingEvent)
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- Der Erstellen-Dialog ist geöffnet.
+
+**Test Steps**:
+1. Nutzer klickt „Abbrechen".
+
+**Expected Results**:
+- Der Dialog schließt sich.
+- Die Zeilenanzahl der Liste ist unverändert gegenüber dem Zustand vor dem Öffnen des Dialogs.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, feeding-event, create, cancel]
+
+---
+
+## TC-004-100: FeedingEvent-Erstellen-Dialog — Formular wird nach Abbrechen zurückgesetzt
+
+**Requirement**: REQ-004 §3 (FeedingEvent)
+**Priority**: Low
+**Category**: Formularprüfung
+**Preconditions**:
+- Nutzer hat den Erstellen-Dialog geöffnet und das Volumenfeld auf einen abweichenden Wert geändert.
+
+**Test Steps**:
+1. Nutzer ändert das Volumenfeld auf einen erkennbaren Wert (z. B. 42.5).
+2. Nutzer klickt „Abbrechen".
+3. Nutzer öffnet den Erstellen-Dialog erneut.
+
+**Expected Results**:
+- Das Volumenfeld zeigt nicht mehr den zuvor eingegebenen Wert (Formular ist auf den Standardwert zurückgesetzt).
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, feeding-event, create, form-reset]
+
+---
+
+## Gruppe Q — Gießprotokoll (WateringLogListPage, WateringLogCreateDialog, WateringLogDetailPage)
+
+*Kontext: Diese Gruppe deckt die generischen Listen-, Erstellen-Dialog- und Detailseiten-Mechaniken des Gießprotokolls ab (`/giessprotokoll`), unabhängig von den self-provisioning Core-Lifecycle-Journeys aus Gruppe O (TC-004-089, TC-004-090, TC-004-092), die eine konkrete Pflanze `JOURNEY-004` und eine spezifische Erfolgsmeldung voraussetzen. Diese Gruppe prüft stattdessen die UI-Mechanik anhand vorhandener Daten (Seitenaufbau, Dialogfelder, Validierung, Suche, Detail-Tabs, Löschen).*
+
+---
+
+## TC-004-101: Gießprotokoll-Liste aufrufen und Grundstruktur prüfen
+
+**Requirement**: REQ-004 §3 (WateringLog / Gießprotokoll), §7 DoD „Dosierungs-Historie"; UI-NFR-010 (Listen-Grundstruktur)
+**Priority**: Critical
+**Category**: Happy Path / Listenansicht
+**Preconditions**:
+- Nutzer ist eingeloggt und befindet sich in einem Tenant.
+
+**Test Steps**:
+1. Nutzer navigiert zu `/giessprotokoll`.
+2. Nutzer beobachtet die geladene Seite.
+
+**Expected Results**:
+- Der Seitencontainer `watering-log-list-page` ist sichtbar.
+- Ein „Gießvorgang erfassen"-Button ist sichtbar.
+- Entweder eine Datentabelle oder ein Leerzustand ist sichtbar.
+- Sind Zeilen vorhanden, zeigt die Seite einen nicht-leeren „Zeigt X von Y"-Text an.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, list, structure]
+
+---
+
+## TC-004-102: Gießprotokoll-Erstellen-Dialog öffnet sich
+
+**Requirement**: REQ-004 §3 (WateringLog / Gießprotokoll)
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Gießprotokoll-Liste ist geladen.
+
+**Test Steps**:
+1. Nutzer klickt „Gießvorgang erfassen".
+
+**Expected Results**:
+- Der Erstellen-Dialog (`watering-log-create-dialog`) wird angezeigt.
+- Ein Pflanzen-Autocomplete-Feld ist im Dialog sichtbar.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, create, dialog]
+
+---
+
+## TC-004-103: Gießvorgang erfassen — Happy Path (generisch)
+
+**Requirement**: REQ-004 §3 (WateringLog / Gießprotokoll), §7 DoD „Dosierungs-Historie"
+**Priority**: Critical
+**Category**: Happy Path
+**Preconditions**:
+- Mindestens eine Pflanzinstanz existiert bereits im Tenant.
+
+**Test Steps**:
+1. Nutzer öffnet den Gießprotokoll-Erstellen-Dialog.
+2. Nutzer wählt eine vorhandene Pflanze aus.
+3. Nutzer gibt Volumen `2.5` L, EC vorher `1.2` mS und pH vorher `6.0` ein.
+4. Nutzer klickt „Speichern".
+
+**Expected Results**:
+- Der Dialog schließt sich.
+- Die Zeilenanzahl der Gießprotokoll-Liste ist um einen Eintrag höher als vor der Erfassung.
+
+**Postconditions**:
+- Ein neuer Gießvorgang ist persistiert.
+
+**Hinweis (Abgrenzung)**: Abzugrenzen von TC-004-089 (Core-Lifecycle-Journey), das eine self-provisioned Pflanze `JOURNEY-004`, ein self-provisioned Düngemittel und die konkrete Erfolgsmeldung „Bewässerung erfasst" voraussetzt; dieser Testfall prüft dieselbe UI-Mechanik generisch anhand vorhandener Daten, ohne self-provisioning und ohne die spezifische Erfolgsmeldung zu prüfen.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, create, happy-path]
+
+---
+
+## TC-004-104: Gießvorgang erfassen — Pflichtfeld-Validierung (Volumen)
+
+**Requirement**: REQ-004 §3 (WateringLog: volume_liters > 0)
+**Priority**: High
+**Category**: Formvalidierung
+**Preconditions**:
+- Der Erstellen-Dialog ist geöffnet.
+
+**Test Steps**:
+1. Nutzer setzt das Volumenfeld auf „0".
+2. Nutzer klickt „Speichern".
+
+**Expected Results**:
+- Der Dialog bleibt geöffnet; das Formular wird nicht abgeschickt.
+
+**Postconditions**:
+- Kein Gießvorgang wurde erstellt.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, create, validation]
+
+---
+
+## TC-004-105: Gießprotokoll-Erstellen-Dialog — Abbrechen ohne Speichern
+
+**Requirement**: REQ-004 §3 (WateringLog / Gießprotokoll)
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- Der Erstellen-Dialog ist geöffnet und Felder wurden befüllt.
+
+**Test Steps**:
+1. Nutzer füllt das Volumenfeld mit einem Wert (z. B. 99.9).
+2. Nutzer klickt „Abbrechen".
+
+**Expected Results**:
+- Der Dialog schließt sich.
+- Die Zeilenanzahl der Liste ist unverändert.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, create, cancel]
+
+---
+
+## TC-004-106: Gießprotokoll-Erstellen-Dialog — Dünger-Zeile dynamisch hinzufügen
+
+**Requirement**: REQ-004 §3 (WateringLog: optionale Düngemittel-Zuordnung)
+**Priority**: Medium
+**Category**: Formularprüfung
+**Preconditions**:
+- Der Erstellen-Dialog ist geöffnet.
+
+**Test Steps**:
+1. Nutzer klickt „Dünger hinzufügen".
+
+**Expected Results**:
+- Eine neue Dünger-Zeile mit zugehörigem Entfernen-Button erscheint im Formular.
+
+**Postconditions**:
+- Keine Datenmutation (Dialog wird nicht gespeichert).
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, create, fertilizer-row]
+
+---
+
+## TC-004-107: Gießprotokoll-Liste — Freitextsuche filtert Zeilen
+
+**Requirement**: REQ-004 §7 DoD „Dosierungs-Historie" (Listen-Filterung)
+**Priority**: Medium
+**Category**: Listenansicht / Filterung
+**Preconditions**:
+- Mindestens ein Gießvorgang ist vorhanden.
+
+**Test Steps**:
+1. Nutzer gibt einen nicht existierenden Suchbegriff in das Suchfeld ein.
+
+**Expected Results**:
+- Die Zeilenanzahl sinkt gegenüber dem ungefilterten Zustand, oder ein Such-Chip erscheint.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, filter, search]
+
+---
+
+## TC-004-108: Gießprotokoll — Klick auf Zeile navigiert zur Detailseite
+
+**Requirement**: REQ-004 §3 (WateringLog-Detailseite)
+**Priority**: Critical
+**Category**: Navigation
+**Preconditions**:
+- Mindestens ein Gießvorgang ist in der Liste vorhanden.
+
+**Test Steps**:
+1. Nutzer klickt auf eine Zeile der Gießprotokoll-Liste.
+
+**Expected Results**:
+- Der Browser navigiert zu `/giessprotokoll/{key}`.
+- Die Gießprotokoll-Detailseite (`watering-log-detail-page`) ist sichtbar.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, detail, navigation]
+
+---
+
+## TC-004-109: Gießprotokoll-Detailseite zeigt zwei Tabs
+
+**Requirement**: REQ-004 §3 (WateringLog-Detailseite: Tabs „Details"/„Bearbeiten")
+**Priority**: High
+**Category**: Detailansicht
+**Preconditions**:
+- Die Detailseite eines Gießvorgangs ist geöffnet.
+
+**Test Steps**:
+1. Nutzer beobachtet die Tab-Leiste der Detailseite.
+
+**Expected Results**:
+- Genau zwei Tabs sind sichtbar (Details, Bearbeiten).
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, detail, tabs]
+
+---
+
+## TC-004-110: Gießprotokoll-Detailseite — Detail-Tab zeigt Messwert-Karten
+
+**Requirement**: REQ-004 §3 (WateringLog-Detailseite)
+**Priority**: Medium
+**Category**: Detailansicht
+**Preconditions**:
+- Die Detailseite eines Gießvorgangs ist geöffnet, Tab „Details" ist aktiv.
+
+**Test Steps**:
+1. Nutzer beobachtet den Details-Tab.
+
+**Expected Results**:
+- Mindestens eine Karte mit Gießdaten/Messwerten ist sichtbar.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, detail, cards]
+
+---
+
+## TC-004-111: Gießprotokoll-Detailseite — Button „Runoff analysieren" sichtbar
+
+**Requirement**: REQ-004 §3 (RunoffAnalyzer-Integration im Gießprotokoll)
+**Priority**: Medium
+**Category**: Detailansicht
+**Preconditions**:
+- Die Detailseite eines Gießvorgangs ist geöffnet.
+
+**Test Steps**:
+1. Nutzer beobachtet den Details-Tab.
+
+**Expected Results**:
+- Ein Button „Runoff analysieren" ist sichtbar.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, detail, runoff]
+
+---
+
+## TC-004-112: Gießprotokoll-Detailseite — Löschen öffnet Bestätigungsdialog
+
+**Requirement**: REQ-004 §3 (WateringLog löschen)
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Die Detailseite eines Gießvorgangs ist geöffnet.
+
+**Test Steps**:
+1. Nutzer klickt „Löschen".
+
+**Expected Results**:
+- Ein Bestätigungsdialog wird angezeigt.
+
+**Postconditions**:
+- Keine Datenmutation (Dialog wird abgebrochen).
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, delete, confirm-dialog]
+
+---
+
+## TC-004-113: Gießprotokoll-Detailseite — Bearbeiten-Tab zeigt vorbefülltes Formular
+
+**Requirement**: REQ-004 §3 (WateringLog bearbeiten)
+**Priority**: Medium
+**Category**: Detailansicht / Formularprüfung
+**Preconditions**:
+- Die Detailseite eines Gießvorgangs ist geöffnet.
+
+**Test Steps**:
+1. Nutzer wechselt auf den Tab „Bearbeiten".
+
+**Expected Results**:
+- Das Bearbeiten-Formular ist sichtbar.
+- Das Volumenfeld ist mit dem gespeicherten Wert vorbefüllt.
+
+**Postconditions**:
+- Keine Datenmutation.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, edit, form]
+
+---
+
 ## Abdeckungs-Übersicht
 
 | Spec-Abschnitt | Beschreibung | Testfälle |
@@ -2371,6 +2855,8 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 | REQ-004 §3 (Fertilizer-CRUD) | Erstellen, Filtern, Lagerbestand, Reverse Lookup | TC-004-001 bis TC-004-011 |
 | REQ-004 §3 (NutrientPlan-CRUD) | Plan, Phase-Entry, Dünger-Zuweisung, Klonen, Zuweisung | TC-004-012 bis TC-004-027 |
 | REQ-004 §3 (WateringSchedule) | Wochentage/Intervall, Validierungen | TC-004-055 bis TC-004-060 |
+| REQ-004 §3 (WateringLog / Gießprotokoll — UI-Mechanik) | Listen-/Erstellen-Dialog-/Detailseiten-Mechanik unabhängig von der Core-Journey | TC-004-101 bis TC-004-113 |
+| REQ-004 §3 (FeedingEvent — UI-Mechanik) | Listen-/Erstellen-Dialog-Mechanik unabhängig von den fachlichen Szenarien | TC-004-093 bis TC-004-100 |
 | REQ-004 §4 (Multi-Channel Delivery) | Channel-CRUD, Validierungsregeln MCD-V01–V22 | TC-004-068 bis TC-004-075 |
 | REQ-004 §4b (Normalisierte Referenzdosierung) | Dosierungsrechner-Tab, Proportionen, Quell-Feld | TC-004-038 bis TC-004-042 |
 | REQ-004 §5 (Auth & Tenant-Scope) | Zugriffsschutz, Tenant-Isolation | TC-004-084 bis TC-004-085 |
@@ -2384,3 +2870,5 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 | Flushing-Protokoll | Coco/Hydro/Soil, TOO_LATE | TC-004-043 bis TC-004-044 |
 | FeedingEvent | Erfassung, Foliar-Warnung, Filter, Export | TC-004-048 bis TC-004-054 |
 | Responsive (Tablet) | Spaltenpriorisierung | TC-004-086 bis TC-004-087 |
+
+**Offene Abschnitte (kein Testfall ableitbar):** keine — jeder Spec-Abschnitt der Coverage-Tabelle ist durch mindestens einen Testfall abgedeckt.

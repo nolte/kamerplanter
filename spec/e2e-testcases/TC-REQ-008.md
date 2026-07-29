@@ -2,7 +2,7 @@
 req_id: REQ-008
 title: "Post-Harvest: Veredelung, Fermentierung & Lagerreife"
 category: Post-Harvest
-test_count: 68
+test_count: 69
 coverage_areas:
   - Batch-Statusmaschine (fresh → drying → curing → aging → stored → consumed/disposed)
   - Trocknungs-Dashboard (Fortschrittsbalken, Gewichts-Tracking, Snap-Test)
@@ -18,8 +18,9 @@ coverage_areas:
   - Karenz-Gate (REQ-010-Verknuepfung)
   - Stoerfall-Protokolle (Schimmel-Fund, Uebertrocknungs-Warnung, Notfallmasnahmen)
   - Authentifizierung & Tenant-Scoping
+  - Route-Erreichbarkeit (Smoke) fuer die Post-Harvest-Einstiegsseite
 generated: 2026-03-21
-version: "2.2"
+version: "2.3"
 ---
 
 # TC-REQ-008: Post-Harvest — Veredelung, Fermentierung & Lagerreife
@@ -1862,6 +1863,30 @@ REQ-008 setzt REQ-007 (Ernte) voraus: Post-Harvest beginnt mit einem Batch, der 
 
 ---
 
+## 16. Route-Erreichbarkeit (Smoke)
+
+### TC-REQ-008-069: Post-Harvest-Einstiegsseite ist erreichbar (Smoke)
+
+**Requirement**: REQ-008 § 6 DoD (Route-Verdrahtung als Voraussetzung fuer alle weiteren Post-Harvest-Faelle)
+**Priority**: Medium
+**Category**: Smoke
+**Preconditions**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert zur Post-Harvest-Einstiegsseite (`/post-harvest`)
+
+**Erwartete Ergebnisse**:
+- Die Seite laedt ohne Fehler
+- Ein Markierungstext oder -bereich fuer "Nacherntebehandlung" ist sichtbar
+
+**Nachbedingungen**:
+- Keine Daten veraendert
+
+**Tags**: [req-008, post-harvest, smoke, route-erreichbarkeit]
+
+---
+
 ## Abdeckungs-Matrix
 
 | Spec-Abschnitt | Funktionsbereich | Testfall-IDs |
@@ -1891,3 +1916,4 @@ REQ-008 setzt REQ-007 (Ernte) voraus: Post-Harvest beginnt mit einem Batch, der 
 | Formvalidierungen (alle Modelle) | Grenzwerte & Validierung | TC-008-055 bis TC-008-060 |
 | Navigation & UI-Patterns | Listenansichten, Tabs, Guard | TC-008-061 bis TC-008-064, TC-008-068 |
 | Grenzwert 95% Trocknungsfortschritt | Edge Case | TC-008-067 |
+| Route-Erreichbarkeit (Smoke) | Post-Harvest-Einstiegsseite | TC-008-069 |

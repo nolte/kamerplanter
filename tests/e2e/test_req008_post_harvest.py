@@ -3,6 +3,9 @@
 The full UI flow (start drying -> curing -> stored -> released) lands
 with the REQ-008 implementation PR. Until the route is wired into
 App.tsx, this test self-skips so CI stays green.
+
+Spec-TC Mapping (test -> spec/e2e-testcases/TC-REQ-008.md):
+  test_post_harvest_page_route_reachable_or_skipped -> TC-REQ-008-069
 """
 
 import pytest
@@ -17,7 +20,7 @@ FEATURES = ("harvest",)
 @pytest.mark.smoke
 class TestPostHarvestRouteReachable:
     def test_post_harvest_page_route_reachable_or_skipped(self, browser, base_url):
-        """Smoke test: navigate to /post-harvest. Skip when not yet wired."""
+        """TC-REQ-008-069: Smoke test: navigate to /post-harvest. Skip when not yet wired."""
         browser.get(f"{base_url}/post-harvest")
         skip_if_route_unwired(browser, "REQ-008")
 

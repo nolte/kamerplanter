@@ -58,8 +58,44 @@ pytest tests/e2e/ -v
 
 Reports and screenshots land under `test-reports/e2e/<timestamp>/`, including the JUnit XML report — see [CI test reports](#ci-test-reports). The full stack, fixtures, and protocol format are in the [testing concept → E2E Tests](../index.md#e2e-tests-selenium).
 
+## Test-case traceability (mandatory gate)
+
+Every E2E test must name the specified test case it verifies — as a `@TC-<id>` tag
+on the Gherkin scenario, or as a TC-ID in the classic test's docstring.
+`scripts/check_bdd_traceability.py` checks this mechanically and runs as a
+`pre-commit` hook inside the **required** `static` job:
+
+```bash
+task test:e2e:traceability                        # exit 0 / 1, no stack needed
+task test:e2e:traceability -- --list-unimplemented # + cases with no test yet
+```
+
+Four defect classes, two per channel:
+
+| Channel | Defect |
+|---|---|
+| Gherkin | a tag no test-case document declares |
+| Gherkin | a scenario with no tag |
+| docstring | a TC-ID no test-case document declares |
+| docstring | a test function with no TC-ID |
+
+The reverse direction is **not** a defect: a specified test case without a test is
+simply not automated yet and is only counted.
+
+!!! warning "The `did you mean …?` hint is not a match"
+    When the check finds an unresolvable ID it suggests the closest known one. That
+    is **string proximity**, not a semantic match. `TC-REQ-027-001` → `TC-027-001`
+    looks like a typo but describes different behaviour. #839 checked three such
+    suggestions against the spec text — all three were wrong.
+
+    If no test case describes the behaviour under test, the honest outcome is a
+    **new test case** in `spec/e2e-testcases/`, not a forced mapping. A wrong
+    mapping is worse than none: it claims coverage that does not exist. In #839, 66
+    of 99 cases needed exactly that.
+
 ## Conventions
 
 - Every page object inherits from `BasePage` and encapsulates exactly one screen.
 - Address elements exclusively via `data-testid` locators — never via brittle CSS paths.
 - Take screenshots explicitly at meaningful checkpoints; on failure they are captured automatically.
+- Every new test names its TC-ID — see [Test-case traceability](#test-case-traceability-mandatory-gate).

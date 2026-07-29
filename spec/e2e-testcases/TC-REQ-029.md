@@ -2,7 +2,7 @@
 req_id: REQ-029
 title: KI-basierte Pflanzenidentifikation via Plant.id (Optional)
 category: Integration
-test_count: 58
+test_count: 59
 coverage_areas:
   - Feature-Toggle-Anzeige (Kamera-Buttons ein-/ausgeblendet)
   - Consent-Dialog (Einwilligung zur Bildübertragung)
@@ -28,8 +28,9 @@ coverage_areas:
   - Integration in PlantInstance-Detail
   - Integration in IPM-Inspektion
   - Integration in Pflege-Dashboard
+  - Route-Erreichbarkeit (Smoke) für die Pflanzenerkennungs-Einstiegsseite
 generated: 2026-03-21
-version: "1.0"
+version: "1.1"
 ---
 
 # TC-REQ-029: KI-basierte Pflanzenidentifikation
@@ -1546,6 +1547,30 @@ REQ-029 ist vollstaendig optional — ohne API-Key ist die Funktion deaktiviert 
 
 ---
 
+## 16. Route-Erreichbarkeit (Smoke)
+
+### TC-029-059: Pflanzenerkennungs-Einstiegsseite ist erreichbar (Smoke)
+
+**Requirement**: REQ-029 §4.2 (Route-Verdrahtung als Voraussetzung fuer alle weiteren Identifikations-Faelle)
+**Priority**: Medium
+**Category**: Smoke
+**Preconditions**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert zur Pflanzenerkennungs-Einstiegsseite (`/plant-identification`)
+
+**Erwartete Ergebnisse**:
+- Die Seite laedt ohne Fehler
+- Ein Markierungstext oder -bereich fuer "Pflanzenerkennung" ist sichtbar
+
+**Nachbedingungen**:
+- Keine Aenderung
+
+**Tags**: [req-029, identification, smoke, route-erreichbarkeit]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spec-Abschnitt | Beschreibung | Testfaelle |
@@ -1556,7 +1581,7 @@ REQ-029 ist vollstaendig optional — ohne API-Key ist die Funktion deaktiviert 
 | §3.6 IdentificationService (Rate-Limit) | Rate-Limiting User/Global/Burst | TC-029-031–TC-029-033 |
 | §3.7 REST-Endpunkte | /status, /identify, /diagnose, /confirm, /history | TC-029-001–TC-029-004, TC-029-039–TC-029-041 |
 | §4.1 Identifikations-Dialog | Alle Dialog-Elemente und Fehlerzustaende | TC-029-010–TC-029-016, TC-029-027–TC-029-030 |
-| §4.2 Integration in bestehende Seiten | Stammdaten, PlantInstance, IPM, Dashboard | TC-029-046–TC-029-050 |
+| §4.2 Integration in bestehende Seiten | Stammdaten, PlantInstance, IPM, Dashboard | TC-029-046–TC-029-050, TC-029-059 |
 | §4.3 Erfahrungsstufen | Beginner/Intermediate/Expert-Unterschiede | TC-029-017–TC-029-019, TC-029-022–TC-029-023 |
 | §4.4 i18n-Keys | Deutsche Beschriftungen | Alle TC (Labels geprueft) |
 | §5.1 Consent | Erst-Einwilligung, Widerruf | TC-029-005–TC-029-009 |
@@ -1576,3 +1601,4 @@ REQ-029 ist vollstaendig optional — ohne API-Key ist die Funktion deaktiviert 
 | §9 Szenario 10 (Consent-Widerruf) | Toggle → Buttons weg | TC-029-008–TC-029-009 |
 | PlantNet Fallback (§3.3) | Nur Artbestimmung, keine Diagnose | TC-029-004, TC-029-055–TC-029-056 |
 | Netzwerkfehler / Graceful Degradation | Fehlerbehandlung | TC-029-051–TC-029-052 |
+| Route-Erreichbarkeit (Smoke) | Pflanzenerkennungs-Einstiegsseite | TC-029-059 |

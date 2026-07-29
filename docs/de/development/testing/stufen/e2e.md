@@ -58,8 +58,45 @@ pytest tests/e2e/ -v
 
 Reports und Screenshots landen unter `test-reports/e2e/<timestamp>/`, darunter auch der JUnit-XML-Report — siehe [CI-Testberichte](#ci-testberichte). Der vollständige Stack, die Fixtures und das Protokoll-Format stehen im [Testkonzept → E2E-Tests](../index.md#e2e-tests-selenium).
 
+## Testfall-Nachverfolgbarkeit (Pflicht-Gate)
+
+Jeder E2E-Test muss benennen, welchen spezifizierten Testfall er prüft — als
+`@TC-<id>`-Tag im Gherkin-Szenario oder als TC-ID im Docstring des klassischen
+Tests. `scripts/check_bdd_traceability.py` prüft das maschinell und läuft als
+`pre-commit`-Hook im **required** `static`-Job:
+
+```bash
+task test:e2e:traceability                        # Exit 0 / 1, kein Stack nötig
+task test:e2e:traceability -- --list-unimplemented # + Fälle ohne Test
+```
+
+Vier Defektklassen, je zwei pro Kanal:
+
+| Kanal | Defekt |
+|---|---|
+| Gherkin | Tag, den kein Testfall-Dokument deklariert |
+| Gherkin | Szenario ohne Tag |
+| Docstring | TC-ID, die kein Testfall-Dokument deklariert |
+| Docstring | Testfunktion ohne TC-ID |
+
+Die Rückrichtung ist **kein** Defekt: ein spezifizierter Testfall ohne Test ist
+noch nicht automatisiert und wird nur gezählt.
+
+!!! warning "Der Vorschlag „did you mean …?“ ist keine Übereinstimmung"
+    Findet der Check eine unauflösbare ID, schlägt er die nächstliegende bekannte
+    ID vor. Das ist **String-Nachbarschaft**, keine fachliche Übereinstimmung.
+    `TC-REQ-027-001` → `TC-027-001` sieht wie ein Tippfehler aus, beschreibt aber
+    anderes Verhalten. In #839 wurden drei solcher Vorschläge gegen den Spec-Text
+    geprüft — alle drei waren falsch.
+
+    Beschreibt kein Testfall das geprüfte Verhalten, ist das ehrliche Ergebnis ein
+    **neuer Testfall** in `spec/e2e-testcases/`, keine erzwungene Zuordnung. Eine
+    falsche Zuordnung ist schlimmer als keine: sie behauptet Abdeckung, die es
+    nicht gibt. In #839 brauchten 66 von 99 Fällen genau das.
+
 ## Konventionen
 
 - Jedes Page Object erbt von `BasePage` und kapselt genau einen Bildschirm.
 - Elemente ausschließlich über `data-testid`-Locator ansprechen — nie über brüchige CSS-Pfade.
 - Screenshots an fachlichen Checkpoints explizit aufnehmen; bei Fehlern werden sie automatisch erfasst.
+- Jeder neue Test nennt seine TC-ID — siehe [Testfall-Nachverfolgbarkeit](#testfall-nachverfolgbarkeit-pflicht-gate).

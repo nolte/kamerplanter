@@ -5,15 +5,25 @@ The watering log is a daily-use feature for documenting irrigation events
 including volume, EC/pH measurements, and fertilizer usage.
 
 Spec-TC Mapping:
-  TC-REQ-004-W001  List page renders with data-testid
-  TC-REQ-004-W002  Create button is visible
-  TC-REQ-004-W003  Create dialog opens on button click
-  TC-REQ-004-W004  Create watering log — Happy Path
-  TC-REQ-004-W005  Pflichtfeld-Validierung (volume > 0)
-  TC-REQ-004-W006  Cancel closes dialog without changes
-  TC-REQ-004-W007  Search filters table rows
-  TC-REQ-004-W008  Click on row navigates to detail page
-  TC-REQ-004-W009  Detail page shows watering data with tabs
+  TC-004-101  List page renders with data-testid + create button + table/empty state + count
+  TC-004-102  Create dialog opens on button click
+  TC-004-103  Create watering log — Happy Path (generic, no self-provisioning)
+  TC-004-104  Pflichtfeld-Validierung (volume > 0)
+  TC-004-105  Cancel closes dialog without changes
+  TC-004-106  Add-fertilizer button adds a dynamic fertilizer row
+  TC-004-107  Search filters table rows
+  TC-004-108  Click on row navigates to detail page
+  TC-004-109  Detail page shows two tabs (Details, Edit)
+  TC-004-110  Detail page — details tab shows measurement cards
+  TC-004-111  Detail page — analyze-runoff button visible
+  TC-004-112  Detail page — delete opens confirmation dialog
+  TC-004-113  Detail page — edit tab shows pre-filled form
+
+These generic list/dialog/detail mechanics are distinct from the
+self-provisioning Core-Lifecycle-Journey cases (TC-004-089, TC-004-090,
+TC-004-092 in spec/e2e-testcases/TC-REQ-004.md, covered by
+test_req004_watering_cross_view_consistency*.py), which require a specific
+plant `JOURNEY-004` and assert the concrete success message.
 """
 
 from __future__ import annotations
@@ -49,11 +59,11 @@ def watering_detail(browser: WebDriver, base_url: str) -> WateringLogDetailPage:
     return WateringLogDetailPage(browser, base_url)
 
 
-# -- TC-REQ-004-W001 to TC-REQ-004-W002: List Page ----------------------------
+# -- TC-004-101: List Page -----------------------------------------------------
 
 
 class TestWateringLogListPage:
-    """Watering log list display and interactions."""
+    """Watering log list display and interactions (Spec: TC-004-101)."""
 
     @pytest.mark.smoke
     def test_list_page_renders_with_correct_testid(
@@ -61,9 +71,12 @@ class TestWateringLogListPage:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W001: WateringLogListPage renders with data-testid='watering-log-list-page'.
+        """TC-004-101: WateringLogListPage renders with data-testid='watering-log-list-page'.
 
         Verifies that the page loads and the root container element is visible.
+
+        Spec: TC-004-101 -- Giessprotokoll-Liste aufrufen und Grundstruktur
+        pruefen.
         """
         watering_list.open()
         screenshot(
@@ -82,9 +95,12 @@ class TestWateringLogListPage:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W002: Create button is visible on the watering log list page.
+        """TC-004-101: Create button is visible on the watering log list page.
 
         The create button allows users to add a new watering log entry.
+
+        Spec: TC-004-101 -- Giessprotokoll-Liste aufrufen und Grundstruktur
+        pruefen.
         """
         watering_list.open()
         screenshot(
@@ -103,10 +119,13 @@ class TestWateringLogListPage:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W001b: Page shows either a DataTable or the empty-state illustration.
+        """TC-004-101: Page shows either a DataTable or the empty-state illustration.
 
         When no watering logs exist, the empty state should be displayed.
         When logs exist, the DataTable should be visible.
+
+        Spec: TC-004-101 -- Giessprotokoll-Liste aufrufen und Grundstruktur
+        pruefen.
         """
         watering_list.open()
         screenshot(
@@ -127,9 +146,12 @@ class TestWateringLogListPage:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W001c: Showing count text is displayed when rows are present.
+        """TC-004-101: Showing count text is displayed when rows are present.
 
         Skips if no watering log entries exist yet.
+
+        Spec: TC-004-101 -- Giessprotokoll-Liste aufrufen und Grundstruktur
+        pruefen.
         """
         watering_list.open()
         screenshot(
@@ -144,11 +166,13 @@ class TestWateringLogListPage:
         assert count_text, "TC-REQ-004-W001c FAIL: Expected non-empty showing count text"
 
 
-# -- TC-REQ-004-W003 to TC-REQ-004-W006: Create Dialog ------------------------
+# -- TC-004-102 to TC-004-106: Create Dialog -----------------------------------
 
 
 class TestWateringLogCreateDialog:
-    """Watering log create dialog operations."""
+    """Watering log create dialog operations (Spec: TC-004-102, TC-004-103,
+    TC-004-104, TC-004-105, TC-004-106).
+    """
 
     @pytest.mark.core_crud
     def test_create_dialog_opens_on_button_click(
@@ -156,9 +180,11 @@ class TestWateringLogCreateDialog:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W003: Clicking create button opens the WateringLogCreateDialog.
+        """TC-004-102: Clicking create button opens the WateringLogCreateDialog.
 
         Verifies dialog presence and that plant autocomplete is visible.
+
+        Spec: TC-004-102 -- Giessprotokoll-Erstellen-Dialog oeffnet sich.
         """
         watering_list.open()
         screenshot(
@@ -189,9 +215,14 @@ class TestWateringLogCreateDialog:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W004: Create a watering log with valid data; verify it appears in list.
+        """TC-004-103: Create a watering log with valid data; verify it appears in list.
 
-        Happy path: fill volume, submit, confirm list updates.
+        Happy path: fill volume, submit, confirm list updates. This is the
+        generic UI-mechanics variant against an arbitrary existing plant --
+        distinct from TC-004-089's self-provisioned `JOURNEY-004` journey,
+        which also asserts the concrete "Bewaesserung erfasst" success message.
+
+        Spec: TC-004-103 -- Giessvorgang erfassen -- Happy Path (generisch).
         """
         watering_list.open()
         initial_count = watering_list.get_row_count()
@@ -246,10 +277,13 @@ class TestWateringLogCreateDialog:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W005: Submitting with volume cleared triggers validation; dialog stays open.
+        """TC-004-104: Submitting with volume cleared triggers validation; dialog stays open.
 
         The volume_liters field must be > 0. Clearing it and submitting should
         keep the dialog open (NFR-006 error display).
+
+        Spec: TC-004-104 -- Giessvorgang erfassen -- Pflichtfeld-Validierung
+        (Volumen).
         """
         watering_list.open()
         watering_list.click_create()
@@ -282,9 +316,12 @@ class TestWateringLogCreateDialog:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W006: Cancel in create dialog closes it without creating a log entry.
+        """TC-004-105: Cancel in create dialog closes it without creating a log entry.
 
         Verifies that the row count remains unchanged after cancelling.
+
+        Spec: TC-004-105 -- Giessprotokoll-Erstellen-Dialog -- Abbrechen ohne
+        Speichern.
         """
         watering_list.open()
         initial_count = watering_list.get_row_count()
@@ -317,9 +354,12 @@ class TestWateringLogCreateDialog:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W004b: Add-fertilizer button adds a fertilizer row to the form.
+        """TC-004-106: Add-fertilizer button adds a fertilizer row to the form.
 
         Verifies that the dynamic fertilizer field array can be extended.
+
+        Spec: TC-004-106 -- Giessprotokoll-Erstellen-Dialog -- Duenger-Zeile
+        dynamisch hinzufuegen.
         """
         watering_list.open()
         watering_list.click_create()
@@ -342,11 +382,11 @@ class TestWateringLogCreateDialog:
         watering_list.cancel_create_form()
 
 
-# -- TC-REQ-004-W007: Search/Filter -------------------------------------------
+# -- TC-004-107: Search/Filter -------------------------------------------------
 
 
 class TestWateringLogSearch:
-    """Watering log search and filter interactions."""
+    """Watering log search and filter interactions (Spec: TC-004-107)."""
 
     @pytest.mark.core_crud
     def test_search_filters_table_rows(
@@ -354,9 +394,12 @@ class TestWateringLogSearch:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W007: Typing into the search field filters visible rows.
+        """TC-004-107: Typing into the search field filters visible rows.
 
         Skips if no watering logs exist (nothing to filter).
+
+        Spec: TC-004-107 -- Giessprotokoll-Liste -- Freitextsuche filtert
+        Zeilen.
         """
         watering_list.open()
         screenshot(
@@ -384,11 +427,13 @@ class TestWateringLogSearch:
         watering_list.clear_search()  # debounce handled inside the page object
 
 
-# -- TC-REQ-004-W008 to TC-REQ-004-W009: Detail Page --------------------------
+# -- TC-004-108 to TC-004-113: Detail Page -------------------------------------
 
 
 class TestWateringLogDetailPage:
-    """Watering log detail page display and navigation."""
+    """Watering log detail page display and navigation (Spec: TC-004-108,
+    TC-004-109, TC-004-110, TC-004-111, TC-004-112, TC-004-113).
+    """
 
     @pytest.mark.smoke
     def test_click_row_navigates_to_detail(
@@ -396,9 +441,12 @@ class TestWateringLogDetailPage:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W008: Clicking a row in the list navigates to the detail page.
+        """TC-004-108: Clicking a row in the list navigates to the detail page.
 
         Skips if no watering log entries exist.
+
+        Spec: TC-004-108 -- Giessprotokoll -- Klick auf Zeile navigiert zur
+        Detailseite.
         """
         watering_list.open()
         screenshot(
@@ -428,9 +476,11 @@ class TestWateringLogDetailPage:
         watering_detail: WateringLogDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W009: Detail page shows 2 tabs (Details, Edit).
+        """TC-004-109: Detail page shows 2 tabs (Details, Edit).
 
         Navigates via list row click, then verifies tab count and labels.
+
+        Spec: TC-004-109 -- Giessprotokoll-Detailseite zeigt zwei Tabs.
         """
         watering_list.open()
 
@@ -455,9 +505,12 @@ class TestWateringLogDetailPage:
         watering_detail: WateringLogDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W009b: Details tab shows at least one MUI Card with watering data.
+        """TC-004-110: Details tab shows at least one MUI Card with watering data.
 
         Verifies that the details tab renders measurement/info cards.
+
+        Spec: TC-004-110 -- Giessprotokoll-Detailseite -- Detail-Tab zeigt
+        Messwert-Karten.
         """
         watering_list.open()
 
@@ -484,9 +537,12 @@ class TestWateringLogDetailPage:
         watering_detail: WateringLogDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W009c: Details tab shows the 'Analyze Runoff' button.
+        """TC-004-111: Details tab shows the 'Analyze Runoff' button.
 
         This button triggers backend runoff analysis for the watering event.
+
+        Spec: TC-004-111 -- Giessprotokoll-Detailseite -- Button "Runoff
+        analysieren" sichtbar.
         """
         watering_list.open()
 
@@ -512,9 +568,12 @@ class TestWateringLogDetailPage:
         watering_detail: WateringLogDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W009d: Delete button on detail page opens confirmation dialog.
+        """TC-004-112: Delete button on detail page opens confirmation dialog.
 
         Verifies the ConfirmDialog appears and can be cancelled.
+
+        Spec: TC-004-112 -- Giessprotokoll-Detailseite -- Loeschen oeffnet
+        Bestaetigungsdialog.
         """
         watering_list.open()
 
@@ -545,9 +604,12 @@ class TestWateringLogDetailPage:
         watering_detail: WateringLogDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-W009e: Edit tab on detail page shows the edit form with pre-filled values.
+        """TC-004-113: Edit tab on detail page shows the edit form with pre-filled values.
 
         Navigates to the edit tab and verifies the volume field is present and pre-filled.
+
+        Spec: TC-004-113 -- Giessprotokoll-Detailseite -- Bearbeiten-Tab zeigt
+        vorbefuelltes Formular.
         """
         watering_list.open()
 

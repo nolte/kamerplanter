@@ -2,7 +2,7 @@
 req_id: REQ-019
 title: Substrat-Konfiguration und Lebenszyklusverwaltung
 category: Infrastruktur
-test_count: 38
+test_count: 39
 coverage_areas:
   - Substrat-Listenansicht (SubstrateListPage)
   - Substrat-Erstellen-Dialog (SubstrateCreateDialog)
@@ -13,8 +13,9 @@ coverage_areas:
   - Wiederverwendbarkeits-Prüfung (Reusability Check)
   - Favoriten-Funktion
   - Authentifizierung und Zugriffskontrolle
+  - Fehlerbehandlung (nicht-existenter Substrat-Key)
 generated: 2026-03-21
-version: "4.1"
+version: "4.2"
 ---
 
 # Testfälle: REQ-019 — Substratverwaltung
@@ -1097,6 +1098,34 @@ Das Dropdown enthält exakt diese 14 Optionen in der deutschen Übersetzung:
 
 ---
 
+## Gruppe 8: Fehlerbehandlung
+
+---
+
+## TC-019-039: Substrat-Detailseite — Nicht-existenter Substrat-Key zeigt Fehlerzustand
+
+**Anforderung**: REQ-019 §6 DoD — Substrat-CRUD (Lesen, Fehlerfall); NFR-006 Fehlerbehandlung
+**Priorität**: Mittel
+**Kategorie**: Fehlermeldung
+**Vorbedingungen**:
+- Nutzer ist authentifiziert und Mitglied im aktiven Tenant
+- Kein Substrat mit dem Key `nonexistent-key-999` existiert im System
+
+**Testschritte**:
+1. Nutzer navigiert direkt zu `/t/{slug}/standorte/substrates/nonexistent-key-999`
+
+**Erwartetes Ergebnis**:
+- Anstelle des Bearbeitungsformulars erscheint ein Fehlerzustand (z. B. "Substrat nicht gefunden" oder eine gleichwertige Fehlerseite)
+- Kein Formular mit leeren oder undefinierten Werten wird angezeigt
+- Der Nutzer erhaelt eine Moeglichkeit, zur Substrat-Liste zurueckzukehren
+
+**Nachbedingungen**:
+- Keine Zustandsänderung im System
+
+**Tags**: [req-019, substrat-detail, fehlermeldung, nicht-existent, nfr-006]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spec-Abschnitt | Inhalte | Testfall-IDs |
@@ -1123,6 +1152,7 @@ Das Dropdown enthält exakt diese 14 Optionen in der deutschen Übersetzung:
 | UnsavedChangesGuard | Warnung bei dirty Form + Navigation | TC-019-017, TC-019-032 |
 | Favoriten | Stern-Toggle, Filter-Button, localStorage | TC-019-006, TC-019-020 |
 | Substrat-Mischung (SubstrateMixDialog) | Erstellen, Vorschau, Fraktionsvalidierung, Duplikate | TC-019-021 bis TC-019-027 |
+| Fehlerbehandlung | Nicht-existenter Substrat-Key | TC-019-039 |
 
 ---
 

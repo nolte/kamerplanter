@@ -2,7 +2,7 @@
 req_id: REQ-027
 title: Light-Modus (Anonymer Zugang)
 category: Plattform & Deployment
-test_count: 52
+test_count: 55
 coverage_areas:
   - Erster App-Start im Light-Modus (Seed-Logik)
   - Keine Login-Pflicht (anonymer Zugang)
@@ -19,11 +19,11 @@ coverage_areas:
   - Uebernahme-Dialog nach Upgrade (accept=true / accept=false)
   - Moduswechsel Downgrade Full-auf-Light
   - Roundtrip Light-Full-Light-Full
-  - GET /api/v1/mode Endpunkt
+  - GET /api/v1/mode Endpunkt (JSON-Antwortschema und anonyme Erreichbarkeit)
   - Idempotenz der Seed-Logik
   - Mehrgeraete-Zugriff im LAN (kein Login pro Geraet)
 generated: 2026-03-21
-version: "1.2"
+version: "1.3"
 ---
 
 # TC-REQ-027: Light-Modus (Anonymer Zugang)
@@ -1057,6 +1057,82 @@ Der Light-Modus ist ein Deployment-Modus fuer lokale Instanzen (Raspberry Pi, Ho
 
 ---
 
+### TC-027-053: Mode-Endpunkt liefert gueltiges JSON-Schema mit Modus und Feature-Flags
+
+**Requirement**: REQ-027 § 6.3, AK-10 (technischer Vertrag hinter TC-027-038/039)
+**Priority**: High
+**Category**: Happy Path
+**Vorbedingungen**:
+- App ist geladen (Light- oder Full-Modus)
+
+**Testschritte**:
+1. Das Frontend fragt beim Start `GET /api/v1/mode` ab (derselbe Aufruf, den ein technischer Betrachter ueber die Browser-Netzwerkanalyse einsehen kann)
+
+**Erwartete Ergebnisse**:
+- Die Antwort enthaelt ein Feld `mode` mit dem Wert `"light"` oder `"full"`
+- Die Antwort enthaelt ein Feld `features` mit den booleschen Unterfeldern `auth`, `multi_tenant` und `privacy_consent`
+- Kein Feld fehlt und kein Feld hat einen unerwarteten Typ
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-027, mode-endpunkt, schema, feature-flags, ak-10]
+
+Hinweis: Dieser Fall macht den technischen Vertrag explizit, den TC-027-038/039 nur indirekt ueber
+resultierendes UI-Verhalten pruefen (kein Login-Screen bzw. Login-Screen). Eine reine Schema-Pruefung
+ist bewusst nicht TC-027-001 (das beschreibt die Direktweiterleitung zum Dashboard, nicht die
+Antwortform des Endpunkts).
+
+---
+
+### TC-027-054: Feature-Flags im Mode-Endpunkt entsprechen dem konfigurierten Betriebsmodus
+
+**Requirement**: REQ-027 § 6.3, § 2.1 (Feature-Visibility-Matrix), AK-10
+**Priority**: High
+**Category**: Happy Path
+**Vorbedingungen**:
+- Deployment mit bekanntem `KAMERPLANTER_MODE` (light oder full)
+
+**Testschritte**:
+1. Das Frontend fragt `GET /api/v1/mode` ab
+2. Ein technischer Betrachter vergleicht die zurueckgegebenen Feature-Flags mit dem konfigurierten Modus
+
+**Erwartete Ergebnisse**:
+- Im Light-Modus sind `auth`, `multi_tenant` und `privacy_consent` alle `false`
+- Im Full-Modus sind `auth`, `multi_tenant` und `privacy_consent` alle `true`
+- Das gemeldete `mode`-Feld stimmt mit dem tatsaechlich konfigurierten Deployment-Modus ueberein
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-027, mode-endpunkt, feature-flags, konsistenz, ak-10]
+
+---
+
+### TC-027-055: Mode-Endpunkt ist ohne Anmeldung erreichbar
+
+**Requirement**: REQ-027 § 1.1, § 6.3 (Endpunkt muss vor Login abfragbar sein)
+**Priority**: Medium
+**Category**: Happy Path
+**Vorbedingungen**:
+- Nutzer ist nicht eingeloggt (kein Token, keine Cookies)
+
+**Testschritte**:
+1. Nutzer oeffnet die App ohne vorherige Anmeldung
+2. Das Frontend fragt `GET /api/v1/mode` ohne Authorization-Header ab
+
+**Erwartete Ergebnisse**:
+- Die Abfrage liefert eine gueltige Antwort (kein Login-Zwang, keine Weiterleitung)
+- Die App kann anhand der Antwort entscheiden, ob ein Login-Bildschirm angezeigt wird — noch bevor
+  ein Nutzer authentifiziert ist
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-027, mode-endpunkt, anonym, ohne-login, public-endpoint]
+
+---
+
 ## 8. Erfahrungsstufen im Light-Modus
 
 ### TC-027-040: Erfahrungsstufe kann im Light-Modus geaendert werden
@@ -1397,7 +1473,7 @@ Der Light-Modus ist ein Deployment-Modus fuer lokale Instanzen (Raspberry Pi, Ho
 | § 2.2 Ausgeblendete UI-Elemente | Routing, AppBar, Sidebar, Account | TC-027-005 bis TC-027-015 |
 | § 3.5 Seed-Logik (Idempotenz) | Kein Duplikat bei Mehrfachstart | TC-027-003 |
 | § 3.4 Platform-Tenant-Membership | KA-Admin fuer System-User | TC-027-001 (Nachbedingungen) |
-| § 6.3 Mode-Endpunkt | GET /api/v1/mode | TC-027-038, TC-027-039 |
+| § 6.3 Mode-Endpunkt | GET /api/v1/mode (UI-Verhalten + JSON-Schema) | TC-027-038, TC-027-039, TC-027-053, TC-027-054, TC-027-055 |
 | § 7.1 Mode-Aware Routing | Light-Routing, Root-Redirect | TC-027-005 bis TC-027-009, TC-027-046, TC-027-047 |
 | § 7.3 Mode-Aware App-Bar | Kein Avatar, kein Tenant-Switcher | TC-027-010, TC-027-049, TC-027-050 |
 | § 7.4 AccountSettingsPage | Nur Sprache + Erfahrungsstufe | TC-027-012, TC-027-040, TC-027-041 |

@@ -1,8 +1,16 @@
 # ADR-010: BDD Architecture for the E2E Suite (pytest-bdd, TC-004-092 as Proof of Concept)
 
-**Status:** Accepted, §6 corrected after the fact (2026-07-29)
+**Status:** Accepted, §1 and §6 corrected after the fact (2026-07-29)
 **Date:** 2026-07-25
 **Decision-makers:** Kamerplanter Development Team
+
+!!! warning "Addendum 2026-07-29 — §1 is superseded: the check covers both channels"
+    §1 recorded that the traceability check was deliberately **not** extended to
+    the classic tests' docstring IDs, because doing so would "immediately report a
+    mass of pre-existing defects". The prediction was right; the conclusion drawn
+    from it was not. #775 and #839 extended it, and that mass was precisely the
+    **reason** to. The check today covers both channels with four defect classes
+    and no baseline. Details in the §1 addendum below.
 
 !!! warning "Addendum 2026-07-29 — the extrapolation in §6 does not hold"
     The extrapolation to the remaining REQ-004 cases, explicitly flagged as an
@@ -43,6 +51,12 @@ The classic test remains in place; both TC-004-092 implementations keep running 
 Every BDD scenario carries a `@TC-<REQ>-<NNN>` tag (here `@TC-004-092`), carried through to the report via the JUnit `tc_id` user-property and the `protokoll.md` line. `scripts/check_bdd_traceability.py` verifies this binding **mechanically and in both directions**: a tag that resolves to no `## TC-<id>: <title>` heading under `spec/e2e-testcases/` is an error ("orphan tag"); a scenario with no tag at all is likewise an error ("untagged scenario"). The reverse direction — a declared test case without a scenario — is deliberately **not** an error, only an informational count: automation coverage grows over time.
 
 The honest finding here: the check was deliberately **not** extended to the docstring-based TC-IDs of the classic tests (the `TC-REQ-004-W001` shape). `tests/e2e/README.md` openly documents that those test-declared IDs have already drifted from the spec IDs (`TC-004-NNN`). Extending the check would immediately report a mass of pre-existing defects — not because BDD broke anything, but because that drift predates it. That is exactly the argument **for** BDD traceability, not against it: the tag mechanism prevents the same drift from recurring for new scenarios, because it is enforced by an active gate instead of relying on docstring discipline.
+
+!!! warning "Superseded — see the 2026-07-29 addendum to §1"
+    The paragraph above describes the state as of 2026-07-25. The check has since
+    been extended to the docstring channel (#775, #839) and reports two further
+    defect classes there. The predicted "mass of pre-existing defects" was real —
+    and was the reason to extend, not to hold back.
 
 ### 2. Authoring ergonomics
 
@@ -159,6 +173,40 @@ of any future migration: group-wise from three cases upward, starting with runof
 smallest complete group proof, page object already present), not case-by-case from the
 reference.
 
+## Addendum 2026-07-29 — §1: the docstring channel is part of the gate now
+
+§1 argued against extending the check to the classic tests' docstring IDs: doing so
+would "immediately report a mass of pre-existing defects". The prediction was right.
+The conclusion was wrong.
+
+#775 extended it and measured: across 620 verifiable test functions, the docstring ID
+disagreed with the same test's hand-verified `Spec:` line in **616** of them. Two
+channels each asserted a TC-ID and they almost never agreed — the number looked like
+traceability and was not. That is exactly why extending was right: a mass of
+pre-existing findings is not an argument against the measurement, it is the finding
+the measurement was supposed to produce.
+
+**Where the drift came from.** The docstring IDs were a per-file running count that
+hit a real spec number only by coincidence. That is why the check's
+`did you mean …?` hints are unusable: they are string proximity, not a match. Three
+were checked against the spec text (#839) and all three described different
+behaviour.
+
+**What #839 found.** #775 held the 99 mechanically-unresolvable cases behind two
+shrink-only baselines. Resolving them showed: **66 needed a test case written** —
+**REQ-031, REQ-035 and REQ-036 had no test-case document at all**. Those tests were
+asserting coverage against nothing written down. Four tests were dead and deleted.
+
+**State today.** All 718 classic tests declare a resolvable TC-ID. The check reports
+four defect classes — unresolvable ID and missing ID, per channel — and runs without
+a baseline in the required `static` job. A baseline pinned at zero would be dead
+mechanism dressed as policy.
+
+**What this means for the decision.** Point 2 of the decision ("Go for the mechanical
+traceability check as a standalone, reusable tool") is supported, not affected: the
+tool's value turned out to lie not in the suite's BDD share but in the 718 classic
+tests it was never originally meant for.
+
 ## References
 
 - Issue #761 — `test(e2e): PoC — BDD E2E architecture driven from TC docs (TC-004-092 as first scenario)`
@@ -166,6 +214,10 @@ reference.
 - `tests/e2e/features/watering_cross_view_consistency.feature` — the Gherkin scenario
 - `tests/e2e/test_req004_watering_cross_view_consistency_bdd.py` — the step bindings
 - `tests/e2e/test_req004_watering_cross_view_consistency.py` — the classic comparison test
+- `spec/analysis/req004-bdd-migration-triage.md` — the #774 triage that corrects §6
+- Issue #774 — `chore(e2e): triage the REQ-004 test cases for BDD migration effort`
+- Issue #775 — extension of the check to the docstring channel, which corrects §1
+- Issue #839 — resolution of the remaining 99 cases and removal of both baselines
 - `scripts/check_bdd_traceability.py` — the mechanical spec-to-test check
 - `tests/e2e/README.md` — selection axes, tag scheme, TC-ID derivation order
 - `spec/e2e-testcases/TC-REQ-004.md` — TC-004-092

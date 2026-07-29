@@ -2,7 +2,7 @@
 req_id: REQ-017
 title: Vermehrungsmanagement & Genetische Rueckverfolgbarkeit
 category: Pflanzenvermehrung
-test_count: 72
+test_count: 73
 coverage_areas:
   - Vermehrungsevents-Liste (/vermehrung/events) — 12 Methoden, Filter, Paginierung
   - Vermehrungsevent erstellen (CreateDialog) — alle 12 PropagationMethods
@@ -30,8 +30,9 @@ coverage_areas:
   - Statistiken-Dashboard (/vermehrung/statistiken)
   - Validierungsmeldungen (Hormone-Konzentration, Temperatur-Delta, Timeline)
   - Authentifizierung und Zugriffskontrolle
+  - Route-Erreichbarkeit (Smoke) fuer die Vermehrungs-Einstiegsseite
 generated: 2026-03-21
-version: "1.2"
+version: "1.3"
 ---
 
 # TC-REQ-017: Vermehrungsmanagement & Genetische Rueckverfolgbarkeit
@@ -2044,6 +2045,30 @@ Die primaeren UI-Bereiche sind:
 
 ---
 
+## 19. Route-Erreichbarkeit (Smoke)
+
+### TC-017-073: Vermehrungs-Einstiegsseite ist erreichbar (Smoke)
+
+**Requirement**: REQ-017 § 6 DoD (Route-Verdrahtung als Voraussetzung fuer alle weiteren Vermehrungs-Faelle)
+**Priority**: Medium
+**Category**: Smoke
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+
+**Testschritte**:
+1. Nutzer navigiert zur Vermehrungs-Einstiegsseite (`/propagation`)
+
+**Erwartete Ergebnisse**:
+- Die Seite laedt ohne Fehler
+- Ein Markierungstext oder -bereich fuer "Vermehrungsmanagement" ist sichtbar
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-017, propagation, smoke, route-erreichbarkeit]
+
+---
+
 ## Abdeckungsmatrix
 
 | REQ-017 Spezifikations-Abschnitt | Testfaelle | Beschreibung |
@@ -2074,3 +2099,4 @@ Die primaeren UI-Bereiche sind:
 | § 6 Testszenarien 1–10 | TC-017-033, TC-017-012, TC-017-037, TC-017-045, TC-017-028, TC-017-006, TC-017-023, TC-017-020, TC-017-035, TC-017-041 | 1:1 Zuordnung Testszenario → Testfall |
 | Allgemein: DataTable-Patterns | TC-017-001, TC-017-002, TC-017-067 bis TC-017-069 | Suche, Filter, Leerzustand |
 | Allgemein: Fehlerbehandlung | TC-017-070 | Netzwerkfehler |
+| Route-Erreichbarkeit (Smoke) | TC-017-073 | Vermehrungs-Einstiegsseite |

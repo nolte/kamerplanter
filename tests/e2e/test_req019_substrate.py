@@ -20,7 +20,8 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-019.md):
   TC-REQ-019-023  ->  TC-019-018  Loeschen-Button oeffnet Bestaetigungsdialog
   TC-REQ-019-024  ->  TC-019-019  Loeschen abbrechen schliesst Dialog
   TC-REQ-019-025  ->  TC-019-018  Substrat loeschen bestaetigt
-  TC-REQ-019-030  ->  (error)     Nicht-existenter Key zeigt Fehler
+  TC-019-039      ->  TC-019-039  Nicht-existenter Key zeigt Fehler (neu angelegter Fall,
+                                    vormals unaufloesbares "TC-REQ-019-030")
 """
 
 from __future__ import annotations
@@ -663,7 +664,7 @@ class TestSubstrateDetailPage:
         )
 
 
-# -- TC-REQ-019-030: Error Handling -------------------------------------------
+# -- TC-019-039: Error Handling -------------------------------------------
 
 
 class TestSubstrateErrorHandling:
@@ -675,14 +676,14 @@ class TestSubstrateErrorHandling:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-030: Navigating to a non-existent substrate key shows an error.
+        """TC-019-039: Navigating to a non-existent substrate key shows an error.
 
-        Spec: (error handling) -- Nicht-existenter Key zeigt Fehler.
+        Spec: TC-019-039 -- Nicht-existenter Substrat-Key zeigt Fehlerzustand.
         """
         substrate_detail.navigate("/standorte/substrates/nonexistent-key-999")
         substrate_detail.wait_for_error_or_page()
-        screenshot("TC-REQ-019-030_nonexistent-key", "Error display for non-existent substrate")
+        screenshot("TC-019-039_nonexistent-key", "Error display for non-existent substrate")
 
         assert substrate_detail.is_error_displayed(), (
-            "TC-REQ-019-030 FAIL: Expected error display for non-existent substrate key"
+            "TC-019-039 FAIL: Expected error display for non-existent substrate key"
         )
