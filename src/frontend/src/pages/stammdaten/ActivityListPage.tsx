@@ -178,24 +178,34 @@ export default function ActivityListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={lang === 'en' ? r.name : r.name_de || r.name}
+            titleId="name"
             subtitle={t(`enums.activityCategory.${r.category}`)}
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.stressLevel.${r.stress_level}`)}
-                  size="small"
-                  color={stressColors[r.stress_level] ?? 'default'}
-                />
-                <Chip
-                  label={t(`enums.skillLevel.${r.skill_level}`)}
-                  size="small"
-                  variant="outlined"
-                />
-              </>
-            }
+            subtitleId="category"
+            chips={[
+              {
+                id: 'stress',
+                content: (
+                  <Chip
+                    label={t(`enums.stressLevel.${r.stress_level}`)}
+                    size="small"
+                    color={stressColors[r.stress_level] ?? 'default'}
+                  />
+                ),
+              },
+              {
+                id: 'skill',
+                content: (
+                  <Chip
+                    label={t(`enums.skillLevel.${r.skill_level}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+            ]}
             fields={
               r.recovery_days_default > 0
-                ? [{ label: t('pages.activities.recoveryDays'), value: `${r.recovery_days_default}d` }]
+                ? [{ id: 'recovery', label: t('pages.activities.recoveryDays'), value: `${r.recovery_days_default}d` }]
                 : undefined
             }
           />

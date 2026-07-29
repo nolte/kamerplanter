@@ -33,14 +33,14 @@ E2E suites are organized by requirement (REQ). Grouped thematically:
 | Locator | `data-testid` attributes (never CSS structure) |
 
 !!! info "CI: smoke gate per PR + nightly full run"
-    The suite also runs in GitHub Actions — using the same Docker Compose stack as local runs: the `e2e-smoke` workflow runs the fast smoke profile on path-filtered pull requests and pushes to `develop` (deliberately **not** a required check). The `e2e-nightly` workflow runs the complete suite nightly as a matrix over the compose profiles `light`, `full`, `mobile`, `tablet`, and `full-mobile`; a failing run automatically opens a GitHub issue labelled `e2e-nightly`. Test protocol, screenshots, and container logs are attached to every run as workflow artifacts.
+    The suite also runs in GitHub Actions — using the same Docker Compose stack as local runs: the `e2e-smoke` workflow runs the fast smoke profile on every pull request and on pushes to `develop`. Since ADR-011 it is a **required** check on `develop`, alongside `static / Static CI Tests`. Whether the suite actually runs is decided by a job inside the workflow rather than by a path filter on the trigger: a required workflow skipped by path filtering never reports a result and blocks the pull request indefinitely. The `e2e-nightly` workflow runs the complete suite nightly as a matrix over the compose profiles `light`, `full`, `mobile`, `tablet`, and `full-mobile`; a failing run no longer opens a GitHub issue — the run status, the per-profile rendered check run, and the artifacts carry everything the automatic issue merely restated. Test protocol, screenshots, and container logs are attached to every run as workflow artifacts.
 
 ## CI test reports
 
 Every run writes a JUnit XML report (`junit-<profile>.xml`) alongside the protocol and screenshots, carrying each test's TC-ID as a `tc_id` property. In GitHub Actions, the `e2e-smoke` workflow (per pull request) and each profile in the `e2e-nightly` workflow additionally render this report via `dorny/test-reporter` as a GitHub check run and a job-summary table — with the concrete failure message (assertion text plus a short traceback) per failed test, instead of just a green/red overall status.
 
 !!! note "Fork pull requests: no rendered check"
-    On pull requests from forks, the render step cannot create a check run with the restricted `GITHUB_TOKEN` and is skipped (`continue-on-error`). Results are still available in the job summary and the downloaded `junit-*.xml` artifact there.
+    On pull requests from forks, the render step cannot create a check run with the restricted `GITHUB_TOKEN` and is skipped (`continue-on-error`). `e2e-smoke` detects this and then writes the result overview plus the failed tests from the test protocol into the job summary; otherwise the job summary is only a pointer at the artifact, so the same numbers do not appear twice. The `junit-*.xml` artifact is available either way.
 
 The rendered check run is a CI convenience — it does not replace the Markdown test protocol (`protokoll.md`) with its embedded screenshots, which remains the human-readable audit trail (NFR-008 §4.4).
 

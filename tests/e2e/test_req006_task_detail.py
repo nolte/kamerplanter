@@ -20,6 +20,8 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._journey_helpers import create_care_task, provision_plant, unique_suffix
+from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_detail_page import TaskDetailPage
 from .pages.task_queue_page import TaskQueuePage
 
@@ -39,11 +41,46 @@ def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
     return TaskQueuePage(browser, base_url)
 
 
+@pytest.fixture
+def plant_creator(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
+    """Return a PlantInstanceListPage used to self-provision a plant."""
+    return PlantInstanceListPage(browser, base_url)
+
+
 def _get_first_task_key(task_queue: TaskQueuePage) -> str | None:
-    """Navigate to queue and return the first task key, or None."""
+    """Navigate to queue and return the first task key, or None.
+
+    Read-only by contract. Every caller asserts something that holds for *any*
+    task in the shared ``mein-garten`` queue (tabs render, a title is non-empty,
+    an action button exists, the details tab has content), which is what
+    `e2e-test-stability` §A permits "click the first row" for. The two tests
+    that *mutated* the head -- starting and skipping it -- have been moved to
+    `_provision_own_task`: the head is whatever task any other test file
+    happened to create last, so starting it flipped foreign state and broke
+    TC-REQ-022-038, whose own freshly created ``priority=high``/due-today task
+    sorts to exactly that position.
+    """
     task_queue.open()
     keys = task_queue.get_task_keys()
     return keys[0] if keys else None
+
+
+def _provision_own_task(
+    plant_creator: PlantInstanceListPage,
+    task_queue: TaskQueuePage,
+    id_prefix: str,
+) -> str:
+    """Create an own plant plus a pending care task and return the task key.
+
+    Mirrors the REQ-006/REQ-022 journeys (``_journey_helpers``): a test that
+    transitions a task's status must own that task, or it mutates whatever the
+    shared queue happens to hold first and corrupts another test's precondition.
+    Both helpers raise instead of skipping, so a failed arrange step is a
+    failure rather than silent lost coverage.
+    """
+    _key, instance_id = provision_plant(plant_creator, id_prefix=id_prefix)
+    task_name = f"E2E {id_prefix} {unique_suffix()}"
+    return create_care_task(task_queue, instance_id, task_name)
 
 
 # -- TC-006-019: Tab Navigation ---------------------------------------------
@@ -59,7 +96,7 @@ class TestTaskDetailTabNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-001: Task detail page loads with visible tabs.
+        """TC-006-019: Task detail page loads with visible tabs.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation sichtbar.
         """
@@ -87,7 +124,7 @@ class TestTaskDetailTabNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-002: Task detail page shows the task name as heading.
+        """TC-006-020: Task detail page shows the task name as heading.
 
         Spec: TC-006-020 -- Task-Detailseite -- Details-Tab.
         """
@@ -102,9 +139,7 @@ class TestTaskDetailTabNavigation:
         )
 
         title = task_detail.get_task_title()
-        assert title, (
-            "TC-REQ-006-002 FAIL: Expected task title to be non-empty on detail page"
-        )
+        assert title, "TC-REQ-006-002 FAIL: Expected task title to be non-empty on detail page"
 
     @pytest.mark.core_crud
     def test_tab_navigation_clicks(
@@ -113,7 +148,7 @@ class TestTaskDetailTabNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-003: Tabs can be clicked and switch content.
+        """TC-006-019: Tabs can be clicked and switch content.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation sichtbar.
         """
@@ -141,8 +176,7 @@ class TestTaskDetailTabNavigation:
 
             active = task_detail.get_active_tab_label()
             assert active == label, (
-                f"TC-REQ-006-003 FAIL: Expected active tab to be '{label}', "
-                f"got '{active}'"
+                f"TC-REQ-006-003 FAIL: Expected active tab to be '{label}', got '{active}'"
             )
 
 
@@ -159,7 +193,7 @@ class TestTaskDetailContent:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-004: Details tab shows metadata (status, priority, category).
+        """TC-006-020: Details tab shows metadata (status, priority, category).
 
         Spec: TC-006-020 -- Task-Detailseite -- Details-Tab.
         """
@@ -193,7 +227,7 @@ class TestTaskDetailStatusTransitions:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-005: At least one action button is visible on detail page.
+        """TC-006-006: At least one action button is visible on detail page.
 
         Spec: TC-006-006 -- Task starten (pending -> in_progress).
         """
@@ -225,7 +259,7 @@ class TestTaskDetailStatusTransitions:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-006: Clone button is visible on the detail page.
+        """TC-006-031: Clone button is visible on the detail page.
 
         Spec: TC-006-031 -- Klonen-Button sichtbar.
         """
@@ -246,22 +280,32 @@ class TestTaskDetailStatusTransitions:
     @pytest.mark.core_crud
     def test_start_task_from_detail(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-007: Start task from the detail page.
+        """TC-006-006: Start task from the detail page.
 
         Spec: TC-006-006 -- Task starten (pending -> in_progress).
+
+        Self-provisions its own plant and pending care task. Previously it
+        started ``_get_first_task_key`` -- the head of the shared queue -- which
+        is foreign state: TC-REQ-022-038 creates a ``priority=high`` care task
+        due today, which sorts to that very position, so this test started
+        *that* task and TC-REQ-022-038 then found its own task already
+        "In Bearbeitung" before reaching its ``click_start()``. The run's
+        backend log showed two ``POST /tasks/{key}/start`` for one legitimate
+        start. Owning the task also removes two availability-dependent skips
+        (§A): the precondition is now established, not hoped for.
         """
-        key = _get_first_task_key(task_queue)
-        if not key:
-            pytest.skip("No tasks in database -- cannot test start from detail")
+        key = _provision_own_task(plant_creator, task_queue, "TC006-007")
 
         task_detail.open(key)
 
-        if not task_detail.has_start_button():
-            pytest.skip("Task is not in pending state -- cannot test start")
+        assert task_detail.has_start_button(), (
+            "TC-REQ-006-007 FAIL: A freshly created pending care task must offer the start button"
+        )
 
         screenshot(
             "TC-REQ-006-007_before-start",
@@ -277,22 +321,28 @@ class TestTaskDetailStatusTransitions:
     @pytest.mark.core_crud
     def test_skip_task_from_detail(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-008: Skip task from the detail page.
+        """TC-006-008: Skip task from the detail page.
 
         Spec: TC-006-008 -- Task ueberspringen.
+
+        Self-provisions its own plant and pending care task, for the same reason
+        as TC-REQ-006-007: skipping ``_get_first_task_key`` retires whichever
+        task another test file created last (§A), and the two skips it replaces
+        ("no tasks in database", "no skip button") were availability-dependent,
+        i.e. silent coverage holes.
         """
-        key = _get_first_task_key(task_queue)
-        if not key:
-            pytest.skip("No tasks in database -- cannot test skip from detail")
+        key = _provision_own_task(plant_creator, task_queue, "TC006-008")
 
         task_detail.open(key)
 
-        if not task_detail.has_skip_button():
-            pytest.skip("Task does not have skip button visible")
+        assert task_detail.has_skip_button(), (
+            "TC-REQ-006-008 FAIL: A freshly created pending care task must offer the skip button"
+        )
 
         screenshot(
             "TC-REQ-006-008_before-skip",
@@ -318,7 +368,7 @@ class TestTaskQueueToDetailNavigation:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-009: Clicking a task card navigates to the detail page.
+        """TC-006-019: Clicking a task card navigates to the detail page.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation.
         """

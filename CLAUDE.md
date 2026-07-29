@@ -181,7 +181,7 @@ These constraints are documented across multiple files and must be respected whe
 | Layer | Technology |
 |-------|-----------|
 | Backend | Python 3.14+, FastAPI >= 0.115, Celery >= 5.4, Authlib (JWT/OAuth2/OIDC) |
-| Frontend | React 19, TypeScript 5.9, Redux Toolkit, MUI 7, Vite 6, react-router-dom v7 |
+| Frontend | React 19, TypeScript 6, Redux Toolkit, MUI 9, Vite 8, react-router-dom v7 |
 | Mobile | Flutter 3.16+ (not yet implemented) |
 | Primary DB | ArangoDB 3.11+ (multi-model) |
 | Time-Series DB | TimescaleDB 2.13+ |
@@ -190,6 +190,14 @@ These constraints are documented across multiple files and must be respected whe
 | Code Quality | Ruff (Python); ESLint (TypeScript) |
 | Testing | pytest + pytest-asyncio (backend); vitest (frontend) |
 | CI/CD | GitHub Actions |
+
+> **This table is a summary, not the source of truth.** Verify a frontend version
+> against `src/frontend/package.json` and a backend one against
+> `src/backend/pyproject.toml` before reasoning about library-specific behaviour.
+> The frontend runs **MUI 9**, whose DOM/interaction details differ materially
+> from MUI 7 (role assignment per `Drawer` variant, `Select` opening on
+> `mousedown` only, the click-away guard) — an earlier stale "MUI 7" entry here
+> misled several E2E investigations.
 
 ## Domain Concepts
 

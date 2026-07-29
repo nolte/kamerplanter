@@ -135,12 +135,10 @@ class TestPrivacyPolicyEndpoint:
         )
 
         assert "version" in payload, (
-            "TC-REQ-025-002 FAIL: Response sollte Feld 'version' enthalten, "
-            f"war: {list(payload)}"
+            f"TC-REQ-025-002 FAIL: Response sollte Feld 'version' enthalten, war: {list(payload)}"
         )
         assert "purposes" in payload, (
-            "TC-REQ-025-002 FAIL: Response sollte Feld 'purposes' enthalten, "
-            f"war: {list(payload)}"
+            f"TC-REQ-025-002 FAIL: Response sollte Feld 'purposes' enthalten, war: {list(payload)}"
         )
         assert isinstance(payload["purposes"], list), (
             "TC-REQ-025-002 FAIL: 'purposes' muss Liste sein, "

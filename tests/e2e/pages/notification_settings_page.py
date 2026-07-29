@@ -131,9 +131,7 @@ class NotificationSettingsPage(BasePage):
         """Return the keys of all channel toggles currently rendered."""
         rendered: list[str] = []
         for key in self.CHANNEL_KEYS:
-            elements = self.driver.find_elements(
-                *self._channel_toggle_root_locator(key)
-            )
+            elements = self.driver.find_elements(*self._channel_toggle_root_locator(key))
             if elements:
                 rendered.append(key)
         return rendered
@@ -152,9 +150,7 @@ class NotificationSettingsPage(BasePage):
         so that the click reaches the visible thumb without scroll/overlay
         issues.
         """
-        root = self.wait_for_element_clickable(
-            self._channel_toggle_root_locator(channel_key)
-        )
+        root = self.wait_for_element_clickable(self._channel_toggle_root_locator(channel_key))
         self.scroll_and_click(root)
 
     def set_channel_enabled(self, channel_key: str, enabled: bool) -> None:

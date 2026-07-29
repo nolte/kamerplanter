@@ -27,7 +27,7 @@ class TankListPage(BasePage):
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # ── Create dialog locators ─────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
@@ -39,7 +39,10 @@ class TankListPage(BasePage):
     FORM_MATERIAL = (By.CSS_SELECTOR, "[data-testid='form-field-material'] .MuiSelect-select")
     FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] .MuiSwitch-root")
     FORM_HAS_AIR_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_air_pump'] .MuiSwitch-root")
-    FORM_HAS_CIRCULATION_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_circulation_pump'] .MuiSwitch-root")
+    FORM_HAS_CIRCULATION_PUMP = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-has_circulation_pump'] .MuiSwitch-root",
+    )
     FORM_HAS_HEATER = (By.CSS_SELECTOR, "[data-testid='form-field-has_heater'] .MuiSwitch-root")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -62,54 +65,47 @@ class TankListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (TankListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the Name column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the tank name of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through: `name` renders `r.name` as plain
+    #: text, is the first column and carries no `hideBelowBreakpoint`. Not the
+    #: row centre — that is a viewport-dependent bet on which cell the row's
+    #: midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the tank at *index* via its inert `name` cell."""
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "tank row")
 
     def click_row_by_name(self, name: str) -> None:
-        """Click the row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
-                self.scroll_and_click(row)
+        """Click the row whose name column matches *name*.
+
+        Addressed by column id, not by position, so it resolves in both the
+        desktop table and the mobile card layout.
+        """
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row with name '{name}' not found in tanks table")
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
-
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
 
     # ── Search and filter ──────────────────────────────────────────────
 
@@ -197,33 +193,21 @@ class TankListPage(BasePage):
         el.send_keys(notes)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        import time
-        from selenium.webdriver.common.keys import Keys
+        """Open an MUI Select and pick an option by its visible text.
 
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""

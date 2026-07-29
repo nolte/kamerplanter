@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -121,7 +122,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
         {isEdit ? t('common.edit') : t('pages.growthPhases.create')}
       </DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormRow>
             <FormTextField name="name" control={control} label={t('pages.growthPhases.name')} required autoFocus />
             <FormTextField name="display_name" control={control} label={t('pages.growthPhases.displayName')} helperText={t('pages.growthPhases.displayNameHelper')} />
@@ -176,7 +177,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
             )}
           />
           <FormActions onCancel={onClose} loading={saving} saveLabel={isEdit ? t('common.save') : t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

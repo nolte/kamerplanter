@@ -130,6 +130,9 @@ export default function PropagationPage(): ReactElement {
         value={tab}
         onChange={(_e, v: number) => setTab(v)}
         sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={t('pages.propagation.title')}
       >
         <Tab
@@ -161,17 +164,25 @@ export default function PropagationPage(): ReactElement {
             mobileCardRenderer={(row) => (
               <MobileCard
                 title={t(`enums.propagationEventMethod.${row.method}`)}
+                titleId="method"
                 subtitle={formatDate(row.happened_at)}
-                chips={
-                  <Chip
-                    size="small"
-                    label={t(`enums.propagationEventStatus.${row.status}`)}
-                    color={statusColor[row.status]}
-                  />
-                }
-                fields={[
-                  { label: t('pages.propagation.fields.quantity'), value: row.quantity },
+                subtitleId="happenedAt"
+                chips={[
                   {
+                    id: 'status',
+                    content: (
+                      <Chip
+                        size="small"
+                        label={t(`enums.propagationEventStatus.${row.status}`)}
+                        color={statusColor[row.status]}
+                      />
+                    ),
+                  },
+                ]}
+                fields={[
+                  { id: 'quantity', label: t('pages.propagation.fields.quantity'), value: row.quantity },
+                  {
+                    id: 'survived',
                     label: t('pages.propagation.fields.survived'),
                     value:
                       row.survived_count == null
@@ -179,6 +190,7 @@ export default function PropagationPage(): ReactElement {
                         : `${row.survived_count} / ${row.quantity}`,
                   },
                   {
+                    id: 'successRate',
                     label: t('pages.propagation.fields.successRate'),
                     value:
                       row.success_rate == null

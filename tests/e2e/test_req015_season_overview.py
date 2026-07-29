@@ -22,7 +22,7 @@ from .pages.calendar_page import CalendarPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('calendar',)
+FEATURES = ("calendar",)
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -55,7 +55,7 @@ class TestSeasonOverviewLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-060: Season overview view renders 12 month cards or an empty state.
+        """TC-015-060: Season overview view renders 12 month cards or an empty state.
 
         Spec: TC-015-060 -- Saisonuebersicht — 12 Monatskarten mit Zaehlanzeige.
         """
@@ -73,9 +73,7 @@ class TestSeasonOverviewLoad:
             screenshot("TC-REQ-015-060_season-empty", "Season overview showing empty state")
             pytest.skip("Season overview has empty state; no month cards to verify")
 
-        assert len(cards) == 12, (
-            f"TC-REQ-015-060 FAIL: Expected 12 month cards, got {len(cards)}"
-        )
+        assert len(cards) == 12, f"TC-REQ-015-060 FAIL: Expected 12 month cards, got {len(cards)}"
 
     @pytest.mark.smoke
     def test_season_view_shows_site_select(
@@ -83,7 +81,7 @@ class TestSeasonOverviewLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-061: Site select dropdown is visible in season overview view.
+        """TC-015-060: Site select dropdown is visible in season overview view.
 
         Spec: TC-015-060 -- Saisonuebersicht — Standort-Auswahl sichtbar.
         """
@@ -107,7 +105,7 @@ class TestSeasonOverviewCardContent:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-062: Each month card shows summary count rows.
+        """TC-015-060: Each month card shows summary count rows.
 
         Spec: TC-015-060 -- Saisonuebersicht — Monatskarten zeigen Zusammenfassungen.
         """
@@ -131,12 +129,14 @@ class TestSeasonOverviewCardContent:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-063: Current month card has a highlighted border/style.
+        """TC-015-061: Current month card has a highlighted border/style.
 
         Spec: TC-015-061 -- Saisonuebersicht — Aktueller Monat hervorgehoben.
         """
         _open_season_view(calendar)
-        screenshot("TC-REQ-015-063_current-month-highlight", "Season view current month highlighted")
+        screenshot(
+            "TC-REQ-015-063_current-month-highlight", "Season view current month highlighted"
+        )
 
         highlighted = calendar.get_highlighted_season_card()
         if highlighted is None:
@@ -153,7 +153,7 @@ class TestSeasonOverviewCardContent:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-064: Each month card displays the month name as a title.
+        """TC-015-060: Each month card displays the month name as a title.
 
         Spec: TC-015-060 -- Saisonuebersicht — Monatskarten zeigen Monatsnamen.
         """
@@ -165,16 +165,12 @@ class TestSeasonOverviewCardContent:
             pytest.skip("No season month cards present")
 
         first_card = cards[0]
-        title_els = first_card.find_elements(
-            By.CSS_SELECTOR, ".MuiTypography-subtitle1"
-        )
+        title_els = first_card.find_elements(By.CSS_SELECTOR, ".MuiTypography-subtitle1")
         assert len(title_els) > 0, (
             "TC-REQ-015-064 FAIL: Expected a subtitle1 Typography element with month name"
         )
         month_text = title_els[0].text.strip()
-        assert len(month_text) > 0, (
-            "TC-REQ-015-064 FAIL: Expected month name text to be non-empty"
-        )
+        assert len(month_text) > 0, "TC-REQ-015-064 FAIL: Expected month name text to be non-empty"
 
 
 # -- Season overview interaction -----------------------------------------------
@@ -189,7 +185,7 @@ class TestSeasonOverviewInteraction:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-065: Month cards have a CardActionArea making them clickable.
+        """TC-015-062: Month cards have a CardActionArea making them clickable.
 
         Spec: TC-015-062 -- Saisonuebersicht — Klick auf Monatskarte wechselt Ansicht.
         """
@@ -201,9 +197,7 @@ class TestSeasonOverviewInteraction:
 
         screenshot("TC-REQ-015-065_before-card-click", "Before clicking a month card")
 
-        action_areas = cards[0].find_elements(
-            By.CSS_SELECTOR, ".MuiCardActionArea-root"
-        )
+        action_areas = cards[0].find_elements(By.CSS_SELECTOR, ".MuiCardActionArea-root")
         if len(action_areas) == 0:
             pytest.skip("No CardActionArea found in month card")
 

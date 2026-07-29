@@ -8,6 +8,7 @@ import DialogContent from '@mui/material/DialogContent';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -131,7 +132,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="location-create-dialog-title" data-testid="location-create-dialog">
       <DialogTitle id="location-create-dialog-title">{dialogTitle}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField name="name" control={control} label={t('pages.locations.name')} required
         autoFocus
       />
@@ -202,7 +203,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
           )}
 
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

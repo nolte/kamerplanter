@@ -25,6 +25,7 @@ from .pages import (
     TenantSettingsPage,
     TenantSwitcherPage,
 )
+from ._auth_helpers import clear_auth_session
 
 pytestmark = pytest.mark.requires_auth
 
@@ -69,7 +70,7 @@ def invitation_page(browser: WebDriver, base_url: str) -> InvitationAcceptPage:
 
 def _ensure_logged_in(login_page: LoginPage) -> None:
     """Log in as demo user if not already authenticated."""
-    login_page.driver.delete_all_cookies()
+    clear_auth_session(login_page.driver)
     login_page.open()
     login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
     login_page.wait_for_url_contains("/dashboard")
@@ -89,7 +90,7 @@ class TestTenantNavigation:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-027: Navigate directly to /tenants/settings from dashboard.
+        """TC-024-012: Navigate directly to /tenants/settings from dashboard.
 
         Spec: TC-024-012 -- Tenant-Einstellungsseite aufrufen als Admin.
         """
@@ -101,9 +102,7 @@ class TestTenantNavigation:
         )
 
         title = settings_page.get_page_title_text()
-        assert title, (
-            "TC-REQ-024-027 FAIL: Expected page title after navigating to tenant settings"
-        )
+        assert title, "TC-REQ-024-027 FAIL: Expected page title after navigating to tenant settings"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -113,7 +112,7 @@ class TestTenantNavigation:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-028: Navigate directly to /tenants/create.
+        """TC-024-003: Navigate directly to /tenants/create.
 
         Spec: TC-024-003 -- Organisations-Tenant erstellen.
         """
@@ -125,9 +124,7 @@ class TestTenantNavigation:
         )
 
         title = create_page.get_page_title_text()
-        assert title, (
-            "TC-REQ-024-028 FAIL: Expected page title after navigating to tenant create"
-        )
+        assert title, "TC-REQ-024-028 FAIL: Expected page title after navigating to tenant create"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -138,7 +135,7 @@ class TestTenantNavigation:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-029: Navigation: Settings page -> Create page in sequence.
+        """TC-024-012: Navigation: Settings page -> Create page in sequence.
 
         Spec: TC-024-012 / TC-024-003 -- Cross-Navigation.
         """
@@ -177,7 +174,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-030: Invitation accept page without token shows error.
+        """TC-024-026: Invitation accept page without token shows error.
 
         Spec: TC-024-026 -- Abgelaufene Einladung annehmen -- Fehlermeldung.
         """
@@ -201,7 +198,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-031: Invitation accept page with invalid token shows error.
+        """TC-024-026: Invitation accept page with invalid token shows error.
 
         Spec: TC-024-026 -- Abgelaufene Einladung annehmen -- Fehlermeldung.
         """
@@ -230,7 +227,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-032: Error state displays heading and error detail text.
+        """TC-024-026: Error state displays heading and error detail text.
 
         Spec: TC-024-026 -- Fehlerzustand zeigt Heading und Detail.
         """
@@ -243,9 +240,7 @@ class TestInvitationAcceptNavigation:
         )
 
         heading = invitation_page.get_heading_text()
-        assert heading, (
-            "TC-REQ-024-032 FAIL: Expected a heading text on the error state"
-        )
+        assert heading, "TC-REQ-024-032 FAIL: Expected a heading text on the error state"
 
         assert invitation_page.is_error(), (
             "TC-REQ-024-032 FAIL: Expected the error icon to be displayed"
@@ -259,7 +254,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-033: Error state has a button to navigate back to dashboard.
+        """TC-024-026: Error state has a button to navigate back to dashboard.
 
         Spec: TC-024-026 -- Fehlerzustand hat Dashboard-Button.
         """

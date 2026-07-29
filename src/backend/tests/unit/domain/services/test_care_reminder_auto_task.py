@@ -1,6 +1,6 @@
 """Tests for CareReminderService.ensure_next_watering_task."""
 
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +10,13 @@ from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 from app.domain.models.task import Task
 from app.domain.services.care_reminder_service import CareReminderService
+from tests.unit.domain.services.care_task_fakes import FakeTaskRepo
+
+
+def _today_utc() -> datetime:
+    """Midnight UTC of the current day (care tasks are day-granular)."""
+    now = datetime.now(UTC)
+    return datetime(now.year, now.month, now.day, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -390,6 +397,59 @@ def test_confirm_triggers_next_task_creation(
     service.confirm_reminder("plant-1", ReminderType.WATERING)
 
     mock_task_repo.create_task.assert_called_once()
+
+
+def test_confirm_with_open_task_completes_it_and_schedules_follow_up(
+    mock_care_repo: MagicMock,
+    engine: CareReminderEngine,
+) -> None:
+    """#768 — confirming with an open task must yield completion *and* a follow-up.
+
+    The dashboard/API/MCP confirmation path shares the complete-then-schedule
+    composition with the Gießprotokoll path. Against real repository state the
+    follow-up lookup would otherwise return the very task the confirmation just
+    completed, ending the reminder chain. Driven through the stateful
+    :class:`FakeTaskRepo`, which a stateless mock cannot expose.
+    """
+    plant_repo = MagicMock()
+    plant = MagicMock()
+    plant.key = "plant-1"
+    plant.plant_name = "Monstera"
+    plant.instance_id = "PI-001"
+    plant.tenant_key = "tenant-1"
+    plant.current_phase_key = None
+    plant.slot_key = None
+    plant_repo.get_by_key.return_value = plant
+
+    open_task = Task(
+        key="task-open",
+        name="Monstera — watering",
+        instruction="Water Monstera (every 7 days).",
+        category=TaskCategory.CARE_REMINDER,
+        entity_key="plant-1",
+        entity_type="plant_instance",
+        tenant_key="tenant-1",
+        status=TaskStatus.PENDING,
+        due_date=_today_utc(),
+    )
+    task_repo = FakeTaskRepo([open_task])
+
+    profile = _profile()
+    mock_care_repo.get_profile_by_plant_key.return_value = profile
+    mock_care_repo.create_confirmation.side_effect = lambda c: CareConfirmation(**{**c.model_dump(), "_key": "conf-1"})
+    mock_care_repo.get_last_confirmation.return_value = None
+    mock_care_repo.get_confirmations_by_plant.return_value = []
+
+    service = CareReminderService(mock_care_repo, engine, task_repo, plant_repo=plant_repo)
+
+    service.confirm_reminder("plant-1", ReminderType.WATERING)
+
+    completed = task_repo.completed_care_tasks(ReminderType.WATERING)
+    pending = task_repo.open_care_tasks(ReminderType.WATERING)
+    assert [t.key for t in completed] == ["task-open"]
+    assert len(pending) == 1, "the confirmation must schedule exactly one follow-up"
+    assert pending[0].due_date == _today_utc() + timedelta(days=7)
+    assert pending[0].tenant_key == "tenant-1"
 
 
 def test_confirm_non_watering_does_not_trigger_task(

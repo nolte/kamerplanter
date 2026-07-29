@@ -527,15 +527,22 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleExperienceLevelChange = (_: React.MouseEvent<HTMLElement>, newLevel: ExperienceLevel | null) => {
+  const handleExperienceLevelChange = async (_: React.MouseEvent<HTMLElement>, newLevel: ExperienceLevel | null) => {
     if (!newLevel) return;
     const currentLevel = preferences?.experience_level ?? 'beginner';
     const order: Record<ExperienceLevel, number> = { beginner: 0, intermediate: 1, expert: 2 };
     if (order[newLevel] < order[currentLevel]) {
       if (!window.confirm(t('pages.auth.experienceLevelDowngradeWarning'))) return;
     }
-    dispatch(updateUserPreferences({ updates: { experience_level: newLevel } }));
-    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+    try {
+      // Await persistence before confirming: an optimistic snackbar lets the
+      // user (and E2E waits) navigate away while the PATCH is still in flight,
+      // silently losing the level change on full reload.
+      await dispatch(updateUserPreferences({ updates: { experience_level: newLevel } })).unwrap();
+      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -554,7 +561,14 @@ export default function AccountSettingsPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
+      <Tabs
+        value={tabIndex}
+        onChange={(_, v) => setTabIndex(v)}
+        sx={{ mb: 3 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+      >
         {tabs.map((tab) => (
           <Tab
             key={tab.key}
@@ -1540,7 +1554,7 @@ export default function AccountSettingsPage() {
                                       label={`${r.tenant_name} (${r.role})`}
                                       size="small"
                                       variant="outlined"
-                                      color={r.role === 'admin' ? 'warning' : r.role === 'grower' ? 'success' : 'default'}
+                                      color={r.role === 'lead' ? 'warning' : r.role === 'grower' ? 'success' : 'default'}
                                     />
                                   ))}
                                   {u.roles.length === 0 && (

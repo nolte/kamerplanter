@@ -1,0 +1,9 @@
+# Ruff configuration for the browser-free E2E harness self-tests.
+#
+# Inherits `tests/e2e/ruff.toml` rather than restating it: these tests exercise
+# code that lives in that tree and are written at the same 100-column width, so a
+# second, independently-drifting set of settings would be the only way for the
+# two halves of the same suite to disagree about formatting. Without a file here
+# ruff falls back to its built-in defaults (88 columns), which is the exact trap
+# `tests/e2e/ruff.toml` was added to close.
+extend = "../e2e/ruff.toml"

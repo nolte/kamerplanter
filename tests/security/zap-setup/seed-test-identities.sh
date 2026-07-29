@@ -146,7 +146,7 @@ ensure_tenant() {
 
   # Look up existing tenants for the user.
   local existing
-  existing=$(api GET "/api/v1/tenants/" "$owner_token")
+  existing=$(api GET "/api/v1/tenants" "$owner_token")
   if echo "$existing" | jq -e --arg s "$slug" '.[] | select(.slug == $s)' >/dev/null; then
     echo "  tenant exists: $slug"
     echo "$owner_token"
@@ -158,7 +158,7 @@ ensure_tenant() {
     '{name:$n, slug:$s, tenant_type:"organization"}')
 
   local resp
-  resp=$(api POST "/api/v1/tenants/" "$owner_token" "$body")
+  resp=$(api POST "/api/v1/tenants" "$owner_token" "$body")
   echo "$resp" | jq -er '.slug' >/dev/null || {
     echo "::error::Tenant creation failed for $slug — response: $resp" >&2
     exit 1

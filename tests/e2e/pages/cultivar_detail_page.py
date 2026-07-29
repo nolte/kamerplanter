@@ -51,14 +51,14 @@ class CultivarDetailPage(BasePage):
         el.send_keys(Keys.ENTER)
 
     def click_save(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def click_delete(self) -> None:
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def has_delete_button(self) -> bool:
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0

@@ -38,7 +38,7 @@ from .pages.nutrient_plan_detail_page import NutrientPlanDetailPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('nutrient',)
+FEATURES = ("nutrient",)
 
 
 # ── Fixtures ──────────────────────────────────────────────��────────────────────
@@ -66,13 +66,12 @@ class TestNutrientPlanListPage:
     def test_plan_list_page_loads(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-031: Nutrient plan list page loads and the table is present.
+        """TC-004-012: Nutrient plan list page loads and the table is present.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
         plan_list.open()
-        screenshot("TC-REQ-004-031_plan-list-loaded",
-                   "Nutrient plan list page after initial load")
+        screenshot("TC-REQ-004-031_plan-list-loaded", "Nutrient plan list page after initial load")
 
         assert plan_list.get_row_count() >= 0, (
             "TC-REQ-004-031 FAIL: Nutrient plan table should be present with row count >= 0"
@@ -83,13 +82,12 @@ class TestNutrientPlanListPage:
     def test_plan_list_has_required_columns(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-032: Nutrient plan list shows name, author, template and version columns.
+        """TC-004-012: Nutrient plan list shows name, author, template and version columns.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
         plan_list.open()
-        screenshot("TC-REQ-004-032_plan-list-columns",
-                   "Nutrient plan list showing column headers")
+        screenshot("TC-REQ-004-032_plan-list-columns", "Nutrient plan list showing column headers")
 
         headers = plan_list.get_column_headers()
         assert len(headers) > 0, (
@@ -100,7 +98,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_search_filters_results(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-033: Searching the plan list filters visible rows.
+        """TC-004-013: Searching the plan list filters visible rows.
 
         Spec: TC-004-013 -- Naehrstoffplan nach Substrattyp filtern.
         """
@@ -112,8 +110,10 @@ class TestNutrientPlanListPage:
         plan_list.search("zzzz_nonexistent_plan_xxxx")
         plan_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-033_plan-search-no-match",
-                   "Nutrient plan list after searching for non-existent term")
+        screenshot(
+            "TC-REQ-004-033_plan-search-no-match",
+            "Nutrient plan list after searching for non-existent term",
+        )
 
         filtered_count = plan_list.get_row_count()
         assert filtered_count <= initial_count, (
@@ -125,7 +125,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_search_chip_appears(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-034: Search chip is shown after entering search text.
+        """TC-004-013: Search chip is shown after entering search text.
 
         Spec: TC-004-013 -- Naehrstoffplan nach Substrattyp filtern.
         """
@@ -133,8 +133,10 @@ class TestNutrientPlanListPage:
         plan_list.search("organic")
         plan_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-034_plan-search-chip",
-                   "Nutrient plan list with search chip after typing 'organic'")
+        screenshot(
+            "TC-REQ-004-034_plan-search-chip",
+            "Nutrient plan list with search chip after typing 'organic'",
+        )
 
         assert plan_list.has_search_chip(), (
             "TC-REQ-004-034 FAIL: Expected a search chip to appear after typing in the search field"
@@ -145,7 +147,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_sort_by_column(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-035: Clicking a column header sorts the nutrient plan list.
+        """TC-004-012: Clicking a column header sorts the nutrient plan list.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
@@ -154,14 +156,21 @@ class TestNutrientPlanListPage:
             pytest.skip("No nutrient plans to sort")
 
         headers = plan_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-004-035 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         plan_list.click_column_header(headers[0])
         plan_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-035_plan-sorted",
-                   "Nutrient plan list after clicking column header to sort")
+        screenshot(
+            "TC-REQ-004-035_plan-sorted", "Nutrient plan list after clicking column header to sort"
+        )
 
         assert plan_list.has_sort_chip(), (
             "TC-REQ-004-035 FAIL: Expected a sort chip to appear after clicking a column header"
@@ -171,13 +180,12 @@ class TestNutrientPlanListPage:
     def test_plan_list_showing_count(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-036: Nutrient plan list shows a 'Zeigt X von Y' count label.
+        """TC-004-012: Nutrient plan list shows a 'Zeigt X von Y' count label.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
         plan_list.open()
-        screenshot("TC-REQ-004-036_plan-showing-count",
-                   "Nutrient plan list showing count label")
+        screenshot("TC-REQ-004-036_plan-showing-count", "Nutrient plan list showing count label")
 
         showing_text = plan_list.get_showing_count_text()
         assert showing_text, (
@@ -188,7 +196,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_row_click_navigates_to_detail(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-037: Clicking a nutrient plan row navigates to its detail page.
+        """TC-004-012: Clicking a nutrient plan row navigates to its detail page.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen (Row Click Navigation).
         """
@@ -196,14 +204,17 @@ class TestNutrientPlanListPage:
         if plan_list.get_row_count() == 0:
             pytest.skip("No nutrient plans in database — skipping navigation test")
 
-        screenshot("TC-REQ-004-037_before-plan-row-click",
-                   "Nutrient plan list before clicking first row")
+        screenshot(
+            "TC-REQ-004-037_before-plan-row-click", "Nutrient plan list before clicking first row"
+        )
 
         plan_list.click_row(0)
         plan_list.wait_for_url_contains("/duengung/plans/")
 
-        screenshot("TC-REQ-004-037_after-plan-row-click",
-                   "Nutrient plan detail page after row click navigation")
+        screenshot(
+            "TC-REQ-004-037_after-plan-row-click",
+            "Nutrient plan detail page after row click navigation",
+        )
 
         current_url = plan_list.driver.current_url
         assert "/duengung/plans/" in current_url, (
@@ -221,18 +232,22 @@ class TestNutrientPlanCreateDialog:
     def test_create_dialog_opens(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-043: Clicking 'Create' opens the nutrient plan create dialog.
+        """TC-004-015: Clicking 'Create' opens the nutrient plan create dialog.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Dialog).
         """
         plan_list.open()
 
-        screenshot("TC-REQ-004-043_before-create-plan-click",
-                   "Nutrient plan list before clicking create button")
+        screenshot(
+            "TC-REQ-004-043_before-create-plan-click",
+            "Nutrient plan list before clicking create button",
+        )
 
         plan_list.click_create()
-        screenshot("TC-REQ-004-043_plan-create-dialog-open",
-                   "Nutrient plan create dialog open with form fields")
+        screenshot(
+            "TC-REQ-004-043_plan-create-dialog-open",
+            "Nutrient plan create dialog open with form fields",
+        )
 
         assert plan_list.is_create_dialog_open(), (
             "TC-REQ-004-043 FAIL: Nutrient plan create dialog should be visible after clicking create"
@@ -242,7 +257,7 @@ class TestNutrientPlanCreateDialog:
     def test_create_plan_with_required_name(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-044: Create a nutrient plan with only the required name field.
+        """TC-004-015: Create a nutrient plan with only the required name field.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Minimal).
         """
@@ -253,16 +268,19 @@ class TestNutrientPlanCreateDialog:
         unique = uuid.uuid4().hex[:8]
         plan_name = f"E2E-Plan-{unique}"
 
-        screenshot("TC-REQ-004-044_plan-create-minimal",
-                   "Create dialog with minimal plan name filled")
+        screenshot(
+            "TC-REQ-004-044_plan-create-minimal", "Create dialog with minimal plan name filled"
+        )
 
         plan_list.fill_name(plan_name)
         plan_list.submit_create_form()
 
         plan_list.wait_for_loading_complete()
         plan_list.open()
-        screenshot("TC-REQ-004-044_after-plan-create-minimal",
-                   "Nutrient plan list after creating plan with minimal fields")
+        screenshot(
+            "TC-REQ-004-044_after-plan-create-minimal",
+            "Nutrient plan list after creating plan with minimal fields",
+        )
 
         new_count = plan_list.get_row_count()
         assert new_count >= initial_count, (
@@ -273,7 +291,7 @@ class TestNutrientPlanCreateDialog:
     def test_create_plan_with_all_fields(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-045: Create a nutrient plan with all major fields filled.
+        """TC-004-015: Create a nutrient plan with all major fields filled.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Full).
         """
@@ -288,15 +306,18 @@ class TestNutrientPlanCreateDialog:
         plan_list.fill_description("E2E test nutrient plan with full data")
         plan_list.fill_author("E2E Test Author")
 
-        screenshot("TC-REQ-004-045_plan-create-full-fields",
-                   "Create dialog with all major fields filled")
+        screenshot(
+            "TC-REQ-004-045_plan-create-full-fields", "Create dialog with all major fields filled"
+        )
 
         plan_list.submit_create_form()
         plan_list.wait_for_loading_complete()
 
         plan_list.open()
-        screenshot("TC-REQ-004-045_after-plan-create-full",
-                   "Nutrient plan list after creating plan with full data")
+        screenshot(
+            "TC-REQ-004-045_after-plan-create-full",
+            "Nutrient plan list after creating plan with full data",
+        )
 
         new_count = plan_list.get_row_count()
         assert new_count >= initial_count, (
@@ -307,7 +328,7 @@ class TestNutrientPlanCreateDialog:
     def test_validation_empty_name_rejected(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-046: Submitting with empty plan name shows validation error.
+        """TC-004-016: Submitting with empty plan name shows validation error.
 
         Spec: TC-004-016 -- Naehrstoffplan erstellen -- Namensfeld leer.
         """
@@ -318,8 +339,10 @@ class TestNutrientPlanCreateDialog:
         plan_list.submit_create_form()
         plan_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-046_plan-validation-empty-name",
-                   "Create dialog showing validation error for empty plan name")
+        screenshot(
+            "TC-REQ-004-046_plan-validation-empty-name",
+            "Create dialog showing validation error for empty plan name",
+        )
 
         assert plan_list.is_create_dialog_open(), (
             "TC-REQ-004-046 FAIL: Create dialog should remain open when submitted with an empty plan name"
@@ -329,7 +352,7 @@ class TestNutrientPlanCreateDialog:
     def test_cancel_plan_create_discards_input(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-047: Cancelling the create dialog discards the entered name.
+        """TC-004-015: Cancelling the create dialog discards the entered name.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Cancel.
         """
@@ -338,13 +361,15 @@ class TestNutrientPlanCreateDialog:
         plan_list.click_create()
         plan_list.fill_name("CancelledPlan")
 
-        screenshot("TC-REQ-004-047_plan-before-cancel",
-                   "Create dialog with plan name before cancelling")
+        screenshot(
+            "TC-REQ-004-047_plan-before-cancel", "Create dialog with plan name before cancelling"
+        )
 
         plan_list.cancel_create_form()
         plan_list.wait_for_loading_complete()
-        screenshot("TC-REQ-004-047_plan-after-cancel",
-                   "Nutrient plan list after cancelling create dialog")
+        screenshot(
+            "TC-REQ-004-047_plan-after-cancel", "Nutrient plan list after cancelling create dialog"
+        )
 
         assert not plan_list.is_create_dialog_open(), (
             "TC-REQ-004-047 FAIL: Create dialog should be closed after clicking cancel"
@@ -361,7 +386,7 @@ class TestNutrientPlanCreateDialog:
     def test_create_plan_with_template_flag(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-048: Create a nutrient plan and mark it as a template.
+        """TC-004-015: Create a nutrient plan and mark it as a template.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Template Flag.
         """
@@ -373,15 +398,18 @@ class TestNutrientPlanCreateDialog:
         plan_list.fill_name(f"Template-E2E-{unique}")
         plan_list.toggle_is_template()
 
-        screenshot("TC-REQ-004-048_plan-create-template",
-                   "Create dialog with template flag enabled")
+        screenshot(
+            "TC-REQ-004-048_plan-create-template", "Create dialog with template flag enabled"
+        )
 
         plan_list.submit_create_form()
         plan_list.wait_for_loading_complete()
 
         plan_list.open()
-        screenshot("TC-REQ-004-048_after-plan-create-template",
-                   "Nutrient plan list after creating template plan")
+        screenshot(
+            "TC-REQ-004-048_after-plan-create-template",
+            "Nutrient plan list after creating template plan",
+        )
 
         new_count = plan_list.get_row_count()
         assert new_count >= initial_count, (
@@ -426,7 +454,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-053: Nutrient plan detail page loads with plan name as title.
+        """TC-004-012: Nutrient plan detail page loads with plan name as title.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite laedt.
         """
@@ -436,8 +464,9 @@ class TestNutrientPlanDetailPage:
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-053_plan-detail-loaded",
-                   "Nutrient plan detail page with plan name as title")
+        screenshot(
+            "TC-REQ-004-053_plan-detail-loaded", "Nutrient plan detail page with plan name as title"
+        )
 
         title = detail.get_page_title_text()
         assert title, (
@@ -450,7 +479,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-054: Nutrient plan detail page has three tabs (Phase Entries / Validation / Edit).
+        """TC-004-012: Nutrient plan detail page has three tabs (Phase Entries / Validation / Edit).
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Tabs.
         """
@@ -461,8 +490,7 @@ class TestNutrientPlanDetailPage:
 
         tab_count = detail.get_tab_count()
 
-        screenshot("TC-REQ-004-054_plan-detail-tabs",
-                   "Nutrient plan detail page showing tabs")
+        screenshot("TC-REQ-004-054_plan-detail-tabs", "Nutrient plan detail page showing tabs")
 
         assert tab_count >= 3, (
             f"TC-REQ-004-054 FAIL: Expected at least 3 tabs in the nutrient plan detail page, got {tab_count}"
@@ -474,7 +502,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-055: Phase Entries tab is active by default on page load.
+        """TC-004-017: Phase Entries tab is active by default on page load.
 
         Spec: TC-004-017 -- Phase-Entry zu Naehrstoffplan hinzufuegen (Phase Entries Tab).
         """
@@ -484,13 +512,13 @@ class TestNutrientPlanDetailPage:
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-055_plan-phase-entries-tab-default",
-                   "Nutrient plan detail with Phase Entries tab active by default")
+        screenshot(
+            "TC-REQ-004-055_plan-phase-entries-tab-default",
+            "Nutrient plan detail with Phase Entries tab active by default",
+        )
 
         active_tab = detail.get_active_tab_text()
-        assert active_tab, (
-            "TC-REQ-004-055 FAIL: Expected an active tab label, got empty string"
-        )
+        assert active_tab, "TC-REQ-004-055 FAIL: Expected an active tab label, got empty string"
         # First tab should be active (Phase Entries / Phaseneintraege)
         assert detail.is_first_tab_selected(), (
             "TC-REQ-004-055 FAIL: Expected the first tab (Phase Entries) to be selected by default"
@@ -502,7 +530,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-056: Switching to the Validation tab triggers plan validation.
+        """TC-004-021: Switching to the Validation tab triggers plan validation.
 
         Spec: TC-004-021 -- Plan-Vollstaendigkeits-Validierung (Validation Tab).
         """
@@ -512,15 +540,18 @@ class TestNutrientPlanDetailPage:
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-056_before-validation-tab",
-                   "Nutrient plan detail before switching to validation tab")
+        screenshot(
+            "TC-REQ-004-056_before-validation-tab",
+            "Nutrient plan detail before switching to validation tab",
+        )
 
         detail.click_tab_validation()
         # Wait for validation to complete (spinner disappears)
         detail.wait_for_validation_loaded(timeout=30)
 
-        screenshot("TC-REQ-004-056_validation-tab-loaded",
-                   "Validation tab loaded with validation results")
+        screenshot(
+            "TC-REQ-004-056_validation-tab-loaded", "Validation tab loaded with validation results"
+        )
 
         alerts = detail.get_validation_alerts()
         assert len(alerts) > 0, (
@@ -533,7 +564,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-057: Edit tab form is pre-filled with the plan's current data.
+        """TC-004-012: Edit tab form is pre-filled with the plan's current data.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Edit Tab prefilled.
         """
@@ -546,12 +577,21 @@ class TestNutrientPlanDetailPage:
         title = detail.get_page_title_text()
         detail.click_tab_edit()
 
-        screenshot("TC-REQ-004-057_plan-edit-tab-prefilled",
-                   "Nutrient plan edit tab with pre-filled name field")
+        screenshot(
+            "TC-REQ-004-057_plan-edit-tab-prefilled",
+            "Nutrient plan edit tab with pre-filled name field",
+        )
 
         name_value = detail.get_name_field_value()
         assert name_value, (
             "TC-REQ-004-057 FAIL: Expected the name field in the edit tab to be pre-filled with the plan name"
+        )
+        # The assertion message already named the plan; only the check was
+        # missing (#802). A non-empty field is not "pre-filled with the plan
+        # name" -- it has to be *this* plan's name.
+        assert name_value == title, (
+            f"TC-REQ-004-057 FAIL: The edit tab must pre-fill the loaded plan's name '{title}', "
+            f"but the field holds '{name_value}'"
         )
 
     @pytest.mark.core_crud
@@ -560,7 +600,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-058: Edit tab save button is disabled when no changes have been made.
+        """TC-004-012: Edit tab save button is disabled when no changes have been made.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Save disabled.
         """
@@ -576,8 +616,10 @@ class TestNutrientPlanDetailPage:
             )
         detail.click_tab_edit()
 
-        screenshot("TC-REQ-004-058_plan-edit-save-disabled",
-                   "Nutrient plan edit tab with save button disabled")
+        screenshot(
+            "TC-REQ-004-058_plan-edit-save-disabled",
+            "Nutrient plan edit tab with save button disabled",
+        )
 
         submit_enabled = detail.is_submit_button_enabled()
         assert not submit_enabled, (
@@ -590,7 +632,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-059: Modifying a field in edit tab enables the save button.
+        """TC-004-012: Modifying a field in edit tab enables the save button.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Save enables after change.
         """
@@ -608,8 +650,10 @@ class TestNutrientPlanDetailPage:
 
         detail.fill_author(f"E2E-Author-{uuid.uuid4().hex[:4]}")
 
-        screenshot("TC-REQ-004-059_plan-edit-save-enabled",
-                   "Nutrient plan edit tab with save button enabled after modification")
+        screenshot(
+            "TC-REQ-004-059_plan-edit-save-enabled",
+            "Nutrient plan edit tab with save button enabled after modification",
+        )
 
         submit_enabled = detail.is_submit_button_enabled()
         assert submit_enabled, (
@@ -622,7 +666,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-060: Delete button on nutrient plan opens a confirm dialog.
+        """TC-004-027: Delete button on nutrient plan opens a confirm dialog.
 
         Spec: TC-004-027 -- Naehrstoffplan loeschen (Delete Confirm Dialog).
         """
@@ -651,8 +695,9 @@ class TestNutrientPlanDetailPage:
 
         detail.click_delete()
 
-        screenshot("TC-REQ-004-060_plan-delete-confirm-dialog",
-                   "Nutrient plan delete confirmation dialog")
+        screenshot(
+            "TC-REQ-004-060_plan-delete-confirm-dialog", "Nutrient plan delete confirmation dialog"
+        )
 
         assert detail.is_confirm_dialog_open(), (
             "TC-REQ-004-060 FAIL: Expected the confirm dialog to open after clicking the delete button"
@@ -660,8 +705,9 @@ class TestNutrientPlanDetailPage:
 
         # Cancel — do not actually delete
         detail.cancel_delete()
-        screenshot("TC-REQ-004-060_plan-delete-cancelled",
-                   "Nutrient plan detail after cancelling delete")
+        screenshot(
+            "TC-REQ-004-060_plan-delete-cancelled", "Nutrient plan detail after cancelling delete"
+        )
 
         assert not detail.is_confirm_dialog_open(), (
             "TC-REQ-004-060 FAIL: Confirm dialog should be closed after clicking cancel"

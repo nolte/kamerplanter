@@ -136,7 +136,9 @@ class HarvestService:
                 first_blocker["days_remaining"],
             )
 
-        if not batch.batch_id.strip():
+        # batch_id is nullable since the ""->None model normalization; treat
+        # None and blank alike and always persist a generated identifier.
+        if not (batch.batch_id or "").strip():
             batch.batch_id = self._generate_batch_id(plant_key, harvest_date)
 
         return self._repo.create_batch(batch)

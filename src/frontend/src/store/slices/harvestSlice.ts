@@ -17,6 +17,25 @@ interface HarvestState {
   quality: QualityAssessment | null;
   yieldMetric: YieldMetric | null;
   readiness: ReadinessAssessment | null;
+  /**
+   * Plant the cached {@link readiness} (or {@link readinessError}) belongs to.
+   *
+   * The assessment is plant-scoped but lives in a single shared slot, so a
+   * consumer must be able to tell "this is my plant's assessment" from "this is
+   * the sibling I navigated away from". Recording the requested plant on
+   * ``pending`` and re-checking it on ``fulfilled``/``rejected`` also discards
+   * out-of-order responses: switching plants mid-flight can otherwise let the
+   * first plant's late response overwrite the second plant's fresh one.
+   */
+  readinessPlantKey: string | null;
+  /**
+   * Dedicated flags for the readiness request. The shared ``loading``/``error``
+   * pair is driven by the harvest list thunks (indicators, batches), so reusing
+   * it would make an embedded readiness card flicker whenever an unrelated
+   * harvest list loads elsewhere in the app.
+   */
+  readinessLoading: boolean;
+  readinessError: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -29,6 +48,9 @@ const initialState: HarvestState = {
   quality: null,
   yieldMetric: null,
   readiness: null,
+  readinessPlantKey: null,
+  readinessLoading: false,
+  readinessError: null,
   loading: false,
   error: null,
 };
@@ -148,8 +170,24 @@ const harvestSlice = createSlice({
         state.observations = action.payload;
       })
       // Readiness
+      .addCase(fetchReadiness.pending, (state, action) => {
+        state.readinessLoading = true;
+        state.readinessError = null;
+        // Drop the previous plant's assessment immediately so a consumer never
+        // paints a stale score while the new one is in flight.
+        state.readiness = null;
+        state.readinessPlantKey = action.meta.arg;
+      })
       .addCase(fetchReadiness.fulfilled, (state, action) => {
+        // Ignore a response that a newer request has already superseded.
+        if (action.meta.arg !== state.readinessPlantKey) return;
+        state.readinessLoading = false;
         state.readiness = action.payload;
+      })
+      .addCase(fetchReadiness.rejected, (state, action) => {
+        if (action.meta.arg !== state.readinessPlantKey) return;
+        state.readinessLoading = false;
+        state.readinessError = action.error.message ?? 'errors.loadFailed';
       });
   },
 });

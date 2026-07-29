@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable
-import time  # kept for debounce waits
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -55,7 +54,7 @@ class TestSeedDataFamilies:
     def test_nine_seed_families_present(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-085: Verify seed data — 9 botanical families with correct attributes.
+        """TC-001-054: Verify seed data — 9 botanical families with correct attributes.
 
         Spec: TC-001-054 -- Seed-Daten Kontrolle — mindestens 9 Pflanzenfamilien vorhanden.
         """
@@ -69,7 +68,9 @@ class TestSeedDataFamilies:
                 f"TC-REQ-001-085 FAIL: Seed family '{expected_name}' not found after search. Got: {names}"
             )
 
-        screenshot("TC-REQ-001-085_seed-families", "Family list after verifying all 9 seed families")
+        screenshot(
+            "TC-REQ-001-085_seed-families", "Family list after verifying all 9 seed families"
+        )
 
 
 class TestSeedDataFabaceae:
@@ -77,10 +78,12 @@ class TestSeedDataFabaceae:
 
     @pytest.mark.smoke
     def test_fabaceae_nitrogen_fixing(
-        self, family_list: BotanicalFamilyListPage, detail_page: BotanicalFamilyDetailPage,
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-086: Fabaceae has nitrogen_fixing = true and Schwachzehrer.
+        """TC-001-054: Fabaceae has nitrogen_fixing = true and Schwachzehrer.
 
         Spec: TC-001-054 -- Fabaceae Seed-Daten: nitrogen_fixing und Naehrstoffbedarf.
         """
@@ -92,8 +95,18 @@ class TestSeedDataFabaceae:
             pytest.skip("Fabaceae not found in list")
 
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
-        detail_page.wait_for_loading_complete()
-        screenshot("TC-REQ-001-086_fabaceae-detail", "Fabaceae detail page with nitrogen_fixing and nutrient demand")
+        # The URL changes the moment the router commits; the detail route's own
+        # chunk and first fetch are still in flight. `wait_for_loading_complete()`
+        # returned instantly here because no skeleton had mounted yet, so the
+        # switch/select reads below sampled an empty form
+        # (`e2e-test-stability` §D).
+        detail_page.wait_for_content(
+            BotanicalFamilyDetailPage.PAGE, "TC-REQ-001-086 Fabaceae detail page"
+        )
+        screenshot(
+            "TC-REQ-001-086_fabaceae-detail",
+            "Fabaceae detail page with nitrogen_fixing and nutrient demand",
+        )
 
         # Verify nitrogen fixing switch is ON
         assert detail_page.is_switch_checked("nitrogen_fixing"), (
@@ -112,10 +125,12 @@ class TestSeedDataCannabaceae:
 
     @pytest.mark.smoke
     def test_cannabaceae_attributes(
-        self, family_list: BotanicalFamilyListPage, detail_page: BotanicalFamilyDetailPage,
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-087: Verify Cannabaceae seed data attributes.
+        """TC-001-054: Verify Cannabaceae seed data attributes.
 
         Spec: TC-001-054 -- Cannabaceae Seed-Daten-Attribute pruefen.
         """
@@ -127,14 +142,17 @@ class TestSeedDataCannabaceae:
             pytest.skip("Cannabaceae not found in list")
 
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
-        detail_page.wait_for_loading_complete()
-        screenshot("TC-REQ-001-087_cannabaceae-detail", "Cannabaceae detail page with seed data attributes")
+        # See TC-REQ-001-086: the URL commit is not the route having rendered.
+        detail_page.wait_for_content(
+            BotanicalFamilyDetailPage.PAGE, "TC-REQ-001-087 Cannabaceae detail page"
+        )
+        screenshot(
+            "TC-REQ-001-087_cannabaceae-detail", "Cannabaceae detail page with seed data attributes"
+        )
 
         # Verify name
         name = detail_page.get_field_value("name")
-        assert name == "Cannabaceae", (
-            f"TC-REQ-001-087 FAIL: Expected 'Cannabaceae', got '{name}'"
-        )
+        assert name == "Cannabaceae", f"TC-REQ-001-087 FAIL: Expected 'Cannabaceae', got '{name}'"
 
         # Verify common name (German)
         common_name_de = detail_page.get_field_value("common_name_de")
@@ -144,9 +162,7 @@ class TestSeedDataCannabaceae:
 
         # Verify order
         order = detail_page.get_field_value("order")
-        assert order == "Rosales", (
-            f"TC-REQ-001-087 FAIL: Expected order 'Rosales', got '{order}'"
-        )
+        assert order == "Rosales", f"TC-REQ-001-087 FAIL: Expected order 'Rosales', got '{order}'"
 
         # Verify nitrogen fixing is OFF
         assert not detail_page.is_switch_checked("nitrogen_fixing"), (
@@ -161,7 +177,7 @@ class TestSeedDataRotation:
     def test_solanaceae_rotation_successors(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-088: Verify rotation successors for Solanaceae.
+        """TC-001-052: Verify rotation successors for Solanaceae.
 
         Spec: TC-001-052 -- Fruchtfolge-Empfehlung OK mit Stickstoff-Benefit (Solanaceae Nachfolger).
         """
@@ -172,7 +188,9 @@ class TestSeedDataRotation:
             pytest.skip("Solanaceae not found in family dropdown")
 
         rotation_page.select_family("Solanaceae")
-        screenshot("TC-REQ-001-088_solanaceae-successors", "Crop rotation successors for Solanaceae")
+        screenshot(
+            "TC-REQ-001-088_solanaceae-successors", "Crop rotation successors for Solanaceae"
+        )
 
         count = rotation_page.get_successor_count()
         assert count > 0, (

@@ -22,6 +22,7 @@ from typing import Any
 
 import pytest
 
+from app.common.datetimes import today_utc
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
@@ -146,7 +147,10 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert bv["location_col"] == "locations"
     assert bv["plant_entity_type"] == "plant_instance"
     assert bv["open_statuses"] == ["pending", "in_progress"]
-    assert bv["today"] == date.today().isoformat()  # #548 due-date-aware alarm
+    # #548 due-date-aware alarm. The repository binds ``today_utc()`` (#772,
+    # #812); ``date.today()`` is the *local* server date and agrees with it
+    # only on a UTC host — which CI is, so the mismatch was invisible there.
+    assert bv["today"] == today_utc().isoformat()
     assert "tenant-A" not in q  # never interpolated
 
 

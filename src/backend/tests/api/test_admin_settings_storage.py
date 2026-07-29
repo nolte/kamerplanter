@@ -412,7 +412,7 @@ def test_get_storage_allows_platform_admin_full_mode(monkeypatch):
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
     service, _repo = _service()
     tenant_service = MagicMock()
-    tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.ADMIN, is_active=True)
+    tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.LEAD, is_active=True)
     with patch("app.domain.services.system_settings_service.env_settings") as env:
         _set_storage_env_defaults(env)
         client = TestClient(_build_app_with_real_gating(service, tenant_service))

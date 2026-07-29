@@ -129,22 +129,32 @@ export default function PostHarvestPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.harvest_batch_key || r.key}
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.postHarvestStage.${r.stage}`)}
-                  size="small"
-                  color={STAGE_COLOR[r.stage]}
-                />
-                <Chip
-                  label={t(`enums.dryingMethod.${r.drying_method}`)}
-                  size="small"
-                  variant="outlined"
-                />
-              </>
-            }
+            titleId="harvestBatch"
+            chips={[
+              {
+                id: 'stage',
+                content: (
+                  <Chip
+                    label={t(`enums.postHarvestStage.${r.stage}`)}
+                    size="small"
+                    color={STAGE_COLOR[r.stage]}
+                  />
+                ),
+              },
+              {
+                id: 'method',
+                content: (
+                  <Chip
+                    label={t(`enums.dryingMethod.${r.drying_method}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+            ]}
             fields={[
               {
+                id: 'dryness',
                 label: t('pages.postHarvest.drynessProgress'),
                 value: (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 96 }}>

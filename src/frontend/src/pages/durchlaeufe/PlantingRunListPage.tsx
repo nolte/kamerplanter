@@ -125,24 +125,34 @@ export default function PlantingRunListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
+            titleId="name"
             subtitle={r.started_at ? new Date(r.started_at).toLocaleDateString() : undefined}
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.plantingRunStatus.${r.status}`)}
-                  size="small"
-                  color={statusColor[r.status] ?? 'default'}
-                />
-                <Chip
-                  label={t(`enums.plantingRunType.${r.run_type}`)}
-                  size="small"
-                  variant="outlined"
-                />
-              </>
-            }
+            subtitleId="startedAt"
+            chips={[
+              {
+                id: 'status',
+                content: (
+                  <Chip
+                    label={t(`enums.plantingRunStatus.${r.status}`)}
+                    size="small"
+                    color={statusColor[r.status] ?? 'default'}
+                  />
+                ),
+              },
+              {
+                id: 'runType',
+                content: (
+                  <Chip
+                    label={t(`enums.plantingRunType.${r.run_type}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+            ]}
             fields={[
-              { label: t('pages.plantingRuns.plannedQuantity'), value: String(r.planned_quantity) },
-              { label: t('pages.plantingRuns.actualQuantity'), value: String(r.actual_quantity) },
+              { id: 'plannedQty', label: t('pages.plantingRuns.plannedQuantity'), value: String(r.planned_quantity) },
+              { id: 'actualQty', label: t('pages.plantingRuns.actualQuantity'), value: String(r.actual_quantity) },
             ]}
           />
         )}

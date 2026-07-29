@@ -588,6 +588,22 @@ Diese Variablen steuern die Schwellwerte der automatischen Saison-/Überwinterun
 
 ---
 
+## Fehler-Tracking (optional)
+
+Meldet Laufzeitfehler an einen Sentry-protokollkompatiblen Tracker (Referenz: GlitchTip). **Ist `SENTRY_DSN` leer, passiert nichts** — das SDK wird nie initialisiert, das Frontend lädt sein SDK-Bündel nicht einmal herunter. Ausführlich: [Fehler-Tracking](../deployment/fehler-tracking.md).
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `SENTRY_DSN` | — (leer) | Nein | Ingest-URL des Trackers, Form `https://<public-key>@host/<projekt-id>`. Enthält nur einen öffentlichen Schlüssel, kein Geheimnis. Leer = abgeschaltet. |
+| `SENTRY_ENVIRONMENT` | `development` | Nein | Stufe aus dem festen Vokabular `development`, `e2e`, `staging`, `production`. Alarmregeln filtern auf genau diese Werte; ein abweichender Wert meldet trotzdem, wird aber protokolliert. |
+| `SENTRY_RELEASE` | Komponente + Version | Nein | Image-Tag oder Commit-SHA. Ohne sie sind Regressionserkennung und die Zuordnung „welches Deployment war es" unmöglich. |
+| `SENTRY_SAMPLE_RATE` | `1.0` | Nein | Anteil der gemeldeten Ereignisse (0–1). `1.0` ist eine bewusste Entscheidung für dieses Aufkommen, keine unangetastete Voreinstellung. Unlesbare Werte fallen auf `1.0` zurück. |
+
+Alle vier Variablen gelten für Backend, Celery Worker und Beat, Inference- und Knowledge-Service sowie das Frontend. Im Frontend werden sie zur Laufzeit über `runtime-config.js` eingespeist, nicht ins Build gebacken — ein Image bedient damit alle Stufen.
+
+!!! danger "Selbst gehosteter Tracker: NetworkPolicy nicht vergessen"
+    Unter Kubernetes schließt die Egress-Regel des Backends die privaten Adressbereiche aus. Ein Tracker im eigenen Cluster oder LAN braucht deshalb eine zusätzliche Egress-Regel — sonst werden Ereignisse stillschweigend verworfen.
+
 ## Vollständiges .env-Beispiel
 
 ```bash

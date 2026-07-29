@@ -26,17 +26,17 @@ beforeEach(() => {
 });
 
 describe('tenants endpoints — tenant CRUD', () => {
-  it('listMyTenants gets /tenants/', async () => {
+  it('listMyTenants gets /tenants', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tenants.listMyTenants();
-    expect(client.get).toHaveBeenCalledWith('/tenants/');
+    expect(client.get).toHaveBeenCalledWith('/tenants');
   });
 
-  it('createOrganization posts to /tenants/', async () => {
+  it('createOrganization posts to /tenants', async () => {
     client.post.mockResolvedValue({ data: { key: 't1' } });
     const payload = { name: 'Org' } as never;
     await tenants.createOrganization(payload);
-    expect(client.post).toHaveBeenCalledWith('/tenants/', payload);
+    expect(client.post).toHaveBeenCalledWith('/tenants', payload);
   });
 
   it('getTenant gets tenant by slug', async () => {
@@ -68,9 +68,9 @@ describe('tenants endpoints — members', () => {
 
   it('changeMemberRole patches role', async () => {
     client.patch.mockResolvedValue({ data: undefined });
-    await tenants.changeMemberRole('org', 'm1', 'admin');
+    await tenants.changeMemberRole('org', 'm1', 'lead');
     expect(client.patch).toHaveBeenCalledWith('/tenants/org/members/m1/role', {
-      role: 'admin',
+      role: 'lead',
     });
   });
 

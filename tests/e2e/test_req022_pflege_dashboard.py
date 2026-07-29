@@ -83,7 +83,7 @@ class TestPflegeDashboardPageLoad:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-015: Task queue page renders with data-testid='task-queue-page'.
+        """TC-022-001: Task queue page renders with data-testid='task-queue-page'.
 
         Spec: TC-022-001 -- PflegeDashboardPage zeigt alle faelligen Erinnerungen sortiert.
         """
@@ -103,7 +103,7 @@ class TestPflegeDashboardPageLoad:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-016: Page title contains task queue title text.
+        """TC-022-001: Page title contains task queue title text.
 
         Spec: TC-022-001 -- PflegeDashboardPage Seitenheader.
         """
@@ -122,7 +122,7 @@ class TestPflegeDashboardPageLoad:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-017: Empty state shows 'Alle Pflanzen sind versorgt' when no reminders exist.
+        """TC-022-002: Empty state shows 'Alle Pflanzen sind versorgt' when no reminders exist.
 
         Spec: TC-022-002 -- PflegeDashboardPage im leeren Zustand zeigt Erfolgsmeldung.
         """
@@ -159,7 +159,7 @@ class TestPflegeDashboardPageLoad:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-018: Urgency sections (overdue, due_today, upcoming) render when data exists.
+        """TC-022-001: Urgency sections (overdue, due_today, upcoming) render when data exists.
 
         Spec: TC-022-001 -- PflegeDashboardPage Dringlichkeitsgruppen.
         """
@@ -195,7 +195,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-019: Each ReminderCard shows a plant name.
+        """TC-022-009: Each ReminderCard shows a plant name.
 
         Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
         """
@@ -212,7 +212,9 @@ class TestReminderCardDisplay:
 
         for card in cards:
             name = pflege.get_card_plant_name(card)
-            assert name, f"TC-REQ-022-019 FAIL: Expected non-empty plant name on care card, got: '{name}'"
+            assert name, (
+                f"TC-REQ-022-019 FAIL: Expected non-empty plant name on care card, got: '{name}'"
+            )
 
     @pytest.mark.core_crud
     def test_care_cards_have_urgency_indicator(
@@ -220,7 +222,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-020: Each ReminderCard has an urgency indicator via its section.
+        """TC-022-009: Each ReminderCard has an urgency indicator via its section.
 
         Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge in drei Farben.
         """
@@ -248,7 +250,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-021: Overdue cards show red (error) urgency badge.
+        """TC-022-009: Overdue cards show red (error) urgency badge.
 
         Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
         """
@@ -276,7 +278,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-022: Due-today cards show yellow/orange (warning) urgency badge.
+        """TC-022-009: Due-today cards show yellow/orange (warning) urgency badge.
 
         Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
         """
@@ -304,7 +306,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-023: Upcoming cards show blue/grey (info) urgency badge.
+        """TC-022-009: Upcoming cards show blue/grey (info) urgency badge.
 
         Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
         """
@@ -332,7 +334,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-024: Section header count chip matches total items in that section.
+        """TC-022-001: Section header count chip matches total items in that section.
 
         Spec: TC-022-001 -- PflegeDashboardPage Dringlichkeitsgruppen.
         """
@@ -357,7 +359,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-025: Each ReminderCard has a confirm (check) button.
+        """TC-022-012: Each ReminderCard has a confirm (check) button.
 
         Spec: TC-022-012 -- Giess-Erinnerung bestaetigen entfernt Karte sofort.
         """
@@ -384,7 +386,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-026: Each ReminderCard has a snooze button.
+        """TC-022-016: Each ReminderCard has a snooze button.
 
         Spec: TC-022-016 -- Snooze verschiebt Erinnerungskarte auf 'Demnaechst'.
         """
@@ -411,7 +413,7 @@ class TestReminderCardDisplay:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-027: Each ReminderCard has an edit-profile (pencil) button.
+        """TC-022-018: Each ReminderCard has an edit-profile (pencil) button.
 
         Spec: TC-022-018 -- CareProfileEditDialog oeffnet sich von der ReminderCard aus.
         """
@@ -457,7 +459,7 @@ class TestCareConfirmAction:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-028: Clicking confirm on a card opens the CareConfirmDialog.
+        """TC-022-012: Clicking confirm on a card opens the CareConfirmDialog.
 
         Spec: TC-022-012 -- Giess-Erinnerung bestaetigen entfernt Karte sofort.
         """
@@ -486,7 +488,7 @@ class TestCareConfirmAction:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-029: CareConfirmDialog has submit and cancel buttons.
+        """TC-022-012: CareConfirmDialog has submit and cancel buttons.
 
         Spec: TC-022-012 -- CareConfirmDialog Buttons.
         """
@@ -513,7 +515,7 @@ class TestCareConfirmAction:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-030: Cancelling confirm dialog leaves card in place.
+        """TC-022-012: Cancelling confirm dialog leaves card in place.
 
         Spec: TC-022-012 -- CareConfirmDialog -- Abbrechen.
         """
@@ -540,7 +542,7 @@ class TestCareConfirmAction:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-031: Submitting confirm dialog removes the card from the dashboard.
+        """TC-022-012: Submitting confirm dialog removes the card from the dashboard.
 
         Spec: TC-022-012 -- Giess-Erinnerung bestaetigen entfernt Karte sofort (Optimistic Update).
         """
@@ -577,7 +579,7 @@ class TestCareConfirmAction:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-032: CareConfirmDialog contains a notes text field.
+        """TC-022-012: CareConfirmDialog contains a notes text field.
 
         Spec: TC-022-012 -- CareConfirmDialog Notiz-Feld.
         """
@@ -621,9 +623,14 @@ class TestCareSnoozeAction:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-033: Clicking snooze on a card triggers the snooze action.
+        """TC-022-016: Clicking snooze on a card triggers the snooze action.
 
         Spec: TC-022-016 -- Snooze verschiebt Erinnerungskarte auf 'Demnaechst' (Grau).
+
+        Asserts the *effect* of the snooze, not merely the absence of an error:
+        a snooze sets the reminder due to tomorrow, so the card must leave the
+        overdue/due-today sections. "No error is displayed" alone was also true
+        when the request never left the browser.
         """
         pflege.open()
         screenshot(
@@ -632,15 +639,29 @@ class TestCareSnoozeAction:
         )
 
         plant_key, reminder_type = self._get_first_card_ids(pflege)
+        urgency_before = pflege.get_care_card_urgency_group(plant_key, reminder_type)
 
         pflege.click_snooze_on_card(plant_key, reminder_type)
-        pflege.wait_for_loading_complete()
+
+        # `handleSnooze` only notifies after `careApi.snoozeReminder` resolved,
+        # so the notification is proof that the request was actually issued.
+        snackbar_text = pflege.wait_for_snackbar()
+        assert not pflege.has_error_snackbar(), (
+            f"TC-REQ-022-033 FAIL: Snooze reported an error: '{snackbar_text}'"
+        )
+
+        urgency_after = pflege.wait_until_care_card_not_due(plant_key, reminder_type)
 
         screenshot(
             "TC-REQ-022-033_after-snooze",
             "After snooze action",
         )
 
+        assert urgency_after in (None, "thisWeek", "future"), (
+            f"TC-REQ-022-033 FAIL: Expected the snoozed card to leave the due "
+            f"sections (was '{urgency_before}'), but it is still in "
+            f"'{urgency_after}'"
+        )
         assert not pflege.is_error_displayed(), (
             "TC-REQ-022-033 FAIL: Expected no error after snooze action"
         )
@@ -651,27 +672,29 @@ class TestCareSnoozeAction:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-034: Snooze action shows a success/info snackbar.
+        """TC-022-016: Snooze action shows a success/info snackbar.
 
         Spec: TC-022-016 -- Snooze Erfolgs-Snackbar.
+
+        The snackbar is required, not optional: `handleSnooze` enqueues it only
+        after the API call resolved. Swallowing its absence (as this test used
+        to) made the test green while the request never left the browser.
         """
         pflege.open()
         plant_key, reminder_type = self._get_first_card_ids(pflege)
 
         pflege.click_snooze_on_card(plant_key, reminder_type)
 
-        try:
-            snackbar_text = pflege.wait_for_snackbar(timeout=5)
-            screenshot(
-                "TC-REQ-022-034_snooze-snackbar",
-                "Snooze snackbar displayed",
-            )
-            assert snackbar_text, "TC-REQ-022-034 FAIL: Expected non-empty snackbar text after snooze"
-        except Exception:
-            screenshot(
-                "TC-REQ-022-034_snooze-no-snackbar",
-                "No snackbar after snooze (optimistic update)",
-            )
+        snackbar_text = pflege.wait_for_snackbar()
+        screenshot(
+            "TC-REQ-022-034_snooze-snackbar",
+            "Snooze snackbar displayed",
+        )
+        assert snackbar_text, "TC-REQ-022-034 FAIL: Expected non-empty snackbar text after snooze"
+        assert not pflege.has_error_snackbar(), (
+            f"TC-REQ-022-034 FAIL: Expected a success/info snackbar after snooze, "
+            f"got an error snackbar: '{snackbar_text}'"
+        )
 
 
 # -- TC-022-091: In-Progress Task Unaffected by Interval Change (#622) ---------
@@ -694,7 +717,7 @@ class TestInProgressCycleChange:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-038: An in_progress care task keeps its due when the interval changes.
+        """TC-022-091: An in_progress care task keeps its due when the interval changes.
 
         Spec: TC-022-091 -- Giesszyklus waehrend laufender Aufgabe aendern --
         in_progress-Task bleibt, naechster Zyklus greift erst danach.

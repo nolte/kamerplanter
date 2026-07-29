@@ -26,7 +26,7 @@ from app.domain.models.tenant_context import TenantContext
 TENANT_SLUG = "anna"
 
 
-def _tenant_ctx(role: TenantRole = TenantRole.ADMIN) -> TenantContext:
+def _tenant_ctx(role: TenantRole = TenantRole.LEAD) -> TenantContext:
     return TenantContext(
         tenant_key="tenant_anna",
         tenant_slug=TENANT_SLUG,
@@ -42,7 +42,7 @@ def _app_error_handler(request: Request, exc: KamerplanterError) -> JSONResponse
     )
 
 
-def _build_app(service, reference_service=None, role: TenantRole = TenantRole.ADMIN):
+def _build_app(service, reference_service=None, role: TenantRole = TenantRole.LEAD):
     app = FastAPI()
     app.include_router(recognition_router, prefix="/api/v1")
     app.include_router(tenant_recognition_router, prefix="/api/v1/t/{tenant_slug}")

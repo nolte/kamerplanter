@@ -189,7 +189,7 @@ class FakeAquaponikRepo:
 
 
 def _ctx() -> TenantContext:
-    return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_1", role=TenantRole.ADMIN)
+    return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_1", role=TenantRole.LEAD)
 
 
 def _user() -> User:
@@ -209,7 +209,7 @@ def _build() -> tuple[TestClient, FakeAquaponikRepo]:
     app.include_router(fish_species_router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, _error_handler)
     app.dependency_overrides[get_current_tenant] = _ctx
-    app.dependency_overrides[require_tenant_role(TenantRole.ADMIN)] = _ctx
+    app.dependency_overrides[require_tenant_role(TenantRole.LEAD)] = _ctx
     app.dependency_overrides[get_current_user] = _user
     app.dependency_overrides[get_aquaponik_service] = lambda: service
     return TestClient(app), repo
@@ -579,8 +579,18 @@ _WRITE_ENDPOINTS = [
 ]
 
 
+#: Deletes are excluded from the grower sweep below: REQ-049 §2.3 draws the
+#: grower/lead boundary along irreversibility, so destroying a record is
+#: lead-only. Listed separately rather than filtered by HTTP method, because
+#: "DELETE" and "destroys history" are not the same thing everywhere.
+_DELETE_ENDPOINTS = [
+    ("delete", "/systems/sys1", None),
+    ("delete", "/systems/sys1/fish-stocks/st1", None),
+]
+
+
 class TestWriteRoleEnforcement:
-    """SEC-001 — REQ-024 restricts every aquaponics write to grower/admin."""
+    """SEC-001 / REQ-049 §2.3 — who may write, and who may destroy."""
 
     def test_viewer_forbidden_on_every_write(self):
         client, repo = _build_with_role(TenantRole.VIEWER)
@@ -591,13 +601,35 @@ class TestWriteRoleEnforcement:
             assert resp.status_code == 403, f"{method.upper()} {path} should be forbidden for viewer: {resp.text}"
             assert resp.json()["error_code"] == "FORBIDDEN"
 
-    def test_grower_allowed_on_every_write(self):
+    def test_grower_allowed_on_every_non_destructive_write(self):
         client, repo = _build_with_role(TenantRole.GROWER)
         _seed_system_and_stock(repo)
         for method, path, payload in _WRITE_ENDPOINTS:
+            if (method, path, payload) in _DELETE_ENDPOINTS:
+                continue
             request = getattr(client, method)
             resp = request(_base(path), json=payload) if payload is not None else request(_base(path))
             assert resp.status_code != 403, f"{method.upper()} {path} should be allowed for grower: {resp.text}"
+
+    def test_grower_forbidden_on_every_delete(self):
+        # AK-02, and the deliberate behaviour change of REQ-049: until now the
+        # implementation let a grower delete, although REQ-024 §1a.1 never did
+        # ("❌D" throughout). A grower fixes a mistake by overwriting a value;
+        # erasing a fish stock's history is a different kind of act.
+        client, repo = _build_with_role(TenantRole.GROWER)
+        _seed_system_and_stock(repo)
+        for method, path, _payload in _DELETE_ENDPOINTS:
+            resp = getattr(client, method)(_base(path))
+            assert resp.status_code == 403, f"{method.upper()} {path} should be forbidden for grower: {resp.text}"
+            assert resp.json()["error_code"] == "FORBIDDEN"
+
+    def test_lead_allowed_on_every_delete(self):
+        # AK-03 — the other half: the boundary moved, it did not close.
+        client, repo = _build_with_role(TenantRole.LEAD)
+        _seed_system_and_stock(repo)
+        for method, path, _payload in _DELETE_ENDPOINTS:
+            resp = getattr(client, method)(_base(path))
+            assert resp.status_code != 403, f"{method.upper()} {path} should be allowed for lead: {resp.text}"
 
     def test_read_allowed_for_viewer(self):
         client, repo = _build_with_role(TenantRole.VIEWER)

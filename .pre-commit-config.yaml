@@ -40,6 +40,51 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── E2E suite (Python) ────────────────────────────────────────────────
+  # Deferred in #776 because the tree was red -- the 13 `F841` before-state
+  # captures it reported were real findings, not noise, and silencing them to
+  # turn the gate green would have destroyed the evidence. They are resolved
+  # (#802), so the gate can be armed: `tests/e2e/ruff.toml` is the config that
+  # applies here (the backend's pyproject only covers `src/backend`).
+  - repo: local
+    hooks:
+      - id: ruff-lint-e2e
+        name: ruff check (E2E suite)
+        entry: bash -c 'cd tests/e2e && ruff check --fix "${@/#tests\/e2e\//}"' --
+        language: python
+        additional_dependencies: ['ruff>=0.15.0']
+        files: ^tests/e2e/.*\.py$
+        types: [python]
+      - id: ruff-format-e2e
+        name: ruff format (E2E suite)
+        entry: bash -c 'cd tests/e2e && ruff format "${@/#tests\/e2e\//}"' --
+        language: python
+        additional_dependencies: ['ruff>=0.15.0']
+        files: ^tests/e2e/.*\.py$
+        types: [python]
+
+  # ── Spec-to-test traceability ─────────────────────────────────────────
+  # Runs in the required `static` job, which is the whole point: until #775 the
+  # classic suite's docstring TC-IDs were verified by nothing, so 616 of them
+  # had drifted into a per-file running count that only coincidentally hit a
+  # real spec number — and nobody noticed, because no gate looked.
+  #
+  # Both channels are checked: the Gherkin `@TC-…` tags and the classic
+  # docstrings. Two shrink-only baselines in the script hold the remainder that
+  # cannot be resolved mechanically, so the check is green today and a *new*
+  # violation still fails immediately. A permanently red check gets switched off
+  # within a week, which would waste the exercise.
+  #
+  # Standard library only, no stack, no browser — cheap enough for every commit.
+  - repo: local
+    hooks:
+      - id: e2e-traceability
+        name: E2E spec-to-test traceability (#775)
+        entry: python3 scripts/check_bdd_traceability.py
+        language: system
+        files: ^(tests/e2e/|spec/e2e-testcases/|scripts/check_bdd_traceability\.py)
+        pass_filenames: false
+
   # ── Backend (Python) ──────────────────────────────────────────────────
   # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
   - repo: local
@@ -77,6 +122,13 @@ repos:
         additional_dependencies: ['mypy>=1.13.0']
         files: ^src/libs/kp_vectordb/kp_vectordb/.*\.py$
         pass_filenames: false
+      - id: mypy-kp-errortracking
+        name: mypy (kp_errortracking)
+        entry: bash -c 'cd src/libs/kp_errortracking && mypy kp_errortracking'
+        language: python
+        additional_dependencies: ['mypy>=1.13.0']
+        files: ^src/libs/kp_errortracking/kp_errortracking/.*\.py$
+        pass_filenames: false
       - id: mypy-knowledge-service
         name: mypy (knowledge-service)
         entry: bash -c 'cd src/knowledge-service && mypy app'
@@ -90,6 +142,26 @@ repos:
         language: python
         additional_dependencies: ['mypy>=1.13.0']
         files: ^src/inference-service/app/.*\.py$
+        pass_filenames: false
+
+  # ── Shared-lib copy drift (#777) ───────────────────────────────────────
+  # The error-tracking module is maintained once under src/libs and copied
+  # verbatim into each service, because the three Python services are separate
+  # build contexts. The copies carry the PII-scrubbing rules, so a drifted copy
+  # scrubs less than its siblings while looking identical from the outside.
+  #
+  # This runs here, in the required `static` gate, rather than only as a pytest
+  # guard inside the two microservices: those suites are not executed by any CI
+  # workflow, so a guard living only there would never have run. (The
+  # pre-existing kp_vectordb guards have exactly that gap; closing it is a
+  # separate change.)
+  - repo: local
+    hooks:
+      - id: errortracking-sync
+        name: kp_errortracking copies in sync
+        entry: python src/libs/kp_errortracking/sync.py --check
+        language: python
+        files: ^src/(libs/kp_errortracking/kp_errortracking|backend/app/observability|knowledge-service/app/observability|inference-service/app/observability)/.*\.py$
         pass_filenames: false
 
   # ── Steckbrief ↔ seed consistency (Issue #680) ─────────────────────────
@@ -115,15 +187,20 @@ repos:
   # In CI, frontend linting runs via .github/workflows/frontend.yml (npm ci + eslint + tsc).
   - repo: local
     hooks:
+      # Both entries route through scripts/frontend_hook.sh, which refuses to
+      # report success for a check it did not run (#814). The previous inline
+      # `test -d src/frontend/node_modules || exit 0` printed `Passed` when the
+      # dependencies were absent — a commit that did not compile went through
+      # with two green hooks.
       - id: frontend-eslint
         name: ESLint (frontend)
-        entry: bash -c 'test -d src/frontend/node_modules || exit 0; cd src/frontend && npx eslint --no-error-on-unmatched-pattern "${@/#src\/frontend\//}"' --
+        entry: scripts/frontend_hook.sh eslint
         language: system
         files: ^src/frontend/src/.*\.(ts|tsx)$
         types_or: [ts, tsx]
       - id: frontend-tsc
         name: TypeScript check (frontend)
-        entry: bash -c 'test -d src/frontend/node_modules || exit 0; cd src/frontend && npx tsc --noEmit'
+        entry: scripts/frontend_hook.sh tsc
         language: system
         files: ^src/frontend/src/.*\.(ts|tsx)$
         pass_filenames: false

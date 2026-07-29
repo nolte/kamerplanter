@@ -114,6 +114,37 @@
         'major',
       ],
     },
+    // ── jsdom held at 29 until Testing Library catches up (#827) ─────────────
+    // jsdom 30 reimplemented its CSS engine, and the new `getComputedStyle`
+    // return values make `@testing-library/dom`'s `isInaccessible()` classify
+    // everything rendered into a MUI portal (Select menus, Autocomplete poppers,
+    // dialogs) as inaccessible. Those elements then vanish from every role
+    // query: 71 of 361 frontend test files went red on the 29 -> 30 bump (#824).
+    //
+    // This is an interaction between jsdom 30 and Testing Library, not a defect
+    // in our components — the same components pass their E2E coverage in a real
+    // browser. But there is nothing to bump *to*: `@testing-library/dom` is at
+    // 10.4.1, published 2025-12-13, and that is exactly what is installed; the
+    // upstream tracker carries no jsdom-30 issue. Rewriting the affected tests
+    // off role queries would weaken them to enable a version bump, which the
+    // issue explicitly rules out.
+    //
+    // So majors are held and minors/patches keep flowing. Revisit when
+    // `@testing-library/dom` ships a release naming jsdom 30, then drop this
+    // rule and let the bump run — do not simply raise the pin.
+    {
+      matchManagers: [
+        'npm',
+      ],
+      matchPackageNames: [
+        'jsdom',
+        '@types/jsdom',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+      enabled: false,
+    },
     {
       groupName: 'frontend eslint',
       matchManagers: [

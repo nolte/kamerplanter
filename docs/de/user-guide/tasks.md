@@ -75,7 +75,7 @@ Klicke in der Aufgaben-Übersicht auf **Aufgabe erstellen**.
 
 | Feld | Beschreibung |
 |------|-------------|
-| Titel | Kurze, prägnante Beschreibung |
+| Name | Kurze, prägnante Beschreibung der Aufgabe (Pflichtfeld) |
 | Anleitung | Schrittweise Anleitung zur Durchführung |
 | Kategorie | Eine der zwölf Aufgaben-Kategorien |
 | Fälligkeitsdatum | Wann muss die Aufgabe erledigt sein? |
@@ -114,6 +114,15 @@ Klicke auf das Häkchen-Symbol neben einer Aufgabe in der Liste. Die Aufgabe wir
 ### Timer
 
 Hat eine Aufgabe eine Timer-Dauer hinterlegt (z.B. bei Mischprotokollen: „Rühren & warten"), erscheint der Countdown-Timer, sobald du die Aufgabe startest.
+
+---
+
+## Eine Aufgabe nachträglich ändern
+
+Öffne die Aufgabe und wechsle in den Tab **Bearbeiten**. Dort passt du dieselben Felder an, die du beim Anlegen ausgefüllt hast, und speicherst mit **Speichern**.
+
+!!! tip "Fehlerhinweise stehen direkt am Feld"
+    Ist eine Eingabe unzulässig — ein leerer **Name**, eine geschätzte Dauer unter einer Minute —, wird das Speichern abgebrochen und der Grund erscheint als roter Hinweistext unter dem betroffenen Feld. Das gilt genauso für den Tab **Abschließen**. Zuvor griff in diesen Fällen die Prüfung des Browsers zuerst: Sie zeigte eine kurz eingeblendete Sprechblase in der Sprache des Browsers, verschwand beim nächsten Klick wieder und ließ das Formular ungespeichert zurück, ohne dass am Feld selbst etwas markiert war. <!-- REQ-006 -->
 
 ---
 
@@ -180,6 +189,8 @@ Für einen einzelnen Pflanzdurchlauf kannst du zusätzlich einen **Aktivitätspl
 ## Pflegeerinnerungen
 
 Automatisch generierte Gieß-, Dünge- und weitere Pflegeerinnerungen sind kein separater Bereich, sondern erscheinen in derselben Aufgaben-Übersicht (Quellen-Filter „Pflege"). Wie das Pflegeprofil funktioniert, welche Erinnerungstypen es gibt und wie die Eskalation abläuft, erfährst du unter [Pflegeerinnerungen](care-reminders.md).
+
+Schließt du eine Gieß-Erinnerung hier in der Warteschlange ab, legt Kamerplanter die nächste Gieß-Aufgabe sofort mit an — siehe [Die nächste Gieß-Aufgabe entsteht sofort](care-reminders.md#naechste-giess-aufgabe).
 
 ---
 

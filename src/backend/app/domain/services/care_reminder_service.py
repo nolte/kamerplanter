@@ -1,5 +1,6 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
+from app.common.datetimes import today_utc
 from app.common.enums import (
     ApplicationMethod,
     ConfirmAction,
@@ -52,6 +53,34 @@ _INTERVAL_FIELD_REMINDERS: dict[str, ReminderType] = {
     "humidity_check_interval_days": ReminderType.HUMIDITY_CHECK,
     "repotting_interval_months": ReminderType.REPOTTING,
 }
+
+
+def _is_due(due_date: datetime | None) -> bool:
+    """Return whether a care task is due today or overdue (#768).
+
+    A task without a ``due_date`` counts as due — it carries no schedule that
+    could postpone it. Comparison is on the calendar day in UTC, matching the
+    ``LEFT(completed_at, 10)`` day granularity the dedup helper uses.
+    """
+    if due_date is None:
+        return True
+    return due_date.date() <= datetime.now(UTC).date()
+
+
+def reminder_type_from_task_name(name: str | None) -> ReminderType | None:
+    """Resolve a care task's reminder type from its ``"— {type}"`` name suffix.
+
+    The reminder type is not yet a first-class ``Task`` field (audit P5), so the
+    suffix written by :func:`build_care_reminder_task` is its carrier — the same
+    convention :meth:`ITaskRepository.find_open_care_task` matches on. Returns
+    ``None`` for a task whose name carries no known reminder type.
+    """
+    if not name:
+        return None
+    for reminder_type in ReminderType:
+        if name.endswith(f"— {reminder_type.value}"):
+            return reminder_type
+    return None
 
 
 def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> str:
@@ -288,7 +317,11 @@ class CareReminderService:
                 task.instruction = instruction
             self._task_repo.update_task(task.key or "", task)
             # #742 — the in-app care notification follows the new cycle (single entry).
-            self._propagate_care_reschedule(profile, reminder_type, tenant_key, user_key, due_dt, task.key)
+            # The occurrence itself is unchanged (only its date moved), so the note is
+            # retimed in place and keeps whatever read state the user gave it (#769).
+            self._propagate_care_reschedule(
+                profile, reminder_type, tenant_key, user_key, due_dt, task.key, announces_new_task=False
+            )
             return
 
         # No pending task to re-terminate. Only the opted-in watering path creates
@@ -298,8 +331,15 @@ class CareReminderService:
             phase_interval = self._get_phase_watering_interval(plant_key)
             created = self.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
             if created is not None:
+                # A brand-new occurrence, not a retiming — it must reach the badge (#769).
                 self._propagate_care_reschedule(
-                    profile, reminder_type, tenant_key, user_key, created.due_date, created.key
+                    profile,
+                    reminder_type,
+                    tenant_key,
+                    user_key,
+                    created.due_date,
+                    created.key,
+                    announces_new_task=True,
                 )
 
     def _propagate_care_reschedule(
@@ -310,8 +350,22 @@ class CareReminderService:
         user_key: str,
         due_date: datetime | None,
         task_key: str | None,
+        *,
+        announces_new_task: bool,
     ) -> None:
-        """Upsert the plant's care notification to the new cycle (#742, single entry)."""
+        """Upsert the plant's care notification to the new cycle (#742, single entry).
+
+        Args:
+            announces_new_task: Whether this update announces a **newly created**
+                care task rather than retiming the one the user already has. Only
+                then is the row's read state cleared (#769): the single-entry
+                guarantee recycles the row a preceding confirmation stamped read, so
+                a follow-up occurrence would otherwise never reach the unread badge.
+                A pure retiming keeps the read state — resurfacing a note the user
+                deliberately dealt with would be a defect in its own right, and the
+                task path behaves the same way (moving a task's due date via
+                ``sync_task_due_notification`` also leaves the read state alone).
+        """
         plant_label = self._resolve_plant_label(profile.plant_key)
         self._propagate(
             lambda p: p.sync_care_notification(
@@ -322,6 +376,7 @@ class CareReminderService:
                 reminder_type=reminder_type,
                 due_date=due_date,
                 task_key=task_key,
+                reset_read=announces_new_task,
             )
         )
 
@@ -486,22 +541,89 @@ class CareReminderService:
         )
 
         # Auto-create next watering task if opted in
-        if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
-            phase_interval = self._get_phase_watering_interval(plant_key)
-            next_task = self.ensure_next_watering_task(
+        if reminder_type == ReminderType.WATERING:
+            next_task = self._schedule_next_watering_after_completion(
                 profile,
                 created,
-                phase_watering_interval=phase_interval,
                 just_completed_task=closed_task,
             )
             # The confirmation closed the current note; if a next watering task was
             # scheduled, surface it as the fresh, correctly-terminated care note.
+            # ``on_care_confirmed`` above stamped that very row read, so the follow-up
+            # only reaches the unread badge when the read state is cleared (#769).
             if next_task is not None:
                 self._propagate_care_reschedule(
-                    profile, reminder_type, resolved_tenant, user_key, next_task.due_date, next_task.key
+                    profile,
+                    reminder_type,
+                    resolved_tenant,
+                    user_key,
+                    next_task.due_date,
+                    next_task.key,
+                    announces_new_task=True,
                 )
 
         return created
+
+    def _is_foreign_plant(self, plant_key: str, tenant_key: str) -> bool:
+        """Return whether *plant_key* must not be touched on behalf of *tenant_key*.
+
+        The single cross-tenant write guard of the care paths (SEC-001): a plant
+        that is unknown or belongs to another tenant is *foreign*, and every write
+        derived from it (confirmation + graph edges, watering log, follow-up care
+        task) must be refused. Fails **closed** — an unresolvable plant counts as
+        foreign — and stays silent (``True``, caller returns ``None``) instead of
+        raising, so a foreign key's existence is never disclosed (no cross-tenant
+        oracle, SEC-B4).
+
+        An empty ``tenant_key`` is the system context (Celery producers, MCP): it
+        carries no tenant to verify against, so the check is skipped exactly as it
+        is for a service built without a ``plant_repo``.
+        """
+        if not tenant_key or self._plant_repo is None:
+            return False
+        plant = self._plant_repo.get_by_key(plant_key)
+        return plant is None or plant.tenant_key != tenant_key
+
+    def _resolve_care_task_context(
+        self,
+        task: Task,
+        tenant_key: str,
+    ) -> tuple[str, CareProfile, ReminderType] | None:
+        """Resolve and tenant-verify the plant, profile and reminder type of a care task.
+
+        The single gate both task-queue bridges (:meth:`record_care_task_completion`
+        and :meth:`record_care_task_skip`) pass through, so neither can write into a
+        foreign tenant's care state. Returns ``None`` — a silent no-op for the
+        caller — when any of these does not hold:
+
+        * the task is a ``care_reminder`` on a ``plant_instance`` and names a plant;
+        * the task itself belongs to ``tenant_key`` (defence in depth: the router
+          already verifies it, but the service must not depend on that);
+        * the plant belongs to ``tenant_key`` (:meth:`_is_foreign_plant`) — the
+          check the completion bridge was missing (SEC-001): ``entity_key`` is
+          caller-supplied at task creation and is *not* validated against the
+          creating tenant, so a task in tenant A can point at a plant in tenant B;
+        * the plant has a care profile and the task name carries a known reminder
+          type suffix.
+        """
+        if task.category != TaskCategory.CARE_REMINDER or task.entity_type != "plant_instance":
+            return None
+        plant_key = task.entity_key
+        if not plant_key:
+            return None
+        if tenant_key and task.tenant_key != tenant_key:
+            return None
+        if self._is_foreign_plant(plant_key, tenant_key):
+            return None
+
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            return None
+
+        reminder_type = reminder_type_from_task_name(task.name)
+        if reminder_type is None:
+            return None
+        return plant_key, profile, reminder_type
 
     def advance_watering_task_after_log(
         self,
@@ -524,17 +646,17 @@ class CareReminderService:
         route through the single tenant-aware dedup helper
         (:meth:`ITaskRepository.find_open_care_task`), so logging watering twice can
         neither double-complete an already-closed task nor leave more than one
-        pending watering task behind. The task closed here is handed to
-        :meth:`ensure_next_watering_task` as ``just_completed_task`` so its
+        pending watering task behind: the second log finds the freshly scheduled
+        follow-up (not yet due, so not completed) still ``PENDING`` and stops.
+
+        The task closed here is handed on as ``just_completed_task`` so the
         completed-today recency rule cannot veto the very follow-up this advance
-        exists to create (#761). Returns the newly scheduled watering task, or
-        ``None`` when no profile exists, auto-scheduling is disabled, or another
-        task already satisfies the reminder.
+        exists to create (#761/#768). Returns the newly scheduled watering task,
+        or ``None`` when no profile exists, auto-scheduling is disabled, or
+        another task already satisfies the reminder.
         """
-        if tenant_key and self._plant_repo is not None:
-            plant = self._plant_repo.get_by_key(plant_key)
-            if plant is None or plant.tenant_key != tenant_key:
-                return None
+        if self._is_foreign_plant(plant_key, tenant_key):
+            return None
 
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
@@ -544,16 +666,174 @@ class CareReminderService:
         # a task already completed earlier is not reopened/re-completed).
         closed_task = self._complete_pending_care_task(plant_key, ReminderType.WATERING)
 
+        # The notification world has to be told, exactly as on the confirmation
+        # path (#813). Without this the care note kept its *old* due date after a
+        # watering was logged: not stale-marked, not updated, not re-raised — the
+        # user saw a note announcing a date that had already been served, while
+        # the freshly scheduled follow-up was announced nowhere.
+        #
+        # Mirroring `confirm_reminder` rather than inventing a third behaviour is
+        # what this method's contract already promises ("the *same* effect as
+        # completing the watering task in the queue", #548). The concern that a
+        # backdated log should perhaps not clear today's badge does not arise
+        # here: `WateringLogCreate` carries no client-settable timestamp, the
+        # service stamps `watered_at=log.logged_at` and the accompanying
+        # `CareConfirmation` with `confirmed_at=now`. A log is always a
+        # present-tense confirmation on this path.
+        resolved_tenant = tenant_key or self._resolve_tenant_key(plant_key)
+        self._propagate(
+            lambda p: p.on_care_confirmed(
+                tenant_key=resolved_tenant,
+                plant_key=plant_key,
+                reminder_type=ReminderType.WATERING,
+            )
+        )
+
+        next_task = self._schedule_next_watering_after_completion(
+            profile,
+            last_confirmation,
+            just_completed_task=closed_task,
+        )
+
+        # `on_care_confirmed` above stamped the plant's single care row read, so
+        # the follow-up only reaches the unread badge when that read state is
+        # cleared — the #769 rule, applied to this path too.
+        if next_task is not None:
+            self._propagate_care_reschedule(
+                profile,
+                ReminderType.WATERING,
+                resolved_tenant,
+                "",
+                next_task.due_date,
+                next_task.key,
+                announces_new_task=True,
+            )
+
+        return next_task
+
+    def _schedule_next_watering_after_completion(
+        self,
+        profile: CareProfile,
+        last_confirmation: CareConfirmation | None,
+        *,
+        just_completed_task: Task | None,
+    ) -> Task | None:
+        """Schedule the follow-up watering task of a complete-then-schedule operation.
+
+        The single place that encodes the #761/#768 rule shared by all three
+        complete-then-schedule paths (dashboard/API confirmation, Gießprotokoll
+        log, task-queue completion): a task **this operation just completed** must
+        not satisfy the dedup lookup, or the follow-up is never scheduled and the
+        plant's reminder chain ends. ``just_completed_task`` is that task (``None``
+        when nothing was closed, e.g. a second watering on the same day).
+
+        Respects the profile's ``auto_create_watering_task`` opt-in and returns the
+        newly scheduled task, or ``None``.
+        """
         if not profile.auto_create_watering_task:
             return None
 
-        phase_interval = self._get_phase_watering_interval(plant_key)
+        phase_interval = self._get_phase_watering_interval(profile.plant_key)
         return self.ensure_next_watering_task(
             profile,
             last_confirmation,
             phase_watering_interval=phase_interval,
-            just_completed_task=closed_task,
+            just_completed_task=just_completed_task,
         )
+
+    def record_care_task_completion(
+        self,
+        task: Task,
+        *,
+        tenant_key: str = "",
+    ) -> Task | None:
+        """Mirror a completed care-reminder task into the plant's care state (REQ-022).
+
+        The task-queue completion bridge: when a ``care_reminder`` task on a plant
+        instance is completed from the task queue, the plant's care state must move
+        exactly as it does on the dashboard-confirmation path — a ``CareConfirmation``
+        (plus its graph edges) is written, a watering/fertilizing log is
+        materialised, and for watering the next occurrence is scheduled through the
+        shared :meth:`_schedule_next_watering_after_completion`.
+
+        ``tenant_key`` (the completing request's tenant, #580) is stamped onto the
+        generated log so it surfaces in the global Gießprotokoll view. It is also
+        the tenant every write is verified against: a task or plant belonging to
+        another tenant is refused (:meth:`_resolve_care_task_context`, SEC-001).
+
+        Non-care tasks, non-plant entities, foreign tasks/plants and plants without
+        a care profile are no-ops. Returns the newly scheduled follow-up watering
+        task, or ``None``.
+        """
+        context = self._resolve_care_task_context(task, tenant_key)
+        if context is None:
+            return None
+        plant_key, profile, reminder_type = context
+
+        confirmation = CareConfirmation(
+            plant_key=plant_key,
+            care_profile_key=profile.key or "",
+            reminder_type=reminder_type,
+            action=ConfirmAction.CONFIRMED,
+            confirmed_at=datetime.now(UTC),
+            task_key=task.key,
+            notes=task.completion_notes,
+            interval_at_time=self._engine._get_interval_days(profile, reminder_type),
+        )
+        created = self._repo.create_confirmation(confirmation)
+        if created.key and profile.key:
+            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        self.complete_care_task_with_log(task.key or "", plant_key, reminder_type, tenant_key=tenant_key)
+
+        if reminder_type != ReminderType.WATERING:
+            return None
+
+        # ``TaskService.complete_task`` has already stamped ``completed_at=now`` on
+        # this very task, so it must not satisfy the follow-up dedup lookup (#768).
+        return self._schedule_next_watering_after_completion(profile, None, just_completed_task=task)
+
+    def record_care_task_skip(
+        self,
+        task: Task,
+        *,
+        tenant_key: str = "",
+    ) -> CareConfirmation | None:
+        """Mirror a skipped care-reminder task into the plant's care state (REQ-022).
+
+        The skip sibling of :meth:`record_care_task_completion`: skipping a
+        ``care_reminder`` task from the task queue records a ``SKIPPED``
+        :class:`CareConfirmation` (plus its graph edges) so the plant's care
+        history shows the deliberate omission and the adaptive interval learner
+        sees it. Unlike a completion it materialises no log and schedules no
+        follow-up — a skip is not a care event.
+
+        This composition used to live inline in the API layer, reaching around the
+        service into its repository and engine (NFR-001 violation); that also made
+        it bypass the tenant guard. It now shares the single gate
+        (:meth:`_resolve_care_task_context`), so a task or plant belonging to
+        another tenant is refused (SEC-001).
+
+        Returns the persisted confirmation, or ``None`` when the task is not a
+        tenant-owned care reminder on a profiled plant.
+        """
+        context = self._resolve_care_task_context(task, tenant_key)
+        if context is None:
+            return None
+        plant_key, profile, reminder_type = context
+
+        confirmation = CareConfirmation(
+            plant_key=plant_key,
+            care_profile_key=profile.key or "",
+            reminder_type=reminder_type,
+            action=ConfirmAction.SKIPPED,
+            confirmed_at=datetime.now(UTC),
+            task_key=task.key,
+            interval_at_time=self._engine._get_interval_days(profile, reminder_type),
+        )
+        created = self._repo.create_confirmation(confirmation)
+        if created.key and profile.key:
+            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        return created
 
     def _get_phase_watering_interval(self, plant_key: str) -> int | None:
         """Look up watering_interval_days from the plant's current growth phase.
@@ -608,7 +888,7 @@ class CareReminderService:
         plant_key: str,
         reminder_type: ReminderType,
     ) -> Task | None:
-        """Auto-complete the matching pending care task when confirmed via dashboard.
+        """Auto-complete the matching *due* pending care task; return it (#761/#768).
 
         Routes through the single tenant-aware dedup helper
         (:meth:`ITaskRepository.find_open_care_task`) so it can only ever complete
@@ -616,10 +896,17 @@ class CareReminderService:
         was already completed earlier today is intentionally excluded here
         (``include_completed_today=False``): only an open task is completed.
 
+        Only a task that is **due** (``due_date <= today``) is completed. A task
+        scheduled for a later day is the *follow-up* of an earlier confirmation on
+        the same day; closing it would collapse the whole reminder cycle into a
+        single day.
+
         Returns:
-            The task this call closed, or ``None`` when nothing was open. Callers
-            that schedule the follow-up occurrence pass it on as
-            ``just_completed_task`` so the recency rule cannot self-block (#761).
+            The task this call closed, or ``None`` when nothing open was due.
+            Callers that schedule the follow-up occurrence pass it on as
+            ``just_completed_task`` so the recency rule cannot self-block: without
+            it that lookup finds the task this call just completed and the
+            follow-up is never scheduled (#761/#768).
         """
         if self._task_repo is None:
             return None
@@ -630,7 +917,7 @@ class CareReminderService:
             tenant_key,
             include_completed_today=False,
         )
-        if task is None:
+        if task is None or not _is_due(task.due_date):
             return None
         task.status = TaskStatus.COMPLETED.value
         task.completed_at = datetime.now(UTC)
@@ -901,7 +1188,7 @@ class CareReminderService:
             return None
 
         plant_label = plant.plant_name or plant.instance_id or plant_key
-        today = date.today()
+        today = today_utc()
         task = build_care_reminder_task(
             plant_key=plant_key,
             plant_label=plant_label,
@@ -991,9 +1278,10 @@ class CareReminderService:
             just_completed_task: The watering task the *calling operation itself*
                 closed a moment ago (dashboard confirmation, watering log, task
                 queue). Its presence narrows the dedup question to "is another
-                task still open?" — see the guard below (#761). Every caller that
-                did not close a task leaves it ``None`` and keeps the completed-
-                today recency rule (#509).
+                task still open?" — see the guard below (#761/#768). Every caller
+                that did not close a task leaves it ``None`` and keeps the
+                completed-today recency rule (#509), which is what the producer
+                paths (daily Celery run, interval edit) rely on.
 
         Returns:
             The created task, or ``None`` when another task already satisfies the
@@ -1017,7 +1305,7 @@ class CareReminderService:
         # Single tenant-aware dedup: skip when an equivalent watering task is
         # already open or was completed today (#509 recency rule).
         #
-        # #761 — when the caller closed the satisfying task itself in this very
+        # #761/#768 — when the caller closed the satisfying task itself in this very
         # operation, that recency rule is self-blocking: the "task completed today"
         # it would find IS the task just closed, so the follow-up the advance exists
         # to schedule would never be created. In that case the dedup question

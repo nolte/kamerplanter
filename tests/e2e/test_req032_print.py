@@ -69,9 +69,7 @@ def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
 
 
 @pytest.fixture
-def nutrient_plan_detail(
-    browser: WebDriver, base_url: str
-) -> NutrientPlanDetailPage:
+def nutrient_plan_detail(browser: WebDriver, base_url: str) -> NutrientPlanDetailPage:
     """Return a NutrientPlanDetailPage helper for the NutrientPlan host page."""
     return NutrientPlanDetailPage(browser, base_url)
 
@@ -243,7 +241,7 @@ class TestPrintButtonOnNutrientPlan:
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 plans = json.loads(resp.read())
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+        except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
             pytest.skip(
                 "TC-REQ-032-004 SKIP: NutrientPlan-Liste nicht erreichbar -- "
                 "PrintButton-Pruefung auf Detailseite uebersprungen."

@@ -62,7 +62,7 @@ class TestTaskNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-036: Navigation Queue -> Detail -> Browser-Back -> Queue.
+        """TC-006-019: Navigation Queue -> Detail -> Browser-Back -> Queue.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation.
         """
@@ -109,7 +109,7 @@ class TestTaskNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-037: Plant link on detail page navigates to plant detail.
+        """TC-006-020: Plant link on detail page navigates to plant detail.
 
         Spec: TC-006-020 -- Pflanzenverweis in der Detailseite navigiert zur Pflanzen-Detailseite.
         """
@@ -134,7 +134,10 @@ class TestTaskNavigation:
             "Plant detail page reached via task plant link",
         )
 
-        assert "/pflanzen/" in task_detail.driver.current_url or "/plants/" in task_detail.driver.current_url, (
+        assert (
+            "/pflanzen/" in task_detail.driver.current_url
+            or "/plants/" in task_detail.driver.current_url
+        ), (
             f"TC-REQ-006-037 FAIL: Expected URL to navigate to plant detail, "
             f"got: {task_detail.driver.current_url}"
         )
@@ -153,7 +156,7 @@ class TestWorkflowNavigation:
         workflow_detail: WorkflowDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-038: Navigation Workflow-List -> Detail -> Browser-Back -> List.
+        """TC-006-039: Navigation Workflow-List -> Detail -> Browser-Back -> List.
 
         Spec: TC-006-039 -- Workflow-Detailseite aufrufen.
         """
@@ -193,7 +196,7 @@ class TestWorkflowNavigation:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-039: Direct URL navigation to /aufgaben/queue works.
+        """TC-006-001: Direct URL navigation to /aufgaben/queue works.
 
         Spec: TC-006-001 -- Task-Queue aufrufen.
         """
@@ -209,8 +212,7 @@ class TestWorkflowNavigation:
         )
 
         assert task_queue.is_page_visible(), (
-            "TC-REQ-006-039 FAIL: Expected task queue page to render after "
-            "direct URL navigation"
+            "TC-REQ-006-039 FAIL: Expected task queue page to render after direct URL navigation"
         )
 
     @pytest.mark.smoke
@@ -219,7 +221,7 @@ class TestWorkflowNavigation:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-040: Direct URL /aufgaben/workflows loads the workflow template list.
+        """TC-006-034: Direct URL /aufgaben/workflows loads the workflow template list.
 
         Spec: TC-006-034 -- Workflow-Template-Liste direkt aufrufen.
         """
@@ -231,6 +233,5 @@ class TestWorkflowNavigation:
 
         current_url = workflow_list.driver.current_url
         assert "/aufgaben/workflows" in current_url, (
-            f"TC-REQ-006-040 FAIL: Expected URL to contain /aufgaben/workflows, "
-            f"got: {current_url}"
+            f"TC-REQ-006-040 FAIL: Expected URL to contain /aufgaben/workflows, got: {current_url}"
         )

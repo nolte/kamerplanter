@@ -214,7 +214,7 @@ def list_mold_alerts(
 @router.delete("/{key}", status_code=204)
 def delete_batch(
     key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     """Delete a post-harvest batch (REQ-008 §4 — Admin only)."""

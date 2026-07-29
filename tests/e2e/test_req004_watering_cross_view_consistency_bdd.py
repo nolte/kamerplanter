@@ -64,7 +64,7 @@ from .pages.watering_log_list_page import WateringLogListPage
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m watering). Must sit after
 # the last import so ruff's E402 stays satisfied.
-FEATURES = ('watering',)
+FEATURES = ("watering",)
 
 FEATURE_FILE = "features/watering_cross_view_consistency.feature"
 SCENARIO_NAME = "A single watering is reflected consistently in every view"
@@ -161,7 +161,7 @@ def plant_has_watering_tasks_due(
     """
     expected = int(count)
     plant_detail.open_tasks_tab(context["key"])
-    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION_LABEL)
+    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
     if pending != expected:
         raise RuntimeError(
             f"TC-004-092 SETUP: expected {expected} pending '— watering' task(s) "
@@ -180,7 +180,7 @@ def plant_has_completed_watering_tasks(
     """Guard the completed-task precondition and record it as a baseline."""
     expected = int(count)
     plant_detail.open_tasks_tab(context["key"])
-    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION_LABEL)
+    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION)
     if completed != expected:
         raise RuntimeError(
             f"TC-004-092 SETUP: expected {expected} completed '— watering' task(s) "
@@ -192,11 +192,7 @@ def plant_has_completed_watering_tasks(
 # ── When ─────────────────────────────────────────────────────────────────────
 
 
-@when(
-    parsers.re(
-        r"the gardener records a plain watering of (?P<litres>\d+) litres? for the plant"
-    )
-)
+@when(parsers.re(r"the gardener records a plain watering of (?P<litres>\d+) litres? for the plant"))
 def record_plain_watering(
     litres: str,
     context: dict[str, Any],
@@ -333,8 +329,7 @@ def instance_log_gained_entries(
             f"{DRENCH_METHOD_LABEL!r}, found {method!r}"
         )
         assert cell_volume.strip().startswith(str(volume)) and "L" in cell_volume, (
-            f"TC-004-092 FAIL (View 2): expected a '{volume} L' volume, "
-            f"found {cell_volume!r}"
+            f"TC-004-092 FAIL (View 2): expected a '{volume} L' volume, found {cell_volume!r}"
         )
         assert supplemental.strip() == "", (
             f"TC-004-092 FAIL (View 2): the 'Ergänzend' column must be empty for a "
@@ -345,20 +340,14 @@ def instance_log_gained_entries(
 @then("both watering logs agree on the day the plant was watered")
 def both_logs_agree_on_the_day(context: dict[str, Any]) -> None:
     """Coherence — Views 1 and 2 render one and the same ``WateringLog``."""
-    assert parse_de_date(context["view1_logged_at"]) == parse_de_date(
-        context["view2_logged_at"]
-    ), (
+    assert parse_de_date(context["view1_logged_at"]) == parse_de_date(context["view2_logged_at"]), (
         f"TC-004-092 FAIL (coherence): the global and instance logs disagree on the "
         f"watering date (View 1={context['view1_logged_at']!r}, "
         f"View 2={context['view2_logged_at']!r})"
     )
 
 
-@then(
-    parsers.re(
-        r"(?P<count>\d+) watering tasks? (?:has|have) been completed, dated (?P<day>.+)"
-    )
-)
+@then(parsers.re(r"(?P<count>\d+) watering tasks? (?:has|have) been completed, dated (?P<day>.+)"))
 def watering_tasks_have_been_completed(
     count: str,
     day: str,
@@ -368,9 +357,9 @@ def watering_tasks_have_been_completed(
     """View 3 — the ``#tasks`` history closed the task the watering satisfied."""
     gained = int(count)
     plant_detail.open_tasks_tab(context["key"])
-    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION_LABEL)
+    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION)
     completed_at = plant_detail.get_watering_task_cell(
-        plant_detail.TASK_DONE_SECTION_LABEL, "completed_at"
+        plant_detail.TASK_DONE_SECTION, "completed_at"
     )
     expected = context["baseline_completed"] + gained
     assert completed == expected, (
@@ -393,7 +382,7 @@ def follow_up_watering_tasks_are_due(
 ) -> None:
     """View 3 — the coupling scheduled the next watering."""
     expected = int(count)
-    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION_LABEL)
+    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
     assert pending == expected, (
         f"TC-004-092 FAIL (View 3): exactly {expected} new pending '— watering' "
         f"follow-up task(s) must exist, found {pending}"

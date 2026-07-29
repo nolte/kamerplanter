@@ -32,7 +32,7 @@ from .pages.watering_log_list_page import WateringLogListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('watering', 'nutrient')
+FEATURES = ("watering", "nutrient")
 
 # German i18n option labels (enums.applicationMethod.drench, enums.waterSource.tap).
 DRENCH_LABEL = "Gießen"
@@ -70,9 +70,7 @@ def feeding_list(browser: WebDriver, base_url: str) -> FeedingEventListPage:
 # ── Shared arrange step ──────────────────────────────────────────────────────
 
 
-def _log_watering(
-    watering_list: WateringLogListPage, instance_id: str, volume: float = 2
-) -> None:
+def _log_watering(watering_list: WateringLogListPage, instance_id: str, volume: float = 2) -> None:
     """Create a watering log for the plant identified by *instance_id*."""
     watering_list.open()
     watering_list.click_create()
@@ -100,15 +98,16 @@ class TestCoreJourneyLogWatering:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-J089: Log a watering for a self-provisioned plant.
+        """TC-004-089: Log a watering for a self-provisioned plant.
 
         Spec: TC-004-089 -- Core-Journey Gießvorgang protokollieren.
         """
         _key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-004")
 
         _log_watering(watering_list, instance_id, volume=2)
-        screenshot("TC-REQ-004-J089_watering-logged",
-                   f"Watering log list after logging for {instance_id}")
+        screenshot(
+            "TC-REQ-004-J089_watering-logged", f"Watering log list after logging for {instance_id}"
+        )
 
         watering_list.open()
         assert watering_list.has_table(), (
@@ -134,7 +133,7 @@ class TestCoreJourneyWateringDetailAndCare:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-J090: Watering-log detail and plant care verification.
+        """TC-004-090: Watering-log detail and plant care verification.
 
         Spec: TC-004-090 -- Core-Journey Gießprotokoll-Detail + Pflege-Verifikation.
         """
@@ -149,8 +148,7 @@ class TestCoreJourneyWateringDetailAndCare:
         watering_list.click_row(0)
         watering_list.wait_for_url_contains("/giessprotokoll/")
         watering_detail.wait_for_element(watering_detail.PAGE)
-        screenshot("TC-REQ-004-J090_watering-detail",
-                   "Watering log detail page")
+        screenshot("TC-REQ-004-J090_watering-detail", "Watering log detail page")
 
         body = watering_detail.get_body_text()
         assert "2" in body, (
@@ -159,8 +157,7 @@ class TestCoreJourneyWateringDetailAndCare:
 
         # The plant's detail page reflects the watering (care surface present).
         plant_detail.open(key)
-        screenshot("TC-REQ-004-J090_plant-care",
-                   f"Plant {instance_id} detail after watering")
+        screenshot("TC-REQ-004-J090_plant-care", f"Plant {instance_id} detail after watering")
         assert plant_detail.is_plant_info_card_visible(), (
             "TC-REQ-004-J090 FAIL: Plant detail should render the info card"
         )
@@ -172,15 +169,16 @@ class TestCoreJourneyWateringDetailAndCare:
 class TestCoreJourneyRecordFeeding:
     """Record a FeedingEvent for a self-provisioned plant."""
 
-    @pytest.mark.xfail(
-        reason="FeedingEventCreateDialog plant-Select trigger is not reliably "
-        "interactable when the journey opens the dialog and selects immediately "
-        "(timeout on the select trigger despite a visible, enabled dialog). "
-        "Root cause not yet isolated (candidate: dialog/loadingPlants render "
-        "timing); marked xfail(strict=False) pending a dedicated investigation. "
-        "The watering journey (TC-REQ-004-J089) covers the analogous path.",
-        strict=False,
-    )
+    # The xfail this carried ("plant-Select trigger is not reliably
+    # interactable ... root cause not yet isolated") is removed: the cause was
+    # the MUI activation model. A Select opens from ``onMouseDown`` only, and
+    # the page object opened it with a native click on ``.MuiSelect-select``; a
+    # swallowed click opened nothing and the subsequent option lookup — not the
+    # trigger — was what timed out, which is why the symptom pointed at the
+    # wrong element. ``BasePage.open_select`` now dispatches an explicit
+    # mousedown/mouseup pair and verifies ``aria-expanded`` before returning.
+    # It has xpassed in every run since that landed (all four narrow profiles,
+    # both runs each); its only xfails predate it.
     @pytest.mark.core_crud
     def test_record_feeding_event(
         self,
@@ -188,7 +186,7 @@ class TestCoreJourneyRecordFeeding:
         feeding_list: FeedingEventListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-J091: Record a FeedingEvent for a self-provisioned plant.
+        """TC-004-091: Record a FeedingEvent for a self-provisioned plant.
 
         Spec: TC-004-091 -- Core-Journey Düngung (FeedingEvent) erfassen.
         """
@@ -203,12 +201,10 @@ class TestCoreJourneyRecordFeeding:
         feeding_list.fill_ec_after(1.1)
         feeding_list.fill_ph_before(6.0)
         feeding_list.fill_ph_after(6.1)
-        screenshot("TC-REQ-004-J091_feeding-form",
-                   f"Feeding event form filled for {instance_id}")
+        screenshot("TC-REQ-004-J091_feeding-form", f"Feeding event form filled for {instance_id}")
         feeding_list.submit_create_form()
         feeding_list.wait_for_loading_complete()
-        screenshot("TC-REQ-004-J091_feeding-created",
-                   "Feeding event list after recording")
+        screenshot("TC-REQ-004-J091_feeding-created", "Feeding event list after recording")
 
         feeding_list.open()
         assert feeding_list.has_table(), (

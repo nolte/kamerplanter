@@ -1,3 +1,0 @@
-api=http://frontend:80/api/v1/t/mein-garten
-mode=light
-result={'tenant_slug': 'mein-garten', 'site_key': '25919', 'location_key': '25957', 'task_keys': ['26083']}

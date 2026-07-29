@@ -2,14 +2,15 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { useForm } from 'react-hook-form';
+import Form from '@/components/form/Form';
 import FormTimezoneField from '@/components/form/FormTimezoneField';
 
 function TestForm({ initial = 'UTC' }: { initial?: string }) {
   const { control } = useForm({ defaultValues: { timezone: initial } });
   return (
-    <form>
+    <Form>
       <FormTimezoneField name="timezone" control={control} label="Timezone" />
-    </form>
+    </Form>
   );
 }
 

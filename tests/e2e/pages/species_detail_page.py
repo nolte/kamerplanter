@@ -24,6 +24,9 @@ class SpeciesDetailPage(BasePage):
     DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
     READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='species-readonly-banner']")
     TABS = (By.CSS_SELECTOR, "button[role='tab']")
+    # This is genuinely the *in-page* "Bearbeiten" tab's submit button (no
+    # dialog wraps this tab), left unscoped on purpose: it is the element
+    # LIFECYCLE_FORM_SUBMIT below used to collide with (see #778 A5).
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
@@ -35,10 +38,24 @@ class SpeciesDetailPage(BasePage):
     # The Cultivar tab opens CultivarCreateDialog (cultivar-create-dialog),
     # the Lifecycle tab opens GrowthPhaseDialog (growth-phase-dialog).
     # Both are modal: at most one is open at a time.
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='cultivar-create-dialog'], [data-testid='growth-phase-dialog']")
+    CREATE_DIALOG = (
+        By.CSS_SELECTOR,
+        "[data-testid='cultivar-create-dialog'], [data-testid='growth-phase-dialog']",
+    )
 
     # Lifecycle tab locators
-    LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    # Scoped to the lifecycle tab's own section, not to a dialog: this is the
+    # inline form the tab renders (`LifecycleConfigSection`), and its submit is
+    # what `get_lifecycle_submit_label` reads. The scope is needed because
+    # several `form-submit-button` testids coexist in this page's DOM -- the
+    # edit tab's inline form, this one, and the growth-phase dialog MUI portals
+    # to the end of <body> -- so an unscoped lookup resolves to whichever comes
+    # first in document order (#778 A5). The section marker was added to the
+    # product for this; there was no scope available before.
+    LIFECYCLE_FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        "[data-testid='lifecycle-config-section'] [data-testid='form-submit-button']",
+    )
 
     # Growth phase locators
     PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
@@ -67,8 +84,7 @@ class SpeciesDetailPage(BasePage):
 
     def click_tab(self, index: int) -> None:
         tabs = self.driver.find_elements(*self.TABS)
-        if index < len(tabs):
-            self.scroll_and_click(tabs[index])
+        self.scroll_and_click(self.require_index(tabs, index, "species detail tab"))
 
     def click_tab_by_label(self, label: str) -> None:
         import time
@@ -96,7 +112,10 @@ class SpeciesDetailPage(BasePage):
     def set_field(self, field_name: str, value: str) -> None:
         # Try input first, fall back to textarea (multiline fields)
         locator_input = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
-        locator_textarea = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] textarea:not([aria-hidden])")
+        locator_textarea = (
+            By.CSS_SELECTOR,
+            f"[data-testid='form-field-{field_name}'] textarea:not([aria-hidden])",
+        )
         elements = self.driver.find_elements(*locator_input)
         if elements:
             el = self.wait_for_element_clickable(locator_input)
@@ -113,36 +132,26 @@ class SpeciesDetailPage(BasePage):
         el.send_keys(Keys.ENTER)
 
     def select_option(self, field_name: str, value_text: str) -> None:
-        import time
+        """Open an MUI Select and pick an option by its visible text.
 
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_name)
+        self.select_option_by_label(value_text)
 
     def click_save(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def click_delete(self) -> None:
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def has_delete_button(self) -> bool:
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0
@@ -161,14 +170,21 @@ class SpeciesDetailPage(BasePage):
     def get_cultivar_count(self) -> int:
         return len(self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS))
 
+    #: Column id of the cultivar table's identifying column (CultivarListSection).
+    CULTIVAR_NAME_COLUMN_ID = "name"
+    #: Row-scoped delete action, emitted per cultivar key in BOTH layouts.
+    CULTIVAR_DELETE_ACTION = (By.CSS_SELECTOR, "[data-testid^='cultivar-delete-']")
+
     def get_cultivar_names(self) -> list[str]:
-        rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
-        names = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                names.append(cells[0].text)
-        return names
+        """Return the name of every listed cultivar.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint `CultivarListSection` renders `MobileCard`s with no ``<td>``
+        at all, so a ``By.TAG_NAME, 'td'`` scan returned an empty list there and
+        an "is the new cultivar listed?" assertion failed for the wrong reason
+        (TC-REQ-001-J079).
+        """
+        return self.get_column_texts(self.CULTIVAR_NAME_COLUMN_ID)
 
     def get_trait_chip_texts(self) -> list[str]:
         """Return the text of all MUI Chip labels currently rendered (e.g. cultivar traits)."""
@@ -176,16 +192,26 @@ class SpeciesDetailPage(BasePage):
         return [c.text for c in chips]
 
     def click_cultivar_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the cultivar at *index* via its inert `name` cell.
+
+        Not the row centre: `CultivarListSection` renders an `actions` column
+        whose delete `IconButton` calls `stopPropagation`, so where the row's
+        midpoint lands decides whether the row navigates or a delete dialog
+        opens.
+        """
+        self.click_data_table_row(
+            index,
+            self.CULTIVAR_NAME_COLUMN_ID,
+            self.CULTIVAR_TABLE_ROWS,
+            "cultivar row",
+        )
 
     def click_cultivar_create(self) -> None:
         # The cultivar create button lives under the "Sorten" tab of the (now
         # 6-tab) species detail page. Switch to it by label first — robust to
         # tab reordering (cultivars is no longer at a fixed low index).
         self.click_tab_by_label("Sorten")
-        self.wait_for_element_clickable(self.CULTIVAR_CREATE_BUTTON).click()
+        self.wait_and_click(self.CULTIVAR_CREATE_BUTTON)
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
@@ -193,12 +219,28 @@ class SpeciesDetailPage(BasePage):
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
 
     def delete_cultivar_at_index(self, index: int) -> None:
-        """Click the delete icon in the actions column of a cultivar row."""
+        """Click the delete action of the cultivar row at *index*.
+
+        Targets the product's own ``cultivar-delete-<key>`` testid (row-scoped,
+        so the key need not be known here) instead of "the first button with an
+        aria-label" -- the latter is position-dependent and, in the mobile card
+        layout, would pick whatever button the card happens to render first.
+
+        Clicked coordinate-free for the same reason as
+        :meth:`delete_phase_at_index`: the row itself is clickable, so a
+        coordinate dispatch that misses the IconButton silently activates the
+        row's navigation/edit handler instead of raising.
+        """
         rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
-        if index < len(rows):
-            delete_btn = rows[index].find_element(By.CSS_SELECTOR, "button[aria-label]")
-            self.scroll_and_click(delete_btn)
-            self.wait_for_element_visible(self.CONFIRM_DIALOG)
+        if index >= len(rows):
+            raise ValueError(
+                f"Cultivar row {index} requested, but only {len(rows)} rows are listed"
+            )
+        buttons = rows[index].find_elements(*self.CULTIVAR_DELETE_ACTION)
+        if not buttons:
+            raise ValueError(f"No cultivar-delete action found in cultivar row {index}")
+        self.click_coordinate_free(buttons[0])
+        self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     # ── Cultivar create dialog ─────────────────────────────────────────
 
@@ -217,9 +259,19 @@ class SpeciesDetailPage(BasePage):
             el.send_keys(value)
 
     def submit_cultivar_form(self) -> None:
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
-        ).click()
+        """Submit the cultivar-create dialog.
+
+        Scoped to the cultivar dialog -- the same ``[data-testid='form-
+        submit-button']`` this used to address unscoped also matches the
+        in-page "Bearbeiten" tab's FORM_SUBMIT and the growth-phase dialog's
+        LIFECYCLE_FORM_SUBMIT (see #778 A5).
+        """
+        self.wait_and_click(
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='cultivar-create-dialog'] [data-testid='form-submit-button']",
+            )
+        )
 
     # ── Lifecycle tab (tab 2) ─────────────────────────────────────────
 
@@ -244,7 +296,7 @@ class SpeciesDetailPage(BasePage):
         self.scroll_and_click(el)
 
     def click_lifecycle_save(self) -> None:
-        self.wait_for_element_clickable(self.LIFECYCLE_FORM_SUBMIT).click()
+        self.wait_and_click(self.LIFECYCLE_FORM_SUBMIT)
 
     # ── Growth phases (within lifecycle tab) ──────────────────────────
 
@@ -263,9 +315,7 @@ class SpeciesDetailPage(BasePage):
 
     def _poll_present(self, locator: tuple[str, str], timeout: int) -> bool:
         try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: len(d.find_elements(*locator)) > 0
-            )
+            WebDriverWait(self.driver, timeout).until(lambda d: len(d.find_elements(*locator)) > 0)
         except TimeoutException:
             return False
         return True
@@ -273,21 +323,44 @@ class SpeciesDetailPage(BasePage):
     def get_phase_count(self) -> int:
         return len(self.driver.find_elements(*self.PHASE_TABLE_ROWS))
 
+    #: Column id of the growth-phase table's identifying column
+    #: (GrowthPhaseListSection -- renders `displayName`).
+    PHASE_NAME_COLUMN_ID = "name"
+    #: Row-scoped delete action, emitted per phase key in BOTH layouts.
+    PHASE_DELETE_ACTION = (By.CSS_SELECTOR, "[data-testid^='phase-delete-']")
+    #: Row-scoped "open profiles" action, emitted per phase key in BOTH layouts
+    #: (`GrowthPhaseListSection.tsx:191/219`). Keyed rather than positional so a
+    #: managed species -- which renders no actions column at all -- is
+    #: distinguishable from "the profile button moved".
+    PHASE_PROFILE_ACTION = (By.CSS_SELECTOR, "[data-testid^='phase-profile-']")
+
+    def get_phase_profile_keys(self) -> list[str]:
+        """Return the phase key behind every visible "open profiles" action."""
+        prefix = "phase-profile-"
+        keys = []
+        for el in self.driver.find_elements(*self.PHASE_PROFILE_ACTION):
+            testid = el.get_attribute("data-testid") or ""
+            if testid.startswith(prefix):
+                keys.append(testid[len(prefix) :])
+        return keys
+
     def get_phase_names(self) -> list[str]:
-        rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
-        names = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) >= 2:
-                names.append(cells[1].text)  # display_name column
-        return names
+        """Return the display name of every listed growth phase.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        sequence-order column, and the mobile card layout has no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.PHASE_NAME_COLUMN_ID)
 
     def click_phase_create(self) -> None:
-        self.wait_for_element_clickable(self.PHASE_CREATE_BUTTON).click()
+        # scroll_and_click: a still-collapsing notistack snackbar can overlay
+        # the bottom-right button and intercept a plain .click().
+        self.scroll_and_click(self.wait_for_element_clickable(self.PHASE_CREATE_BUTTON))
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
-    def fill_phase_form(self, name: str, display_name: str, duration: str,
-                        order: str, **kwargs: str) -> None:
+    def fill_phase_form(
+        self, name: str, display_name: str, duration: str, order: str, **kwargs: str
+    ) -> None:
         self.set_field("name", name)
         self.set_field("display_name", display_name)
         self.set_field("typical_duration_days", duration)
@@ -304,30 +377,62 @@ class SpeciesDetailPage(BasePage):
     def submit_phase_form(self) -> None:
         # Target the submit button inside the create-dialog (GrowthPhaseDialog)
         # to avoid hitting the lifecycle config form's submit button
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']")
-        ).click()
+        self.wait_and_click(
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']",
+            )
+        )
 
     def click_phase_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the growth phase at *index* via its inert `name` cell.
+
+        Not the row centre: `GrowthPhaseListSection` renders an `actions`
+        column holding an edit and a *delete* `IconButton`, both of which
+        `stopPropagation`.
+        """
+        self.click_data_table_row(
+            index,
+            self.PHASE_NAME_COLUMN_ID,
+            self.PHASE_TABLE_ROWS,
+            "growth phase row",
+        )
 
     def delete_phase_at_index(self, index: int) -> None:
-        import time
+        """Click the delete action of the growth-phase row at *index*.
 
+        Targets the product's own ``phase-delete-<key>`` testid (row-scoped, so
+        the key need not be known here). The previous "last MuiIconButton in the
+        row" heuristic failed outright in the mobile card layout ("No IconButton
+        found in phase row 0"), because the desktop actions column is not
+        rendered there at all -- `GrowthPhaseListSection` now supplies the same
+        actions via the card's ``trailing`` slot.
+
+        Clicked coordinate-free. ``e.stopPropagation()`` on the button's own
+        ``onClick`` (`GrowthPhaseListSection.tsx:198/225`) only protects a click
+        that actually *lands on* the 40px IconButton -- it says nothing about a
+        coordinate dispatch that misses it and reaches the row instead, where
+        `DataTable`'s ``onRowClick`` (`:259`) opens the *edit* dialog. That is
+        what the failure screenshot of TC-REQ-001-060 shows: the edit dialog,
+        carrying the phase's name, on the light and full profiles. Since both
+        handlers cannot fire from one event, the click never reached the button.
+        A dispatch on the resolved element has no coordinates to miss with, and
+        the IconButton activates from its `onClick` handler, so it is sound.
+
+        The confirm-dialog wait is a post-condition for having hit *this*
+        action -- the edit dialog carries a different testid -- but it is not, as
+        this docstring previously claimed, what "confirms the click landed": a
+        miss leaves it to time out and report the absence of a dialog rather than
+        the wrong-target click that caused it.
+        """
         rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
-        if index < len(rows):
-            # The delete button is the MUI IconButton (not the text "Profil" Button).
-            # Use JS click directly to avoid triggering the row's onClick handler.
-            icon_buttons = rows[index].find_elements(
-                By.CSS_SELECTOR, "button.MuiIconButton-root"
+        if index >= len(rows):
+            raise ValueError(f"Phase row {index} requested, but only {len(rows)} rows are listed")
+        buttons = rows[index].find_elements(*self.PHASE_DELETE_ACTION)
+        if not buttons:
+            raise ValueError(
+                f"No phase-delete action found in phase row {index} -- the phase list "
+                "is read-only (managed by a phase sequence) or the row failed to render"
             )
-            if not icon_buttons:
-                raise ValueError(f"No IconButton found in phase row {index}")
-            self.driver.execute_script(
-                "arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();",
-                icon_buttons[-1],
-            )
-            time.sleep(0.5)  # Allow React state to settle before checking dialog
-            self.wait_for_element_visible(self.CONFIRM_DIALOG, timeout=10)
+        self.click_coordinate_free(buttons[0])
+        self.wait_for_element_visible(self.CONFIRM_DIALOG, timeout=10)

@@ -62,7 +62,7 @@ class TestImportPageNavigation:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-001: Direct navigation to /stammdaten/import shows the import page.
+        """TC-012-002: Direct navigation to /stammdaten/import shows the import page.
 
         Spec: TC-012-002 -- Direkte Navigation zur Import-Seite per URL.
         """
@@ -91,7 +91,7 @@ class TestImportPageNavigation:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-002: Upload form shows all fields with correct default values.
+        """TC-012-003: Upload form shows all fields with correct default values.
 
         Spec: TC-012-003 -- Upload-Formular zeigt alle Pflichtfelder mit Standardwerten.
         """
@@ -133,7 +133,7 @@ class TestImportDropdowns:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-003: Entity type dropdown shows Species, Cultivar, BotanicalFamily.
+        """TC-012-004: Entity type dropdown shows Species, Cultivar, BotanicalFamily.
 
         Spec: TC-012-004 -- Datentyp-Dropdown zeigt alle drei Entitaetsoptionen.
         """
@@ -152,14 +152,16 @@ class TestImportDropdowns:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-004: Duplicate strategy dropdown shows skip, update, fail.
+        """TC-012-005: Duplicate strategy dropdown shows skip, update, fail.
 
         Spec: TC-012-005 -- Duplikatstrategie-Dropdown zeigt alle drei Strategien.
         """
         import_page.open()
 
         options = import_page.get_duplicate_strategy_options()
-        screenshot("TC-REQ-012-004_duplicate-strategy-options", "Duplicate strategy dropdown opened")
+        screenshot(
+            "TC-REQ-012-004_duplicate-strategy-options", "Duplicate strategy dropdown opened"
+        )
 
         assert len(options) == 3, (
             f"TC-REQ-012-004 FAIL: Expected 3 duplicate strategy options, got {len(options)}: {options}"
@@ -178,7 +180,7 @@ class TestImportFileSelection:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-005: Upload button is disabled when no file is selected.
+        """TC-012-006: Upload button is disabled when no file is selected.
 
         Spec: TC-012-006 -- Upload-Button ist deaktiviert solange keine Datei ausgewaehlt.
         """
@@ -195,7 +197,7 @@ class TestImportFileSelection:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-006: Selecting a CSV file enables the upload button and shows filename.
+        """TC-012-010: Selecting a CSV file enables the upload button and shows filename.
 
         Spec: TC-012-010 -- Dateiauswahl per Klick zeigt Dateinamen im Button.
         """
@@ -226,7 +228,7 @@ class TestImportFileSelection:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-007: File input has accept filter for .csv, .tsv, .txt.
+        """TC-012-031: File input has accept filter for .csv, .tsv, .txt.
 
         Spec: TC-012-031 -- Upload einer Nicht-CSV-Datei wird abgelehnt (Dateiauswahl-Filter).
         """
@@ -258,7 +260,7 @@ class TestImportUploadAndPreview:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-008: Uploading a valid species CSV transitions to preview step.
+        """TC-012-011: Uploading a valid species CSV transitions to preview step.
 
         Spec: TC-012-011 -- Erfolgreicher Upload einer gueltigen Species-CSV leitet zur Vorschau.
         """
@@ -301,7 +303,7 @@ class TestImportUploadAndPreview:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-009: Preview table shows color-coded status chips per row.
+        """TC-012-012: Preview table shows color-coded status chips per row.
 
         Spec: TC-012-012 -- Vorschau zeigt farbcodierte Status-Chips pro Zeile.
         """
@@ -318,9 +320,7 @@ class TestImportUploadAndPreview:
         # Seeded species (e.g. Solanum lycopersicum) appear as DUPLICATE, not VALID.
         invalid_count = import_page.count_invalid_rows()
         total_rows = import_page.get_preview_row_count()
-        assert total_rows > 0, (
-            "TC-REQ-012-009 FAIL: Expected at least one preview row"
-        )
+        assert total_rows > 0, "TC-REQ-012-009 FAIL: Expected at least one preview row"
         assert invalid_count == 0, (
             f"TC-REQ-012-009 FAIL: Expected no invalid rows in preview, but got {invalid_count} out of {total_rows}"
         )
@@ -331,7 +331,7 @@ class TestImportUploadAndPreview:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-010: Rows with missing required fields show 'invalid' status and error chips.
+        """TC-012-023: Rows with missing required fields show 'invalid' status and error chips.
 
         Spec: TC-012-023 -- Fehlende Pflichtfelder in Species-CSV werden als 'invalid' markiert.
         """
@@ -377,7 +377,7 @@ class TestImportConfirmAndResult:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-011: Confirming an import with valid rows shows result step.
+        """TC-012-017: Confirming an import with valid rows shows result step.
 
         Spec: TC-012-017 -- Bestaetigung eines vollstaendig gueltigen Species-Imports.
         """
@@ -405,9 +405,7 @@ class TestImportConfirmAndResult:
 
         # Result chips should exist
         chip_texts = import_page.get_result_chip_texts()
-        assert len(chip_texts) > 0, (
-            "TC-REQ-012-011 FAIL: Expected result chips on the result page"
-        )
+        assert len(chip_texts) > 0, "TC-REQ-012-011 FAIL: Expected result chips on the result page"
 
     @pytest.mark.core_crud
     def test_new_import_button_resets_to_step_one(
@@ -415,7 +413,7 @@ class TestImportConfirmAndResult:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-012: Clicking 'New Import' on the result page resets to step 1.
+        """TC-012-019: Clicking 'New Import' on the result page resets to step 1.
 
         Spec: TC-012-019 -- 'Neuer Import'-Button auf Ergebnis-Seite setzt Prozess zurueck.
         """
@@ -458,7 +456,7 @@ class TestImportBackNavigation:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-013: Clicking 'Back' in preview returns to step 1 and clears the job.
+        """TC-012-016: Clicking 'Back' in preview returns to step 1 and clears the job.
 
         Spec: TC-012-016 -- 'Zurueck'-Button in der Vorschau wechselt zurueck zu Schritt 1.
         """
@@ -495,7 +493,7 @@ class TestImportErrorHandling:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-014: Uploading an empty CSV file shows an error message.
+        """TC-012-033: Uploading an empty CSV file shows an error message.
 
         Spec: TC-012-033 -- Upload einer leeren CSV-Datei zeigt Fehlermeldung.
         """
@@ -526,7 +524,7 @@ class TestImportErrorHandling:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-015: CSV with missing required columns shows a structural error.
+        """TC-012-034: CSV with missing required columns shows a structural error.
 
         Spec: TC-012-034 -- CSV mit fehlenden Pflichtspalten im Header wird als Strukturfehler markiert.
         """
@@ -539,11 +537,15 @@ class TestImportErrorHandling:
             ["Tomate,Solanaceae,Solanum"],
         )
         import_page.select_file(csv_path)
-        screenshot("TC-REQ-012-015_before-missing-cols-upload", "Before uploading CSV with missing columns")
+        screenshot(
+            "TC-REQ-012-015_before-missing-cols-upload", "Before uploading CSV with missing columns"
+        )
 
         # This may either show an error on step 1 or advance to preview with all invalid rows
         import_page.click_upload_and_wait_error_or_preview()
-        screenshot("TC-REQ-012-015_missing-cols-result", "Result after uploading CSV with missing columns")
+        screenshot(
+            "TC-REQ-012-015_missing-cols-result", "Result after uploading CSV with missing columns"
+        )
 
         # Either an error alert is shown OR all preview rows are invalid
         if import_page.is_error_alert_visible():
@@ -570,25 +572,30 @@ class TestImportEntityTypeSwitch:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-016: Switching entity type to Cultivar updates the selection.
+        """TC-012-004: Switching entity type to Cultivar updates the selection.
 
         Spec: TC-012-004 -- Datentyp-Dropdown (extended): Wechsel zu Cultivar.
         """
         import_page.open()
 
-        # Find the option text for cultivar by checking the dropdown
+        # Listing the options keeps the "dropdown open" screenshot checkpoint;
+        # the selection itself no longer goes through their translated labels
+        # (and no longer through their *position*, which said nothing about
+        # which entity type was actually picked).
         options = import_page.get_entity_type_options()
         screenshot("TC-REQ-012-016_entity-options-listed", "Entity type options visible")
+        assert len(options) == 3, (
+            f"TC-REQ-012-016 FAIL: Expected the entity type dropdown to offer 3 "
+            f"options, got {len(options)}: {options}"
+        )
 
-        # Select the second option (cultivar)
-        if len(options) >= 2:
-            import_page.select_entity_type(options[1])
-            screenshot("TC-REQ-012-016_entity-cultivar-selected", "Cultivar entity type selected")
+        import_page.select_entity_type("cultivar")
+        screenshot("TC-REQ-012-016_entity-cultivar-selected", "Cultivar entity type selected")
 
-            new_value = import_page.get_entity_type_value()
-            assert new_value == "cultivar", (
-                f"TC-REQ-012-016 FAIL: Expected entity type 'cultivar' after selection, got '{new_value}'"
-            )
+        new_value = import_page.get_entity_type_value()
+        assert new_value == "cultivar", (
+            f"TC-REQ-012-016 FAIL: Expected entity type 'cultivar' after selection, got '{new_value}'"
+        )
 
     @pytest.mark.core_crud
     def test_switch_duplicate_strategy_to_update(
@@ -596,7 +603,7 @@ class TestImportEntityTypeSwitch:
         import_page: ImportPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-012-017: Switching duplicate strategy to 'update' works.
+        """TC-012-005: Switching duplicate strategy to 'update' works.
 
         Spec: TC-012-005 -- Duplikatstrategie-Dropdown (extended): Wechsel zu 'update'.
         """
@@ -604,13 +611,15 @@ class TestImportEntityTypeSwitch:
 
         options = import_page.get_duplicate_strategy_options()
         screenshot("TC-REQ-012-017_strategy-options-listed", "Duplicate strategy options visible")
+        assert len(options) == 3, (
+            f"TC-REQ-012-017 FAIL: Expected the duplicate strategy dropdown to offer "
+            f"3 options, got {len(options)}: {options}"
+        )
 
-        # Select the second option (update)
-        if len(options) >= 2:
-            import_page.select_duplicate_strategy(options[1])
-            screenshot("TC-REQ-012-017_strategy-update-selected", "Update strategy selected")
+        import_page.select_duplicate_strategy("update")
+        screenshot("TC-REQ-012-017_strategy-update-selected", "Update strategy selected")
 
-            new_value = import_page.get_duplicate_strategy_value()
-            assert new_value == "update", (
-                f"TC-REQ-012-017 FAIL: Expected strategy 'update' after selection, got '{new_value}'"
-            )
+        new_value = import_page.get_duplicate_strategy_value()
+        assert new_value == "update", (
+            f"TC-REQ-012-017 FAIL: Expected strategy 'update' after selection, got '{new_value}'"
+        )

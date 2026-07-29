@@ -49,10 +49,15 @@
 ### Frontend
 
 - Pflanzinstanzen werden überall mit einem sprechenden Namen angezeigt (z. B. `BASIL-001 (Basilikum – Genovese)`) statt nur der technischen Instanz-ID; die Instanz-ID bleibt als sekundäre Information erhalten
+- Aufgaben: Die Formulare in den Tabs **Bearbeiten** und **Abschließen** zeigen Validierungsfehler jetzt als Hinweistext direkt am betroffenen Feld statt als kurzlebige Browser-Sprechblase (`noValidate`)
+- Konto: Die Seite zur E-Mail-Bestätigung bietet auch im Fehlerfall (ungültiger oder abgelaufener Link) einen **Anmelden**-Button — vorher war diese Seite eine Sackgasse
 
 ### Backend
 
 - Plant-Instance- und Pflanzdurchlauf-Pflanzen-Responses enthalten eingebettete `species`- und `cultivar`-Kurzinfos (Denormalisierung), damit das Frontend lesbare Namen ohne zusätzliche Abfragen bilden kann
+- Ernte: `batch_id` ist in API-Responses nullbar (`string | null`) statt einer leeren Zeichenkette; der Eindeutigkeitsindex auf `harvest_batches.batch_id` ist `unique + sparse`. Bestandsdaten werden von Migration `v0030` angepasst
+- Pflegeerinnerungen: Das Abschließen einer fälligen Gieß-Aufgabe legt die Folgeaufgabe unmittelbar an — zuvor entstand sie erst beim nächtlichen Planungslauf
+- Pflegeerinnerungen: Eine Bestätigung schließt nur noch Pflegeaufgaben, die heute oder früher fällig sind; eine bereits eingeplante Folgeaufgabe bleibt erhalten
 
 ## In Entwicklung
 

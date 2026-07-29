@@ -2,21 +2,22 @@
 ## E2E smoke gate — runs the existing Docker Compose smoke profile
 ## (scripts/run-e2e.sh --smoke) inside the runner.
 ##
-## Non-required check by design: `static` stays the only required check
-## until the flake behaviour of the E2E jobs is known
-## (project/requirements/e2e-ci-selenium.md, R1/R2).
+## REQUIRED check on `develop` (ADR-011,
+## project/requirements/e2e-smoke-merge-gate.md R1/R2/R4). This supersedes R2 of
+## project/requirements/e2e-ci-selenium.md, which kept every E2E check advisory
+## while their flake behaviour was unknown.
+##
+## The `pull_request` trigger deliberately carries NO `paths:` filter. A required
+## check whose workflow is skipped by path filtering never reports and leaves the
+## pull request stuck on "Expected — waiting for status to be reported"; GitHub
+## documents that path filtering must not be used on a required workflow. A job
+## skipped by a job-level `if:` reports Success instead, which is why the
+## selection lives in the `changes` job below.
 ##
 name: e2e-smoke
 
 on:
   pull_request:
-    paths:
-      - "src/**"
-      - "tests/e2e/**"
-      - "docker-compose.e2e.yml"
-      - "docker-compose.e2e.ci.yml"
-      - "scripts/run-e2e.sh"
-      - ".github/workflows/e2e-smoke.yml"
   push:
     branches: [develop]
     paths:
@@ -39,8 +40,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Deny-by-default selection: the suite is skipped only when EVERY changed file
+  # is provably unable to affect the deployed application. The predicate is an
+  # allowlist of inert paths, never a diff-size or complexity score — absolute
+  # churn is not a usable risk signal (Nagappan & Ball, ICSE 2005), and the
+  # repository has too little CI history to calibrate a learned selector.
+  #
+  # A missing allowlist entry only costs one unnecessary run (fail-safe); a
+  # runtime path wrongly added to it silently disables the gate (fail-open).
+  # Treat this list as security-relevant and re-check it whenever a new
+  # top-level directory appears.
+  #
+  # Two filters rather than one: under `predicate-quantifier: every` a file must
+  # satisfy ALL patterns of a filter, so a file excluded by `!.github/**` cannot
+  # be re-included by adding a positive pattern to the same filter. The E2E
+  # infrastructure workflows are therefore matched by their own filter, and the
+  # `smoke` job below ORs the two results.
+  changes:
+    name: Detect runtime-relevant changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.filter.outputs.runtime }}
+      e2e_infra: ${{ steps.filter.outputs.e2e_infra }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        with:
+          # `every` is load-bearing. The default is `some`, which ORs a filter's
+          # patterns together — under it the leading `'**'` matches every file
+          # and the `!` entries subtract nothing, so `runtime` is permanently
+          # true and the suite runs on every pull request. Learned the hard way:
+          # PR #795 changed only .github/settings.yml and still ran the suite.
+          # With `every`, a file must satisfy ALL patterns of a filter, which is
+          # what turns the `!` entries into actual exclusions.
+          predicate-quantifier: 'every'
+          filters: |
+            runtime:
+              - '**'
+              - '!docs/**'
+              - '!spec/**'
+              - '!project/**'
+              - '!.audits/**'
+              - '!.resume/**'
+              - '!.claude/**'
+              - '!styles/**'
+              - '!.github/**'
+              - '!**/*.md'
+              - '!mkdocs.yml'
+              - '!.vale.ini'
+              - '!LICENSE'
+              - '!.gitignore'
+              - '!CODEOWNERS'
+              - '!Taskfile.yaml'
+              - '!.pre-commit-config.yaml'
+            e2e_infra:
+              - '.github/workflows/e2e-*.yml'
+
   smoke:
     name: E2E smoke (compose, light)
+    needs: changes
+    # Fail-safe by construction: the suite is skipped ONLY when `changes`
+    # succeeded AND reported the diff as inert. Anything else runs it.
+    #
+    # `needs.changes.result` is load-bearing and must not be dropped. `always()`
+    # only makes this expression evaluate when the dependency did not succeed —
+    # it does not make it true. Without the `result` clause a FAILED `changes`
+    # job would leave both outputs as empty strings, every comparison would be
+    # false, the job would be skipped, and a skipped job reports the required
+    # check as Success: the gate would go green without the suite ever running.
+    # `result` covers failure, cancelled and skipped, which also makes a separate
+    # event-name clause unnecessary — on non-pull_request events `changes` is
+    # skipped and the suite runs.
+    if: >-
+      always()
+      && (needs.changes.result != 'success'
+          || needs.changes.outputs.runtime == 'true'
+          || needs.changes.outputs.e2e_infra == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -64,10 +141,13 @@ jobs:
       # Render the JUnit XML produced by the run into a check run + the job
       # summary, so concrete per-test failure messages (assertion text + a
       # short traceback) are visible without digging through raw logs.
-      # `continue-on-error` keeps the (non-required) smoke job from turning red
-      # solely because a fork PR's read-only GITHUB_TOKEN cannot create a check
-      # run; the independent "Job summary" step still surfaces the protocol.
+      # `continue-on-error` keeps this required job from turning red solely
+      # because a fork PR's read-only GITHUB_TOKEN cannot create a check run.
+      # The `id` is load-bearing: the "Job summary" step below reads
+      # `steps.report.outcome` to decide whether the results are already
+      # rendered, or whether it has to surface them from the protocol itself.
       - name: Render E2E test report
+        id: report
         if: always()
         continue-on-error: true
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
@@ -81,21 +161,48 @@ jobs:
           fail-on-empty: false
           use-actions-summary: true
 
+      # When the step above rendered the report, it already carries the totals
+      # and the concrete per-test failure messages — restating them from
+      # `protokoll.md` printed every result twice. The protocol excerpt is
+      # therefore only produced when the rendering did NOT happen, which is
+      # exactly the fork-PR case: a read-only GITHUB_TOKEN cannot create the
+      # check run, and this step stays the only place the results show up.
       - name: Job summary
         if: always()
+        env:
+          REPORT_RENDERED: ${{ steps.report.outcome == 'success' }}
         run: |
+          # Two independent signals decide below, and both must hold.
+          # `steps.report.outcome` is only a proxy: it says the action did not
+          # error, not that a table was actually written. Whether the summary
+          # already has content observes that directly — the file starts empty
+          # and no earlier step writes to it. Sampled here, BEFORE the block is
+          # redirected into that very file (reading and appending in one
+          # pipeline is what shellcheck flags as SC2094).
+          SUMMARY_PREFILLED=no
+          if [ -s "$GITHUB_STEP_SUMMARY" ]; then SUMMARY_PREFILLED=yes; fi
           {
-            echo "## E2E smoke (light)"
-            PROTOCOL=$(find test-reports/e2e -name protokoll.md | head -1)
-            if [ -n "$PROTOCOL" ]; then
-              # Surface the protocol's result overview (## Zusammenfassung) and,
-              # if present, the failed-tests section headers.
+            PROTOCOL=$(find test-reports/e2e -name protokoll.md -print -quit 2>/dev/null)
+            JUNIT=$(find test-reports/e2e -name 'junit-*.xml' -print -quit 2>/dev/null)
+            # Whenever either signal is missing, the excerpt below is produced,
+            # so a fork PR loses the artifact pointer at worst, never the
+            # results themselves.
+            if [ "$REPORT_RENDERED" = "true" ] && [ "$SUMMARY_PREFILLED" = "yes" ] && [ -n "$JUNIT" ]; then
+              echo "**E2E smoke (light)** — full protocol, screenshots and container logs:"
+              echo "see the run's \`e2e-smoke-reports\` artifact."
+            elif [ -n "$PROTOCOL" ]; then
+              # No rendered report (typically a fork PR): surface the protocol's
+              # result overview (## Zusammenfassung) and the failed-tests headers.
+              echo "## E2E smoke (light)"
               awk '/^## Zusammenfassung/{f=1; next} f && /^## /{exit} f{print}' "$PROTOCOL"
               awk '/^## Fehlgeschlagene Tests/{f=1} f && /^## Testergebnisse/{exit} f && /^###? /{print}' "$PROTOCOL"
               echo ""
               echo "Full protocol, screenshots and container logs: see the run's \`e2e-smoke-reports\` artifact."
             else
-              echo "No test protocol was generated (run failed before pytest)."
+              echo "## E2E smoke (light)"
+              echo ""
+              echo "No test protocol was generated (the run failed before pytest)."
+              echo "See the job log and the \`e2e-smoke-reports\` artifact."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

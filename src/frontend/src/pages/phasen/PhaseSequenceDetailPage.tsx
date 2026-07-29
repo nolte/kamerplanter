@@ -35,6 +35,7 @@ import LoopIcon from '@mui/icons-material/Loop';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -138,7 +139,7 @@ function EditSequenceDialog({
         {t('pages.phaseSequences.editSequence')}
       </DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="name"
             control={control}
@@ -173,7 +174,7 @@ function EditSequenceDialog({
             loading={saving}
             saveLabel={t('common.save')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -250,7 +251,7 @@ function CloneSequenceDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.phaseSequences.duplicateHelper')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="new_name"
             control={control}
@@ -263,7 +264,7 @@ function CloneSequenceDialog({
             loading={saving}
             saveLabel={t('pages.phaseSequences.duplicate')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -457,7 +458,7 @@ export default function PhaseSequenceDetailPage() {
         title={(lang === 'de' ? sequence.display_name_de : sequence.display_name) || sequence.name}
         meta={<OriginChip isSystem={sequence.is_system} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-011: hide edit button entirely for read-only data */}
             {!isReadOnly && (
               <Button

@@ -26,12 +26,24 @@ class CropRotationPage(BasePage):
     ADD_SUCCESSOR_BTN = (By.CSS_SELECTOR, "[data-testid='add-successor-button']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
-    # Dialog locators
-    DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
-    DIALOG_TARGET_SELECT = (By.CSS_SELECTOR, "[data-testid='to-family-select'] .MuiSelect-select")
+    # Dialog locators -- addressed by the dialog's own data-testid rather than a
+    # bare role='dialog'. Below the `md` breakpoint (mobile AND tablet) the
+    # sidebar Drawer is `temporary` + `keepMounted`, so its paper also carries
+    # role='dialog' and wins the document-order lookup. See base_page.
+    DIALOG = (By.CSS_SELECTOR, "[data-testid='crop-rotation-dialog']")
+    #: The dialog's target picker is a real MUI ``Select``; it is driven through
+    #: ``open_select_by_testid`` / ``select_option_by_label`` rather than through
+    #: a locator here, because those verify the open and the committed value.
+    DIALOG_TARGET_SELECT_TESTID = "to-family-select"
     DIALOG_WAIT_YEARS = (By.CSS_SELECTOR, "[data-testid='wait-years-input'] input")
-    DIALOG_CREATE_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Erstellen')]")
-    DIALOG_CANCEL_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Abbrechen')]")
+    DIALOG_CREATE_BTN = (
+        By.XPATH,
+        "//*[@data-testid='crop-rotation-dialog']//button[contains(text(), 'Erstellen')]",
+    )
+    DIALOG_CANCEL_BTN = (
+        By.XPATH,
+        "//*[@data-testid='crop-rotation-dialog']//button[contains(text(), 'Abbrechen')]",
+    )
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -47,6 +59,7 @@ class CropRotationPage(BasePage):
 
     def select_family(self, family_name: str) -> None:
         from selenium.webdriver.support.ui import WebDriverWait
+
         self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
         self.scroll_and_click(select)
@@ -56,7 +69,7 @@ class CropRotationPage(BasePage):
         # normalised text rather than an XPath contains() that can't see the
         # newline. See _find_option.
         option = self._find_option(family_name)
-        self.scroll_and_click(option)
+        self.click_menu_option(option)
         # Wait for options to be removed from DOM (natural close after selection)
         WebDriverWait(self.driver, 5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
@@ -69,7 +82,12 @@ class CropRotationPage(BasePage):
         deadline = time.time() + 10
         while time.time() < deadline:
             for option in self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
-                otext = " ".join(option.text.split())
+                # ``textContent``, not ``.text``: WebElement.text yields only
+                # *rendered* text, so an option scrolled outside the popover's
+                # visible area (MUI auto-scrolls an open Select to its selected
+                # item, pushing leading entries out of view) reads back as ""
+                # and would never match. See base_page.select_option_by_label.
+                otext = " ".join((option.get_attribute("textContent") or "").split())
                 if otext == target or target in otext or otext in target:
                     return option
             time.sleep(0.2)
@@ -81,7 +99,12 @@ class CropRotationPage(BasePage):
         self.scroll_and_click(select)
         self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        texts = [o.text for o in options if o.text]
+        # ``textContent``, not ``.text``: an option scrolled outside the open
+        # popover's visible area reads back as "" via WebElement.text (MUI
+        # scrolls to the selected item, pushing leading entries out of view).
+        # The old ``if o.text`` filter silently dropped those entries from the
+        # result instead of surfacing them -- see #801.
+        texts = [" ".join((o.get_attribute("textContent") or "").split()) for o in options]
         self.close_mui_dropdown()
         return texts
 
@@ -107,25 +130,30 @@ class CropRotationPage(BasePage):
         return btn.is_enabled()
 
     def select_dialog_target(self, family_name: str) -> None:
-        from selenium.webdriver.support.ui import WebDriverWait
+        """Pick the dialog's target family by its rendered label.
+
+        Structurally identical to `CompanionPlantingPage.select_dialog_target`
+        (same `TextField select` with ``MenuItem value={key}``), and migrated for
+        the same reason: the predecessor opened a mousedown-only Select with a
+        coordinate click, matched an unscoped ``li[role='option']`` on the
+        translated label, clicked a possibly-repositioning popover at
+        coordinates, and verified nothing.
+        """
         self.close_mui_dropdown()
-        select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.scroll_and_click(select)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{family_name}')]")
-        )
-        self.scroll_and_click(option)
-        WebDriverWait(self.driver, 5).until(
-            lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
-        )
+        self.open_select_by_testid(self.DIALOG_TARGET_SELECT_TESTID)
+        self.select_option_by_label(family_name)
 
     def get_dialog_target_options(self) -> list[str]:
         self.close_mui_dropdown()
-        select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.scroll_and_click(select)
-        self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
-        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        texts = [o.text for o in options if o.text]
+        self.open_select_by_testid(self.DIALOG_TARGET_SELECT_TESTID)
+        # Keeps the predecessor's 10s budget for the options to render, and its
+        # loud failure when none ever do: `open_select_in` deliberately tolerates
+        # a legitimately empty listbox (2s), which would turn a slow render into
+        # an empty read and let the caller skip for the wrong reason.
+        self.wait_for_element_visible(self.OPTIONS, timeout=10)
+        options = self.driver.find_elements(*self.OPTIONS)
+        # ``textContent``, not ``.text`` -- see get_family_options above.
+        texts = [" ".join((o.get_attribute("textContent") or "").split()) for o in options]
         self.close_mui_dropdown()
         return texts
 

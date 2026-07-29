@@ -26,6 +26,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import OriginChip from '@/components/common/OriginChip';
 import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -268,7 +269,7 @@ export default function CultivarDetailPage() {
         title={cultivar?.name ?? t('entities.cultivar')}
         meta={<OriginChip origin={cultivarOrigin} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-012: hide delete button for system data */}
             {!isDeletionProtected && (
               <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
@@ -298,8 +299,7 @@ export default function CultivarDetailPage() {
         />
       )}
 
-      <Box
-        component="form"
+      <Form
         onSubmit={handleSubmit(onSubmit)}
         sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
       >
@@ -472,7 +472,7 @@ export default function CultivarDetailPage() {
             {t('common.origin.readOnlyHint')}
           </Typography>
         )}
-      </Box>
+      </Form>
 
       {/* Phase watering overrides */}
       {growthPhases.length > 0 && (

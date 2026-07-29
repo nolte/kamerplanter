@@ -48,6 +48,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable from '@/components/common/DataTable';
 import MobileCard from '@/components/common/MobileCard';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -62,6 +63,7 @@ import TerminationDialog from './TerminationDialog';
 import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
+import HarvestReadinessSection from './HarvestReadinessSection';
 import ProfilesSection from './ProfilesSection';
 import OverwinteringSection from './OverwinteringSection';
 import PestScanButton from '@/components/pests/PestScanButton';
@@ -1063,7 +1065,10 @@ export default function PlantInstanceDetailPage() {
       <PageTitle
         title={plant ? getPlantLabel(plant, species, assignedCultivar) : t('entities.plantInstance')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+          /* No `flexShrink: 0` here: it would re-freeze the group at
+             max-content width and push the destructive "Pflanze entfernen"
+             button outside a 393px viewport (UI-NFR-001 R-005/R-006). */
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {key && <PestScanButton plantKey={key} />}
             <Button
               startIcon={<LabelIcon />}
@@ -1105,7 +1110,14 @@ export default function PlantInstanceDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 3 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+      >
         <Tab label={t('pages.plantInstances.info')} />
         <Tab label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />
         <Tab label={t('entities.nutrientPlan')} />
@@ -1648,6 +1660,18 @@ export default function PlantInstanceDetailPage() {
             </Card>
           )}
 
+          {/* Harvest readiness (REQ-007 §3 "Reife-Visualisierung" / §6 DoD).
+              Placed with the plant's other live-status cards — after the phase
+              profile, before the static species/cultivar reference cards —
+              because it answers the same question as the summary bar's
+              "voraussichtliche Ernte": where is this plant in its run right now.
+              Hidden once the plant is removed/harvested: readiness is a forecast
+              towards an event that has already happened, mirroring the watering
+              card's `!plant.removed_on` guard directly above. */}
+          {plant && key && !plant.removed_on && (
+            <HarvestReadinessSection plantKey={key} />
+          )}
+
           {/* Species & Cultivar cards */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: assignedCultivar ? '1fr 1fr' : '1fr' }, gap: 3 }}>
             {species && (
@@ -2124,13 +2148,26 @@ export default function PlantInstanceDetailPage() {
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.logged_at ? new Date(r.logged_at).toLocaleString() : '—'}
+                titleId="loggedAt"
                 subtitle={t(`enums.applicationMethod.${r.application_method}`)}
-                chips={
-                  r.is_supplemental ? <Chip label={t('common.yes')} size="small" color="info" /> : undefined
-                }
+                subtitleId="applicationMethod"
                 fields={[
-                  { label: t('pages.wateringLogs.volumeLiters'), value: `${r.volume_liters} L` },
-                  ...(r.ec_after != null ? [{ label: t('pages.wateringLogs.ecAfter'), value: String(r.ec_after) }] : []),
+                  { id: 'volume', label: t('pages.wateringLogs.volumeLiters'), value: `${r.volume_liters} L` },
+                  // Emitted unconditionally: as a conditional chip the column
+                  // was simply absent for an ordinary watering, so "the
+                  // supplemental column is empty" was unreadable rather than
+                  // empty. A present-but-empty field says the same thing the
+                  // desktop `<td>` says.
+                  {
+                    id: 'isSupplemental',
+                    label: t('pages.wateringLogs.isSupplemental'),
+                    value: r.is_supplemental
+                      ? <Chip component="span" label={t('common.yes')} size="small" color="info" />
+                      : '',
+                  },
+                  ...(r.ec_after != null
+                    ? [{ id: 'ecAfter', label: t('pages.wateringLogs.ecAfter'), value: String(r.ec_after) }]
+                    : []),
                 ]}
               />
             )}
@@ -2298,7 +2335,7 @@ export default function PlantInstanceDetailPage() {
 
               {/* Active tasks section */}
               {activeTasks.length > 0 && (
-                <Box sx={{ mb: 3 }}>
+                <Box sx={{ mb: 3 }} data-testid="plant-tasks-active-section">
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
                     {t('pages.plantInstances.taskTabActiveSection')}
                   </Typography>
@@ -2385,29 +2422,38 @@ export default function PlantInstanceDetailPage() {
                     onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
                     tableState={taskTableState}
                     ariaLabel={t('pages.plantInstances.taskTabActiveSection')}
+                    sectionTestId="plant-tasks-active"
                     searchable
                     mobileCardRenderer={(row) => (
                       <MobileCard
                         title={row.name}
                         subtitle={formatRelativeDueDate(row.due_date)}
                         trailing={renderTaskActions(row)}
-                        chips={
-                          <>
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
-                              color={taskStatusColor(row.status)}
-                              variant="filled"
-                            />
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
-                              variant="outlined"
-                            />
-                          </>
-                        }
+                        chips={[
+                          {
+                            id: 'status',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
+                                color={taskStatusColor(row.status)}
+                                variant="filled"
+                              />
+                            ),
+                          },
+                          {
+                            id: 'category',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
+                                variant="outlined"
+                              />
+                            ),
+                          },
+                        ]}
                         fields={[
-                          { label: t('pages.tasks.priority'), value: t(`enums.taskPriority.${row.priority}`, { defaultValue: row.priority }) },
+                          { id: 'priority', label: t('pages.tasks.priority'), value: t(`enums.taskPriority.${row.priority}`, { defaultValue: row.priority }) },
                         ]}
                       />
                     )}
@@ -2417,7 +2463,7 @@ export default function PlantInstanceDetailPage() {
 
               {/* Archived tasks section */}
               {archivedTasks.length > 0 && (
-                <Box>
+                <Box data-testid="plant-tasks-done-section">
                   <Divider sx={{ mb: 2 }} />
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
                     {t('pages.plantInstances.taskTabDoneSection')}
@@ -2474,6 +2520,7 @@ export default function PlantInstanceDetailPage() {
                     getRowKey={(row) => row.key}
                     onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
                     ariaLabel={t('pages.plantInstances.taskTabDoneSection')}
+                    sectionTestId="plant-tasks-done"
                     searchable
                     mobileCardRenderer={(row) => (
                       <MobileCard
@@ -2481,21 +2528,29 @@ export default function PlantInstanceDetailPage() {
                         subtitle={row.completed_at
                           ? new Date(row.completed_at).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US')
                           : undefined}
-                        chips={
-                          <>
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
-                              color={taskStatusColor(row.status)}
-                              variant="outlined"
-                            />
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
-                              variant="outlined"
-                            />
-                          </>
-                        }
+                        chips={[
+                          {
+                            id: 'status',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
+                                color={taskStatusColor(row.status)}
+                                variant="outlined"
+                              />
+                            ),
+                          },
+                          {
+                            id: 'category',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
+                                variant="outlined"
+                              />
+                            ),
+                          },
+                        ]}
                       />
                     )}
                   />
@@ -2522,7 +2577,7 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 7: Edit */}
       {tab === 7 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Form onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.plantInstances.editIntro')}
           </Typography>
@@ -2606,7 +2661,7 @@ export default function PlantInstanceDetailPage() {
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={() => setTab(0)} loading={saving} />
-        </Box>
+        </Form>
       )}
 
       {/* Tab 8: Photos (REQ-034 §2.3) */}

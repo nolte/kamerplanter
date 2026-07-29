@@ -52,44 +52,44 @@ class NutrientPlanListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (NutrientPlanListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (plan name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the plan name of every visible row.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        favourite-star column (empty text), and below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
-    def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` and its last an
+    #: actions button, both `stopPropagation`, so a centre click can silently
+    #: toggle a favourite instead of opening the plan. `name` renders `r.name`
+    #: and carries no `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
+    def click_row(self, index: int) -> None:
+        """Open the nutrient plan at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "nutrient plan row"
+        )
 
     # ── Clone action ───────────────────────────────────────────────────
 
     def click_clone_on_row(self, index: int) -> None:
         """Click the clone icon button on a given row."""
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            clone_btn = rows[index].find_element(By.CSS_SELECTOR, "button[title]")
-            self.scroll_and_click(clone_btn)
+        row = self.require_index(rows, index, "nutrient plan row")
+        clone_btn = row.find_element(By.CSS_SELECTOR, "button[title]")
+        self.scroll_and_click(clone_btn)
 
     # ── Search and filter ──────────────────────────────────────────────
 
@@ -152,25 +152,13 @@ class NutrientPlanListPage(BasePage):
         self.clear_and_fill(el, author)
 
     def select_substrate_type(self, value_text: str) -> None:
-        """Open the substrate type select and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
+        """Open the substrate type select and pick an option.
 
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-recommended_substrate_type'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("recommended_substrate_type")
+        self.select_option_by_label(value_text)
 
     def toggle_is_template(self) -> None:
         """Toggle the is_template switch."""

@@ -51,7 +51,7 @@ class TestIpmNavigation:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-035: Navigate directly to pest list page.
+        """TC-010-047: Navigate directly to pest list page.
 
         Spec: TC-010-047 -- Navigation zwischen Pflanzenschutz-Unterseiten via Sidebar.
         """
@@ -59,9 +59,7 @@ class TestIpmNavigation:
         screenshot("TC-REQ-010-035_nav-pests", "Direct navigation to pest list")
 
         page_el = pest_list.wait_for_element(PestListPage.PAGE)
-        assert page_el.is_displayed(), (
-            "TC-REQ-010-035 FAIL: Expected pest-list-page to be visible"
-        )
+        assert page_el.is_displayed(), "TC-REQ-010-035 FAIL: Expected pest-list-page to be visible"
         assert "pflanzenschutz/pests" in pest_list.driver.current_url, (
             f"TC-REQ-010-035 FAIL: Expected URL to contain 'pflanzenschutz/pests', "
             f"got {pest_list.driver.current_url}"
@@ -73,7 +71,7 @@ class TestIpmNavigation:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-036: Navigate directly to disease list page.
+        """TC-010-048: Navigate directly to disease list page.
 
         Spec: TC-010-048 -- Direktnavigation via URL zu Pflanzenschutz-Seiten (Diseases).
         """
@@ -95,7 +93,7 @@ class TestIpmNavigation:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-037: Navigate directly to treatment list page.
+        """TC-010-048: Navigate directly to treatment list page.
 
         Spec: TC-010-048 -- Direktnavigation via URL zu Pflanzenschutz-Seiten (Treatments).
         """
@@ -119,7 +117,7 @@ class TestIpmNavigation:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-038: Navigate between all three IPM pages sequentially.
+        """TC-010-047: Navigate between all three IPM pages sequentially.
 
         Spec: TC-010-047 -- Navigation zwischen Pflanzenschutz-Unterseiten via Sidebar.
         """
@@ -152,7 +150,7 @@ class TestIpmNavigation:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-039: All IPM pages have a create button.
+        """TC-010-047: All IPM pages have a create button.
 
         Spec: TC-010-047 -- Navigation zwischen Pflanzenschutz-Unterseiten via Sidebar.
         """

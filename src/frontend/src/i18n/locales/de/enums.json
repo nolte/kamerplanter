@@ -688,17 +688,17 @@
       "protist": "Protist"
     },
     "treatmentType": {
-      "cultural": "Kulturmassnahme",
+      "cultural": "Kulturmaßnahme",
       "biological": "Biologisch",
       "chemical": "Chemisch",
       "mechanical": "Mechanisch"
     },
     "ipmApplicationMethod": {
       "spray": "Sprühen",
-      "drench": "Giessen",
+      "drench": "Gießen",
       "granular": "Granulat",
       "release": "Freilassung",
-      "cultural": "Kulturmassnahme"
+      "cultural": "Kulturmaßnahme"
     },
     "detectionDifficulty": {
       "easy": "Einfach",
@@ -852,8 +852,12 @@
       "advanced": "Erfahren",
       "expert": "Experte"
     },
+    "adminScope": {
+      "management": "Verwaltung",
+      "technical": "Technik"
+    },
     "tenantRole": {
-      "admin": "Administrator",
+      "lead": "Leitung",
       "grower": "Gärtner",
       "viewer": "Betrachter"
     },

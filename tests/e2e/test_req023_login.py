@@ -22,6 +22,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import LoginPage
+from ._auth_helpers import ensure_logged_out
 
 pytestmark = pytest.mark.requires_auth
 
@@ -44,8 +45,7 @@ def login_page(browser: WebDriver, base_url: str) -> LoginPage:
 
 def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     """Clear auth state by deleting cookies and navigating to login."""
-    browser.delete_all_cookies()
-    browser.get(f"{base_url}/login")
+    ensure_logged_out(browser, base_url)
 
 
 # -- TC-023-009: Successful login ----------------------------------------------
@@ -61,7 +61,7 @@ class TestLoginHappyPath:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-002: Login page renders with heading, fields and links.
+        """TC-023-009: Login page renders with heading, fields and links.
 
         Spec: TC-023-009 -- Erfolgreicher lokaler Login (Happy Path) -- Seitenstruktur.
         """
@@ -90,7 +90,7 @@ class TestLoginHappyPath:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-001: Successful local login with demo user redirects to /dashboard.
+        """TC-023-009: Successful local login with demo user redirects to /dashboard.
 
         Spec: TC-023-009 -- Erfolgreicher lokaler Login (Happy Path).
         """
@@ -128,7 +128,7 @@ class TestLoginHappyPath:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-003: Login with remember-me checkbox activated.
+        """TC-023-010: Login with remember-me checkbox activated.
 
         Spec: TC-023-010 -- Login mit aktivierter 'Angemeldet bleiben'-Checkbox.
         """
@@ -164,7 +164,7 @@ class TestLoginSSOProviders:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-004: Login page without active SSO providers shows no divider/buttons.
+        """TC-023-012: Login page without active SSO providers shows no divider/buttons.
 
         Spec: TC-023-012 -- Login-Seite ohne aktivierte SSO-Provider.
         """
@@ -195,7 +195,7 @@ class TestLoginErrors:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-005: Login with wrong password shows error alert.
+        """TC-023-013: Login with wrong password shows error alert.
 
         Spec: TC-023-013 -- Login mit falschem Passwort.
         """
@@ -222,9 +222,7 @@ class TestLoginErrors:
             "TC-REQ-023-005 FAIL: Expected error alert after login with wrong password"
         )
         error_msg = login_page.get_error_message()
-        assert error_msg, (
-            "TC-REQ-023-005 FAIL: Expected non-empty error message"
-        )
+        assert error_msg, "TC-REQ-023-005 FAIL: Expected non-empty error message"
         assert "/login" in login_page.driver.current_url, (
             f"TC-REQ-023-005 FAIL: Expected to remain on /login, got: {login_page.driver.current_url}"
         )
@@ -236,7 +234,7 @@ class TestLoginErrors:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-006: Login with non-existent email shows error alert.
+        """TC-023-013: Login with non-existent email shows error alert.
 
         Spec: TC-023-013 -- Login mit falschem Passwort (non-existent email variant).
         """
@@ -271,7 +269,7 @@ class TestRouteGuards:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-007: Unauthenticated access to /dashboard redirects to /login.
+        """TC-023-016: Unauthenticated access to /dashboard redirects to /login.
 
         Spec: TC-023-016 -- Redirect von geschuetzter Route zu Login.
         """
@@ -295,7 +293,7 @@ class TestRouteGuards:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-008: Authenticated user accessing /login is redirected to /dashboard.
+        """TC-023-017: Authenticated user accessing /login is redirected to /dashboard.
 
         Spec: TC-023-017 -- Redirect von Login/Register zu Dashboard wenn bereits eingeloggt.
         """
@@ -329,7 +327,7 @@ class TestLoginNavigation:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-009: 'Passwort vergessen?' link navigates to /password-reset.
+        """TC-023-019: 'Passwort vergessen?' link navigates to /password-reset.
 
         Spec: TC-023-019 -- Passwort vergessen -- Link auf Login-Seite.
         """
@@ -358,7 +356,7 @@ class TestLoginNavigation:
         login_page: LoginPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-010: Register link on login page navigates to /register.
+        """TC-023-006: Register link on login page navigates to /register.
 
         Spec: TC-023-006 -- Link zu Login von der Registrierungsseite.
         """

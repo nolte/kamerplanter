@@ -8,6 +8,7 @@ import DialogContent from '@mui/material/DialogContent';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -94,7 +95,7 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="maintenance-log-dialog-title" data-testid="maintenance-log-dialog">
       <DialogTitle id="maintenance-log-dialog-title">{t('pages.tanks.logMaintenance')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormSelectField
             name="maintenance_type"
             control={control}
@@ -138,7 +139,7 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
             loading={saving}
             saveLabel={t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

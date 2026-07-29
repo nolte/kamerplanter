@@ -54,18 +54,26 @@ class PlantInstanceDetailPage(BasePage):
     LOADING_SKELETON = (By.CSS_SELECTOR, "[data-testid='loading-skeleton']")
     DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
-    # DataTable aria-labels for the two task-history sections (i18n de) — the
-    # active table lists pending/in-progress tasks, the done table the completed/
-    # cancelled ones. Used to scope row lookups to a single section.
-    TASK_ACTIVE_SECTION_LABEL = "Ausstehend & In Bearbeitung"
-    TASK_DONE_SECTION_LABEL = "Abgeschlossen & Abgebrochen"
+    # `DataTable.sectionTestId` values for the two task-history sections — the
+    # active table lists pending/in-progress tasks, the done table the
+    # completed/cancelled ones. `DataTable` emits them as the plain attribute
+    # ``data-table-section`` on its Paper root in BOTH layouts, so a section is
+    # addressable without the previous detour over the German section heading.
+    TASK_ACTIVE_SECTION = "plant-tasks-active"
+    TASK_DONE_SECTION = "plant-tasks-done"
     # Care-reminder task name suffix (em dash + reminder type), e.g.
     # "JOURNEY-004-123456 — watering".
     WATERING_TASK_SUFFIX = "— watering"
 
     # Transition dialog
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
+    #: Presence/visibility locator only — the testid sits on the ``TextField``
+    #: FormControl root (label + input + helper text), whose click centre falls
+    #: outside the input once the helper text wraps to two lines (393px). Open
+    #: the dropdown via ``open_select_by_testid`` instead. See the twin note in
+    #: ``phase_transition_page.PlantInstanceDetailExt``.
     TARGET_PHASE_SELECT = (By.CSS_SELECTOR, "[data-testid='target-phase-select']")
+    TARGET_PHASE_SELECT_TESTID = "target-phase-select"
     TRANSITION_REASON = (By.CSS_SELECTOR, "[data-testid='transition-reason'] input")
     TRANSITION_CANCEL = (By.CSS_SELECTOR, "[data-testid='transition-cancel']")
     TRANSITION_CONFIRM = (By.CSS_SELECTOR, "[data-testid='transition-confirm']")
@@ -86,10 +94,7 @@ class PlantInstanceDetailPage(BasePage):
 
         self.navigate(f"{self.PATH_PREFIX}/{key}")
         WebDriverWait(self.driver, 15).until(
-            lambda d: (
-                d.find_elements(*self.PAGE)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -147,32 +152,90 @@ class PlantInstanceDetailPage(BasePage):
             )
         return self.get_row_cell_text(rows[index], col_id)
 
-    def get_task_rows(self, section_label: str) -> list[WebElement]:
-        """Return the DataTable rows for a task-history section, scoped by aria-label.
+    #: A `DataTable` scoped to one task-history section. ``data-table-section``
+    #: is a plain attribute on the Paper root (not a data-testid) and is present
+    #: in BOTH the table and the card layout, which is exactly what the previous
+    #: ``table[aria-label='…']`` scope was not: below `DataTable`'s
+    #: ``mobileBreakpoint`` there is no ``<table>`` and hence no ``aria-label``,
+    #: so that scope silently yielded ``[]`` for every section and the fallback
+    #: had to match the German section heading as a text node.
+    SECTION_TABLE_CSS = "[data-testid='data-table'][data-table-section='{section}']"
 
-        *section_label* is one of :attr:`TASK_ACTIVE_SECTION_LABEL` /
-        :attr:`TASK_DONE_SECTION_LABEL`. Returns ``[]`` when the section is not
-        rendered (a section with zero tasks is omitted from the DOM).
+    def get_task_rows(self, section: str) -> list[WebElement]:
+        """Return the DataTable rows for a task-history section, layout-tolerantly.
+
+        *section* is one of :attr:`TASK_ACTIVE_SECTION` /
+        :attr:`TASK_DONE_SECTION`. Returns ``[]`` when the section is not
+        rendered — which is exact rather than silent: the whole section, its
+        heading included, is only mounted while it holds ≥1 task.
+
+        Note that ``data-table-section`` is absent from `DataTable`'s early
+        returns (loading skeleton, empty state, no-filter-results), so this is
+        a row reader and never a wait anchor for the loading state.
         """
         return self.driver.find_elements(
             By.CSS_SELECTOR,
-            f"table[aria-label='{section_label}'] [data-testid='data-table-row']",
+            f"{self.SECTION_TABLE_CSS.format(section=section)} [data-testid='data-table-row']",
         )
 
-    def count_watering_tasks(self, section_label: str) -> int:
+    #: `MobileCard` slot that carries each section's subtitle, per the tasks-tab
+    #: ``mobileCardRenderer`` (PlantInstanceDetailPage.tsx): the active cards
+    #: subtitle the relative due date, the archived ones the completion date.
+    #: Neither is keyed as a ``card-field-*``, because both are the card's
+    #: subtitle rather than a field of its grid.
+    TASK_CARD_SUBTITLE_COLUMN = {
+        TASK_ACTIVE_SECTION: "due_date",
+        TASK_DONE_SECTION: "completed_at",
+    }
+
+    def get_task_field(self, row: WebElement, section: str, col_id: str) -> str:
+        """Return a task row's *col_id* value in both the table and card layout.
+
+        Desktop reads ``[data-testid='cell-<col_id>']``; a cell that exists but
+        renders empty is read via ``textContent``, because `DataTable` keeps
+        ``hideBelowBreakpoint`` columns (``category``, ``completed_at``,
+        ``priority``) mounted with ``display: none`` below ``md``.
+
+        In the card layout the same column ids resolve through `MobileCard`'s
+        own hooks — ``card-chip-status``/``card-chip-category`` and (active
+        section only) ``card-field-priority`` — plus the two slots the renderer
+        fills with the task name and the section's date. A column the card
+        renders nothing for raises rather than returning a silent ``''``.
+        """
+        cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+        if cells:
+            return (cells[0].text or self._text_content(cells[0])).strip()
+        if col_id == "name":
+            return self.get_card_title(row)
+        if col_id == self.TASK_CARD_SUBTITLE_COLUMN.get(section):
+            return self.get_card_subtitle(row)
+        field = self.get_card_field(row, col_id)
+        if field is not None:
+            return field
+        chips = row.find_elements(By.CSS_SELECTOR, f"[data-testid='card-chip-{col_id}']")
+        if chips:
+            return chips[0].text.strip()
+        raise AssertionError(
+            f"Task column '{col_id}' is not readable in the mobile card layout: "
+            f"section '{section}' renders neither a 'card-field-{col_id}' nor a "
+            f"'card-chip-{col_id}', and it is not the card's title or subtitle "
+            f"('{self.TASK_CARD_SUBTITLE_COLUMN.get(section)}')."
+        )
+
+    def _is_watering_task(self, row: WebElement, section: str) -> bool:
+        """Return True if *row* is a ``— watering`` care-reminder task."""
+        name = self.get_task_field(row, section, "name")
+        return name.endswith(self.WATERING_TASK_SUFFIX)
+
+    def count_watering_tasks(self, section: str) -> int:
         """Count rows whose name ends with ``— watering`` in a task-history section."""
-        rows = self.get_task_rows(section_label)
-        return sum(
-            1
-            for row in rows
-            if self.get_row_cell_text(row, "name").strip().endswith(self.WATERING_TASK_SUFFIX)
-        )
+        return sum(1 for row in self.get_task_rows(section) if self._is_watering_task(row, section))
 
-    def get_watering_task_cell(self, section_label: str, col_id: str) -> str:
-        """Return *col_id*'s cell text for the first ``— watering`` row in a section."""
-        for row in self.get_task_rows(section_label):
-            if self.get_row_cell_text(row, "name").strip().endswith(self.WATERING_TASK_SUFFIX):
-                return self.get_row_cell_text(row, col_id)
+    def get_watering_task_cell(self, section: str, col_id: str) -> str:
+        """Return *col_id*'s value for the first ``— watering`` row in a section."""
+        for row in self.get_task_rows(section):
+            if self._is_watering_task(row, section):
+                return self.get_task_field(row, section, col_id)
         return ""
 
     def get_task_summary_counts(self) -> dict[str, int]:
@@ -203,15 +266,12 @@ class PlantInstanceDetailPage(BasePage):
                 if name == "overdue":
                     counts[name] = 0
                     continue
-                raise AssertionError(
-                    f"Task summary chip '{name}' is missing from the summary bar"
-                )
+                raise AssertionError(f"Task summary chip '{name}' is missing from the summary bar")
             text = elements[0].text
             match = self._SUMMARY_COUNT_RE.search(text)
             if match is None:
                 raise AssertionError(
-                    f"Task summary chip '{name}' carries no trailing count "
-                    f"(text={text!r})"
+                    f"Task summary chip '{name}' carries no trailing count (text={text!r})"
                 )
             counts[name] = int(match.group(1))
         return counts
@@ -229,18 +289,17 @@ class PlantInstanceDetailPage(BasePage):
 
     def initiate_phase_transition(self) -> None:
         """Click the transition button to open the dialog."""
-        self.wait_for_element_clickable(self.TRANSITION_BUTTON).click()
+        self.wait_and_click(self.TRANSITION_BUTTON)
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase from the dropdown in the transition dialog."""
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        # MUI Select: click to open, then find the menu item
-        select_el.click()
-        option = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
-        )
-        option.click()
+        self.open_select_by_testid(self.TARGET_PHASE_SELECT_TESTID)
+        option = self.wait_for_element_clickable((By.CSS_SELECTOR, f"li[data-value='{phase_key}']"))
+        # Coordinate-independent (see BasePage.click_menu_option): the open
+        # `Menu` scrolls its paper to the selected item, moving every option.
+        self.click_menu_option(option)
+        self.close_mui_dropdown()
 
     def set_transition_reason(self, reason: str) -> None:
         reason_input = self.wait_for_element_clickable(self.TRANSITION_REASON)
@@ -248,10 +307,10 @@ class PlantInstanceDetailPage(BasePage):
         reason_input.send_keys(reason)
 
     def confirm_transition(self) -> None:
-        self.wait_for_element_clickable(self.TRANSITION_CONFIRM).click()
+        self.wait_and_click(self.TRANSITION_CONFIRM)
 
     def cancel_transition(self) -> None:
-        self.wait_for_element_clickable(self.TRANSITION_CANCEL).click()
+        self.wait_and_click(self.TRANSITION_CANCEL)
 
     def get_phase_history_count(self) -> int:
         """Return the number of rows in the phase history table."""

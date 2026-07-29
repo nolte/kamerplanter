@@ -12,6 +12,11 @@ class BotanicalFamilyDetailPage(BasePage):
     """Interact with the Botanical Family detail page (``/stammdaten/botanical-families/:key``)."""
 
     # Locators
+    #: The page's own root. Rendered only on the success branch -- the loading
+    #: and error branches return a `LoadingSkeleton` / `ErrorDisplay` *instead*
+    #: of it -- so its presence is the durable "this route settled into content"
+    #: signal, and (root | ERROR_DISPLAY) exhausts the settled states.
+    PAGE = (By.CSS_SELECTOR, "[data-testid='botanical-family-detail-page']")
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
     DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -103,17 +108,17 @@ class BotanicalFamilyDetailPage(BasePage):
     # ── Actions ────────────────────────────────────────────────────────
 
     def click_save(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def click_delete(self) -> None:
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0

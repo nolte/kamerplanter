@@ -92,10 +92,7 @@ class PlantPhotoGalleryPage(BasePage):
         """
         self.navigate(f"{DETAIL_PATH_PREFIX}/{key}#photos")
         WebDriverWait(self.driver, 20).until(
-            lambda d: (
-                d.find_elements(*self.GALLERY)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.GALLERY) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -103,10 +100,7 @@ class PlantPhotoGalleryPage(BasePage):
         """Open the plant detail page on its default (info) tab."""
         self.navigate(f"{DETAIL_PATH_PREFIX}/{key}")
         WebDriverWait(self.driver, 20).until(
-            lambda d: (
-                d.find_elements(*self.DETAIL_PAGE)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.DETAIL_PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -169,7 +163,7 @@ class PlantPhotoGalleryPage(BasePage):
         if add_buttons and add_buttons[0].is_displayed():
             add_buttons[0].click()
         else:
-            self.wait_for_element_clickable(self.EMPTY_STATE_ACTION).click()
+            self.wait_and_click(self.EMPTY_STATE_ACTION)
         self.wait_for_element_visible(self.UPLOAD_DIALOG)
         self.wait_for_element_visible(self.CAPTURE_PANEL)
 
@@ -242,7 +236,7 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.UPLOAD_PREVIEW)) > 0
 
     def cancel_upload(self) -> None:
-        self.wait_for_element_clickable(self.UPLOAD_CANCEL).click()
+        self.wait_and_click(self.UPLOAD_CANCEL)
         self.wait_for_element_hidden(self.UPLOAD_DIALOG)
 
     # ── Lightbox ────────────────────────────────────────────────────────
@@ -270,17 +264,23 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.SET_COVER_BUTTONS)) > 0
 
     def set_cover_for_index(self, index: int = 0) -> None:
-        """Click the 'set cover' icon on the photo at *index*."""
+        """Click the 'set cover' icon on the photo at *index*.
+
+        Coordinate-free: the action bar packs 40px IconButtons 2px apart over a
+        card whose thumb opens the lightbox, and every one of them
+        ``stopPropagation``s (`PlantPhotoGallery.tsx:339-352`). A coordinate
+        dispatch that misses therefore activates a *neighbouring* action or the
+        card, and raises nothing either way. A disabled button (``isBusy``) now
+        fails loudly instead of swallowing the click.
+        """
         buttons = self.driver.find_elements(*self.SET_COVER_BUTTONS)
-        self.scroll_and_click(buttons[index])
+        self.click_coordinate_free(buttons[index])
 
     def has_cover_badge(self) -> bool:
         return len(self.driver.find_elements(*self.COVER_BADGE)) > 0
 
     def wait_for_cover_badge(self, timeout: int = 15) -> None:
-        WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(self.COVER_BADGE)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.COVER_BADGE))
 
     def has_cover_image(self) -> bool:
         return len(self.driver.find_elements(*self.COVER_IMAGE)) > 0
@@ -289,26 +289,30 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.COVER_PLACEHOLDER)) > 0
 
     def wait_for_cover_image(self, timeout: int = 15) -> None:
-        WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(self.COVER_IMAGE)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.COVER_IMAGE))
 
     # ── Delete flow ─────────────────────────────────────────────────────
 
     def click_delete_for_index(self, index: int = 0) -> None:
+        """Click the delete icon on the photo at *index* (coordinate-free).
+
+        Same reasoning as :meth:`set_cover_for_index` -- and here a coordinate
+        miss onto a neighbouring action would be actively harmful, since the bar
+        also holds 'set cover' and 'assess quality'.
+        """
         buttons = self.driver.find_elements(*self.DELETE_BUTTONS)
-        self.scroll_and_click(buttons[index])
+        self.click_coordinate_free(buttons[index])
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_DELETE).click()
+        self.wait_and_click(self.CONFIRM_DELETE)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG, timeout=20)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     # ── Snackbar ────────────────────────────────────────────────────────

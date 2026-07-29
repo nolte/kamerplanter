@@ -117,7 +117,7 @@ planned → active → harvesting → completed
 |-----------|-------------|-----------|
 | `harvest_indicators` | Harvest readiness indicators per species | `indicator_type`, `target_value` |
 | `harvest_observations` | Maturity observations | `plant_key`, `observed_at` |
-| `harvest_batches` | Harvest batches | `batch_id` (unique), `plant_key`, `harvested_at`, `wet_weight_g` |
+| `harvest_batches` | Harvest batches | `batch_id` (optional, `null` allowed; unique only for values that are set), `plant_key`, `harvested_at`, `wet_weight_g` |
 | `quality_assessments` | Quality evaluations | `overall_score`, `terpene_profile` |
 | `yield_metrics` | Yield metrics | `dry_weight_g`, `trim_weight_g` |
 
@@ -307,20 +307,25 @@ Kamerplanter automatically creates the following indexes on startup:
 
 | Collection | Index field | Type | Unique |
 |-----------|------------|------|-------|
-| `species` | `scientific_name` | Hash | Yes |
-| `botanical_families` | `name` | Hash | Yes |
-| `slots` | `slot_id` | Hash | Yes |
-| `plant_instances` | `instance_id` | Hash | Yes |
-| `users` | `email` | Hash | Yes |
-| `tenants` | `slug` | Hash | Yes |
-| `memberships` | `user_key, tenant_key` | Hash | Yes |
-| `fertilizers` | `product_name, brand` | Hash | Yes |
-| `harvest_batches` | `batch_id` | Hash | Yes |
-| `tanks` | `name` | Hash | Yes |
-| `refresh_tokens` | `token_hash` | Hash | Yes |
-| `calendar_feeds` | `token` | Hash | Yes |
-| `tasks` | `status`, `plant_key` | Hash | No |
-| `feeding_events` | `plant_key`, `timestamp` | Hash | No |
+| `species` | `scientific_name` | Persistent | Yes |
+| `botanical_families` | `name` | Persistent | Yes |
+| `slots` | `slot_id` | Persistent | Yes |
+| `plant_instances` | `instance_id` | Persistent | Yes |
+| `users` | `email` | Persistent | Yes |
+| `tenants` | `slug` | Persistent | Yes |
+| `memberships` | `user_key, tenant_key` | Persistent | Yes |
+| `fertilizers` | `product_name, brand` | Persistent | Yes |
+| `harvest_batches` | `batch_id` | Persistent (sparse) | Yes |
+| `tanks` | `name` | Persistent | Yes |
+| `refresh_tokens` | `token_hash` | Persistent | Yes |
+| `calendar_feeds` | `token` | Persistent | Yes |
+| `tasks` | `status`, `plant_key` | Persistent | No |
+| `feeding_events` | `plant_key`, `timestamp` | Persistent | No |
+
+<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_indexes) -->
+
+!!! note "Sparse indexes"
+    An index marked **sparse** only considers documents in which the field is actually set. For `harvest_batches.batch_id` this is required because the batch ID is an optional field: empty input is normalised to `null`, and any number of batches may exist without a batch ID at the same time, while identifiers that are set must still stay unique. Existing data is migrated by `v0030` (empty strings → `null`, index recreated as `unique + sparse`).
 
 ---
 

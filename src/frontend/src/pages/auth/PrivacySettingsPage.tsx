@@ -236,6 +236,7 @@ export default function PrivacySettingsPage() {
         sx={{ mb: 3 }}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={t('pages.privacy.tabsAriaLabel')}
         data-testid="privacy-tabs"
       >

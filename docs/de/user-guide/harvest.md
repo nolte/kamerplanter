@@ -85,6 +85,9 @@ Mehr zur Karenzzeit: [Integrierter Pflanzenschutz (IPM)](pest-management.md)
 !!! warning "Chargen-ID bereits vergeben"
     Trägst du selbst eine Chargen-ID ein, die bereits existiert, lehnt Kamerplanter das Anlegen ab: Du siehst einen Hinweis direkt am Feld sowie eine Fehlermeldung, die Charge wird nicht gespeichert. Wähle eine andere Kennung oder lasse das Feld leer, damit die ID automatisch vergeben wird.
 
+!!! note "Ältere Chargen ganz ohne Kennung"
+    Chargen, die vor der automatischen ID-Vergabe entstanden sind, können gar keine Chargen-ID tragen. In der Chargen-Übersicht steht bei ihnen ein Gedankenstrich („—"), und die Detailseite trägt statt einer Kennung die allgemeine Überschrift **Erntecharge**. Nachträglich vergeben lässt sich die Kennung nicht — der Bearbeiten-Tab enthält kein Feld dafür. Die Eindeutigkeitsprüfung greift nur für tatsächlich vergebene Kennungen, sodass beliebig viele Chargen ohne Chargen-ID nebeneinander bestehen dürfen. <!-- REQ-007 -->
+
 **Erntetypen:**
 
 - **Endernte**: Die gesamte Pflanze wird auf einmal geerntet.

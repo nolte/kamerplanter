@@ -205,7 +205,7 @@ export default function SpeciesDetailPage() {
         title={current?.scientific_name ?? t('entities.species')}
         meta={<OriginChip origin={speciesOrigin} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {key && (
               <Tooltip title={t('pages.calendar.sowingCalendar.toggleFavorite')}>
                 <IconButton
@@ -255,6 +255,7 @@ export default function SpeciesDetailPage() {
         sx={{ mb: 3 }}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={t('pages.species.tabsAriaLabel')}
       >
         <Tab label={t('pages.species.overviewTab')} {...tabA11yProps('species', overviewIdx)} />

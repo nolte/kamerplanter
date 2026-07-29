@@ -68,7 +68,7 @@ services:
 
   # ── Ollama (optional — local LLM inference for AI assistant) ──
   ollama:
-    image: ollama/ollama:latest@sha256:ec24bcaa2a810eb74171ce7c517813ef4821ed678988845e8d76cf62467036d4
+    image: ollama/ollama:latest@sha256:10c13eb515db310990527d36ca14a136da4bcc0fbf2bf3b15e9c1f111e9d3cd4
     profiles: ["ollama"]
     environment:
       OLLAMA_MODELS: /models
@@ -133,6 +133,12 @@ services:
       DEBUG: ${DEBUG}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
@@ -170,6 +176,12 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
@@ -201,6 +213,12 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
@@ -224,6 +242,12 @@ services:
       context: ./src/frontend
     environment:
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
     ports:
       - "8080:8080"
     depends_on:

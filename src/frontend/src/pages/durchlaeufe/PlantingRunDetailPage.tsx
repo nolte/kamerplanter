@@ -612,7 +612,15 @@ export default function PlantingRunDetailPage() {
       </Box>
 
       {/* ── Tabs (5 instead of 7) ── */}
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 3 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={run?.name ?? t('entities.plantingRun')}
+      >
         <Tab id="tab-details" label={t('pages.plantingRuns.tabDetails')} />
         <Tab id="tab-plants" label={t('pages.plantingRuns.tabPlants')} />
         <Tab id="tab-phases" label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />

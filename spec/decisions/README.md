@@ -78,3 +78,4 @@ So ist die Verknüpfung Entscheidung ↔ Spec-Änderung dauerhaft nachvollziehba
 | ADR-004 | Vermehrung als strukturierte per-Methode-Objekte (propagation_configs) | Accepted | 2026-06-15 |
 | ADR-005 | Versioniertes Datenbank-Migrations-Framework | Accepted | 2026-07-04 |
 | ADR-006 | Modell des mehrjährigen Outdoor-Lebenszyklus (E1–E7) | Proposed | 2026-07-12 |
+| ADR-007 | Eigene Frontend-Breakpoints vs. MUI-Defaults (UI-NFR-001 R-001) | Proposed | 2026-07-26 |

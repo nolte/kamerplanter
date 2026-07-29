@@ -25,13 +25,18 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-021.md):
 
 from __future__ import annotations
 
+import json
+import urllib.request
+import uuid
 from pathlib import Path
 from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._auth_helpers import clear_auth_session
 from .pages.expertise_level_page import ExpertiseLevelPage
+from .pages.tank_list_page import TankListPage
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -43,25 +48,106 @@ def expertise_page(browser: WebDriver, base_url: str) -> ExpertiseLevelPage:
     return ExpertiseLevelPage(browser, base_url)
 
 
-# Experience-level field-visibility depends on switching the tenant's experience
-# level via the UI and having it durably reflected before a dialog's field-gating
-# is asserted. In light mode this proved unreliable across two fix attempts: the
+# The ``_EXPERIENCE_LEVEL_XFAIL`` this module used to carry (finding F-8: "the
 # level set via the AccountSettings toggle is not consistently in effect at
-# assert time (observed both a stale higher level for a beginner target and a
-# stale beginner level for an intermediate/expert target). Root cause needs live
-# debugging against the running stack (candidate: light-mode singleton-preference
-# timing, the downgrade confirm flow, or the unguarded `isFieldVisible` load
-# window — see .resume/e2e-selenium/robustness-audit.md and finding F-8). Marked
-# xfail(strict=False) so a fix auto-surfaces as xpass. Consider running these in
-# full mode (per-user preferences) instead.
-_EXPERIENCE_LEVEL_XFAIL = pytest.mark.xfail(
-    reason="Light-mode experience-level switch not reliably in effect at assert "
-    "time (finding F-8); needs live debugging / full mode.",
-    strict=False,
-)
+# assert time", root cause never isolated) is gone. The cause was isolated
+# during the full-run stabilization and fixed in three places, all of which this
+# file now depends on:
+#
+#  * the "saved" snackbar was emitted *before* the PATCH resolved, so the test
+#    trusted it and reloaded into the pre-change state (app-side fix);
+#  * the preference document was written read-modify-write over the whole record
+#    and minted duplicate singletons under parallel load (app-side fix);
+#  * ``_set_experience_level`` below now samples the toggle until two reads
+#    agree, accepts the confirm dialog by presence rather than by a computed
+#    direction, and re-reads the level after a reload — failing loudly instead
+#    of silently proceeding one tier behind (``e2e-test-stability`` §D).
+#
+# Cross-worker interference on the light-mode singleton is contained separately
+# by ``conftest._serialize_global_preference_mutators``. All three formerly
+# marked tests xpassed through both runs of all five profiles.
 
 
 # -- Helpers -------------------------------------------------------------------
+
+
+def _login_as(browser: WebDriver, base_url: str, email: str, password: str) -> None:
+    """Clear the session (path-independent) and log in via the login form."""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    clear_auth_session(browser)
+    browser.get(f"{base_url}/login")
+    wait = WebDriverWait(browser, 15)
+    email_input = wait.until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email']"))
+    )
+    email_input.clear()
+    email_input.send_keys(email)
+    password_input = browser.find_element(By.CSS_SELECTOR, "input[type='password']")
+    password_input.clear()
+    password_input.send_keys(password)
+    browser.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+    wait.until(lambda d: "/login" not in d.current_url)
+
+
+def _api_post(url: str, data: dict, token: str | None = None) -> dict:
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(
+        url, data=json.dumps(data).encode(), headers=headers, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read() or b"{}")
+
+
+@pytest.fixture
+def pristine_user_session(
+    browser: WebDriver, base_url: str, request: pytest.FixtureRequest
+) -> object:
+    """Full mode: run the test as a freshly registered user (pristine prefs).
+
+    The session seed PATCHes an all-'enabled' ``module_visibility`` map onto
+    the demo user server-side, and in full mode server overrides win over the
+    experience-level filter — tier-hidden nav items therefore stay visible for
+    demo, breaking nav-tiering assertions. Mutating the demo user's overrides
+    instead would race every parallel worker that relies on them (spec:
+    e2e-test-stability §B), so these tests self-provision an isolated user
+    whose preferences are untouched (beginner level, no overrides). Teardown
+    restores the demo session for subsequent tests on this worker.
+
+    Light mode: no-op — the localStorage override removal already suffices.
+    """
+    if request.config.getoption("--app-mode") != "full":
+        yield None
+        return
+
+    email = f"e2e-tiering-{uuid.uuid4().hex[:10]}@example.com"
+    password = "E2eTiering-12345!"
+    _api_post(
+        f"{base_url}/api/v1/auth/register",
+        {"email": email, "password": password, "display_name": "E2E Tiering"},
+    )
+    login = _api_post(f"{base_url}/api/v1/auth/login", {"email": email, "password": password})
+    token = login["access_token"]
+    # Skip onboarding so the app doesn't bounce navigation into the wizard.
+    tenants_req = urllib.request.Request(
+        f"{base_url}/api/v1/tenants/",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    with urllib.request.urlopen(tenants_req, timeout=15) as resp:
+        tenants = json.loads(resp.read())
+    slug = tenants[0]["slug"]
+    _api_post(f"{base_url}/api/v1/t/{slug}/onboarding/skip", {}, token=token)
+
+    _login_as(browser, base_url, email, password)
+    yield email
+
+    from .conftest import DEMO_EMAIL_FULL, DEMO_PASSWORD
+
+    _login_as(browser, base_url, DEMO_EMAIL_FULL, DEMO_PASSWORD)
 
 
 def _set_experience_level(
@@ -69,33 +155,57 @@ def _set_experience_level(
     target_level: str,
 ) -> None:
     """Navigate to the experience tab and set the level, handling confirm dialogs."""
+    import time as _time
+
     expertise_page.open_experience_tab()
+    # The toggle renders the 'beginner' FALLBACK while the preferences fetch
+    # is still in flight — a single immediate read can misreport the current
+    # level, misclassify a downgrade as an upgrade, and leave the resulting
+    # window.confirm unaccepted (blocking the PATCH). Sample until two
+    # consecutive reads agree before trusting the value.
     current = expertise_page.get_active_toggle_level()
+    for _ in range(10):
+        _time.sleep(0.3)
+        again = expertise_page.get_active_toggle_level()
+        if again == current:
+            break
+        current = again
     if current == target_level:
         return
 
-    LEVEL_ORDER = {"beginner": 0, "intermediate": 1, "expert": 2}
-    is_downgrade = LEVEL_ORDER.get(target_level, 0) < LEVEL_ORDER.get(current, 0)
-
     expertise_page.click_level(target_level)
 
-    if is_downgrade:
+    # Accept a downgrade confirm by PRESENCE, not by the computed direction —
+    # robust against any residual misread of the starting level.
+    if expertise_page.is_confirm_dialog_present():
         expertise_page.accept_confirm_dialog()
 
     expertise_page.wait_for_saved_snackbar()
 
-    # The "saved" snackbar is optimistic — it is enqueued right after dispatching
-    # the async PATCH, before the server has durably stored the new level. A
-    # dependent field-visibility assertion that runs before persistence can read
-    # a stale level after the next full-reload navigation. Reload the tab and poll
-    # the active toggle until it reflects the target level (fetchPreferences ran).
+    # The snackbar now confirms durable persistence (the handler awaits the
+    # PATCH), but a click can still be swallowed (e.g. a toggle re-render mid
+    # click). Reload the tab and poll the active toggle until it reflects the
+    # target level (fetchPreferences ran); re-click once per attempt instead of
+    # silently proceeding one tier behind, and fail loudly if it never lands.
     import time
 
-    for _ in range(10):
-        expertise_page.open_experience_tab()
-        if expertise_page.get_active_toggle_level() == target_level:
-            return
-        time.sleep(0.5)
+    for _ in range(3):
+        for _ in range(5):
+            expertise_page.open_experience_tab()
+            if expertise_page.get_active_toggle_level() == target_level:
+                return
+            time.sleep(0.5)
+        expertise_page.click_level(target_level)
+        # A swallowed re-click may not raise the confirm dialog again — accept
+        # it only when it actually appeared instead of blocking on a wait.
+        if expertise_page.is_confirm_dialog_present():
+            expertise_page.accept_confirm_dialog()
+        expertise_page.wait_for_saved_snackbar()
+    pytest.fail(
+        f"Experience level '{target_level}' was not in effect after 3 "
+        "set attempts (toggle still shows "
+        f"'{expertise_page.get_active_toggle_level()}')"
+    )
 
 
 # -- TC-021-004 to TC-021-009: Experience Level Switcher -----------------------
@@ -110,7 +220,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-001: Experience tab shows ToggleButtonGroup with 3 levels.
+        """TC-021-004: Experience tab shows ToggleButtonGroup with 3 levels.
 
         Spec: TC-021-004 -- Nutzer oeffnet Tab 'Erfahrungsstufe' in den Kontoeinstellungen.
         """
@@ -134,7 +244,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-002: Upgrade from beginner to intermediate -- no confirm, immediate change.
+        """TC-021-005: Upgrade from beginner to intermediate -- no confirm, immediate change.
 
         Spec: TC-021-005 -- Upgrade von Anfaenger auf Fortgeschritten -- keine Warnung, sofortige Aenderung.
         """
@@ -168,7 +278,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-003: Upgrade from beginner to expert -- no confirm, all nav items appear.
+        """TC-021-006: Upgrade from beginner to expert -- no confirm, all nav items appear.
 
         Spec: TC-021-006 -- Upgrade von Anfaenger auf Experte -- keine Warnung, erweiterte Navigation.
         """
@@ -197,7 +307,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-004: Downgrade expert->beginner shows confirm; accept changes level.
+        """TC-021-007: Downgrade expert->beginner shows confirm; accept changes level.
 
         Spec: TC-021-007 / TC-021-008 -- Downgrade von Experte auf Anfaenger -- Bestaetigungs-Dialog.
         """
@@ -232,7 +342,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-005: Dismiss downgrade dialog -- level stays unchanged.
+        """TC-021-009: Dismiss downgrade dialog -- level stays unchanged.
 
         Spec: TC-021-009 -- Downgrade-Dialog -- Nutzer bricht ab, Stufe bleibt unveraendert.
         """
@@ -261,7 +371,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-006: Downgrade intermediate->beginner also shows confirm dialog.
+        """TC-021-010: Downgrade intermediate->beginner also shows confirm dialog.
 
         Spec: TC-021-010 -- Downgrade von Fortgeschritten auf Anfaenger -- Warnung erscheint.
         """
@@ -295,10 +405,11 @@ class TestExperienceLevelPersistence:
     @pytest.mark.core_crud
     def test_level_persists_after_page_reload(
         self,
+        pristine_user_session: object,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-007: After page reload, the previously set experience level is restored.
+        """TC-021-011: After page reload, the previously set experience level is restored.
 
         Spec: TC-021-011 -- Nach erneutem Login ist zuletzt gewaehlte Erfahrungsstufe aktiv.
         """
@@ -344,10 +455,11 @@ class TestNavigationTiering:
     @pytest.mark.core_crud
     def test_beginner_navigation_minimal(
         self,
+        pristine_user_session: object,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-008: Beginner sees only core nav items (dashboard, plants, tasks).
+        """TC-021-013: Beginner sees only core nav items (dashboard, plants, tasks).
 
         Spec: TC-021-013 -- Anfaenger-Navigation zeigt genau die Kernmenuepunkte.
         """
@@ -403,10 +515,11 @@ class TestNavigationTiering:
     @pytest.mark.core_crud
     def test_intermediate_navigation_adds_sections(
         self,
+        pristine_user_session: object,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-009: Intermediate sees beginner items + stammdaten, standorte, duengung, kalender.
+        """TC-021-014: Intermediate sees beginner items + stammdaten, standorte, duengung, kalender.
 
         Spec: TC-021-014 -- Fortgeschritten-Navigation enthaelt zusaetzliche Abschnitte.
         """
@@ -473,7 +586,7 @@ class TestNavigationTiering:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-010: Expert sees all nav sections and items.
+        """TC-021-015: Expert sees all nav sections and items.
 
         Spec: TC-021-015 -- Experten-Navigation zeigt alle Menuepunkte.
         """
@@ -523,13 +636,16 @@ class TestNavigationTiering:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-011: Beginner can directly access expert-only URLs (no access control).
+        """TC-021-016: Beginner can directly access expert-only URLs (no access control).
 
         Spec: TC-021-016 -- Direktaufruf einer Expert-only-URL als Anfaenger -- Seite laedt trotzdem.
         """
         _set_experience_level(expertise_page, "beginner")
 
-        expertise_page.navigate_direct("/standorte/tanks")
+        # The tank list's own root is the settle signal: "no error is displayed"
+        # is trivially true while the lazily-imported route is still resolving,
+        # so an unwaited assertion below could not fail.
+        expertise_page.navigate_direct("/standorte/tanks", TankListPage.PAGE)
         screenshot(
             "TC-REQ-021-011_beginner-direct-tanks-url",
             "Tank list page loaded via direct URL as beginner",
@@ -552,7 +668,7 @@ class TestSpeciesFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-012: Beginner -- SpeciesCreateDialog shows no fields (all are intermediate+).
+        """TC-021-017: Beginner -- SpeciesCreateDialog shows no fields (all are intermediate+).
 
         Spec: TC-021-017 -- SpeciesCreateDialog im Anfaenger-Modus -- alle Felder ausgeblendet.
         """
@@ -589,7 +705,7 @@ class TestSpeciesFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-013: Intermediate -- SpeciesCreateDialog shows intermediate fields, hides expert.
+        """TC-021-018: Intermediate -- SpeciesCreateDialog shows intermediate fields, hides expert.
 
         Spec: TC-021-018 -- SpeciesCreateDialog im Fortgeschritten-Modus -- intermediate-Felder sichtbar.
         """
@@ -634,7 +750,7 @@ class TestSpeciesFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-014: Expert -- SpeciesCreateDialog shows all fields.
+        """TC-021-019: Expert -- SpeciesCreateDialog shows all fields.
 
         Spec: TC-021-019 -- SpeciesCreateDialog im Experten-Modus -- alle Felder sichtbar.
         """
@@ -671,14 +787,13 @@ class TestSpeciesFieldVisibility:
 class TestShowAllFieldsToggle:
     """Temporary field override via ShowAllFieldsToggle (Spec: TC-021-020 to TC-021-022)."""
 
-    @_EXPERIENCE_LEVEL_XFAIL
     @pytest.mark.core_crud
     def test_show_all_fields_reveals_hidden_fields(
         self,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-015: Clicking 'Alle Felder anzeigen' reveals all fields without changing level.
+        """TC-021-020: Clicking 'Alle Felder anzeigen' reveals all fields without changing level.
 
         Spec: TC-021-020 -- 'Alle Felder anzeigen' im Anfaenger-Modus aktivieren.
         """
@@ -725,7 +840,7 @@ class TestShowAllFieldsToggle:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-016: Clicking 'Weniger Felder anzeigen' hides extended fields again.
+        """TC-021-021: Clicking 'Weniger Felder anzeigen' hides extended fields again.
 
         Spec: TC-021-021 -- 'Weniger Felder anzeigen' -- erweiterte Felder verschwinden wieder.
         """
@@ -771,7 +886,7 @@ class TestShowAllFieldsToggle:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-017: ShowAllFieldsToggle state resets when dialog is closed and reopened.
+        """TC-021-022: ShowAllFieldsToggle state resets when dialog is closed and reopened.
 
         Spec: TC-021-022 -- Toggle-Zustand wird nach Schliessen des Dialogs zurueckgesetzt.
         """
@@ -829,7 +944,7 @@ class TestPlantingRunFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-018: Beginner -- PlantingRunCreateDialog shows only 3 core fields.
+        """TC-021-023: Beginner -- PlantingRunCreateDialog shows only 3 core fields.
 
         Spec: TC-021-023 -- PlantingRunCreateDialog im Anfaenger-Modus -- nur 3 Kernfelder sichtbar.
         """
@@ -860,14 +975,13 @@ class TestPlantingRunFieldVisibility:
 
         expertise_page.close_create_dialog()
 
-    @_EXPERIENCE_LEVEL_XFAIL
     @pytest.mark.core_crud
     def test_intermediate_planting_run_dialog(
         self,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-019: Intermediate -- PlantingRunCreateDialog shows intermediate fields.
+        """TC-021-024: Intermediate -- PlantingRunCreateDialog shows intermediate fields.
 
         Spec: TC-021-024 -- PlantingRunCreateDialog im Fortgeschritten-Modus -- zusaetzliche Felder.
         """
@@ -892,14 +1006,13 @@ class TestPlantingRunFieldVisibility:
 
         expertise_page.close_create_dialog()
 
-    @_EXPERIENCE_LEVEL_XFAIL
     @pytest.mark.core_crud
     def test_expert_planting_run_dialog_all_fields(
         self,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-020: Expert -- PlantingRunCreateDialog shows all fields.
+        """TC-021-025: Expert -- PlantingRunCreateDialog shows all fields.
 
         Spec: TC-021-025 -- PlantingRunCreateDialog im Experten-Modus -- alle Felder.
         """

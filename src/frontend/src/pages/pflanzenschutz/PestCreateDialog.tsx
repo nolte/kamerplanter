@@ -98,7 +98,7 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.ipm.pestCreateIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form noValidate onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="scientific_name"
             control={control}

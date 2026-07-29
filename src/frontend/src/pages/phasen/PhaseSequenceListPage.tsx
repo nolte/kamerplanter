@@ -20,6 +20,7 @@ import OriginChip from '@/components/common/OriginChip';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -115,7 +116,7 @@ function CreateSequenceDialog({
         {t('pages.phaseSequences.createSequence')}
       </DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="name"
             control={control}
@@ -150,7 +151,7 @@ function CreateSequenceDialog({
             loading={saving}
             saveLabel={t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -371,34 +372,47 @@ export default function PhaseSequenceListPage() {
         mobileCardRenderer={(seq) => (
           <MobileCard
             title={getDisplayName(seq)}
+            titleId="name"
             subtitle={seq.name}
             trailing={<OriginChip isSystem={seq.is_system} />}
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.cycleType.${seq.cycle_type}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                {seq.is_repeating && (
+            chips={[
+              {
+                id: 'cycleType',
+                content: (
                   <Chip
-                    icon={<LoopIcon />}
-                    label={t('pages.phaseSequences.isRepeating')}
+                    label={t(`enums.cycleType.${seq.cycle_type}`)}
                     size="small"
-                    color="secondary"
                     variant="outlined"
                   />
-                )}
-              </>
-            }
+                ),
+              },
+              ...(seq.is_repeating
+                ? [
+                    {
+                      id: 'isRepeating',
+                      content: (
+                        <Chip
+                          icon={<LoopIcon />}
+                          label={t('pages.phaseSequences.isRepeating')}
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
             fields={[
               {
+                id: 'entryCount',
                 label: t('pages.phaseSequences.sequenceEntries'),
                 value: t('pages.phaseSequences.entryCount', {
                   count: seq.entries.length,
                 }),
               },
               {
+                id: 'totalDuration',
                 label: t('pages.phaseSequences.totalDuration'),
                 value: t('pages.phaseSequences.totalDurationDays', {
                   count: computeTotalDuration(seq),

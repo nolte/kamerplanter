@@ -44,6 +44,7 @@ class SlotDetailPage(BasePage):
     def _wait_for_skeleton_gone(self, timeout: int = 15) -> None:
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SKELETON)
         )
@@ -78,10 +79,11 @@ class SlotDetailPage(BasePage):
         el.send_keys(value)
 
     def submit_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     # ── Delete flow ────────────────────────────────────────────────────
 
@@ -93,10 +95,10 @@ class SlotDetailPage(BasePage):
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_OK).click()
+        self.wait_and_click(self.CONFIRM_OK)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_visible(self) -> bool:
         elements = self.driver.find_elements(*self.CONFIRM_DIALOG)

@@ -20,40 +20,77 @@ without a scenario is simply not automated yet (one of ~90 REQ-004 cases is a
 BDD scenario today). Those are reported as an informational count only, so the
 check does not fail permanently from day one.
 
-The strict TC-ID shape is not restated here — it is imported from
-``tests/e2e/protocol_plugin.py::TC_ID_PATTERN``, the single source of truth that
-``tests/e2e/conftest.py`` already shares, so the tag validation in the test run
-and the traceability check here cannot drift apart.
+Neither of the two shapes this check depends on is restated here; both are
+loaded from the single source of truth that the test run itself uses, so the
+check and the suite cannot drift apart:
+
+* the strict TC-ID pattern comes from
+  ``tests/e2e/protocol_plugin.py::TC_ID_PATTERN``, which ``tests/e2e/conftest.py``
+  already shares;
+* the classification of a Gherkin source line — tag line, comment, docstring
+  payload, content — comes from ``tests/e2e/_gherkin.py``, which
+  ``tests/e2e/conftest.py`` also uses to register its markers.
 
 Standard library only: it must run anywhere the repository is checked out,
-without installing a Gherkin parser. The line-based parse below covers the
-subset of Gherkin this repository writes (tags, ``Feature``, ``Rule``,
-``Background``, ``Scenario``, ``Scenario Outline``, ``Examples``, docstrings,
-and the ``# language:`` header).
+without installing a Gherkin parser and without the E2E extras. Both SSOT
+modules are therefore loaded *by path* (see :func:`load_tc_id_pattern` and
+:func:`load_gherkin_module`) and neither pulls in Selenium or pytest.
+
+The parse below covers the subset of Gherkin this repository writes (tags,
+``Feature``, ``Rule``, ``Background``, ``Scenario``, ``Scenario Outline``,
+``Examples``, docstrings, and the ``# language:`` header). Only the keyword
+dialect is this script's own business — the shared module deliberately stops
+short of it.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import importlib.util
 import re
 import sys
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
+from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEATURE_ROOTS = ("tests/e2e/features",)
 DEFAULT_SPEC_ROOTS = ("spec/e2e-testcases",)
+DEFAULT_DOCSTRING_ROOTS = ("tests/e2e",)
+
+#: Classic tests that declare no TC-ID at all, measured after the #775
+#: reconciliation. A ratchet, not a target: the check fails if the number grows,
+#: so no new untagged test can be added, and the debt can only shrink.
+MAX_UNTAGGED_DOCSTRING_TESTS = 40
+
+#: Classic tests whose first docstring line carries a *test-local* ID that no
+#: spec document declares — the drift #775 measured, minus the 620 functions
+#: that carried their own verified ``Spec:`` cross-reference and could therefore
+#: be reconciled mechanically.
+#:
+#: These are deliberately **not** resolved by pattern. `suggest_alternative`
+#: offers a tempting one-to-one for most of them (``TC-REQ-027-001`` →
+#: ``TC-027-001``), and spot-checking three showed the suggestion is a numeric
+#: coincidence rather than a match: ``test_mode_endpoint_returns_shape`` checks
+#: an API response shape while ``TC-027-001`` specifies "app start without a
+#: login screen", and ``test_print_button_visible_on_pflege_dashboard`` points
+#: at the care dashboard while ``TC-032-001`` specifies the nutrient-plan detail
+#: page. Accepting them would restate the exact defect #775 exists to remove —
+#: a number that looks like traceability and is not.
+#:
+#: So they stay recorded rather than invented, under the same shrink-only
+#: ratchet: a *new* unresolvable ID fails the check immediately, and the known
+#: ones can only be worked off by a human who knows what each test verifies.
+MAX_UNRESOLVED_DOCSTRING_IDS = 59
 PROTOCOL_PLUGIN = REPO_ROOT / "tests" / "e2e" / "protocol_plugin.py"
+GHERKIN_MODULE = REPO_ROOT / "tests" / "e2e" / "_gherkin.py"
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
 EXIT_USAGE = 2
 
-# A Gherkin tag line: only ``@tag`` tokens, nothing else. Same shape as
-# ``conftest.py::_TAG_LINE`` — it keeps an ``@`` inside step text or a docstring
-# from being mistaken for a tag.
-_TAG_LINE = re.compile(r"^\s*@\S+(?:[ \t]+@\S+)*[ \t]*$")
 _LANGUAGE_HEADER = re.compile(r"^\s*#\s*language\s*:\s*([A-Za-z-]+)\s*$")
 
 # A test case in the spec is a Markdown heading of level 2..6 opening with its
@@ -124,15 +161,49 @@ class _ScenarioDraft:
     tags: list[str] = field(default_factory=list)
 
 
-# ── Canonical TC-ID pattern (single source of truth) ─────────────────────────
+# ── Shared single sources of truth, loaded by path ───────────────────────────
+
+
+def _load_module_by_path(module_name: str, path: Path, purpose: str) -> ModuleType:
+    """Execute a module from an explicit file path and return it.
+
+    ``tests/e2e/`` is not an importable package, so a plain ``import`` is not an
+    option — and pulling the repository root onto ``sys.path`` would risk
+    dragging in the E2E ``conftest.py`` (and with it Selenium) on a checkout
+    that has no E2E extras installed. Loading by path keeps the check runnable
+    on a bare clone; it is the same mechanism ``tests/e2e/conftest.py`` uses.
+
+    Args:
+        module_name: Private name to register the module under. It must not
+            collide with the name the module carries under pytest.
+        path: The ``.py`` file to execute.
+        purpose: What the caller needs the module for, used in the error text.
+
+    Returns:
+        The executed module.
+
+    Raises:
+        TraceabilityError: If the file is missing or cannot be loaded.
+    """
+    if not path.is_file():
+        raise TraceabilityError(f"cannot resolve {purpose}: {path} does not exist")
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise TraceabilityError(f"cannot load {path} as a Python module")
+    module = importlib.util.module_from_spec(spec)
+    # Both modules define dataclasses, and ``@dataclass`` resolves its own module
+    # via ``sys.modules`` — so the module must be registered *before* it runs
+    # (same reason conftest.py registers it).
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def load_tc_id_pattern(plugin_path: Path = PROTOCOL_PLUGIN) -> re.Pattern[str]:
     """Import the canonical strict TC-ID pattern from the e2e protocol plugin.
 
-    ``tests/e2e/`` is not an importable package, so the module is loaded by path
-    — the same mechanism ``tests/e2e/conftest.py`` uses. The plugin imports only
-    standard-library modules at import time, so this is side-effect free.
+    The plugin imports only standard-library modules at import time, so this is
+    side-effect free.
 
     Args:
         plugin_path: Path to ``tests/e2e/protocol_plugin.py``.
@@ -143,25 +214,42 @@ def load_tc_id_pattern(plugin_path: Path = PROTOCOL_PLUGIN) -> re.Pattern[str]:
     Raises:
         TraceabilityError: If the plugin is missing or exposes no pattern.
     """
-    if not plugin_path.is_file():
-        raise TraceabilityError(
-            f"cannot resolve the canonical TC-ID pattern: {plugin_path} does not exist"
-        )
-    module_name = "_bdd_traceability_protocol_plugin"
-    spec = importlib.util.spec_from_file_location(module_name, plugin_path)
-    if spec is None or spec.loader is None:
-        raise TraceabilityError(f"cannot load {plugin_path} as a Python module")
-    module = importlib.util.module_from_spec(spec)
-    # The plugin defines dataclasses, and ``@dataclass`` resolves its own module
-    # via ``sys.modules`` — so the module must be registered *before* it runs
-    # (same reason conftest.py registers it). The name is private to this script,
-    # so it cannot collide with the plugin's own registration under pytest.
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
+    module = _load_module_by_path(
+        "_bdd_traceability_protocol_plugin", plugin_path, "the canonical TC-ID pattern"
+    )
     pattern = getattr(module, "TC_ID_PATTERN", None)
     if not isinstance(pattern, re.Pattern):
         raise TraceabilityError(f"{plugin_path} exposes no TC_ID_PATTERN — cannot validate tags")
     return pattern
+
+
+@lru_cache(maxsize=1)
+def load_gherkin_module(module_path: Path = GHERKIN_MODULE) -> ModuleType:
+    """Import the shared Gherkin line classifier used by the E2E suite.
+
+    ``tests/e2e/_gherkin.py`` owns the tag-line shape and the docstring state
+    machine that this script used to duplicate. It is standard-library only, so
+    loading it costs nothing and drags in no E2E dependency. The result is
+    cached because :func:`parse_feature_file` is called once per ``.feature``.
+
+    Args:
+        module_path: Path to ``tests/e2e/_gherkin.py``.
+
+    Returns:
+        The executed module, exposing ``iter_lines`` and ``GherkinLineKind``.
+
+    Raises:
+        TraceabilityError: If the module is missing or exposes neither symbol.
+    """
+    module = _load_module_by_path(
+        "_bdd_traceability_gherkin", module_path, "the canonical Gherkin line classifier"
+    )
+    missing = [name for name in ("iter_lines", "GherkinLineKind") if not hasattr(module, name)]
+    if missing:
+        raise TraceabilityError(
+            f"{module_path} exposes no {', '.join(missing)} — cannot classify feature lines"
+        )
+    return module
 
 
 # ── Gherkin parsing ──────────────────────────────────────────────────────────
@@ -211,13 +299,26 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
     matching how pytest-bdd turns tags into markers. Tags on an ``Examples:``
     table are attributed to the enclosing scenario outline.
 
+    Line classification — what is a tag line, a comment, or opaque docstring
+    payload — is delegated to the shared ``tests/e2e/_gherkin`` module; only the
+    keyword dialect is interpreted here.
+
     Args:
         path: The ``.feature`` file to read.
         tc_pattern: Canonical strict TC-ID pattern.
 
     Returns:
         The scenarios in source order.
+
+    Raises:
+        TraceabilityError: If the shared Gherkin classifier cannot be loaded.
     """
+    gherkin = load_gherkin_module()
+    kinds = gherkin.GherkinLineKind
+    # Docstring payload may contain anything — a "#", a tag block, a line that
+    # looks like a keyword — and blanks and comments carry no structure either.
+    ignored_kinds = frozenset({kinds.DOCSTRING, kinds.BLANK, kinds.COMMENT})
+
     lines = path.read_text(encoding="utf-8").splitlines()
     dialect = _dialect_for(lines)
 
@@ -226,7 +327,6 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
     feature_tags: tuple[str, ...] = ()
     rule_tags: tuple[str, ...] = ()
     draft: _ScenarioDraft | None = None
-    docstring_delimiter: str | None = None
 
     def close_draft() -> None:
         nonlocal draft
@@ -244,27 +344,15 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
         )
         draft = None
 
-    for lineno, raw in enumerate(lines, start=1):
-        stripped = raw.strip()
-
-        # Gherkin docstrings (""" or ```) may contain anything, including a "#"
-        # or a line that looks like a keyword.
-        if docstring_delimiter is not None:
-            if stripped.startswith(docstring_delimiter):
-                docstring_delimiter = None
-            continue
-        if stripped.startswith('"""') or stripped.startswith("```"):
-            docstring_delimiter = stripped[:3]
+    for line in gherkin.iter_lines(lines):
+        if line.kind in ignored_kinds:
             continue
 
-        if not stripped or stripped.startswith("#"):
+        if line.is_tag:
+            pending_tags.extend(line.tags)
             continue
 
-        if _TAG_LINE.match(raw):
-            pending_tags.extend(token[1:] for token in stripped.split() if len(token) > 1)
-            continue
-
-        keyword = _keyword_of(stripped, dialect)
+        keyword = _keyword_of(line.stripped, dialect)
         if keyword is None:
             # Steps, tables, free-form description: a tag block never survives
             # non-keyword content.
@@ -285,7 +373,7 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
             close_draft()
             draft = _ScenarioDraft(
                 name=title,
-                line=lineno,
+                line=line.number,
                 tags=[*feature_tags, *rule_tags, *pending_tags],
             )
         elif kind == "examples" and draft is not None:
@@ -381,6 +469,71 @@ def collect_spec_cases(roots: list[Path]) -> tuple[dict[str, SpecCase], list[str
     return cases, sorted(set(duplicates)), documents
 
 
+@dataclass(frozen=True)
+class DocstringClaim:
+    """A classic (non-Gherkin) test's TC-ID claim, read the way pytest reads it."""
+
+    tc_id: str | None
+    path: Path
+    line: int
+    func: str
+
+
+def collect_docstring_claims(roots: list[Path], tc_pattern: re.Pattern[str]) -> list[DocstringClaim]:
+    """Index the TC-ID every classic test declares in its docstring.
+
+    The classic Selenium suite declares its IDs in docstrings rather than in
+    Gherkin tags, and ``tests/e2e/conftest.py::_tc_id_from_docstring`` reads the
+    **first line** only — so that is exactly what is read here. Anything further
+    down the docstring is invisible to the runtime and must stay invisible here,
+    or the check would certify a link the test run does not actually make.
+
+    ``*_bdd.py`` modules are skipped: ``pytest_bdd.scenario`` overwrites the
+    wrapper's ``__doc__``, so their ID lives in the Gherkin tag the scenario
+    channel already covers.
+
+    Args:
+        roots: Directories (or single ``.py`` files) holding classic tests.
+        tc_pattern: The strict ID shape, owned by ``protocol_plugin``.
+
+    Returns:
+        One claim per test function; ``tc_id`` is ``None`` when the first
+        docstring line declares no ID.
+
+    Raises:
+        TraceabilityError: If a root does not exist.
+    """
+    claims: list[DocstringClaim] = []
+    for root in roots:
+        if root.is_file():
+            files = [root]
+        elif root.is_dir():
+            files = sorted(root.glob("test_req*.py"))
+        else:
+            raise TraceabilityError(f"docstring root does not exist: {root}")
+        for path in files:
+            if path.name.endswith("_bdd.py"):
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if not node.name.startswith("test_"):
+                    continue
+                doc = ast.get_docstring(node, clean=False)
+                first = (doc or "").strip("\n").splitlines()
+                match = tc_pattern.search(first[0]) if first else None
+                claims.append(
+                    DocstringClaim(
+                        tc_id=match.group(0) if match else None,
+                        path=path,
+                        line=node.lineno,
+                        func=node.name,
+                    )
+                )
+    return claims
+
+
 def suggest_alternative(tc_id: str, known: dict[str, SpecCase]) -> str | None:
     """Suggest the other legal spelling of an unresolved ID, if that one exists.
 
@@ -406,6 +559,85 @@ def _relative(path: Path) -> str:
         return str(path)
 
 
+def report_docstring_channel(
+    claims: list[DocstringClaim],
+    cases: dict[str, SpecCase],
+) -> int:
+    """Print the classic-suite report and return the number of hard defects.
+
+    Two defect classes, mirroring the Gherkin channel:
+
+    * **orphan** — a first-line ID that no spec document declares.
+    * **regression in untagged tests** — more tests without any ID than the
+      recorded baseline, i.e. somebody added one.
+
+    What is deliberately *not* a defect: a spec case claimed by more than one
+    test. 115 such many-to-one links exist and every one of them is legitimate —
+    a case like "create a botanical family" is covered by a dialog-opening test
+    and a happy-path test. Failing on those would make the check red from the
+    first minute and it would be switched off within the week, which is the
+    outcome #775 exists to avoid.
+    """
+    tagged = [c for c in claims if c.tc_id]
+    untagged = [c for c in claims if not c.tc_id]
+    orphans = [c for c in tagged if c.tc_id not in cases]
+    claimed = {c.tc_id for c in tagged if c.tc_id in cases}
+    multi: dict[str, int] = {}
+    for c in tagged:
+        if c.tc_id in cases:
+            multi[c.tc_id] = multi.get(c.tc_id, 0) + 1
+    shared = sum(1 for n in multi.values() if n > 1)
+
+    print()
+    print("Docstring traceability check (classic suite)")
+    print(f"  tests:    {len(claims)} function(s) — {len(tagged)} declare a TC-ID")
+    print(f"  resolved: {len(claimed)} distinct spec case(s); {shared} claimed by more than one test")
+
+    defects = 0
+    if len(orphans) > MAX_UNRESOLVED_DOCSTRING_IDS:
+        print()
+        print(
+            f"  {len(orphans)} ID(s) resolve to nothing in the specification, above the recorded "
+            f"baseline of {MAX_UNRESOLVED_DOCSTRING_IDS}."
+        )
+        print("  A test's TC-ID must name a case the specification declares.")
+        for c in orphans[-10:]:
+            hint = suggest_alternative(c.tc_id or "", cases)
+            suffix = f"  (did you mean {hint}?)" if hint else ""
+            print(f"    {_relative(c.path)}:{c.line}  {c.func}  {c.tc_id}{suffix}")
+        defects += 1
+    elif orphans:
+        print(
+            f"  {len(orphans)} ID(s) resolve to nothing in the specification "
+            f"(baseline {MAX_UNRESOLVED_DOCSTRING_IDS}, shrink-only — informational)"
+        )
+        if len(orphans) < MAX_UNRESOLVED_DOCSTRING_IDS:
+            print(f"  Baseline can be lowered to {len(orphans)} in MAX_UNRESOLVED_DOCSTRING_IDS.")
+
+    if len(untagged) > MAX_UNTAGGED_DOCSTRING_TESTS:
+        print()
+        print(
+            f"  {len(untagged)} test(s) declare no TC-ID, above the recorded baseline of "
+            f"{MAX_UNTAGGED_DOCSTRING_TESTS}."
+        )
+        print("  A new test must state which specified case it verifies.")
+        for c in untagged[-10:]:
+            print(f"    {_relative(c.path)}:{c.line}  {c.func}")
+        defects += 1
+    elif untagged:
+        print(
+            f"  {len(untagged)} test(s) declare no TC-ID "
+            f"(baseline {MAX_UNTAGGED_DOCSTRING_TESTS}, shrink-only — informational)"
+        )
+        if len(untagged) < MAX_UNTAGGED_DOCSTRING_TESTS:
+            print(
+                f"  Baseline can be lowered to {len(untagged)} in "
+                "MAX_UNTAGGED_DOCSTRING_TESTS."
+            )
+
+    return defects
+
+
 def report(
     scenarios: list[Scenario],
     cases: dict[str, SpecCase],
@@ -414,6 +646,7 @@ def report(
     feature_roots: list[Path],
     spec_roots: list[Path],
     list_unimplemented: bool,
+    docstring_claims: list[DocstringClaim] | None = None,
 ) -> int:
     """Print the traceability report and return the process exit code.
 
@@ -491,11 +724,29 @@ def report(
         for document, ids in sorted(by_document.items()):
             print(f"  not automated — {document} ({len(ids)}): {', '.join(ids)}")
 
+    # The classic suite's docstring channel (#775). Reported after the Gherkin
+    # one so a run shows both, and summed into the same exit code — two channels,
+    # one gate.
+    docstring_defects = 0
+    if docstring_claims is not None:
+        docstring_defects = report_docstring_channel(docstring_claims, cases)
+
     print()
-    if defects:
-        print(f"FAILED — {len(defects)} traceability defect(s).")
+    total_defects = len(defects) + docstring_defects
+    if total_defects:
+        print(f"FAILED — {total_defects} traceability defect(s).")
         return EXIT_DEFECTS
     print(f"OK — all {len(scenarios)} scenario(s) resolve to a declared test case.")
+    if docstring_claims is not None:
+        resolved = sum(1 for c in docstring_claims if c.tc_id and c.tc_id in cases)
+        # Deliberately states the resolved count against the total rather than
+        # claiming "all": the two ratchets above hold a known, capped remainder,
+        # and a summary that rounded that away would be the same kind of
+        # comfortable-but-false green these checks exist to prevent.
+        print(
+            f"OK — {resolved} of {len(docstring_claims)} classic test(s) resolve to a declared "
+            "test case; the remainder is within the recorded baselines."
+        )
     return EXIT_OK
 
 
@@ -535,6 +786,20 @@ def main(argv: list[str] | None = None) -> int:
         help=f"directory or .md file holding test cases (repeatable; default: {DEFAULT_SPEC_ROOTS[0]})",
     )
     parser.add_argument(
+        "--docstring-root",
+        action="append",
+        metavar="PATH",
+        help=(
+            "directory or .py file holding classic tests whose TC-ID lives in the docstring "
+            f"(repeatable; default: {DEFAULT_DOCSTRING_ROOTS[0]})"
+        ),
+    )
+    parser.add_argument(
+        "--no-docstring-channel",
+        action="store_true",
+        help="check only the Gherkin channel (the pre-#775 behaviour)",
+    )
+    parser.add_argument(
         "--list-unimplemented",
         action="store_true",
         help="also list the declared test cases that have no BDD scenario yet",
@@ -548,6 +813,10 @@ def main(argv: list[str] | None = None) -> int:
         tc_pattern = load_tc_id_pattern()
         scenarios = collect_scenarios(feature_roots, tc_pattern)
         cases, duplicates, documents = collect_spec_cases(spec_roots)
+        docstring_claims = None
+        if not args.no_docstring_channel:
+            docstring_roots = _resolve(args.docstring_root or list(DEFAULT_DOCSTRING_ROOTS))
+            docstring_claims = collect_docstring_claims(docstring_roots, tc_pattern)
     except TraceabilityError as exc:
         print(f"check_bdd_traceability: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -560,6 +829,7 @@ def main(argv: list[str] | None = None) -> int:
         feature_roots=feature_roots,
         spec_roots=spec_roots,
         list_unimplemented=args.list_unimplemented,
+        docstring_claims=docstring_claims,
     )
 
 

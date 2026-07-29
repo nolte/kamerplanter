@@ -506,10 +506,11 @@ export default function NutrientCalculationsPage() {
                         mobileCardRenderer={(r) => (
                           <MobileCard
                             title={r.product_name}
+                            titleId="product"
                             fields={[
-                              { label: t('pages.nutrientCalc.mlPerLiter'), value: r.ml_per_liter.toFixed(2) },
-                              { label: t('pages.nutrientCalc.totalMl'), value: r.total_ml.toFixed(1) },
-                              { label: t('pages.nutrientCalc.ecContribution'), value: r.ec_contribution.toFixed(3) },
+                              { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), value: r.ml_per_liter.toFixed(2) },
+                              { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), value: r.total_ml.toFixed(1) },
+                              { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), value: r.ec_contribution.toFixed(3) },
                             ]}
                           />
                         )}
@@ -572,10 +573,12 @@ export default function NutrientCalculationsPage() {
                       mobileCardRenderer={(r) => (
                         <MobileCard
                           title={`${t('pages.nutrientCalc.day')} ${r.day}`}
+                          titleId="day"
                           subtitle={r.action}
+                          subtitleId="action"
                           fields={[
-                            { label: t('pages.nutrientCalc.targetEc'), value: r.target_ec_ms.toFixed(2) },
-                            { label: t('pages.nutrientCalc.dosagePercent'), value: `${r.dosage_percent}%` },
+                            { id: 'targetEc', label: t('pages.nutrientCalc.targetEc'), value: r.target_ec_ms.toFixed(2) },
+                            { id: 'dosage', label: t('pages.nutrientCalc.dosagePercent'), value: `${r.dosage_percent}%` },
                           ]}
                         />
                       )}
@@ -828,11 +831,14 @@ export default function NutrientCalculationsPage() {
                         mobileCardRenderer={(r) => (
                           <MobileCard
                             title={r.product_name}
+                            titleId="product"
                             subtitle={r.note ?? undefined}
+                            subtitleId="note"
                             fields={[
-                              { label: t('pages.nutrientCalc.areaTotalGrams'), value: r.total_grams != null ? r.total_grams.toFixed(1) : '—' },
-                              { label: t('pages.nutrientCalc.areaTotalLiters'), value: r.total_liters != null ? r.total_liters.toFixed(1) : '—' },
+                              { id: 'totalGrams', label: t('pages.nutrientCalc.areaTotalGrams'), value: r.total_grams != null ? r.total_grams.toFixed(1) : '—' },
+                              { id: 'totalLiters', label: t('pages.nutrientCalc.areaTotalLiters'), value: r.total_liters != null ? r.total_liters.toFixed(1) : '—' },
                               {
+                                id: 'releaseSpeed',
                                 label: t('pages.nutrientCalc.areaReleaseSpeed'),
                                 value: r.nutrient_release_speed != null ? t(`enums.nutrientReleaseSpeed.${r.nutrient_release_speed}`) : '—',
                               },
@@ -1151,10 +1157,11 @@ export default function NutrientCalculationsPage() {
                           mobileCardRenderer={(r: Record<string, unknown>) => (
                             <MobileCard
                               title={String(r.product_name)}
+                              titleId="product"
                               fields={[
-                                { label: t('pages.nutrientCalc.mlPerLiter'), value: Number(r.ml_per_liter).toFixed(2) },
-                                { label: t('pages.nutrientCalc.totalMl'), value: Number(r.total_ml).toFixed(1) },
-                                { label: t('pages.nutrientCalc.ecContribution'), value: Number(r.ec_contribution).toFixed(3) },
+                                { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), value: Number(r.ml_per_liter).toFixed(2) },
+                                { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), value: Number(r.total_ml).toFixed(1) },
+                                { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), value: Number(r.ec_contribution).toFixed(3) },
                               ]}
                             />
                           )}

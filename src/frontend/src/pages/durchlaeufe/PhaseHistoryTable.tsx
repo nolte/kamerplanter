@@ -252,13 +252,15 @@ export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.phase_name}
+            titleId="phase"
             subtitle={formatDateTime(r.entered_at)}
-            chips={
-              <Chip label={r.phase_name} size="small" color="primary" />
-            }
+            subtitleId="enteredAt"
+            chips={[
+              { id: 'phaseChip', content: <Chip label={r.phase_name} size="small" color="primary" /> },
+            ]}
             fields={[
-              ...(r.actual_duration_days != null ? [{ label: t('pages.plantingRuns.duration'), value: `${r.actual_duration_days}d` }] : []),
-              ...(r.transition_reason ? [{ label: t('pages.phases.reason'), value: r.transition_reason }] : []),
+              ...(r.actual_duration_days != null ? [{ id: 'duration', label: t('pages.plantingRuns.duration'), value: `${r.actual_duration_days}d` }] : []),
+              ...(r.transition_reason ? [{ id: 'reason', label: t('pages.phases.reason'), value: r.transition_reason }] : []),
             ]}
           />
         )}

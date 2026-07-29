@@ -21,6 +21,28 @@ export function getActiveTenantSlug(): string | null {
 }
 
 /**
+ * Resolve once the active tenant slug is known (or the timeout elapses).
+ *
+ * During auth bootstrap the slug is still null while ``loadMyTenants`` is in
+ * flight; firing a tenant-scoped request in that window used to hit the
+ * unprefixed path (``/api/v1/user-preferences`` instead of
+ * ``/api/v1/t/{slug}/user-preferences``) and 404 — thousands of doomed
+ * requests per session and sporadic error banners on freshly loaded pages.
+ */
+function waitForTenantSlug(timeoutMs = 10000): Promise<string | null> {
+  if (_activeTenantSlug) return Promise.resolve(_activeTenantSlug);
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (_activeTenantSlug || Date.now() - started > timeoutMs) {
+        clearInterval(timer);
+        resolve(_activeTenantSlug);
+      }
+    }, 50);
+  });
+}
+
+/**
  * Shared response-interceptor rejection handler: converts a backend error
  * envelope ({ error_id, error_code, ... }) into a typed {@link ApiError} and
  * re-throws everything else unchanged. Used by both `client` and `tenantClient`
@@ -57,8 +79,14 @@ const tenantClient = axios.create({
   },
 });
 
-tenantClient.interceptors.request.use((config) => {
-  const slug = isLightMode ? LIGHT_MODE_SLUG : _activeTenantSlug;
+tenantClient.interceptors.request.use(async (config) => {
+  let slug = isLightMode ? LIGHT_MODE_SLUG : _activeTenantSlug;
+  if (!slug && !isLightMode) {
+    // Wait out the auth-bootstrap window instead of firing a doomed
+    // unprefixed request; after the timeout (genuinely logged out) the
+    // request proceeds unprefixed and fails like before.
+    slug = await waitForTenantSlug();
+  }
   if (slug && config.url && !config.url.startsWith('/t/')) {
     config.url = `/t/${slug}${config.url}`;
   }

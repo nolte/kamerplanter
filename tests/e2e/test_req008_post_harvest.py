@@ -11,7 +11,7 @@ from ._route_helpers import skip_if_route_unwired
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('harvest',)
+FEATURES = ("harvest",)
 
 
 @pytest.mark.smoke

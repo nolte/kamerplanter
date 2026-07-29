@@ -27,7 +27,7 @@ class PlantInstanceListPage(BasePage):
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # ── Create dialog locators ─────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     FORM_SPECIES = (By.CSS_SELECTOR, "[data-testid='form-field-species_key']")
     FORM_SPECIES_INPUT = (By.CSS_SELECTOR, "[data-testid='form-field-species_key'] input")
     FORM_PLANT_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-plant_name'] input")
@@ -52,39 +52,36 @@ class PlantInstanceListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (PlantInstanceListPage `columns`).
+    INSTANCE_ID_COLUMN_ID = "instanceId"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (Name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return each visible row's identifying text.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        cover-photo column (empty text), so ``cells[0]`` yielded empty strings
+        on the desktop table -- and an empty list in the mobile card layout,
+        where there is no ``<td>`` at all. In the card layout this resolves to
+        the card title (the plant's display name).
+        """
+        return self.get_column_texts(self.INSTANCE_ID_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
-    def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the row carries a `location` link, a `plantingRun` link and an actions
+    #: button, all of which `stopPropagation`. `instanceId` renders
+    #: `r.instance_id` and carries no `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = INSTANCE_ID_COLUMN_ID
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
+    def click_row(self, index: int = 0) -> None:
+        """Open the plant instance at *index* via its inert id cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "plant instance row"
         )
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
 
     # ── Search and filter ──────────────────────────────────────────────
 
@@ -151,10 +148,8 @@ class PlantInstanceListPage(BasePage):
         # that exposes no DOM transition, so allow it to settle before picking
         time.sleep(0.5)
 
-        option = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "li[role='option']")
-        )
-        option.click()
+        option = self.wait_for_element_clickable((By.CSS_SELECTOR, "li[role='option']"))
+        self.click_menu_option(option)
         self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
 
     def fill_plant_name(self, name: str) -> None:
@@ -191,7 +186,7 @@ class PlantInstanceListPage(BasePage):
         self.scroll_and_click(field)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         if options:
-            options[index].click()
+            self.click_menu_option(options[index])
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 
@@ -215,11 +210,11 @@ class PlantInstanceListPage(BasePage):
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def has_validation_error(self, field_name: str) -> bool:
         """Return True if a validation error is visible for *field_name*."""

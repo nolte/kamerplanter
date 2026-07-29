@@ -107,7 +107,7 @@ def update_system(
 @router.delete("/systems/{system_key}", status_code=204)
 def delete_system(
     system_key: Annotated[str, Path(description="Document key of the aquaponic system.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Delete an aquaponic system."""
@@ -170,7 +170,7 @@ def update_stock(
 def delete_stock(
     system_key: Annotated[str, Path(description="Document key of the aquaponic system.")],
     stock_key: Annotated[str, Path(description="Document key of the fish stock.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Delete a fish stock."""

@@ -26,8 +26,19 @@ from app.config.logging import setup_logging
 from app.config.settings import settings
 from app.data_access.arango.collections import ensure_collections
 from app.data_access.external.registration import register_external_adapters
+from app.observability.error_tracking import init_error_tracking, resolve_release
 
 logger = structlog.get_logger()
+
+# Optional error tracking (#777). Called at process entry, before the app object
+# exists and long before the first request, so a failure raised during startup is
+# already captured. Without SENTRY_DSN this is a no-op and nothing about the
+# process changes — which is why it is unconditional here rather than hidden
+# behind a settings flag.
+init_error_tracking(
+    component="backend",
+    release=resolve_release("kamerplanter-backend", settings.app_version),
+)
 
 # Register every self-registering adapter (weather, pest, identification, storage
 # factories) so they are available to the FastAPI process. The Celery worker does
@@ -221,6 +232,16 @@ _PATH_PARAM_RE = re.compile(r"\{([^}]+)\}")
 
 
 def _openapi_postprocessed() -> dict:
+    """Fill in path parameters FastAPI cannot see, and nothing else.
+
+    Deliberately absent: response schemas for the ~31 operations that return
+    without one. Those are streaming, file, redirect and SSE responses plus
+    dynamic passthrough dicts — a response schema would be a lie about what the
+    endpoint sends, so they are documented gaps with a reason rather than
+    missing work (#850, from the 2026-07-24 API documentation audit). An audit
+    that re-reports them should be pointed at this note instead of at the
+    operations.
+    """
     schema = _fastapi_openapi()
     http_methods = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
     for path, path_item in schema.get("paths", {}).items():

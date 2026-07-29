@@ -114,7 +114,7 @@ describe('PestListPage — REQ-044 reference-image marker', () => {
       expect(screen.getAllByText('Spinnmilbe').length).toBeGreaterThan(0);
     });
     expect(screen.getAllByTestId('recognition-chip').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Erkennung verfugbar').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Erkennung verfügbar').length).toBeGreaterThan(0);
   });
 
   it('hides the marker for a pest without reference images', async () => {

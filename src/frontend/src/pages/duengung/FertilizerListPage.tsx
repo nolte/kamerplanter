@@ -201,7 +201,7 @@ export default function FertilizerListPage() {
       <PageTitle
         title={t('pages.fertilizers.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {hasFavorites && (
               <Tooltip title={t('pages.fertilizers.favFilter')}>
                 <IconButton
@@ -340,17 +340,36 @@ export default function FertilizerListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.product_name}
+            titleId="product_name"
             subtitle={r.brand || undefined}
-            chips={
-              <>
-                <Chip label={t(`enums.fertilizerType.${r.fertilizer_type}`)} size="small" variant="outlined" />
-                {r.is_organic && <Chip label={t('pages.fertilizers.isOrganic')} size="small" color="success" />}
-                {r.tank_safe && <Chip label={t('pages.fertilizers.tankSafe')} size="small" color="success" />}
-              </>
-            }
+            subtitleId="brand"
+            chips={[
+              {
+                id: 'fertilizer_type',
+                content: (
+                  <Chip label={t(`enums.fertilizerType.${r.fertilizer_type}`)} size="small" variant="outlined" />
+                ),
+              },
+              ...(r.is_organic
+                ? [
+                    {
+                      id: 'is_organic',
+                      content: <Chip label={t('pages.fertilizers.isOrganic')} size="small" color="success" />,
+                    },
+                  ]
+                : []),
+              ...(r.tank_safe
+                ? [
+                    {
+                      id: 'tank_safe',
+                      content: <Chip label={t('pages.fertilizers.tankSafe')} size="small" color="success" />,
+                    },
+                  ]
+                : []),
+            ]}
             fields={[
-              { label: 'NPK', value: `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}` },
-              { label: 'EC', value: `${r.ec_contribution_per_ml.toFixed(3)} mS/ml` },
+              { id: 'npk', label: 'NPK', value: `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}` },
+              { id: 'ec_contribution_per_ml', label: 'EC', value: `${r.ec_contribution_per_ml.toFixed(3)} mS/ml` },
             ]}
           />
         )}

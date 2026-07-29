@@ -15,11 +15,14 @@ class TenantCreatePage(BasePage):
 
     # -- Locators ----------------------------------------------------------
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
-    INTRO_TEXT = (By.CSS_SELECTOR, ".MuiTypography-body2.MuiTypography-colorTextSecondary")
+    # data-testid-first: MUI v6+ removed composed color utility classes like
+    # MuiTypography-colorTextSecondary / -colorError, so class-based color
+    # locators silently match nothing.
+    INTRO_TEXT = (By.CSS_SELECTOR, "[data-testid='tenant-create-intro']")
     NAME_INPUT = (By.CSS_SELECTOR, "input[required]")
     DESCRIPTION_INPUT = (By.CSS_SELECTOR, "textarea")
     SUBMIT_BUTTON = (By.CSS_SELECTOR, "button[type='submit']")
-    ERROR_TEXT = (By.CSS_SELECTOR, ".MuiTypography-colorError")
+    ERROR_TEXT = (By.CSS_SELECTOR, "[data-testid='tenant-create-error']")
     SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:

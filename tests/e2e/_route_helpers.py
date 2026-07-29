@@ -24,9 +24,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 ERROR_PAGE_LOCATOR = (By.CSS_SELECTOR, "[data-testid='error-page']")
 
 
-def skip_if_route_unwired(
-    browser: WebDriver, req_id: str, *, timeout: int = 5
-) -> None:
+def skip_if_route_unwired(browser: WebDriver, req_id: str, *, timeout: int = 5) -> None:
     """Skip the current test if the SPA's catch-all NotFoundPage rendered.
 
     Call this **after** ``browser.get(<candidate_route>)``. Waits up to
@@ -36,9 +34,7 @@ def skip_if_route_unwired(
     to its assertions.
     """
     try:
-        WebDriverWait(browser, timeout).until(
-            EC.presence_of_element_located(ERROR_PAGE_LOCATOR)
-        )
+        WebDriverWait(browser, timeout).until(EC.presence_of_element_located(ERROR_PAGE_LOCATOR))
     except TimeoutException:
         return
     pytest.skip(f"{req_id} route not yet wired into App.tsx — follow-up PR.")

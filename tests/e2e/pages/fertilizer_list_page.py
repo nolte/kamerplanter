@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -32,7 +31,10 @@ class FertilizerListPage(BasePage):
     FORM_NPK_N = (By.CSS_SELECTOR, "[data-testid='form-field-npk_n'] input")
     FORM_NPK_P = (By.CSS_SELECTOR, "[data-testid='form-field-npk_p'] input")
     FORM_NPK_K = (By.CSS_SELECTOR, "[data-testid='form-field-npk_k'] input")
-    FORM_EC_CONTRIBUTION = (By.CSS_SELECTOR, "[data-testid='form-field-ec_contribution_per_ml'] input")
+    FORM_EC_CONTRIBUTION = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-ec_contribution_per_ml'] input",
+    )
     FORM_MIXING_PRIORITY = (By.CSS_SELECTOR, "[data-testid='form-field-mixing_priority'] input")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -58,35 +60,35 @@ class FertilizerListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (FertilizerListPage `columns`).
+    NAME_COLUMN_ID = "product_name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (product name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the product name of every visible row.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        favourite-star column (empty text), and below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
-    def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` that
+    #: `stopPropagation`s, so a centre click can toggle a favourite instead of
+    #: opening the fertilizer. `product_name` renders `r.product_name` and
+    #: carries no `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
+    def click_row(self, index: int) -> None:
+        """Open the fertilizer at *index* via its inert `product_name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "fertilizer row"
+        )
 
     # ── Search and filter ──────────────────────────────────────────────
 
@@ -136,9 +138,14 @@ class FertilizerListPage(BasePage):
 
     def has_form_field(self, field_name: str) -> bool:
         """Return True if a ``form-field-{field_name}`` element is present in the dialog."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
+                )
+            )
+            > 0
+        )
 
     # ── Create dialog ──────────────────────────────────────────────────
 
@@ -188,54 +195,26 @@ class FertilizerListPage(BasePage):
         self.clear_and_fill(el, notes)
 
     def select_fertilizer_type(self, value_text: str) -> None:
-        """Open the fertilizer type select and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
+        """Open the fertilizer type select and pick an option.
 
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-fertilizer_type'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("fertilizer_type")
+        self.select_option_by_label(value_text)
 
     def select_ph_effect(self, value_text: str) -> None:
         """Open the pH effect select and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-ph_effect'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.open_select("ph_effect")
+        self.select_option_by_label(value_text)
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_product_name_field_value(self) -> str:
         """Return the current value of the product_name input."""

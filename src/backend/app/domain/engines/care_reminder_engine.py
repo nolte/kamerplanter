@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from app.common.datetimes import today_utc
 from app.common.enums import (
     CareStyleType,
     ConfirmAction,
@@ -367,13 +368,13 @@ class CareReminderEngine:
         # No previous confirmation — due immediately (creation date)
         if profile.created_at:
             return profile.created_at.date()
-        return date.today()
+        return today_utc()
 
     def calculate_urgency(self, due_date: date | None) -> str:
         """Determine urgency level from due date."""
         if due_date is None:
             return "not_due"
-        today = date.today()
+        today = today_utc()
         delta = (due_date - today).days
         if delta < 0:
             return "overdue"
@@ -415,7 +416,7 @@ class CareReminderEngine:
         logic untouched.
         """
         if month is None:
-            month = date.today().month
+            month = today_utc().month
 
         # REQ-037 ET suppression: an outdoor/greenhouse plant whose net demand is
         # zero (rain covered it) needs no watering reminder today.
@@ -682,7 +683,7 @@ class CareReminderEngine:
         overwintering_profile: OverwinteringProfile | None = None,
     ) -> int | None:
         """Get the interval in days for a reminder type, season-adjusted."""
-        month = date.today().month
+        month = today_utc().month
         is_winter = self._is_winter(month, hemisphere)
 
         # REQ-047 §2.5 dormancy control reminders.

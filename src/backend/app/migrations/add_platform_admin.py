@@ -12,7 +12,7 @@ import sys
 import structlog
 
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
-from app.common.enums import TenantRole, TenantType
+from app.common.enums import AdminScope, TenantRole, TenantType
 from app.config.logging import setup_logging
 from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
@@ -68,11 +68,19 @@ def add_platform_admin(email: str) -> None:
     # Check existing membership
     existing = membership_repo.get_by_user_and_tenant(user_key, "platform")
     if existing:
-        if existing.role == TenantRole.ADMIN and existing.is_active:
+        if existing.role == TenantRole.LEAD and existing.is_active:
             print(f"User '{email}' is already a platform admin.")
             return
-        # Update to admin
-        membership_repo.update(existing.key, {"role": TenantRole.ADMIN, "is_active": True})
+        # Promote to the platform role (REQ-049 §2.5): the top domain role in
+        # the technical ``platform`` tenant, plus both administrative scopes.
+        membership_repo.update(
+            existing.key,
+            {
+                "role": TenantRole.LEAD,
+                "admin_scopes": [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+                "is_active": True,
+            },
+        )
         print(f"User '{email}' upgraded to platform admin.")
         return
 
@@ -80,7 +88,8 @@ def add_platform_admin(email: str) -> None:
     membership = Membership(
         user_key=user_key,
         tenant_key="platform",
-        role=TenantRole.ADMIN,
+        role=TenantRole.LEAD,
+        admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
         is_active=True,
     )
     membership_repo.create(membership)

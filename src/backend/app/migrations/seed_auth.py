@@ -3,7 +3,7 @@
 import structlog
 
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
-from app.common.enums import EmailVerificationStatus, TenantRole, TenantType
+from app.common.enums import AdminScope, EmailVerificationStatus, TenantRole, TenantType
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import Membership
@@ -57,11 +57,12 @@ def run_seed_auth() -> None:
     membership = Membership(
         user_key=user_key,
         tenant_key=tenant_key,
-        role=TenantRole.ADMIN,
+        role=TenantRole.LEAD,
+        admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
         is_active=True,
     )
     membership_repo.create(membership)
-    logger.info("demo_membership_created", role="admin")
+    logger.info("demo_membership_created", role="lead")
 
     # Ensure platform tenant exists and user is platform admin
     _ensure_platform_admin(user_key, tenant_repo, membership_repo)
@@ -99,7 +100,8 @@ def _ensure_platform_admin(
         membership = Membership(
             user_key=user_key,
             tenant_key="platform",
-            role=TenantRole.ADMIN,
+            role=TenantRole.LEAD,
+            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
             is_active=True,
         )
         membership_repo.create(membership)

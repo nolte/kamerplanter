@@ -48,6 +48,7 @@ from .pages.tank_list_page import TankListPage
 
 # -- Fixtures -----------------------------------------------------------------
 
+
 @pytest.fixture
 def tank_list(browser: WebDriver, base_url: str) -> TankListPage:
     """Return a TankListPage bound to the test browser."""
@@ -62,6 +63,7 @@ def tank_detail(browser: WebDriver, base_url: str) -> TankDetailPage:
 
 # -- TC-REQ-014-001 to TC-REQ-014-008: List Page ------------------------------
 
+
 class TestTankListPage:
     """Tank list display and interactions (Spec: TC-014-001, TC-014-003, TC-014-004)."""
 
@@ -71,7 +73,7 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-001: TankListPage renders with data-testid='tank-list-page'.
+        """TC-014-001: TankListPage renders with data-testid='tank-list-page'.
 
         Spec: TC-014-001 -- Tank-Listenansicht wird geladen und zeigt Tanks.
         """
@@ -90,7 +92,7 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-002: DataTable renders with expected column headers (Name, Type, Volume).
+        """TC-014-001: DataTable renders with expected column headers (Name, Type, Volume).
 
         Spec: TC-014-001 -- Listenansicht — Spalten pruefen.
         """
@@ -110,7 +112,7 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-003: Create button is visible on the TankListPage.
+        """TC-014-001: Create button is visible on the TankListPage.
 
         Spec: TC-014-001 -- Erstellen-Button sichtbar auf Listenansicht.
         """
@@ -128,7 +130,7 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-004: Clicking a tank row navigates to its detail page.
+        """TC-014-004: Clicking a tank row navigates to its detail page.
 
         Spec: TC-014-004 -- Klick auf Tank-Zeile navigiert zur Detailseite.
         """
@@ -152,7 +154,7 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-005: Search input filters tanks by name.
+        """TC-014-003: Search input filters tanks by name.
 
         Spec: TC-014-003 -- Tank-Tabelle ist durchsuchbar.
         """
@@ -182,7 +184,7 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-006: Reset filters restores the full tank list.
+        """TC-014-003: Reset filters restores the full tank list.
 
         Spec: TC-014-003 -- Filter zuruecksetzen stellt volle Liste wieder her.
         """
@@ -211,14 +213,20 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-007: Clicking a column header activates the sort chip.
+        """TC-014-003: Clicking a column header activates the sort chip.
 
         Spec: TC-014-003 -- Sortierung per Spaltenklick.
         """
         tank_list.open()
         headers = tank_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-014-007 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-014-007_before-sort", "Tank list before sorting")
         tank_list.click_column_header(headers[0])
@@ -235,7 +243,7 @@ class TestTankListPage:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-008: Showing count text is displayed when rows are present.
+        """TC-014-001: Showing count text is displayed when rows are present.
 
         Spec: TC-014-001 -- Zeigt-Zaehler.
         """
@@ -246,12 +254,11 @@ class TestTankListPage:
             pytest.skip("No rows — showing count not displayed for empty table")
 
         count_text = tank_list.get_showing_count_text()
-        assert count_text, (
-            "TC-REQ-014-008 FAIL: Expected non-empty showing count text"
-        )
+        assert count_text, "TC-REQ-014-008 FAIL: Expected non-empty showing count text"
 
 
 # -- TC-REQ-014-010 to TC-REQ-014-015: Create Dialog --------------------------
+
 
 class TestTankCreateDialog:
     """Tank create dialog operations (Spec: TC-014-005, TC-014-006, TC-014-007, TC-014-009)."""
@@ -262,7 +269,7 @@ class TestTankCreateDialog:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-010: Clicking create button opens the TankCreateDialog.
+        """TC-014-005: Clicking create button opens the TankCreateDialog.
 
         Spec: TC-014-005 -- Tank-Erstellen-Dialog oeffnet sich.
         """
@@ -282,7 +289,7 @@ class TestTankCreateDialog:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-011: Cancel in create dialog closes it without creating a tank.
+        """TC-014-009: Cancel in create dialog closes it without creating a tank.
 
         Spec: TC-014-009 -- Abbrechen schliesst Dialog ohne Aenderungen.
         """
@@ -311,7 +318,7 @@ class TestTankCreateDialog:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-012: Submitting with empty name triggers validation error (NFR-006).
+        """TC-014-007: Submitting with empty name triggers validation error (NFR-006).
 
         Spec: TC-014-007 -- Pflichtfeld-Validierung beim Tank-Erstellen.
         """
@@ -336,7 +343,7 @@ class TestTankCreateDialog:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-013: Equipment toggle switches can be toggled in the create dialog.
+        """TC-014-006: Equipment toggle switches can be toggled in the create dialog.
 
         Spec: TC-014-006 -- Equipment-Toggles im Erstellen-Dialog.
         """
@@ -375,7 +382,7 @@ class TestTankCreateDialog:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-014: Create a tank with valid name and volume; verify it appears in list.
+        """TC-014-006: Create a tank with valid name and volume; verify it appears in list.
 
         Spec: TC-014-006 -- Tank erfolgreich erstellen (Happy Path).
         """
@@ -408,7 +415,7 @@ class TestTankCreateDialog:
         tank_list: TankListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-015: Create a tank with notes field populated.
+        """TC-014-006: Create a tank with notes field populated.
 
         Spec: TC-014-006 -- Tank mit Notizen erstellen.
         """
@@ -435,6 +442,7 @@ class TestTankCreateDialog:
 
 # -- TC-REQ-014-016 to TC-REQ-014-020: Detail Page ----------------------------
 
+
 class TestTankDetailPage:
     """Tank detail page rendering (Spec: TC-014-010, TC-014-011)."""
 
@@ -445,7 +453,7 @@ class TestTankDetailPage:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-016: Navigating to tank detail URL renders the detail page.
+        """TC-014-010: Navigating to tank detail URL renders the detail page.
 
         Spec: TC-014-010 -- Tank-Detailseite laedt alle 6 Tabs.
         """
@@ -470,7 +478,7 @@ class TestTankDetailPage:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-017: Tank detail page renders 6 tabs.
+        """TC-014-010: Tank detail page renders 6 tabs.
 
         Spec: TC-014-010 -- Tank-Detailseite laedt alle 6 Tabs.
         """
@@ -495,7 +503,7 @@ class TestTankDetailPage:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-018: Clicking each of the 6 tabs shows the corresponding panel.
+        """TC-014-010: Clicking each of the 6 tabs shows the corresponding panel.
 
         Spec: TC-014-010 -- Tab-Navigation durch alle 6 Tabs.
         """
@@ -512,7 +520,9 @@ class TestTankDetailPage:
             tank_detail.click_tab(tab_index)
             tank_detail.wait_for_loading_complete()
             active = tank_detail.get_active_tab_index()
-            screenshot(f"TC-REQ-014-018_tab-{tab_index}-active", f"Tank detail tab {tab_index} active")
+            screenshot(
+                f"TC-REQ-014-018_tab-{tab_index}-active", f"Tank detail tab {tab_index} active"
+            )
             assert active == tab_index, (
                 f"TC-REQ-014-018 FAIL: Expected tab {tab_index} to be active, got {active}"
             )
@@ -524,7 +534,7 @@ class TestTankDetailPage:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-019: Detail page title matches the tank name from the list.
+        """TC-014-011: Detail page title matches the tank name from the list.
 
         Spec: TC-014-011 -- Tab Details zeigt Tank-Stammdaten.
         """
@@ -555,7 +565,7 @@ class TestTankDetailPage:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-020: Details tab shows tank type, volume, and material.
+        """TC-014-011: Details tab shows tank type, volume, and material.
 
         Spec: TC-014-011 -- Tab Details zeigt Tank-Stammdaten.
         """
@@ -569,12 +579,18 @@ class TestTankDetailPage:
         screenshot("TC-REQ-014-020_details-tab", "Tank details tab content")
 
         card_text = tank_detail.get_detail_cards_text()
-        assert card_text, (
-            "TC-REQ-014-020 FAIL: Expected non-empty card text in tank details tab"
-        )
-        tank_type_labels = ["Nährstoff", "Bewässerung", "Reservoir", "Rezirkulation",
-                            "Stammlösung", "nutrient", "irrigation", "recirculation",
-                            "stock_solution"]
+        assert card_text, "TC-REQ-014-020 FAIL: Expected non-empty card text in tank details tab"
+        tank_type_labels = [
+            "Nährstoff",
+            "Bewässerung",
+            "Reservoir",
+            "Rezirkulation",
+            "Stammlösung",
+            "nutrient",
+            "irrigation",
+            "recirculation",
+            "stock_solution",
+        ]
         has_type_label = any(label in card_text for label in tank_type_labels)
         assert has_type_label, (
             f"TC-REQ-014-020 FAIL: Expected at least one tank type label in details, "
@@ -583,6 +599,7 @@ class TestTankDetailPage:
 
 
 # -- TC-REQ-014-023 to TC-REQ-014-025: Tank State Recording -------------------
+
 
 class TestTankStateRecording:
     """TankState recording operations (Spec: TC-014-019)."""
@@ -594,7 +611,7 @@ class TestTankStateRecording:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-023: Clicking 'Record State' in tab 1 opens the TankStateCreateDialog.
+        """TC-014-019: Clicking 'Record State' in tab 1 opens the TankStateCreateDialog.
 
         Spec: TC-014-019 -- Manuelle Zustandsmessung erfassen (Happy Path).
         """
@@ -624,7 +641,7 @@ class TestTankStateRecording:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-024: Record a tank state with pH and EC; new row appears in states table.
+        """TC-014-019: Record a tank state with pH and EC; new row appears in states table.
 
         Spec: TC-014-019 -- Manuelle Zustandsmessung erfassen (Happy Path).
         """
@@ -666,7 +683,7 @@ class TestTankStateRecording:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-025: Cancelling the TankState dialog closes it without saving.
+        """TC-014-019: Cancelling the TankState dialog closes it without saving.
 
         Spec: TC-014-019 -- Zustandsmessung abbrechen schliesst Dialog.
         """
@@ -701,6 +718,7 @@ class TestTankStateRecording:
 
 # -- TC-REQ-014-026 to TC-REQ-014-028: Maintenance Log ------------------------
 
+
 class TestMaintenanceLog:
     """Maintenance log operations (Spec: TC-014-024)."""
 
@@ -711,7 +729,7 @@ class TestMaintenanceLog:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-026: 'Log Maintenance' button in tab 2 opens MaintenanceLogDialog.
+        """TC-014-024: 'Log Maintenance' button in tab 2 opens MaintenanceLogDialog.
 
         Spec: TC-014-024 -- Wartung dokumentieren (Happy Path).
         """
@@ -741,7 +759,7 @@ class TestMaintenanceLog:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-027: Log a 'water_change' maintenance entry; new row in history table.
+        """TC-014-024: Log a 'water_change' maintenance entry; new row in history table.
 
         Spec: TC-014-024 -- Wartung dokumentieren (Happy Path).
         """
@@ -783,7 +801,7 @@ class TestMaintenanceLog:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-028: Cancelling the MaintenanceLogDialog closes it without saving.
+        """TC-014-024: Cancelling the MaintenanceLogDialog closes it without saving.
 
         Spec: TC-014-024 -- Wartung abbrechen schliesst Dialog.
         """
@@ -818,6 +836,7 @@ class TestMaintenanceLog:
 
 # -- TC-REQ-014-029: Schedules Tab --------------------------------------------
 
+
 class TestTankSchedulesTab:
     """Tank Schedules tab rendering (Spec: TC-014-026)."""
 
@@ -828,7 +847,7 @@ class TestTankSchedulesTab:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-029: Schedules tab (tab 3) renders a DataTable component.
+        """TC-014-026: Schedules tab (tab 3) renders a DataTable component.
 
         Spec: TC-014-026 -- Tab Wartungsplaene zeigt automatisch erstellte Plaene.
         """
@@ -851,6 +870,7 @@ class TestTankSchedulesTab:
 
 # -- TC-REQ-014-030 to TC-REQ-014-031: Edit Form ------------------------------
 
+
 class TestTankEditForm:
     """Tank edit form operations (Spec: TC-014-037)."""
 
@@ -861,7 +881,7 @@ class TestTankEditForm:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-030: Edit tab form is pre-filled with the existing tank name.
+        """TC-014-037: Edit tab form is pre-filled with the existing tank name.
 
         Spec: TC-014-037 -- Tank-Stammdaten bearbeiten (Happy Path).
         """
@@ -879,9 +899,7 @@ class TestTankEditForm:
         screenshot("TC-REQ-014-030_edit-tab-open", "Tank edit tab with pre-filled form")
 
         name_value = tank_detail.get_edit_name_value()
-        assert name_value, (
-            "TC-REQ-014-030 FAIL: Expected edit form Name field to be pre-filled"
-        )
+        assert name_value, "TC-REQ-014-030 FAIL: Expected edit form Name field to be pre-filled"
         assert name_value == page_title, (
             f"TC-REQ-014-030 FAIL: Expected Name '{name_value}' to match page title '{page_title}'"
         )
@@ -893,7 +911,7 @@ class TestTankEditForm:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-031: Cancel in edit form resets the form without saving.
+        """TC-014-037: Cancel in edit form resets the form without saving.
 
         Spec: TC-014-037 -- Bearbeiten abbrechen setzt Formular zurueck.
         """
@@ -924,6 +942,7 @@ class TestTankEditForm:
 
 # -- TC-REQ-014-032: Delete Flow ----------------------------------------------
 
+
 class TestTankDeleteFlow:
     """Tank delete flow (Spec: TC-014-040)."""
 
@@ -934,7 +953,7 @@ class TestTankDeleteFlow:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-032: Delete button opens ConfirmDialog; Cancel does not delete.
+        """TC-014-040: Delete button opens ConfirmDialog; Cancel does not delete.
 
         Spec: TC-014-040 -- Tank loeschen mit Bestaetigungsdialog (Happy Path).
         """
@@ -969,6 +988,7 @@ class TestTankDeleteFlow:
 
 # -- TC-REQ-014-033: Error Handling --------------------------------------------
 
+
 class TestTankErrorHandling:
     """Tank error states (Spec: TC-014-070)."""
 
@@ -978,12 +998,19 @@ class TestTankErrorHandling:
         tank_detail: TankDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-014-033: Navigating to a non-existent tank key shows an error display.
+        """TC-014-070: Navigating to a non-existent tank key shows an error display.
 
         Spec: TC-014-070 -- Netzwerkfehler bei Tank-Laden zeigt Fehlerzustand.
         """
         tank_detail.navigate("/standorte/tanks/nonexistent-key-99999")
-        tank_detail.wait_for_loading_complete()
+        # `TankDetailPage` renders exactly one of skeleton / ErrorDisplay / page
+        # root, so the skeleton's absence proves neither of the two settled
+        # states below -- and right after navigate() it is satisfied before the
+        # lazy route chunk even mounts.
+        tank_detail.wait_for_any_present(
+            (tank_detail.ERROR_DISPLAY, tank_detail.PAGE),
+            "TC-REQ-014-033: tank detail route for a non-existent key",
+        )
         screenshot("TC-REQ-014-033_nonexistent-key-error", "Error state for non-existent tank key")
 
         error_displayed = tank_detail.is_error_displayed()

@@ -390,6 +390,18 @@ export default function Sidebar({ open }: SidebarProps) {
       sx={{
         width: !isMobile && open ? sidebarWidth : 0,
         flexShrink: 0,
+        // The paper slides (MUI animates the persistent variant), but the docked
+        // placeholder that reserves its space used to jump between 240px and 0
+        // in a single frame — so the whole content region snapped sideways while
+        // the navigation was still gliding. Animating the placeholder with the
+        // theme's own timings puts the two halves back in sync. `easing.sharp`
+        // and the standard enter/leave durations are what MUI's own Drawer uses.
+        transition: theme.transitions.create('width', {
+          easing: theme.transitions.easing.sharp,
+          duration: open
+            ? theme.transitions.duration.enteringScreen
+            : theme.transitions.duration.leavingScreen,
+        }),
         '& .MuiDrawer-paper': {
           width: sidebarWidth,
           boxSizing: 'border-box',
