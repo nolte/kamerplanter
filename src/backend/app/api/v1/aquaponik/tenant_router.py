@@ -170,7 +170,7 @@ def update_stock(
 def delete_stock(
     system_key: Annotated[str, Path(description="Document key of the aquaponic system.")],
     stock_key: Annotated[str, Path(description="Document key of the fish stock.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Delete a fish stock."""
