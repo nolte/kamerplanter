@@ -61,6 +61,7 @@ module = [
     "pydantic.*",
     "pydantic_settings.*",
     "structlog.*",
+    "sentry_sdk.*",
     "yaml.*",
 ]
 ignore_missing_imports = true

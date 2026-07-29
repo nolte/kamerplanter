@@ -73,4 +73,36 @@ describe('ErrorBoundary', () => {
     expect(screen.getByTestId('safe-child')).toBeInTheDocument();
     expect(screen.queryByTestId('widget-error')).not.toBeInTheDocument();
   });
+
+  it('renders the full-page fallback, moves focus onto it, and offers a reload action for variant="page"', () => {
+    render(
+      <ErrorBoundary
+        title="App kaputt"
+        hint="Bitte neu laden"
+        retryLabel="Erneut versuchen"
+        reloadLabel="Seite neu laden"
+        variant="page"
+        testId="app-error"
+      >
+        <Bomb explode={true} />
+      </ErrorBoundary>,
+    );
+
+    const alert = screen.getByTestId('app-error').querySelector('[role="alert"]');
+    expect(alert).toBeInTheDocument();
+    expect(alert).toHaveFocus();
+    expect(screen.getByText('App kaputt')).toBeInTheDocument();
+    expect(screen.getByText('Erneut versuchen')).toBeInTheDocument();
+    expect(screen.getByText('Seite neu laden')).toBeInTheDocument();
+  });
+
+  it('omits the reload button for variant="page" when no reloadLabel is passed', () => {
+    render(
+      <ErrorBoundary title="App kaputt" hint="Bitte neu laden" retryLabel="Erneut versuchen" variant="page">
+        <Bomb explode={true} />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.queryByRole('button', { name: /neu laden/i })).not.toBeInTheDocument();
+  });
 });

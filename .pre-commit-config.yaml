@@ -122,6 +122,13 @@ repos:
         additional_dependencies: ['mypy>=1.13.0']
         files: ^src/libs/kp_vectordb/kp_vectordb/.*\.py$
         pass_filenames: false
+      - id: mypy-kp-errortracking
+        name: mypy (kp_errortracking)
+        entry: bash -c 'cd src/libs/kp_errortracking && mypy kp_errortracking'
+        language: python
+        additional_dependencies: ['mypy>=1.13.0']
+        files: ^src/libs/kp_errortracking/kp_errortracking/.*\.py$
+        pass_filenames: false
       - id: mypy-knowledge-service
         name: mypy (knowledge-service)
         entry: bash -c 'cd src/knowledge-service && mypy app'
@@ -135,6 +142,26 @@ repos:
         language: python
         additional_dependencies: ['mypy>=1.13.0']
         files: ^src/inference-service/app/.*\.py$
+        pass_filenames: false
+
+  # ── Shared-lib copy drift (#777) ───────────────────────────────────────
+  # The error-tracking module is maintained once under src/libs and copied
+  # verbatim into each service, because the three Python services are separate
+  # build contexts. The copies carry the PII-scrubbing rules, so a drifted copy
+  # scrubs less than its siblings while looking identical from the outside.
+  #
+  # This runs here, in the required `static` gate, rather than only as a pytest
+  # guard inside the two microservices: those suites are not executed by any CI
+  # workflow, so a guard living only there would never have run. (The
+  # pre-existing kp_vectordb guards have exactly that gap; closing it is a
+  # separate change.)
+  - repo: local
+    hooks:
+      - id: errortracking-sync
+        name: kp_errortracking copies in sync
+        entry: python src/libs/kp_errortracking/sync.py --check
+        language: python
+        files: ^src/(libs/kp_errortracking/kp_errortracking|backend/app/observability|knowledge-service/app/observability|inference-service/app/observability)/.*\.py$
         pass_filenames: false
 
   # ── Steckbrief ↔ seed consistency (Issue #680) ─────────────────────────
