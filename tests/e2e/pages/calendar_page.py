@@ -146,9 +146,11 @@ class CalendarPage(BasePage):
         The header is a Typography right next to the navigation buttons.
         """
         # The month label is between the prev/next buttons
-        header = self.driver.find_element(
-            By.CSS_SELECTOR,
-            "[data-testid='calendar-page'] h6, [data-testid='calendar-page'] .MuiTypography-h6",
+        header = self.find_present(
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='calendar-page'] h6, [data-testid='calendar-page'] .MuiTypography-h6",
+            )
         )
         return header.text.strip()
 

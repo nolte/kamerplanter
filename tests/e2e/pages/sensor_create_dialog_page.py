@@ -106,7 +106,7 @@ class SensorCreateDialogPage(BasePage):
 
     def scroll_add_sensor_button_into_view(self) -> None:
         """Scroll the add-sensor-button into the viewport without clicking it."""
-        button = self.driver.find_element(*self.ADD_SENSOR_BUTTON)
+        button = self.find_present(self.ADD_SENSOR_BUTTON)
         self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
 
     def is_add_sensor_button_visible(self) -> bool:

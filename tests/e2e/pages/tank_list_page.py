@@ -181,8 +181,8 @@ class TankListPage(BasePage):
         self.scroll_and_click(el)
 
     def is_has_lid_checked(self) -> bool:
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] input[type='checkbox']"
+        el = self.find_present(
+            (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] input[type='checkbox']")
         )
         return el.is_selected()
 

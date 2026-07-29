@@ -187,7 +187,7 @@ class CompanionPlantingPage(BasePage):
         self.wait_for_element_visible(self.DIALOG)
 
     def is_dialog_create_button_enabled(self) -> bool:
-        btn = self.driver.find_element(*self.DIALOG_CREATE_BTN)
+        btn = self.find_present(self.DIALOG_CREATE_BTN)
         return btn.is_enabled()
 
     def select_dialog_target(self, species_name: str) -> None:

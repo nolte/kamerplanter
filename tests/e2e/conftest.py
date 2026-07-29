@@ -1054,15 +1054,22 @@ def browser(
     os.environ["E2E_BROWSER"] = browser_name
     os.environ["E2E_DEVICE"] = dev["name"]
 
-    # Keep the implicit wait small: elements that genuinely need waiting use
-    # explicit WebDriverWait (15 s), while every *absence* check
-    # (find_elements on a missing element, is_present, locator-fallback misses)
-    # otherwise blocks for the full implicit timeout. At 10 s those misses
-    # dominated the per-test cost; 3 s still covers real element appearances on
-    # a loaded page. (Mixing implicit + explicit waits is a known anti-pattern;
-    # a follow-up should move to 0 once all bare find_element calls are on
-    # explicit waits.)
-    driver.implicitly_wait(3)
+    # No implicit wait. #835 removed the `driver.implicitly_wait(3)` that used to
+    # stand here, and the follow-up its own comment asked for is what made that
+    # safe: every singular lookup that was relying on the implicit grace now
+    # states it explicitly (`BasePage.find_present`, same 3 s budget), so the
+    # removal changed no test's timing.
+    #
+    # Why it had to go rather than shrink further. Mixing implicit and explicit
+    # waits is a Selenium anti-pattern for a concrete reason: the implicit wait
+    # also applies to the `find_element` calls *inside* a `WebDriverWait`, so the
+    # two budgets multiply instead of bounding each other. That is why one
+    # post-condition needed 8 s where 3 s should have sufficed — the number was
+    # tuned against a compound nobody could see.
+    #
+    # What the removal buys: every *absence* check (41 `is_present` call sites,
+    # 789 `find_elements` lookups, locator-fallback misses) answered "no" only
+    # after blocking the full implicit budget. Those are now immediate.
 
     # Set German locale in localStorage so i18next picks it up (detection
     # order: localStorage → navigator).  We need to navigate to the origin

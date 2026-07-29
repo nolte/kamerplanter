@@ -158,7 +158,7 @@ class AccountSettingsPage(BasePage):
 
     def is_change_password_button_enabled(self) -> bool:
         """Check if the change-password button is enabled."""
-        btn = self.driver.find_element(*self.CHANGE_PASSWORD_BUTTON)
+        btn = self.find_present(self.CHANGE_PASSWORD_BUTTON)
         return btn.is_enabled()
 
     def get_linked_providers(self) -> list[str]:

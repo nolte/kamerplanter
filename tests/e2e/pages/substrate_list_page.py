@@ -248,8 +248,8 @@ class SubstrateListPage(BasePage):
 
     def is_reusable_checked(self) -> bool:
         """Return True if the reusable switch is checked."""
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='form-field-reusable'] input[type='checkbox']"
+        el = self.find_present(
+            (By.CSS_SELECTOR, "[data-testid='form-field-reusable'] input[type='checkbox']")
         )
         return el.is_selected()
 

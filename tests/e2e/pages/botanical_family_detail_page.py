@@ -49,27 +49,25 @@ class BotanicalFamilyDetailPage(BasePage):
     # ── Form reads ─────────────────────────────────────────────────────
 
     def get_field_value(self, field_name: str) -> str:
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input"
-        )
+        el = self.find_present((By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input"))
         return el.get_attribute("value") or ""
 
     def get_textarea_value(self, field_name: str) -> str:
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] textarea"
+        el = self.find_present(
+            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] textarea")
         )
         return el.get_attribute("value") or ""
 
     def get_select_value(self, field_name: str) -> str:
         """Return the displayed text of an MUI Select."""
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select"
+        el = self.find_present(
+            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
         )
         return el.text
 
     def is_switch_checked(self, field_name: str) -> bool:
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input[type='checkbox']"
+        el = self.find_present(
+            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input[type='checkbox']")
         )
         return el.is_selected()
 

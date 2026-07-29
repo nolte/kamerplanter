@@ -123,9 +123,11 @@ class ImportPage(BasePage):
         (previously ``input[type='hidden']`` in MUI v5/v6).
         """
         self.wait_for_element(self.ENTITY_TYPE_SELECT)
-        native = self.driver.find_element(
-            By.CSS_SELECTOR,
-            f"[data-testid='{self.ENTITY_TYPE_TESTID}'] input.MuiSelect-nativeInput",
+        native = self.find_present(
+            (
+                By.CSS_SELECTOR,
+                f"[data-testid='{self.ENTITY_TYPE_TESTID}'] input.MuiSelect-nativeInput",
+            )
         )
         return native.get_attribute("value") or ""
 
@@ -167,9 +169,11 @@ class ImportPage(BasePage):
         ``NoSuchElement`` for "not there *yet*".
         """
         self.wait_for_element(self.DUPLICATE_STRATEGY_SELECT)
-        native = self.driver.find_element(
-            By.CSS_SELECTOR,
-            f"[data-testid='{self.DUPLICATE_STRATEGY_TESTID}'] input.MuiSelect-nativeInput",
+        native = self.find_present(
+            (
+                By.CSS_SELECTOR,
+                f"[data-testid='{self.DUPLICATE_STRATEGY_TESTID}'] input.MuiSelect-nativeInput",
+            )
         )
         return native.get_attribute("value") or ""
 
@@ -225,7 +229,7 @@ class ImportPage(BasePage):
         Selenium/WebDriver combinations reject for ``send_keys``.  We
         temporarily make the input visible via JavaScript before interacting.
         """
-        file_input = self.driver.find_element(*self.FILE_INPUT)
+        file_input = self.find_present(self.FILE_INPUT)
         # Make the hidden input visible so Selenium can interact with it
         self.driver.execute_script(
             "arguments[0].style.display = 'block';"
@@ -352,7 +356,7 @@ class ImportPage(BasePage):
                 if el.is_displayed() and el.text:
                     return el.text
         # Fallback: any text in the preview step
-        step = self.driver.find_element(*self.STEP_PREVIEW)
+        step = self.find_present(self.STEP_PREVIEW)
         return step.text
 
     def get_preview_row_statuses(self) -> list[str]:

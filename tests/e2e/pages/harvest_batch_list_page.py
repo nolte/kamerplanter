@@ -71,9 +71,11 @@ class HarvestBatchListPage(BasePage):
 
     def get_intro_text(self) -> str:
         """Return the introductory text below the title."""
-        el = self.driver.find_element(
-            By.CSS_SELECTOR,
-            "[data-testid='harvest-batch-list-page'] .MuiTypography-body2",
+        el = self.find_present(
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='harvest-batch-list-page'] .MuiTypography-body2",
+            )
         )
         return el.text
 

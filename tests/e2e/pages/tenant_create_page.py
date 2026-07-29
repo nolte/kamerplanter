@@ -61,12 +61,12 @@ class TenantCreatePage(BasePage):
 
     def is_submit_enabled(self) -> bool:
         """Check whether the submit button is enabled."""
-        btn = self.driver.find_element(*self.SUBMIT_BUTTON)
+        btn = self.find_present(self.SUBMIT_BUTTON)
         return btn.is_enabled()
 
     def get_name_value(self) -> str:
         """Return the current value of the name input."""
-        return self.driver.find_element(*self.NAME_INPUT).get_attribute("value") or ""
+        return self.find_present(self.NAME_INPUT).get_attribute("value") or ""
 
     def get_snackbar_text(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for a notistack snackbar and return its text."""

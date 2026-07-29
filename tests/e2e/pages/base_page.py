@@ -23,6 +23,19 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 DEFAULT_TIMEOUT = 15
 
+#: The grace period the driver-level implicit wait used to grant *every*
+#: ``find_element`` call before #835 removed it. The singular finders that were
+#: relying on it now ask for it explicitly (``find_present``), so the removal
+#: changes no test's timing — while every *absence* check stopped paying it,
+#: which is where the cost actually sat: 41 ``is_present`` call sites blocked
+#: the full budget on every negative answer.
+#:
+#: Deliberately not ``DEFAULT_TIMEOUT``. These are lookups of something the
+#: caller believes is already rendered, not waits for a transition; raising the
+#: budget to 15 s would make every genuine failure five times slower to surface
+#: and buy nothing.
+IMPLICIT_WAIT_EQUIVALENT = 3
+
 #: A Selenium locator: ``(By.<STRATEGY>, value)``.
 Locator = tuple[str, str]
 
@@ -493,9 +506,24 @@ class BasePage:
 
     # ── Queries ───────────────────────────────────────────────────────────
 
+    def find_present(self, locator: Locator, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> WebElement:
+        """Find an element the caller expects to be rendered already.
+
+        The explicit counterpart to the driver-level implicit wait #835 removed:
+        same budget, but visible at the call site and no longer silently added to
+        every lookup *inside* a ``WebDriverWait``, where the two wait kinds
+        compounded into timeouts nobody could predict — the reason one
+        post-condition needed an 8 s budget where 3 s should have done.
+
+        Use :meth:`wait_for_element` instead when the element is genuinely
+        expected to *appear*. That is a page transition, not a lookup, and
+        deserves the full ``DEFAULT_TIMEOUT``.
+        """
+        return self.wait_for_element(locator, timeout)
+
     def find_by_testid(self, testid: str) -> WebElement:
         """Shorthand for finding an element by its ``data-testid``."""
-        return self.driver.find_element(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        return self.find_present((By.CSS_SELECTOR, f"[data-testid='{testid}']"))
 
     def find_all_by_testid(self, testid: str) -> list[WebElement]:
         """Return all elements matching the given ``data-testid``."""
@@ -648,7 +676,7 @@ class BasePage:
 
     def get_body_text(self) -> str:
         """Return the full text content of the page body (for keyword assertions)."""
-        return self.driver.find_element(By.TAG_NAME, "body").text
+        return self.find_present((By.TAG_NAME, "body")).text
 
     # ── Interactions ─────────────────────────────────────────────────────
 

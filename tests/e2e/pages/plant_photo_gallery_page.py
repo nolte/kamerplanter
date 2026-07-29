@@ -115,7 +115,7 @@ class PlantPhotoGalleryPage(BasePage):
         self.wait_for_element_visible(self.GALLERY)
 
     def get_photos_tab_label(self) -> str:
-        return self.driver.find_element(*self.PHOTOS_TAB).text.strip()
+        return self.find_present(self.PHOTOS_TAB).text.strip()
 
     # ── Gallery state ───────────────────────────────────────────────────
 
@@ -192,7 +192,7 @@ class PlantPhotoGalleryPage(BasePage):
         make it interactable so Selenium's ``send_keys`` is accepted, mirroring
         the REQ-012 import page helper.
         """
-        file_input = self.driver.find_element(*self.CAPTURE_FILE_INPUT)
+        file_input = self.find_present(self.CAPTURE_FILE_INPUT)
         self.driver.execute_script(
             "arguments[0].style.display = 'block';"
             "arguments[0].style.visibility = 'visible';"

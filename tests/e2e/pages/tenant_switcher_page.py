@@ -69,7 +69,7 @@ class TenantSwitcherPage(BasePage):
         """Close the dropdown by pressing Escape."""
         from selenium.webdriver.common.keys import Keys
 
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        self.find_present((By.TAG_NAME, "body")).send_keys(Keys.ESCAPE)
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
             EC.invisibility_of_element_located(self.MENU)
         )

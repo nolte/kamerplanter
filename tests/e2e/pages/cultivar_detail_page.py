@@ -31,9 +31,7 @@ class CultivarDetailPage(BasePage):
         return self.wait_for_element(self.PAGE_TITLE).text
 
     def get_field_value(self, field_name: str) -> str:
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input"
-        )
+        el = self.find_present((By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input"))
         return el.get_attribute("value") or ""
 
     def set_field(self, field_name: str, value: str) -> None:
