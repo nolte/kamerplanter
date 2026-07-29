@@ -54,11 +54,12 @@ branches:
         strict: true
         contexts:
           - static / Static CI Tests
-          # #828 — the frontend unit suite gated nothing until now: a pull
-          # request whose entire vitest run was red could reach develop as long
-          # as the two contexts above passed. #824 (jsdom 29 -> 30, 71 of 361
-          # test files red) was stopped only because the advisory checks were
-          # inspected by hand.
+          # #828 — the frontend unit suite gated nothing until it was promoted:
+          # a pull request whose entire vitest run was red could reach develop as
+          # long as the contexts required at the time — `static / Static CI
+          # Tests` and, until 2026-07-29, `E2E smoke (compose, light)` — passed.
+          # #824 (jsdom 29 -> 30, 71 of 361 test files red) was stopped only
+          # because the advisory checks were inspected by hand.
           #
           # Promoted on measured history, the standard ADR-011 set for
           # `E2E smoke`: across 60 runs (30 develop, 30 pull-request) the job
