@@ -85,6 +85,28 @@ repos:
         files: ^(tests/e2e/|spec/e2e-testcases/|scripts/check_bdd_traceability\.py)
         pass_filenames: false
 
+  # ── API schema examples (#850) ────────────────────────────────────────
+  # BACKEND.md §5.3 asks every *new or changed* request/response schema for an
+  # OpenAPI example and explicitly does not retro-fit the existing 711. A rule
+  # shaped like that cannot be checked as "does every model have an example?" —
+  # it is checked by counting the models that have none and refusing growth.
+  #
+  # Runs here, in the required `static` gate: standard library only, no Pydantic
+  # import, no node_modules, no running stack — ~0.2 s over 72 modules.
+  #
+  # always_run rather than a `files:` filter on purpose. pre-commit hands a hook
+  # only added/modified files, so a commit that *deletes* a schema module would
+  # not trigger a path-filtered hook — and a deletion moves the count exactly as
+  # much as an addition does. At this cost there is no reason to look away.
+  - repo: local
+    hooks:
+      - id: schema-example-ratchet
+        name: API schema examples (shrink-only ratchet, #850)
+        entry: python3 scripts/check_schema_examples.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── Backend (Python) ──────────────────────────────────────────────────
   # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
   - repo: local
