@@ -1,8 +1,17 @@
 # ADR-010: BDD-Architektur für die E2E-Suite (pytest-bdd, TC-004-092 als Proof-of-Concept)
 
-**Status:** Akzeptiert
+**Status:** Akzeptiert, §6 nachträglich korrigiert (2026-07-29)
 **Datum:** 2026-07-25
 **Entscheider:** Kamerplanter Development Team
+
+!!! warning "Nachtrag 2026-07-29 — die Hochrechnung in §6 trägt nicht"
+    Die als Annahme markierte Hochrechnung auf die übrigen REQ-004-Fälle wurde
+    durch die in #774 beauftragte Sichtung **widerlegt**. Von den 91
+    verbleibenden Fällen ist **kein einziger** eine Parametervariante des
+    Referenzfalls. Die Entscheidung selbst — pytest-bdd für neue, klar
+    umrissene Fälle, keine pauschale Migration — bleibt davon unberührt und
+    wird durch die Messung eher gestützt. Betroffen ist allein der
+    Migrationspfad in §6. Details unten unter „Nachtrag".
 
 ## Kontext
 
@@ -68,7 +77,12 @@ Ein echter, spezifisch dem BDD-Layer zurechenbarer Vorteil: Die Screenshots werd
 
 ### 6. Migrationspfad
 
-Die Schätzung stützt sich auf eine **gemessene**, nicht geschätzte Kennzahl aus dem Review-Durchlauf: Vor der Parametrisierung kodierten 5 von 9 Steps eine feste Zahl oder ein festes Datum direkt im Steptext, und 5 von 9 Bindungen waren ausschließlich für TC-004-092 brauchbar. Nach der Parametrisierung sind **0 von 11 Bindungen** bespoke, **9 von 11** sind wörtlich wiederverwendbar. Die verbleibenden 2 sind auf eine reine, ungedüngte Bewässerung spezialisiert — das ist ein anderes fachliches Verhalten (kein Düngekanal beteiligt), keine Duplikation von Infrastruktur.
+Die Schätzung stützt sich auf eine **gemessene**, nicht geschätzte Kennzahl aus dem Review-Durchlauf: Vor der Parametrisierung kodierten 5 von 9 Steps eine feste Zahl oder ein festes Datum direkt im Steptext, und 5 von 9 Bindungen waren ausschließlich für TC-004-092 brauchbar. Nach der Parametrisierung sind **0 von 11 Bindungen** bespoke, **9 von 11** sind wörtlich wiederverwendbar. (Nachtrag 2026-07-29: die Datei enthält tatsächlich **12** Bindungen — 3 `@given`, 1 `@when`, 8 `@then` —, das Verhältnis lautet also 10/12. Inhaltlich ändert das nichts; für eine als *gemessen* ausgewiesene Zahl ist die Abweichung dennoch der Erwähnung wert.) Die verbleibenden 2 sind auf eine reine, ungedüngte Bewässerung spezialisiert — das ist ein anderes fachliches Verhalten (kein Düngekanal beteiligt), keine Duplikation von Infrastruktur.
+
+!!! danger "Widerlegt — siehe Nachtrag am Dokumentende"
+    Der folgende Absatz ist der als Annahme markierte Schluss, den die Sichtung
+    aus #774 widerlegt hat. Er bleibt im Wortlaut stehen, weil eine stillschweigend
+    korrigierte Begründung nicht mehr nachvollziehbar wäre.
 
 **Ableitung für die ~90 REQ-004-Fälle:** Unter der Annahme, dass ein substanzieller Teil der übrigen Fälle Varianten desselben Musters sind (andere Mengen, andere Anwendungsmethode, andere Ausgangszustände der Gießprotokolle) — eine Annahme, keine Messung —, deckt der bestehende Wortschatz (Bewässerungsmenge, Anwendungsmethode, Tages-Token, Zähl-Deltas) einen erheblichen Anteil ohne neue Bindungen ab. Neue Bindungen sind dort nötig, wo ein fachlich neues Konzept eingeführt wird (z. B. Düngekanäle, EC-Werte, Tank-Bezug) — nicht dort, wo nur ein Parameter variiert. Eine seriöse Aufwandsschätzung braucht dennoch eine Sichtung der ~90 Fälle nach genau dieser Trennung (Parameter-Variante vs. neues Konzept), bevor eine Personentage-Zahl genannt werden kann; diese Sichtung ist selbst ein sinnvolles nächstes Arbeitspaket, kein Teil dieser PoC.
 
@@ -106,6 +120,47 @@ Dieser Fund ist ein Argument über den CI-Gate — der rote, aber nicht required
 - Die vier hier gefundenen Integrations-Guards (Tag-Registrierung mit Schema-Prüfung, Marker-basierte TC-ID-Ableitung, `item.path.name` statt `item.location[0]`, Hook-Standort in `conftest.py`) sind als verbindliches Muster in `tests/e2e/README.md` dokumentiert und gelten für jedes künftige `.feature`-Modul.
 - Der rote `E2E smoke (compose, light)`-Check auf `develop` ist mit dieser PoC miterledigt (der zugrunde liegende Backend-Defekt ist behoben); die Frage, ob dieser Check künftig required werden soll, bleibt ein eigener Entscheid außerhalb dieses ADR.
 
+## Nachtrag 2026-07-29 — Ergebnis der Sichtung aus #774
+
+§6 hat die Sichtung „Parameter-Variante vs. neues Konzept" als eigenes Arbeitspaket
+benannt. Sie wurde in #774 durchgeführt und liegt vollständig in
+`spec/analysis/req004-bdd-migration-triage.md`. Das Ergebnis widerspricht der
+Hochrechnung.
+
+| Kategorie | Fälle | Anteil |
+|---|---:|---:|
+| **A** — Parametervariante bestehender Bindungen | **1** | 1 % |
+| **B** — neue Bindungen, bekanntes Konzept | 30 | 33 % |
+| **C** — neues Domänenkonzept | 41 | 45 % |
+| **D** — für BDD ungeeignet | 20 | 22 % |
+
+Die einzige A-Zählung ist TC-004-092 selbst. **Unter den 91 verbleibenden Fällen: null.**
+
+**Wo der Schluss ansetzte.** „9 von 11 Bindungen wörtlich wiederverwendbar" ist eine
+**fallinterne** Kennzahl: derselbe Fall mit anderen Mengen und Daten. §6 hat daraus auf
+**fallübergreifende** Wiederverwendung geschlossen. TC-004-092 ist der einzige Fall im
+gesamten TC-Dokument, der die Kopplung Gießvorgang → Gießprotokoll → Aufgabenverlauf
+beschreibt — es gibt keine zweite Zeile derselben Melodie, die man mit anderen Zahlen
+singen könnte.
+
+**Was die These rettet.** Wiederverwendung existiert, nur entlang einer anderen Achse:
+**innerhalb thematischer Gruppen**. Die Runoff-Analyse (TC-004-045/046/047) kostet rund
+fünf Bindungen für den ersten Fall, danach je eine Szenario-Zeile; dasselbe Muster zeigen
+Ca/Mg (081/082), Foliar (049–051) und die WaterMix-Rechnungen. Die Reusability-These ist
+also nicht falsch, sondern **falsch verankert**: Einstiegspunkt einer Migration darf nicht
+der Referenzfall sein, sondern die jeweils erste vollständige Fallgruppe.
+
+**Größenordnung.** 70 neue Szenarien und 90–105 neue Step-Bindungen für A+B+C; die 20
+D-Fälle bleiben klassisch. Etwa **70 % der Bindungen entstehen in den ersten 17 Fällen** —
+wer eine Gruppe anfasst, muss sie ganz nehmen.
+
+**Was das für die Entscheidung bedeutet.** Nichts. Der Beschluss lautete „pytest-bdd für
+neue, klar umrissene Given/When/Then-Fälle, keine pauschale Migration der klassischen
+Suite" — und die Messung stützt ihn deutlicher als die Hochrechnung es getan hätte. Was
+sich ändert, ist die *Reihenfolge* einer künftigen Migration: gruppenweise ab drei Fällen,
+beginnend bei Runoff (kleinster vollständiger Gruppenbeweis, Page-Object vorhanden), nicht
+fallweise vom Referenzfall aus.
+
 ## Referenzen
 
 - Issue #761 — `test(e2e): PoC — BDD E2E architecture driven from TC docs (TC-004-092 as first scenario)`
@@ -113,6 +168,8 @@ Dieser Fund ist ein Argument über den CI-Gate — der rote, aber nicht required
 - `tests/e2e/features/watering_cross_view_consistency.feature` — das Gherkin-Szenario
 - `tests/e2e/test_req004_watering_cross_view_consistency_bdd.py` — die Step-Bindungen
 - `tests/e2e/test_req004_watering_cross_view_consistency.py` — der klassische Vergleichstest
+- `spec/analysis/req004-bdd-migration-triage.md` — die Sichtung aus #774, die §6 korrigiert
+- Issue #774 — `chore(e2e): triage the REQ-004 test cases for BDD migration effort`
 - `scripts/check_bdd_traceability.py` — der maschinelle Spec-↔-Test-Abgleich
 - `tests/e2e/README.md` — Selektionsachsen, Tag-Schema, TC-ID-Ableitungsreihenfolge
 - `spec/e2e-testcases/TC-REQ-004.md` — TC-004-092

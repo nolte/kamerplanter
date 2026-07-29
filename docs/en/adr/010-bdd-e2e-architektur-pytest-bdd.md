@@ -1,8 +1,17 @@
 # ADR-010: BDD Architecture for the E2E Suite (pytest-bdd, TC-004-092 as Proof of Concept)
 
-**Status:** Accepted
+**Status:** Accepted, §6 corrected after the fact (2026-07-29)
 **Date:** 2026-07-25
 **Decision-makers:** Kamerplanter Development Team
+
+!!! warning "Addendum 2026-07-29 — the extrapolation in §6 does not hold"
+    The extrapolation to the remaining REQ-004 cases, explicitly flagged as an
+    assumption, was **refuted** by the triage commissioned in #774. Of the 91
+    remaining cases, **not one** is a parameter variant of the reference case.
+    The decision itself — pytest-bdd for new, clearly bounded cases, no blanket
+    migration — is untouched and if anything better supported by the
+    measurement. Only the migration path in §6 is affected. Details in the
+    addendum below.
 
 ## Context
 
@@ -68,7 +77,12 @@ One genuine, BDD-specific upside: screenshots are no longer hand-placed inside t
 
 ### 6. Migration path
 
-The estimate rests on a **measured**, not guessed, ratio from the review pass: before parameterization, 5 of 9 steps had a count or a date baked directly into the step text, and 5 of 9 bindings were usable only for TC-004-092. After parameterization, **0 of 11 bindings** are bespoke, **9 of 11** are reusable as written. The remaining 2 are specialized to a plain, unfertilized watering — that is a different domain behavior (no fertilizer channel involved), not duplicated plumbing.
+The estimate rests on a **measured**, not guessed, ratio from the review pass: before parameterization, 5 of 9 steps had a count or a date baked directly into the step text, and 5 of 9 bindings were usable only for TC-004-092. After parameterization, **0 of 11 bindings** are bespoke, **9 of 11** are reusable as written. (Addendum 2026-07-29: the file actually holds **12** bindings — 3 `@given`, 1 `@when`, 8 `@then` — so the ratio is 10/12. Immaterial to the argument; for a figure presented as *measured*, still worth recording.) The remaining 2 are specialized to a plain, unfertilized watering — that is a different domain behavior (no fertilizer channel involved), not duplicated plumbing.
+
+!!! danger "Refuted — see the addendum at the end of this document"
+    The paragraph below is the assumption-flagged inference that the #774 triage
+    refuted. It is left verbatim, because a silently corrected rationale can no
+    longer be followed.
 
 **Derivation for the ~90 REQ-004 cases:** assuming a substantial share of the remaining cases are variants of the same pattern (different quantities, a different application method, different starting states of the watering logs) — an assumption, not a measurement — the existing vocabulary (watering volume, application method, day token, count deltas) covers a meaningful share without new bindings. New bindings are only needed where a genuinely new domain concept is introduced (e.g., fertilizer channels, EC values, tank references) — not where only a parameter varies. A defensible effort estimate still requires triaging the ~90 cases along exactly that split (parameter variant vs. new concept) before a person-day figure can be named; that triage is itself a sensible next work item, not part of this PoC.
 
@@ -105,6 +119,45 @@ This finding is an argument about the CI gate — the red, non-required E2E smok
 - Migrating further TC-004 cases to BDD is a separate, downstream roadmap item — dependent on the "parameter variant vs. new concept" triage sketched above, not part of this decision.
 - The four integration guards found here (schema-checked tag registration, marker-based TC-ID derivation, `item.path.name` instead of `item.location[0]`, hook placement in `conftest.py`) are documented as a binding pattern in `tests/e2e/README.md` and apply to every future `.feature` module.
 - The red `E2E smoke (compose, light)` check on `develop` is resolved as a side effect of this PoC (the underlying backend defect is fixed); whether that check should become required in the future remains a separate decision outside this ADR.
+
+## Addendum 2026-07-29 — result of the #774 triage
+
+§6 named the "parameter variant vs. new concept" triage as its own work item. It was
+carried out in #774 and is recorded in full in
+`spec/analysis/req004-bdd-migration-triage.md`. The result contradicts the extrapolation.
+
+| Category | Cases | Share |
+|---|---:|---:|
+| **A** — parameter variant of existing bindings | **1** | 1 % |
+| **B** — new bindings, known concept | 30 | 33 % |
+| **C** — new domain concept | 41 | 45 % |
+| **D** — unsuited to BDD | 20 | 22 % |
+
+The single A is TC-004-092 itself. **Among the 91 remaining cases: zero.**
+
+**Where the inference went wrong.** "9 of 11 bindings reusable as written" is a
+**within-case** figure: the same case with different quantities and dates. §6 read it as a
+**cross-case** one. TC-004-092 is the only case in the entire TC document describing the
+watering → watering log → task history coupling — there is no second line of the same tune
+to sing with different numbers.
+
+**What rescues the claim.** Reuse does exist, along a different axis: **within thematic
+groups**. The runoff analysis (TC-004-045/046/047) costs about five bindings for the first
+case and one scenario line for each of the others; Ca/Mg (081/082), foliar (049–051) and
+the WaterMix calculations show the same shape. The reusability claim is therefore not
+wrong but **wrongly anchored**: a migration must start from the first complete case group,
+not from the reference case.
+
+**Order of magnitude.** 70 new scenarios and 90–105 new step bindings for A+B+C; the 20 D
+cases stay classic. Roughly **70 % of the bindings arise in the first 17 cases** — taking
+on a group means taking all of it.
+
+**What this means for the decision.** Nothing. The ruling was "pytest-bdd for new, clearly
+bounded Given/When/Then cases, no blanket migration of the classic suite" — and the
+measurement supports it more firmly than the extrapolation did. What changes is the *order*
+of any future migration: group-wise from three cases upward, starting with runoff (the
+smallest complete group proof, page object already present), not case-by-case from the
+reference.
 
 ## References
 
