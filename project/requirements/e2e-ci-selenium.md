@@ -12,9 +12,7 @@ or an authoritative operator answer.
 
 > **Stand 2026-07-26:** Dieser Abschnitt und die Gap-Matrix darunter sind das
 > Protokoll der Elicitation vom 2026-07-23 und bleiben als Zeitdokument stehen.
-> Zwei ihrer Annahmen sind inzwischen abgelöst: E2E ist **nicht** mehr
-> ausschließlich advisory (`E2E smoke (compose, light)` ist seit ADR-011 /
-> Issue #773 required check auf `develop`, siehe R2), und die Nightly-Triage
+> Eine ihrer Annahmen ist inzwischen abgelöst: die Nightly-Triage
 > läuft **nicht** mehr über automatisch geöffnete Issues (siehe R6). Maßgeblich
 > ist immer der Requirements-Abschnitt, nicht dieser Kontext.
 
@@ -52,6 +50,7 @@ or an authoritative operator answer.
 - **R2** — ~~WHILE das Flake-Verhalten der E2E-Jobs unbekannt ist, the E2E-Checks SHALL NOT als required check registriert werden; `static` SHALL der einzige required check bleiben.~~
   - _dimension_: `constraints` · _status_: `superseded` · _source_: Plan-Invariante + Q1-Antwort + Teach-back (1)
   - **Abgelöst am 2026-07-26** durch [`e2e-smoke-merge-gate.md`](e2e-smoke-merge-gate.md) (R1–R7) und ADR-011, Issue #773. Die Guard-Bedingung „WHILE das Flake-Verhalten unbekannt ist" ist beantwortet: `E2E smoke (compose, light)` lief zum Entscheidungszeitpunkt 13 Läufe in Folge grün, nachdem der in #763 sichtbar gewordene und in #770 behobene Backend-Defekt die Strecke davor dauerhaft rot gehalten hatte. Der Check ist seither ein required Kontext neben `static / Static CI Tests`; die Auswahl erfolgt über eine deny-by-default-Allowlist in einem Job-Level-Conditional. Rückweg ist ein regulärer PR gegen `.github/settings.yml` (dortiges R7), kein Bypass.
+  - **Nachtrag 2026-07-29:** Genau dieser Rückweg wurde gegangen — der Kontext ist wieder entfernt, E2E ist auf `develop` erneut advisory. Der Auslöser war jedoch nicht die hier formulierte Guard-Bedingung („Flake-Verhalten unbekannt"), die weiterhin beantwortet bleibt, sondern die Merge-Latenz von rund 11 Minuten pro Lauf unter `strict: true`. R2 bleibt deshalb `superseded` und lebt nicht wieder auf; maßgeblich ist der Nachtrag 2026-07-29 in ADR-011.
   - _Hinweis zu R1_: dessen Klammer „WHEN ein Pull Request relevante Pfade berührt" beschreibt den ursprünglichen Trigger-Pfadfilter. Der ist entfallen — er hätte den required Check bei 37 % der PRs nie melden lassen. Die Substanz von R1, das Compose-`smoke`-Profil unverändert im Runner auszuführen, gilt weiter.
 - **R3** — WHEN der `schedule`-Cron (zeitversetzt zu `security-nuclei-nightly`) oder `workflow_dispatch` feuert, the Workflow `e2e-nightly.yml` SHALL die vollständige E2E-Suite als Matrix über **alle fünf Compose-Profile** (light, full, mobile, tablet, full-mobile) ausführen, mit großzügigem `timeout-minutes` und `concurrency`-Gruppe.
   - _dimension_: `functional` · _status_: `confirmed` · _source_: Operator-Antworten „Alle Profile" + „Ja, alle 5 Profile" (2026-07-23)

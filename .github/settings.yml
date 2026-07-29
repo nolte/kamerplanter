@@ -22,45 +22,38 @@ repository:
 # after this lands on develop — the Probot Settings App syncs from the default
 # branch, so the change only takes effect once merged.
 #
-# `E2E smoke (compose, light)` is required as of ADR-011. Its workflow carries
-# no trigger path filter: the selection happens in a job-level conditional, so a
-# skipped run reports Success instead of leaving the pull request stuck on
-# "Expected — waiting for status to be reported". Rollback, should the gate
-# prove flaky, is a regular pull request against this file
-# (project/requirements/e2e-smoke-merge-gate.md R7) — never a one-off bypass.
+# `E2E smoke (compose, light)` was required from ADR-011 until 2026-07-29 and is
+# now advisory again. It is the ADR-011 rollback path taken deliberately
+# (project/requirements/e2e-smoke-merge-gate.md R7 — a regular pull request
+# against this file, never a one-off bypass), on latency rather than on flake:
+# the job runs ~11 minutes and, multiplied by `strict: true` below, dominated
+# merge-train time. `e2e-nightly.yml` keeps the coverage — the full 5-profile
+# matrix runs nightly, and `e2e-smoke` still reports on every pull request; it
+# just no longer blocks. The failure mode ADR-011 was written against (#763, an
+# E2E check merged red) therefore returns as a review obligation rather than an
+# enforced one: read the advisory check before merging.
 branches:
   - name: develop
     protection:
       required_status_checks:
         # `strict: true` means every open pull request must rebuild after any
-        # other one merges. With `E2E smoke (compose, light)` required that costs
-        # ~11 minutes per rebuild, serially — and it is the dominant cost of the
-        # merge train, not the gate itself.
-        #
-        # Measured over 2026-07-27 15:00 → 2026-07-28 17:00, a window in which 14
-        # pull requests merged: **60 `e2e-smoke` runs**. One Renovate
+        # other one merges. That was the dominant cost of the merge train while
+        # `E2E smoke (compose, light)` was required: measured over
+        # 2026-07-27 15:00 → 2026-07-28 17:00, a window in which 14 pull requests
+        # merged, it produced **60 `e2e-smoke` runs**. One Renovate
         # container-digest bump alone accounted for **10** of them (7 completed, 3
         # cancelled by the next update) — ~110 minutes of runner time for a change
-        # that never differed between runs. Every rerun was this flag reacting to
-        # someone else's merge.
+        # that never differed between runs.
         #
-        # Evaluated and deliberately kept (#792). Three options were on the table:
-        # a GitHub merge queue (keeps the guarantee and removes the serial cost,
-        # but the portfolio's `reusable-automerge` merges via
-        # `pascalgn/automerge-action` and carries no `merge_group` trigger, so it
-        # would have to gain a queue-aware mode first — cross-repository work);
-        # dropping `strict` (removes the cost today, gives up the guarantee that a
-        # pull request green on its own is still green once merged); or accepting
-        # the cost.
-        #
-        # The cost is unattended machine time, not maintainer time, so it was
-        # accepted. Revisit if pull-request volume rises enough that the *drift
-        # window* — how long `develop` and the open pull requests disagree —
-        # starts producing real conflicts rather than just reruns.
+        # #792 evaluated dropping `strict` and kept it; with the E2E context gone
+        # the remaining required checks are minutes, not tens of minutes, so the
+        # trade-off it protects — a pull request green on its own is still green
+        # once merged — is now cheap. Revisit only if pull-request volume rises
+        # enough that the *drift window*, how long `develop` and the open pull
+        # requests disagree, produces real conflicts rather than just reruns.
         strict: true
         contexts:
           - static / Static CI Tests
-          - E2E smoke (compose, light)
           # #828 — the frontend unit suite gated nothing until now: a pull
           # request whose entire vitest run was red could reach develop as long
           # as the two contexts above passed. #824 (jsdom 29 -> 30, 71 of 361
