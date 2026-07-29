@@ -37,6 +37,26 @@ Every care card offers three actions:
 !!! tip "Adaptive learning"
     If you consistently water a plant 8 instead of 7 days after the last confirmation, the system adjusts the interval automatically after 3 consecutive confirmations. The learning effect is limited to ±1 day per step and can change the interval by a maximum of ±30 % relative to the base interval.
 
+### The Next Watering Task Is Created Immediately {#naechste-giess-aufgabe}
+
+Whenever a confirmation closes an open, due watering task, Kamerplanter creates the next watering task right away. This applies to every route by which you can confirm a watering:
+
+- **Done** on the care card in the task overview
+- **Complete** on a watering task's detail page, or the checkmark in the task list
+- a new entry in the [watering log](watering-log.md)
+
+This requires the **Auto-create watering tasks** switch to be enabled in the care profile.
+
+!!! note "Changed behaviour"
+    Up to this version the chain ended here: the follow-up task was not created and only appeared with the nightly planning run. For the rest of that day no open watering task was left in the queue — most noticeably when completing the task straight from the task queue. The care card itself was unaffected, as it follows the timestamp of your last confirmation. <!-- REQ-022 -->
+
+### A Confirmation Only Closes Due Care Tasks
+
+A confirmation only ever closes a care task that is due **today or earlier**. A follow-up task already scheduled for a later day stays open and only becomes due on its own date.
+
+!!! example "Example: watering twice on the same day"
+    You water your Monstera in the morning and confirm the due reminder — Kamerplanter schedules the next watering task for seven days from now. If you top it up in the evening and record that too, the task seven days out is left untouched. Up to this version it was closed along with the confirmation, collapsing the entire care cycle into a single day. <!-- REQ-022 -->
+
 ---
 
 ## Care Profiles

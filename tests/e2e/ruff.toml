@@ -1,0 +1,48 @@
+# Ruff configuration for the E2E suite.
+#
+# This tree is not covered by any other ruff config: `src/backend/pyproject.toml`
+# only applies to files below that directory, and the repository root carries no
+# ruff settings. Without this file ruff falls back to its built-in defaults --
+# most visibly the 88-column line length, which put essentially the whole suite
+# out of format even though it is consistently written at ~100 columns.
+
+# Matches the width the E2E tree is actually written at.
+line-length = 100
+
+# The suite ships in a python:3.14-slim image (see Dockerfile) and is run with
+# the same interpreter locally, so it may use 3.14 syntax.
+target-version = "py314"
+
+[lint]
+# Ruff's default rule set (pycodestyle errors E4/E7/E9 + Pyflakes F), pinned
+# explicitly so a future change to ruff's defaults cannot silently widen or
+# narrow what this suite is linted for. Aligning with the backend's broader
+# selection ("E", "F", "I", "N", "W", "UP", "B", "SIM") is deliberately left out
+# of scope here -- it is a separate, non-mechanical change.
+select = ["E4", "E7", "E9", "F"]
+
+# NOTE: F841 (local assigned but never used) is intentionally NOT ignored, and
+# the suite now reports zero of them (#802). They were never noise: all 13 were
+# before-state captures (`names_before`, `rows_before`, `initial_count`, ...)
+# that no assertion ever compared against the after-state, so each marked a test
+# that did not verify what its name claimed. They were resolved by completing
+# the assertions -- or, for the two where a stricter check would have traded a
+# real defect for a parallel-execution flake, by removing the dead call with the
+# reason recorded at the site. Deleting the variables to silence the rule would
+# have destroyed exactly the evidence that made them findable.
+
+[lint.per-file-ignores]
+# The two module-level imports (`importlib.util`, `sys`) deliberately sit below
+# `pytest_addoption`, directly next to the bootstrap that loads the sibling
+# `protocol_plugin.py` from an explicit path. pytest's conftest loader makes a
+# normal top-of-file import of that module unreliable, and the bootstrap has to
+# work both in-repo (as a package) and flat inside the Docker image, so the
+# imports are kept at their point of use rather than hoisted away from it.
+"conftest.py" = ["E402"]
+
+# `pytestmark = pytest.mark.requires_auth` is assigned above the page-object
+# imports, which makes those imports trip E402. This is a placement choice
+# rather than a technical constraint -- moving the assignment below the imports
+# would resolve it -- but the file is left untouched here to keep this change
+# mechanical.
+"test_req023_register.py" = ["E402"]

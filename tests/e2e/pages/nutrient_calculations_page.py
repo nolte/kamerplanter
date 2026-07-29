@@ -45,8 +45,12 @@ class NutrientCalculationsPage(BasePage):
 
     CALCULATE_BUTTONS = (By.CSS_SELECTOR, ".MuiCard-root .MuiButton-contained")
 
-    # Result areas — Alert elements inside each card
-    ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # The unscoped ``ALERTS = ('.MuiAlert-root',)`` locator that used to sit
+    # here is gone (#778 A11): it had no call site at all, and an unscoped MUI
+    # class also matches MainLayout's light-mode banner, so keeping it around
+    # only offered a future caller a wrong answer. The two readers that do exist
+    # (`_get_alert_texts_in_card`, `_get_any_result_in_card`) search *within* a
+    # card element and are unaffected.
 
     # Data tables rendered by the mixing-protocol results
     RESULT_TABLES = (By.CSS_SELECTOR, "[data-testid='data-table']")
@@ -78,6 +82,7 @@ class NutrientCalculationsPage(BasePage):
         decimal values (e.g. '2.') trigger NaN state and reset the field.
         """
         from selenium.webdriver.common.keys import Keys
+
         inputs = card.find_elements(By.CSS_SELECTOR, "input[type='number']")
         if input_index >= len(inputs):
             raise IndexError(
@@ -87,7 +92,7 @@ class NutrientCalculationsPage(BasePage):
         self.scroll_and_click(el)
         # Use integer string for whole numbers to avoid decimal parsing issues
         val_str = str(int(value)) if value == int(value) else str(value)
-        el.send_keys(Keys.CONTROL + 'a')
+        el.send_keys(Keys.CONTROL + "a")
         el.send_keys(val_str)
 
     def _fill_text_input_in_card(self, card, value: str) -> None:
@@ -154,7 +159,7 @@ class NutrientCalculationsPage(BasePage):
             (o for o in options if fertilizer_key and fertilizer_key in (o.text or "")),
             options[0],
         )
-        self.scroll_and_click(match)
+        self.click_menu_option(match)
         self.wait_for_element_hidden(option_locator)
 
     def _click_button_in_card(self, card) -> None:
@@ -299,7 +304,9 @@ class NutrientCalculationsPage(BasePage):
     ) -> None:
         """Fill all input fields in the Runoff Analysis panel."""
         card = self._get_card_by_heading("Ablauf")
-        for idx, val in enumerate([input_ec, runoff_ec, input_ph, runoff_ph, input_vol, runoff_vol]):
+        for idx, val in enumerate(
+            [input_ec, runoff_ec, input_ph, runoff_ph, input_vol, runoff_vol]
+        ):
             self._fill_number_input_in_card(card, idx, val)
 
     def click_calculate_runoff(self) -> None:

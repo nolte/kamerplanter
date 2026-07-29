@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .base_page import BasePage
@@ -34,7 +33,7 @@ class SubstrateListPage(BasePage):
     MIX_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-outlined')]")
 
     # ── Create dialog locators ─────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
     FORM_BRAND = (By.CSS_SELECTOR, "[data-testid='form-field-brand'] input")
     FORM_NAME_DE = (By.CSS_SELECTOR, "[data-testid='form-field-name_de'] input")
@@ -72,15 +71,17 @@ class SubstrateListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (SubstrateListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the substrate name of every visible row.
+
+        Addressed by column id, not by position: the substrate table leads with
+        a favourite-star and a type column, and below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -88,55 +89,58 @@ class SubstrateListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row.
+
+        Layout-tolerant: TC-REQ-019-025 asserts a deleted substrate is *absent*
+        from this list, which the ``<td>``-only reader satisfied trivially in
+        the mobile card layout by returning nothing at all.
+        """
+        return self.get_all_row_text_fragments()
+
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` that
+    #: `stopPropagation`s, so a centre click can toggle a favourite instead of
+    #: opening the substrate. `name` renders plain text and carries no
+    #: `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
 
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the substrate at *index* via its inert `name` cell."""
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "substrate row")
 
     def click_row_by_text(self, text: str) -> None:
-        """Click the row containing *text* in any cell."""
+        """Open the substrate whose row contains *text*, via its `name` cell."""
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         for row in rows:
             if text in row.text:
-                self.scroll_and_click(row)
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row containing '{text}' not found in substrate table")
-
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
 
     # ── Search and filter ──────────────────────────────────────────────
 
     def search(self, term: str) -> None:
-        """Type *term* into the search field."""
+        """Type *term* into the search field.
+
+        Uses ``clear_and_fill`` rather than ``WebElement.clear()``: the search
+        box is a React-controlled input, where ``clear()`` empties the DOM value
+        without notifying React, so the previous term can survive and the next
+        one is appended to it. A single call happens to work; calling this twice
+        -- as the create test does when it counts before and after -- produced
+        ``E2E-TestsubstratE2E-Testsubstrat`` and therefore zero matches, which
+        looked exactly like the created row never appearing (#802).
+        """
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(term)
+        self.clear_and_fill(search_input, term)
         # debounce: bounded, justified (table-search-input has a 300ms
         # debounce before it re-filters, so callers can rely on the result
         # being settled once this method returns)
         time.sleep(0.3)
 
     def clear_search(self) -> None:
-        """Clear the search field."""
+        """Empty the search field, React state included (see ``search``)."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(Keys.BACKSPACE)
+        self.clear_and_fill(search_input, "")
 
     def has_search_chip(self) -> bool:
         """Return True if a search chip is visible."""
@@ -183,8 +187,7 @@ class SubstrateListPage(BasePage):
         from selenium.webdriver.support.ui import WebDriverWait
 
         WebDriverWait(self.driver, timeout).until(
-            lambda d: text
-            not in " ".join(cell for row in self.get_row_texts() for cell in row)
+            lambda d: text not in " ".join(cell for row in self.get_row_texts() for cell in row)
         )
 
     def fill_brand(self, value: str) -> None:
@@ -248,11 +251,11 @@ class SubstrateListPage(BasePage):
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
@@ -270,16 +273,13 @@ class SubstrateListPage(BasePage):
     # ── Private helpers ────────────────────────────────────────────────
 
     def _select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        self.close_mui_dropdown()
+        """Open an MUI Select and pick an option by its visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def get_type_options(self) -> list[str]:
         """Open the type dropdown and return all option texts.

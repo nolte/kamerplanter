@@ -94,7 +94,7 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
 
 
-def _build(tmp_path, role: TenantRole = TenantRole.ADMIN):
+def _build(tmp_path, role: TenantRole = TenantRole.LEAD):
     repo = _FakeRepo()
     adapter = LocalFsStorageAdapter(
         root=str(tmp_path),
@@ -326,7 +326,7 @@ class TestUploadSizeGuard:
         app = FastAPI()
         app.include_router(tenant_attachments_router, prefix="/api/v1/t/{tenant_slug}")
         app.add_exception_handler(KamerplanterError, _error_handler)
-        app.dependency_overrides[get_current_tenant] = lambda: _ctx(TenantRole.ADMIN)
+        app.dependency_overrides[get_current_tenant] = lambda: _ctx(TenantRole.LEAD)
         app.dependency_overrides[get_attachment_service] = lambda: service
         client = TestClient(app)
 

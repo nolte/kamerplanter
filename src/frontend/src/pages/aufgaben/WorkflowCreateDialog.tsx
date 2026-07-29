@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormActions from '@/components/form/FormActions';
@@ -104,7 +105,7 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tasks.createWorkflowIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField name="name" control={control} label={t('pages.tasks.workflowName')} required autoFocus />
           <FormTextField name="description" control={control} label={t('common.description')} multiline rows={3} />
           <FormSelectField
@@ -149,7 +150,7 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
           <FormTextField name="version" control={control} label={t('pages.tasks.version')} />
           <FormTextField name="tags" control={control} label={t('pages.tasks.tags')} helperText={t('pages.tasks.tagsHelper')} />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

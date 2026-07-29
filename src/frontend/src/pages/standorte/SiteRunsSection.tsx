@@ -129,17 +129,24 @@ export default function SiteRunsSection({ siteKey }: Props) {
           mobileCardRenderer={(r) => (
             <MobileCard
               title={r.name}
+              titleId="name"
               subtitle={r.location_key ? locationNameMap.get(r.location_key) : undefined}
-              chips={
-                <Chip
-                  label={t(`enums.plantingRunStatus.${r.status}`)}
-                  size="small"
-                  color={statusColor[r.status] ?? 'default'}
-                />
-              }
+              subtitleId="location"
+              chips={[
+                {
+                  id: 'status',
+                  content: (
+                    <Chip
+                      label={t(`enums.plantingRunStatus.${r.status}`)}
+                      size="small"
+                      color={statusColor[r.status] ?? 'default'}
+                    />
+                  ),
+                },
+              ]}
               fields={[
-                { label: t('entities.plantInstances'), value: `${r.actual_quantity} / ${r.planned_quantity}` },
-                ...(r.phase_summary?.dominant_phase ? [{ label: t('pages.plantingRuns.currentPhase'), value: r.phase_summary.dominant_phase }] : []),
+                { id: 'plants', label: t('entities.plantInstances'), value: `${r.actual_quantity} / ${r.planned_quantity}` },
+                ...(r.phase_summary?.dominant_phase ? [{ id: 'phase', label: t('pages.plantingRuns.currentPhase'), value: r.phase_summary.dominant_phase }] : []),
               ]}
             />
           )}

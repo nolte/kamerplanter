@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.common.enums import (
     HarvestIndicatorType,
@@ -45,7 +45,10 @@ class HarvestObservation(BaseModel):
 class HarvestBatch(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
-    batch_id: str = Field(default="", max_length=100)
+    # Optional user-facing lot identifier. A unique+sparse ArangoDB index enforces
+    # uniqueness only for real values, so every empty/blank input MUST normalise to
+    # ``None`` — otherwise a second unlabelled batch would collide on ``""`` (#740).
+    batch_id: str | None = Field(default=None, max_length=100)
     plant_key: str = ""
     harvest_date: datetime | None = None
     harvest_type: HarvestType = HarvestType.FINAL
@@ -59,6 +62,18 @@ class HarvestBatch(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("batch_id", mode="before")
+    @classmethod
+    def _normalize_blank_batch_id(cls, value: object) -> object:
+        """Collapse empty or whitespace-only ``batch_id`` inputs to ``None``.
+
+        Guarantees every create path persists ``null`` rather than ``""`` so the
+        unique+sparse index treats unlabelled batches as index-absent.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 
 class QualityAssessment(BaseModel):

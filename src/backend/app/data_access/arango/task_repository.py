@@ -444,8 +444,20 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         for ``(tenant_key, entity_key, reminder_type)``, or ``None`` when none
         exists. A task satisfies the reminder while it is still open
         (``PENDING``/``IN_PROGRESS``) or — when ``include_completed_today`` — was
-        completed today (the recency rule that stops a reminder confirmed earlier
-        the same day from re-materializing).
+        completed on the current **UTC** day (the recency rule that stops a
+        reminder confirmed earlier the same day from re-materializing).
+
+        **Clock: UTC, on both sides of the comparison.** ``completed_at`` is
+        always stamped with ``datetime.now(UTC)`` and persisted as an ISO string,
+        so ``LEFT(doc.completed_at, 10)`` is a *UTC* calendar date. The ``@today``
+        bind var is therefore derived from ``datetime.now(UTC).date()`` — never
+        from ``date.today()``, which is the *local server* date. The two agree
+        only on a UTC host; anywhere else they diverge for part of the day and the
+        recency rule silently evaluates the wrong day, either failing to suppress
+        a duplicate or suppressing a legitimate reminder depending on the offset
+        direction (#772). Same UTC convention as the care notification producers
+        in ``app.tasks.notification_tasks``. Pinned by
+        ``test_find_open_care_task_repo.py::test_recency_rule_uses_utc_not_local_date``.
 
         This is THE single care-task dedup predicate: the service creation paths
         (:meth:`CareReminderService._ensure_care_task`,
@@ -487,7 +499,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             "open_statuses": self._CARE_OPEN_STATUSES,
             "completed_status": TaskStatus.COMPLETED.value,
             "include_completed_today": include_completed_today,
-            "today": date.today().isoformat(),
+            # UTC, matching the UTC ``completed_at`` this is compared against.
+            # ``date.today()`` (local server date) would drift by a day (#772).
+            "today": datetime.now(UTC).date().isoformat(),
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         doc = next(cursor, None)

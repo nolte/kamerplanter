@@ -91,12 +91,31 @@ export default function CultivarListSection({ speciesKey }: Props) {
       sortable: false,
       searchable: false,
       render: (r) => (
-        <IconButton size="small" aria-label={t('common.delete')} onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
+        <IconButton
+          size="small"
+          aria-label={t('common.delete')}
+          onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+          data-testid={`cultivar-delete-${r.key}`}
+        >
           <DeleteIcon fontSize="small" />
         </IconButton>
       ),
     },
   ];
+
+  /** Row action for the mobile card view — the same delete the desktop actions
+   *  column offers. Without it a cultivar cannot be deleted below the `sm`
+   *  breakpoint at all. Touch target per UI-NFR-001 R-011 (48x48). */
+  const renderRowActions = (r: Cultivar) => (
+    <IconButton
+      aria-label={t('common.delete')}
+      onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+      sx={{ minWidth: 48, minHeight: 48 }}
+      data-testid={`cultivar-delete-${r.key}`}
+    >
+      <DeleteIcon fontSize="small" />
+    </IconButton>
+  );
 
   return (
     <Box>
@@ -118,21 +137,23 @@ export default function CultivarListSection({ speciesKey }: Props) {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
+            titleId="name"
             subtitle={r.breeder || undefined}
-            chips={
-              r.traits.length > 0 ? (
-                <>
-                  {r.traits.map((tr) => (
-                    <Chip key={tr} label={t(`enums.plantTrait.${tr}`)} size="small" variant="outlined" />
-                  ))}
-                </>
-              ) : undefined
-            }
+            subtitleId="breeder"
+            // Traits share one column, so they are keyed by position: a single
+            // `traits` id would collide across the list.
+            chips={r.traits.map((tr, i) => ({
+              id: `traits-${i}`,
+              content: (
+                <Chip key={tr} label={t(`enums.plantTrait.${tr}`)} size="small" variant="outlined" />
+              ),
+            }))}
             fields={
               r.days_to_maturity != null
-                ? [{ label: t('pages.cultivars.daysToMaturity'), value: r.days_to_maturity }]
+                ? [{ id: 'maturity', label: t('pages.cultivars.daysToMaturity'), value: r.days_to_maturity }]
                 : undefined
             }
+            trailing={renderRowActions(r)}
           />
         )}
       />

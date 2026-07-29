@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -43,12 +42,27 @@ class PlantingRunDetailPage(BasePage):
 
     # ── Edit dialog (opened via edit button) ────────────────────────────
     EDIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='edit-button']")
-    EDIT_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
-    FORM_NAME = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-name'] input")
-    FORM_NOTES = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-notes'] input")
-    FORM_PLANNED_START = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-planned_start_date'] input")
-    FORM_SUBMIT = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-submit-button']")
-    FORM_CANCEL = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-cancel-button']")
+    EDIT_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
+    FORM_NAME = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-field-name'] input",
+    )
+    FORM_NOTES = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-field-notes'] input",
+    )
+    FORM_PLANNED_START = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-field-planned_start_date'] input",
+    )
+    FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']",
+    )
+    FORM_CANCEL = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-cancel-button']",
+    )
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -75,8 +89,10 @@ class PlantingRunDetailPage(BasePage):
         """
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()
-        # The page-title inside the detail page container
-        el = self.wait_for_element(
+        # The page-title inside the detail page container. The lookup is the
+        # wait -- `get_text_stable` below re-finds the element, so binding the
+        # result served no purpose, but dropping the call would drop the wait.
+        self.wait_for_element(
             (By.CSS_SELECTOR, "[data-testid='planting-run-detail-page'] [data-testid='page-title']")
         )
         return self.get_text_stable(
@@ -126,17 +142,16 @@ class PlantingRunDetailPage(BasePage):
         return len(rows)
 
     def get_plant_rows_text(self) -> list[list[str]]:
-        """Return all cell texts for every visible plant row."""
-        rows = self.driver.find_elements(*self.PLANTS_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible plant row."""
+        return [
+            self.get_row_text_fragments(row) for row in self.driver.find_elements(*self.PLANTS_ROWS)
+        ]
 
     def is_no_plants_message_visible(self) -> bool:
         """Return True if the 'no plants yet' message is displayed (tab=1, before batch create)."""
-        elements = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'MuiTypography-root')]")
+        elements = self.driver.find_elements(
+            By.XPATH, "//*[contains(@class, 'MuiTypography-root')]"
+        )
         for el in elements:
             # The translated key pages.plantingRuns.noPlantsYet renders as a message
             if el.text and len(el.text) > 0 and el.is_displayed():
@@ -165,26 +180,26 @@ class PlantingRunDetailPage(BasePage):
 
     def click_create_plants(self) -> None:
         """Click 'Create Plants' and wait for the confirmation dialog."""
-        self.wait_for_element_clickable(self.CREATE_PLANTS_BUTTON).click()
+        self.wait_and_click(self.CREATE_PLANTS_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def click_delete(self) -> None:
         """Click 'Delete' and wait for the confirmation dialog."""
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def click_batch_remove(self) -> None:
         """Click 'Batch Remove' and wait for the confirmation dialog."""
-        self.wait_for_element_clickable(self.BATCH_REMOVE_BUTTON).click()
+        self.wait_and_click(self.BATCH_REMOVE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_action(self) -> None:
         """Click the 'Confirm' button in the open ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_action(self) -> None:
         """Click the 'Cancel' button in the open ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
         """Return True if the ConfirmDialog is currently visible."""
@@ -194,7 +209,7 @@ class PlantingRunDetailPage(BasePage):
 
     def open_edit_dialog(self) -> None:
         """Click the Edit button and wait for the edit dialog to open."""
-        self.wait_for_element_clickable(self.EDIT_BUTTON).click()
+        self.wait_and_click(self.EDIT_BUTTON)
         self.wait_for_element_visible(self.EDIT_DIALOG)
 
     def is_edit_dialog_open(self) -> bool:
@@ -220,11 +235,11 @@ class PlantingRunDetailPage(BasePage):
 
     def submit_edit_form(self) -> None:
         """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Cancel the edit form by clicking Cancel."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_edit_form_name_value(self) -> str:
         """Return the current value in the edit form Name field."""
@@ -235,9 +250,7 @@ class PlantingRunDetailPage(BasePage):
 
     def is_error_displayed(self) -> bool:
         """Return True if an error display component is visible."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='error-display']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-display']")
         return len(elements) > 0 and elements[0].is_displayed()
 
     def is_page_rendered(self) -> bool:

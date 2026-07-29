@@ -56,6 +56,7 @@ import { useOriginProtection } from '@/hooks/useOriginProtection';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -575,7 +576,7 @@ export default function WorkflowDetailPage() {
         title={workflow.name}
         meta={<OriginChip isSystem={workflow.is_system} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-015: copy-as-template for system workflows.
                 AP-12 (FE-L1): the copy endpoint is not implemented yet, so this
                 is an honestly disabled button with an explanatory tooltip — never
@@ -597,7 +598,15 @@ export default function WorkflowDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={workflow.name}
+      >
         <Tab label={t('pages.tasks.tabDetails')} />
         <Tab label={t('pages.tasks.taskTemplates')} />
         <Tab label={t('common.edit')} />
@@ -1216,7 +1225,7 @@ export default function WorkflowDetailPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.tasks.sectionWorkflowDesc')}
               </Typography>
-              <form onSubmit={handleSubmit(onSave)}>
+              <Form onSubmit={handleSubmit(onSave)}>
                 <FormTextField name="name" control={control} label={t('pages.tasks.workflowName')} required autoFocus />
                 <FormTextField name="description" control={control} label={t('common.description')} multiline rows={3} />
                 <FormTextField name="version" control={control} label={t('pages.tasks.version')} />
@@ -1340,7 +1349,7 @@ export default function WorkflowDetailPage() {
                     {t('common.origin.readOnlyHint')}
                   </Typography>
                 )}
-              </form>
+              </Form>
             </CardContent>
           </Card>
 

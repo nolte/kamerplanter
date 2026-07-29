@@ -57,7 +57,7 @@ class TestBotanicalFamilyEnumTranslations:
     def test_botanical_family_enums_in_german(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-093: Enum values in botanical family table are displayed in German.
+        """TC-001-053: Enum values in botanical family table are displayed in German.
 
         Spec: TC-001-053 -- i18n — Deutsche und englische Familiennamen werden korrekt angezeigt.
         """
@@ -81,9 +81,9 @@ class TestBotanicalFamilyEnumTranslations:
         # Only check enum-specific columns (indices 2, 3, 4) to avoid
         # false positives from names, descriptions or other text columns.
         raw_english_enums_by_column: dict[int, set[str]] = {
-            2: {"light", "medium", "heavy"},         # nutrient demand
+            2: {"light", "medium", "heavy"},  # nutrient demand
             3: {"sensitive", "moderate", "very_hardy"},  # frost tolerance
-            4: {"shallow", "deep"},                   # root depth
+            4: {"shallow", "deep"},  # root depth
         }
         # Note: "hardy" is excluded because DE translation is also "Hardy"
         # (same word in both languages). "medium" in column 4 (root depth)
@@ -109,7 +109,7 @@ class TestSpeciesEnumTranslations:
     def test_species_enums_in_german(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-094: Growth habit and root type enums in German.
+        """TC-001-053: Growth habit and root type enums in German.
 
         Spec: TC-001-053 -- i18n — Wuchsform- und Wurzeltyp-Enums in deutscher Uebersetzung.
         """
@@ -120,14 +120,28 @@ class TestSpeciesEnumTranslations:
 
         screenshot("TC-REQ-001-094_species-table", "Species table with enum columns")
 
+        # The enum scan below is only meaningful while the two columns it is
+        # named after are actually rendered: drop them from the table and every
+        # assertion still passes, vacuously (#802).
         headers = species_list.get_column_headers()
+        for expected in ("Wuchsform", "Wurzeltyp"):
+            assert any(expected in h for h in headers), (
+                f"TC-REQ-001-094 FAIL: Expected a '{expected}' column so the enum check has "
+                f"something to inspect, got: {headers}"
+            )
 
-        # Find growth habit and root type columns
         rows = species_list.get_row_texts()
 
         raw_english_enums = {
-            "herb", "shrub", "tree", "vine", "ground_cover",  # growth habit
-            "fibrous", "taproot", "tuberous", "bulb",  # root type
+            "herb",
+            "shrub",
+            "tree",
+            "vine",
+            "ground_cover",  # growth habit
+            "fibrous",
+            "taproot",
+            "tuberous",
+            "bulb",  # root type
         }
 
         for row in rows:
@@ -145,10 +159,12 @@ class TestCultivarTraitTranslations:
 
     @pytest.mark.smoke
     def test_cultivar_traits_in_german(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-095: Cultivar trait chips show German translations.
+        """TC-001-053: Cultivar trait chips show German translations.
 
         Spec: TC-001-053 -- i18n — Cultivar-Trait-Chips zeigen deutsche Uebersetzungen.
         """
@@ -171,8 +187,12 @@ class TestCultivarTraitTranslations:
         chips = species_detail.get_trait_chip_texts()
 
         raw_trait_keys = {
-            "disease_resistant", "high_yield", "compact",
-            "heat_tolerant", "cold_tolerant", "pest_resistant",
+            "disease_resistant",
+            "high_yield",
+            "compact",
+            "heat_tolerant",
+            "cold_tolerant",
+            "pest_resistant",
             "drought_tolerant",
         }
 

@@ -83,10 +83,16 @@ export default function TankListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
-            chips={<Chip label={t(`enums.tankType.${r.tank_type}`)} size="small" />}
+            titleId="name"
+            chips={[
+              {
+                id: 'tankType',
+                content: <Chip label={t(`enums.tankType.${r.tank_type}`)} size="small" />,
+              },
+            ]}
             fields={[
-              { label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
-              { label: t('pages.tanks.material'), value: t(`enums.tankMaterial.${r.material}`) },
+              { id: 'volume', label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
+              { id: 'material', label: t('pages.tanks.material'), value: t(`enums.tankMaterial.${r.material}`) },
             ]}
           />
         )}

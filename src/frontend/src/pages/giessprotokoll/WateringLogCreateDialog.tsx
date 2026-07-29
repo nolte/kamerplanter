@@ -20,6 +20,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -222,7 +223,7 @@ export default function WateringLogCreateDialog({
             {channelPreset.targetPh != null && ` — pH: ${channelPreset.targetPh}`}
           </Alert>
         )}
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           {/* Section: Basics */}
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 0.5 }}>
             {t('pages.wateringLogs.sectionBasics')}
@@ -491,7 +492,7 @@ export default function WateringLogCreateDialog({
             loading={saving}
             saveLabel={t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

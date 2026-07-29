@@ -85,6 +85,9 @@ More on pre-harvest intervals: [Integrated Pest Management (IPM)](pest-managemen
 !!! warning "Batch ID already taken"
     If you enter a Batch ID yourself that already exists, Kamerplanter rejects the creation: you see a hint directly on the field plus an error message, and the batch is not saved. Choose a different identifier, or leave the field empty so a unique ID is assigned automatically.
 
+!!! note "Older batches without any identifier"
+    Batches created before automatic ID assignment may carry no Batch ID at all. The batch overview shows an em dash ("—") for them, and the detail page uses the generic heading **Harvest Batch** instead of an identifier. The identifier cannot be added afterwards — the edit tab has no field for it. The uniqueness check only applies to identifiers that are actually set, so any number of batches may coexist without a Batch ID. <!-- REQ-007 -->
+
 **Harvest types:**
 
 - **Full harvest**: The entire plant is harvested at once.

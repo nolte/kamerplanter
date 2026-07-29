@@ -52,7 +52,10 @@ class SubstrateDetailPage(BasePage):
     BATCH_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── Alert banner ───────────────────────────────────────────────────
-    ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Scoped to the page root: an unscoped ``.MuiAlert-root`` also matches
+    # MainLayout's light-mode warning banner, which renders as a sibling of
+    # this page's root, not a descendant. See #778 A11.
+    ALERTS = (By.CSS_SELECTOR, "[data-testid='substrate-detail-page'] .MuiAlert-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -95,9 +98,7 @@ class SubstrateDetailPage(BasePage):
         """Return the current pH base value."""
         return self.get_field_value("ph_base")
 
-    def wait_for_field_value(
-        self, field_name: str, expected_value: str, timeout: int = 15
-    ) -> str:
+    def wait_for_field_value(self, field_name: str, expected_value: str, timeout: int = 15) -> str:
         """Wait until field *field_name* holds *expected_value* (post-save reload).
 
         Returns the field's value once the condition is met.
@@ -106,8 +107,7 @@ class SubstrateDetailPage(BasePage):
 
         locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
         WebDriverWait(self.driver, timeout).until(
-            lambda d: (d.find_element(*locator).get_attribute("value") or "")
-            == expected_value
+            lambda d: (d.find_element(*locator).get_attribute("value") or "") == expected_value
         )
         return self.get_field_value(field_name)
 
@@ -209,12 +209,12 @@ class SubstrateDetailPage(BasePage):
         self.scroll_and_click(el)
 
     def submit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
         """Cancel the edit form (navigates back)."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     # ── Delete ─────────────────────────────────────────────────────────
 
@@ -226,11 +226,11 @@ class SubstrateDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Confirm deletion in the ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Cancel the delete confirmation dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
@@ -257,8 +257,7 @@ class SubstrateDetailPage(BasePage):
         error_locator = (By.CSS_SELECTOR, "[data-testid='error-display']")
         WebDriverWait(self.driver, timeout).until(
             lambda d: (
-                len(d.find_elements(*error_locator)) > 0
-                or len(d.find_elements(*self.PAGE)) > 0
+                len(d.find_elements(*error_locator)) > 0 or len(d.find_elements(*self.PAGE)) > 0
             )
         )
 
@@ -280,13 +279,10 @@ class SubstrateDetailPage(BasePage):
     # ── Private helpers ────────────────────────────────────────────────
 
     def _select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        self.close_mui_dropdown()
+        """Open an MUI Select and pick an option by its visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)

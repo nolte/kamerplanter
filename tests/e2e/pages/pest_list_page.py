@@ -30,7 +30,7 @@ class PestListPage(BasePage):
     NO_RESULTS = (By.CSS_SELECTOR, "[data-testid='no-results']")
 
     # -- Create dialog locators -----------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # -- Create form field locators -------------------------------------------
     FORM_SCIENTIFIC_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-scientific_name'] input")
@@ -73,15 +73,18 @@ class PestListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (PestListPage `columns`).
+    NAME_COLUMN_ID = "scientificName"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the scientific name of every visible row.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        conditionally rendered recognition-chip column when pest recognition is
+        available, and below the DataTable's mobile breakpoint there is no
+        ``<td>`` at all (MobileCard layout).
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -89,62 +92,44 @@ class PestListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
+
+    #: Column the row is activated through: `scientificName` renders
+    #: `r.scientific_name` as plain text, is the first column and carries no
+    #: `hideBelowBreakpoint`. Not the row centre — that is a viewport-dependent
+    #: bet on which cell the row's midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
 
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the pest at *index* via its inert scientific-name cell."""
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "pest row")
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
+    #: Chip-carrying column ids (PestListPage `columns`).
+    PEST_TYPE_COLUMN_ID = "pestType"
+    DIFFICULTY_COLUMN_ID = "detectionDifficulty"
 
-    def get_chip_texts_in_column(self, col_index: int) -> list[str]:
-        """Return the chip label texts for a given column index across all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) > col_index:
-                chips = cells[col_index].find_elements(By.CSS_SELECTOR, ".MuiChip-label")
-                for chip in chips:
-                    texts.append(chip.text)
-        return texts
+    #: Recognition-availability column (REQ-044), only rendered while pest
+    #: detection is enabled. Readable through the column helpers below in both
+    #: layouts: the desktop chip sits inside ``cell-recognition`` and carries
+    #: `PestListPage`'s own ``data-testid='recognition-chip'``, the card chip
+    #: is keyed ``card-chip-recognition``.
+    RECOGNITION_COLUMN_ID = "recognition"
 
-    def get_chip_colors_in_column(self, col_index: int) -> list[str]:
-        """Return the MUI chip color class names for a given column index.
+    def get_chip_texts_in_column(self, col_id: str) -> list[str]:
+        """Return the chip labels of column *col_id* across all visible rows.
 
-        Returns class fragments like 'success', 'warning', 'error' based on
-        MUI Chip's ``color*`` CSS classes (e.g. ``MuiChip-colorSuccess``).
+        Takes a column *id* rather than a column *index* and resolves it in
+        both layouts (``cell-<id>`` / ``card-chip-<id>``): the pest table's
+        column set is conditional (the recognition column only exists while
+        pest detection is enabled), and the mobile card layout has no columns
+        at all -- an index-based reader silently returned ``[]`` there.
         """
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        colors = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) > col_index:
-                chips = cells[col_index].find_elements(By.CSS_SELECTOR, ".MuiChip-root")
-                for chip in chips:
-                    cls = chip.get_attribute("class") or ""
-                    for color in ("success", "warning", "error", "info", "secondary", "primary", "default"):
-                        if f"MuiChip-color{color.capitalize()}" in cls:
-                            colors.append(color)
-                            break
-                    else:
-                        colors.append("default")
-        return colors
+        return self.get_column_chip_texts(col_id)
+
+    def get_chip_colors_in_column(self, col_id: str) -> list[str]:
+        """Return the MUI palette name of column *col_id*'s chips (e.g. 'success')."""
+        return self.get_column_chip_colors(col_id)
 
     # -- Search and filter ----------------------------------------------------
 
@@ -232,19 +217,24 @@ class PestListPage(BasePage):
         el.send_keys(text)
 
     def submit_create_form(self) -> None:
-        """Submit the create form via JS dispatch on the form element.
+        """Submit the create form by clicking its submit button.
 
-        Clicking the submit button in Selenium Grid does not reliably trigger the
-        native form submit event in React 19 + MUI v7.  Dispatching the event
-        directly ensures react-hook-form's handleSubmit is invoked.
+        The predecessor bypassed the button entirely, dispatching a raw
+        ``submit`` Event straight onto ``.MuiDialog-root [role='dialog'] form``
+        -- guarded by ``if (form) { … }`` with no ``else``, so a form that was
+        not found made this a *silent no-op reporting success* (`e2e-test-
+        stability` §D), and a broken or permanently-disabled submit button
+        would never be noticed, since the button was never touched.
+
+        ``wait_and_click_coordinate_free`` clicks the *actual* button via a JS
+        ``click()`` dispatched on the resolved element rather than at native
+        pointer coordinates -- sound for a ``<button type='submit'>`` (see
+        ``BasePage.click_coordinate_free``), so it still reliably triggers
+        react-hook-form's ``handleSubmit`` under Selenium Grid, and it raises
+        loudly (``TimeoutException``) if the button never becomes clickable,
+        and again if it is disabled.
         """
-        self.driver.execute_script(
-            "var form = document.querySelector(\"div[role='dialog'] form\");"
-            "if (form) {"
-            "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
-            "  form.dispatchEvent(ev);"
-            "}"
-        )
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def wait_for_dialog_closed(self, timeout: int = 15) -> None:
         """Wait until the create dialog is no longer in the DOM."""
@@ -300,22 +290,38 @@ class PestListPage(BasePage):
         Fallback check for tests where the exact field emitting the error is
         uncertain (e.g. `has_validation_error` looked at the wrong field id).
         """
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error",
+                )
+            )
+            > 0
+        )
 
     def field_has_aria_invalid(self, field_name: str) -> bool:
         """Return True if the input for *field_name* carries ``aria-invalid='true'``."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR,
-            f"div[role='dialog'] [data-testid='form-field-{field_name}'] input[aria-invalid='true']",
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input[aria-invalid='true']",
+                )
+            )
+            > 0
+        )
 
     def has_any_aria_invalid_in_dialog(self) -> bool:
         """Return True if any input in the open dialog carries ``aria-invalid='true'``."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] input[aria-invalid='true']"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] input[aria-invalid='true']"
+                )
+            )
+            > 0
+        )
 
     def get_field_debug_state(self, field_name: str) -> tuple[str, str]:
         """Return ``(value, aria-invalid)`` for *field_name*'s input — for failure messages.
@@ -323,7 +329,8 @@ class PestListPage(BasePage):
         Returns ``("NOT FOUND: <field_name>", "N/A")`` if the field is absent.
         """
         elements = self.driver.find_elements(
-            By.CSS_SELECTOR, f"div[role='dialog'] [data-testid='form-field-{field_name}'] input"
+            By.CSS_SELECTOR,
+            f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input",
         )
         if not elements:
             return f"NOT FOUND: form-field-{field_name}", "N/A"
@@ -333,21 +340,10 @@ class PestListPage(BasePage):
     # -- Internal helpers -----------------------------------------------------
 
     def _select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        import time
+        """Open an MUI Select and pick an option by its visible text.
 
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)

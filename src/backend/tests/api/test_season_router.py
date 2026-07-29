@@ -93,7 +93,7 @@ class _SiteRepoStub:
 
 
 def _ctx() -> TenantContext:
-    return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_anna", role=TenantRole.ADMIN)
+    return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_anna", role=TenantRole.LEAD)
 
 
 def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:

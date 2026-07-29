@@ -20,7 +20,7 @@ class AccountSettingsPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
     TABS = (By.CSS_SELECTOR, ".MuiTabs-root")
     TAB_BUTTONS = (By.CSS_SELECTOR, ".MuiTab-root")
-    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardError")
+    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
 
     # ── Profile tab locators ────────────────────────────────────────────
     DISPLAY_NAME_INPUT = (By.CSS_SELECTOR, "[data-testid='profile-display-name'] input")
@@ -33,6 +33,16 @@ class AccountSettingsPage(BasePage):
     CURRENT_PASSWORD_INPUT = (By.CSS_SELECTOR, "[data-testid='current-password-field'] input")
     NEW_PASSWORD_INPUT = (By.CSS_SELECTOR, "[data-testid='new-password-field'] input")
     CHANGE_PASSWORD_BUTTON = (By.CSS_SELECTOR, "[data-testid='change-password-btn']")
+    #: The linked-provider list is the page's only `List`/`ListItemText`
+    #: (`AccountSettingsPage.tsx:714`), so the page hook scopes it exactly.
+    #: Unscoped, `.MuiListItemText-primary` also matched every Sidebar nav
+    #: label -- those are `ListItemText`s too, mounted in the same DOM and
+    #: displayed at >= `md` -- which inflated the provider list to the whole
+    #: navigation.
+    PROVIDER_NAMES = (
+        By.CSS_SELECTOR,
+        "[data-testid='account-settings-page'] .MuiListItemText-primary",
+    )
 
     # ── Experience tab locators ─────────────────────────────────────────
     EXPERIENCE_BEGINNER = (By.CSS_SELECTOR, "[data-testid='experience-toggle-beginner']")
@@ -86,8 +96,7 @@ class AccountSettingsPage(BasePage):
     def click_tab_by_index(self, index: int) -> None:
         """Click a tab by its zero-based index."""
         tabs = self.driver.find_elements(*self.TAB_BUTTONS)
-        if index < len(tabs):
-            self.scroll_and_click(tabs[index])
+        self.scroll_and_click(self.require_index(tabs, index, "account settings tab"))
 
     # ── Profile tab ─────────────────────────────────────────────────────
 
@@ -153,15 +162,19 @@ class AccountSettingsPage(BasePage):
         return btn.is_enabled()
 
     def get_linked_providers(self) -> list[str]:
-        """Return the list of linked auth provider names."""
-        items = self.driver.find_elements(By.CSS_SELECTOR, ".MuiListItemText-primary")
+        """Return the list of linked auth provider names.
+
+        Scoped to the page's own subtree (see :attr:`PROVIDER_NAMES`): the
+        unscoped read returned the Sidebar's nav labels as well, so
+        "at least one provider is listed" held on the navigation alone and the
+        ``len(providers) <= 1`` branch of TC-REQ-023-029 could never be taken.
+        """
+        items = self.driver.find_elements(*self.PROVIDER_NAMES)
         return [item.text for item in items if item.is_displayed()]
 
     def get_unlink_buttons(self) -> list[WebElement]:
         """Return all unlink-provider buttons."""
-        return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='unlink-provider-']"
-        )
+        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='unlink-provider-']")
 
     # ── Snackbar helpers ────────────────────────────────────────────────
 

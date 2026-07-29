@@ -588,6 +588,22 @@ These variables control the thresholds of the automatic season/overwintering det
 
 ---
 
+## Error Tracking (optional)
+
+Reports runtime failures to a Sentry-protocol-compatible tracker (reference: GlitchTip). **With `SENTRY_DSN` empty nothing happens** — the SDK is never initialised and the frontend does not even download its SDK bundle. Full detail: [Error tracking](../deployment/fehler-tracking.md).
+
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `SENTRY_DSN` | — (empty) | No | The tracker's ingest URL, shaped `https://<public-key>@host/<project-id>`. Carries only a public key, not a secret. Empty = off. |
+| `SENTRY_ENVIRONMENT` | `development` | No | Stage from the closed vocabulary `development`, `e2e`, `staging`, `production`. Alert rules filter on these exact values; a deviating value still reports but is logged. |
+| `SENTRY_RELEASE` | component + version | No | Image tag or commit SHA. Without it, regression detection and "which deploy introduced this" attribution are impossible. |
+| `SENTRY_SAMPLE_RATE` | `1.0` | No | Fraction of events reported (0–1). `1.0` is a deliberate decision for this volume, not an untouched default. Unparseable values fall back to `1.0`. |
+
+All four apply to the backend, Celery worker and beat, the inference and knowledge services, and the frontend. In the frontend they are injected at runtime via `runtime-config.js` rather than baked into the build — one image serves every stage.
+
+!!! danger "Self-hosted tracker: do not forget the NetworkPolicy"
+    On Kubernetes the backend's egress rule excludes the private address ranges. A tracker in your own cluster or LAN therefore needs an additional egress rule — otherwise events are dropped silently.
+
 ## Complete .env Example
 
 ```bash

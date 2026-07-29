@@ -19,6 +19,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import AccountSettingsPage, LoginPage
+from ._auth_helpers import clear_auth_session
 
 pytestmark = pytest.mark.requires_auth
 
@@ -44,7 +45,7 @@ def account_page(browser: WebDriver, base_url: str) -> AccountSettingsPage:
 
 def _ensure_logged_in(login_page: LoginPage) -> None:
     """Log in as demo user if not already authenticated."""
-    login_page.driver.delete_all_cookies()
+    clear_auth_session(login_page.driver)
     login_page.open()
     login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
     login_page.wait_for_url_contains("/dashboard")
@@ -64,7 +65,7 @@ class TestAccountSettingsProfile:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-024: Profile tab shows display name, email, and tabs.
+        """TC-023-026: Profile tab shows display name, email, and tabs.
 
         Spec: TC-023-026 -- Profil anzeigen (Happy Path).
         """
@@ -84,9 +85,7 @@ class TestAccountSettingsProfile:
         )
 
         display_name = account_page.get_display_name()
-        assert display_name, (
-            "TC-REQ-023-024 FAIL: Expected display name to be prefilled"
-        )
+        assert display_name, "TC-REQ-023-024 FAIL: Expected display name to be prefilled"
 
         email = account_page.get_email()
         assert email == DEMO_EMAIL, (
@@ -104,7 +103,7 @@ class TestAccountSettingsProfile:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-025: Update display name and save.
+        """TC-023-027: Update display name and save.
 
         Spec: TC-023-027 -- Anzeigename aendern und speichern.
         """
@@ -150,7 +149,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-026: Security tab shows password change fields for local account.
+        """TC-023-029: Security tab shows password change fields for local account.
 
         Spec: TC-023-029 -- Passwort aendern (lokales Passwort vorhanden).
         """
@@ -173,7 +172,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-027: Change-password button is disabled when fields are empty.
+        """TC-023-029: Change-password button is disabled when fields are empty.
 
         Spec: TC-023-029 -- Passwort aendern Button disabled.
         """
@@ -196,7 +195,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-028: Linked auth providers are displayed in the security tab.
+        """TC-023-032: Linked auth providers are displayed in the security tab.
 
         Spec: TC-023-032 -- Verknuepfte Auth-Provider anzeigen.
         """
@@ -223,7 +222,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-029: Unlink button is not shown when only one provider exists.
+        """TC-023-033: Unlink button is not shown when only one provider exists.
 
         Spec: TC-023-033 -- Letzten Auth-Provider entfernen -- verhindert.
         """
@@ -257,7 +256,7 @@ class TestAccountSettingsTabs:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-030: Tabs in account settings are clickable and switch content.
+        """TC-023-026: Tabs in account settings are clickable and switch content.
 
         Spec: TC-023-026 -- Profil anzeigen -- Tab-Navigation.
         """
@@ -272,7 +271,9 @@ class TestAccountSettingsTabs:
 
         expected_tabs = ["Profil", "Sicherheit", "Benachrichtigungen", "Erfahrung"]
         for expected in expected_tabs:
-            assert any(expected in label for label in tab_labels), (
+            # Case-insensitive: MUI tabs render with text-transform uppercase,
+            # and Selenium's element.text returns the rendered (upper-cased) text.
+            assert any(expected.upper() in label.upper() for label in tab_labels), (
                 f"TC-REQ-023-030 FAIL: Expected tab '{expected}' in tab list, got: {tab_labels}"
             )
 

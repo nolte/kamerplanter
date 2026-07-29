@@ -53,34 +53,63 @@ class PlantInstanceListExt(BasePage):
     def has_empty_state(self) -> bool:
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
-    def get_first_column_texts(self) -> list[str]:
-        """Return the Instance-ID column for all visible rows.
+    #: Column id of the identifying column (PlantInstanceListPage `columns`).
+    INSTANCE_ID_COLUMN_ID = "instanceId"
+    #: Column id carrying the current-phase chip.
+    PHASE_COLUMN_ID = "currentPhase"
 
-        A leading cover-photo column (empty text) was inserted at index 0, so the
-        Instance-ID is now the second column (index 1).
+    def get_first_column_texts(self) -> list[str]:
+        """Return each visible row's identifying text.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        cover-photo column (empty text) and the mobile card layout has no
+        ``<td>`` at all. In the card layout this resolves to the card title,
+        i.e. the plant's display name (the instance id is only the subtitle when
+        it differs) -- both callers use it as an identifying string, not as an
+        exact instance id.
         """
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result: list[str] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) >= 2:
-                result.append(cells[1].text)
-        return result
+        return self.get_column_texts(self.INSTANCE_ID_COLUMN_ID)
 
     def get_phase_column_texts(self) -> list[str]:
-        """Return the current-phase chip text for all visible rows (column index 3)."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
+        """Return each visible row's current-phase label.
+
+        Addressed by column id in both layouts: the previous ``cells[3]`` read
+        the *location* column, so TC-REQ-003-005 asserted on the wrong column
+        on the desktop table and on nothing at all in the mobile card layout.
+
+        `PlantInstanceListPage` keys its card chips, so the card layout reads
+        ``card-chip-currentPhase`` -- the same column id the desktop cell uses.
+        The previous "the phase chip is the row's *first* chip" heuristic held
+        only as long as the phase chip stayed conditional-but-first; it would
+        have reported the planting-run chip for any plant without a phase.
+        `MobileCard` omits the chip entirely in that case, which this reports
+        as the empty string, exactly as the desktop cell does.
+        """
         result: list[str] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) >= 4:
-                result.append(cells[3].text)
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            cells = row.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='cell-{self.PHASE_COLUMN_ID}']"
+            )
+            if cells:
+                result.append(cells[0].text)
+                continue
+            chips = row.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='card-chip-{self.PHASE_COLUMN_ID}']"
+            )
+            result.append(chips[0].text if chips else "")
         return result
 
+    #: Column the row is activated through -- see `PlantInstanceListPage`: the
+    #: row carries location/planting-run links and an actions button, all of
+    #: which `stopPropagation`, so the row's geometric centre is not a safe
+    #: target. `instanceId` is inert at every breakpoint.
+    ROW_CLICK_COLUMN_ID = INSTANCE_ID_COLUMN_ID
+
     def click_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the plant instance at *index* via its inert id cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "plant instance row"
+        )
 
     def search(self, term: str) -> None:
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
@@ -93,20 +122,8 @@ class PlantInstanceListExt(BasePage):
     def has_sort_chip(self) -> bool:
         return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
 
-    def click_column_header(self, header_text: str) -> None:
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
-
     def get_column_headers(self) -> list[str]:
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     def click_reset_filters(self) -> None:
@@ -148,12 +165,27 @@ class PlantInstanceDetailExt(BasePage):
     # container — PhaseHistoryTable now delegates to the shared DataTable, which
     # renders [data-testid='data-table'] with [data-testid='data-table-row'] rows.
     # Scope to the phases-tab-content panel so these don't match other tables.
-    PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table']")
-    PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table-row']")
+    PHASE_HISTORY = (
+        By.CSS_SELECTOR,
+        "[data-testid='phases-tab-content'] [data-testid='data-table']",
+    )
+    PHASE_HISTORY_ROWS = (
+        By.CSS_SELECTOR,
+        "[data-testid='phases-tab-content'] [data-testid='data-table-row']",
+    )
 
     # ── Phase Transition Dialog (PhaseTransitionDialog.tsx) ────────────
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
+    #: Root of the target-phase ``<TextField select>``. MUI spreads the testid
+    #: onto the FormControl **root** (label + input + helper text), so this is a
+    #: presence/visibility locator only -- never click it: at 393px the helper
+    #: text wraps to two lines, the root grows to 83px and its click centre
+    #: (41.5px) lands 1.5px BELOW the 40px input, on the helper ``<p>``. That
+    #: ``<p>`` is a descendant of the clicked root, so Chrome raises no
+    #: interception and the click is a silent no-op. Open it via
+    #: :meth:`open_target_phase_select`, which resolves the combobox.
     TARGET_PHASE_SELECT = (By.CSS_SELECTOR, "[data-testid='target-phase-select']")
+    TARGET_PHASE_SELECT_TESTID = "target-phase-select"
     TRANSITION_REASON = (By.CSS_SELECTOR, "[data-testid='transition-reason'] input")
     TRANSITION_CANCEL = (By.CSS_SELECTOR, "[data-testid='transition-cancel']")
     TRANSITION_CONFIRM = (By.CSS_SELECTOR, "[data-testid='transition-confirm']")
@@ -196,6 +228,7 @@ class PlantInstanceDetailExt(BasePage):
     def _wait_for_skeleton_gone(self, timeout: int = 15) -> None:
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SKELETON)
         )
@@ -252,7 +285,7 @@ class PlantInstanceDetailExt(BasePage):
 
     def initiate_phase_transition(self) -> None:
         """Click the 'Phasenübergang' button and wait for the dialog to open."""
-        self.wait_for_element_clickable(self.TRANSITION_BUTTON).click()
+        self.wait_and_click(self.TRANSITION_BUTTON)
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def is_transition_dialog_open(self) -> bool:
@@ -265,41 +298,44 @@ class PlantInstanceDetailExt(BasePage):
                 continue
         return False
 
+    def open_target_phase_select(self) -> None:
+        """Open the target-phase dropdown (combobox-scoped, verified, loud)."""
+        self.open_select_by_testid(self.TARGET_PHASE_SELECT_TESTID)
+
     def get_target_phase_options(self) -> list[str]:
         """Return the text of all available phase options in the select.
 
         Opens the MUI Select, collects option texts, then closes without selecting.
         """
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
+        self.open_target_phase_select()
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         texts = [o.text for o in options if o.is_displayed()]
-        # Close the dropdown by pressing Escape
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        # Close the dropdown (guarded: waits for auto-close, only ESCapes if
+        # still open, then waits for the popover to actually disappear).
+        self.close_mui_dropdown()
         return texts
 
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase by its data-value attribute."""
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
-        )
-        option.click()
+        self.open_target_phase_select()
+        option = self.wait_for_element_clickable((By.CSS_SELECTOR, f"li[data-value='{phase_key}']"))
+        # click_menu_option, not a coordinate click: a long phase list scrolls
+        # inside the popover, and `Menu` scrolls that paper to the selected item
+        # on open -- which moves every option after `element_to_be_clickable` is
+        # already satisfied, so a click resolved at coordinates picks a
+        # neighbour.
+        self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 
     def select_target_phase_by_text(self, text: str) -> None:
-        """Select a target phase by its visible label text."""
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{text}')]")
-        )
-        option.click()
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Select a target phase by its visible label text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_target_phase_select()
+        self.select_option_by_label(text)
 
     def set_transition_reason(self, reason: str) -> None:
         # The reason field is pre-populated with 'manual' by default; el.clear()
@@ -314,11 +350,11 @@ class PlantInstanceDetailExt(BasePage):
 
     def confirm_transition(self) -> None:
         """Click the 'Bestätigen' button to execute the phase transition."""
-        self.wait_for_element_clickable(self.TRANSITION_CONFIRM).click()
+        self.wait_and_click(self.TRANSITION_CONFIRM)
 
     def cancel_transition(self) -> None:
         """Click the 'Abbrechen' button and wait for the transition dialog to close."""
-        self.wait_for_element_clickable(self.TRANSITION_CANCEL).click()
+        self.wait_and_click(self.TRANSITION_CANCEL)
         self.wait_for_element_hidden(self.TRANSITION_DIALOG)
 
     def is_confirm_button_enabled(self) -> bool:
@@ -329,14 +365,14 @@ class PlantInstanceDetailExt(BasePage):
 
     def initiate_remove(self) -> None:
         """Click the 'Entfernen' button and wait for the confirm dialog."""
-        self.wait_for_element_clickable(self.REMOVE_BUTTON).click()
+        self.wait_and_click(self.REMOVE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_remove(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_OK).click()
+        self.wait_and_click(self.CONFIRM_OK)
 
     def cancel_remove(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL_BTN).click()
+        self.wait_and_click(self.CONFIRM_CANCEL_BTN)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:
@@ -360,16 +396,10 @@ class PlantInstanceDetailExt(BasePage):
         or backward (earlier index) without hard-coding species-specific
         phase names.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
-
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
-        try:
-            WebDriverWait(self.driver, 5).until(
-                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
-            )
-        except Exception:
-            pass
+        # open_select_by_testid waits for the dropdown to actually open and
+        # raises when it does not -- so no silent ``except: pass`` around the
+        # option wait, and no empty option list reported as "no phases".
+        self.open_target_phase_select()
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         keys = [o.get_attribute("data-value") or "" for o in options]
         self.close_mui_dropdown()
@@ -411,9 +441,7 @@ class PlantInstanceDetailExt(BasePage):
     def open_phases_tab(self) -> None:
         """Click the 'Phasen' tab and wait for its content."""
         self.wait_for_element_clickable(self.PHASES_TAB).click()
-        self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "[data-testid='phases-tab-content']")
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, "[data-testid='phases-tab-content']"))
 
     def open_tasks_tab(self) -> None:
         """Click the 'Aufgaben' (task history) tab."""
@@ -437,5 +465,13 @@ class PlantInstanceDetailExt(BasePage):
         self.clear_and_fill(el, name)
 
     def submit_edit(self) -> None:
-        """Submit the edit form (Speichern)."""
-        self.scroll_and_click(self.wait_for_element_clickable(self.EDIT_SUBMIT))
+        """Submit the edit form (Speichern), coordinate-free.
+
+        The plant-instance edit tab is a long *in-page* form, not a dialog, so
+        its action row is scroll-clamped against the bottom of the document --
+        the documented exception in `BasePage.wait_and_click`, where a
+        coordinate dispatch lands next to the button and nothing raises (the
+        same mechanism that took out `TaskDetailPage.save_edit` on the mobile
+        profile, run 20260725_113337).
+        """
+        self.wait_and_click_coordinate_free(self.EDIT_SUBMIT)

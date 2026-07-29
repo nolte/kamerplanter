@@ -8,10 +8,10 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
@@ -123,7 +123,7 @@ export default function PlantingRunEditDialog({
       aria-labelledby="planting-run-edit-dialog-title">
       <DialogTitle id="planting-run-edit-dialog-title">{t('pages.plantingRuns.editTitle')}</DialogTitle>
       <DialogContent>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+        <Form onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.plantingRuns.editDesc')}
           </Typography>
@@ -179,7 +179,7 @@ export default function PlantingRunEditDialog({
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={onClose} loading={saving} />
-        </Box>
+        </Form>
       </DialogContent>
     </Dialog>
   );

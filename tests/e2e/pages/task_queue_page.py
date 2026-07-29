@@ -52,7 +52,7 @@ class TaskQueuePage(BasePage):
     TASK_SECTION_FUTURE = (By.CSS_SELECTOR, "[data-testid='task-section-future']")
 
     # ── Create dialog (MUI Dialog) ─────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # ── Snackbar (notistack) ───────────────────────────────────────────
     SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")
@@ -84,9 +84,7 @@ class TaskQueuePage(BasePage):
 
     def get_task_card_by_key(self, key: str) -> WebElement:
         """Return the task card element for a specific task key."""
-        return self.wait_for_element(
-            (By.CSS_SELECTOR, f"[data-testid='task-card-{key}']")
-        )
+        return self.wait_for_element((By.CSS_SELECTOR, f"[data-testid='task-card-{key}']"))
 
     def click_task_card(self, key: str) -> None:
         """Click a task card to navigate to its detail page."""
@@ -100,9 +98,7 @@ class TaskQueuePage(BasePage):
 
     def get_task_keys(self) -> list[str]:
         """Return a list of task keys from the visible task-card-{key} elements."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='task-card-']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='task-card-']")
         keys = []
         for el in elements:
             testid = el.get_attribute("data-testid") or ""
@@ -133,9 +129,7 @@ class TaskQueuePage(BasePage):
 
     def skip_task(self, key: str) -> None:
         """Click the skip button on a task card."""
-        btn = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='skip-task-{key}']")
-        )
+        btn = self.wait_for_element_clickable((By.CSS_SELECTOR, f"[data-testid='skip-task-{key}']"))
         self.scroll_and_click(btn)
 
     # ── Urgency sections ───────────────────────────────────────────────
@@ -160,9 +154,7 @@ class TaskQueuePage(BasePage):
         by walking up from the ``task-card-{key}`` element to its enclosing
         ``task-section-*`` ancestor. ``None`` if the card is not on the page.
         """
-        cards = self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='task-card-{key}']"
-        )
+        cards = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='task-card-{key}']")
         if not cards:
             return None
         try:
@@ -216,13 +208,13 @@ class TaskQueuePage(BasePage):
         return True
 
     def select_category_filter(self, category_text: str) -> None:
-        """Open the category filter and select an option."""
-        dropdown = self.wait_for_element_clickable(self.FILTER_CATEGORY)
-        self.scroll_and_click(dropdown)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{category_text}')]")
-        )
-        option.click()
+        """Open the category filter and select an option.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select_by_testid("filter-category")
+        self.select_option_by_label(category_text)
 
     # ── Bulk mode ──────────────────────────────────────────────────────
 
@@ -248,19 +240,19 @@ class TaskQueuePage(BasePage):
 
     def click_select_all(self) -> None:
         """Click the 'Select all' button in bulk action bar."""
-        self.wait_for_element_clickable(self.SELECT_ALL_BUTTON).click()
+        self.wait_and_click(self.SELECT_ALL_BUTTON)
 
     def click_bulk_complete(self) -> None:
         """Click the bulk complete button."""
-        self.wait_for_element_clickable(self.BULK_COMPLETE_BUTTON).click()
+        self.wait_and_click(self.BULK_COMPLETE_BUTTON)
 
     def click_bulk_skip(self) -> None:
         """Click the bulk skip button."""
-        self.wait_for_element_clickable(self.BULK_SKIP_BUTTON).click()
+        self.wait_and_click(self.BULK_SKIP_BUTTON)
 
     def click_bulk_delete(self) -> None:
         """Click the bulk delete button."""
-        self.wait_for_element_clickable(self.BULK_DELETE_BUTTON).click()
+        self.wait_and_click(self.BULK_DELETE_BUTTON)
 
     def is_bulk_action_bar_visible(self) -> bool:
         """Check if the bulk action bar is displayed."""
@@ -345,9 +337,7 @@ class TaskQueuePage(BasePage):
         """
         return self._select_autocomplete_option(self.FORM_ENTITY_KEY_INPUT, text)
 
-    def _select_autocomplete_option(
-        self, input_locator: tuple[str, str], text: str
-    ) -> bool:
+    def _select_autocomplete_option(self, input_locator: tuple[str, str], text: str) -> bool:
         """Type *text* into an autocomplete and click the option that contains it.
 
         Uses real ``send_keys`` typing (not a JS value setter): a MUI Autocomplete
@@ -355,13 +345,31 @@ class TaskQueuePage(BasePage):
         genuine keyboard input. Polls the listbox until an option whose text
         contains *text* appears (so a lagging filter can never select the wrong
         entry), clicks it and waits for the popup to close. Returns True on match.
+
+        The input is scrolled to the middle of the viewport before it is clicked
+        (``scroll_and_click``, not a bare ``input_el.click()``). Without that,
+        ChromeDriver performs its *own* minimal scroll, which parks the element
+        at the bottom edge of the viewport -- and below the ``sm`` breakpoint
+        `FormActions` renders ``position: sticky; bottom: 0``, so the pinned
+        submit row sits exactly there and receives the click::
+
+            element click intercepted: Element <input ... MuiAutocomplete-input>
+            is not clickable at point (180, 803). Other element would receive
+            the click: <button ... data-testid="form-submit-button">
+
+        Observed on the 393x852 mobile and full-mobile profiles across six tests
+        (TestTaskUpdatePropagation plus the two REQ-006 core journeys) and on
+        neither tablet profile, whose 820px width leaves the row unpinned.
+        Centring the target moves it ~400px clear of the sticky band; the
+        interception fallback in ``scroll_and_click`` covers the remainder
+        instead of propagating out of the helper.
         """
         import time
 
         from selenium.webdriver.common.keys import Keys
 
         input_el = self.wait_for_element_clickable(input_locator)
-        input_el.click()
+        self.scroll_and_click(input_el)
         input_el.send_keys(Keys.CONTROL + "a")
         input_el.send_keys(Keys.DELETE)
         input_el.send_keys(text)
@@ -376,7 +384,13 @@ class TaskQueuePage(BasePage):
             time.sleep(0.3)
         if match is None:
             return False
-        self.scroll_and_click(match)
+        # An option of an open popover is clicked on the resolved element, never
+        # at resolved coordinates: the Autocomplete popper repositions itself
+        # while the filtered list shrinks, so a coordinate dispatch lands on
+        # whichever option slid into that spot. `li[role='option']` activates
+        # from its own `onClick`, so a dispatched click drives it (base_page:
+        # click_menu_option).
+        self.click_menu_option(match)
         self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
         return True
 
@@ -393,9 +407,7 @@ class TaskQueuePage(BasePage):
         the key so the journey can target the correct complete-button without
         relying on card ordering.
         """
-        cards = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='task-card-']"
-        )
+        cards = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='task-card-']")
         for card in cards:
             testid = card.get_attribute("data-testid") or ""
             if not testid.startswith("task-card-"):
@@ -434,11 +446,34 @@ class TaskQueuePage(BasePage):
             time.sleep(1.0)
         return None
 
+    def wait_for_task_gone_by_name(
+        self,
+        name: str,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> bool:
+        """Poll the queue (reloading each time) until no task named *name* is listed.
+
+        The queue endpoint returns ``status == 'pending'`` tasks only
+        (``TaskService.get_task_queue`` -> ``get_pending_tasks``), so a completed
+        or skipped task must leave the queue. The refetch that follows a quick
+        action is asynchronous, so a single read can still show the stale card;
+        the reload-poll keys the assertion on a durable, server-confirmed state
+        (e2e-test-stability §D). Returns ``True`` once the card is gone.
+        """
+        deadline = time.time() + timeout
+        while True:
+            self.open()
+            if not self.has_task_with_name(name):
+                return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(1.0)
+
     # ── Generate reminders ─────────────────────────────────────────────
 
     def click_generate_reminders(self) -> None:
         """Click the generate care reminders button."""
-        self.wait_for_element_clickable(self.GENERATE_REMINDERS_BUTTON).click()
+        self.wait_and_click(self.GENERATE_REMINDERS_BUTTON)
 
     # ── Confirm dialog ─────────────────────────────────────────────────
 
@@ -448,11 +483,11 @@ class TaskQueuePage(BasePage):
 
     def confirm_dialog_accept(self) -> None:
         """Click the confirm button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CONFIRM)
 
     def confirm_dialog_cancel(self) -> None:
         """Click the cancel button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CANCEL)
 
     # ── Snackbar ───────────────────────────────────────────────────────
 

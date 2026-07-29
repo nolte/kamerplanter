@@ -38,7 +38,7 @@ class WorkflowListPage(BasePage):
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # ── Dialogs ────────────────────────────────────────────────────────
-    DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_DIALOG_CONFIRM = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_DIALOG_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
@@ -71,18 +71,38 @@ class WorkflowListPage(BasePage):
         """Return the number of visible workflow cards."""
         return len(self.get_workflow_cards())
 
+    #: The navigating region of a workflow card. The `Card` root carries the
+    #: `workflow-card-<key>` hook but only its `CardActionArea` navigates; the
+    #: `CardActions` row below it holds the apply / duplicate / delete
+    #: `IconButton`s. Clicking the card's geometric centre therefore bets on
+    #: the action row staying below the midpoint. Scoped to the card, so this
+    #: is not an unscoped structural selector (`e2e-test-stability` §G); the
+    #: product exposes no dedicated hook on the action area.
+    CARD_ACTION_AREA = (By.CSS_SELECTOR, ".MuiCardActionArea-root")
+
+    def _card_nav_target(self, card: WebElement) -> WebElement:
+        """Return the card's navigating `CardActionArea`, or fail loudly."""
+        areas = card.find_elements(*self.CARD_ACTION_AREA)
+        if not areas:
+            raise AssertionError(
+                "Workflow card exposes no .MuiCardActionArea-root, so it has no "
+                "unambiguous navigation target; clicking the card itself could "
+                "hit the apply/duplicate/delete action row instead."
+            )
+        return areas[0]
+
     def click_card(self, index: int = 0) -> None:
-        """Click a workflow card by index."""
+        """Open the workflow at *index* via its card action area."""
         cards = self.get_workflow_cards()
-        if index < len(cards):
-            self.scroll_and_click(cards[index])
+        card = self.require_index(cards, index, "workflow card")
+        self.scroll_and_click(self._card_nav_target(card))
 
     def click_card_by_name(self, name: str) -> None:
-        """Click a workflow card whose text content contains *name*."""
+        """Open the workflow card whose text content contains *name*."""
         cards = self.get_workflow_cards()
         for card in cards:
             if name in card.text:
-                self.scroll_and_click(card)
+                self.scroll_and_click(self._card_nav_target(card))
                 return
         raise ValueError(f"Card with name '{name}' not found in workflow list")
 
@@ -136,11 +156,11 @@ class WorkflowListPage(BasePage):
 
     def click_instantiate_button(self) -> None:
         """Click the 'Apply' / 'Instantiate' button in the dialog."""
-        self.wait_for_element_clickable(self.INSTANTIATE_BUTTON).click()
+        self.wait_and_click(self.INSTANTIATE_BUTTON)
 
     def cancel_instantiate_dialog(self) -> None:
         """Cancel the instantiate dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL_BUTTON).click()
+        self.wait_and_click(self.FORM_CANCEL_BUTTON)
 
     # ── Confirm dialog ─────────────────────────────────────────────────
 
@@ -150,7 +170,7 @@ class WorkflowListPage(BasePage):
 
     def confirm_dialog_accept(self) -> None:
         """Click the confirm button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CONFIRM)
 
     # ── Snackbar ───────────────────────────────────────────────────────
 

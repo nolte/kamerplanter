@@ -41,6 +41,7 @@ from .pages.planting_run_list_page import PlantingRunListPage
 
 # -- Fixtures -----------------------------------------------------------------
 
+
 @pytest.fixture
 def run_list(browser: WebDriver, base_url: str) -> PlantingRunListPage:
     """Return a PlantingRunListPage bound to the test browser."""
@@ -55,6 +56,7 @@ def run_detail(browser: WebDriver, base_url: str) -> PlantingRunDetailPage:
 
 # -- TC-REQ-013-001 to TC-REQ-013-008: List Page ------------------------------
 
+
 class TestPlantingRunListPage:
     """PlantingRun list display and interactions (Spec: TC-013-001, TC-013-003, TC-013-004)."""
 
@@ -64,7 +66,7 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-001: PlantingRunListPage renders with data-testid='planting-run-list-page'.
+        """TC-013-001: PlantingRunListPage renders with data-testid='planting-run-list-page'.
 
         Spec: TC-013-001 -- Listenansicht laedt alle Pflanzdurchlaeufe.
         """
@@ -83,7 +85,7 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-002: DataTable renders with expected column headers.
+        """TC-013-001: DataTable renders with expected column headers.
 
         Spec: TC-013-001 -- Listenansicht — Spalten pruefen.
         """
@@ -103,7 +105,7 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-003: Create button is visible on the list page.
+        """TC-013-001: Create button is visible on the list page.
 
         Spec: TC-013-001 -- Erstellen-Button sichtbar.
         """
@@ -121,7 +123,7 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-004: Clicking a planting run row navigates to its detail page.
+        """TC-013-004: Clicking a planting run row navigates to its detail page.
 
         Spec: TC-013-004 -- Klick auf Zeile navigiert zur Detailseite.
         """
@@ -145,7 +147,7 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-005: Search input filters displayed planting runs.
+        """TC-013-003: Search input filters displayed planting runs.
 
         Spec: TC-013-003 -- Suche in der Tabelle filtert nach Name.
         """
@@ -159,7 +161,9 @@ class TestPlantingRunListPage:
 
         run_list.search("ZZZ_NONEXISTENT_RUN_9999")
         run_list.wait_for_loading_complete()
-        screenshot("TC-REQ-013-005_after-search-no-results", "PlantingRun list after search — no results")
+        screenshot(
+            "TC-REQ-013-005_after-search-no-results", "PlantingRun list after search — no results"
+        )
 
         filtered_count = run_list.get_row_count()
         assert filtered_count <= initial_count, (
@@ -175,7 +179,7 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-006: Reset filters button restores unfiltered list.
+        """TC-013-003: Reset filters button restores unfiltered list.
 
         Spec: TC-013-003 -- Filter zuruecksetzen.
         """
@@ -204,14 +208,20 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-007: Clicking a column header activates sort chip.
+        """TC-013-003: Clicking a column header activates sort chip.
 
         Spec: TC-013-003 -- Sortierung per Spaltenklick.
         """
         run_list.open()
         headers = run_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-013-007 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-013-007_before-sort", "PlantingRun list before sorting")
         run_list.click_column_header(headers[0])
@@ -228,7 +238,7 @@ class TestPlantingRunListPage:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-008: Showing count text is displayed when rows are present.
+        """TC-013-001: Showing count text is displayed when rows are present.
 
         Spec: TC-013-001 -- Zeigt-Zaehler.
         """
@@ -246,6 +256,7 @@ class TestPlantingRunListPage:
 
 # -- TC-REQ-013-010 to TC-REQ-013-014: Create Dialog --------------------------
 
+
 class TestPlantingRunCreateDialog:
     """PlantingRun create dialog operations (Spec: TC-013-005, TC-013-012, TC-013-014)."""
 
@@ -255,12 +266,14 @@ class TestPlantingRunCreateDialog:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-010: Clicking create button opens the creation dialog.
+        """TC-013-005: Clicking create button opens the creation dialog.
 
         Spec: TC-013-005 -- Erstellen-Dialog oeffnet sich.
         """
         run_list.open()
-        screenshot("TC-REQ-013-010_before-open-dialog", "PlantingRun list before opening create dialog")
+        screenshot(
+            "TC-REQ-013-010_before-open-dialog", "PlantingRun list before opening create dialog"
+        )
 
         run_list.click_create()
         screenshot("TC-REQ-013-010_create-dialog-open", "PlantingRun create dialog opened")
@@ -275,7 +288,7 @@ class TestPlantingRunCreateDialog:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-011: Cancel in create dialog closes it without creating a run.
+        """TC-013-005: Cancel in create dialog closes it without creating a run.
 
         Spec: TC-013-005 -- Abbrechen schliesst Dialog ohne Speichern.
         """
@@ -304,7 +317,7 @@ class TestPlantingRunCreateDialog:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-012: Submitting with empty name triggers validation error (NFR-006).
+        """TC-013-012: Submitting with empty name triggers validation error (NFR-006).
 
         Spec: TC-013-012 -- Pflichtfeld 'Name' leer lassen — Fehlermeldung.
         """
@@ -330,7 +343,7 @@ class TestPlantingRunCreateDialog:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-013: id_prefix is required; leaving it empty shows a validation error.
+        """TC-013-014: id_prefix is required; leaving it empty shows a validation error.
 
         Spec: TC-013-014 -- ID-Praefix mit ungueltigem Format — Fehlermeldung.
         """
@@ -356,7 +369,7 @@ class TestPlantingRunCreateDialog:
         run_list: PlantingRunListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-014: Create a planting run with valid name and id_prefix; verify it appears in list.
+        """TC-013-005: Create a planting run with valid name and id_prefix; verify it appears in list.
 
         Spec: TC-013-005 -- Monokultur-Run erstellen (vollstaendiges Formular).
         """
@@ -397,6 +410,7 @@ class TestPlantingRunCreateDialog:
 
 # -- TC-REQ-013-015 to TC-REQ-013-020: Detail Page ----------------------------
 
+
 class TestPlantingRunDetailPage:
     """PlantingRun detail page operations (Spec: TC-013-020, TC-013-026, TC-013-050)."""
 
@@ -407,7 +421,7 @@ class TestPlantingRunDetailPage:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-015: Navigating to detail URL renders the detail page.
+        """TC-013-020: Navigating to detail URL renders the detail page.
 
         Spec: TC-013-020 -- Detailseite — Summary-Bar zeigt Kern-Metadaten.
         """
@@ -432,7 +446,7 @@ class TestPlantingRunDetailPage:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-016: Detail page renders 5 tabs.
+        """TC-013-050: Detail page renders 5 tabs.
 
         Spec: TC-013-050 -- Tab-Navigation — alle 5 Tabs sind bedienbar.
         """
@@ -457,7 +471,7 @@ class TestPlantingRunDetailPage:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-017: Clicking each tab shows the corresponding content panel.
+        """TC-013-050: Clicking each tab shows the corresponding content panel.
 
         Spec: TC-013-050 -- Tab-Navigation — alle 5 Tabs sind bedienbar.
         """
@@ -498,7 +512,7 @@ class TestPlantingRunDetailPage:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-018: Status chip is visible and contains a non-empty status text.
+        """TC-013-020: Status chip is visible and contains a non-empty status text.
 
         Spec: TC-013-020 -- Detailseite — Summary-Bar zeigt Kern-Metadaten.
         """
@@ -515,9 +529,7 @@ class TestPlantingRunDetailPage:
         assert status, (
             f"TC-REQ-013-018 FAIL: Expected a non-empty status chip text, got: '{status}'"
         )
-        assert len(status) > 0, (
-            "TC-REQ-013-018 FAIL: Status chip should display a non-empty label"
-        )
+        assert len(status) > 0, "TC-REQ-013-018 FAIL: Status chip should display a non-empty label"
 
     @pytest.mark.core_crud
     def test_planned_run_shows_create_plants_and_delete_buttons(
@@ -526,7 +538,7 @@ class TestPlantingRunDetailPage:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-019: A run with status='planned' shows Create Plants and Delete buttons.
+        """TC-013-026: A run with status='planned' shows Create Plants and Delete buttons.
 
         Spec: TC-013-026 -- Batch-Erstellung starten (Pflanzen anlegen — geplanter Run).
         """
@@ -541,7 +553,9 @@ class TestPlantingRunDetailPage:
 
         status = run_detail.get_status()
         if "Geplant" not in status and "planned" not in status.lower():
-            pytest.skip(f"First run is not in 'planned' status (status='{status}') — skip state-machine test")
+            pytest.skip(
+                f"First run is not in 'planned' status (status='{status}') — skip state-machine test"
+            )
 
         assert run_detail.is_create_plants_button_visible(), (
             "TC-REQ-013-019 FAIL: Expected create-plants-button to be visible for planned run"
@@ -560,7 +574,7 @@ class TestPlantingRunDetailPage:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-020: Clicking Create Plants opens a ConfirmDialog (state machine: planned->active).
+        """TC-013-026: Clicking Create Plants opens a ConfirmDialog (state machine: planned->active).
 
         Spec: TC-013-026 -- Batch-Erstellung starten (Pflanzen anlegen — geplanter Run).
         """
@@ -576,7 +590,9 @@ class TestPlantingRunDetailPage:
         if "Geplant" not in status and "planned" not in status.lower():
             pytest.skip(f"First run is not in 'planned' status ('{status}') — skip this test")
 
-        screenshot("TC-REQ-013-020_before-create-plants", "Detail page before clicking Create Plants")
+        screenshot(
+            "TC-REQ-013-020_before-create-plants", "Detail page before clicking Create Plants"
+        )
 
         run_detail.click_create_plants()
         screenshot("TC-REQ-013-020_confirm-dialog-open", "Confirm dialog open for Create Plants")
@@ -605,7 +621,7 @@ class TestPlantingRunEditForm:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-021: Edit dialog form is pre-filled with the existing run name.
+        """TC-013-037: Edit dialog form is pre-filled with the existing run name.
 
         Spec: TC-013-037 -- Bearbeiten-Dialog oeffnet sich mit vorhandenen Werten.
         """
@@ -637,7 +653,7 @@ class TestPlantingRunEditForm:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-022: Cancel in edit dialog closes it without saving changes.
+        """TC-013-037: Cancel in edit dialog closes it without saving changes.
 
         Spec: TC-013-037 -- Bearbeiten — Abbrechen schliesst Dialog.
         """
@@ -674,7 +690,7 @@ class TestPlantingRunDeleteFlow:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-023: Delete button opens ConfirmDialog; cancel does not delete.
+        """TC-013-034: Delete button opens ConfirmDialog; cancel does not delete.
 
         Spec: TC-013-034 -- Loeschen-Dialog erscheint und Loeschen wird bestaetigt (geplanter Run).
         """
@@ -688,7 +704,7 @@ class TestPlantingRunDeleteFlow:
 
         status = run_detail.get_status()
         if "Geplant" not in status and "planned" not in status.lower():
-            pytest.skip(f"First run is not in 'planned' status — delete button not shown")
+            pytest.skip("First run is not in 'planned' status — delete button not shown")
 
         screenshot("TC-REQ-013-023_before-delete", "Detail page before clicking delete")
 
@@ -721,12 +737,19 @@ class TestPlantingRunErrorHandling:
         run_detail: PlantingRunDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-013-024: Navigating to a non-existent run key shows an error display.
+        """TC-013-052: Navigating to a non-existent run key shows an error display.
 
         Spec: TC-013-052 -- Laden-Ladebalken erscheint bei Seitenaufruf.
         """
         run_detail.navigate("/durchlaeufe/planting-runs/nonexistent-key-99999")
-        run_detail.wait_for_loading_complete()
+        # `PlantingRunDetailPage` renders exactly one of skeleton / ErrorDisplay
+        # / page root, so waiting for the skeleton's absence proves neither of
+        # the two settled states below has been reached -- and right after
+        # navigate() it is satisfied before the lazy route chunk even mounts.
+        run_detail.wait_for_any_present(
+            (run_detail.ERROR_DISPLAY, run_detail.PAGE),
+            "TC-REQ-013-024: planting-run detail route for a non-existent key",
+        )
         screenshot("TC-REQ-013-024_nonexistent-key-error", "Error state for non-existent run key")
 
         error_displayed = run_detail.is_error_displayed()

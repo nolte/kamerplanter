@@ -22,7 +22,7 @@ class LoginPage(BasePage):
     REMEMBER_ME_LABEL = (By.CSS_SELECTOR, "label .MuiFormControlLabel-label")
     SUBMIT_BUTTON = (By.CSS_SELECTOR, "button[type='submit']")
     LOADING_INDICATOR = (By.CSS_SELECTOR, "button[type='submit'] .MuiCircularProgress-root")
-    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardError")
+    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
     REGISTER_LINK = (By.CSS_SELECTOR, "a[href='/register']")
     FORGOT_PASSWORD_LINK = (By.CSS_SELECTOR, "a[href='/password-reset']")
     DIVIDER = (By.CSS_SELECTOR, ".MuiDivider-root")
@@ -106,9 +106,7 @@ class LoginPage(BasePage):
         MUI renders the actual <input> as hidden — click the visible
         FormControlLabel instead.
         """
-        label = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, ".MuiFormControlLabel-root")
-        )
+        label = self.wait_for_element_clickable((By.CSS_SELECTOR, ".MuiFormControlLabel-root"))
         self.scroll_and_click(label)
 
     def click_login(self) -> None:

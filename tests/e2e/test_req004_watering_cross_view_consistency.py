@@ -56,7 +56,7 @@ from .pages.watering_log_list_page import WateringLogListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m watering).
-FEATURES = ('watering',)
+FEATURES = ("watering",)
 
 # Route the linked plant chip must point at (spec: "verlinkter Chip auf
 # /pflanzen/plant-instances/{key}").
@@ -71,8 +71,7 @@ def _log_plain_watering(watering_list: WateringLogListPage, instance_id: str) ->
     watering_list.open()
     watering_list.click_create()
     assert watering_list.select_plant_by_text(instance_id), (
-        f"TC-004-092 FAIL: could not select plant '{instance_id}' in the "
-        f"watering-log dialog"
+        f"TC-004-092 FAIL: could not select plant '{instance_id}' in the watering-log dialog"
     )
     watering_list.select_application_method(DRENCH_OPTION_LABEL)
     watering_list.fill_volume(1)
@@ -118,10 +117,10 @@ class TestWateringCrossViewConsistency:
 
         plant_detail.open_tasks_tab(key)
         baseline_pending_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_ACTIVE_SECTION_LABEL
+            plant_detail.TASK_ACTIVE_SECTION
         )
         baseline_completed_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_DONE_SECTION_LABEL
+            plant_detail.TASK_DONE_SECTION
         )
         baseline_summary = plant_detail.get_task_summary_counts()
         screenshot("TC-004-092_baseline-tasks", "Task history before the watering")
@@ -211,14 +210,10 @@ class TestWateringCrossViewConsistency:
 
         # ── View 3: Aufgabenverlauf (#tasks) ─────────────────────────────────
         plant_detail.open_tasks_tab(key)
-        completed_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_DONE_SECTION_LABEL
-        )
-        pending_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_ACTIVE_SECTION_LABEL
-        )
+        completed_watering = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION)
+        pending_watering = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
         completed_at = plant_detail.get_watering_task_cell(
-            plant_detail.TASK_DONE_SECTION_LABEL, "completed_at"
+            plant_detail.TASK_DONE_SECTION, "completed_at"
         )
         screenshot("TC-004-092_view3-tasks", "View 3 — task history after the watering")
 

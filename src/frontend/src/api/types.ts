@@ -108,12 +108,7 @@ export type PlantingRunStatus = 'planned' | 'active' | 'harvesting' | 'completed
 // REQ-013 §2 — Staffelanbau / succession-plan lifecycle state.
 export type SuccessionPlanStatus = 'planned' | 'active' | 'completed' | 'cancelled';
 export type DiaryEntryType =
-  | 'observation'
-  | 'problem'
-  | 'milestone'
-  | 'measurement'
-  | 'photo'
-  | 'note';
+  'observation' | 'problem' | 'milestone' | 'measurement' | 'photo' | 'note';
 export type FertilizerType =
   | 'base'
   | 'supplement'
@@ -125,22 +120,13 @@ export type FertilizerType =
   | 'calmag';
 export type NutrientReleaseSpeed = 'immediate' | 'weeks' | 'months' | 'season_long';
 export type NutrientDemandLevel =
-  | 'heavy_feeder'
-  | 'medium_feeder'
-  | 'light_feeder'
-  | 'nitrogen_fixer';
+  'heavy_feeder' | 'medium_feeder' | 'light_feeder' | 'nitrogen_fixer';
 export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
 export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
 export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
 export type IncompatibilitySeverity = 'critical' | 'warning' | 'minor';
 export type PhaseName =
-  | 'germination'
-  | 'seedling'
-  | 'vegetative'
-  | 'flowering'
-  | 'flushing'
-  | 'dormancy'
-  | 'harvest';
+  'germination' | 'seedling' | 'vegetative' | 'flowering' | 'flushing' | 'dormancy' | 'harvest';
 export type ActivityCategory =
   | 'training_hst'
   | 'training_lst'
@@ -371,12 +357,7 @@ export interface SpeciesReferenceImages {
 
 /** Reason an admin can give when deselecting a reference image (REQ-029-A). */
 export type ReferenceExclusionReason =
-  | 'blurry'
-  | 'wrong_organ'
-  | 'wrong_species'
-  | 'duplicate'
-  | 'irrelevant'
-  | 'manual';
+  'blurry' | 'wrong_organ' | 'wrong_species' | 'duplicate' | 'irrelevant' | 'manual';
 
 /** One reference image in the admin curation view (includes deselected ones). */
 export interface CurationImage extends ReferenceImage {
@@ -2873,14 +2854,7 @@ export interface HarvestSafety {
 export type HarvestType = 'partial' | 'final' | 'continuous';
 export type QualityGrade = 'a_plus' | 'a' | 'b' | 'c' | 'd';
 export type HarvestIndicatorType =
-  | 'trichome'
-  | 'color'
-  | 'brix'
-  | 'size'
-  | 'days_since_flowering'
-  | 'aroma'
-  | 'texture'
-  | 'foliage';
+  'trichome' | 'color' | 'brix' | 'size' | 'days_since_flowering' | 'aroma' | 'texture' | 'foliage';
 export type RipenessStage = 'immature' | 'approaching' | 'peak' | 'overripe';
 
 // ── REQ-007 Harvest types ─────────────────────────────────────────────
@@ -2935,7 +2909,7 @@ export interface HarvestObservationCreate {
 
 export interface HarvestBatch {
   key: string;
-  batch_id: string;
+  batch_id: string | null;
   plant_key: string;
   harvest_date: string | null;
   harvest_type: HarvestType;
@@ -3044,34 +3018,16 @@ export type PostHarvestStage = 'drying' | 'curing' | 'stored' | 'released';
 
 export type DryingMethod = 'hang_dry' | 'rack_dry' | 'dehydrator' | 'air_cure';
 
-export type PostHarvestSpeciesType =
-  | 'flower'
-  | 'herb'
-  | 'root'
-  | 'fruit'
-  | 'mushroom';
+export type PostHarvestSpeciesType = 'flower' | 'herb' | 'root' | 'fruit' | 'mushroom';
 
 export type MoldAlertSeverity = 'warning' | 'critical';
 
 export type StorageVisualCondition =
-  | 'excellent'
-  | 'good'
-  | 'acceptable'
-  | 'concerning'
-  | 'critical';
+  'excellent' | 'good' | 'acceptable' | 'concerning' | 'critical';
 
-export type StorageAromaQuality =
-  | 'excellent'
-  | 'good'
-  | 'acceptable'
-  | 'off'
-  | 'moldy';
+export type StorageAromaQuality = 'excellent' | 'good' | 'acceptable' | 'off' | 'moldy';
 
-export type PesticideResidueStatus =
-  | 'untested'
-  | 'clean'
-  | 'within_limits'
-  | 'residue_detected';
+export type PesticideResidueStatus = 'untested' | 'clean' | 'within_limits' | 'residue_detected';
 
 export interface PostHarvestBatch {
   key: string;
@@ -3718,7 +3674,18 @@ export interface HSTValidationResult {
 // ── REQ-023 Auth types ──────────────────────────────────────────────
 
 export type AuthProviderType = 'local' | 'google' | 'github' | 'apple' | 'oidc';
-export type TenantRole = 'admin' | 'grower' | 'viewer';
+/**
+ * REQ-049 axis 1 — the ranked domain role, exactly one per membership.
+ * `lead` replaced `admin`: the old value conflated "may delete domain records"
+ * with "administers the tenant", and the latter moved to `AdminScope`.
+ */
+export type TenantRole = 'viewer' | 'grower' | 'lead';
+
+/**
+ * REQ-049 axis 2 — administrative scopes, granted in addition to the domain
+ * role and independent of its rank. A viewer may hold `management`.
+ */
+export type AdminScope = 'management' | 'technical';
 export type TenantType = 'personal' | 'organization';
 export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
 export type InvitationType = 'email' | 'link';
@@ -3829,6 +3796,7 @@ export interface Tenant {
 
 export interface TenantWithRole extends Tenant {
   role: TenantRole;
+  admin_scopes: AdminScope[];
 }
 
 export interface TenantCreate {
@@ -3848,6 +3816,7 @@ export interface Membership {
   user_key: string;
   tenant_key: string;
   role: TenantRole;
+  admin_scopes: AdminScope[];
   display_name: string;
   email: string;
   joined_at: string | null;
@@ -4183,11 +4152,7 @@ export type CalendarEventCategory =
   | 'watering_forecast'
   | 'custom';
 export type CalendarEventSource =
-  | 'task'
-  | 'phase_transition'
-  | 'maintenance_log'
-  | 'watering'
-  | 'watering_forecast';
+  'task' | 'phase_transition' | 'maintenance_log' | 'watering' | 'watering_forecast';
 
 export interface CalendarEvent {
   id: string;
@@ -4334,13 +4299,7 @@ export interface VolumeSuggestion {
 export type EntityType = 'species' | 'cultivar' | 'botanical_family';
 export type DuplicateStrategy = 'skip' | 'update' | 'fail';
 export type ImportJobStatus =
-  | 'uploaded'
-  | 'validating'
-  | 'preview_ready'
-  | 'confirmed'
-  | 'importing'
-  | 'completed'
-  | 'failed';
+  'uploaded' | 'validating' | 'preview_ready' | 'confirmed' | 'importing' | 'completed' | 'failed';
 export type RowStatus = 'valid' | 'invalid' | 'duplicate';
 
 export interface RowValidationError {
@@ -4996,35 +4955,15 @@ export interface PromotePestContributionResponse {
 
 // ── REQ-022 — Overwintering profiles & winter-hardiness traffic light ──
 
-export type HardinessRating =
-  | 'hardy'
-  | 'needs_protection'
-  | 'frost_free'
-  | 'dig_and_store';
+export type HardinessRating = 'hardy' | 'needs_protection' | 'frost_free' | 'dig_and_store';
 
 export type WinterAction =
-  | 'none'
-  | 'mulch'
-  | 'fleece'
-  | 'earth_up'
-  | 'move_indoors'
-  | 'dig_store'
-  | 'wrap';
+  'none' | 'mulch' | 'fleece' | 'earth_up' | 'move_indoors' | 'dig_store' | 'wrap';
 
-export type SpringAction =
-  | 'uncover'
-  | 'move_outdoors'
-  | 'replant'
-  | 'prune'
-  | 'harden_off';
+export type SpringAction = 'uncover' | 'move_outdoors' | 'replant' | 'prune' | 'harden_off';
 
 export type TuberStatus =
-  | 'planted'
-  | 'growing'
-  | 'dig_pending'
-  | 'drying'
-  | 'stored'
-  | 'pre_sprouting';
+  'planted' | 'growing' | 'dig_pending' | 'drying' | 'stored' | 'pre_sprouting';
 
 export type WinterQuarterLight = 'bright' | 'semi_bright' | 'dark';
 
@@ -5174,11 +5113,7 @@ export interface WinterHardinessOverview {
  * REQ-047 §2.2 — season state machine of an outdoor/greenhouse site.
  * Directed cycle: growing → pre_winter → winter_dormancy → pre_spring → growing.
  */
-export type SeasonPhase =
-  | 'growing'
-  | 'pre_winter'
-  | 'winter_dormancy'
-  | 'pre_spring';
+export type SeasonPhase = 'growing' | 'pre_winter' | 'winter_dormancy' | 'pre_spring';
 
 /**
  * REQ-047 §1 — which cascade tier produced the current season state
@@ -5624,22 +5559,13 @@ export interface DiagnoseRequest {
 
 // ── REQ-026 Aquaponics ──────────────────────────────────────────────────
 
-export type AquaponicSystemType =
-  | 'media_bed'
-  | 'dwc'
-  | 'nft'
-  | 'hybrid'
-  | 'wicking_bed';
+export type AquaponicSystemType = 'media_bed' | 'dwc' | 'nft' | 'hybrid' | 'wicking_bed';
 
 export type CyclingStatus = 'new' | 'cycling' | 'cycled' | 'dormant';
 
 export type TemperatureZone = 'coldwater' | 'temperate' | 'warmwater';
 
-export type BiofilterType =
-  | 'media_bed_integrated'
-  | 'mbbr'
-  | 'trickle'
-  | 'fluidized_bed';
+export type BiofilterType = 'media_bed_integrated' | 'mbbr' | 'trickle' | 'fluidized_bed';
 
 export type ClarifierType = 'swirl' | 'settling' | 'drum' | 'screen';
 
@@ -5650,15 +5576,7 @@ export type FishFeedingResponse = 'eager' | 'normal' | 'reduced' | 'refused';
 export type FishFeedCategory = 'carnivore' | 'omnivore' | 'herbivore';
 
 export type AquaponicSupplementType =
-  | 'fe_dtpa'
-  | 'fe_eddha'
-  | 'koh'
-  | 'k2co3'
-  | 'ca_oh_2'
-  | 'mgso4'
-  | 'mnso4'
-  | 'h3bo3'
-  | 'znso4';
+  'fe_dtpa' | 'fe_eddha' | 'koh' | 'k2co3' | 'ca_oh_2' | 'mgso4' | 'mnso4' | 'h3bo3' | 'znso4';
 
 export type WaterTestSource = 'manual' | 'sensor' | 'test_kit';
 
@@ -5864,12 +5782,7 @@ export type ActuatorCapability =
 export type ActuatorProtocol = 'home_assistant' | 'mqtt' | 'manual';
 
 export type ControlEventSource =
-  | 'schedule'
-  | 'rule'
-  | 'phase_change'
-  | 'manual'
-  | 'safety'
-  | 'fallback_task';
+  'schedule' | 'rule' | 'phase_change' | 'manual' | 'safety' | 'fallback_task';
 
 export type EmergencyStopScenario = 'water_leak' | 'co2_leak' | 'fire_alarm';
 
@@ -5957,12 +5870,7 @@ export type EquipmentType =
   | 'cleaning_agent'
   | 'other';
 
-export type EquipmentStatus =
-  | 'active'
-  | 'maintenance'
-  | 'stored'
-  | 'defective'
-  | 'retired';
+export type EquipmentStatus = 'active' | 'maintenance' | 'stored' | 'defective' | 'retired';
 
 export type StockTransactionType = 'remove' | 'add' | 'count';
 
@@ -6052,26 +5960,12 @@ export interface StockTransaction {
 /** Event-level propagation method (REQ-017), distinct from the species-level
  *  `PropagationMethod` vocabulary above. */
 export type PropagationEventMethod =
-  | 'clone'
-  | 'seed'
-  | 'cutting'
-  | 'graft'
-  | 'division'
-  | 'layering'
-  | 'offset'
-  | 'other';
+  'clone' | 'seed' | 'cutting' | 'graft' | 'division' | 'layering' | 'offset' | 'other';
 
 export type PropagationEventStatus =
-  | 'in_progress'
-  | 'rooted'
-  | 'transplanted'
-  | 'completed'
-  | 'failed';
+  'in_progress' | 'rooted' | 'transplanted' | 'completed' | 'failed';
 
-export type GraftCompatibilityLevel =
-  | 'compatible'
-  | 'possibly_compatible'
-  | 'incompatible';
+export type GraftCompatibilityLevel = 'compatible' | 'possibly_compatible' | 'incompatible';
 
 export interface PropagationEvent {
   _key?: string;

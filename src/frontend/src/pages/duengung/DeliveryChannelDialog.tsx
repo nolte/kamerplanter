@@ -19,6 +19,7 @@ import Typography from '@mui/material/Typography';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -267,7 +268,7 @@ export default function DeliveryChannelDialog({
           ? t('pages.deliveryChannels.editChannel')
           : t('pages.deliveryChannels.addChannel')}
       </DialogTitle>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <Form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           <Stepper activeStep={activeStep} sx={{ mb: 3, mt: 1 }}>
             {steps.map((s) => (
@@ -581,7 +582,7 @@ export default function DeliveryChannelDialog({
             </Button>
           )}
         </DialogActions>
-      </form>
+      </Form>
     </Dialog>
   );
 }

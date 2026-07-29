@@ -16,6 +16,7 @@ function idleAuthStore() {
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      initialized: true,
     },
   });
 }
@@ -41,6 +42,7 @@ describe('LoginPage', () => {
         isAuthenticated: false,
         isLoading: true,
         error: null,
+        initialized: true,
       },
     });
     renderWithProviders(<LoginPage />, { store });

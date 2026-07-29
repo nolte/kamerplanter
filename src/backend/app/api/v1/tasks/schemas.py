@@ -228,7 +228,15 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    name: str | None = None
+    """Partial task edit. Every field mirrors its :class:`TaskCreate` constraint.
+
+    ``PUT /tasks/{key}`` ``setattr``s these values straight onto the domain model,
+    which does not validate on assignment — so an unconstrained field here is
+    written unchecked, and the browser's incidental enforcement disappeared with
+    ``noValidate``. ``name`` therefore carries the same bounds as on create.
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     instruction: str | None = None
     category: str | None = None
     due_date: datetime | None = None

@@ -6,12 +6,13 @@ from datetime import UTC, date, datetime
 import structlog
 
 from app.common.enums import SiteType
-from app.common.exceptions import ValidationError
+from app.common.exceptions import DuplicateError, ValidationError
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.engines.onboarding_engine import OnboardingEngine
 from app.domain.models.onboarding import OnboardingState, PlantConfig
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Site
+from app.domain.services.singleton_document import pick_singleton
 from app.domain.services.starter_kit_service import StarterKitService
 
 logger = structlog.get_logger()
@@ -29,12 +30,23 @@ class OnboardingService:
         self._engine = OnboardingEngine()
 
     def get_state(self, user_key: str) -> OnboardingState:
+        from app.data_access.arango import collections as col
+
         docs = self._repo.find_by_field("user_key", user_key)
         if docs:
-            return OnboardingState(**docs[0])
-        # Auto-create initial state
+            return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
+        # Auto-create initial state. Two concurrent cold reads both find the
+        # collection empty and both try to insert; the unique index on
+        # ``user_key`` makes the loser's insert raise DuplicateError. Re-read and
+        # return the winner's document instead of surfacing a 409 (upsert
+        # semantics) — this is the auto-create race that used to mint duplicate
+        # singletons under parallel load.
         state = OnboardingState(user_key=user_key)
-        doc = self._repo.create(state)
+        try:
+            doc = self._repo.create(state)
+        except DuplicateError:
+            docs = self._repo.find_by_field("user_key", user_key)
+            return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
         return OnboardingState(**doc)
 
     def save_progress(self, user_key: str, wizard_step: int, **kwargs) -> OnboardingState:

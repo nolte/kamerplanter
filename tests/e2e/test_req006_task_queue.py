@@ -88,7 +88,7 @@ class TestTaskQueuePageLoad:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-010: Task queue page renders with data-testid.
+        """TC-006-001: Task queue page renders with data-testid.
 
         Spec: TC-006-001 -- Task-Queue aufrufen -- Seite rendert.
         """
@@ -108,7 +108,7 @@ class TestTaskQueuePageLoad:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-011: Create task button is visible on the queue page.
+        """TC-006-001: Create task button is visible on the queue page.
 
         Spec: TC-006-001 -- Task-Queue aufrufen -- Button 'Aufgabe erstellen' sichtbar.
         """
@@ -128,7 +128,7 @@ class TestTaskQueuePageLoad:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-012: Tasks are displayed grouped by urgency sections.
+        """TC-006-002: Tasks are displayed grouped by urgency sections.
 
         Spec: TC-006-002 -- Aufgaben nach Dringlichkeit gruppiert anzeigen.
         """
@@ -161,7 +161,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-013: Source filter toggle buttons (All/Tasks/Care) are present.
+        """TC-006-005: Source filter toggle buttons (All/Tasks/Care) are present.
 
         Spec: TC-006-005 -- Quelle-Filter (Tasks vs. Pflegeerinnerungen).
         """
@@ -186,7 +186,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-014: Clicking 'Tasks only' filter toggles the view.
+        """TC-006-005: Clicking 'Tasks only' filter toggles the view.
 
         Spec: TC-006-005 -- Quelle-Filter: 'Nur Aufgaben'.
         """
@@ -214,7 +214,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-015: Clicking 'Care only' filter toggles the view.
+        """TC-006-005: Clicking 'Care only' filter toggles the view.
 
         Spec: TC-006-005 -- Quelle-Filter: 'Nur Pflege'.
         """
@@ -236,7 +236,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-016: Category filter dropdown is visible.
+        """TC-006-003: Category filter dropdown is visible.
 
         Spec: TC-006-003 -- Task-Queue Filterung nach Kategorie.
         """
@@ -255,93 +255,151 @@ class TestTaskQueueFilters:
 
 
 class TestTaskQueueQuickActions:
-    """Task status transitions from queue (Spec: TC-006-006, TC-006-007, TC-006-008)."""
+    """Task status transitions from queue (Spec: TC-006-006, TC-006-007, TC-006-008).
+
+    Every test here *mutates* a task's status, so it must own that task
+    (e2e-test-stability §A). Taking ``get_task_keys()[0]`` -- the head of the
+    shared ``mein-garten`` queue -- was the cause of issue #791: ``today``-group
+    cards are ordered by due date only (``TaskQueuePage.tsx``, "Sort within each
+    group by due date"), and ``create_care_task`` provisions its task due today,
+    so a foreign test's freshly created task sits at exactly that position.
+    Under ``--dist=loadfile`` the start below landed inside
+    ``test_req022_pflege_dashboard.py``'s create -> ``click_start()`` gap and
+    broke TC-REQ-022-038. The three "No tasks in database" skips these tests
+    carried are gone with the coupling: each was an availability-dependent skip,
+    i.e. a silent coverage hole (§A/§E), and the precondition is now created.
+    """
 
     @pytest.mark.core_crud
     def test_start_task_from_queue(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
+        task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-017: Start task (pending -> in_progress) via play icon.
+        """TC-006-006: Start task (pending -> in_progress) via play icon.
 
         Spec: TC-006-006 -- Task starten (pending -> in_progress).
+
+        Self-provisions the task it starts. The effect is verified on the detail
+        page rather than in the queue: the queue lists ``pending`` tasks only, so
+        the card vanishing would not distinguish ``in_progress`` from any other
+        non-pending status, while "skip offered, start no longer offered" is
+        exactly ``in_progress`` (``TaskDetailPage.tsx``: start renders for
+        ``pending``, skip for ``pending``/``in_progress``).
         """
+        key, _task_name, _instance_id = _provision_plant_and_care_task(
+            plant_creator, task_queue, id_prefix="TC006-017"
+        )
+
         task_queue.open()
-
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- cannot test start action")
-
-        key = keys[0]
+        assert key in task_queue.get_task_keys(), (
+            f"TC-REQ-006-017 FAIL: The self-provisioned pending care task {key} must "
+            f"be listed in the queue before it can be started"
+        )
         screenshot(
             "TC-REQ-006-017_before-start-task",
-            f"Queue before starting task {key}",
+            f"Queue before starting own task {key}",
         )
 
         task_queue.start_task(key)
         task_queue.wait_for_loading_complete()
         screenshot(
             "TC-REQ-006-017_after-start-task",
-            f"Queue after starting task {key}",
+            f"Queue after starting own task {key}",
+        )
+
+        task_detail.open(key)
+        assert task_detail.has_skip_button(), (
+            f"TC-REQ-006-017 FAIL: Task {key} must still be actionable after the "
+            f"start (the detail page offers skip for pending and in_progress)"
+        )
+        assert not task_detail.has_start_button(), (
+            f"TC-REQ-006-017 FAIL: Task {key} must be in_progress after the start "
+            f"action, but the detail page still offers the start button"
         )
 
     @pytest.mark.core_crud
     def test_complete_task_from_queue(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-018: Complete task (Quick-Complete) via check icon.
+        """TC-006-007: Complete task (Quick-Complete) via check icon.
 
         Spec: TC-006-007 -- Task direkt abschliessen (Quick-Complete).
+
+        Self-provisions the task it completes; the completed task must leave the
+        active (pending-only) queue.
         """
+        key, task_name, _instance_id = _provision_plant_and_care_task(
+            plant_creator, task_queue, id_prefix="TC006-018"
+        )
+
         task_queue.open()
-
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- cannot test complete action")
-
-        key = keys[0]
+        assert key in task_queue.get_task_keys(), (
+            f"TC-REQ-006-018 FAIL: The self-provisioned pending care task {key} must "
+            f"be listed in the queue before it can be completed"
+        )
         screenshot(
             "TC-REQ-006-018_before-complete-task",
-            f"Queue before completing task {key}",
+            f"Queue before completing own task {key}",
         )
 
         task_queue.complete_task(key)
         task_queue.wait_for_loading_complete()
+        gone = task_queue.wait_for_task_gone_by_name(task_name)
         screenshot(
             "TC-REQ-006-018_after-complete-task",
-            f"Queue after completing task {key}",
+            f"Queue after completing own task {key}",
+        )
+
+        assert gone, (
+            f"TC-REQ-006-018 FAIL: The completed task '{task_name}' ({key}) must "
+            f"disappear from the active task queue"
         )
 
     @pytest.mark.core_crud
     def test_skip_task_from_queue(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-019: Skip task via skip icon.
+        """TC-006-008: Skip task via skip icon.
 
         Spec: TC-006-008 -- Task ueberspringen.
+
+        Self-provisions the task it skips; the skipped task must leave the active
+        (pending-only) queue.
         """
+        key, task_name, _instance_id = _provision_plant_and_care_task(
+            plant_creator, task_queue, id_prefix="TC006-019"
+        )
+
         task_queue.open()
-
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- cannot test skip action")
-
-        key = keys[0]
+        assert key in task_queue.get_task_keys(), (
+            f"TC-REQ-006-019 FAIL: The self-provisioned pending care task {key} must "
+            f"be listed in the queue before it can be skipped"
+        )
         screenshot(
             "TC-REQ-006-019_before-skip-task",
-            f"Queue before skipping task {key}",
+            f"Queue before skipping own task {key}",
         )
 
         task_queue.skip_task(key)
         task_queue.wait_for_loading_complete()
+        gone = task_queue.wait_for_task_gone_by_name(task_name)
         screenshot(
             "TC-REQ-006-019_after-skip-task",
-            f"Queue after skipping task {key}",
+            f"Queue after skipping own task {key}",
+        )
+
+        assert gone, (
+            f"TC-REQ-006-019 FAIL: The skipped task '{task_name}' ({key}) must "
+            f"disappear from the active task queue"
         )
 
 
@@ -357,7 +415,7 @@ class TestTaskQueueBulkMode:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-020: Activate bulk mode and display multi-select UI.
+        """TC-006-009: Activate bulk mode and display multi-select UI.
 
         Spec: TC-006-009 -- Bulk-Modus aktivieren und mehrere Tasks auswaehlen.
         """
@@ -391,7 +449,7 @@ class TestTaskQueueBulkMode:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-021: Exit bulk mode via exit button.
+        """TC-006-009: Exit bulk mode via exit button.
 
         Spec: TC-006-009 -- Bulk-Modus verlassen.
         """
@@ -402,9 +460,7 @@ class TestTaskQueueBulkMode:
             pytest.skip("No tasks in database -- cannot test bulk mode exit")
 
         task_queue.enter_bulk_mode()
-        assert task_queue.is_bulk_mode_active(), (
-            "TC-REQ-006-021 FAIL: Bulk mode should be active"
-        )
+        assert task_queue.is_bulk_mode_active(), "TC-REQ-006-021 FAIL: Bulk mode should be active"
 
         task_queue.exit_bulk_mode()
         task_queue.wait_for_loading_complete()
@@ -430,7 +486,7 @@ class TestTaskCreateDialog:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-022: Click create button opens the task create dialog.
+        """TC-006-013: Click create button opens the task create dialog.
 
         Spec: TC-006-013 -- Neue Aufgabe erstellen -- Dialog oeffnet sich.
         """
@@ -457,7 +513,7 @@ class TestTaskCreateDialog:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-023: Generate care reminders button is visible.
+        """TC-006-012: Generate care reminders button is visible.
 
         Spec: TC-006-012 -- Pflegeerinnerungen generieren.
         """
@@ -468,8 +524,7 @@ class TestTaskCreateDialog:
         )
 
         assert task_queue.is_generate_reminders_visible(), (
-            "TC-REQ-006-023 FAIL: Expected [data-testid='generate-reminders-button'] "
-            "to be visible"
+            "TC-REQ-006-023 FAIL: Expected [data-testid='generate-reminders-button'] to be visible"
         )
 
 
@@ -494,7 +549,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-041: Changing the recurrence rule persists on the task detail.
+        """TC-006-078: Changing the recurrence rule persists on the task detail.
 
         Spec: TC-006-078 -- Wiederholungszyklus (Cron) aendern -- Aufgabenliste
         zeigt neue Faelligkeit.
@@ -548,7 +603,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-042: Shifting the due date moves the task out of the 'today' group.
+        """TC-006-079: Shifting the due date moves the task out of the 'today' group.
 
         Spec: TC-006-079 -- Faelligkeitsdatum verschieben -- Task wechselt die
         Dringlichkeits-Gruppe.
@@ -592,9 +647,7 @@ class TestTaskUpdatePropagation:
             f"(due='{after_due}', section='{section_after}')",
         )
 
-        assert after_due, (
-            "TC-REQ-006-042 FAIL: Expected a non-empty due-date value after the shift"
-        )
+        assert after_due, "TC-REQ-006-042 FAIL: Expected a non-empty due-date value after the shift"
         assert after_due != before_due, (
             "TC-REQ-006-042 FAIL: Expected the due-date value to change after shifting "
             f"to {target_due}. Before: '{before_due}', After: '{after_due}'"
@@ -616,7 +669,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-043: Completing a recurring task materialises the next instance.
+        """TC-006-080: Completing a recurring task materialises the next instance.
 
         Spec: TC-006-080 -- Wiederkehrende Aufgabe abschliessen -- naechste
         Zyklus-Instanz erscheint in der Liste.
@@ -673,7 +726,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-044: Ending the cycle prevents a follow-up instance on completion.
+        """TC-006-081: Ending the cycle prevents a follow-up instance on completion.
 
         Spec: TC-006-081 -- Zyklus beenden -- nach Abschluss wird keine neue
         Instanz erzeugt.

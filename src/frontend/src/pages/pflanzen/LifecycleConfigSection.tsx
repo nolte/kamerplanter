@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -152,10 +153,14 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   if (loading) return <LoadingSkeleton variant="form" />;
 
   return (
-    <Box>
+    // The section marker scopes the E2E locator for this tab's own submit
+    // button. Several `form-submit-button` testids coexist in the species
+    // detail page's DOM -- the edit tab's inline form, this one, and the
+    // growth-phase dialog -- so an unscoped lookup resolves to whichever comes
+    // first in document order (#778 A5).
+    <Box data-testid="lifecycle-config-section">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box
-        component="form"
+      <Form
         onSubmit={handleSubmit(onSubmit)}
         sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
       >
@@ -345,7 +350,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
           loading={saving}
           saveLabel={exists ? t('common.save') : t('common.create')}
         />
-      </Box>
+      </Form>
 
       {lifecycle && (
         <GrowthPhaseListSection

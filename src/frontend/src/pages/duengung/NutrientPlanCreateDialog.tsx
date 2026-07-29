@@ -18,6 +18,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -164,7 +165,7 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.nutrientPlans.createIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="name"
             control={control}
@@ -316,7 +317,7 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
             loading={saving}
             saveLabel={t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

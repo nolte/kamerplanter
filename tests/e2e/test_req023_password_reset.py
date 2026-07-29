@@ -19,6 +19,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import PasswordResetConfirmPage, PasswordResetRequestPage
+from ._auth_helpers import ensure_logged_out
 
 pytestmark = pytest.mark.requires_auth
 
@@ -43,8 +44,7 @@ def reset_confirm_page(browser: WebDriver, base_url: str) -> PasswordResetConfir
 
 def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     """Clear auth state by deleting cookies."""
-    browser.delete_all_cookies()
-    browser.get(f"{base_url}/login")
+    ensure_logged_out(browser, base_url)
 
 
 # -- TC-023-020: Password reset request with known email -----------------------
@@ -60,7 +60,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-018: Password-reset-request page renders with heading and form.
+        """TC-023-020: Password-reset-request page renders with heading and form.
 
         Spec: TC-023-020 -- Passwort-Reset anfordern Seitenstruktur.
         """
@@ -89,7 +89,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-017: Reset request with known email shows success alert (enumeration protection).
+        """TC-023-020: Reset request with known email shows success alert (enumeration protection).
 
         Spec: TC-023-020 -- Passwort-Reset anfordern -- bekannte E-Mail (Enumeration-Schutz).
         """
@@ -112,9 +112,11 @@ class TestPasswordResetRequest:
             "TC-REQ-023-017 FAIL: Expected success alert after password reset request"
         )
         success_text = reset_request_page.get_success_alert_text()
-        assert "reset" in success_text.lower() or "link" in success_text.lower() or "konto" in success_text.lower(), (
-            f"TC-REQ-023-017 FAIL: Expected success message about reset link, got: '{success_text}'"
-        )
+        assert (
+            "reset" in success_text.lower()
+            or "link" in success_text.lower()
+            or "konto" in success_text.lower()
+        ), f"TC-REQ-023-017 FAIL: Expected success message about reset link, got: '{success_text}'"
         assert not reset_request_page.is_email_form_visible(), (
             "TC-REQ-023-017 FAIL: Expected email form to be hidden after successful request"
         )
@@ -126,7 +128,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-019: Reset request with unknown email shows identical success (enumeration protection).
+        """TC-023-021: Reset request with unknown email shows identical success (enumeration protection).
 
         Spec: TC-023-021 -- Passwort-Reset anfordern -- unbekannte E-Mail (Enumeration-Schutz).
         """
@@ -152,7 +154,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-020: 'Back to login' link navigates to /login.
+        """TC-023-022: 'Back to login' link navigates to /login.
 
         Spec: TC-023-022 -- Zurueck zur Anmeldung von Passwort-Reset-Seite.
         """
@@ -184,7 +186,7 @@ class TestPasswordResetConfirm:
         reset_confirm_page: PasswordResetConfirmPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-021: Password-reset-confirm page renders with heading and form.
+        """TC-023-023: Password-reset-confirm page renders with heading and form.
 
         Spec: TC-023-023 -- Neues Passwort setzen -- Seitenstruktur.
         """
@@ -207,7 +209,7 @@ class TestPasswordResetConfirm:
         reset_confirm_page: PasswordResetConfirmPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-022: Password mismatch on confirm page shows error.
+        """TC-023-024: Password mismatch on confirm page shows error.
 
         Spec: TC-023-024 -- Neues Passwort -- Passwoerter stimmen nicht ueberein.
         """
@@ -238,7 +240,7 @@ class TestPasswordResetConfirm:
         reset_confirm_page: PasswordResetConfirmPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-023: Invalid or expired token shows error after submission.
+        """TC-023-025: Invalid or expired token shows error after submission.
 
         Spec: TC-023-025 -- Neues Passwort -- Token ungueltig.
         """

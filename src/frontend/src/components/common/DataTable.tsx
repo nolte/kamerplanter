@@ -59,6 +59,19 @@ interface DataTableProps<T> {
   variant?: 'full' | 'simple';
   searchable?: boolean;
   ariaLabel?: string;
+  /**
+   * Stable, English identifier of the *section* this table renders (e.g.
+   * `plant-tasks-active`). Emitted as `data-table-section` on the component
+   * root, which is the only element both layouts share — the desktop `<Table>`
+   * does not exist in the card layout, and `ariaLabel` (translated, and only
+   * set on the `<Table>`) can neither be relied upon nor reaches the cards.
+   *
+   * The root keeps its `data-testid="data-table"`, so two tables on the same
+   * page are told apart with
+   * `[data-testid='data-table'][data-table-section='<id>']` in either layout
+   * without breaking any selector that exists today.
+   */
+  sectionTestId?: string;
   stickyHeader?: boolean;
   mobileCardRenderer?: (row: T) => ReactNode;
   mobileBreakpoint?: 'sm' | 'md';
@@ -112,6 +125,7 @@ export default function DataTable<T>({
   variant = 'full',
   searchable,
   ariaLabel,
+  sectionTestId,
   stickyHeader = true,
   mobileCardRenderer,
   mobileBreakpoint = 'sm',
@@ -290,7 +304,7 @@ export default function DataTable<T>({
     : '';
 
   return (
-    <Paper variant="outlined" data-testid="data-table">
+    <Paper variant="outlined" data-testid="data-table" data-table-section={sectionTestId}>
       {/* Toolbar */}
       {showToolbar && (
         <Box
@@ -428,7 +442,15 @@ export default function DataTable<T>({
                         }
                       >
                         {isSortable ? (
+                          // `data-testid` belongs on the label, not on the surrounding
+                          // cell: the click handler lives here, and a click that lands on
+                          // the cell beside this label never reaches it — DOM events
+                          // bubble up, not down. The E2E suite clicked the `<th>` and so
+                          // sorted nothing whenever a column was wider than its label,
+                          // which stayed invisible because the sort chip is already
+                          // rendered by `defaultSort` (#802).
                           <TableSortLabel
+                            data-testid={`sort-${col.id}`}
                             active={isSorted}
                             direction={isSorted ? tableState!.sort!.direction : 'asc'}
                             onClick={() => tableState!.setSort(col.id)}

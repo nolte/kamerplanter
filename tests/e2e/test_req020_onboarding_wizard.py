@@ -41,30 +41,53 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from .pages.onboarding_wizard_page import OnboardingWizardPage
 
 
-# -- Shared markers -----------------------------------------------------------
+# -- Expected failures --------------------------------------------------------
 #
-# Tests that exercise the multi-step wizard flow beyond the favorites step
-# share a known infrastructure problem: the e2e_seed_data fixture
-# (scope="session", per xdist worker) calls ``POST /onboarding/skip`` on the
-# shared ``mein-garten`` tenant, which races with concurrent
-# ``_reset_wizard_via_api`` calls from other workers running these tests.
-# The frontend then surfaces the "Du hast die Einrichtung bereits
-# abgeschlossen" completion card mid-flow, breaking ``advance_to_step_site``
-# and downstream steps non-deterministically.
+# The class-wide ``xfail_xdist_tenant_race`` this file used to carry is gone.
+# Its stated cause — the session-scoped seed fixture's ``POST /onboarding/skip``
+# on the shared ``mein-garten`` tenant racing concurrent xdist workers — is
+# fixed: ``conftest._serialize_global_preference_mutators`` now holds an
+# inter-worker lock for exactly the three REQ-020/021 modules that mutate the
+# global preference state, and every test the marker covered xpassed through
+# both runs of all five profiles' green-confirmation window. Keeping the marker
+# would have been the rot ``spec/project/e2e-test-stability`` §E forbids — and
+# worse, its reason actively misled: a scheduling race cannot explain failures
+# that only ever occur below a viewport width.
 #
-# The clean fix is per-worker tenants (REQ-024 §x) so the shared seed cannot
-# be invalidated by parallel workers — see L-10 in
-# ``spec/analysis/e2e-result-review-feat-audit-bulk-phase-2.md``. Until that
-# is in place these tests are marked ``xfail(strict=False)``: they pass when
-# the worker scheduling happens to avoid the race, and fail cleanly (without
-# blocking the suite) when it does not.
-xfail_xdist_tenant_race = pytest.mark.xfail(
+# What remains are two *viewport*-correlated causes, marked per test.
+
+#: The wizard renders no ``Stepper`` below the `sm` breakpoint (600px), so the
+#: step count is only readable from `MobileStepper`'s dots there.
+#: ``OnboardingWizardPage.get_stepper_step_count`` now reads whichever stepper
+#: is mounted, which should heal this; the marker stays until a green window
+#: confirms it, because the profiles that fail it (mobile, full-mobile) have not
+#: run since the fix.
+xfail_mobile_stepper_layout = pytest.mark.xfail(
     reason=(
-        "REQ-020 Wizard tests race with the session-scoped seed fixture's "
-        "POST /onboarding/skip on the shared 'mein-garten' tenant when "
-        "running under xdist. See spec/analysis/"
-        "e2e-result-review-feat-audit-bulk-phase-2.md L-10 (per-worker "
-        "tenants needed for deterministic wizard isolation)."
+        "Below the sm breakpoint OnboardingWizard renders a MobileStepper "
+        "instead of the MUI Stepper, so the desktop-only step reader answered "
+        "0 (deterministic on the mobile and full-mobile profiles, never on "
+        "tablet/desktop). get_stepper_step_count() is now layout-aware; REVISIT: "
+        "remove this marker once mobile and full-mobile pass it through a full "
+        "green-confirmation window (P11)."
+    ),
+    strict=False,
+)
+
+#: The species grid of the favorites step mounts ~210 tiles *above* the wizard's
+#: button row, so an interaction begun before it lands is aimed at an element
+#: about to move. ``advance_to_step_favorites`` / ``advance_to_step_site`` now
+#: wait for the grid to settle; the marker stays until that is confirmed.
+xfail_favorites_grid_reflow = pytest.mark.xfail(
+    reason=(
+        "Race with FavoriteSpeciesStep's species grid: it mounts ~210 tiles "
+        "above the wizard button row, moving the Back/Next target between the "
+        "click's hit-test and its dispatch. Correlates with viewport width "
+        "(mobile/tablet/full-mobile/full-tablet, never the 1920px desktop), not "
+        "with worker scheduling. Evidence: the runs that xfail keep only the "
+        "screenshot taken before the click. Page objects now wait for the grid "
+        "to settle; REVISIT: remove once all five profiles pass these through a "
+        "full green-confirmation window (P11)."
     ),
     strict=False,
 )
@@ -95,7 +118,6 @@ def wizard(browser: WebDriver, base_url: str) -> OnboardingWizardPage:
 # -- Gruppe A -- Wizard Trigger & Initialisation -------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestWizardTrigger:
     """Wizard trigger, skip functionality (Spec: TC-020-001, TC-020-005)."""
 
@@ -105,7 +127,7 @@ class TestWizardTrigger:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-007: Wizard opens with Step 1 active -- experience level cards visible.
+        """TC-020-001: Wizard opens with Step 1 active -- experience level cards visible.
 
         Spec: TC-020-001 -- Erststart -- Wizard oeffnet automatisch bei unvollstaendigem Onboarding-Status.
         """
@@ -143,7 +165,7 @@ class TestWizardTrigger:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-008: Skip onboarding redirects to /pflanzen/plant-instances.
+        """TC-020-005: Skip onboarding redirects to /pflanzen/plant-instances.
 
         Spec: TC-020-005 -- Wizard ueberspringen ueber 'Ueberspringen'-Link.
         """
@@ -169,7 +191,6 @@ class TestWizardTrigger:
 # -- Gruppe B -- Step 1: Experience Level & Smart-Home Toggle ------------------
 
 
-@xfail_xdist_tenant_race
 class TestExperienceLevelStep:
     """Experience level selection and smart-home toggle (Spec: TC-020-007 to TC-020-013)."""
 
@@ -179,7 +200,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-009: Beginner is selected by default on Step 1.
+        """TC-020-007: Beginner is selected by default on Step 1.
 
         Spec: TC-020-007 -- Erfahrungsstufe 'Einsteiger' auswaehlen -- Default-Zustand.
         """
@@ -205,7 +226,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-010: Selecting 'intermediate' shows the Smart-Home toggle.
+        """TC-020-008: Selecting 'intermediate' shows the Smart-Home toggle.
 
         Spec: TC-020-008 -- Erfahrungsstufe 'Fortgeschritten' -- Smart-Home-Toggle erscheint.
         """
@@ -240,7 +261,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-011: Selecting 'expert' shows the Smart-Home toggle.
+        """TC-020-009: Selecting 'expert' shows the Smart-Home toggle.
 
         Spec: TC-020-009 -- Erfahrungsstufe 'Experte' -- Smart-Home-Toggle erscheint.
         """
@@ -265,7 +286,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-012: Activating the Smart-Home toggle changes its state.
+        """TC-020-010: Activating the Smart-Home toggle changes its state.
 
         Spec: TC-020-010 -- Smart-Home-Toggle aktivieren und Hinweistext wechselt.
         """
@@ -295,15 +316,13 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-013: Switching from intermediate back to beginner hides the Smart-Home toggle.
+        """TC-020-011: Switching from intermediate back to beginner hides the Smart-Home toggle.
 
         Spec: TC-020-011 -- Von 'Fortgeschritten' zurueck zu 'Einsteiger' -- Smart-Home-Toggle verschwindet.
         """
         wizard.open()
         wizard.select_experience_level("intermediate")
-        assert wizard.is_smart_home_toggle_visible(), (
-            "Toggle should be visible for intermediate"
-        )
+        assert wizard.is_smart_home_toggle_visible(), "Toggle should be visible for intermediate"
 
         wizard.select_experience_level("beginner")
         screenshot(
@@ -318,13 +337,14 @@ class TestExperienceLevelStep:
             "TC-REQ-020-013 FAIL: Smart-Home toggle should be hidden for beginner"
         )
 
+    @xfail_mobile_stepper_layout
     @pytest.mark.core_crud
     def test_dynamic_stepper_beginner_has_5_steps(
         self,
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-014: Beginner shows 5 steps in the stepper (no Plants/NutrientPlans).
+        """TC-020-012: Beginner shows 5 steps in the stepper (no Plants/NutrientPlans).
 
         Spec: TC-020-012 -- Dynamische Stepper-Anzahl bei Erfahrungsstufe Einsteiger.
         """
@@ -339,13 +359,14 @@ class TestExperienceLevelStep:
             f"TC-REQ-020-014 FAIL: Expected 5 stepper steps for beginner, got: {step_count}"
         )
 
+    @xfail_mobile_stepper_layout
     @pytest.mark.core_crud
     def test_dynamic_stepper_intermediate_has_6_steps(
         self,
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-015: Intermediate shows 6 steps (adds Plants step).
+        """TC-020-013: Intermediate shows 6 steps (adds Plants step).
 
         Spec: TC-020-013 -- Dynamische Stepper-Anzahl bei Erfahrungsstufe Fortgeschritten.
         """
@@ -365,7 +386,6 @@ class TestExperienceLevelStep:
 # -- Gruppe C -- Step 2: Starter Kit Selection ---------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestStarterKitStep:
     """Starter kit list, selection, deselection (Spec: TC-020-014 to TC-020-017)."""
 
@@ -375,7 +395,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-016: Kit list shows cards with metadata chips after advancing to Step 2.
+        """TC-020-014: Kit list shows cards with metadata chips after advancing to Step 2.
 
         Spec: TC-020-014 -- Starter-Kit-Liste wird angezeigt -- Happy Path.
         """
@@ -400,7 +420,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-017: Selecting 'fensterbank-kraeuter' highlights the card.
+        """TC-020-015: Selecting 'fensterbank-kraeuter' highlights the card.
 
         Spec: TC-020-015 -- Starter-Kit 'Fensterbank-Kraeuter' auswaehlen -- Auto-Befuellung.
         """
@@ -427,7 +447,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-018: Kit 'zimmerpflanzen' shows a toxicity warning chip.
+        """TC-020-016: Kit 'zimmerpflanzen' shows a toxicity warning chip.
 
         Spec: TC-020-016 -- Starter-Kit 'Zimmerpflanzen' -- Toxizitaetswarnung sichtbar.
         """
@@ -448,7 +468,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-019: Clicking a selected kit deselects it.
+        """TC-020-017: Clicking a selected kit deselects it.
 
         Spec: TC-020-017 -- Starter-Kit abwaehlen durch erneutes Klicken.
         """
@@ -475,18 +495,16 @@ class TestStarterKitStep:
 # -- Gruppe D -- Step 3: Favorite Species --------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestFavoriteSpeciesStep:
     """Favorites pre-selection, search (Spec: TC-020-020, TC-020-022, TC-020-023)."""
 
     @pytest.mark.core_crud
-    @xfail_xdist_tenant_race
     def test_kit_species_preselected_as_favorites(
         self,
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-020: Kit species are pre-selected as favorites on Step 3.
+        """TC-020-020: Kit species are pre-selected as favorites on Step 3.
 
         Spec: TC-020-020 -- Favoriten-Schritt -- Kit-Species sind vorausgewaehlt.
         """
@@ -508,13 +526,12 @@ class TestFavoriteSpeciesStep:
         )
 
     @pytest.mark.core_crud
-    @xfail_xdist_tenant_race
     def test_favorites_search_filters_species(
         self,
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-021: Search filters the species list on the favorites step.
+        """TC-020-022: Search filters the species list on the favorites step.
 
         Spec: TC-020-022 -- Favoriten-Suche filtert Species-Liste.
         """
@@ -546,7 +563,7 @@ class TestFavoriteSpeciesStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-022: Without a kit, no species are pre-selected as favorites.
+        """TC-020-023: Without a kit, no species are pre-selected as favorites.
 
         Spec: TC-020-023 -- Favoriten-Schritt ohne Kit -- Kein Badge auf Species.
         """
@@ -561,12 +578,16 @@ class TestFavoriteSpeciesStep:
 
         count_text = wizard.get_favorite_selected_count_text()
         has_zero = "0" in count_text
-        no_selected_tiles = all(
-            not wizard.is_favorite_tile_selected(
-                (t.get_attribute("data-testid") or "").replace("favorite-tile-", "")
+        no_selected_tiles = (
+            all(
+                not wizard.is_favorite_tile_selected(
+                    (t.get_attribute("data-testid") or "").replace("favorite-tile-", "")
+                )
+                for t in wizard.get_favorite_tiles()[:3]
             )
-            for t in wizard.get_favorite_tiles()[:3]
-        ) if wizard.get_favorite_tiles() else True
+            if wizard.get_favorite_tiles()
+            else True
+        )
         assert has_zero or no_selected_tiles, (
             f"TC-REQ-020-022 FAIL: Expected 0 favorites selected without kit, got text: {count_text}"
         )
@@ -575,7 +596,6 @@ class TestFavoriteSpeciesStep:
 # -- Gruppe E -- Step 4: Site Setup --------------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestSiteSetupStep:
     """Site auto-population, name change, water section (Spec: TC-020-025 to TC-020-029)."""
 
@@ -585,7 +605,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-023: Site step is auto-populated from kit selection (fensterbank-kraeuter).
+        """TC-020-025: Site step is auto-populated from kit selection (fensterbank-kraeuter).
 
         Spec: TC-020-025 -- Standort-Schritt -- Auto-Befuellung aus Kit-Auswahl.
         """
@@ -615,7 +635,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-024: Manually changing site name persists the user's input.
+        """TC-020-026: Manually changing site name persists the user's input.
 
         Spec: TC-020-026 -- Standortname manuell aendern.
         """
@@ -645,7 +665,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-025: Water section (EC, pH, RO) is hidden for beginner experience level.
+        """TC-020-028: Water section (EC, pH, RO) is hidden for beginner experience level.
 
         Spec: TC-020-028 -- Wasserquellen-Abschnitt bei Einsteiger ausgeblendet.
         """
@@ -668,7 +688,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-026: Water section is visible and functional for intermediate.
+        """TC-020-029: Water section is visible and functional for intermediate.
 
         Spec: TC-020-029 -- Wasserquellen-Abschnitt bei Fortgeschritten sichtbar und bedienbar.
         """
@@ -707,7 +727,6 @@ class TestSiteSetupStep:
 # -- Gruppe F -- Step 5: Plant Selection (intermediate/expert) -----------------
 
 
-@xfail_xdist_tenant_race
 class TestPlantSelectionStep:
     """Plant configuration, counter, phase selection (Spec: TC-020-033, TC-020-037)."""
 
@@ -717,7 +736,7 @@ class TestPlantSelectionStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-027: Plant selection step shows config rows for favorited species.
+        """TC-020-033: Plant selection step shows config rows for favorited species.
 
         Spec: TC-020-033 -- Pflanzen-Schritt -- Pflanzenkonfiguration mit Zaehler.
         """
@@ -741,17 +760,20 @@ class TestPlantSelectionStep:
             pytest.skip(
                 "No plant config rows visible -- kit species may not have loaded as favorites"
             )
-        assert len(rows) > 0, (
-            f"TC-REQ-020-027 FAIL: Expected plant config rows, got: {len(rows)}"
-        )
+        assert len(rows) > 0, f"TC-REQ-020-027 FAIL: Expected plant config rows, got: {len(rows)}"
 
+    # Observed once on mobile (run 20260725_144611): the test stopped before its
+    # only screenshot, i.e. somewhere in the four-step navigation chain below,
+    # of which advance_to_step_site is the leg that clicks through the
+    # not-yet-settled favorites grid.
+    @xfail_favorites_grid_reflow
     @pytest.mark.core_crud
     def test_plant_no_favorites_empty_state(
         self,
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-028: Plant step without favorites shows empty state.
+        """TC-020-037: Plant step without favorites shows empty state.
 
         Spec: TC-020-037 -- Schritt Pflanzen ohne Favoriten -- Leerzustand.
         """
@@ -778,7 +800,6 @@ class TestPlantSelectionStep:
 # -- Gruppe H -- Step 7: Summary & Completion ----------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestSummaryAndCompletion:
     """Summary display and wizard completion (Spec: TC-020-044, TC-020-046, TC-020-049)."""
 
@@ -788,7 +809,7 @@ class TestSummaryAndCompletion:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-029: Summary step shows setup information (experience, kit, site).
+        """TC-020-044: Summary step shows setup information (experience, kit, site).
 
         Spec: TC-020-044 -- Zusammenfassungs-Schritt -- Vollstaendige Darstellung.
         """
@@ -811,7 +832,7 @@ class TestSummaryAndCompletion:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-030: On the last step, 'Complete' button replaces 'Next'.
+        """TC-020-049: On the last step, 'Complete' button replaces 'Next'.
 
         Spec: TC-020-049 -- 'Weiter'-Button auf letztem Schritt ist durch 'Abschliessen' ersetzt.
         """
@@ -834,7 +855,7 @@ class TestSummaryAndCompletion:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-031: Completing the wizard redirects to /pflanzen/plant-instances.
+        """TC-020-046: Completing the wizard redirects to /pflanzen/plant-instances.
 
         Spec: TC-020-046 -- Wizard abschliessen -- Happy Path (Einsteiger mit Kit).
         """
@@ -860,18 +881,21 @@ class TestSummaryAndCompletion:
 # -- Gruppe I -- Navigation ----------------------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestWizardNavigation:
     """Back navigation between steps (Spec: TC-020-048, TC-020-001)."""
 
+    # The most-observed instance of the reflow race: xfailed in 5 of the 10 runs
+    # of the green window, on all four profiles narrower than 1920px, and in
+    # every one of them the run kept 'TC-REQ-020-032_on-step3' but never
+    # 'back-to-step2' — so the Back click below is where it stops.
+    @xfail_favorites_grid_reflow
     @pytest.mark.core_crud
-    @xfail_xdist_tenant_race
     def test_back_navigation_preserves_state(
         self,
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-032: Back button navigates to previous step with state preserved.
+        """TC-020-048: Back button navigates to previous step with state preserved.
 
         Spec: TC-020-048 -- Zurueck-Navigation zwischen Schritten.
         """
@@ -917,7 +941,7 @@ class TestWizardNavigation:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-033: Step 1 has no visible Back button on desktop.
+        """TC-020-001: Step 1 has no visible Back button on desktop.
 
         Spec: TC-020-001 -- Schritt 1 hat keinen Zurueck-Button.
         """

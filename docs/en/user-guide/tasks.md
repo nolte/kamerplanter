@@ -75,7 +75,7 @@ Click **Create Task** in the task overview.
 
 | Field | Description |
 |-------|-------------|
-| Title | Short, clear description |
+| Name | Short, clear description of the task (required) |
 | Instruction | Step-by-step guidance for carrying out the task |
 | Category | One of the twelve task categories |
 | Due Date | When must the task be completed? |
@@ -114,6 +114,15 @@ Click the checkmark icon next to a task in the list. The task is immediately mar
 ### Timer
 
 If a task has a timer duration set (e.g. for mixing protocols: "stir and wait"), the countdown timer appears once you start the task.
+
+---
+
+## Changing a Task Afterwards
+
+Open the task and switch to the **Edit** tab. There you adjust the same fields you filled in when creating it, and save with **Save**.
+
+!!! tip "Error hints appear directly on the field"
+    If an entry is invalid — an empty **Name**, an estimated duration below one minute — saving is aborted and the reason appears as red helper text underneath the affected field. The same applies to the **Complete** tab. Previously the browser's own check ran first in these cases: it showed a briefly displayed bubble in the browser's language, disappeared on the next click, and left the form unsaved without marking anything on the field itself. <!-- REQ-006 -->
 
 ---
 
@@ -180,6 +189,8 @@ For an individual planting run, you can additionally apply an **activity plan** 
 ## Care Reminders
 
 Automatically generated watering, fertilizing, and other care reminders are not a separate area — they appear in the same task overview (Source filter "Care"). For how the care profile works, which reminder types exist, and how escalation works, see [Care Reminders](care-reminders.md).
+
+When you complete a watering reminder here in the queue, Kamerplanter creates the next watering task right away — see [The next watering task is created immediately](care-reminders.md#naechste-giess-aufgabe).
 
 ---
 

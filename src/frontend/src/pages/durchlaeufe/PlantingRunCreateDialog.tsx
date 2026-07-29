@@ -30,6 +30,7 @@ import type { Control, UseFormSetValue } from 'react-hook-form';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
@@ -371,7 +372,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
     <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth aria-labelledby="planting-run-create-dialog-title" data-testid="planting-run-create-dialog">
       <DialogTitle id="planting-run-create-dialog-title">{t('pages.plantingRuns.create')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.plantingRuns.sectionBasics')}
           </Typography>
@@ -581,7 +582,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
             saveLabel={t('common.create')}
             disabled={adoptMode && selectedPlants.size === 0}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

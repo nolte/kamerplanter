@@ -228,6 +228,30 @@ describe('TaskDetailPage — rendering & views', () => {
     expect(await screen.findByTestId('plant-link')).toHaveTextContent('Big Red');
   });
 
+  it('renders every tab in a scrollable tab bar so none is clipped on mobile', async () => {
+    useTaskHandlers(spy);
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const tablist = screen.getByRole('tablist', { name: i18n.t('pages.tasks.title') });
+    // All five tabs of an actionable task are present, including the trailing
+    // ones that a fixed-width tab bar clipped out of the 393px viewport.
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(5);
+    for (const label of [
+      i18n.t('pages.tasks.tabDetails'),
+      i18n.t('pages.tasks.tabComplete'),
+      i18n.t('pages.tasks.tabComments'),
+      i18n.t('pages.tasks.tabHistory'),
+      i18n.t('common.edit'),
+    ]) {
+      expect(within(tablist).getByRole('tab', { name: label })).toBeInTheDocument();
+    }
+    // The bar scrolls horizontally instead of clipping — the regression guard
+    // for the mobile reachability defect.
+    const scroller = tablist.closest('.MuiTabs-root')?.querySelector('.MuiTabs-scroller');
+    expect(scroller?.className).toContain('MuiTabs-scrollableX');
+  });
+
   it('resolves a legacy care-instruction key to a readable label', async () => {
     useTaskHandlers(spy, {
       task: makeTask({ instruction: 'care:watering:5', instruction_de: '', category: 'care_reminder' }),
@@ -447,6 +471,29 @@ describe('TaskDetailPage — complete & edit tabs', () => {
     expect(spy.completed!.difficulty_rating).toBeNull();
   });
 
+  it('renders the zod error inline when a natively-constrained edit field is invalid', async () => {
+    // Regression guard: the edit form must carry `noValidate`. Without it the
+    // browser's constraint validation (the `required` name field) aborts the
+    // submission before any `submit` event fires — zod never runs, no MUI
+    // helper text renders, and the user is left with a transient native bubble
+    // and a silently unsaved form. jsdom implements the same interactive
+    // validation, so dropping `noValidate` makes this test fail.
+    useTaskHandlers(spy);
+    const user = userEvent.setup();
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1#edit' });
+    await screen.findByTestId('task-detail-page');
+
+    const nameField = await screen.findByTestId('form-field-name');
+    await user.clear(await screen.findByDisplayValue('Water plant'));
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    // zod rejected the empty name and the rejection is visible on the field.
+    await waitFor(() =>
+      expect(nameField.querySelector('.MuiFormHelperText-root.Mui-error')).not.toBeNull(),
+    );
+    expect(spy.put).toBeUndefined();
+  });
+
   it('saves edits from the edit tab once the form is dirty', async () => {
     useTaskHandlers(spy);
     const user = userEvent.setup();
@@ -598,5 +645,90 @@ describe('TaskDetailPage — delete flow', () => {
 
     expect(await screen.findByText(i18n.t('errors.server'))).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalledWith('/aufgaben/queue');
+  });
+});
+
+describe('TaskDetailPage — header action group', () => {
+  let spy: TaskSpy;
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    mockNavigate.mockClear();
+    spy = {};
+  });
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  it('lets the status/category/priority chip row wrap', async () => {
+    useTaskHandlers(spy);
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const statusChip = screen.getByText(i18n.t('enums.taskStatus.pending'));
+    const chipRow = statusChip.closest('.MuiChip-root')?.parentElement as HTMLElement;
+    expect(chipRow).toContainElement(screen.getByText(i18n.t('enums.taskCategory.maintenance')));
+
+    // Three German labels measure ~340px against a 393px viewport; without
+    // wrapping the row overflows the page (UI-NFR-001 R-005/R-006).
+    const rowStyle = window.getComputedStyle(chipRow);
+    expect(rowStyle.flexWrap).toBe('wrap');
+    // Stack's margin-based spacing collapses once a line breaks, so the row
+    // must use gap-based spacing.
+    expect(rowStyle.gap).not.toBe('');
+    expect(rowStyle.gap).not.toBe('normal');
+  });
+
+  it('keeps the action group shrinkable and wrapping so no action leaves the viewport', async () => {
+    useTaskHandlers(spy);
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const startButton = screen.getByTestId('start-task-button');
+    const group = startButton.parentElement as HTMLElement;
+
+    // Every header action lives in this one group — including the destructive
+    // one, which was the first to be pushed out of a 393px viewport.
+    for (const testId of ['start-task-button', 'skip-task-button', 'clone-task-button', 'delete-task-button']) {
+      expect(group).toContainElement(screen.getByTestId(testId));
+    }
+
+    // Regression guard: the group used to be `flexShrink: 0`, which sizes a flex
+    // item to its max-content width — the four/five buttons then formed one
+    // unbreakable row and the trailing ones rendered outside the viewport
+    // (UI-NFR-001 R-005/R-006, UI-NFR-021 R-023).
+    const groupStyle = window.getComputedStyle(group);
+    expect(groupStyle.flexShrink).not.toBe('0');
+    expect(groupStyle.flexWrap).toBe('wrap');
+    // Stack's default margin-based spacing collapses once lines wrap, so the
+    // group must use gap-based spacing.
+    expect(groupStyle.gap).not.toBe('');
+    expect(groupStyle.gap).not.toBe('normal');
+  });
+
+  it('exposes the reopen action inside the same wrapping group on a completed task', async () => {
+    useTaskHandlers(spy, { task: makeTask({ status: 'completed' }) });
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const reopenButton = screen.getByTestId('reopen-task-button');
+    const group = reopenButton.parentElement as HTMLElement;
+    expect(group).toContainElement(screen.getByTestId('delete-task-button'));
+    expect(window.getComputedStyle(group).flexWrap).toBe('wrap');
+  });
+
+  it('addresses the delete action by a stable test id, like its siblings', async () => {
+    useTaskHandlers(spy);
+    const user = userEvent.setup();
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    // The delete action was the only header action without a test hook, which
+    // forced consumers to select it by MUI class name plus translated label.
+    const deleteButton = screen.getByTestId('delete-task-button');
+    expect(deleteButton).toHaveAccessibleName(i18n.t('common.delete'));
+
+    await user.click(deleteButton);
+    expect(await screen.findByTestId('confirm-dialog-confirm')).toBeInTheDocument();
   });
 });

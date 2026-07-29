@@ -19,7 +19,7 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .pages import BotanicalFamilyListPage, SpeciesListPage
+from .pages import BotanicalFamilyDetailPage, BotanicalFamilyListPage, SpeciesListPage
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ class TestDataTableSearch:
     def test_search_no_results_shows_empty_state(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-079: Search with no results shows empty search state.
+        """TC-001-004: Search with no results shows empty search state.
 
         Spec: TC-001-004 -- Leerer Zustand — Suche liefert kein Ergebnis.
         """
@@ -66,7 +66,7 @@ class TestDataTableKeyboard:
     def test_press_enter_on_row_navigates_to_detail(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-080: Press Enter on a table row navigates to detail page.
+        """TC-001-005: Press Enter on a table row navigates to detail page.
 
         Spec: TC-001-005 -- Navigation von Liste zu Detailansicht (Tastatur).
         """
@@ -92,7 +92,7 @@ class TestDataTablePagination:
     def test_showing_count_displays_range(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-081: Showing count displays correct range.
+        """TC-001-001: Showing count displays correct range.
 
         Spec: TC-001-001 -- Botanische Familienliste — Zeigt-Zaehler.
         """
@@ -114,7 +114,7 @@ class TestDataTablePagination:
     def test_page_size_options_available(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-082: Change page size in the data table.
+        """TC-001-001: Change page size in the data table.
 
         Spec: TC-001-001 -- Botanische Familienliste — Seitengroesse-Optionen.
         """
@@ -124,9 +124,7 @@ class TestDataTablePagination:
         options = family_list.get_rows_per_page_options()
         # MUI TablePagination may render options differently, but page size
         # controls should be present
-        assert len(options) >= 0, (
-            "TC-REQ-001-082 FAIL: Page size options should be available"
-        )
+        assert len(options) >= 0, "TC-REQ-001-082 FAIL: Page size options should be available"
 
 
 class TestDataTableLoadingStates:
@@ -136,7 +134,7 @@ class TestDataTableLoadingStates:
     def test_table_loading_skeleton_renders(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-083: Loading skeleton shown while fetching botanical families.
+        """TC-001-001: Loading skeleton shown while fetching botanical families.
 
         Spec: TC-001-001 -- Lade-Skeleton bei Tabellenladen.
 
@@ -144,7 +142,9 @@ class TestDataTableLoadingStates:
         rather than trying to catch the transient skeleton state.
         """
         family_list.open()
-        screenshot("TC-REQ-001-083_page-loaded", "Family list page loaded (skeleton already resolved)")
+        screenshot(
+            "TC-REQ-001-083_page-loaded", "Family list page loaded (skeleton already resolved)"
+        )
 
         # The page should render successfully after loading
         assert family_list.is_page_visible(), (
@@ -155,12 +155,20 @@ class TestDataTableLoadingStates:
     def test_detail_loading_skeleton_renders(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-084: Loading skeleton on species detail page.
+        """TC-001-005: Loading skeleton on species detail page.
 
         Spec: TC-001-005 -- Lade-Skeleton bei Detailseite.
 
         Verifies the detail page loads correctly. The skeleton state is
         transient and difficult to capture in standard E2E tests.
+
+        Note what the *name* of this test promises versus what it can assert: the
+        skeleton is not observable here, so the falsifiable claim is "the detail
+        route settles into its page root, and no skeleton is left when it does".
+        That is precisely what `wait_for_content` gates on -- the previous
+        ``wait_for_loading_complete()`` asserted the *absence* of the very thing
+        the test is named after, which is satisfied before the route has started
+        loading at all.
         """
         family_list.open()
 
@@ -169,7 +177,9 @@ class TestDataTableLoadingStates:
 
         family_list.click_row(0)
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
-        family_list.wait_for_loading_complete()
+        family_list.wait_for_content(
+            BotanicalFamilyDetailPage.PAGE, "TC-REQ-001-084 family detail page"
+        )
         screenshot("TC-REQ-001-084_detail-loaded", "Family detail page loaded (skeleton resolved)")
 
         # The detail page should render with form elements

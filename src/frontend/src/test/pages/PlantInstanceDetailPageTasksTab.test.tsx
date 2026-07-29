@@ -1,4 +1,4 @@
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
@@ -377,6 +377,32 @@ describe('PlantInstanceDetailPage — Tasks tab (#578)', () => {
     await screen.findByTestId('error-display', {}, QUERY_TIMEOUT);
     expect(screen.queryByTestId('empty-state')).toBeNull();
     expect(attempt).toBeGreaterThan(0);
+  });
+
+  it('marks the active and the done task section with a stable hook', async () => {
+    seedPlant(makePlant());
+    seedTasks(() => [
+      makeTask({ key: 'active-1', name: 'Water basil', status: 'pending' }),
+      makeTask({ key: 'done-1', name: 'Old fertilize', status: 'completed', completed_at: '2024-06-05T00:00:00Z' }),
+    ]);
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
+
+    // Both sections were testid-less <Box>es, so a page object had to walk an
+    // XPath over the translated heading to tell "active" from "done".
+    const active = await screen.findByTestId('plant-tasks-active-section', {}, QUERY_TIMEOUT);
+    const done = screen.getByTestId('plant-tasks-done-section');
+    expect(within(active).getByText('Water basil')).toBeInTheDocument();
+    expect(within(active).queryByText('Old fertilize')).toBeNull();
+    expect(within(done).getByText('Old fertilize')).toBeInTheDocument();
+    // The tables themselves are discriminable too — including in the card
+    // layout, where they render no <table> to hang an aria-label on.
+    expect(
+      within(active).getByTestId('data-table').getAttribute('data-table-section'),
+    ).toBe('plant-tasks-active');
+    expect(
+      within(done).getByTestId('data-table').getAttribute('data-table-section'),
+    ).toBe('plant-tasks-done');
   });
 
   it('surfaces the error state (not the empty state) on a 422 validation failure (#614)', async () => {

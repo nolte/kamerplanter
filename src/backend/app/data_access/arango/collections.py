@@ -1680,6 +1680,46 @@ def ensure_species_normalized_index(species_col: StandardCollection) -> None:
         species_col.add_persistent_index(fields=SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS, unique=False)
 
 
+#: Field of the per-user singleton index (``user_preferences``/``onboarding_states``).
+USER_SINGLETON_INDEX_FIELDS = ["user_key"]
+
+
+def ensure_user_singleton_index(singleton_col: StandardCollection) -> None:
+    """Ensure the per-user singleton index on ``user_key`` (REQ-020/REQ-021).
+
+    Target state: a **unique, sparse** persistent index, so the storage layer
+    rejects the auto-create race that used to mint two preferences/onboarding
+    documents for one user. ``sparse`` mirrors v0030's ``batch_id`` index: legacy
+    documents that carry no ``user_key`` at all stay out of the index, so they
+    cannot block the constraint that protects every real user (v0031 deliberately
+    spares them rather than deleting across users).
+
+    ``ensure_collections`` runs at startup *before* the migration runner
+    (``run_pending_migrations``), so on an existing volume that still carries
+    duplicate singletons a unique-index creation would fail and take startup down
+    *before* v0031 could repair it. This helper therefore degrades gracefully, in
+    the same shape as :func:`ensure_species_normalized_index`: it creates the
+    unique+sparse index when that is safe and otherwise falls back to a
+    non-unique bootstrap index, leaving v0031 to dedup and promote. Once
+    promoted, a re-run finds the target index present and is a no-op.
+    """
+    for idx in singleton_col.indexes():
+        if (
+            isinstance(idx, dict)
+            and idx.get("type") == "persistent"
+            and idx.get("fields") == USER_SINGLETON_INDEX_FIELDS
+            and idx.get("unique")
+            and idx.get("sparse")
+        ):
+            return  # already unique+sparse — nothing to do
+    try:
+        singleton_col.add_persistent_index(fields=USER_SINGLETON_INDEX_FIELDS, unique=True, sparse=True)
+    except IndexCreateError:
+        # Duplicate singletons still present (a pre-v0031 volume) — keep a
+        # non-unique index so startup never fails; v0031 dedups and promotes.
+        singleton_col.add_persistent_index(fields=USER_SINGLETON_INDEX_FIELDS, unique=False)
+
+
 def ensure_collections(db: StandardDatabase) -> None:
     """Create all collections and the graph if they don't exist."""
     for name in DOCUMENT_COLLECTIONS:
@@ -1763,7 +1803,10 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     harvest_batches_col = db.collection(HARVEST_BATCHES)
     harvest_batches_col.add_persistent_index(fields=["plant_key"], unique=False)
-    harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True)
+    # sparse: batch_id is an optional user-facing lot label; only real values must
+    # be unique. Without sparse, a second unlabelled batch (null/absent) would
+    # collide on the missing key (#740). Migration v0030 promotes existing volumes.
+    harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True, sparse=True)
 
     # REQ-008 Post-Harvest indexes
     post_harvest_batches_col = db.collection(POST_HARVEST_BATCHES)
@@ -1815,6 +1858,10 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     memberships_col = db.collection(MEMBERSHIPS)
     memberships_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=True)
+    # REQ-049 INV-1: every write that removes or demotes a membership first counts
+    # the tenant's remaining ``management`` holders. Without this index that is a
+    # full collection scan on the hot path of member management.
+    memberships_col.add_persistent_index(fields=["tenant_key", "admin_scopes[*]"], unique=False)
 
     invitations_col = db.collection(INVITATIONS)
     invitations_col.add_persistent_index(fields=["token_hash"], unique=True)
@@ -1853,6 +1900,13 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     has_season_state_col = db.collection(HAS_SEASON_STATE)
     has_season_state_col.add_persistent_index(fields=["_from"], unique=True)
+
+    # REQ-020/REQ-021 per-user singleton indexes — exactly one preferences
+    # document and one onboarding state per user_key, so the storage layer
+    # rejects the auto-create race that used to mint duplicate singletons under
+    # concurrent cold reads (v0031 repairs legacy volumes).
+    ensure_user_singleton_index(db.collection(USER_PREFERENCES))
+    ensure_user_singleton_index(db.collection(ONBOARDING_STATES))
 
     # REQ-020 Onboarding indexes
     starter_kits_col = db.collection(STARTER_KITS)

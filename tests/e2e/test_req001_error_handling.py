@@ -85,7 +85,7 @@ class TestErrorHandling:
     def test_nonexistent_detail_page_shows_error(
         self, detail_page: BotanicalFamilyDetailPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-028: Non-existent key shows error display (supplemental).
+        """TC-001-068: Non-existent key shows error display (supplemental).
 
         Spec: TC-001-068 -- Ungueltige URL — Botanische Familie nicht gefunden zeigt Fehlermeldung.
 
@@ -93,8 +93,16 @@ class TestErrorHandling:
         which is a reliable way to verify error handling works.
         """
         detail_page.navigate("/stammdaten/botanical-families/nonexistent_e2e_key")
-        detail_page.wait_for_loading_complete()
-        screenshot("TC-REQ-001-028_nonexistent-key", "Detail page for non-existent botanical family key")
+        # The skeleton-absence wait is satisfied before the lazy route chunk
+        # mounts, so it cannot gate the read below; (ErrorDisplay | page root)
+        # exhausts the route's settled states.
+        detail_page.wait_for_any_present(
+            (detail_page.ERROR_DISPLAY, detail_page.PAGE),
+            "TC-REQ-001-028: botanical-family detail route for a non-existent key",
+        )
+        screenshot(
+            "TC-REQ-001-028_nonexistent-key", "Detail page for non-existent botanical family key"
+        )
 
         assert detail_page.is_error_displayed() or "nonexistent" not in detail_page.driver.title, (
             "TC-REQ-001-028 FAIL: Should show error display or not-found state for non-existent key"

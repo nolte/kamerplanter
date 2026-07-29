@@ -136,10 +136,7 @@ class HarvestBatchDetailPage(BasePage):
         self.navigate(f"/ernte/batches/{batch_key}")
         # Wait for either the page or an error display
         WebDriverWait(self.driver, 15).until(
-            lambda d: (
-                d.find_elements(*self.PAGE)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -179,9 +176,7 @@ class HarvestBatchDetailPage(BasePage):
         if index < len(tabs):
             self.scroll_and_click(tabs[index])
         else:
-            raise ValueError(
-                f"Tab index {index} out of range (found {len(tabs)} tabs)"
-            )
+            raise ValueError(f"Tab index {index} out of range (found {len(tabs)} tabs)")
 
     def get_active_tab_index(self) -> int:
         """Return the index of the currently selected tab."""
@@ -283,9 +278,7 @@ class HarvestBatchDetailPage(BasePage):
 
     def get_defect_chips(self) -> list[str]:
         """Return the text of all defect chips visible on the quality tab."""
-        chips = self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiChip-colorError .MuiChip-label"
-        )
+        chips = self.driver.find_elements(By.CSS_SELECTOR, ".MuiChip-colorError .MuiChip-label")
         return [c.text for c in chips]
 
     # -- Tab 2: Yield -------------------------------------------------------
@@ -373,21 +366,13 @@ class HarvestBatchDetailPage(BasePage):
         el.send_keys(notes)
 
     def select_edit_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select in the edit form and pick an option."""
-        field = self.wait_for_element_clickable(
-            (
-                By.CSS_SELECTOR,
-                f"[data-testid='form-field-{field_testid}'] .MuiSelect-select",
-            )
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (
-                By.XPATH,
-                f"//li[@role='option' and contains(text(), '{value_text}')]",
-            )
-        )
-        option.click()
+        """Open an MUI Select in the edit form and pick an option.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def is_submit_disabled(self) -> bool:
         """Return True if the submit/save button is disabled."""
@@ -398,11 +383,11 @@ class HarvestBatchDetailPage(BasePage):
 
     def submit_form(self) -> None:
         """Click the submit button."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
         """Click the cancel button."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     # -- Validation errors --------------------------------------------------
 

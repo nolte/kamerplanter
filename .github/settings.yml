@@ -32,10 +32,64 @@ branches:
   - name: develop
     protection:
       required_status_checks:
+        # `strict: true` means every open pull request must rebuild after any
+        # other one merges. With `E2E smoke (compose, light)` required that costs
+        # ~11 minutes per rebuild, serially — and it is the dominant cost of the
+        # merge train, not the gate itself.
+        #
+        # Measured over 2026-07-27 15:00 → 2026-07-28 17:00, a window in which 14
+        # pull requests merged: **60 `e2e-smoke` runs**. One Renovate
+        # container-digest bump alone accounted for **10** of them (7 completed, 3
+        # cancelled by the next update) — ~110 minutes of runner time for a change
+        # that never differed between runs. Every rerun was this flag reacting to
+        # someone else's merge.
+        #
+        # Evaluated and deliberately kept (#792). Three options were on the table:
+        # a GitHub merge queue (keeps the guarantee and removes the serial cost,
+        # but the portfolio's `reusable-automerge` merges via
+        # `pascalgn/automerge-action` and carries no `merge_group` trigger, so it
+        # would have to gain a queue-aware mode first — cross-repository work);
+        # dropping `strict` (removes the cost today, gives up the guarantee that a
+        # pull request green on its own is still green once merged); or accepting
+        # the cost.
+        #
+        # The cost is unattended machine time, not maintainer time, so it was
+        # accepted. Revisit if pull-request volume rises enough that the *drift
+        # window* — how long `develop` and the open pull requests disagree —
+        # starts producing real conflicts rather than just reruns.
         strict: true
         contexts:
           - static / Static CI Tests
           - E2E smoke (compose, light)
+          # #828 — the frontend unit suite gated nothing until now: a pull
+          # request whose entire vitest run was red could reach develop as long
+          # as the two contexts above passed. #824 (jsdom 29 -> 30, 71 of 361
+          # test files red) was stopped only because the advisory checks were
+          # inspected by hand.
+          #
+          # Promoted on measured history, the standard ADR-011 set for
+          # `E2E smoke`: across 60 runs (30 develop, 30 pull-request) the job
+          # reported 12 failures and *every one* traced to a real defect — 8 to
+          # the jsdom 30 incompatibility (#827), 4 to the WorkflowInstantiateDialog
+          # render-phase state mutation (#821). No flake, so no false blocking.
+          #
+          # `frontend.yml`'s pull_request trigger had to lose its `paths:` filter
+          # for this to work; see the header there.
+          - lint-test-build (22)
+          #
+          # `lint-test (3.14)` (backend) is deliberately NOT promoted alongside
+          # it, and the difference is measured rather than assumed. Over 30
+          # develop runs it failed once — but that failure is a midnight-UTC
+          # boundary flake, not a defect: three tests in
+          # `test_care_task_followup_after_completion.py` /
+          # `test_watering_log_care_advance.py` build their fixture as
+          # `completed_at = datetime.now(UTC) - 2h` and assert the "#509 recency
+          # rule" ("a task completed today satisfies the reminder"). The run
+          # started at 00:04 UTC, so the fixture landed on the previous day and
+          # the rule stopped matching. Arming that as a required check would
+          # block every pull request in the repository whenever CI happens to
+          # start between 00:00 and 02:00 UTC. Fix the date boundary first; the
+          # promotion is a follow-up, not a decision left unmade.
       enforce_admins: true
       # `restrictions: null` is load-bearing, not a tidy-up. The commons declare
       # `restrictions.apps: [nolte-portfolio-app]` for develop, but GitHub only

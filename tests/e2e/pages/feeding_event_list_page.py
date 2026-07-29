@@ -72,30 +72,30 @@ class FeedingEventListPage(BasePage):
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column id of the identifying column (FeedingEventListPage `columns`) --
+    #: also what the mobile card renders as its title.
+    PLANT_COLUMN_ID = "plantKey"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return text of the first column for all visible rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return each visible row's identifying (plant) text.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.PLANT_COLUMN_ID)
+
+    #: Column the row is activated through. Deliberately NOT `PLANT_COLUMN_ID`:
+    #: that column renders a `Chip component={RouterLink} clickable` with
+    #: `onClick={(e) => e.stopPropagation()}`, so a click landing on it opens
+    #: the plant instead of the feeding event. `timestamp` is the first column,
+    #: carries no `hideBelowBreakpoint` and renders a plain locale timestamp.
+    ROW_CLICK_COLUMN_ID = "timestamp"
 
     def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
-
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
+        """Open the feeding event at *index* via its inert `timestamp` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "feeding event row"
+        )
 
     # -- Search and filter -------------------------------------------------
 
@@ -181,13 +181,14 @@ class FeedingEventListPage(BasePage):
         # the internal class.
         self.wait_for_loading_complete()
         self.open_select("plant_key")
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
-        )
-        # scroll_and_click centres the option and JS-clicks if a neighbour would
-        # intercept mid-animation; a raw click here can silently miss.
-        self.scroll_and_click(option)
-        self.close_mui_dropdown()
+        # ``select_option_by_label`` resolves via the option's own
+        # ``data-value``/``textContent`` (whitespace-normalised, exact-or-
+        # substring) rather than the unscoped ``contains(., …)`` XPath this
+        # used to run, which only sees the *first* text node of a nested
+        # element and misses an option scrolled out of the popover's visible
+        # area. It also dispatches the click on the resolved element and
+        # verifies the value actually committed.
+        self.select_option_by_label(option_text)
 
     def select_application_method(self, option_text: str) -> None:
         """Open the application_method select and pick an option whose label contains text."""
@@ -195,11 +196,7 @@ class FeedingEventListPage(BasePage):
         # this field, otherwise its closing overlay blocks the interaction.
         self.close_mui_dropdown()
         self.open_select("application_method")
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
-        )
-        self.scroll_and_click(option)
-        self.close_mui_dropdown()
+        self.select_option_by_label(option_text)
 
     def fill_volume(self, value: float) -> None:
         """Fill the volume_applied_liters field."""
@@ -256,9 +253,14 @@ class FeedingEventListPage(BasePage):
 
     def has_form_field(self, field_name: str) -> bool:
         """Return True if a ``form-field-{field_name}`` element is present in the dialog."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
+                )
+            )
+            > 0
+        )
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a given form field."""

@@ -30,23 +30,24 @@ class TestDashboardPage:
     def test_dashboard_loads(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-001: Dashboard page loads and shows page title.
+        """TC-009-001: Dashboard page loads and shows page title.
 
         Spec: TC-009-001 -- Dashboard-Seite aufrufen (authentifizierter Nutzer).
         """
         dashboard.open()
-        screenshot("TC-REQ-009-001_dashboard-loaded", "Dashboard page after initial load — title and quick actions visible")
+        screenshot(
+            "TC-REQ-009-001_dashboard-loaded",
+            "Dashboard page after initial load — title and quick actions visible",
+        )
 
         title = dashboard.get_page_title()
-        assert title, (
-            "TC-REQ-009-001 FAIL: Page title should not be empty"
-        )
+        assert title, "TC-REQ-009-001 FAIL: Page title should not be empty"
 
     @pytest.mark.smoke
     def test_welcome_message_visible(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-002: Welcome text is displayed on the dashboard.
+        """TC-009-001: Welcome text is displayed on the dashboard.
 
         Spec: TC-009-001 -- Begrüssungstext 'Willkommen bei Kamerplanter' ist sichtbar.
         """
@@ -62,13 +63,15 @@ class TestDashboardPage:
     def test_quick_actions_present(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-003: All quick-action cards are rendered.
+        """TC-009-001: All quick-action cards are rendered.
 
         Spec: TC-009-001 -- Abschnitt 'Schnellaktionen' mit mindestens 6 Kacheln.
         """
         dashboard.open()
         actions = dashboard.get_quick_actions()
-        screenshot("TC-REQ-009-003_quick-actions", f"Dashboard quick actions — {len(actions)} cards found")
+        screenshot(
+            "TC-REQ-009-003_quick-actions", f"Dashboard quick actions — {len(actions)} cards found"
+        )
 
         assert len(actions) >= 6, (
             f"TC-REQ-009-003 FAIL: Expected at least 6 quick actions, got {len(actions)}: {actions}"
@@ -78,7 +81,7 @@ class TestDashboardPage:
     def test_quick_action_navigates(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-004: Clicking a quick-action card navigates to the target page.
+        """TC-009-001: Clicking a quick-action card navigates to the target page.
 
         Spec: TC-009-001 -- Schnellaktion-Kacheln fuehren zur jeweiligen Zielseite.
         """

@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import TenantRole, TenantType
+from app.common.enums import AdminScope, TenantRole, TenantType
 
 
 class Tenant(BaseModel):
@@ -46,4 +46,7 @@ class TenantWithRole(BaseModel):
     tenant_type: TenantType
     description: str | None
     role: TenantRole
+    # REQ-049 axis 2 — carried alongside the rank because neither implies the
+    # other; the tenant switcher and every gated action need both.
+    admin_scopes: list[AdminScope] = Field(default_factory=list)
     is_active: bool

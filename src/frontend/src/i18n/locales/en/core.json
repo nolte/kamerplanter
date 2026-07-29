@@ -296,6 +296,11 @@
     "clearFilters": "Clear Filters",
     "active": "Active",
     "retry": "Retry",
+    "appError": {
+      "title": "Something went wrong",
+      "hint": "This page could not be displayed. Try again — if the error persists, reload the page.",
+      "reloadPage": "Reload page"
+    },
     "more": "more",
     "description": "Description",
     "yesterday": "Yesterday",

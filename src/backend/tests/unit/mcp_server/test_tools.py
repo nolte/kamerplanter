@@ -30,7 +30,7 @@ def _principal() -> McpPrincipal:
         display_name="bot",
         tenant_key="home",
         tenant_slug="home",
-        role=TenantRole.ADMIN,
+        role=TenantRole.LEAD,
     )
 
 

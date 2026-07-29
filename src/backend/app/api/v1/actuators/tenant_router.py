@@ -41,9 +41,9 @@ from app.api.v1.actuators.schemas import (
     ScheduleResponse,
     ScheduleUpdate,
 )
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.auth import get_current_tenant, require_admin_scope, require_tenant_role
 from app.common.dependencies import get_actuator_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.actuator import (
@@ -66,7 +66,7 @@ router = APIRouter(tags=["actuators"], responses=NOT_FOUND_RESPONSE)
 def create_actuator(
     location_key: Annotated[str, Path(description="Document key of the location.")],
     body: ActuatorCreate,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Create an actuator attached to a location."""
@@ -113,7 +113,7 @@ def get_actuator(
 def update_actuator(
     actuator_key: Annotated[str, Path(description="Document key of the actuator.")],
     body: ActuatorUpdate,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Update an actuator's configuration."""
@@ -124,7 +124,7 @@ def update_actuator(
 @router.delete("/actuators/{actuator_key}", status_code=204)
 def delete_actuator(
     actuator_key: Annotated[str, Path(description="Document key of the actuator.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete an actuator."""
@@ -232,7 +232,7 @@ def update_schedule(
 def delete_schedule(
     actuator_key: Annotated[str, Path(description="Document key of the actuator.")],
     schedule_key: Annotated[str, Path(description="Document key of the control schedule.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete a control schedule of an actuator."""
@@ -307,7 +307,7 @@ def update_rule(
 def delete_rule(
     actuator_key: Annotated[str, Path(description="Document key of the actuator.")],
     rule_key: Annotated[str, Path(description="Document key of the control rule.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete a control rule of an actuator."""
@@ -450,7 +450,7 @@ def update_profile(
 @router.delete("/phase-control-profiles/{profile_key}", status_code=204)
 def delete_profile(
     profile_key: Annotated[str, Path(description="Document key of the phase-control profile.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete a phase-control profile."""
@@ -473,7 +473,7 @@ def apply_profile(
 
 @router.get("/integrations/home-assistant/status")
 def ha_status(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return the Home Assistant integration connection status."""
@@ -482,7 +482,7 @@ def ha_status(
 
 @router.get("/integrations/home-assistant/entities")
 def ha_entities(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List the controllable Home Assistant entities."""
@@ -491,7 +491,7 @@ def ha_entities(
 
 @router.post("/integrations/home-assistant/test")
 def ha_test(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Test the Home Assistant integration connection."""

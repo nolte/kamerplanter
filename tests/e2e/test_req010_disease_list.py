@@ -46,7 +46,7 @@ class TestDiseaseListPage:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-014: Disease list page loads with title, table, and create button.
+        """TC-010-013: Disease list page loads with title, table, and create button.
 
         Spec: TC-010-013 -- Krankheits-Listenansicht aufrufen.
         """
@@ -69,7 +69,7 @@ class TestDiseaseListPage:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-015: DataTable renders with expected columns for diseases.
+        """TC-010-013: DataTable renders with expected columns for diseases.
 
         Spec: TC-010-013 -- Krankheits-Listenansicht — Spalten pruefen.
         """
@@ -90,7 +90,7 @@ class TestDiseaseListPage:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-016: Introductory description text is visible below the title.
+        """TC-010-013: Introductory description text is visible below the title.
 
         Spec: TC-010-013 -- Einleitungstext sichtbar.
         """
@@ -107,7 +107,7 @@ class TestDiseaseListPage:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-017: Search filters disease list.
+        """TC-010-013: Search filters disease list.
 
         Spec: TC-010-013 -- Krankheits-Liste — Suche filtert.
         """
@@ -136,7 +136,7 @@ class TestDiseaseListPage:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-018: Search with no match shows empty state.
+        """TC-010-013: Search with no match shows empty state.
 
         Spec: TC-010-013 -- Krankheits-Liste — Suche ohne Treffer.
         """
@@ -156,7 +156,7 @@ class TestDiseaseListPage:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-019: Sorting by column header works.
+        """TC-010-013: Sorting by column header works.
 
         Spec: TC-010-013 -- Krankheits-Liste — Sortierung per Spaltenklick.
         """
@@ -166,8 +166,14 @@ class TestDiseaseListPage:
             pytest.skip("No diseases to sort")
 
         headers = disease_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-010-019 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-010-019_before-sort", "Disease list before sorting")
         disease_list.click_column_header(headers[0])
@@ -184,7 +190,7 @@ class TestDiseaseListPage:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-020: Showing count text is visible.
+        """TC-010-013: Showing count text is visible.
 
         Spec: TC-010-013 -- Krankheits-Liste — Zeigt-Zaehler.
         """
@@ -212,7 +218,7 @@ class TestDiseaseCreateDialog:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-021: Create a disease with environmental triggers and affected plant parts.
+        """TC-010-016: Create a disease with environmental triggers and affected plant parts.
 
         Spec: TC-010-016 -- Krankheit erstellen — Happy Path mit Umweltausloesern.
         """
@@ -281,7 +287,7 @@ class TestDiseaseCreateDialog:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-022: Validation error when both name fields are empty.
+        """TC-010-017: Validation error when both name fields are empty.
 
         Spec: TC-010-017 -- Krankheit erstellen — Pflichtfelder leer (beide Namen fehlen).
         """
@@ -317,7 +323,7 @@ class TestDiseaseCreateDialog:
         disease_list: DiseaseListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-023: Cancelling create dialog discards entered data.
+        """TC-010-016: Cancelling create dialog discards entered data.
 
         Spec: TC-010-016 -- Krankheit erstellen — Dialog abbrechen.
         """

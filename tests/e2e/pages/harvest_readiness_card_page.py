@@ -14,6 +14,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
+from .plant_instance_list_page import PlantInstanceListPage
 
 
 class HarvestReadinessCardPage(BasePage):
@@ -32,6 +33,18 @@ class HarvestReadinessCardPage(BasePage):
         "[data-testid='harvest-readiness-card'] table tbody tr",
     )
     DATA_TABLE_ROW = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    #: Identifying column of `PlantInstanceListPage`; the row's click target.
+    INSTANCE_ID_COLUMN_ID = "instanceId"
+    #: Borrowed from the page object that owns the list route rather than
+    #: re-spelled here: a second literal is exactly how this drifted to the
+    #: non-existent "/pflanzen" (`AppRoutes.tsx` declares only
+    #: "pflanzen/plant-instances", so "/pflanzen" hits the catch-all).
+    PLANT_LIST_PATH = PlantInstanceListPage.PATH
+    #: Roots of the two routes this object navigates between. Both are rendered
+    #: only once their lazily-imported chunk has resolved, so their presence --
+    #: unlike the loading skeleton's absence -- proves the route is mounted.
+    PLANT_LIST_PAGE = (By.CSS_SELECTOR, "[data-testid='plant-instance-list-page']")
+    PLANT_DETAIL_PAGE = (By.CSS_SELECTOR, "[data-testid='plant-instance-detail-page']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -45,13 +58,29 @@ class HarvestReadinessCardPage(BasePage):
         was reached); returns False when the list is empty, leaving the
         caller responsible for the ``pytest.skip`` (this object has no
         pytest dependency).
+
+        The ``False`` branch is the reason this waits on the list *root* rather
+        than on the loading skeleton's absence: the skeleton wait is satisfied
+        before the lazily-imported route has even mounted, so an unmounted route
+        reads back zero rows, this returns ``False``, and the caller turns that
+        into a ``pytest.skip`` -- a timing-dependent silent coverage hole rather
+        than the deterministic "no plant instances exist" skip it claims to be
+        (`e2e-test-stability` §A/§E). Waiting for the root makes the empty read
+        mean what it says.
         """
-        self.navigate("/pflanzen")
+        self.navigate(self.PLANT_LIST_PATH)
+        self.wait_for_element(self.PLANT_LIST_PAGE)
         self.wait_for_loading_complete()
         rows = self.driver.find_elements(*self.DATA_TABLE_ROW)
         if not rows:
             return False
-        self.scroll_and_click(rows[0])
+        # Via the inert instance-id cell, not the row centre: the plant-instance
+        # row carries `location` and `plantingRun` links plus an actions button,
+        # all of which `stopPropagation`.
+        self.click_row_via_column(rows[0], self.INSTANCE_ID_COLUMN_ID)
+        # Likewise keyed on the detail route's own root: every caller reads card
+        # contents straight after this returns.
+        self.wait_for_element(self.PLANT_DETAIL_PAGE)
         self.wait_for_loading_complete()
         return True
 

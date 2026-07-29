@@ -89,15 +89,23 @@ export default function LocationListSection({ siteKey }: Props) {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
+            titleId="name"
             subtitle={tankNameByLocation.get(r.key) || undefined}
-            chips={
-              <>
-                <Chip label={t(`enums.lightType.${r.light_type}`)} size="small" />
-                <Chip label={t(`enums.irrigationSystem.${r.irrigation_system}`)} size="small" variant="outlined" />
-              </>
-            }
+            subtitleId="tank"
+            chips={[
+              {
+                id: 'light',
+                content: <Chip label={t(`enums.lightType.${r.light_type}`)} size="small" />,
+              },
+              {
+                id: 'irrigation',
+                content: (
+                  <Chip label={t(`enums.irrigationSystem.${r.irrigation_system}`)} size="small" variant="outlined" />
+                ),
+              },
+            ]}
             fields={[
-              { label: t('pages.locations.area'), value: `${r.area_m2} m²` },
+              { id: 'area', label: t('pages.locations.area'), value: `${r.area_m2} m²` },
             ]}
           />
         )}

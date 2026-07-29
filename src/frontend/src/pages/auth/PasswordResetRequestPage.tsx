@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import { requestPasswordReset } from '@/api/endpoints/auth';
+import Form from '@/components/form/Form';
 
 export default function PasswordResetRequestPage() {
   const { t } = useTranslation();
@@ -49,7 +50,7 @@ export default function PasswordResetRequestPage() {
               </Link>
             </>
           ) : (
-            <Box component="form" onSubmit={handleSubmit}>
+            <Form onSubmit={handleSubmit}>
               <TextField
                 label={t('pages.auth.email')}
                 type="email"
@@ -63,7 +64,7 @@ export default function PasswordResetRequestPage() {
                 type="submit"
                 variant="contained"
                 fullWidth
-                disabled={loading}
+                disabled={loading || !email}
                 sx={{ mb: 2 }}
               >
                 {t('pages.auth.sendResetLink')}
@@ -71,7 +72,7 @@ export default function PasswordResetRequestPage() {
               <Link component={RouterLink} to="/login" variant="body2">
                 {t('pages.auth.backToLogin')}
               </Link>
-            </Box>
+            </Form>
           )}
         </CardContent>
       </Card>

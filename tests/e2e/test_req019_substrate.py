@@ -25,6 +25,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-019.md):
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -33,6 +34,12 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.substrate_detail_page import SubstrateDetailPage
 from .pages.substrate_list_page import SubstrateListPage
+
+#: Name the happy-path create test writes. Kept as a constant because the test
+#: also searches for it to count its own row: the list paginates at 25, so an
+#: unfiltered row count cannot detect the new entry on a full first page.
+SUBSTRATE_NAME_DE = "E2E-Testsubstrat"
+SUBSTRATE_NAME_EN = "E2E Test Substrate"
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -62,7 +69,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-001: SubstrateListPage renders with page title visible.
+        """TC-019-001: SubstrateListPage renders with page title visible.
 
         Spec: TC-019-001 -- Substrat-Liste wird korrekt geladen und angezeigt.
         """
@@ -81,7 +88,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-002: DataTable renders with expected column headers.
+        """TC-019-001: DataTable renders with expected column headers.
 
         Spec: TC-019-001 -- Listenansicht — Spalten pruefen.
         Expected columns: Typ, Bezeichnung, pH-Basis, EC-Basis, Wiederverwendbar
@@ -93,11 +100,14 @@ class TestSubstrateListPage:
         headers = substrate_list.get_column_headers()
         if len(headers) == 0:
             pytest.skip("No substrates in database — empty state shown instead of DataTable")
-        # At minimum, the table should have Typ and pH columns
+        # The docstring enumerates the expected columns; checking only "pH"
+        # meant losing any of the others kept this green (#802). Matched as
+        # substrings so a unit suffix in the header text does not break it.
         header_text = " ".join(headers)
-        assert any("pH" in h for h in headers), (
-            f"TC-REQ-019-002 FAIL: Expected 'pH' column header, got: {headers}"
-        )
+        for expected in ("Typ", "Bezeichnung", "pH", "EC", "Wiederverwendbar"):
+            assert expected in header_text, (
+                f"TC-REQ-019-002 FAIL: Expected a '{expected}' column header, got: {headers}"
+            )
 
     @pytest.mark.smoke
     def test_create_button_is_visible_on_list_page(
@@ -105,7 +115,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-003: Create button is visible on the SubstrateListPage.
+        """TC-019-001: Create button is visible on the SubstrateListPage.
 
         Spec: TC-019-001 -- Erstellen-Button sichtbar auf Listenansicht.
         """
@@ -113,9 +123,7 @@ class TestSubstrateListPage:
         screenshot("TC-REQ-019-003_create-button", "Create button visible on substrate list")
 
         btn = substrate_list.wait_for_element(SubstrateListPage.CREATE_BUTTON)
-        assert btn.is_displayed(), (
-            "TC-REQ-019-003 FAIL: Expected create button to be visible"
-        )
+        assert btn.is_displayed(), "TC-REQ-019-003 FAIL: Expected create button to be visible"
 
     @pytest.mark.core_crud
     def test_click_row_navigates_to_detail(
@@ -123,7 +131,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-004: Clicking a substrate row navigates to its detail page.
+        """TC-019-005: Clicking a substrate row navigates to its detail page.
 
         Spec: TC-019-005 -- Klick auf Zeile navigiert zur Detailseite.
         """
@@ -147,7 +155,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-005: Search input filters substrates.
+        """TC-019-003: Search input filters substrates.
 
         Spec: TC-019-003 -- Substrat-Tabelle ist durchsuchbar.
         """
@@ -174,7 +182,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-006: Search with no results shows a hint message.
+        """TC-019-004: Search with no results shows a hint message.
 
         Spec: TC-019-004 -- Suche ohne Treffer zeigt Hinweismeldung.
         """
@@ -198,14 +206,20 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-007: Clicking a column header activates the sort chip.
+        """TC-019-003: Clicking a column header activates the sort chip.
 
         Spec: TC-019-003 -- Sortierung per Spaltenklick.
         """
         substrate_list.open()
         headers = substrate_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-019-007 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-019-007_before-sort", "Substrate list before sorting")
         substrate_list.click_column_header(headers[0])
@@ -222,7 +236,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-008: Showing count text is displayed when rows are present.
+        """TC-019-001: Showing count text is displayed when rows are present.
 
         Spec: TC-019-001 -- Zeigt-Zaehler.
         """
@@ -233,9 +247,7 @@ class TestSubstrateListPage:
             pytest.skip("No rows — showing count not displayed for empty table")
 
         count_text = substrate_list.get_showing_count_text()
-        assert count_text, (
-            "TC-REQ-019-008 FAIL: Expected non-empty showing count text"
-        )
+        assert count_text, "TC-REQ-019-008 FAIL: Expected non-empty showing count text"
 
 
 # -- TC-REQ-019-010 to TC-REQ-019-014: Create Dialog --------------------------
@@ -250,12 +262,14 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-010: Clicking create button opens the SubstrateCreateDialog.
+        """TC-019-007: Clicking create button opens the SubstrateCreateDialog.
 
         Spec: TC-019-007 -- Erstellen-Dialog oeffnet sich.
         """
         substrate_list.open()
-        screenshot("TC-REQ-019-010_before-open-dialog", "Substrate list before opening create dialog")
+        screenshot(
+            "TC-REQ-019-010_before-open-dialog", "Substrate list before opening create dialog"
+        )
 
         substrate_list.click_create()
         screenshot("TC-REQ-019-010_dialog-open", "Substrate create dialog opened")
@@ -270,7 +284,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-011: Cancel in create dialog closes it without creating a substrate.
+        """TC-019-014: Cancel in create dialog closes it without creating a substrate.
 
         Spec: TC-019-014 -- Abbrechen schliesst Dialog ohne Aenderungen.
         """
@@ -299,7 +313,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-012: Type dropdown shows all 14 substrate type options.
+        """TC-019-009: Type dropdown shows all 14 substrate type options.
 
         Spec: TC-019-009 -- Alle 14 Substrattypen im Dropdown verfuegbar.
         """
@@ -320,20 +334,31 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-013: Successfully create a substrate via the dialog.
+        """TC-019-007: Successfully create a substrate via the dialog.
 
         Spec: TC-019-007 -- Substrat erfolgreich erstellen (Happy Path).
         """
         substrate_list.open()
-        initial_count = substrate_list.get_row_count()
+        # Counted behind the search filter, not on the unfiltered list. The list
+        # paginates at 25 rows, so on a full first page the visible row count
+        # cannot grow no matter how many substrates are created -- the check
+        # read `assert 25 > 25` and failed on every profile (#802). Filtering by
+        # the name this test creates keeps the count far below the page size and
+        # stays correct under parallel execution, because a concurrent test adds
+        # rows under its own name rather than this one.
+        substrate_list.search(SUBSTRATE_NAME_DE)
+        substrate_list.wait_for_loading_complete()
+        matches_before = substrate_list.get_row_count()
+        substrate_list.clear_search()
+        substrate_list.wait_for_loading_complete()
         screenshot("TC-REQ-019-013_before-create", "Substrate list before creating")
 
         substrate_list.click_create()
         screenshot("TC-REQ-019-013_dialog-open", "Substrate create dialog opened")
 
         # Fill in form fields
-        substrate_list.fill_name_de("E2E-Testsubstrat")
-        substrate_list.fill_name_en("E2E Test Substrate")
+        substrate_list.fill_name_de(SUBSTRATE_NAME_DE)
+        substrate_list.fill_name_en(SUBSTRATE_NAME_EN)
         substrate_list.fill_brand("TestBrand")
         substrate_list.fill_ph_base(6.2)
         substrate_list.fill_ec_base(0.4)
@@ -348,6 +373,30 @@ class TestSubstrateCreateDialog:
         assert not substrate_list.is_create_dialog_open(), (
             "TC-REQ-019-013 FAIL: Expected dialog to close after successful create"
         )
+        # A closing dialog is not a created substrate: the row has to appear
+        # (#802). Re-counted behind the same name filter as above, so the page
+        # size cannot mask the new row.
+        #
+        # Polled rather than read once. Creating dispatches a refetch, and
+        # `wait_for_loading_complete` only waits for a skeleton to disappear --
+        # a refetch that resolves before the skeleton renders leaves nothing to
+        # wait for, and a single read then samples the pre-create list. Reading
+        # once reported `0 (was 0)` for exactly that reason.
+        deadline = time.time() + 10
+        matches_after = 0
+        while time.time() < deadline:
+            substrate_list.search(SUBSTRATE_NAME_DE)
+            substrate_list.wait_for_loading_complete()
+            matches_after = substrate_list.get_row_count()
+            if matches_after > matches_before:
+                break
+            substrate_list.clear_search()
+            substrate_list.wait_for_loading_complete()
+        assert matches_after > matches_before, (
+            f"TC-REQ-019-013 FAIL: Creating a substrate must add a row named "
+            f"'{SUBSTRATE_NAME_DE}', but after 10s the filtered list still shows "
+            f"{matches_after} row(s) (was {matches_before})"
+        )
 
     @pytest.mark.core_crud
     def test_create_dialog_reusable_toggle(
@@ -355,7 +404,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-014: Reusable toggle switch can be toggled in the create dialog.
+        """TC-019-007: Reusable toggle switch can be toggled in the create dialog.
 
         Spec: TC-019-007 -- Reusable-Toggle im Erstellen-Dialog.
         """
@@ -393,7 +442,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-020: Substrate detail page loads and shows edit form.
+        """TC-019-015: Substrate detail page loads and shows edit form.
 
         Spec: TC-019-015 -- Substrat-Detailseite laedt mit Formular.
         """
@@ -409,15 +458,11 @@ class TestSubstrateDetailPage:
         screenshot("TC-REQ-019-020_detail-loaded", "Substrate detail page loaded")
 
         title = substrate_detail.get_title()
-        assert title, (
-            "TC-REQ-019-020 FAIL: Expected non-empty page title on detail page"
-        )
+        assert title, "TC-REQ-019-020 FAIL: Expected non-empty page title on detail page"
 
         # Verify form fields are present
         ph_value = substrate_detail.get_ph_base_value()
-        assert ph_value, (
-            "TC-REQ-019-020 FAIL: Expected pH base field to have a value"
-        )
+        assert ph_value, "TC-REQ-019-020 FAIL: Expected pH base field to have a value"
 
     @pytest.mark.core_crud
     def test_detail_page_shows_section_cards(
@@ -426,7 +471,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-021: Detail page shows form section cards.
+        """TC-019-015: Detail page shows form section cards.
 
         Spec: TC-019-015 -- Detailseite zeigt Abschnittskarten.
         Expected: 4 cards (Identification, Chemistry, Physical, Reuse).
@@ -454,7 +499,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-022: Edit pH base value and save successfully.
+        """TC-019-016: Edit pH base value and save successfully.
 
         Spec: TC-019-016 -- Substrat bearbeiten — pH-Basis aendern.
         """
@@ -499,7 +544,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-023: Delete button opens the confirmation dialog.
+        """TC-019-018: Delete button opens the confirmation dialog.
 
         Spec: TC-019-018 -- Loeschen-Button oeffnet Bestaetigungsdialog.
         """
@@ -531,7 +576,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-024: Cancelling deletion closes the confirm dialog.
+        """TC-019-019: Cancelling deletion closes the confirm dialog.
 
         Spec: TC-019-019 -- Loeschen abbrechen schliesst Dialog.
         """
@@ -567,7 +612,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-025: Confirming deletion removes the substrate and navigates back.
+        """TC-019-018: Confirming deletion removes the substrate and navigates back.
 
         Spec: TC-019-018 -- Substrat loeschen bestaetigt.
 

@@ -35,7 +35,10 @@ class PrintButtonPage(BasePage):
     """
 
     PRINT_BUTTON = (By.CSS_SELECTOR, "[data-testid='print-button']")
-    PRINT_BUTTON_LOADING = (By.CSS_SELECTOR, "[data-testid='print-button'] .MuiCircularProgress-root")
+    PRINT_BUTTON_LOADING = (
+        By.CSS_SELECTOR,
+        "[data-testid='print-button'] .MuiCircularProgress-root",
+    )
     SNACKBAR = (By.CSS_SELECTOR, ".MuiSnackbar-root .MuiAlert-message")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:

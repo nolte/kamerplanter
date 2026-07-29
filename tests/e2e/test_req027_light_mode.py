@@ -57,8 +57,7 @@ def _fetch_mode(driver: WebDriver, base_url: str) -> dict[str, Any]:
     result = driver.execute_async_script(script)
     if result["status"] != 200:
         raise AssertionError(
-            f"GET /api/v1/mode failed: status={result['status']}, "
-            f"body={result['body'][:300]}"
+            f"GET /api/v1/mode failed: status={result['status']}, body={result['body'][:300]}"
         )
     return json.loads(result["body"])
 
@@ -94,9 +93,7 @@ class TestModeEndpoint:
             "Browser nach Mode-Endpoint-Abfrage (Public, ohne JWT)",
         )
 
-        assert "mode" in payload, (
-            f"Mode-Response sollte Feld 'mode' enthalten, war: {payload}"
-        )
+        assert "mode" in payload, f"Mode-Response sollte Feld 'mode' enthalten, war: {payload}"
         assert payload["mode"] in {"light", "full"}, (
             f"Mode sollte 'light' oder 'full' sein, war: {payload['mode']!r}"
         )
@@ -105,8 +102,7 @@ class TestModeEndpoint:
         )
         for flag in ("auth", "multi_tenant", "privacy_consent"):
             assert flag in payload["features"], (
-                f"Feature-Flag {flag!r} fehlt in features: "
-                f"{payload['features']}"
+                f"Feature-Flag {flag!r} fehlt in features: {payload['features']}"
             )
             assert isinstance(payload["features"][flag], bool), (
                 f"Feature-Flag {flag!r} sollte bool sein, war: "
@@ -172,7 +168,4 @@ class TestModeEndpoint:
         assert isinstance(payload, dict) and payload.get("mode") in {
             "light",
             "full",
-        }, (
-            f"Anonymer Aufruf von /api/v1/mode lieferte unerwartete "
-            f"Response: {payload}"
-        )
+        }, f"Anonymer Aufruf von /api/v1/mode lieferte unerwartete Response: {payload}"

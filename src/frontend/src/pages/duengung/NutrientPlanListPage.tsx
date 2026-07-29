@@ -172,7 +172,7 @@ export default function NutrientPlanListPage() {
       <PageTitle
         title={t('pages.nutrientPlans.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {hasFavorites && (
               <Tooltip title={t('pages.nutrientPlans.favFilter')}>
                 <IconButton
@@ -211,17 +211,38 @@ export default function NutrientPlanListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
+            titleId="name"
             subtitle={r.author || undefined}
-            chips={
-              <>
-                {r.is_template && <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />}
-                {r.tags.slice(0, 3).map((tag) => <Chip key={tag} label={tag} size="small" variant="outlined" />)}
-                {r.tags.length > 3 && <Chip label={`+${r.tags.length - 3}`} size="small" variant="outlined" />}
-              </>
-            }
+            subtitleId="author"
+            chips={[
+              ...(r.is_template
+                ? [
+                    {
+                      id: 'is_template',
+                      content: <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />,
+                    },
+                  ]
+                : []),
+              // The tag chips share one column id and are therefore keyed by
+              // position (`tags-0`, `tags-1`, …): a single `tags` id would
+              // collide, and DOM order is exactly what a reader cannot rely on
+              // once the template chip in front of them is conditional.
+              ...r.tags.slice(0, 3).map((tag, i) => ({
+                id: `tags-${i}`,
+                content: <Chip key={tag} label={tag} size="small" variant="outlined" />,
+              })),
+              ...(r.tags.length > 3
+                ? [
+                    {
+                      id: 'tags-overflow',
+                      content: <Chip label={`+${r.tags.length - 3}`} size="small" variant="outlined" />,
+                    },
+                  ]
+                : []),
+            ]}
             fields={[
-              ...(r.recommended_substrate_type ? [{ label: t('pages.nutrientPlans.substrateType'), value: t(`enums.substrateType.${r.recommended_substrate_type}`) }] : []),
-              ...(r.version ? [{ label: t('pages.nutrientPlans.version'), value: r.version }] : []),
+              ...(r.recommended_substrate_type ? [{ id: 'recommended_substrate_type', label: t('pages.nutrientPlans.substrateType'), value: t(`enums.substrateType.${r.recommended_substrate_type}`) }] : []),
+              ...(r.version ? [{ id: 'version', label: t('pages.nutrientPlans.version'), value: r.version }] : []),
             ]}
           />
         )}

@@ -4,26 +4,42 @@ Selenium (Remote WebDriver / Grid) + pytest, Page-Object pattern. The suite runs
 locally against the containerised stack (`scripts/run-e2e.sh` / `task test:e2e`)
 **and in CI** (see below).
 
+> **Where the `spec/project/e2e-test-automation` and `spec/project/e2e-test-stability`
+> specs live:** not in this repository. Test files and page objects cite them by
+> those paths, but they are owned by the shared `nolte-engineering` plugin and
+> only exist in its checkout — by default
+> `~/repos/github/claude-shared/spec/project/<name>/de.md` (override the checkout
+> location with `NOLTE_CLAUDE_SHARED`; see the plugin-adoption section of the
+> repository `CLAUDE.md`). Read them from there rather than improvising a
+> baseline. Repository-local specs referenced below (`spec/e2e-testcases/`,
+> `.audits/`) are exactly that: local.
+
 ## CI
 
 Two GitHub Actions workflows wrap the same compose stack as local runs
 (`docker-compose.e2e.yml` stays the single source of truth for the test
 environment; `scripts/run-e2e.sh` is the shared entrypoint):
 
-- **`e2e-smoke.yml`** — the fast smoke profile (`-m smoke`) on path-filtered
-  pull requests, pushes to `develop`, and manual dispatch. **Non-required**
-  check by design: `static` stays the only required check until the flake
-  behaviour of the E2E jobs is known.
+- **`e2e-smoke.yml`** — the fast smoke profile (`-m smoke`) on every pull
+  request, pushes to `develop`, and manual dispatch. **Required** check on
+  `develop` since ADR-011 / #793, alongside `static / Static CI Tests`. Its
+  `pull_request` trigger deliberately carries no `paths:` filter — a required
+  workflow skipped by path filtering never reports and leaves the pull request
+  stuck; the run/skip decision lives in the workflow's `changes` job instead.
 - **`e2e-nightly.yml`** — the full suite, nightly (01:30 UTC) as a matrix over
   the compose profiles `light`, `full`, `mobile`, `tablet`, `full-mobile`
-  (manual dispatch can select a single profile). A failing night opens a
-  GitHub issue labelled `e2e-nightly`; while one is open, further failures
-  only append a comment.
+  (manual dispatch can select a single profile). A failing night files **no**
+  GitHub issue: the run status, the per-profile rendered check runs and the
+  uploaded artifacts carry everything the auto-filed issues used to restate.
 
 Both jobs always upload `test-reports/e2e/**` (JUnit XML, protocol,
 screenshots, container logs) as workflow artifacts (`e2e-smoke-reports` /
-`e2e-nightly-reports-<profile>`) and write a job summary from the generated
-protocol. Image builds are layer-cached via the `docker-compose.e2e.ci.yml`
+`e2e-nightly-reports-<profile>`) and write a job summary. That summary is
+deliberately only a pointer at the artifact whenever the rendered report below
+exists — totals and failed test names come from the report, and printing them
+again from `protokoll.md` produced every result twice. `e2e-smoke` still falls
+back to the full protocol excerpt when the rendering did not happen (fork PRs,
+see below). Image builds are layer-cached via the `docker-compose.e2e.ci.yml`
 overlay (BuildKit `gha` cache backend), which CI enables through
 `E2E_COMPOSE_OVERLAYS` — local runs never load it.
 
@@ -45,19 +61,61 @@ Both CI workflows render that XML with `dorny/test-reporter` into a GitHub
 check run plus a job-summary table with concrete per-test failure messages
 (assertion text + a short traceback) — `e2e-smoke` publishes a single
 "E2E smoke report" check, `e2e-nightly` publishes one
-"E2E nightly — `<profile>`" check per matrix profile (the auto-created
-failure issue links straight to those checks). Both workflows request only
-`checks: write` — no `pull-requests: write`, no `pull_request_target`.
+"E2E nightly — `<profile>`" check per matrix profile. Both workflows request
+only `checks: write` — no `issues: write`, no `pull-requests: write`, no
+`pull_request_target`.
 
 > **Fork PRs:** the render step (`continue-on-error: true`) cannot create a
 > check run with a fork PR's read-only `GITHUB_TOKEN`, so no rendered check
-> appears there. Fall back to the job summary or download the
-> `junit-*.xml` from the run's artifact.
+> appears there. `e2e-smoke` detects this via `steps.report.outcome` and writes
+> the full protocol excerpt (result overview + failed tests) into the job
+> summary instead, so the results stay visible; the raw `junit-*.xml` is in the
+> run's artifact either way.
 
 The rendered check run and job summary are a CI convenience layer on top of
 the existing reporting — they do **not** replace the Markdown protocol
 (`protokoll.md`) and screenshots, which stay the human-facing audit trail
 (NFR-008 §4.4).
+
+## Waiting: how a test knows the page is there
+
+`BasePage.wait_for_loading_complete()` waits for the **absence** of
+`[data-testid='loading-skeleton']`. That is a weak signal and, on its own, not a
+valid assertion: an absence poll cannot tell "the skeleton has not mounted yet"
+from "the skeleton is gone because loading finished", so right after a
+`navigate()` it returns *immediately* while the route's lazily-imported chunk is
+still resolving (`e2e-test-stability` §D). It is kept only because ~340 call
+sites pair it with a durable wait that does the real work.
+
+Use the branch-aware helpers instead. They key on the **presence** of the content
+the caller is about to read, and they report **which** settled state the route
+reached, so a test asserts an outcome instead of accepting any of them:
+
+| Helper | Use it for |
+|---|---|
+| `wait_for_content(page, what)` | the everyday case: "navigate, then read the page". Fails loudly, quoting the app's own error text, when an error surface won instead |
+| `wait_for_page_settled(page, what)` | the test legitimately accepts several outcomes and wants to branch on `state.branch` |
+| `wait_for_settled({name: locator, …}, what)` | any other disjunction (a tab panel's table **or** its `EmptyState`) |
+| `navigate_direct(path, settled)` | a deliberately invalid key, where no `open()` accepts the path. The settle locator is a **mandatory** parameter |
+| `require_branch(state, expected, what)` | make the accepted outcome explicit at the point of the read |
+| `wait_for_skeleton_gone(what)` | the *legal* skeleton-absence poll — only after a settled branch is present, which is what makes the absence falsifiable |
+
+`wait_for_settled` returns a `SettledState` carrying `branch` (the winner),
+`locator`, and `present` (every branch found). Resolution is by **declared
+order**, and that ordering is the contract: `{content: PAGE, error:
+ERROR_DISPLAY}` says "if the page root is there, that is the outcome I am
+reading". Branch probing is one `execute_script` round-trip rather than N
+`find_elements` calls, because the session's 3 s implicit wait applies to every
+*empty* `find_elements` and would otherwise cost N×3 s per poll cycle.
+
+**Structural rule:** a `navigate()` call outside an `open()`-shaped method is a
+review finding — it returns once the document is loaded, which for this SPA is
+before the route exists. `tests/e2e_selftest/test_navigation_contract.py` holds a
+shrink-only allowlist of the sites that still violate it.
+
+Browser-free unit tests for all of the above live in `tests/e2e_selftest/`
+(`task test:e2e:selftest`) — deliberately outside this directory so they need no
+stack and do not change this suite's collected count.
 
 ## Selecting which tests to run after a change
 
@@ -177,7 +235,7 @@ when touching `.feature` files.
 ### 4. Legacy suites (unchanged)
 
 ```bash
-task test:e2e:smoke       # -m smoke  (188 tests, ~7 min with -n 4)
+task test:e2e:smoke       # -m smoke  (190 tests, ~7 min with -n 4)
 docker compose -f docker-compose.e2e.yml --profile core-crud run --rm e2e-core-crud
 ```
 

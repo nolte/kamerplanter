@@ -69,20 +69,43 @@ class PflegeDashboardPage(BasePage):
     FERTILIZING_ACTIVE_MONTHS = (By.CSS_SELECTOR, "[data-testid='fertilizing-active-months']")
 
     # Task type toggle switches
-    AUTO_CREATE_WATERING_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-watering-task-switch']")
-    AUTO_CREATE_FERTILIZING_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-fertilizing-task-switch']")
-    AUTO_CREATE_REPOTTING_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-repotting-task-switch']")
-    AUTO_CREATE_PEST_CHECK_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-pest-check-task-switch']")
+    AUTO_CREATE_WATERING_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-watering-task-switch']",
+    )
+    AUTO_CREATE_FERTILIZING_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-fertilizing-task-switch']",
+    )
+    AUTO_CREATE_REPOTTING_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-repotting-task-switch']",
+    )
+    AUTO_CREATE_PEST_CHECK_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-pest-check-task-switch']",
+    )
 
     SAVE_PROFILE_BUTTON = (By.CSS_SELECTOR, "[data-testid='save-profile-button']")
     CANCEL_BUTTON = (By.CSS_SELECTOR, "[data-testid='cancel-button']")
     RESET_PROFILE_BUTTON = (By.CSS_SELECTOR, "[data-testid='reset-profile-button']")
 
     # ── Snackbar ──────────────────────────────────────────────────────
-    SNACKBAR = (By.CSS_SELECTOR, ".MuiSnackbar-root .MuiAlert-message")
+    # Notifications go through notistack (`useNotification`), whose default
+    # renderer emits `#notistack-snackbar` inside `.notistack-MuiContent-<variant>`
+    # -- NOT a MUI `Alert`. The MuiAlert-only selector this used to carry never
+    # matched, which is why the only caller had to wrap it in a try/except.
+    SNACKBAR = (
+        By.CSS_SELECTOR,
+        "#notistack-snackbar, [class*='notistack-MuiContent'], .MuiSnackbar-root .MuiAlert-message",
+    )
+    SNACKBAR_ERROR = (
+        By.CSS_SELECTOR,
+        "[class*='notistack-MuiContent-error'], .MuiSnackbar-root .MuiAlert-colorError",
+    )
 
     # ── MUI Dialog (generic) ─────────────────────────────────────────
-    MUI_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    MUI_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -120,9 +143,7 @@ class PflegeDashboardPage(BasePage):
         page is populated by REQ-006 seed data even when no care reminders
         exist for the tenant.
         """
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='task-card']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='task-card']")
         return any(el.is_displayed() for el in elements)
 
     # ── Urgency sections ──────────────────────────────────────────────
@@ -209,14 +230,10 @@ class PflegeDashboardPage(BasePage):
     def has_care_card(self, plant_key: str, reminder_type: str) -> bool:
         """Return True if a care card for the given plant/type exists."""
         testid = f"care-card-care-{plant_key}-{reminder_type}"
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='{testid}']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
         return len(elements) > 0
 
-    def count_care_cards_for_plant(
-        self, plant_key: str, reminder_type: str | None = None
-    ) -> int:
+    def count_care_cards_for_plant(self, plant_key: str, reminder_type: str | None = None) -> int:
         """Return how many care cards a plant currently renders on the dashboard.
 
         When *reminder_type* is given, counts only cards with the exact
@@ -290,7 +307,9 @@ class PflegeDashboardPage(BasePage):
         if links:
             return links[0].text.strip()
         # Fallback to subtitle typography
-        subs = card.find_elements(By.CSS_SELECTOR, ".MuiTypography-subtitle1, .MuiTypography-subtitle2")
+        subs = card.find_elements(
+            By.CSS_SELECTOR, ".MuiTypography-subtitle1, .MuiTypography-subtitle2"
+        )
         if subs:
             return subs[0].text.strip()
         return ""
@@ -305,13 +324,21 @@ class PflegeDashboardPage(BasePage):
     def click_confirm_on_card(self, plant_key: str, reminder_type: str) -> None:
         """Click the confirm (check-circle) button on a specific care card.
 
-        In TaskQueuePage the action buttons are ordered: edit, confirm, snooze.
-        The confirm button is identified by its CheckCircleIcon (2nd button).
+        Targets the product's ``care-confirm-<id>`` testid; falls back to the
+        success-coloured IconButton and then to positional order (edit,
+        confirm, snooze) only if that testid is missing.
         """
         card = self.get_care_card(plant_key, reminder_type)
-        # Find the confirm button via its CheckCircleIcon SVG data-testid
         btns = card.find_elements(
-            By.CSS_SELECTOR, "button.MuiIconButton-root[color='success'], button.MuiIconButton-colorSuccess"
+            By.CSS_SELECTOR, f"[data-testid='care-confirm-care-{plant_key}-{reminder_type}']"
+        )
+        if btns:
+            self.scroll_and_click(btns[0])
+            return
+        # Fallback: find the confirm button via its success colour
+        btns = card.find_elements(
+            By.CSS_SELECTOR,
+            "button.MuiIconButton-root[color='success'], button.MuiIconButton-colorSuccess",
         )
         if not btns:
             # Fallback: action buttons are ordered edit(0), confirm(1), snooze(2)
@@ -328,10 +355,17 @@ class PflegeDashboardPage(BasePage):
     def click_snooze_on_card(self, plant_key: str, reminder_type: str) -> None:
         """Click the snooze button on a specific care card.
 
-        In TaskQueuePage the action buttons are ordered: edit, confirm, snooze.
-        The snooze button is the 3rd (last) IconButton in the card.
+        Targets the product's ``care-snooze-<id>`` testid; falls back to the
+        card's 3rd/last IconButton (edit, confirm, snooze) only if that testid
+        is missing.
         """
         card = self.get_care_card(plant_key, reminder_type)
+        btns = card.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='care-snooze-care-{plant_key}-{reminder_type}']"
+        )
+        if btns:
+            self.scroll_and_click(btns[0])
+            return
         all_btns = card.find_elements(By.CSS_SELECTOR, "button.MuiIconButton-root")
         if len(all_btns) >= 3:
             self.scroll_and_click(all_btns[2])
@@ -343,11 +377,57 @@ class PflegeDashboardPage(BasePage):
                 f"Could not find snooze button on care card care-{plant_key}-{reminder_type}"
             )
 
+    #: Urgency groups a card sits in while it still needs attention today.
+    DUE_URGENCY_SECTIONS = ("overdue", "today")
+
+    def get_care_card_urgency_group(self, plant_key: str, reminder_type: str) -> str | None:
+        """Return the urgency group a care card currently sits in.
+
+        One of ``overdue`` / ``today`` / ``thisWeek`` / ``future`` (the
+        ``task-section-<group>`` testid `TaskQueuePage` emits), or ``None``
+        when the card is no longer on the dashboard at all.
+        """
+        cards = self.driver.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='care-card-care-{plant_key}-{reminder_type}']"
+        )
+        if not cards:
+            return None
+        sections = cards[0].find_elements(
+            By.XPATH,
+            "ancestor::*[@data-testid][starts-with(@data-testid, 'task-section-')]",
+        )
+        if not sections:
+            return None
+        return (sections[0].get_attribute("data-testid") or "").removeprefix("task-section-")
+
+    def wait_until_care_card_not_due(
+        self, plant_key: str, reminder_type: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str | None:
+        """Wait until a care card has left the overdue/due-today sections.
+
+        A successful snooze sets the reminder's due date to *tomorrow*
+        (``care_reminder_engine``: ``confirmed_at + snooze_days``, default 1),
+        so the dashboard refetch that follows the request must re-group the
+        card into ``thisWeek`` -- or drop it from the dashboard entirely. This
+        is the observable post-condition of the snooze; it cannot be satisfied
+        by a request that never left the browser.
+
+        Returns the card's resulting urgency group (``None`` if it is gone).
+        """
+        WebDriverWait(self.driver, timeout).until(
+            lambda _d: (
+                self.get_care_card_urgency_group(plant_key, reminder_type)
+                not in self.DUE_URGENCY_SECTIONS
+            )
+        )
+        return self.get_care_card_urgency_group(plant_key, reminder_type)
+
     def click_edit_profile_on_card(self, plant_key: str) -> None:
         """Click the edit-profile (pencil) button on a care card.
 
-        In TaskQueuePage the edit button is the 1st IconButton in the card.
-        We find any care card for this plant_key and click the first button.
+        Targets the product's ``care-edit-profile-<id>`` testid on any care card
+        for this plant; falls back to the card's first IconButton (edit,
+        confirm, snooze order) only if that testid is missing.
         """
         # Find a care card for this plant_key (any reminder type)
         cards = self.driver.find_elements(
@@ -356,21 +436,23 @@ class PflegeDashboardPage(BasePage):
         if not cards:
             raise AssertionError(f"No care card found for plant_key={plant_key}")
         card = cards[0]
+        btns = card.find_elements(
+            By.CSS_SELECTOR, f"[data-testid^='care-edit-profile-care-{plant_key}-']"
+        )
+        if btns:
+            self.scroll_and_click(btns[0])
+            return
         all_btns = card.find_elements(By.CSS_SELECTOR, "button.MuiIconButton-root")
         if all_btns:
             self.scroll_and_click(all_btns[0])
         else:
-            raise AssertionError(
-                f"Could not find edit-profile button on care card for {plant_key}"
-            )
+            raise AssertionError(f"Could not find edit-profile button on care card for {plant_key}")
 
     # ── CareConfirmDialog interactions ────────────────────────────────
 
     def wait_for_confirm_dialog(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the MUI dialog with confirm fields is visible."""
-        WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.MUI_DIALOG)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(self.MUI_DIALOG))
 
     def is_confirm_dialog_open(self) -> bool:
         """Return True if a MUI dialog is currently open."""
@@ -386,11 +468,11 @@ class PflegeDashboardPage(BasePage):
 
     def submit_confirm_dialog(self) -> None:
         """Click the submit button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_SUBMIT).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_SUBMIT)
 
     def cancel_confirm_dialog(self) -> None:
         """Click the cancel button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CANCEL)
 
     # ── CareProfileEditDialog interactions ────────────────────────────
 
@@ -413,34 +495,52 @@ class PflegeDashboardPage(BasePage):
 
     def select_care_style(self, style_label: str) -> None:
         """Open the care style dropdown and select by visible label."""
-        import time
-        from selenium.webdriver.common.keys import Keys
+        self.open_select_by_testid("care-style-select")
+        option = self._find_care_style_option(style_label)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
-        select_el = self.wait_for_element_clickable(self.CARE_STYLE_SELECT)
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{style_label}')]")
+    def _find_care_style_option(self, label: str):
+        """Return the open care-style dropdown's option matching *label*.
+
+        Resolved via ``textContent``, not an XPath ``contains(text(), …)``:
+        the latter only sees an option's first text node and misses one
+        scrolled out of the popover's visible area (MUI scrolls to the
+        selected item on open). Deliberately does not go through
+        ``BasePage.select_option_by_value`` -- selecting some presets here
+        interrupts the commit with a confirmation dialog
+        (:meth:`select_care_style_with_confirm`) instead of applying it
+        immediately, so an unconditional read-back would misreport that as a
+        mis-click.
+        """
+        target = " ".join(label.split())
+        candidates = [
+            (opt, " ".join((opt.get_attribute("textContent") or "").split()))
+            for opt in self.driver.find_elements(*self.OPTIONS)
+        ]
+        for opt, text in candidates:
+            if text == target:
+                return opt
+        for opt, text in candidates:
+            if text and (target in text or text in target):
+                return opt
+        raise AssertionError(
+            f"No option matching '{label}' in the open dropdown. Rendered "
+            f"options: {[text for _, text in candidates]}"
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
 
     def click_save_profile(self) -> None:
         """Click the save button in the profile dialog."""
-        self.wait_for_element_clickable(self.SAVE_PROFILE_BUTTON).click()
+        self.wait_and_click(self.SAVE_PROFILE_BUTTON)
 
     def click_cancel_profile(self) -> None:
         """Click the cancel button in the profile dialog."""
-        self.wait_for_element_clickable(self.CANCEL_BUTTON).click()
+        self.wait_and_click(self.CANCEL_BUTTON)
 
     def click_reset_profile(self) -> None:
         """Click the reset-to-defaults button in the profile dialog."""
-        self.wait_for_element_clickable(self.RESET_PROFILE_BUTTON).click()
+        self.wait_and_click(self.RESET_PROFILE_BUTTON)
 
     def expand_advanced_accordion(self) -> None:
         """Expand the "Erweitert" (Advanced) accordion in the profile dialog, if present."""
@@ -595,13 +695,11 @@ class PflegeDashboardPage(BasePage):
 
         # ── Keyboard fallback: focus thumb, home, then step right ──
         slider_els = root.find_elements(By.CSS_SELECTOR, "[role='slider']")
-        slider_el = slider_els[0] if slider_els else root.find_element(
-            By.CSS_SELECTOR, "input"
-        )
+        slider_el = slider_els[0] if slider_els else root.find_element(By.CSS_SELECTOR, "input")
         self.scroll_and_click(slider_el)
         try:
             min_val = int(slider_el.get_attribute("aria-valuemin") or 0)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             min_val = 0
         slider_el.send_keys(Keys.HOME)
         for _ in range(max(0, int(target_value) - min_val)):
@@ -652,18 +750,13 @@ class PflegeDashboardPage(BasePage):
         """
         import time
 
-        select_el = self.wait_for_element_clickable(self.CARE_STYLE_SELECT)
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{label}')]")
-        )
-        self.scroll_and_click(option)
+        self.open_select_by_testid("care-style-select")
+        option = self._find_care_style_option(label)
+        self.click_menu_option(option)
         time.sleep(0.3)
         confirms = self.driver.find_elements(*self.GENERIC_CONFIRM_CONFIRM)
         if confirms and any(c.is_displayed() for c in confirms):
-            self.scroll_and_click(
-                self.wait_for_element_clickable(self.GENERIC_CONFIRM_CONFIRM)
-            )
+            self.scroll_and_click(self.wait_for_element_clickable(self.GENERIC_CONFIRM_CONFIRM))
 
     # ── Snackbar ──────────────────────────────────────────────────────
 
@@ -678,6 +771,17 @@ class PflegeDashboardPage(BasePage):
         """Return True if any snackbar is currently visible."""
         elements = self.driver.find_elements(*self.SNACKBAR)
         return len(elements) > 0 and elements[0].is_displayed()
+
+    def has_error_snackbar(self) -> bool:
+        """Return True if the visible snackbar reports an error.
+
+        A failed care action routes through ``handleError``, which enqueues the
+        *error* notistack variant; the happy path enqueues info/success. Both
+        render the same message node, so the variant is what distinguishes
+        "it worked" from "the request came back 4xx/5xx".
+        """
+        elements = self.driver.find_elements(*self.SNACKBAR_ERROR)
+        return any(el.is_displayed() for el in elements)
 
     # ── Dialog closed waiter ──────────────────────────────────────────
 

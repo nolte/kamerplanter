@@ -264,6 +264,15 @@ services:
   backend-full:
     build:
       context: ./src/backend
+    # NFR-013 local-fs object storage (STORAGE_LOCAL_FS_ROOT defaults to
+    # /data/attachments): the hardened image runs non-root and ships no /data,
+    # so photo uploads (REQ-034) fail with PermissionError. A per-run tmpfs
+    # (docker default mode 1777) makes the root writable; contents are
+    # deliberately ephemeral. Not shared with celery-worker-full — the only
+    # worker-side attachment readers (pest dataset acquisition) are not
+    # exercised by the E2E suite.
+    tmpfs:
+      - /data
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"

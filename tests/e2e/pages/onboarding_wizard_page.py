@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -53,6 +54,19 @@ class OnboardingWizardPage(BasePage):
     # ── Step 3: Favorite Species ───────────────────────────────────────
     STEP_FAVORITES = (By.CSS_SELECTOR, "[data-testid='onboarding-step-favorites']")
     FAVORITES_SEARCH = (By.CSS_SELECTOR, "[data-testid='favorites-search'] input")
+    FAVORITE_TILES = (By.CSS_SELECTOR, "[data-testid^='favorite-tile-']")
+    #: The three mutually exclusive render branches of ``FavoriteSpeciesStep``:
+    #: a spinner while the species query is in flight, the tile grid
+    #: (``role='group'``, scoped to the step) once it resolved non-empty, and a
+    #: plain no-results box when the current filter matches nothing.
+    FAVORITES_SPINNER = (
+        By.CSS_SELECTOR,
+        "[data-testid='onboarding-step-favorites'] .MuiCircularProgress-root",
+    )
+    FAVORITES_GRID = (
+        By.CSS_SELECTOR,
+        "[data-testid='onboarding-step-favorites'] [role='group']",
+    )
 
     # ── Step 4: Site Setup ─────────────────────────────────────────────
     STEP_SITE = (By.CSS_SELECTOR, "[data-testid='onboarding-step-site']")
@@ -76,6 +90,14 @@ class OnboardingWizardPage(BasePage):
     STEPPER = (By.CSS_SELECTOR, ".MuiStepper-root")
     STEPPER_STEPS = (By.CSS_SELECTOR, ".MuiStepper-root .MuiStep-root")
     ACTIVE_STEP_LABEL = (By.CSS_SELECTOR, ".MuiStepLabel-root.Mui-active .MuiStepLabel-label")
+    #: Below the `sm` breakpoint the wizard renders no `Stepper` at all — the
+    #: step count is carried by `MobileStepper`'s dots, one per wizard step
+    #: (``steps={wizardSteps.length}``).
+    MOBILE_STEPPER = (By.CSS_SELECTOR, ".MuiMobileStepper-root")
+    MOBILE_STEPPER_DOTS = (
+        By.CSS_SELECTOR,
+        ".MuiMobileStepper-root .MuiMobileStepper-dot",
+    )
 
     # ── Snackbar ───────────────────────────────────────────────────────
     SNACKBAR = (By.CSS_SELECTOR, ".MuiSnackbar-root")
@@ -128,7 +150,7 @@ class OnboardingWizardPage(BasePage):
                     urllib.request.Request(f"{base}/reset", method="POST", data=b""),
                     timeout=5,
                 )
-            except (urllib.error.URLError, OSError):
+            except urllib.error.URLError, OSError:
                 time.sleep(0.3)  # bounded backoff before retrying the reset POST
                 continue
 
@@ -144,7 +166,7 @@ class OnboardingWizardPage(BasePage):
                     and state.get("wizard_step", 0) == 0
                 ):
                     return
-            except (urllib.error.URLError, OSError, ValueError):
+            except urllib.error.URLError, OSError, ValueError:
                 pass
 
             time.sleep(0.3)  # bounded backoff before re-reading wizard state
@@ -159,7 +181,7 @@ class OnboardingWizardPage(BasePage):
         # Case 1: completed / skipped card — click Restart directly
         restart_els = self.driver.find_elements(*self.RESTART_BUTTON)
         if restart_els and restart_els[0].is_displayed():
-            self.scroll_and_click(restart_els[0])
+            self.click_restart()
             self.wait_for_element(self.STEP_WELCOME)
             self.wait_for_loading_complete()
             return
@@ -167,7 +189,10 @@ class OnboardingWizardPage(BasePage):
         # Case 2: wizard is active (step 1..N) — Skip → Restart to clear backend state
         skip_els = self.driver.find_elements(*self.SKIP_BUTTON)
         if skip_els and skip_els[0].is_displayed():
-            self.scroll_and_click(skip_els[0])
+            # Via click_skip: this runs on whichever step the previous test left
+            # behind, including the favorites step whose grid puts the button row
+            # thousands of pixels down the document.
+            self.click_skip()
             # Skip redirects to /pflanzen/plant-instances
             try:
                 self.wait_for_url_contains("/pflanzen", timeout=10)
@@ -184,7 +209,7 @@ class OnboardingWizardPage(BasePage):
                 pass
             restart_els2 = self.driver.find_elements(*self.RESTART_BUTTON)
             if restart_els2 and restart_els2[0].is_displayed():
-                self.scroll_and_click(restart_els2[0])
+                self.click_restart()
                 self.wait_for_element(self.STEP_WELCOME)
                 self.wait_for_loading_complete()
             return
@@ -206,9 +231,28 @@ class OnboardingWizardPage(BasePage):
         return len(elements) > 0 and elements[0].is_displayed()
 
     def get_stepper_step_count(self) -> int:
-        """Return the number of steps shown in the MUI Stepper."""
-        steps = self.driver.find_elements(*self.STEPPER_STEPS)
-        return len(steps)
+        """Return the number of wizard steps, read from whichever stepper is active.
+
+        `OnboardingWizard` renders the desktop `Stepper` only while
+        ``!isMobile`` (``theme.breakpoints.down('sm')``, i.e. from 600px up) and
+        swaps in a `MobileStepper` with one dot per step below that. Counting
+        ``.MuiStepper-root .MuiStep-root`` unconditionally therefore answered
+        ``0`` on the 393px mobile profile — an empty read of a layout-specific
+        structure, which `e2e-test-stability` §G requires be replaced by a
+        layout-asserting reader that fails loudly rather than by a number that
+        merely looks like a count.
+        """
+        if self.driver.find_elements(*self.STEPPER):
+            return len(self.driver.find_elements(*self.STEPPER_STEPS))
+        if self.driver.find_elements(*self.MOBILE_STEPPER):
+            return len(self.driver.find_elements(*self.MOBILE_STEPPER_DOTS))
+        raise AssertionError(
+            "Neither the desktop Stepper (.MuiStepper-root) nor the "
+            "MobileStepper (.MuiMobileStepper-root) is mounted, so the wizard's "
+            "step count cannot be read at all. Returning 0 here would make a "
+            "count assertion fail for a reason that has nothing to do with the "
+            "step model."
+        )
 
     def is_stepper_visible(self) -> bool:
         """Return True if the desktop MUI Stepper is present."""
@@ -216,9 +260,7 @@ class OnboardingWizardPage(BasePage):
 
     def get_stepper_labels(self) -> list[str]:
         """Return all step labels from the MUI Stepper."""
-        steps = self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiStepper-root .MuiStepLabel-label"
-        )
+        steps = self.driver.find_elements(By.CSS_SELECTOR, ".MuiStepper-root .MuiStepLabel-label")
         return [s.text for s in steps if s.text]
 
     # ── Button queries ─────────────────────────────────────────────────
@@ -316,35 +358,53 @@ class OnboardingWizardPage(BasePage):
 
     # ── Button interactions ────────────────────────────────────────────
 
+    # ── Button interactions: why coordinate-free ────────────────────────
+    # The wizard's navigation row is the *last* element of a document that the
+    # favorites step makes several thousand pixels tall (~210 species tiles,
+    # two columns wide at `xs`). `scroll_and_click` resolves the button's
+    # in-view centre and only then dispatches at those coordinates, and at the
+    # bottom of a document that is already scrolled to its maximum
+    # `scrollIntoView({block: 'center'})` cannot centre the row -- so the
+    # dispatch lands within a few pixels of the fold and nothing raises. The
+    # W3C hit-test passed, the events went out, `handleNext` never ran.
+    #
+    # Observed after the favorites grid was correctly settled before advancing
+    # (079c973ec): nine REQ-020 tests then stopped on "Schritt 3 von 5:
+    # Favoriten" with an active green Next button and no error state, and
+    # failed in `advance_to_step_site` / `navigate_beginner_to_summary` on
+    # every reflowing profile (mobile, tablet, full-mobile, full-tablet) while
+    # the 1920px desktop passed. The settle wait is not the defect -- it turned
+    # a mid-spinner click into a below-the-fold one, which this closes.
+    #
+    # All four are MUI `Button`s driven by an `onClick` handler
+    # (`OnboardingWizard.tsx:616-727`), and the `isMobile` ternary renders the
+    # `MobileStepper` and the desktop row exclusively, so each testid resolves
+    # to exactly one node. `HTMLElement.click()` runs their handler exactly as
+    # a pointer does -- see `BasePage.click_coordinate_free`.
+
     def click_next(self) -> None:
-        """Click the Next button."""
-        btn = self.wait_for_element_clickable(self.NEXT_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Next button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.NEXT_BUTTON)
 
     def click_back(self) -> None:
-        """Click the Back button."""
-        btn = self.wait_for_element_clickable(self.BACK_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Back button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.BACK_BUTTON)
 
     def click_skip(self) -> None:
-        """Click the Skip Onboarding button."""
-        btn = self.wait_for_element_clickable(self.SKIP_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Skip Onboarding button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.SKIP_BUTTON)
 
     def click_complete(self) -> None:
-        """Click the Complete/Finish button."""
-        btn = self.wait_for_element_clickable(self.COMPLETE_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Complete/Finish button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.COMPLETE_BUTTON)
 
     def click_restart(self) -> None:
-        """Click the Restart button on the completed card."""
-        btn = self.wait_for_element_clickable(self.RESTART_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Restart button on the completed card (coordinate-free)."""
+        self.wait_and_click_coordinate_free(self.RESTART_BUTTON)
 
     def click_go_dashboard(self) -> None:
-        """Click the Go-to-Dashboard button on the completed card."""
-        btn = self.wait_for_element_clickable(self.GO_DASHBOARD_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Go-to-Dashboard button on the completed card (coordinate-free)."""
+        self.wait_and_click_coordinate_free(self.GO_DASHBOARD_BUTTON)
 
     # ── Step 1: Experience Level interactions ──────────────────────────
 
@@ -362,6 +422,7 @@ class OnboardingWizardPage(BasePage):
     def is_experience_selected(self, level: str) -> bool:
         """Return True if the given experience level card has a primary-coloured border."""
         import time
+
         # bounded: the selection border is applied on the next React render and
         # has no distinct DOM signal to wait on
         time.sleep(0.2)
@@ -554,13 +615,74 @@ class OnboardingWizardPage(BasePage):
 
     def get_favorite_tiles(self) -> list[WebElement]:
         """Return all favorite species tile elements."""
-        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='favorite-tile-']")
+        return self.driver.find_elements(*self.FAVORITE_TILES)
+
+    def wait_for_favorites_settled(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the favorites step finished rendering its species grid.
+
+        ``wait_for_element(STEP_FAVORITES)`` only proves the step *container*
+        mounted. `FavoriteSpeciesStep` then shows a `CircularProgress` until the
+        species query resolves and mounts one tile per species — ~210 of them,
+        two grid columns wide at ``xs`` and three at ``sm``. That grid appears
+        *above* the wizard's button row, so any interaction begun before it
+        lands is aimed at an element about to move by thousands of pixels: the
+        W3C click resolves an in-view centre point, the grid mounts, and the
+        dispatch reaches whatever slid into that spot. Nothing raises — which is
+        why TC-REQ-020-032 stopped between its ``on-step3`` and ``back-to-step2``
+        screenshots on every profile narrow enough to reflow (mobile, tablet,
+        full-mobile, full-tablet) and never on the 1920px desktop.
+
+        Settled means: the spinner is gone **and** either tiles are rendered or
+        the grid was never rendered at all (the no-results branch renders a plain
+        box with no ``role='group'``). Fails loudly instead of returning on a
+        timeout — a caller that proceeds here is back in the reflow window.
+        """
+
+        def _settled(driver: WebDriver) -> bool:
+            if driver.find_elements(*self.FAVORITES_SPINNER):
+                return False
+            if driver.find_elements(*self.FAVORITE_TILES):
+                return True
+            return not driver.find_elements(*self.FAVORITES_GRID)
+
+        try:
+            WebDriverWait(self.driver, timeout).until(_settled)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"The favorites step did not settle within {timeout}s: "
+                f"{len(self.driver.find_elements(*self.FAVORITES_SPINNER))} "
+                "spinner(s) and "
+                f"{len(self.get_favorite_tiles())} tile(s) are rendered. "
+                "Interacting now would aim a click at an element the species "
+                "grid is about to push down the page."
+            ) from exc
 
     def click_favorite_tile(self, species_key: str) -> None:
-        """Click a favorite species tile by its species key."""
+        """Toggle a favorite species tile and verify the toggle took effect.
+
+        Verification is mandatory here (`e2e-test-stability` §D): every toggle
+        re-renders the whole ~210-tile grid, so an unverified click cannot tell
+        "the tile flipped" from "the click landed on the neighbouring tile while
+        the grid was still settling" — and the latter surfaced two steps later
+        as TC-REQ-020-004 asserting an unchanged state, with no evidence
+        pointing back at the click.
+        """
+        self.wait_for_favorites_settled()
+        before = self.is_favorite_tile_selected(species_key)
         locator = (By.CSS_SELECTOR, f"[data-testid='favorite-tile-{species_key}']")
         tile = self.wait_for_element_clickable(locator)
         self.scroll_and_click(tile)
+        try:
+            WebDriverWait(self.driver, 5).until(
+                lambda _d: self.is_favorite_tile_selected(species_key) != before
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"Toggling favorite tile '{species_key}' had no effect: its "
+                f"aria-pressed stayed {str(before).lower()!r} for 5s after the "
+                "click. The click most likely landed on a neighbouring tile "
+                "while the species grid was still settling."
+            ) from exc
 
     def is_favorite_tile_selected(self, species_key: str) -> bool:
         """Return True if a favorite tile is in the favorited state (warning border)."""
@@ -574,7 +696,10 @@ class OnboardingWizardPage(BasePage):
 
     def favorite_tile_has_kit_badge(self, species_key: str) -> bool:
         """Return True if a favorite tile has the 'Im Kit' badge (primary chip)."""
-        locator = (By.CSS_SELECTOR, f"[data-testid='favorite-tile-{species_key}'] .MuiChip-colorPrimary")
+        locator = (
+            By.CSS_SELECTOR,
+            f"[data-testid='favorite-tile-{species_key}'] .MuiChip-colorPrimary",
+        )
         return len(self.driver.find_elements(*locator)) > 0
 
     def search_favorites(self, term: str) -> None:
@@ -588,11 +713,10 @@ class OnboardingWizardPage(BasePage):
         # Look for the centered empty box
         empty_boxes = self.driver.find_elements(
             By.CSS_SELECTOR,
-            "[data-testid='onboarding-step-favorites'] > div[style*='text-align: center']"
+            "[data-testid='onboarding-step-favorites'] > div[style*='text-align: center']",
         )
         return len(empty_boxes) > 0 or (
-            len(self.get_favorite_tiles()) == 0
-            and self.is_step_favorites_visible()
+            len(self.get_favorite_tiles()) == 0 and self.is_step_favorites_visible()
         )
 
     # ── Step 4: Site Setup interactions ────────────────────────────────
@@ -647,31 +771,27 @@ class OnboardingWizardPage(BasePage):
         )
         return el.text
 
-    def select_site_type(self, label_text: str) -> None:
-        """Open the site type dropdown and select by visible text."""
-        import time
-        from selenium.common.exceptions import (
-            StaleElementReferenceException,
-            TimeoutException,
-        )
+    def select_site_type(self, site_type: str) -> None:
+        """Select a site type by its enum value (``'balcony'``, ``'indoor'``, …).
 
-        for attempt in range(3):
-            try:
-                trigger = self.wait_for_element_clickable(
-                    (By.CSS_SELECTOR, "[data-testid='site-type-select'] .MuiSelect-select")
-                )
-                self.scroll_and_click(trigger)
-                option = self.wait_for_element_clickable(
-                    (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
-                )
-                option.click()
-                break
-            except (StaleElementReferenceException, TimeoutException):
-                if attempt == 2:
-                    raise
-                time.sleep(0.5)  # bounded backoff before retrying the select
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        Routed through the shared, verified select helpers rather than the
+        hand-rolled open-and-click this used to be. Every property of the old
+        path is one of the hazards `e2e-test-stability` §G catalogues: it opened
+        the Select with a native click on ``.MuiSelect-select`` (MUI opens a
+        Select from ``onMouseDown`` only, so a swallowed click opened nothing
+        and the retry loop merely repeated the same bet), addressed the option
+        through an unscoped ``//li[@role='option']`` XPath matched on its
+        translated label, clicked it at resolved coordinates while the popover
+        could still be repositioning, and never read the committed value back —
+        so a click that landed on the neighbouring option reported success and
+        only surfaced as the caller's assertion failing.
+
+        ``open_select_by_testid`` verifies the menu actually opened and
+        ``select_option_by_value`` verifies the clicked option became the
+        Select's value; both raise instead of returning a false success.
+        """
+        self.open_select_by_testid("site-type-select")
+        self.select_option_by_value(site_type)
 
     def is_water_section_visible(self) -> bool:
         """Return True if the water section (EC, pH, RO) is in the DOM."""
@@ -720,7 +840,9 @@ class OnboardingWizardPage(BasePage):
 
     def get_existing_site_cards(self) -> list[WebElement]:
         """Return all existing site card elements."""
-        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='site-option-']:not([data-testid='site-option-new'])")
+        return self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid^='site-option-']:not([data-testid='site-option-new'])"
+        )
 
     def is_site_name_field_visible(self) -> bool:
         """Return True if the site name input is visible in the DOM."""
@@ -770,17 +892,13 @@ class OnboardingWizardPage(BasePage):
         return len(self.driver.find_elements(*locator)) > 0
 
     def select_plant_phase(self, species_key: str, phase_label: str) -> None:
-        """Select a phase for a species from the dropdown."""
-        trigger = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='plant-phase-select-{species_key}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(trigger)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{phase_label}')]")
-        )
-        option.click()
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Select a phase for a species from the dropdown.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select_by_testid(f"plant-phase-select-{species_key}")
+        self.select_option_by_label(phase_label)
 
     def get_total_plant_count_text(self) -> str:
         """Return the total plant count text shown below the plant configs."""
@@ -826,6 +944,7 @@ class OnboardingWizardPage(BasePage):
     def _deselect_all_kits(self) -> None:
         """Deselect any currently selected kit cards (clean state for tests)."""
         import time
+
         selected = self.driver.find_elements(By.CSS_SELECTOR, "[data-selected='true']")
         for kit in selected:
             self.scroll_and_click(kit)
@@ -834,14 +953,19 @@ class OnboardingWizardPage(BasePage):
             time.sleep(0.3)
 
     def advance_to_step_favorites(self) -> None:
-        """Navigate from Step 2 to Step 3 (Favorites)."""
+        """Navigate from Step 2 to Step 3 (Favorites) and wait for its grid."""
         self.wait_for_element(self.STEP_KIT)
         self.click_next()
         self.wait_for_element(self.STEP_FAVORITES)
+        self.wait_for_favorites_settled()
 
     def advance_to_step_site(self) -> None:
         """Navigate from Step 3 to Step 4 (Site Setup)."""
         self.wait_for_element(self.STEP_FAVORITES)
+        # The Next button sits below the species grid: clicking before the grid
+        # mounted aims at a point it is about to occupy. See
+        # :meth:`wait_for_favorites_settled`.
+        self.wait_for_favorites_settled()
         self.click_next()
         self.wait_for_element(self.STEP_SITE)
 
@@ -875,6 +999,7 @@ class OnboardingWizardPage(BasePage):
         # Step 2 → Step 3 (Favorites)
         self.click_next()
         self.wait_for_element(self.STEP_FAVORITES)
+        self.wait_for_favorites_settled()
         # Step 3 → Step 4 (Site)
         self.click_next()
         self.wait_for_element(self.STEP_SITE)

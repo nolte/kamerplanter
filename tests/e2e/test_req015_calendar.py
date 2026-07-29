@@ -32,7 +32,7 @@ from .pages.calendar_page import CalendarPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('calendar',)
+FEATURES = ("calendar",)
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -56,7 +56,7 @@ class TestCalendarPageLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-001: Calendar page loads and shows month view as default.
+        """TC-015-001: Calendar page loads and shows month view as default.
 
         Spec: TC-015-001 -- Kalenderseite aufrufen — Standardansicht Monat.
         """
@@ -102,7 +102,7 @@ class TestCalendarPageLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-002: Click next-month arrow advances the displayed month.
+        """TC-015-002: Click next-month arrow advances the displayed month.
 
         Spec: TC-015-002 -- Monatsnavigation — Naechsten Monat aufrufen.
         """
@@ -126,7 +126,7 @@ class TestCalendarPageLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-003: Navigate forward then click Today to return to current month.
+        """TC-015-003: Navigate forward then click Today to return to current month.
 
         Spec: TC-015-003 -- Monatsnavigation — Zurueck zum aktuellen Monat.
         """
@@ -158,7 +158,7 @@ class TestCalendarPageLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-004: Click prev-month arrow goes to previous month.
+        """TC-015-002: Click prev-month arrow goes to previous month.
 
         Spec: TC-015-002 -- Monatsnavigation — Vorherigen Monat aufrufen.
         """
@@ -187,7 +187,7 @@ class TestCalendarViewSwitching:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-005: Switch from month view to list view.
+        """TC-015-004: Switch from month view to list view.
 
         Spec: TC-015-004 -- Ansichtswechsel — Listenansicht.
         """
@@ -208,7 +208,7 @@ class TestCalendarViewSwitching:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-006: Switch to sowing calendar view.
+        """TC-015-005: Switch to sowing calendar view.
 
         Spec: TC-015-005 -- Ansichtswechsel — Aussaatkalender-Tab.
         """
@@ -228,7 +228,7 @@ class TestCalendarViewSwitching:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-007: Switch to season overview view.
+        """TC-015-006: Switch to season overview view.
 
         Spec: TC-015-006 -- Ansichtswechsel — Saisonuebersicht-Tab.
         """
@@ -248,7 +248,7 @@ class TestCalendarViewSwitching:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-008: Switch to phases timeline view.
+        """TC-015-007: Switch to phases timeline view.
 
         Spec: TC-015-007 -- Phasen-Timeline-Ansicht aufrufen.
         """
@@ -268,7 +268,7 @@ class TestCalendarViewSwitching:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-009: Switch to list then back to month.
+        """TC-015-004: Switch to list then back to month.
 
         Spec: TC-015-004 -- Ansichtswechsel — Zurueck zu Monat von Liste.
         """
@@ -299,7 +299,7 @@ class TestCalendarCategoryFilter:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-010: Verify category filter chips are rendered on the calendar page.
+        """TC-015-010: Verify category filter chips are rendered on the calendar page.
 
         Spec: TC-015-010 -- Kategorie-Filter — Einzelne Kategorie aktivieren.
         """
@@ -307,9 +307,7 @@ class TestCalendarCategoryFilter:
         screenshot("TC-REQ-015-010_category-filters", "Category filter chips visible")
 
         chips = calendar.get_category_filter_chips()
-        assert len(chips) > 0, (
-            "TC-REQ-015-010 FAIL: Expected at least one category filter chip"
-        )
+        assert len(chips) > 0, "TC-REQ-015-010 FAIL: Expected at least one category filter chip"
 
     @pytest.mark.core_crud
     def test_category_filter_chip_click_toggles(
@@ -317,7 +315,7 @@ class TestCalendarCategoryFilter:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-011: Click a category filter chip to toggle it.
+        """TC-015-010: Click a category filter chip to toggle it.
 
         Spec: TC-015-010 -- Kategorie-Filter — Einzelne Kategorie aktivieren.
         """
@@ -353,7 +351,7 @@ class TestCalendarEventPopover:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-012: Click a day cell to potentially open a popover.
+        """TC-015-022: Click a day cell to potentially open a popover.
 
         Spec: TC-015-022 -- Event-Klick — Popover mit Details.
         """
@@ -380,7 +378,7 @@ class TestCalendarFeedManagement:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-013: Toggle the iCal feeds section to expand/collapse.
+        """TC-015-036: Toggle the iCal feeds section to expand/collapse.
 
         Spec: TC-015-036 -- Feed auflisten — Mehrere Feeds sichtbar.
         """
@@ -400,7 +398,7 @@ class TestCalendarFeedManagement:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-014: Create Feed dialog opens when clicking the create button.
+        """TC-015-030: Create Feed dialog opens when clicking the create button.
 
         Spec: TC-015-030 -- Feed erstellen — Happy Path (Dialog-Oeffnung).
         """
@@ -426,7 +424,7 @@ class TestCalendarFeedManagement:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-015: Cancel the create feed dialog.
+        """TC-015-035: Cancel the create feed dialog.
 
         Spec: TC-015-035 -- Feed loeschen — Abbrechen.
         """
@@ -450,7 +448,7 @@ class TestCalendarFeedManagement:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-016: Create a new iCal feed with a valid name.
+        """TC-015-030: Create a new iCal feed with a valid name.
 
         Spec: TC-015-030 -- Feed erstellen — Happy Path.
         """
@@ -481,7 +479,7 @@ class TestCalendarFeedManagement:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-017: Attempt to create feed without a name — save button is disabled.
+        """TC-015-031: Attempt to create feed without a name — save button is disabled.
 
         Spec: TC-015-031 -- Feed erstellen — Validierung leerer Name.
         """

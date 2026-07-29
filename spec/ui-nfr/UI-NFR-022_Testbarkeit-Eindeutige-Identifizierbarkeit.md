@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
-Datum: 2026-07-12
+Datum: 2026-07-26
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-005, UI-NFR-008, UI-NFR-017]
 Betroffene Module: [Frontend, Mobile]
@@ -98,6 +98,57 @@ verbindliche **Bereitstellungs**-Anforderung an das Frontend. Diese UI-NFR schli
 | R-019 | Ein `data-testid`-Wert MUSS innerhalb der aktuell sichtbaren Ansicht eindeutig sein (mehrfach vorkommende Elemente werden per fachlichem Schlüssel disambiguiert, R-014). | MUSS |
 | R-020 | Neue oder abweichende Namensmuster SOLLEN in diesem Dokument bzw. im Frontend-Style-Guide ergänzt werden, bevor sie verwendet werden, damit das Schema die einzige Quelle der Wahrheit bleibt. | SOLL |
 
+#### 2.5.1 Registrierte Zusatzmuster (per R-020)
+
+Über das Grundschema aus R-018 hinaus sind die folgenden Muster verbindlich registriert. Sie sind in der Implementierung bereits vergeben; ein neues Muster wird hier ergänzt, **bevor** es verwendet wird.
+
+**Karten-Layout (`MobileCard`) — Gegenstück zu `cell-<columnId>` im Tabellen-Layout:**
+
+| Muster | Bedeutung |
+|---|---|
+| `card-title` | Überschriftenzeile einer Karte; unbedingt vorhanden, unabhängig von der Spaltenzuordnung |
+| `card-subtitle` | Unterzeile einer Karte; nur vorhanden, wenn überhaupt eine Unterzeile gerendert wird |
+| `card-field-<columnId>` | Wert eines Feldes der Karte, geschlüsselt über die `id` der Tabellenspalte, die es spiegelt. Titel und Unterzeile emittieren dieses Muster zusätzlich, wenn ihnen eine Spalten-`id` zugeordnet ist |
+| `card-chip-<columnId>` | Einzelner Chip der Chip-Zeile, geschlüsselt über die gespiegelte Spalten-`id` |
+| `card-actions` | Container der interaktiven Steuerelemente einer Karte (Favoriten-Umschalter, Überlaufmenü), oben rechts. Abzugrenzen vom rein visuellen `trailing`-Slot: Eine Karte, deren `trailing` bereits belegt ist, hatte sonst keinen Ort für ihre Aktionen — auf `SpeciesListPage` war der Favoriten-Umschalter unterhalb des `sm`-Breakpoints dadurch gar nicht erreichbar. Die Einzel-IDs der enthaltenen Schaltflächen bleiben erhalten |
+
+**Formular-Aktionsleiste:**
+
+| Muster | Bedeutung |
+|---|---|
+| `form-actions` | Container der Aktionsschaltflächen eines Formulars (Speichern/Abbrechen); ergänzt, nicht ersetzt, die Einzel-IDs der Buttons |
+
+**Tabellenkopf (`DataTable`):**
+
+| Muster | Bedeutung |
+|---|---|
+| `sort-<columnId>` | Sortier-Bedienelement einer Spalte, geschlüsselt über die `id` der Tabellenspalte. Sitzt auf dem `TableSortLabel` **innerhalb** der Kopfzelle, nicht auf der Zelle selbst: Der Klick-Handler hängt am Label, und ein Klick auf die umgebende Zelle erreicht ihn nicht, da DOM-Ereignisse nach oben und nicht nach unten laufen. Die E2E-Suite klickte zuvor die Kopfzelle und sortierte damit auf jeder Spalte, die breiter als ihr Label ist, nichts — unbemerkt, weil der Sortier-Chip ohnehin aus `defaultSort` gerendert wird (#802) |
+
+Der Chip `sort-chip` (Toolbar) kollidiert nicht mit diesem Muster: Er liegt außerhalb von `<thead>`, sodass eine Präfix-Selektion `[data-testid^='sort-']` innerhalb einer Kopfzelle ihn nie trifft.
+
+**Qualifizierende Attribute (keine `data-testid`-Werte):**
+
+Die folgenden beiden Namen sind **eigenständige HTML-Attribute**, nicht `data-testid`-Werte. Sie qualifizieren ein Element, das seinen eigenen `data-testid` behält, und werden in Kombination selektiert.
+
+| Attribut | Bedeutung | Selektion |
+|---|---|---|
+| `data-table-section` | Stabiler, englischer Bezeichner des Abschnitts, den eine `DataTable` rendert. Sitzt auf der Komponenten-Wurzel — dem einzigen Element, das Tabellen- und Karten-Layout gemeinsam haben — und unterscheidet mehrere Tabellen derselben Seite | `[data-testid='data-table'][data-table-section='<id>']` |
+| `data-chip-color` | Semantische Palettenfarbe eines Chips (`error`, `warning`, …) als fachliche Aussage („dieser Zustand ist ein Problem"), damit Tests nicht an MUI-Styling-Klassen wie `MuiChip-color<Palette>` binden müssen. Ein Chip auf der Standardfarbe emittiert nichts | `[data-testid='card-chip-<id>'][data-chip-color='error']` |
+
+**Konkret vergebene Identifikatoren, die vom Grundschema abweichen oder es präzisieren:**
+
+| `data-testid` | Element |
+|---|---|
+| `delete-task-button` | Löschen-Aktion auf der Aufgaben-Detailseite |
+| `plant-tasks-active-section` / `plant-tasks-done-section` | Die beiden Aufgabenblöcke im Aufgaben-Tab der Pflanzen-Detailseite |
+| `calendar-category-filter-toggle` | Auf-/Zuklappen der Kategorie-Filter im Kalender |
+| `phase-profile-<key>` / `phase-delete-<key>` | Profil-Öffnen bzw. Löschen je Wachstumsphasen-Zeile |
+| `cultivar-delete-<key>` | Löschen je Sorten-Zeile |
+| `care-edit-profile-<id>` / `care-confirm-<id>` / `care-snooze-<id>` | Die drei Aktionen einer Pflegekarte in der Aufgaben-Warteschlange |
+| `page-title-actions` | Aktionsgruppe im Seitenkopf (vgl. UI-NFR-021) |
+| `crop-rotation-dialog` / `companion-planting-dialog` | Dialoge der Fruchtfolge- bzw. Mischkultur-Pflege |
+| `sidebar-toggle` | Auf-/Zuklappen der Navigations-Seitenleiste im Hauptlayout |
+
 ### 2.6 Stabilität als Vertrag
 
 | # | Regel | Stufe |
@@ -159,6 +210,15 @@ verbindliche **Bereitstellungs**-Anforderung an das Frontend. Diese UI-NFR schli
   Dialog ............ <zweck>-dialog             z.B. confirm-dialog
   Listeneintrag ..... <entity>-row-<key>         z.B. species-row-tomato
   Geteilte Marker ... loading-skeleton | empty-state | error-message
+
+  Kartenlayout ...... card-title | card-subtitle
+                      card-field-<columnId>       z.B. card-field-phase
+                      card-chip-<columnId>        z.B. card-chip-status
+  Formular-Aktionen . form-actions
+
+  Attribute (kein data-testid, qualifizieren ein Element):
+    data-table-section=<id>   [data-testid='data-table'][data-table-section='…']
+    data-chip-color=<palette> [data-testid='card-chip-…'][data-chip-color='error']
 ```
 
 ---
@@ -208,8 +268,8 @@ verbindliche **Bereitstellungs**-Anforderung an das Frontend. Diese UI-NFR schli
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-07-12
+**Letzte Aktualisierung**: 2026-07-26
 **Review**: Pending
 **Genehmigung**: Pending

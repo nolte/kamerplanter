@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -114,7 +115,7 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tanks.createIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.tanks.sectionIdentification')}
           </Typography>
@@ -251,7 +252,7 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
             loading={saving}
             saveLabel={t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

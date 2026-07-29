@@ -40,6 +40,7 @@ relative counts so re-runs converge.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -229,7 +230,7 @@ class TestPlantGalleryUpload:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-005: The capture dialog offers webcam, camera and file upload.
+        """TC-REQ-034-007: The capture dialog offers webcam, camera and file upload.
 
         Spec: TC-REQ-034-007 — Aufnahme-Dialog bietet Webcam, Smartphone-Kamera
         und Datei-Upload (Wiederverwendung der Bilderkennungs-UX).
@@ -272,7 +273,7 @@ class TestPlantGalleryUpload:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-004: A file upload adds a thumbnail to the grid.
+        """TC-REQ-034-006: A file upload adds a thumbnail to the grid.
 
         Spec: TC-REQ-034-006 — Foto per Datei-Upload hinzufuegen.  Drives the
         file-upload path of the shared capture panel; webcam/phone-camera are
@@ -329,7 +330,7 @@ class TestPlantGalleryUpload:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-007: A non-image file is rejected with an error.
+        """TC-REQ-034-009: A non-image file is rejected with an error.
 
         Spec: TC-REQ-034-009 — Ungueltiger Dateityp wird abgelehnt.  The
         gallery normalizes the selected file client-side via a canvas; a file
@@ -384,7 +385,7 @@ class TestPlantGalleryLightbox:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-006: Clicking a thumbnail opens the full-size lightbox.
+        """TC-REQ-034-005: Clicking a thumbnail opens the full-size lightbox.
 
         Spec: TC-REQ-034-005 — Klick auf Thumbnail oeffnet Lightbox mit
         Originalbild.  Uploads a throwaway photo first so the test is
@@ -419,9 +420,7 @@ class TestPlantGalleryLightbox:
         )
 
         gallery.close_lightbox()
-        assert not gallery.is_lightbox_open(), (
-            "TC-REQ-034-006 FAIL: Lightbox did not close"
-        )
+        assert not gallery.is_lightbox_open(), "TC-REQ-034-006 FAIL: Lightbox did not close"
 
         if uploaded_here:
             gallery.click_delete_for_index(0)
@@ -440,7 +439,7 @@ class TestPlantGalleryCover:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-008 / 009: Set a cover photo; it previews in the info tab.
+        """TC-REQ-034-011 / 009: Set a cover photo; it previews in the info tab.
 
         Spec: TC-REQ-034-011 — Foto als Titelbild markieren (Cover-Badge).
         Spec: TC-REQ-034-012 — Titelbild erscheint als Vorschau im Info-Tab.
@@ -504,7 +503,7 @@ class TestPlantGalleryDelete:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-010: A photo is deleted only after confirming the dialog.
+        """TC-REQ-034-013: A photo is deleted only after confirming the dialog.
 
         Spec: TC-REQ-034-013 — Einzelnes Foto loeschen.  Uploads a throwaway
         photo, opens the delete confirm dialog and confirms; the gallery loses
@@ -564,7 +563,7 @@ class TestPlantGalleryI18n:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-011: With the UI in English the photos tab reads 'Photos'.
+        """TC-REQ-034-018: With the UI in English the photos tab reads 'Photos'.
 
         Spec: TC-REQ-034-018 — Galerie-UI in Englisch; no raw i18n keys leak.
 
@@ -580,15 +579,34 @@ class TestPlantGalleryI18n:
         # Switch the persisted i18n language to English and reload. The app's
         # i18next detector reads the 'kamerplanter-lang' localStorage key
         # (see src/frontend/src/i18n/i18n.ts → lookupLocalStorage).
-        gallery.driver.execute_script(
-            "window.localStorage.setItem('kamerplanter-lang', 'en');"
-        )
+        gallery.driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'en');")
         try:
             gallery.open(key)
-            if not gallery.is_gallery_loaded():
-                pytest.skip("Gallery did not load — cannot assert i18n labels")
+            # gallery.open() may only change the URL hash of the already-open
+            # plant page (no document reload), so i18next never re-reads the
+            # locale — force a full reload to apply the language switch.
+            gallery.driver.refresh()
+            # A full reload restarts the route, so the skeleton has not mounted
+            # yet the instant `refresh()` returns: `wait_for_loading_complete()`
+            # returned immediately, `is_gallery_loaded()` was `False` because the
+            # gallery simply had not rendered yet, and the test *skipped* --
+            # a silent coverage hole rather than a pass (`e2e-test-stability`
+            # §A/§D). Gate on the gallery container actually being present, and
+            # let a genuine error branch fail loudly instead of skipping.
+            gallery.wait_for_content(
+                PlantPhotoGalleryPage.GALLERY,
+                "TC-REQ-034-011 gallery after the locale reload",
+                timeout=20,
+            )
 
+            # The split i18n bundles (#612) load the EN namespace async after
+            # the language switch; the tab briefly renders the fallback DE
+            # label. Poll instead of sampling once.
+            deadline = time.time() + 8
             label = gallery.get_photos_tab_label()
+            while time.time() < deadline and label.lower() != "photos":
+                time.sleep(0.3)
+                label = gallery.get_photos_tab_label()
             screenshot(
                 "TC-REQ-034-011_gallery-english",
                 "Gallery tab with the UI language set to English",
@@ -603,6 +621,4 @@ class TestPlantGalleryI18n:
             )
         finally:
             # Restore the default German locale for session-shared follow-ups.
-            gallery.driver.execute_script(
-                "window.localStorage.setItem('kamerplanter-lang', 'de');"
-            )
+            gallery.driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'de');")

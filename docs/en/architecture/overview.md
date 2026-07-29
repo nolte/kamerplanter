@@ -12,7 +12,7 @@ The system follows a strict 5-layer architecture. Each layer only knows the laye
 ```mermaid
 flowchart TB
     subgraph "Layer 1 — Presentation"
-        Web["Web App (React 19 + MUI 7)"]
+        Web["Web App (React 19 + MUI 9)"]
         Mobile["Mobile App (Flutter — planned)"]
     end
 
@@ -53,7 +53,7 @@ flowchart TB
 
 | Component | Technology | Role |
 |-----------|-----------|------|
-| Web App | React 19, TypeScript 5.9, MUI 7 | User interface |
+| Web App | React 19, TypeScript 6, MUI 9 | User interface |
 | Backend API | Python 3.14+, FastAPI >= 0.115 | REST endpoints, JWT auth, OpenAPI |
 | Celery Worker | Celery >= 5.4 | Background tasks (enrichment, reminders) |
 | Celery Beat | Celery Beat | Scheduled tasks (daily, hourly) |

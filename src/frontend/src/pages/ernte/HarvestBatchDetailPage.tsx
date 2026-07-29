@@ -283,7 +283,15 @@ export default function HarvestBatchDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={batch.batch_id || t('pages.harvest.batchFallbackTitle')}
+      >
         <Tab label={t('pages.harvest.tabDetails')} />
         <Tab label={t('pages.harvest.tabQuality')} />
         <Tab label={t('pages.harvest.tabYield')} />
@@ -568,7 +576,7 @@ export default function HarvestBatchDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <Box component="form" onSubmit={handleQualitySubmit(onSaveQuality)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Box component="form" noValidate onSubmit={handleQualitySubmit(onSaveQuality)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Typography variant="body2" color="text.secondary">
                 {t('pages.harvest.createQualityIntro')}
               </Typography>
@@ -722,7 +730,7 @@ export default function HarvestBatchDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <Box component="form" onSubmit={handleYieldSubmit(onSaveYield)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Box component="form" noValidate onSubmit={handleYieldSubmit(onSaveYield)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Typography variant="body2" color="text.secondary">
                 {t('pages.harvest.createYieldIntro')}
               </Typography>
@@ -800,7 +808,7 @@ export default function HarvestBatchDetailPage() {
 
       {/* Tab 3: Edit */}
       {tab === 3 && (
-        <Box component="form" onSubmit={handleEditSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" noValidate onSubmit={handleEditSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.harvest.editIntro')}
           </Typography>

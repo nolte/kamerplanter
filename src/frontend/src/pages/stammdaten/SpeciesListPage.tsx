@@ -22,6 +22,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PersonIcon from '@mui/icons-material/Person';
+import FavoriteToggle from '@/components/common/FavoriteToggle';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
@@ -578,7 +579,9 @@ export default function SpeciesListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.scientific_name}
+            titleId="scientificName"
             subtitle={r.common_names.join(', ') || undefined}
+            subtitleId="commonNames"
             trailing={
               <SpeciesThumbnail
                 imageUrl={r.representative_image_url}
@@ -588,19 +591,44 @@ export default function SpeciesListPage() {
                 size={44}
               />
             }
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.growthHabit.${r.growth_habit}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip label={t(`enums.rootType.${r.root_type}`)} size="small" variant="outlined" />
-              </>
+            // The favourite toggle has a dedicated column on the desktop table
+            // but no place on the card: `trailing` holds the thumbnail. Below
+            // `sm` the action was therefore unreachable entirely (#778 A1
+            // comment). `actions` is the slot for exactly this.
+            // The shared toggle rather than a hand-rolled IconButton: it already
+            // carries the 48x48 touch target UI-NFR-001 R-011 demands, plus
+            // `aria-pressed` and the add/remove-specific labels. This card is
+            // the first place the favourite becomes touch-reachable at all
+            // (#778 A1) — the desktop cell keeps its own compact button, a
+            // mouse-precision context this deliberately does not change.
+            actions={
+              <FavoriteToggle
+                favorited={isFavorite(r.key)}
+                onToggle={() => toggleFavorite(r.key)}
+                testId={r.key}
+              />
             }
+            chips={[
+              {
+                id: 'growthHabit',
+                content: (
+                  <Chip
+                    label={t(`enums.growthHabit.${r.growth_habit}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+              {
+                id: 'rootType',
+                content: (
+                  <Chip label={t(`enums.rootType.${r.root_type}`)} size="small" variant="outlined" />
+                ),
+              },
+            ]}
             fields={[
-              { label: t('pages.species.genus'), value: r.genus },
-              { label: t('pages.species.activePlants'), value: activeCountMap.get(r.key) ?? 0 },
+              { id: 'genus', label: t('pages.species.genus'), value: r.genus },
+              { id: 'activePlants', label: t('pages.species.activePlants'), value: activeCountMap.get(r.key) ?? 0 },
             ]}
           />
         )}

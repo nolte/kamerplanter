@@ -34,14 +34,25 @@ class TankDetailPage(BasePage):
     STATES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── TankStateCreateDialog ──────────────────────────────────────────
-    STATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    STATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     STATE_FORM_PH = (By.CSS_SELECTOR, "[data-testid='form-field-ph'] input")
     STATE_FORM_EC = (By.CSS_SELECTOR, "[data-testid='form-field-ec_ms'] input")
     STATE_FORM_TEMP = (By.CSS_SELECTOR, "[data-testid='form-field-water_temp_celsius'] input")
-    STATE_FORM_FILL_PERCENT = (By.CSS_SELECTOR, "[data-testid='form-field-fill_level_percent'] input")
+    STATE_FORM_FILL_PERCENT = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-fill_level_percent'] input",
+    )
     STATE_FORM_FILL_LITERS = (By.CSS_SELECTOR, "[data-testid='form-field-fill_level_liters'] input")
     STATE_FORM_TDS = (By.CSS_SELECTOR, "[data-testid='form-field-tds_ppm'] input")
-    STATE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    # Scoped to the dialog: MUI portals a Dialog to the end of <body>, so an
+    # unscoped `[data-testid='form-submit-button']` resolves to whichever
+    # button with that testid comes FIRST in document order -- the in-page
+    # Edit tab's own submit button (Tab 5, below), not this dialog's. See #778
+    # A5.
+    STATE_FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']",
+    )
     STATE_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
     # ── Tab 2 – Maintenance ────────────────────────────────────────────
@@ -50,13 +61,20 @@ class TankDetailPage(BasePage):
     MAINTENANCE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── MaintenanceLogDialog ───────────────────────────────────────────
-    MAINTENANCE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
-    MAINT_FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-maintenance_type'] .MuiSelect-select")
+    MAINTENANCE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
+    MAINT_FORM_TYPE = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-maintenance_type'] .MuiSelect-select",
+    )
     MAINT_FORM_PERFORMED_BY = (By.CSS_SELECTOR, "[data-testid='form-field-performed_by'] input")
     MAINT_FORM_DURATION = (By.CSS_SELECTOR, "[data-testid='form-field-duration_minutes'] input")
     MAINT_FORM_PRODUCTS = (By.CSS_SELECTOR, "[data-testid='form-field-products_used'] input")
     MAINT_FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
-    MAINT_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    # Scoped to the dialog -- see STATE_FORM_SUBMIT above for the rationale.
+    MAINT_FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']",
+    )
     MAINT_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
     # ── Tab 3 – Schedules ─────────────────────────────────────────────
@@ -68,16 +86,25 @@ class TankDetailPage(BasePage):
 
     # ── Tab 5 – Edit form ──────────────────────────────────────────────
     EDIT_FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
-    EDIT_FORM_TANK_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-tank_type'] .MuiSelect-select")
+    EDIT_FORM_TANK_TYPE = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-tank_type'] .MuiSelect-select",
+    )
     EDIT_FORM_VOLUME = (By.CSS_SELECTOR, "[data-testid='form-field-volume_liters'] input")
     EDIT_FORM_MATERIAL = (By.CSS_SELECTOR, "[data-testid='form-field-material'] .MuiSelect-select")
     EDIT_FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] .MuiSwitch-root")
     EDIT_FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
+    # This is genuinely the *in-page* submit button (no dialog wraps this tab),
+    # left unscoped on purpose: it is the element STATE_FORM_SUBMIT and
+    # MAINT_FORM_SUBMIT above used to collide with (see #778 A5).
     EDIT_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     EDIT_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
-    # Alert banner rendered with MUI Alert
-    ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Alert banner rendered with MUI Alert. Scoped to the page root: an
+    # unscoped ``.MuiAlert-root`` also matches MainLayout's light-mode warning
+    # banner, which renders as a sibling of this page's root, not a
+    # descendant. See #778 A11.
+    ALERTS = (By.CSS_SELECTOR, "[data-testid='tank-detail-page'] .MuiAlert-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -186,11 +213,11 @@ class TankDetailPage(BasePage):
 
     def submit_state_form(self) -> None:
         """Submit the TankState create form."""
-        self.wait_for_element_clickable(self.STATE_FORM_SUBMIT).click()
+        self.wait_and_click(self.STATE_FORM_SUBMIT)
 
     def cancel_state_form(self) -> None:
         """Cancel the TankState dialog."""
-        self.wait_for_element_clickable(self.STATE_FORM_CANCEL).click()
+        self.wait_and_click(self.STATE_FORM_CANCEL)
 
     def get_states_row_count(self) -> int:
         """Return the number of state rows in the States table."""
@@ -198,13 +225,10 @@ class TankDetailPage(BasePage):
         return len(rows)
 
     def get_states_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible state row."""
-        rows = self.driver.find_elements(*self.STATES_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible state row."""
+        return [
+            self.get_row_text_fragments(row) for row in self.driver.find_elements(*self.STATES_ROWS)
+        ]
 
     # ── Maintenance tab (tab=2) ────────────────────────────────────────
 
@@ -219,23 +243,13 @@ class TankDetailPage(BasePage):
         return len(self.driver.find_elements(*self.MAINTENANCE_DIALOG)) > 0
 
     def select_maintenance_type(self, label_text: str) -> None:
-        """Select a maintenance type by its visible label."""
-        import time
-        from selenium.webdriver.common.keys import Keys
+        """Select a maintenance type by its visible label.
 
-        field = self.wait_for_element_clickable(self.MAINT_FORM_TYPE)
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("maintenance_type")
+        self.select_option_by_label(label_text)
 
     def fill_maintenance_performed_by(self, name: str) -> None:
         el = self.wait_for_element_clickable(self.MAINT_FORM_PERFORMED_BY)
@@ -260,11 +274,11 @@ class TankDetailPage(BasePage):
 
     def submit_maintenance_form(self) -> None:
         """Submit the maintenance log form."""
-        self.wait_for_element_clickable(self.MAINT_FORM_SUBMIT).click()
+        self.wait_and_click(self.MAINT_FORM_SUBMIT)
 
     def cancel_maintenance_form(self) -> None:
         """Cancel the maintenance dialog."""
-        self.wait_for_element_clickable(self.MAINT_FORM_CANCEL).click()
+        self.wait_and_click(self.MAINT_FORM_CANCEL)
 
     def get_maintenance_row_count(self) -> int:
         """Return the number of rows in the maintenance history table."""
@@ -272,13 +286,11 @@ class TankDetailPage(BasePage):
         return len(rows)
 
     def get_maintenance_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible maintenance row."""
-        rows = self.driver.find_elements(*self.MAINTENANCE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible maintenance row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.MAINTENANCE_ROWS)
+        ]
 
     # ── Schedules tab (tab=3) ──────────────────────────────────────────
 
@@ -316,37 +328,25 @@ class TankDetailPage(BasePage):
         el.send_keys(notes)
 
     def select_edit_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select in the edit form and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
+        """Open an MUI Select in the edit form and pick an option.
 
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def toggle_edit_has_lid(self) -> None:
         el = self.wait_for_element_clickable(self.EDIT_FORM_HAS_LID)
         self.scroll_and_click(el)
 
     def submit_edit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_for_element_clickable(self.EDIT_FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.EDIT_FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Cancel the edit form (resets to last saved values)."""
-        self.wait_for_element_clickable(self.EDIT_FORM_CANCEL).click()
+        self.wait_and_click(self.EDIT_FORM_CANCEL)
 
     # ── Delete ─────────────────────────────────────────────────────────
 
@@ -358,11 +358,11 @@ class TankDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Confirm deletion in the ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Cancel the delete confirmation dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
@@ -371,9 +371,7 @@ class TankDetailPage(BasePage):
 
     def is_error_displayed(self) -> bool:
         """Return True if an error display component is visible."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='error-display']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-display']")
         return len(elements) > 0 and elements[0].is_displayed()
 
     def is_page_present(self) -> bool:

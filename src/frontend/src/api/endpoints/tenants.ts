@@ -16,12 +16,12 @@ const BASE = '/tenants';
 // ── Tenant CRUD ─────────────────────────────────────────────────────
 
 export async function listMyTenants(): Promise<TenantWithRole[]> {
-  const res = await client.get<TenantWithRole[]>(`${BASE}/`);
+  const res = await client.get<TenantWithRole[]>(BASE);
   return res.data;
 }
 
 export async function createOrganization(data: TenantCreate): Promise<Tenant> {
-  const res = await client.post<Tenant>(`${BASE}/`, data);
+  const res = await client.post<Tenant>(BASE, data);
   return res.data;
 }
 

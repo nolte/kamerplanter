@@ -64,7 +64,7 @@ class _FakeRepo(IOverwinteringProfileRepository):
         pass
 
 
-def _ctx(role: TenantRole = TenantRole.ADMIN) -> TenantContext:
+def _ctx(role: TenantRole = TenantRole.LEAD) -> TenantContext:
     return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_anna", role=role)
 
 

@@ -178,8 +178,7 @@ class TestSensorCreateDialogOpens:
         )
 
         assert sensor_dialog.is_open(), (
-            "TC-REQ-005-002 FAIL: SensorCreateDialog did not open after "
-            "clicking add-sensor-button."
+            "TC-REQ-005-002 FAIL: SensorCreateDialog did not open after clicking add-sensor-button."
         )
 
         # Required fields for manual sensor creation per REQ-005 §1

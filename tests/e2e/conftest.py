@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -124,7 +124,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--resume",
         default=None,
         help="Resume a previous interrupted test run from checkpoint. "
-             "Pass the test-reports/e2e/<timestamp>/ directory path.",
+        "Pass the test-reports/e2e/<timestamp>/ directory path.",
     )
     parser.addoption(
         "--device",
@@ -387,6 +387,47 @@ def _record_tc_id(request: pytest.FixtureRequest, record_property: Callable) -> 
         record_property("tc_id", tc_id)
 
 
+# ── Global-preference serialization across xdist workers ──────────────────
+# In light mode the experience level is stored server-side on the singleton
+# system user (REQ-021 "serverseitig", REQ-027 "User-Preference am System-User")
+# and is therefore global, mutable state shared by every xdist worker. Tests
+# that mutate it (onboarding wizard step 1, the account-settings toggle) or
+# assert UI gating derived from it (nav tiering, dialog field visibility) must
+# not overlap across workers, or the level flips mid-assertion (finding F-8,
+# .resume/e2e-selenium/robustness-audit.md). ``--dist=loadfile`` already
+# serializes within a file; this advisory file lock serializes the affected
+# files against each other. All workers run in the same container, so an
+# fcntl lock on a shared path is a correct inter-process mutex.
+_GLOBAL_PREFERENCE_MODULES = {
+    "test_req020_onboarding_steps",
+    "test_req020_onboarding_wizard",
+    "test_req021_experience_level",
+}
+
+_GLOBAL_PREFERENCE_LOCK_PATH = "/tmp/kamerplanter-e2e-global-preference.lock"
+
+
+@pytest.fixture(autouse=True)
+def _serialize_global_preference_mutators(
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """Hold an inter-worker lock for tests touching the global experience level."""
+    module = getattr(request, "module", None)
+    module_name = getattr(module, "__name__", "").rpartition(".")[-1]
+    if module_name not in _GLOBAL_PREFERENCE_MODULES:
+        yield
+        return
+
+    import fcntl
+
+    with open(_GLOBAL_PREFERENCE_LOCK_PATH, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
 # ── Device profiles for responsive testing ────────────────────────────────
 # Each profile defines viewport dimensions, device scale factor, touch support,
 # and a user-agent string.  Used by the ``browser`` fixture to configure
@@ -510,10 +551,26 @@ def _api_helpers(auth_token: str | None = None):
 # (dashboard/plants/locations/settings/onboarding) are validated-away by the
 # backend, so listing them is harmless — we only send the toggleable set.
 _E2E_TOGGLEABLE_MODULES = (
-    "care", "calendar", "watering", "tasks", "nutrition", "tanks", "aquaponics",
-    "substrates", "calculators", "ipm", "harvest", "post_harvest", "runs",
-    "propagation", "master_data", "companion", "sensors", "automation",
-    "smart_home", "ai",
+    "care",
+    "calendar",
+    "watering",
+    "tasks",
+    "nutrition",
+    "tanks",
+    "aquaponics",
+    "substrates",
+    "calculators",
+    "ipm",
+    "harvest",
+    "post_harvest",
+    "runs",
+    "propagation",
+    "master_data",
+    "companion",
+    "sensors",
+    "automation",
+    "smart_home",
+    "ai",
 )
 
 
@@ -555,28 +612,6 @@ def _api_delete(url: str, auth_token: str | None = None) -> int:
         return e.code
 
 
-def _reset_e2e_tasks(api: str, auth_token: str | None) -> None:
-    """Delete leftover ``E2E:``-prefixed tasks so each session starts clean.
-
-    The task seeds are re-created unconditionally every session; without this
-    reset, mutated survivors from earlier runs (renamed, reassigned, or created
-    before a notification-coupling change and therefore missing their in-app
-    notification) accumulate in the queue and make ``keys[0]`` non-deterministic
-    for the REQ-030 source→notification feedback tests. Only deletable statuses
-    (pending/skipped/cancelled/dormant) are removed; completed tasks stay for
-    history and never surface in the live queue anyway.
-    """
-    _post, _get = _api_helpers(auth_token)
-    status, tasks = _get(f"{api}/tasks?limit=500")
-    if status != 200 or not isinstance(tasks, list):
-        return
-    for task in tasks:
-        name = task.get("name") or ""
-        key = task.get("key")
-        if key and name.startswith("E2E:"):
-            _api_delete(f"{api}/tasks/{key}", auth_token)
-
-
 def _register_and_login(api_base: str) -> tuple[str, str]:
     """Register the demo user (idempotent) and login to get a JWT token.
 
@@ -585,17 +620,23 @@ def _register_and_login(api_base: str) -> tuple[str, str]:
     _post, _get = _api_helpers()
 
     # Register — idempotent: returns 201 for new, 201 for existing (SEC-H-009)
-    _post(f"{api_base}/api/v1/auth/register", {
-        "email": DEMO_EMAIL_FULL,
-        "password": DEMO_PASSWORD,
-        "display_name": DEMO_DISPLAY_NAME,
-    })
+    _post(
+        f"{api_base}/api/v1/auth/register",
+        {
+            "email": DEMO_EMAIL_FULL,
+            "password": DEMO_PASSWORD,
+            "display_name": DEMO_DISPLAY_NAME,
+        },
+    )
 
     # Login to get JWT
-    status, resp = _post(f"{api_base}/api/v1/auth/login", {
-        "email": DEMO_EMAIL_FULL,
-        "password": DEMO_PASSWORD,
-    })
+    status, resp = _post(
+        f"{api_base}/api/v1/auth/login",
+        {
+            "email": DEMO_EMAIL_FULL,
+            "password": DEMO_PASSWORD,
+        },
+    )
     if status != 200 or "access_token" not in resp:
         raise RuntimeError(f"E2E seed login failed: status={status}, resp={resp}")
 
@@ -638,6 +679,8 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     SITE_NAME = "E2E-Sonnengarten"
     LOCATION_NAME = "E2E-Wohnzimmer"
     SLOT_LOCATION_NAME = "E2E-Gewaechshaus"
+    RUN_NAME = "E2E-Durchlauf"
+    TANK_NAME = "E2E-Naehrstofftank"
 
     try:
         # ── Enable all toggleable modules server-side (REQ-042, FULL mode) ──
@@ -663,35 +706,48 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
             if tree_status == 200 and isinstance(tree, list) and tree:
                 result["location_key"] = tree[0]["key"]
         else:
-            status, site = _post(f"{api}/sites", {
-                "name": SITE_NAME,
-                "description": "Automatisch angelegt fuer E2E-Tests — Balkon und Wohnzimmer",
-                "climate_zone": "8a",
-                "total_area_m2": 45,
-                "timezone": "Europe/Berlin",
-            })
+            status, site = _post(
+                f"{api}/sites",
+                {
+                    "name": SITE_NAME,
+                    "description": "Automatisch angelegt fuer E2E-Tests — Balkon und Wohnzimmer",
+                    "climate_zone": "8a",
+                    "total_area_m2": 45,
+                    "timezone": "Europe/Berlin",
+                },
+            )
             if status == 201:
                 result["site_key"] = site["key"]
-                loc_status, loc = _post(f"{api}/locations", {
-                    "name": LOCATION_NAME,
-                    "site_key": site["key"],
-                    "location_type_key": "room",
-                    "area_m2": 18,
-                })
+                loc_status, loc = _post(
+                    f"{api}/locations",
+                    {
+                        "name": LOCATION_NAME,
+                        "site_key": site["key"],
+                        "location_type_key": "room",
+                        "area_m2": 18,
+                    },
+                )
                 if loc_status == 201:
                     result["location_key"] = loc["key"]
-                _post(f"{api}/locations", {
-                    "name": SLOT_LOCATION_NAME,
-                    "site_key": site["key"],
-                    "location_type_key": "greenhouse",
-                    "area_m2": 12,
-                })
+                _post(
+                    f"{api}/locations",
+                    {
+                        "name": SLOT_LOCATION_NAME,
+                        "site_key": site["key"],
+                        "location_type_key": "greenhouse",
+                        "area_m2": 12,
+                    },
+                )
 
         # ── Seed tasks for task-queue tests (REQ-006) ────────────────────
-        # Remove leftover E2E tasks first so the queue baseline is deterministic
-        # (see _reset_e2e_tasks — required by the REQ-030 feedback tests).
-        _reset_e2e_tasks(api, result.get("access_token"))
-
+        # Find-or-create: this session fixture runs once per xdist worker
+        # (4x by default). An unconditional POST here would race those workers
+        # into recreating the same three named tasks four times, leaving
+        # duplicate "E2E: ..." rows in the queue and making any
+        # ``keys[0]``-based lookup non-deterministic (the original failure
+        # mode behind the REQ-030 source→notification feedback tests).
+        # Checking for an existing pending/in_progress task of the same name
+        # first converges every worker onto a single seeded set instead.
         from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
         _now = _dt.now(_tz.utc)
@@ -721,7 +777,17 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                 "instruction_de": "Seitentriebe der Tomatenpflanzen entfernen",
             },
         ]
+        _tasks_list_status, _existing_tasks = _get(f"{api}/tasks?limit=500")
+        _existing_task_names: set = set()
+        if _tasks_list_status == 200 and isinstance(_existing_tasks, list):
+            _existing_task_names = {
+                t.get("name")
+                for t in _existing_tasks
+                if t.get("status") in ("pending", "in_progress")
+            }
         for task_data in _seed_tasks:
+            if task_data["name"] in _existing_task_names:
+                continue
             status, resp = _post(f"{api}/tasks", task_data)
             if status == 201:
                 result.setdefault("task_keys", []).append(resp.get("key"))
@@ -731,33 +797,126 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
         # profiles, so the pflege dashboard tests have data to work with.
         _post(f"{api}/tasks/generate-care-reminders", {})
 
+        # ── One planting run and one tank (#853) ─────────────────────────
+        # Both list pages rendered their empty state on every profile, so the
+        # REQ-013 and REQ-014 sorting tests had no table to click and failed on
+        # `assert headers` instead of on anything they meant to verify. A global
+        # seed cannot fix this: runs and tanks are tenant-scoped, so they can
+        # only exist once a tenant does — which is here.
+        #
+        # Idempotent by name, like the site above: this fixture is
+        # session-scoped, but the same containers are reused across profiles,
+        # and a second POST must not add a second row.
+        run_status, runs = _get(f"{api}/planting-runs")
+        if run_status == 200 and isinstance(runs, list):
+            existing_run = next((r for r in runs if r.get("name") == RUN_NAME), None)
+            if existing_run:
+                result["planting_run_key"] = existing_run.get("key")
+            else:
+                _, run = _post(
+                    f"{api}/planting-runs",
+                    {
+                        "name": RUN_NAME,
+                        "run_type": "monoculture",
+                        "location_key": result.get("location_key"),
+                    },
+                )
+                if isinstance(run, dict):
+                    result["planting_run_key"] = run.get("key")
+
+        tank_status, tanks = _get(f"{api}/tanks")
+        if tank_status == 200 and isinstance(tanks, list):
+            existing_tank = next((t for t in tanks if t.get("name") == TANK_NAME), None)
+            if existing_tank:
+                result["tank_key"] = existing_tank.get("key")
+            else:
+                _, tank = _post(
+                    f"{api}/tanks",
+                    {
+                        "name": TANK_NAME,
+                        "tank_type": "nutrient",
+                        "volume_liters": 100.0,
+                        "location_key": result.get("location_key"),
+                    },
+                )
+                if isinstance(tank, dict):
+                    result["tank_key"] = tank.get("key")
+
         # Skip onboarding wizard so the browser lands on /dashboard
         _post(f"{api}/onboarding/skip", {})
     except Exception as exc:
         result["error"] = str(exc)
 
+    # The result dict carries the demo account's live JWT in full mode — never
+    # write it to a report file that a broadened artifact upload could publish
+    # (SEC-006).
+    from ._seed_log import format_seed_log
+
     seed_log = Path("test-reports/e2e_seed_data.log")
     seed_log.parent.mkdir(parents=True, exist_ok=True)
-    seed_log.write_text(f"api={api}\nmode={app_mode}\nresult={result}\n")
+    seed_log.write_text(format_seed_log(api, app_mode, result))
 
     return result
 
 
-def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None) -> tuple[int, dict]:
+def _fresh_access_token(e2e_seed_data: dict, base_url: str) -> str | None:
+    """Return a currently-valid access token for API helpers.
+
+    The session-scoped seed token expires after the JWT access TTL (15 min) —
+    long before late-scheduled tests run, so helpers that reuse it fail with
+    'Token has expired'. Full mode: re-login with the demo credentials and
+    cache the token for 10 minutes. Light mode (no seed token): ``None``.
+    """
+    if not e2e_seed_data.get("access_token"):
+        return None
+    import time as _time
+
+    cached = e2e_seed_data.get("_fresh_token")
+    if cached and _time.time() - cached[1] < 600:
+        return cached[0]
+    _post, _ = _api_helpers()
+    status, resp = _post(
+        f"{base_url.rstrip('/')}/api/v1/auth/login",
+        {"email": DEMO_EMAIL_FULL, "password": DEMO_PASSWORD},
+    )
+    token = resp.get("access_token") if status == 200 else None
+    if not token:
+        return e2e_seed_data.get("access_token")
+    e2e_seed_data["_fresh_token"] = (token, _time.time())
+    return token
+
+
+def _e2e_api_post(
+    e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None
+) -> tuple[int, dict]:
     """Make an authenticated POST to a tenant-scoped API endpoint.
 
     Helper for test fixtures that need to call the backend API (e.g. resetting
     onboarding state).  Works in both light and full mode.
     """
-    token = e2e_seed_data.get("access_token")
+    token = _fresh_access_token(e2e_seed_data, base_url)
     slug = e2e_seed_data.get("tenant_slug", "mein-garten")
     _post, _ = _api_helpers(token)
     url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/{path.lstrip('/')}"
     return _post(url, data or {})
 
 
+# NOTE: deliberately no ``--force-prefers-reduced-motion`` here. It was added to
+# close the MUI option-mis-click race and did not: that race is driven by
+# JavaScript layout effects (``Menu`` scrolling its paper to the selected item,
+# ``Popover`` clamping upward), which no animation setting removes -- it is now
+# closed coordinate-independently in ``BasePage.click_menu_option``. What the
+# flag *did* do was switch the application under test into its reduced-motion
+# branch globally (``theme.ts``: every transition collapsed to 0.01 ms), so the
+# suite stopped measuring the UI real users get -- and it removed the drawer
+# slide that had been masking a latent page-object defect (nav items clipped by
+# the sidebar's scroll container), turning two green tests red.
+
+
 @pytest.fixture(scope="function")
-def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict) -> webdriver.Remote:
+def browser(
+    request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict
+) -> webdriver.Remote:
     """Create a fresh headless browser session per test (NFR-008 §3.1).
 
     Depends on ``e2e_seed_data`` to ensure the demo user exists before
@@ -845,10 +1004,7 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
         chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
         if chromium_snap and not shutil.which("google-chrome"):
             options.binary_location = chromium_snap
-        chromedriver_path = (
-            shutil.which("chromedriver")
-            or shutil.which("chromium.chromedriver")
-        )
+        chromedriver_path = shutil.which("chromedriver") or shutil.which("chromium.chromedriver")
         if chromedriver_path:
             service = ChromeService(chromedriver_path)
         elif ChromeDriverManager is not None:
@@ -860,19 +1016,28 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
     # ── Apply device emulation via CDP (Chrome only) ──────────────────
     if dev["name"] != "desktop":
         try:
-            driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
-                "width": dev["width"],
-                "height": dev["height"],
-                "deviceScaleFactor": dev["deviceScaleFactor"],
-                "mobile": dev["mobile"],
-            })
+            driver.execute_cdp_cmd(
+                "Emulation.setDeviceMetricsOverride",
+                {
+                    "width": dev["width"],
+                    "height": dev["height"],
+                    "deviceScaleFactor": dev["deviceScaleFactor"],
+                    "mobile": dev["mobile"],
+                },
+            )
             if dev["userAgent"]:
-                driver.execute_cdp_cmd("Emulation.setUserAgentOverride", {
-                    "userAgent": dev["userAgent"],
-                })
-            driver.execute_cdp_cmd("Emulation.setTouchEmulationEnabled", {
-                "enabled": True,
-            })
+                driver.execute_cdp_cmd(
+                    "Emulation.setUserAgentOverride",
+                    {
+                        "userAgent": dev["userAgent"],
+                    },
+                )
+            driver.execute_cdp_cmd(
+                "Emulation.setTouchEmulationEnabled",
+                {
+                    "enabled": True,
+                },
+            )
         except Exception:
             # CDP not available (Firefox, older grids) — viewport size is
             # already set via window-size argument, so tests still run at
@@ -898,9 +1063,7 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
     # first so that localStorage is bound to the correct domain.
     url = os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
     driver.get(url)
-    driver.execute_script(
-        "window.localStorage.setItem('kamerplanter-lang', 'de');"
-    )
+    driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'de');")
 
     # ── Enable all toggleable modules (REQ-042 ModuleGuard) ──────────────
     # In light mode the frontend treats localStorage key 'kp-module-visibility'
@@ -941,9 +1104,9 @@ def _browser_login(driver: webdriver.Remote, base_url: str) -> None:
     driver.get(f"{base_url}/login")
     wait = WebDriverWait(driver, 15)
 
-    email_input = wait.until(EC.presence_of_element_located(
-        (By.CSS_SELECTOR, "input[type='email']")
-    ))
+    email_input = wait.until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email']"))
+    )
     email_input.clear()
     email_input.send_keys(DEMO_EMAIL_FULL)
 
@@ -998,9 +1161,7 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
     protocol plugin so that screenshots and the Markdown report live in the
     same timestamped folder.  Otherwise a standalone directory is created.
     """
-    protocol_dir: Path | None = getattr(
-        request.config, "_protocol_output_dir", None
-    )
+    protocol_dir: Path | None = getattr(request.config, "_protocol_output_dir", None)
     if protocol_dir is not None:
         path = protocol_dir / "screenshots"
     else:
@@ -1015,6 +1176,14 @@ def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
 
     Falls back to the standard Selenium screenshot if CDP is not available
     (e.g. Firefox or older drivers).
+
+    What this image can and cannot answer (#778 H1): it returns the whole scroll
+    document, and while doing so Chrome rescales ``position: fixed`` and
+    ``height: 100%`` elements to the document height. The same dialog paper
+    measured 931px in one shot and 1991px in another, neither equal to the
+    852px viewport — so **height in this image means nothing** and it cannot
+    answer "is this below the fold". Its *width* stays a sound horizontal-overflow
+    measurement. Use :func:`_cdp_viewport_screenshot` for anything vertical.
     """
     import base64
 
@@ -1026,6 +1195,30 @@ def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
         filepath.write_bytes(base64.b64decode(result["data"]))
     except Exception:
         # Fallback for non-Chrome browsers or remote grids without CDP
+        driver.save_screenshot(str(filepath))
+
+
+def _cdp_viewport_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
+    """Capture exactly what the viewport shows, at the viewport's own size.
+
+    The companion to :func:`_cdp_full_page_screenshot`, and the only one of the
+    two that can answer a *vertical* question. Omitting ``captureBeyondViewport``
+    leaves the layout viewport untouched, so an element's position in this image
+    is its position on the user's screen — which is what "the primary action sits
+    below the fold" or "the sticky bar covers the field" actually mean.
+
+    Two agents burned effort on the full-page image before this was pinned down
+    (#778 H1), so both are now written per checkpoint rather than leaving the
+    reader to guess which question their single image can answer.
+    """
+    import base64
+
+    try:
+        result = driver.execute_cdp_cmd("Page.captureScreenshot", {})
+        filepath.write_bytes(base64.b64decode(result["data"]))
+    except Exception:
+        # Non-Chrome or a grid without CDP: Selenium's own screenshot is already
+        # viewport-only, so the fallback is exact rather than approximate here.
         driver.save_screenshot(str(filepath))
 
 
@@ -1053,10 +1246,18 @@ def screenshot(
             capture = request.node._screenshot_capture
             capture("req014_001_tank_list")
     """
+
     def _capture(name: str, description: str = "") -> Path:
         filename = f"{name}.png"
         filepath = screenshot_dir / filename
         _cdp_full_page_screenshot(browser, filepath)
+
+        # A second, viewport-only image per checkpoint (#778 H1). The full-page
+        # one above cannot answer any vertical question, and a reviewer looking
+        # at a single image has no way to know that. Written next to it as
+        # `<name>.viewport.png` so the pair is obvious in the folder listing.
+        viewport_name = f"{name}.viewport.png"
+        _cdp_viewport_screenshot(browser, screenshot_dir / viewport_name)
 
         # Register with protocol plugin for report generation
         screenshots_list = getattr(request.node, "_protocol_screenshots", [])
@@ -1075,14 +1276,26 @@ def screenshot(
 
     yield _capture
 
-    # After test — capture on failure
+    # After test — capture on failure, and on an *expected* failure too.
+    # An xfail(strict=False) that actually fails is reported as ``skipped``
+    # (with ``wasxfail`` set), so the plain ``report.failed`` branch left every
+    # xfail-marked test without a single artefact: no failure screenshot, no
+    # traceback, nothing to triage the marker against. Reconstructing why
+    # TC-REQ-020-032 xfailed took inferring the stop point from which
+    # checkpoint screenshots existed.
     report = getattr(request.node, "_report", None)
-    if report and report.failed:
+    if report is not None:
         test_name = request.node.name.replace("[", "_").replace("]", "_")
-        _capture(
-            f"FAILURE_{test_name}",
-            f"Automatischer Screenshot nach Fehler in {test_name}",
-        )
+        if report.failed:
+            _capture(
+                f"FAILURE_{test_name}",
+                f"Automatischer Screenshot nach Fehler in {test_name}",
+            )
+        elif report.skipped and getattr(report, "wasxfail", None) is not None:
+            _capture(
+                f"XFAIL_{test_name}",
+                f"Automatischer Screenshot nach erwartetem Fehlschlag in {test_name}",
+            )
 
 
 # ── Shared page-object fixtures ───────────────────────────────────────────
@@ -1176,13 +1389,25 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             outcome_str = "passed" if not report.failed else "failed"
             if report.skipped:
                 outcome_str = "skipped"
-            message = str(report.longrepr) if report.failed else ""
+            # xfail and xpass are recorded as their own outcomes rather than
+            # folded into skipped/passed (#778 A6/A7). A profile reported
+            # "green" with 34 xpasses is a different fact from one green with
+            # none: a marker that keeps xpassing is a marker that should be
+            # removed, and that is invisible while it counts as an ordinary
+            # pass. pytest sets ``wasxfail`` for both directions and downgrades
+            # a non-strict expected failure to ``skipped``.
+            if getattr(report, "wasxfail", None) is not None:
+                outcome_str = "xfailed" if report.skipped else "xpassed"
+            # ``longrepr`` survives pytest's xfail downgrade (skipping.py only
+            # rewrites ``outcome``), so recording it for an expected failure
+            # puts the actual traceback into ``checkpoint.jsonl`` instead of
+            # discarding the only machine-readable evidence an xfail produces.
+            keep_longrepr = report.failed or getattr(report, "wasxfail", None) is not None
+            message = str(report.longrepr) if keep_longrepr and report.longrepr else ""
             docstring = ""
             if item.obj and item.obj.__doc__:
                 docstring = item.obj.__doc__.strip().split("\n")[0]
-            screenshots: list[ScreenshotEntry] = getattr(
-                item, "_protocol_screenshots", []
-            )
+            screenshots: list[ScreenshotEntry] = getattr(item, "_protocol_screenshots", [])
             result = TestResult(
                 nodeid=item.nodeid,
                 outcome=outcome_str,
@@ -1210,6 +1435,7 @@ def _write_checkpoint(result: TestResult) -> None:
     2. Resume a test run (``--resume``)
     """
     import json
+
     if _protocol_output_dir is None:
         return
     checkpoint = _protocol_output_dir / "checkpoint.jsonl"
@@ -1225,8 +1451,7 @@ def _write_checkpoint(result: TestResult) -> None:
         # generated docstring.
         "tc_id": result.tc_id,
         "screenshots": [
-            {"filename": s.filename, "description": s.description}
-            for s in result.screenshots
+            {"filename": s.filename, "description": s.description} for s in result.screenshots
         ],
     }
     with checkpoint.open("a", encoding="utf-8") as f:
@@ -1236,6 +1461,7 @@ def _write_checkpoint(result: TestResult) -> None:
 def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
     """Load results from a JSONL checkpoint file."""
     import json
+
     results: list[TestResult] = []
     if not checkpoint_path.exists():
         return results
@@ -1244,22 +1470,24 @@ def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
         if not line:
             continue
         entry = json.loads(line)
-        results.append(TestResult(
-            nodeid=entry["nodeid"],
-            outcome=entry["outcome"],
-            duration=entry.get("duration", 0.0),
-            message=entry.get("message", ""),
-            docstring=entry.get("docstring", ""),
-            tc_id=entry.get("tc_id", ""),
-            screenshots=[
-                ScreenshotEntry(
-                    filename=s["filename"],
-                    description=s["description"],
-                    test_nodeid=entry["nodeid"],
-                )
-                for s in entry.get("screenshots", [])
-            ],
-        ))
+        results.append(
+            TestResult(
+                nodeid=entry["nodeid"],
+                outcome=entry["outcome"],
+                duration=entry.get("duration", 0.0),
+                message=entry.get("message", ""),
+                docstring=entry.get("docstring", ""),
+                tc_id=entry.get("tc_id", ""),
+                screenshots=[
+                    ScreenshotEntry(
+                        filename=s["filename"],
+                        description=s["description"],
+                        test_nodeid=entry["nodeid"],
+                    )
+                    for s in entry.get("screenshots", [])
+                ],
+            )
+        )
     return results
 
 
@@ -1333,6 +1561,7 @@ def pytest_configure_node(node) -> None:  # type: ignore[no-untyped-def]
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Initialize protocol generator if --generate-protocol is active."""
     import atexit
+
     global _protocol_generator, _protocol_output_dir, _is_xdist_worker
     global _junit_report_path
 

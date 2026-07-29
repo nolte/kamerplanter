@@ -20,6 +20,8 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-007.md):
 
 from __future__ import annotations
 
+import time
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -31,7 +33,7 @@ from .pages.harvest_batch_list_page import HarvestBatchListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('harvest',)
+FEATURES = ("harvest",)
 
 
 # -- Fixtures ---------------------------------------------------------------
@@ -49,11 +51,68 @@ def harvest_list(browser: WebDriver, base_url: str) -> HarvestBatchListPage:
     return HarvestBatchListPage(browser, base_url)
 
 
+def _unique_batch_id() -> str:
+    """Return a collision-free Chargen-ID for a dedicated test batch."""
+    return f"E2E-DETAIL-{uuid.uuid4().hex[:8].upper()}"
+
+
+def _create_batch_and_get_key(harvest_list: HarvestBatchListPage) -> str:
+    """Create a dedicated batch via the create dialog and return its key.
+
+    Detail-page tests must not depend on batches created by list tests on
+    other xdist workers or on seed data: a batch created here is guaranteed
+    to exist and to carry no quality assessment or yield metrics yet.
+    """
+    batch_id = _unique_batch_id()
+    harvest_list.open()
+    harvest_list.click_create()
+    # Fill the (autofocused) batch-id text field BEFORE opening the plant
+    # select: the select's menu backdrop can still be mid-dismiss right after
+    # picking an option, which intermittently blocks the next field click.
+    harvest_list.fill_batch_id(batch_id)
+    try:
+        harvest_list.select_plant("")
+    except Exception:
+        pytest.skip("No plants available -- cannot create a harvest batch")
+    harvest_list.submit_create_form()
+
+    # Sample early instead of a blind long wait: dialog-closed wins (success);
+    # a transient error snackbar means the backend blocked the creation
+    # (e.g. Karenz-Gate IPM interval) — mirror TC-REQ-007-028's handling.
+    deadline = time.time() + 12
+    while time.time() < deadline:
+        if not harvest_list.is_create_dialog_open():
+            break
+        if harvest_list.has_any_dialog_error() or harvest_list.is_snackbar_visible():
+            break
+        time.sleep(0.2)
+    if harvest_list.is_create_dialog_open():
+        pytest.skip(
+            "Harvest creation blocked by backend validation "
+            "(likely Karenz-Gate IPM safety interval)"
+        )
+
+    harvest_list.search(batch_id)
+    deadline = time.time() + 10
+    while time.time() < deadline and harvest_list.get_row_count() == 0:
+        time.sleep(0.2)
+    if harvest_list.get_row_count() == 0:
+        pytest.fail(f"Created batch '{batch_id}' did not appear in the harvest list")
+    harvest_list.click_row(0)
+    harvest_list.wait_for_url_contains("/ernte/")
+    return harvest_list.driver.current_url.rstrip("/").split("/")[-1]
+
+
 def _get_first_batch_key(harvest_list: HarvestBatchListPage) -> str:
-    """Navigate to list, click first row, extract key from URL."""
+    """Navigate to list, click first row, extract key from URL.
+
+    Falls back to creating a dedicated batch when the list is empty, so
+    read-only detail-page tests never skip just because the creation tests
+    happen to run later on another xdist worker.
+    """
     harvest_list.open()
     if harvest_list.get_row_count() == 0:
-        pytest.skip("No harvest batches in database -- cannot test detail page")
+        return _create_batch_and_get_key(harvest_list)
     harvest_list.click_row(0)
     harvest_list.wait_for_url_contains("/ernte/")
     url = harvest_list.driver.current_url
@@ -75,7 +134,7 @@ class TestHarvestBatchDetailPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-001: Detail page loads with 4 tabs visible.
+        """TC-007-014: Detail page loads with 4 tabs visible.
 
         Spec: TC-007-014 -- Detailseite laden (Happy Path).
         """
@@ -87,14 +146,10 @@ class TestHarvestBatchDetailPage:
         )
 
         title = harvest_detail.get_page_title_text()
-        assert title, (
-            f"TC-REQ-007-001 FAIL: Expected non-empty page title, got: '{title}'"
-        )
+        assert title, f"TC-REQ-007-001 FAIL: Expected non-empty page title, got: '{title}'"
 
         tabs = harvest_detail.get_tab_labels()
-        assert len(tabs) == 4, (
-            f"TC-REQ-007-001 FAIL: Expected 4 tabs, got {len(tabs)}: {tabs}"
-        )
+        assert len(tabs) == 4, f"TC-REQ-007-001 FAIL: Expected 4 tabs, got {len(tabs)}: {tabs}"
 
     @pytest.mark.smoke
     def test_detail_tab_is_default(
@@ -103,7 +158,7 @@ class TestHarvestBatchDetailPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-002: Tab 'Details' (index 0) is active by default.
+        """TC-007-014: Tab 'Details' (index 0) is active by default.
 
         Spec: TC-007-014 -- Detailseite laden -- Tab 'Details' standardmaessig aktiv.
         """
@@ -126,7 +181,7 @@ class TestHarvestBatchDetailPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-003: Details tab shows batch fields in table format.
+        """TC-007-015: Details tab shows batch fields in table format.
 
         Spec: TC-007-015 -- Details-Tab zeigt Batch-Felder.
         """
@@ -140,9 +195,7 @@ class TestHarvestBatchDetailPage:
         )
 
         # The table should contain at least some of the expected labels
-        assert table_text, (
-            "TC-REQ-007-003 FAIL: Expected detail table to contain text"
-        )
+        assert table_text, "TC-REQ-007-003 FAIL: Expected detail table to contain text"
 
     @pytest.mark.core_crud
     def test_detail_page_404_for_unknown_key(
@@ -150,7 +203,7 @@ class TestHarvestBatchDetailPage:
         harvest_detail: HarvestBatchDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-004: Navigating to unknown batch key shows error display.
+        """TC-007-016: Navigating to unknown batch key shows error display.
 
         Spec: TC-007-016 -- Nicht gefunden (404).
         """
@@ -178,7 +231,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-005: Edit tab shows a prefilled form with current batch values.
+        """TC-007-017: Edit tab shows a prefilled form with current batch values.
 
         Spec: TC-007-017 -- Batch bearbeiten -- Erntetyp und Qualitaetsstufe aendern.
         """
@@ -203,7 +256,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-006: Save button is disabled when form is not dirty.
+        """TC-007-019: Save button is disabled when form is not dirty.
 
         Spec: TC-007-019 -- 'Speichern'-Button inaktiv bei unveraenderten Daten.
         """
@@ -228,7 +281,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-007: Edit batch -- change harvester and save.
+        """TC-007-017: Edit batch -- change harvester and save.
 
         Spec: TC-007-017 -- Batch bearbeiten -- Erntetyp und Qualitaetsstufe aendern.
         """
@@ -261,7 +314,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-008: Negative weight value shows validation error on edit tab.
+        """TC-007-021: Negative weight value shows validation error on edit tab.
 
         Spec: TC-007-021 -- Negativer Gewichtswert (Validierung).
         """
@@ -288,10 +341,7 @@ class TestHarvestBatchEdit:
         assert (
             harvest_detail.has_validation_error("wet_weight_g")
             or harvest_detail.is_submit_disabled()
-        ), (
-            "TC-REQ-007-008 FAIL: Expected validation error or disabled submit "
-            "for negative weight"
-        )
+        ), "TC-REQ-007-008 FAIL: Expected validation error or disabled submit for negative weight"
 
 
 # -- TC-007-022 to TC-007-027: Quality Tab (Tab 1) -------------------------
@@ -307,7 +357,7 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-009: Quality tab shows either create form or display table.
+        """TC-007-022: Quality tab shows either create form or display table.
 
         Spec: TC-007-022 / TC-007-027 -- Qualitaets-Tab Formular oder Anzeige.
         """
@@ -335,11 +385,11 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-010: Submitting quality form without 'assessed_by' shows error.
+        """TC-007-023: Submitting quality form without 'assessed_by' shows error.
 
         Spec: TC-007-023 -- Pflichtfeld 'Bewertet von' fehlt.
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(1)
         harvest_detail.wait_for_loading_complete()
@@ -374,11 +424,11 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-011: Create quality assessment with valid scores.
+        """TC-007-022: Create quality assessment with valid scores.
 
         Spec: TC-007-022 -- Qualitaetsbewertung erstellen (Happy Path).
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(1)
         harvest_detail.wait_for_loading_complete()
@@ -404,8 +454,7 @@ class TestHarvestQualityAssessment:
 
         # After creation, the form should be replaced by the display table
         assert harvest_detail.is_quality_table_visible(), (
-            "TC-REQ-007-011 FAIL: Expected quality display table after "
-            "successful creation"
+            "TC-REQ-007-011 FAIL: Expected quality display table after successful creation"
         )
 
     @pytest.mark.core_crud
@@ -415,11 +464,11 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-012: Defect chips can be added via the chip input.
+        """TC-007-025: Defect chips can be added via the chip input.
 
         Spec: TC-007-025 -- Maengel als Chips hinzufuegen.
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(1)
         harvest_detail.wait_for_loading_complete()
@@ -459,7 +508,7 @@ class TestHarvestYieldMetrics:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-013: Yield tab shows either create form or display table.
+        """TC-007-028: Yield tab shows either create form or display table.
 
         Spec: TC-007-028 -- Ertrags-Tab zeigt Formular oder Tabelle.
         """
@@ -487,11 +536,11 @@ class TestHarvestYieldMetrics:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-014: Create yield metrics with valid data.
+        """TC-007-028: Create yield metrics with valid data.
 
         Spec: TC-007-028 -- Ertragsmetriken erstellen (Happy Path).
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(2)
         harvest_detail.wait_for_loading_complete()
@@ -517,8 +566,7 @@ class TestHarvestYieldMetrics:
         )
 
         assert harvest_detail.is_yield_table_visible(), (
-            "TC-REQ-007-014 FAIL: Expected yield display table after "
-            "successful creation"
+            "TC-REQ-007-014 FAIL: Expected yield display table after successful creation"
         )
 
     @pytest.mark.core_crud
@@ -528,11 +576,11 @@ class TestHarvestYieldMetrics:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-015: Trim waste > 100% shows validation error.
+        """TC-007-030: Trim waste > 100% shows validation error.
 
         Spec: TC-007-030 -- Verschnitt > 100% zeigt Validierungsfehler.
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(2)
         harvest_detail.wait_for_loading_complete()
@@ -558,6 +606,5 @@ class TestHarvestYieldMetrics:
         )
 
         assert harvest_detail.has_validation_error("trim_waste_percent"), (
-            "TC-REQ-007-015 FAIL: Expected validation error for "
-            "trim_waste_percent > 100"
+            "TC-REQ-007-015 FAIL: Expected validation error for trim_waste_percent > 100"
         )

@@ -55,6 +55,20 @@ function speciesOptionLabel(species: Species): string {
   return common ?? scientific ?? '';
 }
 
+/**
+ * Card header that wraps its action button onto its own line when title and
+ * action no longer fit side by side. MUI's default header keeps both on one
+ * flex line and the Card clips the overflow, which truncated the German
+ * "Inkompatibilität hinzufügen" label mid-word at a 393px viewport
+ * (UI-NFR-001 mobile-first).
+ */
+const cardHeaderSx = {
+  pb: 0,
+  flexWrap: 'wrap',
+  rowGap: 1,
+  '& .MuiCardHeader-action': { alignSelf: 'center', m: 0 },
+} as const;
+
 export default function CompanionPlantingPage() {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -66,17 +80,47 @@ export default function CompanionPlantingPage() {
   const [selectedKey, setSelectedKey] = useState('');
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
   const [incompatible, setIncompatible] = useState<IncompatibleSpecies[]>([]);
-  const [loading, setLoading] = useState(false);
+  // The catalogue fetches used to run outside *any* loading flag, so the page
+  // reached its final, skeleton-free shape while the species dropdown was still
+  // empty and no count badge had arrived — the class of omission #768 found on
+  // TaskQueuePage, where a name map landing after the skeleton cleared reflowed
+  // every rendered card. `catalogLoading` starts `true` deliberately: with
+  // `useState(false)` the very first render pass renders the settled page (the
+  // effect has not run yet), so a wait keyed on "no skeleton is visible" is
+  // satisfied before loading has begun at all.
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [relationsLoading, setRelationsLoading] = useState(false);
+  // The species whose relations `compatible`/`incompatible` currently hold.
+  // Between `setSelectedKey` and the effect that fetches for it, React commits
+  // one render carrying the new key and the *previous* species' relations;
+  // deriving "pending" from that mismatch closes the window, which a
+  // `setLoading(true)` running only afterwards cannot.
+  const [loadedKey, setLoadedKey] = useState('');
   const [dialogType, setDialogType] = useState<'compatible' | 'incompatible' | null>(null);
   const [targetKey, setTargetKey] = useState('');
   const [score, setScore] = useState(1);
   const [reason, setReason] = useState('');
 
+  const relationsPending = selectedKey !== '' && selectedKey !== loadedKey;
+  const loading = catalogLoading || relationsLoading || relationsPending;
+
   useEffect(() => {
-    speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
+    let cancelled = false;
     // Whole-catalogue companion counts in one aggregate request (no N+1) so the
-    // dropdown can badge every option before the user selects anything.
-    companionApi.getCompanionCounts().then(setCompanionCounts).catch(() => {});
+    // dropdown can badge every option before the user selects anything. Both
+    // requests sit under `catalogLoading` because both feed what this page
+    // renders.
+    Promise.all([
+      speciesApi
+        .listSpecies(0, 200)
+        .then((r) => { if (!cancelled) setSpeciesList(r.items); })
+        .catch(() => {}),
+      companionApi
+        .getCompanionCounts()
+        .then((c) => { if (!cancelled) setCompanionCounts(c); })
+        .catch(() => {}),
+    ]).finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   // Stable lookup of the resolved count summary per species — memoised so the
@@ -88,7 +132,7 @@ export default function CompanionPlantingPage() {
   );
 
   const loadRelations = async (key: string) => {
-    setLoading(true);
+    setRelationsLoading(true);
     try {
       const [comp, incomp] = await Promise.all([
         companionApi.getCompatibleSpecies(key),
@@ -99,7 +143,11 @@ export default function CompanionPlantingPage() {
     } catch (err) {
       handleError(err);
     } finally {
-      setLoading(false);
+      // Also on the error path: `loadedKey` records which species the rendered
+      // arrays belong to, so leaving it behind would keep `relationsPending`
+      // true forever and pin the page to a skeleton it can never leave.
+      setLoadedKey(key);
+      setRelationsLoading(false);
     }
   };
 
@@ -139,7 +187,13 @@ export default function CompanionPlantingPage() {
         onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
         getOptionLabel={speciesOptionLabel}
         isOptionEqualToValue={(option, value) => option.key === value.key}
-        noOptionsText={t('pages.companionPlanting.noSpeciesFound')}
+        loading={catalogLoading}
+        // "Keine Art gefunden" is a false statement while the catalogue request
+        // is still in flight — and indistinguishable, to a user and to a test,
+        // from a genuinely empty catalogue.
+        noOptionsText={
+          catalogLoading ? t('common.loading') : t('pages.companionPlanting.noSpeciesFound')
+        }
         sx={{ maxWidth: 480, mb: 1 }}
         renderOption={({ key: optionKey, ...optionProps }, option) => {
           const counts = companionCounts[option.key] ?? { compatible: 0, incompatible: 0 };
@@ -289,7 +343,7 @@ export default function CompanionPlantingPage() {
                   {t('pages.companionPlanting.addCompatible')}
                 </Button>
               }
-              sx={{ pb: 0 }}
+              sx={cardHeaderSx}
             />
             <CardContent>
               {compatible.length === 0 ? (
@@ -363,7 +417,7 @@ export default function CompanionPlantingPage() {
                   {t('pages.companionPlanting.addIncompatible')}
                 </Button>
               }
-              sx={{ pb: 0 }}
+              sx={cardHeaderSx}
             />
             <CardContent>
               {incompatible.length === 0 ? (
@@ -433,7 +487,14 @@ export default function CompanionPlantingPage() {
         </Box>
       )}
 
-      <Dialog fullScreen={fullScreen} open={!!dialogType} onClose={() => setDialogType(null)} maxWidth="sm" fullWidth>
+      <Dialog
+        fullScreen={fullScreen}
+        open={!!dialogType}
+        onClose={() => setDialogType(null)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="companion-planting-dialog"
+      >
         <DialogTitle>
           {dialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')

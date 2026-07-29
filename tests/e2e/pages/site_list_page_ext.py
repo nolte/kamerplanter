@@ -10,9 +10,8 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
-from .base_page import BasePage
+from .base_page import DIALOG_XPATH, BasePage
 
 
 class SiteListPageExt(BasePage):
@@ -45,7 +44,7 @@ class SiteListPageExt(BasePage):
 
     # ── Create dialog (SiteCreateDialog — no explicit data-testid on dialog) ──
     # The Dialog wraps form fields with form-field-* testids
-    CREATE_DIALOG_TITLE = (By.XPATH, "//div[@role='dialog']//h2")
+    CREATE_DIALOG_TITLE = (By.XPATH, f"{DIALOG_XPATH}//h2")
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
     FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-type']")
     FORM_CLIMATE_ZONE = (By.CSS_SELECTOR, "[data-testid='form-field-climate_zone'] input")
@@ -74,9 +73,11 @@ class SiteListPageExt(BasePage):
                 self.wait_for_loading_complete()
                 # Wait for content to render (DataTable rows, site cards, or empty state)
                 WebDriverWait(self.driver, 10).until(
-                    lambda d: (d.find_elements(*self.TABLE_ROWS)
-                               or d.find_elements(*self.SITE_CARDS)
-                               or d.find_elements(*self.EMPTY_STATE))
+                    lambda d: (
+                        d.find_elements(*self.TABLE_ROWS)
+                        or d.find_elements(*self.SITE_CARDS)
+                        or d.find_elements(*self.EMPTY_STATE)
+                    )
                 )
                 return self
             except StaleElementReferenceException:
@@ -95,51 +96,66 @@ class SiteListPageExt(BasePage):
         cards = self.driver.find_elements(*self.SITE_CARDS)
         return len(cards)
 
+    #: Column id of the identifying column, should this page ever render a DataTable.
+    NAME_COLUMN_ID = "name"
+    #: Site name inside an accordion card (the layout this page actually uses).
+    SITE_NAME = (By.CSS_SELECTOR, "[data-testid^='site-name-']")
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (Name) for each visible row."""
+        """Return the name of each visible site.
+
+        `SiteListPage` renders accordion `site-card-<key>` cards, not a
+        DataTable, so the ``<td>`` scan this used to do returned an empty list
+        on *every* viewport -- callers silently fell back to a dummy search
+        term. Reads the DataTable rows when present (mirroring
+        :meth:`get_row_count`) and the cards' ``site-name-<key>`` otherwise.
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result: list[str] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                result.append(cells[0].text)
-        return result
+        if rows:
+            return [self.get_row_primary_text(row, self.NAME_COLUMN_ID) for row in rows]
+        return [el.text for el in self.driver.find_elements(*self.SITE_NAME) if el.text.strip()]
 
     def get_column_headers(self) -> list[str]:
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a table column header to trigger sorting."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
-
     def click_row(self, index: int) -> None:
+        """Open the site at *index*, in either layout.
+
+        Fails loudly when *index* does not exist, instead of returning as if
+        the click had happened: `SiteListPage` renders accordion cards rather
+        than a `DataTable`, so the previous ``if rows and index < len(rows)`` /
+        ``if cards and index < len(cards)`` pair had *two* silent exits, and a
+        caller that landed in neither branch went on to assert against the list
+        page it never left.
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if rows and index < len(rows):
-            self.scroll_and_click(rows[index])
+        if rows:
+            self.click_row_via_column(
+                self.require_index(rows, index, "site row"), self.NAME_COLUMN_ID
+            )
             return
-        # Fallback: card-based layout — click the site name link inside the card
+        # Card-based layout — click the site name link inside the card.
         cards = self.driver.find_elements(*self.SITE_CARDS)
-        if cards and index < len(cards):
-            name_el = cards[index].find_element(By.CSS_SELECTOR, "[data-testid^='site-name-']")
-            self.scroll_and_click(name_el)
+        card = self.require_index(cards, index, "site card")
+        name_el = card.find_element(By.CSS_SELECTOR, "[data-testid^='site-name-']")
+        self.scroll_and_click(name_el)
 
     def click_row_by_name(self, name: str) -> None:
-        """Click the table row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
-                self.scroll_and_click(row)
+        """Open the site called *name*, in either layout.
+
+        Addressed by column id for the DataTable and by the card's
+        ``site-name-<key>`` link for the accordion layout this page actually
+        renders -- the previous ``cells[0]`` scan found nothing in either
+        the card layout or the mobile card layout and always raised.
+        """
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
+                self.click_row_via_column(row, self.NAME_COLUMN_ID)
+                return
+        for el in self.driver.find_elements(*self.SITE_NAME):
+            if el.text.strip() == name:
+                self.scroll_and_click(el)
                 return
         raise ValueError(f"Row with name '{name}' not found")
 
@@ -215,30 +231,19 @@ class SiteListPageExt(BasePage):
         el.send_keys(value)
 
     def select_type(self, value_text: str) -> None:
-        """Open MUI Select for 'type' and pick option by visible text."""
-        import time
+        """Open MUI Select for 'type' and pick option by visible text.
 
-        select_el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
-        )
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("type")
+        self.select_option_by_label(value_text)
 
     def submit_create_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def is_create_dialog_open(self) -> bool:
         """Check whether the create dialog form fields are visible."""

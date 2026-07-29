@@ -20,6 +20,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import LoginPage, TenantSwitcherPage
+from ._auth_helpers import clear_auth_session
 
 pytestmark = pytest.mark.requires_auth
 
@@ -46,7 +47,7 @@ def switcher(browser: WebDriver, base_url: str) -> TenantSwitcherPage:
 
 def _ensure_logged_in(login_page: LoginPage) -> None:
     """Log in as demo user if not already authenticated."""
-    login_page.driver.delete_all_cookies()
+    clear_auth_session(login_page.driver)
     login_page.open()
     login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
     login_page.wait_for_url_contains("/dashboard")
@@ -66,7 +67,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-019: Active tenant name is displayed in the App Bar.
+        """TC-024-008: Active tenant name is displayed in the App Bar.
 
         Spec: TC-024-008 -- Tenant-Switcher zeigt alle Tenants mit Rolle und Typ-Icon.
         """
@@ -77,9 +78,7 @@ class TestTenantSwitcherDisplay:
         )
 
         name = switcher.get_active_tenant_name()
-        assert name, (
-            "TC-REQ-024-019 FAIL: Expected active tenant name to be displayed"
-        )
+        assert name, "TC-REQ-024-019 FAIL: Expected active tenant name to be displayed"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -89,7 +88,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-021: Clicking the switcher opens a dropdown with tenant list.
+        """TC-024-008: Clicking the switcher opens a dropdown with tenant list.
 
         Spec: TC-024-008 -- Tenant-Switcher Dropdown oeffnet sich.
         """
@@ -117,7 +116,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-020: Dropdown shows tenant names.
+        """TC-024-008: Dropdown shows tenant names.
 
         Spec: TC-024-008 -- Tenant-Switcher zeigt Tenant-Namen.
         """
@@ -144,7 +143,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-022: Active tenant is highlighted with selected state and check icon.
+        """TC-024-008: Active tenant is highlighted with selected state and check icon.
 
         Spec: TC-024-008 -- Aktiver Tenant ist hervorgehoben.
         """
@@ -156,9 +155,7 @@ class TestTenantSwitcherDisplay:
         )
 
         selected = switcher.get_selected_tenant_name()
-        assert selected, (
-            "TC-REQ-024-022 FAIL: Expected one tenant to be marked as selected"
-        )
+        assert selected, "TC-REQ-024-022 FAIL: Expected one tenant to be marked as selected"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -168,7 +165,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-023: Dropdown has a 'Create organization' item at the bottom.
+        """TC-024-008: Dropdown has a 'Create organization' item at the bottom.
 
         Spec: TC-024-008 -- Dropdown hat 'Organisation erstellen' Eintrag.
         """
@@ -187,7 +184,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-024: Clicking 'Create organization' navigates to /tenants/create.
+        """TC-024-008: Clicking 'Create organization' navigates to /tenants/create.
 
         Spec: TC-024-008 -- 'Organisation erstellen' navigiert zu /tenants/create.
         """
@@ -225,7 +222,7 @@ class TestTenantSwitching:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-025: Switching tenant updates the active tenant name.
+        """TC-024-009: Switching tenant updates the active tenant name.
 
         Spec: TC-024-009 -- Tenant wechseln -- URL und Daten aktualisieren sich.
         """
@@ -246,9 +243,7 @@ class TestTenantSwitching:
 
         switcher.switch_to_tenant(target)
 
-        switcher.wait_for_element(
-            switcher.TRIGGER_BUTTON_ALT, timeout=20
-        )
+        switcher.wait_for_element(switcher.TRIGGER_BUTTON_ALT, timeout=20)
         screenshot(
             "TC-REQ-024-025_after-tenant-switch",
             f"After switching to '{target}'",
@@ -267,7 +262,7 @@ class TestTenantSwitching:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-026: Selected tenant persists after browser reload.
+        """TC-024-010: Selected tenant persists after browser reload.
 
         Spec: TC-024-010 -- Tenant-Switcher persistiert letzten aktiven Tenant nach Reload.
         """
@@ -280,9 +275,7 @@ class TestTenantSwitching:
         )
 
         switcher.driver.refresh()
-        switcher.wait_for_element(
-            switcher.TRIGGER_BUTTON_ALT, timeout=20
-        )
+        switcher.wait_for_element(switcher.TRIGGER_BUTTON_ALT, timeout=20)
         screenshot(
             "TC-REQ-024-026_after-reload",
             "After page reload",

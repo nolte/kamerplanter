@@ -138,7 +138,7 @@ def test_validate_is_404_when_mcp_disabled(monkeypatch):
 def test_validate_masks_valid_non_service_key_as_generic_401():
     # SEC-003: a VALID non-service (human) key must NOT be distinguishable from an
     # invalid/revoked key — both return the same generic 401, no 403 oracle.
-    auth = _authenticator(_api_key(), _human_user(), [_Tenant("home", "home", TenantRole.ADMIN)])
+    auth = _authenticator(_api_key(), _human_user(), [_Tenant("home", "home", TenantRole.LEAD)])
     client = _build_app(auth)
     valid_non_service = client.post("/api/v1/auth/service-accounts/validate", json={"api_key": _RAW})
     assert valid_non_service.status_code == 401

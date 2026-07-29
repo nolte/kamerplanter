@@ -62,7 +62,7 @@ class TestCompleteWorkflow:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-089: Complete workflow — family -> species -> cultivar -> lifecycle -> phases.
+        """TC-001-006: Complete workflow — family -> species -> cultivar -> lifecycle -> phases.
 
         Spec: TC-001-006, TC-001-025, TC-001-037, TC-001-047, TC-001-048 -- Kompletter CRUD-Workflow ueber alle Entitaeten.
         """
@@ -123,9 +123,7 @@ class TestCompleteWorkflow:
 
         # Step 5: Create lifecycle config
         tabs = species_detail.get_tab_labels()
-        lifecycle_tab = next(
-            (i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None
-        )
+        lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
         if lifecycle_tab is not None:
             species_detail.click_tab(lifecycle_tab)
             species_detail.wait_for_loading_complete()
@@ -144,11 +142,13 @@ class TestCompleteWorkflow:
 
                 # Step 6: Create growth phases
                 if species_detail.can_create_growth_phase():
-                    for i, (name, display) in enumerate([
-                        ("germination", "Keimung"),
-                        ("vegetative", "Vegetativ"),
-                        ("harvest", "Ernte"),
-                    ]):
+                    for i, (name, display) in enumerate(
+                        [
+                            ("germination", "Keimung"),
+                            ("vegetative", "Vegetativ"),
+                            ("harvest", "Ernte"),
+                        ]
+                    ):
                         species_detail.click_phase_create()
                         species_detail.fill_phase_form(
                             name=name,
@@ -173,7 +173,7 @@ class TestDropdownIntegrations:
     def test_species_family_dropdown_shows_all_families(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-090: Species family dropdown shows all available families.
+        """TC-001-025: Species family dropdown shows all available families.
 
         Spec: TC-001-025 -- Species-Erstelldialog Familien-Dropdown ist befuellt.
         """
@@ -184,7 +184,10 @@ class TestDropdownIntegrations:
         # Open the family dropdown and check options
         try:
             option_texts = species_list.open_dropdown_and_get_options("family_key")
-            screenshot("TC-REQ-001-090_dropdown-options", "Family dropdown options in species create dialog")
+            screenshot(
+                "TC-REQ-001-090_dropdown-options",
+                "Family dropdown options in species create dialog",
+            )
 
             # Should have at least the 9 seed families plus a "-" option
             assert len(option_texts) >= 9, (
@@ -200,16 +203,14 @@ class TestDropdownIntegrations:
     def test_companion_planting_species_dropdown_populated(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-091: Companion planting page loads species list for selection.
+        """TC-001-030: Companion planting page loads species list for selection.
 
         Spec: TC-001-030 -- Mischkultur-Seite laedt Artenliste fuer Auswahl.
         """
         try:
             companion_page.open()
         except Exception:
-            pytest.skip(
-                "Companion planting page not accessible in light-mode e2e"
-            )
+            pytest.skip("Companion planting page not accessible in light-mode e2e")
 
         screenshot("TC-REQ-001-091_page-loaded", "Companion planting page loaded")
 
@@ -228,16 +229,14 @@ class TestDropdownIntegrations:
     def test_crop_rotation_family_dropdown_populated(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-092: Crop rotation page loads all families for selection.
+        """TC-001-050: Crop rotation page loads all families for selection.
 
         Spec: TC-001-050 -- Fruchtfolge-Seite laedt Familien-Dropdown.
         """
         try:
             rotation_page.open()
         except Exception:
-            pytest.skip(
-                "Crop rotation page not accessible in light-mode e2e"
-            )
+            pytest.skip("Crop rotation page not accessible in light-mode e2e")
 
         screenshot("TC-REQ-001-092_page-loaded", "Crop rotation page loaded")
 

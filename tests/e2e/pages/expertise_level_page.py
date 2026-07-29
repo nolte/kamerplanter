@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import time
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .base_page import DEFAULT_TIMEOUT, BasePage
+from .base_page import DEFAULT_TIMEOUT, DIALOG_SELECTOR, BasePage
 
 
 class ExpertiseLevelPage(BasePage):
@@ -35,8 +37,6 @@ class ExpertiseLevelPage(BasePage):
 
     # ── Sidebar ──────────────────────────────────────────────────────
     SIDEBAR = (By.CSS_SELECTOR, "[data-testid='sidebar']")
-    SIDEBAR_NAV_ITEMS = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiListItemButton-root")
-    SIDEBAR_SECTION_HEADERS = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiListSubheader-root")
 
     # ── Snackbar ─────────────────────────────────────────────────────
     SNACKBAR_SUCCESS = (
@@ -53,8 +53,16 @@ class ExpertiseLevelPage(BasePage):
     # ── Create dialog ────────────────────────────────────────────────
     # SpeciesCreateDialog has data-testid='species-create-dialog'.
     # PlantingRunCreateDialog has no custom testid, only role='dialog'.
-    # Use a fallback chain.
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='species-create-dialog'], div[role='dialog']")
+    #
+    # The former fallback chain "[data-testid='species-create-dialog'],
+    # div[role='dialog']" was NOT protection: a CSS selector list matches in
+    # document order, not in listed order, so below the `md` breakpoint the
+    # keepMounted sidebar Drawer paper (which also carries role='dialog') still
+    # won. Both alternatives are scoped to the MuiDialog subtree instead.
+    CREATE_DIALOG = (
+        By.CSS_SELECTOR,
+        f"[data-testid='species-create-dialog'], {DIALOG_SELECTOR}",
+    )
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
     # ── Species list page ────────────────────────────────────────────
@@ -143,21 +151,55 @@ class ExpertiseLevelPage(BasePage):
 
     # ── Sidebar / Navigation tiering ─────────────────────────────────
 
-    def get_sidebar_nav_item_labels(self) -> list[str]:
-        """Return all visible sidebar navigation item labels (excluding section headers)."""
-        items = self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
-        return [item.text.strip() for item in items if item.is_displayed() and item.text.strip()]
+    #: Bound for the settle poll in :meth:`is_nav_item_visible`. Short by
+    #: design: the tier-load window is polled by the ``wait_for_nav_item_*``
+    #: wrappers, this only rides out a re-render between lookup and read.
+    NAV_ITEM_SETTLE_TIMEOUT = 2.0
 
-    def get_sidebar_section_headers(self) -> list[str]:
-        """Return all visible sidebar section header texts."""
-        headers = self.driver.find_elements(*self.SIDEBAR_SECTION_HEADERS)
-        return [h.text.strip() for h in headers if h.is_displayed() and h.text.strip()]
+    def is_nav_item_visible(self, path: str, timeout: float = NAV_ITEM_SETTLE_TIMEOUT) -> bool:
+        """Check whether the sidebar renders the nav item for *path* in this tier.
 
-    def is_nav_item_visible(self, path: str) -> bool:
-        """Check if a sidebar nav item with the given path data-testid is visible."""
+        Opens the drawer first. Below the `md` breakpoint (mobile AND tablet)
+        the sidebar is a *temporary*, `keepMounted` Drawer that `uiSlice` seeds
+        closed at narrow widths, so every nav item -- ``/dashboard`` included --
+        reads as not displayed while it is shut. Without this the assertion
+        measures the drawer's open state, not experience-level nav tiering.
+
+        Two further mechanics this must not conflate with "hidden for this
+        tier", because `Sidebar` expresses tiering by *not rendering* an item
+        (``isItemVisible`` returns ``null``) -- so "not in the DOM" is the only
+        truthful hidden signal:
+
+        * The drawer's nav is a scroll container (``Sidebar.tsx``: ``<Box
+          component="nav" sx={{ overflow: 'auto', flex: 1 }}>``). An item far
+          down the expert-tier list -- ``/pflanzenschutz/pests`` sits roughly
+          400 px below the fold -- is rendered but clipped, and Selenium reports
+          ``is_displayed() == False`` for an element hidden by an ancestor's
+          overflow. Hence the scroll-into-view before the read.
+        * The read is polled rather than single-shot. The drawer's ~225 ms slide
+          used to act as an implicit settle barrier between
+          ``visibility_of_element_located(SIDEBAR_PAPER)`` and the immediately
+          following read; that is an accident of animation timing, not a
+          synchronisation primitive, and it vanished the moment the harness
+          asked the app for reduced motion. A durable condition-based poll does
+          not depend on how long an animation happens to take.
+
+        A missing element returns ``False`` at once: that is already a settled
+        answer, and polling it would make every ``wait_for_nav_item_hidden``
+        call pay this timeout.
+        """
+        self.ensure_sidebar_open()
         locator = (By.CSS_SELECTOR, f"[data-testid='nav-{path}']")
-        elements = self.driver.find_elements(*locator)
-        return len(elements) > 0 and elements[0].is_displayed()
+        deadline = time.time() + timeout
+        while True:
+            elements = self.driver.find_elements(*locator)
+            if not elements:
+                return False
+            if self.is_displayed_in_scroll_container(elements[0]):
+                return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.1)  # poll interval for the explicit visibility condition
 
     def wait_for_nav_item_visible(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
         """Poll until a sidebar nav item becomes visible, then return True (or False on timeout).
@@ -168,8 +210,6 @@ class ExpertiseLevelPage(BasePage):
         higher-tier user *will* see can be momentarily absent right after
         navigation. Polling waits out that load window instead of sampling once.
         """
-        import time
-
         deadline = time.time() + timeout
         while time.time() < deadline:
             if self.is_nav_item_visible(path):
@@ -186,8 +226,6 @@ class ExpertiseLevelPage(BasePage):
         can render visible for a moment right after navigation. Polling waits
         out that load window instead of sampling once.
         """
-        import time
-
         deadline = time.time() + timeout
         while time.time() < deadline:
             if not self.is_nav_item_visible(path):
@@ -205,29 +243,18 @@ class ExpertiseLevelPage(BasePage):
         remove it first. The next full navigation re-reads localStorage, so the
         sidebar then reflects pure experience-level tiering.
         """
-        self.driver.execute_script(
-            "window.localStorage.removeItem('kp-module-visibility');"
-        )
-
-    def count_sidebar_nav_items(self) -> int:
-        """Count visible sidebar navigation items (ListItemButton elements)."""
-        items = self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
-        return sum(1 for item in items if item.is_displayed())
+        self.driver.execute_script("window.localStorage.removeItem('kp-module-visibility');")
 
     # ── Confirm dialog (window.confirm for downgrade) ────────────────
 
     def accept_confirm_dialog(self) -> None:
         """Accept a browser-native window.confirm dialog."""
-        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.alert_is_present()
-        )
+        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(EC.alert_is_present())
         alert.accept()
 
     def dismiss_confirm_dialog(self) -> None:
         """Dismiss (cancel) a browser-native window.confirm dialog."""
-        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.alert_is_present()
-        )
+        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(EC.alert_is_present())
         alert.dismiss()
 
     def is_confirm_dialog_present(self) -> bool:
@@ -247,10 +274,11 @@ class ExpertiseLevelPage(BasePage):
         Searches within the currently open dialog to avoid matching buttons outside.
         """
         import time
+
         time.sleep(0.3)  # Wait for React re-render
 
         # Search within dialog first, then fallback to page-wide search
-        containers = self.driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
+        containers = self.driver.find_elements(By.CSS_SELECTOR, DIALOG_SELECTOR)
         if not containers:
             containers = [self.driver.find_element(By.TAG_NAME, "body")]
 
@@ -260,10 +288,17 @@ class ExpertiseLevelPage(BasePage):
                 if not btn.is_displayed():
                     continue
                 text = btn.text.strip().lower()
-                if any(kw in text for kw in (
-                    "alle felder", "weniger felder", "show all fields",
-                    "show fewer fields", "all fields", "fewer fields"
-                )):
+                if any(
+                    kw in text
+                    for kw in (
+                        "alle felder",
+                        "weniger felder",
+                        "show all fields",
+                        "show fewer fields",
+                        "all fields",
+                        "fewer fields",
+                    )
+                ):
                     return btn
 
         # Fallback: search by icon presence (ExpandMore/ExpandLess)
@@ -271,7 +306,7 @@ class ExpertiseLevelPage(BasePage):
             buttons = container.find_elements(
                 By.CSS_SELECTOR,
                 "button.MuiButton-root:has(svg[data-testid='ExpandMoreIcon']), "
-                "button.MuiButton-root:has(svg[data-testid='ExpandLessIcon'])"
+                "button.MuiButton-root:has(svg[data-testid='ExpandLessIcon'])",
             )
             for btn in buttons:
                 if btn.is_displayed():
@@ -311,6 +346,7 @@ class ExpertiseLevelPage(BasePage):
         is hidden, so we check element existence AND visibility.
         """
         import time
+
         time.sleep(0.2)  # Brief pause for React re-render after toggle
         locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']")
         elements = self.driver.find_elements(*locator)
@@ -339,9 +375,7 @@ class ExpertiseLevelPage(BasePage):
 
     def get_visible_form_field_names(self) -> list[str]:
         """Return a list of all visible form field names in the current dialog."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='form-field-']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='form-field-']")
         names = []
         for el in elements:
             if el.is_displayed():
@@ -358,18 +392,14 @@ class ExpertiseLevelPage(BasePage):
         btn = self.wait_for_element_clickable(self.SPECIES_CREATE_BUTTON)
         self.scroll_and_click(btn)
         # SpeciesCreateDialog has data-testid='species-create-dialog'
-        self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "[data-testid='species-create-dialog']")
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, "[data-testid='species-create-dialog']"))
 
     def open_planting_run_create_dialog(self) -> None:
         """Open the PlantingRunCreateDialog from the planting run list page."""
         btn = self.wait_for_element_clickable(self.CREATE_BUTTON)
         self.scroll_and_click(btn)
         # PlantingRunCreateDialog uses MUI Dialog without custom data-testid
-        self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "div[role='dialog']")
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, DIALOG_SELECTOR))
 
     def close_create_dialog(self) -> None:
         """Close an open create dialog via the cancel button."""
@@ -379,15 +409,13 @@ class ExpertiseLevelPage(BasePage):
         self.scroll_and_click(cancel_btn)
         # Wait for any dialog to close
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.invisibility_of_element_located(
-                (By.CSS_SELECTOR, "div[role='dialog']")
-            )
+            EC.invisibility_of_element_located((By.CSS_SELECTOR, DIALOG_SELECTOR))
         )
 
     def is_create_dialog_open(self) -> bool:
         """Check if a create dialog is currently open."""
         # Check for both data-testid and role-based selectors
-        for sel in ["[data-testid='species-create-dialog']", "div[role='dialog']"]:
+        for sel in ["[data-testid='species-create-dialog']", DIALOG_SELECTOR]:
             elements = self.driver.find_elements(By.CSS_SELECTOR, sel)
             if elements and elements[0].is_displayed():
                 return True
@@ -395,6 +423,15 @@ class ExpertiseLevelPage(BasePage):
 
     # ── Direct URL navigation (for testing no-access-control) ────────
 
-    def navigate_direct(self, path: str) -> None:
-        """Navigate to an arbitrary path (for testing direct URL access)."""
+    def navigate_direct(self, path: str, settled: tuple[str, str]) -> None:
+        """Navigate to an arbitrary *path* and wait until *settled* is rendered.
+
+        *settled* is mandatory rather than optional: every caller asserts that
+        the target route rendered *without* an error, and "no error is on
+        screen" is trivially true of a route that has not mounted yet -- a
+        lazily-imported chunk still in flight leaves the app chrome alone in the
+        DOM, so an unwaited negative assertion cannot fail. Naming the route's
+        own root turns that into a real check.
+        """
         self.navigate(path)
+        self.wait_for_element(settled)

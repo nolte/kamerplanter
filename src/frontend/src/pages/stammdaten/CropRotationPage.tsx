@@ -73,7 +73,21 @@ export default function CropRotationPage() {
   // keyboard path independent of focus (UI-NFR-002 keyboard-operability).
   const [highlightedFamilyKey, setHighlightedFamilyKey] = useState<string | null>(null);
   const [successors, setSuccessors] = useState<RotationSuccessor[]>([]);
-  const [loading, setLoading] = useState(false);
+  // The catalogue fetches used to run outside *any* loading flag, so the page
+  // reached its final, skeleton-free shape while the family dropdown was still
+  // empty and no successor badge had arrived — the class of omission #768 found
+  // on TaskQueuePage. `catalogLoading` starts `true` deliberately: with
+  // `useState(false)` the first render pass renders the settled page (the effect
+  // has not run yet), so a wait keyed on "no skeleton is visible" is satisfied
+  // before loading has begun at all.
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [successorsLoading, setSuccessorsLoading] = useState(false);
+  // The family whose successors `successors` currently holds. React commits one
+  // render between `setSelectedKey` and the effect that fetches for it, carrying
+  // the new key next to the *previous* family's successors; deriving "pending"
+  // from that mismatch closes the window a `setLoading(true)` inside the effect
+  // cannot.
+  const [loadedKey, setLoadedKey] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [targetKey, setTargetKey] = useState('');
   const [waitYears, setWaitYears] = useState(3);
@@ -87,23 +101,43 @@ export default function CropRotationPage() {
   const [frostHardyOnly, setFrostHardyOnly] = useState(false);
   const [nutrientDemand, setNutrientDemand] = useState<NutrientDemandFilter>('');
 
+  const successorsPending = selectedKey !== '' && selectedKey !== loadedKey;
+  const loading = catalogLoading || successorsLoading || successorsPending;
+
   useEffect(() => {
+    let cancelled = false;
     // Load ALL families (paginated, not the default limit=50 cap) so the dropdown
     // is never truncated, plus the whole-catalogue successor counts in a single
-    // aggregate request (no N+1) to badge every option before selection.
-    familiesApi.listAllBotanicalFamilies().then(setFamilies).catch(() => {});
-    rotationApi.getRotationCounts().then(setRotationCounts).catch(() => {});
+    // aggregate request (no N+1) to badge every option before selection. Both
+    // sit under `catalogLoading` because both feed what this page renders.
+    Promise.all([
+      familiesApi
+        .listAllBotanicalFamilies()
+        .then((f) => { if (!cancelled) setFamilies(f); })
+        .catch(() => {}),
+      rotationApi
+        .getRotationCounts()
+        .then((c) => { if (!cancelled) setRotationCounts(c); })
+        .catch(() => {}),
+    ]).finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     if (!selectedKey) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- set loading before async fetch
-    setLoading(true);
+    setSuccessorsLoading(true);
     rotationApi
       .getSuccessors(selectedKey)
       .then(setSuccessors)
       .catch((err) => handleError(err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        // Also on the error path: `loadedKey` records which family the rendered
+        // successors belong to, so leaving it behind would keep
+        // `successorsPending` true forever and pin the page to a skeleton.
+        setLoadedKey(selectedKey);
+        setSuccessorsLoading(false);
+      });
   }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const successorCountOf = useCallback(
@@ -319,7 +353,13 @@ export default function CropRotationPage() {
           onHighlightChange={(_e, option) => setHighlightedFamilyKey(option?.key ?? null)}
           getOptionLabel={familyOptionLabel}
           isOptionEqualToValue={(option, value) => option.key === value.key}
-          noOptionsText={t('pages.cropRotation.noFamiliesFound')}
+          loading={catalogLoading}
+          // "Keine Familie gefunden" is a false statement while the catalogue
+          // request is still in flight — and indistinguishable, to a user and to
+          // a test, from a genuinely empty result.
+          noOptionsText={
+            catalogLoading ? t('common.loading') : t('pages.cropRotation.noFamiliesFound')
+          }
           sx={{ maxWidth: 480, mb: 1 }}
           renderOption={({ key: optionKey, ...optionProps }, option) => {
             const count = successorCountOf(option.key);
@@ -510,7 +550,14 @@ export default function CropRotationPage() {
                         flexWrap: 'wrap',
                       }}
                     >
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                      {/* flex-basis 220px instead of 0: with a zero basis the
+                          text column never forces the wrapping row to break, so
+                          the chips kept it on the same line and squeezed it down
+                          to its min-content width — the benefit sentence then
+                          rendered one word per line at a 393px viewport. A real
+                          basis makes the row wrap and hands the text the full
+                          width on mobile (UI-NFR-001 mobile-first). */}
+                      <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           {commonName}
                         </Typography>
@@ -581,7 +628,14 @@ export default function CropRotationPage() {
         />
       )}
 
-      <Dialog fullScreen={fullScreen} open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        fullScreen={fullScreen}
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="crop-rotation-dialog"
+      >
         <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>

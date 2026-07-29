@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 
 const schema = z.object({ count: z.number().min(1).max(10) });
@@ -14,10 +15,10 @@ function TestForm() {
     defaultValues: { count: 1 },
   });
   return (
-    <form onSubmit={handleSubmit(() => {})}>
+    <Form onSubmit={handleSubmit(() => {})}>
       <FormNumberField name="count" control={control} label="Count" min={1} max={10} />
       <button type="submit">Submit</button>
-    </form>
+    </Form>
   );
 }
 

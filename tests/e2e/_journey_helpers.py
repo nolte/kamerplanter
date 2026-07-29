@@ -180,6 +180,22 @@ def create_care_task(
 
     Raising (never skipping) on a missing card is deliberate: a self-provisioning
     test must always establish its own precondition.
+
+    .. warning::
+
+       The ``due today`` + ``priority="high"`` combination is **load-bearing for
+       another test's stability**, not cosmetic. A due-today task lands in the
+       queue's ``today`` urgency group, which renders at (or very near) the head
+       of the shared ``mein-garten`` queue. Any test that grabs "the first task"
+       and then *mutates* it therefore mutates whatever task this helper created
+       last. That was the cause of the cross-test interference tracked in
+       **issue #791**: ``test_req006_task_queue.py::TestTaskQueueQuickActions``
+       started, completed and skipped ``get_task_keys()[0]``, so TC-REQ-022-038
+       found its own task already ``in_progress``. Those three tests now
+       self-provision, but the coupling itself still exists for any future
+       queue-head mutator, and changing these defaults, the due date, or the
+       queue's ordering shifts it: re-check #791 and the queue-head consumers
+       (``get_task_keys()``, ``get_first_task_card()``) before you do.
     """
     # Fill and submit the create dialog. Under heavy parallel load (xdist) the
     # queue behind the dialog can render slowly enough to delay a dialog field
@@ -288,13 +304,15 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
     Raising (never skipping) on failure is deliberate: the test's whole point is
     that the cross-view path always runs (NFR-008a self-provisioning).
     """
-    token = seed.get("access_token")
+    # Fresh token: the session-seed JWT expires after 15 min — long before a
+    # late-scheduled test runs (led to 401 self-provisioning failures here).
+    from .conftest import _fresh_access_token
+
+    token = _fresh_access_token(seed, base_url)
     slug = seed.get("tenant_slug", "mein-garten")
     api = base_url.rstrip("/") + "/api/v1"
 
-    status, _ = _api_request(
-        f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token
-    )
+    status, _ = _api_request(f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token)
     if status not in (200, 201):
         raise AssertionError(
             f"Self-provisioning failed: could not create a care profile for "
@@ -308,9 +326,7 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
         {"auto_create_watering_task": True},
     )
 
-    gen_status, _ = _api_request(
-        f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {}
-    )
+    gen_status, _ = _api_request(f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {})
     if gen_status not in (200, 201):
         raise AssertionError(
             f"Self-provisioning failed: generate-care-reminders returned "

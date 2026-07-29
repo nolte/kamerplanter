@@ -1,3 +1,26 @@
+##
+## Frontend CI.
+##
+## `lint-test-build (22)` is a REQUIRED check on `develop` (#828). Before that it
+## gated nothing: a pull request whose entire vitest run was red could reach
+## develop as long as the two required contexts passed, and #824 (jsdom 29 -> 30,
+## 71 of 361 test files red) was stopped only because someone inspected the
+## advisory checks by hand.
+##
+## The `pull_request` trigger therefore carries NO `paths:` filter, for the same
+## reason `e2e-smoke.yml` does not: a required check whose workflow is skipped by
+## path filtering never reports at all, and the pull request stays stuck on
+## "Expected - waiting for status to be reported". A job skipped by a job-level
+## `if:` reports a conclusion that branch protection accepts, which is why the
+## selection lives in the `changes` job below. The `push` trigger keeps its paths
+## filter: branch protection does not read it.
+##
+## `Coverage / Node.js Coverage` deliberately stays advisory. Measured over the
+## same 30 develop runs it failed 3 times against `lint-test-build`'s 1, which
+## matches its documented history as a wandering flake — and a flaky required
+## check blocks every pull request in the repository, a worse failure mode than
+## the gap being closed here.
+##
 name: Frontend CI
 
 on:
@@ -6,14 +29,49 @@ on:
     paths: ['src/frontend/**', '.github/workflows/frontend.yml']
   pull_request:
     branches: [develop]
-    paths: ['src/frontend/**', '.github/workflows/frontend.yml']
 
 defaults:
   run:
     working-directory: src/frontend
 
 jobs:
+  # Which pull requests actually need the frontend lane. Skipping here (rather
+  # than at the trigger) keeps the required check reporting on every pull
+  # request, including those that touch no frontend file.
+  changes:
+    name: Detect frontend changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'src/frontend/**'
+              - '.github/workflows/frontend.yml'
+
+  # REQUIRED check. The job itself always runs; only its *steps* are conditional.
+  #
+  # A job skipped by a job-level `if:` does not expand its matrix, so GitHub
+  # reports the check run as `lint-test-build` — without the ` (22)` suffix that
+  # the required context carries. The required context then never reports at all
+  # and every non-frontend pull request sits on "Expected — waiting for status to
+  # be reported" forever. Verified the hard way: it blocked #841 and #842
+  # immediately after the promotion landed.
+  #
+  # Running the job and skipping its steps costs a few seconds of runner time and
+  # produces a green `lint-test-build (22)` on every pull request, which is what
+  # branch protection needs.
   lint-test-build:
+    needs: changes
+    if: always()
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,8 +79,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
 
       - name: Setup Node.js ${{ matrix.node-version }}
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
@@ -30,22 +90,31 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
 
       - name: Install dependencies
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm ci
 
       - name: TypeScript check
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npx tsc --noEmit
 
       - name: Lint
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm run lint
 
       - name: Test
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm run test
 
       - name: Build
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm run build
 
       - name: Upload build artifacts
-        if: github.ref == 'refs/heads/develop'
+        # Both conditions: the frontend gate above, and the pre-existing
+        # develop-only restriction on publishing the artefact.
+        if: >-
+          (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+          && github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-dist
@@ -54,6 +123,8 @@ jobs:
 
   coverage:
     name: Coverage
+    needs: changes
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
     uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
     with:
       node-version: '22'
@@ -101,6 +172,8 @@ jobs:
   # is required). Tighten to error-level once the baseline is stable.
   lighthouse:
     name: Lighthouse CI
+    needs: changes
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -166,7 +166,7 @@ class _FakeSpeciesRepo:
 
 def _build(
     tmp_path,
-    role: TenantRole = TenantRole.ADMIN,
+    role: TenantRole = TenantRole.LEAD,
     *,
     max_photos: int = 50,
     species_key: str = "",

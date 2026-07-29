@@ -27,13 +27,27 @@ class NutrientPlanDetailPage(BasePage):
     TAB_EDIT = (By.XPATH, "//button[@role='tab'][4]")
 
     # Tab 0: Phase entries
-    ADD_ENTRY_BUTTON = (By.XPATH, "//button[contains(., 'Eintrag') or contains(., 'Entry') or contains(., 'Phase')]")
+    ADD_ENTRY_BUTTON = (
+        By.XPATH,
+        "//button[contains(., 'Eintrag') or contains(., 'Entry') or contains(., 'Phase')]",
+    )
     ENTRY_CARDS = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiCard-root")
-    NO_ENTRIES_ALERT = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Scoped to the page root: an unscoped ``.MuiAlert-root`` also matches
+    # MainLayout's light-mode warning banner (`severity="warning"`), which
+    # renders as a sibling of this page's root, not a descendant -- so this
+    # scoping alone is enough to exclude it. See #778 A11.
+    NO_ENTRIES_ALERT = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiAlert-root")
 
     # Tab 1: Validation — cards and alerts
-    VALIDATION_SECTION = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiCard-root")
-    COMPLETENESS_ALERT = (By.CSS_SELECTOR, ".MuiAlert-root")
+    VALIDATION_SECTION = (
+        By.CSS_SELECTOR,
+        "[data-testid='nutrient-plan-detail-page'] .MuiCard-root",
+    )
+    # Scoped to the page root -- see NO_ENTRIES_ALERT above for the rationale.
+    COMPLETENESS_ALERT = (
+        By.CSS_SELECTOR,
+        "[data-testid='nutrient-plan-detail-page'] .MuiAlert-root",
+    )
 
     # Tab 2: Edit form
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
@@ -99,15 +113,17 @@ class NutrientPlanDetailPage(BasePage):
         """Click the button to add a new phase entry."""
         # The add entry button is a contained Button in the phase entries tab
         add_btn = self.wait_for_element_clickable(
-            (By.XPATH, "//button[contains(@class, 'MuiButton-contained') and not(contains(@class, 'MuiButton-colorError'))]")
+            (
+                By.XPATH,
+                "//button[contains(@class, 'MuiButton-contained') and not(contains(@class, 'MuiButton-colorError'))]",
+            )
         )
         self.scroll_and_click(add_btn)
 
     def get_phase_entry_count(self) -> int:
         """Return the number of phase entry cards shown."""
         cards = self.driver.find_elements(
-            By.CSS_SELECTOR,
-            "[data-testid='nutrient-plan-detail-page'] .MuiCard-root"
+            By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiCard-root"
         )
         return len(cards)
 
@@ -123,7 +139,7 @@ class NutrientPlanDetailPage(BasePage):
         """Return the text of all phase chips in phase entry cards."""
         chips = self.driver.find_elements(
             By.CSS_SELECTOR,
-            "[data-testid='nutrient-plan-detail-page'] .MuiChip-colorPrimary .MuiChip-label"
+            "[data-testid='nutrient-plan-detail-page'] .MuiChip-colorPrimary .MuiChip-label",
         )
         return [c.text for c in chips if c.text]
 
@@ -131,10 +147,14 @@ class NutrientPlanDetailPage(BasePage):
         """Click the expand toggle on the entry at the given index."""
         expand_btns = self.driver.find_elements(
             By.CSS_SELECTOR,
-            "[data-testid='nutrient-plan-detail-page'] button svg[data-testid='ExpandMoreIcon']"
+            "[data-testid='nutrient-plan-detail-page'] button svg[data-testid='ExpandMoreIcon']",
         )
-        if index < len(expand_btns):
-            self.scroll_and_click(expand_btns[index].find_element(By.XPATH, "./.."))
+        icon = self.require_index(expand_btns, index, "nutrient plan entry expander")
+        # Coordinate-free: the target is resolved indirectly (the icon's parent
+        # button) and sits in a row of same-sized icon buttons, so a coordinate
+        # miss activates a neighbour without raising. The button activates from
+        # its own `onClick`, which a dispatched click drives.
+        self.click_coordinate_free(icon.find_element(By.XPATH, "./.."))
 
     # ── Tab 1: Validation ──────────────────────────────────────────────
 
@@ -142,6 +162,7 @@ class NutrientPlanDetailPage(BasePage):
         """Wait until the circular progress spinner disappears (validation done)."""
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SPINNER)
         )
@@ -153,12 +174,21 @@ class NutrientPlanDetailPage(BasePage):
 
     def is_completeness_success(self) -> bool:
         """Return True if the completeness alert has a success severity."""
-        alerts = self.driver.find_elements(By.CSS_SELECTOR, ".MuiAlert-colorSuccess")
+        # Scoped to the page root -- an unscoped ``.MuiAlert-colorWarning``
+        # would also match MainLayout's light-mode warning banner (see
+        # NO_ENTRIES_ALERT above), which could otherwise make this method
+        # report a false warning while the completeness alert itself is
+        # green. See #778 A11.
+        alerts = self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiAlert-colorSuccess"
+        )
         return any(a.is_displayed() for a in alerts)
 
     def is_completeness_warning(self) -> bool:
         """Return True if the completeness alert has a warning severity."""
-        alerts = self.driver.find_elements(By.CSS_SELECTOR, ".MuiAlert-colorWarning")
+        alerts = self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiAlert-colorWarning"
+        )
         return any(a.is_displayed() for a in alerts)
 
     # ── Tab 2: Edit form ───────────────────────────────────────────────
@@ -202,12 +232,12 @@ class NutrientPlanDetailPage(BasePage):
         return el.is_enabled()
 
     def submit_edit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Click cancel to reset the edit form."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def toggle_is_template(self) -> None:
         """Toggle the is_template switch in the edit form."""
@@ -227,7 +257,7 @@ class NutrientPlanDetailPage(BasePage):
 
     def click_delete(self) -> None:
         """Click the delete button to open the confirm dialog."""
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
@@ -237,11 +267,11 @@ class NutrientPlanDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Click the confirm button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Click the cancel button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     # ── Error state ────────────────────────────────────────────────────
 

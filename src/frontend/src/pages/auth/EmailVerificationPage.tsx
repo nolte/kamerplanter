@@ -47,7 +47,14 @@ export default function EmailVerificationPage() {
             </>
           )}
           {status === 'error' && (
-            <Alert severity="error">{error}</Alert>
+            <>
+              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+              {/* Keep a way out of the dead end: an invalid/expired token page
+                  must still lead back to the login (TC-023-043/044). */}
+              <Button component={RouterLink} to="/login" variant="outlined">
+                {t('pages.auth.loginButton')}
+              </Button>
+            </>
           )}
         </CardContent>
       </Card>

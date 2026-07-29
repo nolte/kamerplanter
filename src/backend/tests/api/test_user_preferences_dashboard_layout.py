@@ -49,8 +49,12 @@ class _FakeRepo:
         self._store[key] = doc
         return dict(doc)
 
-    def update(self, key: str, model: UserPreference) -> dict[str, Any]:
-        doc = model.model_dump(by_alias=True, exclude_none=True, mode="json")
+    def update_fields(self, key: str, fields: dict[str, Any]) -> dict[str, Any]:
+        # Mirror ArangoDB's partial update: merge only the supplied keys into
+        # the stored document (keep_none => an explicit None is written, not
+        # dropped). This is the lost-update guard the service now relies on.
+        doc = dict(self._store[key])
+        doc.update(fields)
         doc["_key"] = key
         self._store[key] = doc
         return dict(doc)

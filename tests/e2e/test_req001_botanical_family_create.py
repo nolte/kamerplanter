@@ -36,15 +36,21 @@ class TestBotanicalFamilyCreateDialog:
     def test_open_create_dialog(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-013: Open the create dialog and verify form fields.
+        """TC-001-006: Open the create dialog and verify form fields.
 
         Spec: TC-001-006 -- Neue Botanische Familie erfolgreich erstellen (Dialog-Oeffnung).
         """
         family_list.open()
-        screenshot("TC-REQ-001-013_family-list-loaded", "Botanical family list page before opening create dialog")
+        screenshot(
+            "TC-REQ-001-013_family-list-loaded",
+            "Botanical family list page before opening create dialog",
+        )
 
         family_list.click_create()
-        screenshot("TC-REQ-001-013_create-dialog-open", "Botanical family create dialog with form fields visible")
+        screenshot(
+            "TC-REQ-001-013_create-dialog-open",
+            "Botanical family create dialog with form fields visible",
+        )
 
         assert family_list.is_create_dialog_open(), "Create dialog should be open"
 
@@ -52,7 +58,7 @@ class TestBotanicalFamilyCreateDialog:
     def test_create_family_with_all_fields(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-014: Successfully create a botanical family with all fields.
+        """TC-001-006: Successfully create a botanical family with all fields.
 
         Spec: TC-001-006 -- Neue Botanische Familie erfolgreich erstellen (Happy Path).
         """
@@ -87,7 +93,7 @@ class TestBotanicalFamilyCreateDialog:
     def test_validation_name_not_ending_with_aceae(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-015: Validation error — family name does not end with '-aceae'.
+        """TC-001-007: Validation error — family name does not end with '-aceae'.
 
         Spec: TC-001-007 -- Validierung — Familienname muss auf '-aceae' enden.
         """
@@ -97,7 +103,10 @@ class TestBotanicalFamilyCreateDialog:
         family_list.submit_create_form()
 
         family_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-015_validation-error", "Create dialog after submitting name not ending with -aceae")
+        screenshot(
+            "TC-REQ-001-015_validation-error",
+            "Create dialog after submitting name not ending with -aceae",
+        )
 
         assert family_list.is_create_dialog_open(), (
             "TC-REQ-001-015 FAIL: Dialog should remain open after validation error"
@@ -107,7 +116,7 @@ class TestBotanicalFamilyCreateDialog:
     def test_validation_empty_name(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-016: Validation error — empty name field.
+        """TC-001-009: Validation error — empty name field.
 
         Spec: TC-001-009 -- Validierung — Pflichtfelder (Name leer).
         """
@@ -127,7 +136,7 @@ class TestBotanicalFamilyCreateDialog:
     def test_create_family_minimal_fields(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-020: Create a family with minimal fields (only required).
+        """TC-001-006: Create a family with minimal fields (only required).
 
         Spec: TC-001-006 -- Neue Botanische Familie mit minimalen Pflichtfeldern erstellen.
         """
@@ -136,7 +145,9 @@ class TestBotanicalFamilyCreateDialog:
 
         unique = uuid.uuid4().hex[:6]
         family_list.fill_name_only(f"Minimalaceae{unique}")
-        screenshot("TC-REQ-001-020_minimal-filled", f"Create dialog with only name Minimalaceae{unique}")
+        screenshot(
+            "TC-REQ-001-020_minimal-filled", f"Create dialog with only name Minimalaceae{unique}"
+        )
 
         family_list.submit_create_form()
 
@@ -151,7 +162,7 @@ class TestBotanicalFamilyCreateDialog:
     def test_cancel_create_dialog(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-021: Cancel the create dialog discards unsaved input.
+        """TC-001-012: Cancel the create dialog discards unsaved input.
 
         Spec: TC-001-012 -- Loeschen abbrechen — Dialog-Cancel verwirft Eingaben.
         """
@@ -186,7 +197,7 @@ class TestBotanicalFamilyCreateDialog:
     def test_ph_range_boundary_values(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-022: pH range boundary values (min=3.0, max=9.0).
+        """TC-001-013: pH range boundary values (min=3.0, max=9.0).
 
         Spec: TC-001-013 -- pH-Bereich-Validierung — Grenzwerte.
         """
@@ -199,7 +210,10 @@ class TestBotanicalFamilyCreateDialog:
             ph_min="3.0",
             ph_max="9.0",
         )
-        screenshot("TC-REQ-001-022_ph-boundary-filled", f"Create dialog with pH 3.0-9.0 for Boundaryaceae{unique}")
+        screenshot(
+            "TC-REQ-001-022_ph-boundary-filled",
+            f"Create dialog with pH 3.0-9.0 for Boundaryaceae{unique}",
+        )
 
         family_list.submit_create_form()
 
@@ -215,11 +229,10 @@ class TestBotanicalFamilyBackendValidation:
     def test_nitrogen_fixing_with_heavy_demand_rejected(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-019: nitrogen_fixing=true with heavy nutrient demand is rejected.
+        """TC-001-017: nitrogen_fixing=true with heavy nutrient demand is rejected.
 
         Spec: TC-001-017 -- Nitrogen-Fixing + Heavy Demand Kombination wird abgelehnt.
         """
-        from selenium.webdriver.common.by import By
 
         family_list.open()
         family_list.click_create()
@@ -239,13 +252,18 @@ class TestBotanicalFamilyBackendValidation:
         except Exception:
             pytest.skip("nitrogen_fixing toggle not available in create dialog")
 
-        screenshot("TC-REQ-001-019_before-submit", "Create dialog with nitrogen_fixing + heavy demand")
+        screenshot(
+            "TC-REQ-001-019_before-submit", "Create dialog with nitrogen_fixing + heavy demand"
+        )
         family_list.submit_create_form()
 
         # Wait for backend response
         family_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-001-019_validation-result", "Result after submitting nitrogen_fixing + heavy demand")
+        screenshot(
+            "TC-REQ-001-019_validation-result",
+            "Result after submitting nitrogen_fixing + heavy demand",
+        )
 
         # Backend validation should either keep dialog open or show an error
         # snackbar. Both are valid outcomes.
@@ -259,7 +277,7 @@ class TestBotanicalFamilyBackendValidation:
     def test_duplicate_family_name_rejected(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-078: Duplicate family name shows backend validation error.
+        """TC-001-078: Duplicate family name shows backend validation error.
 
         Spec: TC-001-078 -- Duplikat-Schutz — Familie mit identischem Namen wird abgelehnt.
         """

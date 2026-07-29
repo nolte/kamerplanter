@@ -14,8 +14,8 @@ class EmailVerificationPage(BasePage):
     # ── Locators ────────────────────────────────────────────────────────
     HEADING = (By.CSS_SELECTOR, "h5")
     LOADING_INDICATOR = (By.CSS_SELECTOR, ".MuiCircularProgress-root")
-    SUCCESS_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardSuccess")
-    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardError")
+    SUCCESS_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorSuccess")
+    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
     LOGIN_BUTTON = (By.CSS_SELECTOR, "a[href='/login']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:

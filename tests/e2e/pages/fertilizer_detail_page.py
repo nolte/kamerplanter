@@ -38,7 +38,10 @@ class FertilizerDetailPage(BasePage):
     # Edit tab (Tab 2) — form fields
     FORM_PRODUCT_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-product_name'] input")
     FORM_BRAND = (By.CSS_SELECTOR, "[data-testid='form-field-brand'] input")
-    FORM_EC_CONTRIBUTION = (By.CSS_SELECTOR, "[data-testid='form-field-ec_contribution_per_ml'] input")
+    FORM_EC_CONTRIBUTION = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-ec_contribution_per_ml'] input",
+    )
     FORM_MIXING_PRIORITY = (By.CSS_SELECTOR, "[data-testid='form-field-mixing_priority'] input")
     FORM_SHELF_LIFE = (By.CSS_SELECTOR, "[data-testid='form-field-shelf_life_days'] input")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
@@ -144,9 +147,7 @@ class FertilizerDetailPage(BasePage):
 
     def get_stock_headers(self) -> list[str]:
         """Return column header texts from the stock table."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     # ── Edit tab (Tab 2) ───────────────────────────────────────────────
@@ -196,12 +197,12 @@ class FertilizerDetailPage(BasePage):
         return el.is_enabled()
 
     def submit_edit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Click cancel on the edit form to reset changes."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for the given form field."""
@@ -216,7 +217,7 @@ class FertilizerDetailPage(BasePage):
 
     def click_delete(self) -> None:
         """Click the delete button to open the confirm dialog."""
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
@@ -226,11 +227,11 @@ class FertilizerDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Click the confirm button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Click the cancel button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     # ── Error state ────────────────────────────────────────────────────
 

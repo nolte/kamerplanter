@@ -10,6 +10,14 @@ or an authoritative operator answer.
 
 ## Bounded context
 
+> **Stand 2026-07-26:** Dieser Abschnitt und die Gap-Matrix darunter sind das
+> Protokoll der Elicitation vom 2026-07-23 und bleiben als Zeitdokument stehen.
+> Zwei ihrer Annahmen sind inzwischen abgelöst: E2E ist **nicht** mehr
+> ausschließlich advisory (`E2E smoke (compose, light)` ist seit ADR-011 /
+> Issue #773 required check auf `develop`, siehe R2), und die Nightly-Triage
+> läuft **nicht** mehr über automatisch geöffnete Issues (siehe R6). Maßgeblich
+> ist immer der Requirements-Abschnitt, nicht dieser Kontext.
+
 - **What:** Die bestehende Selenium-E2E-Suite (`tests/e2e/`, 75 Module, Compose-Infrastruktur `docker-compose.e2e.yml` + `scripts/run-e2e.sh`) in GitHub Actions ausführbar machen — zweistufig: schneller **Smoke-Job** pro PR/develop-Push als Machbarkeits-Gate und ein **Nightly-Job** für den vollen Durchlauf. Hebt die bisher bewusste Entscheidung „E2E nur lokal, kein CI-Job" kontrolliert auf.
 - **For whom:** Entwickler/PR-Autoren (frühes Smoke-Signal), der Operator (Nightly-Triage über automatisch geöffnete Issues), der CI-Scheduler.
 - **Explicitly out of scope (operator-geklärt 2026-07-23):**
@@ -51,16 +59,17 @@ or an authoritative operator answer.
   - _dimension_: `non_functional` · _status_: `confirmed` · _source_: plan §Design-Entscheidung + Teach-back (3)
 - **R5** — WHEN ein E2E-CI-Lauf endet (grün ODER rot), the Workflow SHALL `test-reports/e2e/**` (Screenshots, protokoll.md, Container-Logs) via `actions/upload-artifact` hochladen UND eine kompakte Job-Summary (bestanden/gefallen) schreiben.
   - _dimension_: `functional` · _status_: `confirmed` · _source_: Q4-Antwort „Artifacts + Job-Summary" (2026-07-23)
-- **R6** — WHEN ein Nightly-Lauf fehlschlägt, the Workflow SHALL automatisch ein GitHub-Issue mit Run-Link und Fehler-Zusammenfassung öffnen (nach dem Vorbild `security-nuclei-nightly.yml`), ohne Duplikate zu erzeugen, solange ein solches Issue offen ist.
-  - _dimension_: `functional` · _status_: `confirmed` · _source_: Q5-Antwort „GitHub-Issue bei Failure" (2026-07-23)
+- **R6** — ~~WHEN ein Nightly-Lauf fehlschlägt, the Workflow SHALL automatisch ein GitHub-Issue mit Run-Link und Fehler-Zusammenfassung öffnen (nach dem Vorbild `security-nuclei-nightly.yml`), ohne Duplikate zu erzeugen, solange ein solches Issue offen ist.~~
+  - _dimension_: `functional` · _status_: `superseded` · _source_: Q5-Antwort „GitHub-Issue bei Failure" (2026-07-23)
+  - **Abgelöst am 2026-07-26** durch Operator-Entscheidung: Der `report`-Job und die Berechtigung `issues: write` sind aus `e2e-nightly.yml` entfernt. Die Dedup-Mechanik hat in der Praxis nicht getragen — mehrere `[e2e-nightly]`-Issues standen gleichzeitig offen, weil der Lauf-Status ohnehin sichtbar ist und die Issues schneller entstanden als sie trianguliert wurden. Der Informationsgehalt eines solchen Issues (Run-Link plus Verweis auf die gerenderten Check-Runs) ist vollständig durch R5 abgedeckt: Lauf-Status, Check-Run je Profil, Artifact je Profil. Rückweg ist ein regulärer PR gegen `.github/workflows/e2e-nightly.yml`.
 - **R7** — WHILE dieses Vorhaben umgesetzt wird, the Testsemantik SHALL NOT „nebenbei" geändert werden (Smoke-Auswahl = bestehendes Compose-`smoke`-Profil unverändert); the Doku (`tests/e2e/README.md` + Docs-Teststufen-Seite E2E, DE/EN) SHALL um den CI-Abschnitt ergänzt werden; Workflow-Dateien/Code Englisch (NFR-003), Doku Deutsch.
   - _dimension_: `scope_boundaries` · _status_: `confirmed` · _source_: Q3-Antwort „Compose-smoke-Profil unverändert" + Teach-back (5)
 
-**Definition of Done (für dieses Requirement):** `e2e-smoke.yml` läuft grün im Runner (per `workflow_dispatch` auf dem Feature-Branch belegt), Caching aktiv mit dokumentierten Vorher/Nachher-Zeiten, Artifacts + Job-Summary in beiden Workflows, `e2e-nightly.yml` mit 5-Profil-Matrix + Issue-on-Failure vorhanden und dispatch-verifiziert, Doku aktualisiert, Quality-Gate grün, PR nach develop offen. **NICHT** Teil von „Done": E2E als required check, inhaltliche Test-Rewrites, Fixes fachlicher App-Regressionen.
+**Definition of Done (für dieses Requirement):** `e2e-smoke.yml` läuft grün im Runner (per `workflow_dispatch` auf dem Feature-Branch belegt), Caching aktiv mit dokumentierten Vorher/Nachher-Zeiten, Artifacts + Job-Summary in beiden Workflows, `e2e-nightly.yml` mit 5-Profil-Matrix + ~~Issue-on-Failure~~ (mit R6 entfallen — 2026-07-26) vorhanden und dispatch-verifiziert, Doku aktualisiert, Quality-Gate grün, PR nach develop offen. **NICHT** Teil von „Done": E2E als required check, inhaltliche Test-Rewrites, Fixes fachlicher App-Regressionen.
 
 ## Surviving assumptions / open risks
 
 - **5-Profil-Matrix-Laufzeit/Ressourcen (assumed machbar):** mobile/tablet/full-mobile sind in CI unerprobt; ob der 4-vCPU/16-GB-Runner jede Matrix-Zelle trägt und die Gesamt-Nightly-Dauer akzeptabel bleibt, wird empirisch im ersten Nightly-Dispatch verifiziert. Fallback (nicht autorisiert, nur benannt): Teilmenge der Profile — wäre ein `revisit`.
 - **GHA-Cache-Budget:** 10-GB-Repo-Cache-Limit kann bei mehreren großen Images zu Evictions führen; Cache-Strategie ggf. auf die teuersten Layer fokussieren (Implementierungsdetail, kein Scope-Risiko).
-- **Issue-Dedup-Mechanik (assumed):** „kein Duplikat solange offen" ist als Verhalten bestätigt; die konkrete Mechanik (Label-Suche vor `issues.create`) ist Implementierungswahl.
+- ~~**Issue-Dedup-Mechanik (assumed):** „kein Duplikat solange offen" ist als Verhalten bestätigt; die konkrete Mechanik (Label-Suche vor `issues.create`) ist Implementierungswahl.~~ Entfallen mit der Ablösung von R6 (2026-07-26) — das Risiko hat sich realisiert und wurde durch Streichen der Auto-Issues aufgelöst, nicht durch eine bessere Dedup-Mechanik.
 - **Flake-Verhalten unbekannt:** bewusst adressiert durch R2 (non-required); erst nach Beobachtungszeitraum ggf. Promotion — außerhalb dieses Scopes.
