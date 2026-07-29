@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 from freezegun import freeze_time
 
+from app.common.datetimes import today_utc
 from app.common.enums import CycleType, FloweringStrategy, TransitionTrigger
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.plant_instance import PlantInstance
@@ -114,7 +115,10 @@ class TestClonalPupSpawn:
         assert pup.cultivar_key == "cv-1"
         assert pup.location_key == "loc-1"
         assert pup.site_key == "site-1"
-        assert pup.planted_on == date.today()  # terminal-transition date
+        # Terminal-transition date. UTC, not ``date.today()``: the service
+        # derives it from ``datetime.now(UTC)``, so a local-date assertion here
+        # was only ever green because CI runs on UTC (§12a, #858).
+        assert pup.planted_on == today_utc()
         # … but NOT the slot: the mother still occupies it while senescing (R4).
         assert pup.slot_key is None
         self.plant_repo.create.assert_called_once()

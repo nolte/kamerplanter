@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.datetimes import today_utc
 from app.common.enums import (
     FrostTolerance,
     HardinessRating,
@@ -146,7 +147,10 @@ def test_generates_winter_reminders_from_overwintering_profile(
     mock_plant_repo.get_all.return_value = ([plant], 1)
     mock_care_repo.get_profile_by_plant_key.return_value = _profile("plant-1")
 
-    current_month = date.today().month
+    # UTC, not ``date.today()``: ``CareReminderEngine`` selects the winter
+    # action with ``today_utc().month``, so a local month here would disagree
+    # with production on the last day of a month in a non-UTC zone (§12a, #858).
+    current_month = today_utc().month
     owp = OverwinteringProfile(
         plant_key="plant-1",
         hardiness_rating=HardinessRating.DIG_AND_STORE,

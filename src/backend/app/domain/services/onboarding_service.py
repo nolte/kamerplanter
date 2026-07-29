@@ -1,10 +1,11 @@
 """Onboarding wizard service — manages wizard state and entity creation."""
 
 import contextlib
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import structlog
 
+from app.common.datetimes import today_utc
 from app.common.enums import SiteType
 from app.common.exceptions import DuplicateError, ValidationError
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -204,7 +205,10 @@ class OnboardingService:
 
         plant_service = get_plant_instance_service()
         created_keys: list[str] = []
-        today = date.today()
+        # ``planted_on`` is a persisted domain date that plant age, phase
+        # progress and GDD accumulation are computed from — all against UTC
+        # timestamps, so the seed date is UTC (§12a).
+        today = today_utc()
 
         # Build assignments: prefer explicit configs, fallback to favorites
         assignments: list[tuple[str, int]] = []

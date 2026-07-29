@@ -409,7 +409,9 @@ def get_active_channels(
     if not dominant_phase:
         return []
     if current_week is None:
-        from datetime import date, datetime
+        from datetime import datetime
+
+        from app.common.datetimes import today_utc
 
         started = run.started_at
         if started is None:
@@ -419,7 +421,10 @@ def get_active_channels(
                 started_date = started.date() if started.tzinfo else started.replace(tzinfo=UTC).date()
             else:
                 started_date = started
-            delta_days = (date.today() - started_date).days
+            # ``started_date`` was just normalized to UTC two lines up; the
+            # subtrahend has to come off the same clock or the run would jump a
+            # week early/late for part of every day (§12a).
+            delta_days = (today_utc() - started_date).days
             current_week = max(1, delta_days // 7 + 1)
     channels = plan_service.get_active_channels_for_plan(plan_key, dominant_phase, current_week)
     return channels

@@ -1,10 +1,11 @@
 """Tests for CareReminderService.ensure_next_watering_task."""
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.datetimes import today_utc
 from app.common.enums import ConfirmAction, ReminderType, TaskCategory, TaskStatus
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
@@ -146,7 +147,11 @@ def test_skips_when_task_completed_today_exists(
     tenant-aware helper; here the helper reports the recent task, so the service skips.
     """
     profile = _profile()
-    completed_today = datetime.combine(date.today(), time(12, 0), tzinfo=UTC)
+    # The UTC day, like the module's own ``_today_utc()`` helper and the
+    # day-granular dedup in ``task_repository``. Combining the *local* date with
+    # a UTC offset produced a "completed today" fixture that is yesterday in UTC
+    # for part of every day on a non-UTC host (§12a, #858).
+    completed_today = datetime.combine(today_utc(), time(12, 0), tzinfo=UTC)
     mock_task_repo.find_open_care_task.return_value = _watering_task(TaskStatus.COMPLETED, completed_at=completed_today)
 
     result = service.ensure_next_watering_task(profile)

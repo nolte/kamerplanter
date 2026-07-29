@@ -1,6 +1,7 @@
 import secrets
 from datetime import date, datetime
 
+from app.common.datetimes import today_utc
 from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
@@ -315,9 +316,13 @@ class CalendarService:
 
         from datetime import timedelta
 
+        # The window is matched against event dates derived from stored UTC
+        # timestamps, so both bounds are anchored in UTC. Resolved once: two
+        # ``today`` reads could straddle midnight and produce a 121-day window.
+        today = today_utc()
         query = CalendarEventsQuery(
-            start_date=date.today() - timedelta(days=30),
-            end_date=date.today() + timedelta(days=90),
+            start_date=today - timedelta(days=30),
+            end_date=today + timedelta(days=90),
             categories=feed.filters.categories,
             site_key=feed.filters.site_key,
             tenant_key=feed.tenant_key,
@@ -346,7 +351,10 @@ def _to_date(dt: datetime | date | str) -> date:
         return dt
     if isinstance(dt, str):
         return datetime.fromisoformat(dt).date()
-    return date.today()
+    # Unreachable for the declared parameter type; kept as a last-resort guard
+    # for untyped repository payloads. UTC, because the result is compared with
+    # the dates produced by the three branches above, all of which are UTC.
+    return today_utc()
 
 
 def _split_months(months: list[int]) -> list[tuple[int, int]]:

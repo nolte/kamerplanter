@@ -17,10 +17,11 @@ hard error).
 """
 
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import structlog
 
+from app.common.datetimes import today_utc
 from app.data_access.external.ha_client import HomeAssistantClient
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import HaSensorMapping, WeatherForecast, WeatherSourceHaConfig
@@ -133,10 +134,19 @@ class HomeAssistantWeatherAdapter(WeatherAdapter):
                 return None
             return state.get("value")
 
+        # Mode B reads bare ``sensor.*`` states, which carry no timestamp of
+        # their own — the record's day is stamped here, not taken from HA, so
+        # there is no external contract arguing for the local date (unlike Mode
+        # A, whose dates come from HA's own offset-carrying ``datetime``). UTC
+        # (§12a): this record is filtered by ``sensor_service`` /
+        # ``frost_warning_engine`` against ``datetime.now(UTC).date()``, and it
+        # already carries a UTC ``fetched_at`` — a local ``forecast_date`` put
+        # two clocks in one row and could hide today's reading from the frost
+        # warning entirely (#858).
         return [
             WeatherForecast(
                 site_key="",
-                forecast_date=date.today(),
+                forecast_date=today_utc(),
                 temp_min_c=read(mapping.temp_min_entity),
                 temp_max_c=read(mapping.temp_max_entity) or read(mapping.temp_current_entity),
                 precipitation_mm=read(mapping.precipitation_entity),
