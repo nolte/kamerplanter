@@ -2,10 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -18,6 +14,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -205,32 +202,37 @@ export default function SpeciesDetailPage() {
         title={current?.scientific_name ?? t('entities.species')}
         meta={<OriginChip origin={speciesOrigin} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {key && (
-              <Tooltip title={t('pages.calendar.sowingCalendar.toggleFavorite')}>
-                <IconButton
-                  onClick={() => toggleFavorite(key)}
-                  color={isFavorite(key) ? 'warning' : 'default'}
-                  data-testid="species-favorite-toggle"
-                >
-                  {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
-                </IconButton>
-              </Tooltip>
-            )}
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setCreatePlantOpen(true)}
-            >
-              {t('pages.species.createPlantInstance')}
-            </Button>
-            {/* UI-NFR-018 R-012: hide delete button for system data */}
-            {!isDeletionProtected && (
-              <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-                {t('common.delete')}
-              </Button>
-            )}
-          </Box>
+          <PageHeaderActions
+            primary={{
+              label: t('pages.species.createPlantInstance'),
+              icon: <AddIcon />,
+              variant: 'outlined',
+              onClick: () => setCreatePlantOpen(true),
+            }}
+            secondary={[
+              // Ternary, not `key && …`: an empty string key would make the
+              // expression `''` rather than `false`, which is not a valid entry.
+              key
+                ? {
+                    label: t('pages.calendar.sowingCalendar.toggleFavorite'),
+                    icon: isFavorite(key) ? <StarIcon /> : <StarBorderIcon />,
+                    iconOnly: true,
+                    active: isFavorite(key),
+                    testId: 'species-favorite-toggle',
+                    onClick: () => toggleFavorite(key),
+                  }
+                : null,
+              // UI-NFR-018 R-012: no delete entry at all for system data --
+              // omitted rather than disabled, which is what the rule asks for.
+              !isDeletionProtected && {
+                label: t('common.delete'),
+                icon: <DeleteIcon />,
+                color: 'error' as const,
+                testId: 'delete-species-button',
+                onClick: () => setDeleteOpen(true),
+              },
+            ]}
+          />
         }
       />
 

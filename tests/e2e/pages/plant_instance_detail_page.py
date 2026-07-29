@@ -289,7 +289,7 @@ class PlantInstanceDetailPage(BasePage):
 
     def initiate_phase_transition(self) -> None:
         """Click the transition button to open the dialog."""
-        self.wait_and_click(self.TRANSITION_BUTTON)
+        self.click_header_action("transition-button")
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def select_target_phase(self, phase_key: str) -> None:

@@ -274,18 +274,19 @@ class PlantInstanceDetailExt(BasePage):
     # ── Transition button / state ──────────────────────────────────────
 
     def is_transition_button_enabled(self) -> bool:
-        btn = self.wait_for_element(self.TRANSITION_BUTTON)
-        return btn.is_enabled() and not btn.get_attribute("disabled")
+        return self.is_header_action_enabled("transition-button")
 
     def is_remove_button_enabled(self) -> bool:
-        btn = self.wait_for_element(self.REMOVE_BUTTON)
-        return btn.is_enabled() and not btn.get_attribute("disabled")
+        # Asked through the header helper, not through the locator: on `xs` the
+        # remove action is an overflow entry (#832), where the plain locator
+        # matches nothing and `is_enabled()` would not mean what it says.
+        return self.is_header_action_enabled("remove-button")
 
     # ── Phase Transition Dialog ────────────────────────────────────────
 
     def initiate_phase_transition(self) -> None:
         """Click the 'Phasenübergang' button and wait for the dialog to open."""
-        self.wait_and_click(self.TRANSITION_BUTTON)
+        self.click_header_action("transition-button")
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def is_transition_dialog_open(self) -> bool:
@@ -365,7 +366,7 @@ class PlantInstanceDetailExt(BasePage):
 
     def initiate_remove(self) -> None:
         """Click the 'Entfernen' button and wait for the confirm dialog."""
-        self.wait_and_click(self.REMOVE_BUTTON)
+        self.click_header_action("remove-button")
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_remove(self) -> None:

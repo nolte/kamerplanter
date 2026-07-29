@@ -60,6 +60,7 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import TodayIcon from '@mui/icons-material/Today';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import SpringReturnAssistant from '@/pages/pflege/components/SpringReturnAssistant';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
@@ -1187,12 +1188,25 @@ export default function TaskQueuePage() {
       <PageTitle
         title={t('pages.tasks.queueTitle')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {!bulkMode && (
-              <>
-                {/* REQ-032 §2.2: care-checklist print button on the Pflege host
-                    page. The /pflege route now redirects here, so the button
-                    must live on TaskQueuePage. */}
+          bulkMode ? (
+            // Bulk mode has exactly one header action; leaving it primary keeps
+            // the way out of the mode a single tap on every breakpoint.
+            <PageHeaderActions
+              primary={{
+                label: t('common.cancel'),
+                icon: <CloseIcon />,
+                variant: 'outlined',
+                testId: 'exit-bulk-mode',
+                onClick: exitBulkMode,
+              }}
+            />
+          ) : (
+            <PageHeaderActions
+              /* REQ-032 §2.2: care-checklist print button on the Pflege host
+                 page (the /pflege route redirects here). `PrintButton` brings
+                 its own download-and-print flow and cannot be reduced to a menu
+                 entry, so it stays outside the overflow. */
+              extra={
                 <PrintButton
                   onPrint={() => downloadCareChecklistPdf()}
                   filename="care-checklist.pdf"
@@ -1200,56 +1214,34 @@ export default function TaskQueuePage() {
                   variant="button"
                   sx={{ minHeight: 48 }}
                 />
-                <Tooltip title={t('pages.tasks.generateRemindersHelp')}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                    onClick={handleGenerateCareReminders}
-                    disabled={generateLoading}
-                    data-testid="generate-reminders-button"
-                    sx={{ minHeight: 48 }}
-                  >
-                    {t('pages.tasks.generateReminders')}
-                  </Button>
-                </Tooltip>
-                {taskCount > 0 && (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<LibraryAddCheckIcon />}
-                    onClick={() => setBulkMode(true)}
-                    data-testid="bulk-mode-button"
-                    sx={{ minHeight: 48 }}
-                  >
-                    {t('pages.tasks.bulkEdit')}
-                  </Button>
-                )}
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() => setCreateOpen(true)}
-                  data-testid="create-task-button"
-                  sx={{ minHeight: 48 }}
-                >
-                  {t('pages.tasks.createTask')}
-                </Button>
-              </>
-            )}
-            {bulkMode && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<CloseIcon />}
-                onClick={exitBulkMode}
-                data-testid="exit-bulk-mode"
-                sx={{ minHeight: 48 }}
-              >
-                {t('common.cancel')}
-              </Button>
-            )}
-          </Box>
+              }
+              primary={{
+                label: t('pages.tasks.createTask'),
+                icon: <AddIcon />,
+                variant: 'contained',
+                testId: 'create-task-button',
+                onClick: () => setCreateOpen(true),
+              }}
+              secondary={[
+                {
+                  label: t('pages.tasks.generateReminders'),
+                  icon: generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />,
+                  variant: 'outlined',
+                  disabled: generateLoading,
+                  tooltip: t('pages.tasks.generateRemindersHelp'),
+                  testId: 'generate-reminders-button',
+                  onClick: handleGenerateCareReminders,
+                },
+                taskCount > 0 && {
+                  label: t('pages.tasks.bulkEdit'),
+                  icon: <LibraryAddCheckIcon />,
+                  variant: 'outlined' as const,
+                  testId: 'bulk-mode-button',
+                  onClick: () => setBulkMode(true),
+                },
+              ]}
+            />
+          )
         }
       />
 

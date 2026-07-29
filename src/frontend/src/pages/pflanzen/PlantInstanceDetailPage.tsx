@@ -42,6 +42,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { isApiError } from '@/api/errors';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
@@ -1065,48 +1066,52 @@ export default function PlantInstanceDetailPage() {
       <PageTitle
         title={plant ? getPlantLabel(plant, species, assignedCultivar) : t('entities.plantInstance')}
         action={
-          /* No `flexShrink: 0` here: it would re-freeze the group at
-             max-content width and push the destructive "Pflanze entfernen"
-             button outside a 393px viewport (UI-NFR-001 R-005/R-006). */
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {key && <PestScanButton plantKey={key} />}
-            <Button
-              startIcon={<LabelIcon />}
-              onClick={() => setTagDialogOpen(true)}
-              data-testid="tag-button"
-              size="small"
-            >
-              {t('pages.plantInstances.tag.button')}
-            </Button>
-            <Button
-              startIcon={<QrCode2Icon />}
-              onClick={() => setLabelDialogOpen(true)}
-              data-testid="label-button"
-              size="small"
-              aria-label={t('print.printLabels')}
-            >
-              {t('print.printLabelsShort')}
-            </Button>
-            <Button
-              startIcon={<SwapHorizIcon />}
-              onClick={() => setTransitionOpen(true)}
-              disabled={!!plant?.removed_on}
-              data-testid="transition-button"
-              size="small"
-            >
-              {t('pages.phases.transition')}
-            </Button>
-            <Button
-              color="error"
-              startIcon={<RemoveCircleIcon />}
-              onClick={() => setRemoveOpen(true)}
-              disabled={!!plant?.removed_on}
-              data-testid="remove-button"
-              size="small"
-            >
-              {t('pages.plantInstances.remove')}
-            </Button>
-          </Box>
+          /* This header is the reason R-024 exists: five controls used to wrap,
+             and the destructive "remove" button was the one pushed off a 393px
+             viewport (UI-NFR-001 R-005/R-006). On `xs` the phase transition
+             stays — the lifecycle action this page is built around — and tag,
+             label and the destructive remove become a deliberate two-tap choice
+             instead of something met while scrolling sideways. `PestScanButton`
+             stays visible alongside it (see below), so this is two controls on
+             `xs`, not one. */
+          <PageHeaderActions
+            /* `PestScanButton` renders its own control (camera permissions,
+               capture flow) and cannot become a menu entry without being taken
+               apart. It stays visible on `xs` too, which is a conscious
+               deviation from "exactly one visible action" — the alternative was
+               rebuilding an unrelated component inside this change. */
+            extra={key ? <PestScanButton plantKey={key} /> : undefined}
+            primary={{
+              label: t('pages.phases.transition'),
+              icon: <SwapHorizIcon />,
+              disabled: !!plant?.removed_on,
+              testId: 'transition-button',
+              onClick: () => setTransitionOpen(true),
+            }}
+            secondary={[
+              {
+                label: t('pages.plantInstances.tag.button'),
+                icon: <LabelIcon />,
+                testId: 'tag-button',
+                onClick: () => setTagDialogOpen(true),
+              },
+              {
+                label: t('print.printLabelsShort'),
+                icon: <QrCode2Icon />,
+                tooltip: t('print.printLabels'),
+                testId: 'label-button',
+                onClick: () => setLabelDialogOpen(true),
+              },
+              {
+                label: t('pages.plantInstances.remove'),
+                icon: <RemoveCircleIcon />,
+                color: 'error' as const,
+                disabled: !!plant?.removed_on,
+                testId: 'remove-button',
+                onClick: () => setRemoveOpen(true),
+              },
+            ]}
+          />
         }
       />
 

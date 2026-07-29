@@ -29,8 +29,12 @@ class SubstrateListPage(BasePage):
     # ── Action buttons (no data-testid — located by text/icon) ────────
     # The SubstrateListPage uses inline MUI Buttons without data-testid.
     # We use the button text rendered via i18n.
-    CREATE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-contained')]")
-    MIX_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-outlined')]")
+    # Addressed by data-testid rather than by MUI class (the suite's locator
+    # convention, tests/e2e/README.md):
+    # the classes moved when the header adopted `PageHeaderActions`, and on `xs`
+    # the mix action is a menu entry with no button class at all (#832).
+    CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
+    MIX_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-mix-button']")
 
     # ── Create dialog locators ─────────────────────────────────────────
     CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
@@ -171,7 +175,7 @@ class SubstrateListPage(BasePage):
 
     def click_create(self) -> None:
         """Click the Create button and wait for the dialog."""
-        self.wait_for_element_clickable(self.CREATE_BUTTON).click()
+        self.click_header_action("create-button")
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
