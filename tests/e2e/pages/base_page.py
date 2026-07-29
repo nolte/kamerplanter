@@ -5,13 +5,14 @@ from __future__ import annotations
 import re
 import time
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     ElementNotInteractableException,
+    NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
 )
@@ -35,6 +36,18 @@ DEFAULT_TIMEOUT = 15
 #: budget to 15 s would make every genuine failure five times slower to surface
 #: and buy nothing.
 IMPLICIT_WAIT_EQUIVALENT = 3
+
+#: States a *poll* must treat as "not yet", never as a verdict.
+#:
+#: Selenium's default is ``(NoSuchElementException,)`` alone, which makes a
+#: stale reference mid-poll fatal — even though it means precisely "the DOM moved
+#: under me, look again", which is what polling is for. The removed implicit wait
+#: had been hiding that narrow default: it delayed every lookup just enough that
+#: a re-rendering React table was usually settled by the time the reference was
+#: taken. Removing it surfaced 7 `StaleElementReferenceException` failures in the
+#: smoke suite (#835) — a latent defect the implicit wait had masked, not one the
+#: removal created.
+POLL_TRANSIENTS = (NoSuchElementException, StaleElementReferenceException)
 
 #: A Selenium locator: ``(By.<STRATEGY>, value)``.
 Locator = tuple[str, str]
@@ -154,29 +167,37 @@ class BasePage:
 
     # ── Waits ─────────────────────────────────────────────────────────────
 
+    def poll(self, timeout: int = DEFAULT_TIMEOUT) -> WebDriverWait:
+        """A ``WebDriverWait`` that treats every transient DOM state as "not yet".
+
+        The single place the polling contract is stated — see
+        :data:`POLL_TRANSIENTS` for why Selenium's own default is too narrow.
+        """
+        return WebDriverWait(self.driver, timeout, ignored_exceptions=POLL_TRANSIENTS)
+
     def wait_for_element(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is present in the DOM and return it."""
-        return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(locator))
+        return self.poll(timeout).until(EC.presence_of_element_located(locator))
 
     def wait_for_element_visible(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is visible and return it."""
-        return WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(locator))
+        return self.poll(timeout).until(EC.visibility_of_element_located(locator))
 
     def wait_for_element_clickable(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is clickable and return it."""
-        return WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable(locator))
+        return self.poll(timeout).until(EC.element_to_be_clickable(locator))
 
     def wait_for_element_hidden(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> None:
         """Wait until an element is no longer visible (e.g. MUI Dialog fade-out)."""
-        WebDriverWait(self.driver, timeout).until(EC.invisibility_of_element_located(locator))
+        self.poll(timeout).until(EC.invisibility_of_element_located(locator))
 
     #: The Suspense/query loading placeholder every page renders while its data
     #: (or, for a lazily-imported route, its chunk) is still in flight.
@@ -520,6 +541,29 @@ class BasePage:
         deserves the full ``DEFAULT_TIMEOUT``.
         """
         return self.wait_for_element(locator, timeout)
+
+    def retry_on_stale[T](
+        self, action: Callable[[], T], timeout: int = IMPLICIT_WAIT_EQUIVALENT
+    ) -> T:
+        """Run *action*, re-running it from scratch if the DOM moved underneath.
+
+        For the capture-then-use shape that :meth:`poll` cannot cover: a row
+        reference is taken, then a cell is read or clicked *through* it. When
+        React re-renders the table in between, the reference is stale and the
+        whole capture has to be redone — ``ignored_exceptions`` retries the
+        condition inside one poll, but it cannot un-stale a reference the caller
+        is already holding.
+
+        *action* must therefore re-acquire what it touches; passing a closure
+        over an already-resolved element would retry the same dead reference.
+        """
+        deadline = time.time() + timeout
+        while True:
+            try:
+                return action()
+            except StaleElementReferenceException:
+                if time.time() >= deadline:
+                    raise
 
     def find_by_testid(self, testid: str) -> WebElement:
         """Shorthand for finding an element by its ``data-testid``."""
@@ -1562,11 +1606,17 @@ class BasePage:
         return self._text_content(titles[0])
 
     def get_column_texts(self, col_id: str) -> list[str]:
-        """Return the identifying text of every visible DataTable row."""
-        return [
-            self.get_row_primary_text(row, col_id)
-            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
-        ]
+        """Return the identifying text of every visible DataTable row.
+
+        Re-read as a whole on a stale row: a partial list mixed from two renders
+        would be worse than a retry, because it reads as a legitimate result.
+        """
+        return self.retry_on_stale(
+            lambda: [
+                self.get_row_primary_text(row, col_id)
+                for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
+            ]
+        )
 
     def find_row_by_text(self, needle: str) -> WebElement | None:
         """Return the first DataTable row whose rendered text contains *needle*.
@@ -1574,11 +1624,19 @@ class BasePage:
         Layout-tolerant: matches against the row/card text rather than against
         a positional cell, so it behaves identically for the desktop table and
         the mobile card list.
+
+        Reading ``.text`` off a captured row is itself a capture-then-use, so the
+        scan is retried as a whole rather than returning ``None`` — "no such row"
+        and "the table re-rendered mid-scan" must not collapse into one answer.
         """
-        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            if needle in (row.text or ""):
-                return row
-        return None
+
+        def _scan() -> WebElement | None:
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+                if needle in (row.text or ""):
+                    return row
+            return None
+
+        return self.retry_on_stale(_scan)
 
     # ── Guarded row/card activation ───────────────────────────────────────
     # Two defects that kept re-entering the suite as per-page copies:
@@ -1714,9 +1772,20 @@ class BasePage:
         rows_locator: tuple[str, str] | None = None,
         what: str = "DataTable row",
     ) -> None:
-        """Activate the *index*-th `DataTable` row through its *col_id* cell."""
-        rows = self.driver.find_elements(*(rows_locator or self.DATA_TABLE_ROWS))
-        self.click_row_via_column(self.require_index(rows, index, what), col_id)
+        """Activate the *index*-th `DataTable` row through its *col_id* cell.
+
+        The row lookup and the click are one retryable unit: a filtered table
+        re-renders, and a row captured from the previous render is stale by the
+        time the click resolves its cell. See :meth:`retry_on_stale` — until #835
+        removed the implicit wait, that race was hidden rather than absent.
+        """
+        locator = rows_locator or self.DATA_TABLE_ROWS
+
+        def _click() -> None:
+            rows = self.driver.find_elements(*locator)
+            self.click_row_via_column(self.require_index(rows, index, what), col_id)
+
+        self.retry_on_stale(_click)
 
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.
