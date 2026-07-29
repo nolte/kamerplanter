@@ -471,9 +471,13 @@ class TestPlantInstanceDetailPage:
         plant_detail.open(key)
         screenshot("TC-REQ-003-015_remove-button", "Plant detail page with remove button visible")
 
-        btn = plant_detail.wait_for_element(plant_detail.REMOVE_BUTTON)
-        assert btn.is_displayed(), (
-            "TC-REQ-003-015 FAIL: [data-testid='remove-button'] should be visible on detail page"
+        # Asked as "is the action offered", not "is this button on screen":
+        # since #832 the remove action is a header button on `sm`+ and an
+        # overflow menu entry on `xs`. The test case is about the action being
+        # available on the detail page, which both forms satisfy.
+        assert plant_detail.has_header_action("remove-button"), (
+            "TC-REQ-003-015 FAIL: the remove action should be reachable on the detail page, "
+            "either as a header button or through the header overflow menu"
         )
 
     @pytest.mark.core_crud
@@ -907,9 +911,12 @@ class TestPhaseStateMachineEdgeCases:
             "Removed plant detail page with disabled remove button",
         )
 
-        btn = plant_detail.wait_for_element(plant_detail.REMOVE_BUTTON)
-        assert not btn.is_enabled() or btn.get_attribute("disabled") is not None, (
-            f"TC-REQ-003-027 FAIL: Remove button should be disabled for removed plant '{removed_key}'"
+        # Since #832 the remove action is a header button on `sm`+ and a menu
+        # entry on `xs`; a disabled `MenuItem` still reports `is_enabled()` as
+        # true to Selenium, so the helper checks `aria-disabled` as well.
+        assert not plant_detail.is_header_action_enabled("remove-button"), (
+            f"TC-REQ-003-027 FAIL: Remove action should be disabled for removed plant "
+            f"'{removed_key}'"
         )
 
     @pytest.mark.core_crud

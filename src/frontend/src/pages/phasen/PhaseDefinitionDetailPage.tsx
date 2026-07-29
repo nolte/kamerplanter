@@ -16,6 +16,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LoopIcon from '@mui/icons-material/Loop';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -349,39 +350,34 @@ export default function PhaseDefinitionDetailPage() {
           </>
         }
         action={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Button
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => setEditOpen(true)}
-              disabled={definition.is_system}
-              data-testid="edit-definition-button"
-            >
-              {t('pages.phaseSequences.editDefinition')}
-            </Button>
-            <Tooltip
-              title={
-                definition.is_system
+          <PageHeaderActions
+            primary={{
+              label: t('pages.phaseSequences.editDefinition'),
+              icon: <EditIcon />,
+              variant: 'outlined',
+              disabled: definition.is_system,
+              testId: 'edit-definition-button',
+              onClick: () => setEditOpen(true),
+            }}
+            secondary={[
+              {
+                label: t('common.delete'),
+                icon: <DeleteIcon />,
+                variant: 'outlined',
+                color: 'error',
+                disabled: !canDelete,
+                // The tooltip explains *why* deleting is unavailable, which is
+                // not the same string as the button's label.
+                tooltip: definition.is_system
                   ? t('pages.phaseSequences.system')
                   : definition.usage_count > 0
                     ? t('pages.phaseSequences.definitionInUse')
-                    : t('common.delete')
-              }
-            >
-              <span>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => setDeleteOpen(true)}
-                  disabled={!canDelete}
-                  data-testid="delete-definition-button"
-                >
-                  {t('common.delete')}
-                </Button>
-              </span>
-            </Tooltip>
-          </Box>
+                    : t('common.delete'),
+                testId: 'delete-definition-button',
+                onClick: () => setDeleteOpen(true),
+              },
+            ]}
+          />
         }
       />
 

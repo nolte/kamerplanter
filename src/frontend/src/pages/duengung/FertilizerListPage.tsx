@@ -9,7 +9,6 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -19,6 +18,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import OriginChip from '@/components/common/OriginChip';
 import { resolveOrigin } from '@/hooks/useOriginProtection';
@@ -31,7 +31,16 @@ import type { Fertilizer } from '@/api/types';
 import FertilizerCreateDialog from './FertilizerCreateDialog';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
 
-const FERTILIZER_TYPES = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate', 'calmag'] as const;
+const FERTILIZER_TYPES = [
+  'base',
+  'supplement',
+  'booster',
+  'biological',
+  'ph_adjuster',
+  'organic',
+  'silicate',
+  'calmag',
+] as const;
 
 export default function FertilizerListPage() {
   const { t } = useTranslation();
@@ -40,8 +49,12 @@ export default function FertilizerListPage() {
   const { fertilizers, loading } = useAppSelector((s) => s.fertilizers);
   const [createOpen, setCreateOpen] = useState(false);
   const [favFilterActive, setFavFilterActive] = useState(false);
-  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites('kamerplanter-fertilizer-favorites');
-  const tableState = useTableUrlState({ defaultSort: { column: 'product_name', direction: 'asc' } });
+  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites(
+    'kamerplanter-fertilizer-favorites',
+  );
+  const tableState = useTableUrlState({
+    defaultSort: { column: 'product_name', direction: 'asc' },
+  });
 
   const [filterType, setFilterType] = useState('');
   const [filterBrand, setFilterBrand] = useState('');
@@ -106,7 +119,8 @@ export default function FertilizerListPage() {
   }, [dispatch, buildFilterArgs]);
 
   const filteredFertilizers = useMemo(
-    () => favFilterActive && hasFavorites ? fertilizers.filter((f) => isFavorite(f.key)) : fertilizers,
+    () =>
+      favFilterActive && hasFavorites ? fertilizers.filter((f) => isFavorite(f.key)) : fertilizers,
     [fertilizers, favFilterActive, hasFavorites, isFavorite],
   );
 
@@ -119,7 +133,10 @@ export default function FertilizerListPage() {
       render: (r) => (
         <IconButton
           size="small"
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(r.key); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFavorite(r.key);
+          }}
           sx={{ color: isFavorite(r.key) ? 'warning.main' : 'action.disabled' }}
         >
           {isFavorite(r.key) ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
@@ -201,37 +218,31 @@ export default function FertilizerListPage() {
       <PageTitle
         title={t('pages.fertilizers.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {hasFavorites && (
-              <Tooltip title={t('pages.fertilizers.favFilter')}>
-                <IconButton
-                  onClick={() => setFavFilterActive((p) => !p)}
-                  color={favFilterActive ? 'warning' : 'default'}
-                >
-                  <FilterListIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateOpen(true)}
-              data-testid="create-button"
-            >
-              {t('pages.fertilizers.create')}
-            </Button>
-          </Box>
+          <PageHeaderActions
+            primary={{
+              label: t('pages.fertilizers.create'),
+              icon: <AddIcon />,
+              variant: 'contained',
+              testId: 'create-button',
+              onClick: () => setCreateOpen(true),
+            }}
+            secondary={[
+              hasFavorites && {
+                label: t('pages.fertilizers.favFilter'),
+                icon: <FilterListIcon />,
+                iconOnly: true,
+                active: favFilterActive,
+                onClick: () => setFavFilterActive((p) => !p),
+              },
+            ]}
+          />
         }
       />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.fertilizers.listIntro')}
       </Typography>
 
-      <Paper
-        variant="outlined"
-        data-testid="fertilizer-filters"
-        sx={{ px: 2, py: 1.5, mb: 2 }}
-      >
+      <Paper variant="outlined" data-testid="fertilizer-filters" sx={{ px: 2, py: 1.5, mb: 2 }}>
         <Box
           sx={{
             display: 'flex',
@@ -347,14 +358,24 @@ export default function FertilizerListPage() {
               {
                 id: 'fertilizer_type',
                 content: (
-                  <Chip label={t(`enums.fertilizerType.${r.fertilizer_type}`)} size="small" variant="outlined" />
+                  <Chip
+                    label={t(`enums.fertilizerType.${r.fertilizer_type}`)}
+                    size="small"
+                    variant="outlined"
+                  />
                 ),
               },
               ...(r.is_organic
                 ? [
                     {
                       id: 'is_organic',
-                      content: <Chip label={t('pages.fertilizers.isOrganic')} size="small" color="success" />,
+                      content: (
+                        <Chip
+                          label={t('pages.fertilizers.isOrganic')}
+                          size="small"
+                          color="success"
+                        />
+                      ),
                     },
                   ]
                 : []),
@@ -362,14 +383,28 @@ export default function FertilizerListPage() {
                 ? [
                     {
                       id: 'tank_safe',
-                      content: <Chip label={t('pages.fertilizers.tankSafe')} size="small" color="success" />,
+                      content: (
+                        <Chip
+                          label={t('pages.fertilizers.tankSafe')}
+                          size="small"
+                          color="success"
+                        />
+                      ),
                     },
                   ]
                 : []),
             ]}
             fields={[
-              { id: 'npk', label: 'NPK', value: `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}` },
-              { id: 'ec_contribution_per_ml', label: 'EC', value: `${r.ec_contribution_per_ml.toFixed(3)} mS/ml` },
+              {
+                id: 'npk',
+                label: 'NPK',
+                value: `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}`,
+              },
+              {
+                id: 'ec_contribution_per_ml',
+                label: 'EC',
+                value: `${r.ec_contribution_per_ml.toFixed(3)} mS/ml`,
+              },
             ]}
           />
         )}

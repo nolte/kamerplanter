@@ -41,6 +41,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions, { type HeaderAction } from '@/components/layout/PageHeaderActions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -443,6 +444,28 @@ export default function PhaseSequenceDetailPage() {
     );
   }
 
+  // Declared here rather than inline so the header can pick a primary action
+  // without repeating either definition (see the `action` slot below).
+  const editAction: HeaderAction | null = isReadOnly
+    ? null
+    : {
+        label: t('pages.phaseSequences.editSequence'),
+        icon: <EditIcon />,
+        variant: 'outlined',
+        testId: 'edit-sequence-button',
+        onClick: () => setEditOpen(true),
+      };
+  const duplicateAction: HeaderAction | null = canCopyAsTemplate
+    ? {
+        label: t('pages.phaseSequences.duplicate'),
+        icon: <ContentCopyIcon />,
+        variant: 'contained',
+        tooltip: t('pages.phaseSequences.duplicateTooltip'),
+        testId: 'duplicate-sequence-button',
+        onClick: () => setCloneOpen(true),
+      }
+    : null;
+
   return (
     <Box data-testid="phase-sequence-detail-page">
       <Button
@@ -458,32 +481,17 @@ export default function PhaseSequenceDetailPage() {
         title={(lang === 'de' ? sequence.display_name_de : sequence.display_name) || sequence.name}
         meta={<OriginChip isSystem={sequence.is_system} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* UI-NFR-018 R-011: hide edit button entirely for read-only data */}
-            {!isReadOnly && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => setEditOpen(true)}
-                data-testid="edit-sequence-button"
-              >
-                {t('pages.phaseSequences.editSequence')}
-              </Button>
-            )}
-            {/* UI-NFR-018 R-015: offer "copy as template" for read-only system data */}
-            {canCopyAsTemplate && (
-              <Tooltip title={t('pages.phaseSequences.duplicateTooltip')}>
-                <Button
-                  variant="contained"
-                  startIcon={<ContentCopyIcon />}
-                  onClick={() => setCloneOpen(true)}
-                  data-testid="duplicate-sequence-button"
-                >
-                  {t('pages.phaseSequences.duplicate')}
-                </Button>
-              </Tooltip>
-            )}
-          </Box>
+          // Both actions are conditional, so which one is primary depends on
+          // the data: an editable sequence leads with "edit", a read-only one
+          // has nothing but "duplicate" and must not hide its only action
+          // behind an overflow menu.
+          // UI-NFR-018 R-011 (no edit button on read-only data) and R-015
+          // (offer "copy as template" instead) are unchanged — they now decide
+          // which entry exists rather than which element is rendered.
+          <PageHeaderActions
+            primary={editAction ?? duplicateAction ?? undefined}
+            secondary={[editAction ? duplicateAction : null]}
+          />
         }
       />
 

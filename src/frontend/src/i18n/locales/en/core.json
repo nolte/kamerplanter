@@ -336,7 +336,8 @@
       "unit": "Unit",
       "typical": "Typical"
     },
-    "failed": "Failed"
+    "failed": "Failed",
+    "moreActions": "More actions"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
