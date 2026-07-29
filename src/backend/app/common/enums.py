@@ -926,9 +926,38 @@ class TenantType(StrEnum):
 
 
 class TenantRole(StrEnum):
-    ADMIN = "admin"
-    GROWER = "grower"
+    """Axis 1 of the REQ-049 role model: the domain role, exactly one per membership.
+
+    Ranked — ``LEAD`` includes ``GROWER`` includes ``VIEWER``. The boundary
+    between grower and lead runs along *irreversibility*: a grower corrects a
+    mistake by overwriting a value, a lead can destroy history. Deleting is
+    therefore lead-only (REQ-049 §2.3).
+
+    ``admin`` was retired here in favour of ``lead`` plus the administrative
+    scopes on axis 2 (:class:`AdminScope`). It had come to mean two unrelated
+    things — "may delete domain records" and "administers the tenant" — and in
+    roughly 30 of 45 permission-table rows it was only ever the former. Migration
+    ``v0032`` maps every stored ``admin`` to ``lead`` + both scopes, which is
+    exactly the set of rights the old value conveyed.
+    """
+
     VIEWER = "viewer"
+    GROWER = "grower"
+    LEAD = "lead"
+
+
+class AdminScope(StrEnum):
+    """Axis 2 of the REQ-049 role model: administrative scopes, none to both.
+
+    Granted *in addition* to the domain role and independent of its rank — a
+    viewer may hold ``MANAGEMENT``. The two are deliberately separate because
+    authority over people and access to technology come apart in practice:
+    merging them would force every club to open its member list to whoever
+    maintains the sensors (REQ-049 §2.4).
+    """
+
+    MANAGEMENT = "management"
+    TECHNICAL = "technical"
 
 
 class InvitationStatus(StrEnum):

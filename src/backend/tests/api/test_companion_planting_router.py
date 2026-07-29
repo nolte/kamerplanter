@@ -79,7 +79,7 @@ def test_platform_admin_succeeds_full_mode(monkeypatch, path, body, graph_method
     """A platform admin gets 201 and the edge is written."""
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
     tenant_service = MagicMock()
-    tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.ADMIN, is_active=True)
+    tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.LEAD, is_active=True)
     graph = MagicMock()
     with patch("app.common.dependencies.get_graph_repo", return_value=graph):
         client = TestClient(_build_app(tenant_service))

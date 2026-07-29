@@ -124,7 +124,7 @@ def update_actuator(
 @router.delete("/actuators/{actuator_key}", status_code=204)
 def delete_actuator(
     actuator_key: Annotated[str, Path(description="Document key of the actuator.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete an actuator."""
@@ -473,7 +473,7 @@ def apply_profile(
 
 @router.get("/integrations/home-assistant/status")
 def ha_status(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return the Home Assistant integration connection status."""
@@ -482,7 +482,7 @@ def ha_status(
 
 @router.get("/integrations/home-assistant/entities")
 def ha_entities(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List the controllable Home Assistant entities."""
@@ -491,7 +491,7 @@ def ha_entities(
 
 @router.post("/integrations/home-assistant/test")
 def ha_test(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Test the Home Assistant integration connection."""

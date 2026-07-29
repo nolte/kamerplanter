@@ -1554,7 +1554,7 @@ export default function AccountSettingsPage() {
                                       label={`${r.tenant_name} (${r.role})`}
                                       size="small"
                                       variant="outlined"
-                                      color={r.role === 'admin' ? 'warning' : r.role === 'grower' ? 'success' : 'default'}
+                                      color={r.role === 'lead' ? 'warning' : r.role === 'grower' ? 'success' : 'default'}
                                     />
                                   ))}
                                   {u.roles.length === 0 && (

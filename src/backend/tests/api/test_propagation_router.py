@@ -62,7 +62,7 @@ def test_delete_phenotype_viewer_forbidden() -> None:
 def test_delete_phenotype_admin_allowed() -> None:
     service = MagicMock()
     service.delete_phenotype.return_value = None
-    client = TestClient(_build_app(service, role=TenantRole.ADMIN))
+    client = TestClient(_build_app(service, role=TenantRole.LEAD))
 
     resp = client.delete(f"/api/v1/t/{TENANT_SLUG}/plant-instances/plant-1/phenotypes/note-1")
 

@@ -70,12 +70,15 @@ def run_seed_light_mode() -> None:
                 "_key": membership_key,
                 "user_key": su["key"],
                 "tenant_key": st["key"],
-                "role": "admin",
+                # REQ-049 §6: the single light-mode account is the operator —
+                # top domain role plus both administrative scopes.
+                "role": "lead",
+                "admin_scopes": ["management", "technical"],
                 "is_active": True,
                 "created_at": now,
                 "updated_at": now,
             }
         )
-        logger.info("light_mode_membership_created", role="admin")
+        logger.info("light_mode_membership_created", role="lead")
 
     logger.info("light_mode_seed_complete")

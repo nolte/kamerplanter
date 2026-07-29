@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
 
 from app.common.enums import (
+    AdminScope,
     InvitationStatus,
     InvitationType,
     TenantRole,
@@ -44,6 +45,9 @@ class TenantWithRoleResponse(BaseModel):
     tenant_type: TenantType
     description: str | None
     role: TenantRole
+    # REQ-049 axis 2 — what the caller may administer in this tenant. The UI
+    # needs both axes to decide what to show; the rank alone no longer says.
+    admin_scopes: list[AdminScope] = Field(default_factory=list)
     is_active: bool
 
 
@@ -56,12 +60,17 @@ class MemberInfoResponse(BaseModel):
     display_name: str
     email: str
     role: TenantRole
+    admin_scopes: list[AdminScope] = Field(default_factory=list)
     is_active: bool
     joined_at: datetime | None
 
 
 class ChangeRoleRequest(BaseModel):
     role: TenantRole
+
+
+class ChangeScopesRequest(BaseModel):
+    admin_scopes: list[AdminScope] = Field(default_factory=list)
 
 
 # ── Invitation schemas ───────────────────────────────────────────────

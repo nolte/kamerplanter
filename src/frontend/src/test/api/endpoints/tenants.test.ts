@@ -68,9 +68,9 @@ describe('tenants endpoints — members', () => {
 
   it('changeMemberRole patches role', async () => {
     client.patch.mockResolvedValue({ data: undefined });
-    await tenants.changeMemberRole('org', 'm1', 'admin');
+    await tenants.changeMemberRole('org', 'm1', 'lead');
     expect(client.patch).toHaveBeenCalledWith('/tenants/org/members/m1/role', {
-      role: 'admin',
+      role: 'lead',
     });
   });
 

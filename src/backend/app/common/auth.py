@@ -4,7 +4,7 @@ from fastapi import Cookie, Depends, Path
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.common.dependencies import get_auth_provider, get_tenant_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import ForbiddenError, UnauthorizedError
 from app.config.settings import settings
 from app.domain.interfaces.auth_provider import IAuthProvider
@@ -72,22 +72,29 @@ def get_current_tenant(
         tenant_slug=tenant.slug,
         user_key=user.key,
         role=membership.role,
+        admin_scopes=membership.admin_scopes,
     )
 
 
 def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
-    """True when ``user_key`` is a platform admin (admin membership in ``platform``).
+    """True when ``user_key`` is a platform admin (a ``lead`` membership in ``platform``).
 
     Mirrors :func:`require_platform_admin` but returns a boolean instead of
     raising, so a tenant-scoped endpoint can *conditionally* unlock admin-only
     behaviour (e.g. the "show deselected images" curation view) without changing
     its access for normal members. In light mode (REQ-027) the sole anonymous
     system user is the operator and is treated as platform admin.
+
+    The platform role is carried by the top domain role in the technical
+    ``platform`` tenant (REQ-049 §2.5). That used to be ``admin``; migration
+    ``v0032`` renamed every such membership to ``lead`` along with all the
+    others, so this check moved with it rather than the platform tenant keeping
+    a retired value of its own.
     """
     if settings.kamerplanter_mode == "light":
         return True
     membership = tenant_service.get_membership(user_key, "platform")
-    return bool(membership and membership.is_active and membership.role == TenantRole.ADMIN)
+    return bool(membership and membership.is_active and membership.role == TenantRole.LEAD)
 
 
 def require_platform_admin(
@@ -106,12 +113,37 @@ def require_platform_admin(
 
 
 def require_tenant_role(min_role: TenantRole) -> Callable:
-    """Dependency factory for minimum role enforcement."""
-    role_order = {TenantRole.VIEWER: 0, TenantRole.GROWER: 1, TenantRole.ADMIN: 2}
+    """Dependency factory for axis 1: a minimum domain role (REQ-049 §2.3).
+
+    This is the *domain* branch of the authorisation rule. Administrative
+    actions — member management, integrations, sensor configuration — belong to
+    axis 2 and use :func:`require_admin_scope` instead. The two branches are
+    disjoint on purpose: an action reachable through both is exactly the
+    conflation REQ-049 was written to end.
+    """
+    role_order = {TenantRole.VIEWER: 0, TenantRole.GROWER: 1, TenantRole.LEAD: 2}
 
     def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
         if role_order.get(ctx.role, 0) < role_order[min_role]:
             raise ForbiddenError(f"Requires at least {min_role.value} role.")
+        return ctx
+
+    return _check
+
+
+def require_admin_scope(scope: AdminScope) -> Callable:
+    """Dependency factory for axis 2: an administrative scope (REQ-049 §2.4).
+
+    Independent of the domain rank — a viewer holding ``MANAGEMENT`` passes, a
+    lead without it does not. That independence is the point: authority over
+    people and access to technology come apart in practice, and merging them
+    would force every club to open its member list to whoever maintains the
+    sensors.
+    """
+
+    def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
+        if scope not in ctx.admin_scopes:
+            raise ForbiddenError(f"Requires the {scope.value} administrative scope.")
         return ctx
 
     return _check

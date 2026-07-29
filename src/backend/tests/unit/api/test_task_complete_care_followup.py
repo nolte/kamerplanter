@@ -36,7 +36,7 @@ TASK_KEY = "task-due"
 
 
 def _ctx() -> TenantContext:
-    return TenantContext(tenant_key=TENANT, tenant_slug="personal", user_key="user-a", role=TenantRole.ADMIN)
+    return TenantContext(tenant_key=TENANT, tenant_slug="personal", user_key="user-a", role=TenantRole.LEAD)
 
 
 def _completed_watering_task() -> Task:

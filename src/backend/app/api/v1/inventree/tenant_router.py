@@ -52,7 +52,7 @@ def _connection_response(connection: InvenTreeConnection) -> InvenTreeConnection
 
 @router.get("/connections", response_model=list[InvenTreeConnectionResponse])
 def list_connections(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """List the tenant's InvenTree connections."""
@@ -62,7 +62,7 @@ def list_connections(
 @router.post("/connections", response_model=InvenTreeConnectionResponse, status_code=201)
 def create_connection(
     body: InvenTreeConnectionCreate,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Create an InvenTree connection for the tenant."""
@@ -82,7 +82,7 @@ def create_connection(
 @router.get("/connections/{connection_key}", response_model=InvenTreeConnectionResponse)
 def get_connection(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Return a single InvenTree connection by key."""
@@ -93,7 +93,7 @@ def get_connection(
 def update_connection(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
     body: InvenTreeConnectionUpdate,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Update an InvenTree connection."""
@@ -104,7 +104,7 @@ def update_connection(
 @router.delete("/connections/{connection_key}", status_code=204)
 def delete_connection(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Delete an InvenTree connection."""
@@ -114,7 +114,7 @@ def delete_connection(
 @router.post("/connections/{connection_key}/health-check", response_model=HealthCheckResponse)
 async def health_check(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Probe an InvenTree connection's live health."""

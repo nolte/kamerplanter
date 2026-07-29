@@ -93,9 +93,9 @@ describe('adminPlatform endpoints — tenant members', () => {
 
   it('changeTenantMemberRole patches member role', async () => {
     client.patch.mockResolvedValue({ data: { key: 'm1' } });
-    await admin.changeTenantMemberRole('t1', 'm1', 'admin' as never);
+    await admin.changeTenantMemberRole('t1', 'm1', 'lead' as never);
     expect(client.patch).toHaveBeenCalledWith('/admin/platform/tenants/t1/members/m1/role', {
-      role: 'admin',
+      role: 'lead',
     });
   });
 });

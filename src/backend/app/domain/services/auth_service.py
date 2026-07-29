@@ -788,7 +788,7 @@ class AuthService:
         is_platform_admin = False
         if self._tenant_service and user.key:
             membership = self._tenant_service.get_membership(user.key, "platform")
-            if membership and membership.is_active and membership.role == TenantRole.ADMIN:
+            if membership and membership.is_active and membership.role == TenantRole.LEAD:
                 is_platform_admin = True
 
         token_pair = self._token_engine.create_access_token(
