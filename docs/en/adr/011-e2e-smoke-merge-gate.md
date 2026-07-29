@@ -78,3 +78,40 @@ Detailed rationale:
 - Issue #746, PR #759, PR #768 — nightly stabilization, out of scope for this decision
 - Nagappan, N.; Ball, T. (2005): "Use of Relative Code Churn Measures to Predict System Defect Density", ICSE 2005
 - Machalica, M. et al. (2019): "Predictive Test Selection", ICSE-SEIP 2019
+
+---
+
+## Addendum 2026-07-28 — merge-train latency measured and deliberately accepted (#792)
+
+The latency accepted under "Consequences" above was measured, because the
+estimate in #773 was derived from pull-request history. Window
+2026-07-27 15:00 – 2026-07-28 17:00, during which 14 pull requests merged into
+`develop`:
+
+**60 `e2e-smoke` runs.** A single Renovate container-digest bump
+(`renovate/ollama-ollama-latest`) accounted for **10** of them — 7 completed, 3
+cancelled by the next update — roughly 110 minutes of runner time for a change
+that never differed between runs. Every rerun was `strict: true` reacting to
+*another* pull request's merge.
+
+So the cost driver is `strict: true`, not the gate itself.
+
+**Options evaluated (#792):**
+
+- **Merge queue** — keeps the guarantee and removes the serial cost by testing
+  the projected merge result. Blocked on a cross-repository prerequisite:
+  `nolte/gh-plumbing`'s `reusable-automerge.yaml` (pinned at `bab4f9d29`) carries
+  no `merge_group` trigger and merges via `pascalgn/automerge-action` — a queue
+  merges too, and the two are mutually exclusive. The portfolio commons would
+  need a queue-aware mode first.
+- **Drop `strict: true`** — removes the cost immediately and locally, but gives
+  up exactly the guarantee it exists for: that a pull request green on its own is
+  still green once merged.
+- **Accept the cost** — chosen.
+
+**Reasoning:** this is unattended machine time, not maintainer time. Revisit once
+pull-request volume rises enough that the drift window — how long `develop` and
+the open pull requests disagree — produces real conflicts rather than just
+reruns. The figure is also recorded beside `strict: true` in
+`.github/settings.yml`, where it will be read the next time branch protection is
+touched.
