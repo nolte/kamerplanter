@@ -16,7 +16,7 @@ In Kamerplanter, permissions come from three independent levels. They are freque
 
 | Level | What it controls | Where it applies | Values |
 |-------|------------------|------------------|--------|
-| **Tenant role** | What you may do inside *one* garden | Separately per tenant | Admin, Grower, Viewer |
+| **Tenant role** | What you may do inside *one* garden | Separately per tenant | Viewer, Grower, Lead — plus Management and Technical |
 | **Platform role** | Whether you may administer the instance (global master data, tenant overview) | Once for the entire installation | Platform administrator |
 | **Account type** | Whether a human or a machine is behind the account | Per account | User account, service account |
 
@@ -29,88 +29,99 @@ The decisive property: the **tenant role belongs to the tenant, not to you**. Yo
 
 ## Tenant Roles: Who May Do What in a Garden
 
-Inside a tenant, every member holds **exactly one** of three roles. They form a ranking: Admin includes everything a Grower may do; Grower includes everything a Viewer may do.
+Two questions are answered separately: what you may do **in** the garden, and what you may administer **about** it. These are two independent axes — neither says anything about the other.
 
-| Role | Short description | Typical use |
-|------|-------------------|-------------|
-| **Admin** | Full access inside the garden, including member and settings management | Association board, owner of a private garden |
-| **Grower** | May plant, document and work through tasks — but not administer the garden | Active association member with their own plot |
-| **Viewer** | May read everything, change nothing | Interested relatives, association archive, display screen |
+### Axis 1: Your Domain Role
 
-### The Revised Role Model
+Every member holds **exactly one** domain role per garden. They form a ranking: Lead includes Grower, Grower includes Viewer.
 
-!!! note "Partially available: role model"
-    A revision of the roles has been decided that will replace the table above. Available today are the three roles Admin, Grower and Viewer. What is still missing: the third domain tier **Leitung** (lead) and the split of administrative rights into **Verwaltung** (management) and **Technik** (technical). Until then, today's Admin role bundles everything that will later be spread across lead, management and technical. <!-- REQ-049 §2.3, §2.4 -->
+| Role | May do, in addition to the role below | Intended for |
+|------|---------------------------------------|--------------|
+| **Viewer** | Read, print, export everything | Bookkeeping, auditing, relatives, a display screen |
+| **Grower** | Create, change, document — but **not delete** | Association member, student, seasonal help, trainee |
+| **Lead** | Delete, assign tasks to others, rebuild the location structure, maintain templates | Plot warden, master grower, operations manager |
 
-The future model separates two questions that today sit inside a single ranking: what you may do **in the garden**, and what you may administer **on the garden**.
+The boundary between Grower and Lead runs along **irreversibility**: a grower corrects a mistake by overwriting a value. Destroying history is something they cannot do.
 
-**Domain roles — out in the garden.** Every member will hold exactly one of these:
+### Axis 2: Your Administrative Scopes
 
-| Future role | Will be allowed to | Intended for |
-|-------------|--------------------|--------------|
-| **Viewer** | Read, print, export | Bookkeeping, audit, relatives, display screen |
-| **Grower** | Additionally create, change and document — but **not delete** | Association member, student, seasonal help, trainee |
-| **Lead** | Additionally delete, assign tasks to others, create and rebuild the location structure, maintain templates | Plot warden, foreman, operations lead |
+These are granted **in addition** to the domain role — none, one, or both. They do not hang off the rank: a Viewer can hold Management.
 
-The line between grower and lead follows reversibility: a grower will be able to correct a mistake by overwriting a value — they will not be able to destroy history.
+| Scope | Covers | Intended for |
+|-------|--------|--------------|
+| **Management** | Invite and remove members, change roles, garden settings, assign plots, service accounts, delete the garden | Board, teacher, owner |
+| **Technical** | Connect Home Assistant and other integrations, set up sensors and actuators, run imports, enrichment sources | Technical warden, contracted service provider |
 
-**Administrative scopes — on the garden.** You will receive these in addition to your domain role, independently of which one you hold:
+The practical gain: rights are granted **individually** rather than as a package. The board manages members without touching the sensors. The technically-minded member connects Home Assistant without seeing the member list. And a student records measurements without being able to delete a bed by accident.
 
-| Future scope | Will cover | Intended for |
-|--------------|------------|--------------|
-| **Management** | Invite and remove members, change roles, garden settings, attribute plots, service accounts | Board, teacher, owner |
-| **Technical** | Connect Home Assistant and other integrations, configure sensors, run imports | Technical warden, external service provider |
+!!! info "Technical does not mean key access"
+    The Technical scope permits *setting up* integrations — it never hands out stored access keys in plain text. Those stay encrypted and are always returned masked.
 
-The practical gain: rights become grantable individually instead of only as a bundle. The board manages members without having to touch the sensors; the technically-minded member connects Home Assistant without gaining access to the member list; and a student records measurements without being able to delete a bed by accident.
+### Six Combinations That Make Sense
 
-### Role Comparison — What Applies Today
+| Person | Domain role | Scopes | Result |
+|--------|-------------|--------|--------|
+| Board member who also gardens | Lead | Management | May do everything in the garden and manages members; technical stays out |
+| Secretary who does not garden | Viewer | Management | Keeps the member list, changes nothing in the garden |
+| Technical warden | Grower | Technical | Connects the sensors, documents alongside, reads the member list only |
+| Student on a project course | Grower | — | Records measurements, can delete nothing |
+| Bookkeeper | Viewer | — | Reads and exports yields and consumption |
+| Your personal garden | Lead | Management, Technical | Sole user, everything permitted |
 
-<!-- Quelle: src/backend/app/core/permissions.py, src/backend/app/common/auth.py -->
+### What Each Role May Actually Do
 
-| Task | Admin | Grower | Viewer |
-|------|:-----:|:------:|:------:|
-| Read all data in the garden | Yes | Yes | Yes |
-| Create, edit and remove plants | Yes | Yes† | No |
-| Create and edit sites, areas and slots | Yes | Yes‡ | No |
-| Create planting runs and advance their phases | Yes | Yes | No |
-| Create and complete tasks | Yes | Yes | No |
-| Document harvests and post-harvest data | Yes | Yes | No |
-| Log watering, feeding and treatments | Yes | Yes | No |
-| Manage tanks and nutrient solutions | Yes | Yes | No |
-| Create the garden's own fertilizers and nutrient plans | Yes | Yes | No |
-| Confirm care reminders | Yes | Yes | No |
-| Invite members, change roles, remove members | Yes | No | No |
-| Change garden settings (name, slug, master-data assignment) | Yes | No | No |
-| Manage location assignments | Yes | No | No |
-| Delete the garden | Yes | No | No |
-| View the member list (name and role) | Yes | Yes | Yes |
-| Leave the garden yourself | Yes* | Yes | Yes |
+<!-- Source: src/backend/app/core/permissions.py, src/backend/app/common/auth.py -->
 
-*As the only admin you cannot leave the garden without first promoting another member to admin — otherwise the garden would be left without administration.
+| Task | Viewer | Grower | Lead | Management | Technical |
+|------|:------:|:------:|:----:|:----------:|:---------:|
+| Read all of the garden's data | Yes | Yes | Yes | — | — |
+| Create and edit plants | No | Yes | Yes | — | — |
+| Remove plants | No | **No** | Yes | — | — |
+| Create and rebuild the location structure | No | No | Yes | — | — |
+| Create and advance planting runs | No | Yes | Yes | — | — |
+| Create and complete tasks | No | Yes | Yes | — | — |
+| Assign tasks to others | No | No | Yes | — | — |
+| Document harvest, post-harvest, watering, feeding, treatments | No | Yes | Yes | — | — |
+| Delete those records | No | **No** | Yes | — | — |
+| Manage tanks and nutrient solutions | No | Yes | Yes | — | — |
+| Confirm care reminders | No | Yes | Yes | — | — |
+| Operate actuators (switch, emergency stop) | No | Yes | Yes | — | — |
+| **Set up** actuators and sensors | No | No | No | No | **Yes** |
+| Connect Home Assistant, MQTT, InvenTree | No | No | No | No | **Yes** |
+| Run imports, maintain enrichment sources | No | No | No | No | **Yes** |
+| Invite members, change roles, remove members | No | No | No | **Yes** | No |
+| Change garden settings | No | No | No | **Yes** | No |
+| Manage location assignments | No | No | No | **Yes** | No |
+| Delete the garden | No | No | No | **Yes** | No |
+| View the member list (name and role) | Yes | Yes | Yes | — | — |
+| Leave the garden yourself | Yes | Yes | Yes | Yes* | Yes |
 
-†With the revised model, only **removing** a plant moves to the lead; creating and editing stay with the grower. <!-- REQ-049 §2.3 -->
+*As the only member holding **Management**, you cannot leave without handing that scope on first — otherwise the garden would be left with nobody who could invite anyone.
 
-‡This row moves to the lead in full: creating and rebuilding the location structure are bundled there. <!-- REQ-049 §2.3, §4.1 -->
+!!! warning "Changed rights for growers"
+    Until this model was introduced, the implementation let a grower delete domain data although the specification never allowed it. Since the change they can no longer do so. This is the intended correction, not a defect — whoever should be able to delete needs the **Lead** role.
 
 ### Who May Manage Members?
 
-Member management is deliberately reserved for admins. An admin can also only grant roles that do not exceed their own rank — so there is no way to gain more permissions than you already hold via member management.
+Whoever holds the **Management** scope — regardless of their domain role. The ranking on axis 1 plays no part: the secretary with the Viewer role keeps the member list; a Lead without Management does not.
 
-!!! note "Partially available: Community features"
-    The bulletin board, watering rotation and shared shopping list are planned for community gardens but not yet implemented. Once available they will get their own permissions in this table — until then they deliberately do not appear here. <!-- REQ-024 §1a.3 -->
+Whoever holds Management can also hand out the **Lead** role. That is deliberate: a garden whose only Lead leaves must be able to get one back.
+
+!!! note "Partially available: community features"
+    A pinboard, a watering rota and a shared shopping list are planned for community gardens but not implemented yet. Once available they will get their own rights in this table — until then they deliberately do not appear here. <!-- REQ-024 §1a.3 -->
 
 ---
 
 ## One Person, Several Roles at Once
 
-A real user usually holds **several roles at once** — one per garden they are a member of. That is not an edge case but the norm: right after registration you have your personal garden, where you are automatically admin. Every further membership adds its own independent role.
+A real user usually holds **several roles at once** — one per garden they are a member of. That is not an edge case but the norm: right after registration you have your personal garden, where you are automatically Lead with both scopes. Every further membership adds its own independent role.
 
 The important points:
 
 - **One role per garden, but any number of gardens.** There is no technical limit on the number of your memberships.
-- **The roles are independent of each other.** Being admin in one garden grants you no additional permission whatsoever in another garden.
+- **The roles are independent of each other.** Being Lead in one garden grants you no additional permission whatsoever in another garden.
 - **Only the garden you are currently working in counts.** Kamerplanter checks your role in exactly that garden for every action — not your "highest" role somewhere.
-- **Your role can change at any time.** An association admin can demote you from grower to viewer; this takes effect immediately and exclusively in that garden.
+- **Your role can change at any time.** Someone holding Management in the association can demote you from grower to viewer; this takes effect immediately and exclusively in that garden.
 
 ### Example: Apartment and Allotment Association
 
@@ -118,11 +129,11 @@ The typical case this model was built for:
 
 | Garden | Type | Your role | What it contains |
 |--------|------|-----------|------------------|
-| "My Home" | Personal | **Admin** | Monstera in the living room, basil on the windowsill, balcony boxes |
+| "My Home" | Personal | **Lead + Management + Technical** | Monstera in the living room, basil on the windowsill, balcony boxes |
 | "Grüne Aue Allotment Association" | Organization | **Grower** | Your plot 14, plus communal areas such as greenhouse and compost |
 | "School Garden Club" | Organization | **Viewer** | You only watch, you document nothing |
 
-One and the same person is admin, grower and viewer at the same time here — with no conflict, because each role only applies inside its own garden. In the association you cannot invite members (that would require the admin role there), in the school garden you cannot document anything — at home you may do everything.
+One and the same person is Lead, Grower and Viewer at the same time here — with no conflict, because each role only applies inside its own garden. In the association you cannot invite members (that would require the Management scope there), in the school garden you cannot document anything — at home you may do everything.
 
 ### How to Switch Between Your Gardens
 
@@ -158,7 +169,7 @@ Concretely this means: in a community garden **all members see all plots** — i
 
 ### What Belongs to You Personally — Across All Gardens
 
-This data belongs to your account, not to a garden. It follows you into every garden, and no garden admin can view or change it:
+This data belongs to your account, not to a garden. It follows you into every garden, and nobody holding Lead or Management in a garden can view or change it:
 
 <!-- Quelle: src/backend/app/domain/models/user_preference.py, notification_repository.py -->
 
@@ -190,7 +201,7 @@ If you create your own cultivar or your own fertilizer inside your garden, it in
 
 There is **no** way in Kamerplanter to share data between gardens or to look into another garden. This is an architectural decision, not a setting:
 
-- No admin of a community garden sees data from your personal garden.
+- Nobody in a community garden sees data from your personal garden — not even Management.
 - No member of a garden sees which other gardens you belong to.
 - There is no sharing feature that would let you "share" a single plant into another garden.
 
@@ -204,9 +215,9 @@ Because separating private plants from association work is the most common sourc
 
 ### Your Houseplants Stay Private
 
-Registration automatically creates your **personal garden**, in which you are admin. Everything you create without deliberately switching to another garden first ends up there: the monstera, the basil, the balcony boxes. This garden is completely isolated from all others — including gardens where you are admin yourself.
+Registration automatically creates your **personal garden**, in which you are Lead with both scopes. Everything you create without deliberately switching to another garden first ends up there: the monstera, the basil, the balcony boxes. This garden is completely isolated from all others — including gardens where you hold the Lead role yourself.
 
-An association admin sees **none** of it: not the plants, not the watering history, not the photos, not the tasks. In the association's member list they only see your display name and your role in the association.
+The association's Management sees **none** of it: not the plants, not the watering history, not the photos, not the tasks. In the association's member list they only see your display name and your role in the association.
 
 ### The Association Plot Stays With the Association
 
@@ -240,7 +251,7 @@ An assignment is therefore an **agreement, not a barrier**:
     Then it belongs in a garden of its own. The separation always runs along the garden boundary, never inside a garden. That is exactly what your personal garden is for — and you can create further gardens at any time, for example one just for you and your partner.
 
 !!! example "Typical community garden"
-    20 plots, each attributed to one member, plus a compost area and a greenhouse. Every member sees their own plot at a glance — but can step in when someone is on holiday, without an admin having to change anything.
+    20 plots, each attributed to one member, plus a compost area and a greenhouse. Every member sees their own plot at a glance — but can step in when someone is on holiday, without Management having to change anything.
 
 ---
 
@@ -273,9 +284,9 @@ Besides accounts for humans there are **service accounts** for connecting other 
 
 Technically a service account is an ordinary account with two peculiarities: it has no password and cannot sign in through the interface — it authenticates exclusively via a key. And it receives **the same roles as a human**: a service account with the grower role in your garden may do exactly what a human grower may do there, and no more.
 
-From this follows the practical rule for setup: give a service account the lowest role that is sufficient for its job. A display dashboard needs **Viewer**. An automation service that logs watering needs **Grower**. A service account only needs **Admin** if it is supposed to create locations or manage members — which is rarely the case.
+From this follows the practical rule for setup: give a service account the lowest role that is sufficient for its job. A display dashboard needs **Viewer**. An automation service that logs watering needs **Grower**. A service account only needs **Lead** if it is supposed to create locations; managing members would additionally require the Management scope — both are rarely the case.
 
-For AI assistants connected via the tool interface the same ranking applies: a viewer account may only query, a grower account may additionally document, and setup-style interventions such as creating locations remain reserved for admin accounts.
+For AI assistants connected via the tool interface the same ranking applies: a viewer account may only query, a grower account may additionally document, and setup-style interventions such as creating locations remain reserved for accounts holding the Lead role.
 
 Setup is described under [Service Accounts](../api/service-accounts.md).
 
@@ -317,13 +328,13 @@ The first two points only affect the gradation **inside** a garden. The third af
 
 ### Location Assignments via the API
 
-Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; all writing calls there are reserved for the admin role. An assignment links a membership to a location and carries a flag for the intended edit permission plus a free-text note field. The corresponding calls already exist in the frontend as interface functions but are not yet wired to any page.
+Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; all writing calls there require the Management scope. An assignment links a membership to a location and carries a flag for the intended edit permission plus a free-text note field. The corresponding calls already exist in the frontend as interface functions but are not yet wired to any page.
 
 ---
 
 ## Frequently Asked Questions
 
-??? question "Can I be admin in one garden and only viewer in another?"
+??? question "Can I hold the Lead role in one garden and only Viewer in another?"
     Yes, and that is the norm. Roles always apply to a single garden only. Your role in one garden has no effect whatsoever on another.
 
 ??? question "Do the association members see my houseplants?"
@@ -332,7 +343,7 @@ Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; al
 ??? question "Do other association members see my plot in the association?"
     Yes. Inside a garden all members may read everything — including other people's plots. Location assignment is meant to govern *editing*, not reading. If you want to keep something truly private, it belongs in your personal garden.
 
-??? question "Can an association admin change my role without asking me?"
+??? question "Can the association's Management change my role without asking me?"
     Yes, inside their garden. They can demote you to viewer there or remove you entirely. They have no access to your personal garden or your other memberships.
 
 ??? question "What happens to my data if I leave the association?"
@@ -344,8 +355,8 @@ Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; al
 ??? question "How do I get permissions for the platform area?"
     Through an admin membership in the technical platform tenant — granted by an existing platform administrator. On your own installation, the first registered account receives this role automatically.
 
-??? question "Does Home Assistant need an admin account?"
-    No. A service account with the grower role is enough to read and document; admin would only be needed to create locations.
+??? question "Does Home Assistant need an account with administrative scopes?"
+    No. A service account with the Grower role is enough to read and document. Only creating locations would need the Lead role, and *setting up* the Home Assistant connection itself needs the Technical scope.
 
 ---
 
