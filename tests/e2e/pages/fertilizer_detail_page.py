@@ -86,7 +86,7 @@ class FertilizerDetailPage(BasePage):
 
     def get_active_tab_text(self) -> str:
         """Return the text of the currently active tab."""
-        active = self.driver.find_element(By.CSS_SELECTOR, "[role='tab'][aria-selected='true']")
+        active = self.find_present((By.CSS_SELECTOR, "[role='tab'][aria-selected='true']"))
         return active.text
 
     def get_tab_count(self) -> int:

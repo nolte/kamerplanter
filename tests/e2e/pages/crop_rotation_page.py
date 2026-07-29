@@ -126,7 +126,7 @@ class CropRotationPage(BasePage):
         self.wait_for_element_visible(self.DIALOG)
 
     def is_dialog_create_button_enabled(self) -> bool:
-        btn = self.driver.find_element(*self.DIALOG_CREATE_BTN)
+        btn = self.find_present(self.DIALOG_CREATE_BTN)
         return btn.is_enabled()
 
     def select_dialog_target(self, family_name: str) -> None:
@@ -167,7 +167,7 @@ class CropRotationPage(BasePage):
 
     def get_dialog_wait_years_value(self) -> str:
         """Return the current value of the wait-years input in the successor dialog."""
-        el = self.driver.find_element(*self.DIALOG_WAIT_YEARS)
+        el = self.find_present(self.DIALOG_WAIT_YEARS)
         return el.get_attribute("value") or ""
 
     def click_dialog_create(self) -> None:

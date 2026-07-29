@@ -451,7 +451,7 @@ class PlantInstanceDetailExt(BasePage):
 
     def get_body_text(self) -> str:
         """Return the full page body text (keyword assertions)."""
-        return self.driver.find_element(By.TAG_NAME, "body").text
+        return self.find_present((By.TAG_NAME, "body")).text
 
     # ── Edit tab (TC-001-081) ──────────────────────────────────────────
 

@@ -560,7 +560,7 @@ class PflegeDashboardPage(BasePage):
 
     def is_humidity_check_enabled(self) -> bool:
         """Return True if the humidity check switch is on."""
-        el = self.driver.find_element(*self.HUMIDITY_CHECK_SWITCH)
+        el = self.find_present(self.HUMIDITY_CHECK_SWITCH)
         checkbox = el.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
         return checkbox.is_selected()
 
@@ -571,7 +571,7 @@ class PflegeDashboardPage(BasePage):
 
     def is_location_check_enabled(self) -> bool:
         """Return True if the location check switch is on."""
-        el = self.driver.find_element(*self.LOCATION_CHECK_SWITCH)
+        el = self.find_present(self.LOCATION_CHECK_SWITCH)
         checkbox = el.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
         return checkbox.is_selected()
 
@@ -582,7 +582,7 @@ class PflegeDashboardPage(BasePage):
 
     def is_adaptive_learning_enabled(self) -> bool:
         """Return True if the adaptive learning switch is on."""
-        el = self.driver.find_element(*self.ADAPTIVE_LEARNING_SWITCH)
+        el = self.find_present(self.ADAPTIVE_LEARNING_SWITCH)
         checkbox = el.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
         return checkbox.is_selected()
 
@@ -609,7 +609,7 @@ class PflegeDashboardPage(BasePage):
         now renders a two-line "MMM\\n{n}" label (CareProfileForm.tsx:513-525)
         and is no longer a plain ``int()``-parseable string.
         """
-        container = self.driver.find_element(*self.FERTILIZING_ACTIVE_MONTHS)
+        container = self.find_present(self.FERTILIZING_ACTIVE_MONTHS)
         buttons = container.find_elements(By.CSS_SELECTOR, "button.Mui-selected")
         months: list[int] = []
         for btn in buttons:

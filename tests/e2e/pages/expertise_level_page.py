@@ -280,7 +280,7 @@ class ExpertiseLevelPage(BasePage):
         # Search within dialog first, then fallback to page-wide search
         containers = self.driver.find_elements(By.CSS_SELECTOR, DIALOG_SELECTOR)
         if not containers:
-            containers = [self.driver.find_element(By.TAG_NAME, "body")]
+            containers = [self.find_present((By.TAG_NAME, "body"))]
 
         for container in containers:
             buttons = container.find_elements(By.CSS_SELECTOR, "button.MuiButton-root")

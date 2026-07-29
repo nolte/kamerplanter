@@ -81,7 +81,7 @@ class NutrientPlanDetailPage(BasePage):
 
     def get_active_tab_text(self) -> str:
         """Return the text of the currently selected tab."""
-        active = self.driver.find_element(By.CSS_SELECTOR, "[role='tab'][aria-selected='true']")
+        active = self.find_present((By.CSS_SELECTOR, "[role='tab'][aria-selected='true']"))
         return active.text
 
     def get_tab_count(self) -> int:
@@ -90,7 +90,7 @@ class NutrientPlanDetailPage(BasePage):
 
     def is_first_tab_selected(self) -> bool:
         """Return True if the first (Phase Entries) tab is the active tab."""
-        first_tab = self.driver.find_element(*self.TAB_PHASE_ENTRIES)
+        first_tab = self.find_present(self.TAB_PHASE_ENTRIES)
         return first_tab.get_attribute("aria-selected") == "true"
 
     # ── Tab navigation ─────────────────────────────────────────────────
@@ -248,8 +248,8 @@ class NutrientPlanDetailPage(BasePage):
 
     def is_template_checked(self) -> bool:
         """Return True if the is_template switch is checked."""
-        switch = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='form-field-is_template'] input[type='checkbox']"
+        switch = self.find_present(
+            (By.CSS_SELECTOR, "[data-testid='form-field-is_template'] input[type='checkbox']")
         )
         return switch.is_selected()
 

@@ -83,7 +83,7 @@ class LoginPage(BasePage):
 
     def is_remember_me_checked(self) -> bool:
         """Check if the remember-me checkbox is checked."""
-        cb = self.driver.find_element(*self.REMEMBER_ME_CHECKBOX)
+        cb = self.find_present(self.REMEMBER_ME_CHECKBOX)
         return cb.is_selected()
 
     # ── Interactions ────────────────────────────────────────────────────

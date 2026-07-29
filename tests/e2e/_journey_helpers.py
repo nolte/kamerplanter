@@ -25,6 +25,7 @@ import time
 import urllib.error as _urlerror
 import urllib.request as _urlrequest
 from datetime import date, timedelta
+from urllib.parse import urlsplit
 
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
@@ -158,9 +159,31 @@ def provision_plant(
             f"Self-provisioning failed: plant instance '{instance_id}' did not "
             f"appear in the list after creation"
         )
+    # Await a URL that is *different* from the one being left, not merely one
+    # matching the detail route. `wait_for_url_contains` would be satisfied at
+    # once whenever a previous test left the browser on some plant's detail page,
+    # and the key read back would be that plant's — silently provisioning one
+    # plant and returning another's identity (#835).
+    before = list_page.driver.current_url
     list_page.click_row(0)
-    list_page.wait_for_url_contains("/pflanzen/plant-instances/")
-    key = list_page.driver.current_url.rstrip("/").rsplit("/", 1)[-1]
+    url = list_page.wait_for_url_change(before, "/pflanzen/plant-instances/")
+    # Path only. The list's search term survives the navigation as `?q=…`, so
+    # splitting the raw URL yielded keys like `53490?q=JOURNEY-004X-936182`,
+    # which the backend then 404'd on. Before #835 this was invisible: the
+    # post-condition returned the URL being *left*, which carried no query.
+    key = urlsplit(url).path.rstrip("/").rsplit("/", 1)[-1]
+
+    # Confirm the page we landed on is the plant we just created, before any
+    # journey builds 60 lines of assertions on `key`. Every wrong-plant failure
+    # #835 uncovered surfaced far downstream — as a chip pointing at a stranger,
+    # or a 404 on a care profile — where the real cause was unrecognisable. This
+    # is the cheap place to notice, and it fails loudly.
+    if not list_page.page_shows_text(instance_id):
+        raise AssertionError(
+            f"Self-provisioning landed on {url!r} (key={key!r}), which does not "
+            f"show '{instance_id}'. The row click opened a different plant — do "
+            f"not trust this key."
+        )
     return key, instance_id
 
 

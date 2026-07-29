@@ -1054,14 +1054,33 @@ def browser(
     os.environ["E2E_BROWSER"] = browser_name
     os.environ["E2E_DEVICE"] = dev["name"]
 
-    # Keep the implicit wait small: elements that genuinely need waiting use
-    # explicit WebDriverWait (15 s), while every *absence* check
-    # (find_elements on a missing element, is_present, locator-fallback misses)
-    # otherwise blocks for the full implicit timeout. At 10 s those misses
-    # dominated the per-test cost; 3 s still covers real element appearances on
-    # a loaded page. (Mixing implicit + explicit waits is a known anti-pattern;
-    # a follow-up should move to 0 once all bare find_element calls are on
-    # explicit waits.)
+    # The implicit wait stays — and #835 is the measurement that says why, so the
+    # next attempt does not start from the same wrong estimate.
+    #
+    # Mixing implicit and explicit waits *is* the anti-pattern the old comment
+    # here called it: the implicit wait also applies to the `find_element` calls
+    # inside a `WebDriverWait`, so the budgets multiply instead of bounding each
+    # other. Removing it is still the right destination.
+    #
+    # What removing it actually costs, measured over five smoke runs (#835):
+    # every one of the suite's ~800 element lookups is a *capture-then-use* — a
+    # `WebDriverWait` resolves a `WebElement`, then the next line clicks or types
+    # into it. 437 such captures exist, 231 of which then interact. The implicit
+    # wait was not merely padding those lookups; it was delaying each one enough
+    # that a re-rendering React table had usually settled before the reference was
+    # taken. Remove it and every one of the 231 can lose its element mid-use.
+    #
+    # That is not a `implicitly_wait(0)` one-liner. It is a conversion of the
+    # suite's interaction model from capture-then-use to locator-based
+    # re-resolution — either 231 call-site conversions, or a re-resolving element
+    # proxy returned by the four wait helpers. #835 carries both options and the
+    # numbers behind them.
+    #
+    # What this branch keeps is the part that is correct either way: five latent
+    # defects the removal exposed, each a real bug with the implicit wait still in
+    # place. See the PR — the most valuable of them was a post-condition that
+    # could not fail (`url_contains` on a fragment already present), which had
+    # journeys asserting against a plant from an earlier test.
     driver.implicitly_wait(3)
 
     # Set German locale in localStorage so i18next picks it up (detection

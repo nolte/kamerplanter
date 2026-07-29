@@ -166,7 +166,7 @@ class TenantSettingsPage(BasePage):
 
     def is_send_invitation_enabled(self) -> bool:
         """Check if the Send Invitation button is enabled."""
-        btn = self.driver.find_element(*self.SEND_INVITATION_BTN)
+        btn = self.find_present(self.SEND_INVITATION_BTN)
         return btn.is_enabled()
 
     def click_create_link(self) -> None:

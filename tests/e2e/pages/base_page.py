@@ -5,13 +5,14 @@ from __future__ import annotations
 import re
 import time
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     ElementNotInteractableException,
+    NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
 )
@@ -22,6 +23,31 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 DEFAULT_TIMEOUT = 15
+
+#: The grace period the driver-level implicit wait used to grant *every*
+#: ``find_element`` call before #835 removed it. The singular finders that were
+#: relying on it now ask for it explicitly (``find_present``), so the removal
+#: changes no test's timing — while every *absence* check stopped paying it,
+#: which is where the cost actually sat: 41 ``is_present`` call sites blocked
+#: the full budget on every negative answer.
+#:
+#: Deliberately not ``DEFAULT_TIMEOUT``. These are lookups of something the
+#: caller believes is already rendered, not waits for a transition; raising the
+#: budget to 15 s would make every genuine failure five times slower to surface
+#: and buy nothing.
+IMPLICIT_WAIT_EQUIVALENT = 3
+
+#: States a *poll* must treat as "not yet", never as a verdict.
+#:
+#: Selenium's default is ``(NoSuchElementException,)`` alone, which makes a
+#: stale reference mid-poll fatal — even though it means precisely "the DOM moved
+#: under me, look again", which is what polling is for. The removed implicit wait
+#: had been hiding that narrow default: it delayed every lookup just enough that
+#: a re-rendering React table was usually settled by the time the reference was
+#: taken. Removing it surfaced 7 `StaleElementReferenceException` failures in the
+#: smoke suite (#835) — a latent defect the implicit wait had masked, not one the
+#: removal created.
+POLL_TRANSIENTS = (NoSuchElementException, StaleElementReferenceException)
 
 #: A Selenium locator: ``(By.<STRATEGY>, value)``.
 Locator = tuple[str, str]
@@ -141,29 +167,37 @@ class BasePage:
 
     # ── Waits ─────────────────────────────────────────────────────────────
 
+    def poll(self, timeout: int = DEFAULT_TIMEOUT) -> WebDriverWait:
+        """A ``WebDriverWait`` that treats every transient DOM state as "not yet".
+
+        The single place the polling contract is stated — see
+        :data:`POLL_TRANSIENTS` for why Selenium's own default is too narrow.
+        """
+        return WebDriverWait(self.driver, timeout, ignored_exceptions=POLL_TRANSIENTS)
+
     def wait_for_element(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is present in the DOM and return it."""
-        return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(locator))
+        return self.poll(timeout).until(EC.presence_of_element_located(locator))
 
     def wait_for_element_visible(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is visible and return it."""
-        return WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(locator))
+        return self.poll(timeout).until(EC.visibility_of_element_located(locator))
 
     def wait_for_element_clickable(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is clickable and return it."""
-        return WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable(locator))
+        return self.poll(timeout).until(EC.element_to_be_clickable(locator))
 
     def wait_for_element_hidden(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> None:
         """Wait until an element is no longer visible (e.g. MUI Dialog fade-out)."""
-        WebDriverWait(self.driver, timeout).until(EC.invisibility_of_element_located(locator))
+        self.poll(timeout).until(EC.invisibility_of_element_located(locator))
 
     #: The Suspense/query loading placeholder every page renders while its data
     #: (or, for a lazily-imported route, its chunk) is still in flight.
@@ -488,14 +522,74 @@ class BasePage:
         return state.locator
 
     def wait_for_url_contains(self, fragment: str, timeout: int = DEFAULT_TIMEOUT) -> None:
-        """Wait until the current URL contains *fragment*."""
-        WebDriverWait(self.driver, timeout).until(EC.url_contains(fragment))
+        """Wait until the current URL contains *fragment*.
+
+        Satisfied immediately when the URL *already* contains it, so this is only
+        a sound post-condition for a navigation that leaves a URL family the test
+        was not already inside. To await a transition *within* one family — one
+        detail page to another — use :meth:`wait_for_url_change`.
+        """
+        self.poll(timeout).until(EC.url_contains(fragment))
+
+    def wait_for_url_change(
+        self, previous: str, fragment: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str:
+        """Wait until the URL both differs from *previous* and contains *fragment*.
+
+        The post-condition :meth:`wait_for_url_contains` cannot express. Waiting
+        for a fragment that is already present is a check that cannot fail: it
+        returns at once and the caller reads the URL it was *leaving*. #835 found
+        that in `provision_plant`, which derived a plant key that way — the
+        implicit wait had been delaying the click just enough that the URL was
+        usually the new one by the time it was read, so the journeys asserted
+        against a plant from an earlier test.
+        """
+        self.poll(timeout).until(lambda d: d.current_url != previous and fragment in d.current_url)
+        return self.driver.current_url
 
     # ── Queries ───────────────────────────────────────────────────────────
 
+    def find_present(self, locator: Locator, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> WebElement:
+        """Find an element the caller expects to be rendered already.
+
+        The explicit counterpart to the driver-level implicit wait #835 removed:
+        same budget, but visible at the call site and no longer silently added to
+        every lookup *inside* a ``WebDriverWait``, where the two wait kinds
+        compounded into timeouts nobody could predict — the reason one
+        post-condition needed an 8 s budget where 3 s should have done.
+
+        Use :meth:`wait_for_element` instead when the element is genuinely
+        expected to *appear*. That is a page transition, not a lookup, and
+        deserves the full ``DEFAULT_TIMEOUT``.
+        """
+        return self.wait_for_element(locator, timeout)
+
+    def retry_on_stale[T](
+        self, action: Callable[[], T], timeout: int = IMPLICIT_WAIT_EQUIVALENT
+    ) -> T:
+        """Run *action*, re-running it from scratch if the DOM moved underneath.
+
+        For the capture-then-use shape that :meth:`poll` cannot cover: a row
+        reference is taken, then a cell is read or clicked *through* it. When
+        React re-renders the table in between, the reference is stale and the
+        whole capture has to be redone — ``ignored_exceptions`` retries the
+        condition inside one poll, but it cannot un-stale a reference the caller
+        is already holding.
+
+        *action* must therefore re-acquire what it touches; passing a closure
+        over an already-resolved element would retry the same dead reference.
+        """
+        deadline = time.time() + timeout
+        while True:
+            try:
+                return action()
+            except StaleElementReferenceException:
+                if time.time() >= deadline:
+                    raise
+
     def find_by_testid(self, testid: str) -> WebElement:
         """Shorthand for finding an element by its ``data-testid``."""
-        return self.driver.find_element(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        return self.find_present((By.CSS_SELECTOR, f"[data-testid='{testid}']"))
 
     def find_all_by_testid(self, testid: str) -> list[WebElement]:
         """Return all elements matching the given ``data-testid``."""
@@ -648,7 +742,20 @@ class BasePage:
 
     def get_body_text(self) -> str:
         """Return the full text content of the page body (for keyword assertions)."""
-        return self.driver.find_element(By.TAG_NAME, "body").text
+        return self.find_present((By.TAG_NAME, "body")).text
+
+    def page_shows_text(self, needle: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Whether *needle* appears in the page body within *timeout*.
+
+        Waits rather than sampling once: the caller usually asks right after a
+        navigation, and the answer "no" one render too early is indistinguishable
+        from "no" — which is how a missing wait becomes a confident wrong answer.
+        """
+        try:
+            self.poll(timeout).until(lambda _d: needle in self.get_body_text())
+        except TimeoutException:
+            return False
+        return True
 
     # ── Interactions ─────────────────────────────────────────────────────
 
@@ -1534,11 +1641,17 @@ class BasePage:
         return self._text_content(titles[0])
 
     def get_column_texts(self, col_id: str) -> list[str]:
-        """Return the identifying text of every visible DataTable row."""
-        return [
-            self.get_row_primary_text(row, col_id)
-            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
-        ]
+        """Return the identifying text of every visible DataTable row.
+
+        Re-read as a whole on a stale row: a partial list mixed from two renders
+        would be worse than a retry, because it reads as a legitimate result.
+        """
+        return self.retry_on_stale(
+            lambda: [
+                self.get_row_primary_text(row, col_id)
+                for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
+            ]
+        )
 
     def find_row_by_text(self, needle: str) -> WebElement | None:
         """Return the first DataTable row whose rendered text contains *needle*.
@@ -1546,11 +1659,19 @@ class BasePage:
         Layout-tolerant: matches against the row/card text rather than against
         a positional cell, so it behaves identically for the desktop table and
         the mobile card list.
+
+        Reading ``.text`` off a captured row is itself a capture-then-use, so the
+        scan is retried as a whole rather than returning ``None`` — "no such row"
+        and "the table re-rendered mid-scan" must not collapse into one answer.
         """
-        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            if needle in (row.text or ""):
-                return row
-        return None
+
+        def _scan() -> WebElement | None:
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+                if needle in (row.text or ""):
+                    return row
+            return None
+
+        return self.retry_on_stale(_scan)
 
     # ── Guarded row/card activation ───────────────────────────────────────
     # Two defects that kept re-entering the suite as per-page copies:
@@ -1686,9 +1807,64 @@ class BasePage:
         rows_locator: tuple[str, str] | None = None,
         what: str = "DataTable row",
     ) -> None:
-        """Activate the *index*-th `DataTable` row through its *col_id* cell."""
-        rows = self.driver.find_elements(*(rows_locator or self.DATA_TABLE_ROWS))
-        self.click_row_via_column(self.require_index(rows, index, what), col_id)
+        """Activate the *index*-th `DataTable` row through its *col_id* cell.
+
+        The lookup and the click are one retryable unit, because a re-rendering
+        table makes a row captured from the previous render stale before the click
+        resolves its cell.
+
+        **The retry re-selects by row identity, never by index again.** An index
+        only means anything relative to one render: re-taking ``rows[index]``
+        after a re-render is how an index-based click silently opens a *different*
+        record. #835 measured exactly that — retrying by index turned a loud
+        `StaleElementReferenceException` into four journey tests that opened the
+        globally-first plant and then asserted against the one they meant to
+        create. A wrong row that reads as success is worse than the exception it
+        replaced, so failing to re-find the same row raises instead of falling
+        back.
+
+        Identity is the *identifying cell*, not ``row.text``. The full row text
+        is not stable across renders — a row carries cells that fill in
+        asynchronously (a last-watering date, a next-task chip render as ``—``
+        first), so matching on it rejected rows that were still there and merely
+        further along. #835 hit that too, one fix later.
+
+        And the re-find *waits*. Mid-re-render the table briefly exposes no rows
+        at all, so a first non-match means "not yet", not "gone" — raising on it
+        immediately was the third thing #835 got wrong here.
+        """
+        locator = rows_locator or self.DATA_TABLE_ROWS
+        identity: str | None = None
+
+        def _row_identity(row: WebElement) -> str | None:
+            """This row's identifying text, or ``None`` while it is unreadable."""
+            try:
+                return self.get_row_primary_text(row, col_id)
+            except StaleElementReferenceException, AssertionError:
+                # A row mid-render exposes neither its cell nor its card title.
+                # Unreadable is not "different" — leave it to the next poll.
+                return None
+
+        def _click() -> None:
+            nonlocal identity
+            if identity is None:
+                # First attempt: nothing has been clicked yet, so the index is
+                # still the caller's own selection and safe to resolve.
+                row = self.require_index(self.driver.find_elements(*locator), index, what)
+                identity = self.get_row_primary_text(row, col_id)
+            else:
+                row = self.poll(IMPLICIT_WAIT_EQUIVALENT).until(
+                    lambda d: next(
+                        (r for r in d.find_elements(*locator) if _row_identity(r) == identity),
+                        False,
+                    ),
+                    f"{what} identified by {identity!r} went stale mid-click and did not "
+                    f"come back. Refusing to fall back to index {index}, which after a "
+                    f"re-render would activate a different record.",
+                )
+            self.click_row_via_column(row, col_id)
+
+        self.retry_on_stale(_click)
 
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.

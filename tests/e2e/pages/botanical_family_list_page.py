@@ -277,8 +277,8 @@ class BotanicalFamilyListPage(BasePage):
         self.scroll_and_click(switch)
 
     def is_switch_checked(self, field_testid: str) -> bool:
-        switch = self.driver.find_element(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] input[type='checkbox']"
+        switch = self.find_present(
+            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] input[type='checkbox']")
         )
         return switch.is_selected()
 

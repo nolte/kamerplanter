@@ -468,7 +468,7 @@ class OnboardingWizardPage(BasePage):
     def get_experience_card_font_weight(self, level: str) -> str:
         """Return the font-weight of the subtitle inside an experience card."""
         locator = (By.CSS_SELECTOR, f"[data-testid='experience-{level}'] .MuiTypography-subtitle1")
-        el = self.driver.find_element(*locator)
+        el = self.find_present(locator)
         return el.value_of_css_property("font-weight")
 
     def is_smart_home_toggle_visible(self) -> bool:
@@ -754,7 +754,7 @@ class OnboardingWizardPage(BasePage):
 
     def get_site_name_value(self) -> str:
         """Return the current value of the site name field."""
-        el = self.driver.find_element(*self.SITE_NAME_FIELD)
+        el = self.find_present(self.SITE_NAME_FIELD)
         return el.get_attribute("value") or ""
 
     def set_site_name(self, name: str) -> None:
@@ -766,8 +766,8 @@ class OnboardingWizardPage(BasePage):
 
     def get_site_type_value(self) -> str:
         """Return the current visible text of the site type selector."""
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='site-type-select'] .MuiSelect-select"
+        el = self.find_present(
+            (By.CSS_SELECTOR, "[data-testid='site-type-select'] .MuiSelect-select")
         )
         return el.text
 
@@ -805,7 +805,7 @@ class OnboardingWizardPage(BasePage):
 
     def get_tap_water_ec_value(self) -> str:
         """Return the current value of the EC field."""
-        el = self.driver.find_element(*self.TAP_WATER_EC)
+        el = self.find_present(self.TAP_WATER_EC)
         return el.get_attribute("value") or ""
 
     def set_tap_water_ph(self, value: str) -> None:
@@ -816,7 +816,7 @@ class OnboardingWizardPage(BasePage):
 
     def get_tap_water_ph_value(self) -> str:
         """Return the current value of the pH field."""
-        el = self.driver.find_element(*self.TAP_WATER_PH)
+        el = self.find_present(self.TAP_WATER_PH)
         return el.get_attribute("value") or ""
 
     def click_ro_toggle(self) -> None:
@@ -902,8 +902,8 @@ class OnboardingWizardPage(BasePage):
 
     def get_total_plant_count_text(self) -> str:
         """Return the total plant count text shown below the plant configs."""
-        el = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='onboarding-step-plant-selection'] .MuiTypography-h6"
+        el = self.find_present(
+            (By.CSS_SELECTOR, "[data-testid='onboarding-step-plant-selection'] .MuiTypography-h6")
         )
         return el.text
 
