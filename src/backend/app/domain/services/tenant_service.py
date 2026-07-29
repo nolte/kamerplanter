@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from app.common.enums import (
+    AdminScope,
     InvitationStatus,
     InvitationType,
     TenantRole,
@@ -108,7 +109,11 @@ class TenantService:
         membership = Membership(
             user_key=user_key,
             tenant_key=tenant.key,
-            role=TenantRole.ADMIN,
+            # REQ-049 §6: the founder gets the top domain role and both
+            # administrative scopes — a tenant whose creator could not invite
+            # anyone would be stranded from the first second.
+            role=TenantRole.LEAD,
+            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
@@ -145,7 +150,11 @@ class TenantService:
         membership = Membership(
             user_key=user_key,
             tenant_key=tenant.key,
-            role=TenantRole.ADMIN,
+            # REQ-049 §6: the founder gets the top domain role and both
+            # administrative scopes — a tenant whose creator could not invite
+            # anyone would be stranded from the first second.
+            role=TenantRole.LEAD,
+            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
@@ -297,6 +306,7 @@ class TenantService:
                         tenant_type=tenant.tenant_type,
                         description=tenant.description,
                         role=m.role,
+                        admin_scopes=m.admin_scopes,
                         is_active=tenant.is_active,
                     )
                 )
@@ -308,41 +318,75 @@ class TenantService:
         return self._membership_repo.list_by_tenant(tenant_key)
 
     def change_member_role(
-        self, tenant_key: str, membership_key: str, new_role: TenantRole, actor_role: TenantRole
+        self,
+        tenant_key: str,
+        membership_key: str,
+        new_role: TenantRole,
+        actor_scopes: list[AdminScope],
     ) -> Membership:
-        if not self._membership_engine.can_manage_members(actor_role):
-            raise ForbiddenError("Only admins can manage members")
+        """Change a member's domain role (REQ-049 axis 1).
 
-        if not self._membership_engine.can_assign_role(actor_role, new_role):
-            raise ForbiddenError("Cannot assign a role higher than your own")
+        Gated on the actor's ``MANAGEMENT`` scope, not on their own rank:
+        handing out a role is member management, and the secretary who does it
+        need not be a gardener.
+        """
+        if not self._membership_engine.can_manage_members(actor_scopes):
+            raise ForbiddenError("Requires the management administrative scope")
+
+        if not self._membership_engine.can_assign_role(actor_scopes, new_role):
+            raise ForbiddenError("Requires the management administrative scope")
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
             raise NotFoundError("memberships", membership_key)
-
-        # Protect last admin
-        if membership.role == TenantRole.ADMIN and new_role != TenantRole.ADMIN:
-            admin_count = self._membership_repo.count_admins(tenant_key)
-            if not self._membership_engine.validate_not_last_admin(admin_count, True):
-                raise ValidationError("Cannot demote the last admin")
 
         result = self._membership_repo.update(membership_key, {"role": new_role})
         if not result:
             raise NotFoundError("memberships", membership_key)
         return result
 
-    def remove_member(self, tenant_key: str, membership_key: str, actor_role: TenantRole) -> bool:
-        if not self._membership_engine.can_manage_members(actor_role):
-            raise ForbiddenError("Only admins can remove members")
+    def change_member_scopes(
+        self,
+        tenant_key: str,
+        membership_key: str,
+        new_scopes: list[AdminScope],
+        actor_scopes: list[AdminScope],
+    ) -> Membership:
+        """Change a member's administrative scopes (REQ-049 axis 2).
+
+        Enforces INV-1: the last membership carrying ``MANAGEMENT`` cannot drop
+        it. Losing it would strand the tenant — nobody left could invite anyone,
+        not even the people still in it.
+        """
+        if not self._membership_engine.can_manage_members(actor_scopes):
+            raise ForbiddenError("Requires the management administrative scope")
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
             raise NotFoundError("memberships", membership_key)
 
-        if membership.role == TenantRole.ADMIN:
-            admin_count = self._membership_repo.count_admins(tenant_key)
-            if not self._membership_engine.validate_not_last_admin(admin_count, True):
-                raise ValidationError("Cannot remove the last admin")
+        losing_management = membership.has_management and AdminScope.MANAGEMENT not in new_scopes
+        if losing_management:
+            self._guard_last_manager(
+                tenant_key,
+                "Cannot remove the management scope from the last member who has it",
+            )
+
+        result = self._membership_repo.update(membership_key, {"admin_scopes": list(new_scopes)})
+        if not result:
+            raise NotFoundError("memberships", membership_key)
+        return result
+
+    def remove_member(self, tenant_key: str, membership_key: str, actor_scopes: list[AdminScope]) -> bool:
+        if not self._membership_engine.can_manage_members(actor_scopes):
+            raise ForbiddenError("Requires the management administrative scope")
+
+        membership = self._membership_repo.get_by_key(membership_key)
+        if not membership or membership.tenant_key != tenant_key:
+            raise NotFoundError("memberships", membership_key)
+
+        if membership.has_management:
+            self._guard_last_manager(tenant_key, "Cannot remove the last member with the management scope")
 
         return self._membership_repo.delete(membership_key)
 
@@ -351,12 +395,19 @@ class TenantService:
         if not membership:
             raise NotFoundError("memberships", f"user={user_key}")
 
-        if membership.role == TenantRole.ADMIN:
-            admin_count = self._membership_repo.count_admins(tenant_key)
-            if not self._membership_engine.validate_not_last_admin(admin_count, True):
-                raise ValidationError("Cannot leave as the last admin. Transfer ownership first.")
+        if membership.has_management:
+            self._guard_last_manager(
+                tenant_key,
+                "Cannot leave as the last member with the management scope. Hand it over first.",
+            )
 
         return self._membership_repo.delete(membership.key)
+
+    def _guard_last_manager(self, tenant_key: str, message: str) -> None:
+        """Raise unless the tenant keeps at least one ``MANAGEMENT`` membership (INV-1)."""
+        manager_count = self._membership_repo.count_managers(tenant_key)
+        if not self._membership_engine.validate_not_last_manager(manager_count, True):
+            raise ValidationError(message)
 
     # --- Invitations ---
 

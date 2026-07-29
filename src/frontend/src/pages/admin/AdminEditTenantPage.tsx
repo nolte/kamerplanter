@@ -320,7 +320,7 @@ export default function AdminEditTenantPage() {
                 <FormControl size="small" sx={{ minWidth: 140 }}>
                   <InputLabel>{t('pages.auth.adminMemberRole')}</InputLabel>
                   <Select value={selectedRole} label={t('pages.auth.adminMemberRole')} onChange={(e) => setSelectedRole(e.target.value as TenantRole)}>
-                    <MenuItem value="admin">{t('enums.tenantRole.admin')}</MenuItem>
+                    <MenuItem value="lead">{t('enums.tenantRole.lead')}</MenuItem>
                     <MenuItem value="grower">{t('enums.tenantRole.grower')}</MenuItem>
                     <MenuItem value="viewer">{t('enums.tenantRole.viewer')}</MenuItem>
                   </Select>
@@ -367,7 +367,7 @@ export default function AdminEditTenantPage() {
                             sx={{ fontSize: '0.8125rem' }}
                             data-testid={`role-select-${m.user_key}`}
                           >
-                            <MenuItem value="admin">{t('enums.tenantRole.admin')}</MenuItem>
+                            <MenuItem value="lead">{t('enums.tenantRole.lead')}</MenuItem>
                             <MenuItem value="grower">{t('enums.tenantRole.grower')}</MenuItem>
                             <MenuItem value="viewer">{t('enums.tenantRole.viewer')}</MenuItem>
                           </Select>

@@ -1,6 +1,6 @@
 from arango.database import StandardDatabase
 
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
@@ -92,10 +92,18 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
     def list_by_user(self, user_key: str) -> list[Membership]:
         return self.find_by_field("user_key", user_key, sort="created_at")
 
-    def count_admins(self, tenant_key: str) -> int:
+    def count_managers(self, tenant_key: str) -> int:
+        """Active memberships in the tenant holding the ``management`` scope (INV-1).
+
+        Counts on axis 2, not on the domain rank: after REQ-049 a lead is not
+        automatically an administrator, and the guard has to protect the people
+        who can actually invite someone.
+        """
         query = """
         FOR doc IN @@collection
-          FILTER doc.tenant_key == @tenant_key AND doc.role == @admin_role AND doc.is_active == true
+          FILTER doc.tenant_key == @tenant_key
+            AND doc.is_active == true
+            AND @scope IN doc.admin_scopes
           COLLECT WITH COUNT INTO cnt
           RETURN cnt
         """
@@ -104,7 +112,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             bind_vars={
                 "@collection": col.MEMBERSHIPS,
                 "tenant_key": tenant_key,
-                "admin_role": TenantRole.ADMIN.value,
+                "scope": AdminScope.MANAGEMENT.value,
             },
         )
         return next(cursor, 0)

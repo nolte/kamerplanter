@@ -88,7 +88,7 @@ def get_tenant(
 @router.patch("/{tenant_slug}", response_model=TenantResponse)
 def update_tenant(
     body: TenantUpdateRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Update tenant. Admin only."""
@@ -99,7 +99,7 @@ def update_tenant(
 
 @router.delete("/{tenant_slug}", response_model=MessageResponse)
 def delete_tenant(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Delete tenant and all associated data. Admin only."""
@@ -127,11 +127,11 @@ def list_members(
 def change_member_role(
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: ChangeRoleRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Change a member's role. Admin only."""
-    service.change_member_role(ctx.tenant_key, membership_key, body.role, ctx.role)
+    service.change_member_role(ctx.tenant_key, membership_key, body.role, ctx.admin_scopes)
     return MessageResponse(message="Role updated")
 
 
@@ -141,11 +141,11 @@ def change_member_role(
 )
 def remove_member(
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Remove a member from tenant. Admin only."""
-    service.remove_member(ctx.tenant_key, membership_key, ctx.role)
+    service.remove_member(ctx.tenant_key, membership_key, ctx.admin_scopes)
     return MessageResponse(message="Member removed")
 
 
@@ -167,7 +167,7 @@ def leave_tenant(
     response_model=list[InvitationResponse],
 )
 def list_invitations(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """List all invitations for a tenant. Admin only."""
@@ -194,7 +194,7 @@ def list_invitations(
 )
 def create_email_invitation(
     body: EmailInvitationRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Create an email invitation. Admin only."""
@@ -218,7 +218,7 @@ def create_email_invitation(
 )
 def create_link_invitation(
     body: LinkInvitationRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Create a shareable invitation link. Admin only."""
@@ -240,7 +240,7 @@ def create_link_invitation(
 )
 def revoke_invitation(
     invitation_key: Annotated[str, Path(description="Document key of the invitation.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Revoke an invitation. Admin only."""
@@ -294,7 +294,7 @@ def list_assignments(
 )
 def create_assignment(
     body: AssignmentCreateRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Create a location assignment. Admin only."""
@@ -324,7 +324,7 @@ def create_assignment(
 def update_assignment(
     assignment_key: Annotated[str, Path(description="Document key of the location assignment.")],
     body: AssignmentUpdateRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Update a location assignment. Admin only."""
@@ -348,7 +348,7 @@ def update_assignment(
 )
 def delete_assignment(
     assignment_key: Annotated[str, Path(description="Document key of the location assignment.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Delete a location assignment. Admin only."""

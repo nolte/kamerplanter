@@ -290,7 +290,7 @@ class _FakeTenantService:
         return Membership(
             user_key=user_key,
             tenant_key=tenant_key,
-            role=_Role.ADMIN,
+            role=_Role.LEAD,
             is_active=True,
         )
 

@@ -21,7 +21,7 @@ const baseState = {
   error: null,
 };
 
-const tenantA = { key: 'ta', slug: 'garten-a', name: 'Garten A', role: 'admin' };
+const tenantA = { key: 'ta', slug: 'garten-a', name: 'Garten A', role: 'lead' };
 const tenantB = { key: 'tb', slug: 'garten-b', name: 'Garten B', role: 'grower' };
 
 function stubLocalStorage(initial: Record<string, string> = {}) {

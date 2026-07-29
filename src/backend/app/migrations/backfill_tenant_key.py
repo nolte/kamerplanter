@@ -70,12 +70,20 @@ SLOT_PROPAGATION = (col.SLOTS, "location_key", col.LOCATIONS)
 def _resolve_default_tenant(db: StandardDatabase) -> str | None:
     """Find the personal tenant to use as default for orphaned docs.
 
-    Strategy: find a non-platform tenant where the user is admin,
-    preferring newer tenants (likely the primary user's personal tenant).
+    Strategy: find a non-platform tenant where the user holds the top domain
+    role, preferring newer tenants (likely the primary user's personal tenant).
+
+    Both role values are matched on purpose. ``admin`` was retired in favour of
+    ``lead`` (REQ-049), but this query runs from migration ``v0004``, which is
+    ordered *before* the ``v0032`` rename — so on a legacy volume the stored
+    value is still ``admin`` at this point, while a freshly seeded database
+    already carries ``lead``. Matching only one of them would silently resolve
+    no tenant on half the deployments and leave every orphaned document
+    unassigned.
     """
     query = """
     FOR m IN memberships
-        FILTER m.role == "admin"
+        FILTER m.role IN ["admin", "lead"]
         LET t = DOCUMENT(CONCAT('tenants/', m.tenant_key))
         FILTER t != null AND t.slug != "platform"
         SORT t.created_at DESC

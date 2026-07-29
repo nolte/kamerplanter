@@ -119,44 +119,44 @@ _PLANT_DOMAIN: list[ResourceType] = [
     ResourceType.ATTACHMENT,
 ]
 for _resource in _PLANT_DOMAIN:
-    _grant(_resource, [Action.READ], [TenantRole.ADMIN, TenantRole.GROWER, TenantRole.VIEWER])
+    _grant(_resource, [Action.READ], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
     _grant(
         _resource,
         [Action.CREATE, Action.UPDATE, Action.DELETE],
-        [TenantRole.ADMIN, TenantRole.GROWER],
+        [TenantRole.LEAD, TenantRole.GROWER],
     )
 
 # Domain-specific verbs.
-_grant(ResourceType.HARVEST, [Action.CONFIRM], [TenantRole.ADMIN, TenantRole.GROWER])
-_grant(ResourceType.TASK, [Action.CONFIRM], [TenantRole.ADMIN, TenantRole.GROWER, TenantRole.VIEWER])
+_grant(ResourceType.HARVEST, [Action.CONFIRM], [TenantRole.LEAD, TenantRole.GROWER])
+_grant(ResourceType.TASK, [Action.CONFIRM], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
 _grant(
     ResourceType.CARE_PROFILE,
     [Action.CONFIRM],
-    [TenantRole.ADMIN, TenantRole.GROWER, TenantRole.VIEWER],
+    [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER],
 )
-_grant(ResourceType.CALENDAR_FEED, [Action.EXPORT], [TenantRole.ADMIN, TenantRole.GROWER, TenantRole.VIEWER])
+_grant(ResourceType.CALENDAR_FEED, [Action.EXPORT], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
 
 # Tenant management — admin only.
 _grant(
     ResourceType.TENANT,
     [Action.READ, Action.UPDATE],
-    [TenantRole.ADMIN, TenantRole.GROWER, TenantRole.VIEWER],
+    [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER],
 )
-_grant(ResourceType.TENANT, [Action.DELETE], [TenantRole.ADMIN])
+_grant(ResourceType.TENANT, [Action.DELETE], [TenantRole.LEAD])
 _grant(
     ResourceType.MEMBERSHIP,
     [Action.READ],
-    [TenantRole.ADMIN, TenantRole.GROWER, TenantRole.VIEWER],
+    [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER],
 )
 _grant(
     ResourceType.MEMBERSHIP,
     [Action.CREATE, Action.UPDATE, Action.DELETE, Action.INVITE],
-    [TenantRole.ADMIN],
+    [TenantRole.LEAD],
 )
 _grant(
     ResourceType.INVITATION,
     [Action.READ, Action.CREATE, Action.UPDATE, Action.DELETE],
-    [TenantRole.ADMIN],
+    [TenantRole.LEAD],
 )
 
 # Privacy requests are owned by the user, not the tenant — admins
@@ -240,7 +240,7 @@ def list_permissions(role: TenantRole) -> list[tuple[ResourceType, Action]]:
 _MCP_ROLE_PERMISSIONS: dict[TenantRole, frozenset[McpPermission]] = {
     TenantRole.VIEWER: frozenset({McpPermission.READ}),
     TenantRole.GROWER: frozenset({McpPermission.READ, McpPermission.WRITE}),
-    TenantRole.ADMIN: frozenset({McpPermission.READ, McpPermission.WRITE, McpPermission.SETUP}),
+    TenantRole.LEAD: frozenset({McpPermission.READ, McpPermission.WRITE, McpPermission.SETUP}),
 }
 
 

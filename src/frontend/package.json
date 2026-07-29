@@ -26,6 +26,7 @@
     "@mui/x-date-pickers": "^9.0.0",
     "@mui/x-tree-view": "^9.0.0",
     "@reduxjs/toolkit": "^2.11.2",
+    "@sentry/react": "^10.68.0",
     "axios": "^1.14.0",
     "dayjs": "^1.11.20",
     "i18next": "^26.0.1",

@@ -77,7 +77,7 @@ def _build_registry() -> ToolRegistry:
     return registry
 
 
-def _principal(role: TenantRole = TenantRole.ADMIN) -> McpPrincipal:
+def _principal(role: TenantRole = TenantRole.LEAD) -> McpPrincipal:
     return McpPrincipal(
         service_account_key="sa-1",
         display_name="bot",

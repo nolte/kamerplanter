@@ -29,7 +29,7 @@ class TestMcpPermissionMatrix:
         assert not has_mcp_permission(TenantRole.GROWER, McpPermission.SETUP)
 
     def test_admin_has_all_including_setup(self):
-        assert list_mcp_permissions(TenantRole.ADMIN) == [
+        assert list_mcp_permissions(TenantRole.LEAD) == [
             McpPermission.READ,
             McpPermission.SETUP,
             McpPermission.WRITE,
@@ -133,7 +133,7 @@ def test_authenticate_resolves_single_tenant_principal():
 def test_authenticate_rejects_non_service_account():
     user = _service_user()
     user.account_type = "user"
-    auth = _authenticator(_api_key(), user, [_TenantWithRole("home", "home", TenantRole.ADMIN)])
+    auth = _authenticator(_api_key(), user, [_TenantWithRole("home", "home", TenantRole.LEAD)])
     with pytest.raises(ForbiddenError):
         auth.authenticate(_RAW)
 
@@ -162,7 +162,7 @@ def test_authenticate_requires_tenant_scope_when_multi_tenant():
         _api_key(),
         _service_user(),
         [
-            _TenantWithRole("home", "home", TenantRole.ADMIN),
+            _TenantWithRole("home", "home", TenantRole.LEAD),
             _TenantWithRole("garden", "garden", TenantRole.VIEWER),
         ],
     )
@@ -175,7 +175,7 @@ def test_authenticate_uses_tenant_scope_to_disambiguate():
         _api_key(tenant_scope="garden"),
         _service_user(),
         [
-            _TenantWithRole("home", "home", TenantRole.ADMIN),
+            _TenantWithRole("home", "home", TenantRole.LEAD),
             _TenantWithRole("garden-key", "garden", TenantRole.VIEWER),
         ],
     )
@@ -188,7 +188,7 @@ def test_authenticate_uses_tenant_scope_to_disambiguate():
 def test_authenticate_masks_non_service_as_unauthorized():
     user = _service_user()
     user.account_type = "user"
-    auth = _authenticator(_api_key(), user, [_TenantWithRole("home", "home", TenantRole.ADMIN)])
+    auth = _authenticator(_api_key(), user, [_TenantWithRole("home", "home", TenantRole.LEAD)])
     # Default (MCP transport) still discloses the 403 "service accounts only".
     with pytest.raises(ForbiddenError):
         auth.authenticate(_RAW)

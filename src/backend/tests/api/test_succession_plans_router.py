@@ -79,7 +79,7 @@ def _ctx() -> TenantContext:
         tenant_key=TENANT_KEY,
         tenant_slug=TENANT_SLUG,
         user_key="user_lisa",
-        role=TenantRole.ADMIN,
+        role=TenantRole.LEAD,
     )
 
 

@@ -1858,6 +1858,10 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     memberships_col = db.collection(MEMBERSHIPS)
     memberships_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=True)
+    # REQ-049 INV-1: every write that removes or demotes a membership first counts
+    # the tenant's remaining ``management`` holders. Without this index that is a
+    # full collection scan on the hot path of member management.
+    memberships_col.add_persistent_index(fields=["tenant_key", "admin_scopes[*]"], unique=False)
 
     invitations_col = db.collection(INVITATIONS)
     invitations_col.add_persistent_index(fields=["token_hash"], unique=True)

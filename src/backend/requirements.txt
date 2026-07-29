@@ -363,6 +363,7 @@ certifi==2026.7.22 \
     #   httpcore
     #   httpx
     #   requests
+    #   sentry-sdk
 cffi==2.1.0 \
     --hash=sha256:02cb7ff33ded4f1532476731f89ede53e2e488a8e6205515a82144246ffa7dcc \
     --hash=sha256:03e9810d18c646077e501f661b682fbf5dee4676048527ca3cffe66faa9960dd \
@@ -660,7 +661,9 @@ email-validator==2.3.0 \
 fastapi==0.140.5 \
     --hash=sha256:82e7a988a801d8d71e712cb7d12ebb5c87c2e74bccb104f5741cce46a742f806 \
     --hash=sha256:db294174362b7f65911cb51855e20e8ff0b5eb588407c611fe77d498938f3ea8
-    # via kamerplanter-backend (pyproject.toml)
+    # via
+    #   kamerplanter-backend (pyproject.toml)
+    #   sentry-sdk
 fonttools==4.63.0 \
     --hash=sha256:032038247a96c1690f9f31e377c389383c902531b085aa4e4dabd6f57f870e69 \
     --hash=sha256:063e08bd17bd5a90127a14123de0d6a952dbc847695fd98b63c043d58057f90c \
@@ -1865,6 +1868,10 @@ s3transfer==0.19.2 \
     --hash=sha256:ba0309fd86be3c27dbf78cdd813c13c5e1df16e5874b99d2535ebbdfb9892993 \
     --hash=sha256:d8168eccca828cbb2cd573675333f3bddd254313a9c42494b84c76b539e8ba25
     # via boto3
+sentry-sdk==2.66.1 \
+    --hash=sha256:86002793161d9a95ef04bdd8d442e9bfece5d989b755f05d6360215094a7aff6 \
+    --hash=sha256:f882fb08710c5f8bfc603aafa3e901b384009a19cc3f76a572b863392ee81cdc
+    # via kamerplanter-backend (pyproject.toml)
 six==1.17.0 \
     --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274 \
     --hash=sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81
@@ -1930,6 +1937,7 @@ urllib3==2.7.0 \
     #   botocore
     #   python-arango
     #   requests
+    #   sentry-sdk
 uvicorn==0.51.0 \
     --hash=sha256:5d38af6cd620f2ae3849fb44fd4879e0890aa1febe8d47eb355fb45d93fe6a5b \
     --hash=sha256:f6f4b69b657c312f516dd2d268ab9ae6f254b11e4bac504f37b2ab58b24dd0b0

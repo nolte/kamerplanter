@@ -78,3 +78,39 @@ Detailbegründungen:
 - Issue #746, PR #759, PR #768 — Nightly-Stabilisierung, außerhalb dieses Scopes
 - Nagappan, N.; Ball, T. (2005): „Use of Relative Code Churn Measures to Predict System Defect Density", ICSE 2005
 - Machalica, M. et al. (2019): „Predictive Test Selection", ICSE-SEIP 2019
+
+---
+
+## Nachtrag 2026-07-28 — Merge-Train-Latenz gemessen und bewusst akzeptiert (#792)
+
+Die oben unter „Konsequenzen" akzeptierte Latenz wurde nachgemessen, weil die
+Schätzung aus #773 aus der PR-Historie abgeleitet war. Fenster
+2026-07-27 15:00 – 2026-07-28 17:00, in dem 14 PRs nach `develop` gemergt wurden:
+
+**60 `e2e-smoke`-Läufe.** Allein ein Renovate-Container-Digest-Bump
+(`renovate/ollama-ollama-latest`) verursachte **10** davon — 7 abgeschlossen,
+3 durch die nächste Aktualisierung abgebrochen, zusammen rund 110 Minuten
+Runner-Zeit für eine Änderung, die sich zwischen den Läufen nie unterschied.
+Jeder Neulauf war `strict: true`, das auf den Merge eines *anderen* PRs reagierte.
+
+Der eigentliche Kostentreiber ist damit `strict: true`, nicht das Gate selbst.
+
+**Bewertete Optionen (#792):**
+
+- **Merge Queue** — behält die Garantie und beseitigt die serielle Last, weil sie
+  das projizierte Merge-Ergebnis prüft. Blockiert an einer repo-übergreifenden
+  Voraussetzung: `nolte/gh-plumbing`s `reusable-automerge.yaml` (gepinnt auf
+  `bab4f9d29`) trägt keinen `merge_group`-Trigger und mergt selbst über
+  `pascalgn/automerge-action` — eine Queue mergt ebenfalls selbst, beides
+  schließt sich aus. Der Portfolio-Commons bräuchte zuerst einen Queue-Modus.
+- **`strict: true` abschalten** — beseitigt die Kosten sofort und lokal, gibt aber
+  genau die Zusage auf, für die es existiert: dass ein allein grüner PR auch im
+  Merge grün bleibt.
+- **Kosten akzeptieren** — gewählt.
+
+**Begründung:** Es handelt sich um unbeaufsichtigte Maschinenzeit, nicht um
+Betreuerzeit. Erneut zu bewerten, sobald das PR-Aufkommen so steigt, dass das
+Driftfenster — wie lange `develop` und die offenen PRs auseinanderlaufen — echte
+Konflikte erzeugt statt nur Neuläufe. Die Zahl steht zusätzlich als Kommentar
+neben `strict: true` in `.github/settings.yml`, wo sie beim nächsten Eingriff in
+den Branch-Schutz gelesen wird.

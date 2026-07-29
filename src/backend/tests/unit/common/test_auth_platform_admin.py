@@ -45,7 +45,7 @@ def test_require_platform_admin_full_mode_rejects_non_admin(monkeypatch):
 def test_require_platform_admin_full_mode_allows_platform_admin(monkeypatch):
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
     tenant_service = MagicMock()
-    tenant_service.get_membership.return_value = _membership(TenantRole.ADMIN)
+    tenant_service.get_membership.return_value = _membership(TenantRole.LEAD)
 
     result = auth_mod.require_platform_admin(user=_user(), tenant_service=tenant_service)
 
@@ -69,7 +69,7 @@ def test_is_platform_admin_true_in_light_mode(monkeypatch):
 def test_is_platform_admin_full_mode_follows_membership(monkeypatch):
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
     tenant_service = MagicMock()
-    tenant_service.get_membership.return_value = _membership(TenantRole.ADMIN)
+    tenant_service.get_membership.return_value = _membership(TenantRole.LEAD)
     assert users_mod._is_platform_admin(tenant_service, "u1") is True
 
     tenant_service.get_membership.return_value = _membership(TenantRole.VIEWER)
