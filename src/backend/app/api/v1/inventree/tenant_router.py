@@ -27,9 +27,9 @@ from app.api.v1.inventree.schemas import (
     ReferenceLinkRequest,
     StockTransactionResponse,
 )
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.auth import get_current_tenant, require_admin_scope, require_tenant_role
 from app.common.dependencies import get_inventree_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.inventree import InvenTreeConnection
@@ -52,7 +52,7 @@ def _connection_response(connection: InvenTreeConnection) -> InvenTreeConnection
 
 @router.get("/connections", response_model=list[InvenTreeConnectionResponse])
 def list_connections(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """List the tenant's InvenTree connections."""
@@ -62,7 +62,7 @@ def list_connections(
 @router.post("/connections", response_model=InvenTreeConnectionResponse, status_code=201)
 def create_connection(
     body: InvenTreeConnectionCreate,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Create an InvenTree connection for the tenant."""
@@ -82,7 +82,7 @@ def create_connection(
 @router.get("/connections/{connection_key}", response_model=InvenTreeConnectionResponse)
 def get_connection(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Return a single InvenTree connection by key."""
@@ -93,7 +93,7 @@ def get_connection(
 def update_connection(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
     body: InvenTreeConnectionUpdate,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Update an InvenTree connection."""
@@ -104,7 +104,7 @@ def update_connection(
 @router.delete("/connections/{connection_key}", status_code=204)
 def delete_connection(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Delete an InvenTree connection."""
@@ -114,7 +114,7 @@ def delete_connection(
 @router.post("/connections/{connection_key}/health-check", response_model=HealthCheckResponse)
 async def health_check(
     connection_key: Annotated[str, Path(description="Document key of the InvenTree connection.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Probe an InvenTree connection's live health."""
@@ -157,7 +157,7 @@ def list_references(
 @router.delete("/references/{reference_key}", status_code=204)
 def unlink_entity(
     reference_key: Annotated[str, Path(description="Document key of the InvenTree reference.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Remove an InvenTree entity reference."""
@@ -167,7 +167,7 @@ def unlink_entity(
 @router.post("/references/{reference_key}/sync")
 async def sync_reference(
     reference_key: Annotated[str, Path(description="Document key of the InvenTree reference.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Sync a single InvenTree reference's stock level."""
@@ -204,7 +204,7 @@ async def browse_categories(
 
 @router.post("/sync/trigger")
 async def trigger_sync(
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Trigger a full stock sync and push pending stock transactions."""

@@ -19,7 +19,7 @@ from app.api.v1.equipment.tenant_router import router as equipment_router
 from app.api.v1.inventree.tenant_router import router as inventree_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_inventree_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.config.settings import settings
 from app.domain.engines.encryption_engine import EncryptionEngine
@@ -222,8 +222,24 @@ class FakeRepo:
         return [e for e in self.equipment.values() if e.tenant_key == tenant_key and e.location_key == location_key]
 
 
-def _ctx(role: TenantRole = TenantRole.LEAD, tenant_key: str = TENANT_KEY) -> TenantContext:
-    return TenantContext(tenant_key=tenant_key, tenant_slug=TENANT_SLUG, user_key="user_1", role=role)
+def _ctx(
+    role: TenantRole = TenantRole.LEAD,
+    tenant_key: str = TENANT_KEY,
+    admin_scopes: list[AdminScope] | None = None,
+) -> TenantContext:
+    """Build a caller. Defaults to lead + technical, the InvenTree operator.
+
+    REQ-049 moved connection management to the ``technical`` scope, so the
+    domain role alone no longer opens these endpoints — which is why the scopes
+    are an explicit parameter rather than derived from the role.
+    """
+    return TenantContext(
+        tenant_key=tenant_key,
+        tenant_slug=TENANT_SLUG,
+        user_key="user_1",
+        role=role,
+        admin_scopes=[AdminScope.TECHNICAL] if admin_scopes is None else admin_scopes,
+    )
 
 
 def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
@@ -231,7 +247,9 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
 
 
 def _build(
-    role: TenantRole = TenantRole.LEAD, tenant_key: str = TENANT_KEY
+    role: TenantRole = TenantRole.LEAD,
+    tenant_key: str = TENANT_KEY,
+    admin_scopes: list[AdminScope] | None = None,
 ) -> tuple[TestClient, FakeRepo, InvenTreeService]:
     repo = FakeRepo()
     service = InvenTreeService(repo, EncryptionEngine(""), adapter_factory=lambda conn: FakeAdapter())  # type: ignore[arg-type]
@@ -240,7 +258,7 @@ def _build(
     app.include_router(inventree_router, prefix="/api/v1/t/{tenant_slug}")
     app.include_router(equipment_router, prefix="/api/v1/t/{tenant_slug}")
     app.add_exception_handler(KamerplanterError, _error_handler)
-    app.dependency_overrides[get_current_tenant] = lambda: _ctx(role, tenant_key)
+    app.dependency_overrides[get_current_tenant] = lambda: _ctx(role, tenant_key, admin_scopes)
     app.dependency_overrides[get_inventree_service] = lambda: service
     return TestClient(app), repo, service
 
@@ -322,10 +340,26 @@ class TestConnections:
         assert client.delete(_inv(f"/connections/{key}")).status_code == 204
         assert key not in repo.connections
 
-    def test_viewer_cannot_create_connection(self):
-        client, _, _ = _build(role=TenantRole.VIEWER)
+    def test_a_lead_without_the_technical_scope_is_rejected(self):
+        # REQ-049 AK-05: the connection is technical configuration, so the top
+        # domain rank grants nothing here. Before the split this endpoint was
+        # open to every admin, which is how a club had to hand its member list
+        # to whoever wired up InvenTree.
+        client, _, _ = _build(role=TenantRole.LEAD, admin_scopes=[])
         resp = client.post(_inv("/connections"), json=_CONN_BODY)
         assert resp.status_code == 403
+
+    def test_the_management_scope_does_not_substitute(self):
+        client, _, _ = _build(role=TenantRole.LEAD, admin_scopes=[AdminScope.MANAGEMENT])
+        resp = client.post(_inv("/connections"), json=_CONN_BODY)
+        assert resp.status_code == 403
+
+    def test_a_viewer_holding_the_technical_scope_may_configure_it(self):
+        # The other half of AK-05: the technician documents nothing in the
+        # garden and still wires the integration.
+        client, _, _ = _build(role=TenantRole.VIEWER, admin_scopes=[AdminScope.TECHNICAL])
+        resp = client.post(_inv("/connections"), json=_CONN_BODY)
+        assert resp.status_code == 201
 
     def test_cross_tenant_connection_returns_404(self):
         client, repo, _ = _build()
