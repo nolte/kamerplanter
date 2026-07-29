@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.5 (Permission-Matrix-Zeile für Pflanzenfotos, REQ-034)
+Version: 1.6 (Zwei-Achsen-Rollenmodell nach REQ-049)
 Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.6 | 2026-07-29 | **Zwei-Achsen-Rollenmodell (REQ-049, Issue #780):** Die Permission-Matrix (§1a) folgt jetzt dem verbindlichen Vokabular aus REQ-049. Der Wert `admin` ist stillgelegt — er stand in dieser Matrix überwiegend für „darf löschen" (jetzt fachliche Rolle **Leitung**) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt Zusatzberechtigung **Verwaltung**). §1a.2 hängt vollständig an der Verwaltung statt an einem Rang; technische Konfiguration innerhalb des Mandanten hängt an der Zusatzberechtigung **Technik**. §1a.4 hält fest, dass die Plattform-Rolle über `lead` im Mandanten `platform` abgebildet wird. Die „letzter Admin"-Regel wird zu INV-1 („letzte Verwaltung") und greift auch beim Herabstufen, nicht nur beim Entfernen. Migration `v0032` bildet jeden Bestandswert verlustfrei ab. |
 | 1.5 | 2026-06-19 | **Pflanzenfoto-Galerie (REQ-034 Security-Review SR-002):** Permission-Matrix (§1a.1) um die Ressourcen-Zeile **Plant Instance Photos** (`category=plant`) erweitert. Upload/Cover/Löschen laufen über die generischen `CREATE_/UPDATE_/DELETE_RESOURCE`-Permissions mit Zuweisungs-Write-Kontrolle (§1a.5); Viewer nur lesend; DINOv2-Referenz-Freigabe bleibt Platform-Admin (REQ-029-A §4.5). Klärt die in NFR-013 §5.1 abstrakt notierte `attachment:create`-Anforderung gegen den realen `Permission`-Enum-Vertrag. |
 | 1.4 | 2026-03-17 | **RBAC Permission-Matrix, Platform-Rollen & Tenant-Notfallverwaltung:** (1) Granulare Permission-Matrix (§1a) mit ressourcentyp-spezifischen CRUD-Rechten pro Rolle (admin/grower/viewer). Spezialaktionen (Phasen-Transition, Task-Zuweisung, Pinnwand-Pinnen). Zuweisungsbasierte Write-Kontrolle formalisiert. (2) Platform-Rollen erweitert: `admin` (KA-Admin) + `viewer` (Read-Only Admin-Panel). (3) Tenant-Notfallverwaltung: `orphaned_since` + `suspended_reason` auf Tenant-Modell. Platform-Admin-Permissions für Emergency-Admin, Tenant-/User-Suspendierung. (4) `Permission` Enum + `require_permission()` Dependency. Service Account Integration (REQ-023 v1.7). |
 | 1.3 | 2026-03-16 | **Platform-Tenant & Stammdaten-Scoping:** Neues `is_platform: bool`-Feld auf Tenant. Platform-Tenant als Träger der KA-Admin-Berechtigung. Edge Collection `tenant_has_access` (Species→Tenant) für Sichtbarkeitssteuerung globaler Stammdaten. Auto-Assign-Logik für Tier 1+2 (alle globalen Species automatisch zugewiesen). Kuratierte Zuweisung für Tier 3 (Enterprise). Seed-Daten für Platform-Tenant. Neue User Stories, AQL-Queries, Abnahmekriterien. |
@@ -100,59 +101,66 @@ Innerhalb eines organisatorischen Tenants können Standorte (Sites, Locations, S
 
 Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressourcentyp ausführen darf. Sie gilt identisch für menschliche User (`account_type: 'human'`) und Service Accounts (`account_type: 'service'`, REQ-023 v1.7).
 
+**Vokabular:** Die Spaltenüberschriften folgen dem Zwei-Achsen-Modell aus [REQ-049](REQ-049_Rollenmodell-und-Vokabular.md). Achse 1 sind die fachlichen Rollen `Beobachter` / `Gärtner` / `Leitung`, Achse 2 die administrativen Zusatzberechtigungen `Verwaltung` und `Technik`. Der frühere Wert `Admin` ist stillgelegt: Er stand in dieser Matrix überwiegend für „darf löschen" (jetzt `Leitung`) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt `Verwaltung`). Die Migration `v0032` bildet jeden Bestandswert verlustfrei auf `Leitung` plus beide Zusatzberechtigungen ab.
+
 #### 1a.1 Tenant-scoped Rollen — Ressourcen-Permissions
 
 **Legende:**
 - **C** = Create, **R** = Read, **U** = Update, **D** = Delete
 - **own** = nur eigene/zugewiesene Ressourcen, **all** = alle Ressourcen im Tenant
 - **community** = Gemeinschaftsressourcen (ohne LocationAssignment)
-- ✅ = erlaubt, ❌ = verboten, 🔒 = nur Admin
+- ✅ = erlaubt, ❌ = verboten, 🔒 = nur Leitung
 
-| Ressource (Collection) | Admin | Grower | Viewer | Spezialaktionen |
+| Ressource (Collection) | Leitung | Gärtner | Beobachter | Spezialaktionen |
 |------------------------|-------|--------|--------|-----------------|
 | **Sites** | CRUD all | CR all, U own+community, ❌D | R all | — |
 | **Locations** | CRUD all | CR all, U own+community, ❌D | R all | Standort-Hierarchie: Location-Erstellung erbt Tenant-Zugehörigkeit der Parent-Site |
 | **Slots** | CRUD all | CR (in own/community Location), U own+community, ❌D | R all | — |
-| **Plant Instances** | CRUD all | CR all, U own+community, ❌D | R all | **Phasen-Transition:** admin, grower (own+community) |
-| **Planting Runs** | CRUD all | CR all, U own, ❌D | R all | **State-Transition:** admin, grower (own). **Batch-Ops:** admin, grower (own) |
-| **Tasks** | CRUD all | CR all, U assigned+own, ❌D | R all | **Zuweisen (`assigned_to`):** 🔒 admin. **Status ändern:** admin, grower (wenn assigned) |
-| **Harvest Batches** | CRUD all | CR all, U own, ❌D | R all | **Quality Assessment:** admin, grower (own) |
-| **Tanks** | CRUD all | CR all, U all, ❌D | R all | **Tank-State erstellen:** admin, grower |
+| **Plant Instances** | CRUD all | CR all, U own+community, ❌D | R all | **Phasen-Transition:** Leitung, Gärtner (own+community) |
+| **Planting Runs** | CRUD all | CR all, U own, ❌D | R all | **State-Transition:** Leitung, Gärtner (own). **Batch-Ops:** Leitung, Gärtner (own) |
+| **Tasks** | CRUD all | CR all, U assigned+own, ❌D | R all | **Zuweisen (`assigned_to`):** 🔒 Leitung. **Status ändern:** Leitung, Gärtner (wenn assigned) |
+| **Harvest Batches** | CRUD all | CR all, U own, ❌D | R all | **Quality Assessment:** Leitung, Gärtner (own) |
+| **Tanks** | CRUD all | CR all, U all, ❌D | R all | **Tank-State erstellen:** Leitung, Gärtner |
 | **Fertilizers** (tenant-eigen) | CRUD all | CR all, R all, ❌U ❌D | R all | Globale Fertilizers: nur lesen (alle Rollen) |
 | **Nutrient Plans** (tenant-eigen) | CRUD all | CR all, U own, ❌D | R all | Globale Pläne: nur lesen |
 | **Feeding Events** | CRUD all | CR all, U own, ❌D | R all | — |
-| **Watering Events** | CRUD all | CR all, U own, ❌D | R all | **Quick-Confirm:** admin, grower |
+| **Watering Events** | CRUD all | CR all, U own, ❌D | R all | **Quick-Confirm:** Leitung, Gärtner |
 | **Watering Logs** | CRUD all | CR all, U own, ❌D | R all | — |
 | **IPM Inspections** | CRUD all | CR all, U own, ❌D | R all | — |
 | **Treatment Applications** | CRUD all | CR all, U own, ❌D | R all | **Karenz-Gate:** automatisch (kein Rollen-Override) |
-| **Care Profiles** | CRUD all | R all, U own (confirm/snooze), ❌CD | R all | **Care Confirmation:** admin, grower (own) |
-| **Workflow Templates** | CRUD all | R all, ❌CUD | R all | Custom-Templates: nur Admin |
+| **Care Profiles** | CRUD all | R all, U own (confirm/snooze), ❌CD | R all | **Care Confirmation:** Leitung, Gärtner (own) |
+| **Workflow Templates** | CRUD all | R all, ❌CUD | R all | Custom-Templates: nur Leitung |
 | **Substrate Types** | CRUD all | R all, ❌CUD | R all | — |
-| **Import Jobs** | CRUD all | CR all, R own, ❌UD | R all | **Confirm Import:** admin, grower (own) |
+| **Import Jobs** | CRUD all | CR all, R own, ❌UD | R all | **Confirm Import:** Leitung, Gärtner (own) |
 | **Plant Instance Photos** (Attachment, `category=plant`, REQ-034) | CRUD all | CR all, U own+community (Cover setzen), D own+community | R all | **Upload/Cover/Löschen:** generische Ressourcen-Permissions (`CREATE_/UPDATE_/DELETE_RESOURCE`) mit Zuweisungs-Write-Kontrolle (§1a.5). Viewer: nur Galerie ansehen. **DINOv2-Referenz-Freigabe (`is_active=true`):** 🔒 Platform-Admin (REQ-029-A §4.5) |
 
 #### 1a.2 Tenant-Verwaltungs-Permissions
 
-| Aktion | Admin | Grower | Viewer |
-|--------|-------|--------|--------|
-| **Tenant-Einstellungen ändern** | ✅ | ❌ | ❌ |
-| **Mitglieder auflisten** | ✅ | ✅ (Name + Rolle sichtbar) | ✅ (Name + Rolle sichtbar) |
-| **Mitglied einladen** | ✅ | ❌ | ❌ |
-| **Mitglied-Rolle ändern** | ✅ | ❌ | ❌ |
-| **Mitglied entfernen** | ✅ (nicht letzter Admin) | ❌ | ❌ |
-| **Einladungslinks erstellen** | ✅ | ❌ | ❌ |
-| **Einladungslinks revoken** | ✅ | ❌ | ❌ |
-| **LocationAssignment erstellen** | ✅ | ❌ | ❌ |
-| **LocationAssignment ändern** | ✅ | ❌ | ❌ |
-| **LocationAssignment entfernen** | ✅ | ❌ | ❌ |
-| **Service Accounts verwalten** | ✅ (REQ-023 v1.7) | ❌ | ❌ |
-| **Tenant löschen** | ✅ (Soft-Delete) | ❌ | ❌ |
-| **Eigene Membership verlassen** | ✅ (nicht letzter Admin) | ✅ | ✅ |
+Diese Aktionen hängen ausschließlich an der Zusatzberechtigung **Verwaltung** (REQ-049 §2.4) — die fachliche Rolle spielt keine Rolle. Eine Schriftführerin mit der Rolle Beobachter verwaltet die Mitgliederliste; eine Leitung ohne Verwaltung nicht.
+
+| Aktion | Verwaltung | ohne Verwaltung |
+|--------|------------|-----------------|
+| **Tenant-Einstellungen ändern** | ✅ | ❌ |
+| **Mitglieder auflisten** | ✅ | ✅ (Name + Rolle sichtbar, alle Rollen) |
+| **Mitglied einladen** | ✅ | ❌ |
+| **Mitglied-Rolle ändern** | ✅ | ❌ |
+| **Mitglied-Zusatzberechtigungen ändern** | ✅ (INV-1: nicht die letzte Verwaltung) | ❌ |
+| **Mitglied entfernen** | ✅ (INV-1: nicht die letzte Verwaltung) | ❌ |
+| **Einladungslinks erstellen** | ✅ | ❌ |
+| **Einladungslinks revoken** | ✅ | ❌ |
+| **LocationAssignment erstellen** | ✅ | ❌ |
+| **LocationAssignment ändern** | ✅ | ❌ |
+| **LocationAssignment entfernen** | ✅ | ❌ |
+| **Service Accounts verwalten** | ✅ (REQ-023 v1.7) | ❌ |
+| **Tenant löschen** | ✅ (Soft-Delete) | ❌ |
+| **Eigene Membership verlassen** | ✅ (INV-1: nicht die letzte Verwaltung) | ✅ |
+
+Technische Konfiguration innerhalb des Mandanten — Home-Assistant- und InvenTree-Anbindung, MQTT, Sensor- und Aktor-Einrichtung, Import, Anreicherungs- und Wetterquellen — hängt an der Zusatzberechtigung **Technik** und ist in REQ-049 §2.4 abschließend aufgeführt. Sie steht bewusst getrennt von der Verwaltung: Wer die Sensorik betreut, braucht deshalb keinen Zugriff auf die Mitgliederliste.
 
 #### 1a.3 Kollaborations-Permissions (Gemeinschaftsgarten)
 
-| Aktion | Admin | Grower | Viewer |
-|--------|-------|--------|--------|
+| Aktion | Leitung | Gärtner | Beobachter |
+|--------|---------|---------|------------|
 | **Duty-Rotation erstellen** | ✅ | ❌ | ❌ |
 | **Duty-Rotation bearbeiten** | ✅ | ❌ | ❌ |
 | **Duty-Rotation anzeigen** | ✅ | ✅ | ✅ |
@@ -163,7 +171,7 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 | **Pinnwand-Post kommentieren** | ✅ | ✅ | ❌ |
 | **Pinnwand-Post lesen** | ✅ | ✅ | ✅ |
 | **Pinnwand-Post pinnen** | ✅ | ❌ | ❌ |
-| **Pinnwand-Post löschen** | ✅ (alle), Grower (eigene) | ✅ (eigene) | ❌ |
+| **Pinnwand-Post löschen** | ✅ (alle) | ✅ (eigene) | ❌ |
 | **Shopping-List erstellen** | ✅ | ❌ | ❌ |
 | **Shopping-List Items hinzufügen** | ✅ | ✅ | ❌ |
 | **Shopping-List anzeigen** | ✅ | ✅ | ✅ |
@@ -171,11 +179,11 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 
 #### 1a.4 Platform-Rollen — Differenziertes Admin-Panel
 
-Das Platform-Tenant-Modell (§1.3) wird um die `viewer`-Rolle erweitert:
+Das Platform-Tenant-Modell (§1.3) wird um die `viewer`-Rolle erweitert. Die Plattform-Rolle wird über die höchste fachliche Rolle im technischen Mandanten `platform` abgebildet (REQ-049 §2.5); der frühere Schlüssel `admin` heißt dort seit `v0032` `lead`.
 
 | Platform-Rolle | Schlüssel | Rechte |
 |---------------|-----------|--------|
-| **Platform-Admin** | `admin` im Platform-Tenant | Voller KA-Admin-Zugriff: Globale Stammdaten CRUD, `tenant_has_access`-Verwaltung, Tenant-Übersicht, OIDC-Provider-Konfiguration, Platform Service Accounts, Species-Promotion, User-Übersicht |
+| **Platform-Admin** | `lead` im Platform-Tenant | Voller KA-Admin-Zugriff: Globale Stammdaten CRUD, `tenant_has_access`-Verwaltung, Tenant-Übersicht, OIDC-Provider-Konfiguration, Platform Service Accounts, Species-Promotion, User-Übersicht |
 | **Platform-Viewer** | `viewer` im Platform-Tenant | Read-Only Admin-Panel: Globale Stammdaten lesen, Tenant-Übersicht (read-only), OIDC-Provider-Liste, User-Statistiken. Kein Schreibzugriff auf globale Daten. Typischer Use-Case: Monitoring-Dashboards, Audit. |
 
 **Platform-Permission-Matrix:**
@@ -604,7 +612,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
     - `body: str` (Nachrichtentext, Markdown erlaubt)
     - `category: Literal['info', 'alert', 'event', 'offer', 'request', 'general']`
       (info = Hinweis, alert = Warnung/Dringend, event = Termin, offer = "Wer will Zucchini?", request = "Brauche Mulch")
-    - `pinned: bool` (Angepinnt = bleibt oben, nur Admin)
+    - `pinned: bool` (Angepinnt = bleibt oben, nur Leitung)
     - `author_key: str` (user_key)
     - `photo_refs: list[str]` (Fotos, z.B. Schneckenbefall)
     - `expires_at: Optional[datetime]` (Automatisches Ausblenden nach Datum)
@@ -1037,7 +1045,7 @@ async def get_current_tenant(
 
 def require_tenant_role(min_role: str):
     """Factory-Dependency: Prüft ob User mindestens die angegebene Rolle im Tenant hat.
-    require_tenant_role('admin') → nur Admins
+    require_admin_scope('management') → nur Mitglieder mit Verwaltung
     require_tenant_role('grower') → Admins und Gärtner
     require_tenant_role('viewer') → alle Mitglieder"""
 ```
@@ -1076,26 +1084,26 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 | GET | `/tenants` | Eigene Tenants auflisten | Ja |
 | POST | `/tenants` | Neuen Org-Tenant erstellen | Ja |
 | GET | `/tenants/{slug}` | Tenant-Details abrufen | Mitglied |
-| PATCH | `/tenants/{slug}` | Tenant aktualisieren | Admin |
-| DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete) | Admin |
+| PATCH | `/tenants/{slug}` | Tenant aktualisieren | Verwaltung |
+| DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete) | Verwaltung |
 
 **Router: `/api/v1/tenants/{slug}/members`** — Mitgliederverwaltung:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | GET | `/tenants/{slug}/members` | Mitglieder auflisten | Mitglied |
-| PATCH | `/tenants/{slug}/members/{user_key}` | Rolle ändern | Admin |
-| DELETE | `/tenants/{slug}/members/{user_key}` | Mitglied entfernen | Admin |
+| PATCH | `/tenants/{slug}/members/{user_key}` | Rolle ändern | Verwaltung |
+| DELETE | `/tenants/{slug}/members/{user_key}` | Mitglied entfernen | Verwaltung |
 | POST | `/tenants/{slug}/leave` | Tenant verlassen | Mitglied |
 
 **Router: `/api/v1/tenants/{slug}/invitations`** — Einladungen:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| GET | `/tenants/{slug}/invitations` | Einladungen auflisten | Admin |
-| POST | `/tenants/{slug}/invitations/email` | E-Mail-Einladung senden | Admin |
-| POST | `/tenants/{slug}/invitations/link` | Einladungslink generieren | Admin |
-| DELETE | `/tenants/{slug}/invitations/{key}` | Einladung widerrufen | Admin |
+| GET | `/tenants/{slug}/invitations` | Einladungen auflisten | Verwaltung |
+| POST | `/tenants/{slug}/invitations/email` | E-Mail-Einladung senden | Verwaltung |
+| POST | `/tenants/{slug}/invitations/link` | Einladungslink generieren | Verwaltung |
+| DELETE | `/tenants/{slug}/invitations/{key}` | Einladung widerrufen | Verwaltung |
 | POST | `/invitations/accept` | Einladung annehmen (Token im Body) | Ja |
 
 **Router: `/api/v1/t/{tenant_slug}/assignments`** — Standort-Zuweisungen:
@@ -1103,9 +1111,9 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | GET | `/t/{slug}/assignments` | Zuweisungen auflisten (Filter: location, user) | Mitglied |
-| POST | `/t/{slug}/assignments` | Zuweisung erstellen | Admin |
-| PATCH | `/t/{slug}/assignments/{key}` | Zuweisung aktualisieren | Admin |
-| DELETE | `/t/{slug}/assignments/{key}` | Zuweisung entfernen | Admin |
+| POST | `/t/{slug}/assignments` | Zuweisung erstellen | Verwaltung |
+| PATCH | `/t/{slug}/assignments/{key}` | Zuweisung aktualisieren | Verwaltung |
+| DELETE | `/t/{slug}/assignments/{key}` | Zuweisung entfernen | Verwaltung |
 
 **Gesamtanzahl neue API-Endpunkte:** ~18
 
