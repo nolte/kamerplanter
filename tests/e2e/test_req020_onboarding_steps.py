@@ -58,28 +58,6 @@ def wizard(browser: WebDriver, base_url: str) -> OnboardingWizardPage:
 # one: see the marker below. Its sibling — the unverified site-type select —
 # xpassed on all seven profiles of run 30489499188 and its marker is gone.
 
-#: `FavoriteSpeciesStep` mounts ~210 tiles into a two-column grid at ``xs``; a
-#: tile clicked while that grid is still settling moves out from under the
-#: click, which lands on a neighbour. The page object now settles the grid first
-#: and verifies the toggle actually flipped.
-xfail_favorites_tile_toggle_noop = pytest.mark.xfail(
-    reason=(
-        "Toggling a favorite tile is a no-op on the mobile profile when the "
-        "species grid is still settling: the click lands on a neighbouring "
-        "tile, so aria-pressed never flips. Evidence: the xfailing runs keep "
-        "'after-first-toggle' but never 'after-second-toggle', i.e. the first "
-        "state assertion is what fails. click_favorite_tile() now waits for the "
-        "grid and verifies the flip, and that healed the wide profiles — but "
-        "NOT the narrow ones. Measured on run 30489499188 (all seven profiles "
-        "green, 2026-07-29): xpasses on light/full/full-mobile, still xfails on "
-        "mobile/tablet/full-tablet. So this is a real product defect at narrow "
-        "widths, not a harness race waiting for confirmation, and the marker "
-        "stays until the product is fixed — tracked as #873. Do NOT remove "
-        "it on the strength of the wide profiles passing."
-    ),
-    strict=False,
-)
-
 
 # -- Completed / Skipped Card -------------------------------------------------
 
@@ -208,7 +186,6 @@ class TestKitMetadata:
 class TestFavoriteToggle:
     """Toggle individual species as favorites (Spec: TC-020-021)."""
 
-    @xfail_favorites_tile_toggle_noop
     @pytest.mark.core_crud
     def test_toggle_favorite_species(
         self,
