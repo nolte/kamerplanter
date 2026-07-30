@@ -293,4 +293,43 @@ serialisieren, sonst git-stash-Konflikt).
 
 ## Dispatch log
 
-<!-- Wird während Operation 5 fortgeschrieben; eine Zeile je Paket, sobald sein Spezialist meldet. -->
+### P1 — `nolte-engineering:fullstack-developer` — **erledigt** (`771cfab42`)
+
+Geliefert: `tests/e2e/pages/_element_proxy.py` (455 Zeilen, `ReResolvingElement`,
+`ElementReResolutionError`, `resolve_element()`), Selenium-Pin `>=4.25.0,<5`.
+`ruff check` und `ruff format --check` vom Orchestrator nachgefahren: grün.
+
+**Korrektur am Plan (angenommen):** Das Akzeptanzkriterium sagte „`_execute` **oder**
+Frischhaltung von `_id`". Beides allein genügt nicht — es sind **drei** Hooks nötig:
+`_id` bleibt gewöhnliches Attribut und wird bei Heilung in place überschrieben (einzige
+Wahrheitsquelle für `_execute`/`id`/`__eq__`/`__hash__`/`__repr__`); `_execute` fängt den
+Stale und wiederholt; **und** die öffentliche `id`-Property prüft vor der Antwort auf
+Lebendigkeit, weil `_wrap_value` (`webdriver.py:411`) genau sie liest und dabei nie
+`_execute` aufruft. Ohne den dritten Hook würde `execute_script("arguments[0]…", element)`
+eine tote ID an den Treiber marshallen, wo kein Proxy mehr heilen kann.
+
+**Korrektur an der Mengenangabe:** Der Auftrag nannte 3 `execute_script`-Stellen mit
+gefangenem Element; es sind ~20 `execute_script`-Aufrufe in den Page-Objects, die meisten
+mit Element. Der Marshalling-Pfad ist breiter als angenommen — das rechtfertigt den
+Liveness-Probe-Hook, kostet aber **einen Roundtrip je marshalliertem Element**.
+
+**Vom Orchestrator gefundene Konsequenz — an P8 und P9 weiterzureichen:**
+`ElementReResolutionError` erbt bewusst von `StaleElementReferenceException`, damit
+`retry_on_stale` und `POLL_TRANSIENTS` weiter greifen. `POLL_TRANSIENTS`
+(`base_page.py:50`) enthält aber genau `StaleElementReferenceException` — **erschöpft der
+Proxy sein Budget innerhalb eines `poll()`, schluckt der äußere Poll die Diagnose und
+ersetzt sie nach `DEFAULT_TIMEOUT` (15 s) durch einen generischen `TimeoutException`.**
+Das Kriterium „scheitert laut" gilt damit am Modulrand, nicht im Einsatz. Verteidigbar
+(der äußere Poll löst ohnehin über den Locator neu auf), aber eine bewusste Entscheidung:
+P9 bewertet sie, P8 prüft, ob dadurch eine echte Zusicherung maskiert wird.
+
+**Vom Agenten benanntes Restrisiko für P3/P8:**
+`BasePage.is_displayed_in_scroll_container` (`base_page.py:881-887`) behandelt Staleness
+ausdrücklich als *Verdikt* („a stale element is genuinely gone, hence `False`"); bekommt
+es einen Proxy, antwortet der geheilte Ersatz statt `False`. Dasselbe gilt für
+`_read_select_value`. Das ist die konkreteste Stelle, an der die Re-Auflösung eine echte
+Zusicherung verschieben könnte.
+
+**Nicht widerlegt:** die naive `__getattr__`-Route bleibt nachweislich unbaubar; kein
+Rückfall auf Pfad B nötig. `staleness_of` kommt in der Suite **nicht** vor (0 Treffer) —
+die naheliegendste Maskierungsgefahr existiert hier also nicht.
