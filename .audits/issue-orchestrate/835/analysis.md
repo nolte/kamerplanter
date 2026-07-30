@@ -249,6 +249,39 @@ removed"), während die Zeile steht. Wird in P6 mitgezogen.
 - **Specialist**: `nolte-engineering:test-result-analyzer`
 - **Depends on**: P7, P8, P9
 
+### P3 — `nolte-engineering:fullstack-developer` — **erledigt** (`6efc5ffd6`)
+
+Die drei elementliefernden Helper gehen über `resolve_element(...)`, jeder mit eigener
+Condition; `wait_for_element_hidden` unverändert; `find_present` (49) und `find_by_testid`
+erben über die Aufrufkette, jetzt durch den verengten Rückgabetyp erzwungen statt behauptet.
+
+**Messung (Orchestrator, lokal, Docker):** `--profile light` bei **noch gesetztem**
+`implicitly_wait(3)` → **579 passed, 140 skipped, 0 failed** (35:58 min). Das ist die
+Isolationsmessung: sie belegt, dass die Verdrahtung nichts bricht — **nicht**, dass sie hilft.
+Das misst erst P5.
+
+**Widerlegt die Risikozuschreibung aus dem P1-Log (zu Recht):**
+`is_displayed_in_scroll_container` und `_read_select_value` sind von einem Proxy **heute gar
+nicht erreichbar** — beide beziehen ihre Elemente ausschließlich aus `driver.find_elements`
+(`expertise_level_page.py:195`, `base_page.py:2145`, `:1345`). Systematisch: **alle sechs**
+Verdikt-Stellen der Suite lesen aus `driver.find_elements`. P3 kippt heute **kein** Verdikt.
+Die Gefahr entsteht erst mit **P4**, das genau diesen Pfad wrappt.
+
+Trotzdem abgesichert: die zwei Verdikte in `base_page.py` per `raw_reference()` (baut ein
+nacktes `WebElement` aus `_id`, bewusst **nicht** über die `id`-Property, die den
+Liveness-Probe auslösen würde); die vier in Page-Objects namentlich verzeichnet mit dem
+Vermerk, dass P4 die Klassifikation neu fahren muss. Der gefährlichste Shape ist
+`task_detail_page.py:284` `_submit_registered` — dort ist das Verdikt **`True`** („Submit lief").
+
+**Die tatsächlich proxy-erreichbare Staleness-Lesestelle ist eine andere als angenommen:**
+`_aria_expanded` (`base_page.py:1209`), erreicht über `open_select_in:1272`. Kein Verdikt,
+sondern Zwei-Signal-Fallback — `'<stale>'` war nie eine Antwort, der geheilte Trigger liefert
+die echte. Bewusst kein Opt-out, im Code begründet.
+
+**Ab jetzt real statt theoretisch:** der Zusatz-Roundtrip je marshalliertem Element
+(`scroll_into_view` und damit jedes `scroll_and_click`), und `POLL_TRANSIENTS` verschluckt
+tatsächlich `ElementReResolutionError` innerhalb von Polls. → P8, P9.
+
 ## Dependency ordering
 
 ```
@@ -350,3 +383,69 @@ Zusicherung verschieben könnte.
 **Nicht widerlegt:** die naive `__getattr__`-Route bleibt nachweislich unbaubar; kein
 Rückfall auf Pfad B nötig. `staleness_of` kommt in der Suite **nicht** vor (0 Treffer) —
 die naheliegendste Maskierungsgefahr existiert hier also nicht.
+
+### P2 — `nolte-engineering:fullstack-developer` — **erledigt** (`f94c19c63`)
+
+Geliefert: `tests/e2e_selftest/test_element_proxy.py`, 16 Tests gegen einen echten
+`WebDriver` über einen Stub-Command-Executor. Vom Orchestrator nachgefahren: **58 passed**
+(42 bestehende + 16 neue). `_element_proxy.py` byte-identisch unverändert.
+
+**Zwei Korrekturen am Auftrag (beide angenommen):**
+1. **Ort.** Der Auftrag sagte `tests/e2e/`; dort erzwingt die `conftest.py` Browser-Fixtures
+   beim Sammeln (`:661` session-scoped Seed, `:1149` `ensure_authenticated`, `:1250`
+   `screenshot`, beide autouse) — 16 Chrome-Sessions für browserfreie Tests. Das Projekt hat
+   dafür bereits `tests/e2e_selftest/`, und `tests/e2e/README.md:118` benennt den Tier genau
+   so. Konsequenz: das P2-Kriterium „grün unter `--profile light`" gilt nicht mehr; der Tier
+   läuft über `task test:e2e:selftest`.
+2. **Eine Prämisse des Auftrags war faktisch falsch.** „`raw == proxy` geht durch Seleniums
+   eigenes `__eq__`" trifft nicht zu: der Proxy ist echte Subklasse und überschreibt `__eq__`,
+   also greift Pythons Reflected-Operand-Regel und der Proxy antwortet selbst. Das ist das
+   *sicherere* Verhalten. Der in P1s Docstring beschriebene Nebeneffekt tritt nur beim
+   Vergleich **zweier** Proxys auf — dafür gibt es jetzt einen eigenen Test.
+
+**Qualität der Verifikation:** jede Zusicherung wurde gegen **sieben absichtlich kaputte
+Proxys** gehalten (kein Liveness-Probe, Re-Auflösung mit `presence` statt Capture-Condition,
+kein Attempt-Cap, Deadline je Versuch neu, Staleness verschluckt, gar keine Heilung, `__eq__`
+fällt auf Selenium zurück) — **7/7 gefangen**. Der Mutationstest fand dabei zwei Schwächen der
+ersten Fassung, die behoben wurden.
+
+**Bekannter Befund verschärft:** bei Budget-Erschöpfung innerhalb eines `poll()` ist die
+Diagnose nicht nur generisch, sondern **leer** — `WebDriverWait.until` baut in 4.46
+`TimeoutException(message="")`. Locator, Kommando und getroffene Schranke sind restlos weg.
+Als Test festgeschrieben, nicht repariert. → P9.
+
+**Nicht-blockierender P1-Befund für P9:** der Timeout-Zweig meldet immer „*The element is gone,
+not merely re-rendered*" — auch wenn das Element da ist und nur die Condition nicht erfüllt
+(`clickable`-Capture, Ersatz `disabled`). In dem Fall ist der Satz falsch.
+
+### P2b — `nolte-engineering:fullstack-developer` — **erledigt** (`c334be27f`)
+
+Nachträglich aufgenommenes Paket. Geliefert: pre-commit-Hook `e2e-selftest`, erweiterte
+ruff-Filter, aktualisierte `Taskfile.yaml`- und README-Texte.
+
+**In CI verifiziert, nicht angenommen:** Push auf den Branch → Lauf
+[30570228277](https://github.com/nolte/kamerplanter/actions/runs/30570228277),
+`static / Static CI Tests` **success**. Damit ist der riskanteste Teil (`language_version:
+python3.14`) real belegt. `gh api …/branches/develop/protection` bestätigt
+`["static / Static CI Tests", "lint-test-build (22)"]` als required.
+
+**Drei Funde:**
+1. **Der Tier ist nur auf Python ≥ 3.14 importierbar.** Die Page-Objects nutzen PEP 758
+   (unklammertes Multi-Type-`except`); pre-commit baut die Env sonst mit dem eigenen
+   Interpreter (lokal 3.12) und der Hook stirbt mit einem `SyntaxError`, der wie ein kaputter
+   Test aussieht statt wie ein falscher Interpreter. Daher `language_version: python3.14` —
+   der einzige solche Pin in der Config. **Restrisiko:** springt `setup-python: '3.x'` auf
+   3.15, scheitert der Env-Bau — laut, im required Gate, mit einer Ein-Zeilen-Korrektur.
+2. **Der `cd`+Prefix-Strip der ruff-Hooks überlebt ein zweites Verzeichnis nicht** —
+   `tests/e2e_selftest/x.py` behält sein Präfix und ruff bricht mit `E902` auf einem nicht
+   existierenden Pfad ab. Entfernt: ruff löst die Config pro Eingabedatei hierarchisch auf,
+   der `cd` war verzichtbare Fragilität. Äquivalenz belegt (per-file-ignores und
+   Zeilenlängen-Limit greifen vom Root aus identisch).
+3. **Gate kann nachweislich rot werden:** Entfernen des Liveness-Probes → Hook rot auf dem
+   Marshalling-Test; byte-identisches Wiederherstellen → grün.
+
+**Widerlegt:** „der Hook läuft nur bei einschlägigen Änderungen" gilt **nur lokal**.
+`pre-commit/action@v3.0.1` fährt `--all-files`, der `files:`-Filter matcht dort also immer.
+Die Kosten fallen bei **jedem Push** an — das gilt genauso für die bestehenden Hooks.
+**Gemessen:** `static`-Job 33 s (develop) → 72 s (Branch, erster Lauf inkl. Env-Bau),
+eingeschwungen ~50 s. Gehört in die PR-Risikonotizen.
