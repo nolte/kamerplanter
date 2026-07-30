@@ -66,7 +66,6 @@ class CompanionPlantingPage(BasePage):
 
     def select_species(self, species_name: str) -> None:
         """Select a species from the Autocomplete dropdown."""
-        from selenium.webdriver.support.ui import WebDriverWait
 
         self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.SPECIES_SELECT)
@@ -80,7 +79,7 @@ class CompanionPlantingPage(BasePage):
         # get_species_options().
         option = self._find_option(species_name)
         self.click_menu_option(option)
-        WebDriverWait(self.driver, 5).until(
+        self.poll(5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
         )
         time.sleep(1)  # Wait for companion data to load

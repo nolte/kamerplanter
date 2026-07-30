@@ -139,9 +139,8 @@ class SensorCreateDialogPage(BasePage):
         Used to verify a newly created sensor appears in the parent page's
         table after a save + refresh, without a raw lookup in the test body.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         def _row_present(driver: WebDriver) -> bool:
             return self.find_row_by_name(text) is not None
 
-        return WebDriverWait(self.driver, timeout).until(_row_present)
+        return self.poll(timeout).until(_row_present)

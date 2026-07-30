@@ -188,9 +188,8 @@ class SubstrateListPage(BasePage):
 
     def wait_for_row_absent(self, text: str, timeout: int = 15) -> None:
         """Wait until no row contains *text* (e.g. after a delete)."""
-        from selenium.webdriver.support.ui import WebDriverWait
 
-        WebDriverWait(self.driver, timeout).until(
+        self.poll(timeout).until(
             lambda d: text not in " ".join(cell for row in self.get_row_texts() for cell in row)
         )
 

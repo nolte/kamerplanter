@@ -60,7 +60,6 @@ class SiteListPageExt(BasePage):
 
     def open(self, via_sidebar: bool = False, retries: int = 2) -> SiteListPageExt:
         from selenium.common.exceptions import StaleElementReferenceException
-        from selenium.webdriver.support.ui import WebDriverWait
         import time
 
         for attempt in range(retries + 1):
@@ -72,7 +71,7 @@ class SiteListPageExt(BasePage):
                 self.wait_for_element(self.PAGE)
                 self.wait_for_loading_complete()
                 # Wait for content to render (DataTable rows, site cards, or empty state)
-                WebDriverWait(self.driver, 10).until(
+                self.poll(10).until(
                     lambda d: (
                         d.find_elements(*self.TABLE_ROWS)
                         or d.find_elements(*self.SITE_CARDS)

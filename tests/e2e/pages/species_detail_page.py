@@ -12,7 +12,6 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage
 
@@ -340,7 +339,7 @@ class SpeciesDetailPage(BasePage):
 
     def _poll_present(self, locator: tuple[str, str], timeout: int) -> bool:
         try:
-            WebDriverWait(self.driver, timeout).until(lambda d: len(d.find_elements(*locator)) > 0)
+            self.poll(timeout).until(lambda d: len(d.find_elements(*locator)) > 0)
         except TimeoutException:
             return False
         return True

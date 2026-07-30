@@ -8,7 +8,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
 
@@ -493,9 +492,7 @@ class TaskQueuePage(BasePage):
 
     def wait_for_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for a notistack snackbar and return its text."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR))
         return el.text
 
     def has_snackbar(self) -> bool:

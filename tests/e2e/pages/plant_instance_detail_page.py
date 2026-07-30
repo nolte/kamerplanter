@@ -90,10 +90,9 @@ class PlantInstanceDetailPage(BasePage):
         Waits for either the detail page or an error display to appear,
         so that tests for non-existent keys do not timeout.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         self.navigate(f"{self.PATH_PREFIX}/{key}")
-        WebDriverWait(self.driver, 15).until(
+        self.poll(15).until(
             lambda d: d.find_elements(*self.PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self

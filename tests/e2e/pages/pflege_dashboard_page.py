@@ -10,7 +10,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import DEFAULT_TIMEOUT, BasePage
 
@@ -414,7 +413,7 @@ class PflegeDashboardPage(BasePage):
 
         Returns the card's resulting urgency group (``None`` if it is gone).
         """
-        WebDriverWait(self.driver, timeout).until(
+        self.poll(timeout).until(
             lambda _d: (
                 self.get_care_card_urgency_group(plant_key, reminder_type)
                 not in self.DUE_URGENCY_SECTIONS
@@ -452,7 +451,7 @@ class PflegeDashboardPage(BasePage):
 
     def wait_for_confirm_dialog(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the MUI dialog with confirm fields is visible."""
-        WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(self.MUI_DIALOG))
+        self.poll(timeout).until(EC.visibility_of_element_located(self.MUI_DIALOG))
 
     def is_confirm_dialog_open(self) -> bool:
         """Return True if a MUI dialog is currently open."""
@@ -478,9 +477,7 @@ class PflegeDashboardPage(BasePage):
 
     def wait_for_profile_dialog(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the CareProfileEditDialog is visible."""
-        WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.PROFILE_DIALOG)
-        )
+        self.poll(timeout).until(EC.visibility_of_element_located(self.PROFILE_DIALOG))
 
     def is_profile_dialog_open(self) -> bool:
         """Return True if the care profile edit dialog is visible."""
@@ -762,9 +759,7 @@ class PflegeDashboardPage(BasePage):
 
     def wait_for_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for a snackbar to appear and return its text."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR))
         return el.text
 
     def has_snackbar(self) -> bool:
@@ -787,6 +782,4 @@ class PflegeDashboardPage(BasePage):
 
     def wait_for_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until all MUI dialogs are closed."""
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(self.MUI_DIALOG)
-        )
+        self.poll(timeout).until(EC.invisibility_of_element_located(self.MUI_DIALOG))

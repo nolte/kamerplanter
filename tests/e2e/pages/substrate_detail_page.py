@@ -103,10 +103,9 @@ class SubstrateDetailPage(BasePage):
 
         Returns the field's value once the condition is met.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
-        WebDriverWait(self.driver, timeout).until(
+        self.poll(timeout).until(
             lambda d: (d.find_element(*locator).get_attribute("value") or "") == expected_value
         )
         return self.get_field_value(field_name)
@@ -252,10 +251,9 @@ class SubstrateDetailPage(BasePage):
 
     def wait_for_error_or_page(self, timeout: int = 15) -> None:
         """Wait until either the error display or the detail page root appears."""
-        from selenium.webdriver.support.ui import WebDriverWait
 
         error_locator = (By.CSS_SELECTOR, "[data-testid='error-display']")
-        WebDriverWait(self.driver, timeout).until(
+        self.poll(timeout).until(
             lambda d: (
                 len(d.find_elements(*error_locator)) > 0 or len(d.find_elements(*self.PAGE)) > 0
             )

@@ -140,7 +140,6 @@ class InvitationAcceptPage(BasePage):
 
         Returns 'success' or 'error'.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         def _check_result(driver):
             success = driver.find_elements(*self.SUCCESS_ICON)
@@ -151,7 +150,7 @@ class InvitationAcceptPage(BasePage):
                 return "error"
             return False
 
-        return WebDriverWait(self.driver, timeout).until(_check_result)
+        return self.poll(timeout).until(_check_result)
 
     # -- Interactions ------------------------------------------------------
 

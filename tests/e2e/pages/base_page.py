@@ -253,9 +253,7 @@ class BasePage:
         once a settled branch is already present, which is what makes the
         absence it observes falsifiable.
         """
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(self.LOADING_SKELETON)
-        )
+        self.poll(timeout).until(EC.invisibility_of_element_located(self.LOADING_SKELETON))
 
     # ── Branch-aware settling ─────────────────────────────────────────────
     # The strong replacement for `wait_for_loading_complete`. Three properties
@@ -369,7 +367,7 @@ class BasePage:
             return True
 
         try:
-            WebDriverWait(self.driver, timeout).until(_settled)
+            self.poll(timeout).until(_settled)
         except TimeoutException as exc:
             probed = ", ".join(f"{name}={value!r}" for name, (_by, value) in branches.items())
             raise AssertionError(
@@ -397,9 +395,7 @@ class BasePage:
         swallowed.
         """
         try:
-            WebDriverWait(self.driver, timeout).until(
-                EC.invisibility_of_element_located(self.LOADING_SKELETON)
-            )
+            self.poll(timeout).until(EC.invisibility_of_element_located(self.LOADING_SKELETON))
         except TimeoutException as exc:
             raise AssertionError(
                 f"{what}: a loading skeleton is still visible after {timeout}s. "
@@ -765,9 +761,7 @@ class BasePage:
     def _wait_options_gone(self, timeout: float) -> bool:
         """Wait (bounded) until no ``li[role='option']`` is left; return the outcome."""
         try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: len(d.find_elements(*self.OPTIONS)) == 0
-            )
+            self.poll(timeout).until(lambda d: len(d.find_elements(*self.OPTIONS)) == 0)
             return True
         except TimeoutException:
             return False
@@ -1080,16 +1074,14 @@ class BasePage:
         only mis-attributes later failures.
         """
         try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: len(d.find_elements(*self.OPTIONS)) > 0
-            )
+            self.poll(timeout).until(lambda d: len(d.find_elements(*self.OPTIONS)) > 0)
         except TimeoutException:
             return
 
     def _wait_until_select_open(self, trigger: WebElement, timeout: int = 5) -> bool:
         """Wait (bounded) until *trigger*'s dropdown is open; return the outcome."""
         try:
-            WebDriverWait(self.driver, timeout).until(lambda _d: self.is_select_open(trigger))
+            self.poll(timeout).until(lambda _d: self.is_select_open(trigger))
             return True
         except TimeoutException:
             return False
@@ -1934,9 +1926,7 @@ class BasePage:
             return
         toggle = self.wait_for_element_clickable(self.SIDEBAR_TOGGLE, timeout=timeout)
         self.scroll_and_click(toggle)
-        WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SIDEBAR_PAPER)
-        )
+        self.poll(timeout).until(EC.visibility_of_element_located(self.SIDEBAR_PAPER))
 
     def navigate_via_sidebar(
         self, path: str, timeout: int = DEFAULT_TIMEOUT, *, strict: bool = False
@@ -1983,7 +1973,7 @@ class BasePage:
         )
         if item is not None:
             self.scroll_and_click(item)
-            WebDriverWait(self.driver, timeout).until(EC.url_contains(path))
+            self.poll(timeout).until(EC.url_contains(path))
             return True
         message = (
             f"Sidebar item 'nav-{path}' is not clickable (not rendered, or hidden "

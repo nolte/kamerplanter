@@ -11,7 +11,6 @@ import tempfile
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
 
@@ -213,7 +212,7 @@ class ImportPage(BasePage):
         blank label.
         """
         self.open_select_by_testid(testid)
-        options = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
+        options = self.poll(DEFAULT_TIMEOUT).until(
             EC.presence_of_all_elements_located(self.OPTIONS)
         )
         texts = [self._text_content(o) for o in options]
@@ -267,7 +266,7 @@ class ImportPage(BasePage):
         """Click upload and wait until the preview step container appears."""
         btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
         self.scroll_and_click(btn)
-        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.STEP_PREVIEW))
+        self.poll(timeout).until(EC.presence_of_element_located(self.STEP_PREVIEW))
         # Preview renders its table after the step container mounts
         try:
             self.wait_for_element(self.PREVIEW_TABLE, timeout=5)
@@ -279,7 +278,7 @@ class ImportPage(BasePage):
         btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
         self.scroll_and_click(btn)
         # Wait for either in-page error alert or a snackbar error
-        WebDriverWait(self.driver, timeout).until(
+        self.poll(timeout).until(
             lambda d: (
                 len(d.find_elements(*self.ERROR_ALERT)) > 0
                 or len(d.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")) > 0
@@ -296,7 +295,7 @@ class ImportPage(BasePage):
         """
         btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
         self.scroll_and_click(btn)
-        WebDriverWait(self.driver, timeout).until(
+        self.poll(timeout).until(
             lambda d: (
                 len(d.find_elements(*self.ERROR_ALERT)) > 0
                 or len(d.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")) > 0
@@ -423,9 +422,7 @@ class ImportPage(BasePage):
         """Click the back button to return to step 1."""
         btn = self.wait_for_element_clickable(self.BACK_BUTTON)
         self.scroll_and_click(btn)
-        WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.presence_of_element_located(self.STEP_UPLOAD)
-        )
+        self.poll(DEFAULT_TIMEOUT).until(EC.presence_of_element_located(self.STEP_UPLOAD))
 
     def is_confirm_button_enabled(self) -> bool:
         """Return True if the confirm import button is enabled."""
@@ -441,7 +438,7 @@ class ImportPage(BasePage):
         """Click confirm and wait for the result step to appear."""
         btn = self.wait_for_element_clickable(self.CONFIRM_BUTTON)
         self.scroll_and_click(btn)
-        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.STEP_RESULT))
+        self.poll(timeout).until(EC.presence_of_element_located(self.STEP_RESULT))
         # Result renders its summary chips after the step container mounts
         try:
             self.wait_for_element(self.RESULT_CHIPS, timeout=5)
@@ -477,9 +474,7 @@ class ImportPage(BasePage):
         """Click 'New Import' button and wait for upload step."""
         btn = self.wait_for_element_clickable(self.NEW_IMPORT_BUTTON)
         self.scroll_and_click(btn)
-        WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.presence_of_element_located(self.STEP_UPLOAD)
-        )
+        self.poll(DEFAULT_TIMEOUT).until(EC.presence_of_element_located(self.STEP_UPLOAD))
 
     # ── CSV test data helpers ───────────────────────────────────────────
 

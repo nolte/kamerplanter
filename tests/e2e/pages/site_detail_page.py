@@ -57,12 +57,9 @@ class SiteDetailPage(BasePage):
     # ── Private helpers ────────────────────────────────────────────────
 
     def _wait_for_skeleton_gone(self, timeout: int = 15) -> None:
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
 
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(self.LOADING_SKELETON)
-        )
+        self.poll(timeout).until(EC.invisibility_of_element_located(self.LOADING_SKELETON))
 
     # ── Page state ─────────────────────────────────────────────────────
 
@@ -143,7 +140,6 @@ class SiteDetailPage(BasePage):
         The section shows its own LoadingSkeleton while fetching tree data.
         Wait until either tree items appear OR the empty-state is rendered.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         def _tree_or_empty(driver: WebDriver) -> bool:
             items = driver.find_elements(*self.LOCATION_TREE_ITEMS)
@@ -153,7 +149,7 @@ class SiteDetailPage(BasePage):
             skeleton_visible = any(s.is_displayed() for s in skeletons)
             return bool(items) or bool(empty) or not skeleton_visible
 
-        WebDriverWait(self.driver, timeout).until(_tree_or_empty)
+        self.poll(timeout).until(_tree_or_empty)
 
     def get_location_row_count(self) -> int:
         """Count location tree items (TreeItem with role='treeitem')."""

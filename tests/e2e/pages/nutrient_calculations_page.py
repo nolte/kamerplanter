@@ -125,7 +125,6 @@ class NutrientCalculationsPage(BasePage):
         ``fertilizer_keys`` ``min_length=1`` requirement.
         """
         from selenium.webdriver.common.keys import Keys
-        from selenium.webdriver.support.ui import WebDriverWait
 
         inputs = card.find_elements(
             By.CSS_SELECTOR, "input:not([type='number']):not(.MuiSelect-nativeInput)"
@@ -139,18 +138,14 @@ class NutrientCalculationsPage(BasePage):
 
         option_locator = (By.CSS_SELECTOR, "li[role='option']")
         try:
-            WebDriverWait(self.driver, 10).until(
-                lambda d: len(d.find_elements(*option_locator)) > 0
-            )
+            self.poll(10).until(lambda d: len(d.find_elements(*option_locator)) > 0)
         except Exception:
             # The typed key didn't match any rendered label — clear the filter
             # to expose the full catalogue instead.
             if fertilizer_key:
                 el.send_keys(Keys.CONTROL + "a")
                 el.send_keys(Keys.DELETE)
-                WebDriverWait(self.driver, 10).until(
-                    lambda d: len(d.find_elements(*option_locator)) > 0
-                )
+                self.poll(10).until(lambda d: len(d.find_elements(*option_locator)) > 0)
 
         options = self.driver.find_elements(*option_locator)
         if not options:
@@ -207,7 +202,6 @@ class NutrientCalculationsPage(BasePage):
         Returns the result texts (from either source).
         """
         import time as _time
-        from selenium.webdriver.support.ui import WebDriverWait
 
         card = self._get_card_by_heading(heading)
 
@@ -215,7 +209,7 @@ class NutrientCalculationsPage(BasePage):
             return len(self._get_any_result_in_card(card)) > 0
 
         try:
-            WebDriverWait(self.driver, timeout).until(_has_result)
+            self.poll(timeout).until(_has_result)
         except Exception:
             # Timeout — brief extra wait for late-arriving snackbar
             _time.sleep(1.0)
