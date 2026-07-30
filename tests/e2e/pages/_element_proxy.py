@@ -90,10 +90,12 @@ never returns a dead or a substituted-but-unverified element.
 * **A legitimate "the element is gone" becomes a bounded wait.** That is the
   cost of the mechanism and the reason the budget is 3 s rather than
   ``DEFAULT_TIMEOUT``: a genuine failure must stay fast and loud. Callers that
-  deliberately treat staleness as a *verdict* rather than as a transient —
-  ``BasePage.is_displayed_in_scroll_container`` ("a stale element is genuinely
-  gone, hence False") — will see the healed element answer instead once they are
-  handed a proxy.
+  deliberately treat staleness as a *verdict* rather than as a transient would
+  see the healed element answer instead once they are handed a proxy. Those are
+  classified and dealt with where the waits are wired — see the
+  "Staleness as a *verdict*" block in ``base_page.py``, which opts the affected
+  reads out through ``base_page.raw_reference`` rather than leaving the
+  substitution implicit.
 * **The marshalling probe narrows the race, it does not close it.** The element
   can still die between the probe and the command the id was marshalled into;
   that residual window is one round trip wide, against the arbitrarily wide one

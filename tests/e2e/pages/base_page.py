@@ -22,6 +22,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from ._element_proxy import ReResolvingElement, resolve_element
+
 DEFAULT_TIMEOUT = 15
 
 #: The grace period the driver-level implicit wait used to grant *every*
@@ -51,6 +53,69 @@ POLL_TRANSIENTS = (NoSuchElementException, StaleElementReferenceException)
 
 #: A Selenium locator: ``(By.<STRATEGY>, value)``.
 Locator = tuple[str, str]
+
+
+# ── Staleness as a *verdict*, and how to keep it one ──────────────────────
+# `POLL_TRANSIENTS` above states the majority rule: inside a poll, a stale
+# reference means "look again". A handful of reads mean the opposite -- they
+# catch `StaleElementReferenceException` and *answer* with it ("the element is
+# gone, so: not displayed / not open / already closed"). For those, the
+# re-resolving reference the three element waits now return would change the
+# answer rather than stabilise it: the healed replacement would report on the
+# node that came back, where the caller asked about the node that left.
+#
+# The full classification, made when the waits were wired (#835 P3). Every site
+# in `tests/e2e/` that catches `StaleElementReferenceException`:
+#
+#   Reads it as a VERDICT -- and reads an element that came from
+#   `driver.find_elements(...)`, which this change does **not** wrap, so none of
+#   them is reached by a proxy today:
+#     * `BasePage.is_displayed_in_scroll_container`  (verdict: False)
+#     * `BasePage._read_select_value`                (verdict: None -> loud)
+#     * `TaskDetailPage._submit_registered`          (verdict: True)
+#     * `PhaseTransitionPage.is_transition_dialog_open` / `.is_confirm_dialog_visible`
+#     * `FeedingEventListPage.is_create_dialog_open`
+#
+#   Reads it as a TRANSIENT (retry, or consult a second signal) -- healing is an
+#   improvement there, so these stay wired:
+#     * `BasePage.retry_on_stale`, `.get_text_stable`, `.close_mui_dropdown`,
+#       `._row_identity` (inside `click_data_table_row`)
+#     * `BasePage._aria_expanded` -- see its docstring for why it deliberately
+#       does not opt out
+#     * `WorkflowDetailPage.get_workflow_title`, `SiteListPageExt.open`,
+#       `_journey_helpers.provision_task`
+#
+# The two verdict sites that live in *this* module opt out structurally via
+# `raw_reference` below, so the verdict survives a caller that hands them a
+# proxied element -- a comment about who calls them today would not. The four in
+# page objects are left as they are because they resolve their own elements from
+# `find_elements`; **P4 wraps that path and must re-run this classification.**
+
+
+def raw_reference(element: WebElement) -> WebElement:
+    """Return a plain reference to the node *element* points at **right now**.
+
+    The opt-out from re-resolution, for the few reads that treat staleness as an
+    answer rather than as a transient (see the block above). A
+    :class:`~._element_proxy.ReResolvingElement` handed to one of those would
+    heal and let the replacement answer, silently converting "this element is
+    gone" into "an element matching its locator is here" -- the one way this
+    change could make an assertion pass without it staying true.
+
+    Wrapping happens in exactly one place (``_element_proxy.resolve_element``),
+    which is what makes unwrapping expressible at all: the proxy holds the live
+    id in the plain ``_id`` attribute rather than in a second source of truth, so
+    a bare ``WebElement`` over that id is the same node, minus the healing. The
+    public ``id`` property is deliberately *not* used here -- reading it probes
+    liveness and would perform the very re-resolution being opted out of.
+
+    A raw ``WebElement`` is returned unchanged, so this is safe to apply
+    defensively at a verdict site regardless of where its element came from.
+    """
+    if isinstance(element, ReResolvingElement):
+        return WebElement(element.parent, element._id)
+    return element
+
 
 # German ``d.m.Y`` date, tolerant of zero-padded and numeric parts alike.
 DE_DATE_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
@@ -175,28 +240,73 @@ class BasePage:
         """
         return WebDriverWait(self.driver, timeout, ignored_exceptions=POLL_TRANSIENTS)
 
+    # ── The three element-returning waits ─────────────────────────────────
+    # All three go through `resolve_element`, which is what makes the reference
+    # they hand back survive a re-render: it re-runs its own
+    # `(locator, condition)` when the node underneath it dies (see
+    # `_element_proxy`). Every capture site in this suite reaches the proxy
+    # through one of these three -- there is no fourth singular capture helper --
+    # so this is the single wiring point rather than 459 call-site changes.
+    #
+    # `resolve_element` takes the condition *factory*, never a ready-made
+    # condition, and uses it for the first capture and for every re-resolution
+    # alike. That is what keeps "waited for clickable" and "healed to clickable"
+    # the same predicate **by construction**: there is no way to write a helper
+    # here that waits for one condition and heals to another without passing two
+    # different factories, and each helper below passes exactly one. Pinned by
+    # `tests/e2e_selftest/test_element_proxy.py`
+    # (`test_a_clickable_capture_only_heals_to_a_clickable_element`).
+    #
+    # The declared return type is the concrete `ReResolvingElement`, not
+    # `WebElement`: it is a `WebElement` subclass, so all 62 page objects keep
+    # type-checking unchanged, while the narrower annotation states at the
+    # signature what the caller is actually holding. A caller that must reason
+    # about the *node* rather than about the *locator* -- a staleness-as-verdict
+    # read -- can strip the healing back off with `raw_reference` (see there).
+
     def wait_for_element(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
-    ) -> WebElement:
-        """Wait until an element is present in the DOM and return it."""
-        return self.poll(timeout).until(EC.presence_of_element_located(locator))
+    ) -> ReResolvingElement:
+        """Wait until an element is present in the DOM and return it.
+
+        The returned reference re-resolves through
+        ``EC.presence_of_element_located`` -- the same condition this wait used
+        -- if the node it points at is replaced by a re-render.
+        """
+        return resolve_element(self.poll, locator, EC.presence_of_element_located, timeout)
 
     def wait_for_element_visible(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
-    ) -> WebElement:
-        """Wait until an element is visible and return it."""
-        return self.poll(timeout).until(EC.visibility_of_element_located(locator))
+    ) -> ReResolvingElement:
+        """Wait until an element is visible and return it.
+
+        The returned reference re-resolves through
+        ``EC.visibility_of_element_located``, so a healed replacement is visible
+        too -- it can never quietly decay into a merely present element.
+        """
+        return resolve_element(self.poll, locator, EC.visibility_of_element_located, timeout)
 
     def wait_for_element_clickable(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
-    ) -> WebElement:
-        """Wait until an element is clickable and return it."""
-        return self.poll(timeout).until(EC.element_to_be_clickable(locator))
+    ) -> ReResolvingElement:
+        """Wait until an element is clickable and return it.
+
+        The returned reference re-resolves through ``EC.element_to_be_clickable``
+        -- the strongest of the three -- so a click retried after a re-render is
+        still aimed at something the same predicate accepted.
+        """
+        return resolve_element(self.poll, locator, EC.element_to_be_clickable, timeout)
 
     def wait_for_element_hidden(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> None:
-        """Wait until an element is no longer visible (e.g. MUI Dialog fade-out)."""
+        """Wait until an element is no longer visible (e.g. MUI Dialog fade-out).
+
+        Deliberately **not** re-resolving, and it never will be: it returns
+        ``None``. There is no reference to hand back, hence none to heal -- and
+        an absence wait is precisely where healing would be wrong, since
+        re-acquiring the element is the outcome this wait exists to rule out.
+        """
         self.poll(timeout).until(EC.invisibility_of_element_located(locator))
 
     #: The Suspense/query loading placeholder every page renders while its data
@@ -545,7 +655,9 @@ class BasePage:
 
     # ── Queries ───────────────────────────────────────────────────────────
 
-    def find_present(self, locator: Locator, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> WebElement:
+    def find_present(
+        self, locator: Locator, timeout: int = IMPLICIT_WAIT_EQUIVALENT
+    ) -> ReResolvingElement:
         """Find an element the caller expects to be rendered already.
 
         The explicit counterpart to the driver-level implicit wait #835 removed:
@@ -557,6 +669,13 @@ class BasePage:
         Use :meth:`wait_for_element` instead when the element is genuinely
         expected to *appear*. That is a page transition, not a lookup, and
         deserves the full ``DEFAULT_TIMEOUT``.
+
+        Its 49 call sites inherit the re-resolving reference from the `return`
+        below rather than from a rule anybody has to remember: this **is**
+        :meth:`wait_for_element` on a shorter budget, so there is no second code
+        path here that could be left un-wired. The narrowed return type is what
+        makes that structural instead of incidental -- widen the body back to a
+        raw lookup and the signature stops type-checking.
         """
         return self.wait_for_element(locator, timeout)
 
@@ -583,8 +702,12 @@ class BasePage:
                 if time.time() >= deadline:
                     raise
 
-    def find_by_testid(self, testid: str) -> WebElement:
-        """Shorthand for finding an element by its ``data-testid``."""
+    def find_by_testid(self, testid: str) -> ReResolvingElement:
+        """Shorthand for finding an element by its ``data-testid``.
+
+        Re-resolving for the same structural reason as :meth:`find_present`: it
+        builds a locator and delegates, so it has no lookup of its own to wire.
+        """
         return self.find_present((By.CSS_SELECTOR, f"[data-testid='{testid}']"))
 
     def find_all_by_testid(self, testid: str) -> list[WebElement]:
@@ -878,11 +1001,25 @@ class BasePage:
         container's *scroll position*. Scrolling first collapses the two cases
         onto the one the caller actually asks about.
 
-        A stale element is genuinely gone, hence ``False``.
+        A stale element is genuinely gone, hence ``False`` -- and that verdict is
+        held open deliberately. Both callers drive a *hidden*-ness decision from
+        it (``ExpertiseLevelPage.wait_for_nav_item_hidden``,
+        :meth:`navigate_via_sidebar`'s "the item is not there, so warn and route
+        by URL"), so an element that re-resolved itself and answered ``True``
+        would turn "the app correctly hides this nav item" into "it is visible"
+        and "the drawer was not exercised" into a silent pass.
+
+        Hence :func:`raw_reference`: the reference is stripped of its healing
+        *before* it is read, so the question stays "did **this** node survive"
+        rather than "does something matching its locator exist now". Today both
+        callers pass a raw element out of ``find_elements`` anyway; the strip is
+        what keeps the verdict true when that stops being so (#835 P4 wraps the
+        plural path).
         """
+        node = raw_reference(element)
         try:
-            self.scroll_into_view(element)
-            return element.is_displayed()
+            self.scroll_into_view(node)
+            return node.is_displayed()
         except StaleElementReferenceException:
             return False
 
@@ -1048,7 +1185,25 @@ class BasePage:
 
     @staticmethod
     def _aria_expanded(trigger: WebElement) -> str:
-        """Return *trigger*'s ``aria-expanded``, or ``'<stale>'`` if it unmounted."""
+        """Return *trigger*'s ``aria-expanded``, or ``'<stale>'`` if it unmounted.
+
+        The one staleness handler in this module that deliberately keeps its
+        healing (no :func:`raw_reference` here), because ``'<stale>'`` was never
+        a verdict: it is neither ``'true'`` nor ``'false'``, and
+        :meth:`is_select_open` falls through to the rendered listbox precisely
+        because a trigger that unmounted on the re-render its own opening caused
+        has *no* answer to give. A re-resolving trigger supplies the real one
+        from the re-rendered node -- which is what the listbox fallback was
+        approximating in the first place.
+
+        Its callers hand it a proxy (:meth:`open_select_in` resolves the trigger
+        through :meth:`wait_for_element_clickable`), so this path is live rather
+        than hypothetical. A trigger that is genuinely gone still reaches
+        ``'<stale>'``: the proxy raises ``ElementReResolutionError``, a
+        ``StaleElementReferenceException`` subclass, once its own budget is out.
+        It costs that budget to say so, which is why the answer is a fallback
+        signal and not something a poll spins on.
+        """
         try:
             return trigger.get_attribute("aria-expanded") or ""
         except StaleElementReferenceException:
@@ -1245,7 +1400,24 @@ class BasePage:
         )
 
     def _read_select_value(self, trigger: WebElement | None, field_name: str | None) -> str | None:
-        """Return the committed value of the Select that was just operated on."""
+        """Return the committed value of the Select that was just operated on.
+
+        The trigger read is a staleness *verdict*: ``None`` here makes
+        :meth:`_verify_select_committed` raise "cannot read back the value",
+        which is the loud outcome the whole verify-the-click mechanism exists
+        for. :func:`raw_reference` keeps it that way. A proxied trigger would
+        instead be marshalled through the liveness probe in
+        ``ReResolvingElement.id`` and re-resolve through
+        :data:`OPEN_SELECT_TRIGGER` -- a locator that requires
+        ``aria-expanded='true'``, i.e. a *still-open* dropdown, while this runs
+        after the option click has closed it. So healing could only ever spend
+        its 3 s budget and end in the same ``None``; stripping it keeps the
+        failure as fast as it is loud.
+
+        Today's only caller (:meth:`select_option_by_value`) resolves the trigger
+        with ``find_elements`` and hands over a raw element, so this is a guard
+        on the contract rather than on present behaviour.
+        """
         if field_name:
             value = self.driver.execute_script(
                 self._SELECT_VALUE_FROM_CONTAINER,
@@ -1256,7 +1428,9 @@ class BasePage:
         if trigger is None:
             return None
         try:
-            value = self.driver.execute_script(self._SELECT_VALUE_FROM_TRIGGER, trigger)
+            value = self.driver.execute_script(
+                self._SELECT_VALUE_FROM_TRIGGER, raw_reference(trigger)
+            )
         except StaleElementReferenceException:
             return None
         return None if value is None else str(value)
