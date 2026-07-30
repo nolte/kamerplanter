@@ -46,22 +46,83 @@ repos:
   # turn the gate green would have destroyed the evidence. They are resolved
   # (#802), so the gate can be armed: `tests/e2e/ruff.toml` is the config that
   # applies here (the backend's pyproject only covers `src/backend`).
+  #
+  # Both hooks cover the browser-free self-test tier (`tests/e2e_selftest/`) as
+  # well since #835, which is why they no longer `cd tests/e2e` and strip that
+  # prefix off every filename: that mechanism is bound to a single directory.
+  # Handed `tests/e2e_selftest/x.py` it strips nothing -- the prefix there is
+  # `tests/e2e_`, not `tests/e2e/` -- and ruff, now resolving the path relative
+  # to `tests/e2e/`, aborts with `E902 No such file or directory`. Invoking ruff
+  # from the repository root instead is equivalent: it resolves configuration
+  # per input file from the closest `ruff.toml` upwards, so `tests/e2e/ruff.toml`
+  # and `tests/e2e_selftest/ruff.toml` (which extends it) both still apply,
+  # per-file-ignores included. Verified by running the old and the new
+  # invocation over the whole tree and comparing.
   - repo: local
     hooks:
       - id: ruff-lint-e2e
-        name: ruff check (E2E suite)
-        entry: bash -c 'cd tests/e2e && ruff check --fix "${@/#tests\/e2e\//}"' --
+        name: ruff check (E2E suite + harness self-tests)
+        entry: ruff check --fix
         language: python
         additional_dependencies: ['ruff>=0.15.0']
-        files: ^tests/e2e/.*\.py$
+        files: ^tests/(e2e|e2e_selftest)/.*\.py$
         types: [python]
       - id: ruff-format-e2e
-        name: ruff format (E2E suite)
-        entry: bash -c 'cd tests/e2e && ruff format "${@/#tests\/e2e\//}"' --
+        name: ruff format (E2E suite + harness self-tests)
+        entry: ruff format
         language: python
         additional_dependencies: ['ruff>=0.15.0']
-        files: ^tests/e2e/.*\.py$
+        files: ^tests/(e2e|e2e_selftest)/.*\.py$
         types: [python]
+
+  # ── E2E harness self-tests (#835) ─────────────────────────────────────
+  # `tests/e2e_selftest/` hung off no gate at all until this hook: the ruff
+  # filters above read `^tests/e2e/.*\.py$`, which does not match it, and no
+  # workflow calls `task test:e2e:selftest`. Its 58 browser-free tests ran on a
+  # developer's machine and nowhere else.
+  #
+  # That is the one tier that must not stay ungated. Sixteen of those tests pin
+  # `tests/e2e/pages/_element_proxy.py`, whose re-resolving element reference
+  # reads Selenium internals that are not public API (`WebElement._execute`, the
+  # private `_id`, `WebDriver._wrap_value`'s element-detection contract). The
+  # suite pins `selenium>=4.25.0,<5`, so Renovate will keep proposing minors that
+  # are free to move any of them; ungated, such a break is silent, and a silent
+  # break there costs every browser test its stale-element healing.
+  #
+  # `language: python`, not `language: system`: the required `static` job runs
+  # this config on a bare ubuntu-latest + setup-python runner with none of the
+  # project's dependencies installed, so a system-python entry would die on
+  # `import selenium`. The isolated env pins what `tests/e2e/requirements.txt`
+  # pins -- a hook that installed a different Selenium would be verifying the
+  # proxy against a version the suite never runs on.
+  #
+  # `python -m pytest`, not the `pytest` console script: the tests import their
+  # subject as `tests.e2e.pages...`, and `-m` puts the working directory (the
+  # repository root, where pre-commit runs every hook) on `sys.path`.
+  #
+  # `language_version` is pinned because the subject needs 3.14: the page objects
+  # use PEP 758 (`except A, B:` without parentheses, base_page.py:998), a
+  # SyntaxError on 3.13 and older. Unpinned, pre-commit builds the env with the
+  # interpreter *it* runs on, which on a developer machine is often the distro
+  # python -- this hook collapsed with that SyntaxError on 3.12 before the pin.
+  # The CI runner is CPython 3.14.6 (setup-python `3.x`), so `python3.14` is on
+  # PATH there; should that default ever move past 3.14, this hook fails loudly
+  # at env creation and the pin is a one-line bump.
+  #
+  # ~17 s wall clock, most of it real waits the timeout tests cannot fake. The
+  # `files:` filter keeps that off local commits touching neither the tier nor
+  # its subjects; in CI `pre-commit/action` runs `--all-files`, so the filter
+  # always matches there and the cost is paid once per push, not per PR path.
+  - repo: local
+    hooks:
+      - id: e2e-selftest
+        name: E2E harness self-tests (browser-free, #835)
+        entry: python -m pytest tests/e2e_selftest -q -p no:cacheprovider
+        language: python
+        language_version: python3.14
+        additional_dependencies: ['selenium>=4.25.0,<5', 'pytest>=8.3.0']
+        files: ^tests/(e2e_selftest/|e2e/pages/|e2e/requirements\.txt$)
+        pass_filenames: false
 
   # ── Spec-to-test traceability ─────────────────────────────────────────
   # Runs in the required `static` job, which is the whole point: until #775 the

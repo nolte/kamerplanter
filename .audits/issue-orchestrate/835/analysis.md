@@ -160,6 +160,23 @@ removed"), während die Zeile steht. Wird in P6 mitgezogen.
 - **Specialist**: `nolte-engineering:fullstack-developer`
 - **Depends on**: P1
 
+### P2b — Den Selbsttest-Tier ans required Gate hängen *(nachträglich aufgenommen, Operator-Freigabe 2026-07-30)*
+
+- **Problem statement**: `tests/e2e_selftest/` hängt an **keinem** Gate. Der pre-commit-Filter
+  ist `^tests/e2e/.*\.py$` und matcht `tests/e2e_selftest/` nicht (`e2e_` ≠ `e2e/`); kein
+  Workflow ruft `task test:e2e:selftest`. Die 58 Tests dort — 42 bestehende plus P2s 16 — laufen
+  nur lokal. Damit wäre P2 genau die Prüfung, die grün meldet und im Ernstfall nicht existiert:
+  Renovate bumpt Selenium-Minors, die der `<5`-Pin nicht aufhält, und der Bruch bliebe stumm.
+- **Acceptance criteria**: Ein pre-commit-Hook fährt `pytest tests/e2e_selftest`; da
+  `Static CI Tests` den `reusable-pre-commit`-Workflow nutzt, ist er damit im **required** Gate.
+  Die beiden ruff-Hooks (`ruff-lint-e2e`, `ruff-format-e2e`) decken `tests/e2e_selftest/` mit ab.
+  Der Hook läuft nur bei einschlägigen Änderungen (`files:`-Filter), nicht bei jedem Commit.
+  Nachgewiesen: der Hook **fällt rot**, wenn man den Proxy absichtlich bricht — ein Gate, das
+  nicht scheitern kann, ist keins.
+- **Touched files / artifacts**: `.pre-commit-config.yaml`, ggf. `Taskfile.yaml`
+- **Specialist**: `nolte-engineering:fullstack-developer`
+- **Depends on**: P2
+
 ### P5 — `implicitly_wait(3)` entfernen
 
 - **Problem statement**: Der eigentliche Auftrag des Issues — erst nach P3 und P4 gefahrlos.
