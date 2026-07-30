@@ -119,6 +119,23 @@ export default function FavoriteSpeciesStep({
               md: 'repeat(4, 1fr)',
             },
             gap: 1.5,
+            // #873 — every row is exactly this tall, so the grid's geometry does
+            // not depend on what the tiles happen to contain.
+            //
+            // It used to. A tile renders a badge chip only when the species is in
+            // the starter kit or already owned (+24px), and the scientific name
+            // only when it differs from the display name (+18px). In a
+            // `repeat(2, 1fr)` grid a row is as tall as its tallest cell, and both
+            // of those conditions depend on data that arrives *asynchronously*.
+            // So chips appeared after the first paint, those rows grew, and every
+            // tile below them moved — under the finger of anyone already tapping.
+            // The E2E suite measured this as a toggle that flips a *neighbouring*
+            // tile; a real user on a phone favourites the wrong species.
+            //
+            // A fixed row height fixes the cause rather than the symptom: late
+            // data can still change what a tile shows, but no longer how much
+            // space it takes.
+            gridAutoRows: '104px',
           }}
           role="group"
           aria-label={t('pages.onboarding.favorites.title')}
@@ -147,7 +164,13 @@ export default function FavoriteSpeciesStep({
                   borderColor: isFavorited ? 'warning.main' : 'divider',
                   bgcolor: isFavorited ? 'warning.50' : 'background.paper',
                   transition: 'border-color 0.2s, background-color 0.2s, box-shadow 0.2s',
-                  minHeight: 80,
+                  // Fills the fixed row rather than setting its own floor: a
+                  // `minHeight` is what let a tile grow past its neighbours and
+                  // drag the row with it (#873). `overflow: hidden` is the guard
+                  // for the reverse case — content that outgrows the row clips
+                  // instead of silently reintroducing the reflow.
+                  height: '100%',
+                  overflow: 'hidden',
                   position: 'relative',
                   '&:hover': {
                     borderColor: isFavorited ? 'warning.dark' : 'action.hover',
