@@ -7,7 +7,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
 
@@ -519,16 +518,13 @@ class OnboardingWizardPage(BasePage):
         Waits up to *timeout* seconds for the data-selected='true' attribute,
         then falls back to CSS border checks on the parent Card element.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         selected_locator = (
             By.CSS_SELECTOR,
             f"[data-testid='kit-{kit_id}'][data-selected='true']",
         )
         try:
-            WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located(selected_locator)
-            )
+            self.poll(timeout).until(EC.presence_of_element_located(selected_locator))
             return True
         except Exception:
             pass
@@ -646,7 +642,7 @@ class OnboardingWizardPage(BasePage):
             return not driver.find_elements(*self.FAVORITES_GRID)
 
         try:
-            WebDriverWait(self.driver, timeout).until(_settled)
+            self.poll(timeout).until(_settled)
         except TimeoutException as exc:
             raise AssertionError(
                 f"The favorites step did not settle within {timeout}s: "
@@ -673,9 +669,7 @@ class OnboardingWizardPage(BasePage):
         tile = self.wait_for_element_clickable(locator)
         self.scroll_and_click(tile)
         try:
-            WebDriverWait(self.driver, 5).until(
-                lambda _d: self.is_favorite_tile_selected(species_key) != before
-            )
+            self.poll(5).until(lambda _d: self.is_favorite_tile_selected(species_key) != before)
         except TimeoutException as exc:
             raise AssertionError(
                 f"Toggling favorite tile '{species_key}' had no effect: its "
@@ -920,9 +914,7 @@ class OnboardingWizardPage(BasePage):
 
     def wait_for_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for a snackbar to appear and return its text."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR))
         return el.text
 
     # ── Compound helpers ───────────────────────────────────────────────

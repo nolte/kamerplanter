@@ -212,11 +212,10 @@ class PlantingRunListPage(BasePage):
         (check ``is_species_dropdown_present()`` first).
         """
         from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.support.ui import WebDriverWait
 
         select_el = self.wait_for_element_clickable(self.FORM_ENTRY_SPECIES)
         self.scroll_and_click(select_el)
-        options = WebDriverWait(self.driver, timeout).until(
+        options = self.poll(timeout).until(
             EC.presence_of_all_elements_located((By.XPATH, "//li[@role='option']"))
         )
         species_options = [o for o in options if o.text.strip()]

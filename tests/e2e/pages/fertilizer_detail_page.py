@@ -242,9 +242,8 @@ class FertilizerDetailPage(BasePage):
 
     def wait_for_error_or_page(self, timeout: int = 15) -> None:
         """Wait until either the error display or the detail page root appears."""
-        from selenium.webdriver.support.ui import WebDriverWait
 
-        WebDriverWait(self.driver, timeout).until(
+        self.poll(timeout).until(
             lambda d: (
                 len(d.find_elements(*self.ERROR_DISPLAY)) > 0
                 or len(d.find_elements(*self.PAGE)) > 0

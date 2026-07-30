@@ -17,7 +17,6 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import DEFAULT_TIMEOUT, BasePage
 
@@ -183,7 +182,5 @@ class NotificationSettingsPage(BasePage):
 
     def wait_for_success_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for and return the text of a success snackbar after save."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR_SUCCESS))
         return el.text

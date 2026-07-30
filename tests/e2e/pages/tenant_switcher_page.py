@@ -5,7 +5,6 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
 
@@ -70,9 +69,7 @@ class TenantSwitcherPage(BasePage):
         from selenium.webdriver.common.keys import Keys
 
         self.find_present((By.TAG_NAME, "body")).send_keys(Keys.ESCAPE)
-        WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.invisibility_of_element_located(self.MENU)
-        )
+        self.poll(DEFAULT_TIMEOUT).until(EC.invisibility_of_element_located(self.MENU))
 
     def is_menu_open(self) -> bool:
         """Check if the tenant switcher menu is currently open."""

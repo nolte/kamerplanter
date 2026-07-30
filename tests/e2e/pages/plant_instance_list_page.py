@@ -192,14 +192,13 @@ class PlantInstanceListPage(BasePage):
 
     def get_current_phase_option_count(self) -> int:
         """Return how many options the current-phase select currently offers."""
-        from selenium.webdriver.support.ui import WebDriverWait
 
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-current_phase_key'] .MuiSelect-select")
         )
         self.scroll_and_click(field)
         try:
-            WebDriverWait(self.driver, 5).until(
+            self.poll(5).until(
                 lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
             )
         except Exception:

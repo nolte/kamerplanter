@@ -6,7 +6,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import DEFAULT_TIMEOUT, BasePage
 
@@ -180,14 +179,10 @@ class AccountSettingsPage(BasePage):
 
     def wait_for_success_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for and return the text of a success snackbar."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR_SUCCESS))
         return el.text
 
     def wait_for_error_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for and return the text of an error snackbar."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR_ERROR)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR_ERROR))
         return el.text

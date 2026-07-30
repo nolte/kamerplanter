@@ -5,7 +5,6 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage
 
@@ -135,7 +134,7 @@ class HarvestBatchDetailPage(BasePage):
         """Navigate to the harvest batch detail page for *batch_key*."""
         self.navigate(f"/ernte/batches/{batch_key}")
         # Wait for either the page or an error display
-        WebDriverWait(self.driver, 15).until(
+        self.poll(15).until(
             lambda d: d.find_elements(*self.PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self

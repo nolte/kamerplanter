@@ -58,7 +58,6 @@ class CropRotationPage(BasePage):
         return self.wait_for_element(self.PAGE_TITLE).text
 
     def select_family(self, family_name: str) -> None:
-        from selenium.webdriver.support.ui import WebDriverWait
 
         self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
@@ -71,7 +70,7 @@ class CropRotationPage(BasePage):
         option = self._find_option(family_name)
         self.click_menu_option(option)
         # Wait for options to be removed from DOM (natural close after selection)
-        WebDriverWait(self.driver, 5).until(
+        self.poll(5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
         )
         time.sleep(1)  # Wait for successors to load

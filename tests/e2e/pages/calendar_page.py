@@ -16,7 +16,6 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
 
@@ -237,7 +236,7 @@ class CalendarPage(BasePage):
                 "found next to their Collapse container"
             )
         self.scroll_and_click(toggles[0])
-        WebDriverWait(self.driver, timeout).until(lambda _d: self.is_category_filter_expanded())
+        self.poll(timeout).until(lambda _d: self.is_category_filter_expanded())
 
     def click_category_filter(self, category: str) -> None:
         """Toggle a specific category filter chip, expanding the section first."""

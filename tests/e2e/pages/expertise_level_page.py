@@ -8,7 +8,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import DEFAULT_TIMEOUT, DIALOG_SELECTOR, BasePage
 
@@ -139,9 +138,7 @@ class ExpertiseLevelPage(BasePage):
         import time
 
         try:
-            el = WebDriverWait(self.driver, timeout).until(
-                EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
-            )
+            el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR_SUCCESS))
             return el.text
         except Exception:
             # Snackbar may have auto-dismissed or uses a non-matching selector.
@@ -249,18 +246,18 @@ class ExpertiseLevelPage(BasePage):
 
     def accept_confirm_dialog(self) -> None:
         """Accept a browser-native window.confirm dialog."""
-        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(EC.alert_is_present())
+        alert = self.poll(DEFAULT_TIMEOUT).until(EC.alert_is_present())
         alert.accept()
 
     def dismiss_confirm_dialog(self) -> None:
         """Dismiss (cancel) a browser-native window.confirm dialog."""
-        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(EC.alert_is_present())
+        alert = self.poll(DEFAULT_TIMEOUT).until(EC.alert_is_present())
         alert.dismiss()
 
     def is_confirm_dialog_present(self) -> bool:
         """Check if a browser-native alert/confirm dialog is present."""
         try:
-            WebDriverWait(self.driver, 3).until(EC.alert_is_present())
+            self.poll(3).until(EC.alert_is_present())
             return True
         except Exception:
             return False
@@ -408,7 +405,7 @@ class ExpertiseLevelPage(BasePage):
         )
         self.scroll_and_click(cancel_btn)
         # Wait for any dialog to close
-        WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
+        self.poll(DEFAULT_TIMEOUT).until(
             EC.invisibility_of_element_located((By.CSS_SELECTOR, DIALOG_SELECTOR))
         )
 

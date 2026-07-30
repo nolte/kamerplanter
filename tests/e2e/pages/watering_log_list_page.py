@@ -252,15 +252,13 @@ class WateringLogListPage(BasePage):
         """
         import time
 
-        from selenium.webdriver.support.ui import WebDriverWait
-
         option_locator = (By.CSS_SELECTOR, "li[role='option']")
         input_el = self.wait_for_element_clickable(self.PLANT_KEYS_INPUT)
         input_el.click()
         # Type a space to trigger the dropdown, then clear it
         input_el.send_keys(" ")
         try:
-            WebDriverWait(self.driver, 5).until(lambda d: len(d.find_elements(*option_locator)) > 0)
+            self.poll(5).until(lambda d: len(d.find_elements(*option_locator)) > 0)
         except Exception:
             pass  # options may not populate for an empty catalog
         input_el.clear()
@@ -274,9 +272,7 @@ class WateringLogListPage(BasePage):
             # Try clicking the input again to open the dropdown
             input_el.click()
             try:
-                WebDriverWait(self.driver, 5).until(
-                    lambda d: len(d.find_elements(*option_locator)) > 0
-                )
+                self.poll(5).until(lambda d: len(d.find_elements(*option_locator)) > 0)
             except Exception:
                 pass
             options = self.driver.find_elements(*option_locator)
@@ -308,14 +304,13 @@ class WateringLogListPage(BasePage):
         on whichever option had slid into that spot while an open MUI menu was
         still repositioning (#778 A2).
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         for _ in range(3):
             input_el = self.wait_for_element_clickable(self.PLANT_KEYS_INPUT)
             input_el.click()
             self.clear_and_fill(input_el, text)
             try:
-                WebDriverWait(self.driver, 5).until(
+                self.poll(5).until(
                     lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
                 )
             except Exception:

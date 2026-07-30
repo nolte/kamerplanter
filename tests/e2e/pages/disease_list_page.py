@@ -221,12 +221,9 @@ class DiseaseListPage(BasePage):
 
     def wait_for_dialog_closed(self, timeout: int = 15) -> None:
         """Wait until the create dialog is no longer in the DOM."""
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
 
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(self.CREATE_DIALOG)
-        )
+        self.poll(timeout).until(EC.invisibility_of_element_located(self.CREATE_DIALOG))
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
@@ -255,13 +252,12 @@ class DiseaseListPage(BasePage):
 
         Uses a short explicit wait to give react-hook-form time to render errors.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
 
         def _check(_driver):
             return bool(self.get_validation_error(field_name))
 
         try:
-            WebDriverWait(self.driver, 3).until(_check)
+            self.poll(3).until(_check)
             return True
         except Exception:
             return False

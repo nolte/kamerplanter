@@ -12,7 +12,6 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage
 
@@ -91,7 +90,7 @@ class PlantPhotoGalleryPage(BasePage):
         (e.g. non-existent key) so the call never hangs.
         """
         self.navigate(f"{DETAIL_PATH_PREFIX}/{key}#photos")
-        WebDriverWait(self.driver, 20).until(
+        self.poll(20).until(
             lambda d: d.find_elements(*self.GALLERY) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
@@ -99,7 +98,7 @@ class PlantPhotoGalleryPage(BasePage):
     def open_info_tab(self, key: str) -> "PlantPhotoGalleryPage":
         """Open the plant detail page on its default (info) tab."""
         self.navigate(f"{DETAIL_PATH_PREFIX}/{key}")
-        WebDriverWait(self.driver, 20).until(
+        self.poll(20).until(
             lambda d: d.find_elements(*self.DETAIL_PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
@@ -146,14 +145,10 @@ class PlantPhotoGalleryPage(BasePage):
 
     def wait_for_photo_count(self, expected: int, timeout: int = 20) -> None:
         """Wait until the thumbnail grid holds exactly *expected* items."""
-        WebDriverWait(self.driver, timeout).until(
-            lambda d: len(d.find_elements(*self.PHOTO_ITEMS)) == expected
-        )
+        self.poll(timeout).until(lambda d: len(d.find_elements(*self.PHOTO_ITEMS)) == expected)
 
     def wait_for_photo_count_at_least(self, minimum: int, timeout: int = 20) -> None:
-        WebDriverWait(self.driver, timeout).until(
-            lambda d: len(d.find_elements(*self.PHOTO_ITEMS)) >= minimum
-        )
+        self.poll(timeout).until(lambda d: len(d.find_elements(*self.PHOTO_ITEMS)) >= minimum)
 
     # ── Upload flow ─────────────────────────────────────────────────────
 
@@ -206,9 +201,7 @@ class PlantPhotoGalleryPage(BasePage):
 
     def wait_for_upload_preview(self, timeout: int = 20) -> None:
         """Wait until the client-side normalized preview is shown."""
-        WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.UPLOAD_PREVIEW)
-        )
+        self.poll(timeout).until(EC.visibility_of_element_located(self.UPLOAD_PREVIEW))
 
     def confirm_upload(self) -> None:
         btn = self.wait_for_element_clickable(self.UPLOAD_CONFIRM)
@@ -224,9 +217,7 @@ class PlantPhotoGalleryPage(BasePage):
         return self.wait_for_element_visible(self.CAPTURE_ERROR).text
 
     def wait_for_capture_error(self, timeout: int = 15) -> str:
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.CAPTURE_ERROR)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.CAPTURE_ERROR))
         return el.text
 
     def is_upload_dialog_open(self) -> bool:
@@ -280,7 +271,7 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.COVER_BADGE)) > 0
 
     def wait_for_cover_badge(self, timeout: int = 15) -> None:
-        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.COVER_BADGE))
+        self.poll(timeout).until(EC.presence_of_element_located(self.COVER_BADGE))
 
     def has_cover_image(self) -> bool:
         return len(self.driver.find_elements(*self.COVER_IMAGE)) > 0
@@ -289,7 +280,7 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.COVER_PLACEHOLDER)) > 0
 
     def wait_for_cover_image(self, timeout: int = 15) -> None:
-        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.COVER_IMAGE))
+        self.poll(timeout).until(EC.presence_of_element_located(self.COVER_IMAGE))
 
     # ── Delete flow ─────────────────────────────────────────────────────
 
@@ -318,7 +309,5 @@ class PlantPhotoGalleryPage(BasePage):
     # ── Snackbar ────────────────────────────────────────────────────────
 
     def wait_for_success_snackbar(self, timeout: int = 15) -> str:
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR_SUCCESS))
         return el.text

@@ -160,12 +160,9 @@ class NutrientPlanDetailPage(BasePage):
 
     def wait_for_validation_loaded(self, timeout: int = 20) -> None:
         """Wait until the circular progress spinner disappears (validation done)."""
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
 
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(self.LOADING_SPINNER)
-        )
+        self.poll(timeout).until(EC.invisibility_of_element_located(self.LOADING_SPINNER))
 
     def get_validation_alerts(self) -> list[str]:
         """Return the text content of all visible Alert components."""

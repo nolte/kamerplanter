@@ -16,7 +16,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import DEFAULT_TIMEOUT, BasePage
 
@@ -91,9 +90,7 @@ class PrintButtonPage(BasePage):
         instead of the print icon.  This method waits for that spinner to
         clear so subsequent assertions don't race the network call.
         """
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(self.PRINT_BUTTON_LOADING)
-        )
+        self.poll(timeout).until(EC.invisibility_of_element_located(self.PRINT_BUTTON_LOADING))
 
     def wait_for_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Wait for any MUI Snackbar message to appear and return its text.
@@ -102,7 +99,5 @@ class PrintButtonPage(BasePage):
         on failure it shows ``print.error``.  Tests can assert on either
         without binding to a specific text via the i18n key.
         """
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR)
-        )
+        el = self.poll(timeout).until(EC.visibility_of_element_located(self.SNACKBAR))
         return el.text or ""

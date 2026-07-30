@@ -365,9 +365,6 @@ class HarvestBatchListPage(BasePage):
 
     def wait_for_dialog_closed(self, timeout: int = 10) -> None:
         """Wait until the create dialog is no longer visible."""
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
 
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(self.CREATE_DIALOG)
-        )
+        self.poll(timeout).until(EC.invisibility_of_element_located(self.CREATE_DIALOG))
