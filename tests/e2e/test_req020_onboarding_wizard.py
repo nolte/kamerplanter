@@ -54,43 +54,12 @@ from .pages.onboarding_wizard_page import OnboardingWizardPage
 # worse, its reason actively misled: a scheduling race cannot explain failures
 # that only ever occur below a viewport width.
 #
-# What remains are two *viewport*-correlated causes, marked per test.
-
-#: The wizard renders no ``Stepper`` below the `sm` breakpoint (600px), so the
-#: step count is only readable from `MobileStepper`'s dots there.
-#: ``OnboardingWizardPage.get_stepper_step_count`` now reads whichever stepper
-#: is mounted, which should heal this; the marker stays until a green window
-#: confirms it, because the profiles that fail it (mobile, full-mobile) have not
-#: run since the fix.
-xfail_mobile_stepper_layout = pytest.mark.xfail(
-    reason=(
-        "Below the sm breakpoint OnboardingWizard renders a MobileStepper "
-        "instead of the MUI Stepper, so the desktop-only step reader answered "
-        "0 (deterministic on the mobile and full-mobile profiles, never on "
-        "tablet/desktop). get_stepper_step_count() is now layout-aware; REVISIT: "
-        "remove this marker once mobile and full-mobile pass it through a full "
-        "green-confirmation window (P11)."
-    ),
-    strict=False,
-)
-
-#: The species grid of the favorites step mounts ~210 tiles *above* the wizard's
-#: button row, so an interaction begun before it lands is aimed at an element
-#: about to move. ``advance_to_step_favorites`` / ``advance_to_step_site`` now
-#: wait for the grid to settle; the marker stays until that is confirmed.
-xfail_favorites_grid_reflow = pytest.mark.xfail(
-    reason=(
-        "Race with FavoriteSpeciesStep's species grid: it mounts ~210 tiles "
-        "above the wizard button row, moving the Back/Next target between the "
-        "click's hit-test and its dispatch. Correlates with viewport width "
-        "(mobile/tablet/full-mobile/full-tablet, never the 1920px desktop), not "
-        "with worker scheduling. Evidence: the runs that xfail keep only the "
-        "screenshot taken before the click. Page objects now wait for the grid "
-        "to settle; REVISIT: remove once all five profiles pass these through a "
-        "full green-confirmation window (P11)."
-    ),
-    strict=False,
-)
+# Both *viewport*-correlated causes this file carried are gone too, and this
+# time on measurement rather than reasoning: the stepper-layout marker and the
+# favorites-grid-reflow marker xpassed on all seven profiles of run
+# 30489499188, whose 2026-07-29 pass is the green-confirmation window their own
+# REVISIT notes asked for (#778 A7). This file now declares no expected
+# failures at all.
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -337,7 +306,6 @@ class TestExperienceLevelStep:
             "TC-REQ-020-013 FAIL: Smart-Home toggle should be hidden for beginner"
         )
 
-    @xfail_mobile_stepper_layout
     @pytest.mark.core_crud
     def test_dynamic_stepper_beginner_has_5_steps(
         self,
@@ -359,7 +327,6 @@ class TestExperienceLevelStep:
             f"TC-REQ-020-014 FAIL: Expected 5 stepper steps for beginner, got: {step_count}"
         )
 
-    @xfail_mobile_stepper_layout
     @pytest.mark.core_crud
     def test_dynamic_stepper_intermediate_has_6_steps(
         self,
@@ -766,7 +733,6 @@ class TestPlantSelectionStep:
     # only screenshot, i.e. somewhere in the four-step navigation chain below,
     # of which advance_to_step_site is the leg that clicks through the
     # not-yet-settled favorites grid.
-    @xfail_favorites_grid_reflow
     @pytest.mark.core_crud
     def test_plant_no_favorites_empty_state(
         self,
@@ -888,7 +854,6 @@ class TestWizardNavigation:
     # of the green window, on all four profiles narrower than 1920px, and in
     # every one of them the run kept 'TC-REQ-020-032_on-step3' but never
     # 'back-to-step2' — so the Back click below is where it stops.
-    @xfail_favorites_grid_reflow
     @pytest.mark.core_crud
     def test_back_navigation_preserves_state(
         self,

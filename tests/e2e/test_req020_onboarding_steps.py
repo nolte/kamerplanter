@@ -54,8 +54,9 @@ def wizard(browser: WebDriver, base_url: str) -> OnboardingWizardPage:
 # and the tests it covered xpassed through both runs of all five profiles.
 # See that module's header for the full argument.
 #
-# Two tests here still fail, both only on the 393px mobile profile and both for
-# reasons a scheduling race cannot explain.
+# One test here still fails, and it is a product defect rather than a harness
+# one: see the marker below. Its sibling — the unverified site-type select —
+# xpassed on all seven profiles of run 30489499188 and its marker is gone.
 
 #: `FavoriteSpeciesStep` mounts ~210 tiles into a two-column grid at ``xs``; a
 #: tile clicked while that grid is still settling moves out from under the
@@ -68,26 +69,13 @@ xfail_favorites_tile_toggle_noop = pytest.mark.xfail(
         "tile, so aria-pressed never flips. Evidence: the xfailing runs keep "
         "'after-first-toggle' but never 'after-second-toggle', i.e. the first "
         "state assertion is what fails. click_favorite_tile() now waits for the "
-        "grid and verifies the flip; REVISIT: remove once mobile passes this "
-        "through a full green-confirmation window (P11)."
-    ),
-    strict=False,
-)
-
-#: The site-type Select was driven by a hand-rolled open-and-click that neither
-#: verified the open nor read the committed value back — the exact silent-success
-#: class ``spec/project/e2e-test-stability`` §G forbids.
-xfail_site_type_select_unverified = pytest.mark.xfail(
-    reason=(
-        "Changing the site type does not commit on the mobile profile: the "
-        "legacy select driver clicked the trigger natively (MUI opens on "
-        "mousedown) and clicked the option at resolved coordinates without "
-        "reading the value back, so a miss was reported as success and only "
-        "surfaced as the assertion below. Evidence: both checkpoint screenshots "
-        "exist, so the failure is the assertion, not the navigation. "
-        "select_site_type() now goes through the verified shared helpers; "
-        "REVISIT: remove once mobile passes this through a full "
-        "green-confirmation window (P11)."
+        "grid and verifies the flip, and that healed the wide profiles — but "
+        "NOT the narrow ones. Measured on run 30489499188 (all seven profiles "
+        "green, 2026-07-29): xpasses on light/full/full-mobile, still xfails on "
+        "mobile/tablet/full-tablet. So this is a real product defect at narrow "
+        "widths, not a harness race waiting for confirmation, and the marker "
+        "stays until the product is fixed — tracked as #873. Do NOT remove "
+        "it on the strength of the wide profiles passing."
     ),
     strict=False,
 )
@@ -286,7 +274,6 @@ class TestFavoriteToggle:
 class TestSiteTypeChange:
     """Change site type via dropdown (Spec: TC-020-027)."""
 
-    @xfail_site_type_select_unverified
     @pytest.mark.core_crud
     def test_change_site_type_from_dropdown(
         self,
