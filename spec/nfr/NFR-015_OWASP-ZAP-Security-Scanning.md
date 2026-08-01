@@ -318,7 +318,36 @@ Konfiguration via `-c` (Context-File) und `-z "-config api.disablekey=false"`.
 
 ### 4.1 Baseline-Scan (PR-Gate, passiv)
 
-**MUSS**: Pro PR läuft `zaproxy/action-baseline` gegen die Ephemeral-Stack-Frontend-URL:
+**MUSS**: Pro PR läuft ein Baseline-Scan (passiv + AjaxSpider) gegen die Frontend-URL des ephemeren Stacks.
+
+!!! note "Umsetzung weicht bewusst von `zaproxy/action-baseline` ab"
+
+    Die Implementierung in `.github/workflows/security-zap-baseline.yml` ruft
+    ZAP über `docker run` auf, nicht über die Wrapper-Action. Zwei Gründe, beide
+    nicht umgehbar:
+
+    1. **Netzwerk.** `docker-compose.security.override.yml` bindet den Stack
+       absichtlich nur an `127.0.0.1` — „so a CI runner does not advertise the
+       internal stack to the wider network". Ein Container erreicht das
+       Loopback des Hosts nicht, und die ZAP-Actions bieten keine
+       Netzwerk-Option. Die Alternativen wären, die Bindung auf `0.0.0.0`
+       aufzuweichen oder ZAP ans Compose-Netz zu hängen. Letzteres ist sicherer
+       und ändert nichts am Override.
+    2. **Skripte.** §3.2 und §3.3 verlangen ein HttpSender- und ein
+       Passive-Rule-Skript in ZAP. Die Wrapper-Actions bieten dafür keinen Weg,
+       das Full-Profil bräuchte also ohnehin `docker run`; ein Mechanismus für
+       beide Profile hält sie vergleichbar.
+
+    Das ZAP-Image ist per Digest gepinnt (NFR-018 §3), nicht per `:stable`.
+
+**MUSS**: Beide PR-Scans laufen mit `-I` (kein Abbruch bei Warnungen). Das
+Urteil fällt `scripts/security/zap_gate.py` nach der Matrix aus §5.1 und dem
+Confidence-Filter aus §5.2 — ZAPs eigene Exit-Codes kennen weder Severity-Stufen
+noch Confidence und könnten die hier festgelegte Politik nicht abbilden. Das Gate
+behandelt einen fehlenden oder strukturell unerwarteten Report als **Fehlschlag**,
+nicht als „keine Findings".
+
+Ursprünglicher Entwurf (Referenz, nicht die Implementierung):
 
 ```yaml
 # .github/workflows/security-zap-baseline.yml

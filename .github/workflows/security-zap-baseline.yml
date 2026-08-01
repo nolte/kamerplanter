@@ -1,10 +1,35 @@
-name: Security — ZAP Baseline
+name: Security — ZAP PR Scans
 
-# NFR-015 §4 PR-time OWASP ZAP Baseline scan against the local stack.
-# Scaffold workflow: the actual scan orchestration (Skaffold-driven
-# ephemeral environment, authenticated scan profile, AjaxSpider for
-# the React SPA, SARIF upload to GitHub code scanning) lands in the
-# NFR-015 follow-up.
+##
+## NFR-015 §4.1 + §4.2 — Baseline (passive + AjaxSpider) and API scan
+## (OpenAPI-driven) against an ephemeral stack, on every pull request.
+##
+## This file previously contained a scaffold: three `test -f` checks and an
+## `echo "ZAP scaffold OK"`. It reported green on every pull request while
+## running no scan at all, and CLAUDE.md described NFR-015 as operating. That is
+## the failure class NFR-018 §1 catalogues — a check indistinguishable from one
+## that is not running.
+##
+## Why ZAP runs through `docker run` rather than `zaproxy/action-baseline`,
+## which §4.1 names:
+##
+##   * **Networking.** `docker-compose.security.override.yml` binds the stack to
+##     127.0.0.1 only, deliberately — "so a CI runner does not advertise the
+##     internal stack to the wider network". A container cannot reach the host's
+##     loopback, and the ZAP actions expose no network option. The alternatives
+##     were to weaken that binding to 0.0.0.0 or to attach ZAP to the compose
+##     network. Attaching is strictly safer and needs no change to the override.
+##   * **Scripts.** §3.2 and §3.3 require loading an HttpSender script and a
+##     passive-rule script into ZAP. The wrapper actions offer no path for that,
+##     so the nightly profile would need `docker run` regardless; using one
+##     mechanism for both keeps the two profiles comparable.
+##
+## The deviation is recorded in NFR-015 §4.1 rather than left implicit.
+##
+## Both scans run with `-I` (do not fail on warnings). The verdict belongs to
+## `scripts/security/zap_gate.py`, which implements the §5.1 severity matrix and
+## the §5.2 confidence filter — ZAP's own exit codes know neither.
+##
 
 on:
   pull_request:
@@ -13,34 +38,157 @@ on:
       - "src/backend/**"
       - "src/frontend/**"
       - "helm/**"
-      - "tests/security/zap/**"
-      - "tests/security/zap-rules.tsv"
-      - "tests/security/zap-api-rules.tsv"
-      - "tests/security/zap-setup/**"
-      - ".github/workflows/security-zap-*.yml"
+      - "docker-compose.e2e.yml"
+      - "docker-compose.security.override.yml"
+      - "tests/security/zap-**"
+      - "scripts/security/zap_gate.py"
+      - ".github/actions/ephemeral-stack/**"
+      - ".github/workflows/security-zap-baseline.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
-  security-events: write
-  pull-requests: write
 
 concurrency:
-  group: security-zap-baseline-${{ github.ref }}
+  group: security-zap-pr-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  zap-baseline:
+  zap-pr-scan:
+    name: ZAP PR Scans (baseline + API)
     runs-on: ubuntu-latest
+    # §5.3 budgets Baseline < 20 min and API < 15 min. 45 leaves room for the
+    # stack build without letting a hung scan occupy a runner indefinitely.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Validate ZAP config files (scaffold)
+      - name: Bring up ephemeral stack
+        uses: ./.github/actions/ephemeral-stack
+
+      - name: Resolve the compose network
+        id: net
+        # Read the network off the running container rather than assuming
+        # "<project>_default": compose's naming has changed between versions, and
+        # a wrong guess would surface as an unreachable target, which ZAP reports
+        # as "no alerts" — a green scan of nothing.
         run: |
-          # Smoke check that the rule files exist + parse — full scan
-          # against the local stack lands in the NFR-015 follow-up that
-          # wires the Skaffold profile into CI.
-          test -f tests/security/zap-rules.tsv || (echo "missing zap-rules.tsv"; exit 1)
-          test -f tests/security/zap-api-rules.tsv || (echo "missing zap-api-rules.tsv"; exit 1)
-          test -d tests/security/zap-setup || (echo "missing zap-setup/"; exit 1)
-          echo "ZAP scaffold OK"
+          set -euo pipefail
+          cid="$(docker compose -p kamerplanter-security ps -aq backend)"
+          net="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
+          if [[ -z "$net" ]]; then
+            echo "::error::Could not resolve the compose network for the backend container." >&2
+            exit 1
+          fi
+          echo "name=$net" >> "$GITHUB_OUTPUT"
+          echo "Compose network: $net"
+
+      - name: Verify the targets are reachable FROM the scanner's network
+        env:
+          NET: ${{ steps.net.outputs.name }}
+        # The readiness probe in the composite action polls 127.0.0.1 from the
+        # runner. That says nothing about what a container on the compose network
+        # can reach, and an unreachable target makes ZAP report zero alerts and
+        # exit 0. Prove reachability from the same vantage point the scanner will
+        # have, before the scanner runs.
+        run: |
+          set -euo pipefail
+          docker run --rm --network "$NET" curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13 \
+            -fsS -o /dev/null http://backend:8000/api/v1/health/live
+          docker run --rm --network "$NET" curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13 \
+            -fsS -o /dev/null http://frontend:8080/
+          echo "Both targets answer from inside $NET."
+
+      - name: Prepare the ZAP working directory
+        run: |
+          set -euo pipefail
+          mkdir -p zapwork
+          cp tests/security/zap-rules.tsv tests/security/zap-api-rules.tsv zapwork/
+          # The ZAP image runs as uid 1000; the bind mount has to be writable by
+          # it or every report write fails silently late in the scan.
+          chmod -R a+rwX zapwork
+
+      - name: Fetch the OpenAPI document and point it at the scanner's target
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:8000/api/v1/openapi.json -o zapwork/openapi-raw.json
+          # FastAPI omits `servers` unless a root_path is configured, and ZAP
+          # needs one to know where to send the requests it derives. Inside the
+          # compose network that is `backend:8000`, not the loopback address the
+          # runner uses.
+          jq '.servers = [{"url": "http://backend:8000"}]' \
+            zapwork/openapi-raw.json > zapwork/openapi.json
+          jq -r '"OpenAPI \(.openapi), \(.paths | length) paths, servers \(.servers | tojson)"' \
+            zapwork/openapi.json
+
+      - name: ZAP Baseline scan (passive + AjaxSpider)
+        env:
+          NET: ${{ steps.net.outputs.name }}
+        # -j  AjaxSpider, required by §2.1 for the React SPA: a plain spider sees
+        #     one HTML shell and none of the client-rendered routes.
+        # -a  include alpha passive rules.
+        # -I  do not fail on warnings; the verdict is zap_gate.py's.
+        run: |
+          set -euo pipefail
+          docker run --rm --network "$NET" \
+            -v "$PWD/zapwork:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 # stable, pulled 2026-08-01 \
+            zap-baseline.py \
+              -t http://frontend:8080 \
+              -c zap-rules.tsv \
+              -J baseline-report.json \
+              -r baseline-report.html \
+              -a -j -I \
+            || echo "zap-baseline exited $? — the verdict is applied below."
+
+      - name: ZAP API scan (OpenAPI-driven)
+        env:
+          NET: ${{ steps.net.outputs.name }}
+        run: |
+          set -euo pipefail
+          docker run --rm --network "$NET" \
+            -v "$PWD/zapwork:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 # stable, pulled 2026-08-01 \
+            zap-api-scan.py \
+              -t openapi.json \
+              -f openapi \
+              -c zap-api-rules.tsv \
+              -J api-report.json \
+              -r api-report.html \
+              -I \
+            || echo "zap-api-scan exited $? — the verdict is applied below."
+
+      - name: Apply the NFR-015 severity policy
+        # Runs for both reports even if one scan died, so a partial run still
+        # reports what it found. A MISSING report is a failure inside the gate,
+        # not a silent pass — see zap_gate.py.
+        run: |
+          set -euo pipefail
+          status=0
+          python3 scripts/security/zap_gate.py zapwork/baseline-report.json \
+            --profile baseline --rules tests/security/zap-rules.tsv || status=1
+          python3 scripts/security/zap_gate.py zapwork/api-report.json \
+            --profile api --rules tests/security/zap-api-rules.tsv || status=1
+          exit "$status"
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-pr-reports-${{ github.sha }}
+          path: |
+            zapwork/*-report.json
+            zapwork/*-report.html
+            zapwork/openapi.json
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Tear down ephemeral stack
+        if: always()
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.security.override.yml \
+            down -v --remove-orphans
