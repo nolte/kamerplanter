@@ -113,7 +113,11 @@ jobs:
           allow-prereleases: true
 
       - name: Install pip-audit
-        run: python -m pip install --upgrade pip pip-audit
+        # Pinned like pip-tools below. An unpinned scanner is a floating input:
+        # the same commit can pass today and fail tomorrow because the tool
+        # changed, which makes a red run unattributable (continuous-integration
+        # §C).
+        run: python -m pip install --upgrade pip 'pip-audit==2.10.1'
 
       - name: Audit pinned dependencies for known CVEs
         # Audits the exact committed lock that ships (NFR-009 §4.1). Runs on every
@@ -150,7 +154,7 @@ jobs:
         # The license scanner reads installed package metadata, so the pinned set
         # must be installed first (NFR-009 §4.3).
         run: |
-          python -m pip install --upgrade pip pip-licenses
+          python -m pip install --upgrade pip 'pip-licenses==5.5.5'
           pip install --require-hashes -r requirements.txt
 
       - name: Enforce license allowlist
