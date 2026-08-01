@@ -1,0 +1,171 @@
+name: Security — ZAP Nightly Full Scan
+
+##
+## NFR-015 §4.3 — nightly Full-Scan (active + passive + AjaxSpider), run
+## authenticated, against an ephemeral stack the job builds itself.
+##
+## Scheduled 60 minutes after the Nuclei nightly (§4.2 of NFR-014), so the
+## faster template sweep reports first and the two do not compete for runners.
+##
+## Three things this profile adds over the per-pull-request scans in
+## security-zap-baseline.yml:
+##
+##   * **Authentication** (§3.2) — a JWT HttpSender script attaches the Bearer
+##     token to every request ZAP generates, including the ones the spider and
+##     the active scanner build themselves.
+##   * **Cross-tenant detection** (§3.3) — a passive rule raises a High alert,
+##     escalated to Critical by §5.1, whenever a token for one tenant receives a
+##     2xx from another tenant's URL space.
+##   * **Auth-bypass two-pass** (§4.2) — every route OpenAPI declares as
+##     protected is probed with and without a token.
+##
+## Credentials are generated per run (§3.1). The identities live only for the
+## duration of this job because the stack does, so a long-lived repository
+## secret for a throw-away account would be attack surface without benefit.
+##
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-zap-nightly
+  cancel-in-progress: false
+
+jobs:
+  zap-full-scan:
+    name: ZAP Nightly Full-Scan
+    runs-on: ubuntu-latest
+    # §5.3 allows the full profile 1–6 h. 240 min is a ceiling, not a target.
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Bring up ephemeral stack
+        uses: ./.github/actions/ephemeral-stack
+
+      - name: Resolve the compose network
+        id: net
+        run: |
+          set -euo pipefail
+          cid="$(docker compose -p kamerplanter-security ps -aq backend)"
+          net="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
+          if [[ -z "$net" ]]; then
+            echo "::error::Could not resolve the compose network for the backend container." >&2
+            exit 1
+          fi
+          echo "name=$net" >> "$GITHUB_OUTPUT"
+
+      - name: Generate per-run credentials
+        id: creds
+        # §3.1 — one fresh secret per identity per run, registered with the
+        # platform's masking before it can reach a log. Nothing survives the job.
+        run: |
+          set -euo pipefail
+          for var in KP_ZAP_PWD_TENANT_A_ADMIN KP_ZAP_PWD_TENANT_A_VIEWER KP_ZAP_PWD_TENANT_B_ADMIN; do
+            value="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+            echo "::add-mask::$value"
+            echo "$var=$value" >> "$GITHUB_ENV"
+          done
+          echo "Generated three per-run passwords."
+
+      - name: Seed test identities
+        env:
+          KP_API_BASE: http://127.0.0.1:8000
+        run: ./tests/security/zap-setup/seed-test-identities.sh
+
+      - name: Seed the cross-tenant probe resource
+        id: fixtures
+        env:
+          KP_API_BASE: http://127.0.0.1:8000
+        run: ./tests/security/zap-setup/seed-cross-tenant.sh
+
+      - name: Fetch the OpenAPI document
+        run: |
+          set -euo pipefail
+          mkdir -p zapwork
+          curl -fsS http://127.0.0.1:8000/api/v1/openapi.json -o zapwork/openapi-raw.json
+          jq '.servers = [{"url": "http://backend:8000"}]' \
+            zapwork/openapi-raw.json > zapwork/openapi.json
+
+      - name: Auth-bypass two-pass (§4.2)
+        # Runs BEFORE the long scan: it takes seconds, and a broken token makes
+        # the whole authenticated profile meaningless, so finding that out now
+        # saves hours of scanning the anonymous surface under an authenticated
+        # label.
+        env:
+          TOKEN: ${{ steps.fixtures.outputs.tenant_a_token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/security/zap_auth_bypass.py \
+            --openapi zapwork/openapi.json \
+            --base-url http://127.0.0.1:8000 \
+            --token "$TOKEN" \
+            --param tenant_slug=zap-tenant-a
+
+      - name: Stage the ZAP working directory
+        run: |
+          set -euo pipefail
+          cp tests/security/zap-rules.tsv zapwork/
+          cp tests/security/zap-scripts/jwt-httpsender.js zapwork/
+          cp tests/security/zap-scripts/cross-tenant-passive.js zapwork/
+          cp tests/security/zap-setup/zap_hooks.py zapwork/
+          chmod -R a+rwX zapwork
+
+      - name: ZAP Full-Scan (authenticated, AjaxSpider)
+        env:
+          NET: ${{ steps.net.outputs.name }}
+          # Tenant B's session against tenant A's URL space is what makes the
+          # cross-tenant rule able to fire at all.
+          TOKEN_B: ${{ steps.fixtures.outputs.tenant_b_token }}
+          PWD_B: ${{ env.KP_ZAP_PWD_TENANT_B_ADMIN }}
+        run: |
+          set -euo pipefail
+          login_body="$(jq -nc \
+            --arg e 'zap-tenant-b-admin@zap.kamerplanter.example' \
+            --arg p "$PWD_B" '{email:$e,password:$p}')"
+          docker run --rm --network "$NET" \
+            -v "$PWD/zapwork:/zap/wrk:rw" \
+            -e KP_ZAP_TOKEN="$TOKEN_B" \
+            -e KP_ZAP_LOGIN_URL="http://backend:8000/api/v1/auth/login" \
+            -e KP_ZAP_LOGIN_BODY="$login_body" \
+            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
+            zap-full-scan.py \
+              -t http://frontend:8080 \
+              -c zap-rules.tsv \
+              -J full-report.json \
+              -r full-report.html \
+              --hook=/zap/wrk/zap_hooks.py \
+              -a -j -I \
+            || echo "zap-full-scan exited $? — the verdict is applied below."
+
+      - name: Apply the NFR-015 severity policy
+        run: |
+          python3 scripts/security/zap_gate.py zapwork/full-report.json \
+            --profile full --rules tests/security/zap-rules.tsv
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-nightly-${{ github.run_id }}
+          path: |
+            zapwork/full-report.json
+            zapwork/full-report.html
+            zapwork/openapi.json
+          retention-days: 365
+          if-no-files-found: error
+
+      - name: Tear down ephemeral stack
+        if: always()
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.security.override.yml \
+            down -v --remove-orphans
