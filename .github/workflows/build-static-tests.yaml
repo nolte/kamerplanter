@@ -3,8 +3,25 @@ name: Static CI Tests
 on:
   push:
 
+# Least privilege at workflow level; the two jobs that need more declare it
+# themselves below. `static` needs nothing beyond reading the checkout.
+permissions:
+  contents: read
+
+# This workflow triggers on EVERY push to EVERY branch — deliberately, because
+# `static / Static CI Tests` is the required check and a path- or branch-filtered
+# required check never reports. The cost is that a branch pushed three times in a
+# minute used to run it three times to completion, and `strict: true` multiplies
+# that across the merge train. Superseding the older run keeps the guarantee and
+# drops the waste.
+concurrency:
+  group: static-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   static:
+    permissions:
+      contents: read
     uses: nolte/gh-plumbing/.github/workflows/reusable-pre-commit.yaml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
 
   security:

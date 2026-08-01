@@ -16,9 +16,20 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
+# Least privilege at the workflow level; every write scope is granted on the
+# job that needs it (§B of the GitHub-Actions spec). Before this, all eight
+# build jobs carried `contents: write` although only the two publishing jobs
+# use it.
 permissions:
-  contents: write
-  packages: write
+  contents: read
+
+# A delivery workflow, so runs are serialised but NEVER cancelled: cutting one
+# in flight can leave a tag pushed and its attestation missing. Two quick merges
+# to develop used to race each other's `latest` push with nothing serialising
+# them.
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   changes:
@@ -67,6 +78,13 @@ jobs:
       always() &&
       (needs.changes.outputs.backend == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -100,6 +118,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: src/backend
@@ -111,12 +130,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-backend)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-backend
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   build-frontend:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.frontend == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -150,6 +191,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: src/frontend
@@ -161,12 +203,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-frontend)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-frontend
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   build-vectordb:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.vectordb == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -200,6 +264,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: docker/vectordb
@@ -211,12 +276,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-vectordb)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-vectordb
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   build-knowledge:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.knowledge == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -250,6 +337,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -261,12 +349,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-knowledge)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-knowledge
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   build-embedding-service:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.embedding-service == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -300,6 +410,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: docker/embedding-service
@@ -311,12 +422,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-embedding-service)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-embedding-service
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   build-inference-service:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.inference-service == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -350,6 +483,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: src/inference-service
@@ -361,12 +495,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-inference-service)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-inference-service
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   build-reranker-service:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.reranker-service == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -400,6 +556,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: docker/reranker-service
@@ -412,12 +569,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-reranker-service)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-reranker-service
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   build-knowledge-service:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.knowledge-service == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Scoped to the job that produces the attestation, never widened to
+      # the workflow (§B/§H). `id-token` signs it, `attestations` stores it.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -451,6 +630,7 @@ jobs:
             org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: src/knowledge-service
@@ -462,12 +642,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build provenance, generated and signed by the platform rather than by
+      # the build it attests — a build that attests to itself cannot detect its
+      # own compromise (SLSA v1.0, continuous-delivery §C). Before this, none of
+      # the eight images or the chart carried any provenance at all.
+      #
+      # This records ORIGIN, not safety: an attested image is one whose build
+      # path is known, not one that has been judged secure. Security findings
+      # stay with the supply-chain stages.
+      - name: Attest build provenance (kamerplanter-knowledge-service)
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/kamerplanter-knowledge-service
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
   publish-helm-charts:
     needs: changes
     if: |
       always() &&
       (needs.changes.outputs.helm == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      # `contents: write` for the release-asset upload only; the chart push
+      # itself needs `packages: write`.
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         chart:
@@ -480,25 +682,69 @@ jobs:
 
       - name: Determine chart version
         id: version
+        env:
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${{ github.ref_name }}"
-            VERSION="${VERSION#v}"
-            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [[ "$REF" == refs/tags/v* ]]; then
+            echo "version=${REF_NAME#v}" >> "$GITHUB_OUTPUT"
           else
             echo "version=" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update chart version for release
         if: steps.version.outputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHART: ${{ matrix.chart }}
         run: |
-          sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" helm/${{ matrix.chart }}/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.version }}\"/" helm/${{ matrix.chart }}/Chart.yaml
+          set -euo pipefail
+          yq -i ".version = \"$VERSION\" | .appVersion = \"$VERSION\"" "helm/$CHART/Chart.yaml"
 
-      - name: Set image tags in chart values for release
+      - name: Pin image tags in chart values for release
         if: steps.version.outputs.version != '' && matrix.chart == 'kamerplanter'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHART: ${{ matrix.chart }}
         run: |
-          sed -i "s/tag: latest/tag: ${{ steps.version.outputs.version }}/" helm/${{ matrix.chart }}/values.yaml
+          set -euo pipefail
+          # Addresses every Kamerplanter-owned image by PATH rather than by
+          # rewriting the literal string "tag: latest".
+          #
+          # The sed this replaces matched on that literal, which made it silently
+          # conditional on a default nobody guarantees: change `values.yaml` to
+          # ship a pinned default and the substitution stops matching, the step
+          # still exits 0, and the released chart quietly carries whatever tag
+          # happened to be committed. It also rewrote commented-out example
+          # blocks, because a comment contains the literal too.
+          yq -i "
+            (.. | select(has(\"repository\")) |
+             select(.repository == \"*ghcr.io/nolte/kamerplanter-*\") | .tag) = \"$VERSION\"
+          " "helm/$CHART/values.yaml"
+
+      - name: Verify no Kamerplanter image escaped the pin
+        if: steps.version.outputs.version != '' && matrix.chart == 'kamerplanter'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHART: ${{ matrix.chart }}
+        run: |
+          set -euo pipefail
+          # The substitution above must not be trusted to have worked. A release
+          # that ships a chart still pointing at a moving tag is exactly the
+          # defect continuous-delivery §B exists to prevent, and the previous
+          # implementation had no way to notice.
+          escaped=$(yq "
+            [.. | select(has(\"repository\")) |
+             select(.repository == \"*ghcr.io/nolte/kamerplanter-*\") |
+             select(.tag != \"$VERSION\") | .repository + \":\" + .tag] | .[]
+          " "helm/$CHART/values.yaml")
+          if [[ -n "$escaped" ]]; then
+            echo "::error::Chart values still carry unpinned Kamerplanter images:" >&2
+            printf '%s\n' "$escaped" | sed 's/^/  /' >&2
+            exit 1
+          fi
+          echo "All Kamerplanter images pinned to $VERSION."
 
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
@@ -513,13 +759,37 @@ jobs:
         run: helm package helm/${{ matrix.chart }}
 
       - name: Push chart to GHCR
-        run: helm push ${{ matrix.chart }}-*.tgz oci://${{ env.IMAGE_PREFIX }}/charts
+        id: push
+        env:
+          CHART: ${{ matrix.chart }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+        run: |
+          set -euo pipefail
+          # `helm push` reports the pushed manifest digest on stderr; capture it
+          # so the chart can be attested by digest like the images are.
+          helm push "$CHART"-*.tgz "oci://$IMAGE_PREFIX/charts" 2>&1 | tee push.log
+          digest=$(grep -oE 'sha256:[0-9a-f]{64}' push.log | head -1)
+          if [[ -z "$digest" ]]; then
+            echo "::error::helm push reported no digest — refusing to attest a chart we cannot identify." >&2
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Chart digest: $digest"
+
+      - name: Attest chart provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/charts/${{ matrix.chart }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
 
       - name: Upload chart as release asset
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" ${{ matrix.chart }}-*.tgz --clobber
+          CHART: ${{ matrix.chart }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" "$CHART"-*.tgz --clobber
 
   update-release-assets:
     needs: [build-backend, build-frontend, build-vectordb, build-knowledge, build-embedding-service, build-inference-service, build-reranker-service, build-knowledge-service, publish-helm-charts]
@@ -529,17 +799,21 @@ jobs:
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Generate and upload docker-compose
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           VERSION_NUM="${VERSION#v}"
-          sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > docker-compose-${VERSION_NUM}.yml
-          cp .env.example .env.example-${VERSION_NUM}
+          sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > "docker-compose-${VERSION_NUM}.yml"
+          cp .env.example ".env.example-${VERSION_NUM}"
           gh release upload "$VERSION" "docker-compose-${VERSION_NUM}.yml" ".env.example-${VERSION_NUM}" --clobber
 
       - name: Update release body with package links
@@ -547,37 +821,66 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ github.ref_name }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           VERSION_NUM="${VERSION#v}"
-          BODY=$(gh release view "$VERSION" --json body -q .body)
+
+          # Delimited by stable markers so a re-run REPLACES the block instead of
+          # appending a second copy. The previous version concatenated the
+          # existing body with a freshly built section, so every re-run (a
+          # workflow_dispatch, a retry of a flaky upload) duplicated it.
+          BEGIN="<!-- kp:packages:begin -->"
+          END="<!-- kp:packages:end -->"
+
           PACKAGES=$(cat <<EOF
+          $BEGIN
 
           ## Packages
 
           ### Container Images
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-backend:${VERSION_NUM}\`
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-frontend:${VERSION_NUM}\`
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-vectordb:${VERSION_NUM}\`
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-knowledge:${VERSION_NUM}\`
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-embedding-service:${VERSION_NUM}\`
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-inference-service:${VERSION_NUM}\`
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-reranker-service:${VERSION_NUM}\`
-          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-knowledge-service:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-backend:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-frontend:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-vectordb:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-knowledge:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-embedding-service:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-inference-service:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-reranker-service:${VERSION_NUM}\`
+          - \`ghcr.io/${OWNER}/kamerplanter-knowledge-service:${VERSION_NUM}\`
 
-          ### Helm Chart
-          - \`oci://ghcr.io/${{ github.repository_owner }}/charts/kamerplanter:${VERSION_NUM}\`
+          Every image and the chart carry signed build provenance. Verify before
+          deploying:
 
           \`\`\`bash
-          helm pull oci://ghcr.io/${{ github.repository_owner }}/charts/kamerplanter --version ${VERSION_NUM}
+          gh attestation verify oci://ghcr.io/${OWNER}/kamerplanter-backend:${VERSION_NUM} --repo ${REPO}
+          \`\`\`
+
+          Provenance records the build ORIGIN — which commit, which workflow run,
+          which pinned inputs. It is not a statement that the artifact is secure.
+
+          ### Helm Chart
+          - \`oci://ghcr.io/${OWNER}/charts/kamerplanter:${VERSION_NUM}\`
+
+          \`\`\`bash
+          helm pull oci://ghcr.io/${OWNER}/charts/kamerplanter --version ${VERSION_NUM}
           \`\`\`
 
           ### Docker Compose
           \`\`\`bash
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${VERSION}/docker-compose-${VERSION_NUM}.yml
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${VERSION}/.env.example-${VERSION_NUM}
+          curl -LO https://github.com/${REPO}/releases/download/${VERSION}/docker-compose-${VERSION_NUM}.yml
+          curl -LO https://github.com/${REPO}/releases/download/${VERSION}/.env.example-${VERSION_NUM}
           cp .env.example-${VERSION_NUM} .env   # edit passwords!
           docker compose -f docker-compose-${VERSION_NUM}.yml up -d
           \`\`\`
+          $END
           EOF
           )
-          gh release edit "$VERSION" --notes "${BODY}${PACKAGES}"
+
+          BODY=$(gh release view "$VERSION" --json body -q .body)
+          # Strip any previous block, then append the current one.
+          STRIPPED=$(printf '%s' "$BODY" | awk -v b="$BEGIN" -v e="$END" '
+            $0 == b {skip=1} !skip {print} $0 == e {skip=0}
+          ')
+          printf '%s\n%s\n' "$STRIPPED" "$PACKAGES" > release-notes.md
+          gh release edit "$VERSION" --notes-file release-notes.md

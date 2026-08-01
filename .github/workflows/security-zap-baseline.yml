@@ -26,6 +26,13 @@ name: Security — ZAP PR Scans
 ##
 ## The deviation is recorded in NFR-015 §4.1 rather than left implicit.
 ##
+## The ZAP image is pinned by digest (NFR-018 §3). sha256:8d387b1a… is the
+## `stable` tag as of 2026-08-01. Keep that note HERE and never on the `docker
+## run` line: inside a `run:` block a `#` is shell, not YAML, so an inline
+## comment swallows the rest of the line INCLUDING its trailing backslash — the
+## continuation is lost and the next line runs as its own command. That exact
+## mistake produced `zap-baseline.py: command not found` on the first real run.
+##
 ## Both scans run with `-I` (do not fail on warnings). The verdict belongs to
 ## `scripts/security/zap_gate.py`, which implements the §5.1 severity matrix and
 ## the §5.2 confidence filter — ZAP's own exit codes know neither.
@@ -132,7 +139,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network "$NET" \
             -v "$PWD/zapwork:/zap/wrk:rw" \
-            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 # stable, pulled 2026-08-01 \
+            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
             zap-baseline.py \
               -t http://frontend:8080 \
               -c zap-rules.tsv \
@@ -148,7 +155,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network "$NET" \
             -v "$PWD/zapwork:/zap/wrk:rw" \
-            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 # stable, pulled 2026-08-01 \
+            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
             zap-api-scan.py \
               -t openapi.json \
               -f openapi \

@@ -13,6 +13,13 @@ on:
       - 'docker/**'
       - 'spec/knowledge/rag/**'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-lint-build-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   changes:
     runs-on: ubuntu-latest
