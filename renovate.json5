@@ -272,7 +272,7 @@
       ],
       matchStrings: [
         // pip-style: 'pip-audit==2.10.1'
-        "'(?<depName>pip-audit|pip-licenses|pip-tools)==(?<currentValue>[0-9][^']*)'",
+        "'(?<depName>pip-audit|pip-licenses|pip-tools|pip)==(?<currentValue>[0-9][^']*)'",
         // npx-style: @stoplight/spectral-cli@6.16.2
         'npx --yes (?<depName>@[^@\\s]+/[^@\\s]+)@(?<currentValue>[0-9]\\S*)',
       ],
