@@ -82,7 +82,44 @@ jobs:
         run: skaffold diagnose
 
       - name: Skaffold render
-        run: skaffold render --output rendered-manifests.yaml
+        # `--digest-source=none` and `--offline=true` are what make this step
+        # capable of passing at all.
+        #
+        # Removing `|| true` revealed that it had NEVER worked: plain
+        # `skaffold render` defaults to `--digest-source=remote`, tries to
+        # resolve `kamerplanter-backend:<sha>` in a registry, and fails with
+        # "does the image exist remotely?" — this job builds and pushes nothing,
+        # so that lookup can never succeed. Every run for the life of this
+        # workflow produced that error, discarded it, and uploaded an empty
+        # artifact.
+        #
+        # `none` takes the tags straight from the manifests, which is the right
+        # source here: the point is to verify that skaffold's deploy
+        # configuration and the chart wire together (including the
+        # `setValueTemplates` overrides that `helm template` above does not
+        # exercise), not to check that a particular image exists.
+        # `--offline=true` drops the Kubernetes API lookup, which this runner
+        # also does not have.
+        #
+        # Verified locally against this commit: 2465 lines, 40 resources.
+        run: |
+          skaffold render \
+            --offline=true \
+            --digest-source=none \
+            --output rendered-manifests.yaml
+
+      - name: Assert the render produced manifests
+        # `--output` writing an empty or near-empty file would otherwise pass
+        # silently, which is the same vacuous-success shape this pull request
+        # exists to remove.
+        run: |
+          set -euo pipefail
+          kinds=$(grep -c '^kind:' rendered-manifests.yaml || true)
+          if [[ "$kinds" -lt 10 ]]; then
+            echo "::error::Render produced only $kinds resources — expected the full chart." >&2
+            exit 1
+          fi
+          echo "Rendered $kinds resources."
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
