@@ -101,7 +101,7 @@ Praktisches Beispiel:
 |---|---|---|
 | Backend-API (FastAPI) — `/api/v1/...` | Nuclei `http://backend:8000` | Pro PR + täglich |
 | Frontend-Bundle & statische Assets — `/` | Nuclei `http://frontend:5173` | Pro PR + täglich |
-| Reverse-Proxy / Ingress (Traefik) | Nuclei gegen Public-Hostname auf Staging | Täglich |
+| Reverse-Proxy / Ingress (Traefik) | Nuclei gegen Public-Hostname | **Offen** — der ephemere Nightly-Stack enthält keinen Ingress, siehe §4.2 |
 | OpenAPI-Spezifikation — `/api/v1/openapi.json` | Nuclei `-input openapi.json` | Pro PR |
 | Kamerplanter-Knowledge-Service (sofern deployt) | Nuclei gegen Service-URL | Pro PR + täglich |
 
@@ -308,7 +308,17 @@ jobs:
 
 ### 4.2 Nightly Full-Scan
 
-**MUSS**: Täglich um 02:00 Europe/Berlin läuft ein vollständiger Nuclei-Scan gegen die Staging-Umgebung:
+**MUSS**: Täglich um 02:00 Europe/Berlin läuft ein vollständiger Nuclei-Scan gegen einen **ephemeren Stack, den der Workflow selbst startet** — dieselbe Konstruktion wie in den E2E-Suiten (`docker-compose.e2e.yml` + `docker-compose.security.override.yml`).
+
+> **Warum nicht Staging.** Die ursprüngliche Fassung dieses Abschnitts verlangte einen Scan gegen eine Staging-Umgebung und las das Ziel aus `vars.STAGING_BASE_URL`. Diese Variable wurde nie konfiguriert und es existiert keine Staging-Umgebung, gegen die sie zeigen könnte. Folge: von der Einführung des Workflows bis zum 2026-08-01 scheiterte **jeder** geplante Lauf am ersten Step, und es wurde nie ein einziger Scan ausgeführt. Der Meldeweg für Findings — der Issue-Step — meldet in genau diesem Fehlermodus Erfolg, weil er ohne `results.jsonl` nur eine Notice absetzt. Eine Anforderung, deren Erfüllung von einer Umgebung abhängt, die es nicht gibt, ist keine Abdeckung, sondern deren Anschein.
+>
+> Der ephemere Stack wird aus dem gescannten Commit gebaut und danach abgeräumt. Er ist damit reproduzierbar und an den Commit gebunden, hat aber eine bewusste Grenze: er prüft **nicht** die Reverse-Proxy-/Ingress-Schicht aus der Tabelle in §2.4, weil die im Compose-Stack nicht existiert. Diese Zeile bleibt offen, bis eine deployte Umgebung existiert.
+
+**KANN**: Der `workflow_dispatch`-Input `target` überschreibt das Ziel mit einer externen URL. Er ist bewusst **nicht** an eine Repository-Variable gebunden: eine Variable, die im Hintergrund umlenkt, was gescannt wird, ist derselbe Fehlermodus wie der oben beschriebene.
+
+**MUSS**: `KP_REQUIRE_DEBUG_LOCKDOWN` wird **nur** für ein externes, produktionsäquivalentes Ziel auf `1` gesetzt. Gegen den ephemeren Stack bleibt es leer — dort sind `/docs`, `/redoc` und `/openapi.json` absichtlich offen (`KAMERPLANTER_MODE: full`), und ein dauerhaft wiederkehrendes Medium-Finding gegen ein korrekt gebautes Ziel ist der Weg, auf dem ein SARIF-Feed aufhört, gelesen zu werden.
+
+Skizze (der reale Workflow steht in `.github/workflows/security-nuclei-nightly.yml`):
 
 ```yaml
 # .github/workflows/security-nuclei-nightly.yml
@@ -327,10 +337,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bring up ephemeral stack
+        uses: ./.github/actions/ephemeral-stack
+
       - name: Run Nuclei (full profile)
         uses: projectdiscovery/nuclei-action@v3
         with:
-          target: "${{ secrets.STAGING_BASE_URL }}"
+          target: "http://127.0.0.1:8000 http://127.0.0.1:5173"
           templates: "tests/security/nuclei-templates"
           tags: "exposure,misconfig,default-login,cve,vulnerability,kamerplanter"
           severity: "low,medium,high,critical"
@@ -525,7 +538,8 @@ suppressions:
     - [ ] `NUCLEI_TEMPLATES_SHA` ist in CI auf einen Commit-SHA gepinnt
 - [ ] **CI-Integration**
     - [ ] `.github/workflows/security-nuclei-pr.yml` läuft auf jedem PR gegen `develop`/`main`
-    - [ ] `.github/workflows/security-nuclei-nightly.yml` läuft täglich gegen Staging
+    - [ ] `.github/workflows/security-nuclei-nightly.yml` läuft täglich gegen einen selbst gestarteten ephemeren Stack (§4.2)
+    - [ ] Ein Nightly-Lauf hat nachweislich einen Scan **ausgeführt** — nicht nur grün oder rot gemeldet: `results.jsonl` liegt als Artefakt vor
     - [ ] OpenAPI-Scan ist Teil des PR-Workflows
     - [ ] PR-Gate scheitert bei High/Critical-Findings
 - [ ] **Reporting**

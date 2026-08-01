@@ -82,13 +82,34 @@ jobs:
     strategy:
       matrix:
         node-version: [22]
+    env:
+      # The run/skip decision, evaluated ONCE. Every step below gates on this
+      # single value rather than restating the expression, because seven copies
+      # of a condition are seven chances for one of them to drift.
+      #
+      # `needs.changes.result` is load-bearing and must not be dropped. Without
+      # it, a `changes` job that FAILED or was cancelled leaves
+      # `needs.changes.outputs.frontend` as an empty string, every comparison is
+      # false, every step is skipped — and a job whose steps are all skipped
+      # reports Success. The required `lint-test-build (22)` context would go
+      # green without tsc, ESLint, vitest or the build ever running: a check
+      # that reports on nothing is indistinguishable from one that passed.
+      #
+      # `result` covers failure, cancelled AND skipped, which is what makes a
+      # separate event-name clause unnecessary — on push and workflow_dispatch
+      # `changes` is skipped by its own `if:`, so this evaluates to true and the
+      # full suite runs. Same construction as the `smoke` job in e2e-smoke.yml;
+      # keep the two in step.
+      RUN_FRONTEND: >-
+        ${{ needs.changes.result != 'success'
+            || needs.changes.outputs.frontend == 'true' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
+        if: env.RUN_FRONTEND == 'true'
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
+        if: env.RUN_FRONTEND == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
@@ -96,31 +117,29 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
 
       - name: Install dependencies
-        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
+        if: env.RUN_FRONTEND == 'true'
         run: npm ci
 
       - name: TypeScript check
-        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
+        if: env.RUN_FRONTEND == 'true'
         run: npx tsc --noEmit
 
       - name: Lint
-        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
+        if: env.RUN_FRONTEND == 'true'
         run: npm run lint
 
       - name: Test
-        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
+        if: env.RUN_FRONTEND == 'true'
         run: npm run test
 
       - name: Build
-        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
+        if: env.RUN_FRONTEND == 'true'
         run: npm run build
 
       - name: Upload build artifacts
         # Both conditions: the frontend gate above, and the pre-existing
         # develop-only restriction on publishing the artefact.
-        if: >-
-          (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
-          && github.ref == 'refs/heads/develop'
+        if: env.RUN_FRONTEND == 'true' && github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-dist

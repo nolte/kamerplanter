@@ -4,6 +4,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
   publish_docs:
     uses: nolte/gh-plumbing/.github/workflows/reusable-mkdocs.yaml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26

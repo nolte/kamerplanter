@@ -1,0 +1,124 @@
+##
+## Bring up an ephemeral Kamerplanter stack for DAST scanning (NFR-014, NFR-015).
+##
+## Extracted from security-nuclei-pr.yml so the PR gate and the nightly sweep
+## share ONE readiness implementation. Two copies of a wait-loop is how a scanner
+## ends up reporting "no findings" against a half-started backend: the scan runs,
+## finds nothing because nothing answers, and the job goes green. The readiness
+## logic is the load-bearing part of a DAST job, not boilerplate around it.
+##
+## The caller owns the teardown (`docker compose ... down -v` under
+## `if: always()`), because a composite action cannot register cleanup that
+## survives its own failure.
+##
+name: Ephemeral Kamerplanter stack
+description: >-
+  Start backend + frontend from the E2E compose stack with the DAST port
+  override, and block until both answer on 127.0.0.1.
+
+inputs:
+  project-name:
+    description: Compose project name; also the handle the caller tears down with.
+    required: false
+    default: kamerplanter-security
+  backend-url:
+    description: Backend base URL the readiness probe polls.
+    required: false
+    default: http://127.0.0.1:8000
+  frontend-url:
+    description: Frontend base URL the readiness probe polls.
+    required: false
+    default: http://127.0.0.1:5173
+
+runs:
+  using: composite
+  steps:
+    - name: Bring up ephemeral stack
+      shell: bash
+      env:
+        COMPOSE_PROJECT_NAME: ${{ inputs.project-name }}
+      run: |
+        # Bring the backend up on its own, detached. Two reasons we do
+        # NOT use `up -d --wait backend frontend` here:
+        #  * `frontend` declares depends_on backend (service_healthy); a
+        #    combined `up` fast-fails the whole command the instant the
+        #    backend exits during startup — before any diagnostics run.
+        #  * `--wait` aborts before the log-capture step below.
+        # `up -d backend` returns once the backend container is started
+        # (its own healthcheck is polled in the readiness step). The
+        # frontend is brought up only after the backend is healthy.
+        docker compose \
+          -f docker-compose.e2e.yml \
+          -f docker-compose.security.override.yml \
+          up -d backend
+
+    - name: Wait for backend readiness, then bring up frontend
+      shell: bash
+      env:
+        COMPOSE_PROJECT_NAME: ${{ inputs.project-name }}
+        PROJECT_NAME: ${{ inputs.project-name }}
+        BACKEND_URL: ${{ inputs.backend-url }}
+        FRONTEND_URL: ${{ inputs.frontend-url }}
+      run: |
+        # Probes the same liveness path used by the docker-compose
+        # healthcheck (/api/v1/health/live). Window is 360s (60 × 6s) so
+        # the wait-loop survives the backend's first-run migrations +
+        # seeds, which run synchronously in the ASGI lifespan before the
+        # service declares itself healthy.
+        backend_cid="$(docker compose -p "$PROJECT_NAME" ps -aq backend)"
+        ready=0
+        for i in $(seq 1 60); do
+          # Fail fast if the backend exited instead of spinning the full
+          # 360s window against a dead container.
+          state="$(docker inspect -f '{{.State.Status}} (exit {{.State.ExitCode}})' "$backend_cid" 2>/dev/null || echo missing)"
+          case "$state" in
+            exited*|dead*|missing)
+              echo "::error::backend container is '$state' during startup" >&2
+              break
+              ;;
+          esac
+          if curl -fsS "$BACKEND_URL/api/v1/health/live" >/dev/null; then
+            echo "backend ready (try $i)"
+            ready=1
+            break
+          fi
+          sleep 6
+        done
+        if [ "$ready" -ne 1 ]; then
+          echo "::error::backend did not become ready" >&2
+          exit 1
+        fi
+        # Backend healthy → bring up the frontend and wait for it too.
+        docker compose \
+          -f docker-compose.e2e.yml \
+          -f docker-compose.security.override.yml \
+          up -d --wait frontend
+        for i in $(seq 1 20); do
+          if curl -fsS "$FRONTEND_URL/" >/dev/null; then
+            echo "frontend ready (try $i)"
+            exit 0
+          fi
+          sleep 3
+        done
+        echo "::error::frontend did not become ready" >&2
+        exit 1
+
+    # `failure()` inside a composite action is scoped to this action's own
+    # steps, so this fires exactly when the bring-up above failed — which is
+    # the only moment the logs are worth capturing.
+    - name: Dump stack diagnostics on failure
+      if: failure()
+      shell: bash
+      env:
+        COMPOSE_PROJECT_NAME: ${{ inputs.project-name }}
+        PROJECT_NAME: ${{ inputs.project-name }}
+      run: |
+        echo "::group::container state"
+        docker compose -p "$PROJECT_NAME" ps -a || true
+        echo "::endgroup::"
+        echo "::group::backend logs (last 500 lines)"
+        docker compose -p "$PROJECT_NAME" logs --no-color --tail 500 backend || true
+        echo "::endgroup::"
+        echo "::group::frontend logs (last 100 lines)"
+        docker compose -p "$PROJECT_NAME" logs --no-color --tail 100 frontend || true
+        echo "::endgroup::"
