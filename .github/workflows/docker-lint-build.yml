@@ -11,8 +11,15 @@ on:
       - 'src/frontend/Dockerfile.*'
       - 'src/frontend/**'
       - 'src/inference-service/**'
+      - 'src/knowledge-service/**'
       - 'docker/**'
       - 'spec/knowledge/rag/**'
+      # This file itself. Without it the lint workflow could be rewritten and
+      # merged WITHOUT ever running — which is what happened to the pull request
+      # that introduced this line: it changed how linting works and the job did
+      # not fire. `src/knowledge-service/**` was missing for the same reason,
+      # although its Dockerfile is one of the eight this job lints.
+      - '.github/workflows/docker-lint-build.yml'
 
 permissions:
   contents: read
