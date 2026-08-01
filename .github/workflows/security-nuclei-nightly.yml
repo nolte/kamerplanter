@@ -92,16 +92,39 @@ jobs:
             echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          commit=$(yq e '.nuclei_templates_commit' .github/renovate-pins.yaml)
+          if [[ -z "$commit" || "$commit" == "null" ]]; then
+            echo "::error::nuclei_templates_commit missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "commit=$commit"
+          } >> "$GITHUB_OUTPUT"
           echo "Pinned templates version: $version"
 
       - name: Clone & checkout pinned community templates
+        env:
+          VERSION: ${{ steps.pin.outputs.version }}
+          EXPECTED_COMMIT: ${{ steps.pin.outputs.commit }}
         run: |
+          set -euo pipefail
           git clone --filter=blob:none \
             https://github.com/projectdiscovery/nuclei-templates.git \
             ./nuclei-templates
-          git -C ./nuclei-templates fetch --depth=1 origin "${{ steps.pin.outputs.version }}"
+          git -C ./nuclei-templates fetch --depth=1 origin "$VERSION"
           git -C ./nuclei-templates checkout FETCH_HEAD
+
+          # A tag can be moved. Assert it still points where it did when it was
+          # reviewed, so a replaced template set fails the run loudly instead of
+          # quietly changing what the scan covers.
+          actual="$(git -C ./nuclei-templates rev-parse HEAD)"
+          if [[ "$actual" != "$EXPECTED_COMMIT" ]]; then
+            echo "::error::$VERSION resolves to $actual, but .github/renovate-pins.yaml records $EXPECTED_COMMIT." >&2
+            echo "         The upstream tag moved. Review the change and update nuclei_templates_commit in the same pull request." >&2
+            exit 1
+          fi
+          echo "Templates at $VERSION = $actual (matches the recorded commit)."
 
       - name: Build suppression flags
         id: suppress
