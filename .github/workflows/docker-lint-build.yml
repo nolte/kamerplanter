@@ -10,6 +10,7 @@ on:
       - 'src/frontend/Dockerfile'
       - 'src/frontend/Dockerfile.*'
       - 'src/frontend/**'
+      - 'src/inference-service/**'
       - 'docker/**'
       - 'spec/knowledge/rag/**'
 
@@ -96,6 +97,14 @@ jobs:
         uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: src/knowledge-service/Dockerfile
+
+      # inference-service has no build job here (it is published from
+      # docker-publish.yml), but its Dockerfile must still be linted — it was
+      # the one image escaping this gate entirely.
+      - name: Lint inference-service Dockerfile
+        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
+        with:
+          dockerfile: src/inference-service/Dockerfile
 
   build-backend:
     needs: [changes, hadolint]
