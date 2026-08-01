@@ -11,8 +11,15 @@ on:
       - 'src/frontend/Dockerfile.*'
       - 'src/frontend/**'
       - 'src/inference-service/**'
+      - 'src/knowledge-service/**'
       - 'docker/**'
       - 'spec/knowledge/rag/**'
+      # This file itself. Without it the lint workflow could be rewritten and
+      # merged WITHOUT ever running — which is what happened to the pull request
+      # that introduced this line: it changed how linting works and the job did
+      # not fire. `src/knowledge-service/**` was missing for the same reason,
+      # although its Dockerfile is one of the eight this job lints.
+      - '.github/workflows/docker-lint-build.yml'
 
 permissions:
   contents: read
@@ -60,51 +67,75 @@ jobs:
 
   hadolint:
     runs-on: ubuntu-latest
+    env:
+      # The LINTER is pinned here, not just the action that wrapped it (#898).
+      #
+      # `hadolint/hadolint-action` was already SHA-pinned, which looked exact and
+      # was not: that action's own Dockerfile does
+      # `FROM ghcr.io/hadolint/hadolint:v2.15.0-debian`, so the binary floated
+      # independently of the pin. When 2.15.0 shipped, DL3025 began flagging
+      # shell-form `HEALTHCHECK … CMD`; this job turned red on every branch
+      # without a single repository change, and because it is a `needs:`
+      # predecessor of all eight `build-*` jobs, nothing built at all. That is
+      # the NFR-018 §1 failure class — a check that looks pinned but is not.
+      #
+      # Run against the mounted file rather than through stdin: with `-` on
+      # stdin hadolint reports every finding against a file named `-`, which is
+      # useless the moment this job is red across several Dockerfiles.
+      #
+      # Pulled by DIGEST, so the reference is immutable whatever the tag does.
+      # The tag stays for humans and as Renovate's handle: the custom manager in
+      # renovate.json5 reads tag and digest together, so an upgrade arrives as a
+      # reviewable pull request carrying its new findings instead of as a
+      # surprise red job on unrelated branches.
+      #
+      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.0@sha256:78cefa24d67e95cac4cdc388652068d0be545bd2926fcbec6f95c1a751d5da32
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Lint backend Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: src/backend/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint src/backend/Dockerfile
 
       - name: Lint frontend Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: src/frontend/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint src/frontend/Dockerfile
 
       - name: Lint vectordb Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: docker/vectordb/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint docker/vectordb/Dockerfile
 
       - name: Lint knowledge Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: docker/knowledge/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint docker/knowledge/Dockerfile
 
       - name: Lint embedding-service Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: docker/embedding-service/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint docker/embedding-service/Dockerfile
 
       - name: Lint reranker-service Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: docker/reranker-service/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint docker/reranker-service/Dockerfile
 
       - name: Lint knowledge-service Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: src/knowledge-service/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint src/knowledge-service/Dockerfile
 
       # inference-service has no build job here (it is published from
       # docker-publish.yml), but its Dockerfile must still be linted — it was
       # the one image escaping this gate entirely.
       - name: Lint inference-service Dockerfile
-        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: src/inference-service/Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
+            hadolint src/inference-service/Dockerfile
 
   build-backend:
     needs: [changes, hadolint]
