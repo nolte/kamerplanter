@@ -83,11 +83,33 @@ tasks:
     cmds:
       - ruff check .
 
+  format:backend:
+    desc: Check backend formatting with ruff (no rewrite) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - ruff format --check .
+
   test:backend:
-    desc: Run backend pytest suite
+    desc: Run the full backend pytest suite (includes tiers CI cannot run without services)
     dir: src/backend
     cmds:
       - python -m pytest tests/ {{.CLI_ARGS}}
+
+  # The two tiers CI runs, as their own targets. `test:backend` above stays the
+  # full local suite; these are what the pipeline invokes, so the pipeline and a
+  # contributor can run the identical thing. The split is deliberate and not a
+  # narrowing of CI: the remaining tiers need services no runner provides.
+  test:backend:unit:
+    desc: Backend unit tests — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/unit/ -v --tb=short {{.CLI_ARGS}}
+
+  test:backend:contracts:
+    desc: Backend contract tests (enum sync, i18n completeness) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
 
   openapi:export:
     desc: |
@@ -145,10 +167,13 @@ tasks:
   # ── Frontend ────────────────────────────────────────────────
 
   lint:frontend:
-    desc: Run ESLint on frontend code
+    desc: Run ESLint on the frontend — the CI gate's exact invocation
     dir: src/frontend
     cmds:
-      - npx eslint src/
+      # `.`, not `src/`. This target used to lint only `src/` while CI linted the
+      # whole project, so a contributor could get a green local run on files the
+      # pipeline rejects. Widened to match CI rather than narrowing CI to match it.
+      - npx eslint .
 
   typecheck:
     desc: Run TypeScript type check (no emit)
@@ -157,10 +182,16 @@ tasks:
       - npx tsc --noEmit
 
   test:frontend:
-    desc: Run frontend vitest suite
+    desc: Run the frontend vitest suite — the CI gate's exact invocation
     dir: src/frontend
     cmds:
       - npx vitest run {{.CLI_ARGS}}
+
+  build:frontend:
+    desc: Production build — the CI gate's exact invocation
+    dir: src/frontend
+    cmds:
+      - npm run build
 
   # ── E2E Tests ───────────────────────────────────────────────
 
