@@ -1,5 +1,24 @@
 name: Skaffold Verify
 
+##
+## Renders the Helm chart and the Skaffold pipeline for a change that touches
+## either, so a broken chart is caught before it reaches a cluster.
+##
+## Two constructions were removed here, both of the "reports success without
+## measuring" family:
+##
+##   * A `Check skaffold.yaml exists` step gated every following step on
+##     `steps.check.outputs.exists == 'true'`. skaffold.yaml is tracked in this
+##     repository and is in this workflow's own path filter, so the false branch
+##     was unreachable — but had it ever been taken, the job would have skipped
+##     everything and reported green. A guard whose failure mode is a silent
+##     pass is worse than no guard: the file's absence now fails the checkout
+##     step loudly.
+##   * `skaffold render ... || true` discarded the render's exit code, and the
+##     upload step below runs under `if: always()`, so a failed render produced
+##     a green job and an empty artifact. The render either works or the job is
+##     red.
+##
 on:
   pull_request:
     branches: [develop]
@@ -11,6 +30,13 @@ on:
       - "src/inference-service/**"
       - ".github/workflows/skaffold-verify.yml"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: skaffold-verify-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -18,23 +44,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check skaffold.yaml exists
-        id: check
-        run: |
-          if [ -f skaffold.yaml ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::skaffold.yaml not found — skipping Skaffold steps"
-          fi
-
       # The hiberbee/github-action-skaffold step below runs `skaffold build`,
       # which builds the inference-service image. Its `model-export` stage
       # installs torch + exports the DINOv2 ONNX model and exhausts the runner
       # disk, causing intermittent "Docker build ran into internal error"
       # (~25% of runs). Reclaim ~20 GB of preinstalled toolchains first.
       - name: Free disk space
-        if: steps.check.outputs.exists == 'true'
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
             /usr/local/lib/android /opt/hostedtoolcache/CodeQL
@@ -42,44 +57,36 @@ jobs:
           df -h /
 
       - name: Setup Helm
-        if: steps.check.outputs.exists == 'true'
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
       - name: Setup Skaffold
-        if: steps.check.outputs.exists == 'true'
         uses: hiberbee/github-action-skaffold@e3f5dd5659610cb792c6cf32daaa797ea6d89842 # 1.27.0
         with:
           skaffold-version: 2.17.2
 
       - name: Build chart dependencies
-        if: steps.check.outputs.exists == 'true'
         run: |
           helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
           helm repo add ollama https://otwld.github.io/ollama-helm/
           helm dependency build helm/kamerplanter
 
       - name: Lint Helm chart
-        if: steps.check.outputs.exists == 'true'
         run: helm lint helm/kamerplanter -f helm/kamerplanter/values-dev.yaml
 
       - name: Render Helm templates
-        if: steps.check.outputs.exists == 'true'
         run: |
           helm template kamerplanter helm/kamerplanter/ \
             -f helm/kamerplanter/values-dev.yaml
 
       - name: Skaffold diagnose
-        if: steps.check.outputs.exists == 'true'
         run: skaffold diagnose
 
       - name: Skaffold render
-        if: steps.check.outputs.exists == 'true'
-        run: |
-          skaffold render --output rendered-manifests.yaml || true
+        run: skaffold render --output rendered-manifests.yaml
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always() && steps.check.outputs.exists == 'true'
+        if: always()
         with:
           name: rendered-manifests
           path: rendered-manifests.yaml
