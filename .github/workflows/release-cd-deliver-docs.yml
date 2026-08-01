@@ -23,5 +23,14 @@ jobs:
       id-token: write
       pages: write
     concurrency:
-      cancel-in-progress: true
       group: "pages"
+      # NOT cancel-in-progress, despite that being GitHub's stock Pages snippet.
+      # This runs on `release: published` — it is a DELIVERY workflow, and
+      # cancelling one in flight can leave the published site half-written:
+      # mkdocs-gh-pages pushes the built tree to gh-pages, and an interrupted
+      # push is a documentation set that matches no release.
+      #
+      # The group is kept so two releases in quick succession serialise instead
+      # of racing each other onto the same branch. Serialising is the property
+      # worth having here; superseding is not.
+      cancel-in-progress: false
