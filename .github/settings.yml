@@ -85,6 +85,20 @@ branches:
           # start between 00:00 and 02:00 UTC. Fix the date boundary first; the
           # promotion is a follow-up, not a decision left unmade.
       enforce_admins: true
+      # No `required_pull_request_reviews` block, deliberately — recorded here
+      # because the CI/CD audit on 2026-08-01 flagged its absence and the live
+      # state (`required_pull_request_reviews: null`) had no written rationale,
+      # which made it indistinguishable from an accident.
+      #
+      # This is a single-maintainer repository whose merges run through the
+      # `automerge` label. A self-approval requirement would either be satisfied
+      # by the same person who wrote the change — which is theatre — or block
+      # the automerge path entirely. The review obligation is therefore carried
+      # by the required status checks and by the `review` / `security-review`
+      # step in the pull-request-merge flow, not by branch protection.
+      #
+      # Revisit if a second regular contributor appears: at that point the
+      # approval stops being self-approval and starts being a review.
       # `restrictions: null` is load-bearing, not a tidy-up. The commons declare
       # `restrictions.apps: [nolte-portfolio-app]` for develop, but GitHub only
       # accepts push restrictions on ORGANISATION-owned repositories; on a
