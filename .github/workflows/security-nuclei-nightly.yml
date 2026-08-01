@@ -1,8 +1,23 @@
 name: Security — Nuclei Nightly
 
-# NFR-014 §4.2 — daily full-tag DAST sweep against the staging environment.
-# Runs at 01:00 Europe/Berlin (winter); the ZAP nightly (NFR-015) follows
-# 60 minutes later so Nuclei's faster sweep gets first shot at staging.
+# NFR-014 §4.2 — daily full-tag DAST sweep against an ephemeral stack the
+# workflow starts itself, the same way the E2E suites do. Runs at 01:00
+# Europe/Berlin (winter).
+#
+# It used to scan `vars.STAGING_BASE_URL`. That variable was never configured,
+# so from the day this workflow landed until 2026-08-01 every scheduled run
+# failed at the first step with "No target supplied" and no scan ever ran — and
+# the only channel that would have told anyone, the "Open issue" step below,
+# reports success in exactly that failure mode because without `results.jsonl`
+# it emits a notice and returns. A red scheduled run in the Actions tab was the
+# entire alarm. There is no staging environment to point it at, so the fix is to
+# stop waiting for one: the stack is ephemeral, built from the commit under
+# scan, and torn down afterwards.
+#
+# `target` survives as an EXPLICIT manual override for the day a deployed
+# environment exists. It is deliberately not backed by a repository variable any
+# more: a variable that silently redirects what gets scanned is the same class
+# of trap as the one this rewrite removes.
 
 on:
   schedule:
@@ -10,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Override staging base URL (defaults to vars.STAGING_BASE_URL)."
+        description: "External base URL to scan instead of the ephemeral stack. Leave empty for the normal ephemeral run."
         required: false
         type: string
 
@@ -32,24 +47,53 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Resolve target
+      # Two mutually exclusive modes, decided once so every step below reads a
+      # single value instead of re-deriving the condition:
+      #
+      #   ephemeral == 'true'   no `target` given → start the stack, scan
+      #                         127.0.0.1, tear down. This is the scheduled path.
+      #   ephemeral == 'false'  an operator passed `target` → scan that, start
+      #                         nothing, tear down nothing.
+      #
+      # An unset target is NOT an error any more; it is the normal case.
+      - name: Resolve scan mode and target
         id: target
         env:
           INPUT_TARGET: ${{ inputs.target }}
-          DEFAULT_TARGET: ${{ vars.STAGING_BASE_URL }}
         run: |
-          target="${INPUT_TARGET:-$DEFAULT_TARGET}"
-          if [[ -z "$target" ]]; then
-            echo "::error::No target supplied and vars.STAGING_BASE_URL is not configured." >&2
-            exit 1
+          set -euo pipefail
+          # `require_lockdown` is emitted here as a plain output rather than as a
+          # `cond && '' || '1'` expression on the scan step: GitHub treats the
+          # empty string as falsy, so that idiom silently collapses to '1' in
+          # BOTH branches and would arm the check against the very target it has
+          # to stay quiet on. See the comment on that step for what it gates.
+          if [[ -n "${INPUT_TARGET:-}" ]]; then
+            {
+              echo "ephemeral=false"
+              echo "targets=$INPUT_TARGET"
+              echo "require_lockdown=1"
+            } >> "$GITHUB_OUTPUT"
+            echo "Scanning external target: $INPUT_TARGET"
+          else
+            {
+              echo "ephemeral=true"
+              echo "targets=http://127.0.0.1:8000 http://127.0.0.1:5173"
+              echo "require_lockdown="
+            } >> "$GITHUB_OUTPUT"
+            echo "Scanning an ephemeral stack built from this commit."
           fi
-          echo "target=$target" >> "$GITHUB_OUTPUT"
 
       - name: Read pinned NUCLEI_TEMPLATES_VERSION
         id: pin
         run: |
+          set -euo pipefail
           version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Pinned templates version: $version"
 
       - name: Clone & checkout pinned community templates
         run: |
@@ -70,24 +114,63 @@ jobs:
         with:
           install-only: true
 
+      # Last, so a failure in any of the cheap steps above does not first spend
+      # several minutes building images.
+      - name: Bring up ephemeral stack
+        if: steps.target.outputs.ephemeral == 'true'
+        uses: ./.github/actions/ephemeral-stack
+
       - name: Run Nuclei (full profile)
         env:
-          KP_REQUIRE_DEBUG_LOCKDOWN: "1"
+          # `kamerplanter-debug-endpoints.yaml` only raises a finding when this
+          # is "1", and its own description says why: /docs, /redoc and
+          # /openapi.json are flagged "when running against a
+          # production-equivalent target", while a non-production target leaves
+          # them intentionally open. The ephemeral stack is the second case — it
+          # runs KAMERPLANTER_MODE=full with FastAPI's docs mounted by design.
+          # Arming the check there would raise the same medium finding every
+          # night, forever, against a target that is correct as built: a
+          # permanent false positive is how a SARIF feed stops being read.
+          KP_REQUIRE_DEBUG_LOCKDOWN: ${{ steps.target.outputs.require_lockdown }}
+          TARGETS: ${{ steps.target.outputs.targets }}
+          SUPPRESS_FLAGS: ${{ steps.suppress.outputs.flags }}
         run: |
+          set -euo pipefail
+          # Both values are space-separated lists that have to reach nuclei as
+          # separate argv entries. Split them into arrays explicitly rather than
+          # relying on unquoted expansion — same result, but the intent is
+          # stated instead of inferred, and no shellcheck suppression is needed.
+          target_args=()
+          for u in $TARGETS; do target_args+=(-u "$u"); done
+          read -ra suppress_args <<< "$SUPPRESS_FLAGS"
+
           nuclei \
             -t tests/security/nuclei-templates \
             -t ./nuclei-templates \
-            -u "${{ steps.target.outputs.target }}" \
+            "${target_args[@]}" \
             -tags exposure,misconfig,default-login,cve,vulnerability,kamerplanter \
             -severity low,medium,high,critical \
             -rate-limit 100 \
             -timeout 15 \
             -j -o "$GITHUB_WORKSPACE/results.jsonl" \
             -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
-            ${{ steps.suppress.outputs.flags }}
+            "${suppress_args[@]}"
 
+      - name: Tear down ephemeral stack
+        if: always() && steps.target.outputs.ephemeral == 'true'
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.security.override.yml \
+            down -v --remove-orphans
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
+
+      # `hashFiles` guard as in security-nuclei-pr.yml: when the scan never ran,
+      # this step used to fail on the missing file and add a second red step that
+      # obscured the real cause further up.
       - name: Upload SARIF to Code Scanning
-        if: always()
+        if: always() && hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           sarif_file: results.sarif
@@ -108,6 +191,11 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Read through `process.env` rather than interpolated into the script
+          # body: a `${{ }}` inside `script:` is textual substitution into
+          # JavaScript, which is the script-injection shape the Actions spec
+          # forbids for any value the workflow did not author itself.
+          SCAN_TARGETS: ${{ steps.target.outputs.targets }}
         with:
           script: |
             const fs = require('fs');
@@ -132,7 +220,7 @@ jobs:
               repo: context.repo.repo,
               title: `[nuclei-nightly] ${hits.length} High/Critical findings on ${process.env.RUN_URL.split('/').slice(-3).join('/')}`,
               body: [
-                `Nightly Nuclei scan against \`${{ steps.target.outputs.target }}\` raised **${hits.length}** High/Critical findings.`,
+                `Nightly Nuclei scan against \`${process.env.SCAN_TARGETS}\` raised **${hits.length}** High/Critical findings.`,
                 '',
                 `Run: ${process.env.RUN_URL}`,
                 '',

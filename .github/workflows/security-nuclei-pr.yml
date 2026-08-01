@@ -18,6 +18,9 @@ on:
       - 'tests/security/nuclei-suppressions.yaml'
       - 'scripts/security/**'
       - '.github/workflows/security-nuclei-pr.yml'
+      # The shared bring-up action: without this entry a change to the stack's
+      # readiness logic would land without the gate that exercises it.
+      - '.github/actions/ephemeral-stack/**'
       - '.github/renovate-pins.yaml'
   workflow_dispatch:
 
@@ -63,85 +66,12 @@ jobs:
           flags="$(./scripts/security/build-nuclei-flags.sh | tr '\n' ' ')"
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
+      # Bring-up, readiness probe and failure diagnostics moved into a composite
+      # action so this gate and security-nuclei-nightly.yml share ONE
+      # implementation. Two copies of a readiness wait-loop is how a scanner ends
+      # up reporting "no findings" against a half-started backend.
       - name: Bring up ephemeral stack
-        env:
-          COMPOSE_PROJECT_NAME: kamerplanter-security
-        run: |
-          # Bring the backend up on its own, detached. Two reasons we do
-          # NOT use `up -d --wait backend frontend` here:
-          #  * `frontend` declares depends_on backend (service_healthy); a
-          #    combined `up` fast-fails the whole command the instant the
-          #    backend exits during startup — before any diagnostics run.
-          #  * `--wait` aborts before the log-capture step below.
-          # `up -d backend` returns once the backend container is started
-          # (its own healthcheck is polled in the readiness step). The
-          # frontend is brought up only after the backend is healthy.
-          docker compose \
-            -f docker-compose.e2e.yml \
-            -f docker-compose.security.override.yml \
-            up -d backend
-
-      - name: Wait for backend readiness, then bring up frontend
-        env:
-          COMPOSE_PROJECT_NAME: kamerplanter-security
-        run: |
-          # Probes the same liveness path used by the docker-compose
-          # healthcheck (/api/v1/health/live). Window is 360s (60 × 6s) so
-          # the wait-loop survives the backend's first-run migrations +
-          # seeds, which run synchronously in the ASGI lifespan before the
-          # service declares itself healthy.
-          backend_cid="$(docker compose -p kamerplanter-security ps -aq backend)"
-          ready=0
-          for i in $(seq 1 60); do
-            # Fail fast if the backend exited instead of spinning the full
-            # 360s window against a dead container.
-            state="$(docker inspect -f '{{.State.Status}} (exit {{.State.ExitCode}})' "$backend_cid" 2>/dev/null || echo missing)"
-            case "$state" in
-              exited*|dead*|missing)
-                echo "::error::backend container is '$state' during startup" >&2
-                break
-                ;;
-            esac
-            if curl -fsS http://127.0.0.1:8000/api/v1/health/live >/dev/null; then
-              echo "backend ready (try $i)"
-              ready=1
-              break
-            fi
-            sleep 6
-          done
-          if [ "$ready" -ne 1 ]; then
-            echo "::error::backend did not become ready" >&2
-            exit 1
-          fi
-          # Backend healthy → bring up the frontend and wait for it too.
-          docker compose \
-            -f docker-compose.e2e.yml \
-            -f docker-compose.security.override.yml \
-            up -d --wait frontend
-          for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then
-              echo "frontend ready (try $i)"
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "::error::frontend did not become ready" >&2
-          exit 1
-
-      - name: Dump stack diagnostics on failure
-        if: failure()
-        env:
-          COMPOSE_PROJECT_NAME: kamerplanter-security
-        run: |
-          echo "::group::container state"
-          docker compose -p kamerplanter-security ps -a || true
-          echo "::endgroup::"
-          echo "::group::backend logs (last 500 lines)"
-          docker compose -p kamerplanter-security logs --no-color --tail 500 backend || true
-          echo "::endgroup::"
-          echo "::group::frontend logs (last 100 lines)"
-          docker compose -p kamerplanter-security logs --no-color --tail 100 frontend || true
-          echo "::endgroup::"
+        uses: ./.github/actions/ephemeral-stack
 
       - name: Generate OpenAPI spec from running backend
         run: |
@@ -185,7 +115,16 @@ jobs:
           install-only: true
 
       - name: Run Nuclei (HTTP surface)
+        # `flags` reaches the script through the environment, not through
+        # `${{ }}`. It is built from tests/security/nuclei-suppressions.yaml —
+        # a repository file, and therefore contributor-controlled on a fork
+        # pull request. Interpolating it would expand that content into a shell
+        # script, which the Actions spec forbids for any untrusted value.
+        # Split into an array so each flag reaches nuclei as its own argv entry.
+        env:
+          SUPPRESS_FLAGS: ${{ steps.suppress.outputs.flags }}
         run: |
+          read -ra suppress_args <<< "$SUPPRESS_FLAGS"
           nuclei \
             -t tests/security/nuclei-templates \
             -t ./nuclei-templates \
@@ -197,7 +136,7 @@ jobs:
             -timeout 10 \
             -j -o "$GITHUB_WORKSPACE/results.jsonl" \
             -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
-            ${{ steps.suppress.outputs.flags }}
+            "${suppress_args[@]}"
 
       - name: Seed Nuclei OpenAPI fixtures (tenant + resources)
         # The Kamerplanter REST API places nearly every endpoint under
@@ -220,9 +159,13 @@ jobs:
         # `dast` template directory below select that category.
         # `required_openapi_params.yaml` is read automatically from the
         # CWD; running from $GITHUB_WORKSPACE keeps that contract.
+        # `SUPPRESS_FLAGS` via env for the reason given on the HTTP-surface step.
+        env:
+          SUPPRESS_FLAGS: ${{ steps.suppress.outputs.flags }}
         run: |
           cd "$GITHUB_WORKSPACE"
           ls -l required_openapi_params.yaml openapi.json
+          read -ra suppress_args <<< "$SUPPRESS_FLAGS"
           nuclei \
             -t ./nuclei-templates/dast \
             -l openapi.json \
@@ -234,7 +177,7 @@ jobs:
             -timeout 10 \
             -j -o openapi-results.jsonl \
             -sarif-export openapi-results.sarif \
-            ${{ steps.suppress.outputs.flags }}
+            "${suppress_args[@]}"
 
       - name: Upload SARIF (HTTP scan) to Code Scanning
         if: always() && hashFiles('results.sarif') != ''
