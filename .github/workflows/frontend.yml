@@ -29,6 +29,12 @@ on:
     paths: ['src/frontend/**', '.github/workflows/frontend.yml']
   pull_request:
     branches: [develop]
+  schedule:
+    # Weekly dependency CVE audit (NFR-009 §4.1) — runs the npm-audit jobs below
+    # even when no frontend change lands, so an advisory published against an
+    # unchanged lockfile still surfaces. Offset from backend.yml's Monday 05:17
+    # so the two do not report at the same minute. Mondays 05:47 UTC.
+    - cron: '47 5 * * 1'
 
 defaults:
   run:
@@ -220,3 +226,98 @@ jobs:
           name: lighthouse-report
           path: src/frontend/.lighthouseci/
           retention-days: 7
+
+  # NFR-009 §4.1 — CVE audit of the SHIPPED dependency tree. The backend has
+  # done this on every pull request for a long time (`pip-audit` in backend.yml);
+  # the frontend had no equivalent, and Trivy only reaches `package-lock.json` at
+  # CRITICAL. A *high*-severity advisory in shipped JavaScript was therefore
+  # invisible to every gate in this repository — and one was sitting there.
+  #
+  # `--omit-dev` mirrors the backend's split: requirements.txt is audited per
+  # pull request, requirements-dev.txt only weekly, because dev tooling never
+  # ships. Dev dependencies are covered by the scheduled job below.
+  npm-audit:
+    name: Dependency CVE audit
+    needs: changes
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install the gate's own dependency
+        working-directory: .
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+
+      - name: Audit shipped dependencies
+        # Wrapper rather than bare `npm audit --audit-level=high`, because npm
+        # has no allowlist: the only ways to get a green build with a known,
+        # assessed, non-applicable advisory would be to lower the threshold for
+        # everything or drop the gate. Each exception is an individually
+        # reviewed entry with a mandatory reason AND expiry instead.
+        run: python3 ../../scripts/security/npm_audit_gate.py --omit-dev
+
+  # Dev tooling is never shipped but should still be scanned. Weekly only, so a
+  # dev-only advisory never blocks a merge while still surfacing. Mirrors the
+  # backend's `pip-audit` dev step.
+  npm-audit-dev:
+    name: Dependency CVE audit (dev, weekly)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm ci
+      - name: Install the gate's own dependency
+        working-directory: .
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+      - name: Audit the full dependency tree
+        run: python3 ../../scripts/security/npm_audit_gate.py
+
+  # NFR-009 §4.3 — licence allowlist for the shipped tree, the frontend pendant
+  # of the backend's `pip-licenses` gate. The allowlist enumerates the licences
+  # actually present today (MIT 151, ISC 14, BSD-3-Clause 4, Apache-2.0 1,
+  # "MIT AND ISC" 1 across 172 production packages), all permissive. A new
+  # dependency under an unlisted licence — strong copyleft, or none at all —
+  # fails this gate and has to be reviewed before adoption.
+  npm-licenses:
+    name: License allowlist gate
+    needs: changes
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enforce license allowlist
+        # `--excludePackages` drops the workspace package itself: it is private,
+        # so the scanner reports it as UNLICENSED even though package.json
+        # declares MIT.
+        run: |
+          npx --yes license-checker-rseidelsohn@4.4.2 \
+            --production \
+            --excludePackages 'kamerplanter-frontend@0.1.0' \
+            --onlyAllow 'MIT;ISC;BSD-3-Clause;BSD-2-Clause;Apache-2.0;0BSD;CC0-1.0;Unlicense;MIT AND ISC' \
+            --summary

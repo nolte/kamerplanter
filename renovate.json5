@@ -261,5 +261,23 @@
       ],
       versioningTemplate: 'semver',
     },
+    {
+      customType: 'regex',
+      // Without this, the pins introduced to make runs reproducible would simply
+      // age out of sight — a stale pin and a floating reference fail the same
+      // reproducibility goal from opposite directions.
+      description: 'Update CI tool versions pinned inline in workflow run: steps.',
+      managerFilePatterns: [
+        '/^\\.github/workflows/[^/]+\\.ya?ml$/',
+      ],
+      matchStrings: [
+        // pip-style: 'pip-audit==2.10.1'
+        "'(?<depName>pip-audit|pip-licenses|pip-tools|pip)==(?<currentValue>[0-9][^']*)'",
+        // npx-style: @stoplight/spectral-cli@6.16.2
+        'npx --yes (?<depName>@[^@\\s]+/[^@\\s]+)@(?<currentValue>[0-9]\\S*)',
+      ],
+      datasourceTemplate: '{{#if (containsString depName "/")}}npm{{else}}pypi{{/if}}',
+      versioningTemplate: 'semver',
+    },
   ],
 }
