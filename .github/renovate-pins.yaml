@@ -9,3 +9,17 @@
 
 # datasource=github-tags depName=projectdiscovery/nuclei-templates
 nuclei_templates_version: v10.4.6
+
+# The commit the tag above pointed at when it was reviewed. The workflows fetch
+# the TAG and then assert it still resolves here.
+#
+# A tag is not immutable, not even from a trusted publisher — the March 2025
+# tj-actions compromise moved existing tags to malicious code, and digest-pinned
+# consumers were the ones unaffected. Pinning the tag alone would leave the
+# template set silently replaceable underneath a scan that reports on it.
+#
+# Deliberately kept ALONGSIDE the tag rather than replacing it: Renovate's
+# custom manager tracks the tag, so the human-readable version stays updatable.
+# When Renovate bumps the tag, this assertion fails until the commit is updated
+# in the same pull request — which is the review the pin exists to force.
+nuclei_templates_commit: 7d66fa06cc0a5ad85f7bf35f18cf8ee9218fa9a5
