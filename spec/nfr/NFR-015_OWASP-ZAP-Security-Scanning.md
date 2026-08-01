@@ -150,8 +150,29 @@ Praktisches Beispiel:
 **MUSS**: Diese Konten:
 - werden über externe Test-Tooling unter `tests/security/zap-setup/` angelegt — **nicht** über produktive Backend-Module. Das Setup-Skript spricht ausschließlich gegen die öffentliche REST-API (`/api/v1/auth/register`, `/api/v1/tenants/...`),
 - existieren NICHT in produktiven Umgebungen,
-- haben Passwörter, die ausschließlich als GitHub-Secrets verwaltet werden (`KP_ZAP_PWD_TENANT_A_ADMIN`, `KP_ZAP_PWD_TENANT_A_VIEWER`, `KP_ZAP_PWD_TENANT_B_ADMIN`),
+- bekommen ihr Passwort **pro Lauf neu erzeugt** (kryptografischer Zufall, mindestens 32 Zeichen) und reichen es über die Umgebungsvariablen `KP_ZAP_PWD_TENANT_A_ADMIN`, `KP_ZAP_PWD_TENANT_A_VIEWER`, `KP_ZAP_PWD_TENANT_B_ADMIN` an das Setup-Tooling weiter,
 - werden bei jedem Re-Build der Staging-Umgebung neu angelegt; Cleanup erfolgt durch Namespace-Lifecycle, nicht durch ein dediziertes Lösch-Skript.
+
+!!! note "Warum pro Lauf erzeugt statt als GitHub-Secret"
+
+    Die ursprüngliche Fassung verlangte drei langlebige GitHub-Secrets. Das war
+    an eine dauerhafte Staging-Umgebung gebunden, in der dieselben Konten über
+    Läufe hinweg bestehen bleiben. Seit die Scans gegen einen **ephemeren
+    Stack** laufen, der pro Lauf entsteht und danach abgeräumt wird, existieren
+    die Konten nur für die Dauer eines Jobs — und ein langlebiges Geheimnis für
+    ein Wegwerf-Konto ist Angriffsfläche ohne Gegenwert: Es liegt dauerhaft im
+    Repository, muss rotiert werden, kann in Logs auftauchen und gilt nach jeder
+    Log-Sichtung als kompromittiert.
+
+    Der Zufallswert wird im Job erzeugt, sofort über `::add-mask::` bei der
+    Plattform registriert, an das Setup-Skript gereicht und mit dem Runner
+    verworfen. Die Schnittstelle des Setup-Tools ändert sich dadurch nicht — es
+    liest weiterhin dieselben Umgebungsvariablen; nur ihre Herkunft ist eine
+    andere.
+
+    Für einen künftigen Scan gegen eine **dauerhafte** Umgebung gilt die
+    ursprüngliche Regel wieder: dort überleben die Konten den Lauf, und ein
+    reproduzierbares Passwort ist dann nötig.
 
 **MUSS**: Ein Pre-Deploy-Check (Pipeline-Stufe vor jedem Prod-Release) führt eine reine **Daten-Prüfung** auf dem Prod-DB-Snapshot aus. Da Kamerplanter ArangoDB nutzt, ist die Prüfung als AQL-Query zu formulieren:
 
