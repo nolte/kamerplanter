@@ -12,6 +12,13 @@ on:
     # even when no backend change lands. Mondays 05:17 UTC.
     - cron: '17 5 * * 1'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     working-directory: src/backend
@@ -32,6 +39,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
+      - name: Set up Task
+        uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install dependencies
         # Install from the pinned, hash-verified dev lock (single source of
         # install truth, NFR-009 §2.3), then add the app package itself with
@@ -41,11 +54,15 @@ jobs:
           pip install --require-hashes -r requirements-dev.txt
           pip install --no-deps -e .
 
+      # Invoked through the Taskfile so the pipeline and a contributor run the
+      # identical thing (continuous-integration §E). Before this, `ruff format
+      # --check` existed only here — there was no way to run the pipeline's
+      # formatting gate locally at all.
       - name: Ruff lint
-        run: ruff check .
+        run: task lint:backend
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: task format:backend
 
       - name: Steckbrief ↔ seed consistency (#680)
         # Fail the build on any non-allowlisted drift of a lifecycle-driving
@@ -59,7 +76,7 @@ jobs:
         run: python app/migrations/seed_steckbrief_consistency.py --verbose
 
       - name: Unit tests
-        run: pytest tests/unit/ -v --tb=short
+        run: task test:backend:unit
 
       - name: Contract tests
         # Enforce the plant-property contract gates that previously never ran in
@@ -67,7 +84,7 @@ jobs:
         # frontend/src/api/types.ts) and the de/en i18n completeness of those
         # enums (tests/contracts/test_plant_property_enum_sync.py). These guard
         # exactly the drift class the plant-property data-model plan addresses.
-        run: pytest tests/contracts/ -v --tb=short
+        run: task test:backend:contracts
 
   lock-staleness:
     name: Lock staleness

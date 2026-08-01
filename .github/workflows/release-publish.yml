@@ -27,6 +27,13 @@ on:
 # workflow_dispatch escape hatch on release-cd-refresh-master.yml
 # stays load-bearing.
 
+# Read-only floor. Both jobs below declare the `contents: write` they need
+# themselves. Deliberately NO workflow-level concurrency: `openapi-asset` carries
+# its own per-tag group (see the comment on that job), and a release workflow
+# must never cancel a run in flight.
+permissions:
+  contents: read
+
 jobs:
   # OpenAPI document as a release asset (issue #765).
   #

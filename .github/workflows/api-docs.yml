@@ -21,6 +21,13 @@ on:
       - '.spectral.yaml'
       - '.github/workflows/api-docs.yml'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: api-docs-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     working-directory: src/backend
