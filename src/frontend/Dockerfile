@@ -52,11 +52,12 @@ LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
 
-# Lay down assets as root, then hand ownership to UID 101 so the runtime-config
-# and backend-proxy entrypoint scripts can write to the html root and conf.d
-# when running non-root (Compose path). In the K8s path these paths are mounted
-# read-only / emptyDir and the scripts are suppressed, so the chown is harmless.
-USER root
+# Lay down assets as root (UID 0), then hand ownership to UID 101 so the
+# runtime-config and backend-proxy entrypoint scripts can write to the html root
+# and conf.d when running non-root (Compose path). In the K8s path these paths
+# are mounted read-only / emptyDir and the scripts are suppressed, so the chown
+# is harmless. Root is named by its numeric UID per hadolint DL3066.
+USER 0
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx-security-headers.inc /etc/nginx/conf.d/nginx-security-headers.inc

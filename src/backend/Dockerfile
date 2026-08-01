@@ -53,7 +53,7 @@ ENV PYTHONUNBUFFERED=1 \
     WATCHFILES_FORCE_POLLING=true
 EXPOSE 8000 5678
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-    CMD curl -f http://localhost:8000/api/v1/health/live || exit 1
+    CMD ["curl", "-f", "http://localhost:8000/api/v1/health/live"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # ── Production target (default; last stage, so CI's untargeted build picks it) ──
@@ -73,5 +73,5 @@ RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin
 USER 1000
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/health/live || exit 1
+    CMD ["curl", "-f", "http://localhost:8000/api/v1/health/live"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

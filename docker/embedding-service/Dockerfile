@@ -84,7 +84,7 @@ RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin
     && chown -R 1000:1000 /app
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(s.connect_ex(('127.0.0.1',8080)))"
+    CMD ["python", "-c", "import socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(s.connect_ex(('127.0.0.1',8080)))"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # ── Final images (one per model, select via --target) ────────────────
