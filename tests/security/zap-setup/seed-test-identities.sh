@@ -11,10 +11,18 @@
 # it must NOT be deployed inside the production backend image.
 #
 # Required environment variables:
-#   KP_API_BASE                       e.g. https://staging.kamerplanter.example
+#   KP_API_BASE                       e.g. http://127.0.0.1:8000
 #   KP_ZAP_PWD_TENANT_A_ADMIN         password for zap-tenant-a-admin
 #   KP_ZAP_PWD_TENANT_A_VIEWER        password for zap-tenant-a-viewer
 #   KP_ZAP_PWD_TENANT_B_ADMIN         password for zap-tenant-b-admin
+#
+# Where the passwords come from (NFR-015 §3.1, revised 2026-08-01): they are
+# GENERATED PER RUN by the calling workflow, not stored as repository secrets.
+# The identities live only as long as the ephemeral stack does, so a long-lived
+# secret for a throw-away account would be attack surface without benefit. This
+# script's interface is unchanged — it still reads the same three variables;
+# only their provenance differs. A scan against a PERSISTENT environment would
+# need reproducible passwords again, because there the accounts outlive the run.
 #
 # Optional:
 #   KP_ZAP_DATA   path to test-identities.yaml (default: alongside this script)
