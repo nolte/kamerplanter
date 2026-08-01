@@ -442,14 +442,32 @@ npm ci --ignore-scripts
 
 ### 4.1 CVE-Scanning
 
-**MUSS**: Jeder Dependency-PR und jeder Push auf `main` löst automatisches Vulnerability-Scanning aus:
+**MUSS**: Jeder Dependency-PR und jeder Push auf `develop` löst automatisches Vulnerability-Scanning aus:
 
 | Werkzeug | Ökosystem | Integration |
 |---|---|---|
-| `npm audit` | Node.js (Frontend) | CI-Pipeline (GitHub Actions) |
-| `pip-audit` | Python (Backend) | CI-Pipeline (GitHub Actions) |
+| `npm audit` (via `scripts/security/npm_audit_gate.py`) | Node.js (Frontend) | `frontend.yml`, Jobs `npm-audit` (ausgeliefert, pro PR) und `npm-audit-dev` (wöchentlich) |
+| `pip-audit` | Python (Backend) | `backend.yml`, Job `pip-audit` (ausgeliefert pro PR, dev wöchentlich) |
 | **GitHub Security Advisories** | Alle | Automatisch (GitHub Dependabot Alerts) |
 | **Renovate vulnerabilityAlerts** | Alle | Renovate-Bot-Konfiguration |
+
+!!! warning "Diese Anforderung war über lange Zeit nur zur Hälfte umgesetzt"
+
+    Die Frontend-Zeile dieser Tabelle stand hier, ohne dass ein `npm audit`
+    irgendwo lief. Trivy erreichte `package-lock.json` nur auf Stufe
+    `CRITICAL`, also war eine **High**-Severity-Advisory in ausgeliefertem
+    JavaScript für jedes Gate im Repository unsichtbar — und eine lag vor
+    (GHSA-qwww-vcr4-c8h2 in `react-router`, gefunden erst beim CI/CD-Audit am
+    2026-08-01). Der Befund war damit kein fehlendes Requirement, sondern
+    Drift zwischen Spec und Implementierung. Siehe NFR-018 §1 für die
+    Fehlerklasse und §6 für die daraus abgeleiteten Regeln.
+
+**MUSS**: Eine bewusst akzeptierte Advisory wird als Eintrag in
+`tests/security/npm-audit-allowlist.yaml` geführt — mit **Begründung und
+Ablaufdatum**, nie durch Absenken der Schwelle. Die Begründung MUSS einen
+Mechanismus nennen, warum der verwundbare Codepfad in dieser Anwendung nicht
+existiert. Das Ablaufdatum ist verpflichtend: Ein Eintrag, der nie verfällt, ist
+keine Entscheidung mehr, sondern Inventar. Details in NFR-018 §6.
 
 **MUSS**: CI-Job für Sicherheits-Scanning:
 
@@ -535,13 +553,21 @@ jobs:
 **MUSS**: Lizenz-Prüfung in der CI-Pipeline:
 
 ```bash
-# Frontend: Lizenz-Check
-npx license-checker --production --failOn "GPL-2.0;GPL-3.0;AGPL-3.0;SSPL"
+# Frontend: Lizenz-Check (frontend.yml, Job `npm-licenses`)
+npx --yes license-checker-rseidelsohn@4.4.2 --production \
+  --excludePackages 'kamerplanter-frontend@0.1.0' \
+  --onlyAllow 'MIT;ISC;BSD-3-Clause;BSD-2-Clause;Apache-2.0;0BSD;CC0-1.0;Unlicense;MIT AND ISC'
 
-# Backend: Lizenz-Check
-pip install pip-licenses
-pip-licenses --fail-on="GPL-2.0;GPL-3.0;AGPL-3.0;SSPL" --format=table
+# Backend: Lizenz-Check (backend.yml, Job `pip-licenses`)
+pip-licenses --from=mixed --allow-only='…'   # vollständige Liste im Workflow
 ```
+
+Beide Gates arbeiten mit einer **Allowlist**, nicht mit einer Blockliste: Eine
+neue Abhängigkeit unter einer unbekannten Lizenz — auch einer harmlosen — fällt
+auf und wird geprüft, statt durchzurutschen, weil sie zufällig auf keiner
+Verbotsliste steht. Das Ausschließen des Workspace-Pakets selbst ist nötig, weil
+es als `private` markiert ist und der Scanner es deshalb als `UNLICENSED`
+meldet, obwohl `package.json` MIT deklariert.
 
 **SOLL**: Neue Dependencies mit unbekannter oder fehlender Lizenz müssen manuell geprüft und freigegeben werden.
 
