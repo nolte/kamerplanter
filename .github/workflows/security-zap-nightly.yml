@@ -74,14 +74,21 @@ jobs:
           echo "Generated three per-run passwords."
 
       - name: Seed test identities
+        id: identities
         env:
           KP_API_BASE: http://127.0.0.1:8000
+        # Publishes `slug_zap_tenant_a` / `slug_zap_tenant_b`: the slugs the
+        # SERVER assigned. The API derives them from the tenant name, so they are
+        # not the ones test-identities.yaml asks for and must not be guessed
+        # downstream (issue #895).
         run: ./tests/security/zap-setup/seed-test-identities.sh
 
       - name: Seed the cross-tenant probe resource
         id: fixtures
         env:
           KP_API_BASE: http://127.0.0.1:8000
+          KP_ZAP_TENANT_A_SLUG: ${{ steps.identities.outputs.slug_zap_tenant_a }}
+          KP_ZAP_TENANT_B_SLUG: ${{ steps.identities.outputs.slug_zap_tenant_b }}
         run: ./tests/security/zap-setup/seed-cross-tenant.sh
 
       - name: Fetch the OpenAPI document
@@ -99,13 +106,14 @@ jobs:
         # label.
         env:
           TOKEN: ${{ steps.fixtures.outputs.tenant_a_token }}
+          TENANT_A_SLUG: ${{ steps.identities.outputs.slug_zap_tenant_a }}
         run: |
           set -euo pipefail
           python3 scripts/security/zap_auth_bypass.py \
             --openapi zapwork/openapi.json \
             --base-url http://127.0.0.1:8000 \
             --token "$TOKEN" \
-            --param tenant_slug=zap-tenant-a
+            --param "tenant_slug=$TENANT_A_SLUG"
 
       - name: Stage the ZAP working directory
         run: |
