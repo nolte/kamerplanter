@@ -10,6 +10,9 @@ on:
   # run the drafter by hand (`gh workflow run release-drafter.yml --ref develop`).
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   update_release_draft:
     # Pass the portfolio App so the draft is written under the App identity

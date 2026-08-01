@@ -1,0 +1,43 @@
+##
+## Advisories in the JavaScript dependency tree that are knowingly accepted for
+## a bounded time (NFR-009 §4.1). Consumed by scripts/security/npm_audit_gate.py.
+##
+## An entry here is a claim that the advisory does not apply to THIS application,
+## backed by a mechanism — not a note that it is inconvenient. Every field is
+## mandatory and the gate refuses to start if one is missing:
+##
+##   advisory  the GHSA identifier, exactly as npm audit reports it
+##   package   the affected package, so the entry is greppable
+##   reason    WHY the vulnerable code path does not exist here
+##   expires   the date the acceptance lapses (ISO 8601)
+##
+## `expires` is the point of the file. On that date the build turns red again
+## and the assessment has to be redone. An allowlist without expiry stops being
+## a decision and becomes furniture, and a stale suppression is indistinguishable
+## from a vulnerability nobody noticed.
+##
+## The gate also warns about entries that no longer match any advisory, so a
+## fixed dependency does not leave a suppression behind that silently widens the
+## gate for whatever reuses that identifier later.
+##
+
+accepted:
+  - advisory: GHSA-qwww-vcr4-c8h2
+    package: react-router / react-router-dom
+    reason: >-
+      "RSC Mode CSRF Bypass Allows Action Execution Before 400 Response".
+      The vulnerable path is React Router's React-Server-Components mode, in
+      which a server action can run before the request is rejected. This
+      frontend is a client-only Vite single-page application: it renders through
+      `RouterProvider` in the browser, declares no SSR configuration in
+      `vite.config.ts`, and imports no RSC entry point (`unstable_RSC`,
+      `routeRSCServerRequest`, `createCallServer`) anywhere under `src/`. There
+      is no server that could execute an action, so the code path the advisory
+      describes does not exist in this build.
+
+      No forward fix is available in the 7.x line: the advisory range is
+      `>=7.12.0 <8.3.0` and the newest 7.x release (7.18.2) is still inside it.
+      The remedies npm offers are a downgrade to 7.11.0 or a major upgrade to
+      react-router 8, neither of which belongs in a supply-chain-gate change.
+      Tracked as its own piece of work.
+    expires: 2027-02-01

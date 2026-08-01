@@ -260,15 +260,19 @@ repos:
         pass_filenames: false
 
   # ── Security (Nuclei templates) ─────────────────────────────────────────
-  # Validates project-specific Nuclei templates (NFR-014 §3.2). Skips when
-  # nuclei is not installed locally so the hook does not block contributors
-  # who never touch security templates. The CI security-nuclei workflow
-  # (Phase 2B) is the authoritative gate.
+  # Validates project-specific Nuclei templates (NFR-014 §3.2).
+  #
+  # The previous entry was `command -v nuclei || exit 0` inline — "if the tool is
+  # absent, exit successfully". The reusable `static` job is Python-only and
+  # never installs nuclei, so on the one required check of this repository the
+  # hook reported Passed for a validation that examined nothing. The comment
+  # here named the CI security-nuclei workflow as the authoritative gate; that
+  # gate did not exist until this change created it. See the script header.
   - repo: local
     hooks:
       - id: nuclei-validate
         name: Nuclei template validate
-        entry: bash -c 'command -v nuclei >/dev/null 2>&1 || { echo "nuclei not in PATH — skipping local validate."; exit 0; }; nuclei -validate -t tests/security/nuclei-templates/'
+        entry: scripts/security/nuclei_validate_hook.sh
         language: system
         files: ^tests/security/nuclei-templates/.*\.yaml$
         pass_filenames: false

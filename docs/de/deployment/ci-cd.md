@@ -240,6 +240,55 @@ Docker-Metadata wird automatisch per `docker/metadata-action` erzeugt:
 | Semantic Version | `kamerplanter-backend:1.2.0` | `v1.2.0`-Tag |
 | Major.Minor | `kamerplanter-backend:1.2` | `v1.2.0`-Tag |
 
+!!! warning "`latest` ist eine bewegliche Referenz"
+
+    `latest` wird bei jedem Push auf `develop` überschrieben und zeigt danach auf
+    andere Bytes. Für alles, was reproduzierbar sein muss — Deployments,
+    Rollbacks, Fehleranalyse — nimm den Semantic-Version-Tag oder den
+    Commit-SHA. Der ArgoCD-Application im Repository `argo-charts` pinnt aus
+    genau diesem Grund jeden Image-Tag explizit; ein `latest` mit
+    `pullPolicy: IfNotPresent` hat dort schon einmal dazu geführt, dass ein Node
+    monatelang ein altes Image weiterlieferte.
+
+### Was jedes Artefakt absichert
+
+Jede Artefaktklasse, die dieses Projekt ausliefert, braucht eine benannte Stage,
+die sie absichert — sonst wird eine Lücke erst dann sichtbar, wenn sie ausgenutzt
+wird. Die folgende Matrix ist die Antwort auf die Frage „was garantiert
+eigentlich wer?" und wird beim Ändern der Pipeline mitgepflegt.
+
+| Artefaktklasse | Sichernde Stage | Garantien |
+|---|---|---|
+| Container-Images (8 Stück) | `build-*` in `docker-publish.yml` | aus der Quelle gebaut, Integrität (Digest), Provenance (signiert) |
+| Helm-Chart (OCI) | `publish-helm-charts` | aus der Quelle gebaut, Integrität (Digest), Provenance (signiert) |
+| `openapi.json` (Release-Asset) | `openapi-asset` in `release-publish.yml` | aus der Quelle gebaut, Anhang wird nach dem Upload verifiziert |
+| `docker-compose-<version>.yml`, `.env.example-<version>` | `update-release-assets` | aus der Quelle gebaut |
+| Python-Abhängigkeiten | `pip-audit`, `pip-licenses`, `lock-staleness` in `backend.yml` | Policy geprüft (CVE, Lizenz, Lock-Integrität) |
+
+**Bekannte Lücken** — bewusst offen, nicht übersehen:
+
+- Die drei Release-Assets tragen **keine** Provenance. Für die von GitHub
+  gehosteten Release-Dateien gibt es keinen Verifikationspfad, der dem
+  Registry-Attest entspricht.
+- Für JavaScript-Abhängigkeiten gibt es noch keine eigene Policy-Stage; Trivy
+  deckt sie nur auf Stufe `CRITICAL` ab.
+
+#### Provenance prüfen
+
+Images und Chart tragen von der Plattform erzeugte und signierte Build-Provenance
+(`actions/attest-build-provenance`). Vor einem Deployment prüfbar mit:
+
+```bash
+gh attestation verify \
+  oci://ghcr.io/nolte/kamerplanter-backend:1.2.0 \
+  --repo nolte/kamerplanter
+```
+
+Was das aussagt und was nicht: Provenance belegt die **Herkunft** — welcher
+Commit, welcher Workflow-Lauf, welche gepinnten Eingaben. Sie ist **keine**
+Aussage darüber, dass ein Artefakt sicher ist. Sicherheitsbefunde bleiben Sache
+der Supply-Chain-Stages.
+
 ### Helm-Chart
 
 Das Helm-Chart für Kamerplanter liegt unter `helm/kamerplanter/` und wird als OCI-Artefakt gepusht:
@@ -248,7 +297,7 @@ Das Helm-Chart für Kamerplanter liegt unter `helm/kamerplanter/` und wird als O
 oci://ghcr.io/nolte/charts/kamerplanter
 ```
 
-Bei einem Release-Tag wird die `version` und `appVersion` in `Chart.yaml` automatisch auf die Release-Version gesetzt, bevor das Chart gepackt wird. Gleichzeitig werden die Image-Tags in `values.yaml` von `latest` auf die konkrete Version umgestellt.
+Bei einem Release-Tag werden `version` und `appVersion` in `Chart.yaml` automatisch auf die Release-Version gesetzt, bevor das Chart gepackt wird. Gleichzeitig werden alle Kamerplanter-Image-Tags in `values.yaml` auf dieselbe Version gepinnt — adressiert über den YAML-Pfad, nicht über eine Textersetzung des Literals `tag: latest`. Ein anschließender Prüfschritt bricht das Release ab, falls ein Kamerplanter-Image die Umstellung überlebt hat: ein ausgeliefertes Chart, das noch auf eine bewegliche Referenz zeigt, ist genau der Fehler, den das Pinning verhindern soll, und die frühere Textersetzung konnte ihn nicht bemerken.
 
 ```bash
 # Chart direkt verwenden

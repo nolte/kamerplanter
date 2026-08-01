@@ -1,0 +1,68 @@
+name: Security — Nuclei Template Validation
+
+##
+## Syntax gate for this project's own Nuclei templates (NFR-014 §3.2).
+##
+## Until this workflow existed, `nuclei -validate` ran NOWHERE in CI. The
+## pre-commit hook that claimed to cover it opened with
+## `command -v nuclei >/dev/null || exit 0` — "if the tool is absent, exit
+## successfully" — and the reusable `static` job is a Python-only runner that
+## never installs nuclei. So on the one required check of this repository the
+## validation reported Passed for every template change while examining nothing,
+## and a malformed template would have been silently ignored by every scan that
+## consumed it.
+##
+## Deliberately its own workflow rather than a step inside `security-nuclei-pr`:
+## a template syntax error is detectable in seconds, and burying it behind a
+## 16-minute scan that first builds an entire stack contradicts the
+## cheapest-broadest-first ordering. It also keeps this gate reporting on
+## template changes that the scan's own path filter would not otherwise select.
+##
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'tests/security/nuclei-templates/**'
+      - 'scripts/security/nuclei_validate_hook.sh'
+      - '.github/workflows/security-nuclei-templates.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'tests/security/nuclei-templates/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-nuclei-templates-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Nuclei templates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Nuclei
+        uses: projectdiscovery/nuclei-action@cc153d0541e1adf8a42bbe31c0a4fb2376147538 # v3.1.1
+        with:
+          install-only: true
+
+      - name: Assert there are templates to validate
+        # `nuclei -validate` over an empty or missing directory exits 0. Without
+        # this, deleting the template set would turn this gate green rather than
+        # red — the same vacuous-pass shape the workflow exists to remove.
+        run: |
+          set -euo pipefail
+          count=$(find tests/security/nuclei-templates -name '*.yaml' -type f | wc -l)
+          if [[ "$count" -eq 0 ]]; then
+            echo "::error::No templates found under tests/security/nuclei-templates — refusing to report success." >&2
+            exit 1
+          fi
+          echo "Validating $count template(s)."
+
+      - name: Validate templates
+        run: nuclei -validate -t tests/security/nuclei-templates/
