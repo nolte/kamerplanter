@@ -268,9 +268,24 @@ passen, damit eine behobene Abhängigkeit keine Unterdrückung zurücklässt.
   formuliert, aber durch nichts verifiziert. Ob ein periodischer cache-freier
   Lauf die Kosten wert ist, ist offen.
 - `nolte/gh-plumbing` liefert die Reusables, die den einzigen required Check
-  tragen, referenziert intern aber `aquasecurity/trivy-action@master` und
-  weitere Tags statt Digests. Der Fix gehört upstream; bis dahin ist §3 für
-  diese Kette nur auf der Consumer-Seite erfüllt.
+  tragen. Sie referenzierten intern `aquasecurity/trivy-action@master` sowie
+  `hassfest@master` und `vale-action@reviewdog` — drei bewegliche Branches — und
+  im Übrigen Tags statt Digests.
+
+  **Upstream behoben** am 2026-08-01 (`nolte/gh-plumbing#389`, Issue #388):
+  alle 30 Workflow-Dateien dort sind digest-gepinnt, verifiziert am Inhalt und
+  nicht nur an der Commit-Meldung; keine bewegliche Referenz verbleibt.
+
+  **Hier noch nicht wirksam.** Dieses Repository pinnt `v1.1.26`, und *diese*
+  Fassung enthält weiterhin die ungepinnten Reusables. `v1.1.27` ist ein Draft,
+  der Tag existiert noch nicht als Git-Ref. Bis der Bump erfolgt, ist §3 für
+  diese Kette weiterhin nur auf der Consumer-Seite erfüllt — die Lücke ist
+  gelöst, aber nicht geschlossen. Prüfen mit:
+
+  ```bash
+  gh api "repos/nolte/gh-plumbing/contents/.github/workflows/reusable-trivy.yaml?ref=v1.1.27" \
+    --jq '.content' | base64 -d | grep 'trivy-action'
+  ```
 - Ein Linter, der die DoD dieses Dokuments maschinell prüft, existiert nicht.
   Derzeit trägt die Prüfung ein Audit, kein Gate — was auf ein Dokument über
   Gate-Integrität eine unangenehme, aber ehrliche Pointe ist.
