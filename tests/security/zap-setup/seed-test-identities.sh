@@ -72,6 +72,18 @@ if [[ ! -f "$DATA_FILE" ]]; then
   exit 1
 fi
 
+# Returns the response body on 2xx and FAILS on anything else.
+#
+# The previous version used `curl -sS` with no status check at all, so an error
+# response came back as an ordinary string and every call site had to notice on
+# its own. Several did not: `ensure_membership` fed a 404 error OBJECT into
+# `.[] | select(.email == …)`, which is where
+# `jq: Cannot index string with string ("email")` came from — jq iterated the
+# error object's values and tried to index a string. The confusing jq message
+# was a symptom; the missing status check was the defect.
+#
+# `api_allow` lets a caller name status codes that are a legitimate answer
+# rather than a failure (registration returning 4xx for an existing account).
 api() {
   local method="$1"
   local path="$2"
@@ -81,15 +93,29 @@ api() {
   if [[ -n "$token" ]]; then
     auth_header=(-H "Authorization: Bearer $token")
   fi
+
+  local raw
   if [[ -n "$body" ]]; then
-    curl -sS -X "$method" \
+    raw=$(curl -sS -w $'\n%{http_code}' -X "$method" \
       -H "Content-Type: application/json" \
       "${auth_header[@]}" \
       -d "$body" \
-      "$KP_API_BASE$path"
+      "$KP_API_BASE$path")
   else
-    curl -sS -X "$method" "${auth_header[@]}" "$KP_API_BASE$path"
+    raw=$(curl -sS -w $'\n%{http_code}' -X "$method" "${auth_header[@]}" "$KP_API_BASE$path")
   fi
+
+  local status="${raw##*$'\n'}"
+  local payload="${raw%$'\n'*}"
+
+  if [[ "$status" =~ ^2 ]] || [[ " ${api_allow:-} " == *" $status "* ]]; then
+    printf '%s' "$payload"
+    return 0
+  fi
+
+  echo "::error::$method $path -> HTTP $status" >&2
+  echo "         $payload" >&2
+  return 1
 }
 
 password_for() {
@@ -115,15 +141,14 @@ register_user() {
   body=$(jq -n --arg e "$email" --arg p "$password" --arg d "$display_name" \
     '{email:$e, password:$p, display_name:$d}')
 
+  # 400/409 mean the account already exists, which is the idempotent case this
+  # script promises. Named explicitly so any OTHER status still fails.
   local resp
-  resp=$(api POST "/api/v1/auth/register" "" "$body" || true)
-  local status
-  status=$(echo "$resp" | jq -r 'if has("detail") then .detail else "ok" end')
-  if [[ "$status" == "ok" ]]; then
-    echo "  registered: $email"
+  resp=$(api_allow="400 409" api POST "/api/v1/auth/register" "" "$body")
+  if echo "$resp" | jq -e 'has("detail") or has("error_code")' >/dev/null 2>&1; then
+    echo "  exists already: $email"
   else
-    # Common idempotency: backend reports email already in use.
-    echo "  exists or rejected: $email — $status"
+    echo "  registered: $email"
   fi
 }
 
@@ -144,35 +169,63 @@ login() {
   echo "$resp" | jq -r '.access_token'
 }
 
+# Creates (or finds) the organization tenant for an owner and reports the slug
+# the SERVER assigned, which is not the one this file asks for.
+#
+# `POST /api/v1/tenants` accepts only `name`, `description` and `max_members`
+# (see TenantCreateRequest); the slug is derived server-side by
+# TenantEngine.generate_slug and then de-duplicated. The old version sent a
+# `slug` field, which was ignored, and then addressed the tenant by the slug it
+# had ASKED for. "ZAP Tenant Alpha" becomes `zap-tenant-alpha`, not
+# `zap-tenant-a`, so every later call hit a tenant that did not exist — while
+# creation itself reported success (issue #895).
+#
+# Results come back through globals rather than stdout. The call site used to be
+# `token=$(ensure_tenant … | tail -n1)`, and an `exit 1` inside a command
+# substitution exits only the SUBSHELL: a failed creation could not abort the
+# script, `tail` exited 0, and the token silently became the error text.
 ensure_tenant() {
   local owner_email="$1"
-  local slug="$2"
+  local wanted_slug="$2"
   local name="$3"
+
+  ENSURE_TENANT_TOKEN=""
+  ENSURE_TENANT_SLUG=""
 
   local owner_token
   owner_token="$(login "$owner_email")"
 
-  # Look up existing tenants for the user.
-  local existing
+  # Match on the NAME, the only field this script controls. Matching on the slug
+  # would never find a tenant created by an earlier run under a derived slug,
+  # and the script would try to create a second one every time.
+  local existing actual
   existing=$(api GET "/api/v1/tenants" "$owner_token")
-  if echo "$existing" | jq -e --arg s "$slug" '.[] | select(.slug == $s)' >/dev/null; then
-    echo "  tenant exists: $slug"
-    echo "$owner_token"
-    return 0
+  actual=$(echo "$existing" | jq -r --arg n "$name" \
+    'map(select(.name == $n and .tenant_type == "organization")) | .[0].slug // empty')
+
+  if [[ -n "$actual" ]]; then
+    echo "  tenant exists: $name -> $actual"
+  else
+    local body resp
+    body=$(jq -n --arg n "$name" '{name:$n}')
+    resp=$(api POST "/api/v1/tenants" "$owner_token" "$body")
+    actual=$(echo "$resp" | jq -r '.slug // empty')
+    if [[ -z "$actual" ]]; then
+      echo "::error::Tenant creation for '$name' returned no slug — response: $resp" >&2
+      return 1
+    fi
+    echo "  tenant created: $name -> $actual"
   fi
 
-  local body
-  body=$(jq -n --arg n "$name" --arg s "$slug" \
-    '{name:$n, slug:$s, tenant_type:"organization"}')
+  if [[ "$actual" != "$wanted_slug" ]]; then
+    # Not fatal — the derived slug is authoritative and everything downstream
+    # uses it. Surfaced so the divergence is visible rather than mysterious the
+    # next time someone greps the logs for the name in test-identities.yaml.
+    echo "  note: server-derived slug '$actual' differs from the '$wanted_slug' in test-identities.yaml"
+  fi
 
-  local resp
-  resp=$(api POST "/api/v1/tenants" "$owner_token" "$body")
-  echo "$resp" | jq -er '.slug' >/dev/null || {
-    echo "::error::Tenant creation failed for $slug — response: $resp" >&2
-    exit 1
-  }
-  echo "  tenant created: $slug"
-  echo "$owner_token"
+  ENSURE_TENANT_TOKEN="$owner_token"
+  ENSURE_TENANT_SLUG="$actual"
 }
 
 ensure_membership() {
@@ -223,12 +276,22 @@ main() {
 
   # ── Pass 2: ensure tenants (each owner becomes admin) ──────────
   echo "ensuring tenants…"
+  # `logical slug from the data file` -> `slug the server actually assigned`.
+  # Everything downstream addresses the API with the resolved value; the data
+  # file's slug survives only as the key that joins tenants to memberships.
   declare -A owner_tokens
+  declare -A resolved_slugs
   while IFS=$'\t' read -r slug name owner_email; do
-    token=$(ensure_tenant "$owner_email" "$slug" "$name" | tail -n1)
-    owner_tokens[$slug]="$token"
+    ensure_tenant "$owner_email" "$slug" "$name"
+    owner_tokens[$slug]="$ENSURE_TENANT_TOKEN"
+    resolved_slugs[$slug]="$ENSURE_TENANT_SLUG"
   done < <(yq e -o=tsv \
     '.tenants[] | [.slug, .name, .owner_email]' "$DATA_FILE")
+
+  if [[ ${#resolved_slugs[@]} -eq 0 ]]; then
+    echo "::error::No tenants resolved from $DATA_FILE — refusing to continue." >&2
+    exit 1
+  fi
 
   # ── Pass 3: invite remaining members ───────────────────────────
   echo "ensuring memberships…"
@@ -236,10 +299,20 @@ main() {
     if [[ "$email" == "$(yq e ".tenants[] | select(.slug == \"$tenant_slug\") | .owner_email" "$DATA_FILE")" ]]; then
       continue   # owner already has admin role from tenant creation
     fi
-    ensure_membership "${owner_tokens[$tenant_slug]}" "$tenant_slug" "$email" "$role"
+    ensure_membership "${owner_tokens[$tenant_slug]}" "${resolved_slugs[$tenant_slug]}" "$email" "$role"
   done < <(yq e -o=tsv \
     '.users[] as $u | $u.memberships[] | [$u.email, .tenant_slug, .role]' \
     "$DATA_FILE")
+
+  # The resolved slugs are the one thing a caller cannot derive on its own, so
+  # they are published rather than re-guessed downstream.
+  echo "resolved tenant slugs:"
+  for logical in "${!resolved_slugs[@]}"; do
+    echo "  $logical -> ${resolved_slugs[$logical]}"
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+      echo "slug_${logical//-/_}=${resolved_slugs[$logical]}" >> "$GITHUB_OUTPUT"
+    fi
+  done
 
   echo "done."
 }
