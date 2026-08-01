@@ -19,6 +19,13 @@ on:
       - completed
   status: {}
 
+# The merging job declares `contents: write` and `pull-requests: write` itself.
+# Read-only here so anything added later starts from the minimum rather than
+# inheriting the repository default (§B of the GitHub-Actions spec: privileges
+# belong in the workflow file, not in a settings page someone can change).
+permissions:
+  contents: read
+
 jobs:
   automerge:
     # When `vars.PORTFOLIO_APP_ID` is set, the reusable mints a short-lived
