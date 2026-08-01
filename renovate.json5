@@ -279,5 +279,24 @@
       datasourceTemplate: '{{#if (containsString depName "/")}}npm{{else}}pypi{{/if}}',
       versioningTemplate: 'semver',
     },
+    {
+      customType: 'regex',
+      // Container images referenced from a workflow `env:` value. The built-in
+      // github-actions manager sees `uses:` and `container:`, not an image
+      // string a step later passes to `docker run` — so without this the pin
+      // would be immutable and unmaintained, which is the other half of the
+      // reproducibility problem (#898).
+      //
+      // Captures tag AND digest, so Renovate bumps them together. A tag bumped
+      // without its digest would leave the workflow silently on the old image.
+      description: 'Update container images pinned in workflow env: values.',
+      managerFilePatterns: [
+        '/^\\.github/workflows/[^/]+\\.ya?ml$/',
+      ],
+      matchStrings: [
+        'renovate: datasource=docker depName=(?<depName>\\S+)\\s*\\n\\s*[A-Z_]+:\\s*\\S+:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',
+      ],
+      datasourceTemplate: 'docker',
+    },
   ],
 }
