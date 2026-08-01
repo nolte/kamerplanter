@@ -240,6 +240,53 @@ Docker metadata is automatically generated via `docker/metadata-action`:
 | Semantic version | `kamerplanter-backend:1.2.0` | `v1.2.0` tag |
 | Major.Minor | `kamerplanter-backend:1.2` | `v1.2.0` tag |
 
+!!! warning "`latest` is a moving reference"
+
+    `latest` is overwritten on every push to `develop` and points at different
+    bytes afterwards. For anything that has to be reproducible — deployments,
+    rollbacks, incident analysis — use the semantic-version tag or the commit
+    SHA. The ArgoCD Application in the `argo-charts` repository pins every image
+    tag explicitly for exactly this reason; a `latest` combined with
+    `pullPolicy: IfNotPresent` once left a node serving a stale image for months.
+
+### What secures each artifact
+
+Every artifact class this project ships needs a named stage that secures it —
+otherwise a gap only becomes visible once it is exploited. The matrix below
+answers the question "what exactly does what guarantee?" and is maintained
+alongside pipeline changes.
+
+| Artifact class | Securing stage | Guarantees |
+|---|---|---|
+| Container images (8) | `build-*` in `docker-publish.yml` | built-from-source, integrity (digest), provenance (signed) |
+| Helm chart (OCI) | `publish-helm-charts` | built-from-source, integrity (digest), provenance (signed) |
+| `openapi.json` (release asset) | `openapi-asset` in `release-publish.yml` | built-from-source, attachment verified after upload |
+| `docker-compose-<version>.yml`, `.env.example-<version>` | `update-release-assets` | built-from-source |
+| Python dependencies | `pip-audit`, `pip-licenses`, `lock-staleness` in `backend.yml` | policy-cleared (CVE, licence, lock integrity) |
+
+**Known gaps** — deliberately open, not overlooked:
+
+- The three release assets carry **no** provenance. GitHub-hosted release files
+  have no verification path equivalent to the registry attestation.
+- JavaScript dependencies have no dedicated policy stage yet; Trivy covers them
+  only at `CRITICAL` severity.
+
+#### Verifying provenance
+
+Images and the chart carry platform-generated, signed build provenance
+(`actions/attest-build-provenance`). Verify before deploying:
+
+```bash
+gh attestation verify \
+  oci://ghcr.io/nolte/kamerplanter-backend:1.2.0 \
+  --repo nolte/kamerplanter
+```
+
+What it says and what it does not: provenance establishes **origin** — which
+commit, which workflow run, which pinned inputs. It is **not** a statement that
+an artifact is secure. Security findings remain the concern of the supply-chain
+stages.
+
 ### Helm chart
 
 The Helm chart for Kamerplanter lives under `helm/kamerplanter/` and is pushed as an OCI artifact:
@@ -248,7 +295,7 @@ The Helm chart for Kamerplanter lives under `helm/kamerplanter/` and is pushed a
 oci://ghcr.io/nolte/charts/kamerplanter
 ```
 
-On a release tag, the `version` and `appVersion` in `Chart.yaml` are automatically set to the release version before the chart is packaged. At the same time, image tags in `values.yaml` are updated from `latest` to the specific version.
+On a release tag, `version` and `appVersion` in `Chart.yaml` are automatically set to the release version before the chart is packaged. At the same time every Kamerplanter image tag in `values.yaml` is pinned to that same version — addressed by YAML path rather than by text-replacing the literal `tag: latest`. A following verification step aborts the release if any Kamerplanter image survived the substitution: a shipped chart still pointing at a moving reference is precisely the defect the pinning exists to prevent, and the previous text replacement had no way to notice.
 
 ```bash
 # Pull the chart directly
