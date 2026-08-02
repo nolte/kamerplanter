@@ -133,8 +133,8 @@ tasks:
       Python 3.14 interpreter: `pip install 'pip-tools==7.5.3'`.
     dir: src/backend
     cmds:
-      - pip-compile --generate-hashes --output-file=requirements.txt --strip-extras pyproject.toml
-      - pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --strip-extras pyproject.toml
+      - pip-compile --generate-hashes --output-file=requirements.txt --no-strip-extras pyproject.toml
+      - pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --no-strip-extras pyproject.toml
 
   # ── Shared libs ─────────────────────────────────────────────
 
