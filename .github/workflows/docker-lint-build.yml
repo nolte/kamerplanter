@@ -90,7 +90,7 @@ jobs:
       # surprise red job on unrelated branches.
       #
       # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
-      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.0@sha256:78cefa24d67e95cac4cdc388652068d0be545bd2926fcbec6f95c1a751d5da32
+      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
