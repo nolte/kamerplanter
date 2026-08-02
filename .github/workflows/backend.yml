@@ -118,8 +118,27 @@ jobs:
         # is the NFR-009 §2.3 lockfile-integrity gate: it catches a pyproject.toml
         # bump that was not re-compiled, or a hand-edited lock.
         run: |
-          pip-compile --generate-hashes --output-file=requirements.txt --strip-extras pyproject.toml
-          pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --strip-extras pyproject.toml
+          # `--no-strip-extras`, not `--strip-extras` (#903).
+          #
+          # Renovate's pip-compile manager maps each dependency in the SOURCE
+          # (pyproject.toml) to its entry in the lock. Six dependencies are
+          # declared with extras — uvicorn[standard], pydantic[email],
+          # psycopg[binary,pool], qrcode[pil], sentry-sdk[fastapi], moto[s3] —
+          # and `--strip-extras` recorded them in the lock without the extras.
+          # The manager could not find `uvicorn[standard]` there, warned
+          # "dependency not found in lock file" on the Dependency Dashboard, and
+          # declined to regenerate the lock. Every backend dependency pull
+          # request therefore arrived with a stale lock and a red `Lock
+          # staleness` — a gate blamed for a defect it was correctly reporting.
+          #
+          # This is a deliberate opt-OUT of pip-tools' future default: 8.0.0
+          # makes `--strip-extras` the behaviour, and the explicit flag is what
+          # keeps this working past that release rather than silently flipping.
+          # Measured before choosing: restoring the extras moves 7 lines in
+          # requirements.txt and 9 in requirements-dev.txt, with no version and
+          # no hash changes.
+          pip-compile --generate-hashes --output-file=requirements.txt --no-strip-extras pyproject.toml
+          pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --no-strip-extras pyproject.toml
           if ! git diff --exit-code -- requirements.txt requirements-dev.txt; then
             echo "::error::Lockfiles are stale. Run 'task deps:compile' and commit the result." >&2
             exit 1
