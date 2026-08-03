@@ -168,7 +168,7 @@ jobs:
     name: Coverage
     needs: changes
     if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
-    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
+    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@d51e51ec3ec17ceea09fe9eb40ac00857b6fa1be # v2.0.0
     with:
       node-version: '22'
       working-directory: src/frontend
