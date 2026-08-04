@@ -650,7 +650,7 @@ FOR plant, rc_edge IN 1..1 OUTBOUND run run_contains
     "entry_type": "problem",
     "title": "Braune Flecken an unteren Blaettern",
     "text": "Die unteren 3 Blaetter zeigen braune Flecken, moeglicherweise Septoria. Betroffene Blaetter entfernt.",
-    "photo_refs": ["s3://kamerplanter/diary/tom05_01_a.jpg"],
+    "photo_refs": ["01HQ8X9V3J7P5K2N4M6T8R0S2W"],
     "tags": ["septoria", "blaetter", "krankheit"],
     "measurements": null,
     "created_by": "user_max",
@@ -1418,7 +1418,7 @@ neuen Endpunkts stehen in REQ-050 §2.5.2.
 
 Beide Endpunkte existieren im Run- **und** im Standalone-Praefix. Sie setzen ausschliesslich den
 Zustand; das Ergebnis schreibt der ausfuehrende Agent ueber MCP zurueck (REQ-050 §4.5). Ein
-Betrachter darf lesen, aber nicht markieren (REQ-050 §6). `PUT .../diary/{entry_key}` aendert den
+Beobachter darf lesen, aber nicht markieren (REQ-050 §6). `PUT .../diary/{entry_key}` aendert den
 Analyse-Zustand **nicht** — Zustandswechsel laufen nie ueber das generische Update.
 
 ### Request/Response-Beispiele:
@@ -1534,7 +1534,7 @@ Analyse-Zustand **nicht** — Zustandswechsel laufen nie ueber das generische Up
     "entry_type": "problem",
     "title": "Braune Flecken an unteren Blaettern",
     "text": "Die unteren 3 Blaetter zeigen braune Flecken, moeglicherweise Septoria. Betroffene Blaetter entfernt.",
-    "photo_refs": ["s3://kamerplanter/diary/tom05_01_a.jpg"],
+    "photo_refs": ["01HQ8X9V3J7P5K2N4M6T8R0S2W"],
     "tags": ["septoria", "blaetter", "krankheit"]
 }
 
@@ -1544,7 +1544,7 @@ Analyse-Zustand **nicht** — Zustandswechsel laufen nie ueber das generische Up
     "entry_type": "problem",
     "title": "Braune Flecken an unteren Blaettern",
     "text": "Die unteren 3 Blaetter zeigen braune Flecken...",
-    "photo_refs": ["s3://kamerplanter/diary/tom05_01_a.jpg"],
+    "photo_refs": ["01HQ8X9V3J7P5K2N4M6T8R0S2W"],
     "tags": ["septoria", "blaetter", "krankheit"],
     "measurements": null,
     "created_by": "user_max",
@@ -1748,7 +1748,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Tagebuch-CRUD:** Erstellen, Lesen, Aktualisieren, Loeschen von Tagebuch-Eintraegen fuer einzelne Pflanzen
 - [ ] **Tagebuch-Aggregation:** Aggregiertes Tagebuch aller Pflanzen im Run abrufbar
 - [ ] **Tagebuch-Standalone:** Tagebuch funktioniert auch fuer standalone PlantInstances (heute **nicht** erfuellt, siehe Hinweis in §4.7)
-- [ ] **Tagebuch-Analyse-Felder:** `analysis_state` und die Lease-/Ergebnisfelder sind am Eintrag vorhanden und werden in der Response ausgeliefert; Markieren/Entmarkieren funktioniert und ist gegen Betrachter gesperrt (Fachlogik: REQ-050)
+- [ ] **Tagebuch-Analyse-Felder:** `analysis_state` und die Lease-/Ergebnisfelder sind am Eintrag vorhanden und werden in der Response ausgeliefert; Markieren/Entmarkieren funktioniert und ist gegen den Beobachter gesperrt (Fachlogik: REQ-050)
 - [ ] **Graph-Integration:** Alle neuen Edge Collections korrekt im Named Graph `kamerplanter_graph` registriert
 - [ ] **Dual-Support-Edges:** `current_phase`, `phase_history`, `has_task`, `has_care_profile`, `inspected_by`, `fed_by` akzeptieren sowohl `planting_runs` als auch `plant_instances` als Quell-Vertex
 - [ ] **NFR-006-Fehlerbehandlung:** Aussagekraeftige Fehlermeldungen bei Validierungsfehlern und Konfliktzustaenden

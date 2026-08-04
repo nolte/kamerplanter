@@ -8,7 +8,7 @@ Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
 Version: 1.5 (REQ-050: diary_ai_analysis-Consent + Präzisierung des KI-Assistent-Zwecks)
-Abhängigkeit: REQ-023 v1.10 (Benutzerverwaltung), REQ-024 v1.6 (Mandantenverwaltung), NFR-011 v1.1 (Retention Policy), NFR-013 v1.3 (Object Storage), REQ-029-A v1.1 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.0 (KI-Analyse von Tagebuch-Einträgen)
+Abhängigkeit: REQ-023 v1.10 (Benutzerverwaltung), REQ-024 v1.6 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.3 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.0 (KI-Analyse von Tagebuch-Einträgen)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
 
@@ -1394,7 +1394,7 @@ Das Telemediengesetz (TTDSG) §25 unterscheidet zwischen technisch notwendigen u
 
 **Dokumenten-Ende**
 
-**Version**: 1.1
+**Version**: 1.5
 **Status**: Entwurf
-**Datum**: 2026-03-18
+**Datum**: 2026-08-04
 **Security-Review**: Adressiert SEC-K-001, SEC-K-003, SEC-H-008, SEC-M-005, SEC-M-007

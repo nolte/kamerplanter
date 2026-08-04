@@ -8,7 +8,7 @@ Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
 Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport und 12 Werkzeuge; Rest des Werkzeugkatalogs, Bild-Content und stdio-Bruecke offen, siehe §4.1, §4.3b und §9)
 Version: 1.4
-Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.4 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.10 (Service Accounts), REQ-024 v1.6 (RBAC Permission-Matrix), REQ-025 v1.5 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.3 (Rollenvokabular), REQ-050 v1.0 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.3 (Thumbnail-Renditions)
+Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.4 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.10 (Service Accounts), REQ-024 v1.6 (RBAC Permission-Matrix), REQ-025 v1.5 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.3 (Rollenvokabular), REQ-050 v1.0 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.3 (Thumbnail-Renditions)
 ```
 
 ## 1. Business Case
@@ -300,6 +300,28 @@ Schreibtools liefern zusaetzlich:
 
 `idempotent_replay: true` signalisiert, dass der Idempotency-Key bereits bekannt war und das fruehere Ergebnis zurueckgegeben wurde.
 
+> **Das ist die Innenansicht, nicht die Drahtform.** Die hier gezeigten Objekte sind der Inhalt
+> von `structuredContent` in der MCP-Antwort — **nicht** die oberste Ebene dessen, was der Client
+> empfaengt. Auf dem Draht liegt darum herum die MCP-Standardhuelle:
+>
+> ```json
+> {
+>   "content": [{ "type": "text", "text": "<summary>" }],
+>   "structuredContent": { "summary": "…", "data": { … }, "links": [ … ] },
+>   "isError": false
+> }
+> ```
+>
+> `dry_run`, `idempotency_key` und `idempotent_replay` stehen entsprechend **innerhalb**
+> `structuredContent`, neben `summary`. Ein Client liest `structuredContent`; der Textblock
+> traegt nur `summary` und ist das Einzige, was ein Sprachmodell ohne Werkzeugkenntnis sieht.
+>
+> Fehler eines Werkzeugs kommen als Ergebnis mit `isError: true` und einem `error_code` in
+> `structuredContent` an — **nicht** als JSON-RPC-`error`. Ein JSON-RPC-`error` bedeutet
+> ausschliesslich Protokoll- oder Authentifizierungsversagen. Die vollstaendige Ausformulierung
+> dieses Vertrags samt Fehlercodes steht in REQ-050 §4.0; sie gilt fuer **alle** Werkzeuge, nicht
+> nur die dort spezifizierten fuenf.
+
 Werkzeuge, die Bilder liefern (§2.2a), haengen zusaetzlich **Content-Bloecke** an. `summary`
 bleibt auch dort der fuehrende Block — siehe §4.3b.
 
@@ -588,7 +610,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 | REQ-031 v1.0 (KI-Assistent / RAG) | weich | `search_plant_knowledge`-Tool nutzt RAG-Infrastruktur; ohne RAG nutzbar (Tool faellt weg) |
 | REQ-002 v4.2 (Standortverwaltung) | weich | Setup-Tools, WaterProfile, Location-CRUD |
 | REQ-013 v2.0 (Pflanzdurchlauf) | weich | Tools `list_planting_runs`, `create_plants_bulk`, Diary |
-| REQ-019 (Substratverwaltung) | weich | `create_substrate_batch`, `setup_growbox` |
+| REQ-019 v4.1 (Substratverwaltung) | weich | `create_substrate_batch`, `setup_growbox` |
 | REQ-014 v1.4 (Tankmanagement) | weich | `create_tank`, `record_feeding_event` |
 | REQ-022 v2.4 (Pflegeerinnerungen) | weich | `get_due_care_tasks`, `confirm_care_task` |
 | REQ-006 v2.7 (Aufgabenplanung) | weich | `list_overdue_tasks` |

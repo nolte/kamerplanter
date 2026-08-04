@@ -11,7 +11,7 @@ Priorität: Mittel
 Version: 1.0
 Datum: 2026-08-04
 Tags: [diary, ai-analysis, mcp, image-content, goose, async, opt-in]
-Abhängigkeit: REQ-013 v2.4 (Pflanzdurchlauf — PlantDiaryEntry), REQ-033 v1.4 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.2 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys)
+Abhängigkeit: REQ-013 v2.4 (Pflanzdurchlauf — PlantDiaryEntry), REQ-033 v1.4 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.3 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.0 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.2 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
 Wird benötigt von: —
 ```
 
@@ -412,7 +412,9 @@ Ein Rezept liest **`structuredContent`**, nicht den Text.
 ```
 
 Schreibwerkzeuge tragen zusätzlich `dry_run`, `idempotency_key` und `idempotent_replay`
-neben `summary` (REQ-033 §2.6).
+**innerhalb** `structuredContent`, neben `summary`. Die Beispiele in REQ-033 §2.6 zeigen dieses
+Innere ohne die umgebende Hülle — dort ist der Zusammenhang seit v1.4 ausdrücklich vermerkt; die
+Drahtform ist die hier gezeigte (REQ-033 §4.3b).
 
 **Fehlerantwort.** Jeder in §4.1–§4.5 genannte Fehlercode kommt als Werkzeug-Ergebnis mit
 `isError: true` an — **nicht** als JSON-RPC-`error`. Ein JSON-RPC-`error` bedeutet ausschließlich
@@ -523,6 +525,7 @@ Fehlerfälle über §4.0 hinaus:
 |-----------|--------------|
 | Zustand ist nicht `requested` und Lease nicht abgelaufen | `conflict.already_claimed` |
 | Revision hat sich zwischen Lesen und Setzen geändert | `conflict.concurrent_update` |
+| `worker_id` fehlt oder ist leer | `validation.error` |
 | `lease_seconds` über 3600 | `validation.error` |
 
 `conflict.already_claimed` liefert in `details` die Felder `claimed_by` und `lease_expires_at`,
@@ -649,6 +652,11 @@ erfolgreich (`isError: false`); der Agent kann es später erneut versuchen. Ein 
 wäre hier falsch, weil er einen Eintrag mit vier fertigen und einem fehlenden Bild vollständig
 blockieren würde. Ein Rezept, das Vollständigkeit braucht, prüft `pending` auf leer — und darf
 sich nicht darauf verlassen, dass ein erfolgreicher Aufruf alle Fotos enthält.
+
+**Eintrag ohne Fotos:** Ein Eintrag mit leerem `photo_refs` ist **kein** Fehler. Die Antwort ist
+erfolgreich mit `photos: []`, `pending: []` und nur dem `summary`-Textblock im `content`-Array.
+Ein Rezept muss diesen Fall behandeln, weil vier der sechs Eintragstypen üblicherweise ohne Foto
+erfasst werden.
 
 Fehlerfälle über §4.0 hinaus:
 
@@ -808,7 +816,7 @@ mit demselben Schlüssel in A markieren und in B nicht.
 > mehr (`admin` → `lead` + beide Zusatzberechtigungen). Für REQ-050 gilt **REQ-049 als Autorität**;
 > die Zuordnung ist `viewer` → Beobachter, `grower` → Gärtner, `admin` → Leitung. Die Migration von
 > REQ-033 §4.4 und §2.3 auf das REQ-049-Vokabular ist eine eigene, hier bewusst nicht
-> mitgezogene Aufgabe — sie betrifft alle 37 MCP-Werkzeuge, nicht nur diese fünf.
+> mitgezogene Aufgabe — sie betrifft den gesamten Werkzeugkatalog, nicht nur diese fünf.
 
 Ein Dienstkonto (REQ-023) kann Träger des Schlüssels sein. Das ist der saubere Weg für einen
 dauerhaft laufenden Agenten, weil sich sein Zugriff getrennt vom persönlichen Konto widerrufen
@@ -944,6 +952,9 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | **AK-26** | Bestehende Tagebuch-Einträge ohne Analyse-Felder bleiben ohne Migration lesbar und schreibbar; `analysis_state` wird als `none` interpretiert. |
 | **AK-27** | Ohne laufenden externen Agenten funktioniert Kamerplanter unverändert; markierte Einträge verbleiben in `requested` und die Oberfläche benennt das als „wartet auf Analyse" — ohne Fortschrittsanzeige. |
 | **AK-28** | Alle Oberflächentexte liegen in DE und EN vor; DE ist Vorgabe und Rückfallsprache. |
+| **AK-29** | Die Übersicht bietet eine Auffrischen-Schaltfläche und lädt den Zustand beim Öffnen nach. Es gibt keinen Server-zu-Client-Kanal und keine Fortschrittsanzeige für `requested` (§2.5.4). |
+| **AK-30** | Die Konfidenz eines Befunds wird als Zahl **und** sprachlich eingeordnet dargestellt — eine nackte Prozentzahl allein erfüllt das Kriterium nicht (§2.5.3). |
+| **AK-31** | Die Tagebuch-Übersicht ist als Modul in REQ-042 registriert und in der Navigations-Zuordnung von REQ-021 eingeordnet; ohne beides erscheint eine Seite ohne Sichtbarkeitssteuerung und ohne Erfahrungsstufen-Einordnung. |
 
 ---
 
@@ -957,9 +968,17 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | O-04 | Soll `add_plant_diary_entry` (REQ-033 §2.2, bislang nicht umgesetzt) zusammen mit dieser Anforderung realisiert werden, damit ein Agent auch Einträge **anlegen** kann? | Produkt | offen |
 | O-05 | Sollen die in REQ-013 §4.7 spezifizierten, aber nie implementierten **Standalone**-Tagebuch-Endpunkte (`/plant-instances/{key}/diary`) mit REQ-050 nachgezogen werden? Ohne sie hat eine Pflanze ohne Pflanzdurchlauf kein Tagebuch — die Erfassung nach §2.5.1 wäre dort nicht bedienbar. | Produkt | **blockierend** |
 | O-06 | Soll die Obergrenze der Bild-Nutzlast je Mandant konfigurierbar sein oder global bleiben? | DevOps | offen |
-| O-07 | Soll die Tagebuch-Übersicht (§2.5.2) an die Modul-Sichtbarkeit (REQ-042) gebunden werden, damit sie bei Nutzern ohne Tagebuch-Nutzung nicht in der Navigation erscheint? | Produkt | offen |
+| O-07 | Unter welchem Modulschlüssel wird die Tagebuch-Übersicht (§2.5.2) in REQ-042 registriert, und welcher Erfahrungsstufe wird sie in der Navigations-Zuordnung von REQ-021 §3.3 zugewiesen? | Produkt | offen — **vor dem Bau zu klären** |
 
-**Zur Einordnung:** O-05 ist die einzige blockierende Frage. Alle anderen lassen sich nach der
+**Zu O-07:** REQ-042 §1.3 verlangt ausdrücklich, dass jede neue Anforderung ihr Modul registriert;
+REQ-021 §3.3 führt die verbindliche Navigations-Zuordnung. Für ein Tagebuch existiert in **beiden**
+kein Eintrag — die Übersicht wäre sonst die einzige Seite ohne Sichtbarkeitssteuerung und ohne
+Erfahrungsstufen-Einordnung. Das ist keine Stilfrage: Ein Nutzer, der das Tagebuch nicht nutzt,
+bekäme einen Navigationspunkt, den er nicht abschalten kann. Die Registrierung selbst ist billig;
+nur die Zuordnung ist zu entscheiden (AK-31).
+
+**Zur Einordnung:** O-05 ist die einzige umsetzungsblockierende Frage; O-07 ist vor dem Bau der
+Übersichtsseite zu klären, verhindert aber keine der übrigen Arbeitspakete. Alle anderen lassen sich nach der
 Umsetzung entscheiden, ohne bereits Gebautes zu entwerten. Die zuvor hier geführte Frage nach der
 Tagebuch-Oberfläche ist entfallen — sie ist mit §2.5 beantwortet und Bestandteil dieser
 Anforderung.

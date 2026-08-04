@@ -575,7 +575,12 @@ NFR-013 etabliert die **Speicheranbindung** als austauschbaren Adapter und legt 
 
 **Dokumenten-Ende**
 
-**Version**: 1.1
+**Version**: 1.3
 **Status**: Genehmigt
 **Review**: Genehmigt
-**Genehmigung**: Genehmigt (2026-06-11)
+**Genehmigung**: v1.1 genehmigt (2026-06-11). Die spaeteren Aenderungen sind **nicht erneut
+formal freigegeben**: v1.2 (category `plant`, REQ-034) und v1.3 (Thumbnails normativ EXIF-frei,
+REQ-050). Beide sind additiv und greifen nicht in den Adapter-Vertrag ein — v1.3 haelt lediglich
+fest, was bisher als Nebenwirkung der Neukodierung angenommen wurde. Wer den Genehmigt-Status
+dieses Dokuments als Freigabe des **gesamten** Inhalts liest, liegt bis zu einer erneuten
+Freigabe daneben.
