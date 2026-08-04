@@ -6,8 +6,8 @@ Titel: Model Context Protocol (MCP) Server fuer Kamerplanter
 Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
-Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, HTTP-Transport und 12 Werkzeuge; Rest des Werkzeugkatalogs und stdio-Transport offen, siehe §4.1 und §9)
-Version: 1.2
+Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport und 12 Werkzeuge; Rest des Werkzeugkatalogs und stdio-Bruecke offen, siehe §4.1 und §9)
+Version: 1.3
 Abhaengigkeit: REQ-001 v5.0 (Stammdaten), REQ-002 v4.2 (Standortverwaltung), REQ-006 v2.7 (Aufgabenplanung), REQ-013 v2.0 (Pflanzdurchlauf), REQ-014 v1.4 (Tankmanagement), REQ-019 (Substratverwaltung), REQ-020 v1.1 (Onboarding), REQ-022 v2.4 (Pflegeerinnerungen), REQ-010 v1.0 (IPM), REQ-007 v1.0 (Erntemanagement), REQ-023 v1.7 (Service Accounts), REQ-024 v1.4 (RBAC Permission-Matrix), REQ-025 v1.0 (DSGVO), REQ-031 v1.0 (KI-Assistent / RAG)
 ```
 
@@ -60,7 +60,7 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 |   Claude Code, custom)    |
 +-------------+-------------+
               |
-              |  MCP Protocol (HTTP + SSE, JSON-RPC 2.0)
+              |  MCP Streamable HTTP (JSON-RPC 2.0 ueber POST)
               v
 +---------------------------------------------+
 |  Kamerplanter Backend (FastAPI)              |
@@ -98,7 +98,7 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 
 | Modus | Transport | Use-Case | Stand |
 |-------|-----------|----------|-------|
-| **HTTP+SSE** | HTTPS | Self-Hosted-Deployments — Clients verbinden sich mit der Backend-URL (`/api/v1/mcp/rpc`, SSE-Handshake unter `/api/v1/mcp/sse`) | umgesetzt |
+| **Streamable HTTP** | HTTPS | Self-Hosted-Deployments — Clients verbinden sich mit dem MCP-Endpunkt `/api/v1/mcp` | umgesetzt (§4.3a) |
 | **stdio** | stdin/stdout | Lokal ueber Claude-Desktop-/Claude-Code-Konfiguration — Prozess wird vom Client gestartet | **nicht umgesetzt**; vorgesehen als schlanker Bridge-Client beim Nutzer, der stdio auf `/mcp/rpc` durchreicht (§9) |
 
 ## 2. Tool-Inventar (Cut 1.0)
@@ -401,6 +401,22 @@ Macro-Tools (`setup_apartment`, `setup_growbox`, `setup_outdoor_garden`) erzeuge
 5. Der **Dispatcher** waehlt pro Tool-Aufruf genau eine Mitgliedschaft (§4.4) und bindet den `ToolContext` darauf. Ein Werkzeug sieht dadurch immer nur einen Mandanten und nie den rohen Argumentwert.
 6. Bei abgelaufenem oder rotiertem Key: MCP-Fehler mit Code `auth.expired`, der Client soll einen Reconnect ausloesen.
 
+### 4.3a Transport-Konformitaet (Streamable HTTP)
+
+Der Server implementiert den **Streamable-HTTP-Transport** (Protokollrevision 2025-03-26 und neuer), der den frueheren Zwei-Endpunkt-Transport "HTTP+SSE" abloest. Ein einziger MCP-Endpunkt nimmt JSON-RPC-Nachrichten per `POST` entgegen; der zuvor vorhandene, funktionslose `/mcp/sse`-Endpunkt ist entfallen.
+
+| Anforderung des Transports | Umsetzung |
+|----------------------------|-----------|
+| Ein MCP-Endpunkt fuer alle Nachrichten | `POST /api/v1/mcp`. `POST /api/v1/mcp/rpc` bleibt als veralteter Alias bestehen. |
+| Antwort als `application/json` **oder** SSE-Stream | Immer `application/json` — vom Transport ausdruecklich erlaubt. |
+| Notification/Response erhaelt keine Antwort | `202 Accepted` mit leerem Rumpf. Zuvor beantwortete der Server `notifications/initialized` mit einem `-32601`-Fehler und verletzte damit JSON-RPC 2.0. |
+| `protocolVersion` verhandeln | `initialize` spiegelt die Revision des Clients, wenn sie unterstuetzt wird (`2025-06-18`, `2025-03-26`, `2024-11-05`), sonst antwortet der Server mit seiner neuesten. |
+| `MCP-Protocol-Version`-Header auf Folgeanfragen | Wird geprueft; eine nicht unterstuetzte Revision wird mit `400` abgelehnt. Fehlt der Header, gilt die vom Transport vorgeschriebene Annahme `2025-03-26`. |
+| Sitzungsverwaltung (optional) | `initialize` vergibt `Mcp-Session-Id`; Folgeanfragen mit unbekannter oder fremder Sitzung erhalten `404`, worauf der Client neu initialisiert. `DELETE /api/v1/mcp` beendet die Sitzung. |
+| Server-zu-Client-Stream (optional) | `GET /api/v1/mcp` antwortet mit `405` — die vom Transport vorgesehene Antwort fuer einen Server ohne server-initiierte Nachrichten. Dieser Stream ist die Voraussetzung fuer die Fortschritts-Notifications aus §4.5. |
+
+**Die Sitzung ist kein Authentifizierungsmerkmal.** Die Autorisierung haengt vollstaendig am API-Key (§4.3): eine gueltige Sitzung ohne Key wird abgelehnt, ein gueltiger Key ohne Sitzung funktioniert. Die Sitzung traegt ausschliesslich Protokoll-Kontinuitaet. Deshalb degradiert ihr Speicher bei einem Valkey-Ausfall bewusst **offen** (die Sitzung gilt weiter), waehrend die Ratenbegrenzung aus §4.3 fail-closed arbeitet: ein Ausfall wuerde hier jeden Client abmelden, ohne einem Angreifer irgendetwas zu verwehren. Sitzungen sind an das erzeugende Konto gebunden, damit eine abgeflossene Sitzungs-ID unter einem anderen Key wertlos ist.
+
 **Warum kein JWT:** Ein MCP-Client wie Claude Desktop laeuft dauerhaft; das 15-Minuten-Access-Token waere binnen einer Viertelstunde tot, und der zugehoerige Refresh-Token ist ein HttpOnly-Cookie, das nur der Browser besitzt. Ein widerrufbarer API-Key ist der passende Dauer-Credential.
 
 **Konto ohne Mitgliedschaft:** Ein Key, dessen Konto in keinem aktiven Mandanten Mitglied ist, wird abgewiesen — es gaebe nichts, worin er handeln koennte.
@@ -423,7 +439,7 @@ Jedes Tool deklariert eine von drei Permissions: `mcp.read`, `mcp.write` oder `m
 
 ### 4.5 Streaming & Notifications
 
-Lange Operationen (z. B. zukuenftige `generate_growing_report`) nutzen MCP-Notifications fuer Fortschritt. Cut 1.0 enthaelt keine Stream-Tools — Hook in `ToolBase.emit_progress()` ist vorbereitet.
+Lange Operationen (z. B. zukuenftige `generate_growing_report`) nutzen MCP-Notifications fuer Fortschritt. Cut 1.0 enthaelt keine Stream-Tools. Voraussetzung ist der server-initiierte Kanal, den `GET /api/v1/mcp` derzeit mit `405` ablehnt (§4.3a) — Fortschritts-Notifications erfordern zuerst dessen Implementierung.
 
 ### 4.6 Audit & DSGVO
 
@@ -547,6 +563,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 
 - **AC-D1:** Mit `MCP_SERVER_ENABLED=true` am Backend-Deployment ist die Werkzeugschnittstelle unter `/api/v1/mcp/` erreichbar und ein gueltiger API-Key kann `tools/list` und `tools/call` ausfuehren — ohne zusaetzlichen Pod (§6).
 - **AC-D2:** Mit `MCP_SERVER_ENABLED=false` (Default) antworten alle `/mcp/*`-Endpunkte mit HTTP 404 — Kamerplanter funktioniert unveraendert und die Schnittstelle ist von aussen nicht unterscheidbar von "existiert nicht".
+- **AC-D4:** Ein Streamable-HTTP-Client absolviert den vollstaendigen Handschlag gegen `POST /api/v1/mcp`: `initialize` (mit Versionsverhandlung und `Mcp-Session-Id`), `notifications/initialized` (Antwort `202`, kein Rumpf), `tools/list`. Eine unbekannte Sitzung liefert `404`, `GET` auf den Endpunkt `405`, `DELETE` beendet die Sitzung mit `204`.
 - **AC-D3:** Dokumentation in `docs/` enthaelt eine Konfigurations-Anleitung fuer MCP-Clients (HTTP-Transport: Backend-URL + `X-API-Key`) sowie die Betreiber-Variablen aus §6. Das `claude_desktop_config.json`-Beispiel setzt den stdio-Bridge-Client voraus und wird mit diesem nachgereicht (§9).
 
 ### 8.8 GIVEN/WHEN/THEN — Beispiel-Szenarien
@@ -614,6 +631,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **Eigenstaendiger Prozess (bewusst zurueckgestellt):** Ein Split von `app/mcp_server/` in eine eigene Komponente mit eigenem Helm-Chart wuerde die direkte Service-Anbindung durch eine HTTP-Grenze ersetzen und damit zusaetzliche Bulk-/Transaktions-Endpoints, eine zweite Fehleruebersetzung und DB-Zugriff ueber Umwege erzwingen (§4.1). Sinnvoll wird der Split erst, wenn MCP-Verkehr das Backend messbar beeintraechtigt oder eigene Ressourcen-/Skalierungsgrenzen braucht — etwa im Mehrmandanten-Hosting. Der `ToolDispatcher` ist als einziger Choke-Point fuer Auth, Permission, Idempotency und Audit die vorgesehene Schnittkante.
 - **Granulare MCP-Permissions:** `mcp.read`/`mcp.write`/`mcp.setup` werden aus der Mandanten-Rolle abgeleitet (viewer/grower/admin, §4.4), nicht einzeln pro Key zugewiesen. Der in §2.3 beschriebene Ablauf "Admin vergibt `mcp.setup` einmalig fuers Onboarding und widerruft danach" ist damit nur ueber einen Rollenwechsel moeglich. Sinnvolle Ausbaustufe: eine optionale Rechte-Obergrenze **pro Key** (z. B. "dieser Key darf nur lesen, auch wenn sein Besitzer Admin ist"), damit ein Nutzer einem LLM-Client weniger geben kann als er selbst hat.
 - **Feingranulare Sichtbarkeit innerhalb eines Mandanten:** "Nur seine Daten" endet heute an der Mandantengrenze — innerhalb eines Gemeinschaftsgartens sehen alle Mitglieder dieselben Pflanzen, wie in der Weboberflaeche auch. Eine Einschraenkung auf die selbst angelegten Datensaetze existiert im Datenmodell nicht (`LocationAssignment` waere der Ansatzpunkt).
+- **Server-zu-Client-Stream:** `GET /api/v1/mcp` lehnt mit `405` ab (§4.3a). Erst mit diesem Kanal sind Fortschritts-Notifications, `tools/list_changed` und wiederaufnehmbare Streams (`Last-Event-ID`) moeglich.
 - **Streaming-Tools:** `generate_growing_report(run_key)` als Long-Running mit Progress-Notifications.
 - **Resource-Bindings:** MCP unterstuetzt neben Tools auch `resources` (lesbare Inhalte). Pflanzen-Detailseiten als `resource://kamerplanter/plant/{key}` exponieren.
 - **MCP-Prompts:** Vordefinierte Prompts ("Tagesabschluss-Report", "Diagnose-Workflow") als MCP-Prompts ausliefern.

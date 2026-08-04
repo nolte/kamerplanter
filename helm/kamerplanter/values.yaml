@@ -133,6 +133,21 @@ controllers:
           IDENTIFICATION_HTTP_TIMEOUT: "60"
           # Longest edge (px) the image is downscaled to before upload.
           IDENTIFICATION_MAX_IMAGE_DIMENSION: "1024"
+          # REQ-033 MCP server — the Streamable-HTTP tool interface for external
+          # LLM clients (Claude Code and friends), served in-process by this
+          # backend under /api/v1/mcp. Opt-in and OFF by default: while false,
+          # every /mcp/* route answers HTTP 404, so the interface is not merely
+          # unauthenticated-but-present, it is absent.
+          #
+          # Turning it on exposes tool calls authenticated by `kp_` API keys —
+          # personal ones included — each scoped to its owner's tenant
+          # memberships. It needs no extra pod and no extra egress; sessions live
+          # in the Valkey instance the backend already uses (REDIS_URL above).
+          MCP_SERVER_ENABLED: "false"
+          # Replay window for a write tool's idempotency_key (REQ-033 §2.6).
+          MCP_IDEMPOTENCY_TTL_HOURS: "24"
+          # mcp_audit_log retention; the floor is set by NFR-011, not by taste.
+          MCP_AUDIT_RETENTION_DAYS: "90"
           # NFR-013 Object storage (§4.1). Defaults target the local-fs backend
           # whose root MUST match the backend-uploads PVC mount below. Switch to
           # s3 by setting STORAGE_BACKEND=s3 + the STORAGE_S3_* values and adding

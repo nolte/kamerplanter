@@ -700,6 +700,13 @@ def get_mcp_authenticator():
     )
 
 
+def get_mcp_session_store():
+    """Streamable-HTTP session store for the MCP transport (REQ-033 §4.3a)."""
+    from app.mcp_server.session import McpSessionStore
+
+    return McpSessionStore(_get_redis_client())
+
+
 def get_mcp_dispatcher():
     from app.mcp_server.audit import MCPAuditLogger
     from app.mcp_server.dispatcher import ToolDispatcher

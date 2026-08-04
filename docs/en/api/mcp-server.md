@@ -19,17 +19,19 @@ The MCP server is disabled by default. As long as `MCP_SERVER_ENABLED` is not se
 
 ## Transport & Endpoints
 
-The MCP server runs in-process with the backend and exposes its tools through three endpoints under `/api/v1/mcp/`:
+The MCP server runs in-process with the backend and exposes its tools under `/api/v1/mcp/`:
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/mcp/tools` | REST-friendly tool listing — shows the tools the caller's roles unlock, plus the gardens the key covers |
 | `POST` | `/mcp/tools/{tool_name}` | REST-friendly tool call with a JSON body as arguments |
-| `POST` | `/mcp/rpc` | MCP JSON-RPC 2.0 — `initialize`, `tools/list`, `tools/call`, `ping` — for protocol-native MCP clients |
-| `GET` | `/mcp/sse` | SSE handshake for the HTTP+SSE transport: emits an `endpoint` event pointing at `/mcp/rpc` |
+| `POST` | `/mcp` | **The MCP endpoint**: JSON-RPC 2.0 over Streamable HTTP — `initialize`, `tools/list`, `tools/call`, `ping` |
+| `GET` | `/mcp` | `405` — this server sends no server-initiated messages, an answer the transport explicitly permits |
+| `DELETE` | `/mcp` | Terminates the session named in the `Mcp-Session-Id` header |
+| `POST` | `/mcp/rpc` | Retained alias of `POST /mcp` (deprecated) |
 
 !!! info "API only / operator configuration: transport"
-    A standalone `stdio` transport (the server started locally by the client, typical for Claude Desktop configurations) is specified but not yet implemented — currently only HTTP(+SSE) is available. An MCP client connects to the full backend URL, e.g. `https://api.kamerplanter.example.com/api/v1/mcp/rpc`.
+    A standalone `stdio` transport (the server started locally by the client, typical for Claude Desktop configurations) is specified but not yet implemented — currently only Streamable HTTP is available. An MCP client connects to the full backend URL, e.g. `https://api.kamerplanter.example.com/api/v1/mcp`.
 
 ## Authentication: your own API key
 
@@ -114,7 +116,7 @@ Claude Code reads MCP servers from an `.mcp.json` in the project directory (or f
   "mcpServers": {
     "kamerplanter": {
       "type": "http",
-      "url": "https://kamerplanter.example.com/api/v1/mcp/rpc",
+      "url": "https://kamerplanter.example.com/api/v1/mcp",
       "headers": {
         "X-API-Key": "kp_your_personal_api_key"
       }
@@ -123,7 +125,7 @@ Claude Code reads MCP servers from an `.mcp.json` in the project directory (or f
 }
 ```
 
-For a local development stack the URL is `http://localhost:8000/api/v1/mcp/rpc`.
+For a local development stack the URL is `http://localhost:8000/api/v1/mcp`.
 
 !!! danger "The key sits in the file in plain text"
     Keep `.mcp.json` **out of** the git repository once it holds a real key — add it to `.gitignore` or use the global Claude Code configuration outside the project. Anyone who reads the file can do everything you can do in your gardens. You can revoke an individual key at any time.
@@ -134,19 +136,19 @@ Before adding the entry, a direct test is worth the minute — it shows immediat
 
 ```bash
 # 1. Handshake: does the server answer as an MCP server?
-curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
   -H "X-API-Key: kp_your_personal_api_key" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
 
 # 2. Which tools does my key unlock?
-curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
   -H "X-API-Key: kp_your_personal_api_key" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 
 # 3. A real call: which gardens does the key cover?
-curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
   -H "X-API-Key: kp_your_personal_api_key" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tenants","arguments":{}}}'
@@ -156,8 +158,8 @@ A `404` on step 1 means the MCP server is not enabled on that instance (`MCP_SER
 
 After that you can simply ask in conversation: *"Which plants do I need to water today?"* — Claude calls `get_due_care_tasks` itself. If your key covers several gardens, name the one you mean (*"…on my balcony"*) so the model can fill in the `tenant` parameter.
 
-!!! info "Transport: what the server speaks"
-    The `/mcp/rpc` endpoint takes a JSON-RPC request over `POST` and answers with `application/json`. That is the shape a Streamable-HTTP client uses, which is why `"type": "http"` works. Two caveats: the server announces protocol version `2024-11-05` (the older revision), and it offers no `GET` stream on `/mcp/rpc` and no `Mcp-Session-Id` — both optional for a server, but it means server-initiated messages and resumable sessions are unavailable. The separate `/mcp/sse` endpoint is a leftover of the older HTTP+SSE transport and only performs the handshake.
+!!! info "Transport: Streamable HTTP"
+    The server implements the **Streamable HTTP transport** (protocol revisions `2025-06-18`, `2025-03-26` and `2024-11-05`). On `initialize` it negotiates the revision with your client and issues an `Mcp-Session-Id` that the client then echoes; an expired session is answered with `404`, at which point the client re-initialises. Responses always come back as `application/json`, which the transport explicitly permits. It offers no server-initiated stream: `GET` on the endpoint answers `405`. That is the transport's sanctioned answer, and it means progress updates during long operations are not available yet.
 
 !!! warning "Not yet implemented: Claude Desktop"
     Claude Desktop starts an MCP server as a local subprocess and talks to it over `stdio` — it cannot bind an HTTP URL directly. The thin bridge client needed for that is specified but not yet implemented (internal reference: REQ-033). The configuration above therefore applies to Claude Code and other clients with an HTTP transport.

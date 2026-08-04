@@ -14,13 +14,14 @@ from fastapi import Depends, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials
 
 from app.common.auth import bearer_scheme
-from app.common.dependencies import get_mcp_authenticator, get_mcp_dispatcher
+from app.common.dependencies import get_mcp_authenticator, get_mcp_dispatcher, get_mcp_session_store
 from app.common.exceptions import NotFoundError, UnauthorizedError
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.mcp_server.auth import McpAuthenticator
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.session import McpSessionStore
 
 
 def require_mcp_enabled() -> None:
@@ -68,3 +69,12 @@ def get_dispatcher(
     dispatcher: ToolDispatcher = Depends(get_mcp_dispatcher),
 ) -> ToolDispatcher:
     return dispatcher
+
+
+def get_session_store(
+    _enabled: None = Depends(require_mcp_enabled),
+    store: McpSessionStore = Depends(get_mcp_session_store),
+) -> McpSessionStore:
+    """Streamable-HTTP session store (§4.3a)."""
+
+    return store

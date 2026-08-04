@@ -19,17 +19,19 @@ Der MCP-Server ist standardmäßig deaktiviert. Solange `MCP_SERVER_ENABLED` nic
 
 ## Transport & Endpunkte
 
-Der MCP-Server läuft im Backend-Prozess mit und stellt seine Werkzeuge über drei Endpunkte unter `/api/v1/mcp/` bereit:
+Der MCP-Server läuft im Backend-Prozess mit und stellt seine Werkzeuge unter `/api/v1/mcp/` bereit:
 
 | Methode | Pfad | Zweck |
 |---------|------|-------|
 | `GET` | `/mcp/tools` | REST-freundliche Werkzeug-Übersicht — zeigt die Werkzeuge, die die Rollen des Aufrufers freischalten, samt der Gärten, die der Key abdeckt |
 | `POST` | `/mcp/tools/{tool_name}` | REST-freundlicher Werkzeug-Aufruf mit JSON-Body als Argumenten |
-| `POST` | `/mcp/rpc` | MCP JSON-RPC 2.0 — `initialize`, `tools/list`, `tools/call`, `ping` — für protokoll-native MCP-Clients |
-| `GET` | `/mcp/sse` | SSE-Handshake für den HTTP+SSE-Transport: liefert ein `endpoint`-Event, das auf `/mcp/rpc` verweist |
+| `POST` | `/mcp` | **Der MCP-Endpunkt**: JSON-RPC 2.0 über Streamable HTTP — `initialize`, `tools/list`, `tools/call`, `ping` |
+| `GET` | `/mcp` | `405` — dieser Server sendet keine server-initiierten Nachrichten; der Transport erlaubt diese Antwort ausdrücklich |
+| `DELETE` | `/mcp` | Beendet die Sitzung aus dem `Mcp-Session-Id`-Header |
+| `POST` | `/mcp/rpc` | Beibehaltener Alias von `POST /mcp` (veraltet) |
 
 !!! info "Nur über API / Betreiber-Konfiguration: Transport"
-    Ein eigenständiger `stdio`-Transport (Server wird lokal vom Client gestartet, wie es für Claude-Desktop-Konfigurationen typisch ist) ist in der Spezifikation vorgesehen, aber noch nicht umgesetzt — aktuell ist ausschließlich HTTP(+SSE) verfügbar. Ein MCP-Client verbindet sich über die volle Backend-URL, z. B. `https://api.kamerplanter.example.com/api/v1/mcp/rpc`.
+    Ein eigenständiger `stdio`-Transport (Server wird lokal vom Client gestartet, wie es für Claude-Desktop-Konfigurationen typisch ist) ist in der Spezifikation vorgesehen, aber noch nicht umgesetzt — aktuell ist ausschließlich Streamable HTTP verfügbar. Ein MCP-Client verbindet sich über die volle Backend-URL, z. B. `https://api.kamerplanter.example.com/api/v1/mcp`.
 
 ## Authentifizierung: dein eigener API-Key
 
@@ -114,7 +116,7 @@ Claude Code liest MCP-Server aus einer `.mcp.json` im Projektverzeichnis (oder a
   "mcpServers": {
     "kamerplanter": {
       "type": "http",
-      "url": "https://kamerplanter.example.com/api/v1/mcp/rpc",
+      "url": "https://kamerplanter.example.com/api/v1/mcp",
       "headers": {
         "X-API-Key": "kp_dein_persoenlicher_api_key"
       }
@@ -123,7 +125,7 @@ Claude Code liest MCP-Server aus einer `.mcp.json` im Projektverzeichnis (oder a
 }
 ```
 
-Für eine lokale Entwicklungsumgebung ist die URL `http://localhost:8000/api/v1/mcp/rpc`.
+Für eine lokale Entwicklungsumgebung ist die URL `http://localhost:8000/api/v1/mcp`.
 
 !!! danger "Der Key steht im Klartext in der Datei"
     `.mcp.json` gehört **nicht** ins Git-Repository, wenn ein echter Key darin steht — trage sie in `.gitignore` ein oder nutze die globale Claude-Code-Konfiguration außerhalb des Projekts. Wer die Datei liest, kann alles, was du in deinen Gärten kannst. Widerrufen kannst du einen Key jederzeit einzeln.
@@ -134,19 +136,19 @@ Bevor du den Eintrag hinzufügst, lohnt ein direkter Test — er zeigt sofort, o
 
 ```bash
 # 1. Handschlag: Antwortet der Server als MCP-Server?
-curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
   -H "X-API-Key: kp_dein_persoenlicher_api_key" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
 
 # 2. Welche Werkzeuge schaltet mein Key frei?
-curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
   -H "X-API-Key: kp_dein_persoenlicher_api_key" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 
 # 3. Ein echter Aufruf: Welche Gärten deckt der Key ab?
-curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
   -H "X-API-Key: kp_dein_persoenlicher_api_key" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tenants","arguments":{}}}'
@@ -156,8 +158,8 @@ Kommt bei Schritt 1 ein `404`, ist der MCP-Server auf dieser Instanz nicht freig
 
 Danach kannst du im Dialog direkt fragen: *"Welche Pflanzen muss ich heute gießen?"* — Claude ruft `get_due_care_tasks` selbst auf. Deckt dein Key mehrere Gärten ab, nenne den gewünschten mit (*"…in meinem Balkongarten"*), damit das Modell den `tenant`-Parameter füllen kann.
 
-!!! info "Transport: was der Server spricht"
-    Der Endpunkt `/mcp/rpc` nimmt eine JSON-RPC-Anfrage per `POST` entgegen und antwortet mit `application/json`. Genau diese Form nutzt ein Streamable-HTTP-Client — deshalb funktioniert `"type": "http"`. Zwei Einschränkungen: Der Server meldet die Protokollversion `2024-11-05` (die ältere Revision), und er bietet auf `/mcp/rpc` weder einen `GET`-Stream noch eine `Mcp-Session-Id` — beides für einen Server optional, aber damit sind server-initiierte Nachrichten und wiederaufnehmbare Sitzungen nicht verfügbar. Der separate Endpunkt `/mcp/sse` ist ein Überbleibsel des älteren HTTP+SSE-Transports und führt nur den Handschlag aus.
+!!! info "Transport: Streamable HTTP"
+    Der Server implementiert den **Streamable-HTTP-Transport** (Protokollrevisionen `2025-06-18`, `2025-03-26` und `2024-11-05`). Beim `initialize` handelt er die Revision mit deinem Client aus und vergibt eine `Mcp-Session-Id`, die der Client danach mitsendet; eine abgelaufene Sitzung beantwortet er mit `404`, worauf der Client neu initialisiert. Antworten kommen immer als `application/json` — vom Transport ausdrücklich erlaubt. Einen server-initiierten Stream bietet er nicht: `GET` auf den Endpunkt antwortet mit `405`. Das ist die vom Transport vorgesehene Antwort und bedeutet, dass Fortschrittsmeldungen bei langen Operationen derzeit nicht möglich sind.
 
 !!! warning "Noch nicht implementiert: Claude Desktop"
     Claude Desktop startet einen MCP-Server als lokalen Unterprozess und spricht ihn über `stdio` an — es kann eine HTTP-URL nicht direkt einbinden. Der dafür nötige schlanke Brücken-Client ist spezifiziert, aber noch nicht umgesetzt (interne Referenz: REQ-033). Die obige Konfiguration gilt daher für Claude Code und andere Clients mit HTTP-Transport.

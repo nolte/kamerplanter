@@ -44,6 +44,11 @@ controllers:
           # rejects private HA endpoints unless this is explicitly allowed. Required
           # for the self-hosted dev cluster; keep the guard strict in hosted SaaS.
           HA_ALLOW_PRIVATE_ENDPOINT: "true"
+          # REQ-033: the MCP tool interface is ON in dev, so an LLM client can be
+          # pointed at http://localhost:8000/api/v1/mcp through the skaffold port
+          # forward. It stays off in the base values — a dev-only default, not a
+          # change to what a production install ships.
+          MCP_SERVER_ENABLED: "true"
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: kamerplanter-timescaledb
           TIMESCALEDB_PORT: "5432"
