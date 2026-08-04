@@ -6,9 +6,9 @@ Titel: Model Context Protocol (MCP) Server fuer Kamerplanter
 Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
-Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport und 12 Werkzeuge; Rest des Werkzeugkatalogs und stdio-Bruecke offen, siehe §4.1 und §9)
-Version: 1.3
-Abhaengigkeit: REQ-001 v5.0 (Stammdaten), REQ-002 v4.2 (Standortverwaltung), REQ-006 v2.7 (Aufgabenplanung), REQ-013 v2.0 (Pflanzdurchlauf), REQ-014 v1.4 (Tankmanagement), REQ-019 (Substratverwaltung), REQ-020 v1.1 (Onboarding), REQ-022 v2.4 (Pflegeerinnerungen), REQ-010 v1.0 (IPM), REQ-007 v1.0 (Erntemanagement), REQ-023 v1.7 (Service Accounts), REQ-024 v1.4 (RBAC Permission-Matrix), REQ-025 v1.0 (DSGVO), REQ-031 v1.0 (KI-Assistent / RAG)
+Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport und 12 Werkzeuge; Rest des Werkzeugkatalogs, Bild-Content und stdio-Bruecke offen, siehe §4.1, §4.3b und §9)
+Version: 1.4
+Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.4 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.10 (Service Accounts), REQ-024 v1.6 (RBAC Permission-Matrix), REQ-025 v1.5 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.3 (Rollenvokabular), REQ-050 v1.0 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.3 (Thumbnail-Renditions)
 ```
 
 ## 1. Business Case
@@ -161,6 +161,24 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `record_harvest` | Ernte-Eintrag mit Frischgewicht + Quality-Notes | `POST /t/{slug}/harvest/batches` |
 | `apply_treatment` | IPM-Treatment anwenden (Karenz-Gate aktiv) | `POST /t/{slug}/ipm/treatment-applications` |
 
+### 2.2a Werkzeuge fuer die Tagebuch-KI-Analyse (REQ-050)
+
+REQ-050 laesst einen **externen, vom Nutzer betriebenen** Agenten markierte Tagebuch-Eintraege
+analysieren. Kamerplanter ruft dabei selbst kein Sprachmodell auf — es stellt Daten bereit und
+nimmt ein Ergebnis entgegen. Diese fuenf Werkzeuge sind der vollstaendige Vertrag dafuer; ihre
+Ein- und Ausgaben, Fehlerfaelle und Grenzen sind normativ in **REQ-050 §4** beschrieben.
+
+| Tool | Permission | Zweck |
+|------|-----------|-------|
+| `list_pending_diary_analyses` | `mcp.read` | Arbeitsvorrat: markierte Eintraege ohne Freitext und ohne Bilder |
+| `get_diary_entry` | `mcp.read` | Eintrag samt Pflanzenkontext, **ohne** Bilddaten |
+| `get_diary_entry_photos` | `mcp.read` | Die Fotos des Eintrags als **Bild-Content** (§4.3b) |
+| `claim_diary_analysis` | `mcp.write` | Eintrag exklusiv beanspruchen (Vergleiche-und-Setze auf `_rev` + Lease) |
+| `submit_diary_analysis` | `mcp.write` | Ergebnis am Eintrag persistieren |
+
+`get_diary_entry_photos` ist das erste Werkzeug ueberhaupt, das etwas anderes als Text
+zurueckgibt, und erzwingt deshalb die Protokoll-Erweiterung in §4.3b.
+
 ### 2.3 Write-Tools — Setup & Stammdaten (Permission `mcp.setup`)
 
 Die `mcp.setup`-Permission ist getrennt von `mcp.write`, damit ein "Diary-Bot" nicht versehentlich Standorte loescht.
@@ -281,6 +299,31 @@ Schreibtools liefern zusaetzlich:
 ```
 
 `idempotent_replay: true` signalisiert, dass der Idempotency-Key bereits bekannt war und das fruehere Ergebnis zurueckgegeben wurde.
+
+> **Das ist die Innenansicht, nicht die Drahtform.** Die hier gezeigten Objekte sind der Inhalt
+> von `structuredContent` in der MCP-Antwort — **nicht** die oberste Ebene dessen, was der Client
+> empfaengt. Auf dem Draht liegt darum herum die MCP-Standardhuelle:
+>
+> ```json
+> {
+>   "content": [{ "type": "text", "text": "<summary>" }],
+>   "structuredContent": { "summary": "…", "data": { … }, "links": [ … ] },
+>   "isError": false
+> }
+> ```
+>
+> `dry_run`, `idempotency_key` und `idempotent_replay` stehen entsprechend **innerhalb**
+> `structuredContent`, neben `summary`. Ein Client liest `structuredContent`; der Textblock
+> traegt nur `summary` und ist das Einzige, was ein Sprachmodell ohne Werkzeugkenntnis sieht.
+>
+> Fehler eines Werkzeugs kommen als Ergebnis mit `isError: true` und einem `error_code` in
+> `structuredContent` an — **nicht** als JSON-RPC-`error`. Ein JSON-RPC-`error` bedeutet
+> ausschliesslich Protokoll- oder Authentifizierungsversagen. Die vollstaendige Ausformulierung
+> dieses Vertrags samt Fehlercodes steht in REQ-050 §4.0; sie gilt fuer **alle** Werkzeuge, nicht
+> nur die dort spezifizierten fuenf.
+
+Werkzeuge, die Bilder liefern (§2.2a), haengen zusaetzlich **Content-Bloecke** an. `summary`
+bleibt auch dort der fuehrende Block — siehe §4.3b.
 
 ## 3. ArangoDB-Modellierung
 
@@ -455,6 +498,46 @@ Der Server implementiert den **Streamable-HTTP-Transport** (Protokollrevision 20
 
 Sicherheitlich verschiebt das nichts: Im Light-Modus hat ohnehin jeder, der die Instanz erreicht, vollen Zugriff auf alle Daten — ein Key verleiht keine zusaetzliche Autoritaet, er macht denselben Zugriff nur von einem externen Client aus nutzbar. Die Vertrauensgrenze einer Light-Instanz ist ihr Netz, weshalb REQ-027 ein solches Deployment nicht ins offene Internet stellt. Login, Registrierung, Sitzungen und OAuth bleiben dem Full-Modus vorbehalten.
 
+### 4.3b Nicht-Text-Content (Bilder)
+
+**Ist-Zustand:** Der Server liefert in `tools/call` ausschliesslich einen Text-Block; das
+strukturierte Ergebnis geht zusaetzlich als `structuredContent` mit. Andere Content-Typen
+(`image`, `audio`, eingebettete Ressourcen) sind nicht vorgesehen.
+
+`get_diary_entry_photos` (§2.2a, REQ-050) braucht Bilder. Das ist die noetige Erweiterung:
+
+| Ebene | Aenderung |
+|-------|-----------|
+| Antwort-Modell | `McpToolResponse` erhaelt ein optionales Feld fuer **Content-Bloecke**. Ein `image`-Block traegt die Daten als Basis-64 und den `mimeType`. |
+| Werkzeug-Basisklasse | Ein eigener Erzeuger fuer Bild-Antworten neben dem bestehenden Text-Erzeuger; kein Werkzeug baut Content-Bloecke von Hand. |
+| Transport | Der `tools/call`-Zweig baut die Content-Liste **aus der Antwort**, statt sie fest auf einen Text-Block zu setzen. |
+| Faehigkeitsanzeige | Keine. Content-Typen in Werkzeug-Ergebnissen sind Teil des Basisprotokolls und werden nicht gesondert ausgehandelt. |
+
+**Der fuehrende Block bleibt `summary`.** Er ist heute das Einzige, was ein Sprachmodell aus einer
+Werkzeug-Antwort sieht; Bild-Bloecke werden **angehaengt**, nie vorangestellt. Damit aendert sich
+fuer die 12 bestehenden Werkzeuge nichts.
+
+**Bilder laufen ueber `tools/call`, nicht ueber MCP-Ressourcen.** Ressourcen waeren
+protokollarisch die elegantere Form (§9), sind aber nicht implementiert — und vor allem fuehrte
+ein eigener Ressourcen-Lesepfad am `ToolDispatcher` vorbei, dem einzigen Ort, an dem
+Mandantenbindung, Rechtepruefung, Idempotenz und Protokollierung zusammenlaufen. Fuer Bilddaten
+aus Nutzerbestaenden ist das die falsche Reihenfolge: erst der Kontrollpunkt, dann die Eleganz.
+Wer Ressourcen spaeter nachruestet, muss sie durch denselben Kontrollpunkt fuehren.
+
+**Grenzen** (normativ in REQ-050 §4.4):
+
+- Ausgeliefert werden ausschliesslich die WebP-Renditions aus NFR-013 §8.2 (512 oder 1280 px),
+  **nie** Originalbilder. Ein Original darf 25 MB gross sein und waere als Basis-64 fuer jedes
+  Modell unbrauchbar; Renditions tragen zudem keine EXIF-Daten.
+- Die Gesamt-Nutzlast eines Aufrufs ist begrenzt (`MCP_MAX_IMAGE_PAYLOAD_MB`, Vorgabe 4). Bei
+  Ueberschreitung antwortet das Werkzeug mit `payload.too_large` und benennt die betroffenen
+  Bilder. **Stilles Kuerzen ist unzulaessig.**
+
+**Auswirkung auf das Audit:** Die protokollierte Antwortgroesse (`output_size_bytes`) zaehlt sonst
+Basis-64-Bytes mit und laesst einen einzigen Fotoabruf jede andere Werkzeug-Statistik erschlagen.
+Bild-Nutzlasten sind daher gesondert auszuweisen oder zu deckeln. Der Argument-Hash (§4.6) bleibt
+unveraendert — Bilder stehen in der Antwort, nicht in den Argumenten.
+
 ### 4.4 Permission-Matrix-Bindung
 
 Jedes Tool deklariert eine von drei Permissions: `mcp.read`, `mcp.write` oder `mcp.setup`. Sie werden **nicht** einzeln zugewiesen, sondern aus der Rolle abgeleitet, die das Konto **in dem Mandanten** haelt, in dem der Aufruf stattfindet:
@@ -527,7 +610,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 | REQ-031 v1.0 (KI-Assistent / RAG) | weich | `search_plant_knowledge`-Tool nutzt RAG-Infrastruktur; ohne RAG nutzbar (Tool faellt weg) |
 | REQ-002 v4.2 (Standortverwaltung) | weich | Setup-Tools, WaterProfile, Location-CRUD |
 | REQ-013 v2.0 (Pflanzdurchlauf) | weich | Tools `list_planting_runs`, `create_plants_bulk`, Diary |
-| REQ-019 (Substratverwaltung) | weich | `create_substrate_batch`, `setup_growbox` |
+| REQ-019 v4.1 (Substratverwaltung) | weich | `create_substrate_batch`, `setup_growbox` |
 | REQ-014 v1.4 (Tankmanagement) | weich | `create_tank`, `record_feeding_event` |
 | REQ-022 v2.4 (Pflegeerinnerungen) | weich | `get_due_care_tasks`, `confirm_care_task` |
 | REQ-006 v2.7 (Aufgabenplanung) | weich | `list_overdue_tasks` |
@@ -598,6 +681,9 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **AC-S4:** `mcp_audit_log`-Eintraege aelter als 90 Tage werden vom Retention-Master-Task (NFR-011) geloescht.
 - **AC-S5:** Tool-Argumente werden vor dem Logging gehasht — keine Diary-Texte oder Symptom-Beschreibungen im Klartext-Log.
 - **AC-S6:** Ein Konto ohne `mcp.setup` im angesprochenen Mandanten kann dort ueber kein Tool eine `delete_location` ausloesen — selbst nicht durch indirekte Macros.
+- **AC-S7:** Kein Werkzeug liefert ein Originalbild aus. Bild-Content stammt ausschliesslich aus den WebP-Renditions (NFR-013 §8.2) und traegt daher keine EXIF-Daten — auch dann nicht, wenn der Mandant `STORAGE_KEEP_EXIF_<CATEGORY>=true` gesetzt hat (§4.3b).
+- **AC-S8:** Ueberschreitet ein Bild-Abruf die konfigurierte Nutzlast-Obergrenze, antwortet das Werkzeug mit `payload.too_large` und benennt die betroffenen Bilder. Es kuerzt **nie** still — ein Agent darf nicht glauben, alle Bilder gesehen zu haben, waehrend welche fehlten.
+- **AC-S9:** Die protokollierte Antwortgroesse weist Bild-Nutzlasten gesondert aus oder deckelt sie, sodass ein Fotoabruf die Werkzeug-Statistik nicht erschlaegt.
 
 ### 8.6 Qualitaet & Tests
 
@@ -678,10 +764,11 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **stdio-Bridge-Client:** Claude Desktop startet einen MCP-Server als lokalen Subprozess und kann keinen Pod ansprechen. Vorgesehen ist dafuer **kein zweiter Dienst**, sondern ein schlanker, beim Nutzer laufender Bridge-Client, der `MCP_SERVER_URL` + `X-API-Key` entgegennimmt und JSON-RPC an `/api/v1/mcp/rpc` durchreicht. Damit wird AC-D3 vollstaendig erfuellt, ohne den Server zu spalten.
 - **Eigenstaendiger Prozess (bewusst zurueckgestellt):** Ein Split von `app/mcp_server/` in eine eigene Komponente mit eigenem Helm-Chart wuerde die direkte Service-Anbindung durch eine HTTP-Grenze ersetzen und damit zusaetzliche Bulk-/Transaktions-Endpoints, eine zweite Fehleruebersetzung und DB-Zugriff ueber Umwege erzwingen (§4.1). Sinnvoll wird der Split erst, wenn MCP-Verkehr das Backend messbar beeintraechtigt oder eigene Ressourcen-/Skalierungsgrenzen braucht — etwa im Mehrmandanten-Hosting. Der `ToolDispatcher` ist als einziger Choke-Point fuer Auth, Permission, Idempotency und Audit die vorgesehene Schnittkante.
 - **Granulare MCP-Permissions:** `mcp.read`/`mcp.write`/`mcp.setup` werden aus der Mandanten-Rolle abgeleitet (viewer/grower/admin, §4.4), nicht einzeln pro Key zugewiesen. Der in §2.3 beschriebene Ablauf "Admin vergibt `mcp.setup` einmalig fuers Onboarding und widerruft danach" ist damit nur ueber einen Rollenwechsel moeglich. Sinnvolle Ausbaustufe: eine optionale Rechte-Obergrenze **pro Key** (z. B. "dieser Key darf nur lesen, auch wenn sein Besitzer Admin ist"), damit ein Nutzer einem LLM-Client weniger geben kann als er selbst hat.
-- **Feingranulare Sichtbarkeit innerhalb eines Mandanten:** "Nur seine Daten" endet heute an der Mandantengrenze — innerhalb eines Gemeinschaftsgartens sehen alle Mitglieder dieselben Pflanzen, wie in der Weboberflaeche auch. Eine Einschraenkung auf die selbst angelegten Datensaetze existiert im Datenmodell nicht (`LocationAssignment` waere der Ansatzpunkt).
+- **Feingranulare Sichtbarkeit innerhalb eines Mandanten:** "Nur seine Daten" endet heute an der Mandantengrenze — innerhalb eines Gemeinschaftsgartens sehen alle Mitglieder dieselben Pflanzen, wie in der Weboberflaeche auch. Eine Einschraenkung auf die selbst angelegten Datensaetze existiert im Datenmodell nicht (`LocationAssignment` waere der Ansatzpunkt). **REQ-050 §7.2 ist der erste Fall, der daran nicht vorbeikommt:** Weil ein markierter Tagebuch-Eintrag samt Fotos an ein Sprachmodell geht, darf dort nur markieren, wer den Eintrag selbst verfasst hat (oder die Rolle Leitung haelt). Diese Pruefung findet im Werkzeug statt, nicht im Datenmodell — sie ist damit die erste Ausnahme von "Mandantengrenze = Sichtbarkeitsgrenze" und ein Argument dafuer, die feingranulare Sichtbarkeit endlich zu modellieren.
+- **Tagebuch-Schreibwerkzeug:** `add_plant_diary_entry` (§2.2) ist weiterhin nicht umgesetzt. REQ-050 bringt fuenf Tagebuch-Werkzeuge mit, aber keines davon **legt** einen Eintrag an — ein Agent kann analysieren, aber nicht dokumentieren. Ob beides zusammen realisiert wird, ist in REQ-050 §9 (O-04) offen.
 - **Server-zu-Client-Stream:** `GET /api/v1/mcp` lehnt mit `405` ab (§4.3a). Erst mit diesem Kanal sind Fortschritts-Notifications, `tools/list_changed` und wiederaufnehmbare Streams (`Last-Event-ID`) moeglich.
 - **Streaming-Tools:** `generate_growing_report(run_key)` als Long-Running mit Progress-Notifications.
-- **Resource-Bindings:** MCP unterstuetzt neben Tools auch `resources` (lesbare Inhalte). Pflanzen-Detailseiten als `resource://kamerplanter/plant/{key}` exponieren.
+- **Resource-Bindings:** MCP unterstuetzt neben Tools auch `resources` (lesbare Inhalte). Pflanzen-Detailseiten als `resource://kamerplanter/plant/{key}` exponieren. **Bewusst nicht der Weg fuer Bilder:** Die Foto-Auslieferung aus REQ-050 laeuft ueber `tools/call` (§4.3b), weil ein eigener Ressourcen-Lesepfad am `ToolDispatcher` als einzigem Kontrollpunkt vorbeifuehrte. Wer Ressourcen nachruestet, muss sie durch denselben Kontrollpunkt fuehren.
 - **MCP-Prompts:** Vordefinierte Prompts ("Tagesabschluss-Report", "Diagnose-Workflow") als MCP-Prompts ausliefern.
 - **Sampling-Bridge:** Ueber MCP-`sampling` REQ-031-Antworten an externe Clients zurueckgeben — vermeidet Doppel-LLM-Aufrufe.
 - **Bidirektionale HA-Bruecke:** MCP-Tool `trigger_ha_automation(automation_id)` als Aktorik-Schnittstelle (REQ-018).

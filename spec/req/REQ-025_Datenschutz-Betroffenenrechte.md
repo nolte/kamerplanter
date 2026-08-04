@@ -7,8 +7,8 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.4 (REQ-034 Foto-Galerie: reference_contribution-Consent + Referenz-Index-Erasure Phase 0.5)
-Abhängigkeit: REQ-023 v1.9 (Benutzerverwaltung), REQ-024 v1.1 (Mandantenverwaltung), NFR-011 v1.1 (Retention Policy), NFR-013 v1.2 (Object Storage), REQ-029-A v1.1 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie)
+Version: 1.5 (REQ-050: diary_ai_analysis-Consent + Präzisierung des KI-Assistent-Zwecks)
+Abhängigkeit: REQ-023 v1.10 (Benutzerverwaltung), REQ-024 v1.6 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.3 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.0 (KI-Analyse von Tagebuch-Einträgen)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
 
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.5 | 2026-08-04 | **REQ-050 KI-Analyse von Tagebuch-Einträgen:** Neuer Consent-Purpose `diary_ai_analysis` (Art. 6(1)(a), opt-in **je Eintrag**, nie automatisch). Gleichzeitig **Widerspruch aufgelöst:** Der Zwecktext von `ai_tenant_data_access` sagte pauschal, Tagebuch-Freitexte würden „NIE" übertragen. Diese Zusage gilt für den **serverseitigen** Assistenten (REQ-031) und ist entsprechend präzisiert; sie darf nicht als Verbot der ausdrücklich vom Nutzer ausgelösten Freigabe nach REQ-050 gelesen werden. Beide Wege sind getrennt und einzeln einwilligungspflichtig. |
 | 1.4 | 2026-06-19 | **REQ-034 Pflanzenfoto-Galerie (Security-Review SR-001/SR-003):** Neuer Consent-Purpose `reference_contribution` in `ConsentEngine.PURPOSES` (opt-in Foto-Beitrag zum DINOv2-Index, Art. 6(1)(a), global pro Nutzer). `user_diary_attachments`-Cleanup-Regel um `category 'plant'` erweitert. Neue Erasure-**Phase 0.5** `_reference_index_cleanup` (pgvector): entfernt vom Nutzer beigesteuerte `user_contributed`-Embeddings via Provenienz `contributed_by`/`tenant_key` VOR der ArangoDB-Löschung. Neues Abnahmekriterium AK-OS-05. |
 | 1.3 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im Export):** `SpeciesReferenceResolver` + `species_ref`-Wrapper-Struktur ergänzt. Tenant-eigene Species werden inline als Snapshot exportiert (DSGVO Art. 20 Datenübertragbarkeit). Globale Species bleiben als Referenz mit `scope='global'`. Neue `DataSourceDefinition`s für `tenant_species_config` und `tenant_cultivar_config`. |
 | 1.2 | 2026-04-27 | **W-007 Fix (Object-Storage-Cleanup Phase 0):** Erasure-Pipeline um Phase 0 erweitert, die VOR allen ArangoDB-Operationen den Object Storage bereinigt. Zwei Scopes: `user_personal` (Hard-Delete von Profilfoto/persönlichen Notiz-Fotos) und `user_diary_attachments` (Anonymisierung der `created_by`-Metadaten + EXIF-Strip-Pass für Tenant-Datensätze mit `STORAGE_KEEP_EXIF=true`). Erasure-Reihenfolge: Phase 0 → Phase 1 (Edges) → Phase 2 (Documents) → Phase 2.5 (Audit-Pseudonymisierung) → Phase 3 (User). Drei neue Abnahmekriterien (AK-OS-01 bis AK-OS-03). |
@@ -323,6 +324,35 @@ class ErasureEngine:
             anonymized_value="[gelöscht]",
             reason="PflSchG §11: 3 Jahre Aufbewahrungspflicht",
             min_retention=NFR011.INSPECTION_MIN_RETENTION_YEARS,
+        ),
+        # REQ-050: Tagebuch-Einträge. Anders als die drei Regeln darüber gibt es
+        # hier KEINE gesetzliche Aufbewahrungspflicht — der Grund ist ein anderer:
+        # Der Eintrag gehört zum Pflanzen-Datensatz eines womöglich geteilten
+        # Mandanten und würde beim Hard-Delete die Historie fremder Mitglieder
+        # zerreissen. Dieselbe Abwägung wie bei den Foto-Anhängen (Scope
+        # `user_diary_attachments`, siehe unten) — dort wird der Anhang
+        # anonymisiert statt gelöscht, das Eintragsdokument selbst blieb bis
+        # REQ-050 versehentlich ungeregelt.
+        AnonymizationRule(
+            collection="plant_diary_entries",
+            user_field="created_by",
+            anonymized_value="_anonymized",
+            reason="REQ-050: geteilter Mandanten-Datensatz, keine gesetzliche Frist",
+            min_retention=None,
+        ),
+        AnonymizationRule(
+            collection="plant_diary_entries",
+            user_field="analysis_requested_by",
+            anonymized_value="_anonymized",
+            reason="REQ-050: wer die KI-Analyse angefordert hat",
+            min_retention=None,
+        ),
+        AnonymizationRule(
+            collection="plant_diary_entries",
+            user_field="analysis_claimed_by",
+            anonymized_value="_anonymized",
+            reason="REQ-050: Kennung des ausführenden Agenten",
+            min_retention=None,
         ),
     ]
 
@@ -1164,8 +1194,17 @@ pages.privacy.objection.title: "Widerspruch"
     "label_en": "AI assistant may use my plant data as context",
     "required": false,
     "legal_basis": "Art. 6(1)(a)",
-    "description_de": "Erlaubt dem KI-Assistenten (REQ-031), bei Tipp-Karten, 'Warum?'-Erklärungen, Chat und Diagnose-Sessions auf Stammwerte deiner Pflanzen (Art, Phase, Substrat, EC, pH, VPD, IPM-Status) zuzugreifen, um personalisierte Empfehlungen zu generieren. Ohne diese Einwilligung sind nur allgemeine Wissensfragen (Glossar, REQ-035) verfügbar. Personenbezogene Daten (Name, E-Mail, Tagebuch-Freitexte) werden NIE übertragen.",
-    "description_en": "Allows the AI assistant (REQ-031) to access stem values of your plants (species, phase, substrate, EC, pH, VPD, IPM status) when generating tip cards, 'Why?' explanations, chat answers and diagnosis sessions. Without this consent only general knowledge questions (Glossary, REQ-035) are available. Personal data (name, email, diary free text) is NEVER transmitted."
+    "description_de": "Erlaubt dem serverseitigen KI-Assistenten (REQ-031), bei Tipp-Karten, 'Warum?'-Erklärungen, Chat und Diagnose-Sessions auf Stammwerte deiner Pflanzen (Art, Phase, Substrat, EC, pH, VPD, IPM-Status) zuzugreifen, um personalisierte Empfehlungen zu generieren. Ohne diese Einwilligung sind nur allgemeine Wissensfragen (Glossar, REQ-035) verfügbar. Auf diesem Weg werden personenbezogene Daten (Name, E-Mail, Tagebuch-Freitexte) NIE übertragen. Wenn du einzelne Tagebuch-Einträge samt Fotos ausdrücklich zur Analyse freigeben möchtest, ist das ein getrennter Weg mit eigener Einwilligung (siehe 'diary_ai_analysis').",
+    "description_en": "Allows the server-side AI assistant (REQ-031) to access stem values of your plants (species, phase, substrate, EC, pH, VPD, IPM status) when generating tip cards, 'Why?' explanations, chat answers and diagnosis sessions. Without this consent only general knowledge questions (Glossary, REQ-035) are available. On this path, personal data (name, email, diary free text) is NEVER transmitted. Releasing individual diary entries including photos for analysis is a separate path with its own consent (see 'diary_ai_analysis')."
+  },
+  {
+    "key": "diary_ai_analysis",
+    "label_de": "Einzelne Tagebuch-Einträge dürfen von meinem KI-Agenten analysiert werden",
+    "label_en": "Individual diary entries may be analysed by my AI agent",
+    "required": false,
+    "legal_basis": "Art. 6(1)(a)",
+    "description_de": "Erlaubt dir, einzelne Tagebuch-Einträge samt Freitext und Fotos zur Analyse freizugeben (REQ-050). Die Analyse führt ein KI-Agent aus, den DU betreibst und der die Daten über deinen eigenen API-Schlüssel abruft — Kamerplanter selbst ruft dabei kein Sprachmodell auf. Es wird nie automatisch etwas analysiert: Jeden einzelnen Eintrag musst du selbst markieren. Übertragen werden verkleinerte Bildfassungen ohne Aufnahmeort und Gerätekennung. Ein Widerruf verhindert neue Markierungen und lässt vorhandene Ergebnisse unberührt.",
+    "description_en": "Allows you to release individual diary entries, including free text and photos, for analysis (REQ-050). The analysis is performed by an AI agent that YOU operate and that fetches the data via your own API key — Kamerplanter itself never calls a language model. Nothing is ever analysed automatically: you have to mark every single entry yourself. Only downscaled image renditions without capture location or device identifier are transmitted. Withdrawing consent prevents new markings and leaves existing results untouched."
   },
   {
     "key": "ai_cloud_processing",
@@ -1180,6 +1219,8 @@ pages.privacy.objection.title: "Widerspruch"
 ```
 
 <!-- Quelle: REQ-031 v2.0 -->
+
+**Hinweis zur Abgrenzung `ai_tenant_data_access` ↔ `diary_ai_analysis`:** Das sind zwei getrennte Wege mit gegenläufigen Eigenschaften, und sie dürfen nicht miteinander verrechnet werden. `ai_tenant_data_access` betrifft den **serverseitigen** Assistenten: Kamerplanter ruft das Modell, überträgt Stammwerte und niemals Freitext. `diary_ai_analysis` betrifft den **vom Nutzer betriebenen** Agenten (REQ-050): Kamerplanter ruft kein Modell, sondern gibt einen einzelnen, ausdrücklich markierten Eintrag samt Freitext und Bildfassungen über die MCP-Schnittstelle heraus. Keiner der beiden Consents impliziert den anderen. `ai_cloud_processing` gilt für `diary_ai_analysis` **nicht** — die Wahl des Modells und des Anbieters liegt dort vollständig beim Nutzer und außerhalb der Verantwortung der Instanz.
 
 **Hinweis zur Verkettung:** `ai_cloud_processing` ist eine Zusatz-Einwilligung. Wenn ein Tenant-Admin einen Cloud-Provider als Default konfiguriert hat, brauchen Endpoints, die Tenant-Daten mit Cloud-Verarbeitung kombinieren, beide Einwilligungen (`ai_tenant_data_access` UND `ai_cloud_processing`). Light-Modus-Endpoints (`/api/v1/public/ai/*` aus REQ-031 v2.0 §5.3 und das Glossar aus REQ-035) brauchen weder den einen noch den anderen Consent, da sie keine personenbezogenen Daten verarbeiten.
 
@@ -1222,6 +1263,11 @@ pages.privacy.objection.title: "Widerspruch"
 <!-- Quelle: REQ-034 Security-Review SR-003 -->
 | AK-OS-05 | **Referenz-Index-Cleanup (Phase 0.5):** Nach Abschluss eines Erasure-Requests sind alle DINOv2-Embeddings im pgvector-`species_embeddings`-Index mit `source == 'user_contributed'` UND `contributed_by == user_key` gelöscht. Bei Tenant-Löschung gilt derselbe Filter mit `tenant_key == X`. Phase 0.5 läuft VOR Phase 1; Fehlschlag ⇒ `partially_completed` (kein ArangoDB-Delete). Kuratiert übernommene Referenzen (`source != 'user_contributed'`) bleiben unberührt. | REQ-029-A §5.1, REQ-034 §5 | Integration |
 <!-- /Quelle: REQ-034 Security-Review SR-003 -->
+<!-- Quelle: REQ-050 §7.4 -->
+| AK-DA-01 | **Tagebuch-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_entries` die Felder `created_by`, `analysis_requested_by` und `analysis_claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Das Eintragsdokument selbst — Freitext, Tags, Messwerte, `photo_refs` und ein vorhandenes `analysis`-Ergebnis — bleibt vollstaendig erhalten. Dies schliesst die Luecke, dass bislang nur die **Anhaenge** (AK-OS-02), nicht aber das Eintragsdokument geregelt waren. | 17 | Integration |
+| AK-DA-02 | **Auskunft umfasst Tagebuch:** Der Datenexport nach Art. 15/20 enthaelt die Tagebuch-Eintraege des Nutzers samt vorhandener KI-Analyse-Ergebnisse (REQ-050). | 15/20 | Integration |
+| AK-DA-03 | **Einwilligung `diary_ai_analysis`:** Ohne erteilte Einwilligung lehnt das Markieren eines Tagebuch-Eintrags zur KI-Analyse ab; ein Widerruf verhindert neue Markierungen und laesst bestehende Ergebnisse unberuehrt. Im Light-Modus (REQ-027) entfaellt die Pruefung, weil dort kein Consent erteilt werden kann (REQ-050 §7.5). | 6(1)(a) | Integration |
+<!-- /Quelle: REQ-050 §7.4 -->
 
 ### Frontend-Kriterien:
 
@@ -1348,7 +1394,7 @@ Das Telemediengesetz (TTDSG) §25 unterscheidet zwischen technisch notwendigen u
 
 **Dokumenten-Ende**
 
-**Version**: 1.1
+**Version**: 1.5
 **Status**: Entwurf
-**Datum**: 2026-03-18
+**Datum**: 2026-08-04
 **Security-Review**: Adressiert SEC-K-001, SEC-K-003, SEC-H-008, SEC-M-005, SEC-M-007
