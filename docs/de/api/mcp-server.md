@@ -105,6 +105,63 @@ Damit ein maschineller MCP-Client heute einen funktionierenden Key bekommt, sind
 2. Eine Mandanten-Mitgliedschaft dieses Kontos mit genau der Rolle (`viewer`/`grower`/`admin`), die dem gewünschten [Berechtigungsniveau](#berechtigungsmodell-mcpread-mcpwrite-mcpsetup) entspricht.
 3. Ein API-Key für dieses Konto, technisch derselbe Mechanismus wie unter [Service Accounts & API-Keys — API-Key verwenden](service-accounts.md#api-key-verwenden) beschrieben — da ein Service Account jedoch nie interaktiv angemeldet ist, kann er den Key nicht selbst über den `/auth/api-keys`-Endpunkt anfordern; auch dieser Schritt läuft heute über den Betreiber.
 
+## Client einrichten (Claude Code)
+
+Claude Code liest MCP-Server aus einer `.mcp.json` im Projektverzeichnis (oder aus deiner globalen Konfiguration). Trage den Kamerplanter-Server als HTTP-Server ein:
+
+```json
+{
+  "mcpServers": {
+    "kamerplanter": {
+      "type": "http",
+      "url": "https://kamerplanter.example.com/api/v1/mcp/rpc",
+      "headers": {
+        "X-API-Key": "kp_dein_persoenlicher_api_key"
+      }
+    }
+  }
+}
+```
+
+Für eine lokale Entwicklungsumgebung ist die URL `http://localhost:8000/api/v1/mcp/rpc`.
+
+!!! danger "Der Key steht im Klartext in der Datei"
+    `.mcp.json` gehört **nicht** ins Git-Repository, wenn ein echter Key darin steht — trage sie in `.gitignore` ein oder nutze die globale Claude-Code-Konfiguration außerhalb des Projekts. Wer die Datei liest, kann alles, was du in deinen Gärten kannst. Widerrufen kannst du einen Key jederzeit einzeln.
+
+### Vorher prüfen, ob die Verbindung steht
+
+Bevor du den Eintrag hinzufügst, lohnt ein direkter Test — er zeigt sofort, ob URL und Key stimmen:
+
+```bash
+# 1. Handschlag: Antwortet der Server als MCP-Server?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+  -H "X-API-Key: kp_dein_persoenlicher_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
+
+# 2. Welche Werkzeuge schaltet mein Key frei?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+  -H "X-API-Key: kp_dein_persoenlicher_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+
+# 3. Ein echter Aufruf: Welche Gärten deckt der Key ab?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+  -H "X-API-Key: kp_dein_persoenlicher_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tenants","arguments":{}}}'
+```
+
+Kommt bei Schritt 1 ein `404`, ist der MCP-Server auf dieser Instanz nicht freigeschaltet (`MCP_SERVER_ENABLED`). Ein `401` bedeutet, dass der Key ungültig, widerrufen oder abgelaufen ist.
+
+Danach kannst du im Dialog direkt fragen: *"Welche Pflanzen muss ich heute gießen?"* — Claude ruft `get_due_care_tasks` selbst auf. Deckt dein Key mehrere Gärten ab, nenne den gewünschten mit (*"…in meinem Balkongarten"*), damit das Modell den `tenant`-Parameter füllen kann.
+
+!!! info "Transport: was der Server spricht"
+    Der Endpunkt `/mcp/rpc` nimmt eine JSON-RPC-Anfrage per `POST` entgegen und antwortet mit `application/json`. Genau diese Form nutzt ein Streamable-HTTP-Client — deshalb funktioniert `"type": "http"`. Zwei Einschränkungen: Der Server meldet die Protokollversion `2024-11-05` (die ältere Revision), und er bietet auf `/mcp/rpc` weder einen `GET`-Stream noch eine `Mcp-Session-Id` — beides für einen Server optional, aber damit sind server-initiierte Nachrichten und wiederaufnehmbare Sitzungen nicht verfügbar. Der separate Endpunkt `/mcp/sse` ist ein Überbleibsel des älteren HTTP+SSE-Transports und führt nur den Handschlag aus.
+
+!!! warning "Noch nicht implementiert: Claude Desktop"
+    Claude Desktop startet einen MCP-Server als lokalen Unterprozess und spricht ihn über `stdio` an — es kann eine HTTP-URL nicht direkt einbinden. Der dafür nötige schlanke Brücken-Client ist spezifiziert, aber noch nicht umgesetzt (interne Referenz: REQ-033). Die obige Konfiguration gilt daher für Claude Code und andere Clients mit HTTP-Transport.
+
 ## Berechtigungsmodell: `mcp.read` / `mcp.write` / `mcp.setup`
 
 Jedes Werkzeug verlangt genau eine von drei MCP-Berechtigungen. Diese sind nicht separat vergebbar, sondern an die Rolle gekoppelt, die dein Konto **in dem gerade angesprochenen Garten** hat — dieselbe Rolle, die auch für menschliche Mitglieder gilt ([Mandanten & Gärten](../user-guide/tenants.md)):

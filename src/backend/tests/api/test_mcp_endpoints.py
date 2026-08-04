@@ -168,6 +168,43 @@ def test_jsonrpc_unknown_method():
     assert resp.json()["error"]["code"] == -32601
 
 
+def test_jsonrpc_notification_is_acknowledged_without_a_body():
+    # A JSON-RPC notification carries no "id" and MUST NOT be answered — not even
+    # with an error. Every MCP client sends `notifications/initialized` right
+    # after `initialize`, so answering it at all breaks the handshake for a
+    # spec-strict client.
+    app, _ = _build_app()
+    client = TestClient(app)
+    resp = client.post("/api/v1/mcp/rpc", json={"jsonrpc": "2.0", "method": "notifications/initialized"})
+    assert resp.status_code == 202
+    assert resp.content == b""
+
+
+def test_jsonrpc_full_client_handshake():
+    # The exact sequence a real client drives: initialize → initialized → tools/list.
+    app, _ = _build_app()
+    client = TestClient(app)
+
+    init = client.post(
+        "/api/v1/mcp/rpc",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2024-11-05", "capabilities": {}},
+        },
+    )
+    assert init.json()["result"]["protocolVersion"] == "2024-11-05"
+
+    assert (
+        client.post("/api/v1/mcp/rpc", json={"jsonrpc": "2.0", "method": "notifications/initialized"}).status_code
+        == 202
+    )
+
+    listed = client.post("/api/v1/mcp/rpc", json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+    assert [t["name"] for t in listed.json()["result"]["tools"]]
+
+
 def test_sse_handshake_content_type():
     app, _ = _build_app()
     client = TestClient(app)

@@ -105,6 +105,63 @@ For an MCP client to obtain a working key today, the following pieces are needed
 2. A tenant membership for that account with exactly the role (`viewer`/`grower`/`admin`) matching the desired [permission level](#permission-model-mcpread-mcpwrite-mcpsetup).
 3. An API key for that account, technically the same mechanism described under [Service Accounts & API Keys — Using the API Key](service-accounts.md#using-the-api-key) — but since a service account is never logged in interactively, it cannot request the key itself via the `/auth/api-keys` endpoint; this step, too, currently runs through the operator.
 
+## Setting up a client (Claude Code)
+
+Claude Code reads MCP servers from an `.mcp.json` in the project directory (or from your global configuration). Add the Kamerplanter server as an HTTP server:
+
+```json
+{
+  "mcpServers": {
+    "kamerplanter": {
+      "type": "http",
+      "url": "https://kamerplanter.example.com/api/v1/mcp/rpc",
+      "headers": {
+        "X-API-Key": "kp_your_personal_api_key"
+      }
+    }
+  }
+}
+```
+
+For a local development stack the URL is `http://localhost:8000/api/v1/mcp/rpc`.
+
+!!! danger "The key sits in the file in plain text"
+    Keep `.mcp.json` **out of** the git repository once it holds a real key — add it to `.gitignore` or use the global Claude Code configuration outside the project. Anyone who reads the file can do everything you can do in your gardens. You can revoke an individual key at any time.
+
+### Check the connection first
+
+Before adding the entry, a direct test is worth the minute — it shows immediately whether the URL and key are right:
+
+```bash
+# 1. Handshake: does the server answer as an MCP server?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+  -H "X-API-Key: kp_your_personal_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
+
+# 2. Which tools does my key unlock?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+  -H "X-API-Key: kp_your_personal_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+
+# 3. A real call: which gardens does the key cover?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp/rpc \
+  -H "X-API-Key: kp_your_personal_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tenants","arguments":{}}}'
+```
+
+A `404` on step 1 means the MCP server is not enabled on that instance (`MCP_SERVER_ENABLED`). A `401` means the key is invalid, revoked or expired.
+
+After that you can simply ask in conversation: *"Which plants do I need to water today?"* — Claude calls `get_due_care_tasks` itself. If your key covers several gardens, name the one you mean (*"…on my balcony"*) so the model can fill in the `tenant` parameter.
+
+!!! info "Transport: what the server speaks"
+    The `/mcp/rpc` endpoint takes a JSON-RPC request over `POST` and answers with `application/json`. That is the shape a Streamable-HTTP client uses, which is why `"type": "http"` works. Two caveats: the server announces protocol version `2024-11-05` (the older revision), and it offers no `GET` stream on `/mcp/rpc` and no `Mcp-Session-Id` — both optional for a server, but it means server-initiated messages and resumable sessions are unavailable. The separate `/mcp/sse` endpoint is a leftover of the older HTTP+SSE transport and only performs the handshake.
+
+!!! warning "Not yet implemented: Claude Desktop"
+    Claude Desktop starts an MCP server as a local subprocess and talks to it over `stdio` — it cannot bind an HTTP URL directly. The thin bridge client needed for that is specified but not yet implemented (internal reference: REQ-033). The configuration above therefore applies to Claude Code and other clients with an HTTP transport.
+
 ## Permission model: `mcp.read` / `mcp.write` / `mcp.setup`
 
 Every tool requires exactly one of three MCP permissions. These are not granted separately — they are bound to the role your account holds **in the garden being addressed**, the same role used for human members ([Tenants & Gardens](../user-guide/tenants.md)):

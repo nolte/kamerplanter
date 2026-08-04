@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Body, Depends, Path
+from fastapi import APIRouter, Body, Depends, Path, Response
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.mcp.deps import get_dispatcher, get_mcp_principal
@@ -97,12 +97,19 @@ async def mcp_rpc(
     payload: dict[str, Any] = Body(..., description="MCP JSON-RPC 2.0 request envelope."),
     principal: McpPrincipal = Depends(get_mcp_principal),
     dispatcher: ToolDispatcher = Depends(get_dispatcher),
-) -> dict[str, Any]:
+) -> Any:
     """Handle an MCP JSON-RPC request (initialize / tools/list / tools/call / ping)."""
 
     request_id = payload.get("id")
     method = payload.get("method")
     params = payload.get("params") or {}
+
+    # A JSON-RPC *notification* carries no "id" and MUST NOT be answered — not
+    # even with an error. Every MCP client sends `notifications/initialized`
+    # right after `initialize`, so replying "method not found" there breaks the
+    # handshake for a spec-strict client. Acknowledge with 202 and no body.
+    if "id" not in payload:
+        return Response(status_code=202)
 
     if method == "initialize":
         return _rpc_result(
