@@ -1406,8 +1406,13 @@ class PlantDiaryEntryDocument(BaseModel):
 | `GET` | `/api/v1/t/{tenant_slug}/diary` | Einträge **aller** Pflanzen des Mandanten, gefiltert und seitenweise | Alle Rollen |
 
 Die bisherige Aggregation `GET /planting-runs/{key}/diary` bleibt bestehen, deckt aber nur **einen
-Durchlauf** ab. Eine Pflanze ohne Durchlauf taucht dort nicht auf. Parameter und Antwortumfang des
-neuen Endpunkts stehen in REQ-050 §2.5.2.
+Durchlauf** ab. Eine Pflanze ohne Durchlauf taucht dort nicht auf. Filterparameter und
+Antwortschema (`DiaryOverviewItem` / `DiaryOverviewResponse`) stehen in REQ-050 §2.5.2.
+
+**Der Endpunkt liefert bewusst NICHT `PlantDiaryEntryResponse`.** Die Uebersichtszeile traegt vom
+Analyse-Ergebnis nur die Zusammenfassung; das vollstaendige Ergebnis liefert der Einzelabruf.
+Sonst transportierte eine Seite mit 50 Zeilen 50 komplette Befundlisten fuer eine Ansicht, die
+davon eine Zeile anzeigt.
 
 **KI-Analyse markieren (REQ-050):**
 

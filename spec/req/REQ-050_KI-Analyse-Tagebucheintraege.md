@@ -312,10 +312,83 @@ GET /api/v1/t/{tenant_slug}/diary
 | `sort` | `'created_at' \| 'analyzed_at'` (Vorgabe `created_at`) | Sortierung, absteigend |
 | `limit`, `offset` | `int` | Seitenweise, Vorgabe 50 |
 
-Die Antwort trägt je Eintrag die Felder der Übersichtstabelle plus `analysis_state`,
-`analysis.summary` (nur die Zusammenfassung, nicht das ganze Ergebnis) und die Kennung der
-ersten Vorschau-Rendition. Das vollständige Ergebnis liefert erst der Einzelabruf — sonst
-transportiert eine Liste mit 50 Zeilen 50 Befundlisten mit.
+**Antwortschema.** Die Zeile der Übersicht ist **nicht** `PlantDiaryEntryResponse` (REQ-013), sondern
+ein eigenes, schlankeres Modell: `DiaryOverviewItem`. Der Unterschied ist bewusst und
+verhaltensrelevant — es trägt vom Analyse-Ergebnis **nur** die Zusammenfassung. Andernfalls
+transportierte eine Seite mit 50 Zeilen 50 vollständige Befundlisten samt Begründungen, für eine
+Ansicht, die davon eine Zeile anzeigt. Das vollständige Ergebnis liefert erst der Einzelabruf.
+
+```python
+class DiaryOverviewItem(BaseModel):
+    """Eine Zeile der mandantenweiten Tagebuch-Übersicht (REQ-050 §2.5.2)."""
+
+    key: str
+    created_at: datetime
+    entry_type: DiaryEntryType
+    title: str | None
+    excerpt: str = Field(max_length=200)      # Anfang von `text`, serverseitig gekürzt
+    tags: list[str]
+
+    plant_key: str
+    plant_name: str | None
+    instance_id: str
+    species_name: str | None
+
+    photo_count: int
+    preview_photo_id: str | None              # erstes Foto, für die Miniatur
+
+    analysis_state: DiaryAnalysisState
+    analysis_summary: str | None              # NUR die Zusammenfassung, nie `findings`
+    analysis_error: str | None
+    analyzed_at: datetime | None
+
+    can_request_analysis: bool                # §7.2 serverseitig ausgewertet
+
+
+class DiaryOverviewResponse(BaseModel):
+    items: list[DiaryOverviewItem]
+    total: int                                # Treffer über alle Seiten
+    limit: int
+    offset: int
+```
+
+```json
+{
+  "items": [
+    {
+      "key": "8271634",
+      "created_at": "2026-08-03T18:22:11Z",
+      "entry_type": "problem",
+      "title": "Braune Flecken unten",
+      "excerpt": "Seit dem Umtopfen hängen die unteren Blätter, Substrat riecht sauer.",
+      "tags": ["blatt", "substrat"],
+      "plant_key": "5512099",
+      "plant_name": "Tomate Beet 2 #05",
+      "instance_id": "HOCHBEETA_TOM_05",
+      "species_name": "Solanum lycopersicum",
+      "photo_count": 2,
+      "preview_photo_id": "01HQ8X9V3J7P5K2N4M6T8R0S2W",
+      "analysis_state": "completed",
+      "analysis_summary": "Vermutlich Staunässe nach dem Umtopfen, kein Pilzbefall erkennbar.",
+      "analysis_error": null,
+      "analyzed_at": "2026-08-04T07:14:52Z",
+      "can_request_analysis": true
+    }
+  ],
+  "total": 137,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**`can_request_analysis` wird serverseitig ausgewertet, nicht im Client abgeleitet.** Ob ein
+Nutzer markieren darf, hängt von Rolle, Autorschaft (§7.2), Einwilligung (§7.1) und Betriebsmodus
+(§7.5) ab. Diese Regel im Frontend nachzubauen hieße, sie zweimal zu pflegen und beim nächsten
+Wechsel an einer Stelle zu vergessen. Das Feld ist eine Anzeigehilfe — es ersetzt die
+serverseitige Prüfung beim Markieren nicht.
+
+Fehlende Werte kommen als `null`, nicht als ausgelassener Schlüssel; damit bleibt die Struktur
+über alle Zeilen gleich. Eine leere Trefferliste ist kein Fehler (`items: []`, `total: 0`).
 
 Die Liste ist strikt auf `tenant_key` gefiltert. Für die Filterung nach Analyse-Zustand ist
 derselbe persistente Index nötig, den auch der MCP-Arbeitsvorrat braucht (§5).
@@ -941,7 +1014,8 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | **AK-15** | Eine mandantenweite Tagebuch-Übersicht listet die Einträge **aller** Pflanzen chronologisch absteigend mit Pflanze, Art, Typ, Titel/Auszug, Fotoanzahl und Analyse-Zustand (§2.5.2). |
 | **AK-16** | Die Übersicht unterscheidet alle fünf Analyse-Zustände sichtbar voneinander; `completed` ist als „Ergebnis vorhanden" hervorgehoben und zeigt die Zusammenfassung als Vorschau. |
 | **AK-17** | Die Übersicht lässt sich nach Analyse-Zustand filtern — insbesondere „nur mit Ergebnis" und „nur wartend" — sowie nach Pflanze, Art, Typ, Tag und Zeitraum; die Freitextsuche greift auf Titel und Text. |
-| **AK-18** | `GET /t/{slug}/diary` liefert ausschließlich Einträge des angefragten Mandanten, seitenweise, mit `analysis_state` und `analysis.summary` — nicht mit dem vollständigen Ergebnis. |
+| **AK-18** | `GET /t/{slug}/diary` liefert ausschließlich Einträge des angefragten Mandanten als `DiaryOverviewResponse`, seitenweise mit `total`/`limit`/`offset`. Jede Zeile trägt `analysis_state` und `analysis_summary`, **nie** `findings` oder `recommended_actions` — das vollständige Ergebnis liefert nur der Einzelabruf. |
+| **AK-18a** | `can_request_analysis` je Zeile spiegelt die serverseitige Auswertung von Rolle, Autorschaft, Einwilligung und Betriebsmodus. Ein Markierversuch auf einer Zeile mit `false` wird serverseitig abgelehnt — das Feld ist Anzeigehilfe, nicht Autorisierung. |
 | **AK-19** | Ein Nutzer kann in einem geteilten Mandanten nur eigene Einträge markieren, sofern er nicht die Rolle Leitung hat; fremde Zeilen der Übersicht zeigen den Zustand, aber keinen Schalter. |
 | **AK-20** | Der Vorbehalt ist in der Ergebnisdarstellung immer sichtbar und nicht hinter einem Aufklapp-Element versteckt. |
 | **AK-21** | Eine erneute Analyse eines `completed`- oder `failed`-Eintrags ist möglich; sie setzt den Zustand auf `requested` und überschreibt beim Abschluss das vorherige Ergebnis vollständig. |
