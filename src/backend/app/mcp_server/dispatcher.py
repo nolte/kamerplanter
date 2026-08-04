@@ -3,11 +3,21 @@
 The single choke point every tool call passes through. In order:
 
 1. resolve the tool from the registry (unknown → ``not_found``);
-2. enforce the tool's MCP permission against the caller's role (§4.4) —
-   a refusal is audited with ``status="denied"`` and raised as ``permission.denied``;
-3. validate the typed input;
-4. run the handler, applying dry-run + idempotency orchestration for write tools;
-5. audit the outcome (hash-only, no PII, §4.6).
+2. validate the typed input;
+3. bind the acting tenant (§4.3): for a tenant-scoped tool, resolve the
+   ``tenant`` argument against the principal's memberships. A tenant the caller
+   is not a member of yields ``not_found`` — never ``permission.denied`` — so the
+   interface cannot be used to probe which tenants exist (§8.8 Szenario 6);
+4. enforce the tool's MCP permission against the role the caller holds **in that
+   tenant** (§4.4) — a refusal is audited with ``status="denied"`` and raised as
+   ``permission.denied``;
+5. run the handler, applying dry-run + idempotency orchestration for write tools;
+6. audit the outcome (hash-only, no PII, §4.6).
+
+Steps 3 and 4 are in this order on purpose: a principal may be admin in its own
+garden and viewer in a community garden, so the permission set is only knowable
+once the acting tenant is known. Checking permissions first would grant the most
+permissive role everywhere.
 
 Business logic stays in the delegated domain services — the dispatcher only owns
 security binding, idempotency and audit.
@@ -21,7 +31,7 @@ from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import McpToolStatus
+from app.common.enums import McpToolStatus, TenantRole
 from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError, ValidationError
 from app.core.permissions import assert_mcp_permission
 from app.domain.models.mcp import McpToolResponse
@@ -29,7 +39,7 @@ from app.mcp_server.audit import MCPAuditLogger, hash_arguments
 from app.mcp_server.base import ToolBase, WriteToolBase
 from app.mcp_server.context import ToolContext
 from app.mcp_server.idempotency import IdempotencyStore
-from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.registry import ToolRegistry
 
 
@@ -63,20 +73,7 @@ class ToolDispatcher:
             raise NotFoundError("MCP tool", tool_name)
         assert isinstance(tool, ToolBase)
 
-        # 1. Permission binding (§4.4). A refusal is audited then surfaced as 403.
-        try:
-            assert_mcp_permission(principal.role, tool.permission)
-        except ForbiddenError:
-            self._audit.record(
-                principal,
-                tool_name=tool_name,
-                input_hash=input_hash,
-                status=McpToolStatus.DENIED,
-                error_class="permission.denied",
-            )
-            raise
-
-        # 2. Typed input validation.
+        # 1. Typed input validation.
         try:
             args = tool.Input(**raw_args)
         except PydanticValidationError as exc:
@@ -89,10 +86,31 @@ class ToolDispatcher:
             )
             raise ValidationError(f"Invalid arguments for tool '{tool_name}': {exc.errors()}") from exc
 
-        ctx = ToolContext(principal, services=self._services)
+        # 2. Acting-tenant binding (§4.3) — before any permission decision.
+        membership = self._resolve_membership(principal, tool, args, tool_name, input_hash)
+
+        # 3. Permission binding against the role held in *that* tenant (§4.4).
+        #    A global tool has no tenant role to bind to, so it is admitted on the
+        #    strongest role the principal holds anywhere; global tools are
+        #    read-only catalogue lookups that every member may perform.
+        effective_role = membership.role if membership is not None else _strongest_role(principal)
+        try:
+            assert_mcp_permission(effective_role, tool.permission)
+        except ForbiddenError:
+            self._audit.record(
+                principal,
+                tool_name=tool_name,
+                input_hash=input_hash,
+                status=McpToolStatus.DENIED,
+                error_class="permission.denied",
+                membership=membership,
+            )
+            raise
+
+        ctx = ToolContext(principal, membership, services=self._services)
         started = perf_counter()
         try:
-            response, status = await self._run(tool, ctx, args, principal, tool_name, input_hash)
+            response, status = await self._run(tool, ctx, args, principal, membership, tool_name, input_hash)
         except KamerplanterError as exc:
             self._audit.record(
                 principal,
@@ -101,6 +119,7 @@ class ToolDispatcher:
                 status=McpToolStatus.ERROR,
                 duration_ms=int((perf_counter() - started) * 1000),
                 error_class=exc.error_code,
+                membership=membership,
             )
             raise
         except Exception as exc:  # noqa: BLE001 — audit unexpected failures too
@@ -111,6 +130,7 @@ class ToolDispatcher:
                 status=McpToolStatus.ERROR,
                 duration_ms=int((perf_counter() - started) * 1000),
                 error_class=type(exc).__name__,
+                membership=membership,
             )
             raise
 
@@ -123,8 +143,51 @@ class ToolDispatcher:
             status=status,
             output_size_bytes=output_size,
             duration_ms=duration_ms,
+            membership=membership,
         )
         return response
+
+    def _resolve_membership(
+        self,
+        principal: McpPrincipal,
+        tool: ToolBase,
+        args: Any,
+        tool_name: str,
+        input_hash: str,
+    ) -> McpTenantMembership | None:
+        """Bind the call to exactly one tenant the principal is a member of (§4.3).
+
+        Returns ``None`` for a tenant-agnostic tool (global catalogue data).
+
+        A named tenant the principal is *not* a member of is reported as
+        ``not_found`` — identical to a tenant that does not exist at all — so the
+        MCP interface cannot be walked to enumerate foreign tenants (§8.8
+        Szenario 6). An omitted tenant on a principal holding several
+        memberships is a caller error, not a licence to pick one.
+        """
+
+        if not tool.tenant_scoped:
+            return None
+
+        requested = getattr(args, "tenant", None)
+        membership = principal.membership_for(requested)
+        if membership is not None:
+            return membership
+
+        if requested is None:
+            raise ValidationError(
+                f"Tool '{tool_name}' acts inside one tenant and this API key grants "
+                f"{len(principal.memberships)}. Pass 'tenant' — use list_tenants to see the options."
+            )
+
+        self._audit.record(
+            principal,
+            tool_name=tool_name,
+            input_hash=input_hash,
+            status=McpToolStatus.DENIED,
+            error_class="not_found",
+        )
+        raise NotFoundError("Tenant", requested)
 
     async def _run(
         self,
@@ -132,6 +195,7 @@ class ToolDispatcher:
         ctx: ToolContext,
         args: Any,
         principal: McpPrincipal,
+        membership: McpTenantMembership | None,
         tool_name: str,
         input_hash: str,
     ) -> tuple[McpToolResponse, McpToolStatus]:
@@ -148,16 +212,30 @@ class ToolDispatcher:
 
         idem_key = getattr(args, "idempotency_key", None)
         if idem_key:
-            replay = self._idempotency.lookup(principal, tool_name, idem_key)
+            replay = self._idempotency.lookup(principal, membership, tool_name, idem_key)
             if replay is not None:
                 return replay, McpToolStatus.OK
             response = await tool.execute(ctx, args)
             response.dry_run = False
             response.idempotency_key = idem_key
             response.idempotent_replay = False
-            self._idempotency.store(principal, tool_name, idem_key, input_hash, response)
+            self._idempotency.store(principal, membership, tool_name, idem_key, input_hash, response)
             return response, McpToolStatus.OK
 
         response = await tool.execute(ctx, args)
         response.dry_run = False
         return response, McpToolStatus.OK
+
+
+def _strongest_role(principal: McpPrincipal) -> TenantRole:
+    """The most permissive role the principal holds in any tenant.
+
+    Only used to admit tenant-agnostic tools, which read global catalogue data
+    (species and friends) that carries no tenant and is visible to every member.
+    """
+
+    roles = principal.roles()
+    for candidate in (TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER):
+        if candidate in roles:
+            return candidate
+    return TenantRole.VIEWER

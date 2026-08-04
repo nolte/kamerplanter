@@ -7,11 +7,11 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.2 (category `plant` fuer REQ-034 Pflanzenfoto-Galerie)
+Version: 1.3 (Thumbnails sind normativ EXIF-frei, REQ-050)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
-Abhaengigkeiten: [NFR-001, NFR-002, NFR-011, NFR-012, REQ-006, REQ-007, REQ-008, REQ-010, REQ-012, REQ-013, REQ-024, REQ-025 v1.2, REQ-027, REQ-032, REQ-034]
+Abhaengigkeiten: [NFR-001, NFR-002, NFR-011, NFR-012, REQ-006, REQ-007, REQ-008, REQ-010, REQ-012, REQ-013, REQ-024, REQ-025 v1.5, REQ-027, REQ-032, REQ-034, REQ-050]
 Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachment, frontend.upload, helm.values, infra.k8s]
 ---
 
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-08-04 | **Thumbnails sind normativ EXIF-frei (REQ-050):** §8.2 haelt jetzt ausdruecklich fest, dass Renditions keine EXIF-Daten uebernehmen — auch nicht bei `STORAGE_KEEP_EXIF_<CATEGORY>=true`, das ausschliesslich die Originaldatei betrifft. Bisher war das nur implizit ueber die Neukodierung angenommen. REQ-050 §4.4 liefert Renditions ueber MCP an externe KI-Agenten aus und stuetzt die Zulaessigkeit genau auf diese Eigenschaft; eine stillschweigende Annahme traegt das nicht. Kein Eingriff in den Adapter-Vertrag, keine Aenderung an Kategorien oder Pfadschema. |
 | 1.2 | 2026-06-19 | **category `plant` (REQ-034 Pflanzenfoto-Galerie):** `category`-Enum in §4.3 und Default-Mime-Whitelist in §5.2 um `plant` ergänzt (Foto-Whitelist `image/jpeg,png,webp,heic`, 25 MB). Storage-Key-Schema, Thumbnails, Pre-Sign, DSGVO-Erasure unverändert — REQ-034-Fotos hängen an der Pflanzeninstanz (REQ-013) und werden im Erasure als Scope `user_diary_attachments` klassifiziert. Kein Eingriff in den Adapter-Vertrag. |
 | 1.1 | 2026-04-27 | **W-007 Fix (DSGVO-Erasure-Adapter-Methoden):** `delete_for_user(tenant_key, user_key, scope)` und `strip_exif_for_user(tenant_key, user_key, scope)` in §4.2 Adapter-Vertrag ergänzt. §6.2 Aufruf-Reihenfolge präzisiert: Storage-Cleanup MUSS als Phase 0 des Erasure-Tasks erfolgen, vor der ArangoDB-Löschung — sonst sind die `attachments`-Metadaten beim Lookup nicht mehr verfügbar. |
 | 1.0 | 2026-04-25 | Erstversion — Adapter-Pattern, local-fs + S3 als Phase 1, Tenant-Isolation, Pfadschema, DSGVO-Konformitäts-Sektion. |
@@ -449,6 +450,7 @@ Migration laeuft als Celery-Task mit Wiederaufnahmen, Fortschrittsanzeige und Au
 - Beim Upload werden bis zu **3 Thumbnail-Varianten** asynchron via Celery erzeugt (`128`, `512`, `1280` px lange Kante)
 - Thumbnails werden im selben Storage-Backend abgelegt: `t/{tenant_key}/{category}/{yyyy}/{mm}/{ulid}_t{size}.webp`
 - Verloren gegangene Thumbnails werden lazy beim ersten Zugriff regeneriert
+- **Thumbnails tragen niemals EXIF-Daten.** Die Erzeugung schreibt ausschliesslich Bilddaten in die WebP-Rendition; Aufnahmeort, Geraetekennung und Aufnahmezeit werden **nicht** uebernommen — auch dann nicht, wenn der Mandant fuer die Kategorie `STORAGE_KEEP_EXIF_<CATEGORY>=true` gesetzt hat. Das Keep-EXIF-Setting aus §6.4 betrifft ausschliesslich die **Originaldatei**. Diese Trennung ist die Grundlage dafuer, dass Renditions an Dritte ausgeliefert werden duerfen, wo das Original es nicht darf (REQ-050 §4.4, REQ-033 AC-S7) — sie muss beim Erzeugen aktiv sichergestellt und getestet werden, nicht als Nebenwirkung der Neukodierung angenommen.
 
 ### 8.3 Caching
 
@@ -573,7 +575,12 @@ NFR-013 etabliert die **Speicheranbindung** als austauschbaren Adapter und legt 
 
 **Dokumenten-Ende**
 
-**Version**: 1.1
+**Version**: 1.3
 **Status**: Genehmigt
 **Review**: Genehmigt
-**Genehmigung**: Genehmigt (2026-06-11)
+**Genehmigung**: v1.1 genehmigt (2026-06-11). Die spaeteren Aenderungen sind **nicht erneut
+formal freigegeben**: v1.2 (category `plant`, REQ-034) und v1.3 (Thumbnails normativ EXIF-frei,
+REQ-050). Beide sind additiv und greifen nicht in den Adapter-Vertrag ein — v1.3 haelt lediglich
+fest, was bisher als Nebenwirkung der Neukodierung angenommen wurde. Wer den Genehmigt-Status
+dieses Dokuments als Freigabe des **gesamten** Inhalts liest, liegt bis zu einer erneuten
+Freigabe daneben.

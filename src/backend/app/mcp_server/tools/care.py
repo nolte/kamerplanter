@@ -6,7 +6,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission, ReminderType
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.base import ToolBase, ToolInput, WriteToolBase, WriteToolInput, mcp_tool
+from app.mcp_server.base import TenantToolInput, ToolBase, WriteToolBase, WriteToolInput, mcp_tool
 from app.mcp_server.context import ToolContext
 
 _ACTIONABLE_URGENCIES = {"overdue", "due_today"}
@@ -16,7 +16,7 @@ _ACTIONABLE_URGENCIES = {"overdue", "due_today"}
 class GetDueCareTasks(ToolBase):
     """List today's / overdue care reminders grouped by urgency."""
 
-    class Input(ToolInput):
+    class Input(TenantToolInput):
         urgency: str = Field(
             default="actionable",
             description="'actionable' (overdue + due today), 'all', or a single urgency value.",

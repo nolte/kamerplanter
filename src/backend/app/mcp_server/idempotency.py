@@ -9,7 +9,7 @@ writing twice (AC-19).
 from __future__ import annotations
 
 from app.domain.models.mcp import McpIdempotencyRecord, McpToolResponse
-from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 
 
 class IdempotencyStore:
@@ -22,19 +22,21 @@ class IdempotencyStore:
     def lookup(
         self,
         principal: McpPrincipal,
+        membership: McpTenantMembership | None,
         tool_name: str,
         idempotency_key: str,
     ) -> McpToolResponse | None:
         """Return the replayed response for a known key, else ``None``.
 
-        SEC-005: the lookup is scoped by ``principal.tenant_key`` in addition to
-        the service account + tool, so a multi-tenant service account can never
-        replay a result stored for a *different* tenant's call.
+        SEC-005: the lookup is scoped by the *acting* tenant in addition to the
+        account + tool. This matters more now that one key can act in several
+        tenants: reusing an idempotency key across two tenants must produce two
+        separate writes, never a replay of the other tenant's result.
         """
 
         record = self._repo.get(
-            principal.service_account_key,
-            principal.tenant_key,
+            principal.account_key,
+            membership.tenant_key if membership else "",
             tool_name,
             idempotency_key,
         )
@@ -47,14 +49,15 @@ class IdempotencyStore:
     def store(
         self,
         principal: McpPrincipal,
+        membership: McpTenantMembership | None,
         tool_name: str,
         idempotency_key: str,
         input_hash: str,
         response: McpToolResponse,
     ) -> None:
         record = McpIdempotencyRecord(
-            service_account_key=principal.service_account_key,
-            tenant_key=principal.tenant_key,
+            service_account_key=principal.account_key,
+            tenant_key=membership.tenant_key if membership else "",
             tool_name=tool_name,
             idempotency_key=idempotency_key,
             input_hash=input_hash,

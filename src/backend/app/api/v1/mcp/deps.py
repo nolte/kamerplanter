@@ -1,8 +1,10 @@
 """REQ-033 MCP router dependencies (§4.3).
 
-Resolves the service-account principal from the transport (``X-API-Key`` header
-or ``Authorization: Bearer kp_...``) and provides the tool dispatcher. When the
-MCP server is disabled (``MCP_SERVER_ENABLED=false``) every endpoint answers HTTP
+Resolves the calling principal from the transport (``X-API-Key`` header or
+``Authorization: Bearer kp_...``) and provides the tool dispatcher. The key may
+belong to a personal account or to a service account; either way the principal
+carries only the tenants that account is an active member of. When the MCP
+server is disabled (``MCP_SERVER_ENABLED=false``) every endpoint answers HTTP
 404, so the interface appears not to exist (mirrors the AI operator flag).
 """
 
@@ -12,13 +14,14 @@ from fastapi import Depends, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials
 
 from app.common.auth import bearer_scheme
-from app.common.dependencies import get_mcp_authenticator, get_mcp_dispatcher
+from app.common.dependencies import get_mcp_authenticator, get_mcp_dispatcher, get_mcp_session_store
 from app.common.exceptions import NotFoundError, UnauthorizedError
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.mcp_server.auth import McpAuthenticator
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.session import McpSessionStore
 
 
 def require_mcp_enabled() -> None:
@@ -34,7 +37,7 @@ api_key_scheme = APIKeyHeader(
     name="X-API-Key",
     auto_error=False,
     scheme_name="McpApiKey",
-    description="`kp_`-prefixed service-account API key for MCP clients.",
+    description="`kp_`-prefixed API key (personal or service account) for MCP clients.",
 )
 
 
@@ -45,17 +48,19 @@ def get_mcp_principal(
     bearer: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     authenticator: McpAuthenticator = Depends(get_mcp_authenticator),
 ) -> McpPrincipal:
-    """Authenticate the MCP caller via its service-account API key (§4.3).
+    """Authenticate the MCP caller via its API key (§4.3).
 
-    The resolved client IP is threaded into the authenticator so it can enforce
-    the service-account ``ip_allowlist`` control (SEC-004).
+    Accepts a personal account's key as well as a service account's; the
+    principal is scoped to that account's tenant memberships either way. The
+    resolved client IP is threaded into the authenticator so it can enforce the
+    key's ``ip_allowlist`` control (SEC-004).
     """
 
     raw_key = x_api_key
     if not raw_key and bearer is not None and bearer.scheme == "Bearer":
         raw_key = bearer.credentials
     if not raw_key:
-        raise UnauthorizedError("Missing MCP service-account API key (X-API-Key).")
+        raise UnauthorizedError("Missing MCP API key (X-API-Key).")
     return authenticator.authenticate(raw_key, client_ip=resolve_client_ip(request))
 
 
@@ -64,3 +69,12 @@ def get_dispatcher(
     dispatcher: ToolDispatcher = Depends(get_mcp_dispatcher),
 ) -> ToolDispatcher:
     return dispatcher
+
+
+def get_session_store(
+    _enabled: None = Depends(require_mcp_enabled),
+    store: McpSessionStore = Depends(get_mcp_session_store),
+) -> McpSessionStore:
+    """Streamable-HTTP session store (§4.3a)."""
+
+    return store

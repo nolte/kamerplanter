@@ -23,13 +23,37 @@ from app.mcp_server.context import ToolContext
 
 
 class ToolInput(BaseModel):
-    """Base class for a tool's typed input arguments."""
+    """Base class for a tool's typed input arguments.
+
+    Use this directly only for tools operating on **global** data (the species
+    catalogue and friends), which carry no tenant. Anything touching a user's
+    own records takes :class:`TenantToolInput`.
+    """
 
     model_config = {"extra": "forbid"}
 
 
-class WriteToolInput(ToolInput):
-    """Input mixin for write tools — dry-run preview + idempotency (§2.6)."""
+class TenantToolInput(ToolInput):
+    """Input base for tools acting inside one tenant (§4.3).
+
+    A principal may be a member of several tenants. ``tenant`` names the one this
+    call acts in; it may be omitted only when the principal has exactly one
+    membership. The dispatcher resolves it against the principal's memberships
+    *before* the handler runs — a tool never sees, and cannot act on, a tenant
+    the caller is not a member of.
+    """
+
+    tenant: str | None = Field(
+        default=None,
+        description=(
+            "Slug of the tenant to act in. Optional when the API key grants exactly one tenant; "
+            "required otherwise. Use the list_tenants tool to discover the available slugs."
+        ),
+    )
+
+
+class _WriteFields(BaseModel):
+    """The two fields every write tool carries — dry-run preview + idempotency (§2.6)."""
 
     dry_run: bool = Field(
         default=False,
@@ -39,6 +63,18 @@ class WriteToolInput(ToolInput):
         default=None,
         description="Repeating a call with the same key within 24h replays the original result.",
     )
+
+
+class WriteToolInput(TenantToolInput, _WriteFields):
+    """Input base for a write tool acting inside one tenant (the usual case)."""
+
+
+class GlobalWriteToolInput(ToolInput, _WriteFields):
+    """Input base for a write tool on global, tenant-independent data.
+
+    Only for the shared catalogue (e.g. creating a species every tenant sees).
+    Anything touching a user's own records uses :class:`WriteToolInput` instead.
+    """
 
 
 class ToolBase:
@@ -52,7 +88,22 @@ class ToolBase:
     permission: ClassVar[McpPermission] = McpPermission.READ
     write: ClassVar[bool] = False
     destructive: ClassVar[bool] = False
+    #: Derived from the Input model — never set by hand (see __init_subclass__).
+    tenant_scoped: ClassVar[bool] = False
     Input: ClassVar[type[ToolInput]] = ToolInput
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        """Derive :attr:`tenant_scoped` from the tool's declared ``Input``.
+
+        Done here rather than in :func:`mcp_tool` so it holds for *every* tool
+        class, including any registered directly against a registry. The flag is
+        what the dispatcher keys tenant binding on: if it could drift from the
+        Input model, a tool taking a ``tenant`` argument might run with no tenant
+        bound at all — the exact failure this derivation makes impossible.
+        """
+
+        super().__init_subclass__(**kwargs)
+        cls.tenant_scoped = issubclass(cls.Input, TenantToolInput)
 
     @property
     def description(self) -> str:
@@ -121,6 +172,10 @@ def mcp_tool(
     fail fast (a wiring bug must never ship): a :class:`WriteToolBase` must never
     carry :attr:`McpPermission.READ`, and a ``destructive`` tool must be gated
     behind the admin-only :attr:`McpPermission.SETUP` class (AC-S6).
+
+    ``tenant_scoped`` is likewise derived, but from the class definition itself
+    (:meth:`ToolBase.__init_subclass__`) so it also holds for a tool registered
+    without this decorator.
     """
 
     def _decorate(cls: type[ToolBase]) -> type[ToolBase]:
@@ -139,7 +194,8 @@ def mcp_tool(
         cls.tool_name = name
         cls.permission = permission
         cls.destructive = destructive
-        # cls.write comes from the ClassVar on ToolBase/WriteToolBase.
+        # cls.write comes from the ClassVar on ToolBase/WriteToolBase,
+        # cls.tenant_scoped from ToolBase.__init_subclass__.
         from app.mcp_server.registry import registry
 
         registry.register(cls())
