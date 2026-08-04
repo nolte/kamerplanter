@@ -19,29 +19,50 @@ The MCP server is disabled by default. As long as `MCP_SERVER_ENABLED` is not se
 
 ## Transport & Endpoints
 
-The MCP server runs in-process with the backend and exposes its tools through three endpoints under `/api/v1/mcp/`:
+The MCP server runs in-process with the backend and exposes its tools under `/api/v1/mcp/`:
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/mcp/tools` | REST-friendly tool listing — shows only the tools the calling service account's role unlocks |
+| `GET` | `/mcp/tools` | REST-friendly tool listing — shows the tools the caller's roles unlock, plus the gardens the key covers |
 | `POST` | `/mcp/tools/{tool_name}` | REST-friendly tool call with a JSON body as arguments |
-| `POST` | `/mcp/rpc` | MCP JSON-RPC 2.0 — `initialize`, `tools/list`, `tools/call`, `ping` — for protocol-native MCP clients |
-| `GET` | `/mcp/sse` | SSE handshake for the HTTP+SSE transport: emits an `endpoint` event pointing at `/mcp/rpc` |
+| `POST` | `/mcp` | **The MCP endpoint**: JSON-RPC 2.0 over Streamable HTTP — `initialize`, `tools/list`, `tools/call`, `ping` |
+| `GET` | `/mcp` | `405` — this server sends no server-initiated messages, an answer the transport explicitly permits |
+| `DELETE` | `/mcp` | Terminates the session named in the `Mcp-Session-Id` header |
+| `POST` | `/mcp/rpc` | Retained alias of `POST /mcp` (deprecated) |
 
 !!! info "API only / operator configuration: transport"
-    A standalone `stdio` transport (the server started locally by the client, typical for Claude Desktop configurations) is specified but not yet implemented — currently only HTTP(+SSE) is available. An MCP client connects to the full backend URL, e.g. `https://api.kamerplanter.example.com/api/v1/mcp/rpc`.
+    A standalone `stdio` transport (the server started locally by the client, typical for Claude Desktop configurations) is specified but not yet implemented — currently only Streamable HTTP is available. An MCP client connects to the full backend URL, e.g. `https://api.kamerplanter.example.com/api/v1/mcp`.
 
-## Authentication: service accounts only
+## Authentication: your own API key
 
-The MCP server accepts **only** API keys from service accounts (`account_type: "service"`) — never a personal user account and never a JWT access token. The key is sent as an `X-API-Key` header or as `Authorization: Bearer kp_...` and always carries the `kp_` prefix (see also [Authentication — API Keys (M2M Integration)](authentication.md#api-keys-m2m-integration)).
+The MCP server accepts **API keys** — your personal one just as much as a service account's. What it never accepts is a JWT access token or an interactive session. The key is sent as an `X-API-Key` header or as `Authorization: Bearer kp_...` and always carries the `kp_` prefix (see also [Authentication — API Keys (M2M Integration)](authentication.md#api-keys-m2m-integration)).
+
+You create your personal key yourself via `POST /api/v1/auth/api-keys` and can revoke it individually at any time, without changing your password.
+
+!!! warning "An API key is a long-lived credential"
+    Unlike a login token, an API key does not expire after minutes — which is exactly what makes it suitable for a permanently running MCP client. Treat it like a password: whoever holds it can do everything you can do in your gardens. Create a separate key per client so you can revoke them individually.
+
+### You only ever see your own data
+
+A key grants exactly the gardens (tenants) its account is an **active member** of, resolved from the same source the regular API uses. Nothing is reachable over MCP that you could not see in the web UI. A garden you are not a member of behaves exactly as if it did not exist (`not_found`) — the interface will not even reveal that it is there.
+
+Inside a garden, normal visibility applies: in a community garden every member sees the same plants, in the app as well as over MCP.
 
 ```http
 POST /api/v1/mcp/tools/get_due_care_tasks
 X-API-Key: kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 Content-Type: application/json
 
-{"urgency": "actionable"}
+{"urgency": "actionable", "tenant": "my-garden"}
 ```
+
+### Several gardens: the `tenant` parameter
+
+If you are a member of several gardens, your key covers all of them. Which one a call applies to is decided per call through the `tenant` argument (the garden's slug). With exactly one membership you may omit it; with several it is required — the server does not guess, it asks you to name the garden. The `list_tenants` tool tells you which slugs are available.
+
+The order behind this matters: the server resolves the **garden first** and only **then** checks what you may do there. Your role can differ per garden — admin in your own, viewer in a community garden. Checked the other way round, you would hold your strongest role everywhere.
+
+### Resolving a key's context (M2M)
 
 A separate endpoint resolves a raw key into its context — useful for a future standalone MCP process (see the status note above) that cannot validate the key itself:
 
@@ -58,29 +79,99 @@ Content-Type: application/json
 {
   "service_account_key": "sa-abc123",
   "display_name": "Diagnose-Bot",
-  "tenant_key": "t-home",
-  "tenant_slug": "home",
-  "role": "viewer",
-  "mcp_permissions": ["mcp.read"]
+  "tenants": [
+    {
+      "tenant_key": "t-home",
+      "tenant_slug": "home",
+      "role": "viewer",
+      "mcp_permissions": ["mcp.read"]
+    }
+  ]
 }
 ```
 
-An invalid, revoked or non-service key returns the same generic `401 Unauthorized` in both cases — the API never reveals whether a valid key with different properties exists.
+This endpoint is deliberately restricted to service accounts. An invalid, revoked or personal key returns the same generic `401 Unauthorized` here — the API never reveals whether a valid key with different properties exists. The MCP server itself carries no such restriction: your personal key works there.
 
-### Obtaining a service-account key (current state)
+### Obtaining a key
+
+**Through the UI:** **Account settings → API keys → create.** The key is shown **exactly once** — afterwards only its hash is stored and it cannot be displayed again. Copy it and paste it straight into your client config. The same table lets you revoke any key individually.
+
+**Through the API:** `POST /api/v1/auth/api-keys` with `{"label": "claude-code"}`. The key immediately covers all your gardens with exactly the roles you hold in each. Pass `tenant_scope` at creation to limit it to a single garden when a client should only work there.
+
+!!! info "Available in light mode too"
+    A light-mode instance has no user accounts — sign-in, sessions and security settings are deliberately absent there. **API key management is still present**, because it is the only credential the MCP server accepts. The key belongs to the system user, which is a member of the default garden. This grants no extra authority: anyone who can reach a light instance already has full access — the key merely makes that access usable from outside. Which is exactly why a light instance does not belong on the public internet.
+
+**As a service account — operator step:**
 
 !!! warning "Not yet implemented"
-    Full, self-service service-account management (create, rotate, deactivate via the API — see [Service Accounts & API Keys](service-accounts.md)) is specified but not yet implemented. Today, creating a user account with `account_type: "service"` is an **operator step** outside the public API, not a self-service flow (internal reference: REQ-023). The points below describe the current state, not the future self-service experience.
+    Full, self-service service-account management (create, rotate, deactivate via the API — see [Service Accounts & API Keys](service-accounts.md)) is specified but not yet implemented. Today, creating a user account with `account_type: "service"` is an **operator step** outside the public API, not a self-service flow (internal reference: REQ-023).
 
 For an MCP client to obtain a working key today, the following pieces are needed:
 
 1. A user account with `account_type: "service"` (no password, no interactive login) — created by the instance operator.
-2. A tenant membership for that account with exactly the role (`viewer`/`grower`/`admin`) matching the desired [permission level](#permission-model-mcpread-mcpwrite-mcpsetup) — a service account is always bound to **exactly one** tenant.
+2. A tenant membership for that account with exactly the role (`viewer`/`grower`/`admin`) matching the desired [permission level](#permission-model-mcpread-mcpwrite-mcpsetup).
 3. An API key for that account, technically the same mechanism described under [Service Accounts & API Keys — Using the API Key](service-accounts.md#using-the-api-key) — but since a service account is never logged in interactively, it cannot request the key itself via the `/auth/api-keys` endpoint; this step, too, currently runs through the operator.
+
+## Setting up a client (Claude Code)
+
+Claude Code reads MCP servers from an `.mcp.json` in the project directory (or from your global configuration). Add the Kamerplanter server as an HTTP server:
+
+```json
+{
+  "mcpServers": {
+    "kamerplanter": {
+      "type": "http",
+      "url": "https://kamerplanter.example.com/api/v1/mcp",
+      "headers": {
+        "X-API-Key": "kp_your_personal_api_key"
+      }
+    }
+  }
+}
+```
+
+For a local development stack the URL is `http://localhost:8000/api/v1/mcp`.
+
+!!! danger "The key sits in the file in plain text"
+    Keep `.mcp.json` **out of** the git repository once it holds a real key — add it to `.gitignore` or use the global Claude Code configuration outside the project. Anyone who reads the file can do everything you can do in your gardens. You can revoke an individual key at any time.
+
+### Check the connection first
+
+Before adding the entry, a direct test is worth the minute — it shows immediately whether the URL and key are right:
+
+```bash
+# 1. Handshake: does the server answer as an MCP server?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
+  -H "X-API-Key: kp_your_personal_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
+
+# 2. Which tools does my key unlock?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
+  -H "X-API-Key: kp_your_personal_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+
+# 3. A real call: which gardens does the key cover?
+curl -sS -X POST https://kamerplanter.example.com/api/v1/mcp \
+  -H "X-API-Key: kp_your_personal_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tenants","arguments":{}}}'
+```
+
+A `404` on step 1 means the MCP server is not enabled on that instance (`MCP_SERVER_ENABLED`). A `401` means the key is invalid, revoked or expired.
+
+After that you can simply ask in conversation: *"Which plants do I need to water today?"* — Claude calls `get_due_care_tasks` itself. If your key covers several gardens, name the one you mean (*"…on my balcony"*) so the model can fill in the `tenant` parameter.
+
+!!! info "Transport: Streamable HTTP"
+    The server implements the **Streamable HTTP transport** (protocol revisions `2025-06-18`, `2025-03-26` and `2024-11-05`). On `initialize` it negotiates the revision with your client and issues an `Mcp-Session-Id` that the client then echoes; an expired session is answered with `404`, at which point the client re-initialises. Responses always come back as `application/json`, which the transport explicitly permits. It offers no server-initiated stream: `GET` on the endpoint answers `405`. That is the transport's sanctioned answer, and it means progress updates during long operations are not available yet.
+
+!!! warning "Not yet implemented: Claude Desktop"
+    Claude Desktop starts an MCP server as a local subprocess and talks to it over `stdio` — it cannot bind an HTTP URL directly. The thin bridge client needed for that is specified but not yet implemented (internal reference: REQ-033). The configuration above therefore applies to Claude Code and other clients with an HTTP transport.
 
 ## Permission model: `mcp.read` / `mcp.write` / `mcp.setup`
 
-Every tool requires exactly one of three MCP permissions. These are not granted separately — they are bound directly to the service account's tenant role, the same role used for human members ([Tenants & Gardens](../user-guide/tenants.md)):
+Every tool requires exactly one of three MCP permissions. These are not granted separately — they are bound to the role your account holds **in the garden being addressed**, the same role used for human members ([Tenants & Gardens](../user-guide/tenants.md)):
 
 | Tenant role | `mcp.read` | `mcp.write` | `mcp.setup` | Typical use |
 |-------------|:----------:|:-----------:|:-----------:|-------------|
@@ -90,22 +181,46 @@ Every tool requires exactly one of three MCP permissions. These are not granted 
 
 A call without the required permission is rejected with the error code `permission.denied` and recorded in the audit log as `status: "denied"` (see [Audit Trail & Privacy](#audit-trail-and-privacy)). `mcp.setup` is deliberately the most restrictive class: it governs site creation — an action that can affect an entire plant-data hierarchy — and is therefore reserved for the `admin` role only.
 
+Because the role applies per garden, the same key can write in your own garden and be refused the very same action in a community garden where you are only a viewer. The tool listing (`GET /mcp/tools`) therefore shows everything you may do **somewhere**; the binding check is the one made on the individual call.
+
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    The specification envisions roughly 30 tools (including setup macros for apartment/growbox/outdoor garden, bulk plant creation, IPM inspections, harvest recording, feeding events and a bridge to the RAG knowledge base). The following core tool set is implemented so far — expansion is a documented follow-up.
+    36 tools are implemented, which covers reading fairly thoroughly. **Writing** is where the gaps are: setup macros for apartment/growbox/outdoor garden, bulk plant creation, recording IPM inspections, harvest and feeding events, plus a bridge to the RAG knowledge base. Expansion is a documented follow-up.
 
 ### Read tools (`mcp.read`)
 
 | Tool | Purpose |
 |------|---------|
+| `list_tenants` | List your gardens with the role you hold in each — supplies the slugs for the `tenant` parameter |
+| `list_plants` | List plants, optionally filtered by name — this is how "my tomato" becomes the `plant_key` the write tools need |
+| `get_plant` | One plant in detail: species (with resolved name), phase, location, planting and removal dates |
+| `get_plant_care_log` | A plant's care history — with `reminder_type: "watering"` this is the watering log |
+| `list_plants_at_location` | All plants at a given site, bed or slot |
+| `list_nutrient_plans` | Available nutrient plans — your own plus global templates |
+| `get_nutrient_plan` | One plan with every phase: NPK ratio, target EC, nutrients, week window |
+| `get_plant_nutrient_plan` | The plan that applies to a specific plant |
+| `get_sowing_calendar` | Sowing, planting-out and harvest windows per species, shifted against your site's frost dates |
+| `list_pests` / `get_pest` | Search pests — by damage symptom too. The detail view shows counter-measures (gentlest first) **and matching beneficial insects** |
+| `list_diseases` / `get_disease` | Diseases: pathogen, incubation period, triggering conditions, affected plant parts |
+| `get_treatment` | One treatment in detail — with the **safety interval** before harvest, protective equipment and application |
+| `get_plant_inspections` | A plant's IPM inspections: pressure level, findings, observed symptoms |
+| `list_fertilizers` | Available fertilisers with EC contribution and maximum dose |
+| `calculate_mixing_protocol` | Fertiliser calculator: per-product doses for your target volume and EC, in the correct mixing order |
+| `list_cultivars` / `get_cultivar` | A species' cultivars: breeder, traits, seed type, days to maturity |
+| `list_substrates` | Substrate catalogue: media and their properties |
+| `list_overwintering_profiles` | Overwintering profiles: protection method, storage conditions, timing |
+| `list_starter_kits` | Starter kits for getting going |
+| `list_phase_definitions` | Growth-phase definitions behind the lifecycle logic |
+| `list_hardiness_zones` | Hardiness zones with their temperature ranges |
+| `search_glossary` | Look up domain terms from the glossary (VPD, EC, safety interval …) |
 | `list_species` | List the plant species catalog (paginated) |
-| `get_species_info` | Return master data for a species incl. companion-planting hints |
+| `get_species_info` | **Full** master data for one species: sowing, bloom and harvest windows, hardiness, frost sensitivity, nutrient demand, toxicity, companion-planting hints and its cultivars |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |
 | `list_tasks` | List the tenant's tasks, optionally filtered by status |
 | `get_due_care_tasks` | Today's / overdue care reminders, grouped by urgency |
 | `get_harvest_readiness` | Harvest-readiness overview across all active plants |
-| `get_mcp_activity` | This service account's own MCP call history (self-service view, see below) |
+| `get_mcp_activity` | This account's own MCP call history (self-service view, see below) |
 
 ### Write tools (`mcp.write`)
 
@@ -121,7 +236,7 @@ A call without the required permission is rejected with the error code `permissi
 |------|---------|
 | `create_site` | Create a site root (apartment, garden, balcony, greenhouse, windowsill, grow tent) |
 
-Every tool validates referenced keys (plant, site, location, slot) against the calling service account's tenant. A foreign key from another tenant consistently returns `not_found` — never `permission.denied` — so no tool ever discloses the existence of another tenant's resources.
+Every tool validates referenced keys (plant, site, location, slot) against the tenant resolved for that call. A foreign key from another tenant consistently returns `not_found` — never `permission.denied` — so no tool ever discloses the existence of another tenant's resources.
 
 ## Response Format
 
@@ -177,11 +292,14 @@ The response contains the most recent entries (tool name, status, response size,
 
 ## Frequently Asked Questions
 
-??? question "Can I sign in to the MCP server with my personal account?"
-    No. The MCP server accepts only service-account API keys. An attempt with a personal account (`account_type: "user"`) is rejected.
+??? question "Can I use my personal account with the MCP server?"
+    Yes — create an API key via `POST /api/v1/auth/api-keys` and send it as `X-API-Key`. What you cannot use is a JWT access token or an interactive session; MCP authenticates API keys only.
 
 ??? question "Can an MCP client access several tenants at once?"
-    No. A service account is always bound to exactly one tenant. Accessing several gardens requires several service accounts, each with its own key.
+    Yes, if the key's account is a member of several. The key then covers all of them, and each call names the acting garden via the `tenant` argument. To restrict a key to a single garden, set `tenant_scope` when creating it.
+
+??? question "Can an MCP client see other people's gardens?"
+    No. A key reaches exactly the gardens its account is an active member of. Naming any other garden returns `not_found` — the same answer as for a garden that does not exist, so the interface cannot be used to discover other users' gardens.
 
 ??? question "What happens if I accidentally reuse an `idempotency_key` I already used for a different tool?"
     Nothing incorrect — replay detection is additionally scoped by tool name and tenant. The same key used with a different tool or in a different tenant therefore never triggers a replay.

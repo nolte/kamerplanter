@@ -6,7 +6,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.base import ToolBase, ToolInput, mcp_tool
+from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
 
 
@@ -14,7 +14,7 @@ from app.mcp_server.context import ToolContext
 class ListPlantingRuns(ToolBase):
     """List the tenant's planting runs incl. phase and status."""
 
-    class Input(ToolInput):
+    class Input(TenantToolInput):
         status: str | None = Field(default=None, description="Optional status filter, e.g. 'active'.")
         offset: int = Field(default=0, ge=0)
         limit: int = Field(default=25, ge=1, le=100)

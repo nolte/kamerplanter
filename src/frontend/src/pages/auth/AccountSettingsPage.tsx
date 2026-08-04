@@ -21,6 +21,7 @@ import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CloseIcon from '@mui/icons-material/Close';
 import Chip from '@mui/material/Chip';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -59,6 +60,8 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import PeopleIcon from '@mui/icons-material/People';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import PageTitle from '@/components/layout/PageTitle';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useNavigate } from 'react-router-dom';
@@ -179,6 +182,11 @@ export default function AccountSettingsPage() {
         { key: 'kiosk', label: t('pages.auth.tabKiosk') },
         { key: 'modules', label: t('pages.auth.tabModules') },
         { key: 'dashboard', label: t('pages.auth.tabDashboard') },
+        // Light mode has no accounts, so it has no security or session tabs —
+        // but it does keep API keys (REQ-033 §4.3): they are the only credential
+        // the MCP interface accepts, so without this tab the MCP server could be
+        // switched on here and never actually used.
+        { key: 'apikeys', label: t('pages.auth.tabApiKeys') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
         ...haPublishTab,
         ...storageTab,
@@ -214,6 +222,8 @@ export default function AccountSettingsPage() {
   const [providers, setProviders] = useState<AuthProviderInfo[]>([]);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
+  const [apiKeysLoading, setApiKeysLoading] = useState(true);
+  const [apiKeysError, setApiKeysError] = useState(false);
   const [newKeyLabel, setNewKeyLabel] = useState('');
   const [newKeyDialogOpen, setNewKeyDialogOpen] = useState(false);
   const [createdKeyRaw, setCreatedKeyRaw] = useState<string | null>(null);
@@ -274,15 +284,27 @@ export default function AccountSettingsPage() {
   }, []);
 
   const loadApiKeys = useCallback(() => {
-    listApiKeys().then(setApiKeys).catch(() => {});
+    setApiKeysLoading(true);
+    setApiKeysError(false);
+    listApiKeys()
+      .then(setApiKeys)
+      .catch(() => setApiKeysError(true))
+      .finally(() => setApiKeysLoading(false));
   }, []);
 
   useEffect(() => {
+    // API keys exist in BOTH modes (REQ-033 §4.3) — they are the only credential
+    // the MCP interface accepts, and the tab is shown in light mode too. Loading
+    // them must therefore not sit behind the light-mode guard; skipping it left
+    // the tab permanently empty except right after creating a key, which
+    // refreshes the list itself.
+    loadApiKeys();
+    // Linked providers and sessions presuppose real accounts: those endpoints do
+    // not exist in light mode, so asking for them would only produce 404s.
     if (isLightMode) return;
     loadProviders();
     loadSessions();
-    loadApiKeys();
-  }, [loadProviders, loadSessions, loadApiKeys]);
+  }, [isLightMode, loadProviders, loadSessions, loadApiKeys]);
 
   const loadAdminData = useCallback(async () => {
     if (isLightMode) return;
@@ -815,17 +837,31 @@ export default function AccountSettingsPage() {
                 severity="warning"
                 sx={{ mb: 2 }}
                 action={
-                  <IconButton
-                    size="small"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdKeyRaw);
-                      enqueueSnackbar(t('pages.auth.apiKeyCopied'), { variant: 'success' });
-                    }}
-                  >
-                    <ContentCopyIcon fontSize="small" />
-                  </IconButton>
+                  // MUI only renders the built-in onClose dismiss button when no
+                  // custom `action` is set, so the copy and close controls are
+                  // both supplied explicitly here — otherwise this alert (which
+                  // carries the one-time-visible raw secret) could never be
+                  // dismissed from the UI.
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <IconButton
+                      size="small"
+                      aria-label={t('pages.auth.copyApiKey')}
+                      onClick={() => {
+                        navigator.clipboard.writeText(createdKeyRaw);
+                        enqueueSnackbar(t('pages.auth.apiKeyCopied'), { variant: 'success' });
+                      }}
+                    >
+                      <ContentCopyIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      aria-label={t('common.close')}
+                      onClick={() => setCreatedKeyRaw(null)}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 }
-                onClose={() => setCreatedKeyRaw(null)}
               >
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   {t('pages.auth.apiKeyCreatedWarning')}
@@ -836,55 +872,73 @@ export default function AccountSettingsPage() {
               </Alert>
             )}
 
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('pages.auth.apiKeyLabel')}</TableCell>
-                    <TableCell>Key</TableCell>
-                    <TableCell>{t('pages.auth.adminTenantStatus')}</TableCell>
-                    <TableCell>{t('pages.auth.lastUsed')}</TableCell>
-                    <TableCell align="right" />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {apiKeys.map((k) => (
-                    <TableRow key={k.key}>
-                      <TableCell>{k.label}</TableCell>
-                      <TableCell>
-                        <Chip label={k.key_prefix + '...'} size="small" variant="outlined" sx={{ fontFamily: 'monospace' }} />
-                      </TableCell>
-                      <TableCell>
-                        {k.revoked
-                          ? <Chip label={t('pages.auth.revoked')} size="small" color="error" />
-                          : <Chip label={t('pages.auth.adminStatusActive')} size="small" color="success" />}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : t('pages.auth.neverUsed')}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        {!k.revoked && (
-                          <IconButton size="small" onClick={() => handleRevokeApiKey(k.key)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {apiKeys.length === 0 && (
+            {apiKeysLoading ? (
+              // Loading state MUST be shown separately from the empty state
+              // (UI-NFR-004 R-020) — otherwise "No API keys yet." briefly
+              // flashes as a false statement while the list is still in flight.
+              <LoadingSkeleton variant="table" rows={3} />
+            ) : apiKeysError ? (
+              <ErrorDisplay error={t('errors.loadFailed')} onRetry={loadApiKeys} />
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                          {t('pages.auth.noApiKeys')}
-                        </Typography>
+                      <TableCell>{t('pages.auth.apiKeyLabel')}</TableCell>
+                      <TableCell>{t('pages.auth.apiKeyColumnValue')}</TableCell>
+                      <TableCell>{t('pages.auth.adminTenantStatus')}</TableCell>
+                      {/* Least essential column — hidden below `sm` (UI-NFR-010
+                          R-021) so the table stays usable without horizontal
+                          scrolling on narrow/kiosk-style phone viewports. */}
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                        {t('pages.auth.lastUsed')}
                       </TableCell>
+                      <TableCell align="right" />
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {apiKeys.map((k) => (
+                      <TableRow key={k.key}>
+                        <TableCell>{k.label}</TableCell>
+                        <TableCell>
+                          <Chip label={k.key_prefix + '...'} size="small" variant="outlined" sx={{ fontFamily: 'monospace' }} />
+                        </TableCell>
+                        <TableCell>
+                          {k.revoked
+                            ? <Chip label={t('pages.auth.revoked')} size="small" color="error" />
+                            : <Chip label={t('pages.auth.adminStatusActive')} size="small" color="success" />}
+                        </TableCell>
+                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : t('pages.auth.neverUsed')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          {!k.revoked && (
+                            <IconButton
+                              size="small"
+                              aria-label={t('pages.auth.revokeApiKey')}
+                              onClick={() => handleRevokeApiKey(k.key)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {apiKeys.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                            {t('pages.auth.noApiKeys')}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </CardContent>
         </Card>
       )}

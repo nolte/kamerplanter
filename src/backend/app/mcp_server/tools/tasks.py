@@ -6,7 +6,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.base import ToolBase, ToolInput, mcp_tool
+from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
 
 
@@ -14,7 +14,7 @@ from app.mcp_server.context import ToolContext
 class ListTasks(ToolBase):
     """List the tenant's tasks, optionally filtered by status."""
 
-    class Input(ToolInput):
+    class Input(TenantToolInput):
         status: str | None = Field(
             default=None,
             description="Optional task status filter (pending, in_progress, completed, ...).",

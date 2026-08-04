@@ -1,4 +1,4 @@
-"""REQ-033 service-account auth + permission-matrix binding tests (§4.3, §4.4)."""
+"""REQ-033 MCP API-key auth + permission-matrix binding tests (§4.3, §4.4)."""
 
 from __future__ import annotations
 
@@ -61,6 +61,7 @@ class _TenantWithRole:
     def __init__(self, key, slug, role):
         self.key = key
         self.slug = slug
+        self.name = slug.title()
         self.role = role
 
 
@@ -74,6 +75,16 @@ class _FakeTenantService:
 
 _RAW = "kp_secretkey"
 _HASH = hashlib.sha256(_RAW.encode()).hexdigest()
+
+
+def _personal_user() -> User:
+    return User(
+        key="u-1",
+        email="gardener@example.org",
+        display_name="Gardener",
+        account_type="user",
+        is_active=True,
+    )
 
 
 def _service_user() -> User:
@@ -125,15 +136,47 @@ def test_authenticate_resolves_single_tenant_principal():
         [_TenantWithRole("home", "home", TenantRole.GROWER)],
     )
     principal = auth.authenticate(_RAW)
-    assert principal.service_account_key == "sa-1"
-    assert principal.tenant_slug == "home"
-    assert principal.role == TenantRole.GROWER
+    assert principal.account_key == "sa-1"
+    assert principal.is_service_account is True
+    assert principal.single_membership.tenant_slug == "home"
+    assert principal.single_membership.role == TenantRole.GROWER
 
 
-def test_authenticate_rejects_non_service_account():
-    user = _service_user()
-    user.account_type = "user"
-    auth = _authenticator(_api_key(), user, [_TenantWithRole("home", "home", TenantRole.LEAD)])
+def test_authenticate_accepts_a_personal_account_key():
+    # A user's own kp_ key is a first-class MCP credential (§4.3).
+    auth = _authenticator(
+        _api_key(user_key="u-1"),
+        _personal_user(),
+        [_TenantWithRole("home", "home", TenantRole.LEAD)],
+    )
+    principal = auth.authenticate(_RAW)
+    assert principal.account_key == "u-1"
+    assert principal.is_service_account is False
+    assert principal.single_membership.role == TenantRole.LEAD
+
+
+def test_authenticate_grants_exactly_the_users_own_memberships():
+    # The principal mirrors list_my_tenants — the same source the REST API scopes
+    # on — so an MCP key can never reach a tenant its owner is not a member of.
+    auth = _authenticator(
+        _api_key(user_key="u-1"),
+        _personal_user(),
+        [
+            _TenantWithRole("home", "home", TenantRole.LEAD),
+            _TenantWithRole("comm", "community", TenantRole.VIEWER),
+        ],
+    )
+    principal = auth.authenticate(_RAW)
+    assert [m.tenant_slug for m in principal.memberships] == ["home", "community"]
+    # The role differs per tenant and is carried per membership, not per key.
+    assert principal.membership_for("home").role == TenantRole.LEAD
+    assert principal.membership_for("community").role == TenantRole.VIEWER
+    # A tenant the user is not a member of resolves to nothing at all.
+    assert principal.membership_for("someone-elses-garden") is None
+
+
+def test_authenticate_rejects_account_without_any_membership():
+    auth = _authenticator(_api_key(user_key="u-1"), _personal_user(), [])
     with pytest.raises(ForbiddenError):
         auth.authenticate(_RAW)
 
@@ -157,7 +200,9 @@ def test_authenticate_rejects_expired_key():
         auth.authenticate(_RAW)
 
 
-def test_authenticate_requires_tenant_scope_when_multi_tenant():
+def test_authenticate_keeps_every_membership_when_key_is_unscoped():
+    # An unscoped key carries all memberships; the acting tenant is chosen per
+    # tool call, so a multi-tenant account no longer needs one key per tenant.
     auth = _authenticator(
         _api_key(),
         _service_user(),
@@ -166,11 +211,12 @@ def test_authenticate_requires_tenant_scope_when_multi_tenant():
             _TenantWithRole("garden", "garden", TenantRole.VIEWER),
         ],
     )
-    with pytest.raises(ForbiddenError):
-        auth.authenticate(_RAW)
+    principal = auth.authenticate(_RAW)
+    assert len(principal.memberships) == 2
+    assert principal.single_membership is None  # ambiguous → 'tenant' is required
 
 
-def test_authenticate_uses_tenant_scope_to_disambiguate():
+def test_authenticate_uses_tenant_scope_to_narrow_to_one_tenant():
     auth = _authenticator(
         _api_key(tenant_scope="garden"),
         _service_user(),
@@ -180,21 +226,34 @@ def test_authenticate_uses_tenant_scope_to_disambiguate():
         ],
     )
     principal = auth.authenticate(_RAW)
-    assert principal.tenant_slug == "garden"
-    assert principal.role == TenantRole.VIEWER
+    # A scoped key still yields a single-tenant principal, for users who want one
+    # token per garden rather than one token for everything.
+    assert principal.single_membership.tenant_slug == "garden"
+    assert principal.single_membership.role == TenantRole.VIEWER
+
+
+def test_authenticate_rejects_tenant_scope_the_account_cannot_reach():
+    # A scope naming a foreign tenant grants nothing — it cannot widen access.
+    auth = _authenticator(
+        _api_key(tenant_scope="someone-elses-garden"),
+        _personal_user(),
+        [_TenantWithRole("home", "home", TenantRole.LEAD)],
+    )
+    with pytest.raises(ForbiddenError):
+        auth.authenticate(_RAW)
 
 
 # ── SEC-003: valid-non-service masking ──────────────────────────────────────────
 def test_authenticate_masks_non_service_as_unauthorized():
-    user = _service_user()
-    user.account_type = "user"
-    auth = _authenticator(_api_key(), user, [_TenantWithRole("home", "home", TenantRole.LEAD)])
-    # Default (MCP transport) still discloses the 403 "service accounts only".
+    auth = _authenticator(_api_key(), _personal_user(), [_TenantWithRole("home", "home", TenantRole.LEAD)])
+    # The MCP transport accepts the personal key (service_accounts_only is off).
+    assert auth.authenticate(_RAW).is_service_account is False
+    # The M2M validate endpoint restricts to service accounts and discloses 403…
     with pytest.raises(ForbiddenError):
-        auth.authenticate(_RAW)
-    # With mask_non_service (the validate endpoint), it collapses to a generic 401.
+        auth.authenticate(_RAW, service_accounts_only=True)
+    # …unless masking is on, where it collapses to the generic 401 (SEC-003).
     with pytest.raises(UnauthorizedError):
-        auth.authenticate(_RAW, mask_non_service=True)
+        auth.authenticate(_RAW, service_accounts_only=True, mask_non_service=True)
 
 
 # ── SEC-004: service-account ip_allowlist enforcement ───────────────────────────
@@ -215,7 +274,7 @@ def test_authenticate_allows_ip_in_allowlist_cidr():
         [_TenantWithRole("home", "home", TenantRole.GROWER)],
     )
     principal = auth.authenticate(_RAW, client_ip="10.1.2.3")
-    assert principal.tenant_slug == "home"
+    assert principal.single_membership.tenant_slug == "home"
 
 
 def test_authenticate_rejects_when_ip_unresolved_but_allowlist_set():
@@ -236,7 +295,7 @@ def test_authenticate_ignores_empty_allowlist():
         [_TenantWithRole("home", "home", TenantRole.GROWER)],
     )
     principal = auth.authenticate(_RAW, client_ip="203.0.113.7")
-    assert principal.tenant_slug == "home"
+    assert principal.single_membership.tenant_slug == "home"
 
 
 # ── SEC-004: service-account per-minute rate limit ──────────────────────────────

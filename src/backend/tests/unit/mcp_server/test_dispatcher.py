@@ -13,10 +13,10 @@ from app.common.enums import McpPermission, McpToolStatus, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.audit import MCPAuditLogger
-from app.mcp_server.base import ToolBase, ToolInput, WriteToolBase, WriteToolInput, mcp_tool
+from app.mcp_server.base import TenantToolInput, ToolBase, ToolInput, WriteToolBase, WriteToolInput, mcp_tool
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.idempotency import IdempotencyStore
-from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.registry import ToolRegistry
 
 
@@ -77,13 +77,16 @@ def _build_registry() -> ToolRegistry:
     return registry
 
 
-def _principal(role: TenantRole = TenantRole.LEAD) -> McpPrincipal:
+def _membership(slug: str = "home", role: TenantRole = TenantRole.LEAD) -> McpTenantMembership:
+    return McpTenantMembership(tenant_key=slug, tenant_slug=slug, tenant_name=slug.title(), role=role)
+
+
+def _principal(role: TenantRole = TenantRole.LEAD, *, slugs: tuple[str, ...] = ("home",)) -> McpPrincipal:
     return McpPrincipal(
-        service_account_key="sa-1",
+        account_key="sa-1",
         display_name="bot",
-        tenant_key="home",
-        tenant_slug="home",
-        role=role,
+        is_service_account=True,
+        memberships=tuple(_membership(slug, role) for slug in slugs),
     )
 
 
@@ -164,20 +167,12 @@ async def test_idempotency_is_tenant_scoped_no_cross_tenant_replay():
     dispatcher, _, _, registry = _dispatcher()
     args = {"label": "shared", "idempotency_key": "dup-key"}
 
-    tenant_a = McpPrincipal(
-        service_account_key="sa-1", display_name="bot", tenant_key="home", tenant_slug="home", role=TenantRole.GROWER
-    )
-    tenant_b = McpPrincipal(
-        service_account_key="sa-1",
-        display_name="bot",
-        tenant_key="garden",
-        tenant_slug="garden",
-        role=TenantRole.GROWER,
-    )
+    # One key, two tenants: the same idempotency key must not bleed across them.
+    principal = _principal(TenantRole.GROWER, slugs=("home", "garden"))
 
-    first = await dispatcher.dispatch(tenant_a, "counter_write", args)
+    first = await dispatcher.dispatch(principal, "counter_write", {**args, "tenant": "home"})
     writes_after_a = registry.get("counter_write").writes  # type: ignore[attr-defined]
-    second = await dispatcher.dispatch(tenant_b, "counter_write", args)
+    second = await dispatcher.dispatch(principal, "counter_write", {**args, "tenant": "garden"})
     writes_after_b = registry.get("counter_write").writes  # type: ignore[attr-defined]
 
     assert first.idempotent_replay is False
@@ -200,6 +195,87 @@ async def test_invalid_arguments_raise_validation_error_and_audit():
         await dispatcher.dispatch(_principal(), "echo_read", {"unknown_field": 1})
     assert audit_repo.entries[-1].status == McpToolStatus.ERROR
     assert audit_repo.entries[-1].error_class == "validation.input"
+
+
+# ── Tenant binding: a key reaches only its owner's tenants (§4.3) ──────────────
+@pytest.mark.asyncio
+async def test_foreign_tenant_is_not_found_not_permission_denied():
+    # §8.8 Szenario 6: naming a tenant the caller is not a member of must be
+    # indistinguishable from naming one that does not exist, so the interface
+    # cannot be walked to enumerate other users' gardens.
+    dispatcher, audit_repo, _, _ = _dispatcher()
+    with pytest.raises(NotFoundError):
+        await dispatcher.dispatch(
+            _principal(TenantRole.LEAD, slugs=("home",)),
+            "counter_write",
+            {"label": "x", "tenant": "someone-elses-garden"},
+        )
+    assert audit_repo.entries[-1].error_class == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_permission_is_evaluated_per_tenant_not_per_key():
+    # The heart of the multi-tenant model: one key, admin in the user's own
+    # garden and viewer in a community garden. The write must succeed in the
+    # first and be refused in the second — evaluating the key's "strongest" role
+    # globally would silently grant write access to the community garden.
+    registry = _build_registry()
+    dispatcher = ToolDispatcher(registry, MCPAuditLogger(_FakeAuditRepo()), IdempotencyStore(_FakeIdempotencyRepo()))
+    principal = McpPrincipal(
+        account_key="u-1",
+        display_name="Gardener",
+        memberships=(
+            _membership("home", TenantRole.LEAD),
+            _membership("community", TenantRole.VIEWER),
+        ),
+    )
+
+    ok = await dispatcher.dispatch(principal, "counter_write", {"label": "mine", "tenant": "home"})
+    assert ok.summary == "wrote"
+
+    with pytest.raises(ForbiddenError):
+        await dispatcher.dispatch(principal, "counter_write", {"label": "theirs", "tenant": "community"})
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_tenant_must_be_named():
+    # With several memberships and no 'tenant' argument the call is rejected
+    # rather than silently acting in an arbitrary tenant.
+    dispatcher, _, _, _ = _dispatcher()
+    principal = _principal(TenantRole.GROWER, slugs=("home", "garden"))
+    with pytest.raises(ValidationError):
+        await dispatcher.dispatch(principal, "counter_write", {"label": "x"})
+
+
+@pytest.mark.asyncio
+async def test_tenant_is_taken_from_the_membership_not_the_arguments():
+    # The tool sees the resolved membership, never the raw caller-supplied
+    # string, so it cannot be tricked into writing outside the bound tenant.
+    registry = ToolRegistry()
+    seen: dict = {}
+
+    class _Probe(ToolBase):
+        tool_name = "probe_tenant"
+        permission = McpPermission.READ
+
+        class Input(TenantToolInput):
+            pass
+
+        async def run(self, ctx, args):
+            seen["tenant_key"] = ctx.tenant_key
+            seen["role"] = ctx.role
+            return McpToolResponse(summary="ok")
+
+    registry.register(_Probe())
+    dispatcher = ToolDispatcher(registry, MCPAuditLogger(_FakeAuditRepo()), IdempotencyStore(_FakeIdempotencyRepo()))
+    principal = McpPrincipal(
+        account_key="u-1",
+        display_name="Gardener",
+        memberships=(_membership("home", TenantRole.LEAD), _membership("community", TenantRole.VIEWER)),
+    )
+
+    await dispatcher.dispatch(principal, "probe_tenant", {"tenant": "community"})
+    assert seen == {"tenant_key": "community", "role": TenantRole.VIEWER}
 
 
 def test_mcp_tool_decorator_registers_into_global_registry():
@@ -248,3 +324,29 @@ def test_destructive_tool_requires_setup_permission():
 
             async def execute(self, ctx, args):  # pragma: no cover - never registered
                 return McpToolResponse(summary="destroyed")
+
+
+def test_no_global_tool_uses_a_tenant_bound_link():
+    """A tenant-agnostic tool must not reach for ctx.api_link / ctx.ui_link.
+
+    Those helpers resolve through the bound membership, which the dispatcher
+    leaves as None for a global tool — so the call raises RuntimeError and the
+    tool dies on the real dispatch path while unit tests that build a
+    ToolContext with a membership by hand keep passing. Five IPM tools shipped
+    exactly that way; this check is the cheap guard against a repeat.
+    """
+
+    import inspect
+
+    from app.mcp_server.registry import load_tools
+
+    offenders = []
+    for name in load_tools().names():
+        tool = load_tools().get(name)
+        if tool.tenant_scoped:  # type: ignore[attr-defined]
+            continue
+        source = inspect.getsource(type(tool))
+        if "ctx.api_link" in source or "ctx.ui_link" in source:
+            offenders.append(name)
+
+    assert not offenders, f"Global tools using a tenant-bound link helper (use ctx.global_link): {offenders}"

@@ -731,6 +731,19 @@ Alle anderen Router (sites, plants, tasks, ...) werden in beiden Modi registrier
 **Hinweis CalendarFeed (W-017):** Der iCal-Feed-Endpunkt (REQ-015 CF-007) ist NICHT in der Auth-Router-Deaktivierung enthalten — er nutzt ein eigenes Token-Schema (URL-basierte Capability, kein JWT) und wird in BEIDEN Modi registriert. Im Light-Modus bekommt der System-User automatisch ein Feed-Token (siehe `ensure_system_user_calendar_feed_token()` in §6.1).
 <!-- /Quelle: Widerspruchsanalyse W-017 -->
 
+**Hinweis API-Keys (REQ-033):** Die API-Key-Verwaltung (`POST/GET/DELETE /auth/api-keys`) ist nach demselben Muster ebenfalls in BEIDEN Modi registriert. Sie ist ein eigenständiges Credential-Schema (dauerhafter `kp_`-Key, kein JWT) und die einzige Authentifizierung, die der MCP-Server (REQ-033) akzeptiert — ohne sie liesse sich der MCP-Server im Light-Modus einschalten, aber niemals benutzen. Der Key gehört dem System-User, der Mitglied des Standard-Mandanten ist.
+
+Sicherheitlich ändert das nichts: Wer eine Light-Instanz erreicht, hat ohnehin vollen, unauthentifizierten Zugriff auf alle Daten — der Key verleiht keine zusätzliche Autorität, sondern macht denselben Zugriff von einem externen Client aus nutzbar. Die Vertrauensgrenze bleibt das Netz (§1). Login, Registrierung, Sitzungen und OAuth bleiben dem Full-Modus vorbehalten:
+
+```python
+# API-Keys: in beiden Modi
+api_router.include_router(api_keys_router)
+
+if settings.kamerplanter_mode == "full":
+    api_router.include_router(auth_router)   # Login, Registrierung, Sessions, OAuth
+    ...
+```
+
 ### 6.3 Mode-Informations-Endpoint
 
 ```python

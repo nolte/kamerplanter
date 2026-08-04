@@ -105,7 +105,18 @@ api_router.include_router(reference_images_router)
 # (DSGVO Art. 13/14 Hinweispflicht applies regardless of auth mode).
 api_router.include_router(privacy_public_router)
 
-# Auth-related routers: only in full mode
+# API-key management is mounted in BOTH modes (REQ-033 §4.3). It is the one part
+# of the auth surface a light-mode instance needs: MCP accepts nothing but a
+# `kp_` API key, so without this the MCP interface could be switched on but never
+# actually used there. In light mode the key is issued to the system user, which
+# every request already resolves to anyway — it grants no new authority, it only
+# makes the existing access reachable from an external client.
+from app.api.v1.auth.router import api_keys_router  # noqa: E402
+
+api_router.include_router(api_keys_router)
+
+# The remaining auth surface — login, registration, sessions, OAuth, privacy —
+# presupposes real accounts and therefore exists only in full mode.
 if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
     from app.api.v1.admin.platform.router import router as platform_admin_router

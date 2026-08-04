@@ -11,7 +11,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.base import ToolBase, ToolInput, mcp_tool
+from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
 
 
@@ -19,7 +19,7 @@ from app.mcp_server.context import ToolContext
 class GetHarvestReadiness(ToolBase):
     """Harvest-readiness overview across the tenant's active plants."""
 
-    class Input(ToolInput):
+    class Input(TenantToolInput):
         limit: int = Field(default=50, ge=1, le=200)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
