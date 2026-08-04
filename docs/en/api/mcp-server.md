@@ -193,6 +193,10 @@ Because the role applies per garden, the same key can write in your own garden a
 | Tool | Purpose |
 |------|---------|
 | `list_tenants` | List your gardens with the role you hold in each — supplies the slugs for the `tenant` parameter |
+| `list_plants` | List plants, optionally filtered by name — this is how "my tomato" becomes the `plant_key` the write tools need |
+| `get_plant` | One plant in detail: species (with resolved name), phase, location, planting and removal dates |
+| `get_plant_care_log` | A plant's care history — with `reminder_type: "watering"` this is the watering log |
+| `list_plants_at_location` | All plants at a given site, bed or slot |
 | `list_species` | List the plant species catalog (paginated) |
 | `get_species_info` | Return master data for a species incl. companion-planting hints |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |

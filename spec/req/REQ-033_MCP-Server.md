@@ -122,7 +122,10 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `get_due_care_tasks` | Heute / die naechsten N Tage faellige Pflegeaufgaben, gruppiert nach Dringlichkeit | `GET /t/{slug}/care/dashboard` |
 | `list_planting_runs` | Aktive Pflanzdurchlaeufe inkl. Phase, Standort, Dauer | `GET /t/{slug}/planting-runs?status=active` |
 | `get_planting_run` | Detaildaten zu einem Run: Phase, naechste Tasks, juengste Sensor-/Care-Events, Karenz-Status | `GET /t/{slug}/planting-runs/{key}` (+ Aggregation) |
-| `list_plants_at_location` | Alle Pflanzen an einem Standort/Beet/Slot | `GET /t/{slug}/locations/{key}/plants` |
+| `list_plants` | Pflanzen des Mandanten auflisten, optional nach Name/Art gefiltert — loest einen Pflanzennamen in den `plant_key` auf, den alle Schreibwerkzeuge verlangen | `plant_instance_service.list_plants` |
+| `get_plant` | Stammdaten einer Pflanze: Art (inkl. aufgeloestem Namen), Phase, Standort, Lebenszyklus-Daten | `plant_instance_service.get_plant` |
+| `get_plant_care_log` | Quittierte Pflegehistorie einer Pflanze (Giessprotokoll via `reminder_type=watering`) | `care_reminder_service.get_confirmation_history` |
+| `list_plants_at_location` | Alle Pflanzen an einem Standort/Beet/Slot | `plant_instance_service.list_plants` + Filter |
 | `get_plant_diagnostics` | Aggregierter Diagnose-Snapshot fuer eine Pflanze: Sensorwerte, EC/pH-Trend, IPM-Inspections, Karenz, juengste Tips | mehrere Endpoints, im Tool aggregiert |
 | `search_plant_knowledge` | Volltext-/Vektor-Suche in Wissensbasis (RAG ueber `spec/knowledge/rag/`) | `POST /knowledge/search` (REQ-031) |
 | `get_species_info` | Stammdaten zu einer Species/Cultivar inkl. Companion Planting, Karenz-relevanter Treatments | `GET /species/{key}` |
@@ -328,7 +331,11 @@ src/backend/tests/
 └── api/test_mcp_endpoints.py
 ```
 
-**Umsetzungsstand der Werkzeugpalette:** 12 der in §2 spezifizierten ~30 Werkzeuge sind registriert — `list_tenants`, `list_species`, `get_species_info`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity` (`mcp.read`), `confirm_care_task`, `archive_plant`, `set_plant_location` (`mcp.write`) und `create_site` (`mcp.setup`). Offen sind insbesondere die Setup-Makros, saemtliche Bulk-Werkzeuge, die IPM- und Ernte-Schreibwerkzeuge sowie die RAG-Bruecke `search_plant_knowledge`. §2 beschreibt weiterhin den Zielumfang, nicht den Ist-Zustand.
+**Umsetzungsstand der Werkzeugpalette:** 16 der in §2 spezifizierten ~30 Werkzeuge sind registriert — `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity` (`mcp.read`), `confirm_care_task`, `archive_plant`, `set_plant_location` (`mcp.write`) und `create_site` (`mcp.setup`).
+
+**Adressierbarkeit als Palettenregel:** Jedes Schreibwerkzeug verlangt einen `plant_key`. Solange kein Lesewerkzeug diesen Key liefert, ist das Schreibwerkzeug fuer die betroffene Pflanze unbenutzbar — ein Argument, das der Aufrufer nicht befuellen kann. Vor `list_plants`/`get_plant` erzeugten nur `get_due_care_tasks` (Pflanzen mit offener Pflege) und `get_harvest_readiness` (Keys ohne Namen) ueberhaupt einen `plant_key`. Neue Schreibwerkzeuge sind daher stets zusammen mit dem Lesewerkzeug zu planen, das ihre Referenzen aufloest.
+
+Offen sind insbesondere die Setup-Makros, saemtliche Bulk-Werkzeuge, die IPM- und Ernte-Schreibwerkzeuge, `add_plant_diary_entry`, das Aggregat `get_plant_diagnostics` sowie die RAG-Bruecke `search_plant_knowledge`. §2 beschreibt weiterhin den Zielumfang, nicht den Ist-Zustand.
 
 Werkzeuge, deren `Input` von `TenantToolInput` erbt, wirken in genau einem Mandanten (Argument `tenant`); die uebrigen (`list_tenants`, Species-Katalog, `get_mcp_activity`) lesen mandantenfreie Daten. Die Unterscheidung wird aus dem Input-Modell **abgeleitet** (`ToolBase.__init_subclass__`), nicht von Hand gesetzt — sonst koennte ein Werkzeug ein `tenant`-Argument fuehren, das der Dispatcher nie aufloest, und ungebunden laufen.
 
@@ -535,6 +542,9 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **AC-15:** `move_plant` zu einem Slot mit voller Belegung (REQ-002 Slot-Capacity) liefert `validation.slot_full`; die Pflanze bleibt am alten Standort.
 - **AC-16:** `archive_plant` setzt den Status auf `archived`, entfernt die Pflanze aus aktiven Listen, behaelt aber Diary, Harvest- und Treatment-Historie (NFR-011, REQ-025).
 - **AC-17:** `create_planting_run` mit Mono-Konfiguration und 6 Pflanzen erzeugt Run + 6 PlantingRunEntries; Mixed-Culture wird gemaess REQ-013 v2.0 abgelehnt.
+
+- **AC-23:** `list_plants(query="tomate")` liefert die passenden Pflanzen mitsamt `plant_key`, sodass ein LLM einen Pflanzennamen ohne Zwischenschritt in die Referenz aufloesen kann, die `confirm_care_task`, `set_plant_location` und `archive_plant` verlangen.
+- **AC-24:** `get_plant_care_log(plant_key, reminder_type="watering")` liefert das Giessprotokoll der Pflanze in absteigender Zeitfolge. Der Mandanten-Besitz wird zuvor an der Pflanze geprueft, da die Historie selbst keinen Mandanten fuehrt (SEC-001).
 
 ### 8.4 Schreibzugriffs-Sicherheit
 

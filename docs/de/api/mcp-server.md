@@ -193,6 +193,10 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | Werkzeug | Zweck |
 |----------|-------|
 | `list_tenants` | Deine Gärten auflisten, mit deiner Rolle je Garten — liefert die Slugs für den `tenant`-Parameter |
+| `list_plants` | Pflanzen auflisten, optional nach Name gefiltert — so wird aus „meine Tomate" der `plant_key`, den die Schreib-Werkzeuge brauchen |
+| `get_plant` | Eine Pflanze im Detail: Art (mit aufgelöstem Namen), Phase, Standort, Pflanz- und Entfernungsdatum |
+| `get_plant_care_log` | Pflegehistorie einer Pflanze — mit `reminder_type: "watering"` das Gießprotokoll |
+| `list_plants_at_location` | Alle Pflanzen an einem Standort, Beet oder Slot |
 | `list_species` | Pflanzenarten-Katalog auflisten (paginiert) |
 | `get_species_info` | Stammdaten zu einer Art inkl. Mischkultur-Hinweisen (Companion Planting) |
 | `list_planting_runs` | Pflanzdurchläufe des Mandanten auflisten, optional nach Status gefiltert |
