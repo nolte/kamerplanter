@@ -804,7 +804,7 @@
       "apiKeyRevoked": "API key revoked",
       "copyApiKey": "Copy API key",
       "revokeApiKey": "Revoke API key",
-      "noApiKeys": "No API keys yet.",
+      "noApiKeys": "No API keys yet. Click \"Create API Key\" above to connect applications such as the MCP server.",
       "lastUsed": "Last used",
       "neverUsed": "Never used",
       "revoked": "Revoked",

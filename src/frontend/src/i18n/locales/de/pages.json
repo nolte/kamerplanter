@@ -804,7 +804,7 @@
       "apiKeyRevoked": "API-Schlüssel widerrufen",
       "copyApiKey": "API-Schlüssel kopieren",
       "revokeApiKey": "API-Schlüssel widerrufen",
-      "noApiKeys": "Keine API-Schlüssel vorhanden.",
+      "noApiKeys": "Noch keine API-Schlüssel vorhanden. Klicken Sie oben auf „API-Schlüssel erstellen“, um Anwendungen wie den MCP-Server anzubinden.",
       "lastUsed": "Zuletzt verwendet",
       "neverUsed": "Noch nie verwendet",
       "revoked": "Widerrufen",
