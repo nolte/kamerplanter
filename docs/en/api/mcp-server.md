@@ -94,7 +94,12 @@ This endpoint is deliberately restricted to service accounts. An invalid, revoke
 
 ### Obtaining a key
 
-**As a user — self-service:** sign in and create a key via `POST /api/v1/auth/api-keys`. It immediately covers all your gardens with exactly the roles you hold in each. Pass `tenant_scope` at creation to limit it to a single garden when a client should only work there.
+**Through the UI:** **Account settings → API keys → create.** The key is shown **exactly once** — afterwards only its hash is stored and it cannot be displayed again. Copy it and paste it straight into your client config. The same table lets you revoke any key individually.
+
+**Through the API:** `POST /api/v1/auth/api-keys` with `{"label": "claude-code"}`. The key immediately covers all your gardens with exactly the roles you hold in each. Pass `tenant_scope` at creation to limit it to a single garden when a client should only work there.
+
+!!! info "Available in light mode too"
+    A light-mode instance has no user accounts — sign-in, sessions and security settings are deliberately absent there. **API key management is still present**, because it is the only credential the MCP server accepts. The key belongs to the system user, which is a member of the default garden. This grants no extra authority: anyone who can reach a light instance already has full access — the key merely makes that access usable from outside. Which is exactly why a light instance does not belong on the public internet.
 
 **As a service account — operator step:**
 

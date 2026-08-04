@@ -421,6 +421,10 @@ Der Server implementiert den **Streamable-HTTP-Transport** (Protokollrevision 20
 
 **Konto ohne Mitgliedschaft:** Ein Key, dessen Konto in keinem aktiven Mandanten Mitglied ist, wird abgewiesen — es gaebe nichts, worin er handeln koennte.
 
+**Light-Modus (REQ-027):** Eine Light-Instanz kennt keine Konten — jede Anfrage wird ueber den `LightAuthProvider` zum System-User aufgeloest, und der komplette Auth-Router ist dort nicht gemountet. Genau deshalb ist die **API-Key-Verwaltung (`/auth/api-keys`) in beiden Betriebsmodi verfuegbar**: Ohne sie liesse sich der MCP-Server im Light-Modus zwar einschalten, aber niemals benutzen — der Endpunkt haette dauerhaft mit `401` geantwortet, ohne dass ein Weg zu einem Key existiert. Der ausgestellte Key gehoert dem System-User, der im Light-Seed Mitglied des Standard-Mandanten (`mein-garten`, Rolle `admin`) ist; MCP funktioniert damit unveraendert.
+
+Sicherheitlich verschiebt das nichts: Im Light-Modus hat ohnehin jeder, der die Instanz erreicht, vollen Zugriff auf alle Daten — ein Key verleiht keine zusaetzliche Autoritaet, er macht denselben Zugriff nur von einem externen Client aus nutzbar. Die Vertrauensgrenze einer Light-Instanz ist ihr Netz, weshalb REQ-027 ein solches Deployment nicht ins offene Internet stellt. Login, Registrierung, Sitzungen und OAuth bleiben dem Full-Modus vorbehalten.
+
 ### 4.4 Permission-Matrix-Bindung
 
 Jedes Tool deklariert eine von drei Permissions: `mcp.read`, `mcp.write` oder `mcp.setup`. Sie werden **nicht** einzeln zugewiesen, sondern aus der Rolle abgeleitet, die das Konto **in dem Mandanten** haelt, in dem der Aufruf stattfindet:
@@ -456,7 +460,7 @@ Folgende neue oder erweiterte Backend-Endpoints werden benoetigt (kein eigener R
 
 | Endpoint | Quelle-REQ | Status |
 |----------|-----------|--------|
-| `POST /auth/api-keys` | REQ-023 | bestand bereits — der Weg, auf dem ein Nutzer sich seinen persoenlichen MCP-Key ausstellt |
+| `POST /auth/api-keys` | REQ-023 | bestand bereits — der Weg, auf dem ein Nutzer sich seinen persoenlichen MCP-Key ausstellt. Seit der Light-Modus-Freigabe (§4.3) in **beiden** Betriebsmodi gemountet, waehrend der restliche Auth-Router weiterhin nur im Full-Modus existiert. |
 | `POST /auth/service-accounts/validate` | REQ-023 | umgesetzt; liefert seit der Mehrmandanten-Umstellung eine `tenants[]`-Liste statt eines einzelnen Mandanten |
 | `GET /t/{slug}/locations/{key}/plants` | REQ-002 | erweitert |
 | `POST /t/{slug}/locations/bulk` | REQ-002 | neu |
@@ -563,6 +567,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 
 - **AC-D1:** Mit `MCP_SERVER_ENABLED=true` am Backend-Deployment ist die Werkzeugschnittstelle unter `/api/v1/mcp/` erreichbar und ein gueltiger API-Key kann `tools/list` und `tools/call` ausfuehren — ohne zusaetzlichen Pod (§6).
 - **AC-D2:** Mit `MCP_SERVER_ENABLED=false` (Default) antworten alle `/mcp/*`-Endpunkte mit HTTP 404 — Kamerplanter funktioniert unveraendert und die Schnittstelle ist von aussen nicht unterscheidbar von "existiert nicht".
+- **AC-D5:** Auf einer Light-Instanz kann ein Nutzer ueber die Kontoeinstellungen einen API-Key erzeugen und damit den MCP-Server benutzen. `POST /auth/api-keys` ist dort erreichbar, `POST /auth/login` weiterhin nicht.
 - **AC-D4:** Ein Streamable-HTTP-Client absolviert den vollstaendigen Handschlag gegen `POST /api/v1/mcp`: `initialize` (mit Versionsverhandlung und `Mcp-Session-Id`), `notifications/initialized` (Antwort `202`, kein Rumpf), `tools/list`. Eine unbekannte Sitzung liefert `404`, `GET` auf den Endpunkt `405`, `DELETE` beendet die Sitzung mit `204`.
 - **AC-D3:** Dokumentation in `docs/` enthaelt eine Konfigurations-Anleitung fuer MCP-Clients (HTTP-Transport: Backend-URL + `X-API-Key`) sowie die Betreiber-Variablen aus §6. Das `claude_desktop_config.json`-Beispiel setzt den stdio-Bridge-Client voraus und wird mit diesem nachgereicht (§9).
 

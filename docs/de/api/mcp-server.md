@@ -94,7 +94,12 @@ Dieser Endpunkt ist bewusst auf Service Accounts beschränkt. Ein ungültiger, w
 
 ### Key beziehen
 
-**Als Nutzer:in — Selbstbedienung:** Melde dich an und erstelle dir über `POST /api/v1/auth/api-keys` einen Key. Er gilt sofort für alle deine Gärten mit genau den Rollen, die du dort hast. Mit `tenant_scope` kannst du ihn beim Anlegen auf einen einzigen Garten begrenzen, wenn ein Client nur dort arbeiten soll.
+**Über die Oberfläche:** **Kontoeinstellungen → API-Schlüssel → Anlegen.** Der Schlüssel wird **genau einmal** angezeigt — danach ist nur noch sein Hash gespeichert, er lässt sich nicht erneut anzeigen. Kopieren und direkt eintragen. In derselben Tabelle kannst du jeden Schlüssel einzeln widerrufen.
+
+**Über die API:** `POST /api/v1/auth/api-keys` mit `{"label": "claude-code"}`. Der Schlüssel gilt sofort für alle deine Gärten mit genau den Rollen, die du dort hast. Mit `tenant_scope` begrenzt du ihn beim Anlegen auf einen einzigen Garten, wenn ein Client nur dort arbeiten soll.
+
+!!! info "Auch im Light-Modus verfügbar"
+    Eine Light-Instanz kennt keine Benutzerkonten — Anmeldung, Sitzungen und Sicherheitseinstellungen fehlen dort bewusst. Die **API-Schlüssel-Verwaltung gibt es trotzdem**, denn sie ist die einzige Anmeldeform, die der MCP-Server akzeptiert. Der Schlüssel gehört dort dem System-Benutzer, der Mitglied des Standard-Gartens ist. Zusätzliche Rechte entstehen dadurch nicht: Wer eine Light-Instanz erreicht, hat ohnehin vollen Zugriff — der Schlüssel macht diesen Zugriff nur von außen nutzbar. Genau deshalb gehört eine Light-Instanz nicht ins offene Internet.
 
 **Als Service Account — Betreiber-Schritt:**
 

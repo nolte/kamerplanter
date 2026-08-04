@@ -45,6 +45,20 @@ logger = structlog.get_logger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
+#: API-key management, mounted in **both** deployment modes (REQ-027, REQ-033 §4.3).
+#:
+#: The rest of this module — login, registration, sessions, OAuth — exists only in
+#: full mode, where accounts do. API keys are the exception because they are the
+#: only credential the MCP interface accepts: without this router, enabling MCP on
+#: a light-mode instance yields an endpoint nobody can ever obtain a key for.
+#:
+#: In light mode every request already resolves to the system user without
+#: authentication (``LightAuthProvider``), so a key issued here grants nothing the
+#: caller did not already have — it only makes that same access usable from an
+#: external client. The trust boundary of a light instance is its network, which
+#: is why REQ-027 keeps such a deployment off the public internet.
+api_keys_router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
+
 # AP-7 (FE-S3): the frontend maps these codes to localised messages. The backend
 # NEVER forwards a raw provider error string — only one of these fixed codes.
 _OAUTH_ERROR_CODES = frozenset(
@@ -290,7 +304,7 @@ def oauth_callback(
 # ── M2M API Keys ───────────────────────────────────────────────────
 
 
-@router.post("/api-keys", response_model=ApiKeyCreatedResponse, status_code=201)
+@api_keys_router.post("/api-keys", response_model=ApiKeyCreatedResponse, status_code=201)
 def create_api_key(
     body: ApiKeyCreateRequest,
     current_user: User = Depends(get_current_user),
@@ -301,7 +315,7 @@ def create_api_key(
     return ApiKeyCreatedResponse(**created.model_dump())
 
 
-@router.get("/api-keys", response_model=list[ApiKeySummaryResponse])
+@api_keys_router.get("/api-keys", response_model=list[ApiKeySummaryResponse])
 def list_api_keys(
     current_user: User = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
@@ -311,7 +325,7 @@ def list_api_keys(
     return [ApiKeySummaryResponse(**k.model_dump()) for k in keys]
 
 
-@router.delete("/api-keys/{key_id}", response_model=MessageResponse)
+@api_keys_router.delete("/api-keys/{key_id}", response_model=MessageResponse)
 def revoke_api_key(
     key_id: Annotated[str, Path(description="Identifier of the API key to revoke.")],
     current_user: User = Depends(get_current_user),
