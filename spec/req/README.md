@@ -404,6 +404,19 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## 📓 REQ-050: KI-Analyse von Tagebuch-Einträgen
+**Fokus:** Der Nutzer markiert einen Tagebuch-Eintrag; ein **externer, von ihm selbst betriebener** KI-Agent analysiert ihn asynchron über MCP und schreibt das Ergebnis an den Eintrag zurück · **Erweitert:** REQ-013 (PlantDiaryEntry), REQ-033 (MCP-Werkzeuge + Bild-Content), REQ-025 (Einwilligungszweck)
+- **Zwei Oberflächen-Orte, verbindlich getrennt:** Erfassung im neuen Tagebuch-Tab der Pflanzeninstanz-Detailseite; Sichtung in einer **mandantenweiten Tagebuch-Übersicht**, die die Einträge aller Pflanzen zusammenführt und je Zeile den Analyse-Zustand zeigt — filterbar nach „nur mit Ergebnis" und „nur wartend". Die Tagebuch-Oberfläche existiert heute überhaupt nicht und entsteht mit dieser Anforderung.
+- **Opt-in je Eintrag, nie automatisch** — das ist die tragende Datenschutzmaßnahme, keine Komforteinstellung.
+- **Kamerplanter ruft selbst kein Sprachmodell auf.** Die Instanz stellt Daten bereit und nimmt ein Ergebnis entgegen; Modell, Schlüssel und Kosten liegen beim Nutzer. Die Self-Hosted-Zusage bleibt unangetastet.
+- **Fünf MCP-Werkzeuge als vollständiger Vertrag** (Arbeitsvorrat, Eintrag, Fotos, Beanspruchen, Zurückschreiben) — das Agenten-Rezept selbst entsteht im getrennten Repository `kamerplanter-goose`.
+- **Bilder als MCP-Bild-Content** aus den vorhandenen WebP-Renditions (NFR-013 §8.2), nie als Original — Token-Budget, EXIF-Freiheit und Kosten sprechen gleichermaßen dagegen.
+- **Lease mit Ablauf** statt bloßem Statusfeld: verhindert Doppelanalysen durch parallel laufende Agenten und blockiert einen Eintrag nicht dauerhaft, wenn ein Agent abstürzt.
+
+**Abgrenzung zu den bestehenden Diagnosewegen:** REQ-036 ist ein Symptom-Dialog an der Pflanze, REQ-038 ein CV-Klassifikator auf einem Blattfoto — beide serverseitig. REQ-050 ist der einzige Weg, der einen **erzählenden** Eintrag samt aller Fotos und Messwerte auswertet.
+
+---
+
 ## Technologie-Stack
 
 ### Backend

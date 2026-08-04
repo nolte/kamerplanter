@@ -7,13 +7,14 @@ Kategorie: Gruppenmanagement
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 2.3 (CareProfile-Snapshot beim Detach, W-010)
+Version: 2.4 (Analyse-Felder am Tagebuch-Eintrag, REQ-050)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.4 | 2026-08-04 | **REQ-050 (KI-Analyse von Tagebuch-Eintraegen):** `PlantDiaryEntry` um additive Analyse-Felder erweitert (`analysis_state`, Lease-Felder, `analysis`, `analysis_error`) — §3 Knotendefinition und `PlantDiaryEntryResponse`. In §4.7 ergaenzt: zwei Endpunkte zum Markieren/Entmarkieren sowie die **mandantenweite** Uebersicht `GET /t/{slug}/diary` (die bisherige Aggregation deckt nur einen Durchlauf ab). `photo_refs` als `attachment_id` praezisiert (war faelschlich als „S3-URLs" beschrieben, obwohl Migration `v0003` sie normalisiert hat). Die Fachlogik (Zustandsmaschine, MCP-Vertrag, Oberflaeche, Datenschutz) steht in REQ-050, nicht hier. Ausserdem festgehalten: die seit v2.0 in §4.7 spezifizierten **Standalone**-Tagebuch-Endpunkte sind bis heute nicht implementiert. |
 | 2.3 | 2026-04-27 | **W-010 (CareProfile Run-Owned):** `detach_plant()` um Schritt 6 erweitert — beim Detach wird das aktuelle Run-CareProfile als Plant-CareProfile auf die nun-standalone Plant kopiert (analog Karenz-Snapshot ADR-001). |
 | 2.2 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `detach_plant()`-Operation um Karenz-Snapshot-Schritt erweitert. Aktive Run-Treatments werden als geerbte `to_plant`-Edges (mit `inherited_from_run` + `inherited_at`) auf die detachte Plant kopiert. Migrations-Strategie für REQ-013-v2.0-Rollout dokumentiert (Hard Cutover). |
 | 2.1 | 2026-04-27 | **W-003 Fix (Run-Membership-Guard):** Querverweis auf REQ-003 §3 Run-Membership-Guard im Dual-Modell ergänzt. Direkter Phasenwechsel auf Run-gebundenen PlantInstances ist gesperrt (HTTP 409 `phase.run_owned`); Batch-Phasenwechsel ist All-or-Nothing. Klarstellung in §1.1 und in der `batch-transition`-Endpoint-Beschreibung. |
@@ -206,12 +207,19 @@ PlantingRun: "White Widow Klone Runde 3"
     - `entry_type: Literal['observation', 'problem', 'milestone', 'measurement', 'photo', 'note']`
     - `title: Optional[str]` (Kurztitel, max 200 Zeichen)
     - `text: str` (Freitext, max 5000 Zeichen)
-    - `photo_refs: list[str]` (S3-URLs, max 5 Bilder)
+    - `photo_refs: list[str]` (max 5 Bilder; **`attachment_id`** gemaess NFR-013 §2.2 — nicht roh S3-URLs. Legacy-URIs wurden per Migration `v0003_normalize_photo_refs` normalisiert.)
     - `tags: list[str]` (Freitext-Tags fuer Filterung)
     - `measurements: Optional[dict]` (Strukturierte Messwerte: `height_cm`, `leaf_count`, `branch_count`, `stem_diameter_mm`, `canopy_width_cm` etc.)
     - `created_by: str` (user_key)
     - `created_at: datetime`
     - `updated_at: datetime`
+  - Properties fuer die KI-Analyse (REQ-050, alle additiv und optional — Bestandsdokumente ohne diese Felder bleiben gueltig und brauchen **keine** Migration):
+    - `analysis_state: Literal['none', 'requested', 'in_progress', 'completed', 'failed']` (Default `'none'`)
+    - `analysis_requested_at: Optional[datetime]` / `analysis_requested_by: Optional[str]` (wer hat markiert)
+    - `analysis_claimed_at: Optional[datetime]` / `analysis_claimed_by: Optional[str]` / `analysis_lease_expires_at: Optional[datetime]` (Lease des ausfuehrenden Agenten)
+    - `analysis: Optional[DiaryAnalysis]` (juengstes Ergebnis; Sub-Modell in REQ-050 §5)
+    - `analysis_error: Optional[str]` (Fehlertext bei `failed`)
+  - **Hinweis:** REQ-013 definiert nur *dass* diese Felder existieren. Zustandsmaschine, Berechtigungen, MCP-Vertrag und Datenschutz stehen vollstaendig in **REQ-050**. Fuer die Abfrage des Arbeitsvorrats ist ein persistenter Index ueber `(tenant_key, analysis_state, analysis_requested_at)` noetig.
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-009 -->
 - **`:SuccessionPlan`** — Staffelanbau-Plan (generiert automatisch PlantingRuns)
@@ -696,6 +704,14 @@ class DiaryEntryType(StrEnum):
     MEASUREMENT = "measurement"    # Strukturierte Messung
     PHOTO = "photo"                # Foto-Dokumentation
     NOTE = "note"                  # Freitext-Notiz
+
+class DiaryAnalysisState(StrEnum):
+    """Zustand der KI-Analyse eines Tagebuch-Eintrags (REQ-050 §2.2)"""
+    NONE = "none"                  # nicht zur Analyse markiert
+    REQUESTED = "requested"        # vom Nutzer markiert, wartet auf einen Agenten
+    IN_PROGRESS = "in_progress"    # von einem Agenten beansprucht (Lease laeuft)
+    COMPLETED = "completed"        # Ergebnis liegt vor
+    FAILED = "failed"              # Agent hat einen Fehler gemeldet
 ```
 
 ### Status-Transitions:
@@ -1011,6 +1027,21 @@ class PlantDiaryEntryResponse(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
+
+    # KI-Analyse (REQ-050). Bewusst NUR in der Response — der Analyse-Zustand
+    # wird nicht per PUT gesetzt, sondern ueber die dedizierten Uebergaenge
+    # aus REQ-050 §2.2. Deshalb tauchen diese Felder in Create/Update nicht auf.
+    analysis_state: DiaryAnalysisState = DiaryAnalysisState.NONE
+    analysis_requested_at: Optional[datetime] = None
+    analysis_requested_by: Optional[str] = None
+    # Lease-Felder: die Oberflaeche zeigt im Zustand in_progress "wird analysiert
+    # seit ..." und braucht dafuer den Beanspruchungs-Zeitpunkt; der Ablauf macht
+    # sichtbar, wann ein haengengebliebener Lauf wieder freigegeben wird.
+    analysis_claimed_at: Optional[datetime] = None
+    analysis_claimed_by: Optional[str] = None
+    analysis_lease_expires_at: Optional[datetime] = None
+    analysis: Optional[DiaryAnalysis] = None
+    analysis_error: Optional[str] = None
 ```
 
 ### Engine-Logik:
@@ -1336,7 +1367,16 @@ class PlantDiaryEntryDocument(BaseModel):
 |---------|------|-------------|------|
 | `GET` | `/api/v1/planting-runs/{key}/watering-schedule` | Aufgeloester Giesskalender: naechste 14 Tage mit Dosierungen | Mitglied |
 
-### 4.7 Pflanzen-Tagebuch (7 Endpunkte)
+### 4.7 Pflanzen-Tagebuch (13 Endpunkte)
+
+> **Umsetzungsstand (Stand 2026-08-04):** Implementiert sind ausschliesslich die **sechs
+> Endpunkte im Run-Kontext**. Die fuenf **Standalone**-Endpunkte
+> (`/api/v1/plant-instances/{key}/diary...`) stehen seit v2.0 in dieser Tabelle, existieren im
+> Backend aber nicht — ein Tagebuch ist heute nur ueber einen Pflanzdurchlauf erreichbar.
+> Das ist eine offene Luecke, keine Design-Entscheidung: REQ-050 braucht einen
+> pflanzen-zentrierten Zugang, und eine standalone gefuehrte Pflanze hat laut §1 sehr wohl ein
+> Tagebuch. Wer REQ-050 umsetzt, muss diese Endpunkte mitliefern oder die Luecke bewusst und
+> begruendet stehen lassen.
 
 **Im Run-Kontext:**
 
@@ -1358,6 +1398,28 @@ class PlantDiaryEntryDocument(BaseModel):
 | `GET` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Einzelner Eintrag | Mitglied |
 | `PUT` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag aktualisieren | Mitglied |
 | `DELETE` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag loeschen | Mitglied |
+
+**Mandantenweite Uebersicht (REQ-050 §2.5.2) — neu:**
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/t/{tenant_slug}/diary` | Einträge **aller** Pflanzen des Mandanten, gefiltert und seitenweise | Alle Rollen |
+
+Die bisherige Aggregation `GET /planting-runs/{key}/diary` bleibt bestehen, deckt aber nur **einen
+Durchlauf** ab. Eine Pflanze ohne Durchlauf taucht dort nicht auf. Parameter und Antwortumfang des
+neuen Endpunkts stehen in REQ-050 §2.5.2.
+
+**KI-Analyse markieren (REQ-050):**
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `.../diary/{entry_key}/request-analysis` | Eintrag zur KI-Analyse markieren (`analysis_state` → `requested`) | Ab Gaertner |
+| `DELETE` | `.../diary/{entry_key}/request-analysis` | Markierung zuruecknehmen (nur solange `requested`) | Ab Gaertner |
+
+Beide Endpunkte existieren im Run- **und** im Standalone-Praefix. Sie setzen ausschliesslich den
+Zustand; das Ergebnis schreibt der ausfuehrende Agent ueber MCP zurueck (REQ-050 §4.5). Ein
+Betrachter darf lesen, aber nicht markieren (REQ-050 §6). `PUT .../diary/{entry_key}` aendert den
+Analyse-Zustand **nicht** — Zustandswechsel laufen nie ueber das generische Update.
 
 ### Request/Response-Beispiele:
 
@@ -1514,6 +1576,13 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | PlantingRun-Eintraege | Mitglied | Mitglied | Mitglied |
 | Run-Operationen | — | Mitglied | — |
 | Pflanzen-Tagebuch | Mitglied | Mitglied | Mitglied |
+| Tagebuch KI-Analyse markieren (REQ-050) | Alle Rollen | Ab Gaertner | — |
+
+> **Hinweis zum Vokabular:** Die REQ-050-Zeile folgt dem verbindlichen Vokabular aus REQ-049 §3.1.
+> Die uebrigen Zeilen dieser Tabelle verwenden noch „Mitglied", das REQ-049 §3.2 ausdruecklich
+> verbietet, weil es den Beobachter mit einschliesst und damit Schreibrechte suggeriert, die er
+> nicht hat. Das ist Altbestand aus v2.0 und bei der REQ-049-Migration nachzuziehen — nicht
+> Gegenstand von REQ-050.
 
 ## 6. Abhaengigkeiten
 
@@ -1678,7 +1747,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Seed-to-Shelf:** Von Batch ueber `run_produced` → PlantingRun → Entry → Species/Cultivar lueckenlos navigierbar
 - [ ] **Tagebuch-CRUD:** Erstellen, Lesen, Aktualisieren, Loeschen von Tagebuch-Eintraegen fuer einzelne Pflanzen
 - [ ] **Tagebuch-Aggregation:** Aggregiertes Tagebuch aller Pflanzen im Run abrufbar
-- [ ] **Tagebuch-Standalone:** Tagebuch funktioniert auch fuer standalone PlantInstances
+- [ ] **Tagebuch-Standalone:** Tagebuch funktioniert auch fuer standalone PlantInstances (heute **nicht** erfuellt, siehe Hinweis in §4.7)
+- [ ] **Tagebuch-Analyse-Felder:** `analysis_state` und die Lease-/Ergebnisfelder sind am Eintrag vorhanden und werden in der Response ausgeliefert; Markieren/Entmarkieren funktioniert und ist gegen Betrachter gesperrt (Fachlogik: REQ-050)
 - [ ] **Graph-Integration:** Alle neuen Edge Collections korrekt im Named Graph `kamerplanter_graph` registriert
 - [ ] **Dual-Support-Edges:** `current_phase`, `phase_history`, `has_task`, `has_care_profile`, `inspected_by`, `fed_by` akzeptieren sowohl `planting_runs` als auch `plant_instances` als Quell-Vertex
 - [ ] **NFR-006-Fehlerbehandlung:** Aussagekraeftige Fehlermeldungen bei Validierungsfehlern und Konfliktzustaenden
@@ -1804,4 +1874,4 @@ THEN:
 **Hinweise fuer RAG-Integration:**
 - Keywords: Pflanzdurchlauf, Planting Run, Batch-Operation, Gruppenmanagement, Monokultur, Klon, Batch-Erstellung, Run-Level Phasenwechsel, Batch-Ernte, Batch-Entfernung, Seed-to-Shelf, Traceability, Sukzessions-Aussaat, Staffelanbau, Dual-Modell, Standalone, Detach, Pflanzen-Tagebuch, Plant Diary
 - Fachbegriffe: PlantingRun, PlantingRunEntry, PlantDiaryEntry, SuccessionPlan, Mutterpflanze, Steckling, Klon-Generation, Staffelanbau, Succession Planting, Detach-Kategorie, Male Plant, Bewurzelungsrate, Keimrate, HarvestBatch, State Machine, ID-Generierung, NutrientPlan-Zuweisung, RUN_FOLLOWS_PLAN, Dual-Support, current_phase, phase_history, has_task, has_care_profile
-- Verknuepfung: Baut auf REQ-001 (Species/Cultivar), REQ-002 (Location/Substrate), REQ-003 (Phasensteuerung, Dual-Support), REQ-004 (NutrientPlan) auf; liefert an REQ-006 (Run-Tasks), REQ-007 (Batch-Ernte), REQ-009 (Dashboard), REQ-010 (IPM, Dual-Support), REQ-014 (Giessplan), REQ-022 (Care, Dual-Support), REQ-028 (Mischkultur ueber Standort-Graph)
+- Verknuepfung: Baut auf REQ-001 (Species/Cultivar), REQ-002 (Location/Substrate), REQ-003 (Phasensteuerung, Dual-Support), REQ-004 (NutrientPlan) auf; liefert an REQ-006 (Run-Tasks), REQ-007 (Batch-Ernte), REQ-009 (Dashboard), REQ-010 (IPM, Dual-Support), REQ-014 (Giessplan), REQ-022 (Care, Dual-Support), REQ-028 (Mischkultur ueber Standort-Graph), REQ-050 (KI-Analyse von Tagebuch-Eintraegen)
