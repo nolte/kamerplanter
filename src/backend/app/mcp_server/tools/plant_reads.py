@@ -24,6 +24,14 @@ from app.mcp_server.context import ToolContext
 #: answers over completeness — a bigger page is a worse answer, not a better one.
 _MAX_LIMIT = 200
 
+#: How many records are read before filtering. Filtering has to happen across the
+#: whole set, not within one page: a name filter applied to page 1 reports "no
+#: match" for a plant sitting on page 3, which is a wrong answer rather than an
+#: incomplete one — and this is the tool a model uses to resolve a name into the
+#: plant_key every write tool demands. Beyond this bound the set is genuinely
+#: unscanned, which the response says out loud via ``truncated``.
+_SCAN_LIMIT = 1000
+
 
 def _summarise(plant: Any) -> dict[str, Any]:
     """The compact projection every list tool returns per plant."""
@@ -69,12 +77,15 @@ class ListPlants(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        # The repository has no name filter, so fetch the tenant's page and narrow
-        # it here. Filtering after the tenant-scoped read keeps isolation intact:
-        # a plant of another tenant is never in the set to begin with.
+        # The repository has no name filter, so read the tenant's set and narrow it
+        # here. Reading _SCAN_LIMIT rather than args.limit is load-bearing: paging
+        # first and filtering second would search only the current page and report
+        # "no match" for a plant further down — a wrong answer, not a short one.
+        # Filtering after the tenant-scoped read keeps isolation intact; a plant of
+        # another tenant is never in the set to begin with.
         plants, total = ctx.plant_service.list_plants(
-            offset=args.offset,
-            limit=args.limit,
+            offset=0,
+            limit=_SCAN_LIMIT,
             tenant_key=ctx.tenant_key,
         )
         selected = [p for p in plants if args.include_archived or not p.removed_on]
@@ -82,16 +93,26 @@ class ListPlants(ToolBase):
             needle = args.query.strip().lower()
             selected = [p for p in selected if _matches(p, needle)]
 
+        page = selected[args.offset : args.offset + args.limit]
+        # True only when the tenant holds more records than we read — then the
+        # filter genuinely did not see everything and the caller must know.
+        truncated = total > _SCAN_LIMIT
+
         data = {
-            "count": len(selected),
+            "count": len(page),
+            "matched": len(selected),
             "total_in_tenant": total,
             "offset": args.offset,
-            "items": [_summarise(p) for p in selected],
+            "truncated": truncated,
+            "items": [_summarise(p) for p in page],
         }
         if args.query:
-            summary = f"{len(selected)} plants match '{args.query}'."
+            summary = f"{len(selected)} plants match '{args.query}'"
+            summary += f" ({len(page)} returned)." if len(page) != len(selected) else "."
         else:
-            summary = f"{len(selected)} plants returned (of {total} in this tenant)."
+            summary = f"{len(page)} plants returned (of {total} in this tenant)."
+        if truncated:
+            summary += f" Only the first {_SCAN_LIMIT} records were searched — narrow the query."
         return self._response(summary=summary, data=data, links=[ctx.api_link("/plants"), ctx.ui_link("/plants")])
 
 
@@ -149,17 +170,30 @@ class ListPlantsAtLocation(ToolBase):
 
             raise ValidationError("Pass at least one of site_key, location_key or slot_key.")
 
-        plants, _total = ctx.plant_service.list_plants(offset=0, limit=args.limit, tenant_key=ctx.tenant_key)
+        # Same reason as in list_plants: filter across the tenant's set, not within
+        # one page, or a bed's plants go missing depending on insertion order.
+        plants, total = ctx.plant_service.list_plants(offset=0, limit=_SCAN_LIMIT, tenant_key=ctx.tenant_key)
         selected = [
             p
             for p in plants
             if (args.include_archived or not p.removed_on)
             and all(getattr(p, field, None) == value for field, value in given.items())
         ]
+        page = selected[: args.limit]
+        truncated = total > _SCAN_LIMIT
         where = ", ".join(f"{field}={value}" for field, value in given.items())
+        summary = f"{len(selected)} plants at {where}."
+        if truncated:
+            summary += f" Only the first {_SCAN_LIMIT} records were searched."
         return self._response(
-            summary=f"{len(selected)} plants at {where}.",
-            data={"count": len(selected), "filter": given, "items": [_summarise(p) for p in selected]},
+            summary=summary,
+            data={
+                "count": len(page),
+                "matched": len(selected),
+                "truncated": truncated,
+                "filter": given,
+                "items": [_summarise(p) for p in page],
+            },
             links=[ctx.api_link("/plants"), ctx.ui_link("/plants")],
         )
 

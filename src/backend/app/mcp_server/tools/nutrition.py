@@ -24,6 +24,10 @@ from app.mcp_server.context import ToolContext
 
 _MAX_LIMIT = 100
 
+#: How many records are read before filtering. Filtering within a single page
+#: turns "not on this page" into "does not exist" — see plant_reads._SCAN_LIMIT.
+_SCAN_LIMIT = 500
+
 
 def _plan_summary(plan: Any) -> dict[str, Any]:
     return {
@@ -70,18 +74,31 @@ class ListNutrientPlans(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        # Read before filtering, not one page of it — see the note on _SCAN_LIMIT.
         plans, total = ctx.nutrient_plan_service.list_plans(
-            offset=args.offset,
-            limit=args.limit,
+            offset=0,
+            limit=_SCAN_LIMIT,
             tenant_key=ctx.tenant_key,
         )
         selected = list(plans)
         if args.query:
             needle = args.query.strip().lower()
             selected = [p for p in selected if needle in f"{p.name} {' '.join(p.tags or [])}".lower()]
+
+        page = selected[args.offset : args.offset + args.limit]
+        truncated = total > _SCAN_LIMIT
+        summary = f"{len(selected)} nutrient plans available (of {total})."
+        if truncated:
+            summary += f" Only the first {_SCAN_LIMIT} were searched."
         return self._response(
-            summary=f"{len(selected)} nutrient plans available (of {total}).",
-            data={"count": len(selected), "total": total, "items": [_plan_summary(p) for p in selected]},
+            summary=summary,
+            data={
+                "count": len(page),
+                "matched": len(selected),
+                "total": total,
+                "truncated": truncated,
+                "items": [_plan_summary(p) for p in page],
+            },
             links=[ctx.api_link("/nutrient-plans"), ctx.ui_link("/nutrient-plans")],
         )
 

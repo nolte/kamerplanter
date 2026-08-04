@@ -205,3 +205,48 @@ async def test_care_log_says_so_when_nothing_was_recorded():
     )
     assert resp.data["count"] == 0
     assert "No care recorded yet" in resp.summary
+
+
+# ── Filtering must span the whole set, not one page ───────────────────────────
+@pytest.mark.asyncio
+async def test_list_plants_finds_a_match_beyond_the_first_page():
+    # The regression: the tool used to read `limit` records and filter those, so a
+    # plant past the first page reported "0 match" — a wrong answer, not a short
+    # one, from the very tool a model uses to resolve a name into a plant_key.
+    plants = [_Plant(f"p{i}", f"Basilikum {i}") for i in range(120)]
+    plants.append(_Plant("p-tomato", "Tomate Nord"))
+    svc = _PlantService(plants)
+
+    tool = ListPlants()
+    resp = await tool.run(_ctx(plant_instance_service=svc), tool.Input(query="tomate", limit=50))
+
+    assert [i["plant_key"] for i in resp.data["items"]] == ["p-tomato"]
+    assert resp.data["matched"] == 1
+    assert resp.data["truncated"] is False
+
+
+@pytest.mark.asyncio
+async def test_list_plants_paginates_the_filtered_set():
+    plants = [_Plant(f"p{i}", f"Tomate {i}") for i in range(60)]
+    svc = _PlantService(plants)
+    tool = ListPlants()
+
+    first = await tool.run(_ctx(plant_instance_service=svc), tool.Input(query="tomate", limit=25))
+    second = await tool.run(_ctx(plant_instance_service=svc), tool.Input(query="tomate", limit=25, offset=25))
+
+    assert len(first.data["items"]) == 25
+    assert len(second.data["items"]) == 25
+    # Both pages report the full match count, and the pages do not overlap.
+    assert first.data["matched"] == second.data["matched"] == 60
+    assert not {i["plant_key"] for i in first.data["items"]} & {i["plant_key"] for i in second.data["items"]}
+
+
+@pytest.mark.asyncio
+async def test_list_plants_at_location_scans_beyond_the_page_limit():
+    plants = [_Plant(f"p{i}", f"Anderswo {i}", location="loc-other") for i in range(120)]
+    plants.append(_Plant("p-bed2", "Beet-2-Pflanze", location="loc-beet-2"))
+    svc = _PlantService(plants)
+
+    tool = ListPlantsAtLocation()
+    resp = await tool.run(_ctx(plant_instance_service=svc), tool.Input(location_key="loc-beet-2"))
+    assert [i["plant_key"] for i in resp.data["items"]] == ["p-bed2"]
