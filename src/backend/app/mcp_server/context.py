@@ -96,6 +96,14 @@ class ToolContext:
         return self._service("care_reminder_service")
 
     @property
+    def nutrient_plan_service(self) -> Any:
+        return self._service("nutrient_plan_service")
+
+    @property
+    def calendar_service(self) -> Any:
+        return self._service("calendar_service")
+
+    @property
     def mcp_audit_repo(self) -> Any:
         return self._service("mcp_audit_repo")
 

@@ -10,7 +10,8 @@ the ~30-tool inventory in §2):
 * read (mcp.read):  list_tenants, list_species, get_species_info,
   list_plants, get_plant, list_plants_at_location, get_plant_care_log,
   list_planting_runs, list_tasks, get_due_care_tasks, get_harvest_readiness,
-  get_mcp_activity
+  list_nutrient_plans, get_nutrient_plan, get_plant_nutrient_plan,
+  get_sowing_calendar, get_mcp_activity
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location
 * setup (mcp.setup): create_site
 
@@ -22,8 +23,10 @@ catalogue, ``get_mcp_activity``) read data that carries no tenant.
 from __future__ import annotations
 
 from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
+    calendar,
     care,
     harvest,
+    nutrition,
     plant_reads,
     plants,
     privacy,

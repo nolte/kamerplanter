@@ -197,6 +197,10 @@ Because the role applies per garden, the same key can write in your own garden a
 | `get_plant` | One plant in detail: species (with resolved name), phase, location, planting and removal dates |
 | `get_plant_care_log` | A plant's care history — with `reminder_type: "watering"` this is the watering log |
 | `list_plants_at_location` | All plants at a given site, bed or slot |
+| `list_nutrient_plans` | Available nutrient plans — your own plus global templates |
+| `get_nutrient_plan` | One plan with every phase: NPK ratio, target EC, nutrients, week window |
+| `get_plant_nutrient_plan` | The plan that applies to a specific plant |
+| `get_sowing_calendar` | Sowing, planting-out and harvest windows per species, shifted against your site's frost dates |
 | `list_species` | List the plant species catalog (paginated) |
 | `get_species_info` | Return master data for a species incl. companion-planting hints |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |

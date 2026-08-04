@@ -127,6 +127,10 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `get_plant_care_log` | Quittierte Pflegehistorie einer Pflanze (Giessprotokoll via `reminder_type=watering`) | `care_reminder_service.get_confirmation_history` |
 | `list_plants_at_location` | Alle Pflanzen an einem Standort/Beet/Slot | `plant_instance_service.list_plants` + Filter |
 | `get_plant_diagnostics` | Aggregierter Diagnose-Snapshot fuer eine Pflanze: Sensorwerte, EC/pH-Trend, IPM-Inspections, Karenz, juengste Tips | mehrere Endpoints, im Tool aggregiert |
+| `list_nutrient_plans` | Verfuegbare Naehrstoffplaene — eigene plus global geseedete Vorlagen (Hybrid-Katalog, REQ-004) | `nutrient_plan_service.list_plans` |
+| `get_nutrient_plan` | Ein Plan mit seinen Phasen-Eintraegen: NPK-Verhaeltnis, Ziel-EC, Sekundaernaehrstoffe, Wochenfenster | `nutrient_plan_service.get_plan` + `get_phase_entries` |
+| `get_plant_nutrient_plan` | Der einer Pflanze zugewiesene Plan samt Phasenzielen | `nutrient_plan_service.get_plant_plan` |
+| `get_sowing_calendar` | Aussaat-, Auspflanz- und Erntefenster je Art fuer ein Jahr, verschoben gegen die Frostdaten des Standorts (REQ-015) | `calendar_service.get_sowing_calendar` |
 | `search_plant_knowledge` | Volltext-/Vektor-Suche in Wissensbasis (RAG ueber `spec/knowledge/rag/`) | `POST /knowledge/search` (REQ-031) |
 | `get_species_info` | Stammdaten zu einer Species/Cultivar inkl. Companion Planting, Karenz-relevanter Treatments | `GET /species/{key}` |
 | `list_overdue_tasks` | Ueberfaellige Tasks (alle Sources: REQ-006, REQ-022) | `GET /t/{slug}/tasks?status=overdue` |
@@ -331,7 +335,7 @@ src/backend/tests/
 └── api/test_mcp_endpoints.py
 ```
 
-**Umsetzungsstand der Werkzeugpalette:** 16 der in §2 spezifizierten ~30 Werkzeuge sind registriert — `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity` (`mcp.read`), `confirm_care_task`, `archive_plant`, `set_plant_location` (`mcp.write`) und `create_site` (`mcp.setup`).
+**Umsetzungsstand der Werkzeugpalette:** 20 der in §2 spezifizierten ~30 Werkzeuge sind registriert — `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity` (`mcp.read`), `confirm_care_task`, `archive_plant`, `set_plant_location` (`mcp.write`) und `create_site` (`mcp.setup`).
 
 **Adressierbarkeit als Palettenregel:** Jedes Schreibwerkzeug verlangt einen `plant_key`. Solange kein Lesewerkzeug diesen Key liefert, ist das Schreibwerkzeug fuer die betroffene Pflanze unbenutzbar — ein Argument, das der Aufrufer nicht befuellen kann. Vor `list_plants`/`get_plant` erzeugten nur `get_due_care_tasks` (Pflanzen mit offener Pflege) und `get_harvest_readiness` (Keys ohne Namen) ueberhaupt einen `plant_key`. Neue Schreibwerkzeuge sind daher stets zusammen mit dem Lesewerkzeug zu planen, das ihre Referenzen aufloest.
 
@@ -545,6 +549,9 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 
 - **AC-23:** `list_plants(query="tomate")` liefert die passenden Pflanzen mitsamt `plant_key`, sodass ein LLM einen Pflanzennamen ohne Zwischenschritt in die Referenz aufloesen kann, die `confirm_care_task`, `set_plant_location` und `archive_plant` verlangen.
 - **AC-24:** `get_plant_care_log(plant_key, reminder_type="watering")` liefert das Giessprotokoll der Pflanze in absteigender Zeitfolge. Der Mandanten-Besitz wird zuvor an der Pflanze geprueft, da die Historie selbst keinen Mandanten fuehrt (SEC-001).
+
+- **AC-25:** `get_plant_nutrient_plan(plant_key)` liefert die Phasenziele (NPK, Ziel-EC, Wochenfenster) des der Pflanze zugewiesenen Plans. Der Mandanten-Besitz wird zuvor an der Pflanze geprueft, da die Zuweisung selbst keinen Mandanten fuehrt (SEC-001).
+- **AC-26:** `get_sowing_calendar` mit `site_key` prueft den Standort gegen den handelnden Mandanten, bevor dessen Frostdaten und Pflanzdurchlaeufe gelesen werden. Ohne `query` und oberhalb des Seitenlimits wird der Aufruf **abgelehnt** statt stillschweigend gekuerzt — ein gekuerzter Kalender liest sich wie ein vollstaendiger.
 
 ### 8.4 Schreibzugriffs-Sicherheit
 

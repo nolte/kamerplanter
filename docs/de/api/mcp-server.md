@@ -197,6 +197,10 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `get_plant` | Eine Pflanze im Detail: Art (mit aufgelöstem Namen), Phase, Standort, Pflanz- und Entfernungsdatum |
 | `get_plant_care_log` | Pflegehistorie einer Pflanze — mit `reminder_type: "watering"` das Gießprotokoll |
 | `list_plants_at_location` | Alle Pflanzen an einem Standort, Beet oder Slot |
+| `list_nutrient_plans` | Verfügbare Nährstoffpläne — eigene plus globale Vorlagen |
+| `get_nutrient_plan` | Ein Plan mit allen Phasen: NPK-Verhältnis, Ziel-EC, Nährstoffe, Wochenfenster |
+| `get_plant_nutrient_plan` | Der Plan, der für eine bestimmte Pflanze gilt |
+| `get_sowing_calendar` | Aussaat-, Auspflanz- und Erntefenster je Art, verschoben gegen die Frostdaten deines Standorts |
 | `list_species` | Pflanzenarten-Katalog auflisten (paginiert) |
 | `get_species_info` | Stammdaten zu einer Art inkl. Mischkultur-Hinweisen (Companion Planting) |
 | `list_planting_runs` | Pflanzdurchläufe des Mandanten auflisten, optional nach Status gefiltert |
