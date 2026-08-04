@@ -60,7 +60,7 @@ jobs:
         # Pinned to an exact version rather than the `@6` major: a floating
         # major means a new minor can add a rule and turn an unchanged document
         # red, so the same commit stops producing the same verdict.
-        run: npx --yes @stoplight/spectral-cli@6.16.2 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
+        run: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
 
       - name: Upload OpenAPI artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
