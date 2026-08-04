@@ -112,6 +112,30 @@ class ToolContext:
         return self._service("fertilizer_service")
 
     @property
+    def substrate_service(self) -> Any:
+        return self._service("substrate_service")
+
+    @property
+    def overwintering_service(self) -> Any:
+        return self._service("overwintering_profile_service")
+
+    @property
+    def starter_kit_service(self) -> Any:
+        return self._service("starter_kit_service")
+
+    @property
+    def phase_sequence_service(self) -> Any:
+        return self._service("phase_sequence_service")
+
+    @property
+    def hardiness_zone_service(self) -> Any:
+        return self._service("hardiness_zone_service")
+
+    @property
+    def glossary_service(self) -> Any:
+        return self._service("glossary_service")
+
+    @property
     def mcp_audit_repo(self) -> Any:
         return self._service("mcp_audit_repo")
 

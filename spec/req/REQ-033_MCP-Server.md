@@ -138,7 +138,14 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `list_fertilizers` | Verfuegbare Duenger inkl. EC-Beitrag je ml und Maximaldosis — liefert die `fertilizer_keys` des Rechners | `fertilizer_service.list_fertilizers` |
 | `calculate_mixing_protocol` | Duengerechner: Dosierung je Produkt fuer Zielvolumen und Ziel-EC ueber die EC-Budget-Pipeline (REQ-004-A), inkl. Mischreihenfolge | `EcBudgetCalculator` |
 | `search_plant_knowledge` | Volltext-/Vektor-Suche in Wissensbasis (RAG ueber `spec/knowledge/rag/`) | `POST /knowledge/search` (REQ-031) |
-| `get_species_info` | Stammdaten zu einer Species/Cultivar inkl. Companion Planting, Karenz-relevanter Treatments | `GET /species/{key}` |
+| `get_species_info` | **Vollstaendige** Stammdaten einer Art: Aussaat-/Ernte-/Bluetefenster, Winterhaerte, Frostempfindlichkeit, Naehrstoffbedarf, Toxizitaet, Anbaueigenschaften, Companion Planting und die zugehoerigen Sorten | `species_service.get_species` + `list_cultivars` + `get_compatible_species` |
+| `list_cultivars` / `get_cultivar` | Sorten einer Art: Zuechter, Merkmale, Saatgut-Typ, Tage bis zur Reife | `species_service.list_cultivars` / `get_cultivar` |
+| `list_substrates` | Substratkatalog (REQ-019) | `substrate_service.list_substrates` |
+| `list_overwintering_profiles` | Ueberwinterungsprofile: Schutzmethode, Lagerbedingungen, Zeitpunkte (REQ-047) | `overwintering_profile_service.list_profiles` |
+| `list_starter_kits` | Onboarding-Starter-Kits des Mandanten (REQ-020) | `starter_kit_service.list_kits_for_tenant` |
+| `list_phase_definitions` | Wachstumsphasen-Definitionen der Lifecycle-Engine (REQ-003) | `phase_sequence_service.list_definitions` |
+| `list_hardiness_zones` | Winterhaertezonen mit Temperaturbereichen | `hardiness_zone_service.list_zones` |
+| `search_glossary` | Fachbegriffe aus dem projekteigenen Glossar (VPD, EC, Karenz, …) | `glossary_service.list_terms` |
 | `list_overdue_tasks` | Ueberfaellige Tasks (alle Sources: REQ-006, REQ-022) | `GET /t/{slug}/tasks?status=overdue` |
 | `get_harvest_readiness` | Erntebereitschaftssignale aller aktiven Runs (Karenz, Indikatoren) | `GET /t/{slug}/harvest/readiness` |
 
@@ -341,7 +348,11 @@ src/backend/tests/
 └── api/test_mcp_endpoints.py
 ```
 
-**Umsetzungsstand der Werkzeugpalette:** 28 Werkzeuge sind registriert. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_inspections`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`. Setup (`mcp.setup`): `create_site`.
+**Umsetzungsstand der Werkzeugpalette:** 36 Werkzeuge sind registriert. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_inspections`, `list_cultivars`, `get_cultivar`, `list_substrates`, `list_overwintering_profiles`, `list_starter_kits`, `list_phase_definitions`, `list_hardiness_zones`, `search_glossary`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`. Setup (`mcp.setup`): `create_site`.
+
+**Geseedete Stammdaten pruefbar machen.** Rund 40 Collections werden aus `app/migrations/seed_data/*.yaml` befuellt; der groesste Anteil sind die 210 Pflanzen-Steckbriefe. `get_species_info` lieferte davon urspruenglich nur fuenf Felder — man konnte pruefen, *dass* eine Art existiert, praktisch nichts an ihrem Inhalt. Das Werkzeug gibt jetzt den vollstaendigen Stammdatensatz zurueck; leere Felder werden ausgelassen, damit ein duenn befuellter Datensatz auch duenn aussieht. `False` und `0` bleiben erhalten: auf diesem Katalog sind beide eine Aussage (`allows_harvest=False`), kein fehlender Wert.
+
+**Abgrenzung:** Diese Werkzeuge zeigen den **Zustand in der Datenbank**. Der Abgleich gegen die YAML-Quelle ist ein eigener Schritt und bleibt beim `seed-data-validator` — eine erfolgreiche Abfrage belegt „ist angekommen", nicht „stimmt mit der Seed-Datei ueberein".
 
 Der Schaedlings-, Krankheits- und Behandlungskatalog ist **global** — dieselben Daten fuer alle Mandanten, wie der Artenkatalog —, daher fuehren diese Werkzeuge kein `tenant`-Argument. Die Inspektionshistorie gehoert dagegen zu einer Pflanze und ist mandantengebunden.
 
@@ -564,6 +575,9 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **AC-27:** `get_pest(pest_key)` liefert die Gegenmassnahmen nach IPM-Hierarchie (Praevention vor Intervention) **und** die passenden Nuetzlinge in einer Antwort — biologische Alternativen sind damit ohne Folgeaufruf sichtbar.
 - **AC-28:** Jede Behandlungsauskunft nennt die Karenzzeit, und zwar auch in der `summary`: ein Modell, das nur die Zusammenfassung liest, darf die Ernte-Sperre nicht verpassen.
 - **AC-29:** `calculate_mixing_protocol` weist einen Duenger eines fremden Mandanten mit `not_found` ab, statt ihn in die Mischung aufzunehmen. Beruht eine Dosierung auf geschaetzten EC-Beitraegen (`ec_contribution_uncertain`), wird das in der `summary` gekennzeichnet — zusaetzlich zu einer etwaigen Ungueltigkeits-Warnung, nicht an deren Stelle.
+
+- **AC-30:** `get_species_info` liefert die geseedeten Stammdaten einer Art vollstaendig — Aussaat-/Ernte-/Bluetefenster, Winterhaerte, Frostempfindlichkeit, Naehrstoffbedarf, Toxizitaet und Sorten —, sodass geseedeter Inhalt ueber MCP inhaltlich pruefbar ist und nicht nur auf Existenz.
+- **AC-31:** Die uebrigen geseedeten Kataloge (Substrate, Ueberwinterungsprofile, Starter-Kits, Phasendefinitionen, Winterhaertezonen, Glossar) sind lesend erreichbar. Mandantengebunden sind dabei genau jene, die pro Mandant aufgeloest werden (Ueberwinterungsprofile, Starter-Kits); die uebrigen sind globale Referenzdaten ohne `tenant`-Argument.
 
 ### 8.4 Schreibzugriffs-Sicherheit
 

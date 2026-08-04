@@ -13,7 +13,9 @@ the ~30-tool inventory in §2):
   list_nutrient_plans, get_nutrient_plan, get_plant_nutrient_plan,
   get_sowing_calendar, list_fertilizers, calculate_mixing_protocol,
   list_pests, get_pest, list_diseases, get_disease, get_treatment,
-  get_plant_inspections, get_mcp_activity
+  get_plant_inspections, list_cultivars, get_cultivar, list_substrates,
+  list_overwintering_profiles, list_starter_kits, list_phase_definitions,
+  list_hardiness_zones, search_glossary, get_mcp_activity
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location
 * setup (mcp.setup): create_site
 
@@ -27,6 +29,7 @@ from __future__ import annotations
 from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
     calendar,
     care,
+    catalogs,
     harvest,
     ipm,
     nutrient_calc,

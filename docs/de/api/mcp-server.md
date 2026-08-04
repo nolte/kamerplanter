@@ -186,7 +186,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 ## Werkzeug-Katalog (aktueller Stand)
 
 !!! note "Teilweise verfügbar: Werkzeug-Umfang"
-    Die Spezifikation sieht rund 30 Werkzeuge vor (u. a. Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, IPM-Inspektionen, Ernte-Erfassung, Düngeereignisse und eine Brücke zur RAG-Wissensbasis). Umgesetzt ist bislang der folgende Kern-Werkzeugsatz — Erweiterung ist ein dokumentierter Folgeschritt.
+    Umgesetzt sind derzeit 36 Werkzeuge — sie decken das Lesen weitgehend ab. Beim **Schreiben** fehlt noch einiges, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, IPM-Inspektionen anlegen, Ernte- und Düngeereignisse erfassen sowie eine Brücke zur RAG-Wissensbasis. Erweiterung ist ein dokumentierter Folgeschritt.
 
 ### Lese-Werkzeuge (`mcp.read`)
 
@@ -207,8 +207,15 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `get_plant_inspections` | Die IPM-Inspektionen einer Pflanze: Befallsdruck, Funde, beobachtete Symptome |
 | `list_fertilizers` | Verfügbare Dünger mit EC-Beitrag und Maximaldosis |
 | `calculate_mixing_protocol` | Düngerechner: Dosierung je Produkt für dein Zielvolumen und deine Ziel-EC, in der richtigen Mischreihenfolge |
+| `list_cultivars` / `get_cultivar` | Sorten einer Art: Züchter, Merkmale, Saatgut-Typ, Tage bis zur Reife |
+| `list_substrates` | Substratkatalog: Medien und ihre Eigenschaften |
+| `list_overwintering_profiles` | Überwinterungsprofile: Schutzmethode, Lagerbedingungen, Zeitpunkte |
+| `list_starter_kits` | Starter-Kits für den Einstieg |
+| `list_phase_definitions` | Wachstumsphasen-Definitionen der Lebenszyklus-Logik |
+| `list_hardiness_zones` | Winterhärtezonen mit Temperaturbereichen |
+| `search_glossary` | Fachbegriffe aus dem Glossar nachschlagen (VPD, EC, Karenz …) |
 | `list_species` | Pflanzenarten-Katalog auflisten (paginiert) |
-| `get_species_info` | Stammdaten zu einer Art inkl. Mischkultur-Hinweisen (Companion Planting) |
+| `get_species_info` | **Vollständige** Stammdaten einer Art: Aussaat-, Blüte- und Erntefenster, Winterhärte, Frostempfindlichkeit, Nährstoffbedarf, Giftigkeit, Mischkultur-Hinweise und die zugehörigen Sorten |
 | `list_planting_runs` | Pflanzdurchläufe des Mandanten auflisten, optional nach Status gefiltert |
 | `list_tasks` | Aufgaben des Mandanten auflisten, optional nach Status gefiltert |
 | `get_due_care_tasks` | Heute fällige/überfällige Pflegeerinnerungen, gruppiert nach Dringlichkeit |

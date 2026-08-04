@@ -186,7 +186,7 @@ Because the role applies per garden, the same key can write in your own garden a
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    The specification envisions roughly 30 tools (including setup macros for apartment/growbox/outdoor garden, bulk plant creation, IPM inspections, harvest recording, feeding events and a bridge to the RAG knowledge base). The following core tool set is implemented so far — expansion is a documented follow-up.
+    36 tools are implemented, which covers reading fairly thoroughly. **Writing** is where the gaps are: setup macros for apartment/growbox/outdoor garden, bulk plant creation, recording IPM inspections, harvest and feeding events, plus a bridge to the RAG knowledge base. Expansion is a documented follow-up.
 
 ### Read tools (`mcp.read`)
 
@@ -207,8 +207,15 @@ Because the role applies per garden, the same key can write in your own garden a
 | `get_plant_inspections` | A plant's IPM inspections: pressure level, findings, observed symptoms |
 | `list_fertilizers` | Available fertilisers with EC contribution and maximum dose |
 | `calculate_mixing_protocol` | Fertiliser calculator: per-product doses for your target volume and EC, in the correct mixing order |
+| `list_cultivars` / `get_cultivar` | A species' cultivars: breeder, traits, seed type, days to maturity |
+| `list_substrates` | Substrate catalogue: media and their properties |
+| `list_overwintering_profiles` | Overwintering profiles: protection method, storage conditions, timing |
+| `list_starter_kits` | Starter kits for getting going |
+| `list_phase_definitions` | Growth-phase definitions behind the lifecycle logic |
+| `list_hardiness_zones` | Hardiness zones with their temperature ranges |
+| `search_glossary` | Look up domain terms from the glossary (VPD, EC, safety interval …) |
 | `list_species` | List the plant species catalog (paginated) |
-| `get_species_info` | Return master data for a species incl. companion-planting hints |
+| `get_species_info` | **Full** master data for one species: sowing, bloom and harvest windows, hardiness, frost sensitivity, nutrient demand, toxicity, companion-planting hints and its cultivars |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |
 | `list_tasks` | List the tenant's tasks, optionally filtered by status |
 | `get_due_care_tasks` | Today's / overdue care reminders, grouped by urgency |
