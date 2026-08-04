@@ -102,7 +102,7 @@ class ListPests(ToolBase):
             + (f" match '{args.query}'" if args.query else f" of {total} in the catalogue")
             + ".",
             data={"count": len(page), "matched": len(selected), "items": [_pest_summary(p) for p in page]},
-            links=[ctx.api_link("/ipm/pests")],
+            links=[ctx.global_link("/ipm/pests")],
         )
 
 
@@ -147,7 +147,7 @@ class GetPest(ToolBase):
             summary=f"{name} ({pest.scientific_name}): {len(data['treatments'])} counter-measures, "
             f"{n_ben} natural enemies.",
             data=data,
-            links=[ctx.api_link(f"/ipm/pests/{pest.key}")],
+            links=[ctx.global_link(f"/ipm/pests/{pest.key}")],
         )
 
 
@@ -173,7 +173,7 @@ class ListDiseases(ToolBase):
             + (f" match '{args.query}'" if args.query else f" of {total} in the catalogue")
             + ".",
             data={"count": len(page), "matched": len(selected), "items": [_disease_summary(d) for d in page]},
-            links=[ctx.api_link("/ipm/diseases")],
+            links=[ctx.global_link("/ipm/diseases")],
         )
 
 
@@ -191,7 +191,7 @@ class GetDisease(ToolBase):
         return self._response(
             summary=f"{disease.common_name} ({disease.scientific_name}), pathogen: {disease.pathogen_type}.",
             data=data,
-            links=[ctx.api_link(f"/ipm/diseases/{disease.key}")],
+            links=[ctx.global_link(f"/ipm/diseases/{disease.key}")],
         )
 
 
@@ -220,7 +220,7 @@ class GetTreatment(ToolBase):
         return self._response(
             summary=f"{data['name']} ({treatment.treatment_type})." + note,
             data=data,
-            links=[ctx.api_link(f"/ipm/treatments/{treatment.key}")],
+            links=[ctx.global_link(f"/ipm/treatments/{treatment.key}")],
         )
 
 

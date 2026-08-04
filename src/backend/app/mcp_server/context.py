@@ -140,6 +140,17 @@ class ToolContext:
         return self._service("mcp_audit_repo")
 
     # ── deep-link helpers (§2.6) ─────────────────────────────────────────
+    def global_link(self, path: str) -> dict[str, str]:
+        """A link to tenant-independent data (the species, IPM and glossary catalogues).
+
+        Tenant-agnostic tools have no membership bound, so they cannot use
+        :meth:`api_link` — it would raise. Reaching for the wrong helper is easy
+        to do and the failure only appears on the real dispatch path, so
+        ``test_no_global_tool_uses_a_tenant_bound_link`` guards the choice.
+        """
+
+        return {"type": "api", "url": f"/api/v1{path}"}
+
     def ui_link(self, path: str) -> dict[str, str]:
         return {"type": "ui", "url": f"/t/{self.tenant_slug}{path}"}
 

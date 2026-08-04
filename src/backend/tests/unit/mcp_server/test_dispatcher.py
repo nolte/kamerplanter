@@ -324,3 +324,29 @@ def test_destructive_tool_requires_setup_permission():
 
             async def execute(self, ctx, args):  # pragma: no cover - never registered
                 return McpToolResponse(summary="destroyed")
+
+
+def test_no_global_tool_uses_a_tenant_bound_link():
+    """A tenant-agnostic tool must not reach for ctx.api_link / ctx.ui_link.
+
+    Those helpers resolve through the bound membership, which the dispatcher
+    leaves as None for a global tool — so the call raises RuntimeError and the
+    tool dies on the real dispatch path while unit tests that build a
+    ToolContext with a membership by hand keep passing. Five IPM tools shipped
+    exactly that way; this check is the cheap guard against a repeat.
+    """
+
+    import inspect
+
+    from app.mcp_server.registry import load_tools
+
+    offenders = []
+    for name in load_tools().names():
+        tool = load_tools().get(name)
+        if tool.tenant_scoped:  # type: ignore[attr-defined]
+            continue
+        source = inspect.getsource(type(tool))
+        if "ctx.api_link" in source or "ctx.ui_link" in source:
+            offenders.append(name)
+
+    assert not offenders, f"Global tools using a tenant-bound link helper (use ctx.global_link): {offenders}"
