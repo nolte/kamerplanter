@@ -201,6 +201,12 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `get_nutrient_plan` | Ein Plan mit allen Phasen: NPK-Verhältnis, Ziel-EC, Nährstoffe, Wochenfenster |
 | `get_plant_nutrient_plan` | Der Plan, der für eine bestimmte Pflanze gilt |
 | `get_sowing_calendar` | Aussaat-, Auspflanz- und Erntefenster je Art, verschoben gegen die Frostdaten deines Standorts |
+| `list_pests` / `get_pest` | Schädlinge suchen — auch nach Schadbild. Das Detail zeigt Gegenmaßnahmen (sanfteste zuerst) **und passende Nützlinge** |
+| `list_diseases` / `get_disease` | Krankheiten: Erreger, Inkubationszeit, auslösende Bedingungen, betroffene Pflanzenteile |
+| `get_treatment` | Eine Behandlung im Detail — mit **Karenzzeit** vor der Ernte, Schutzausrüstung und Anwendung |
+| `get_plant_inspections` | Die IPM-Inspektionen einer Pflanze: Befallsdruck, Funde, beobachtete Symptome |
+| `list_fertilizers` | Verfügbare Dünger mit EC-Beitrag und Maximaldosis |
+| `calculate_mixing_protocol` | Düngerechner: Dosierung je Produkt für dein Zielvolumen und deine Ziel-EC, in der richtigen Mischreihenfolge |
 | `list_species` | Pflanzenarten-Katalog auflisten (paginiert) |
 | `get_species_info` | Stammdaten zu einer Art inkl. Mischkultur-Hinweisen (Companion Planting) |
 | `list_planting_runs` | Pflanzdurchläufe des Mandanten auflisten, optional nach Status gefiltert |

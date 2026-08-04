@@ -201,6 +201,12 @@ Because the role applies per garden, the same key can write in your own garden a
 | `get_nutrient_plan` | One plan with every phase: NPK ratio, target EC, nutrients, week window |
 | `get_plant_nutrient_plan` | The plan that applies to a specific plant |
 | `get_sowing_calendar` | Sowing, planting-out and harvest windows per species, shifted against your site's frost dates |
+| `list_pests` / `get_pest` | Search pests — by damage symptom too. The detail view shows counter-measures (gentlest first) **and matching beneficial insects** |
+| `list_diseases` / `get_disease` | Diseases: pathogen, incubation period, triggering conditions, affected plant parts |
+| `get_treatment` | One treatment in detail — with the **safety interval** before harvest, protective equipment and application |
+| `get_plant_inspections` | A plant's IPM inspections: pressure level, findings, observed symptoms |
+| `list_fertilizers` | Available fertilisers with EC contribution and maximum dose |
+| `calculate_mixing_protocol` | Fertiliser calculator: per-product doses for your target volume and EC, in the correct mixing order |
 | `list_species` | List the plant species catalog (paginated) |
 | `get_species_info` | Return master data for a species incl. companion-planting hints |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |

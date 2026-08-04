@@ -104,6 +104,14 @@ class ToolContext:
         return self._service("calendar_service")
 
     @property
+    def ipm_service(self) -> Any:
+        return self._service("ipm_service")
+
+    @property
+    def fertilizer_service(self) -> Any:
+        return self._service("fertilizer_service")
+
+    @property
     def mcp_audit_repo(self) -> Any:
         return self._service("mcp_audit_repo")
 

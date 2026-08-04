@@ -131,6 +131,12 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `get_nutrient_plan` | Ein Plan mit seinen Phasen-Eintraegen: NPK-Verhaeltnis, Ziel-EC, Sekundaernaehrstoffe, Wochenfenster | `nutrient_plan_service.get_plan` + `get_phase_entries` |
 | `get_plant_nutrient_plan` | Der einer Pflanze zugewiesene Plan samt Phasenzielen | `nutrient_plan_service.get_plant_plan` |
 | `get_sowing_calendar` | Aussaat-, Auspflanz- und Erntefenster je Art fuer ein Jahr, verschoben gegen die Frostdaten des Standorts (REQ-015) | `calendar_service.get_sowing_calendar` |
+| `list_pests` / `get_pest` | Schaedlingskatalog mit Filter ueber Namen **und Schadbild**; das Detail liefert Gegenmassnahmen nach IPM-Hierarchie plus die passenden **Nuetzlinge** (REQ-010) | `ipm_service.list_pests` / `get_pest_detail` |
+| `list_diseases` / `get_disease` | Krankheitskatalog: Erreger, Inkubationszeit, ausloesende Bedingungen, betroffene Pflanzenteile | `ipm_service.list_diseases` / `get_disease` |
+| `get_treatment` | Behandlung im Detail — inkl. **Karenzzeit** (`safety_interval_days`), Schutzausruestung und Anwendung | `ipm_service.get_treatment` |
+| `get_plant_inspections` | IPM-Inspektionshistorie einer Pflanze: Befallsdruck, Funde, Symptome | `ipm_service.get_inspections` |
+| `list_fertilizers` | Verfuegbare Duenger inkl. EC-Beitrag je ml und Maximaldosis — liefert die `fertilizer_keys` des Rechners | `fertilizer_service.list_fertilizers` |
+| `calculate_mixing_protocol` | Duengerechner: Dosierung je Produkt fuer Zielvolumen und Ziel-EC ueber die EC-Budget-Pipeline (REQ-004-A), inkl. Mischreihenfolge | `EcBudgetCalculator` |
 | `search_plant_knowledge` | Volltext-/Vektor-Suche in Wissensbasis (RAG ueber `spec/knowledge/rag/`) | `POST /knowledge/search` (REQ-031) |
 | `get_species_info` | Stammdaten zu einer Species/Cultivar inkl. Companion Planting, Karenz-relevanter Treatments | `GET /species/{key}` |
 | `list_overdue_tasks` | Ueberfaellige Tasks (alle Sources: REQ-006, REQ-022) | `GET /t/{slug}/tasks?status=overdue` |
@@ -335,7 +341,9 @@ src/backend/tests/
 └── api/test_mcp_endpoints.py
 ```
 
-**Umsetzungsstand der Werkzeugpalette:** 20 der in §2 spezifizierten ~30 Werkzeuge sind registriert — `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity` (`mcp.read`), `confirm_care_task`, `archive_plant`, `set_plant_location` (`mcp.write`) und `create_site` (`mcp.setup`).
+**Umsetzungsstand der Werkzeugpalette:** 28 Werkzeuge sind registriert. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_inspections`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`. Setup (`mcp.setup`): `create_site`.
+
+Der Schaedlings-, Krankheits- und Behandlungskatalog ist **global** — dieselben Daten fuer alle Mandanten, wie der Artenkatalog —, daher fuehren diese Werkzeuge kein `tenant`-Argument. Die Inspektionshistorie gehoert dagegen zu einer Pflanze und ist mandantengebunden.
 
 **Adressierbarkeit als Palettenregel:** Jedes Schreibwerkzeug verlangt einen `plant_key`. Solange kein Lesewerkzeug diesen Key liefert, ist das Schreibwerkzeug fuer die betroffene Pflanze unbenutzbar — ein Argument, das der Aufrufer nicht befuellen kann. Vor `list_plants`/`get_plant` erzeugten nur `get_due_care_tasks` (Pflanzen mit offener Pflege) und `get_harvest_readiness` (Keys ohne Namen) ueberhaupt einen `plant_key`. Neue Schreibwerkzeuge sind daher stets zusammen mit dem Lesewerkzeug zu planen, das ihre Referenzen aufloest.
 
@@ -552,6 +560,10 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 
 - **AC-25:** `get_plant_nutrient_plan(plant_key)` liefert die Phasenziele (NPK, Ziel-EC, Wochenfenster) des der Pflanze zugewiesenen Plans. Der Mandanten-Besitz wird zuvor an der Pflanze geprueft, da die Zuweisung selbst keinen Mandanten fuehrt (SEC-001).
 - **AC-26:** `get_sowing_calendar` mit `site_key` prueft den Standort gegen den handelnden Mandanten, bevor dessen Frostdaten und Pflanzdurchlaeufe gelesen werden. Ohne `query` und oberhalb des Seitenlimits wird der Aufruf **abgelehnt** statt stillschweigend gekuerzt — ein gekuerzter Kalender liest sich wie ein vollstaendiger.
+
+- **AC-27:** `get_pest(pest_key)` liefert die Gegenmassnahmen nach IPM-Hierarchie (Praevention vor Intervention) **und** die passenden Nuetzlinge in einer Antwort — biologische Alternativen sind damit ohne Folgeaufruf sichtbar.
+- **AC-28:** Jede Behandlungsauskunft nennt die Karenzzeit, und zwar auch in der `summary`: ein Modell, das nur die Zusammenfassung liest, darf die Ernte-Sperre nicht verpassen.
+- **AC-29:** `calculate_mixing_protocol` weist einen Duenger eines fremden Mandanten mit `not_found` ab, statt ihn in die Mischung aufzunehmen. Beruht eine Dosierung auf geschaetzten EC-Beitraegen (`ec_contribution_uncertain`), wird das in der `summary` gekennzeichnet — zusaetzlich zu einer etwaigen Ungueltigkeits-Warnung, nicht an deren Stelle.
 
 ### 8.4 Schreibzugriffs-Sicherheit
 
