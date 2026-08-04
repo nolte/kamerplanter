@@ -162,7 +162,7 @@ jobs:
     # Gate the draft -> published flip on the asset being in place; see the
     # comment block on openapi-asset above.
     needs: openapi-asset
-    uses: nolte/gh-plumbing/.github/workflows/reusable-release-publish.yml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
+    uses: nolte/gh-plumbing/.github/workflows/reusable-release-publish.yml@d51e51ec3ec17ceea09fe9eb40ac00857b6fa1be # v2.0.0
     with:
       tag: ${{ inputs.tag }}
       dry_run: ${{ inputs.dry_run }}
