@@ -6,8 +6,8 @@ Titel: Model Context Protocol (MCP) Server fuer Kamerplanter
 Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
-Status: Entwurf
-Version: 1.1
+Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, HTTP-Transport und 12 Werkzeuge; Rest des Werkzeugkatalogs und stdio-Transport offen, siehe §4.1 und §9)
+Version: 1.2
 Abhaengigkeit: REQ-001 v5.0 (Stammdaten), REQ-002 v4.2 (Standortverwaltung), REQ-006 v2.7 (Aufgabenplanung), REQ-013 v2.0 (Pflanzdurchlauf), REQ-014 v1.4 (Tankmanagement), REQ-019 (Substratverwaltung), REQ-020 v1.1 (Onboarding), REQ-022 v2.4 (Pflegeerinnerungen), REQ-010 v1.0 (IPM), REQ-007 v1.0 (Erntemanagement), REQ-023 v1.7 (Service Accounts), REQ-024 v1.4 (RBAC Permission-Matrix), REQ-025 v1.0 (DSGVO), REQ-031 v1.0 (KI-Assistent / RAG)
 ```
 
@@ -32,12 +32,13 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 **Grundprinzipien:**
 
 - **Semantische Tools statt REST-Mirror:** Tools wie `get_due_care_tasks(tenant)`, `apply_starter_kit(...)`, `diagnose_plant(plant_key)` — nicht 200 CRUD-Endpoints. Jedes Tool kapselt einen kompletten Use-Case und gibt LLM-freundliches, kompaktes JSON zurueck.
-- **Permission-gebunden ueber Service Accounts (REQ-023 v1.7):** Authentifizierung ausschliesslich per API-Key eines Service Accounts. Permission-Matrix (REQ-024 v1.4) entscheidet pro Tool-Aufruf, ob der Account Lese- oder Schreibrechte hat.
-- **Tenant-isoliert:** Jeder MCP-Client ist an genau einen Tenant gebunden. Cross-Tenant-Lookups sind unmoeglich.
+- **Permission-gebunden ueber API-Keys (REQ-023):** Authentifizierung ausschliesslich per `kp_`-API-Key — nie per JWT und nie per interaktiver Session. Der Key kann einem **persoenlichen Konto** oder einem **Service Account** gehoeren. Die Permission-Matrix (REQ-024) entscheidet pro Tool-Aufruf, ob Lese-, Schreib- oder Setup-Rechte bestehen.
+- **Ein Nutzer sieht ausschliesslich seine eigenen Daten:** Ein persoenlicher Key gewaehrt genau die Mandanten, in denen sein Besitzer aktives Mitglied ist — aufgeloest ueber dieselbe Quelle (`TenantService.list_my_tenants`), auf die auch die REST-API scoped. Ueber MCP ist damit nichts erreichbar, was der Nutzer nicht auch in der Weboberflaeche sieht.
+- **Tenant-isoliert, Mandant pro Aufruf:** Ein Key kann mehrere Mandanten umfassen (eigener Garten + Gemeinschaftsgarten). Welcher Mandant gilt, entscheidet das Argument `tenant` pro Tool-Aufruf; der Dispatcher loest es gegen die Mitgliedschaften auf, **bevor** eine Rechtepruefung stattfindet — denn die Rolle ist je Mandant verschieden. Ein fremder Mandant liefert `not_found`, nie `permission.denied`, damit die Schnittstelle keine fremden Mandanten preisgibt.
 - **Local-First & optional:** Der Server ist eine eigenstaendige optionale Komponente. Ohne MCP-Server funktioniert Kamerplanter unveraendert.
 - **RAG-Bruecke zu REQ-031:** Tool `search_plant_knowledge(query)` ruft die bestehende RAG-Infrastruktur auf — kein paralleles Wissenssystem.
-- **Read-Heavy by Default:** Schreibtools (Task-Quittierung, Diary-Eintrag) sind explizit gekennzeichnet und unterliegen pro Service Account einer separaten `mcp.write`-Permission.
-- **DSGVO-konform (REQ-025):** Audit-Log jedes Tool-Aufrufs mit Service-Account-Key, Tenant, Tool-Name, Input-Hash, Output-Size. Keine PII im Log.
+- **Read-Heavy by Default:** Schreibtools (Task-Quittierung, Diary-Eintrag) sind explizit gekennzeichnet und verlangen `mcp.write` — abgeleitet aus der Rolle im handelnden Mandanten (§4.4).
+- **DSGVO-konform (REQ-025):** Audit-Log jedes Tool-Aufrufs mit Konto-Key, handelndem Mandanten, Tool-Name, Input-Hash, Output-Size. Keine PII im Log.
 - **Streaming-faehig:** Lange Operationen (z. B. `generate_growing_report`) liefern via MCP-Notifications inkrementelle Fortschrittsupdates.
 
 ### 1.1 Abgrenzung zu benachbarten REQs
@@ -47,7 +48,7 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 | **REQ-031 (KI-Assistent)** | Komplementaer. REQ-031 ist die *interne* RAG-/Chat-Funktion, in Kamerplanter eingebaut, fuer App-Nutzer. REQ-033 ist die *externe* Schnittstelle, ueber die fremde LLM-Clients Kamerplanter als Tool benutzen. Gemeinsame RAG-Wissensbasis (`spec/knowledge/rag/`). |
 | **REQ-030 (Notifications)** | Komplementaer. REQ-030 *pusht* Erinnerungen aus Kamerplanter heraus (HA, E-Mail, Apprise). REQ-033 erlaubt es einem LLM, *aktiv* den Pflege-Stand abzufragen. |
 | **REQ-016 (InvenTree)** | Aehnliches Muster: optionale externe Integration. MCP-Server ist nicht InvenTree-spezifisch, sondern protokoll-getrieben. |
-| **REQ-023 (Service Accounts)** | Hartes Prerequisite. MCP-Server akzeptiert ausschliesslich Service-Account-API-Keys. |
+| **REQ-023 (API-Keys & Service Accounts)** | Hartes Prerequisite. MCP-Server akzeptiert ausschliesslich `kp_`-API-Keys — persoenliche wie Service-Account-Keys —, nie JWT oder interaktive Sessions. |
 | **REQ-024 (Permission-Matrix)** | Jeder Tool-Aufruf wird ueber `require_permission()` geroutet. |
 
 ### 1.2 Architekturueberblick
@@ -59,49 +60,52 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 |   Claude Code, custom)    |
 +-------------+-------------+
               |
-              |  MCP Protocol (stdio | HTTP+SSE)
+              |  MCP Protocol (HTTP + SSE, JSON-RPC 2.0)
               v
-+---------------------------+
-|  Kamerplanter MCP Server  |       eigenstaendiger Prozess /
-|  src/mcp-server/          |       eigener Helm-Chart
-|                           |
-|  +---------------------+  |
-|  | Tool Registry       |  |
-|  +----------+----------+  |
-|             v             |
-|  +---------------------+  |
-|  | AuthInterceptor     |  |  <-- Service-Account-API-Key
-|  | (REQ-023)           |  |
-|  +----------+----------+  |
-|             v             |
-|  +---------------------+  |
-|  | PermissionGuard     |  |  <-- Permission-Matrix (REQ-024)
-|  | (REQ-024)           |  |
-|  +----------+----------+  |
-|             v             |
-|  +---------------------+  |
-|  | Tool-Handler        |  |
-|  +----------+----------+  |
-+-------------|-------------+
-              |
-              |  internes Backend-API (HTTP, Service-Account-Token)
-              v
-+---------------------------+
-|  Kamerplanter Backend     |
-|  (FastAPI, ArangoDB, RAG) |
-+---------------------------+
++---------------------------------------------+
+|  Kamerplanter Backend (FastAPI)              |
+|                                              |
+|  +----------------------------------------+  |
+|  | api/v1/mcp/  Transport + Enabled-Gate  |  |
+|  +-------------------+--------------------+  |
+|                      v                       |
+|  +----------------------------------------+  |
+|  | McpAuthenticator                       |  |  <-- API-Key (persoenlich | Service)
+|  | (REQ-023: Key, IP-Allowlist, Ratelimit)|  |
+|  +-------------------+--------------------+  |
+|                      v                       |
+|  +----------------------------------------+  |
+|  | ToolDispatcher                         |  |
+|  |  Permission-Bindung (REQ-024)          |  |
+|  |  Dry-Run / Idempotency / Audit         |  |
+|  +-------------------+--------------------+  |
+|                      v                       |
+|  +----------------------------------------+  |
+|  | Tool-Handler (Registry)                |  |
+|  +-------------------+--------------------+  |
+|                      |  direkter Aufruf      |
+|                      v                       |
+|  +----------------------------------------+  |
+|  | Domain-Services / Repositories         |  |
+|  | (dieselben wie hinter der REST-API)    |  |
+|  +----------------------------------------+  |
++----------------------+-----------------------+
+                       v
+            ArangoDB / Valkey / RAG
 ```
 
-**Deployment-Modi:**
+**Transport-Modi:**
 
-| Modus | Transport | Use-Case |
-|-------|-----------|----------|
-| **stdio** | stdin/stdout | Lokal ueber Claude Desktop / Claude Code config — Server wird vom Client gestartet |
-| **HTTP+SSE** | HTTPS | Self-Hosted-Deployments — Server laeuft als eigener Pod, Clients verbinden via URL |
+| Modus | Transport | Use-Case | Stand |
+|-------|-----------|----------|-------|
+| **HTTP+SSE** | HTTPS | Self-Hosted-Deployments — Clients verbinden sich mit der Backend-URL (`/api/v1/mcp/rpc`, SSE-Handshake unter `/api/v1/mcp/sse`) | umgesetzt |
+| **stdio** | stdin/stdout | Lokal ueber Claude-Desktop-/Claude-Code-Konfiguration — Prozess wird vom Client gestartet | **nicht umgesetzt**; vorgesehen als schlanker Bridge-Client beim Nutzer, der stdio auf `/mcp/rpc` durchreicht (§9) |
 
 ## 2. Tool-Inventar (Cut 1.0)
 
 Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den haeufigsten LLM-Use-Cases mit Schwerpunkt **Onboarding (Wohnung/Garten einrichten)**, **Bestandsaufnahme (Pflanzen erfassen)** und **Tagesbetrieb (Pflege, Diagnose)**. Erweiterung erfolgt nach Nutzungsmessung.
+
+**Mandanten-Parameter:** Jedes Tool, das nutzereigene Daten beruehrt, akzeptiert `tenant` (Slug des handelnden Mandanten). Bei genau einer Mitgliedschaft darf es entfallen, bei mehreren ist es Pflicht — der Server waehlt nie selbst einen aus. Tools auf globalen Katalogdaten (`list_species`, `get_species_info`) und auf kontobezogenen Daten (`list_tenants`, `get_mcp_activity`) fuehren den Parameter nicht. Die Aufloesung passiert zentral im Dispatcher, nicht im Tool (§4.3).
 
 **Schreibzugriffs-Philosophie:** Schreibtools folgen vier festen Mustern, damit ein LLM sie sicher und idempotent verwenden kann:
 
@@ -114,7 +118,7 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 
 | Tool | Zweck | Backend-Endpoints (intern) |
 |------|-------|---------------------------|
-| `list_tenants` | Liste der Tenants des Service Accounts (typischerweise 1) | `GET /tenants/me` |
+| `list_tenants` | Die Mandanten, in denen der Key handeln darf, samt Rolle je Mandant — liefert die Slugs fuer den `tenant`-Parameter | aus dem `McpPrincipal` (keine eigene Abfrage) |
 | `get_due_care_tasks` | Heute / die naechsten N Tage faellige Pflegeaufgaben, gruppiert nach Dringlichkeit | `GET /t/{slug}/care/dashboard` |
 | `list_planting_runs` | Aktive Pflanzdurchlaeufe inkl. Phase, Standort, Dauer | `GET /t/{slug}/planting-runs?status=active` |
 | `get_planting_run` | Detaildaten zu einem Run: Phase, naechste Tasks, juengste Sensor-/Care-Events, Karenz-Status | `GET /t/{slug}/planting-runs/{key}` (+ Aggregation) |
@@ -139,7 +143,9 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 
 ### 2.3 Write-Tools — Setup & Stammdaten (Permission `mcp.setup`)
 
-Die `mcp.setup`-Permission ist getrennt von `mcp.write`, damit ein "Diary-Bot" nicht versehentlich Standorte loescht. Tenant-Admins koennen einem Service Account `mcp.setup` gezielt zuweisen — typischerweise einmalig waehrend des Onboardings, danach widerrufen.
+Die `mcp.setup`-Permission ist getrennt von `mcp.write`, damit ein "Diary-Bot" nicht versehentlich Standorte loescht.
+
+> **Abweichung Ist-Zustand:** Die hier beschriebene gezielte Einzelvergabe ("Tenant-Admin gibt einem Account `mcp.setup` einmalig fuers Onboarding und widerruft danach") ist **nicht** umgesetzt. `mcp.setup` haengt an der Rolle `admin` im jeweiligen Mandanten (§4.4); ein temporaeres Anheben und Zuruecknehmen ginge heute nur ueber einen Rollenwechsel. Siehe §9.
 
 | Tool | Zweck | Backend-Endpoints (intern) |
 |------|-------|---------------------------|
@@ -239,7 +245,7 @@ Jedes Tool liefert kompaktes, LLM-freundliches JSON mit drei Pflicht-Wrappern:
 }
 ```
 
-`summary` ist eine 1-Satz-Zusammenfassung fuer das LLM, `data` das strukturierte Ergebnis, `links` zeigen dem Endnutzer, wo er Details findet.
+`summary` ist eine 1-Satz-Zusammenfassung fuer das LLM, `data` das strukturierte Ergebnis, `links` zeigen dem Endnutzer, wo er Details findet. Die `links` eines mandantenbezogenen Tools tragen den Slug des **aufgeloesten** Mandanten (`/t/{slug}/...`), nie den rohen Argumentwert.
 
 Schreibtools liefern zusaetzlich:
 
@@ -274,7 +280,7 @@ mcp_audit_log  (doc collection)
 +-- created_at             # ISO8601
 
 mcp_idempotency_record  (doc collection, TTL 24h)
-+-- _key                   # idempotency_key (Service-Account-scoped)
++-- _key                   # idempotency_key (auf Konto + Mandant + Tool gescoped)
 +-- service_account_key
 +-- tool_name
 +-- input_hash
@@ -287,94 +293,96 @@ Audit-Retention 90 Tage (NFR-011), Idempotency-Retention 24 h, beides via TTL bz
 
 ## 4. Technische Umsetzung
 
-### 4.1 Code-Layout
+### 4.1 Code-Layout (Ist-Zustand)
+
+Der MCP-Server ist **kein eigenstaendiger Prozess**, sondern eine In-Prozess-Aggregationsschicht im Backend. Ein frueherer Entwurf dieser Spezifikation sah `src/mcp-server/` als eigene Komponente vor, die das Backend ueber HTTP anspricht. Umgesetzt wurde die In-Prozess-Variante, weil die Werkzeuge damit die Domain-Services direkt aufrufen und Mandanten-Isolation, Validierung und Permission-Invarianten **erben**, statt sie hinter einer zweiten HTTP-Grenze nachzubauen — und weil die Aggregat- und Makro-Werkzeuge (§2.3, §4.2.1) sonst eine Batterie zusaetzlicher REST-Endpoints erzwingen wuerden, die sonst niemand braucht. Die Bedingungen fuer einen spaeteren Split stehen in §9.
 
 ```
-src/mcp-server/
-├── pyproject.toml
-├── app/
-│   ├── main.py                  # Entry-Point (stdio | HTTP+SSE)
-│   ├── config.py                # Pydantic-Settings (Backend-URL, API-Key)
-│   ├── auth/
-│   │   ├── service_account.py   # API-Key -> User/Tenant-Resolution
-│   │   └── permission_guard.py  # require_permission() Wrapper
-│   ├── tools/
-│   │   ├── _base.py             # ToolBase + Antwort-Wrapper + DryRun + Idempotency
-│   │   ├── care.py              # get_due_care_tasks, confirm_care_task
-│   │   ├── runs.py              # list_planting_runs, create_planting_run, transition
-│   │   ├── plants.py            # create_plant(s)_bulk, move_plant, archive_plant, diagnostics, diary
-│   │   ├── species.py           # find_or_create_species, get_species_info
-│   │   ├── ipm.py               # create_inspection, apply_treatment
-│   │   ├── harvest.py           # get_harvest_readiness, record_harvest
-│   │   ├── feeding.py           # record_feeding_event
-│   │   ├── knowledge.py         # search_plant_knowledge
-│   │   ├── tenants.py           # list_tenants
-│   │   ├── setup.py             # setup_apartment, setup_growbox, setup_outdoor_garden
-│   │   ├── sites.py             # create_site, update_site, list_sites
-│   │   ├── locations.py         # create/update/delete_location, bulk
-│   │   ├── substrates.py        # create_substrate_batch
-│   │   ├── tanks.py             # create_tank
-│   │   └── onboarding.py        # apply_starter_kit, list_starter_kits
-│   ├── backend_client.py        # httpx AsyncClient gegen Backend-API
-│   ├── audit.py                 # MCPAuditLogger (writes mcp_audit_log)
-│   ├── idempotency.py           # IdempotencyStore (ArangoDB-backed)
-│   └── server.py                # MCP-Protokoll-Handler (Anthropic SDK)
-└── tests/
-    ├── unit/
-    └── integration/             # gegen Test-Backend
+src/backend/app/
+├── mcp_server/
+│   ├── server.py            # In-Prozess-Facade ueber die Registry
+│   ├── registry.py          # ToolRegistry (Prozess-Singleton) + load_tools()
+│   ├── base.py              # ToolBase/WriteToolBase + @mcp_tool (Fail-Fast-Invarianten)
+│   ├── dispatcher.py        # Permission -> Validierung -> Dry-Run/Idempotency -> Audit
+│   ├── context.py           # ToolContext: Principal + Lazy-Zugriff auf Domain-Services
+│   ├── auth.py              # McpAuthenticator (API-Key -> Principal, IP-Allowlist, Rate-Limit)
+│   ├── principal.py         # McpPrincipal (Konto + alle Mitgliedschaften mit Rolle)
+│   ├── rate_limit.py        # McpRateLimiter (pro Key, fail-closed)
+│   ├── audit.py             # MCPAuditLogger + hash_arguments()
+│   ├── idempotency.py       # IdempotencyStore (ArangoDB-backed)
+│   └── tools/               # kuratierte Palette (§2)
+│       └── care.py, harvest.py, plants.py, privacy.py,
+│          runs.py, sites.py, species.py, tasks.py
+├── api/v1/mcp/
+│   ├── router.py            # HTTP-Transport: /mcp/tools, /mcp/rpc, /mcp/sse
+│   └── deps.py              # Principal-Aufloesung + Gate auf MCP_SERVER_ENABLED
+├── domain/models/mcp.py     # McpToolSpec, McpToolResponse, McpToolLink, McpAuditLogEntry
+├── data_access/arango/mcp_repository.py   # Audit- + Idempotency-Repository
+├── tasks/mcp_tasks.py       # Retention-Sweeps (Audit 90 d, Idempotency 24 h)
+└── migrations/versions/v0017_mcp_collections.py
+
+src/backend/tests/
+├── unit/mcp_server/         # auth, dispatcher, tools, rate_limit, server
+├── unit/data_access/test_mcp_repository.py
+├── unit/test_mcp_migration.py
+└── api/test_mcp_endpoints.py
 ```
+
+**Umsetzungsstand der Werkzeugpalette:** 12 der in §2 spezifizierten ~30 Werkzeuge sind registriert — `list_tenants`, `list_species`, `get_species_info`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity` (`mcp.read`), `confirm_care_task`, `archive_plant`, `set_plant_location` (`mcp.write`) und `create_site` (`mcp.setup`). Offen sind insbesondere die Setup-Makros, saemtliche Bulk-Werkzeuge, die IPM- und Ernte-Schreibwerkzeuge sowie die RAG-Bruecke `search_plant_knowledge`. §2 beschreibt weiterhin den Zielumfang, nicht den Ist-Zustand.
+
+Werkzeuge, deren `Input` von `TenantToolInput` erbt, wirken in genau einem Mandanten (Argument `tenant`); die uebrigen (`list_tenants`, Species-Katalog, `get_mcp_activity`) lesen mandantenfreie Daten. Die Unterscheidung wird aus dem Input-Modell **abgeleitet** (`ToolBase.__init_subclass__`), nicht von Hand gesetzt — sonst koennte ein Werkzeug ein `tenant`-Argument fuehren, das der Dispatcher nie aufloest, und ungebunden laufen.
+
+**Anbindung an das Protokoll:** Der Transport ist handgeschrieben (JSON-RPC 2.0 ueber FastAPI, siehe §1.2); das MCP-SDK von Anthropic wird derzeit nicht eingebunden.
 
 ### 4.2 Tool-Registrierung (Pattern)
 
+Ein Werkzeug ist ein duenner, typisierter Adapter auf einen bestehenden Domain-Service — es enthaelt **keine** Geschaeftslogik. Dry-Run-, Idempotency- und Audit-Orchestrierung liegen im `ToolDispatcher`, nicht im Werkzeug: ein Read-Tool implementiert nur `run()`, ein Write-Tool nur `preview()` (geplanter Effekt, nichts persistiert) und `execute()` (der echte Schreibvorgang).
+
 ```python
-from app.tools._base import ToolBase, WriteToolBase, mcp_tool
+from app.common.enums import McpPermission
+from app.domain.models.mcp import McpToolResponse
+from app.mcp_server.base import ToolBase, ToolInput, WriteToolBase, WriteToolInput, mcp_tool
+from app.mcp_server.context import ToolContext
 
 # Read-Tool
-@mcp_tool(name="get_due_care_tasks", permission="mcp.read")
+@mcp_tool(name="get_due_care_tasks", permission=McpPermission.READ)
 class GetDueCareTasks(ToolBase):
-    """Liefert heute/die naechsten N Tage faellige Pflegeaufgaben."""
+    """Liefert faellige und ueberfaellige Pflegeaufgaben, nach Dringlichkeit gruppiert."""
 
-    class Input(BaseModel):
-        days_ahead: int = Field(0, ge=0, le=14)
-        urgency: Literal["all", "high", "critical"] = "all"
+    class Input(ToolInput):
+        urgency: str = Field(default="actionable")
 
-    async def run(self, ctx: ToolContext, args: Input) -> Output:
-        result = await ctx.backend_client.get(
-            f"/t/{ctx.tenant_slug}/care/dashboard",
-            params=args.model_dump(),
+    async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        entries = ctx.care_service.get_care_dashboard_for_tenant(ctx.tenant_key)
+        selected = _filter(entries, args.urgency)
+        return self._response(
+            summary=f"{len(selected)} care reminders match '{args.urgency}'.",
+            data={"count": len(selected), "items": [...]},
+            links=[ctx.api_link("/care/dashboard"), ctx.ui_link("/care")],
         )
-        return self._build_output(result)
 
 
-# Write-Tool mit Dry-Run + Idempotency
-@mcp_tool(name="create_plants_bulk", permission="mcp.write", destructive=False)
+# Write-Tool: preview() + execute(); dry_run/idempotency_key erbt es aus WriteToolInput
+@mcp_tool(name="create_plants_bulk", permission=McpPermission.WRITE)
 class CreatePlantsBulk(WriteToolBase):
     """Legt mehrere Pflanzen derselben Species in einem Aufruf an."""
 
-    class Input(BaseModel):
+    class Input(WriteToolInput):
         species_key: str
         cultivar_key: str | None = None
         count: int = Field(ge=1, le=100)
         location_key: str
         initial_phase: PlantPhase = PlantPhase.SEEDLING
-        run_key: str | None = None
-        dry_run: bool = False
-        idempotency_key: str | None = None
 
-    async def run(self, ctx: ToolContext, args: Input) -> Output:
-        if args.dry_run:
-            preview = await self._preview(ctx, args)
-            return self._dry_run_response(args, preview)
+    async def preview(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        ...  # geplanten Effekt beschreiben, ohne zu persistieren
 
-        async with ctx.idempotency.guard(args.idempotency_key, args) as guard:
-            if guard.replayed:
-                return guard.cached_result
-            result = await ctx.backend_client.post(
-                f"/t/{ctx.tenant_slug}/plants/bulk",
-                json=args.model_dump(exclude={"dry_run", "idempotency_key"}),
-            )
-            return guard.store(self._build_output(result))
+    async def execute(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        created = ctx.plant_service.create_bulk(ctx.tenant_key, ...)
+        return self._response(summary=..., data={"created_keys": created}, links=[...])
 ```
+
+Der Decorator prueft zwei Invarianten bereits bei der Registrierung und laesst den Prozess sonst gar nicht erst starten (SEC-006): ein `WriteToolBase` darf niemals `McpPermission.READ` tragen (stille Rechte-Absenkung), und ein `destructive=True`-Werkzeug ist zwingend an `McpPermission.SETUP` gebunden (AC-S6).
 
 ### 4.2.1 Transaktionssemantik fuer Macro-Tools
 
@@ -386,25 +394,32 @@ Macro-Tools (`setup_apartment`, `setup_growbox`, `setup_outdoor_garden`) erzeuge
 
 ### 4.3 Authentifizierung
 
-1. MCP-Client uebergibt API-Key des Service Accounts ueber den Transport (HTTP-Header `X-API-Key` oder stdio-Init-Argument).
-2. `ServiceAccountAuthenticator` validiert Key gegen Backend (`POST /auth/service-accounts/validate`), erhaelt User/Tenant.
-3. Auth-Context wird pro Tool-Aufruf an `PermissionGuard` weitergereicht.
-4. Bei abgelaufenem oder rotiertem Key: MCP-Fehler mit code `auth.expired`, Client soll Reconnect ausloesen.
+1. Der MCP-Client uebergibt einen `kp_`-API-Key ueber den Transport (HTTP-Header `X-API-Key` oder `Authorization: Bearer kp_...`). Der Key stammt entweder aus dem persoenlichen Konto des Nutzers (`POST /auth/api-keys`, jederzeit einzeln widerrufbar) oder aus einem Service Account.
+2. `McpAuthenticator` haesht den Key einmalig und schlaegt ihn nach; der Rohwert verlaesst den Authenticator nie (AC-S2). Widerrufene und abgelaufene Keys werden abgewiesen.
+3. IP-Allowlist und Rate-Limit des Keys (REQ-023) werden direkt hier durchgesetzt, fail-closed, bevor weitere Kontoaufloesung stattfindet.
+4. Der Authenticator loest **alle aktiven Mandanten-Mitgliedschaften** des Kontos auf und legt sie samt der jeweiligen Rolle in den `McpPrincipal`. Traegt der Key ein `tenant_scope`, wird auf diesen einen Mandanten eingeschraenkt — so bleibt ein Ein-Mandanten-Token moeglich.
+5. Der **Dispatcher** waehlt pro Tool-Aufruf genau eine Mitgliedschaft (§4.4) und bindet den `ToolContext` darauf. Ein Werkzeug sieht dadurch immer nur einen Mandanten und nie den rohen Argumentwert.
+6. Bei abgelaufenem oder rotiertem Key: MCP-Fehler mit Code `auth.expired`, der Client soll einen Reconnect ausloesen.
 
-IP-Allowlist und Rate-Limit gemaess REQ-023 v1.7 werden auf Backend-Seite durchgesetzt — der MCP-Server propagiert nur die Client-IP via `X-Forwarded-For`.
+**Warum kein JWT:** Ein MCP-Client wie Claude Desktop laeuft dauerhaft; das 15-Minuten-Access-Token waere binnen einer Viertelstunde tot, und der zugehoerige Refresh-Token ist ein HttpOnly-Cookie, das nur der Browser besitzt. Ein widerrufbarer API-Key ist der passende Dauer-Credential.
+
+**Konto ohne Mitgliedschaft:** Ein Key, dessen Konto in keinem aktiven Mandanten Mitglied ist, wird abgewiesen — es gaebe nichts, worin er handeln koennte.
 
 ### 4.4 Permission-Matrix-Bindung
 
-Jedes Tool deklariert eine von drei Permissions: `mcp.read`, `mcp.write` oder `mcp.setup`. Diese werden in REQ-024 als neue Permissions ergaenzt und sind separat von App-Permissions und voneinander vergebbar:
+Jedes Tool deklariert eine von drei Permissions: `mcp.read`, `mcp.write` oder `mcp.setup`. Sie werden **nicht** einzeln zugewiesen, sondern aus der Rolle abgeleitet, die das Konto **in dem Mandanten** haelt, in dem der Aufruf stattfindet:
 
-| Rolle/Account-Typ | mcp.read | mcp.write | mcp.setup |
-|-------------------|----------|-----------|-----------|
-| Service Account "diagnose-bot" (Read-Only Assistent) | ✓ | ✗ | ✗ |
-| Service Account "daily-bot" (Pflege-Quittierung, Diary, Inspections) | ✓ | ✓ | ✗ |
-| Service Account "setup-agent" (einmaliges Onboarding) | ✓ | ✓ | ✓ |
-| Personal Account (interaktiv) | nicht zugewiesen | nicht zugewiesen | nicht zugewiesen |
+| Rolle im Mandanten | mcp.read | mcp.write | mcp.setup |
+|--------------------|----------|-----------|-----------|
+| `viewer` — Read-Only-Assistent, Gast im Gemeinschaftsgarten | ✓ | ✗ | ✗ |
+| `grower` — Tagesbetrieb (Pflege-Quittierung, Diary, Inspections) | ✓ | ✓ | ✗ |
+| `admin` — Einrichtung und Struktur | ✓ | ✓ | ✓ |
 
-**Begruendung Drei-Stufen-Modell:** `mcp.setup` ist die destruktivste Klasse (Site-/Location-Loeschung kann ganze Pflanzdaten-Hierarchien zerstoeren). Setup-Aktionen sind typischerweise einmalig (Onboarding-Tag) — der Tenant-Admin kann die Permission danach widerrufen, ohne Tagesbetriebs-Tools zu blockieren.
+**Die Rolle gilt pro Mandant, nicht pro Key.** Derselbe persoenliche Key kann im eigenen Garten `admin` sein und im Gemeinschaftsgarten `viewer`. Deshalb bindet der Dispatcher erst den Mandanten und prueft **danach** die Permission (§4.3 Schritt 5); die umgekehrte Reihenfolge wuerde die staerkste Rolle ueberall gewaehren. Ein Nutzer erhaelt ueber MCP damit exakt die Rechte, die er in der Weboberflaeche in genau diesem Garten auch haette — nicht mehr.
+
+**Werkzeug-Uebersicht (`tools/list`)** zeigt die Vereinigung ueber alle Mitgliedschaften, denn ein Werkzeug zu verbergen, das der Nutzer irgendwo verwenden darf, waere falsch. Verbindlich ist die Pruefung beim Aufruf: ein gelistetes Werkzeug kann fuer einen Mandanten, in dem der Nutzer nur `viewer` ist, weiterhin mit `permission.denied` abgelehnt werden.
+
+**Begruendung Drei-Stufen-Modell:** `mcp.setup` ist die destruktivste Klasse (Site-/Location-Loeschung kann ganze Pflanzdaten-Hierarchien zerstoeren) und bleibt deshalb der Admin-Rolle vorbehalten (AC-S6). Die feinere, vom Rollenmodell entkoppelte Vergabe pro Service Account steht weiterhin in §9 als offener Punkt.
 
 ### 4.5 Streaming & Notifications
 
@@ -414,7 +429,8 @@ Lange Operationen (z. B. zukuenftige `generate_growing_report`) nutzen MCP-Notif
 
 - Jeder Tool-Aufruf erzeugt einen `mcp_audit_log`-Eintrag.
 - `input_hash` statt Klartext-Args, um Aussage-Daten (z. B. Diary-Texte) nicht in Logs zu spiegeln.
-- Endpoint `GET /privacy/mcp-activity` (REQ-025 Erweiterung): Nutzer kann Audit-Log seiner Service-Accounts abrufen.
+- Der Eintrag haelt fest, in **welchem Mandanten** der Aufruf stattfand. Scheitert ein Aufruf, bevor der Mandant gebunden ist (unbekannter Mandant, ungueltige Argumente), bleibt `tenant_key` leer statt geraten zu werden.
+- Endpoint `GET /privacy/mcp-activity` (REQ-025 Erweiterung): Nutzer kann das Audit-Log seiner eigenen Keys und Service-Accounts abrufen — gefiltert auf das eigene Konto (AC-S1).
 - Audit-Log-Retention 90 Tage, danach Loeschung.
 - Idempotency-Records werden nach 24 h via ArangoDB-TTL automatisch entfernt.
 
@@ -424,7 +440,8 @@ Folgende neue oder erweiterte Backend-Endpoints werden benoetigt (kein eigener R
 
 | Endpoint | Quelle-REQ | Status |
 |----------|-----------|--------|
-| `POST /auth/service-accounts/validate` | REQ-023 | neu |
+| `POST /auth/api-keys` | REQ-023 | bestand bereits — der Weg, auf dem ein Nutzer sich seinen persoenlichen MCP-Key ausstellt |
+| `POST /auth/service-accounts/validate` | REQ-023 | umgesetzt; liefert seit der Mehrmandanten-Umstellung eine `tenants[]`-Liste statt eines einzelnen Mandanten |
 | `GET /t/{slug}/locations/{key}/plants` | REQ-002 | erweitert |
 | `POST /t/{slug}/locations/bulk` | REQ-002 | neu |
 | `POST /t/{slug}/plants/bulk` | REQ-013 | neu |
@@ -434,35 +451,27 @@ Folgende neue oder erweiterte Backend-Endpoints werden benoetigt (kein eigener R
 | `GET /privacy/mcp-activity` | REQ-025 | neu |
 | `POST /knowledge/search` | REQ-031 | bereits geplant |
 
-## 6. Konfiguration
+## 6. Konfiguration (Ist-Zustand)
 
-```yaml
-# helm/kamerplanter/values.yaml
-mcpServer:
-  enabled: false                  # opt-in
-  transport: http                 # http | stdio (stdio nur Dev)
-  backend:
-    url: http://kamerplanter-backend:8000
-  auth:
-    requireServiceAccount: true   # immer true in 1.0
-  audit:
-    retentionDays: 90
-  idempotency:
-    ttlHours: 24
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 256Mi
-```
+Weil der MCP-Server im Backend-Prozess mitlaeuft (§4.1), gibt es **keinen eigenen Helm-Chart und keinen `mcpServer`-Wertebaum**. Konfiguriert wird ueber drei Umgebungsvariablen des Backends (`app/config/settings.py`) — keine Host-, Port- oder Credential-Konfiguration, da ArangoDB- und Valkey-Verbindung des Backends mitgenutzt werden:
+
+| Variable | Standard | Wirkung |
+|----------|---------|---------|
+| `MCP_SERVER_ENABLED` | `false` | Gesamtschalter (opt-in). Solange nicht `true`, antworten **alle** `/mcp/*`-Endpunkte mit HTTP 404 — die Schnittstelle existiert dann faktisch nicht (spiegelt den Freischalt-Mechanismus des KI-Assistenten). |
+| `MCP_IDEMPOTENCY_TTL_HOURS` | `24` | Gueltigkeitsdauer eines `idempotency_key` (§2.6, AC-22). |
+| `MCP_AUDIT_RETENTION_DAYS` | `90` | Aufbewahrungsdauer des `mcp_audit_log` (NFR-011, AC-S4). |
+
+Ressourcen-Limits, Netzwerk-Policies und Probes sind die des Backend-Deployments; die Komponente verursacht keine zusaetzlichen Pods. `requireServiceAccount` ist keine Option, sondern eine harte Invariante des Authenticators (§4.3): ein Nicht-Service-Konto wird immer abgelehnt.
+
+Die Freigabe pro Client erfolgt nicht ueber Betreiber-Konfiguration, sondern ueber API-Keys aus der Benutzerverwaltung (REQ-023) — persoenliche Keys stellt sich jede:r Nutzer:in selbst aus, Service-Account-Keys legt der Betreiber an. Jeder Key traegt seine eigene Mandanten-Reichweite (`tenant_scope`), IP-Allowlist und Ratenbegrenzung.
+
+Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs/*/api/mcp-server.md`.
 
 ## 7. Abhaengigkeiten
 
 | REQ | Abhaengigkeitstyp | Impact |
 |-----|-------------------|--------|
-| REQ-023 v1.7 (Service Accounts) | hart | ohne Service-Account-Auth kein MCP-Server |
+| REQ-023 (API-Keys & Service Accounts) | hart | ohne API-Key-Auth kein MCP-Server; der Key kann persoenlich oder maschinell sein |
 | REQ-024 v1.4 (Permission-Matrix) | hart | Tool-Permissions `mcp.read`/`mcp.write`/`mcp.setup` ergaenzen |
 | REQ-025 v1.0 (DSGVO) | hart | Audit-Log + Privacy-API |
 | REQ-031 v1.0 (KI-Assistent / RAG) | weich | `search_plant_knowledge`-Tool nutzt RAG-Infrastruktur; ohne RAG nutzbar (Tool faellt weg) |
@@ -475,7 +484,7 @@ mcpServer:
 | REQ-007 v1.0 (Erntemanagement) | weich | `get_harvest_readiness`, `record_harvest` |
 | REQ-010 v1.0 (IPM) | weich | `create_inspection`, `apply_treatment`, Karenz-Daten |
 | REQ-020 v1.1 (Onboarding) | weich | `apply_starter_kit`, `list_starter_kits` |
-| NFR-001 (5-Layer-Architektur) | hart | MCP-Server ist eigene Top-Level-Komponente, ruft Backend ueber HTTP — keine direkte DB-Kopplung |
+| NFR-001 (5-Layer-Architektur) | hart | MCP-Server ist eine Adapter-Schicht **innerhalb** des Backends (§4.1). Er sitzt auf Hoehe der API-Schicht und delegiert an die Business-Logik-Schicht — dieselben Domain-Services wie die REST-API. Kein Werkzeug spricht Repositories oder ArangoDB direkt an; einzige Ausnahme sind die MCP-eigenen Adapter-Collections `mcp_audit_log` und `mcp_idempotency_record` (§3). |
 | NFR-008 (Tests) | hart | Unit + Integrationstests gegen Test-Backend |
 | NFR-011 (Retention) | hart | mcp_audit_log Retention 90d |
 
@@ -483,7 +492,7 @@ mcpServer:
 
 ### 8.1 Funktional — Read & Tagesbetrieb
 
-- **AC-1:** Ein registrierter Service Account kann sich per API-Key am MCP-Server authentifizieren und alle ihm via Permission-Matrix erlaubten Tools aufrufen.
+- **AC-1:** Ein Konto — persoenlich oder Service Account — kann sich per `kp_`-API-Key am MCP-Server authentifizieren und alle Tools aufrufen, die ihm die Permission-Matrix im jeweils angesprochenen Mandanten erlaubt.
 - **AC-2:** Der MCP-Server lehnt Tool-Aufrufe ohne erforderliche Permission (`mcp.read`/`mcp.write`/`mcp.setup`) mit Fehlercode `permission.denied` ab.
 - **AC-3:** `get_due_care_tasks(days_ahead=0)` liefert die heute faelligen Pflegeaufgaben des Tenants in <500 ms (P95) bei 100 Pflanzen.
 - **AC-4:** `search_plant_knowledge("Spinnmilben Bekaempfung biologisch")` liefert mindestens 3 RAG-Treffer aus `spec/knowledge/rag/`, jeweils mit Score >= 0.6.
@@ -517,25 +526,28 @@ mcpServer:
 
 ### 8.5 Sicherheit & Datenschutz
 
-- **AC-S1:** Cross-Tenant-Zugriff ist unmoeglich — ein Service Account von Tenant A kann ueber kein Tool Daten von Tenant B sehen (nachgewiesen via Tests).
+- **AC-S1:** Cross-Tenant-Zugriff ist unmoeglich — ein Key kann ueber kein Werkzeug Daten eines Mandanten sehen, in dem sein Konto nicht aktives Mitglied ist (nachgewiesen via Tests).
+- **AC-S1a:** Ein persoenlicher API-Key gewaehrt genau die Mandanten aus `list_my_tenants` — dieselbe Quelle, auf die die REST-API scoped. Ueber MCP ist nichts erreichbar, was der Nutzer nicht auch in der Weboberflaeche sieht.
+- **AC-S1b:** Die Rechtepruefung erfolgt gegen die Rolle im **aufgerufenen** Mandanten. Ein Nutzer, der in Mandant A `admin` und in Mandant B `viewer` ist, kann in B kein Schreibwerkzeug ausfuehren (nachgewiesen via Test).
+- **AC-S1c:** Ein Werkzeug erhaelt den Mandanten ausschliesslich aus der aufgeloesten Mitgliedschaft, nie aus dem rohen Argument — ein Werkzeug kann seinen Wirkungsbereich nicht selbst erweitern.
 - **AC-S2:** API-Keys erscheinen niemals im Audit-Log oder in Fehlermeldungen.
-- **AC-S3:** Ein Nutzer kann ueber `GET /privacy/mcp-activity` alle MCP-Aufrufe seiner Service-Accounts der letzten 90 Tage einsehen.
+- **AC-S3:** Ein Nutzer kann ueber `GET /privacy/mcp-activity` alle MCP-Aufrufe seiner eigenen Keys (und der ihm zugeordneten Service-Accounts) der letzten 90 Tage einsehen.
 - **AC-S4:** `mcp_audit_log`-Eintraege aelter als 90 Tage werden vom Retention-Master-Task (NFR-011) geloescht.
 - **AC-S5:** Tool-Argumente werden vor dem Logging gehasht — keine Diary-Texte oder Symptom-Beschreibungen im Klartext-Log.
-- **AC-S6:** Ein Service Account ohne `mcp.setup`-Permission kann ueber kein Tool eine `delete_location` ausloesen — selbst nicht durch indirekte Macros.
+- **AC-S6:** Ein Konto ohne `mcp.setup` im angesprochenen Mandanten kann dort ueber kein Tool eine `delete_location` ausloesen — selbst nicht durch indirekte Macros.
 
 ### 8.6 Qualitaet & Tests
 
-- **AC-T1:** Unit-Test-Coverage >= 80% in `src/mcp-server/app/`.
+- **AC-T1:** Unit-Test-Coverage >= 80% in `src/backend/app/mcp_server/` und `src/backend/app/api/v1/mcp/`.
 - **AC-T2:** Integrationstest pro Tool gegen Test-Backend (alle ~30 Tools).
 - **AC-T3:** End-to-End-Test mit echtem Claude Desktop / mcp-inspector als Client (Smoke-Test: Wohnung anlegen → 3 Pflanzen → Pflege quittieren).
 - **AC-T4:** Ruff + mypy clean.
 
 ### 8.7 Deployment
 
-- **AC-D1:** Helm-Chart `mcpServer.enabled=true` startet einen lauffaehigen Pod, der ueber Service erreichbar ist.
-- **AC-D2:** Mit `mcpServer.enabled=false` (Default) ist die Komponente nicht im Cluster — Kamerplanter funktioniert unveraendert.
-- **AC-D3:** Dokumentation in `docs/` enthaelt eine Konfigurations-Anleitung fuer Claude Desktop (`claude_desktop_config.json`-Beispiel) und Claude Code.
+- **AC-D1:** Mit `MCP_SERVER_ENABLED=true` am Backend-Deployment ist die Werkzeugschnittstelle unter `/api/v1/mcp/` erreichbar und ein gueltiger API-Key kann `tools/list` und `tools/call` ausfuehren — ohne zusaetzlichen Pod (§6).
+- **AC-D2:** Mit `MCP_SERVER_ENABLED=false` (Default) antworten alle `/mcp/*`-Endpunkte mit HTTP 404 — Kamerplanter funktioniert unveraendert und die Schnittstelle ist von aussen nicht unterscheidbar von "existiert nicht".
+- **AC-D3:** Dokumentation in `docs/` enthaelt eine Konfigurations-Anleitung fuer MCP-Clients (HTTP-Transport: Backend-URL + `X-API-Key`) sowie die Betreiber-Variablen aus §6. Das `claude_desktop_config.json`-Beispiel setzt den stdio-Bridge-Client voraus und wird mit diesem nachgereicht (§9).
 
 ### 8.8 GIVEN/WHEN/THEN — Beispiel-Szenarien
 
@@ -576,6 +588,19 @@ mcpServer:
 - **WHEN** der Client `get_planting_run(key="<aus-Tenant-garten>")` aufruft
 - **THEN** liefert das Tool `not_found`, NICHT `permission.denied` (kein Tenant-Information-Leak).
 
+**Szenario 8: Eine Person, zwei Gaerten, zwei Rollen**
+- **GIVEN** eine Nutzerin mit persoenlichem API-Key, die in ihrem eigenen Garten `admin` und im Gemeinschaftsgarten `viewer` ist
+- **WHEN** der Client ein Schreibwerkzeug mit `tenant: "<eigener-garten>"` aufruft
+- **THEN** wird es ausgefuehrt
+- **WHEN** derselbe Client dasselbe Werkzeug mit `tenant: "<gemeinschaftsgarten>"` aufruft
+- **THEN** lehnt der Server mit `permission.denied` ab — die Rolle des *angesprochenen* Mandanten entscheidet, nicht die staerkste Rolle des Keys
+- **AND** ein Aufruf ohne `tenant` wird als mehrdeutig zurueckgewiesen, statt einen Garten zu raten.
+
+**Szenario 9: Fremder Garten bleibt unsichtbar**
+- **GIVEN** ein persoenlicher API-Key, dessen Konto nur im eigenen Garten Mitglied ist
+- **WHEN** der Client ein Werkzeug mit dem Slug eines fremden Gartens aufruft
+- **THEN** liefert der Server `not_found` — dieselbe Antwort wie fuer einen nicht existierenden Mandanten, ohne dessen Existenz preiszugeben.
+
 **Szenario 7: RAG-Bruecke**
 - **GIVEN** ein Tenant ohne aktive Pflanzdurchlaeufe
 - **AND** Service Account mit `mcp.read`
@@ -584,6 +609,11 @@ mcpServer:
 
 ## 9. Offene Punkte / Spaetere Erweiterungen
 
+- **Werkzeugkatalog vervollstaendigen:** 19 der in §2 spezifizierten Werkzeuge fehlen noch — Setup-Makros, Bulk-Werkzeuge, IPM-/Ernte-/Feeding-Schreibwerkzeuge und die RAG-Bruecke `search_plant_knowledge` (§4.1).
+- **stdio-Bridge-Client:** Claude Desktop startet einen MCP-Server als lokalen Subprozess und kann keinen Pod ansprechen. Vorgesehen ist dafuer **kein zweiter Dienst**, sondern ein schlanker, beim Nutzer laufender Bridge-Client, der `MCP_SERVER_URL` + `X-API-Key` entgegennimmt und JSON-RPC an `/api/v1/mcp/rpc` durchreicht. Damit wird AC-D3 vollstaendig erfuellt, ohne den Server zu spalten.
+- **Eigenstaendiger Prozess (bewusst zurueckgestellt):** Ein Split von `app/mcp_server/` in eine eigene Komponente mit eigenem Helm-Chart wuerde die direkte Service-Anbindung durch eine HTTP-Grenze ersetzen und damit zusaetzliche Bulk-/Transaktions-Endpoints, eine zweite Fehleruebersetzung und DB-Zugriff ueber Umwege erzwingen (§4.1). Sinnvoll wird der Split erst, wenn MCP-Verkehr das Backend messbar beeintraechtigt oder eigene Ressourcen-/Skalierungsgrenzen braucht — etwa im Mehrmandanten-Hosting. Der `ToolDispatcher` ist als einziger Choke-Point fuer Auth, Permission, Idempotency und Audit die vorgesehene Schnittkante.
+- **Granulare MCP-Permissions:** `mcp.read`/`mcp.write`/`mcp.setup` werden aus der Mandanten-Rolle abgeleitet (viewer/grower/admin, §4.4), nicht einzeln pro Key zugewiesen. Der in §2.3 beschriebene Ablauf "Admin vergibt `mcp.setup` einmalig fuers Onboarding und widerruft danach" ist damit nur ueber einen Rollenwechsel moeglich. Sinnvolle Ausbaustufe: eine optionale Rechte-Obergrenze **pro Key** (z. B. "dieser Key darf nur lesen, auch wenn sein Besitzer Admin ist"), damit ein Nutzer einem LLM-Client weniger geben kann als er selbst hat.
+- **Feingranulare Sichtbarkeit innerhalb eines Mandanten:** "Nur seine Daten" endet heute an der Mandantengrenze — innerhalb eines Gemeinschaftsgartens sehen alle Mitglieder dieselben Pflanzen, wie in der Weboberflaeche auch. Eine Einschraenkung auf die selbst angelegten Datensaetze existiert im Datenmodell nicht (`LocationAssignment` waere der Ansatzpunkt).
 - **Streaming-Tools:** `generate_growing_report(run_key)` als Long-Running mit Progress-Notifications.
 - **Resource-Bindings:** MCP unterstuetzt neben Tools auch `resources` (lesbare Inhalte). Pflanzen-Detailseiten als `resource://kamerplanter/plant/{key}` exponieren.
 - **MCP-Prompts:** Vordefinierte Prompts ("Tagesabschluss-Report", "Diagnose-Workflow") als MCP-Prompts ausliefern.

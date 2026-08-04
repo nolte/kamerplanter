@@ -13,7 +13,7 @@ import pytest
 
 from app.common.enums import ReminderType, TenantRole
 from app.mcp_server.context import ToolContext
-from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.tools.care import ConfirmCareTask, GetDueCareTasks
 from app.mcp_server.tools.harvest import GetHarvestReadiness
 from app.mcp_server.tools.plants import ArchivePlant, SetPlantLocation
@@ -24,18 +24,21 @@ from app.mcp_server.tools.species import GetSpeciesInfo, ListSpecies
 from app.mcp_server.tools.tasks import ListTasks
 
 
+def _membership() -> McpTenantMembership:
+    return McpTenantMembership(tenant_key="home", tenant_slug="home", tenant_name="Home", role=TenantRole.LEAD)
+
+
 def _principal() -> McpPrincipal:
     return McpPrincipal(
-        service_account_key="sa-1",
+        account_key="sa-1",
         display_name="bot",
-        tenant_key="home",
-        tenant_slug="home",
-        role=TenantRole.LEAD,
+        is_service_account=True,
+        memberships=(_membership(),),
     )
 
 
 def _ctx(**services) -> ToolContext:
-    return ToolContext(_principal(), services=services)
+    return ToolContext(_principal(), _membership(), services=services)
 
 
 @pytest.mark.asyncio

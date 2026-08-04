@@ -59,6 +59,7 @@ class _Tenant:
     def __init__(self, key, slug, role):
         self.key = key
         self.slug = slug
+        self.name = slug.title()
         self.role = role
 
 
@@ -122,8 +123,9 @@ def test_validate_returns_grants_for_service_account():
     resp = client.post("/api/v1/auth/service-accounts/validate", json={"api_key": _RAW})
     assert resp.status_code == 200
     body = resp.json()
-    assert body["tenant_slug"] == "home"
-    assert "mcp.read" in body["mcp_permissions"]
+    # The grants are per tenant now: the acting tenant is chosen per tool call.
+    assert [t["tenant_slug"] for t in body["tenants"]] == ["home"]
+    assert "mcp.read" in body["tenants"][0]["mcp_permissions"]
 
 
 def test_validate_is_404_when_mcp_disabled(monkeypatch):

@@ -1,10 +1,16 @@
 """REQ-033 MCP tool execution context.
 
-A :class:`ToolContext` carries the authenticated principal (tenant + role) into a
-tool handler and lazily exposes the existing domain services the tool delegates
-to. The MCP layer never re-implements business logic (§1 grundprinzipien) — it
-is a thin aggregation layer that calls the same services the REST API uses, so
-tenant isolation, validation and permission invariants are inherited unchanged.
+A :class:`ToolContext` carries the authenticated principal plus the **one**
+membership this call acts in into a tool handler, and lazily exposes the
+existing domain services the tool delegates to. The MCP layer never
+re-implements business logic (§1 grundprinzipien) — it is a thin aggregation
+layer that calls the same services the REST API uses, so tenant isolation,
+validation and permission invariants are inherited unchanged.
+
+A principal may hold several memberships (§4.3). The dispatcher resolves exactly
+one of them per call and hands it in here, so a tool can only ever see a single
+tenant and cannot widen its own scope: ``ctx.tenant_key`` is the resolved
+membership's, never a caller-supplied value.
 
 Services are resolved through the standard ``app.common.dependencies`` factories,
 but can be overridden in the constructor for isolated unit tests.
@@ -15,7 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.common.enums import TenantRole
-from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 
 
 class ToolContext:
@@ -24,24 +30,33 @@ class ToolContext:
     def __init__(
         self,
         principal: McpPrincipal,
+        membership: McpTenantMembership | None = None,
         *,
         services: dict[str, Any] | None = None,
     ) -> None:
         self.principal = principal
+        self.membership = membership
         self._services: dict[str, Any] = dict(services or {})
 
-    # ── principal shortcuts ──────────────────────────────────────────────
+    # ── acting-tenant shortcuts ──────────────────────────────────────────
+    def _require_membership(self) -> McpTenantMembership:
+        if self.membership is None:
+            # A tenant-agnostic tool (global catalogue data) asked for a tenant.
+            # That is a wiring bug, not a caller error — fail loudly.
+            raise RuntimeError("This tool is not tenant-scoped; no acting tenant was bound to the context.")
+        return self.membership
+
     @property
     def tenant_key(self) -> str:
-        return self.principal.tenant_key
+        return self._require_membership().tenant_key
 
     @property
     def tenant_slug(self) -> str:
-        return self.principal.tenant_slug
+        return self._require_membership().tenant_slug
 
     @property
     def role(self) -> TenantRole:
-        return self.principal.role
+        return self._require_membership().role
 
     # ── service resolution ───────────────────────────────────────────────
     def _service(self, name: str) -> Any:

@@ -22,7 +22,7 @@ from app.config.settings import settings
 from app.mcp_server.audit import MCPAuditLogger
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.idempotency import IdempotencyStore
-from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.registry import load_tools
 
 
@@ -49,11 +49,10 @@ class _FakeIdemRepo:
 
 def _principal(role: TenantRole) -> McpPrincipal:
     return McpPrincipal(
-        service_account_key="sa-1",
+        account_key="sa-1",
         display_name="bot",
-        tenant_key="home",
-        tenant_slug="home",
-        role=role,
+        is_service_account=True,
+        memberships=(McpTenantMembership(tenant_key="home", tenant_slug="home", tenant_name="Home", role=role),),
     )
 
 

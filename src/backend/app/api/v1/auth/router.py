@@ -329,15 +329,26 @@ class ServiceAccountValidateRequest(BaseModel):
     api_key: str
 
 
-class ServiceAccountValidateResponse(BaseModel):
-    """Resolved service-account context for an MCP/M2M client (§4.3, §4.4)."""
+class ServiceAccountTenantGrant(BaseModel):
+    """One tenant a validated key may act in, with its role and MCP grants."""
 
-    service_account_key: str
-    display_name: str
     tenant_key: str
     tenant_slug: str
     role: str
     mcp_permissions: list[str]
+
+
+class ServiceAccountValidateResponse(BaseModel):
+    """Resolved service-account context for an MCP/M2M client (§4.3, §4.4).
+
+    ``tenants`` carries every tenant the key may act in. A service account is
+    usually bound to exactly one (via the key's ``tenant_scope``), but the field
+    is a list because the acting tenant is chosen per tool call, not per key.
+    """
+
+    service_account_key: str
+    display_name: str
+    tenants: list[ServiceAccountTenantGrant]
 
 
 @router.post("/service-accounts/validate", response_model=ServiceAccountValidateResponse)
@@ -366,13 +377,19 @@ def validate_service_account(
     principal = authenticator.authenticate(
         body.api_key,
         client_ip=resolve_client_ip(request),
+        service_accounts_only=True,
         mask_non_service=True,
     )
     return ServiceAccountValidateResponse(
-        service_account_key=principal.service_account_key,
+        service_account_key=principal.account_key,
         display_name=principal.display_name,
-        tenant_key=principal.tenant_key,
-        tenant_slug=principal.tenant_slug,
-        role=principal.role.value,
-        mcp_permissions=[p.value for p in list_mcp_permissions(principal.role)],
+        tenants=[
+            ServiceAccountTenantGrant(
+                tenant_key=m.tenant_key,
+                tenant_slug=m.tenant_slug,
+                role=m.role.value,
+                mcp_permissions=[p.value for p in list_mcp_permissions(m.role)],
+            )
+            for m in principal.memberships
+        ],
     )

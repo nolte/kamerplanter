@@ -23,7 +23,7 @@ class GetMcpActivity(ToolBase):
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         entries = ctx.mcp_audit_repo.list_for_service_account(
-            ctx.principal.service_account_key,
+            ctx.principal.account_key,
             limit=args.limit,
         )
         data = {

@@ -7,10 +7,15 @@ palette is deterministic.
 Cut-1 core palette (extensible — see the PR/report for the deferred remainder of
 the ~30-tool inventory in §2):
 
-* read (mcp.read):  list_species, get_species_info, list_planting_runs,
-  list_tasks, get_due_care_tasks, get_harvest_readiness, get_mcp_activity
+* read (mcp.read):  list_tenants, list_species, get_species_info,
+  list_planting_runs, list_tasks, get_due_care_tasks, get_harvest_readiness,
+  get_mcp_activity
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location
 * setup (mcp.setup): create_site
+
+Tools whose ``Input`` extends ``TenantToolInput`` act inside one tenant, which
+the dispatcher binds per call; the rest (``list_tenants``, the species
+catalogue, ``get_mcp_activity``) read data that carries no tenant.
 """
 
 from __future__ import annotations
@@ -24,4 +29,5 @@ from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
     sites,
     species,
     tasks,
+    tenants,
 )

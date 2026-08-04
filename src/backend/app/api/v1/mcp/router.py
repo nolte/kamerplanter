@@ -39,15 +39,35 @@ _SERVER_INFO = {"name": "kamerplanter-mcp", "version": "1.0"}
 
 
 def _visible_specs(principal: McpPrincipal) -> list[dict[str, Any]]:
+    """Every tool the principal may invoke in *at least one* of its tenants.
+
+    A user can be admin in their own garden and viewer in a community garden, so
+    discovery is the union over their roles — hiding a tool they may use
+    somewhere would be wrong. The per-call check is the binding one: the
+    dispatcher re-evaluates the permission against the role held in the tenant
+    the call actually names, so a tool listed here can still be refused for a
+    tenant where the caller is only a viewer.
+    """
+
     registry = load_tools()
-    return [spec.model_dump() for spec in registry.specs() if has_mcp_permission(principal.role, spec.permission)]
+    roles = principal.roles()
+    return [
+        spec.model_dump()
+        for spec in registry.specs()
+        if any(has_mcp_permission(role, spec.permission) for role in roles)
+    ]
 
 
 @router.get("/tools")
 def list_mcp_tools(principal: McpPrincipal = Depends(get_mcp_principal)) -> dict[str, Any]:
-    """List the tools this service account may invoke (role-filtered discovery)."""
+    """List the tools this API key may invoke (role-filtered discovery)."""
 
-    return {"tenant": principal.tenant_slug, "tools": _visible_specs(principal)}
+    return {
+        "tenants": [
+            {"slug": m.tenant_slug, "name": m.tenant_name, "role": m.role.value} for m in principal.memberships
+        ],
+        "tools": _visible_specs(principal),
+    }
 
 
 @router.post("/tools/{tool_name}")

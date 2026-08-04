@@ -18,7 +18,7 @@ import structlog
 from app.common.enums import McpToolStatus
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
 from app.domain.models.mcp import McpAuditLog
-from app.mcp_server.principal import McpPrincipal
+from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 
 logger = structlog.get_logger(__name__)
 
@@ -46,10 +46,19 @@ class MCPAuditLogger:
         output_size_bytes: int = 0,
         duration_ms: int = 0,
         error_class: str | None = None,
+        membership: McpTenantMembership | None = None,
     ) -> None:
+        """Record one tool call.
+
+        ``membership`` is the tenant the call acted in, as resolved by the
+        dispatcher. It is absent for a tenant-agnostic tool and for a call that
+        failed *before* the tenant was bound (unknown tenant, invalid input) —
+        such entries carry an empty ``tenant_key`` rather than guessing one.
+        """
+
         entry = McpAuditLog(
-            service_account_key=principal.service_account_key,
-            tenant_key=principal.tenant_key,
+            service_account_key=principal.account_key,
+            tenant_key=membership.tenant_key if membership else "",
             tool_name=tool_name,
             input_hash=input_hash,
             output_size_bytes=output_size_bytes,
