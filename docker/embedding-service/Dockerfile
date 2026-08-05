@@ -12,7 +12,7 @@
 
 # ── Shared base for downloads ────────────────────────────────────────
 
-FROM python:3.14-slim@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS dl-base
+FROM python:3.14-slim@sha256:7bec7ddcddeff7975d6ba9b4be7dd6f6b2f55e7491539145e2978f7f97ce9144 AS dl-base
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub sentencepiece
 
@@ -65,7 +65,7 @@ snapshot_download('Xenova/paraphrase-multilingual-MiniLM-L12-v2', \
 
 # ── Runtime base (shared across all final targets) ───────────────────
 
-FROM python:3.14-slim@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS runtime
+FROM python:3.14-slim@sha256:7bec7ddcddeff7975d6ba9b4be7dd6f6b2f55e7491539145e2978f7f97ce9144 AS runtime
 
 LABEL org.opencontainers.image.title="kamerplanter-embedding-service" \
       org.opencontainers.image.description="ONNX multilingual text-embedding service turning knowledge and queries into vectors for Kamerplanter's RAG pipeline" \
