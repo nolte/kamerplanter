@@ -27,7 +27,19 @@ from app.mcp_server.tools.plant_reads import (
 
 
 class _Plant:
-    def __init__(self, key, name=None, *, species="sp-tomato", location=None, slot=None, site=None, removed=None):
+    def __init__(
+        self,
+        key,
+        name=None,
+        *,
+        species="sp-tomato",
+        location=None,
+        slot=None,
+        site=None,
+        removed=None,
+        substrate_key=None,
+        substrate_type_override=None,
+    ):
         self.key = key
         self.instance_id = f"INST-{key}"
         self.plant_name = name
@@ -36,6 +48,9 @@ class _Plant:
         self.site_key = site
         self.location_key = location
         self.slot_key = slot
+        self.substrate_key = substrate_key
+        self.substrate_batch_key = None
+        self.substrate_type_override = substrate_type_override
         self.planted_on = date(2026, 4, 1)
         self.removed_on = removed
         self.current_phase_key = "vegetative"
@@ -132,6 +147,120 @@ async def test_get_plant_survives_a_missing_catalogue_entry():
     )
     assert resp.data["species_name"] is None
     assert resp.data["plant_key"] == "p1"
+
+
+# ══ The medium a plant stands in ═════════════════════════════════════════════
+#
+# ``list_substrates`` publishes ph_base, ec_base_ms, buffer_capacity and
+# cec_meq_per_100g — the properties that decide whether a given feeding level is
+# excessive. Without a substrate reference on the plant, that catalogue is
+# unreachable from an instance: an agent would have to guess which medium it is
+# looking at, and the same weekly dose is harmless in one and an overdose in
+# another.
+
+
+class _SpeciesStub:
+    def get_species(self, key):
+        return type("S", (), {"scientific_name": "Solanum lycopersicum", "common_names": []})()
+
+
+class _SubstrateService:
+    """Records its calls, so "resolved once" and "not called at all" are both assertable."""
+
+    def __init__(self, substrate=None, *, broken=False):
+        self._substrate = substrate
+        self._broken = broken
+        self.calls: list[str] = []
+
+    def get_substrate(self, key):
+        self.calls.append(key)
+        if self._broken:
+            raise RuntimeError("catalogue unavailable")
+        return self._substrate
+
+
+def _substrate(name="Coco 70/30", type_="coco"):
+    return type("Sub", (), {"name": name, "type": type_})()
+
+
+@pytest.mark.asyncio
+async def test_get_plant_resolves_the_substrate_so_the_catalogue_becomes_reachable():
+    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="sub-coco")])
+    substrates = _SubstrateService(_substrate())
+    ctx = _ctx(plant_instance_service=svc, species_service=_SpeciesStub(), substrate_service=substrates)
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["substrate_key"] == "sub-coco", "the key is what list_substrates is keyed by"
+    assert resp.data["substrate_type"] == "coco"
+    assert resp.data["substrate_name"] == "Coco 70/30"
+    assert substrates.calls == ["sub-coco"], "resolved once, like the species name"
+
+
+@pytest.mark.asyncio
+async def test_an_explicit_substrate_override_wins_over_the_referenced_record():
+    """The cascade PlantInstance declares and WateringService applies.
+
+    Reversing it would report the medium the grower explicitly said it is *not*.
+    """
+
+    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="sub-coco", substrate_type_override="soil")])
+    ctx = _ctx(
+        plant_instance_service=svc,
+        species_service=_SpeciesStub(),
+        substrate_service=_SubstrateService(_substrate(type_="coco")),
+    )
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["substrate_type"] == "soil"
+    assert resp.data["substrate_type_override"] == "soil", "the raw field stays visible next to the resolution"
+
+
+@pytest.mark.asyncio
+async def test_a_plant_without_a_substrate_reference_is_not_looked_up():
+    svc = _PlantService([_Plant("p1", "Tomate")])
+    substrates = _SubstrateService(_substrate())
+    ctx = _ctx(plant_instance_service=svc, species_service=_SpeciesStub(), substrate_service=substrates)
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["substrate_type"] is None
+    assert resp.data["substrate_name"] is None
+    assert substrates.calls == [], "no key, no lookup"
+
+
+@pytest.mark.asyncio
+async def test_get_plant_survives_a_missing_substrate_record():
+    """Same rule as the species catalogue: a dangling reference is not a read error."""
+
+    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="gone")])
+    ctx = _ctx(
+        plant_instance_service=svc,
+        species_service=_SpeciesStub(),
+        substrate_service=_SubstrateService(broken=True),
+    )
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["substrate_name"] is None
+    assert resp.data["substrate_key"] == "gone", "the dangling key is still reported, not swallowed"
+
+
+@pytest.mark.asyncio
+async def test_the_list_projection_carries_the_raw_substrate_keys_without_resolving_them():
+    """A page must not turn into an N+1 across the substrate catalogue."""
+
+    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="sub-coco")])
+    substrates = _SubstrateService(_substrate())
+
+    resp = await ListPlants().run(
+        _ctx(plant_instance_service=svc, substrate_service=substrates),
+        ListPlants.Input(),
+    )
+
+    assert resp.data["items"][0]["substrate_key"] == "sub-coco"
+    assert substrates.calls == [], "the list tools resolve nothing — get_plant does"
 
 
 @pytest.mark.asyncio

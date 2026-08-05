@@ -123,7 +123,7 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `list_planting_runs` | Aktive Pflanzdurchlaeufe inkl. Phase, Standort, Dauer | `GET /t/{slug}/planting-runs?status=active` |
 | `get_planting_run` | Detaildaten zu einem Run: Phase, naechste Tasks, juengste Sensor-/Care-Events, Karenz-Status | `GET /t/{slug}/planting-runs/{key}` (+ Aggregation) |
 | `list_plants` | Pflanzen des Mandanten auflisten, optional nach Name/Art gefiltert — loest einen Pflanzennamen in den `plant_key` auf, den alle Schreibwerkzeuge verlangen | `plant_instance_service.list_plants` |
-| `get_plant` | Stammdaten einer Pflanze: Art (inkl. aufgeloestem Namen), Phase, Standort, Lebenszyklus-Daten | `plant_instance_service.get_plant` |
+| `get_plant` | Stammdaten einer Pflanze: Art (inkl. aufgeloestem Namen), Phase, Standort, Lebenszyklus-Daten sowie das **Substrat** der Instanz (`substrate_key` plus aufgeloester `substrate_type`/`substrate_name`) — ohne diesen Bezug ist `list_substrates` ein Katalog, den kein Werkzeug an eine Pflanze bindet | `plant_instance_service.get_plant` |
 | `get_plant_care_log` | Quittierte Pflegehistorie einer Pflanze (Giessprotokoll via `reminder_type=watering`) | `care_reminder_service.get_confirmation_history` |
 | `list_plants_at_location` | Alle Pflanzen an einem Standort/Beet/Slot | `plant_instance_service.list_plants` + Filter |
 | `get_plant_diagnostics` | Aggregierter Diagnose-Snapshot fuer eine Pflanze: Sensorwerte, EC/pH-Trend, IPM-Inspections, Karenz, juengste Tips | mehrere Endpoints, im Tool aggregiert |

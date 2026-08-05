@@ -262,6 +262,7 @@ def _plant_context(ctx: ToolContext, entry: PlantDiaryEntry) -> dict[str, Any]:
             "instance_id": None,
             "species_key": None,
             "species_name": None,
+            "cultivar_key": None,
             "cultivar_name": None,
             "current_phase": None,
             "phase_started_at": None,
@@ -274,6 +275,10 @@ def _plant_context(ctx: ToolContext, entry: PlantDiaryEntry) -> dict[str, Any]:
         "instance_id": plant.instance_id,
         "species_key": plant.species_key,
         "species_name": _species_name(ctx, plant.species_key, {}),
+        # The key next to the name: ``get_cultivar`` takes a key, and the name
+        # alone left an agent holding a label it could not look anything up with.
+        # Same reason ``species_key`` sits beside ``species_name``.
+        "cultivar_key": plant.cultivar_key,
         "cultivar_name": _cultivar_name(ctx, plant.cultivar_key),
         "current_phase": _current_phase_name(ctx, plant),
         "phase_started_at": _iso_z(plant.current_phase_started_at),

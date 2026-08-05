@@ -509,6 +509,8 @@ async def test_get_diary_entry_returns_the_published_shape_without_image_data(wo
         "instance_id": "HOCHBEETA_TOM_05",
         "species_key": "solanum_lycopersicum",
         "species_name": "Solanum lycopersicum",
+        # The key, not only the label: get_cultivar takes a key.
+        "cultivar_key": "san_marzano",
         "cultivar_name": "San Marzano",
         "current_phase": "flowering",
         "phase_started_at": "2026-07-12T00:00:00Z",
@@ -538,6 +540,7 @@ async def test_missing_plant_fields_come_as_null_not_as_absent_keys(world: _Worl
         "instance_id",
         "species_key",
         "species_name",
+        "cultivar_key",
         "cultivar_name",
         "current_phase",
         "phase_started_at",

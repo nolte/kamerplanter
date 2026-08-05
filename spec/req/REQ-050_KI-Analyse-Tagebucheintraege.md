@@ -19,7 +19,7 @@ Wird benötigt von: —
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
-| 1.3 | 2026-08-05 | **O-04 entschieden: `add_plant_diary_entry` kommt, ohne `photo_refs`** (§9). Ein Agent konnte bis hierhin analysieren, aber nicht dokumentieren. Die beiden Grenzen der Entscheidung — keine Foto-Referenzen (SEC-003 lässt sie einem Service-Account ohnehin nicht zu) und kein Selbst-Markieren (§1.3, §7.1) — sind dort begründet. Das Werkzeug steht **außerhalb** des Analyse-Vertrags aus §4 und gehört zu REQ-033 §2.2. Nebenbei korrigiert: das Dokumentende trug noch „Version 1.1", während der Kopf 1.2 auswies. |
+| 1.3 | 2026-08-05 | **O-04 entschieden: `add_plant_diary_entry` kommt, ohne `photo_refs`** (§9). Ein Agent konnte bis hierhin analysieren, aber nicht dokumentieren. Die beiden Grenzen der Entscheidung — keine Foto-Referenzen (SEC-003 lässt sie einem Service-Account ohnehin nicht zu) und kein Selbst-Markieren (§1.3, §7.1) — sind dort begründet. Das Werkzeug steht **außerhalb** des Analyse-Vertrags aus §4 und gehört zu REQ-033 §2.2. Ergänzt: `plant.cultivar_key` in §4.3 — die Prozess-Spezifikation des externen Agenten löst die Sorte über `get_cultivar` auf, das einen Schlüssel nimmt, und das Antwortschema trug nur `cultivar_name`. Nebenbei korrigiert: das Dokumentende trug noch „Version 1.1", während der Kopf 1.2 auswies. |
 | 1.2 | 2026-08-05 | **Anlass: §2.5.2 verlangt für `in_progress` den „Zeitpunkt des Beanspruchens", das Antwortschema trug ihn nicht.** `DiaryOverviewItem` bekommt `analysis_claimed_at` (Beginn des Lease — nicht `analyzed_at`, das der Abschluss ist), samt der Regel, dass der Wert zu dem Lauf gehört, den der **angezeigte** Zustand beschreibt, und bei abgelaufenem Lease als `null` unterdrückt wird. Ergänzt um die Klarstellung, dass `analysis_state` auf **allen** Lesepfaden der angezeigte Zustand ist (abgelaufenes Lease liest sich überall als `requested`) und `can_request_analysis` **auch** an `DiaryEntryResponse` steht, nicht nur an der Übersichtszeile — beides war seit dem Vorgängerpaket so gebaut, die Spezifikation hinkte nach (§2.5.2, §5). |
 | 1.1 | 2026-08-05 | **Korrekturen aus der Umsetzung (Issue #921)**, plus die beiden blockierenden offenen Punkte entschieden. §4.3: `created_by` ist der blanke `user_key` ohne Collection-Präfix; `analysis` und `analysis_error` ergänzt, ohne die ein Agent den Vorbefund einer Wiederholungsanalyse (AK-21) über keines der fünf Werkzeuge erreichte. §4.4: `pending[].status` kennt zusätzlich `unavailable`. §2.5.2: `created_at` ist `datetime \| None`, wie am Datensatz. §4.4/§7.3: das nie existierende `STORAGE_KEEP_EXIF_<CATEGORY>` durch das tatsächlich vorhandene `STORAGE_STRIP_EXIF` ersetzt (NFR-013 v1.4 §6.4). §9: **O-05 mit ja entschieden** (Standalone-Endpunkte nachgezogen), **O-07 entschieden** (Modul `diary`, Kategorie „Pflege & Planung", Stufe Einsteiger, `core: false`, `/tagebuch`) und in REQ-042 v1.1 §1.3 sowie REQ-021 v1.4 §3.3 eingetragen. |
 | 1.0 | 2026-08-04 | Erstentwurf — Markierung, Zustandsmaschine, Ergebnis-Ablage am Eintrag, MCP-Vertrag für externe Agenten. |
@@ -680,6 +680,7 @@ Liefert den Eintrag **ohne** Bilddaten.
     "instance_id": "HOCHBEETA_TOM_05",
     "species_key": "solanum_lycopersicum",
     "species_name": "Solanum lycopersicum",
+    "cultivar_key": "san_marzano",
     "cultivar_name": "San Marzano",
     "current_phase": "flowering",
     "phase_started_at": "2026-07-12T00:00:00Z",
@@ -692,6 +693,10 @@ Liefert den Eintrag **ohne** Bilddaten.
 `measurements` ist ein offenes Objekt (REQ-013) — ein Rezept darf keine feste Schlüsselmenge
 annehmen. Felder des `plant`-Objekts, die am Datensatz fehlen, kommen als `null`, nicht als
 ausgelassener Schlüssel; damit bleibt die Struktur über alle Einträge gleich.
+
+Neben `cultivar_name` steht der **`cultivar_key`**, weil `get_cultivar` einen Schlüssel nimmt
+und kein Label: mit dem Namen allein hielt ein Agent eine Bezeichnung in der Hand, mit der er
+nichts nachschlagen konnte. Dieselbe Begründung wie beim Paar `species_key`/`species_name`.
 
 `created_by` ist der **blanke `user_key`** ohne Collection-Präfix — genau der Wert, der am
 Datensatz steht. Ein `user/`-Präfix zu ergänzen hieße, im Vertrag eine Dokument-ID zu
