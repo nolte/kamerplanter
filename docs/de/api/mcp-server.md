@@ -196,6 +196,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `list_plants` | Pflanzen auflisten, optional nach Name gefiltert — so wird aus „meine Tomate" der `plant_key`, den die Schreib-Werkzeuge brauchen |
 | `get_plant` | Eine Pflanze im Detail: Art (mit aufgelöstem Namen), Phase, Standort, Substrat (mit aufgelöstem Typ und Namen), Pflanz- und Entfernungsdatum |
 | `get_plant_care_log` | Pflegehistorie einer Pflanze — mit `reminder_type: "watering"` das Gießprotokoll |
+| `list_diary_entries` | Tagebuch-Einträge durchsehen, filterbar nach Pflanze, Art, Eintragstyp, Tag, Analyse-Zustand und Zeitraum — mit Messwerten, aber ohne Freitext |
 | `list_plants_at_location` | Alle Pflanzen an einem Standort, Beet oder Slot |
 | `list_nutrient_plans` | Verfügbare Nährstoffpläne — eigene plus globale Vorlagen |
 | `get_nutrient_plan` | Ein Plan mit allen Phasen: NPK-Verhältnis, Ziel-EC, Nährstoffe, Wochenfenster |
@@ -297,6 +298,8 @@ Jeder Fehler eines der fünf Werkzeuge kommt als Werkzeug-Ergebnis mit `isError:
 
 - Ein neu geschriebener Eintrag wird **nicht** zur Analyse eingereiht. Das Markieren bleibt eine Nutzerhandlung; ein Agent kann sich also keine eigene Arbeit erzeugen, und die Einwilligungsprüfung auf dem Markier-Pfad wird nie umgangen.
 - Das Werkzeug nimmt **keine** Foto-Referenzen entgegen. Ein Foto anzuhängen setzt voraus, es selbst hochgeladen zu haben (oder die Rolle Leitung zu tragen), und MCP hat keinen Upload-Weg — Fotos kommen über die Weboberfläche an den Eintrag.
+
+Wiederfinden lässt sich das Geschriebene mit `list_diary_entries` (`mcp.read`). Das Werkzeug durchsucht die Einträge des Gartens nach Pflanze, Eintragstyp, Tag, Analyse-Zustand und Zeitraum und liefert je Zeile Titel, Tags und Messwerte — den **Freitext** aber nicht. Der kommt aus `get_diary_entry`, einem bewussten Einzelabruf. Eine durchblätterbare Liste aller Beobachtungstexte wäre etwas anderes als das gezielte Lesen eines Eintrags.
 
 ## Antwortformat
 

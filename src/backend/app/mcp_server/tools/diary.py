@@ -18,11 +18,16 @@ The five tools, and the order an agent uses them in (§3):
 4. :class:`GetDiaryEntryPhotos` — the photos as MCP image content blocks.
 5. :class:`SubmitDiaryAnalysis` — write the result back and end the claim.
 
-A sixth tool, :class:`AddPlantDiaryEntry`, shares the module but **not** the
-contract: it belongs to REQ-033 §2.2 and lets an agent *document* an observation
-rather than analyse one (REQ-050 §9, O-04 — decided yes). It touches none of the
-analysis fields, and writing an entry does not enqueue it: marking is a user
-action (REQ-050 §1.3), so an agent cannot create work for itself.
+Two further tools share the module but **not** the contract; both belong to
+REQ-033 §2.1/§2.2 and are irrelevant to the analysis recipe:
+
+* :class:`AddPlantDiaryEntry` lets an agent *document* an observation rather
+  than analyse one (REQ-050 §9, O-04 — decided yes). It touches none of the
+  analysis fields, and writing an entry does not enqueue it: marking is a user
+  action (REQ-050 §1.3), so an agent cannot create work for itself.
+* :class:`ListDiaryEntries` browses what has been recorded — the read path the
+  other five never offered, since the queue shows only marked entries and
+  ``get_diary_entry`` needs a key one already holds.
 
 **No state machine lives here.** Claiming, the lease, the compare-and-set and the
 server-side disclaimer all belong to :mod:`app.domain.services.plant_diary_service`;
@@ -45,10 +50,11 @@ from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.datetimes import ensure_aware_utc, now_utc
-from app.common.enums import DiaryEntryType, McpPermission
+from app.common.enums import DiaryAnalysisState, DiaryEntryType, McpPermission
 from app.common.exceptions import DiaryAnalysisValidationError, KamerplanterError, NotFoundError
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_MIME_TYPE, can_render, metadata_keys
+from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter
 from app.domain.models.mcp import McpToolResponse
 from app.domain.models.plant_diary_entry import DiaryAnalysis, PlantDiaryEntry
 from app.domain.services.plant_diary_service import (
@@ -968,6 +974,96 @@ class AddPlantDiaryEntry(WriteToolBase):
         )
 
 
+@mcp_tool(name="list_diary_entries", permission=McpPermission.READ)
+class ListDiaryEntries(ToolBase):
+    """Browse diary entries of the garden — by plant, type, tag or date range.
+
+    The palette could reach a diary entry two ways before this: the analysis
+    queue (marked entries only) and ``get_diary_entry`` (one key you already
+    hold). Neither answers "what has been recorded about this plant", which is
+    what a supply-history reading is built on.
+
+    Two things this deliberately does **not** carry:
+
+    * **No ``text``.** The row stops at title, tags and measurements; the free
+      text needs ``get_diary_entry``. Same line ``list_pending_diary_analyses``
+      draws (§7.3): a browsable list is a different exposure of observer prose
+      than a single deliberate read, and nothing in the process specs needs the
+      body to *select* an entry.
+    * **No free-text search.** ``entry_type`` and ``tag`` select structurally.
+      A search that matched against text this tool then refuses to return would
+      be a half-open door — the REST overview keeps it for the UI, which does
+      show the text.
+    """
+
+    class Input(TenantToolInput):
+        plant_key: str | None = Field(default=None, description="Restrict to one plant instance.")
+        species_key: str | None = Field(default=None, description="Restrict to plants of one species.")
+        entry_type: DiaryEntryType | None = Field(
+            default=None,
+            description="Restrict to one kind of entry, e.g. 'measurement' for recorded values.",
+        )
+        tag: str | None = Field(default=None, description="Restrict to entries carrying this tag (case-insensitive).")
+        analysis_state: list[DiaryAnalysisState] | None = Field(
+            default=None,
+            description="Restrict to these analysis states. Omit for every state.",
+        )
+        created_from: date | None = Field(default=None, description="Only entries created on or after this UTC day.")
+        created_to: date | None = Field(default=None, description="Only entries created on or before this UTC day.")
+        limit: int = Field(default=20, ge=1, le=100, description="Maximum number of entries to return.")
+        offset: int = Field(default=0, ge=0, description="Number of entries to skip.")
+
+    async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        entries, total = ctx.plant_diary_service.list_overview(
+            ctx.tenant_key,
+            DiaryOverviewFilter(
+                analysis_states=tuple(args.analysis_state or ()),
+                plant_key=args.plant_key,
+                species_key=args.species_key,
+                entry_type=args.entry_type,
+                tag=args.tag,
+                created_from=args.created_from,
+                created_to=args.created_to,
+            ),
+            offset=args.offset,
+            limit=args.limit,
+        )
+
+        species_cache: dict[str, str | None] = {}
+        plant_cache: dict[str, Any | None] = {}
+        items: list[dict[str, Any]] = []
+        for entry in entries:
+            plant = plant_cache.get(entry.plant_key, ...)
+            if plant is ...:
+                plant = _load_plant(ctx, entry.plant_key)
+                plant_cache[entry.plant_key] = plant
+            items.append(
+                {
+                    "entry_key": entry.key,
+                    "plant_key": entry.plant_key or None,
+                    "plant_name": getattr(plant, "plant_name", None),
+                    "species_name": _species_name(ctx, getattr(plant, "species_key", None), species_cache),
+                    "entry_type": str(entry.entry_type),
+                    "title": entry.title,
+                    "tags": list(entry.tags),
+                    # The reason this tool exists. REQ-050's evidence ladder puts a
+                    # recorded EC or pH above every inferred signal, and a row
+                    # without them would force one get_diary_entry per entry just
+                    # to find out whether it carries any.
+                    "measurements": dict(entry.measurements or {}),
+                    "created_at": _iso_z(entry.created_at),
+                    "photo_count": len(entry.photo_refs),
+                    "analysis_state": str(effective_analysis_state(entry)),
+                }
+            )
+
+        return self._response(
+            summary=f"{len(items)} diary entries returned (of {total} matching).",
+            data={"entries": items, "total": total, "offset": args.offset},
+            links=[ctx.api_link("/diary"), ctx.ui_link("/tagebuch")],
+        )
+
+
 def _analysis_payload(analysis: DiaryAnalysis) -> dict[str, Any]:
     """The persisted result in the §4.5 wire shape."""
 
@@ -1081,6 +1177,7 @@ __all__ = [
     "DiaryFindingInput",
     "GetDiaryEntry",
     "GetDiaryEntryPhotos",
+    "ListDiaryEntries",
     "ListPendingDiaryAnalyses",
     "SubmitDiaryAnalysis",
 ]

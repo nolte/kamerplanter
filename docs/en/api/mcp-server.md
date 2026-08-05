@@ -196,6 +196,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `list_plants` | List plants, optionally filtered by name — this is how "my tomato" becomes the `plant_key` the write tools need |
 | `get_plant` | One plant in detail: species (with resolved name), phase, location, substrate (with resolved type and name), planting and removal dates |
 | `get_plant_care_log` | A plant's care history — with `reminder_type: "watering"` this is the watering log |
+| `list_diary_entries` | Browse diary entries, filtered by plant, species, entry type, tag, analysis state and date range — with measurements, but without the free text |
 | `list_plants_at_location` | All plants at a given site, bed or slot |
 | `list_nutrient_plans` | Available nutrient plans — your own plus global templates |
 | `get_nutrient_plan` | One plan with every phase: NPK ratio, target EC, nutrients, week window |
@@ -297,6 +298,8 @@ Every error from one of the five tools arrives as a tool result with `isError: t
 
 - A newly written entry is **not** queued for analysis. Marking stays a user action, so an agent cannot create work for itself, and the consent gate on the marking path is never bypassed.
 - The tool takes **no** photo references. Attaching a photo requires having uploaded it yourself (or being a garden lead), and MCP has no upload path — photos reach an entry through the web UI.
+
+What was written is found again with `list_diary_entries` (`mcp.read`). It browses the garden's entries by plant, entry type, tag, analysis state and date range, and returns title, tags and measurements per row — but **not** the free text. That comes from `get_diary_entry`, a deliberate single read: a browsable list of every observation's prose is a different thing from reading one entry on purpose.
 
 ## Response Format
 

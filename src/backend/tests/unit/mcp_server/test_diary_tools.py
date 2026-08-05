@@ -54,6 +54,7 @@ from app.mcp_server.tools.diary import (
     ClaimDiaryAnalysis,
     GetDiaryEntry,
     GetDiaryEntryPhotos,
+    ListDiaryEntries,
     ListPendingDiaryAnalyses,
     SubmitDiaryAnalysis,
 )
@@ -1517,3 +1518,148 @@ def test_add_entry_publishes_its_bounds_and_carries_no_photo_refs() -> None:
     # The write envelope every state-changing tool carries (§2.6).
     for field in ("tenant", "dry_run", "idempotency_key"):
         assert field in properties
+
+
+# ══ REQ-033 §2.1 — list_diary_entries ════════════════════════════════════════
+#
+# The seventh tool, and the second one outside the analysis contract. Before it
+# the palette could reach an entry only through the queue (marked entries) or
+# through a key it already held — so "what has been recorded about this plant"
+# had no answer, and a supply-history reading had nothing to stand on.
+def _measurement(key: str, *, plant: str = "plant-1", values: dict | None = None, day: int = 3) -> PlantDiaryEntry:
+    return PlantDiaryEntry(
+        _key=key,
+        tenant_key=TENANT,
+        plant_key=plant,
+        entry_type=DiaryEntryType.MEASUREMENT,
+        title="Ablaufmessung",
+        text="EC im Ablauf gemessen, Substrat leicht feucht.",
+        tags=["ec"],
+        measurements=values if values is not None else {"ec_ms": 2.4, "ph": 6.1},
+        created_by="user-4471023",
+        created_at=datetime(2026, 8, day, 9, 0, tzinfo=UTC),
+        analysis_state=DiaryAnalysisState.NONE,
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_entries_carries_the_measurements_that_a_supply_reading_stands_on(world: _World) -> None:
+    """The reason the tool exists: recorded values without one read per entry."""
+
+    world.repo.create(_measurement("m-1"))
+    tool = ListDiaryEntries()
+
+    response = await tool.run(world.ctx, tool.Input(plant_key="plant-1", entry_type=DiaryEntryType.MEASUREMENT))
+
+    row = response.data["entries"][0]
+    assert row["measurements"] == {"ec_ms": 2.4, "ph": 6.1}
+    assert row["entry_key"] == "m-1"
+    assert row["entry_type"] == "measurement"
+    assert row["plant_name"] == "Tomate Beet 2 #05", "the plant is labelled, not just keyed"
+    assert response.data["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_list_entries_withholds_the_free_text(world: _World) -> None:
+    """§7.3: a browsable list is a different exposure than one deliberate read.
+
+    Title, tags and measurements are enough to *select* an entry; the body is
+    what ``get_diary_entry`` is for. The same line ``list_pending_diary_analyses``
+    draws.
+    """
+
+    world.repo.create(_measurement("m-1"))
+    tool = ListDiaryEntries()
+
+    response = await tool.run(world.ctx, tool.Input())
+
+    row = response.data["entries"][0]
+    assert "text" not in row
+    assert row["title"] == "Ablaufmessung", "the headline stays — it is what makes a row selectable"
+    assert "photo_refs" not in row and row["photo_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_list_entries_filters_by_plant_and_type(world: _World) -> None:
+    world.plants._plants["plant-2"] = _Plant("plant-2")
+    world.repo.create(_measurement("m-1", plant="plant-1"))
+    world.repo.create(_measurement("m-2", plant="plant-2"))
+    world.repo.create(_entry("e-1"))  # a 'problem' entry on plant-1
+    tool = ListDiaryEntries()
+
+    by_plant = await tool.run(world.ctx, tool.Input(plant_key="plant-1"))
+    assert {r["entry_key"] for r in by_plant.data["entries"]} == {"m-1", "e-1"}
+
+    by_type = await tool.run(world.ctx, tool.Input(entry_type=DiaryEntryType.MEASUREMENT))
+    assert {r["entry_key"] for r in by_type.data["entries"]} == {"m-1", "m-2"}
+
+    both = await tool.run(world.ctx, tool.Input(plant_key="plant-1", entry_type=DiaryEntryType.MEASUREMENT))
+    assert [r["entry_key"] for r in both.data["entries"]] == ["m-1"]
+
+
+@pytest.mark.asyncio
+async def test_list_entries_never_leaves_the_bound_tenant(world: _World) -> None:
+    """AK-12 shape: another garden's entries are not a filtered-out row, they are absent."""
+
+    world.repo.create(_measurement("m-1"))
+    world.repo.create(_entry("foreign-1", tenant=FOREIGN_TENANT))
+    tool = ListDiaryEntries()
+
+    response = await tool.run(world.ctx, tool.Input())
+
+    assert [r["entry_key"] for r in response.data["entries"]] == ["m-1"]
+    assert response.data["total"] == 1, "the count must not see the other tenant either"
+
+
+@pytest.mark.asyncio
+async def test_list_entries_reports_the_total_beyond_the_page(world: _World) -> None:
+    """``total`` counts every match, so a recipe knows another page exists."""
+
+    for i in range(5):
+        world.repo.create(_measurement(f"m-{i}", day=i + 1))
+    tool = ListDiaryEntries()
+
+    page = await tool.run(world.ctx, tool.Input(limit=2))
+
+    assert len(page.data["entries"]) == 2
+    assert page.data["total"] == 5
+    assert page.data["offset"] == 0
+
+    second = await tool.run(world.ctx, tool.Input(limit=2, offset=2))
+    assert second.data["offset"] == 2
+    assert {r["entry_key"] for r in second.data["entries"]}.isdisjoint(
+        {r["entry_key"] for r in page.data["entries"]}
+    ), "paging must not repeat a row"
+
+
+@pytest.mark.asyncio
+async def test_list_entries_reports_the_displayed_analysis_state(world: _World) -> None:
+    """An expired lease reads as 'requested' here too, as on every other read path.
+
+    Reporting the stored ``in_progress`` would tell an agent to keep away from an
+    entry that is claimable again.
+    """
+
+    stale = _entry("e-stale", state=DiaryAnalysisState.IN_PROGRESS)
+    stale.analysis_claimed_at = datetime(2026, 8, 4, 7, 5, tzinfo=UTC)
+    stale.analysis_lease_expires_at = datetime(2026, 8, 4, 7, 20, tzinfo=UTC)
+    world.repo.create(stale)
+    tool = ListDiaryEntries()
+
+    response = await tool.run(world.ctx, tool.Input())
+
+    assert response.data["entries"][0]["analysis_state"] == "requested"
+
+
+def test_list_entries_is_a_tenant_bound_read_tool() -> None:
+    from app.mcp_server.registry import load_tools
+
+    registry = load_tools()
+    spec = {s.name: s for s in registry.specs()}["list_diary_entries"]
+
+    assert spec.permission == "mcp.read"
+    assert spec.write is False
+    assert registry.get("list_diary_entries").tenant_scoped is True
+    # No free-text search: it would match against a body this tool refuses to return.
+    assert "q" not in spec.input_schema["properties"]
+    assert "search" not in spec.input_schema["properties"]
