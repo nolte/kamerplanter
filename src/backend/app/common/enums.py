@@ -526,6 +526,30 @@ class DiaryEntryType(StrEnum):
     NOTE = "note"
 
 
+class DiaryAnalysisState(StrEnum):
+    """REQ-050 §2.2 — analysis state of a single plant diary entry.
+
+    The state machine is driven from two sides: the user marks an entry
+    (``none → requested``) and may un-mark it while it is still unclaimed, while
+    an *external* agent claims it (``requested → in_progress``) and reports the
+    outcome (``→ completed`` / ``→ failed``). ``in_progress`` additionally falls
+    back to ``requested`` once the lease expires, so an agent that crashed mid-run
+    does not pin an entry forever.
+
+    ``NONE`` is a real, stored value rather than the absence of the attribute —
+    but entries written before REQ-050 carry no attribute at all and are read as
+    ``NONE`` (AK-26). Any AQL that filters for this value must therefore match
+    ``null`` as well; see
+    :mod:`app.migrations.versions.v0033_diary_analysis_state_index`.
+    """
+
+    NONE = "none"
+    REQUESTED = "requested"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class TankType(StrEnum):
     NUTRIENT = "nutrient"
     IRRIGATION = "irrigation"

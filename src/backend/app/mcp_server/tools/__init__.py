@@ -15,9 +15,16 @@ the ~30-tool inventory in §2):
   list_pests, get_pest, list_diseases, get_disease, get_treatment,
   get_plant_inspections, list_cultivars, get_cultivar, list_substrates,
   list_overwintering_profiles, list_starter_kits, list_phase_definitions,
-  list_hardiness_zones, search_glossary, get_mcp_activity
-* write (mcp.write): confirm_care_task, archive_plant, set_plant_location
+  list_hardiness_zones, search_glossary, get_mcp_activity,
+  list_pending_diary_analyses, get_diary_entry, get_diary_entry_photos
+* write (mcp.write): confirm_care_task, archive_plant, set_plant_location,
+  claim_diary_analysis, submit_diary_analysis
 * setup (mcp.setup): create_site
+
+The five ``*_diary_*`` tools (REQ-050 §4, REQ-033 §2.2a) are the complete
+contract for the external analysis agent in the separate ``kamerplanter-goose``
+repository; ``get_diary_entry_photos`` is the only tool in the palette that
+returns something other than text (REQ-033 §4.3b).
 
 Tools whose ``Input`` extends ``TenantToolInput`` act inside one tenant, which
 the dispatcher binds per call; the rest (``list_tenants``, the species
@@ -30,6 +37,7 @@ from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
     calendar,
     care,
     catalogs,
+    diary,
     harvest,
     ipm,
     nutrient_calc,

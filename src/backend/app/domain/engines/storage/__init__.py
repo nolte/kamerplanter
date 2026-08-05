@@ -5,7 +5,9 @@ pipeline (NFR-013 §5.1):
 
 - :class:`MagicByteValidator` — content-vs-declared-MIME sniffing.
 - :class:`ExifStripper` — Pillow-based EXIF/GPS metadata removal.
-- :class:`ThumbnailGenerator` — WEBP thumbnail rendition generation.
+- :class:`ThumbnailGenerator` — WEBP thumbnail rendition generation; renditions
+  are enforced metadata-free (NFR-013 §8.2), which is what allows them to be
+  delivered to third parties (REQ-050 §4.4) where the original may not be.
 - :class:`StorageKeyBuilder` — deterministic object-key construction.
 """
 
@@ -19,6 +21,8 @@ from app.domain.engines.storage.storage_key_builder import (
 from app.domain.engines.storage.thumbnail_generator import (
     THUMBNAIL_SIZES,
     ThumbnailGenerator,
+    ThumbnailMetadataError,
+    metadata_keys,
 )
 
 __all__ = [
@@ -28,5 +32,7 @@ __all__ = [
     "MagicByteValidator",
     "StorageKeyBuilder",
     "ThumbnailGenerator",
+    "ThumbnailMetadataError",
     "generate_ulid",
+    "metadata_keys",
 ]

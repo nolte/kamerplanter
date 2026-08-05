@@ -36,7 +36,7 @@ from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundErr
 from app.core.permissions import assert_mcp_permission
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.audit import MCPAuditLogger, hash_arguments
-from app.mcp_server.base import ToolBase, WriteToolBase
+from app.mcp_server.base import McpToolError, ToolBase, WriteToolBase
 from app.mcp_server.context import ToolContext
 from app.mcp_server.idempotency import IdempotencyStore
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
@@ -135,6 +135,15 @@ class ToolDispatcher:
             raise
 
         duration_ms = int((perf_counter() - started) * 1000)
+        # AC-S9 — image payload is reported *separately*, not folded into
+        # output_size_bytes. ``to_payload()`` excludes the content blocks, so the
+        # existing metric keeps measuring the same thing it measured for the 12
+        # text-only tools and stays comparable across the whole palette; a single
+        # 4 MB photo call can no longer drown every other tool's statistic.
+        # Capping the combined number instead would have been the other sanctioned
+        # option, but it destroys information: a capped 4 MB call and a capped
+        # 40 MB one look alike, and the structured part becomes unreadable behind
+        # the cap. Both fields are sizes — never image data (AC-S5).
         output_size = len(json.dumps(response.to_payload(), default=str).encode())
         self._audit.record(
             principal,
@@ -142,6 +151,7 @@ class ToolDispatcher:
             input_hash=input_hash,
             status=status,
             output_size_bytes=output_size,
+            image_bytes=response.image_payload_bytes(),
             duration_ms=duration_ms,
             membership=membership,
         )
@@ -175,9 +185,14 @@ class ToolDispatcher:
             return membership
 
         if requested is None:
-            raise ValidationError(
+            # Its own contract code (REQ-050 §4.0): "you forgot the tenant" is the
+            # one validation failure a recipe can *fix* by retrying with a slug.
+            # Distinguishing it by parsing the message would be exactly the
+            # message-branching the contract forbids.
+            raise McpToolError(
+                "validation.tenant_required",
                 f"Tool '{tool_name}' acts inside one tenant and this API key grants "
-                f"{len(principal.memberships)}. Pass 'tenant' — use list_tenants to see the options."
+                f"{len(principal.memberships)}. Pass 'tenant' — use list_tenants to see the options.",
             )
 
         self._audit.record(

@@ -10,10 +10,18 @@ from __future__ import annotations
 import pytest
 
 from app.common.enums import McpPermission, McpToolStatus, TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError, ValidationError
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.audit import MCPAuditLogger
-from app.mcp_server.base import TenantToolInput, ToolBase, ToolInput, WriteToolBase, WriteToolInput, mcp_tool
+from app.mcp_server.base import (
+    McpToolError,
+    TenantToolInput,
+    ToolBase,
+    ToolInput,
+    WriteToolBase,
+    WriteToolInput,
+    mcp_tool,
+)
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.idempotency import IdempotencyStore
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
@@ -240,11 +248,17 @@ async def test_permission_is_evaluated_per_tenant_not_per_key():
 @pytest.mark.asyncio
 async def test_ambiguous_tenant_must_be_named():
     # With several memberships and no 'tenant' argument the call is rejected
-    # rather than silently acting in an arbitrary tenant.
+    # rather than silently acting in an arbitrary tenant. The refusal carries the
+    # contract code 'validation.tenant_required' (REQ-050 §4.0) so a recipe can
+    # retry with a slug instead of parsing the message; it remains a
+    # KamerplanterError, so the REST alias still answers 422.
     dispatcher, _, _, _ = _dispatcher()
     principal = _principal(TenantRole.GROWER, slugs=("home", "garden"))
-    with pytest.raises(ValidationError):
+    with pytest.raises(McpToolError) as excinfo:
         await dispatcher.dispatch(principal, "counter_write", {"label": "x"})
+    assert excinfo.value.error_code == "validation.tenant_required"
+    assert excinfo.value.status_code == 422
+    assert isinstance(excinfo.value, KamerplanterError)
 
 
 @pytest.mark.asyncio

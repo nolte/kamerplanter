@@ -270,14 +270,12 @@ Detaching a plant from the run does not delete the plant.
 
 ---
 
-## Plant Diary (currently API-only) {#plant-diary-currently-api-only}
+## Plant Diary {#plant-diary}
 
-!!! info "For technical users"
-    Kamerplanter can already store and retrieve diary entries for individual plants in a run — but there is no frontend UI for this yet. This feature is currently only available via the technical API.
+Every plant in a run has its own diary — a tab on its detail page where you record observations, problems, milestones, measurements and photos, and optionally have individual entries assessed by your own AI agent. A tenant-wide overview brings together the entries of every plant, whether or not it belongs to a run. For details, including AI analysis, see [Diary](plant-diary.md).
 
-<!-- Endpoint: /api/v1/t/{tenant}/planting-runs/{run}/plants/{plant}/diary -->
-
-Each entry has a type (observation, problem, milestone, measurement, photo, or note), an optional title, text (up to 5,000 characters), optional photo references, tags, and free-form measurements. A second technical API endpoint lets you retrieve the diary entries of all plants in a run together.
+!!! info "API only: fetching an entire run's diary entries in bulk"
+    Besides the per-plant view there is a technical API endpoint that returns the diary entries of **every** plant in a run at once — useful for a combined evaluation, e.g. in your own reporting tool. There is currently no dedicated UI for it; the tenant-wide [diary overview](plant-diary.md#every-entry-at-a-glance-the-diary-overview) covers the same need across every plant, not only those of a single run.
 
 <!-- Source: src/backend/app/domain/models/plant_diary_entry.py, src/backend/app/api/v1/planting_runs/tenant_router.py -->
 

@@ -85,6 +85,8 @@ Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vo
 | Diese Datensätze löschen | Nein | **Nein** | Ja | — | — |
 | Tanks und Nährlösungen verwalten | Nein | Ja | Ja | — | — |
 | Pflegeerinnerungen bestätigen | Nein | Ja | Ja | — | — |
+| Tagebuch-Einträge anlegen, bearbeiten, löschen | Nein | Ja | Ja | — | — |
+| Tagebuch-Einträge zur KI-Analyse markieren‡ | Nein | Ja | Ja | — | — |
 | Aktoren bedienen (schalten, Notaus) | Nein | Ja | Ja | — | — |
 | Aktoren und Sensoren **einrichten** | Nein | Nein | Nein | Nein | **Ja** |
 | Home Assistant, MQTT, InvenTree anbinden | Nein | Nein | Nein | Nein | **Ja** |
@@ -97,6 +99,8 @@ Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vo
 | Den Garten selbst verlassen | Ja | Ja | Ja | Ja* | Ja |
 
 *Als einziges Mitglied mit **Verwaltung** kannst du den Garten nicht verlassen, ohne die Berechtigung vorher weiterzugeben — sonst bliebe der Garten ohne jemanden zurück, der noch jemanden einladen könnte.
+
+‡Anders als die übrigen Zeilen dieser Tabelle ist das Markieren zur KI-Analyse zusätzlich an die **Autorschaft** gebunden: Ein Gärtner darf ausschließlich Einträge markieren, die er selbst verfasst hat. Nur die Rolle Leitung darf auch Einträge anderer Mitglieder markieren. Details unter [Tagebuch](../user-guide/plant-diary.md).
 
 !!! warning "Geänderte Rechte für Gärtner"
     Bis zur Einführung dieses Modells konnte ein Gärtner in der Umsetzung Fachdaten löschen, obwohl die Spezifikation das nie vorsah. Seit der Umstellung kann er es nicht mehr. Das ist die beabsichtigte Korrektur, kein Fehler — wer löschen können soll, braucht die Rolle **Leitung**.

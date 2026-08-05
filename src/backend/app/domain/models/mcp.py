@@ -9,8 +9,9 @@ Source code is English only (NFR-003).
 
 from __future__ import annotations
 
+from base64 import b64encode
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +31,13 @@ class McpAuditLog(BaseModel):
     tenant_key: str  # FK -> tenants
     tool_name: str
     input_hash: str  # sha256 over the tool arguments
+    #: Size of the *structured* answer only — image content blocks are excluded by
+    #: construction (see :meth:`McpToolResponse.to_payload`) and counted in
+    #: ``image_bytes`` instead (REQ-033 §4.3b, AC-S9).
     output_size_bytes: int = 0
+    #: Base-64 payload of the image content blocks, in bytes. A *size*, never
+    #: image data — the log stays PII-free (AC-S5).
+    image_bytes: int = 0
     duration_ms: int = 0
     status: McpToolStatus
     error_class: str | None = None
@@ -83,12 +90,54 @@ class McpToolLink(BaseModel):
     url: str
 
 
+class McpTextContent(BaseModel):
+    """A ``text`` content block (REQ-033 §4.3b).
+
+    The transport always emits ``summary`` as the leading text block; a tool only
+    adds further blocks when it has something a language model must *see* rather
+    than read out of ``structuredContent``.
+    """
+
+    type: Literal["text"] = "text"
+    text: str
+
+
+class McpImageContent(BaseModel):
+    """An ``image`` content block carrying Base-64 data (REQ-033 §4.3b).
+
+    Built through :meth:`from_bytes` so no tool ever encodes a block by hand.
+    The wire key is ``mimeType`` (MCP is camelCase there); the Python attribute
+    stays snake_case per NFR-003, hence the serialisation alias.
+
+    Only the WebP renditions from NFR-013 §8.2 may be put in here — never an
+    original upload (AC-S7): originals may be 25 MB and carry EXIF data.
+    """
+
+    type: Literal["image"] = "image"
+    data: str = Field(description="Base-64 encoded image bytes.")
+    mime_type: str = Field(serialization_alias="mimeType", description="e.g. 'image/webp'.")
+
+    @classmethod
+    def from_bytes(cls, raw: bytes, mime_type: str) -> McpImageContent:
+        """Encode raw rendition bytes into a protocol-ready image block."""
+
+        return cls(data=b64encode(raw).decode("ascii"), mime_type=mime_type)
+
+
+#: Any block a tool may append after the leading ``summary`` text block.
+McpContentBlock = Annotated[McpTextContent | McpImageContent, Field(discriminator="type")]
+
+
 class McpToolResponse(BaseModel):
-    """LLM-friendly tool response envelope (§2.6).
+    """LLM-friendly tool response envelope (§2.6, §4.3b).
 
     ``summary`` is a one-sentence recap for the LLM, ``data`` the structured
     result, ``links`` point the human user at the UI/API. Write tools also set
     ``dry_run``/``idempotency_key``/``idempotent_replay``.
+
+    ``content_blocks`` carries non-text content (today: images) that the
+    transport appends *after* the leading summary text block. It is deliberately
+    **not** part of the serialised payload — see :meth:`to_payload`.
     """
 
     summary: str
@@ -97,11 +146,27 @@ class McpToolResponse(BaseModel):
     dry_run: bool | None = None
     idempotency_key: str | None = None
     idempotent_replay: bool | None = None
+    #: ``exclude=True``: the blocks are transport-level content, never payload.
+    #: Without this every image would travel twice — once as a content block and
+    #: once inside ``structuredContent`` — and would additionally be persisted in
+    #: the idempotency record, which stores ``to_payload()``.
+    content_blocks: list[McpContentBlock] = Field(default_factory=list, exclude=True)
 
     def to_payload(self) -> dict[str, Any]:
-        """Serialise to a compact dict, dropping the write-only fields when unset."""
+        """Serialise to a compact dict, dropping the write-only fields when unset.
 
-        return self.model_dump(exclude_none=True)
+        Excludes ``content_blocks`` explicitly (belt and braces next to the
+        field-level ``exclude``): this method feeds ``structuredContent`` *and*
+        the persisted idempotency record, and neither may ever carry Base-64
+        image data.
+        """
+
+        return self.model_dump(exclude_none=True, exclude={"content_blocks"})
+
+    def image_payload_bytes(self) -> int:
+        """Total Base-64 size of the image blocks, for the audit metric (AC-S9)."""
+
+        return sum(len(block.data) for block in self.content_blocks if isinstance(block, McpImageContent))
 
 
 class McpToolSpec(BaseModel):

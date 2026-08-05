@@ -1229,9 +1229,54 @@ export interface PlantingRunEntryCreate {
   notes?: string | null;
 }
 
+/**
+ * REQ-050 §2.2 — analysis state of a single diary entry.
+ *
+ * `none` is a real, stored value; entries written before REQ-050 carry no
+ * attribute at all and the backend reads those as `none` (AK-26), so the client
+ * never has to treat "missing" as a sixth case.
+ */
+export type DiaryAnalysisState =
+  | 'none'
+  | 'requested'
+  | 'in_progress'
+  | 'completed'
+  | 'failed';
+
+/** REQ-050 §5 — one finding of an AI analysis. */
+export interface DiaryFinding {
+  label: string;
+  /** Model confidence, 0.0–1.0. Never rendered as a bare percentage (AK-30). */
+  confidence: number;
+  rationale: string;
+}
+
+/** REQ-050 §5 — the single, most recent analysis result stored on an entry. */
+export interface DiaryAnalysis {
+  summary: string;
+  findings: DiaryFinding[];
+  recommended_actions: string[];
+  /** Which photos actually went into the analysis (subset of `photo_refs`). */
+  analyzed_photo_ids: string[];
+  model: string;
+  recipe_version: string;
+  analyzed_at: string;
+  /** Set server-side, never by the agent (§4.5). Always displayed (AK-20). */
+  disclaimer: string;
+}
+
+/**
+ * A plant diary entry as returned by the standalone diary endpoints
+ * (`/t/{slug}/plant-instances/{key}/diary`, REQ-013 §4.7 + REQ-050 §5).
+ *
+ * Mirrors `DiaryEntryResponse` in
+ * `src/backend/app/api/v1/planting_runs/diary_schemas.py` field for field.
+ * The previous shape of this (never-used) interface carried a `tenant_key` the
+ * response does not expose, made `created_at`/`updated_at` nullable although the
+ * response requires them, and predated all eight REQ-050 analysis fields.
+ */
 export interface PlantDiaryEntry {
   key: string;
-  tenant_key: string;
   plant_key: string;
   entry_type: DiaryEntryType;
   title: string | null;
@@ -1240,8 +1285,119 @@ export interface PlantDiaryEntry {
   tags: string[];
   measurements: Record<string, unknown> | null;
   created_by: string;
+  created_at: string;
+  updated_at: string;
+
+  // REQ-050 §5 — read-only projection of the analysis state machine. None of
+  // these may be sent back through create/update; every transition has its own
+  // guarded endpoint.
+
+  /**
+   * The state to **display**, corrected server-side: an entry whose agent lease
+   * ran out reads as `requested`, not `in_progress`, because it is back in the
+   * work queue (AK-06). The same correction the overview row carries — the two
+   * views of one entry answer identically, so the client never re-derives it
+   * from `analysis_lease_expires_at`.
+   */
+  analysis_state: DiaryAnalysisState;
+  analysis_requested_at: string | null;
+  analysis_requested_by: string | null;
+  analysis_claimed_at: string | null;
+  analysis_claimed_by: string | null;
+  analysis_lease_expires_at: string | null;
+  analysis: DiaryAnalysis | null;
+  analysis_error: string | null;
+
+  /**
+   * §7.2 evaluated server-side from role, authorship, consent and operating
+   * mode (AK-18a) — for the user of *this* request and *this* entry, so one
+   * listing legitimately mixes `true` and `false` rows.
+   *
+   * A display aid only: marking re-evaluates the identical rule and answers 403
+   * regardless of what the client believed.
+   */
+  can_request_analysis: boolean;
+}
+
+/** POST body for a new diary entry (`DiaryEntryCreateRequest`). */
+export interface PlantDiaryEntryCreate {
+  entry_type: DiaryEntryType;
+  title?: string | null;
+  text: string;
+  photo_refs?: string[];
+  tags?: string[];
+  measurements?: Record<string, unknown> | null;
+}
+
+/** PUT body for an existing diary entry (`DiaryEntryUpdateRequest`). */
+export interface PlantDiaryEntryUpdate {
+  entry_type?: DiaryEntryType;
+  title?: string | null;
+  text?: string;
+  photo_refs?: string[];
+  tags?: string[];
+  measurements?: Record<string, unknown> | null;
+}
+
+/**
+ * REQ-050 §2.5.2 — one row of the tenant-wide diary overview.
+ *
+ * Deliberately slimmer than {@link PlantDiaryEntry}: it carries the analysis
+ * *summary* but never `findings` or `recommended_actions` (AK-18). Both views
+ * publish `can_request_analysis` and the lease-corrected `analysis_state`, from
+ * the same server-side functions — a row and a full entry never disagree about
+ * the same document.
+ */
+export interface DiaryOverviewItem {
+  key: string;
   created_at: string | null;
-  updated_at: string | null;
+  entry_type: DiaryEntryType;
+  title: string | null;
+  /** Server-side truncated beginning of `text` (max 200 chars). */
+  excerpt: string;
+  tags: string[];
+
+  plant_key: string;
+  plant_name: string | null;
+  instance_id: string;
+  species_name: string | null;
+
+  photo_count: number;
+  preview_photo_id: string | null;
+
+  /**
+   * The state to *display*: an entry whose agent lease ran out reads as
+   * `requested` here even though it is stored as `in_progress`.
+   */
+  analysis_state: DiaryAnalysisState;
+  analysis_summary: string | null;
+  analysis_error: string | null;
+  /**
+   * When an agent claimed the entry — the *start* of the lease, not the end of
+   * the run (`analyzed_at`). It belongs to the run this row's `analysis_state`
+   * describes: a row whose lease ran out reads as `requested` and carries
+   * `null` here, so a moment of claiming never appears next to "waiting for
+   * analysis". The full lease (`analysis_claimed_by`,
+   * `analysis_lease_expires_at`) is on the single-entry read.
+   */
+  analysis_claimed_at: string | null;
+  analyzed_at: string | null;
+
+  /**
+   * §7.2 evaluated server-side from role, authorship, consent and operating
+   * mode (AK-18a). A display aid only — marking re-evaluates the same rule and
+   * answers 403 regardless of what the client believed.
+   */
+  can_request_analysis: boolean;
+}
+
+/** A page of the tenant-wide diary overview (REQ-050 §2.5.2). */
+export interface DiaryOverviewResponse {
+  items: DiaryOverviewItem[];
+  /** Matches across all pages, independent of `limit`. */
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export interface PhaseSummary {

@@ -13,13 +13,96 @@ caller's tenant role before the handler runs.
 
 from __future__ import annotations
 
-from typing import ClassVar
+from collections.abc import Sequence
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
 from app.common.enums import McpPermission
-from app.domain.models.mcp import McpToolLink, McpToolResponse, McpToolSpec
+from app.common.exceptions import KamerplanterError
+from app.domain.models.mcp import McpImageContent, McpToolLink, McpToolResponse, McpToolSpec
 from app.mcp_server.context import ToolContext
+
+#: The leading ``content`` block is always the ``summary`` text (REQ-033 §4.3b),
+#: so the first image a tool appends lands at wire index 1.
+FIRST_IMAGE_CONTENT_INDEX = 1
+
+#: HTTP status per contract error code, for the non-protocol REST alias
+#: (``POST /mcp/tools/{name}``). On the MCP wire the status is irrelevant — there
+#: the failure is a *result* with ``isError: true`` (REQ-050 §4.0).
+_ERROR_CODE_STATUS: dict[str, int] = {
+    "not_found": 404,
+    "permission.denied": 403,
+}
+_ERROR_PREFIX_STATUS: tuple[tuple[str, int], ...] = (
+    ("conflict.", 409),
+    ("payload.", 413),
+    ("validation.", 422),
+)
+
+
+def image_content_index(position: int) -> int:
+    """Wire ``content`` index of the image at ``position`` (0-based) in a response.
+
+    A tool records this as ``content_index`` next to the photo's id so a recipe
+    maps block to identifier explicitly instead of counting positions — the
+    mapping must survive a further text block being added later (REQ-050 §4.4).
+    """
+
+    return FIRST_IMAGE_CONTENT_INDEX + position
+
+
+def _http_status_for(error_code: str) -> int:
+    """Map a contract error code to the HTTP status of the REST alias."""
+
+    if error_code in _ERROR_CODE_STATUS:
+        return _ERROR_CODE_STATUS[error_code]
+    for prefix, status in _ERROR_PREFIX_STATUS:
+        if error_code.startswith(prefix):
+            return status
+    return 422
+
+
+class McpToolError(KamerplanterError):
+    """A tool failure carrying the machine-readable MCP error contract (REQ-050 §4.0).
+
+    Raise this whenever a documented ``error_code`` from REQ-050 §4.1–§4.5 must
+    reach the caller — ``conflict.already_claimed``, ``payload.too_large``,
+    ``validation.tenant_required`` and friends. The transport turns it into a
+    tool *result* with ``isError: true`` and a ``structuredContent`` holding
+    ``error_code``, ``message`` and ``details``. A recipe branches on
+    ``error_code`` and never on ``message``, which is free to change.
+
+    Why a dedicated class rather than the existing ``ValidationError`` and
+    friends: those carry Kamerplanter's internal, SCREAMING_CASE codes
+    (``VALIDATION_ERROR``) and a ``details`` **list** in the NFR-006
+    ``ErrorResponse`` shape. The MCP contract needs lowercase dotted codes and a
+    free-form ``details`` **object** (``claimed_by``, ``lease_expires_at``, …).
+    Both are served here: :attr:`error_details` keeps the object for the MCP
+    wire, while the inherited ``details`` list keeps the REST alias
+    NFR-006-conformant.
+    """
+
+    def __init__(
+        self,
+        error_code: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        status_code: int | None = None,
+    ) -> None:
+        #: The MCP-wire ``details`` object — original value types preserved.
+        self.error_details: dict[str, Any] = dict(details or {})
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            status_code=status_code or _http_status_for(error_code),
+            # Projection into the NFR-006 detail list; values are stringified
+            # because ErrorDetail is str-typed. The MCP wire uses error_details.
+            details=[
+                {"field": key, "reason": str(value), "code": error_code} for key, value in self.error_details.items()
+            ],
+        )
 
 
 class ToolInput(BaseModel):
@@ -124,6 +207,30 @@ class ToolBase:
             data=data or {},
             links=[McpToolLink(**link) for link in (links or [])],
         )
+
+    @staticmethod
+    def _image_response(
+        summary: str,
+        images: Sequence[tuple[bytes, str]],
+        data: dict | None = None,
+        links: list[dict[str, str]] | None = None,
+    ) -> McpToolResponse:
+        """Build a response whose images travel as MCP content blocks (§4.3b).
+
+        ``images`` are ``(raw_rendition_bytes, mime_type)`` pairs **in delivery
+        order**; Base-64 encoding happens here so no tool builds a content block
+        by hand. The transport prepends the ``summary`` text block, so the image
+        at position *i* appears at wire index :func:`image_content_index`\\ ``(i)``.
+
+        The bytes must come from a WebP rendition (NFR-013 §8.2), never from an
+        original upload (AC-S7). They deliberately do **not** enter ``data``:
+        ``to_payload()`` feeds both ``structuredContent`` and the persisted
+        idempotency record, and neither may carry image payload.
+        """
+
+        response = ToolBase._response(summary, data, links)
+        response.content_blocks = [McpImageContent.from_bytes(raw, mime_type) for raw, mime_type in images]
+        return response
 
     def spec(self) -> McpToolSpec:
         return McpToolSpec(

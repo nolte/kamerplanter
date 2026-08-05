@@ -29,6 +29,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Pflanze per Foto identifizieren](plant-identification.md) | Unbekannte Pflanzenart per Foto bestimmen |
 | [Referenzbilder kuratieren](reference-image-curation.md) | Referenz-Index der Bilderkennung pflegen (Admin) |
 | [Pflanzenfoto-Galerie](plant-photos.md) | Wachstumsverlauf einer Pflanze in Fotos festhalten |
+| [Tagebuch](plant-diary.md) | Beobachtungen je Pflanze festhalten und optional von deinem eigenen KI-Agenten einschätzen lassen |
 | [Pflanzdurchläufe](planting-runs.md) | Gruppenmanagement für Pflanzen |
 | [Tankmanagement](tanks.md) | Wassertanks und Befüllungen |
 | [Aquaponik](aquaponics.md) | Fisch-Pflanzen-Kreislaufsysteme, Stickstoffkreislauf und Biofilter-Cycling |

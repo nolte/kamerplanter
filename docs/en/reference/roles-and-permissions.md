@@ -85,6 +85,8 @@ The practical gain: rights are granted **individually** rather than as a package
 | Delete those records | No | **No** | Yes | — | — |
 | Manage tanks and nutrient solutions | No | Yes | Yes | — | — |
 | Confirm care reminders | No | Yes | Yes | — | — |
+| Create, edit, delete diary entries | No | Yes | Yes | — | — |
+| Mark diary entries for AI analysis‡ | No | Yes | Yes | — | — |
 | Operate actuators (switch, emergency stop) | No | Yes | Yes | — | — |
 | **Set up** actuators and sensors | No | No | No | No | **Yes** |
 | Connect Home Assistant, MQTT, InvenTree | No | No | No | No | **Yes** |
@@ -97,6 +99,8 @@ The practical gain: rights are granted **individually** rather than as a package
 | Leave the garden yourself | Yes | Yes | Yes | Yes* | Yes |
 
 *As the only member holding **Management**, you cannot leave without handing that scope on first — otherwise the garden would be left with nobody who could invite anyone.
+
+‡Unlike the other rows in this table, marking an entry for AI analysis is additionally tied to **authorship**: a Grower may only mark entries they authored themselves. Only the Lead role may also mark entries from other members. See [Diary](../user-guide/plant-diary.md) for details.
 
 !!! warning "Changed rights for growers"
     Until this model was introduced, the implementation let a grower delete domain data although the specification never allowed it. Since the change they can no longer do so. This is the intended correction, not a defect — whoever should be able to delete needs the **Lead** role.

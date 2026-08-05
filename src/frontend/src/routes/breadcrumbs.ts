@@ -70,6 +70,9 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // Watering Log (unified)
   '/giessprotokoll': { label: 'nav.wateringLog', parent: '/dashboard' },
 
+  // REQ-050 §2.5.2 Tagebuch-Übersicht (mandantenweit)
+  '/tagebuch': { label: 'nav.diary', parent: '/dashboard' },
+
   // REQ-022 Pflege
   '/pflege': { label: 'nav.pflege', parent: '/dashboard' },
 

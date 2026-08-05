@@ -125,7 +125,7 @@ Zwei Kräuter, die sich fast überall einsetzen lassen:
     Liegt für ein konkretes Artenpaar noch kein Eintrag vor, sucht Kamerplanter bei einer Empfehlungsabfrage automatisch nach einer Kompatibilität auf **Familienebene**. Ein solcher Fallback-Treffer wird im Score um 20 % reduziert (Score × 0,8) und als "Familienebene" statt "Artebene" gekennzeichnet.
 
 !!! info "Wer darf diese Daten pflegen?"
-    Kompatibilitäts- und Inkompatibilitäts-Einträge sind globale Stammdaten, die für alle Nutzer:innen sichtbar sind. Nur **Platform-Admins** dürfen sie anlegen oder ändern — normale Nutzerkonten sehen die Bearbeitungsschaltflächen zwar, erhalten beim Speichern aber eine Fehlermeldung ("Nicht autorisiert"). Eigene Beobachtungen zu deinen Pflanzen kannst du unabhängig davon im Pflanzentagebuch festhalten, sobald dafür eine Oberfläche verfügbar ist (siehe [Pflanzdurchläufe: Pflanzentagebuch](../user-guide/planting-runs.md#pflanzentagebuch)).
+    Kompatibilitäts- und Inkompatibilitäts-Einträge sind globale Stammdaten, die für alle Nutzer:innen sichtbar sind. Nur **Platform-Admins** dürfen sie anlegen oder ändern — normale Nutzerkonten sehen die Bearbeitungsschaltflächen zwar, erhalten beim Speichern aber eine Fehlermeldung ("Nicht autorisiert"). Eigene Beobachtungen zu deinen Pflanzen kannst du unabhängig davon im Pflanzentagebuch festhalten (siehe [Tagebuch](../user-guide/plant-diary.md)).
 
 <!-- Quelle: src/frontend/src/pages/stammdaten/CompanionPlantingPage.tsx, src/backend/app/api/v1/companion_planting/router.py -->
 

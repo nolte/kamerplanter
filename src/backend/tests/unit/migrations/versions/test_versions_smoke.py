@@ -89,6 +89,14 @@ class _NoopCollection:
             # v0032 (#780): memberships.[tenant_key, admin_scopes[*]] is bootstrapped
             # on a fresh volume, so the two-axis role migration finds it present → no-op.
             {"type": "persistent", "fields": ["tenant_key", "admin_scopes[*]"], "unique": False},
+            # v0033 (#921): plant_diary_entries.[tenant_key, analysis_state,
+            # analysis_requested_at] is bootstrapped on a fresh volume, so the
+            # REQ-050 index migration finds it present → no-op.
+            {
+                "type": "persistent",
+                "fields": ["tenant_key", "analysis_state", "analysis_requested_at"],
+                "unique": False,
+            },
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

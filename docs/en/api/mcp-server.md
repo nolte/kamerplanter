@@ -186,7 +186,7 @@ Because the role applies per garden, the same key can write in your own garden a
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    36 tools are implemented, which covers reading fairly thoroughly. **Writing** is where the gaps are: setup macros for apartment/growbox/outdoor garden, bulk plant creation, recording IPM inspections, harvest and feeding events, plus a bridge to the RAG knowledge base. Expansion is a documented follow-up.
+    41 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, recording IPM inspections, harvest and feeding events, plus a bridge to the RAG knowledge base. Expansion is a documented follow-up.
 
 ### Read tools (`mcp.read`)
 
@@ -221,6 +221,9 @@ Because the role applies per garden, the same key can write in your own garden a
 | `get_due_care_tasks` | Today's / overdue care reminders, grouped by urgency |
 | `get_harvest_readiness` | Harvest-readiness overview across all active plants |
 | `get_mcp_activity` | This account's own MCP call history (self-service view, see below) |
+| `list_pending_diary_analyses` | Work queue of diary entries marked for AI analysis — no free text, no images (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) |
+| `get_diary_entry` | One diary entry with its plant context, without image data |
+| `get_diary_entry_photos` | A diary entry's photos as image content blocks — the only tool in the palette that returns anything other than text |
 
 ### Write tools (`mcp.write`)
 
@@ -229,6 +232,8 @@ Because the role applies per garden, the same key can write in your own garden a
 | `confirm_care_task` | Confirm a care reminder for a plant ("I have watered it") |
 | `archive_plant` | Mark a plant as disposed / given away / died — **never** a hard delete, history is retained |
 | `set_plant_location` | Move a plant to another site / location / slot |
+| `claim_diary_analysis` | Exclusively claim a waiting diary entry (lease) |
+| `submit_diary_analysis` | Write back the analysis result of a claimed diary entry |
 
 ### Setup tool (`mcp.setup`)
 
@@ -237,6 +242,53 @@ Because the role applies per garden, the same key can write in your own garden a
 | `create_site` | Create a site root (apartment, garden, balcony, greenhouse, windowsill, grow tent) |
 
 Every tool validates referenced keys (plant, site, location, slot) against the tenant resolved for that call. A foreign key from another tenant consistently returns `not_found` — never `permission.denied` — so no tool ever discloses the existence of another tenant's resources.
+
+## Diary Analysis: External Agents {#diary-analysis-external-agents}
+
+The five `*_diary_*` tools are the complete technical contract for an externally operated AI agent that analyses diary entries a user has marked (internal reference: REQ-050). The end-user view — how you mark an entry and where you read a result — is documented under [Diary](../user-guide/plant-diary.md). This section covers the other side: the recipe of an agent that fetches, works on, and writes back results for these entries.
+
+!!! info "Kamerplanter itself never calls a language model"
+    These five tools are the only path through which a language model ever gets to see diary content at all — and even then the instance stays a pure data source and sink. There is neither a built-in model call nor a model key for this path. An agent recipe for this tool set lives in a separate repository apart from Kamerplanter (`kamerplanter-goose`) and is not part of this product.
+
+### The flow
+
+1. A user marks a diary entry in the web UI — the entry switches to the `requested` state.
+2. `list_pending_diary_analyses` (`mcp.read`) returns the work queue — no free text, no images, so the response stays small.
+3. `claim_diary_analysis` (`mcp.write`) exclusively claims an entry via a lease (default 15 minutes, ceiling 60 minutes) and returns a `lease_token`. A second claim attempt on the same entry fails with `conflict.already_claimed`. If the lease expires without a submitted result, the entry reappears in the work queue.
+4. `get_diary_entry` (`mcp.read`) returns text, tags, measurements and plant context — without image data.
+5. `get_diary_entry_photos` (`mcp.read`) returns the photos as image content blocks, so an image-capable model sees them directly (see [Image delivery](#image-delivery) below).
+6. The agent calls the language model that the user operates and pays for themselves.
+7. `submit_diary_analysis` (`mcp.write`) writes back the result with a valid `lease_token` and sets the state to `completed` or `failed`.
+
+### Image delivery {#image-delivery}
+
+`get_diary_entry_photos` is the only tool in the palette whose payload is not entirely contained in `structuredContent`: the response additionally carries `image` content blocks (Base64, `mimeType: image/webp`), one per delivered photo, in the same order as the structured `photos` field.
+
+Only the existing **512 px or 1280 px WebP renditions** are ever delivered — never the original photo. Renditions carry no EXIF data, even when the instance has set `STORAGE_STRIP_EXIF=false`; that setting only affects the original file (see [Environment Variables — Object Storage](../reference/environment-variables.md#object-storage-nfr-013)).
+
+The total payload of one call is capped by `MCP_MAX_IMAGE_PAYLOAD_MB` (default 4 MB, Base64-encoded; see [Environment Variables — MCP Server](../reference/environment-variables.md#mcp-server)). Exceeding it returns `payload.too_large`, naming the affected photos and a smaller rendition that would fit — photos are **never** silently dropped. If a rendition does not exist yet, the affected photo appears in `pending` with `status: "thumbnail_pending"` (generation triggered, retry later) or `status: "unavailable"` (will never exist, e.g. because the attachment record is missing) — the call itself stays successful in both cases.
+
+### Error codes
+
+Every error from one of the five tools arrives as a tool result with `isError: true`, never as a JSON-RPC `error` — the same contract as the rest of the palette (see [Error Handling](error-handling.md)). `error_code` is machine-readable and stable, `message` is for humans and may change.
+
+| `error_code` | Meaning |
+|---------------|---------|
+| `not_found` | The tenant or entry does not exist, or lies outside the resolved tenant — including for a foreign entry, never `permission.denied` |
+| `permission.denied` | The role in the resolved tenant is not sufficient for this tool |
+| `validation.error` | An input violates a field rule (e.g. `confidence` outside 0.0–1.0, missing `summary` for `status: completed`) |
+| `validation.tenant_required` | `tenant` is missing although the key has more than one membership |
+| `conflict.already_claimed` | The entry is already claimed and the lease is still valid |
+| `conflict.concurrent_update` | The document revision changed between reading and writing — an immediate retry is correct here |
+| `conflict.not_claimed` | `submit_diary_analysis` on an entry that is not `in_progress` |
+| `conflict.lease_expired` | The `lease_token` no longer matches the current lease |
+| `payload.too_large` | The call's image payload exceeds `MCP_MAX_IMAGE_PAYLOAD_MB` |
+
+### What a recipe does not have to decide itself
+
+- The **disclaimer** in the result is set server-side — an agent can neither omit nor soften it.
+- Whether a user may mark an entry at all is checked server-side on every `mcp.write` call (role, authorship, `diary_ai_analysis` consent, operating mode) — a recipe does not need to rebuild that rule.
+- An entry without photos is not an error case; `get_diary_entry_photos` then returns `photos: []` with only the text block.
 
 ## Response Format
 
@@ -311,6 +363,7 @@ The response contains the most recent entries (tool name, status, response size,
 
 - [Service Accounts & API Keys](service-accounts.md)
 - [Authentication](authentication.md)
+- [Diary — User Guide](../user-guide/plant-diary.md)
 - [AI Assistant — User Guide](../user-guide/ai-assistant.md)
 - [Environment Variables — MCP Server](../reference/environment-variables.md#mcp-server)
 - [Privacy & GDPR](../user-guide/privacy.md)

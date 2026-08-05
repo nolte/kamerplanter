@@ -29,6 +29,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Identify Plant by Photo](plant-identification.md) | Determine an unknown plant species from a photo |
 | [Curate Reference Images](reference-image-curation.md) | Maintain the identification reference index (admin) |
 | [Plant Photo Gallery](plant-photos.md) | Capture a plant's growth over time in photos |
+| [Diary](plant-diary.md) | Record observations per plant and optionally have your own AI agent assess them |
 | [Planting Runs](planting-runs.md) | Group management for plants |
 | [Tank Management](tanks.md) | Water tanks and fill events |
 | [Aquaponics](aquaponics.md) | Fish-plant closed-loop systems, nitrogen cycle, and biofilter cycling |

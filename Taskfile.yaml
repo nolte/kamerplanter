@@ -90,15 +90,39 @@ tasks:
       - ruff format --check .
 
   test:backend:
-    desc: Run the full backend pytest suite (includes tiers CI cannot run without services)
+    desc: Run the full backend pytest suite — the three CI tiers plus tests/integration/, which needs a local ArangoDB
     dir: src/backend
     cmds:
       - python -m pytest tests/ {{.CLI_ARGS}}
 
-  # The two tiers CI runs, as their own targets. `test:backend` above stays the
-  # full local suite; these are what the pipeline invokes, so the pipeline and a
-  # contributor can run the identical thing. The split is deliberate and not a
-  # narrowing of CI: the remaining tiers need services no runner provides.
+  # The tiers CI runs, as their own targets. `test:backend` above stays the full
+  # local suite; these are what the pipeline invokes, so the pipeline and a
+  # contributor can run the identical thing.
+  #
+  # CI runs unit, contracts and api — every tier that needs no service. Until
+  # 2026-08-05 the api tier ran in no gate at all, on the stated grounds that
+  # "the remaining tiers need services no runner provides", which was never true
+  # of this one. Measured with no ArangoDB, no Valkey and no S3 listening: 480
+  # passed, 0 skipped, ~60 s, against the ~5 min the unit tier already costs.
+  # Among the tests it left unprotected were the cross-tenant negative tests on
+  # the diary endpoints. A test that never runs protects nothing.
+  #
+  # Ten modules used to sit loose directly under `tests/`, in no tier directory
+  # and therefore in no target and no gate either — 169 tests, ~1.5 s, no
+  # services, among them the CSRF and OAuth-engine ones. On 2026-08-05 they were
+  # moved into the matching `tests/unit/` subtrees instead of getting a target of
+  # their own: they are plain unit tests (no TestClient, no fixture of their own)
+  # and the tier they belong to was already gated. `tests/` root now holds only
+  # conftest.py and __init__.py, so a new module cannot silently fall out of CI
+  # by being dropped in the wrong place — every test file lives in a tier.
+  #
+  # `tests/integration/` stays out and therefore runs LOCALLY ONLY — say that
+  # out loud, or it looks covered. It needs a real ArangoDB on localhost:8529,
+  # which no runner provides. It would not go red without one: every module is
+  # `skipif(not ARANGO_AVAILABLE)`, so on a runner it would report green having
+  # skipped 29 of 36 cases. A green gate that measured nothing is worse than an
+  # absent one. Run it against a dev stack (`task dev:core`, then
+  # `python -m pytest tests/integration/`) before changing repositories or AQL.
   test:backend:unit:
     desc: Backend unit tests — the CI gate's exact invocation
     dir: src/backend
@@ -110,6 +134,12 @@ tasks:
     dir: src/backend
     cmds:
       - python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
+
+  test:backend:api:
+    desc: Backend API tests (routers via TestClient against fakes, no services) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/api/ -v --tb=short {{.CLI_ARGS}}
 
   openapi:export:
     desc: |

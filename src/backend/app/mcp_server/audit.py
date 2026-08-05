@@ -44,6 +44,7 @@ class MCPAuditLogger:
         input_hash: str,
         status: McpToolStatus,
         output_size_bytes: int = 0,
+        image_bytes: int = 0,
         duration_ms: int = 0,
         error_class: str | None = None,
         membership: McpTenantMembership | None = None,
@@ -54,6 +55,10 @@ class MCPAuditLogger:
         dispatcher. It is absent for a tenant-agnostic tool and for a call that
         failed *before* the tenant was bound (unknown tenant, invalid input) —
         such entries carry an empty ``tenant_key`` rather than guessing one.
+
+        ``image_bytes`` is the Base-64 size of the response's image content
+        blocks, kept apart from ``output_size_bytes`` so a photo call cannot
+        drown the size statistic of every other tool (REQ-033 §4.3b, AC-S9).
         """
 
         entry = McpAuditLog(
@@ -62,6 +67,7 @@ class MCPAuditLogger:
             tool_name=tool_name,
             input_hash=input_hash,
             output_size_bytes=output_size_bytes,
+            image_bytes=image_bytes,
             duration_ms=duration_ms,
             status=status,
             error_class=error_class,

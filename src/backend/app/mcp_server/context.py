@@ -136,6 +136,29 @@ class ToolContext:
         return self._service("glossary_service")
 
     @property
+    def plant_diary_service(self) -> Any:
+        """Diary entries incl. the REQ-050 analysis state machine, lease and CAS."""
+
+        return self._service("plant_diary_service")
+
+    @property
+    def attachment_service(self) -> Any:
+        """Attachment records and their thumbnail renditions (NFR-013).
+
+        REQ-050 §4.4 delivers renditions only, never originals — that constraint
+        lives in the tool, not here; this is the same service the REST attachment
+        endpoints use.
+        """
+
+        return self._service("attachment_service")
+
+    @property
+    def phase_service(self) -> Any:
+        """Growth phases; resolves a plant's current phase across both key-spaces."""
+
+        return self._service("phase_service")
+
+    @property
     def mcp_audit_repo(self) -> Any:
         return self._service("mcp_audit_repo")
 

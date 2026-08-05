@@ -88,36 +88,82 @@ class DataExportEngine:
                 "download_count",
             ],
         ),
-        # Tenant-scoped user-attributable resources (filter by user_key fields):
+        # Tenant-scoped user-attributable resources (filter by user_key fields).
+        #
+        # **Every name below must exist on the corresponding domain model.** A
+        # field name that does not is invisible in operation: the export simply
+        # carries an empty value, which reads exactly like "the user has no data
+        # here". ``tests/unit/domain/engines/test_privacy_engines.py``
+        # (``test_every_manifest_field_exists_on_its_model``) checks the whole
+        # manifest against the models for that reason.
         DataSourceDefinition(
             collection="tasks",
-            filter_field="assigned_to",
+            # ``assigned_to_user_key`` — the model has never had ``assigned_to``,
+            # so this source used to match no document at all.
+            filter_field="assigned_to_user_key",
             label="Assigned tasks",
-            fields=["title", "status", "due_date", "completed_at"],
+            # ``name`` — the Task model has no ``title``.
+            fields=["name", "status", "due_date", "completed_at", "completion_notes"],
         ),
         DataSourceDefinition(
             collection="harvest_batches",
             filter_field="harvester",
             label="Harvest records",
-            fields=["name", "status", "started_at", "completed_at"],
+            # Previously ["name", "status", "started_at", "completed_at"] — not
+            # one of those four exists on HarvestBatch.
+            fields=[
+                "batch_id",
+                "plant_key",
+                "harvest_type",
+                "harvest_date",
+                "quality_grade",
+                "notes",
+                "created_at",
+            ],
         ),
         DataSourceDefinition(
             collection="inspections",
             filter_field="inspector",
             label="Inspection records",
-            fields=["plant_key", "performed_at", "findings"],
+            # ``inspected_at`` (not ``performed_at``); the "findings" of an
+            # inspection are ``symptoms_observed`` + the detected keys.
+            fields=[
+                "plant_key",
+                "inspected_at",
+                "symptoms_observed",
+                "detected_pest_keys",
+                "detected_disease_keys",
+                "notes",
+            ],
         ),
         DataSourceDefinition(
             collection="treatment_applications",
-            filter_field="applicator",
+            # ``applied_by`` — the model has never had ``applicator``.
+            filter_field="applied_by",
             label="Treatment applications",
-            fields=["treatment_key", "applied_at", "dose"],
+            # ``dosage`` (not ``dose``).
+            fields=["treatment_key", "plant_key", "applied_at", "dosage", "notes"],
         ),
         DataSourceDefinition(
             collection="plant_diary_entries",
             filter_field="created_by",
             label="Plant diary entries",
-            fields=["plant_key", "entry_type", "title", "body", "logged_at"],
+            # ``text``/``created_at`` (not ``body``/``logged_at``): the export
+            # used to deliver a diary entry with an empty text and no date.
+            # ``analysis`` carries the REQ-050 AI result, which is part of the
+            # entry and therefore part of the Art. 15 disclosure (AK-24).
+            fields=[
+                "plant_key",
+                "entry_type",
+                "title",
+                "text",
+                "tags",
+                "measurements",
+                "photo_refs",
+                "created_at",
+                "analysis_state",
+                "analysis",
+            ],
         ),
         DataSourceDefinition(
             collection="identification_requests",

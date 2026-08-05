@@ -114,6 +114,7 @@ The table below lists all modules you can show or hide, along with the default v
 | Calendar | Care & Planning | Beginner |
 | Watering Log | Care & Planning | Beginner |
 | Tasks & Workflows | Care & Planning | Beginner |
+| Diary | Care & Planning | Beginner |
 | Fertilization & Nutrient Plans | Nutrition & Water | Intermediate |
 | Tank Management | Nutrition & Water | Expert |
 | Aquaponics | Nutrition & Water | Expert |
@@ -135,7 +136,7 @@ The table below lists all modules you can show or hide, along with the default v
 | Glossary | Knowledge & Reference | Beginner |
 
 !!! note "About the 'Default from level' column"
-    This column shows from which experience level a module is visible by default, without any manual override. On the "Beginner" level, for example, the core modules plus Calendar, Watering Log, Tasks & Workflows, Environment Control & Actuators, Equipment & Inventory, AI Assistant, and Glossary are already shown by default. You can manually override any module at any time.
+    This column shows from which experience level a module is visible by default, without any manual override. On the "Beginner" level, for example, the core modules plus Calendar, Watering Log, Tasks & Workflows, Diary, Environment Control & Actuators, Equipment & Inventory, AI Assistant, and Glossary are already shown by default. You can manually override any module at any time.
 
 ---
 

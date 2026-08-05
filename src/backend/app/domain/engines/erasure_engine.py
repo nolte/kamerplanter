@@ -10,6 +10,13 @@ from app.domain.models.privacy import (
     StorageCleanupRule,
 )
 
+#: Marker written into a user reference that outlives the erased user. Mirrors
+#: ``attachment_repository.ANONYMIZED_MARKER`` — the *same* value is required by
+#: REQ-025 AK-OS-02 (attachments) and AK-DA-01 (diary entries), and the two must
+#: not drift apart. Declared here rather than imported so the domain layer stays
+#: free of a data-access import (NFR-001).
+ANONYMIZED_MARKER = "_anonymized"
+
 
 class ErasureEngine:
     """Defines the deletion order, anonymisation rules and storage-cleanup steps.
@@ -19,8 +26,11 @@ class ErasureEngine:
     audit-log pseudonymisation -> user document.
     """
 
-    # Collections whose user references must be retained for legal compliance
-    # (CanG, PflSchG). The user reference is replaced with an anonymous marker.
+    # Collections whose user references must be retained — either for legal
+    # compliance (CanG, PflSchG) or because the document belongs to a record of
+    # a possibly shared tenant. The user reference is replaced with an anonymous
+    # marker; the document itself survives. A collection may appear more than
+    # once when it carries several user references (see ``plant_diary_entries``).
     ANONYMIZE_COLLECTIONS: list[AnonymizationRule] = [
         AnonymizationRule(
             collection="harvest_batches",
@@ -29,8 +39,12 @@ class ErasureEngine:
             reason="CanG: 5-year retention for harvest documentation.",
         ),
         AnonymizationRule(
+            # ``applied_by`` — NOT ``applicator``. The model
+            # (``domain/models/ipm.py::TreatmentApplication``) has never carried
+            # an ``applicator`` field, so this rule addressed a field that does
+            # not exist and would have left the real user reference in place.
             collection="treatment_applications",
-            user_field="applicator",
+            user_field="applied_by",
             anonymized_value="[deleted]",
             reason="PflSchG section 11: 3-year retention for treatment records.",
         ),
@@ -39,6 +53,40 @@ class ErasureEngine:
             user_field="inspector",
             anonymized_value="[deleted]",
             reason="PflSchG section 11: 3-year retention for inspection records.",
+        ),
+        # REQ-050 §7.4 / REQ-025 AK-DA-01 — the diary entry document itself.
+        # Until now only the *attachments* of a diary entry were anonymised
+        # (storage scope ``user_diary_attachments`` below); the
+        # ``plant_diary_entries`` document carried no rule at all, so the free
+        # text of an erased user stayed attributable by name. The document is
+        # kept — it belongs to the plant record of a possibly shared tenant —
+        # and all three user references on it are replaced.
+        AnonymizationRule(
+            collection="plant_diary_entries",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-050 section 7.4: the diary entry belongs to the plant record of a "
+                "possibly shared tenant and is retained; only the author reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            collection="plant_diary_entries",
+            user_field="analysis_requested_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-050 section 7.3/7.4: who marked an entry for AI analysis is kept for "
+                "traceability, but must not remain a personal identifier after erasure."
+            ),
+        ),
+        AnonymizationRule(
+            collection="plant_diary_entries",
+            user_field="analysis_claimed_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-050 section 7.3/7.4: the claiming worker id may carry the user's "
+                "device or account name and is anonymised together with the entry."
+            ),
         ),
     ]
 
@@ -177,6 +225,21 @@ class ErasureEngine:
             soft_delete_immediate=True,
             hard_delete_after_days=self.HARD_DELETE_AFTER_DAYS,
         )
+
+    def anonymized_collection_names(self) -> list[str]:
+        """Collection names touched by :attr:`ANONYMIZE_COLLECTIONS`, each once.
+
+        The erasure confirmation shown to the user (REQ-025 AK-08a) lists
+        *categories*, not rules. Since REQ-050 a single collection can carry
+        several rules (``plant_diary_entries`` has three user references), so a
+        plain ``[rule.collection for rule in ...]`` would repeat the same name
+        three times in that list. Order follows the rule declaration.
+        """
+        names: list[str] = []
+        for rule in self.ANONYMIZE_COLLECTIONS:
+            if rule.collection not in names:
+                names.append(rule.collection)
+        return names
 
     @staticmethod
     def compute_tombstone_hash(user_key: str, salt: str) -> str:

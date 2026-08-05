@@ -270,14 +270,12 @@ Das Entfernen einer Pflanze aus dem Durchlauf löscht die Pflanze nicht.
 
 ---
 
-## Pflanzentagebuch (aktuell nur über die API) {#pflanzentagebuch}
+## Pflanzentagebuch {#pflanzentagebuch}
 
-!!! info "Für technische Nutzer"
-    Kamerplanter kann bereits Tagebucheinträge zu einzelnen Pflanzen eines Durchlaufs speichern und abrufen — dafür gibt es aber noch keine Oberfläche im Frontend. Diese Funktion ist derzeit nur über die technische API verfügbar.
+Jede Pflanze eines Durchlaufs hat ein eigenes Tagebuch — einen Tab an ihrer Detailseite, in dem du Beobachtungen, Probleme, Meilensteine, Messungen und Fotos festhältst und einzelne Einträge optional von deinem eigenen KI-Agenten einschätzen lassen kannst. Eine mandantenweite Übersicht fasst die Einträge aller Pflanzen zusammen — unabhängig davon, ob sie zu einem Durchlauf gehören oder nicht. Details dazu, einschließlich der KI-Analyse, stehen unter [Tagebuch](plant-diary.md).
 
-<!-- Endpunkt: /api/v1/t/{tenant}/planting-runs/{durchlauf}/plants/{pflanze}/diary -->
-
-Jeder Eintrag hat einen Typ (Beobachtung, Problem, Meilenstein, Messung, Foto oder Notiz), einen optionalen Titel, einen Text (bis 5000 Zeichen), optionale Fotoverweise, Tags und freie Messwerte. Über einen zweiten technischen API-Endpunkt lassen sich die Tagebucheinträge aller Pflanzen eines Durchlaufs gesammelt abrufen.
+!!! info "Nur über API: Tagebuch-Einträge eines gesamten Durchlaufs gesammelt abrufen"
+    Neben der Ansicht je Pflanze gibt es einen technischen API-Endpunkt, der die Tagebucheinträge **aller** Pflanzen eines Durchlaufs auf einmal liefert — für ein zusammengehöriges Auswertungsbild, etwa in einem eigenen Auswertungs-Werkzeug. Dafür gibt es derzeit keine eigene Oberfläche; die mandantenweite [Tagebuch-Übersicht](plant-diary.md#alle-eintraege-im-ueberblick) deckt den gleichen Bedarf für alle Pflanzen ab, nicht nur für die eines einzelnen Durchlaufs.
 
 <!-- Quelle: src/backend/app/domain/models/plant_diary_entry.py, src/backend/app/api/v1/planting_runs/tenant_router.py -->
 

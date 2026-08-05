@@ -86,6 +86,19 @@ jobs:
         # exactly the drift class the plant-property data-model plan addresses.
         run: task test:backend:contracts
 
+      - name: API tests
+        # The router tier, which ran in no gate at all until 2026-08-05 although
+        # it needs no service: it drives the FastAPI app through TestClient
+        # against fakes. Measured with no ArangoDB, Valkey or S3 reachable: 480
+        # passed, 0 skipped, ~60 s. It carries acceptance coverage nothing else
+        # here does — among it the cross-tenant negative tests on the diary
+        # endpoints (tests/api/test_plant_diary_router.py) and the MCP
+        # error-envelope wire test. `tests/integration/` is deliberately still
+        # absent: it needs a real ArangoDB, and without one it self-skips and
+        # would report green having tested almost nothing. The Taskfile comment
+        # above these targets carries the full tier map.
+        run: task test:backend:api
+
   lock-staleness:
     name: Lock staleness
     runs-on: ubuntu-latest

@@ -349,9 +349,14 @@ class PrivacyService:
             requested_at=now,
             soft_deleted_at=now,
             hard_delete_scheduled_at=now + timedelta(days=self.HARD_DELETE_DAYS),
-            anonymized_collections=[rule.collection for rule in self._erasure_engine.ANONYMIZE_COLLECTIONS],
+            # De-duplicated: since REQ-050 one collection can carry several
+            # anonymisation rules (plant_diary_entries has three user
+            # references) and the confirmation lists categories, not rules.
+            anonymized_collections=self._erasure_engine.anonymized_collection_names(),
             retained_reason=(
-                "Harvest, treatment and inspection records are retained per CanG and PflSchG and will be anonymised."
+                "Harvest, treatment and inspection records are retained per CanG and PflSchG and will be anonymised. "
+                "Diary entries stay with the plant record of their tenant; their author and AI-analysis "
+                "references are anonymised (REQ-050 section 7.4)."
             ),
         )
         created = self._erasure_repo.create(erasure)

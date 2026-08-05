@@ -114,6 +114,7 @@ Die folgende Tabelle zeigt alle Module, die du ein- oder ausblenden kannst, mit 
 | Kalender | Pflege & Planung | Einsteiger |
 | Gießprotokoll | Pflege & Planung | Einsteiger |
 | Aufgaben & Workflows | Pflege & Planung | Einsteiger |
+| Tagebuch | Pflege & Planung | Einsteiger |
 | Düngung & Nährstoffpläne | Düngung & Wasser | Mittelstufe |
 | Tankmanagement | Düngung & Wasser | Experte |
 | Aquaponik | Düngung & Wasser | Experte |
@@ -135,7 +136,7 @@ Die folgende Tabelle zeigt alle Module, die du ein- oder ausblenden kannst, mit 
 | Glossar | Wissen & Referenz | Einsteiger |
 
 !!! note "Hinweis zur Erfahrungsstufe"
-    Der Spalte „Standard ab Stufe" entnimmst du, ab welcher Erfahrungsstufe ein Modul ohne manuelle Übersteuerung sichtbar ist. Auf Stufe „Einsteiger" sind neben den Kern-Modulen zum Beispiel bereits Kalender, Gießprotokoll, Aufgaben & Workflows, Umgebungssteuerung & Aktorik, Betriebsmittel & Inventar, KI-Assistent und Glossar standardmäßig eingeblendet. Du kannst jedes dieser Module jederzeit manuell übersteuern.
+    Der Spalte „Standard ab Stufe" entnimmst du, ab welcher Erfahrungsstufe ein Modul ohne manuelle Übersteuerung sichtbar ist. Auf Stufe „Einsteiger" sind neben den Kern-Modulen zum Beispiel bereits Kalender, Gießprotokoll, Aufgaben & Workflows, Tagebuch, Umgebungssteuerung & Aktorik, Betriebsmittel & Inventar, KI-Assistent und Glossar standardmäßig eingeblendet. Du kannst jedes dieser Module jederzeit manuell übersteuern.
 
 ---
 

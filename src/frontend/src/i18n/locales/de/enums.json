@@ -1001,6 +1001,28 @@
       "legume": "Hülsenfrüchtler",
       "ornamental": "Zierpflanzen",
       "root": "Wurzelgemüse"
+    },
+    "diaryEntryType": {
+      "observation": "Beobachtung",
+      "problem": "Problem",
+      "milestone": "Meilenstein",
+      "measurement": "Messung",
+      "photo": "Foto",
+      "note": "Notiz"
+    },
+    "diaryAnalysisState": {
+      "none": "Nicht markiert",
+      "requested": "Wartet auf Analyse",
+      "in_progress": "Wird analysiert",
+      "completed": "Ergebnis vorhanden",
+      "failed": "Analyse fehlgeschlagen"
+    },
+    "diaryConfidence": {
+      "veryLow": "sehr unsicher",
+      "low": "eher unsicher",
+      "moderate": "mittel sicher",
+      "high": "eher wahrscheinlich",
+      "veryHigh": "sehr wahrscheinlich"
     }
   }
 }

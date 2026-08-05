@@ -17,6 +17,7 @@ from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
 from app.api.v1.dashboard.tenant_router import router as tenant_dashboard_router
 from app.api.v1.diagnose.tenant_router import router as tenant_diagnosis_router
+from app.api.v1.diary.tenant_router import router as tenant_diary_router
 from app.api.v1.equipment.tenant_router import router as tenant_equipment_router
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
 from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
@@ -35,6 +36,7 @@ from app.api.v1.observations.tenant_router import router as tenant_observations_
 from app.api.v1.onboarding.tenant_router import router as tenant_onboarding_router
 from app.api.v1.overwintering_profiles.tenant_router import router as tenant_overwintering_profiles_router
 from app.api.v1.pest_detection.tenant_router import router as tenant_pest_detection_router
+from app.api.v1.plant_instances.diary_router import router as tenant_plant_diary_router
 from app.api.v1.plant_instances.photo_router import router as tenant_plant_photos_router
 from app.api.v1.plant_instances.tenant_router import router as tenant_plants_router
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
@@ -71,7 +73,14 @@ tenant_scoped_router.include_router(tenant_locations_router)
 tenant_scoped_router.include_router(tenant_slots_router)
 tenant_scoped_router.include_router(tenant_plants_router)
 tenant_scoped_router.include_router(tenant_plant_photos_router)
+# REQ-013 §4.7 — standalone plant diary (/plant-instances/{key}/diary). Same
+# shape as the photo gallery above; a plant without a planting run had no
+# reachable diary before this, although REQ-013 §1 grants it one.
+tenant_scoped_router.include_router(tenant_plant_diary_router)
 tenant_scoped_router.include_router(tenant_planting_runs_router)
+# REQ-050 §2.5.2 — tenant-wide diary overview (/diary). The run aggregation
+# covers one run; a plant without a run appears in none of them.
+tenant_scoped_router.include_router(tenant_diary_router)
 tenant_scoped_router.include_router(tenant_succession_plans_router)
 tenant_scoped_router.include_router(tenant_tanks_router)
 tenant_scoped_router.include_router(tenant_fertilizers_router)

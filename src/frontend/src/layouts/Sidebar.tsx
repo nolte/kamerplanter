@@ -40,6 +40,7 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import BookIcon from '@mui/icons-material/Book';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TuneIcon from '@mui/icons-material/Tune';
 
@@ -129,6 +130,14 @@ export default function Sidebar({ open }: SidebarProps) {
       label: t('nav.wateringLog'),
       path: '/giessprotokoll',
       icon: <HistoryIcon />,
+    },
+    {
+      // REQ-050 §2.5.2 — the tenant-wide diary overview. A top-level beginner
+      // entry per REQ-021 §3.3, owned by the `diary` module (REQ-042 §1.3) and
+      // therefore hideable like its siblings (AK-31).
+      label: t('nav.diary'),
+      path: '/tagebuch',
+      icon: <BookIcon />,
     },
     {
       label: t('nav.kiAssistent'),

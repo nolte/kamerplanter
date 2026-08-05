@@ -21,6 +21,7 @@ export type ModuleKey =
   | 'calendar'
   | 'watering'
   | 'tasks'
+  | 'diary'
   | 'nutrition'
   | 'tanks'
   | 'aquaponics'
@@ -105,6 +106,16 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
     '/aufgaben/workflows',
     '/aufgaben/tasks',
   ]),
+  // REQ-050 §2.5.2 / O-07 — the tenant-wide diary overview. Deliberately
+  // `core: false`: AK-31 asks for a page a user who keeps no diary can switch
+  // off, and a core module is exactly the nav entry nobody can get rid of. The
+  // default level is `beginner` because a note plus a photo is the lowest-
+  // threshold function of the system (REQ-021 §3.3).
+  //
+  // The *capture* side is a tab on the plant-instance detail page (§2.5.1) and
+  // therefore follows the core `plants` module, not this entry — hence the
+  // single navPath.
+  diary: def('diary', 'care_planning', 'beginner', false, ['/tagebuch']),
 
   // ── Nutrition & water ──
   nutrition: def('nutrition', 'nutrition_water', 'intermediate', false, [

@@ -7,14 +7,15 @@ Kategorie: Benutzerführung
 Fokus: Beides (Frontend-Schwerpunkt, additive Backend-Erweiterung)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.0 (Erstversion)
-Abhängigkeit: REQ-020 (UserPreference-API), REQ-021 (Erfahrungsstufen), REQ-009 (Dashboard-Widgets), REQ-027 (Light-Modus), REQ-024 (Abgrenzung RBAC), REQ-030 (Benachrichtigungen, optional), UI-NFR-001 (Mobile-First)
+Version: 1.1 (Modul `diary` registriert)
+Abhängigkeit: REQ-020 (UserPreference-API), REQ-021 (Erfahrungsstufen), REQ-009 (Dashboard-Widgets), REQ-027 (Light-Modus), REQ-024 (Abgrenzung RBAC), REQ-030 (Benachrichtigungen, optional), REQ-050 (Tagebuch-Übersicht — Modul `diary`), UI-NFR-001 (Mobile-First)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.1 | 2026-08-05 | Modul `diary` (Tagebuch) im Katalog § 1.3 registriert — Kategorie „Pflege & Planung", Default-Level `beginner`, `core: false`, Navigationspfad `/tagebuch`. Entscheidung O-07 aus REQ-050 v1.1 § 9; ohne diesen Eintrag wäre die Tagebuch-Übersicht die einzige Seite ohne Sichtbarkeitssteuerung (REQ-050 AK-31). Keine Änderung am Datenmodell, an der API oder an der Tri-State-Logik. |
 | 1.0 | 2026-06-20 | Erstversion. Basierend auf Feature-Request [FR-001 Modulare Feature-Sichtbarkeit](../feature-requests/FR-001_Modulare-Feature-Sichtbarkeit.md) / [Issue #243](https://github.com/nolte/kamerplanter/issues/243). |
 
 ## 1. Business Case
@@ -91,6 +92,7 @@ Die folgende Taxonomie leitet sich aus der Navigationsstruktur (REQ-021 § 3.3 `
 | `onboarding` | Onboarding | Kern | beginner | ✓ | `/onboarding` |
 | `care` | Pflege & Erinnerungen | Pflege & Planung | beginner | | `/pflege`, `/pflege-dashboard` |
 | `calendar` | Kalender | Pflege & Planung | beginner | | `/kalender` |
+| `diary` | Tagebuch | Pflege & Planung | beginner | | `/tagebuch` |
 | `watering` | Gießprotokoll | Pflege & Planung | beginner | | `/giessprotokoll` |
 | `tasks` | Aufgaben & Workflows | Pflege & Planung | beginner | | `/aufgaben`, `/workflows` |
 | `nutrition` | Düngung & Nährstoffpläne | Düngung & Wasser | intermediate | | `/duengung/*` |
@@ -110,6 +112,8 @@ Die folgende Taxonomie leitet sich aus der Navigationsstruktur (REQ-021 § 3.3 `
 | `ai` | KI-Funktionen (Erkennung/Assistent) | KI | intermediate | | `/ki/*` |
 
 > Der Katalog ist erweiterbar. Neue REQs registrieren ihr Modul durch einen Eintrag; das Sichtbarkeitssystem greift automatisch. Die kanonische Quelle der Wahrheit ist `moduleCatalog.ts` (§ 4.1).
+
+**Zu `diary` (REQ-050 §2.5.2, O-07):** Die mandantenweite Tagebuch-Übersicht ist bewusst **kein** Kern-Modul — REQ-050 AK-31 verlangt Abschaltbarkeit, und `core: true` wäre genau der Zustand, in dem ein Nutzer, der kein Tagebuch führt, den Navigationspunkt nicht loswird. Das Default-Level ist `beginner`, weil ein Tagebuch die niedrigschwelligste Funktion des Systems ist (Notiz plus Foto, ohne Fachbegriff); `intermediate` würde sie ausgerechnet vor der Zielgruppe verstecken, für die sie gedacht ist. Die **Erfassung** je Pflanze liegt als Tab an der Pflanzeninstanz-Detailseite (REQ-050 §2.5.1) und folgt damit dem Kern-Modul `plants`, nicht diesem Eintrag.
 
 ### 1.4 Light-Modus-Verhalten (REQ-027)
 

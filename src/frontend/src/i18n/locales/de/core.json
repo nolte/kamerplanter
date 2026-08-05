@@ -78,6 +78,10 @@
       "label": "Aufgaben & Workflows",
       "description": "Aufgabenplanung und wiederkehrende Workflows."
     },
+    "diary": {
+      "label": "Tagebuch",
+      "description": "Mandantenweite Übersicht aller Tagebuch-Einträge mit ihrem Analyse-Stand."
+    },
     "nutrition": {
       "label": "Düngung & Nährstoffpläne",
       "description": "Dünger, Nährstoffpläne und Düngeprotokolle."
@@ -406,6 +410,7 @@
     "import": "Import",
     "calendar": "Kalender",
     "wateringLog": "Gießprotokoll",
+    "diary": "Tagebuch",
     "kiAssistent": "KI-Assistent",
     "glossary": "Glossar",
     "phasen": "Phasen",

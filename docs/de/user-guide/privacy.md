@@ -125,6 +125,7 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos) | Optional | Ja |
 | **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
 | **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
+| **Tagebuch-Einträge zur KI-Analyse freigeben** (`diary_ai_analysis`) | Optional | Ja |
 
 ### Einwilligung widerrufen
 
@@ -179,6 +180,15 @@ Der [KI-Assistent](ai-assistant.md) beantwortet reine Wissensfragen ohne diese E
 ### KI-Verarbeitung über Cloud-Provider (ai_cloud_processing)
 
 Zusätzlich zur vorherigen Einwilligung erforderlich, wenn deine Instanz einen externen Cloud-Provider (z. B. Anthropic, OpenAI) statt eines lokal betriebenen Modells (Ollama) für den KI-Assistenten einsetzt — das legt der Plattformbetreiber fest. Cloud-Provider können eine Drittland-Datenübermittlung bedeuten. Lokale Provider benötigen diese Einwilligung nicht.
+
+### Tagebuch-Einträge zur KI-Analyse freigeben (diary_ai_analysis)
+
+Erlaubt dir, einzelne [Tagebuch-Einträge](plant-diary.md) samt Freitext und Fotos zur Analyse freizugeben. Die Analyse führt ein KI-Agent aus, den **du selbst** betreibst und der die Daten über deinen eigenen API-Schlüssel abruft — Kamerplanter selbst ruft dabei **kein** Sprachmodell auf. Es wird nie automatisch etwas analysiert: Jeden einzelnen Eintrag musst du selbst markieren. Übertragen werden ausschließlich verkleinerte Bildfassungen ohne Aufnahmeort und Gerätekennung.
+
+Dieser Weg ist von der Einwilligung `ai_tenant_data_access` oben **unabhängig**: `ai_tenant_data_access` betrifft ausschließlich Stammwerte, die serverseitig an die Wissensbasis gehen, und schließt Freitext aus deinem Tagebuch ausdrücklich aus. `diary_ai_analysis` ist der einzige Weg, über den Tagebuchinhalte überhaupt eine Kamerplanter-Instanz verlassen — und dabei gehen sie nicht an einen von Kamerplanter betriebenen Dienst, sondern an deinen eigenen Agenten.
+
+!!! note "Widerruf"
+    Ein Widerruf verhindert neue Markierungen; bereits vorliegende Analyse-Ergebnisse bleiben unberührt und weiterhin sichtbar.
 
 ### KI-Krankheitsdiagnose (plant_diagnosis) {#ki-krankheitsdiagnose-plant_diagnosis}
 

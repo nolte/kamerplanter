@@ -2,6 +2,9 @@
 
 Every plant instance in Kamerplanter can have its own photo gallery. This lets you recognise your plants at a glance in the list view, and helps you document how they develop over time — from seedling to harvest.
 
+!!! note "Not to be confused with diary photos"
+    Photos in this gallery are a separate category from photos attached to individual [diary entries](plant-diary.md). The gallery shows a plant's growth over time; a diary photo belongs to a specific observation and can optionally be evaluated by your own AI agent. Neither photos nor the storage limit are shared between the two areas.
+
 ---
 
 ## Prerequisites
@@ -283,6 +286,7 @@ Revocation takes effect immediately for all future photo uploads. Already-create
 
 ## See Also
 
+- [Diary](plant-diary.md) — record per-entry observations, with its own photo category
 - [Managing Master Data](plant-management.md) — Assigning a species to a plant instance
 - [Curating Reference Images](reference-image-curation.md) — Admin guide: which reference images are active
 - [Identify a Plant by Photo](plant-identification.md) — Determine the species of an unknown plant

@@ -140,6 +140,7 @@ plugins:
             Pflanze per Foto identifizieren: Identify Plant by Photo
             Referenzbilder kuratieren: Curate Reference Images
             Pflanzenfoto-Galerie: Plant Photo Gallery
+            Tagebuch: Diary
             Gießprotokoll: Watering Log
             Plattform-Admin: Platform Admin
             Speicher konfigurieren: Configure Storage
@@ -340,6 +341,7 @@ nav:
       - Pflanze per Foto identifizieren: de/user-guide/plant-identification.md
       - Referenzbilder kuratieren: de/user-guide/reference-image-curation.md
       - Pflanzenfoto-Galerie: de/user-guide/plant-photos.md
+      - Tagebuch: de/user-guide/plant-diary.md
       - Plattform-Admin: de/user-guide/admin.md
       - Speicher konfigurieren: de/user-guide/object-storage.md
       - Wetterdienste konfigurieren: de/user-guide/weather-services.md
