@@ -1,4 +1,4 @@
-FROM postgres:18-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296
+FROM postgres:18-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
 
 LABEL org.opencontainers.image.title="kamerplanter-vectordb" \
       org.opencontainers.image.description="PostgreSQL with the pgvector extension storing Kamerplanter's embedding vectors for RAG knowledge retrieval" \
