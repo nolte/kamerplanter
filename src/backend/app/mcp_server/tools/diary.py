@@ -18,6 +18,12 @@ The five tools, and the order an agent uses them in (§3):
 4. :class:`GetDiaryEntryPhotos` — the photos as MCP image content blocks.
 5. :class:`SubmitDiaryAnalysis` — write the result back and end the claim.
 
+A sixth tool, :class:`AddPlantDiaryEntry`, shares the module but **not** the
+contract: it belongs to REQ-033 §2.2 and lets an agent *document* an observation
+rather than analyse one (REQ-050 §9, O-04 — decided yes). It touches none of the
+analysis fields, and writing an entry does not enqueue it: marking is a user
+action (REQ-050 §1.3), so an agent cannot create work for itself.
+
 **No state machine lives here.** Claiming, the lease, the compare-and-set and the
 server-side disclaimer all belong to :mod:`app.domain.services.plant_diary_service`;
 these tools are the typed, tenant-bound surface over it. The domain errors already
@@ -39,7 +45,7 @@ from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.datetimes import ensure_aware_utc, now_utc
-from app.common.enums import McpPermission
+from app.common.enums import DiaryEntryType, McpPermission
 from app.common.exceptions import DiaryAnalysisValidationError, KamerplanterError, NotFoundError
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_MIME_TYPE, can_render, metadata_keys
@@ -882,6 +888,81 @@ class SubmitDiaryAnalysis(WriteToolBase):
         )
 
 
+@mcp_tool(name="add_plant_diary_entry", permission=McpPermission.WRITE)
+class AddPlantDiaryEntry(WriteToolBase):
+    """Record a diary entry (observation, problem, measurement) for a plant."""
+
+    class Input(WriteToolInput):
+        plant_key: str = Field(description="Key of the plant instance the entry belongs to.")
+        entry_type: DiaryEntryType = Field(
+            default=DiaryEntryType.OBSERVATION,
+            description="Kind of entry. Defaults to 'observation'.",
+        )
+        title: str | None = Field(default=None, max_length=200, description="Optional headline, max 200 characters.")
+        text: str = Field(min_length=1, max_length=5000, description="The entry itself, 1 to 5000 characters.")
+        tags: list[str] = Field(default_factory=list, description="Free-form tags.")
+        measurements: dict | None = Field(
+            default=None,
+            description="Optional measured values, e.g. {'height_cm': 42, 'ph': 6.3}.",
+        )
+
+        # The two length bounds are repeated from ``PlantDiaryEntry``, which is
+        # where they actually bind. Declaring them here as well is what puts them
+        # into the published ``inputSchema``: a recipe that only reads the schema
+        # would otherwise discover them by being rejected. The REST request
+        # schema repeats them for the same reason.
+
+    async def preview(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        # SEC-001: resolve + ownership-check the plant against the caller's
+        # tenant before anything else, exactly as ConfirmCareTask does. A foreign
+        # or missing key yields the project's 404 contract, never a 403.
+        plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+        return self._response(
+            summary=f"Would add a '{args.entry_type}' diary entry to plant '{plant.key}'.",
+            data={
+                "plant_key": plant.key,
+                "entry_type": str(args.entry_type),
+                "title": args.title,
+            },
+        )
+
+    async def execute(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        # SEC-001: same tenant-ownership gate as preview() before the write.
+        plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+        entry = PlantDiaryEntry(
+            tenant_key=ctx.tenant_key,
+            created_by=ctx.principal.account_key,
+            entry_type=args.entry_type,
+            title=args.title,
+            text=args.text,
+            tags=list(args.tags),
+            measurements=args.measurements,
+        )
+        # No ``run_key``: the entry hangs off the plant, so it surfaces in a run's
+        # aggregation as soon as the plant belongs to one. Passing a run here
+        # would refuse the standalone plant, which is the common case.
+        created = ctx.plant_diary_service.create_entry(plant.key, entry, actor_role=ctx.role)
+        return self._response(
+            summary=f"Added a '{created.entry_type}' diary entry to plant '{plant.key}'.",
+            data={
+                "entry_key": created.key,
+                "plant_key": created.plant_key,
+                "entry_type": str(created.entry_type),
+                "title": created.title,
+                "created_at": _iso_z(created.created_at),
+                # Stated rather than implied: writing an entry does not enqueue
+                # it for analysis. Marking is a user action (§1.3) and there is
+                # no tool for it — an agent that expects otherwise would poll
+                # list_pending_diary_analyses forever.
+                "analysis_state": str(created.analysis_state),
+            },
+            links=[
+                ctx.api_link(f"/plant-instances/{created.plant_key}/diary"),
+                ctx.ui_link("/tagebuch"),
+            ],
+        )
+
+
 def _analysis_payload(analysis: DiaryAnalysis) -> dict[str, Any]:
     """The persisted result in the §4.5 wire shape."""
 
@@ -990,6 +1071,7 @@ __all__ = [
     "PHOTO_STATUS_DELIVERED",
     "PHOTO_STATUS_THUMBNAIL_PENDING",
     "PHOTO_STATUS_UNAVAILABLE",
+    "AddPlantDiaryEntry",
     "ClaimDiaryAnalysis",
     "DiaryFindingInput",
     "GetDiaryEntry",

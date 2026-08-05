@@ -8,10 +8,10 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 6, MCP (JSON-RPC über Streamable HTTP)
 Status: Entwurf
 Priorität: Mittel
-Version: 1.2
+Version: 1.3
 Datum: 2026-08-05
 Tags: [diary, ai-analysis, mcp, image-content, goose, async, opt-in]
-Abhängigkeit: REQ-013 v2.4 (Pflanzdurchlauf — PlantDiaryEntry), REQ-033 v1.4 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
+Abhängigkeit: REQ-013 v2.4 (Pflanzdurchlauf — PlantDiaryEntry), REQ-033 v1.5 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
 Wird benötigt von: —
 ```
 
@@ -19,6 +19,7 @@ Wird benötigt von: —
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.3 | 2026-08-05 | **O-04 entschieden: `add_plant_diary_entry` kommt, ohne `photo_refs`** (§9). Ein Agent konnte bis hierhin analysieren, aber nicht dokumentieren. Die beiden Grenzen der Entscheidung — keine Foto-Referenzen (SEC-003 lässt sie einem Service-Account ohnehin nicht zu) und kein Selbst-Markieren (§1.3, §7.1) — sind dort begründet. Das Werkzeug steht **außerhalb** des Analyse-Vertrags aus §4 und gehört zu REQ-033 §2.2. Nebenbei korrigiert: das Dokumentende trug noch „Version 1.1", während der Kopf 1.2 auswies. |
 | 1.2 | 2026-08-05 | **Anlass: §2.5.2 verlangt für `in_progress` den „Zeitpunkt des Beanspruchens", das Antwortschema trug ihn nicht.** `DiaryOverviewItem` bekommt `analysis_claimed_at` (Beginn des Lease — nicht `analyzed_at`, das der Abschluss ist), samt der Regel, dass der Wert zu dem Lauf gehört, den der **angezeigte** Zustand beschreibt, und bei abgelaufenem Lease als `null` unterdrückt wird. Ergänzt um die Klarstellung, dass `analysis_state` auf **allen** Lesepfaden der angezeigte Zustand ist (abgelaufenes Lease liest sich überall als `requested`) und `can_request_analysis` **auch** an `DiaryEntryResponse` steht, nicht nur an der Übersichtszeile — beides war seit dem Vorgängerpaket so gebaut, die Spezifikation hinkte nach (§2.5.2, §5). |
 | 1.1 | 2026-08-05 | **Korrekturen aus der Umsetzung (Issue #921)**, plus die beiden blockierenden offenen Punkte entschieden. §4.3: `created_by` ist der blanke `user_key` ohne Collection-Präfix; `analysis` und `analysis_error` ergänzt, ohne die ein Agent den Vorbefund einer Wiederholungsanalyse (AK-21) über keines der fünf Werkzeuge erreichte. §4.4: `pending[].status` kennt zusätzlich `unavailable`. §2.5.2: `created_at` ist `datetime \| None`, wie am Datensatz. §4.4/§7.3: das nie existierende `STORAGE_KEEP_EXIF_<CATEGORY>` durch das tatsächlich vorhandene `STORAGE_STRIP_EXIF` ersetzt (NFR-013 v1.4 §6.4). §9: **O-05 mit ja entschieden** (Standalone-Endpunkte nachgezogen), **O-07 entschieden** (Modul `diary`, Kategorie „Pflege & Planung", Stufe Einsteiger, `core: false`, `/tagebuch`) und in REQ-042 v1.1 §1.3 sowie REQ-021 v1.4 §3.3 eingetragen. |
 | 1.0 | 2026-08-04 | Erstentwurf — Markierung, Zustandsmaschine, Ergebnis-Ablage am Eintrag, MCP-Vertrag für externe Agenten. |
@@ -1131,7 +1132,7 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | O-01 | Soll eine **Historie** mehrerer Analysen je Eintrag geführt werden statt nur der jüngsten? Erst dann lohnt eine eigene Collection. | Produkt | offen |
 | O-02 | Darf in einem Gemeinschaftsgarten ein Gärtner **fremde** Einträge zur Analyse markieren? v1.0 verneint das (§7.2); die Lockerung ist eine Produkt- und Datenschutzentscheidung. | Produkt + Datenschutz | offen |
 | O-03 | Soll aus einem Befund direkt eine **IPM-Behandlung** (REQ-010) oder eine Diagnose-Sitzung (REQ-036) vorgeschlagen werden können? | Produkt | offen |
-| O-04 | Soll `add_plant_diary_entry` (REQ-033 §2.2, bislang nicht umgesetzt) zusammen mit dieser Anforderung realisiert werden, damit ein Agent auch Einträge **anlegen** kann? | Produkt | offen |
+| O-04 | Soll `add_plant_diary_entry` (REQ-033 §2.2, bislang nicht umgesetzt) zusammen mit dieser Anforderung realisiert werden, damit ein Agent auch Einträge **anlegen** kann? | Produkt | **entschieden (v1.3): ja, ohne `photo_refs`** |
 | O-05 | Sollen die in REQ-013 §4.7 spezifizierten, aber nie implementierten **Standalone**-Tagebuch-Endpunkte (`/plant-instances/{key}/diary`) mit REQ-050 nachgezogen werden? Ohne sie hat eine Pflanze ohne Pflanzdurchlauf kein Tagebuch — die Erfassung nach §2.5.1 wäre dort nicht bedienbar. | Produkt | **entschieden (v1.1): ja** |
 | O-06 | Soll die Obergrenze der Bild-Nutzlast je Mandant konfigurierbar sein oder global bleiben? | DevOps | offen |
 | O-07 | Unter welchem Modulschlüssel wird die Tagebuch-Übersicht (§2.5.2) in REQ-042 registriert, und welcher Erfahrungsstufe wird sie in der Navigations-Zuordnung von REQ-021 §3.3 zugewiesen? | Produkt | **entschieden (v1.1)** |
@@ -1148,6 +1149,26 @@ kein Tagebuch, und die Erfassung nach §2.5.1 wäre genau dort unbedienbar, wo s
 gebraucht wird — die Einzelpflanze ist der Normalfall, nicht der Sonderfall. Die
 Run-Endpunkte (`/planting-runs/{key}/diary`) bleiben **unverändert**; beide Wege bedienen denselben
 Dienst und dieselben Dokumente.
+
+**Zu O-04 — entschieden: ja, ohne `photo_refs`.** Das Werkzeug wird nachgezogen, damit ein Agent
+nicht nur analysieren, sondern auch **dokumentieren** kann. Es hängt an demselben Dienst und
+demselben Endpunkt-Muster wie die Erfassung in der Oberfläche
+(`POST /api/v1/t/{tenant_slug}/plant-instances/{key}/diary`, O-05) und legt keinen zweiten
+Schreibpfad an.
+
+Zwei Grenzen sind Teil der Entscheidung:
+
+- **Keine Foto-Referenzen.** SEC-003 lässt ein `photo_refs`-Element nur zu, wenn der Erfasser das
+  Attachment selbst hochgeladen hat oder die Rolle Leitung hält. Ein Service-Account lädt nie
+  etwas hoch, und MCP hat ohnehin keinen Upload-Weg — das Feld wäre eine Dauerablehnung mit dem
+  Anschein einer Fähigkeit. Fotos erreichen einen Eintrag über die Oberfläche.
+- **Kein Markieren.** Der geschriebene Eintrag steht auf `analysis_state: none`. Ein Werkzeug, das
+  seinen eigenen Eintrag zur Analyse einreihen könnte, erzeugte sich seine eigene Arbeit und ginge
+  an der Einwilligungsprüfung nach §7.1 vorbei; automatische Markierung ist nach §1.3 ausdrücklich
+  außerhalb des Umfangs. Markieren bleibt eine Nutzerhandlung.
+
+Damit ist `add_plant_diary_entry` das erste Tagebuch-Werkzeug **außerhalb** des Analyse-Vertrags
+aus §4 — es gehört zu REQ-033 §2.2 und ist für die Recipe der Analyse nicht erforderlich.
 
 **Zu O-07 — entschieden.** REQ-042 §1.3 verlangt ausdrücklich, dass jede neue Anforderung ihr Modul
 registriert; REQ-021 §3.3 führt die verbindliche Navigations-Zuordnung. Für ein Tagebuch existierte
@@ -1179,5 +1200,5 @@ dieser Anforderung.
 ---
 
 **Dokumenten-Ende**
-**Version:** 1.1
+**Version:** 1.3
 **Status:** Entwurf

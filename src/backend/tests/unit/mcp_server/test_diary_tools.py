@@ -50,6 +50,7 @@ from app.mcp_server.base import McpToolError
 from app.mcp_server.context import ToolContext
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.tools.diary import (
+    AddPlantDiaryEntry,
     ClaimDiaryAnalysis,
     GetDiaryEntry,
     GetDiaryEntryPhotos,
@@ -1362,7 +1363,7 @@ def test_each_new_context_property_names_a_real_dependency_factory(service_name:
     )
 
 
-def test_the_five_tools_are_registered_with_the_declared_permissions() -> None:
+def test_the_diary_tools_are_registered_with_the_declared_permissions() -> None:
     from app.mcp_server.registry import load_tools
 
     registry = load_tools()
@@ -1372,6 +1373,8 @@ def test_the_five_tools_are_registered_with_the_declared_permissions() -> None:
         "get_diary_entry_photos": ("mcp.read", False),
         "claim_diary_analysis": ("mcp.write", True),
         "submit_diary_analysis": ("mcp.write", True),
+        # REQ-033 §2.2 — outside the analysis contract, same permission class.
+        "add_plant_diary_entry": ("mcp.write", True),
     }
     specs = {spec.name: spec for spec in registry.specs()}
     for name, (permission, write) in expected.items():
@@ -1381,3 +1384,133 @@ def test_the_five_tools_are_registered_with_the_declared_permissions() -> None:
         assert specs[name].destructive is False
         # Tenant binding is what keeps a diary bot inside one garden.
         assert registry.get(name).tenant_scoped is True
+
+
+# ══ REQ-033 §2.2 — add_plant_diary_entry (REQ-050 §9, O-04) ══════════════════
+#
+# The sixth tool is not part of the analysis contract: it lets an agent
+# *document* an observation. What the tests below pin is exactly that boundary —
+# the entry is written, and nothing about the analysis state machine moves.
+@pytest.mark.asyncio
+async def test_add_entry_writes_it_against_the_acting_tenant_and_principal(world: _World) -> None:
+    tool = AddPlantDiaryEntry()
+    response = await tool.execute(
+        world.ctx,
+        tool.Input(
+            plant_key="plant-1",
+            text="Untere Blätter hängen seit dem Umtopfen.",
+            title="Nach dem Umtopfen",
+            tags=["substrat"],
+            measurements={"height_cm": 84},
+        ),
+    )
+
+    stored = world.repo.get_or_raise(response.data["entry_key"])
+    assert stored.tenant_key == TENANT, "the entry belongs to the bound tenant, never to a caller-supplied one"
+    assert stored.created_by == "sa-1", "authorship is the principal's account, not an argument"
+    assert stored.plant_key == "plant-1"
+    assert stored.text == "Untere Blätter hängen seit dem Umtopfen."
+    assert stored.tags == ["substrat"]
+    assert stored.measurements == {"height_cm": 84}
+    assert world.plants.seen_tenant == TENANT, "the plant is resolved against the acting tenant (SEC-001)"
+
+
+@pytest.mark.asyncio
+async def test_add_entry_defaults_to_observation_and_leaves_the_analysis_machine_alone(world: _World) -> None:
+    """Writing an entry must not enqueue it: marking is a user action (§1.3).
+
+    An agent that could mark its own entries would create its own work — and the
+    consent gate in §7.1 sits on the *marking* path, so it would also be walked
+    past. The assertion on the queue is the one that matters; the state field
+    alone could be satisfied by an entry that is somehow pending anyway.
+    """
+
+    tool = AddPlantDiaryEntry()
+    response = await tool.execute(world.ctx, tool.Input(plant_key="plant-1", text="Erste Blüte offen."))
+
+    stored = world.repo.get_or_raise(response.data["entry_key"])
+    assert stored.entry_type == DiaryEntryType.OBSERVATION, "default entry type"
+    assert stored.analysis_state == DiaryAnalysisState.NONE
+    assert stored.analysis_requested_at is None
+    assert stored.analysis is None
+    assert response.data["analysis_state"] == "none", "the response says so too, so a recipe stops polling"
+
+    queue = ListPendingDiaryAnalyses()
+    pending = await queue.run(world.ctx, queue.Input())
+    assert pending.data["total"] == 0, "a written entry is not waiting for analysis"
+
+
+@pytest.mark.asyncio
+async def test_add_entry_refuses_a_foreign_plant_with_not_found(world: _World) -> None:
+    """AK-12 shape: a plant in another tenant is indistinguishable from no plant."""
+
+    world.plants._plants["foreign-plant"] = _Plant("foreign-plant", tenant=FOREIGN_TENANT)
+    tool = AddPlantDiaryEntry()
+    args = tool.Input(plant_key="foreign-plant", text="Sollte nie geschrieben werden.")
+
+    for stage in (tool.preview, tool.execute):
+        with pytest.raises(NotFoundError):
+            await stage(world.ctx, args)
+    assert world.repo.docs == {}, "neither the preview nor the refused write persisted anything"
+
+
+@pytest.mark.asyncio
+async def test_add_entry_preview_describes_the_effect_without_writing(world: _World) -> None:
+    tool = AddPlantDiaryEntry()
+    response = await tool.preview(
+        world.ctx,
+        tool.Input(plant_key="plant-1", entry_type=DiaryEntryType.PROBLEM, text="Spinnmilben an der Unterseite."),
+    )
+
+    assert world.repo.docs == {}, "a dry run persists nothing"
+    assert response.data == {"plant_key": "plant-1", "entry_type": "problem", "title": None}
+    assert "Would add" in response.summary
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("text", ""),
+        ("text", "x" * 5001),
+        ("title", "t" * 201),
+    ],
+)
+def test_add_entry_rejects_out_of_bound_input_before_any_write(field: str, value: str) -> None:
+    """The bounds are declared on the Input model, so they reach the recipe twice.
+
+    Once as a rejection — the dispatcher turns this into ``validation.error``
+    before a handler runs — and once in the published ``inputSchema``, asserted
+    below. Relying on the domain model alone would produce an unhandled failure
+    at persistence time instead.
+    """
+
+    from pydantic import ValidationError as PydanticValidationError
+
+    payload = {"plant_key": "plant-1", "text": "gültig", field: value}
+    with pytest.raises(PydanticValidationError):
+        AddPlantDiaryEntry.Input(**payload)
+
+
+def test_add_entry_publishes_its_bounds_and_carries_no_photo_refs() -> None:
+    """O-04 was decided *without* ``photo_refs`` — this holds that decision.
+
+    ``_require_attachable_photos`` (SEC-003) only lets an author attach a photo
+    they uploaded themselves, unless they are a tenant lead. A service account
+    never uploads, so the field would be a near-permanent rejection; MCP has no
+    upload path to make it useful either. ``extra: forbid`` already refuses the
+    argument — this test states that the refusal is intended.
+    """
+
+    schema = AddPlantDiaryEntry.Input.model_json_schema()
+    properties = schema["properties"]
+
+    assert "photo_refs" not in properties
+    with pytest.raises(Exception, match="photo_refs"):
+        AddPlantDiaryEntry.Input(plant_key="plant-1", text="x", photo_refs=["ph-1"])
+
+    assert properties["text"]["maxLength"] == 5000
+    assert properties["text"]["minLength"] == 1
+    assert properties["title"]["anyOf"][0]["maxLength"] == 200
+    # The write envelope every state-changing tool carries (§2.6).
+    for field in ("tenant", "dry_run", "idempotency_key"):
+        assert field in properties

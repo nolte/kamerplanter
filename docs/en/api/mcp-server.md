@@ -232,6 +232,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `confirm_care_task` | Confirm a care reminder for a plant ("I have watered it") |
 | `archive_plant` | Mark a plant as disposed / given away / died — **never** a hard delete, history is retained |
 | `set_plant_location` | Move a plant to another site / location / slot |
+| `add_plant_diary_entry` | Record a diary entry (observation, problem, measurement) for a plant — text only, no photos |
 | `claim_diary_analysis` | Exclusively claim a waiting diary entry (lease) |
 | `submit_diary_analysis` | Write back the analysis result of a claimed diary entry |
 
@@ -289,6 +290,13 @@ Every error from one of the five tools arrives as a tool result with `isError: t
 - The **disclaimer** in the result is set server-side — an agent can neither omit nor soften it.
 - Whether a user may mark an entry at all is checked server-side on every `mcp.write` call (role, authorship, `diary_ai_analysis` consent, operating mode) — a recipe does not need to rebuild that rule.
 - An entry without photos is not an error case; `get_diary_entry_photos` then returns `photos: []` with only the text block.
+
+### Writing an entry is a different job
+
+`add_plant_diary_entry` (`mcp.write`) belongs to the general tool palette, not to the five above: it lets an agent **document** an observation — text, tags, measurements — instead of analysing one. Two boundaries follow from that:
+
+- A newly written entry is **not** queued for analysis. Marking stays a user action, so an agent cannot create work for itself, and the consent gate on the marking path is never bypassed.
+- The tool takes **no** photo references. Attaching a photo requires having uploaded it yourself (or being a garden lead), and MCP has no upload path — photos reach an entry through the web UI.
 
 ## Response Format
 

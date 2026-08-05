@@ -232,6 +232,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `confirm_care_task` | Pflegeerinnerung für eine Pflanze quittieren ("ich habe gegossen") |
 | `archive_plant` | Pflanze als entsorgt/abgegeben/gestorben kennzeichnen — **kein** Hard-Delete, Verlauf bleibt erhalten |
 | `set_plant_location` | Pflanze zu einem anderen Standort/Bereich/Slot verschieben |
+| `add_plant_diary_entry` | Einen Tagebuch-Eintrag zu einer Pflanze erfassen (Beobachtung, Problem, Messwert) — nur Text, keine Fotos |
 | `claim_diary_analysis` | Einen wartenden Tagebuch-Eintrag exklusiv beanspruchen (Lease) |
 | `submit_diary_analysis` | Das Analyse-Ergebnis eines beanspruchten Tagebuch-Eintrags zurückschreiben |
 
@@ -289,6 +290,13 @@ Jeder Fehler eines der fünf Werkzeuge kommt als Werkzeug-Ergebnis mit `isError:
 - Der **Vorbehalt** (`disclaimer`) im Ergebnis wird serverseitig gesetzt — ein Agent kann ihn weder weglassen noch abschwächen.
 - Ob ein Nutzer überhaupt markieren darf, prüft der Server bei jedem `mcp.write`-Aufruf serverseitig (Rolle, Autorschaft, Einwilligung `diary_ai_analysis`, Betriebsmodus) — ein Rezept muss diese Regel nicht nachbilden.
 - Ein Eintrag ohne Fotos ist kein Fehlerfall; `get_diary_entry_photos` liefert dann `photos: []` mit nur dem Text-Block.
+
+### Einen Eintrag schreiben ist eine andere Aufgabe
+
+`add_plant_diary_entry` (`mcp.write`) gehört zur allgemeinen Werkzeug-Palette, nicht zu den fünf oben: Damit **dokumentiert** ein Agent eine Beobachtung — Text, Tags, Messwerte — statt sie zu analysieren. Daraus folgen zwei Grenzen:
+
+- Ein neu geschriebener Eintrag wird **nicht** zur Analyse eingereiht. Das Markieren bleibt eine Nutzerhandlung; ein Agent kann sich also keine eigene Arbeit erzeugen, und die Einwilligungsprüfung auf dem Markier-Pfad wird nie umgangen.
+- Das Werkzeug nimmt **keine** Foto-Referenzen entgegen. Ein Foto anzuhängen setzt voraus, es selbst hochgeladen zu haben (oder die Rolle Leitung zu tragen), und MCP hat keinen Upload-Weg — Fotos kommen über die Weboberfläche an den Eintrag.
 
 ## Antwortformat
 

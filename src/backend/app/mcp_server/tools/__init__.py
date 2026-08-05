@@ -18,13 +18,16 @@ the ~30-tool inventory in §2):
   list_hardiness_zones, search_glossary, get_mcp_activity,
   list_pending_diary_analyses, get_diary_entry, get_diary_entry_photos
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location,
-  claim_diary_analysis, submit_diary_analysis
+  add_plant_diary_entry, claim_diary_analysis, submit_diary_analysis
 * setup (mcp.setup): create_site
 
-The five ``*_diary_*`` tools (REQ-050 §4, REQ-033 §2.2a) are the complete
-contract for the external analysis agent in the separate ``kamerplanter-goose``
-repository; ``get_diary_entry_photos`` is the only tool in the palette that
-returns something other than text (REQ-033 §4.3b).
+The five ``*_diary_analys*`` / ``get_diary_entry*`` tools (REQ-050 §4,
+REQ-033 §2.2a) are the complete contract for the external analysis agent in the
+separate ``kamerplanter-goose`` repository; ``get_diary_entry_photos`` is the
+only tool in the palette that returns something other than text (REQ-033 §4.3b).
+``add_plant_diary_entry`` sits in the same module but outside that contract: it
+is the REQ-033 §2.2 write tool for *documenting* an observation, and it never
+touches the analysis state machine.
 
 Tools whose ``Input`` extends ``TenantToolInput`` act inside one tenant, which
 the dispatcher binds per call; the rest (``list_tenants``, the species
