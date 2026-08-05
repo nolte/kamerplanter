@@ -8,10 +8,10 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 6, MCP (JSON-RPC über Streamable HTTP)
 Status: Entwurf
 Priorität: Mittel
-Version: 1.0
-Datum: 2026-08-04
+Version: 1.2
+Datum: 2026-08-05
 Tags: [diary, ai-analysis, mcp, image-content, goose, async, opt-in]
-Abhängigkeit: REQ-013 v2.4 (Pflanzdurchlauf — PlantDiaryEntry), REQ-033 v1.4 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.3 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.0 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.2 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
+Abhängigkeit: REQ-013 v2.4 (Pflanzdurchlauf — PlantDiaryEntry), REQ-033 v1.4 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
 Wird benötigt von: —
 ```
 
@@ -19,6 +19,8 @@ Wird benötigt von: —
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.2 | 2026-08-05 | **Anlass: §2.5.2 verlangt für `in_progress` den „Zeitpunkt des Beanspruchens", das Antwortschema trug ihn nicht.** `DiaryOverviewItem` bekommt `analysis_claimed_at` (Beginn des Lease — nicht `analyzed_at`, das der Abschluss ist), samt der Regel, dass der Wert zu dem Lauf gehört, den der **angezeigte** Zustand beschreibt, und bei abgelaufenem Lease als `null` unterdrückt wird. Ergänzt um die Klarstellung, dass `analysis_state` auf **allen** Lesepfaden der angezeigte Zustand ist (abgelaufenes Lease liest sich überall als `requested`) und `can_request_analysis` **auch** an `DiaryEntryResponse` steht, nicht nur an der Übersichtszeile — beides war seit dem Vorgängerpaket so gebaut, die Spezifikation hinkte nach (§2.5.2, §5). |
+| 1.1 | 2026-08-05 | **Korrekturen aus der Umsetzung (Issue #921)**, plus die beiden blockierenden offenen Punkte entschieden. §4.3: `created_by` ist der blanke `user_key` ohne Collection-Präfix; `analysis` und `analysis_error` ergänzt, ohne die ein Agent den Vorbefund einer Wiederholungsanalyse (AK-21) über keines der fünf Werkzeuge erreichte. §4.4: `pending[].status` kennt zusätzlich `unavailable`. §2.5.2: `created_at` ist `datetime \| None`, wie am Datensatz. §4.4/§7.3: das nie existierende `STORAGE_KEEP_EXIF_<CATEGORY>` durch das tatsächlich vorhandene `STORAGE_STRIP_EXIF` ersetzt (NFR-013 v1.4 §6.4). §9: **O-05 mit ja entschieden** (Standalone-Endpunkte nachgezogen), **O-07 entschieden** (Modul `diary`, Kategorie „Pflege & Planung", Stufe Einsteiger, `core: false`, `/tagebuch`) und in REQ-042 v1.1 §1.3 sowie REQ-021 v1.4 §3.3 eingetragen. |
 | 1.0 | 2026-08-04 | Erstentwurf — Markierung, Zustandsmaschine, Ergebnis-Ablage am Eintrag, MCP-Vertrag für externe Agenten. |
 
 ---
@@ -323,7 +325,7 @@ class DiaryOverviewItem(BaseModel):
     """Eine Zeile der mandantenweiten Tagebuch-Übersicht (REQ-050 §2.5.2)."""
 
     key: str
-    created_at: datetime
+    created_at: datetime | None            # nullable wie am Datensatz, siehe unten
     entry_type: DiaryEntryType
     title: str | None
     excerpt: str = Field(max_length=200)      # Anfang von `text`, serverseitig gekürzt
@@ -337,9 +339,10 @@ class DiaryOverviewItem(BaseModel):
     photo_count: int
     preview_photo_id: str | None              # erstes Foto, für die Miniatur
 
-    analysis_state: DiaryAnalysisState
+    analysis_state: DiaryAnalysisState        # der ANGEZEIGTE Zustand, siehe unten
     analysis_summary: str | None              # NUR die Zusammenfassung, nie `findings`
     analysis_error: str | None
+    analysis_claimed_at: datetime | None       # Zeitpunkt des Beanspruchens, siehe unten
     analyzed_at: datetime | None
 
     can_request_analysis: bool                # §7.2 serverseitig ausgewertet
@@ -371,6 +374,7 @@ class DiaryOverviewResponse(BaseModel):
       "analysis_state": "completed",
       "analysis_summary": "Vermutlich Staunässe nach dem Umtopfen, kein Pilzbefall erkennbar.",
       "analysis_error": null,
+      "analysis_claimed_at": "2026-08-04T07:10:00Z",
       "analyzed_at": "2026-08-04T07:14:52Z",
       "can_request_analysis": true
     }
@@ -387,8 +391,46 @@ Nutzer markieren darf, hängt von Rolle, Autorschaft (§7.2), Einwilligung (§7.
 Wechsel an einer Stelle zu vergessen. Das Feld ist eine Anzeigehilfe — es ersetzt die
 serverseitige Prüfung beim Markieren nicht.
 
+**Dasselbe Feld trägt auch `DiaryEntryResponse`** (§5, Einzelabruf über beide Präfixe). Es ist
+nutzer- **und** eintragsbezogen: dasselbe Dokument beantwortet es für den Verfasser mit `true` und
+für einen anderen Gärtner mit `false`. Deshalb hat es dort keinen Vorgabewert — ein Vorgabewert
+wäre genau der eine Wert, der für die Hälfte der Aufrufer falsch ist.
+
+**`analysis_claimed_at` liefert den Zeitpunkt, den die `in_progress`-Zeile oben verlangt.** Das ist
+der **Beginn** des Lease, nicht sein Abschluss; `analyzed_at` ist der Abschluss. Die beiden zu
+verwechseln wäre schlimmer, als die Angabe wegzulassen. Das Feld gehört zu dem Analyselauf, den
+der **angezeigte** Zustand der Zeile beschreibt:
+
+- `in_progress` → der laufende Lease, also die geforderte Angabe;
+- `completed` / `failed` → der Lauf, dessen Ergebnis die Zeile zeigt;
+- `requested` / `none` → `null`.
+
+Bei **abgelaufenem Lease** wird der gespeicherte Wert unterdrückt und die Zeile trägt `null`. Sie
+liest sich in diesem Fall als `requested` (siehe unten), und ein Beanspruchungszeitpunkt neben
+„wartet auf Analyse" wäre ein Widerspruch, den der Leser nicht auflösen kann: Die schlanke Zeile
+führt weder `analysis_claimed_by` noch `analysis_lease_expires_at` mit. Der Nachweis eines
+abgestürzten Agenten geht dadurch nicht verloren — er steht am Einzelabruf, der alle drei
+Lease-Felder unverändert liefert und damit erst als Ganzes lesbar macht („beansprucht von X,
+abgelaufen um Y"). Die Oberfläche zeigt den Zeitpunkt als **Tatsache**, nie als Laufzeit: ein
+mitlaufendes „läuft seit 14 Minuten" wäre bereits die Andeutung eines Fortschritts und damit ein
+Verstoß gegen §3 und AK-27/AK-29.
+
+**`analysis_state` ist auf allen Lesepfaden der angezeigte Zustand.** Ein Eintrag, dessen
+Agenten-Lease abgelaufen ist, liegt wieder im Arbeitsvorrat (§2.2, AK-06) — gespeichert steht
+weiterhin `in_progress`, gelesen wird `requested`. Diese Korrektur gilt für die Übersichtszeile
+**und** für `DiaryEntryResponse`; die beiden Sichten auf dasselbe Dokument dürfen sich nicht
+widersprechen. Lesen schreibt dabei nichts: Der gespeicherte Wert wird erst beim nächsten
+Schreibzugriff auf den Eintrag zurückgesetzt. Der Filter nach Analyse-Zustand folgt derselben
+Korrektur — „nur wartend" findet den Eintrag eines abgestürzten Agenten.
+
 Fehlende Werte kommen als `null`, nicht als ausgelassener Schlüssel; damit bleibt die Struktur
 über alle Zeilen gleich. Eine leere Trefferliste ist kein Fehler (`items: []`, `total: 0`).
+
+**`created_at` ist bewusst `datetime | None`.** `PlantDiaryEntry.created_at` ist am Datensatz
+nullable; ein einziges Altdokument ohne Zeitstempel würde eine nicht-nullable Zeile beim
+Serialisieren sprengen und damit die **ganze** Übersichtsseite in einen 500 verwandeln — dieselbe
+Fehlerklasse, gegen die AK-26 beim fehlenden `analysis_state` argumentiert. Ein `null` in einer
+Zelle ist der ehrliche und der billigere Ausgang.
 
 Die Liste ist strikt auf `tenant_key` gefiltert. Für die Filterung nach Analyse-Zustand ist
 derselbe persistente Index nötig, den auch der MCP-Arbeitsvorrat braucht (§5).
@@ -627,8 +669,10 @@ Liefert den Eintrag **ohne** Bilddaten.
   "measurements": { "height_cm": 84, "leaf_count": 22 },
   "photo_refs": ["01HQ8X9V3J7P5K2N4M6T8R0S2W", "01HQ8X9V3J7P5K2N4M6T8R0S2X"],
   "created_at": "2026-08-03T18:22:11Z",
-  "created_by": "user/4471023",
+  "created_by": "4471023",
   "analysis_state": "in_progress",
+  "analysis": null,
+  "analysis_error": null,
   "plant": {
     "plant_key": "5512099",
     "plant_name": "Tomate Beet 2 #05",
@@ -647,6 +691,18 @@ Liefert den Eintrag **ohne** Bilddaten.
 `measurements` ist ein offenes Objekt (REQ-013) — ein Rezept darf keine feste Schlüsselmenge
 annehmen. Felder des `plant`-Objekts, die am Datensatz fehlen, kommen als `null`, nicht als
 ausgelassener Schlüssel; damit bleibt die Struktur über alle Einträge gleich.
+
+`created_by` ist der **blanke `user_key`** ohne Collection-Präfix — genau der Wert, der am
+Datensatz steht. Ein `user/`-Präfix zu ergänzen hieße, im Vertrag eine Dokument-ID zu
+versprechen, die nirgends gespeichert ist. Nach einer Nutzerlöschung steht dort `_anonymized`
+(§7.4, AK-23).
+
+`analysis` trägt das **persistierte Ergebnis** in derselben Form wie in §4.5 (also samt
+`disclaimer` und `analyzed_at`), `analysis_error` den Fehlertext einer gescheiterten Analyse;
+liegt keines von beidem vor, stehen sie auf `null`. Ohne diese beiden Felder käme ein Agent, der
+einen bereits analysierten Eintrag erneut zugewiesen bekommt (AK-21), über **keines** der fünf
+Werkzeuge an den Vorbefund — er sähe `analysis_state: "completed"` und analysierte blind neu,
+ohne zu wissen, was beim letzten Mal herauskam.
 
 Getrennt von den Bildern, damit ein Agent den Textteil lesen kann, ohne das Token-Budget mit
 Bilddaten zu belasten — etwa um zu entscheiden, ob er die Bilder überhaupt braucht.
@@ -704,10 +760,14 @@ WebP-Renditions (NFR-013 §8.2). Drei Gründe, alle bindend:
 
 1. **Token-Budget.** Ein Originalfoto darf 25 MB groß sein. Als Basis-64 im Protokoll wäre das
    für jedes Modell unbrauchbar.
-2. **Datenschutz.** Renditions tragen keine EXIF-Daten — auch dann nicht, wenn der Mandant
-   `STORAGE_KEEP_EXIF_DIARY=true` gesetzt hat; jenes Setting betrifft nur die Originaldatei.
-   NFR-013 §8.2 hält das seit v1.3 ausdrücklich als Anforderung fest, statt es als Nebenwirkung
-   der Neukodierung anzunehmen. Genau darauf stützt sich die Zulässigkeit der Auslieferung.
+2. **Datenschutz.** Renditions tragen keine EXIF-Daten — auch dann nicht, wenn die Instanz
+   `STORAGE_STRIP_EXIF=false` gesetzt und den Strip beim Upload damit abgeschaltet hat; jenes
+   Setting betrifft nur die Originaldatei. NFR-013 §8.2 hält das seit v1.3 ausdrücklich als
+   Anforderung fest, statt es als Nebenwirkung der Neukodierung anzunehmen. Genau darauf stützt
+   sich die Zulässigkeit der Auslieferung. (Die in NFR-013 §6.4 beschriebene **kategoriescharfe**
+   Variante `STORAGE_KEEP_EXIF_<CATEGORY>` ist spezifiziert, aber nicht implementiert; es gibt
+   ausschließlich das globale `STORAGE_STRIP_EXIF`. Für diese Anforderung ändert das nichts —
+   die Zusage hängt an der Rendition, nicht an der Konfiguration.)
 3. **Kosten.** 1280 px ist für eine Blattdiagnose ausreichend und ein Vielfaches billiger als
    ein Originalbild.
 
@@ -723,8 +783,22 @@ erscheint das Foto **nicht** in `photos` und **nicht** im `content`-Array, sonde
 mit `status: "thumbnail_pending"`; die Erzeugung wird angestoßen. Der Aufruf selbst bleibt
 erfolgreich (`isError: false`); der Agent kann es später erneut versuchen. Ein harter Fehlschlag
 wäre hier falsch, weil er einen Eintrag mit vier fertigen und einem fehlenden Bild vollständig
-blockieren würde. Ein Rezept, das Vollständigkeit braucht, prüft `pending` auf leer — und darf
-sich nicht darauf verlassen, dass ein erfolgreicher Aufruf alle Fotos enthält.
+blockieren würde.
+
+**`pending[].status` kennt zwei Werte**, und die Unterscheidung ist verhaltensrelevant:
+
+| `status` | Bedeutung | Was ein Rezept damit tut |
+|----------|-----------|--------------------------|
+| `thumbnail_pending` | Die Rendition existiert **noch** nicht; die Erzeugung ist angestoßen. | Später erneut abrufen. |
+| `unavailable` | Für dieses `photo_ref` wird **nie** eine Rendition erscheinen: Der Attachment-Datensatz fehlt, oder der Mime-Typ erzeugt keine Rendition. | Nicht erneut abrufen; das Foto ohne Bild bewerten. |
+
+`unavailable` ist kein Sonderfall, den man auch als `thumbnail_pending` melden könnte: Diese
+Meldung wäre eine Lüge, die den Agenten in eine endlose Wiederholung schickt — er wartet auf eine
+Erzeugung, die niemand mehr anstoßen kann.
+
+Die Prüfregel bleibt davon **unberührt**: Ein Rezept, das Vollständigkeit braucht, prüft `pending`
+auf leer — unabhängig davon, welcher der beiden Werte darin steht — und darf sich nicht darauf
+verlassen, dass ein erfolgreicher Aufruf alle Fotos enthält.
 
 **Eintrag ohne Fotos:** Ein Eintrag mit leerem `photo_refs` ist **kein** Fehler. Die Antwort ist
 erfolgreich mit `photos: []`, `pending: []` und nur dem `summary`-Textblock im `content`-Array.
@@ -860,6 +934,22 @@ class DiaryAnalysis(BaseModel):
 **Kein neuer Knoten, keine neue Kante.** Das Ergebnis ist ein eingebettetes Teildokument am
 Eintrag. Eine eigene Collection wäre erst mit der Historie (§9, O-01) gerechtfertigt.
 
+**Die Tabelle oben beschreibt den Datensatz, nicht die Antwort.** Zwei Unterschiede sind
+verhaltensrelevant und gelten für **jeden** Lesepfad — den Einzelabruf (`DiaryEntryResponse`, beide
+Präfixe) ebenso wie die Übersichtszeile (`DiaryOverviewItem`, §2.5.2):
+
+- **`analysis_state` wird als *angezeigter* Zustand geliefert.** Ist das Agenten-Lease abgelaufen,
+  antwortet die API `requested`, obwohl `in_progress` gespeichert ist — der Eintrag liegt wieder im
+  Arbeitsvorrat (§2.2, AK-06). Der gespeicherte Wert wird nicht zusätzlich veröffentlicht; er bleibt
+  aus den Lease-Feldern ableitbar, die der Einzelabruf unverändert mitführt. Ein `requested` mit
+  gesetztem `analysis_claimed_by` und einem `analysis_lease_expires_at` in der Vergangenheit ist
+  genau der Fall des abgestürzten Agenten. Lesen schreibt nichts; zurückgesetzt wird beim nächsten
+  Schreibzugriff.
+- **`can_request_analysis: bool` kommt am Datensatz nicht vor, in jeder Antwort aber schon.** Es ist
+  die serverseitige Auswertung von §7.2/§7.1/§7.5 für den Nutzer *dieser* Anfrage (AK-18a) und steht
+  sowohl an `DiaryEntryResponse` als auch an `DiaryOverviewItem` — nicht nur an der Übersichtszeile.
+  Es ist eine Anzeigehilfe, keine Autorisierung.
+
 **Index:** Für `list_pending_diary_analyses` (§4.1) **und** für die Zustandsfilter der
 mandantenweiten Übersicht (§2.5.2) ist ein persistenter Index über
 `(tenant_key, analysis_state, analysis_requested_at)` anzulegen, sonst wird beides zum
@@ -935,7 +1025,9 @@ Produktentscheidung und bleibt offen (§9, O-02).
 
 - Übermittelt werden ausschließlich Renditions, keine Originale (§4.4).
 - Renditions tragen keine EXIF-Daten, also keine GPS-Position und keine Gerätekennung — auch
-  nicht bei `STORAGE_KEEP_EXIF_DIARY=true`.
+  nicht, wenn die Instanz den Upload-Strip über `STORAGE_STRIP_EXIF=false` abgeschaltet hat. Das
+  ist heute das einzige EXIF-Setting; die kategoriescharfe Variante aus NFR-013 §6.4 ist
+  spezifiziert, aber nicht implementiert (NFR-013 v1.4 §6.4).
 - Der Arbeitsvorrat (§4.1) enthält keinen Freitext und keine Bilder. Inhalte fließen erst, wenn
   ein Agent einen Eintrag beansprucht und gezielt abruft.
 - `analysis_requested_by` und `analysis_claimed_by` sind für die Nachvollziehbarkeit nötig; ihre
@@ -1005,7 +1097,7 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | **AK-06** | Nach Ablauf des Lease erscheint der Eintrag wieder in `list_pending_diary_analyses` und ist erneut beanspruchbar. |
 | **AK-07** | `get_diary_entry_photos` liefert Bild-Content-Blöcke mit Basis-64 und `mimeType: image/webp` aus den 512- bzw. 1280-px-Renditions — niemals das Originalbild. |
 | **AK-08** | Überschreitet die Gesamt-Nutzlast eines Fotoabrufs die konfigurierte Obergrenze, antwortet das Werkzeug mit `payload.too_large` und benennt die betroffenen `photo_ids`. Es wird **nie** still gekürzt. |
-| **AK-09** | Fehlt eine Rendition, liefert der Abruf für dieses Foto `thumbnail_pending`, stößt die Erzeugung an und bleibt für die übrigen Fotos erfolgreich. |
+| **AK-09** | Fehlt eine Rendition, liefert der Abruf für dieses Foto `thumbnail_pending`, stößt die Erzeugung an und bleibt für die übrigen Fotos erfolgreich. Für ein `photo_ref`, zu dem **nie** eine Rendition entstehen wird (Attachment-Datensatz fehlt oder Mime-Typ erzeugt keine Rendition), lautet der Status `unavailable` und es wird **keine** Erzeugung angestoßen (§4.4). |
 | **AK-10** | `submit_diary_analysis` mit gültigem Lease persistiert das Ergebnis am Eintrag und setzt `completed` bzw. `failed`; ohne gültigen Lease scheitert es mit `conflict.not_claimed` oder `conflict.lease_expired`. |
 | **AK-11** | Der Vorbehalt wird serverseitig gesetzt und ist auch dann vorhanden, wenn der Agent kein entsprechendes Feld liefert. |
 | **AK-12** | Ein Eintrag aus einem fremden Mandanten liefert `not_found`, nie `permission.denied` (keine Preisgabe fremder Mandanten). |
@@ -1040,25 +1132,52 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | O-02 | Darf in einem Gemeinschaftsgarten ein Gärtner **fremde** Einträge zur Analyse markieren? v1.0 verneint das (§7.2); die Lockerung ist eine Produkt- und Datenschutzentscheidung. | Produkt + Datenschutz | offen |
 | O-03 | Soll aus einem Befund direkt eine **IPM-Behandlung** (REQ-010) oder eine Diagnose-Sitzung (REQ-036) vorgeschlagen werden können? | Produkt | offen |
 | O-04 | Soll `add_plant_diary_entry` (REQ-033 §2.2, bislang nicht umgesetzt) zusammen mit dieser Anforderung realisiert werden, damit ein Agent auch Einträge **anlegen** kann? | Produkt | offen |
-| O-05 | Sollen die in REQ-013 §4.7 spezifizierten, aber nie implementierten **Standalone**-Tagebuch-Endpunkte (`/plant-instances/{key}/diary`) mit REQ-050 nachgezogen werden? Ohne sie hat eine Pflanze ohne Pflanzdurchlauf kein Tagebuch — die Erfassung nach §2.5.1 wäre dort nicht bedienbar. | Produkt | **blockierend** |
+| O-05 | Sollen die in REQ-013 §4.7 spezifizierten, aber nie implementierten **Standalone**-Tagebuch-Endpunkte (`/plant-instances/{key}/diary`) mit REQ-050 nachgezogen werden? Ohne sie hat eine Pflanze ohne Pflanzdurchlauf kein Tagebuch — die Erfassung nach §2.5.1 wäre dort nicht bedienbar. | Produkt | **entschieden (v1.1): ja** |
 | O-06 | Soll die Obergrenze der Bild-Nutzlast je Mandant konfigurierbar sein oder global bleiben? | DevOps | offen |
-| O-07 | Unter welchem Modulschlüssel wird die Tagebuch-Übersicht (§2.5.2) in REQ-042 registriert, und welcher Erfahrungsstufe wird sie in der Navigations-Zuordnung von REQ-021 §3.3 zugewiesen? | Produkt | offen — **vor dem Bau zu klären** |
+| O-07 | Unter welchem Modulschlüssel wird die Tagebuch-Übersicht (§2.5.2) in REQ-042 registriert, und welcher Erfahrungsstufe wird sie in der Navigations-Zuordnung von REQ-021 §3.3 zugewiesen? | Produkt | **entschieden (v1.1)** |
 
-**Zu O-07:** REQ-042 §1.3 verlangt ausdrücklich, dass jede neue Anforderung ihr Modul registriert;
-REQ-021 §3.3 führt die verbindliche Navigations-Zuordnung. Für ein Tagebuch existiert in **beiden**
-kein Eintrag — die Übersicht wäre sonst die einzige Seite ohne Sichtbarkeitssteuerung und ohne
-Erfahrungsstufen-Einordnung. Das ist keine Stilfrage: Ein Nutzer, der das Tagebuch nicht nutzt,
-bekäme einen Navigationspunkt, den er nicht abschalten kann. Die Registrierung selbst ist billig;
-nur die Zuordnung ist zu entscheiden (AK-31).
+**Zu O-05 — entschieden: ja.** Die Standalone-Endpunkte werden mit REQ-050 nachgezogen, unter
 
-**Zur Einordnung:** O-05 ist die einzige umsetzungsblockierende Frage; O-07 ist vor dem Bau der
-Übersichtsseite zu klären, verhindert aber keine der übrigen Arbeitspakete. Alle anderen lassen sich nach der
-Umsetzung entscheiden, ohne bereits Gebautes zu entwerten. Die zuvor hier geführte Frage nach der
-Tagebuch-Oberfläche ist entfallen — sie ist mit §2.5 beantwortet und Bestandteil dieser
-Anforderung.
+```
+/api/v1/t/{tenant_slug}/plant-instances/{key}/diary
+```
+
+— dasselbe Muster, unter dem die Foto-Galerie aus REQ-034 an derselben Pflanzeninstanz hängt
+(`/plant-instances/{key}/photos`). Begründung: Ohne sie hat eine Pflanze **ohne** Pflanzdurchlauf
+kein Tagebuch, und die Erfassung nach §2.5.1 wäre genau dort unbedienbar, wo sie am häufigsten
+gebraucht wird — die Einzelpflanze ist der Normalfall, nicht der Sonderfall. Die
+Run-Endpunkte (`/planting-runs/{key}/diary`) bleiben **unverändert**; beide Wege bedienen denselben
+Dienst und dieselben Dokumente.
+
+**Zu O-07 — entschieden.** REQ-042 §1.3 verlangt ausdrücklich, dass jede neue Anforderung ihr Modul
+registriert; REQ-021 §3.3 führt die verbindliche Navigations-Zuordnung. Für ein Tagebuch existierte
+in **beiden** kein Eintrag — die Übersicht wäre sonst die einzige Seite ohne Sichtbarkeitssteuerung
+und ohne Erfahrungsstufen-Einordnung gewesen. Festgelegt ist (AK-31):
+
+| Feld | Wert |
+|------|------|
+| Modulschlüssel | `diary` |
+| Kategorie | Pflege & Planung (`care_planning`) |
+| Erfahrungsstufe (Default-Level) | Einsteiger (`beginner`) |
+| `core` | `false` |
+| Navigationspfad | `/tagebuch` |
+
+**Warum `core: false`:** AK-31 verlangt Abschaltbarkeit. Ein Kern-Modul ist nach REQ-042 §1.1
+gerade das, was **nicht** ausblendbar ist — ein Tagebuch als Kern-Modul wäre die eine Seite, die
+ein Nutzer, der kein Tagebuch führt, nicht loswird.
+
+**Warum `beginner`:** Ein Tagebuch ist die niedrigschwelligste Funktion des Systems — eine Notiz
+und ein Foto, ohne Fachbegriff und ohne Vorbedingung. Eine Einordnung als `intermediate` würde sie
+ausgerechnet vor der Zielgruppe verstecken, für die sie geschrieben ist.
+
+**Zur Einordnung:** Mit v1.1 sind die beiden Punkte entschieden, die der Umsetzung im Weg standen
+(O-05 blockierend, O-07 vor dem Bau der Übersichtsseite zu klären). O-01 bis O-04 und O-06 lassen
+sich nach der Umsetzung entscheiden, ohne bereits Gebautes zu entwerten. Die zuvor hier geführte
+Frage nach der Tagebuch-Oberfläche ist entfallen — sie ist mit §2.5 beantwortet und Bestandteil
+dieser Anforderung.
 
 ---
 
 **Dokumenten-Ende**
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Entwurf

@@ -2,6 +2,9 @@
 
 Jede Pflanzeninstanz in Kamerplanter kann eine eigene Fotogalerie haben. So erkennst du deine Pflanzen auf einen Blick in der Liste wieder, und du kannst den Wachstumsverlauf über die Zeit festhalten — vom Sämling bis zur Ernte.
 
+!!! note "Nicht zu verwechseln mit Tagebuchfotos"
+    Fotos in dieser Galerie sind eine eigene Kategorie, getrennt von Fotos an einzelnen [Tagebuch-Einträgen](plant-diary.md). Die Galerie zeigt den Wachstumsverlauf einer Pflanze über die Zeit; ein Tagebuchfoto gehört zu einer konkreten Beobachtung und kann optional von deinem eigenen KI-Agenten mitausgewertet werden. Beide Bereiche teilen sich weder Fotos noch Speicherlimit.
+
 ---
 
 ## Voraussetzungen
@@ -283,6 +286,7 @@ Der Widerruf gilt sofort für alle zukünftigen Foto-Uploads. Bereits erzeugte M
 
 ## Siehe auch
 
+- [Tagebuch](plant-diary.md) — Beobachtungen je Eintrag festhalten, mit eigener Foto-Kategorie
 - [Stammdaten verwalten](plant-management.md) — Art einer Pflanzeninstanz zuweisen
 - [Referenzbilder kuratieren](reference-image-curation.md) — Admin-Doku: welche Referenzbilder aktiv sind
 - [Pflanze per Foto identifizieren](plant-identification.md) — Art unbekannter Pflanzen bestimmen

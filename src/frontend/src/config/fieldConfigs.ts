@@ -168,6 +168,12 @@ export const navItemConfig: Record<string, ExperienceLevel> = {
   '/pflanzen/plant-instances': 'beginner',
   '/pflanzen/identifikation': 'beginner',
   '/aufgaben/queue': 'beginner',
+  // REQ-050 §2.5.2 / REQ-021 §3.3 — the tenant-wide diary overview is part of
+  // the beginner set. Spelling it out instead of relying on the "absent = always
+  // visible" default records the REQ-021 assignment where the other beginner
+  // paths live; switching it off is the REQ-042 module's job (`diary`), not the
+  // experience level's.
+  '/tagebuch': 'beginner',
   '/ueberwinterung/profile': 'intermediate',
   '/kalender': 'intermediate',
   // intermediate adds

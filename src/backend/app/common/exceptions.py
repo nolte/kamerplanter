@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 
 class KamerplanterError(Exception):
@@ -517,4 +518,162 @@ class FeatureDisabledError(KamerplanterError):
             error_code="FEATURE_DISABLED",
             status_code=409,
             details=[{"field": "feature", "reason": reason, "code": "FEATURE_DISABLED"}],
+        )
+
+
+# ── REQ-050 Diary AI analysis — state machine, lease, submit contract ──
+
+
+class ContractError(KamerplanterError):
+    """An application error that already carries its **published** error code.
+
+    REQ-050 §4.0 publishes lowercase dotted codes (``conflict.already_claimed``,
+    ``validation.error``) as *the* machine-readable contract an external recipe
+    branches on — it must never branch on ``message``, which is free to change.
+    Subclasses of this class are therefore born with the published code instead
+    of a SCREAMING_CASE house code that a transport would have to translate.
+    That translation table exists (``_CONTRACT_ERROR_CODES`` in
+    ``app/api/v1/mcp/router.py``) precisely because the *generic* errors carry
+    the wrong vocabulary for this contract; giving one condition two names is
+    the failure this avoids. ``_contract_error_code`` passes an already-dotted
+    code through untouched, so these errors reach the MCP wire unchanged and the
+    REST alias derives its HTTP status from ``status_code`` as usual.
+
+    Two shapes of ``details`` are kept in parallel, deliberately:
+
+    * :attr:`error_details` — the free-form MCP ``details`` **object** with the
+      original value types (``lease_expires_at`` stays a string, not a
+      stringified list entry);
+    * the inherited ``details`` **list** — the NFR-006 ``ErrorResponse``
+      projection, so a REST response stays schema-conformant.
+
+    ``None`` values are kept in :attr:`error_details` (§4.0 wants the key
+    present with an explicit ``null`` so the structure is stable across
+    responses) but skipped in the NFR-006 list, where a literal ``"None"``
+    string would be noise.
+    """
+
+    def __init__(
+        self,
+        error_code: str,
+        message: str,
+        *,
+        status_code: int,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self.error_details: dict[str, Any] = dict(details or {})
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            status_code=status_code,
+            details=[
+                {"field": key, "reason": str(value), "code": error_code}
+                for key, value in self.error_details.items()
+                if value is not None
+            ],
+        )
+
+
+class DiaryAnalysisValidationError(ContractError):
+    """REQ-050 §4.5 / AK-22 — a submitted analysis violates the input contract.
+
+    Covers every ``validation.error`` case of §4.2 and §4.5: a missing
+    ``worker_id``, a ``lease_seconds`` above the ceiling, ``completed`` without a
+    ``summary``, ``failed`` without an ``error``, a length limit, a ``confidence``
+    outside 0.0–1.0, or a photo id that is not attached to the entry.
+    """
+
+    def __init__(self, message: str, *, field: str | None = None) -> None:
+        super().__init__(
+            "validation.error",
+            message,
+            status_code=422,
+            details={"field": field} if field else None,
+        )
+
+
+class DiaryAnalysisStateError(ContractError):
+    """REQ-050 §2.2 — the requested transition is not allowed from this state.
+
+    Raised for the *user-driven* edges of the state machine (marking and
+    un-marking). An invalid transition fails loudly rather than silently doing
+    nothing: "un-mark" on an entry an agent is already analysing must not look
+    like it worked (AK-03).
+    """
+
+    def __init__(self, entry_key: str, current: str, target: str) -> None:
+        super().__init__(
+            "conflict.invalid_state",
+            f"Diary entry cannot move from analysis state '{current}' to '{target}'.",
+            status_code=409,
+            details={"entry_key": entry_key, "analysis_state": current, "target_state": target},
+        )
+
+
+class DiaryAnalysisAlreadyClaimedError(ContractError):
+    """REQ-050 §4.2 — the entry is held by a live lease (AK-05).
+
+    Carries ``claimed_by`` and ``lease_expires_at`` in ``details`` so an agent
+    can decide whether to come back later. Strictly distinct from
+    :class:`DiaryAnalysisConcurrentUpdateError`, which invites an *immediate*
+    retry — collapsing the two would make every agent either give up too early
+    or hammer an entry that is legitimately taken.
+    """
+
+    def __init__(self, entry_key: str, *, claimed_by: str | None, lease_expires_at: str | None) -> None:
+        super().__init__(
+            "conflict.already_claimed",
+            "Diary entry is already being analysed.",
+            status_code=409,
+            details={
+                "entry_key": entry_key,
+                "claimed_by": claimed_by,
+                "lease_expires_at": lease_expires_at,
+            },
+        )
+
+
+class DiaryAnalysisConcurrentUpdateError(ContractError):
+    """REQ-050 §4.2 — the document revision changed between read and write.
+
+    The compare-and-set on ``_rev`` lost its race. This says nothing about who
+    holds the entry: the correct reaction is an immediate retry, which will then
+    either succeed or fail with :class:`DiaryAnalysisAlreadyClaimedError`.
+    """
+
+    def __init__(self, entry_key: str) -> None:
+        super().__init__(
+            "conflict.concurrent_update",
+            "Diary entry was modified concurrently; retry the call.",
+            status_code=409,
+            details={"entry_key": entry_key},
+        )
+
+
+class DiaryAnalysisNotClaimedError(ContractError):
+    """REQ-050 §4.5 — a result was submitted for an entry that is not claimed."""
+
+    def __init__(self, entry_key: str, current_state: str) -> None:
+        super().__init__(
+            "conflict.not_claimed",
+            "Diary entry is not claimed for analysis.",
+            status_code=409,
+            details={"entry_key": entry_key, "analysis_state": current_state},
+        )
+
+
+class DiaryAnalysisLeaseExpiredError(ContractError):
+    """REQ-050 §4.5 — the presented ``lease_token`` does not match the live lease.
+
+    Both the expired lease and a token belonging to a *different* claim land
+    here: from the caller's side they are the same fact — the entry is no longer
+    theirs to write.
+    """
+
+    def __init__(self, entry_key: str) -> None:
+        super().__init__(
+            "conflict.lease_expired",
+            "The analysis lease for this diary entry is no longer valid.",
+            status_code=409,
+            details={"entry_key": entry_key},
         )

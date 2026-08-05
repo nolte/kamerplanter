@@ -202,6 +202,7 @@ These variables control the [MCP server](../api/mcp-server.md) — the tool inte
 | `MCP_SERVER_ENABLED` | `false` | No | Master switch. Until set to `true`, all `/mcp/*` endpoints answer HTTP 404 — the interface effectively does not exist. |
 | `MCP_IDEMPOTENCY_TTL_HOURS` | `24` | No | Validity window for a write tool's `idempotency_key` — after it expires, a repeated call is treated as a new action. |
 | `MCP_AUDIT_RETENTION_DAYS` | `90` | No | Retention window for the `mcp_audit_log` (NFR-011) — older entries are automatically deleted. |
+| `MCP_MAX_IMAGE_PAYLOAD_MB` | `4` | No | Ceiling on the total payload of one call to the diary tool `get_diary_entry_photos`, in megabytes (Base64-encoded). Exceeding it returns the error code `payload.too_large` instead of silently dropping photos — see [MCP Server — Diary Analysis](../api/mcp-server.md#diary-analysis-external-agents). |
 
 !!! note "No standalone process, no dedicated connection variables"
     The MCP server runs in-process with the existing backend and shares its ArangoDB/Redis connection — there is no separate host, port or credential configuration.

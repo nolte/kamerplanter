@@ -334,6 +334,21 @@ class Settings(BaseSettings):
     mcp_idempotency_ttl_hours: int = 24
     #: mcp_audit_log retention window (NFR-011, AC-S4).
     mcp_audit_retention_days: int = 90
+    #: Ceiling on the **Base-64** image payload of a single ``get_diary_entry_photos``
+    #: call (REQ-050 §4.4, REQ-033 §4.3b). Measured on the encoded wire size,
+    #: because that is what a model's context actually pays for. Exceeding it is
+    #: answered with ``payload.too_large``; the call is **never** silently
+    #: truncated (AK-08) — an agent that believes it saw every photo while two
+    #: were missing draws wrong conclusions and never finds out.
+    #:
+    #: ``ge=1`` is load-bearing (SEC-008). The reader used to clamp the value at
+    #: zero and the guard returned early on a non-positive ceiling, so
+    #: ``MCP_MAX_IMAGE_PAYLOAD_MB=0`` — and every negative value — meant
+    #: **unlimited**: the exact opposite of what an operator setting it to zero
+    #: intends, and the amplifier for any unbounded-assembly bug. There is no
+    #: sensible "off" for this ceiling, so the value is refused at startup
+    #: instead of being reinterpreted.
+    mcp_max_image_payload_mb: int = Field(default=4, ge=1)
 
     # Shared secret for the cluster-internal M2M services (knowledge-service,
     # inference-service). Sent as ``Authorization: Bearer <token>`` on every

@@ -2,6 +2,11 @@
 
 from app.domain.models.privacy import ConsentPurpose, ConsentRecord
 
+#: REQ-050 §7.1 — purpose key for releasing single diary entries to the user's
+#: own AI agent. Exported as a constant so the enforcement path and the
+#: dependency wiring refer to the same string as the registry below.
+DIARY_AI_ANALYSIS = "diary_ai_analysis"
+
 
 class ConsentEngine:
     """Defines processing purposes and validates consent state changes.
@@ -89,15 +94,45 @@ class ConsentEngine:
                 "Erlaubt dem KI-Assistenten, Stammwerte deiner Pflanzen (Art, Phase, Substrat, "
                 "EC/pH-Messwerte) als Kontext an die Wissensbasis zu senden, um personalisierte "
                 "Tipps, Tipp-des-Tages, „Warum?“-Erklaerungen und Chat-Antworten zu erzeugen. "
-                "Es werden keine Namen, E-Mail-Adressen oder Freitext-Notizen uebermittelt (NFR-007). "
+                "Auf diesem serverseitigen Weg werden keine Namen, E-Mail-Adressen oder "
+                "Freitext-Notizen uebermittelt (NFR-007). Wenn du einzelne Tagebuch-Eintraege samt "
+                "Fotos ausdruecklich zur Analyse freigeben moechtest, ist das ein getrennter Weg mit "
+                "eigener Einwilligung (siehe „diary_ai_analysis“, REQ-050). "
                 "Jederzeit widerrufbar."
             ),
             description_en=(
                 "Allows the AI assistant to send master values of your plants (species, phase, "
                 "substrate, EC/pH readings) as context to the knowledge base to generate "
                 "personalised tips, the tip of the day, “why?” explanations and chat answers. "
-                "No names, e-mail addresses or free-text notes are transmitted (NFR-007). "
-                "Revocable at any time."
+                "On this server-side path no names, e-mail addresses or free-text notes are "
+                "transmitted (NFR-007). Releasing individual diary entries including photos for "
+                "analysis is a separate path with its own consent (see “diary_ai_analysis”, "
+                "REQ-050). Revocable at any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key=DIARY_AI_ANALYSIS,
+            label_de="Einzelne Tagebuch-Einträge dürfen von meinem KI-Agenten analysiert werden",
+            label_en="Individual diary entries may be analysed by my AI agent",
+            description_de=(
+                "Erlaubt dir, einzelne Tagebuch-Einträge samt Freitext und Fotos zur Analyse "
+                "freizugeben (REQ-050). Die Analyse führt ein KI-Agent aus, den DU betreibst und der "
+                "die Daten über deinen eigenen API-Schlüssel abruft — Kamerplanter selbst ruft dabei "
+                "kein Sprachmodell auf. Es wird nie automatisch etwas analysiert: Jeden einzelnen "
+                "Eintrag musst du selbst markieren. Übertragen werden verkleinerte Bildfassungen ohne "
+                "Aufnahmeort und Gerätekennung. Ein Widerruf verhindert neue Markierungen und lässt "
+                "vorhandene Ergebnisse unberührt."
+            ),
+            description_en=(
+                "Allows you to release individual diary entries, including free text and photos, for "
+                "analysis (REQ-050). The analysis is performed by an AI agent that YOU operate and "
+                "that fetches the data via your own API key — Kamerplanter itself never calls a "
+                "language model. Nothing is ever analysed automatically: you have to mark every "
+                "single entry yourself. Only downscaled image renditions without capture location or "
+                "device identifier are transmitted. Withdrawing consent prevents new markings and "
+                "leaves existing results untouched."
             ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,

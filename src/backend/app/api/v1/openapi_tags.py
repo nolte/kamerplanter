@@ -30,6 +30,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "cv-diagnosis", "description": "Computer-vision based plant health assessment (REQ-043)."},
     {"name": "dashboard", "description": "Dashboard metrics and personalizable panels (REQ-009, REQ-045)."},
     {"name": "diagnose", "description": "Guided plant problem diagnosis."},
+    {
+        "name": "diary",
+        "description": "Tenant-wide plant diary overview with AI-analysis state (REQ-050).",
+    },
     {"name": "enrichment", "description": "External master-data enrichment (REQ-011)."},
     {"name": "equipment", "description": "Equipment and device master data."},
     {"name": "family-relationships", "description": "Botanical family relationship graph incl. pest-risk propagation."},
@@ -68,6 +72,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "pest-detection", "description": "Photo-based pest detection (REQ-044)."},
     {"name": "phase-sequences", "description": "Phase sequence templates (REQ-003)."},
     {"name": "phases", "description": "Plant phase state machine operations (REQ-003)."},
+    {
+        "name": "plant-diary",
+        "description": "Diary entries of a single plant instance, run-independent (REQ-013 §4.7, REQ-050).",
+    },
     {"name": "plant-instances", "description": "Individual plant instances and their lifecycle."},
     {"name": "plant-photos", "description": "Plant photo gallery (NFR-013)."},
     {"name": "planting-runs", "description": "Planting runs: grouped grow cycles (REQ-013)."},

@@ -7,13 +7,14 @@ Kategorie: Benutzerführung
 Fokus: Frontend
 Technologie: React, TypeScript, MUI, Redux Toolkit
 Status: Entwurf
-Version: 1.2 (Beginner-Navigation vollständig)
+Version: 1.4 (Tagebuch-Übersicht im Einsteiger-Set)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-08-05 | Navigations-Zuordnung § 3.3 um die Tagebuch-Übersicht `/tagebuch` erweitert (Einsteiger-Set, REQ-050 § 2.5.2 / Entscheidung O-07). Das Modul ist über REQ-042 v1.1 (`diary`, `core: false`) ausblendbar — die Einordnung als Einsteiger-Punkt macht es sichtbar, nicht unabschaltbar. Kein Eingriff in Feld-Konfigurationen oder Redux-State. |
 | 1.3 | 2026-07-12 | Plan WP-6f/WP-9: Neues `SeedType`-Enum für das Cultivar-Feld `seed_type` (`open_pollinated`, `f1_hybrid`, `f2`, `landrace`, `clone`) — ein fortgeschrittenes/experten-nahes botanisches Attribut analog zu `dtm_reference`/`flowering_strategy`. i18n `enums.seedType.*` (de/en) ergänzt; ein CI-Gate erzwingt den 3-Wege-Enum-Sync und die i18n-Vollständigkeit der Pflanzen-Eigenschaften-Enums (`SeedType`, `GrowthHabit`, `RootType`, …). Reine Modell-/Sync-Härtung, kein neues Formularfeld. |
 | 1.2 | 2026-04-02 | Navigations-Tiering überarbeitet: Beginner-Set erweitert um Standorte, Kalender, Gießprotokoll und Pflege-Dashboard (vorher 5, jetzt 8 Menüpunkte). Designprinzip ergänzt: vollständiger Pflanzen-Workflow auch für Einsteiger. § 3.3 enthält jetzt Referenztabelle mit allen Pfaden/Levels und Sektions-Sichtbarkeit. Akzeptanzkriterium angepasst. |
 | 1.1 | 2026-02-27 | F-004 (Casual-Houseplant-Review): `description` und `growth_habit` von beginner → intermediate verschoben. Neuer Abschnitt 3.8 "Quick-Add-Plant (Beginner-Flow)" — Pflanze per Common-Name-Suche anlegen statt Stammdaten-CRUD. Neuer `quickAddPlantFieldConfig`. Akzeptanzkriterien ergänzt. |
@@ -43,7 +44,7 @@ Jedes Formularfeld wird im Frontend mit einem `expertiseLevel`-Attribut annotier
 Ausgeblendete Felder verschwinden nicht endgültig — ein "Mehr anzeigen"-Link unterhalb jedes Formulars erlaubt temporäres Einblenden aller Felder, ohne den Modus zu wechseln.
 
 **Navigation-Tiering:**
-Die Seitenleisten-Navigation wird abhängig vom Modus reduziert. Einsteiger sehen 8 Kernmenüpunkte (inkl. Standorte, Kalender, Pflege und Gießprotokoll für einen vollständigen Pflanzen-Workflow), Fortgeschrittene zusätzlich Düngung und Stammdaten, Experten alle Menüpunkte (siehe § 3.3 Referenztabelle).
+Die Seitenleisten-Navigation wird abhängig vom Modus reduziert. Einsteiger sehen 9 Kernmenüpunkte (inkl. Standorte, Kalender, Pflege, Gießprotokoll und Tagebuch für einen vollständigen Pflanzen-Workflow), Fortgeschrittene zusätzlich Düngung und Stammdaten, Experten alle Menüpunkte (siehe § 3.3 Referenztabelle).
 
 **Intelligente Defaults:**
 Im Einsteiger-Modus werden ausgeblendete Felder mit sinnvollen Standardwerten befüllt (aus Species-Seed-Daten oder berechneten Defaults), sodass keine Information verloren geht. Species-abhängige Felder (z.B. `root_type`, `base_temp`, `allelopathy_score`) werden per Lookup aus den Species-Seed-Daten befüllt; statische Fallbacks greifen nur, wenn keine Species ausgewählt ist.
@@ -151,30 +152,31 @@ type FieldConfig<T extends string> = Record<T, FieldMeta>;
 
 > **Designprinzip:** Auch Einsteiger müssen ihre Pflanzen verorten (Standorte), pflegen (Pflege-Dashboard, Gießprotokoll) und zeitlich planen (Kalender) können. Ein Nutzer, der keinen Standort anlegen kann, hat keinen vollständigen Workflow — deshalb gehören Standorte, Pflege-Dashboard, Gießprotokoll und Kalender zum Beginner-Set.
 
-**Einsteiger (8 Menüpunkte + Einrichtung & Einstellungen):**
+**Einsteiger (9 Menüpunkte + Einrichtung & Einstellungen):**
 1. Dashboard
 2. Kalender
 3. Gießprotokoll
 4. Pflege-Dashboard
 5. Meine Pflanzen (PlantInstances)
-6. Aufgaben (Queue)
-7. Standorte (Sites)
-8. Einrichtung (Onboarding)
-9. Einstellungen
+6. Tagebuch (mandantenweite Übersicht, REQ-050 § 2.5.2)
+7. Aufgaben (Queue)
+8. Standorte (Sites)
+9. Einrichtung (Onboarding)
+10. Einstellungen
 
 **Fortgeschritten (zusätzlich zu Einsteiger):**
-10. Düngung (Düngemittel, Nährstoffpläne)
-11. Stammdaten (Familien, Arten)
+11. Düngung (Düngemittel, Nährstoffpläne)
+12. Stammdaten (Familien, Arten)
 
 **Experte (alle Menüpunkte — zusätzlich zu Fortgeschritten):**
-12. Durchläufe (PlantingRuns)
-13. Workflows
-14. Substrate
-15. Tanks
-16. Kalkulatoren (Nährstoff, VPD, GDD)
-17. Stammdaten erweitert (Mischkultur, Fruchtfolge, Aktivitäten, Import)
-18. IPM / Pflanzenschutz (Schädlinge, Krankheiten, Behandlungen)
-19. Ernte
+13. Durchläufe (PlantingRuns)
+14. Workflows
+15. Substrate
+16. Tanks
+17. Kalkulatoren (Nährstoff, VPD, GDD)
+18. Stammdaten erweitert (Mischkultur, Fruchtfolge, Aktivitäten, Import)
+19. IPM / Pflanzenschutz (Schädlinge, Krankheiten, Behandlungen)
+20. Ernte
 
 **Referenztabelle — Pfade und minimales Level:**
 
@@ -185,6 +187,7 @@ type FieldConfig<T extends string> = Record<T, FieldMeta>;
 | `/giessprotokoll` | Sichtbar | Sichtbar | Sichtbar | Gieß-Tracking ist Kernbedürfnis |
 | `/pflege` | Sichtbar | Sichtbar | Sichtbar | Pflege-Dashboard (REQ-022) |
 | `/pflanzen/plant-instances` | Sichtbar | Sichtbar | Sichtbar | "Meine Pflanzen" — Kernfunktion |
+| `/tagebuch` | Sichtbar | Sichtbar | Sichtbar | Tagebuch-Übersicht (REQ-050 § 2.5.2) — Notiz plus Foto ist die niedrigschwelligste Funktion; Modul `diary` (REQ-042 § 1.3), ausblendbar |
 | `/aufgaben/queue` | Sichtbar | Sichtbar | Sichtbar | Anstehende Aufgaben |
 | `/standorte/sites` | Sichtbar | Sichtbar | Sichtbar | Standorte sind Grundinfrastruktur |
 | `/duengung/fertilizers` | — | Sichtbar | Sichtbar | Düngemittelverwaltung |
@@ -469,7 +472,7 @@ pages.quickAdd.laterHint                → "Du kannst den botanischen Namen sp�
 - [ ] Ausgeblendete Felder erhalten sinnvolle Default-Werte (aus Seed-Daten oder feste Defaults)
 - [ ] Ein "Mehr anzeigen"-Link erlaubt temporäres Einblenden aller Felder ohne Modus-Wechsel
 - [ ] "Mehr anzeigen"-Zustand ist nicht persistiert (nur für aktuelle Dialog-Instanz)
-- [ ] Navigation wird auf Basis des Modus reduziert (8 Einsteiger / 11 Fortgeschritten / alle Menüpunkte gemäß § 3.3 Referenztabelle)
+- [ ] Navigation wird auf Basis des Modus reduziert (9 Einsteiger / 12 Fortgeschritten / alle Menüpunkte gemäß § 3.3 Referenztabelle)
 - [ ] Einsteiger-Dünge-Ansicht zeigt Alltagssprache statt EC/pH-Werte
 - [ ] Bei Modus-Downgrade erscheint Warnung: "Einige Felder werden ausgeblendet, keine Daten gehen verloren"
 - [ ] Bei Modus-Upgrade werden sofort alle zusätzlichen Felder sichtbar

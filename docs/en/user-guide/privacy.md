@@ -125,6 +125,7 @@ No optional consent is needed for the core functions of the system. However, som
 | **Photo contribution to plant recognition** (own reference photos) | Optional | Yes |
 | **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
 | **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
+| **Release diary entries for AI analysis** (`diary_ai_analysis`) | Optional | Yes |
 
 ### Revoking Consent
 
@@ -179,6 +180,15 @@ Only master values are transmitted: scientific plant name, current phase, substr
 ### AI Processing via Cloud Provider (ai_cloud_processing)
 
 Required in addition to the previous consent when your instance uses an external cloud provider (e.g. Anthropic, OpenAI) instead of a locally run model (Ollama) for the AI Assistant — this is decided by the platform operator. Cloud providers may involve a third-country data transfer. Local providers do not need this consent.
+
+### Releasing Diary Entries for AI Analysis (diary_ai_analysis)
+
+Lets you release individual [diary entries](plant-diary.md), including free text and photos, for analysis. The analysis is performed by an AI agent that **you** operate yourself, which fetches the data using your own API key — Kamerplanter itself never calls a language model. Nothing is ever analysed automatically: you have to mark every single entry yourself. Only downscaled image renditions without capture location or device identifier are transmitted.
+
+This path is **independent** of the `ai_tenant_data_access` consent above: `ai_tenant_data_access` covers only master values sent server-side to the knowledge base, and explicitly excludes free text from your diary. `diary_ai_analysis` is the only path through which diary content ever leaves a Kamerplanter instance at all — and even then it does not go to a service Kamerplanter operates, but to your own agent.
+
+!!! note "Revoking"
+    Revoking this consent prevents new markings; existing analysis results are unaffected and remain visible.
 
 ### AI Disease Diagnosis (plant_diagnosis) {#ai-disease-diagnosis-plant_diagnosis}
 

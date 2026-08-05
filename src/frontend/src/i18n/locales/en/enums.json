@@ -1001,6 +1001,28 @@
       "legume": "Legumes",
       "ornamental": "Ornamentals",
       "root": "Root vegetables"
+    },
+    "diaryEntryType": {
+      "observation": "Observation",
+      "problem": "Problem",
+      "milestone": "Milestone",
+      "measurement": "Measurement",
+      "photo": "Photo",
+      "note": "Note"
+    },
+    "diaryAnalysisState": {
+      "none": "Not marked",
+      "requested": "Waiting for analysis",
+      "in_progress": "Being analysed",
+      "completed": "Result available",
+      "failed": "Analysis failed"
+    },
+    "diaryConfidence": {
+      "veryLow": "very uncertain",
+      "low": "rather uncertain",
+      "moderate": "moderately certain",
+      "high": "rather likely",
+      "veryHigh": "very likely"
     }
   }
 }

@@ -101,6 +101,7 @@ import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import PlantPhotoGallery from './photos/PlantPhotoGallery';
 import PlantCoverPreview from './photos/PlantCoverPreview';
+import PlantDiaryTab from './diary/PlantDiaryTab';
 import TaskCreateDialog from '@/pages/aufgaben/TaskCreateDialog';
 
 const editSchema = z.object({
@@ -167,7 +168,11 @@ export default function PlantInstanceDetailPage() {
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
-  const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit', 'photos']);
+  // `useTabUrl` maps position to hash, so every index here is positional — the
+  // `setTab(8)` calls in the info tab point at "photos" by number, not by name.
+  // The diary is appended at the end (index 9) for exactly that reason:
+  // inserting it earlier would silently repoint those calls at another tab.
+  const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit', 'photos', 'diary']);
   // Bumped whenever a gallery change may have altered the cover photo, so the
   // info-tab cover preview re-resolves (REQ-034 §2.3 / AC-06).
   const [coverVersion, setCoverVersion] = useState(0);
@@ -1132,6 +1137,7 @@ export default function PlantInstanceDetailPage() {
         <Tab label={t('pages.plantInstances.taskHistoryTab')} data-testid="tasks-tab" />
         <Tab label={t('common.edit')} data-testid="edit-tab" />
         <Tab label={t('pages.plantPhotos.tabTitle')} data-testid="photos-tab" />
+        <Tab label={t('pages.plantDiary.tabTitle')} data-testid="diary-tab" />
       </Tabs>
 
       {tab === 0 && (
@@ -2678,6 +2684,11 @@ export default function PlantInstanceDetailPage() {
           speciesKey={plant?.species_key}
           scientificName={species?.scientific_name}
         />
+      )}
+
+      {/* Tab 9: Diary (REQ-050 §2.5.1) */}
+      {tab === 9 && key && (
+        <PlantDiaryTab plantInstanceKey={key} readOnly={!!plant?.removed_on} />
       )}
 
       <TerminationDialog

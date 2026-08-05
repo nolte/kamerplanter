@@ -78,6 +78,10 @@
       "label": "Tasks & Workflows",
       "description": "Task planning and recurring workflows."
     },
+    "diary": {
+      "label": "Diary",
+      "description": "Tenant-wide overview of all diary entries and their analysis state."
+    },
     "nutrition": {
       "label": "Fertilization & Nutrient Plans",
       "description": "Fertilizers, nutrient plans and feeding logs."
@@ -406,6 +410,7 @@
     "import": "Import",
     "calendar": "Calendar",
     "wateringLog": "Watering Log",
+    "diary": "Diary",
     "kiAssistent": "AI Assistant",
     "glossary": "Glossary",
     "phasen": "Phases",

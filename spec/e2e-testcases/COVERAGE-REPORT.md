@@ -1,7 +1,7 @@
 ---
 title: E2E-Testfall-Vollständigkeitsanalyse
 generated: 2026-04-02
-updated: 2026-07-13
+updated: 2026-08-05
 scope: spec/e2e-testcases/ vs spec/req/ und spec/nfr/
 analyst: e2e-testcase-extractor
 ---
@@ -10,11 +10,28 @@ analyst: e2e-testcase-extractor
 
 > **Aktualisierung 2026-07-23 (Aufgaben/Gießen — Update-Propagation):** Ergänzt um **19 Testfälle** für die Kernanforderung „Nutzer definieren Aufgaben frei; Aktualisierungen (insbesondere Zyklus-/Intervall-Änderungen) propagieren in die Aufgabenliste **und** in die Benachrichtigungen": TC-REQ-006 Gruppe 18 (TC-006-078…085), TC-REQ-022 Abschnitt 28 (TC-022-089…094), TC-REQ-030 Abschnitt 17 (TC-REQ-030-063…067). Die **Listen-Propagation** (Task-Queue, Pflege-Dashboard) und die Care-Task-Reschedule-Kopplung (Issue #622) bilden das **Ist**-Verhalten ab; die **synchrone Benachrichtigungs-Propagation** ist als **Soll-Verhalten** (`soll-verhalten`-Tag) festgeschrieben und dokumentiert eine offene Feature-Lücke (aktuell nur periodischer `dispatch_due_care`-Scan, keine synchrone Kopplung Quelle→Notification; § 4.2-Rückkopplung nicht implementiert).
 
+> **Aktualisierung 2026-08-05 (REQ-050 KI-Analyse von Tagebuch-Einträgen):** Ergänzt um **27
+> Testfälle** in `TC-REQ-050.md` (neu). Das Dokument deckt den vollständigen
+> browser-beobachtbaren Anteil von REQ-050 v1.1 ab (Tagebuch-Tab an der Pflanzeninstanz,
+> mandantenweite Übersicht mit fünf sichtbar unterschiedenen Analyse-Zuständen, Filter/Suche,
+> Fremdzeilen-/Beobachter-Rechte, Ergebnisdarstellung inkl. Vorbehalt und Konfidenz-Einordnung,
+> Auffrischen-Schaltfläche, Modul-Abschaltbarkeit, i18n). Bewusst **nicht** Bestandteil: der
+> komplette MCP-Werkzeugvertrag (AK-04–13), das `GET .../diary`-Antwortschema/`can_request_analysis`
+> (AK-18/18a) sowie Wiederholungsanalyse-Überschreibung, Werkzeug-Validierung,
+> Erasure-Anonymisierung, Datenauskunft-Inhalt, Light-Modus-Einwilligungsbefreiung und
+> Altdatenkompatibilität (AK-21–26) — diese gehören dem MCP-Werkzeug- bzw. Backend-Testniveau an,
+> nicht der Browser-E2E-Ebene dieses Verzeichnisses. Siehe „Nicht abgedeckte Akzeptanzkriterien"
+> am Ende von `TC-REQ-050.md` für die Begründung je Kriterium. Diese Aktualisierung trägt **nur**
+> REQ-050 nach; sie rechnet die unten stehenden Kennzahlen aus dem 2026-04-02-Schnitt nicht neu —
+> siehe Hinweis unter der Übersichtstabelle in § 1.
+
 # E2E-Testfall-Vollständigkeitsanalyse
 
 Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-testcases/` systematisch gegen die 34 Anforderungsdokumente in `spec/req/` und `spec/nfr/`. Grundlage ist die Nutzerperspektive im Browser — alle Lücken beziehen sich auf fehlende UI-Szenarien, nicht auf Backend- oder API-Tests.
 
-**Analysedatum:** 2026-04-02  
+**Analysedatum:** 2026-04-02 (Kennzahlen dieses Absatzes; siehe Aktualisierungs-Hinweise oben und
+den Hinweis unter der Übersichtstabelle in § 1 für später hinzugekommene Dokumente, die in diesen
+Zahlen noch nicht mitgezählt sind)  
 **Gesamte Testfälle vorhanden:** 1.654 (über 34 Testfall-Dokumente)  
 **REQ-Dokumente mit Testfällen:** 30 von 34 im Scope  
 **NFR-Dokumente mit Testfällen:** 4 von 13 (wobei die meisten NFRs keinen Browser-SuT haben)
@@ -56,11 +73,28 @@ Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-t
 | REQ-029 | KI-Bilderkennung (Optional) | 1.0 | 1.0 | 58 | Vollständig |
 | REQ-030 | Benachrichtigungssystem | 1.0 | 1.0 | 67 | Vollständig |
 | **REQ-032** | **Druckansichten & Export** | **1.1** | — | **0** | **FEHLEND** |
+| REQ-050* | KI-Analyse von Tagebuch-Einträgen | 1.1 | 1.1 | 27 | Teilweise* |
 | NFR-006 | API-Fehlerbehandlung (UI) | 1.0 | 1.0 | 38 | Vollständig |
 | NFR-007 | Betriebsstabilität / Monitoring | 1.0 | 1.0 | 42 | Vollständig |
 | NFR-008 | Teststrategie | 1.0 | 1.0 | 48 | Vollständig |
 | NFR-010 | UI-Vollständigkeit / CRUD-Matrix | 1.0 | 1.0 | 62 | Vollständig |
 | NFR-011 | Aufbewahrungsfristen (UI-seitig) | 1.0 | 1.0 | 38 | Vollständig |
+
+\* **REQ-050** ist absichtlich zugeschnitten, nicht rückständig: Die 27 Testfälle in
+`TC-REQ-050.md` decken den **vollständigen** browser-beobachtbaren Anteil ab (AK-14, AK-15,
+AK-16, AK-17, AK-19, AK-20, AK-27, AK-29, AK-30, AK-31, AK-02, AK-03, AK-28). Der verbleibende
+Anteil (AK-04–13 MCP-Werkzeugvertrag, AK-18/AK-18a API-Datenvertrag, AK-21–26
+Wiederholungsanalyse/Werkzeug-Validierung/Erasure/Datenauskunft/Light-Modus/Altdaten) hat keinen
+Browser-Weg und gehört dem MCP-Werkzeug- bzw. Backend-Testniveau — siehe die Tabelle „Nicht
+abgedeckte Akzeptanzkriterien" am Ende von `TC-REQ-050.md`.
+
+**Hinweis zur Aktualität dieser Tabelle:** Die Zeilen bis einschließlich REQ-032 stammen aus dem
+Snapshot vom 2026-04-02. Die neueren Testfall-Dokumente TC-REQ-031, TC-REQ-034, TC-REQ-035,
+TC-REQ-036 und TC-REQ-039 (generiert 2026-07-11 bis 2026-07-29) sind in dieser Tabelle **noch
+nicht** als eigene Zeilen nachgetragen — nur REQ-050 wurde im Rahmen dieser Aktualisierung
+ergänzt. Ein vollständiger Refresh der Übersichtstabelle (inkl. Neuberechnung von „Gesamte
+Testfälle vorhanden" und „REQ-Dokumente mit Testfällen") ist damit weiterhin offen und nicht
+Gegenstand dieser Ergänzung.
 
 **Nicht im Scope (keine UI-E2E-Tests sinnvoll):**
 - NFR-001 (Architekturprinzip), NFR-002 (Kubernetes), NFR-003 (Linting), NFR-004 (Dev-Env), NFR-005 (Dokumentation), NFR-008a (Selenium-Standard), NFR-009 (Dependency-Mgmt), NFR-012 (Enterprise-Skalierung)
@@ -283,6 +317,8 @@ Spec v1.4 enthält **DutyRotation (Gießdienst-Rotation)**, **Pinnwand (Bulletin
 
 9. **TC-REQ-011 ergänzen** — sobald Admin-Anreicherungs-UI implementiert ist.
 
+10. **Übersichtstabelle in § 1 vollständig auffrischen** — TC-REQ-031, TC-REQ-034, TC-REQ-035, TC-REQ-036 und TC-REQ-039 als Zeilen nachtragen und „Gesamte Testfälle vorhanden"/„REQ-Dokumente mit Testfällen" neu berechnen (siehe Hinweis in § 1); mit dieser Ergänzung wurde nur REQ-050 nachgezogen, die übrigen bleiben offen.
+
 ---
 
 ## 7. Core-Lifecycle-Journeys (Issue #589)
@@ -309,12 +345,12 @@ Kernprinzip: **Jeder neue Testfall legt seine Vorbedingungen im Szenario selbst 
 
 | Metrik | Wert |
 |--------|------|
-| Gesamt-Testfälle | 1.654 (Snapshot 2026-04-02) + 13 Core-Lifecycle-Journey (#589) + 19 Update-Propagation/Soll-Verhalten (2026-07-23) |
-| REQs vollständig abgedeckt | 28 von 30 im Scope |
+| Gesamt-Testfälle | 1.654 (Snapshot 2026-04-02) + 13 Core-Lifecycle-Journey (#589) + 19 Update-Propagation/Soll-Verhalten (2026-07-23) + 27 REQ-050 (2026-08-05, neues Dokument TC-REQ-050.md) |
+| REQs vollständig abgedeckt | 28 von 30 im Scope (Snapshot 2026-04-02; REQ-050 kommt mit 27 Testfällen hinzu, siehe § 1 Fußnote — bewusst kein „Vollständig" im Sinne dieser Tabelle, da Browser-Zuschnitt) |
 | REQs mit Versionslücken | 2 (REQ-013, REQ-021) |
 | REQs komplett fehlend | 1 (REQ-032) |
 | Inhaltliche Lücken in sonst vollständigen Docs | 5 (REQ-002, REQ-006, REQ-007, REQ-022, REQ-024) |
-| Empfohlene neue Testfälle (gesamt) | ~98 |
+| Empfohlene neue Testfälle (gesamt) | ~98 (Snapshot 2026-04-02, ohne REQ-050) |
 | Veraltete Testfälle zum Entfernen | ~3 (REQ-013 Mischkultur) |
 
-Die **Gesamtabdeckung ist sehr gut**: 1.654 Testfälle decken nahezu alle Kern-Workflows aus der Nutzerperspektive ab. Die identifizierten Lücken konzentrieren sich auf drei Bereiche: ein komplett fehlendes Dokument (REQ-032 Druckansichten), ein veraltetes Dokument durch einen Major-Versionssprung in der Spec (REQ-013 v1.2→v2.0) und kleinere inhaltliche Ergänzungen in bereits gut abgedeckten Bereichen.
+Die **Gesamtabdeckung ist sehr gut**: 1.654 Testfälle (Snapshot 2026-04-02) decken nahezu alle Kern-Workflows aus der Nutzerperspektive ab. Die identifizierten Lücken konzentrieren sich auf drei Bereiche: ein komplett fehlendes Dokument (REQ-032 Druckansichten), ein veraltetes Dokument durch einen Major-Versionssprung in der Spec (REQ-013 v1.2→v2.0) und kleinere inhaltliche Ergänzungen in bereits gut abgedeckten Bereichen. REQ-050 (2026-08-05) ist mit 27 Testfällen bewusst auf den browser-beobachtbaren Anteil zugeschnitten neu hinzugekommen; siehe Aktualisierungs-Hinweis am Dokumentanfang sowie § 1.

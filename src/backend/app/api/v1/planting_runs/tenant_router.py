@@ -10,6 +10,7 @@ from app.api.v1.planting_runs.diary_schemas import (
     DiaryEntryResponse,
     DiaryEntryUpdateRequest,
     RunDiaryEntryResponse,
+    diary_entry_response_for_caller,
 )
 from app.api.v1.planting_runs.schemas import (
     AdoptPlantsRequest,
@@ -39,10 +40,12 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import (
     get_nutrient_plan_service,
     get_plant_diary_service,
+    get_plant_instance_service,
     get_planting_run_service,
     get_species_repo,
 )
 from app.common.enums import PlantingRunStatus
+from app.common.exceptions import NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -51,6 +54,7 @@ from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_diary_service import PlantDiaryService
+from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"], responses=NOT_FOUND_RESPONSE)
@@ -446,20 +450,50 @@ def get_watering_schedule(
 # ── Plant diary endpoints ────────────────────────────────────────────
 
 
-def _diary_response(entry: PlantDiaryEntry) -> DiaryEntryResponse:
-    return DiaryEntryResponse(
-        key=entry.key or "",
-        plant_key=entry.plant_key,
-        entry_type=entry.entry_type,
-        title=entry.title,
-        text=entry.text,
-        photo_refs=entry.photo_refs,
-        tags=entry.tags,
-        measurements=entry.measurements,
-        created_by=entry.created_by,
-        created_at=entry.created_at,
-        updated_at=entry.updated_at,
-    )
+def _diary_response(
+    entry: PlantDiaryEntry,
+    diary_service: PlantDiaryService,
+    ctx: TenantContext,
+) -> DiaryEntryResponse:
+    """Project a diary entry for the caller of this request.
+
+    Thin on purpose: the projection *and* the §7.2 verdict live in
+    :func:`diary_entry_response_for_caller`, shared with the standalone
+    plant-instance router. An entry read through ``/planting-runs/…`` and the
+    same entry read through ``/plant-instances/…`` must answer identically —
+    including the corrected analysis state and the ``can_request_analysis``
+    flag.
+    """
+    return diary_entry_response_for_caller(entry, diary_service=diary_service, ctx=ctx)
+
+
+def _load_entry_in_scope(
+    diary_service: PlantDiaryService,
+    entry_key: str,
+    plant_key: str,
+    tenant_key: str,
+) -> PlantDiaryEntry:
+    """Load a diary entry, refusing anything outside this tenant *and* this plant.
+
+    The run-scoped diary endpoints used to verify only the **run** against the
+    caller's tenant and then load the entry by bare key
+    (``diary_service.get_entry(entry_key)``). The entry key was never checked, so
+    any member of any tenant could read, update and delete a foreign tenant's
+    diary entry by pairing a run of their own with a key they guessed or learnt —
+    the run in the URL had nothing to do with the document that was returned.
+
+    Both halves are now checked here. The tenant half is
+    :meth:`PlantDiaryService.get_entry_for_tenant`, which answers a foreign entry
+    with ``NotFoundError`` and never with a permission error: telling the two
+    apart would turn the endpoint into an oracle for the existence of other
+    tenants' records (REQ-050 §4.0, AK-12). The plant half is the same answer for
+    the same reason, one tenant further in — an entry of *another plant* is not
+    addressable through this URL, and saying "forbidden" would confirm the key.
+    """
+    entry = diary_service.get_entry_for_tenant(entry_key, tenant_key)
+    if entry.plant_key != plant_key:
+        raise NotFoundError("PlantDiaryEntry", entry_key)
+    return entry
 
 
 @router.get(
@@ -472,12 +506,32 @@ def list_plant_diary_entries(
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantingRunService = Depends(get_planting_run_service),
+    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
-    """List a plant instance's diary entries within a planting run (paginated)."""
+    """List a plant instance's diary entries within a planting run (paginated).
+
+    **Both** keys in the URL are checked, which they were not (SEC-002). Only
+    the run used to be verified against the caller's tenant; ``plant_key`` went
+    straight into the query, and the query itself had no tenant predicate — so
+    an own run plus a foreign plant returned the other tenant's entries in full.
+
+    The plant is resolved first and answers ``NotFoundError`` (404) for a
+    foreign one, never 403 (AK-12): a distinguishable "forbidden" would confirm
+    that the plant exists somewhere else in the installation. The listing read
+    is tenant-scoped as well — the two guards are not redundant, they close
+    different halves: the plant check refuses the *address*, the query filter
+    refuses a mis-parented *document* that happens to hang off an own plant.
+    """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_plant(plant_key, pagination.offset, pagination.limit)
-    return [_diary_response(e) for e in entries]
+    plant_service.get_plant(plant_key, tenant_key=ctx.tenant_key)
+    entries, _total = diary_service.list_entries_for_plant(
+        plant_key,
+        tenant_key=ctx.tenant_key,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    return [_diary_response(e, diary_service, ctx) for e in entries]
 
 
 @router.post(
@@ -493,15 +547,20 @@ def create_plant_diary_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
-    """Create a diary entry for a plant instance within a planting run."""
+    """Create a diary entry for a plant instance within a planting run.
+
+    ``body.photo_refs`` is checked against the attachment catalogue by the
+    service before anything is stored (SEC-003) — it is caller-supplied input
+    that decides which images REQ-050 §4.4 later hands to an external model.
+    """
     service.get_run(key, tenant_key=ctx.tenant_key)
     entry = PlantDiaryEntry(
         tenant_key=ctx.tenant_key,
         created_by=ctx.user_key,
         **body.model_dump(),
     )
-    created = diary_service.create_entry(plant_key, entry, run_key=key)
-    return _diary_response(created)
+    created = diary_service.create_entry(plant_key, entry, run_key=key, actor_role=ctx.role)
+    return _diary_response(created, diary_service, ctx)
 
 
 @router.get(
@@ -518,8 +577,8 @@ def get_plant_diary_entry(
 ):
     """Return a single plant-diary entry by key."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entry = diary_service.get_entry(entry_key)
-    return _diary_response(entry)
+    entry = _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    return _diary_response(entry, diary_service, ctx)
 
 
 @router.put(
@@ -537,9 +596,16 @@ def update_plant_diary_entry(
 ):
     """Update a plant-diary entry."""
     service.get_run(key, tenant_key=ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = diary_service.update_entry(entry_key, data)
-    return _diary_response(updated)
+    updated = diary_service.update_entry(
+        entry_key,
+        data,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        actor_role=ctx.role,
+    )
+    return _diary_response(updated, diary_service, ctx)
 
 
 @router.delete(
@@ -556,7 +622,72 @@ def delete_plant_diary_entry(
 ):
     """Delete a plant-diary entry."""
     service.get_run(key, tenant_key=ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
     diary_service.delete_entry(entry_key)
+
+
+# ── REQ-050 §2.5.1 — marking an entry for AI analysis ────────────────
+
+
+@router.post(
+    "/{key}/plants/{plant_key}/diary/{entry_key}/request-analysis",
+    response_model=DiaryEntryResponse,
+)
+def request_run_diary_entry_analysis(
+    key: Annotated[str, Path(description="Document key of the planting run.")],
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
+    entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    """Mark a diary entry for AI analysis — ``none|completed|failed → requested``.
+
+    The whole rule (role, consent, authorship, Light mode) lives in
+    :meth:`PlantDiaryService.request_analysis` and is **not** re-implemented
+    here: the overview's ``can_request_analysis`` flag is derived from the same
+    function, and two copies would disagree at the next change. A viewer gets
+    403, a non-author grower gets 403, and an entry an agent already holds gets
+    409 ``conflict.invalid_state`` (REQ-050 §6, §7.2, §7.5, AK-01/02/03).
+    """
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    updated = diary_service.request_analysis(
+        entry_key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+    )
+    return _diary_response(updated, diary_service, ctx)
+
+
+@router.delete(
+    "/{key}/plants/{plant_key}/diary/{entry_key}/request-analysis",
+    response_model=DiaryEntryResponse,
+)
+def cancel_run_diary_entry_analysis(
+    key: Annotated[str, Path(description="Document key of the planting run.")],
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
+    entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    """Withdraw the marking — ``requested → none``, only while unclaimed (AK-03).
+
+    Returns the entry rather than 204: the caller needs to see the state it
+    actually ended up in, and an entry an agent claimed between rendering and
+    clicking answers 409 instead of silently doing nothing.
+    """
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    updated = diary_service.cancel_analysis_request(
+        entry_key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+    )
+    return _diary_response(updated, diary_service, ctx)
 
 
 @router.get(
@@ -570,31 +701,46 @@ def list_run_diary_entries(
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
-    """List all diary entries across the plants of a planting run (paginated)."""
+    """List all diary entries across the plants of a planting run (paginated).
+
+    **This used to be a second, hand-written copy of the projection.** The rows
+    arrive from the repository as raw dicts (the aggregation carries plant
+    labels alongside each entry), and the response was assembled here field by
+    field. That is how the two halves of REQ-050 §5 got lost on this path: the
+    lease correction was not applied, and a ``can_request_analysis`` added to
+    the schema would have been filled with one blanket value for every row of
+    the page — or not at all.
+
+    The dict is therefore parsed back into the domain model and handed to the
+    same :func:`_diary_response` every other diary endpoint uses. The parse is
+    lossless rather than lenient: the repository already validates each document
+    through ``PlantDiaryEntry`` and dumps it by alias
+    (``plant_diary_repository.get_by_run``), so what arrives here is a
+    round-trip of the model, not a raw ArangoDB document.
+    """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_run(key, pagination.offset, pagination.limit)
+    entries, _total = diary_service.list_entries_for_run(
+        key,
+        tenant_key=ctx.tenant_key,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
     results = []
     for item in entries:
-        diary_data = item.get("diary_entry", {})
-        diary_resp = DiaryEntryResponse(
-            key=diary_data.get("_key", diary_data.get("key", "")),
-            plant_key=diary_data.get("plant_key", ""),
-            entry_type=diary_data.get("entry_type", "note"),
-            title=diary_data.get("title"),
-            text=diary_data.get("text", ""),
-            photo_refs=diary_data.get("photo_refs", []),
-            tags=diary_data.get("tags", []),
-            measurements=diary_data.get("measurements"),
-            created_by=diary_data.get("created_by", ""),
-            created_at=diary_data.get("created_at"),
-            updated_at=diary_data.get("updated_at"),
-        )
+        diary_data = item.get("diary_entry") or {}
+        if not diary_data:
+            # A dangling edge: the entry document is gone while its edge to the
+            # plant survived. Such a row is skipped instead of rendered from
+            # defaults — a placeholder entry with an empty text and the type
+            # "note" is not an entry anyone wrote, and the previous code raised
+            # ``AttributeError`` (500) on it anyway.
+            continue
         results.append(
             RunDiaryEntryResponse(
                 plant_key=item.get("plant_key", ""),
                 plant_id=item.get("plant_id", ""),
                 plant_name=item.get("plant_name"),
-                diary_entry=diary_resp,
+                diary_entry=_diary_response(PlantDiaryEntry(**diary_data), diary_service, ctx),
             )
         )
     return results

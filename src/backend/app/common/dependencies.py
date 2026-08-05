@@ -318,6 +318,41 @@ def get_plant_diary_repo():
     return ArangoPlantDiaryRepository(get_db())
 
 
+def get_diary_analysis_consent_checker():
+    """REQ-050 §7.1 — the real probe for the ``diary_ai_analysis`` purpose.
+
+    Reads the REQ-025 consent store through :class:`ConsentGuard`, so a purpose
+    that was never granted, or one whose record was revoked (``granted=False``),
+    both answer ``False``. A revocation therefore blocks *new* markings while
+    every stored analysis result stays exactly where it is — nothing on this path
+    writes to an entry.
+
+    **Light mode is deliberately not special-cased here.** §7.5 ("the purpose
+    counts as granted") is one rule and lives in
+    ``evaluate_analysis_request_permission``; repeating it in the probe would be
+    a second place to forget. The probe stays a plain question to the consent
+    store and honestly answers ``False`` on a Light instance, where nobody can
+    grant anything.
+
+    The answer is memoised per checker instance. The provider below is a
+    per-request FastAPI dependency, and the tenant-wide diary overview evaluates
+    the permission once per row (``can_request_analysis``) — without the cache
+    that would be one consent query per listed entry.
+    """
+    from app.domain.engines.consent_engine import DIARY_AI_ANALYSIS
+    from app.domain.guards.consent_guard import ConsentGuard
+
+    guard = ConsentGuard(get_consent_repo())
+    answers: dict[str, bool] = {}
+
+    def _consent_granted(user_key: str) -> bool:
+        if user_key not in answers:
+            answers[user_key] = guard.has_consent(user_key, DIARY_AI_ANALYSIS)
+        return answers[user_key]
+
+    return _consent_granted
+
+
 def get_plant_diary_service():
     from app.domain.services.plant_diary_service import PlantDiaryService
 
@@ -325,6 +360,16 @@ def get_plant_diary_service():
         diary_repo=get_plant_diary_repo(),
         run_repo=get_planting_run_repo(),
         plant_repo=get_plant_repo(),
+        # REQ-050 §7.1 — replaces the ``_consent_not_evaluated`` placeholder.
+        # Both the enforcement (``request_analysis``) and the display flag
+        # (``can_request_analysis``) go through
+        # ``evaluate_request_permission``, so this single injection covers both.
+        consent_checker=get_diary_analysis_consent_checker(),
+        # SEC-003 — resolves ``photo_refs`` so tenant, category and uploader of
+        # every referenced attachment are checked before an entry is stored.
+        # Without it the service refuses *any* photo reference rather than
+        # accepting it unchecked.
+        attachment_repo=get_attachment_repo(),
     )
 
 

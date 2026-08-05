@@ -1957,6 +1957,15 @@ def ensure_collections(db: StandardDatabase) -> None:
     plant_diary_entries_col.add_persistent_index(fields=["plant_key"], unique=False)
     plant_diary_entries_col.add_persistent_index(fields=["tenant_key"], unique=False)
     plant_diary_entries_col.add_persistent_index(fields=["entry_type"], unique=False)
+    # REQ-050 §5 — backs both the MCP work queue (`list_pending_diary_analyses`,
+    # §4.1) and the analysis-state filter of the tenant-wide diary overview
+    # (§2.5.2). The field order is load-bearing: `tenant_key` first (every read is
+    # tenant-scoped), then `analysis_state` (equality / IN), then
+    # `analysis_requested_at` for the ascending "oldest first" sort. A query that
+    # omits `tenant_key` cannot use this index at all.
+    plant_diary_entries_col.add_persistent_index(
+        fields=["tenant_key", "analysis_state", "analysis_requested_at"], unique=False
+    )
 
     # REQ-030 Notification indexes
     notifications_col = db.collection(NOTIFICATIONS)

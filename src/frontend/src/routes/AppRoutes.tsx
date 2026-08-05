@@ -85,6 +85,8 @@ const WateringEventListPage = lazy(() => import('@/pages/standorte/WateringEvent
 // Unified watering log (replaces WateringEvent + FeedingEvent)
 const WateringLogListPage = lazy(() => import('@/pages/giessprotokoll/WateringLogListPage'));
 const WateringLogDetailPage = lazy(() => import('@/pages/giessprotokoll/WateringLogDetailPage'));
+// REQ-050 §2.5.2 Tagebuch-Übersicht (mandantenweit)
+const DiaryOverviewPage = lazy(() => import('@/pages/tagebuch/DiaryOverviewPage'));
 // REQ-010 IPM
 const PestListPage = lazy(() => import('@/pages/pflanzenschutz/PestListPage'));
 const PestDetailPage = lazy(() => import('@/pages/pflanzenschutz/PestDetailPage'));
@@ -662,6 +664,18 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="form" />}>
                 <WateringLogDetailPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-050 §2.5.2 — mandantenweite Tagebuch-Übersicht. Kein eigener
+              Guard: alle Routen unter MainLayout laufen durch ModuleGuard, der
+              den Pfad über das Modul `diary` auflöst (AK-31). */}
+          <Route
+            path="tagebuch"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <DiaryOverviewPage />
               </Suspense>
             }
           />

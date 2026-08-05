@@ -44,6 +44,7 @@ from app.api.v1.mcp.deps import get_dispatcher, get_mcp_principal, get_session_s
 from app.common.exceptions import KamerplanterError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.core.permissions import has_mcp_permission
+from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.principal import McpPrincipal
 from app.mcp_server.registry import load_tools
@@ -104,7 +105,14 @@ async def call_mcp_tool(
     principal: McpPrincipal = Depends(get_mcp_principal),
     dispatcher: ToolDispatcher = Depends(get_dispatcher),
 ) -> dict[str, Any]:
-    """Invoke a single MCP tool (REST-friendly)."""
+    """Invoke a single MCP tool (REST-friendly).
+
+    Returns the structured payload only. Image content blocks are an MCP
+    protocol construct — their ``content_index`` addresses the ``content`` array
+    of a ``tools/call`` result, which this surface does not build — so a tool
+    delivering images (REQ-050 §4.4) must be called over ``POST /mcp``. Inventing
+    a second image encoding here would give recipes two contracts to get wrong.
+    """
 
     response = await dispatcher.dispatch(principal, tool_name, arguments)
     return response.to_payload()
@@ -117,6 +125,94 @@ def _rpc_error(request_id: Any, code: int, message: str) -> dict[str, Any]:
 
 def _rpc_result(request_id: Any, result: Any) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
+
+#: Kamerplanter's internal, SCREAMING_CASE error codes → the lowercase dotted
+#: codes the MCP contract publishes (REQ-050 §4.0, REQ-033 AC-2). The published
+#: code is what a recipe branches on, so it must be stable and must never be
+#: derived from the human-readable message.
+_CONTRACT_ERROR_CODES: dict[str, str] = {
+    "ENTITY_NOT_FOUND": "not_found",
+    "FORBIDDEN": "permission.denied",
+    "UNAUTHORIZED": "permission.denied",
+    "VALIDATION_ERROR": "validation.error",
+    "PAYLOAD_TOO_LARGE": "payload.too_large",
+    "DUPLICATE_ENTRY": "conflict.duplicate",
+    "RATE_LIMIT_EXCEEDED": "rate_limit.exceeded",
+}
+
+
+def _contract_error_code(exc: KamerplanterError) -> str:
+    """The published error code for a failed tool call.
+
+    An error that already carries its contract code (``conflict.already_claimed``
+    …) — :class:`~app.mcp_server.base.McpToolError` and the domain's
+    :class:`~app.common.exceptions.ContractError` alike — passes through
+    untouched; the generic application errors are translated through the table
+    above, which is why they exist as two vocabularies at all. Anything
+    else — a domain error from one of the non-diary tools — is lower-cased, which
+    keeps it stable and machine-readable without pretending it is part of the
+    documented §4.0 set.
+    """
+
+    return _CONTRACT_ERROR_CODES.get(exc.error_code, exc.error_code.lower())
+
+
+def _tool_result(response: McpToolResponse) -> dict[str, Any]:
+    """Wire form of a successful tool call (REQ-050 §4.0, REQ-033 §4.3b).
+
+    ``summary`` stays the leading content block and image blocks are *appended*,
+    so a tool that sets no blocks produces byte-identical output to before this
+    became possible. ``structuredContent`` never carries the image data: it comes
+    from ``to_payload()``, which excludes the blocks — otherwise every photo
+    would go over the wire twice.
+    """
+
+    content: list[dict[str, Any]] = [{"type": "text", "text": response.summary}]
+    content.extend(block.model_dump(by_alias=True) for block in response.content_blocks)
+    return {"isError": False, "content": content, "structuredContent": response.to_payload()}
+
+
+def _tool_error_result(exc: KamerplanterError) -> dict[str, Any]:
+    """Wire form of a failed tool call — a *result*, not a JSON-RPC error (§4.0).
+
+    A JSON-RPC ``error`` means protocol or authentication failure and is not
+    actionable for a recipe; a tool failure must arrive as ``isError: true`` with
+    a machine-readable ``structuredContent``. The text block keeps the code as a
+    prefix because it is the only thing a language model sees without reading the
+    structured part.
+
+    ``details`` is selected by **attribute, not by class**. Two sibling classes
+    carry the free-form MCP ``details`` object today —
+    :class:`~app.mcp_server.base.McpToolError` and
+    :class:`~app.common.exceptions.ContractError`, the latter being what the
+    diary tools raise — and neither derives from the other. An ``isinstance``
+    gate on one of them let a ``DiaryAnalysisAlreadyClaimedError`` reach the
+    recipe with the right ``error_code`` but without ``claimed_by`` /
+    ``lease_expires_at``: the two facts REQ-050 §4.2 gives an agent to decide
+    whether to come back later. Keying off the attribute makes the contract
+    depend on what an error *carries* rather than on where it happens to sit in
+    the hierarchy, which is also what stops the next contract-error class from
+    silently losing its details.
+
+    The envelope crosses a trust boundary, so exactly three keys leave here:
+    ``error_code``, ``message`` and the §4-documented ``details``. The type guard
+    is not decoration — ``details`` is copied verbatim into a client-facing
+    payload, so anything that is not a plain mapping (an ORM object, an
+    exception, a string) is dropped rather than serialised, and the copy keeps a
+    later mutation of the exception out of the response.
+    """
+
+    code = _contract_error_code(exc)
+    structured: dict[str, Any] = {"error_code": code, "message": exc.message}
+    error_details = getattr(exc, "error_details", None)
+    if isinstance(error_details, dict) and error_details:
+        structured["details"] = dict(error_details)
+    return {
+        "isError": True,
+        "content": [{"type": "text", "text": f"{code}: {exc.message}"}],
+        "structuredContent": structured,
+    }
 
 
 def _negotiate_protocol_version(requested: Any) -> str:
@@ -219,25 +315,12 @@ async def mcp_endpoint(
         tool_name = params.get("name", "")
         arguments = params.get("arguments") or {}
         try:
-            response = await dispatcher.dispatch(principal, tool_name, arguments)
+            tool_response = await dispatcher.dispatch(principal, tool_name, arguments)
         except KamerplanterError as exc:
             # Surface a structured tool error to the LLM client (isError) instead
-            # of a transport-level failure, so the model can react (§2.6).
-            return _rpc_result(
-                request_id,
-                {
-                    "isError": True,
-                    "content": [{"type": "text", "text": f"{exc.error_code}: {exc.message}"}],
-                },
-            )
-        return _rpc_result(
-            request_id,
-            {
-                "isError": False,
-                "content": [{"type": "text", "text": response.summary}],
-                "structuredContent": response.to_payload(),
-            },
-        )
+            # of a transport-level failure, so the model can react (§2.6, §4.0).
+            return _rpc_result(request_id, _tool_error_result(exc))
+        return _rpc_result(request_id, _tool_result(tool_response))
 
     return _rpc_error(request_id, -32601, f"Method not found: {method}")
 

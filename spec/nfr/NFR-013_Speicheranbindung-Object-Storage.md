@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.3 (Thumbnails sind normativ EXIF-frei, REQ-050)
+Version: 1.4 (Umsetzungsstand kategoriescharfes Keep-EXIF festgehalten)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-08-05 | **Umsetzungsstand `STORAGE_KEEP_EXIF_<CATEGORY>` festgehalten (Korrektur aus der REQ-050-Umsetzung, Issue #921):** §6.4 haelt jetzt ausdruecklich fest, dass die kategoriescharfe Keep-EXIF-Variante **spezifiziert, aber nicht implementiert** ist — es existiert ausschliesslich das globale `STORAGE_STRIP_EXIF`. §8.2 nennt entsprechend das tatsaechlich vorhandene Setting. Die Zusage „Renditions sind EXIF-frei" bleibt unveraendert gueltig und ist unabhaengig von der Konfiguration. Keine Aenderung am Adapter-Vertrag, an Kategorien oder am Pfadschema. |
 | 1.3 | 2026-08-04 | **Thumbnails sind normativ EXIF-frei (REQ-050):** §8.2 haelt jetzt ausdruecklich fest, dass Renditions keine EXIF-Daten uebernehmen — auch nicht bei `STORAGE_KEEP_EXIF_<CATEGORY>=true`, das ausschliesslich die Originaldatei betrifft. Bisher war das nur implizit ueber die Neukodierung angenommen. REQ-050 §4.4 liefert Renditions ueber MCP an externe KI-Agenten aus und stuetzt die Zulaessigkeit genau auf diese Eigenschaft; eine stillschweigende Annahme traegt das nicht. Kein Eingriff in den Adapter-Vertrag, keine Aenderung an Kategorien oder Pfadschema. |
 | 1.2 | 2026-06-19 | **category `plant` (REQ-034 Pflanzenfoto-Galerie):** `category`-Enum in §4.3 und Default-Mime-Whitelist in §5.2 um `plant` ergänzt (Foto-Whitelist `image/jpeg,png,webp,heic`, 25 MB). Storage-Key-Schema, Thumbnails, Pre-Sign, DSGVO-Erasure unverändert — REQ-034-Fotos hängen an der Pflanzeninstanz (REQ-013) und werden im Erasure als Scope `user_diary_attachments` klassifiziert. Kein Eingriff in den Adapter-Vertrag. |
 | 1.1 | 2026-04-27 | **W-007 Fix (DSGVO-Erasure-Adapter-Methoden):** `delete_for_user(tenant_key, user_key, scope)` und `strip_exif_for_user(tenant_key, user_key, scope)` in §4.2 Adapter-Vertrag ergänzt. §6.2 Aufruf-Reihenfolge präzisiert: Storage-Cleanup MUSS als Phase 0 des Erasure-Tasks erfolgen, vor der ArangoDB-Löschung — sonst sind die `attachments`-Metadaten beim Lookup nicht mehr verfügbar. |
@@ -354,7 +355,7 @@ Bei Loeschung eines Nutzers innerhalb eines Tenants (REQ-025):
 2. Persoenliche Anhaenge (Profilfoto, eigene Notiz-Fotos — Scope `user_personal`) werden hart geloescht via `delete_for_user(tenant_key, user_key, scope='user_personal')`
 3. Tagebuch-/Inspektions-/Behandlungs-/Erntefotos (Scope `user_diary_attachments`) bleiben — `created_by` wird auf `_anonymized` gesetzt; die Foto-Datei bleibt, weil sie zum Pflanzen-Datensatz gehoert
 4. Bei Konflikt mit Aufbewahrungsfristen (CanG, PflSchG, NFR-011) erfolgt Anonymisierung statt Loeschung
-5. **EXIF-Strip-Pass:** Wenn ein Tenant `STORAGE_KEEP_EXIF_<category>=true` gesetzt hat (§6.4), wird zusätzlich `strip_exif_for_user(tenant_key, user_key, scope='user_diary_attachments')` aufgerufen, um GPS/Geräte-Identifier aus den verbleibenden Diary-Fotos zu entfernen. Damit ist die Datei vollständig vom User entkoppelt.
+5. **EXIF-Strip-Pass:** Wenn ein Tenant `STORAGE_KEEP_EXIF_<category>=true` gesetzt hat (§6.4 — die kategoriescharfe Variante ist spezifiziert, aber nicht implementiert; heute greift ausschliesslich das globale `STORAGE_STRIP_EXIF`), wird zusätzlich `strip_exif_for_user(tenant_key, user_key, scope='user_diary_attachments')` aufgerufen, um GPS/Geräte-Identifier aus den verbleibenden Diary-Fotos zu entfernen. Damit ist die Datei vollständig vom User entkoppelt.
 
 <!-- Quelle: Widerspruchsanalyse W-007 -->
 **Aufruf-Reihenfolge (W-007):** Die Nutzer-Loeschung im Object-Storage MUSS als **Phase 0** des `ErasureEngine.execute_scheduled_erasures()`-Tasks erfolgen, BEVOR ArangoDB-Edges/Nodes geloescht werden. Andernfalls verliert der Storage-Adapter den Zugriff auf die `attachments`-Metadaten und kann den `created_by`-Filter nicht mehr ausfuehren — die Dateien wuerden verwaist im Storage zurueckbleiben.
@@ -387,6 +388,18 @@ Tenant-Exporte (REQ-025) muessen alle Anhaenge enthalten:
 - **Attachment-Id** ist ein ULID, nicht der Original-Dateiname
 - **Original-Dateiname** wird ausschliesslich in der Metadaten-Tabelle gespeichert, nicht im Storage-Key
 - **EXIF-Daten** mit GPS-Koordinaten oder Geraete-Identifiern werden beim Upload **standardmaessig entfernt**; der Tenant kann die Beibehaltung pro Kategorie aktivieren (`STORAGE_KEEP_EXIF_<CATEGORY>=true`).
+
+> **Umsetzungsstand der kategoriescharfen Variante (Stand 2026-08-05): spezifiziert, nicht implementiert.**
+> `STORAGE_KEEP_EXIF_<CATEGORY>` existiert **nicht** als Konfiguration. Implementiert ist
+> ausschliesslich das globale `STORAGE_STRIP_EXIF` (`settings.storage_strip_exif`, Default `true`),
+> das der Upload-Pfad fuer alle Bild-Kategorien gemeinsam auswertet; einen Weg, EXIF nur fuer
+> **eine** Kategorie zu behalten, gibt es heute nicht. Der Name taucht darueber hinaus in
+> Beschreibungstexten (REQ-025 §3.1 `StorageCleanupRule`, AK-OS-03) und in Quellcode-Kommentaren
+> auf — auch dort bezeichnet er die spezifizierte, nicht die gebaute Variante. Anforderungen, die
+> sich auf die **Wirkung** stuetzen (Renditions sind EXIF-frei, §8.2 / REQ-050 §4.4 / REQ-033
+> AC-S7), sind davon nicht betroffen: Diese Zusage haengt an der Erzeugung der Rendition, nicht an
+> der Konfiguration. Wer die kategoriescharfe Steuerung braucht, muss sie zuerst bauen; bis dahin
+> ist jede Formulierung, die sie als vorhanden beschreibt, eine Zusage ohne Deckung.
 
 ### 6.5 Drittanbieter-Backends (Phase 2)
 
@@ -450,7 +463,7 @@ Migration laeuft als Celery-Task mit Wiederaufnahmen, Fortschrittsanzeige und Au
 - Beim Upload werden bis zu **3 Thumbnail-Varianten** asynchron via Celery erzeugt (`128`, `512`, `1280` px lange Kante)
 - Thumbnails werden im selben Storage-Backend abgelegt: `t/{tenant_key}/{category}/{yyyy}/{mm}/{ulid}_t{size}.webp`
 - Verloren gegangene Thumbnails werden lazy beim ersten Zugriff regeneriert
-- **Thumbnails tragen niemals EXIF-Daten.** Die Erzeugung schreibt ausschliesslich Bilddaten in die WebP-Rendition; Aufnahmeort, Geraetekennung und Aufnahmezeit werden **nicht** uebernommen — auch dann nicht, wenn der Mandant fuer die Kategorie `STORAGE_KEEP_EXIF_<CATEGORY>=true` gesetzt hat. Das Keep-EXIF-Setting aus §6.4 betrifft ausschliesslich die **Originaldatei**. Diese Trennung ist die Grundlage dafuer, dass Renditions an Dritte ausgeliefert werden duerfen, wo das Original es nicht darf (REQ-050 §4.4, REQ-033 AC-S7) — sie muss beim Erzeugen aktiv sichergestellt und getestet werden, nicht als Nebenwirkung der Neukodierung angenommen.
+- **Thumbnails tragen niemals EXIF-Daten.** Die Erzeugung schreibt ausschliesslich Bilddaten in die WebP-Rendition; Aufnahmeort, Geraetekennung und Aufnahmezeit werden **nicht** uebernommen — auch dann nicht, wenn der Upload-Strip abgeschaltet ist (`STORAGE_STRIP_EXIF=false`) und die Originaldatei ihre EXIF-Daten behaelt. Das Keep-EXIF-Setting aus §6.4 — global heute, kategoriescharf erst spezifiziert (siehe dort) — betrifft ausschliesslich die **Originaldatei**. Diese Trennung ist die Grundlage dafuer, dass Renditions an Dritte ausgeliefert werden duerfen, wo das Original es nicht darf (REQ-050 §4.4, REQ-033 AC-S7) — sie muss beim Erzeugen aktiv sichergestellt und getestet werden, nicht als Nebenwirkung der Neukodierung angenommen.
 
 ### 8.3 Caching
 

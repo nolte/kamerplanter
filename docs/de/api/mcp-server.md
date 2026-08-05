@@ -186,7 +186,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 ## Werkzeug-Katalog (aktueller Stand)
 
 !!! note "Teilweise verfügbar: Werkzeug-Umfang"
-    Umgesetzt sind derzeit 36 Werkzeuge — sie decken das Lesen weitgehend ab. Beim **Schreiben** fehlt noch einiges, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, IPM-Inspektionen anlegen, Ernte- und Düngeereignisse erfassen sowie eine Brücke zur RAG-Wissensbasis. Erweiterung ist ein dokumentierter Folgeschritt.
+    Umgesetzt sind derzeit 41 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)). Beim übrigen **Schreiben** fehlt noch einiges, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, IPM-Inspektionen anlegen, Ernte- und Düngeereignisse erfassen sowie eine Brücke zur RAG-Wissensbasis. Erweiterung ist ein dokumentierter Folgeschritt.
 
 ### Lese-Werkzeuge (`mcp.read`)
 
@@ -221,6 +221,9 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `get_due_care_tasks` | Heute fällige/überfällige Pflegeerinnerungen, gruppiert nach Dringlichkeit |
 | `get_harvest_readiness` | Erntebereitschafts-Überblick über alle aktiven Pflanzen |
 | `get_mcp_activity` | Eigener MCP-Aufrufverlauf des Kontos (Selbstauskunft, siehe unten) |
+| `list_pending_diary_analyses` | Arbeitsvorrat der zur KI-Analyse markierten Tagebuch-Einträge — ohne Freitext und ohne Bilder (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) |
+| `get_diary_entry` | Ein Tagebuch-Eintrag samt Pflanzenkontext, ohne Bilddaten |
+| `get_diary_entry_photos` | Die Fotos eines Tagebuch-Eintrags als Bild-Content-Blöcke — das einzige Werkzeug der Palette, das etwas anderes als Text liefert |
 
 ### Schreib-Werkzeuge (`mcp.write`)
 
@@ -229,6 +232,8 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `confirm_care_task` | Pflegeerinnerung für eine Pflanze quittieren ("ich habe gegossen") |
 | `archive_plant` | Pflanze als entsorgt/abgegeben/gestorben kennzeichnen — **kein** Hard-Delete, Verlauf bleibt erhalten |
 | `set_plant_location` | Pflanze zu einem anderen Standort/Bereich/Slot verschieben |
+| `claim_diary_analysis` | Einen wartenden Tagebuch-Eintrag exklusiv beanspruchen (Lease) |
+| `submit_diary_analysis` | Das Analyse-Ergebnis eines beanspruchten Tagebuch-Eintrags zurückschreiben |
 
 ### Setup-Werkzeug (`mcp.setup`)
 
@@ -237,6 +242,53 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `create_site` | Standort-Wurzel anlegen (Wohnung, Garten, Balkon, Gewächshaus, Fensterbank, Growzelt) |
 
 Jedes Werkzeug prüft die referenzierten Schlüssel (Pflanze, Standort, Bereich, Slot) grundsätzlich gegen den für diesen Aufruf aufgelösten Mandanten. Ein Fremdschlüssel aus einem anderen Mandanten liefert konsequent `not_found` — niemals `permission.denied` — damit kein Werkzeug die Existenz fremder Ressourcen verrät.
+
+## Tagebuch-Analyse: externe Agenten
+
+Die fünf `*_diary_*`-Werkzeuge sind der vollständige technische Vertrag für einen extern betriebenen KI-Agenten, der Tagebuch-Einträge analysiert, die ein Nutzer markiert hat (interne Referenz: REQ-050). Die Endnutzer-Sicht — wie du einen Eintrag markierst und wo du ein Ergebnis liest — steht unter [Tagebuch](../user-guide/plant-diary.md). Dieser Abschnitt beschreibt die Gegenseite: das Rezept eines Agenten, der diese Einträge abholt, bearbeitet und das Ergebnis zurückschreibt.
+
+!!! info "Kamerplanter ruft selbst kein Sprachmodell auf"
+    Diese fünf Werkzeuge sind der einzige Weg, über den ein Sprachmodell überhaupt Tagebuchinhalte zu sehen bekommt — und selbst dabei bleibt die Instanz eine reine Datenquelle und -senke. Es gibt weder einen eingebauten Modellaufruf noch einen Modellschlüssel für diesen Pfad. Ein Agenten-Rezept für dieses Werkzeug-Set liegt in einem eigenen, von Kamerplanter getrennten Repository (`kamerplanter-goose`) und ist nicht Bestandteil dieses Produkts.
+
+### Der Ablauf
+
+1. Ein Nutzer markiert einen Tagebuch-Eintrag in der Weboberfläche — der Eintrag wechselt in den Zustand `requested`.
+2. `list_pending_diary_analyses` (`mcp.read`) liefert den Arbeitsvorrat — ohne Freitext und ohne Bilder, damit die Antwort klein bleibt.
+3. `claim_diary_analysis` (`mcp.write`) beansprucht einen Eintrag exklusiv über ein Lease (Vorgabe 15 Minuten, Obergrenze 60 Minuten) und liefert einen `lease_token`. Ein zweiter Beanspruchungsversuch auf denselben Eintrag scheitert mit `conflict.already_claimed`. Läuft das Lease ab, ohne dass ein Ergebnis zurückgeschrieben wurde, erscheint der Eintrag wieder im Arbeitsvorrat.
+4. `get_diary_entry` (`mcp.read`) liefert Text, Tags, Messwerte und Pflanzenkontext — ohne Bilddaten.
+5. `get_diary_entry_photos` (`mcp.read`) liefert die Fotos als Bild-Content-Blöcke, damit ein bildverstehendes Modell sie direkt sieht (siehe [Bild-Auslieferung](#bild-auslieferung) unten).
+6. Der Agent ruft das Sprachmodell auf, das der Nutzer selbst betreibt und bezahlt.
+7. `submit_diary_analysis` (`mcp.write`) schreibt das Ergebnis mit gültigem `lease_token` zurück und setzt den Zustand auf `completed` oder `failed`.
+
+### Bild-Auslieferung {#bild-auslieferung}
+
+`get_diary_entry_photos` ist das einzige Werkzeug der Palette, dessen Nutzdaten nicht vollständig in `structuredContent` liegen: Die Antwort trägt zusätzlich `image`-Content-Blöcke (Basis-64, `mimeType: image/webp`), einen je geliefertem Foto, in derselben Reihenfolge wie im strukturierten `photos`-Feld.
+
+Ausgeliefert werden ausschließlich die vorhandenen **512- oder 1280-px-WebP-Renditions** — niemals das Originalfoto. Renditions tragen keine EXIF-Daten, auch dann nicht, wenn die Instanz `STORAGE_STRIP_EXIF=false` gesetzt hat; jenes Setting betrifft nur die Originaldatei (siehe [Umgebungsvariablen — Object Storage](../reference/environment-variables.md#object-storage-nfr-013)).
+
+Die Gesamt-Nutzlast eines Aufrufs ist über `MCP_MAX_IMAGE_PAYLOAD_MB` gedeckelt (Vorgabe 4 MB, Base-64-kodiert; siehe [Umgebungsvariablen — MCP-Server](../reference/environment-variables.md#mcp-server)). Wird sie überschritten, antwortet das Werkzeug mit `payload.too_large` und benennt die betroffenen Fotos sowie eine kleinere Rendition, mit der der Abruf passen würde — es wird **nie** still gekürzt. Fehlt eine Rendition noch, erscheint das betroffene Foto in `pending` mit `status: "thumbnail_pending"` (Erzeugung angestoßen, später erneut abrufbar) oder `status: "unavailable"` (wird nie entstehen, z. B. weil der Anhang fehlt) — der Aufruf selbst bleibt in beiden Fällen erfolgreich.
+
+### Fehlercodes
+
+Jeder Fehler eines der fünf Werkzeuge kommt als Werkzeug-Ergebnis mit `isError: true`, nie als JSON-RPC-`error` — derselbe Vertrag wie für die übrige Palette (siehe [Fehlerbehandlung](error-handling.md)). `error_code` ist maschinenlesbar und stabil, `message` ist für Menschen gedacht und darf sich ändern.
+
+| `error_code` | Bedeutung |
+|---------------|-----------|
+| `not_found` | Mandant oder Eintrag existiert nicht oder liegt außerhalb des aufgelösten Mandanten — auch bei einem fremden Eintrag, nie `permission.denied` |
+| `permission.denied` | Die Rolle im aufgelösten Mandanten reicht für das Werkzeug nicht |
+| `validation.error` | Eingabe verletzt eine Feldregel (z. B. `confidence` außerhalb 0.0–1.0, fehlendes `summary` bei `status: completed`) |
+| `validation.tenant_required` | `tenant` fehlt, obwohl der Schlüssel mehr als eine Mitgliedschaft hat |
+| `conflict.already_claimed` | Der Eintrag ist bereits beansprucht und das Lease noch gültig |
+| `conflict.concurrent_update` | Die Dokumentrevision hat sich zwischen Lesen und Setzen geändert — ein sofortiger Wiederholungsversuch ist hier richtig |
+| `conflict.not_claimed` | `submit_diary_analysis` auf einen Eintrag, der nicht `in_progress` ist |
+| `conflict.lease_expired` | Der `lease_token` passt nicht (mehr) zum aktuellen Lease |
+| `payload.too_large` | Die Bild-Nutzlast des Aufrufs überschreitet `MCP_MAX_IMAGE_PAYLOAD_MB` |
+
+### Was ein Rezept nicht selbst entscheiden muss
+
+- Der **Vorbehalt** (`disclaimer`) im Ergebnis wird serverseitig gesetzt — ein Agent kann ihn weder weglassen noch abschwächen.
+- Ob ein Nutzer überhaupt markieren darf, prüft der Server bei jedem `mcp.write`-Aufruf serverseitig (Rolle, Autorschaft, Einwilligung `diary_ai_analysis`, Betriebsmodus) — ein Rezept muss diese Regel nicht nachbilden.
+- Ein Eintrag ohne Fotos ist kein Fehlerfall; `get_diary_entry_photos` liefert dann `photos: []` mit nur dem Text-Block.
 
 ## Antwortformat
 
@@ -311,6 +363,7 @@ Die Antwort enthält die letzten Einträge (Werkzeugname, Status, Antwortgröße
 
 - [Service Accounts & API-Keys](service-accounts.md)
 - [Authentifizierung](authentication.md)
+- [Tagebuch — Benutzerhandbuch](../user-guide/plant-diary.md)
 - [KI-Assistent — Benutzerhandbuch](../user-guide/ai-assistant.md)
 - [Umgebungsvariablen — MCP-Server](../reference/environment-variables.md#mcp-server)
 - [Datenschutz & DSGVO](../user-guide/privacy.md)
