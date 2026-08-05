@@ -321,7 +321,7 @@ controllers:
       main:
         image:
           repository: arangodb
-          tag: "3.12.9"
+          tag: "3.12.10"
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
