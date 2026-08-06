@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import NoReturn
 
 import structlog
 
@@ -16,6 +17,7 @@ from app.common.exceptions import (
 from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
+from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOUNT_STORE
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.oauth_engine import OAuthEngine
@@ -25,6 +27,7 @@ from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
+from app.domain.interfaces.unknown_account_store import IUnknownAccountStore
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import (
     ApiKey,
@@ -82,6 +85,27 @@ def _email_digest(email: str) -> str:
     return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()[:16]
 
 
+#: Cache for the throw-away hash the SEC-H-010 login guard verifies against.
+#: Computed once per process on first use rather than at import time, so a
+#: bcrypt round is not charged to every worker start.
+_DECOY_PASSWORD_HASH: str | None = None
+
+
+def _decoy_password_hash(password_engine: PasswordEngine) -> str:
+    """Return a bcrypt hash no password can ever match.
+
+    Hashes a fresh random string once per process. The value is never stored,
+    never compared to a real credential, and cannot be pre-computed by an
+    attacker — its only job is to make ``verify_password`` do its full work on
+    the "this address has no account" branch, so that branch costs the same as
+    the one that checks a real password.
+    """
+    global _DECOY_PASSWORD_HASH
+    if _DECOY_PASSWORD_HASH is None:
+        _DECOY_PASSWORD_HASH = password_engine.hash_password(secrets.token_urlsafe(32))
+    return _DECOY_PASSWORD_HASH
+
+
 class AuthService:
     def __init__(
         self,
@@ -103,6 +127,7 @@ class AuthService:
         api_key_repo: IApiKeyRepository | None = None,
         oidc_config_repo: ArangoOidcConfigRepository | None = None,
         encryption_engine: EncryptionEngine | None = None,
+        unknown_account_store: IUnknownAccountStore | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -122,6 +147,12 @@ class AuthService:
         self._api_key_repo = api_key_repo
         self._oidc_config_repo = oidc_config_repo
         self._encryption_engine = encryption_engine
+        # Never ``None``: a missing store would make the SEC-H-010 login guard
+        # inert instead of merely process-local. See the module docstring of
+        # ``data_access.external.unknown_account_store``.
+        self._unknown_account_store: IUnknownAccountStore = (
+            unknown_account_store if unknown_account_store is not None else DEFAULT_UNKNOWN_ACCOUNT_STORE
+        )
 
     # ── Registration ────────────────────────────────────────────────────
 
@@ -216,7 +247,7 @@ class AuthService:
         """Returns (token_pair, raw_refresh_token, is_persistent)."""
         user = self._user_repo.get_by_email(email)
         if user is None:
-            raise UnauthorizedError("Invalid email or password.")
+            self._reject_unknown_account(email, password)
 
         # Check lockout
         if not self._throttle_engine.check_allowed(user.failed_login_attempts, user.locked_until):
@@ -262,6 +293,54 @@ class AuthService:
             )
 
         return self._create_tokens(user, user_agent, ip_address, is_persistent=remember_me)
+
+    def _reject_unknown_account(self, email: str, password: str) -> NoReturn:
+        """Answer a login for an address that has no account — SEC-H-010.
+
+        This branch used to be a bare ``raise UnauthorizedError``. The branch for
+        an address that *does* exist checks the lockout first and answers
+        **423 "Account temporarily locked. Try again in N minutes."** once the
+        threshold is reached. So an unauthenticated caller learned whether an
+        arbitrary address was registered by sending five wrong passwords and
+        reading the status code — no password guess ever had to succeed.
+
+        Closing that by dropping the 423 would take the diagnostic away from the
+        legitimate user it was added for. Instead the non-existent address gets a
+        counter of its own (``IUnknownAccountStore``) and this method runs the
+        *same* ``LoginThrottleEngine`` decision the existing-account path runs, so
+        both reach 423 after the same number of attempts, with the same remaining
+        minutes in the message.
+
+        Raises:
+            AccountLockedError: 423, once the threshold is reached — identical to
+                what a registered address answers under the same conditions.
+            UnauthorizedError: 401 otherwise.
+        """
+        failed_attempts, locked_until = self._unknown_account_store.get_failure_state(email)
+
+        if not self._throttle_engine.check_allowed(failed_attempts, locked_until):
+            minutes = self._throttle_engine.get_lockout_minutes(locked_until)
+            raise AccountLockedError(minutes)
+
+        # Burn the same bcrypt round the existing-account branch burns below.
+        # Without it the two branches stay distinguishable by a stopwatch even
+        # though their responses have become identical: bcrypt dominates the
+        # request by two orders of magnitude over everything else on this path.
+        # The result is deliberately discarded — it can only ever be False.
+        self._password_engine.verify_password(password, _decoy_password_hash(self._password_engine))
+
+        failed_attempts += 1
+        self._unknown_account_store.record_failure(
+            email,
+            failed_attempts,
+            self._throttle_engine.calculate_lockout(failed_attempts),
+        )
+        logger.info(
+            "login_unknown_account_attempt",
+            email_sha256=_email_digest(email),
+            failed_attempts=failed_attempts,
+        )
+        raise UnauthorizedError("Invalid email or password.")
 
     # ── Token refresh ───────────────────────────────────────────────────
 
