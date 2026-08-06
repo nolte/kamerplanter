@@ -198,9 +198,12 @@ def get_location_tree(
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     tank_service: TankService = Depends(get_tank_service),
 ):
-    """Return the site's location hierarchy with slot, plant and tank counts."""
-    service.get_site(key, tenant_key=ctx.tenant_key)
-    all_locations = service.get_location_tree(key)
+    """Return the site's location hierarchy with slot, plant and tank counts.
+
+    The service verifies the site against ``tenant_key`` itself and scopes the
+    traversal with it (#927), so the redundant pre-check is gone.
+    """
+    all_locations = service.get_location_tree(key, tenant_key=ctx.tenant_key)
     location_keys = {loc.key or "" for loc in all_locations}
 
     slots_by_location: dict[str, int] = {}

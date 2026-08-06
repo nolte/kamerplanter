@@ -385,7 +385,7 @@ def get_task_queue(
     service: TaskService = Depends(get_task_service),
 ):
     """Return the prioritized task queue, optionally scoped to one plant."""
-    tasks = service.get_task_queue(plant_key)
+    tasks = service.get_task_queue(plant_key, tenant_key=ctx.tenant_key)
     return [_task_response(t) for t in tasks]
 
 
@@ -412,7 +412,7 @@ def get_overdue_tasks(
     service: TaskService = Depends(get_task_service),
 ):
     """List the tenant's overdue tasks."""
-    tasks = service.get_overdue_tasks()
+    tasks = service.get_overdue_tasks(tenant_key=ctx.tenant_key)
     return [_task_response(t) for t in tasks]
 
 
@@ -423,8 +423,12 @@ def get_tasks_for_plant(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List the tasks of a plant instance, optionally filtered by status."""
-    tasks = service.get_tasks_for_plant(plant_key, status)
+    """List the tasks of a plant instance, optionally filtered by status.
+
+    A ``plant_key`` belonging to another tenant yields an empty list — the tenant
+    scope is enforced in the repository query (#927).
+    """
+    tasks = service.get_tasks_for_plant(plant_key, status, tenant_key=ctx.tenant_key)
     return [_task_response(t) for t in tasks]
 
 
@@ -607,9 +611,12 @@ def list_task_comments(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List a task's comments."""
-    service.get_task(task_key, tenant_key=ctx.tenant_key)
-    comments = service.list_comments(task_key)
+    """List a task's comments.
+
+    The service verifies the task against ``tenant_key`` itself and scopes the
+    comment query with it (#927), so the redundant pre-check is gone.
+    """
+    comments = service.list_comments(task_key, tenant_key=ctx.tenant_key)
     return [to_response(c, TaskCommentResponse) for c in comments]
 
 

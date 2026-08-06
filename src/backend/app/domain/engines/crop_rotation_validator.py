@@ -35,8 +35,15 @@ class CropRotationValidator:
         slot_key: str,
         species_key: str,
         rotation_window_years: int = DEFAULT_ROTATION_WINDOW_YEARS,
+        *,
+        tenant_key: str,
     ) -> list[RotationValidationResult]:
-        """Check crop rotation and return differentiated results."""
+        """Check crop rotation and return differentiated results.
+
+        ``tenant_key`` is required and keyword-only (#927): the slot history this
+        reads is a tenant-scoped repository query, and the results name the
+        botanical families previously grown in that bed.
+        """
         results: list[RotationValidationResult] = []
 
         species = self._species_repo.get_by_key(species_key)
@@ -57,7 +64,7 @@ class CropRotationValidator:
         except Exception:
             pass
 
-        history = self._plant_repo.get_history_by_slot(slot_key, years=rotation_window_years)
+        history = self._plant_repo.get_history_by_slot(slot_key, years=rotation_window_years, tenant_key=tenant_key)
 
         for past_plant in history:
             past_species = self._species_repo.get_by_key(past_plant.species_key)
@@ -146,8 +153,10 @@ class CropRotationValidator:
         slot_key: str,
         species_key: str,
         rotation_window_years: int = DEFAULT_ROTATION_WINDOW_YEARS,
+        *,
+        tenant_key: str,
     ) -> None:
-        results = self.validate_planting(slot_key, species_key, rotation_window_years)
+        results = self.validate_planting(slot_key, species_key, rotation_window_years, tenant_key=tenant_key)
         for r in results:
             if r.severity == "CRITICAL":
                 species = self._species_repo.get_by_key(species_key)

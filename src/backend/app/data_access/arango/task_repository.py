@@ -370,15 +370,20 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             self.delete_edges(edge_col, task_id, direction="inbound")
         return super().delete(key)
 
-    def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]:
-        query = f"FOR doc IN {col.TASKS} FILTER doc.entity_type == 'plant_instance' AND doc.entity_key == @plant_key"
-        bind_vars: dict = {"plant_key": plant_key}
-        if status:
-            query += " FILTER doc.status == @status"
-            bind_vars["status"] = status
-        query += " SORT doc.due_date ASC RETURN doc"
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return [Task(**self._from_doc(doc)) for doc in cursor]
+    def get_tasks_for_plant(self, plant_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+        """A plant's tasks **inside one tenant** (#927).
+
+        This method selected on ``entity_key`` alone while its tenant-aware twin
+        :meth:`get_tasks_for_entity` stood directly below it and did the same job
+        correctly. ``plant_key`` comes from the URL of
+        ``GET /t/{slug}/tasks/plants/{plant_key}``, so a member of tenant A read
+        tenant B's task list — names, instructions, due dates, assignees.
+
+        It is now a thin delegate to :meth:`get_tasks_for_entity` rather than a
+        second copy of the same AQL: one predicate, one place to get it wrong.
+        """
+        self._require_tenant_key(tenant_key, "get_tasks_for_plant")
+        return self.get_tasks_for_entity("plant_instance", plant_key, tenant_key, status)
 
     def get_tasks_for_run(self, run_key: str, status: str | None = None) -> list[Task]:
         query = f"FOR doc IN {col.TASKS} FILTER doc.planting_run_key == @run_key"
@@ -397,6 +402,14 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         tenant_key: str,
         status: str | None = None,
     ) -> list[Task]:
+        """The single tenant-scoped "tasks of an entity" predicate (#927).
+
+        Both entity keys and tenant keys arrive from request URLs, so the empty
+        sentinel is rejected up front: an empty ``tenant_key`` would match only
+        legacy tenantless tasks in AQL, but the guard keeps the *intent* explicit
+        and stops a caller from routing a forgotten tenant through here.
+        """
+        self._require_tenant_key(tenant_key, "get_tasks_for_entity")
         query = (
             f"FOR doc IN {col.TASKS} "
             f"FILTER doc.entity_type == @entity_type AND doc.entity_key == @entity_key "
@@ -414,17 +427,34 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
-    def get_pending_tasks(self, offset: int = 0, limit: int = 50) -> tuple[list[Task], int]:
-        return self.get_all_tasks(offset, limit, {"status": "pending"})
+    def get_pending_tasks(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> tuple[list[Task], int]:
+        """Pending tasks **of one tenant** (#927, found alongside the five).
 
-    def get_overdue_tasks(self) -> list[Task]:
+        Not one of the reported five: this one needed no foreign key at all.
+        ``GET /t/{slug}/tasks/queue`` handed the *whole installation's* pending
+        queue to any authenticated member, because the underlying
+        :meth:`get_all_tasks` only filters by tenant when it is given one and the
+        queue never gave it one.
+        """
+        self._require_tenant_key(tenant_key, "get_pending_tasks")
+        return self.get_all_tasks(offset, limit, {"status": "pending"}, tenant_key)
+
+    def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]:
+        """Overdue tasks **of one tenant** (#927, found alongside the five).
+
+        Same shape as :meth:`get_pending_tasks`: ``GET /t/{slug}/tasks/overdue``
+        selected on status and due date only, so it listed every tenant's overdue
+        work.
+        """
+        self._require_tenant_key(tenant_key, "get_overdue_tasks")
         now = datetime.now(UTC).isoformat()
         query = (
             f"FOR doc IN {col.TASKS} "
-            f"FILTER doc.status == 'pending' AND doc.due_date != null AND doc.due_date < @now "
+            f"FILTER doc.tenant_key == @tenant_key "
+            f"AND doc.status == 'pending' AND doc.due_date != null AND doc.due_date < @now "
             f"SORT doc.due_date ASC RETURN doc"
         )
-        cursor = self._db.aql.execute(query, bind_vars={"now": now})
+        cursor = self._db.aql.execute(query, bind_vars={"now": now, "tenant_key": tenant_key})
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
     #: Statuses under which a care-reminder task still blocks re-creation.
@@ -586,9 +616,37 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         )
         return tc
 
-    def get_comments_for_task(self, task_key: str) -> list[TaskComment]:
-        query = f"FOR doc IN {col.TASK_COMMENTS} FILTER doc.task_key == @task_key SORT doc.created_at ASC RETURN doc"
-        cursor = self._db.aql.execute(query, bind_vars={"task_key": task_key})
+    def get_comments_for_task(self, task_key: str, *, tenant_key: str) -> list[TaskComment]:
+        """A task's comments **inside one tenant** (#927).
+
+        ``TaskComment`` carries no ``tenant_key`` of its own, so the predicate is
+        taken from the parent task: a comment belongs to whatever tenant its task
+        belongs to. That is a genuine data-access-layer filter — no schema change,
+        no migration — and it means the tenant scope no longer depends on the
+        caller having verified the task first. It had (``TaskService.list_comments``
+        loads the task before asking), which is why this was not exploitable; it
+        was one careless new caller away from being so.
+        """
+        self._require_tenant_key(tenant_key, "get_comments_for_task")
+        # The ``LET`` sits inside the ``FOR`` because AQL has no top-level
+        # ``FILTER``; it is loop-invariant, so the optimiser hoists it out
+        # (``move-calculations-up``) and the parent document is read once.
+        query = f"""
+        FOR doc IN {col.TASK_COMMENTS}
+          FILTER doc.task_key == @task_key
+          LET task = DOCUMENT(CONCAT(@task_collection, "/", @task_key))
+          FILTER task != null AND task.tenant_key == @tenant_key
+          SORT doc.created_at ASC
+          RETURN doc
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "task_collection": col.TASKS,
+                "task_key": task_key,
+                "tenant_key": tenant_key,
+            },
+        )
         return [TaskComment(**self._from_doc(doc)) for doc in cursor]
 
     def get_comment_by_key(self, key: str) -> TaskComment | None:

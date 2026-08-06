@@ -291,7 +291,9 @@ class TestCheckRunoffTrends:
 
     def test_creates_flush_task_when_trend_detected(self, _mock_dependencies):
         db = MagicMock()
-        db.aql.execute.return_value = iter(["plant_1"])
+        # The plant sweep projects the owning tenant alongside the key since
+        # #927 — the feeding lookup below is tenant-scoped.
+        db.aql.execute.return_value = iter([{"key": "plant_1", "tenant_key": "tenant_1"}])
         _mock_dependencies.get_db.return_value = db
 
         _mock_dependencies.get_feeding_repo.return_value = self._feeding_repo_with_high_runoff(3)
@@ -299,10 +301,6 @@ class TestCheckRunoffTrends:
         task_repo = MagicMock()
         task_repo.get_all_tasks.return_value = ([], 0)
         _mock_dependencies.get_task_repo.return_value = task_repo
-
-        plant_repo = MagicMock()
-        plant_repo.get_by_key.return_value = SimpleNamespace(tenant_key="tenant_1")
-        _mock_dependencies.get_plant_repo.return_value = plant_repo
 
         from app.tasks.tank_maintenance_tasks import check_runoff_trends
 
@@ -312,10 +310,17 @@ class TestCheckRunoffTrends:
         task_repo.create_task.assert_called_once()
         created = task_repo.create_task.call_args.args[0]
         assert created.name == "flush:runoff_trend:plant_1"
+        # The tenant comes off the same row that selected the plant (#927) and is
+        # both stamped on the task and used to scope the feeding lookup.
+        assert created.tenant_key == "tenant_1"
+        feeding_repo = _mock_dependencies.get_feeding_repo.return_value
+        assert feeding_repo.get_recent_runoff_events.call_args.kwargs["tenant_key"] == "tenant_1"
 
     def test_no_task_when_trend_below_threshold(self, _mock_dependencies):
         db = MagicMock()
-        db.aql.execute.return_value = iter(["plant_1"])
+        # The plant sweep projects the owning tenant alongside the key since
+        # #927 — the feeding lookup below is tenant-scoped.
+        db.aql.execute.return_value = iter([{"key": "plant_1", "tenant_key": "tenant_1"}])
         _mock_dependencies.get_db.return_value = db
 
         _mock_dependencies.get_feeding_repo.return_value = self._feeding_repo_with_high_runoff(2)
@@ -328,9 +333,33 @@ class TestCheckRunoffTrends:
 
         assert result == {"plants_checked": 1, "created": 0, "skipped": 0}
 
+    def test_tenantless_plant_is_skipped_instead_of_read_unscoped(self, _mock_dependencies):
+        """Fail closed on a plant without a tenant (#927).
+
+        The feeding lookup rejects the empty ``tenant_key`` sentinel, so the sweep
+        skips such a plant and counts it as skipped rather than widening the query
+        back to every tenant's feeding events.
+        """
+        db = MagicMock()
+        db.aql.execute.return_value = iter([{"key": "plant_orphan", "tenant_key": ""}])
+        _mock_dependencies.get_db.return_value = db
+
+        feeding_repo = MagicMock()
+        _mock_dependencies.get_feeding_repo.return_value = feeding_repo
+        _mock_dependencies.get_task_repo.return_value = MagicMock()
+
+        from app.tasks.tank_maintenance_tasks import check_runoff_trends
+
+        result = check_runoff_trends()
+
+        assert result == {"plants_checked": 1, "created": 0, "skipped": 1}
+        feeding_repo.get_recent_runoff_events.assert_not_called()
+
     def test_skips_plant_with_too_few_events(self, _mock_dependencies):
         db = MagicMock()
-        db.aql.execute.return_value = iter(["plant_1"])
+        # The plant sweep projects the owning tenant alongside the key since
+        # #927 — the feeding lookup below is tenant-scoped.
+        db.aql.execute.return_value = iter([{"key": "plant_1", "tenant_key": "tenant_1"}])
         _mock_dependencies.get_db.return_value = db
 
         feeding_repo = MagicMock()

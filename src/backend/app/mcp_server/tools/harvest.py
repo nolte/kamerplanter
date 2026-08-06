@@ -29,7 +29,7 @@ class GetHarvestReadiness(ToolBase):
         for plant in plants:
             if getattr(plant, "removed_on", None):
                 continue
-            readiness = ctx.harvest_service.assess_readiness(plant.key)
+            readiness = ctx.harvest_service.assess_readiness(plant.key, tenant_key=ctx.tenant_key)
             recommendation = readiness.get("recommendation", "immature")
             if recommendation in ("harvest", "ready", "harvest_now"):
                 ready_count += 1

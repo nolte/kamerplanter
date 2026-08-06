@@ -160,8 +160,11 @@ def get_slot_logs(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    """List a slot's watering logs (paginated)."""
-    logs = service.get_by_slot(slot_key, pagination.offset, pagination.limit)
+    """List a slot's watering logs (paginated).
+
+    A ``slot_key`` belonging to another tenant yields an empty list (#927).
+    """
+    logs = service.get_by_slot(slot_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
@@ -176,8 +179,11 @@ def get_location_logs(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    """List a location's watering logs (paginated)."""
-    logs = service.get_by_location(location_key, pagination.offset, pagination.limit)
+    """List a location's watering logs (paginated).
+
+    A ``location_key`` belonging to another tenant yields an empty list (#927).
+    """
+    logs = service.get_by_location(location_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
@@ -191,8 +197,11 @@ def get_location_watering_stats(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    """Return aggregated watering statistics for a location."""
-    stats = service.get_stats(location_key)
+    """Return aggregated watering statistics for a location.
+
+    A ``location_key`` belonging to another tenant reports zeroes (#927).
+    """
+    stats = service.get_stats(location_key, tenant_key=ctx.tenant_key)
     return WateringStatsResponse(**stats)
 
 

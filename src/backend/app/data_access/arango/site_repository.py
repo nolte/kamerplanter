@@ -193,11 +193,20 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             if r["vertex"]["_id"].startswith(f"{col.LOCATIONS}/")
         ]
 
-    def get_location_tree(self, site_key: SiteKey) -> list[Location]:
+    def get_location_tree(self, site_key: SiteKey, *, tenant_key: str) -> list[Location]:
+        """A site's location hierarchy, **inside one tenant** (#927).
+
+        Listed in #927 under "one line away": the endpoint resolves the site
+        against the caller's tenant before asking, so a foreign ``site_key`` is
+        already rejected today. The traversal itself named no tenant, though, so
+        any new caller that skipped that check would walk another tenant's tree.
+        """
+        self._require_tenant_key(tenant_key, "get_location_tree")
         aql = """
         FOR v IN 1..10 OUTBOUND @start_id GRAPH @graph
             OPTIONS {edgeCollections: [@contains_col]}
             FILTER IS_SAME_COLLECTION(@locations_col, v)
+            FILTER v.tenant_key == @tenant_key
             RETURN v
         """
         cursor = self._db.aql.execute(
@@ -207,6 +216,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
                 "graph": col.GRAPH_NAME,
                 "contains_col": col.CONTAINS,
                 "locations_col": col.LOCATIONS,
+                "tenant_key": tenant_key,
             },
         )
         return [Location(**self._from_doc(doc)) for doc in cursor]
@@ -245,12 +255,20 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         self.delete_edges(col.FILLED_WITH, from_id=slot_id)
         return self._slots.delete(key)
 
-    def get_slot_for_plant(self, plant_key: PlantInstanceKey) -> Slot | None:
-        """Find the slot a plant instance is placed in via the placed_in edge."""
+    def get_slot_for_plant(self, plant_key: PlantInstanceKey, *, tenant_key: str) -> Slot | None:
+        """The slot a plant is placed in, **inside one tenant** (#927).
+
+        Listed in #927 under "one line away". The traversal starts at a
+        caller-supplied plant key and named no tenant; both current callers sit in
+        the watering service, which reaches this with a plant of the caller's own
+        tenant. The predicate now belongs to the query instead of to that habit.
+        """
+        self._require_tenant_key(tenant_key, "get_slot_for_plant")
         query = """
         FOR e IN @@placed_in
           FILTER e._from == @plant_id
           LET slot = DOCUMENT(e._to)
+          FILTER slot != null AND slot.tenant_key == @tenant_key
           RETURN slot
         """
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
@@ -259,6 +277,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             bind_vars={
                 "@placed_in": col.PLACED_IN,
                 "plant_id": plant_id,
+                "tenant_key": tenant_key,
             },
         )
         doc = next(cursor, None)

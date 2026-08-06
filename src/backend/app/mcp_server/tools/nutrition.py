@@ -133,10 +133,12 @@ class GetPlantNutrientPlan(ToolBase):
         plant_key: str
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        # get_plant_plan takes no tenant, so ownership is established on the plant
-        # first — the same fetch-then-use guard the care log applies (SEC-001).
+        # Ownership is established on the plant (SEC-001, the same fetch-then-use
+        # guard the care log applies) *and* carried into the plan lookup, which is
+        # tenant-scoped since #927 — the second half of that pair no longer
+        # depends on this call site remembering the first.
         plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
-        plan = ctx.nutrient_plan_service.get_plant_plan(plant.key)
+        plan = ctx.nutrient_plan_service.get_plant_plan(plant.key, tenant_key=ctx.tenant_key)
 
         name = plant.plant_name or plant.instance_id
         if plan is None:

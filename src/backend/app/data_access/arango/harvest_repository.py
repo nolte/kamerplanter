@@ -59,24 +59,67 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
 
         return obs
 
+    #: Body shared by the observation count and the observation page, so the two
+    #: can never drift apart. Filtering only the page would still leak the
+    #: *number* of another tenant's observations through ``total`` (#927).
+    #:
+    #: ``HarvestObservation`` carries no ``tenant_key`` of its own, so the
+    #: predicate is taken from the plant the observation is about — the plant is
+    #: tenant-scoped and is the thing the caller names in the URL. This is a real
+    #: data-access-layer filter, no schema change and no migration.
+    _OBSERVATIONS_FOR_PLANT_BODY = """
+    FOR doc IN @@observations
+      FILTER doc.plant_key == @plant_key
+      LET plant = DOCUMENT(CONCAT(@plants, "/", @plant_key))
+      FILTER plant != null AND plant.tenant_key == @tenant_key
+    """
+
     def get_observations_for_plant(
         self,
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> tuple[list[HarvestObservation], int]:
-        return self._observations.get_page(
-            offset=offset,
-            limit=limit,
-            filters=[("plant_key", "==", plant_key)],
-            sort="observed_at",
-            sort_direction="DESC",
-        )
+        """A plant's harvest observations **inside one tenant** (#927).
 
-    def get_latest_observations_by_indicator(self, plant_key: str) -> list[HarvestObservation]:
-        query = """
-        FOR doc IN harvest_observations
-            FILTER doc.plant_key == @plant_key
+        #927 names only :meth:`get_latest_observations_by_indicator` and files it
+        under "callers do check". Neither is accurate for this pair:
+        ``GET /t/{slug}/harvest/plants/{plant_key}/observations`` and
+        ``…/readiness`` forward the URL key without resolving the plant against
+        the caller's tenant at all, so both were exploitable exactly like the five
+        named endpoints.
+        """
+        self._require_tenant_key(tenant_key, "get_observations_for_plant")
+        bind_vars = {
+            "@observations": col.HARVEST_OBSERVATIONS,
+            "plants": col.PLANT_INSTANCES,
+            "plant_key": plant_key,
+            "tenant_key": tenant_key,
+        }
+        count_cursor = self._db.aql.execute(
+            f"{self._OBSERVATIONS_FOR_PLANT_BODY} COLLECT WITH COUNT INTO cnt RETURN cnt",
+            bind_vars=bind_vars,
+        )
+        total = next(count_cursor, 0)
+
+        cursor = self._db.aql.execute(
+            f"{self._OBSERVATIONS_FOR_PLANT_BODY} SORT doc.observed_at DESC LIMIT @offset, @limit RETURN doc",
+            bind_vars={**bind_vars, "offset": offset, "limit": limit},
+        )
+        items = [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
+        return items, total
+
+    def get_latest_observations_by_indicator(self, plant_key: str, *, tenant_key: str) -> list[HarvestObservation]:
+        """Newest observation per indicator for a plant, **inside one tenant** (#927).
+
+        Same plant-anchored predicate as :meth:`get_observations_for_plant`; this
+        is the query behind the harvest-readiness assessment.
+        """
+        self._require_tenant_key(tenant_key, "get_latest_observations_by_indicator")
+        query = f"""
+        {self._OBSERVATIONS_FOR_PLANT_BODY}
             COLLECT indicator = doc.indicator_key INTO group
             LET latest = FIRST(
                 FOR g IN group
@@ -86,7 +129,15 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
             )
             RETURN latest
         """
-        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key})
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@observations": col.HARVEST_OBSERVATIONS,
+                "plants": col.PLANT_INSTANCES,
+                "plant_key": plant_key,
+                "tenant_key": tenant_key,
+            },
+        )
         return [HarvestObservation(**self._from_doc(doc)) for doc in cursor if doc]
 
     # ── Batches ──

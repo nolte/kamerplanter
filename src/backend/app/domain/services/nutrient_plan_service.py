@@ -168,8 +168,9 @@ class NutrientPlanService:
         self.get_plan(plan_key)
         return self._repo.assign_to_plant(plant_key, plan_key, assigned_by)
 
-    def get_plant_plan(self, plant_key: str) -> NutrientPlan | None:
-        return self._repo.get_plant_plan(plant_key)
+    def get_plant_plan(self, plant_key: str, *, tenant_key: str) -> NutrientPlan | None:
+        """The plan assigned to a plant of ``tenant_key`` (#927)."""
+        return self._repo.get_plant_plan(plant_key, tenant_key=tenant_key)
 
     def remove_plant_plan(self, plant_key: str) -> bool:
         return self._repo.remove_plant_plan(plant_key)
@@ -234,8 +235,16 @@ class NutrientPlanService:
 
     # ── Current dosages ──────────────────────────────────────────────
 
-    def get_current_dosages(self, plant_key: str, current_phase: str, current_week: int) -> dict | None:
-        plan = self._repo.get_plant_plan(plant_key)
+    def get_current_dosages(
+        self,
+        plant_key: str,
+        current_phase: str,
+        current_week: int,
+        *,
+        tenant_key: str,
+    ) -> dict | None:
+        """Per-channel dosages for a plant of ``tenant_key`` (#927)."""
+        plan = self._repo.get_plant_plan(plant_key, tenant_key=tenant_key)
         if plan is None:
             return None
         if plan.key is None:

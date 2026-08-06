@@ -261,7 +261,7 @@ class PlantingRunService:
 
     # ── Batch operations ──────────────────────────────────────────────
 
-    def _validate_batch_planting(self, plant_specs: list[dict], available_slots: list) -> None:
+    def _validate_batch_planting(self, plant_specs: list[dict], available_slots: list, tenant_key: str) -> None:
         """Run rotation + companion checks for every slot-assigned batch plant.
 
         Mirrors ``PlantInstanceService.create_plant``: each instance that will
@@ -269,15 +269,19 @@ class PlantingRunService:
         compatibility at that slot; instances without a slot (overflow beyond the
         available slots) are skipped, matching the single-plant ``if plant.slot_key``
         guard. No-op when the engines are unwired.
+
+        ``tenant_key`` is the run's own — both engines read the slot's history and
+        neighbourhood, which are tenant-scoped since #927. Without a tenant the
+        checks are skipped rather than run unscoped.
         """
-        if self._rotation is None or self._companion is None:
+        if self._rotation is None or self._companion is None or not tenant_key:
             return
         for i, spec in enumerate(plant_specs):
             slot_key = available_slots[i].key if i < len(available_slots) else None
             if not slot_key:
                 continue
-            self._rotation.validate_or_raise(slot_key, spec["species_key"])
-            self._companion.check_or_raise(spec["species_key"], slot_key)
+            self._rotation.validate_or_raise(slot_key, spec["species_key"], tenant_key=tenant_key)
+            self._companion.check_or_raise(spec["species_key"], slot_key, tenant_key=tenant_key)
 
     def create_plants(self, run_key: PlantingRunKey) -> dict:
         """Batch-create PlantInstances from run entries."""
@@ -311,7 +315,7 @@ class PlantingRunService:
         # and skip the checks exactly as a single plant with slot_key=None would.
         # Validated up-front so a conflict raises before any PlantInstance is
         # written (no partial batch left behind on failure).
-        self._validate_batch_planting(plant_specs, available_slots)
+        self._validate_batch_planting(plant_specs, available_slots, run.tenant_key)
 
         # Resolve initial phase per species — prefer PhaseSequence, fallback to LifecycleConfig
         initial_phases: dict[str, tuple[str, str]] = {}  # species_key -> (phase_key, phase_name)
@@ -1039,11 +1043,16 @@ class PlantingRunService:
         plan_key: str,
         run_key: PlantingRunKey,
         days_ahead: int,
+        *,
+        tenant_key: str,
     ) -> list[dict]:
         """Build per-channel watering calendars from phase entry schedules.
 
         Channels with the same channel_id across different phases are merged
         so that each physical channel appears only once with combined dates.
+
+        ``tenant_key`` is forwarded to the watering repository, whose
+        ``get_last_watering_date_for_run`` is tenant-scoped since #927.
         """
         if self._nutrient_plan_repo is None:
             return []
@@ -1059,7 +1068,7 @@ class PlantingRunService:
                     continue
                 last_date = None
                 if self._watering_repo is not None:
-                    last_date = self._watering_repo.get_last_watering_date_for_run(run_key)
+                    last_date = self._watering_repo.get_last_watering_date_for_run(run_key, tenant_key=tenant_key)
                 ch_dates = self._schedule_engine.get_next_watering_dates(
                     ch.schedule,
                     today,
@@ -1086,9 +1095,15 @@ class PlantingRunService:
                     }
         return list(merged.values())
 
-    def get_watering_schedule(self, run_key: PlantingRunKey, days_ahead: int = 14) -> dict:
-        """Get watering schedule calendar for the next N days."""
-        self.get_run(run_key)
+    def get_watering_schedule(self, run_key: PlantingRunKey, days_ahead: int = 14, *, tenant_key: str) -> dict:
+        """Get watering schedule calendar for the next N days.
+
+        ``tenant_key`` is required and keyword-only: it scopes both the run
+        lookup and the "last watered" probe the projection is anchored on
+        (#927). The repository rejects the empty sentinel, so this method cannot
+        be called tenant-blind.
+        """
+        self.get_run(run_key, tenant_key=tenant_key)
         plan_key = self._repo.get_run_nutrient_plan_key(run_key)
         if plan_key is None:
             return {"run_key": run_key, "has_schedule": False, "dates": []}
@@ -1101,7 +1116,7 @@ class PlantingRunService:
             plan is not None and hasattr(plan, "watering_schedule") and plan.watering_schedule is not None
         )
 
-        channel_calendars = self._build_channel_calendars(plan_key, run_key, days_ahead)
+        channel_calendars = self._build_channel_calendars(plan_key, run_key, days_ahead, tenant_key=tenant_key)
 
         if not has_plan_schedule and not channel_calendars:
             return {"run_key": run_key, "has_schedule": False, "dates": []}
@@ -1111,7 +1126,10 @@ class PlantingRunService:
         if has_plan_schedule and not channel_calendars:
             last_watering_date = None
             if self._watering_repo is not None:
-                last_watering_date = self._watering_repo.get_last_watering_date_for_run(run_key)
+                last_watering_date = self._watering_repo.get_last_watering_date_for_run(
+                    run_key,
+                    tenant_key=tenant_key,
+                )
             # Same UTC anchor as ``_build_channel_calendars`` — the two schedules
             # are rendered side by side and may not disagree about "today".
             today = today_utc()

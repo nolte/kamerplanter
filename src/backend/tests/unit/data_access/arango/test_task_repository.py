@@ -107,7 +107,7 @@ class TestRemovedPlantGuard:
     def test_get_pending_tasks_carries_the_guard(self, repo, mock_db):
         mock_db.aql.execute.side_effect = _list_and_count([], 0)
 
-        repo.get_pending_tasks()
+        repo.get_pending_tasks(tenant_key="tenant-a")
 
         list_query = mock_db.aql.execute.call_args_list[0].args[0]
         assert "doc.status == @val0" in list_query
