@@ -2210,10 +2210,16 @@ class BasePage:
         try:
             self.poll(timeout).until(_applied)
         except TimeoutException as exc:
-            chips = [
-                (chip.get_attribute("textContent") or "").strip()
-                for chip in self.driver.find_elements(*self.SEARCH_CHIP)
-            ]
+            # The read-back is itself a capture-then-use on a table that is by
+            # definition moving, so a chip dying here must not replace the
+            # diagnosis with a `StaleElementReferenceException` from the
+            # reporting code -- the failure would then name the reporter.
+            chips: list[str] = []
+            for chip in self.driver.find_elements(*self.SEARCH_CHIP):
+                try:
+                    chips.append((chip.get_attribute("textContent") or "").strip())
+                except StaleElementReferenceException:  # noqa: PERF203
+                    chips.append("<chip re-rendered while being read>")
             mechanism = (
                 "No search chip is rendered at all, so `tableState.search` is "
                 "still empty: the term never arrived in the input, or this "
