@@ -180,19 +180,26 @@ class WateringLogService:
         slot_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringLog]:
-        return self._repo.get_by_slot(slot_key, offset, limit)
+        """A slot's watering logs, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_by_slot(slot_key, offset, limit, tenant_key=tenant_key)
 
     def get_by_location(
         self,
         location_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringLog]:
-        return self._repo.get_by_location(location_key, offset, limit)
+        """A location's watering logs, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_by_location(location_key, offset, limit, tenant_key=tenant_key)
 
-    def get_stats(self, location_key: str) -> dict:
-        return self._repo.get_stats_by_location(location_key)
+    def get_stats(self, location_key: str, *, tenant_key: str) -> dict:
+        """A location's watering-log statistics, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_stats_by_location(location_key, tenant_key=tenant_key)
 
     def resolve_plant_names(self, plant_keys: list[str]) -> dict[str, str]:
         """Batch-resolve plant keys → display names."""

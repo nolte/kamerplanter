@@ -173,8 +173,12 @@ def validate_planting(
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    """Validate whether a species may be planted into a slot."""
-    result = service.validate_planting(slot_key, body.species_key)
+    """Validate whether a species may be planted into a slot.
+
+    A ``slot_key`` belonging to another tenant produces no findings — the slot
+    history and neighbourhood reads behind this are tenant-scoped (#927).
+    """
+    result = service.validate_planting(slot_key, body.species_key, tenant_key=ctx.tenant_key)
     return ValidatePlantingResponse(**result)
 
 
@@ -201,7 +205,7 @@ def get_nutrient_plan(
 ):
     """Return the nutrient plan assigned to a plant instance, or ``null``."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
-    plan = plan_service.get_plant_plan(key)
+    plan = plan_service.get_plant_plan(key, tenant_key=ctx.tenant_key)
     if plan is None:
         return None
     return plan.model_dump(by_alias=False)
@@ -230,7 +234,7 @@ def get_current_dosages(
     """Return the current per-channel dosages for a plant instance's active plan."""
     plant = plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     phase_name = plant_service.resolve_phase_name(plant.current_phase_key or "")
-    result = plan_service.get_current_dosages(key, phase_name, current_week)
+    result = plan_service.get_current_dosages(key, phase_name, current_week, tenant_key=ctx.tenant_key)
     if result is None:
         return {"message": "No plan or matching entry found"}
     return result
@@ -246,7 +250,7 @@ def get_active_channels(
 ):
     """List the active nutrient channels for a plant instance in the given week."""
     plant = plant_service.get_plant(key, tenant_key=ctx.tenant_key)
-    plan = plan_service.get_plant_plan(key)
+    plan = plan_service.get_plant_plan(key, tenant_key=ctx.tenant_key)
     if plan is None or plan.key is None:
         return []
     phase_name = plant_service.resolve_phase_name(plant.current_phase_key or "")

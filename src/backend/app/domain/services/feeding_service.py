@@ -55,8 +55,21 @@ class FeedingService:
 
     # ── Queries ──────────────────────────────────────────────────────
 
-    def get_by_plant(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[FeedingEvent]:
-        return self._repo.get_by_plant(plant_key, offset, limit)
+    def get_by_plant(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[FeedingEvent]:
+        """A plant's feeding history, scoped to ``tenant_key`` (#927).
+
+        ``plant_key`` is never resolved against the caller's tenant here; the
+        repository's tenant predicate is what turns a foreign key into an empty
+        list instead of another tenant's fertigation record.
+        """
+        return self._repo.get_by_plant(plant_key, offset, limit, tenant_key=tenant_key)
 
     # ── Runoff analysis ──────────────────────────────────────────────
 

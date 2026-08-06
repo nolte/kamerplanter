@@ -21,9 +21,10 @@ from app.domain.models.task import Task
 from app.domain.services.plant_instance_service import PlantInstanceService
 
 
-def _plant() -> PlantInstance:
+def _plant(tenant_key: str = "tenant-a") -> PlantInstance:
     return PlantInstance(
         _key="plant-1",
+        tenant_key=tenant_key,
         instance_id="P-1",
         species_key="sp-1",
         planted_on=date(2025, 1, 1),
@@ -101,6 +102,25 @@ class TestTermination:
         # The care reminder (a CARE_REMINDER task) is cancelled alongside plain tasks.
         deleted = {c.args[0] for c in self.task_repo.delete_task.call_args_list}
         assert "care-1" in deleted
+        # The task lookup is bound to the plant's tenant (#927).
+        assert self.task_repo.get_tasks_for_plant.call_args.kwargs["tenant_key"] == "tenant-a"
+
+    def test_a_tenantless_plant_does_not_trigger_an_unscoped_task_sweep(self) -> None:
+        """Fail closed: no tenant, no task lookup at all (#927).
+
+        The task cascade reads a tenant-scoped repository query. A plant whose
+        tenant cannot be established must therefore leave its tasks alone rather
+        than have the service fall back to a scan across every tenant.
+        """
+        tenantless = _plant(tenant_key="")
+        self.plant_repo.get_or_raise.return_value = tenantless
+        self.plant_repo.get_by_key.return_value = tenantless
+        service = self._service()
+
+        service.remove_plant("plant-1", termination_type=TerminationType.HARVESTED)
+
+        self.task_repo.get_tasks_for_plant.assert_not_called()
+        self.task_repo.delete_task.assert_not_called()
 
     def test_harvested_does_not_freeze_into_died_semantics(self) -> None:
         service = self._service()

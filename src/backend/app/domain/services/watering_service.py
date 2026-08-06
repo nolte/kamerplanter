@@ -75,7 +75,9 @@ class WateringService:
         # Look up irrigation system from the first plant's placement
         irrigation_system = None
         first_plant_key = event.plant_keys[0]
-        slot = self._site_repo.get_slot_for_plant(first_plant_key)
+        # The event carries the creating tenant (stamped by the endpoint); the
+        # slot lookup is tenant-scoped since #927.
+        slot = self._slot_for_plant(first_plant_key, event.tenant_key)
         if slot is not None:
             location = self._site_repo.get_location_by_key(slot.location_key)
             if location is not None:
@@ -106,19 +108,31 @@ class WateringService:
         plant_key: PlantInstanceKey,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringEvent]:
-        return self._repo.get_by_plant(plant_key, offset, limit)
+        """A plant's watering events, scoped to ``tenant_key`` (#927).
+
+        ``plant_key`` arrives straight from the URL and is never resolved against
+        the caller's tenant here — the repository's tenant predicate is what makes
+        a foreign key return an empty list instead of another tenant's history.
+        """
+        return self._repo.get_by_plant(plant_key, offset, limit, tenant_key=tenant_key)
 
     def get_by_location(
         self,
         location_key: LocationKey,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringEvent]:
-        return self._repo.get_by_location(location_key, offset, limit)
+        """A location's watering events, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_by_location(location_key, offset, limit, tenant_key=tenant_key)
 
-    def get_stats(self, location_key: LocationKey) -> dict:
-        return self._repo.get_stats_by_location(location_key)
+    def get_stats(self, location_key: LocationKey, *, tenant_key: str) -> dict:
+        """A location's watering statistics, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_stats_by_location(location_key, tenant_key=tenant_key)
 
     # ── Confirm / Quick-confirm ─────────────────────────────────────────
 
@@ -348,7 +362,7 @@ class WateringService:
             )
 
         # ── Live soil-moisture sensor override (REQ-005) — reduces when wet ──
-        moisture = self._latest_soil_moisture_percent(plant_key)
+        moisture = self._latest_soil_moisture_percent(plant_key, getattr(plant, "tenant_key", "") or "")
         if moisture is not None:
             factor = self._moisture_volume_factor(moisture)
             if factor < 1.0:
@@ -396,7 +410,18 @@ class WateringService:
             return per_plant_liters * 1000.0
         return None
 
-    def _latest_soil_moisture_percent(self, plant_key: PlantInstanceKey) -> float | None:
+    def _slot_for_plant(self, plant_key: PlantInstanceKey, tenant_key: str):  # type: ignore[no-untyped-def]
+        """Tenant-scoped ``placed_in`` lookup, or ``None`` without a tenant (#927).
+
+        The repository rejects the empty ``tenant_key`` sentinel, so a plant whose
+        tenant could not be established resolves to "no slot" — the same answer an
+        unplaced plant gives — rather than to an unscoped traversal.
+        """
+        if not tenant_key:
+            return None
+        return self._site_repo.get_slot_for_plant(plant_key, tenant_key=tenant_key)
+
+    def _latest_soil_moisture_percent(self, plant_key: PlantInstanceKey, tenant_key: str) -> float | None:
         """Latest live soil-moisture reading (% VWC) for the plant's location, or None.
 
         Resolves plant → slot → location, finds a ``soil_moisture`` sensor there and
@@ -406,7 +431,7 @@ class WateringService:
         """
         if self._sensor_service is None:
             return None
-        slot = self._site_repo.get_slot_for_plant(plant_key)
+        slot = self._slot_for_plant(plant_key, tenant_key)
         if slot is None or not getattr(slot, "location_key", None):
             return None
         try:
