@@ -1062,3 +1062,77 @@ class TestTheSweptReaders:
     ) -> None:
         """TC-REQ-013-005 asserts a product claim; it has to be able to fail."""
         assert harness.page.has_search_chip(timeout=SETTLE_TIMEOUT) is False
+
+
+# ── 7. The consolidated readers, both halves each (#835, local light run 2) ──
+
+
+class TestTheConsolidatedReaders:
+    """Every reader collapsed into `BasePage` must wait *and* still say "no".
+
+    Thirty-one duplicated private copies (14 `has_sort_chip`, 17
+    `has_empty_state`) plus the visibility/absence primitives they are built on.
+    Each gets the same pair of cases as the swept readers in the section above,
+    because a consolidated helper multiplies whichever of the two properties it
+    has across every page object at once — including the wrong one.
+    """
+
+    def _render_after(self, harness: Harness, lookups: int, testid: str) -> None:
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == lookups:
+                harness.dom.render_dialog(testid)
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+    def _detach_after(self, harness: Harness, lookups: int, node: StubNode) -> None:
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == lookups:
+                node.attached = False
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+    # ── has_sort_chip ──
+
+    def test_sort_chip_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "sort-chip")
+
+        assert harness.page.has_sort_chip(timeout=SETTLE_TIMEOUT) is True
+
+    def test_sort_chip_still_reports_an_unsorted_table(self, harness: Harness) -> None:
+        assert harness.page.has_sort_chip(timeout=SETTLE_TIMEOUT) is False
+
+    # ── has_empty_state ──
+
+    def test_empty_state_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "empty-state")
+
+        assert harness.page.has_empty_state(timeout=SETTLE_TIMEOUT) is True
+
+    def test_empty_state_still_reports_a_populated_table(self, harness: Harness) -> None:
+        """The arm that must stay cheap AND false: `assert has_empty or has_cards`."""
+        harness.dom.render(ROWS)
+
+        assert harness.page.has_empty_state(timeout=SETTLE_TIMEOUT) is False
+
+    # ── is_absent_within: the absence primitive ──
+
+    def test_is_absent_within_outlives_a_dialog_still_fading_out(self, harness: Harness) -> None:
+        """An absence read taken too early sees what is about to leave."""
+        node = harness.dom.render_dialog("some-dialog")
+        self._detach_after(harness, 3, node)
+
+        assert harness.page.is_absent_within(self.DIALOG, timeout=SETTLE_TIMEOUT) is True
+
+    def test_is_absent_within_still_reports_a_dialog_that_stays(self, harness: Harness) -> None:
+        """ "It never closed" is the finding; this must not be waited away."""
+        harness.dom.render_dialog("some-dialog")
+
+        assert harness.page.is_absent_within(self.DIALOG, timeout=SETTLE_TIMEOUT) is False
+
+    DIALOG = (By.CSS_SELECTOR, "[data-testid='some-dialog']")
