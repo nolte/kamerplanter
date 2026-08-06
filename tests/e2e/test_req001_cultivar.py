@@ -155,13 +155,19 @@ class TestCultivarCreateDialog:
 
         species_detail.click_cultivar_create()
         species_detail.fill_cultivar_form("")
-        species_detail.submit_cultivar_form()
+        # The rejection-path submit: it carries no success post-condition, since
+        # this test exists precisely because the submit must NOT go through.
+        species_detail.submit_cultivar_form_expecting_rejection()
 
         screenshot(
             "TC-REQ-001-046_validation-error",
             "Cultivar create dialog after submitting empty name — validation error expected, dialog stays open",
         )
-        assert species_detail.is_create_dialog_open(), (
+        # "Still open after a settle window", not "open in this instant": a
+        # dialog on its way out satisfies the instantaneous read, so if
+        # validation ever stopped rejecting an empty name the old check could
+        # have passed on the closing animation.
+        assert species_detail.cultivar_dialog_stays_open(), (
             "TC-REQ-001-046 FAIL: Dialog should remain open after validation error"
         )
 

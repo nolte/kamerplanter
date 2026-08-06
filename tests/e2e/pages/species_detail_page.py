@@ -312,14 +312,56 @@ class SpeciesDetailPage(BasePage):
         the caller carried on into the refetch the create triggers, which is how
         TC-REQ-001-J079 read ``[]`` off the Cultivars table for a cultivar the
         backend had already answered ``201`` for (#835).
+
+        **This method asserts success, so only a caller that expects success may
+        use it.** A submit helper is shared between the happy path and the
+        rejection path, and its post-condition is not a property of the action --
+        it is a property of what the caller *intends*. Baking "the dialog
+        closed" in unconditionally broke TC-REQ-001-038, which submits an empty
+        name precisely so that validation keeps the dialog open. That is the
+        limit of "a reader is only as good as the action before it": the action
+        cannot know which outcome is being asserted.
+        A caller expecting rejection uses
+        :meth:`submit_cultivar_form_expecting_rejection`.
         """
+        self._click_cultivar_submit()
+        self.wait_for_element_hidden(self.CULTIVAR_CREATE_DIALOG)
+
+    def _click_cultivar_submit(self) -> None:
+        """Click the cultivar dialog's submit button. No post-condition."""
         self.wait_and_click(
             (
                 By.CSS_SELECTOR,
                 "[data-testid='cultivar-create-dialog'] [data-testid='form-submit-button']",
             )
         )
-        self.wait_for_element_hidden(self.CULTIVAR_CREATE_DIALOG)
+
+    def submit_cultivar_form_expecting_rejection(self) -> None:
+        """Submit the cultivar dialog when the form is expected to be **rejected**.
+
+        Deliberately carries no post-condition of its own, and the name says so
+        rather than leaving a bare ``submit_cultivar_form()`` for the next reader
+        to mistake for an oversight. There is nothing here this method could
+        assert that the caller is not already asserting: the only observable
+        outcome of a rejected submit is that the dialog stays open, and asserting
+        it here would leave the caller's own assertion unable to fail.
+
+        The caller's post-condition is
+        :meth:`cultivar_dialog_stays_open`, which is the falsifiable form.
+        """
+        self._click_cultivar_submit()
+
+    def cultivar_dialog_stays_open(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether the cultivar dialog is **still** open after *timeout*.
+
+        The rejection-path post-condition, and stronger than the instantaneous
+        ``is_create_dialog_open()`` it replaces at that one call site: a dialog
+        that is merely on its way out still satisfies an instant read, so should
+        validation ever stop rejecting an empty name, the old check could pass
+        on the closing animation. This waits for the close it does *not* expect
+        and reports that it never came.
+        """
+        return not self.is_absent_within(self.CULTIVAR_CREATE_DIALOG, timeout)
 
     # ── Lifecycle tab (tab 2) ─────────────────────────────────────────
 

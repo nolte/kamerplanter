@@ -87,6 +87,7 @@ from tests.e2e.pages.base_page import (
     TableNotSettled,
 )
 from tests.e2e.pages.pflege_dashboard_page import PflegeDashboardPage
+from tests.e2e.pages.species_detail_page import SpeciesDetailPage
 from tests.e2e.pages.task_detail_page import TaskDetailPage
 
 #: The W3C element identifier key — see `test_element_proxy.py` for why it is
@@ -1216,3 +1217,74 @@ class TestTheAnchoredCareCardReaders:
 
         self._render_card_after(harness, 3)
         assert page.wait_for_care_card(self.PLANT, "watering", timeout=SETTLE_TIMEOUT) is True
+
+
+# ── 9. A submit helper cannot carry the caller's intent (#835) ───────────────
+
+
+class TestTheSubmitPolarities:
+    """`submit_cultivar_form` asserts success; the rejection path must not use it.
+
+    The limit of "a reader is only as good as the action before it". A submit
+    helper is shared between the happy path and the rejection path, and its
+    post-condition is a property of what the caller *intends*, not of the
+    action. Baking "the dialog closed" in unconditionally made
+    TC-REQ-001-038 — which submits an empty name so that validation keeps the
+    dialog open — time out on its own arrange step.
+
+    Both polarities are pinned, because fixing this by dropping the wait
+    everywhere would silently restore the defect the wait was added for.
+    """
+
+    DIALOG = (By.CSS_SELECTOR, "[data-testid='cultivar-create-dialog']")
+
+    def _page(self, harness: Harness) -> SpeciesDetailPage:
+        return SpeciesDetailPage(harness.driver, "http://stub.invalid")
+
+    def test_the_rejection_reader_reports_a_dialog_that_stays(self, harness: Harness) -> None:
+        """A rejected submit leaves the dialog up — the test's whole contract."""
+        harness.dom.render_dialog("cultivar-create-dialog")
+
+        assert self._page(harness).cultivar_dialog_stays_open(timeout=SETTLE_TIMEOUT) is True
+
+    def test_the_rejection_reader_fails_when_validation_stops_rejecting(
+        self, harness: Harness
+    ) -> None:
+        """The half that keeps the negative test able to fail.
+
+        If validation ever accepted an empty name the dialog would close, and
+        this must report that rather than passing on the closing animation —
+        which the instantaneous `is_create_dialog_open()` it replaced could do.
+        """
+        node = harness.dom.render_dialog("cultivar-create-dialog")
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == 3:
+                node.attached = False
+                harness.dom.root.children.remove(node)
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+        assert self._page(harness).cultivar_dialog_stays_open(timeout=SETTLE_TIMEOUT) is False
+
+    def test_the_success_submit_still_asserts_the_dialog_closed(self, harness: Harness) -> None:
+        """The four happy-path callers keep their post-condition."""
+        harness.dom.render_dialog("cultivar-create-dialog")
+        page = self._page(harness)
+        page.wait_and_click = lambda *_a, **_k: None  # type: ignore[method-assign]
+
+        with pytest.raises(TimeoutException):
+            page.submit_cultivar_form()
+
+    def test_the_rejection_submit_carries_no_success_post_condition(self, harness: Harness) -> None:
+        """…and the rejection sibling must NOT, or the arrange step times out."""
+        harness.dom.render_dialog("cultivar-create-dialog")
+        page = self._page(harness)
+        clicked: list[int] = []
+        page.wait_and_click = lambda *_a, **_k: clicked.append(1)  # type: ignore[method-assign]
+
+        page.submit_cultivar_form_expecting_rejection()
+
+        assert clicked == [1], "the submit must still be delivered, only the wait is gone"
