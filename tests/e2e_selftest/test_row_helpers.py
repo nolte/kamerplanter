@@ -30,13 +30,19 @@ Plus the two guards that must not regress: the identity-based recovery in
 `click_data_table_row` (#871), and the staleness *verdicts*, which answer with
 the exception and must therefore never be handed a self-healing reference.
 
-And, since run 31113673507, a fourth property that comes *before* all of them:
+And, since run 31113673507, two further properties that come *before* all of
+them, because both concern a read taken one render too early:
 4. **The row an index resolves to is the one the caller searched for.**
    `click_data_table_row`'s identity guard can only defend the identity it was
    handed, so if that first read already came off the pre-filter render the
    guard faithfully defends the wrong row. `wait_for_search_applied` and
    `wait_for_row_identity` are what make the first read trustworthy; both are
    pinned against the render they must refuse.
+5. **A reader that waits must still be able to say "no".** `tab_elements` and
+   `has_search_chip` replaced a raw `find_elements` at 42 call sites across the
+   page objects. Waiting removes the false negative; the true one has to
+   survive, or every assertion built on them becomes a mute. Both halves are
+   pinned per reader.
 
 ## Why the driver is stubbed and nothing else is
 
@@ -1006,3 +1012,53 @@ class TestThePostSearchSettling:
         harness.settle_rows_on_second_lookup()
 
         harness.page.wait_for_row_identity(0, COL, "wanted", timeout=SETTLE_TIMEOUT)
+
+
+# ── 6. The two readers swept across the page objects (#835, local light run) ──
+
+
+class TestTheSweptReaders:
+    """`tab_elements` and `has_search_chip` must wait, and must still say "no".
+
+    Both replaced a raw `find_elements` that answered in the millisecond after a
+    client-side navigation or a debounced keystroke. The pair of properties is
+    what makes the replacement legitimate rather than a mute: the reader has to
+    outlive a DOM that is merely late, and it has to keep reporting absence when
+    the thing is genuinely absent. A reader with only the first property is a
+    test that cannot fail.
+    """
+
+    TAB_LOCATOR = (By.CSS_SELECTOR, "[data-testid='tab-item']")
+
+    def _render_after(self, harness: Harness, lookups: int, testid: str) -> None:
+        """Render *testid* once the DOM has been scanned *lookups* times."""
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == lookups:
+                harness.dom.render_dialog(testid)
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+    def test_tab_elements_outlives_a_strip_that_mounts_late(self, harness: Harness) -> None:
+        """The route commits after the URL changed; the reader must not answer `[]` yet."""
+        self._render_after(harness, 3, "tab-item")
+
+        assert harness.page.tab_elements(self.TAB_LOCATOR, timeout=SETTLE_TIMEOUT)
+
+    def test_tab_elements_still_reports_a_strip_that_never_renders(self, harness: Harness) -> None:
+        """A page with no tabs must still read as no tabs, or the assertion is a mute."""
+        assert harness.page.tab_elements(self.TAB_LOCATOR, timeout=SETTLE_TIMEOUT) == []
+
+    def test_has_search_chip_outlives_the_debounce(self, harness: Harness) -> None:
+        """The chip appears one debounce after the keystroke, not with it."""
+        self._render_after(harness, 3, TableDom.SEARCH_CHIP_TESTID)
+
+        assert harness.page.has_search_chip(timeout=SETTLE_TIMEOUT) is True
+
+    def test_has_search_chip_still_reports_a_table_that_renders_none(
+        self, harness: Harness
+    ) -> None:
+        """TC-REQ-013-005 asserts a product claim; it has to be able to fail."""
+        assert harness.page.has_search_chip(timeout=SETTLE_TIMEOUT) is False
