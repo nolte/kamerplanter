@@ -6,10 +6,11 @@ Every element lookup in this suite is a *capture-then-use*: a ``WebDriverWait``
 resolves a ``WebElement``, and the next line clicks or types into it. There are
 ~459 such sites across the page objects. Between the resolution and the use,
 React is free to re-render — and a re-render replaces the DOM node, which kills
-the reference. The driver-level implicit wait has been masking this by delaying
-every lookup enough that a re-rendering table had usually settled before the
-reference was taken (see ``conftest.py``); it is not a property of the code that
-the capture survives.
+the reference. A driver-level implicit wait used to mask this by delaying every
+lookup enough that a re-rendering table had usually settled before the reference
+was taken; #835 removed it (see ``conftest.py``). That is what turned "the
+capture survives" from an accident of timing into something the code has to
+provide — and this module is where it provides it.
 
 :meth:`BasePage.retry_on_stale` is the existing answer and stays: it re-runs a
 whole *action* that re-acquires what it touches. It cannot help the 459 sites,

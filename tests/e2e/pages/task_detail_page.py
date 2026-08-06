@@ -248,9 +248,19 @@ class TaskDetailPage(BasePage):
     #: Inline validation errors MUI renders under a rejected field.
     FORM_FIELD_ERRORS = (By.CSS_SELECTOR, ".MuiFormHelperText-root.Mui-error")
 
-    #: Budget for the "did the submit register?" post-condition. Generous on
-    #: purpose: each negative poll pays the session's implicit wait for the
-    #: absent snackbar, so this must cover more than one iteration.
+    #: Budget for the "did the submit register?" post-condition.
+    #:
+    #: Sized when each negative poll paid the session's implicit wait for the
+    #: absent snackbar, so 8 s was "more than one iteration". #835 removed that
+    #: wait and the arithmetic behind this number went with it -- an absent
+    #: snackbar is an instant answer now.
+    #:
+    #: Left at 8 s deliberately. Cutting it can only be justified by measuring
+    #: what the post-condition now costs across the profiles, and the value is
+    #: not on the failure path of the removal: too *generous* a budget costs
+    #: seconds on a genuine failure and nothing at all on a pass. Re-cutting it
+    #: on the same commit that removed the wait would also confound the two
+    #: effects in precisely the run that has to tell them apart.
     SUBMIT_REGISTERED_TIMEOUT = 8
 
     def _get_field_errors(self) -> list[str]:
@@ -272,8 +282,11 @@ class TaskDetailPage(BasePage):
         A visible snackbar also counts: on a *rejected* save the error handler
         toasts and the form goes dirty-and-enabled again, which the button state
         alone cannot tell apart from a swallowed click. It is probed *last*
-        because the absence of a snackbar costs the full implicit wait, while
-        the button state is a present-element read and therefore instant.
+        because it used to cost the full implicit wait when absent, while the
+        button state is a present-element read and therefore instant. #835
+        removed that wait, so the two probes now cost the same; the order is
+        kept because it is also the right one on meaning — the button state is
+        the direct evidence and the snackbar is the corroborating signal.
 
         **This is the suite's only staleness verdict whose answer is a success
         signal**, so it is the one place where a self-healing reference would not

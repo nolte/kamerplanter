@@ -1067,10 +1067,10 @@ def browser(
     # not come back only for as long as no prose answers that grep.
     #
     # Why it had to go. Mixing implicit and explicit waits is a genuine
-    # anti-pattern rather than a stylistic one: the implicit wait also applies to
+    # anti-pattern rather than a stylistic one: the implicit wait also applied to
     # the `find_element` calls *inside* a `WebDriverWait`, so the two budgets
-    # multiply instead of bounding each other, and a poll that documents a 15 s
-    # ceiling can spend far longer without saying so.
+    # multiplied instead of bounding each other, and a poll documenting a 15 s
+    # ceiling could spend far longer without saying so.
     #
     # Why it could not simply be deleted. Measured on the base commit
     # `1d98bf3ca` (#835): the suite resolves an element and then uses it on a
@@ -1094,7 +1094,7 @@ def browser(
     #     the 48 that go through `find_present`, and `find_by_testid`, which
     #     builds on them but currently has no callers at all.
     #     `wait_for_element_hidden` is unchanged; it returns `None`.
-    #   * The plural path (`find_elements`, 801 sites) is deliberately *not*
+    #   * The plural path (`find_elements`, 804 calls) is deliberately *not*
     #     wrapped — a list element has no re-resolution key but its index, and
     #     re-selecting by index after a re-render is the #871 defect. Its lever
     #     is `BasePage.retry_on_stale`, which re-runs a whole acquisition, and it

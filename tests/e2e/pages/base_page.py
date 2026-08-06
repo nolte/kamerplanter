@@ -30,8 +30,17 @@ DEFAULT_TIMEOUT = 15
 #: ``find_element`` call before #835 removed it. The singular finders that were
 #: relying on it now ask for it explicitly (``find_present``), so the removal
 #: changes no test's timing — while every *absence* check stopped paying it,
-#: which is where the cost actually sat: 41 ``is_present`` call sites blocked
-#: the full budget on every negative answer.
+#: which is where the cost actually sat: 29 ``is_present`` call sites blocked
+#: the full budget on every negative answer (31 counting the two that reach
+#: `PrintButtonPage`'s same-named, argument-less helper, which is the same
+#: ``find_elements`` shape).
+#:
+#: Those figures are AST call counts, not grep hits, and the difference is not
+#: pedantry: a grep for the bare name reports 39 here. It picks up the two
+#: definitions, five ``def test_..._is_present`` *test names*, and three
+#: ``EC.alert_is_present()`` calls — a different Selenium API entirely. The 41
+#: this docstring carried before #835 P6 came from exactly that over-count, and
+#: so did the 49 that :meth:`find_present` carried.
 #:
 #: Deliberately not ``DEFAULT_TIMEOUT``. These are lookups of something the
 #: caller believes is already rendered, not waits for a transition; raising the
@@ -95,7 +104,7 @@ class TableNotSettled(StaleElementReferenceException):
 
 # ── Why the *plural* path is not wrapped ──────────────────────────────────
 # The three element-returning waits hand back a `ReResolvingElement` (#835 P3).
-# `driver.find_elements(...)` -- 801 call sites -- deliberately does **not**, and
+# `driver.find_elements(...)` -- 804 call sites -- deliberately does **not**, and
 # this is the reasoned decision, not an omission left for later (#835 P4).
 #
 # A singular reference can re-acquire itself because it knows *what it was
@@ -107,7 +116,7 @@ class TableNotSettled(StaleElementReferenceException):
 # `StaleElementReferenceException` into four journey tests that opened the
 # globally-first plant and then asserted against the one they meant to create.
 # Wrapping the plural path would reinstate that recovery *below* the guard that
-# rejects it, at 801 sites, where the guard cannot see it. A wrong element that
+# rejects it, at 804 sites, where the guard cannot see it. A wrong element that
 # reads as success is worse than the exception it replaces.
 #
 # It would also buy nothing at most of those sites. The dominant shape there is
@@ -136,6 +145,11 @@ class TableNotSettled(StaleElementReferenceException):
 # of a pure read -- the same shape as the three, at eight page objects' worth of
 # list assertions (`get_visible_*` on harvest batches, planting runs,
 # substrates, treatments, tanks, watering logs, pests, diseases).
+#
+# "Six" is checkable rather than asserted: `retry_on_stale` has exactly six call
+# expressions under `tests/e2e/`, all in this module. Count them from the AST,
+# not with a grep -- see `IMPLICIT_WAIT_EQUIVALENT` for what a grep does to a
+# figure like this one.
 #
 # What the rule keeps *out* is as load-bearing as what it lets in. A helper that
 # only counts or probes emptiness -- `get_all_table_row_count`,
@@ -497,11 +511,19 @@ class BasePage:
     #      cause that is nowhere near the real one.
 
     #: Probes every CSS branch selector in ONE driver round-trip and returns the
-    #: indices that matched. Deliberately JS rather than N× ``find_elements``:
-    #: the session runs with a 3 s implicit wait (see ``conftest.py``), which
-    #: applies to every *empty* ``find_elements`` result, so an N-branch probe
-    #: would cost N×3 s per poll cycle and burn the whole timeout budget on two
-    #: cycles. ``execute_script`` is not subject to the implicit wait.
+    #: indices that matched. Deliberately JS rather than N× ``find_elements``.
+    #:
+    #: The original reason was cost: the session ran with a driver-level implicit
+    #: wait, which applied to every *empty* ``find_elements`` result, so an
+    #: N-branch probe spent N×3 s per poll cycle and burned the whole budget in
+    #: two cycles. #835 removed that wait, so the arithmetic no longer holds --
+    #: an empty ``find_elements`` now returns at once.
+    #:
+    #: It stays JS for the reason that outlived the wait: N separate lookups are
+    #: N separate instants, so a branch that appears midway through the sweep can
+    #: be reported alongside one that has already gone. One round-trip reads all
+    #: branches against a single DOM state, which is what makes "exactly one
+    #: branch matched" a statement about the page rather than about the sweep.
     _PROBE_CSS_BRANCHES = (
         "var sels = arguments[0], out = [];"
         "for (var i = 0; i < sels.length; i++) {"
@@ -779,13 +801,19 @@ class BasePage:
         same budget, but visible at the call site and no longer silently added to
         every lookup *inside* a ``WebDriverWait``, where the two wait kinds
         compounded into timeouts nobody could predict — the reason one
-        post-condition needed an 8 s budget where 3 s should have done.
+        post-condition (``TaskDetailPage.SUBMIT_REGISTERED_TIMEOUT``) was given
+        an 8 s budget where 3 s should have done. That budget has *not* been
+        re-cut here: its size was justified by a cost that no longer exists, but
+        shrinking it is a measurement, not a docstring edit.
 
         Use :meth:`wait_for_element` instead when the element is genuinely
         expected to *appear*. That is a page transition, not a lookup, and
         deserves the full ``DEFAULT_TIMEOUT``.
 
-        Its 49 call sites inherit the re-resolving reference from the `return`
+        Its 48 call sites — an AST call count, for the reason
+        :data:`IMPLICIT_WAIT_EQUIVALENT` sets out; the 49 carried here before
+        #835 P6 had counted this definition as one of them — inherit the
+        re-resolving reference from the `return`
         below rather than from a rule anybody has to remember: this **is**
         :meth:`wait_for_element` on a shorter budget, so there is no second code
         path here that could be left un-wired. The narrowed return type is what

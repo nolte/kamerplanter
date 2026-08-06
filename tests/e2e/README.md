@@ -107,8 +107,14 @@ reached, so a test asserts an outcome instead of accepting any of them:
 order**, and that ordering is the contract: `{content: PAGE, error:
 ERROR_DISPLAY}` says "if the page root is there, that is the outcome I am
 reading". Branch probing is one `execute_script` round-trip rather than N
-`find_elements` calls, because the session's 3 s implicit wait applies to every
-*empty* `find_elements` and would otherwise cost N×3 s per poll cycle.
+`find_elements` calls. That started as a cost argument — a driver-level implicit
+wait applied to every *empty* `find_elements`, so N branches cost N×3 s per poll
+cycle — and #835 has since removed that wait. It stays one round-trip for the
+reason that outlived it: N lookups are N instants, so a branch appearing midway
+through the sweep can be reported alongside one that has already gone. One
+round-trip reads every branch against a single DOM state, which is what makes
+"exactly one branch matched" a statement about the page rather than about the
+sweep.
 
 **Structural rule:** a `navigate()` call outside an `open()`-shaped method is a
 review finding — it returns once the document is loaded, which for this SPA is
