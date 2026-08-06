@@ -8,7 +8,7 @@
 # names stable; the workflows look them up via `yq`.
 
 # datasource=github-tags depName=projectdiscovery/nuclei-templates
-nuclei_templates_version: v10.4.6
+nuclei_templates_version: v10.4.7
 
 # The commit the tag above pointed at when it was reviewed. The workflows fetch
 # the TAG and then assert it still resolves here.
@@ -22,4 +22,4 @@ nuclei_templates_version: v10.4.6
 # custom manager tracks the tag, so the human-readable version stays updatable.
 # When Renovate bumps the tag, this assertion fails until the commit is updated
 # in the same pull request — which is the review the pin exists to force.
-nuclei_templates_commit: 7d66fa06cc0a5ad85f7bf35f18cf8ee9218fa9a5
+nuclei_templates_commit: 83234ce456da3e90dda86dfbc5e605e64a846df3
