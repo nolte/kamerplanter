@@ -149,6 +149,10 @@ def suggest_watering_volume(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    """Suggest a watering volume for a plant instance based on phase and season."""
-    suggestion = service.suggest_volume(plant_key, reference_date, hemisphere)
+    """Suggest a watering volume for a plant instance based on phase and season.
+
+    A ``plant_key`` outside the caller's tenant answers **404**, not a
+    recommendation computed from the other tenant's plant (#952).
+    """
+    suggestion = service.suggest_volume(plant_key, reference_date, hemisphere, tenant_key=ctx.tenant_key)
     return VolumeSuggestionResponse(**suggestion.model_dump())

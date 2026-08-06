@@ -271,11 +271,28 @@ class PlantingRunService:
         guard. No-op when the engines are unwired.
 
         ``tenant_key`` is the run's own — both engines read the slot's history and
-        neighbourhood, which are tenant-scoped since #927. Without a tenant the
-        checks are skipped rather than run unscoped.
+        neighbourhood, which are tenant-scoped since #927.
+
+        A run with no tenant **refuses to plant** rather than planting unchecked
+        (#952). This branch used to ``return`` on an empty ``tenant_key``, which
+        skipped crop-rotation and companion-planting validation altogether: a
+        fail-*open* on a business rule, in a codebase whose tenant handling is
+        otherwise fail-closed, and a silent divergence from the single-plant path
+        — ``PlantInstanceService.create_plant`` has no such guard and raises out
+        of ``_require_tenant_key`` on the same data. The two now agree that a
+        tenantless run is a defect to surface, not a validation to drop; the
+        error names the cause instead of surfacing as a bare ``ValueError`` from
+        two layers down. Runs are stamped on create and backfilled by
+        ``v0004_backfill_tenant_key``, so this is unreachable in normal operation.
         """
-        if self._rotation is None or self._companion is None or not tenant_key:
+        if self._rotation is None or self._companion is None:
             return
+        if not tenant_key:
+            raise ValidationError(
+                "This planting run carries no tenant, so its crop-rotation and companion-planting "
+                "checks cannot be run against the slot's history. Planting is refused rather than "
+                "performed unvalidated."
+            )
         for i, spec in enumerate(plant_specs):
             slot_key = available_slots[i].key if i < len(available_slots) else None
             if not slot_key:

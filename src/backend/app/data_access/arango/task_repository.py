@@ -385,9 +385,20 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         self._require_tenant_key(tenant_key, "get_tasks_for_plant")
         return self.get_tasks_for_entity("plant_instance", plant_key, tenant_key, status)
 
-    def get_tasks_for_run(self, run_key: str, status: str | None = None) -> list[Task]:
-        query = f"FOR doc IN {col.TASKS} FILTER doc.planting_run_key == @run_key"
-        bind_vars: dict = {"run_key": run_key}
+    def get_tasks_for_run(self, run_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+        """A run's tasks **inside one tenant** (#952).
+
+        This was the last query in this repository still scanning ``tasks`` with
+        no tenant predicate at all, sitting directly beside the ones #947
+        hardened. Only internally reachable today (through
+        ``PlantInstanceService._delete_orphaned_run_tasks``), which is precisely
+        why it is worth closing now rather than when an endpoint reaches it:
+        ``tenant_key`` is required and keyword-only, so a future caller cannot
+        route a forgotten tenant through here.
+        """
+        self._require_tenant_key(tenant_key, "get_tasks_for_run")
+        query = f"FOR doc IN {col.TASKS} FILTER doc.planting_run_key == @run_key AND doc.tenant_key == @tenant_key"
+        bind_vars: dict = {"run_key": run_key, "tenant_key": tenant_key}
         if status:
             query += " FILTER doc.status == @status"
             bind_vars["status"] = status

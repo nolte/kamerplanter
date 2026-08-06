@@ -245,8 +245,26 @@ class WateringService:
         reference_date: date | None = None,
         hemisphere: str = "north",
         et_net_demand_ml: float | None = None,
+        *,
+        tenant_key: str,
     ) -> VolumeSuggestion:
         """Suggest a watering volume for a plant based on its phase, species, substrate, and container.
+
+        ``tenant_key`` is required and keyword-only (#952). It has to be the
+        *caller's* verified tenant, not the record's. Before this fix the method
+        took no tenant at all: it loaded the plant straight from the URL key and
+        then fed ``plant.tenant_key`` into the reads #947 had just scoped, so the
+        filter compared the record's tenant with itself. A tautology is not a
+        filter — ``GET /t/{slug}/plant-instances/{plant_key}/watering-volume-suggestion``
+        answered 200 for a foreign key, with a recommendation and ``adjustments``
+        notes derived from the other tenant's plant, substrate and sensor data.
+
+        ``_get_plant`` now resolves the plant through ``verify_tenant_ownership``,
+        so a foreign key is a 404 before any of that runs, and the tenant handed
+        to the scoped reads below is the one the caller was authenticated for.
+        This is the shape ``PlantInstanceService.remove_plant`` already uses:
+        ``plant.tenant_key`` is read only *after* the ownership check, by which
+        point it is equal to the caller's anyway.
 
         Gathers all relevant data from repositories and delegates to WateringVolumeEngine,
         then applies the REQ-005/037 override precedence — ``ET/sensor > static default``,
@@ -263,7 +281,7 @@ class WateringService:
           the recommended volume down when the root zone is already wet.
         """
 
-        plant = self._get_plant(plant_key)
+        plant = self._get_plant(plant_key, tenant_key)
         # Live fallback, not dead code: ``reference_date`` is an optional query
         # parameter on ``GET …/watering-volume-suggestion`` and is ``None`` on
         # every call that omits it. UTC per §12a — the date drives the seasonal
@@ -351,7 +369,7 @@ class WateringService:
 
         # ── ET override (REQ-037 seam) — beats the static default when supplied ──
         if et_net_demand_ml is None:
-            et_net_demand_ml = self._latest_irrigation_demand_ml(plant)
+            et_net_demand_ml = self._latest_irrigation_demand_ml(plant, tenant_key)
         if et_net_demand_ml is not None and et_net_demand_ml >= 0:
             suggestion = self._apply_volume_override(
                 suggestion,
@@ -362,7 +380,7 @@ class WateringService:
             )
 
         # ── Live soil-moisture sensor override (REQ-005) — reduces when wet ──
-        moisture = self._latest_soil_moisture_percent(plant_key, getattr(plant, "tenant_key", "") or "")
+        moisture = self._latest_soil_moisture_percent(plant_key, tenant_key)
         if moisture is not None:
             factor = self._moisture_volume_factor(moisture)
             if factor < 1.0:
@@ -378,7 +396,7 @@ class WateringService:
 
     # ── Override helpers (REQ-005/037) ─────────────────────────────────────
 
-    def _latest_irrigation_demand_ml(self, plant) -> float | None:  # noqa: ANN001 — PlantInstance
+    def _latest_irrigation_demand_ml(self, plant, tenant_key: str) -> float | None:  # noqa: ANN001 — PlantInstance
         """Per-plant ET net demand (ml) from the latest run-level IrrigationDemand.
 
         Resolves the plant's most recent planting run, reads the latest materialised
@@ -386,10 +404,13 @@ class WateringService:
         (litres for the whole growing area) evenly across the run's active plants.
         Returns ``None`` when no repo/run/demand is available — the caller then keeps
         the static recommendation. A capped demand of ``0`` returns ``0.0`` (suppress).
+
+        ``tenant_key`` is the caller's, passed in rather than read off ``plant``
+        (#952): taking it from the record would make the demand lookup's tenant
+        filter compare the record with itself.
         """
         if self._irrigation_demand_repo is None or self._run_repo is None:
             return None
-        tenant_key = getattr(plant, "tenant_key", "") or ""
         plant_key = plant.key if hasattr(plant, "key") else None
         if not plant_key:
             return None
@@ -506,10 +527,17 @@ class WateringService:
             }
         )
 
-    def _get_plant(self, plant_key: PlantInstanceKey):
-        """Look up a plant instance."""
+    def _get_plant(self, plant_key: PlantInstanceKey, tenant_key: str):
+        """Look up a plant instance **of the caller's tenant** (#952).
+
+        The key comes straight from a URL, so the ownership check has to happen
+        here rather than being assumed. ``verify_tenant_ownership`` raises
+        :class:`NotFoundError` → HTTP 404 for a foreign plant, never 403: a 403
+        would confirm that the plant exists in another tenant.
+        """
         if self._plant_repo:
             plant = self._plant_repo.get_by_key(plant_key)
             if plant:
+                verify_tenant_ownership(plant, tenant_key, "PlantInstance")
                 return plant
         raise NotFoundError("PlantInstance", plant_key)

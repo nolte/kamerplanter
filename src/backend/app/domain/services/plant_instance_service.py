@@ -592,7 +592,7 @@ class PlantInstanceService:
         # Watering/feeding tasks hang off the planting run, not the instance, so
         # they are cleaned up separately — but only once the run has no active
         # instances left (a run may contain several plants).
-        self._delete_orphaned_run_tasks(key)
+        self._delete_orphaned_run_tasks(key, tenant_key=plant.tenant_key)
 
         if plant.slot_key:
             slot = self._site_repo.get_slot_by_key(plant.slot_key)
@@ -610,13 +610,21 @@ class PlantInstanceService:
     def _delete_open_tasks_for_plant(self, key: PlantID, *, tenant_key: str) -> int:
         """Delete all open tasks attached to the given plant.
 
-        Returns the number of deleted tasks. No-op when no task repository
-        is wired (keeps the service usable in contexts without tasks), and also
-        when the plant carries no tenant: the task lookup is tenant-scoped since
-        #927 and a tenantless read would be the cross-tenant scan that fix
-        removes.
+        Returns the number of deleted tasks. No-op when no task repository is
+        wired (keeps the service usable in contexts without tasks).
+
+        A plant with no tenant is skipped, because the task lookup is
+        tenant-scoped since #927 and a tenantless read would be exactly the
+        cross-tenant scan that fix removes. Fail-closed is right for a read; here
+        it **omits work that must happen**, so it no longer does so silently
+        (#952): the open tasks of the removed plant — including its REQ-022 care
+        reminders — stay in the queue and something has to say so. The warning
+        mirrors ``tank_maintenance_tasks``' ``runoff_trend_check_skipped_tenantless_plant``.
         """
-        if self._task_repo is None or not tenant_key:
+        if self._task_repo is None:
+            return 0
+        if not tenant_key:
+            logger.warning("open_task_cleanup_skipped_tenantless_plant", plant_key=key)
             return 0
         deleted = 0
         for task in self._task_repo.get_tasks_for_plant(key, tenant_key=tenant_key):
@@ -625,7 +633,7 @@ class PlantInstanceService:
                 deleted += 1
         return deleted
 
-    def _delete_orphaned_run_tasks(self, key: PlantID) -> int:
+    def _delete_orphaned_run_tasks(self, key: PlantID, *, tenant_key: str) -> int:
         """Delete open run-level tasks (watering/feeding) orphaned by this removal.
 
         These tasks carry ``planting_run_key`` instead of a plant ``entity_key``,
@@ -633,8 +641,15 @@ class PlantInstanceService:
         contain several instances, so its tasks only become obsolete once every
         instance in the run is removed; while any sibling is still active the run
         keeps generating and needing them. No-op when either repository is unwired.
+
+        ``get_tasks_for_run`` is tenant-scoped since #952, so a tenantless plant
+        is skipped here for the same reason and with the same warning as its
+        sibling above — omitted cleanup, said out loud.
         """
         if self._task_repo is None or self._run_repo is None:
+            return 0
+        if not tenant_key:
+            logger.warning("orphaned_run_task_cleanup_skipped_tenantless_plant", plant_key=key)
             return 0
         deleted = 0
         for run in self._run_repo.get_runs_for_plant(key):
@@ -646,7 +661,7 @@ class PlantInstanceService:
             siblings = self._run_repo.get_run_plants(run.key)
             if any(s.get("removed_on") is None for s in siblings):
                 continue
-            for task in self._task_repo.get_tasks_for_run(run.key):
+            for task in self._task_repo.get_tasks_for_run(run.key, tenant_key=tenant_key):
                 if task.key and task.status in self._OPEN_TASK_STATUSES:
                     self._task_repo.delete_task(task.key)
                     deleted += 1

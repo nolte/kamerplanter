@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import PlantingRunStatus, PlantingRunType
-from app.common.exceptions import CompanionConflictError, RotationViolationError
+from app.common.exceptions import CompanionConflictError, RotationViolationError, ValidationError
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.planting_run_service import PlantingRunService
 from tests.conftest import wire_get_or_raise
@@ -18,7 +18,8 @@ RUN_KEY = "run_1"
 LOCATION_KEY = "loc_beet_a"
 SPECIES_KEY = "sp_tomato"
 #: Both engines read tenant-scoped slot queries since #927, so the run under test
-#: has to carry a tenant — a tenantless run deliberately skips the checks.
+#: has to carry a tenant. A tenantless run now refuses to plant rather than
+#: planting unvalidated (#952) — see the dedicated test below.
 TENANT_KEY = "tenant-a"
 
 
@@ -43,9 +44,9 @@ def _entries() -> list[PlantingRunEntry]:
     ]
 
 
-def _build_service(*, slots: list, plant_specs: list[dict]):
+def _build_service(*, slots: list, plant_specs: list[dict], run: PlantingRun | None = None):
     run_repo = MagicMock()
-    run_repo.get_by_key.return_value = _planned_run()
+    run_repo.get_by_key.return_value = run if run is not None else _planned_run()
     wire_get_or_raise(run_repo, "PlantingRun")
     run_repo.get_entries.return_value = _entries()
     run_repo.get_existing_ids_at_location.return_value = set()
@@ -135,6 +136,29 @@ class TestCreatePlantsChecks:
         # Checks ran only for the single slot-assigned instance.
         rotation.validate_or_raise.assert_called_once_with("slot_a1", SPECIES_KEY, tenant_key=TENANT_KEY)
         companion.check_or_raise.assert_called_once_with(SPECIES_KEY, "slot_a1", tenant_key=TENANT_KEY)
+
+    def test_a_tenantless_run_refuses_to_plant_rather_than_planting_unchecked(self):
+        """#952 — the batch path used to fail *open* here, alone in the codebase.
+
+        With an empty ``tenant_key`` it returned early and skipped crop-rotation
+        and companion-planting validation entirely, while the single-plant path
+        (``PlantInstanceService.create_plant``) has no such guard and raises out
+        of ``_require_tenant_key`` on identical data. The two now agree that a
+        tenantless run is a defect to surface, not a rule to drop silently.
+        """
+        service, plant_repo, rotation, companion = _build_service(
+            slots=[_fake_slot("A1", "slot_a1")],
+            plant_specs=_specs(1),
+            run=_planned_run(tenant_key=""),
+        )
+
+        with pytest.raises(ValidationError):
+            service.create_plants(RUN_KEY)
+
+        # Neither validated nor written — no half-planted batch is left behind.
+        rotation.validate_or_raise.assert_not_called()
+        companion.check_or_raise.assert_not_called()
+        plant_repo.create.assert_not_called()
 
     def test_checks_skipped_when_engines_unwired(self):
         # Backward-compat: a service built without the engines still creates plants.

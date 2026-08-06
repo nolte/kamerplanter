@@ -49,14 +49,29 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
 
         return created
 
-    def resolve_plant_names(self, plant_keys: list[str]) -> dict[str, str]:
-        """Batch-resolve plant keys to display names."""
+    def resolve_plant_names(self, plant_keys: list[str], *, tenant_key: str) -> dict[str, str]:
+        """Batch-resolve plant keys to display names **inside one tenant** (#952).
+
+        ``tenant_key`` is required and keyword-only. The loop dereferences each
+        key with a bare ``DOCUMENT()``, and the keys are not always the
+        repository's own: ``POST /t/{slug}/watering-logs`` takes ``plant_keys``
+        from the request body, so a member of tenant A could file their own log
+        against a foreign plant and read that plant's display name back out of
+        the response and out of every later ``GET``.
+
+        Unlike a nutrient plan, a plant instance is not a hybrid catalog — there
+        are no globally shared plants — so the predicate is strict ownership.
+        A foreign or unresolvable key drops out of the map and the response
+        falls back to the raw key, which discloses nothing the caller did not
+        already supply.
+        """
+        self._require_tenant_key(tenant_key, "resolve_plant_names")
         if not plant_keys:
             return {}
         query = """
         FOR pk IN @plant_keys
           LET pi = DOCUMENT(CONCAT(@col, "/", pk))
-          FILTER pi != null
+          FILTER pi != null AND pi.tenant_key == @tenant_key
           RETURN { key: pk, name: pi.plant_name || pi.instance_id || pk }
         """
         cursor = self._db.aql.execute(
@@ -64,6 +79,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             bind_vars={
                 "plant_keys": plant_keys,
                 "col": col.PLANT_INSTANCES,
+                "tenant_key": tenant_key,
             },
         )
         return {r["key"]: r["name"] for r in cursor}
