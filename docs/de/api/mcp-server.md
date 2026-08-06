@@ -194,8 +194,9 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 |----------|-------|
 | `list_tenants` | Deine Gärten auflisten, mit deiner Rolle je Garten — liefert die Slugs für den `tenant`-Parameter |
 | `list_plants` | Pflanzen auflisten, optional nach Name gefiltert — so wird aus „meine Tomate" der `plant_key`, den die Schreib-Werkzeuge brauchen |
-| `get_plant` | Eine Pflanze im Detail: Art (mit aufgelöstem Namen), Phase, Standort, Pflanz- und Entfernungsdatum |
+| `get_plant` | Eine Pflanze im Detail: Art (mit aufgelöstem Namen), Phase, Standort, Substrat (mit aufgelöstem Typ und Namen), Pflanz- und Entfernungsdatum |
 | `get_plant_care_log` | Pflegehistorie einer Pflanze — mit `reminder_type: "watering"` das Gießprotokoll |
+| `list_diary_entries` | Tagebuch-Einträge durchsehen, filterbar nach Pflanze, Art, Eintragstyp, Tag, Analyse-Zustand und Zeitraum — neueste zuerst, mit Messwerten, aber ohne Freitext |
 | `list_plants_at_location` | Alle Pflanzen an einem Standort, Beet oder Slot |
 | `list_nutrient_plans` | Verfügbare Nährstoffpläne — eigene plus globale Vorlagen |
 | `get_nutrient_plan` | Ein Plan mit allen Phasen: NPK-Verhältnis, Ziel-EC, Nährstoffe, Wochenfenster |
@@ -232,6 +233,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `confirm_care_task` | Pflegeerinnerung für eine Pflanze quittieren ("ich habe gegossen") |
 | `archive_plant` | Pflanze als entsorgt/abgegeben/gestorben kennzeichnen — **kein** Hard-Delete, Verlauf bleibt erhalten |
 | `set_plant_location` | Pflanze zu einem anderen Standort/Bereich/Slot verschieben |
+| `add_plant_diary_entry` | Einen Tagebuch-Eintrag zu einer Pflanze erfassen (Beobachtung, Problem, Messwert) — nur Text, keine Fotos |
 | `claim_diary_analysis` | Einen wartenden Tagebuch-Eintrag exklusiv beanspruchen (Lease) |
 | `submit_diary_analysis` | Das Analyse-Ergebnis eines beanspruchten Tagebuch-Eintrags zurückschreiben |
 
@@ -289,6 +291,15 @@ Jeder Fehler eines der fünf Werkzeuge kommt als Werkzeug-Ergebnis mit `isError:
 - Der **Vorbehalt** (`disclaimer`) im Ergebnis wird serverseitig gesetzt — ein Agent kann ihn weder weglassen noch abschwächen.
 - Ob ein Nutzer überhaupt markieren darf, prüft der Server bei jedem `mcp.write`-Aufruf serverseitig (Rolle, Autorschaft, Einwilligung `diary_ai_analysis`, Betriebsmodus) — ein Rezept muss diese Regel nicht nachbilden.
 - Ein Eintrag ohne Fotos ist kein Fehlerfall; `get_diary_entry_photos` liefert dann `photos: []` mit nur dem Text-Block.
+
+### Einen Eintrag schreiben ist eine andere Aufgabe
+
+`add_plant_diary_entry` (`mcp.write`) gehört zur allgemeinen Werkzeug-Palette, nicht zu den fünf oben: Damit **dokumentiert** ein Agent eine Beobachtung — Text, Tags, Messwerte — statt sie zu analysieren. Daraus folgen zwei Grenzen:
+
+- Ein neu geschriebener Eintrag wird **nicht** zur Analyse eingereiht. Das Markieren bleibt eine Nutzerhandlung; ein Agent kann sich also keine eigene Arbeit erzeugen, und die Einwilligungsprüfung auf dem Markier-Pfad wird nie umgangen.
+- Das Werkzeug nimmt **keine** Foto-Referenzen entgegen. Ein Foto anzuhängen setzt voraus, es selbst hochgeladen zu haben (oder die Rolle Leitung zu tragen), und MCP hat keinen Upload-Weg — Fotos kommen über die Weboberfläche an den Eintrag.
+
+Wiederfinden lässt sich das Geschriebene mit `list_diary_entries` (`mcp.read`). Das Werkzeug durchsucht die Einträge des Gartens nach Pflanze, Eintragstyp, Tag, Analyse-Zustand und Zeitraum und liefert je Zeile Titel, Tags und Messwerte — den **Freitext** aber nicht. Der kommt aus `get_diary_entry`, einem bewussten Einzelabruf. Eine durchblätterbare Liste aller Beobachtungstexte wäre etwas anderes als das gezielte Lesen eines Eintrags.
 
 ## Antwortformat
 

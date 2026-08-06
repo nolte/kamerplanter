@@ -194,8 +194,9 @@ Because the role applies per garden, the same key can write in your own garden a
 |------|---------|
 | `list_tenants` | List your gardens with the role you hold in each — supplies the slugs for the `tenant` parameter |
 | `list_plants` | List plants, optionally filtered by name — this is how "my tomato" becomes the `plant_key` the write tools need |
-| `get_plant` | One plant in detail: species (with resolved name), phase, location, planting and removal dates |
+| `get_plant` | One plant in detail: species (with resolved name), phase, location, substrate (with resolved type and name), planting and removal dates |
 | `get_plant_care_log` | A plant's care history — with `reminder_type: "watering"` this is the watering log |
+| `list_diary_entries` | Browse diary entries, filtered by plant, species, entry type, tag, analysis state and date range — newest first, with measurements, but without the free text |
 | `list_plants_at_location` | All plants at a given site, bed or slot |
 | `list_nutrient_plans` | Available nutrient plans — your own plus global templates |
 | `get_nutrient_plan` | One plan with every phase: NPK ratio, target EC, nutrients, week window |
@@ -232,6 +233,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `confirm_care_task` | Confirm a care reminder for a plant ("I have watered it") |
 | `archive_plant` | Mark a plant as disposed / given away / died — **never** a hard delete, history is retained |
 | `set_plant_location` | Move a plant to another site / location / slot |
+| `add_plant_diary_entry` | Record a diary entry (observation, problem, measurement) for a plant — text only, no photos |
 | `claim_diary_analysis` | Exclusively claim a waiting diary entry (lease) |
 | `submit_diary_analysis` | Write back the analysis result of a claimed diary entry |
 
@@ -289,6 +291,15 @@ Every error from one of the five tools arrives as a tool result with `isError: t
 - The **disclaimer** in the result is set server-side — an agent can neither omit nor soften it.
 - Whether a user may mark an entry at all is checked server-side on every `mcp.write` call (role, authorship, `diary_ai_analysis` consent, operating mode) — a recipe does not need to rebuild that rule.
 - An entry without photos is not an error case; `get_diary_entry_photos` then returns `photos: []` with only the text block.
+
+### Writing an entry is a different job
+
+`add_plant_diary_entry` (`mcp.write`) belongs to the general tool palette, not to the five above: it lets an agent **document** an observation — text, tags, measurements — instead of analysing one. Two boundaries follow from that:
+
+- A newly written entry is **not** queued for analysis. Marking stays a user action, so an agent cannot create work for itself, and the consent gate on the marking path is never bypassed.
+- The tool takes **no** photo references. Attaching a photo requires having uploaded it yourself (or being a garden lead), and MCP has no upload path — photos reach an entry through the web UI.
+
+What was written is found again with `list_diary_entries` (`mcp.read`). It browses the garden's entries by plant, entry type, tag, analysis state and date range, and returns title, tags and measurements per row — but **not** the free text. That comes from `get_diary_entry`, a deliberate single read: a browsable list of every observation's prose is a different thing from reading one entry on purpose.
 
 ## Response Format
 

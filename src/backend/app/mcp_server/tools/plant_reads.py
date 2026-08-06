@@ -45,6 +45,20 @@ def _summarise(plant: Any) -> dict[str, Any]:
         "site_key": plant.site_key,
         "location_key": plant.location_key,
         "slot_key": plant.slot_key,
+        # The medium this plant actually stands in. Raw keys only: resolving them
+        # here would be an N+1 across a page, and ``get_plant`` resolves the type
+        # on the detail view instead. Without these, ``list_substrates`` is a
+        # catalogue an agent cannot connect to a plant — the substrate properties
+        # a feeding judgement needs (ph_base, ec_base_ms, buffer_capacity,
+        # cec_meq_per_100g) would have no way in.
+        "substrate_key": plant.substrate_key,
+        "substrate_batch_key": plant.substrate_batch_key,
+        # ``str()`` rather than the bare enum, as every other tool in the palette
+        # emits its enums. ``SubstrateType`` is a ``StrEnum``, so the JSON is the
+        # same either way today — but that equivalence is a property of the enum
+        # base class, not of this projection, and it would end silently if the
+        # enum ever stopped deriving from ``str``.
+        "substrate_type_override": str(plant.substrate_type_override) if plant.substrate_type_override else None,
         "planted_on": plant.planted_on,
         "removed_on": plant.removed_on,
         "current_phase_key": plant.current_phase_key,
@@ -138,6 +152,22 @@ class GetPlant(ToolBase):
             data["species_common_names"] = getattr(species, "common_names", None)
         except Exception:  # noqa: BLE001 — a missing catalogue entry must not fail the read
             data["species_name"] = None
+
+        # The effective medium, resolved once on the detail view for the same
+        # reason as the species name. The cascade is the one PlantInstance
+        # declares and WateringService applies: an explicit override wins, else
+        # the referenced Substrate's own type. Rebuilding that order in a recipe
+        # would be a second opinion on the same data.
+        resolved_type: Any = plant.substrate_type_override
+        data["substrate_name"] = None
+        if plant.substrate_key:
+            try:
+                substrate = ctx.substrate_service.get_substrate(plant.substrate_key)
+                resolved_type = resolved_type or getattr(substrate, "type", None)
+                data["substrate_name"] = getattr(substrate, "name", None)
+            except Exception:  # noqa: BLE001 — a missing catalogue entry must not fail the read
+                data["substrate_name"] = None
+        data["substrate_type"] = str(resolved_type) if resolved_type else None
 
         name = plant.plant_name or plant.instance_id
         return self._response(
