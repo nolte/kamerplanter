@@ -156,6 +156,21 @@ class AuthService:
         # registration returns field for field.
         if self._user_repo.get_by_email(email) is not None:
             logger.info("registration_duplicate_suppressed", email_sha256=email_digest(email))
+            # Hash the submitted password and throw the result away.
+            #
+            # This is not dead code and must not be deleted as such. The
+            # response above is byte-for-byte indistinguishable from a real
+            # registration, but this branch skipped the only expensive operation
+            # the genuine path performs — bcrypt, which costs ~100 ms against
+            # single-digit milliseconds for the DB write and the mail dispatch
+            # that also do not happen here. A caller with a stopwatch therefore
+            # still read the answer the body no longer gives: a fast 201 meant
+            # "taken", a slow one meant "created".
+            #
+            # Charging the round here closes that gap. It also caps what the
+            # branch costs an attacker to trigger: exactly what a genuine
+            # registration costs, and `/auth/register` is rate-limited per IP.
+            self._password_engine.hash_password(password)
             decoy = User(
                 email=email,
                 display_name=display_name,
@@ -292,7 +307,8 @@ class AuthService:
             minutes = self._throttle_engine.get_lockout_minutes(locked_until)
             raise AccountLockedError(minutes)
 
-        # Burn the same bcrypt round the existing-account branch burns below.
+        # Burn the same bcrypt round ``login_local`` spends verifying the
+        # password of an address that does exist.
         # Without it the two branches stay distinguishable by a stopwatch even
         # though their responses have become identical: bcrypt dominates the
         # request by two orders of magnitude over everything else on this path.
