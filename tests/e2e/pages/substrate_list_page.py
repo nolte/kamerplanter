@@ -146,10 +146,6 @@ class SubstrateListPage(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         self.clear_and_fill(search_input, "")
 
-    def has_search_chip(self) -> bool:
-        """Return True if a search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
     def has_sort_chip(self) -> bool:
         """Return True if a sort chip is visible."""
         return len(self.driver.find_elements(*self.SORT_CHIP)) > 0

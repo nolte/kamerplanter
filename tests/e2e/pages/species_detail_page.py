@@ -85,21 +85,26 @@ class SpeciesDetailPage(BasePage):
     # ── Tabs ───────────────────────────────────────────────────────────
 
     def get_tab_labels(self) -> list[str]:
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         return [t.text for t in tabs]
 
     def click_tab(self, index: int) -> None:
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         self.scroll_and_click(self.require_index(tabs, index, "species detail tab"))
 
     def click_tab_by_label(self, label: str) -> None:
         import time
 
-        # Wait for at least one tab to render (detail page may still be loading)
-        self.wait_for_element(self.TABS, timeout=15)
-        # Allow tabs to fully render
+        # `tab_elements` carries the "wait for the strip to render" half that was
+        # a separate `wait_for_element(self.TABS)` here. This page object had
+        # found the defect the whole suite has now been swept for, and fixed it
+        # in this one method; the wait is no longer this method's business.
+        #
+        # The sleep stays, and is a different concern: MUI mounts the strip
+        # before every `Tab` has its label laid out, and this reader matches on
+        # label text rather than on presence.
         time.sleep(0.5)
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         for tab in tabs:
             if tab.text.upper() == label.upper():
                 self.scroll_and_click(tab)

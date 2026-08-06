@@ -111,10 +111,6 @@ class PlantInstanceListPage(BasePage):
         search_input.clear()
         search_input.send_keys(Keys.BACKSPACE)
 
-    def has_search_chip(self) -> bool:
-        """Return True if the search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
     def has_sort_chip(self) -> bool:
         """Return True if the sort chip is visible."""
         return len(self.driver.find_elements(*self.SORT_CHIP)) > 0

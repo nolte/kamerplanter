@@ -121,9 +121,6 @@ class TankListPage(BasePage):
         search_input.clear()
         search_input.send_keys(Keys.BACKSPACE)
 
-    def has_search_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
     def has_sort_chip(self) -> bool:
         return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
 

@@ -203,10 +203,6 @@ class WateringLogListPage(BasePage):
         # debounce: bounded, justified (same 300ms debounce as search())
         time.sleep(0.3)
 
-    def has_search_chip(self) -> bool:
-        """Return True if a search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
     def has_empty_state(self) -> bool:
         """Return True if the empty state illustration is visible."""
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0

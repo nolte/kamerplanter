@@ -991,6 +991,43 @@ class BasePage:
     # false negative without weakening the true one -- an element that never
     # renders still yields `False`/`[]` and the caller's assertion still fails.
 
+    def tab_elements(self, locator: Locator, timeout: int = DEFAULT_TIMEOUT) -> list[WebElement]:
+        """Every tab of the strip *locator* addresses, waiting for it to render.
+
+        The tab strip is the shape that bit hardest after #835 removed the
+        implicit wait, because eleven page objects had each written out
+        ``self.driver.find_elements(*self.TABS)`` and every one of them is
+        reached the same way: click a list row, wait on the **URL**, then read.
+        The URL changes one commit before the route renders, so the read lands
+        on a document that has no tab strip yet -- and an empty list there is
+        indistinguishable from "this page has no tabs". Measured twice: ten
+        `test_req014_tank.py` cases as ``found 0 tabs`` in CI run 31113673507,
+        then `test_req013_planting_run.py` as ``got 0: []`` and
+        ``get_active_tab_index() == -1`` in the local light run that followed.
+
+        Named rather than left as a bare :meth:`await_presence` call so the
+        rationale lives once, next to the shape, instead of being re-derived per
+        page. ``[]`` after the budget is still a genuine "no tabs", so a page
+        that truly renders none still fails its caller's assertion.
+        """
+        return self.await_presence(locator, timeout)
+
+    #: `DataTable`'s search chip, as a *reader* rather than as the settling
+    #: signal :meth:`wait_for_search_applied` uses. Sixteen list page objects had
+    #: an identical private copy of this, each a raw ``find_elements`` answering
+    #: in the millisecond after ``search()`` typed -- i.e. inside the component's
+    #: own 300 ms debounce, before the chip can exist. TC-REQ-013-005 asserted
+    #: on it and failed for that reason with the implicit wait gone.
+    def has_search_chip(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Whether the search chip is rendered, waiting for it to appear.
+
+        The chip's presence is a *product* claim ("an active search is shown as
+        a removable chip") and stays fully falsifiable: a table that never
+        renders one still answers ``False`` once the budget is spent. Only the
+        answer that meant "the debounce has not fired yet" is gone.
+        """
+        return bool(self.await_presence(self.SEARCH_CHIP, timeout))
+
     def await_presence(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> list[WebElement]:

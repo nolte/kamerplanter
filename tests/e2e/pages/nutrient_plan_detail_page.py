@@ -95,7 +95,7 @@ class NutrientPlanDetailPage(BasePage):
 
     def get_tab_count(self) -> int:
         """Return the number of tabs rendered on the detail page."""
-        return len(self.driver.find_elements(By.CSS_SELECTOR, "[role='tab']"))
+        return len(self.tab_elements((By.CSS_SELECTOR, "[role='tab']")))
 
     def is_first_tab_selected(self) -> bool:
         """Return True if the first (Phase Entries) tab is the active tab."""

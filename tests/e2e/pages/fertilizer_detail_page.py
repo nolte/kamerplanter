@@ -91,7 +91,7 @@ class FertilizerDetailPage(BasePage):
 
     def get_tab_count(self) -> int:
         """Return the number of tabs rendered on the detail page."""
-        return len(self.driver.find_elements(By.CSS_SELECTOR, "[role='tab']"))
+        return len(self.tab_elements((By.CSS_SELECTOR, "[role='tab']")))
 
     # ── Details tab (Tab 0) ────────────────────────────────────────────
 

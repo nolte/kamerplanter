@@ -103,12 +103,12 @@ class PlantingRunDetailPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return the labels of all tab buttons."""
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         return [t.text for t in tabs]
 
     def click_tab(self, index: int) -> None:
         """Click the tab at *index* (0-based)."""
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         if index < len(tabs):
             self.scroll_and_click(tabs[index])
         else:
@@ -116,7 +116,7 @@ class PlantingRunDetailPage(BasePage):
 
     def get_active_tab_index(self) -> int:
         """Return the index of the currently selected tab."""
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         for i, tab in enumerate(tabs):
             if tab.get_attribute("aria-selected") == "true":
                 return i

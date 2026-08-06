@@ -81,7 +81,7 @@ class TaskDetailPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return all visible tab labels."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         return [t.text for t in tabs if t.text]
 
     def get_active_tab_label(self) -> str:
@@ -91,7 +91,7 @@ class TaskDetailPage(BasePage):
 
     def click_tab(self, label: str) -> None:
         """Click a tab by its visible label text."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         for t in tabs:
             if t.text == label:
                 self.scroll_and_click(t)
@@ -100,7 +100,7 @@ class TaskDetailPage(BasePage):
 
     def click_tab_by_index(self, index: int) -> None:
         """Click a tab by its zero-based index."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         if index < len(tabs):
             self.scroll_and_click(tabs[index])
         else:
@@ -108,7 +108,7 @@ class TaskDetailPage(BasePage):
 
     def get_tab_count(self) -> int:
         """Return the number of visible tabs."""
-        return len(self.driver.find_elements(*self.TAB_ITEMS))
+        return len(self.tab_elements(self.TAB_ITEMS))
 
     # ── Action buttons ─────────────────────────────────────────────────
 

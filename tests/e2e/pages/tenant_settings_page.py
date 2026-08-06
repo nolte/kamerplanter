@@ -70,7 +70,7 @@ class TenantSettingsPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return the labels of all visible tabs."""
-        tabs = self.driver.find_elements(By.CSS_SELECTOR, ".MuiTabs-root button")
+        tabs = self.tab_elements((By.CSS_SELECTOR, ".MuiTabs-root button"))
         return [t.text for t in tabs if t.text]
 
     def is_tab_visible(self, label: str) -> bool:
@@ -79,7 +79,7 @@ class TenantSettingsPage(BasePage):
 
     def get_active_tab_index(self) -> int:
         """Return the index of the currently active tab (0-based)."""
-        tabs = self.driver.find_elements(By.CSS_SELECTOR, ".MuiTabs-root button")
+        tabs = self.tab_elements((By.CSS_SELECTOR, ".MuiTabs-root button"))
         for i, tab in enumerate(tabs):
             if "Mui-selected" in (tab.get_attribute("class") or ""):
                 return i
