@@ -36,6 +36,7 @@ from selenium.common.exceptions import (
 
 from .pages.base_page import DE_DATE_RE
 from .pages.pflege_dashboard_page import PflegeDashboardPage
+from .pages.plant_instance_detail_page import PlantInstanceDetailPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_queue_page import TaskQueuePage
 
@@ -149,16 +150,32 @@ def provision_plant(
         list_page.select_current_phase_by_index(phase_index)
     list_page.set_instance_id(instance_id)
     list_page.submit_create_form()
-    list_page.wait_for_loading_complete()
+    # The create dialog's own disappearance, not the weak skeleton wait: the MUI
+    # Dialog fades out over ~200 ms while `onCreated` refetches the list, and its
+    # backdrop still covers the search box underneath. Typing into it there
+    # raised `ElementNotInteractableException` on the `full` profile of run
+    # 31113673507 (#835).
+    list_page.wait_for_create_dialog_closed()
 
-    # Locate exactly this plant by its unique instance id.
+    # Locate exactly this plant by its unique instance id. Both waits below are
+    # load-bearing and neither may be replaced by `wait_for_loading_complete()`,
+    # which stood here and proved nothing: the filter is client-side, so no
+    # skeleton ever mounts and the wait returned while the table still showed
+    # the previous, unfiltered rows. `get_row_count()` then counted *those*, and
+    # `click_row(0)` captured the globally-first plant — a stranger's record.
+    # That single gap produced 19 of the 34 `--profile light` failures of run
+    # 31113673507; the driver-level implicit wait had been hiding it by delaying
+    # every lookup long enough for the 300 ms debounce to land first (#835).
     list_page.search(instance_id)
-    list_page.wait_for_loading_complete()
-    if list_page.get_row_count() == 0:
-        raise AssertionError(
-            f"Self-provisioning failed: plant instance '{instance_id}' did not "
-            f"appear in the list after creation"
-        )
+    list_page.wait_for_search_applied(instance_id, what="plant instance list")
+    list_page.wait_for_row_identity(
+        0,
+        PlantInstanceListPage.INSTANCE_ID_COLUMN_ID,
+        instance_id,
+        rows_locator=PlantInstanceListPage.TABLE_ROWS,
+        what=f"self-provisioned plant instance '{instance_id}'",
+    )
+
     # Await a URL that is *different* from the one being left, not merely one
     # matching the detail route. `wait_for_url_contains` would be satisfied at
     # once whenever a previous test left the browser on some plant's detail page,
@@ -178,11 +195,23 @@ def provision_plant(
     # #835 uncovered surfaced far downstream — as a chip pointing at a stranger,
     # or a 404 on a care profile — where the real cause was unrecognisable. This
     # is the cheap place to notice, and it fails loudly.
-    if not list_page.page_shows_text(instance_id):
+    #
+    # Read out of the *destination page's own card*, not out of `page_shows_text`
+    # (whole-body scan), which is a check the page being **left** can satisfy:
+    # React Router updates `location` before it commits the new route, so for a
+    # few frames the URL is the detail one while the DOM is still the filtered
+    # list — which contains the instance id by construction. That is how
+    # TC-004-092 passed this guard on run 31113673507 and then asserted a chip
+    # href against a foreign key (found 249415, expected 103741). Same guard,
+    # same loud failure, now keyed on a signal only the destination can produce.
+    detail = PlantInstanceDetailPage(list_page.driver, list_page.base_url)
+    detail.wait_for_content(PlantInstanceDetailPage.PAGE, f"plant instance detail for key {key!r}")
+    shown = detail.get_plant_info_card().text
+    if instance_id not in shown:
         raise AssertionError(
-            f"Self-provisioning landed on {url!r} (key={key!r}), which does not "
-            f"show '{instance_id}'. The row click opened a different plant — do "
-            f"not trust this key."
+            f"Self-provisioning landed on {url!r} (key={key!r}), whose plant-info "
+            f"card reads {shown!r} and does not show '{instance_id}'. The row "
+            f"click opened a different plant — do not trust this key."
         )
     return key, instance_id
 

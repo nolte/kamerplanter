@@ -2107,6 +2107,160 @@ class BasePage:
 
         return self.retry_on_stale(_scan)
 
+    # ── Truthful post-search settling ─────────────────────────────────────
+    # A `DataTable`'s search is **client-side**, behind a 300 ms input debounce
+    # (`DataTable.tsx`: `useDebounce(searchInput, 300)` feeding
+    # `tableState.setSearch`). Nothing is fetched, so no `loading-skeleton` ever
+    # mounts -- and `wait_for_loading_complete()`, which every search call site
+    # paired with the search, is therefore satisfied *immediately*, while the
+    # table still renders the previous, unfiltered rows. It is the
+    # unfalsifiable-absence poll its own docstring warns about, standing exactly
+    # where the strongest statement was needed.
+    #
+    # #835 measured the consequence. `provision_plant` searched for its own
+    # unique instance id, read `get_row_count()` off the still-unfiltered table
+    # and clicked row 0 -- the globally-first plant, a *stranger's* record. 19 of
+    # the 34 `--profile light` failures of run 31113673507 were that one gap, in
+    # two shapes: a `TimeoutException` out of `click_data_table_row` when the
+    # filter landed mid-click (the identity read before the click no longer
+    # exists after it), and `provision_plant`'s identity guard catching a
+    # foreign detail page when it landed just after. The driver-level implicit
+    # wait had been papering over it by delaying every lookup by up to 3 s,
+    # which was usually enough for the debounce to have fired first.
+    #
+    # The two waits below are the truthful replacements, and they are ordered:
+    # the chip proves the *filter* reached the table, the identity proves the
+    # *row* is the caller's. Neither can be satisfied by the state the table is
+    # leaving, which is the property `wait_for_loading_complete` lacked.
+
+    #: `DataTable`'s search chip. Rendered exactly when `tableState.search` is
+    #: non-empty -- i.e. in the first commit *after* the debounce propagated,
+    #: which is the same commit that recomputes the filtered `processedData`.
+    #: That coincidence is what makes the chip a statement about the rendered
+    #: **rows** rather than merely about the input box, whose value changes one
+    #: debounce earlier and therefore proves nothing.
+    SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
+
+    def wait_for_search_applied(
+        self, term: str, what: str = "DataTable", timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Wait until the table has re-rendered *filtered by* ``term``.
+
+        The post-condition of a `DataTable` search, and the one
+        :meth:`wait_for_loading_complete` cannot express (see the section
+        comment above). Keyed on the presence of the search chip carrying the
+        term, so it cannot be true before the filter exists.
+
+        Matches on the quoted term inside the chip's text because the chip reads
+        ``<i18n label>: "<term>"`` -- the label is translated, the quoted term is
+        not, so this stays locale-independent.
+        """
+        needle = f'"{term}"'
+
+        def _applied(driver: WebDriver) -> bool:
+            return any(
+                needle in (chip.get_attribute("textContent") or "")
+                for chip in driver.find_elements(*self.SEARCH_CHIP)
+            )
+
+        try:
+            self.poll(timeout).until(_applied)
+        except TimeoutException as exc:
+            chips = [
+                (chip.get_attribute("textContent") or "").strip()
+                for chip in self.driver.find_elements(*self.SEARCH_CHIP)
+            ]
+            mechanism = (
+                "No search chip is rendered at all, so `tableState.search` is "
+                "still empty: the term never arrived in the input, or this "
+                "table renders no searchable toolbar and must not be searched."
+                if not chips
+                else f"The rendered chip(s) read {chips!r}, so the table is "
+                "filtered by a *different* term. A React-controlled search box "
+                "keeps its previous value when `WebElement.clear()` is used "
+                "instead of `clear_and_fill`, and the new term is appended."
+            )
+            raise AssertionError(
+                f"{what}: the search for {term!r} never reached the table within "
+                f"{timeout}s. {mechanism} Reading rows here would read the "
+                "*unfiltered* table and act on whatever record happens to sort "
+                "first."
+            ) from exc
+
+    def wait_for_row_identity(
+        self,
+        index: int,
+        col_id: str,
+        expected: str,
+        rows_locator: Locator | None = None,
+        what: str = "DataTable row",
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> None:
+        """Wait until the row at *index* identifies as *expected*.
+
+        The check that makes an index-based row click sound: an index only means
+        anything relative to one render, so before capturing ``rows[index]`` a
+        caller that knows *which* record it wants must confirm the render it is
+        indexing into is the one it expects. :meth:`click_data_table_row`
+        protects the click by re-finding the row by identity, but it can only
+        protect the identity it was handed -- if that first read already came off
+        the wrong render, the guard faithfully defends the wrong row.
+
+        Matching is containment, not equality, because the identifying text is
+        read through :meth:`get_row_primary_text`, whose mobile fallback is the
+        card *title*. For the unique, per-run ids this is used with, containment
+        is exactly as falsifiable as equality: no other record's identifier can
+        contain them.
+
+        An unreadable row counts as "not yet", never as a mismatch -- see
+        :meth:`row_primary_text_or_none`.
+        """
+        locator = rows_locator or self.DATA_TABLE_ROWS
+
+        def _matches(driver: WebDriver) -> bool:
+            rows = driver.find_elements(*locator)
+            if not 0 <= index < len(rows):
+                return False
+            text = self.row_primary_text_or_none(rows[index], col_id)
+            return text is not None and expected in text
+
+        try:
+            self.poll(timeout).until(_matches)
+        except TimeoutException as exc:
+            rows = self.driver.find_elements(*locator)
+            found = [self.row_primary_text_or_none(row, col_id) for row in rows]
+            if not rows:
+                mechanism = (
+                    "The table renders no rows at all, so either the record was "
+                    "never created, or the filter in force excludes it."
+                )
+            elif not 0 <= index < len(rows):
+                mechanism = (
+                    f"Only {len(rows)} row(s) are rendered, so index {index} does "
+                    "not exist in this render."
+                )
+            elif any(text is not None and expected in text for text in found):
+                at = next(i for i, text in enumerate(found) if text and expected in text)
+                mechanism = (
+                    f"The expected record is rendered, but at index {at}, not "
+                    f"{index}. The table is sorted or filtered differently from "
+                    "what the caller assumed."
+                )
+            else:
+                mechanism = (
+                    f"Row {index} identifies as {found[index]!r}. The table is "
+                    "showing a render that does not contain the expected record "
+                    "-- typically the previous, unfiltered one, because the "
+                    "search has not been applied yet."
+                )
+            raise AssertionError(
+                f"{what}: row {index} never identified as {expected!r} within "
+                f"{timeout}s. Column {col_id!r} of the {len(rows)} rendered "
+                f"row(s) reads {found!r}. {mechanism} Clicking here would "
+                "activate a different record and every assertion after it would "
+                "be about that one."
+            ) from exc
+
     # ── Guarded row/card activation ───────────────────────────────────────
     # Two defects that kept re-entering the suite as per-page copies:
     #
