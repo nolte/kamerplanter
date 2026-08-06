@@ -27,7 +27,7 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from ._journey_helpers import provision_plant, unique_suffix
+from ._journey_helpers import create_care_task, provision_plant, unique_suffix
 from .pages.phase_transition_page import PlantInstanceDetailExt
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_queue_page import TaskQueuePage
@@ -54,17 +54,30 @@ def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
 # ── Shared arrange step ──────────────────────────────────────────────────────
 
 
-def _create_care_task(task_queue: TaskQueuePage, instance_id: str, task_name: str) -> None:
-    """Create a care task for the plant *instance_id* via the queue dialog."""
-    task_queue.open()
-    task_queue.click_create_task()
-    task_queue.fill_task_name(task_name)
-    task_queue.select_task_category("care_reminder")
-    task_queue.set_due_date_today()
-    task_queue.select_task_priority("high")
-    task_queue.select_task_plant_by_text(instance_id)
-    task_queue.submit_task_form()
-    task_queue.wait_for_loading_complete()
+def _create_care_task(task_queue: TaskQueuePage, instance_id: str, task_name: str) -> str:
+    """Create a care task for the plant *instance_id* and return its key.
+
+    Delegates to the shared :func:`_journey_helpers.create_care_task`. The
+    version that stood here was a weaker duplicate of it — same dialog, same
+    field values, but it drove the form once, ended on
+    ``wait_for_loading_complete()`` and returned nothing. Three checks the
+    shared helper makes were missing:
+
+    * it asserts the plant autocomplete actually offered *instance_id*, instead
+      of discarding the boolean that says whether the task got a plant at all;
+    * it retries the whole dialog when the queue behind it renders slowly enough
+      to intercept a click;
+    * it **polls the queue across reloads** until the new card materialises, and
+      raises naming the task when it never does.
+
+    That last one is what failed on 2026-08-06: the queue refetches after the
+    mutation, `wait_for_loading_complete()` is an absence poll on a skeleton
+    that has not mounted yet, and the caller's single
+    ``find_task_key_by_name()`` therefore read the pre-mutation queue and
+    answered ``None``. The implicit wait had been covering that read; #835
+    removed it and TC-REQ-006-J077 went red.
+    """
+    return create_care_task(task_queue, instance_id, task_name)
 
 
 # ── TC-006-076 ───────────────────────────────────────────────────────────────
@@ -88,13 +101,13 @@ class TestCoreJourneyCreateAndCompleteTask:
         _key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-006")
         task_name = f"Journey gießen {unique_suffix()}"
 
-        _create_care_task(task_queue, instance_id, task_name)
+        # "The task appears in the queue" is now the helper's post-condition: it
+        # polls the queue across reloads and raises naming the task if the card
+        # never materialises. The single `find_task_key_by_name()` + `assert`
+        # that stood here read the queue once, before its post-mutation refetch,
+        # and would be unreachable now that the helper raises first.
+        task_key = _create_care_task(task_queue, instance_id, task_name)
         screenshot("TC-REQ-006-J076_task-created", f"Task queue after creating '{task_name}'")
-
-        task_key = task_queue.find_task_key_by_name(task_name)
-        assert task_key is not None, (
-            f"TC-REQ-006-J076 FAIL: Newly created task '{task_name}' should appear in the queue"
-        )
 
         task_queue.complete_task(task_key)
         time.sleep(1.0)
@@ -131,11 +144,11 @@ class TestCoreJourneyCompletedTaskDocumented:
         key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-006V")
         task_name = f"Journey gießen {unique_suffix()}"
 
-        _create_care_task(task_queue, instance_id, task_name)
-        task_key = task_queue.find_task_key_by_name(task_name)
-        assert task_key is not None, (
-            f"TC-REQ-006-J077 FAIL: Task '{task_name}' should appear before completion"
-        )
+        # See the sibling journey above: "the task appears before completion" is
+        # the helper's own post-condition, polled across queue reloads instead of
+        # read once off the pre-refetch queue — which is how this assertion went
+        # red on 2026-08-06 with `assert None is not None`.
+        task_key = _create_care_task(task_queue, instance_id, task_name)
         task_queue.complete_task(task_key)
         time.sleep(1.0)
 

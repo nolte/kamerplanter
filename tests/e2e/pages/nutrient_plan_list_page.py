@@ -25,8 +25,11 @@ class NutrientPlanListPage(BasePage):
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
-    # MUI Dialog (create)
-    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root")
+    # MUI Dialog (create). Addressed by the app's own hook
+    # (`NutrientPlanCreateDialog.tsx`) rather than by `.MuiDialog-root`, which
+    # matches *whichever* dialog is open -- so "the create dialog is still open"
+    # and "some confirm dialog is open" were the same observation.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-create-dialog']")
 
     # Create form fields
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
@@ -167,6 +170,28 @@ class NutrientPlanListPage(BasePage):
         """Submit the create form."""
         btn = self.wait_for_element(self.FORM_SUBMIT)
         self.scroll_and_click(btn)
+
+    def wait_for_create_dialog_closed(self) -> None:
+        """Wait until the create dialog is gone, i.e. the plan really was created.
+
+        The read-back :meth:`submit_create_form` does not have, and an exact one
+        rather than a proxy: ``NutrientPlanCreateDialog.onSubmit`` calls
+        ``onCreated()`` -- which is what closes the dialog -- only **after**
+        ``await api.createNutrientPlan(...)`` resolves. A rejected create runs
+        ``handleError`` instead and leaves the dialog up, which TC-004-046
+        already relies on. So the dialog being gone means the POST returned 2xx,
+        and nothing weaker does.
+
+        It also removes a race the implicit wait had been paying for. Callers
+        used to follow the submit with ``wait_for_loading_complete()`` and then
+        ``open()``. That wait is an *absence* poll on a skeleton that never
+        mounts here, so its whole cost was the implicit wait inside its empty
+        ``find_element`` -- roughly 3 s, which is what let the POST land before
+        ``open()`` fired a hard navigation. #835 removed the implicit wait, the
+        pause went to zero, and the navigation could abort the create in flight:
+        TC-004-027 then found its freshly created plan missing from the list.
+        """
+        self.wait_for_element_hidden(self.CREATE_DIALOG)
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""

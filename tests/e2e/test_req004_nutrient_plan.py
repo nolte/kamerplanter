@@ -677,7 +677,15 @@ class TestNutrientPlanDetailPage:
         delete_plan_name = f"DeleteMe-{unique}"
         plan_list.fill_name(delete_plan_name)
         plan_list.submit_create_form()
-        plan_list.wait_for_loading_complete()
+        # Read-back on the arrange step, replacing a `wait_for_loading_complete()`
+        # whose only real effect here was the ~3 s the implicit wait charged for
+        # its empty lookup. That pause was what let the create POST land before
+        # the `open()` below fired a hard navigation; with the pause gone the
+        # navigation could abort the request, and the test then blamed the list
+        # for not showing a plan that was never persisted. The dialog closes only
+        # after `await api.createNutrientPlan(...)` resolves, so this is an exact
+        # post-condition and it fails *here* when the create fails.
+        plan_list.wait_for_create_dialog_closed()
 
         # Navigate to it via list. The two waits below replace a
         # `wait_for_loading_complete()` that proved nothing: the DataTable filter
@@ -698,7 +706,13 @@ class TestNutrientPlanDetailPage:
             NutrientPlanListPage.NAME_COLUMN_ID,
             delete_plan_name,
             rows_locator=NutrientPlanListPage.TABLE_ROWS,
-            what=f"self-provisioned nutrient plan {delete_plan_name!r}",
+            # With the create now proven above, a "0 rows" here can no longer
+            # mean "never created" — it would mean the plan exists but is not in
+            # what the page fetched. `fetchNutrientPlans` defaults to `limit=50`
+            # and the backend sorts by name server-side, while the DataTable
+            # search filters only the fetched slice. The two hypotheses this
+            # message names are therefore bisected by which step failed.
+            what=f"self-provisioned nutrient plan {delete_plan_name!r} (create confirmed)",
         )
 
         plan_list.click_row(0)
