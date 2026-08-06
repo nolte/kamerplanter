@@ -136,12 +136,49 @@ class TestPlantNutrientPlanAssignment:
 
 
 class TestSiteGraphQueries:
+    """Locations and slots are tenant-resolved through their parent, not by themselves.
+
+    The fixtures below deliberately give every location and slot
+    ``tenant_key == ""``, because **that is the only shape the application ever
+    writes**: neither ``LocationCreate``/``SlotCreate`` nor the routers behind
+    them carry the field, and their full-replace ``PUT`` wipes anything the
+    one-off ``v0004_backfill_tenant_key`` migration had put there. The design is
+    stated in ``PlantInstanceService`` ("Location documents are persisted with an
+    empty tenant_key and are tenant-verified through their parent site").
+
+    An earlier revision of this file stamped ``tenant_key: TENANT_KEY`` onto both
+    — a shape production cannot produce. That made
+    ``test_the_callers_own_site_still_returns_its_locations`` pass against a
+    predicate (``v.tenant_key == @tenant_key``) which in production matched *no*
+    row at all, so the positive direction certified a query that silently
+    returned an empty hierarchy. A fixture that cannot occur proves nothing; this
+    is the #324 regression class arriving through the test data instead of
+    through the query.
+    """
+
     def _repo(self) -> ArangoSiteRepository:
+        # Sites ARE reliably stamped — every write path (both site routers, the
+        # onboarding service, the MCP CreateSite tool) passes an explicit
+        # ``tenant_key`` — which is what makes the site a usable anchor.
+        sites = {
+            OWN_SITE: {
+                "_key": OWN_SITE,
+                "_id": f"{col.SITES}/{OWN_SITE}",
+                "tenant_key": TENANT_KEY,
+                "name": "Garten A",
+            },
+            FOREIGN_SITE: {
+                "_key": FOREIGN_SITE,
+                "_id": f"{col.SITES}/{FOREIGN_SITE}",
+                "tenant_key": FOREIGN_TENANT_KEY,
+                "name": "Garten B",
+            },
+        }
         locations = [
             {
                 "_key": "loc-a1",
                 "_id": f"{col.LOCATIONS}/loc-a1",
-                "tenant_key": TENANT_KEY,
+                "tenant_key": "",  # production shape — see the class docstring
                 "site_key": OWN_SITE,
                 "name": "Beet A",
                 "area_m2": 4.0,
@@ -149,38 +186,64 @@ class TestSiteGraphQueries:
             {
                 "_key": "loc-b1",
                 "_id": f"{col.LOCATIONS}/loc-b1",
-                "tenant_key": FOREIGN_TENANT_KEY,
+                "tenant_key": "",
                 "site_key": FOREIGN_SITE,
                 "name": "Beet B",
                 "area_m2": 5.0,
             },
         ]
-        slots = {
-            OWN_PLANT: {
-                "_key": OWN_SLOT,
-                "_id": f"{col.SLOTS}/{OWN_SLOT}",
-                "tenant_key": TENANT_KEY,
-                "slot_id": "BEETA_A1",
-                "location_key": "loc-a1",
+        # ``placed_in`` edges, modelled the way the nutrient-plan fixture models
+        # ``follows_plan``: the row is the edge, so the fake can resolve the
+        # *plant* the query anchors on rather than being handed the answer.
+        placements = [
+            {
+                "_from": f"{col.PLANT_INSTANCES}/{OWN_PLANT}",
+                "slot": {
+                    "_key": OWN_SLOT,
+                    "_id": f"{col.SLOTS}/{OWN_SLOT}",
+                    "tenant_key": "",  # production shape — see the class docstring
+                    "slot_id": "BEETA_A1",
+                    "location_key": "loc-a1",
+                },
             },
-            FOREIGN_PLANT: {
-                "_key": FOREIGN_SLOT,
-                "_id": f"{col.SLOTS}/{FOREIGN_SLOT}",
-                "tenant_key": FOREIGN_TENANT_KEY,
-                "slot_id": "BEETB_A1",
-                "location_key": "loc-b1",
+            {
+                "_from": f"{col.PLANT_INSTANCES}/{FOREIGN_PLANT}",
+                "slot": {
+                    "_key": FOREIGN_SLOT,
+                    "_id": f"{col.SLOTS}/{FOREIGN_SLOT}",
+                    "tenant_key": "",
+                    "slot_id": "BEETB_A1",
+                    "location_key": "loc-b1",
+                },
             },
-        }
+        ]
+        plants = _plants()
 
         def location_tree(query: str, bind_vars: dict[str, Any]) -> Any:
             site_key = str(bind_vars["start_id"]).split("/")[-1]
             rows = [loc for loc in locations if loc["site_key"] == site_key]
-            return apply_predicates(rows, query, bind_vars, resolvers={"v": lambda row: row})
+            return apply_predicates(
+                rows,
+                query,
+                bind_vars,
+                # ``site`` is ``DOCUMENT(@start_id)`` — the traversal's start
+                # vertex, not the row's own idea of its site.
+                resolvers={"v": lambda row: row, "site": lambda _row: sites.get(site_key)},
+            )
 
         def slot_for_plant(query: str, bind_vars: dict[str, Any]) -> Any:
-            plant_key = str(bind_vars["plant_id"]).split("/")[-1]
-            rows = [slots[plant_key]] if plant_key in slots else []
-            return apply_predicates(rows, query, bind_vars, resolvers={"slot": lambda row: row})
+            plant_id = str(bind_vars["plant_id"])
+            rows = [p for p in placements if p["_from"] == plant_id]
+            rows = apply_predicates(
+                rows,
+                query,
+                bind_vars,
+                resolvers={
+                    "slot": lambda row: row["slot"],
+                    "plant": lambda row: plants.get(row["_from"].split("/")[-1]),
+                },
+            )
+            return [p["slot"] for p in rows]
 
         aql = ReplayingAql()
         aql.route("@contains_col", location_tree)
@@ -191,18 +254,32 @@ class TestSiteGraphQueries:
         assert self._repo().get_location_tree(FOREIGN_SITE, tenant_key=TENANT_KEY) == []
 
     def test_the_callers_own_site_still_returns_its_locations(self):
+        """Red against a ``v.tenant_key`` predicate — which is the whole point.
+
+        The location comes back *and* carries an empty ``tenant_key``: asserting
+        both together is what keeps a later "simplification" of the query from
+        passing. A predicate on the location itself returns ``[]`` here, i.e. the
+        site's hierarchy silently disappears from ``GET …/location-tree``.
+        """
         tree = self._repo().get_location_tree(OWN_SITE, tenant_key=TENANT_KEY)
 
         assert [loc.key for loc in tree] == ["loc-a1"]
+        assert tree[0].tenant_key == ""
 
     def test_a_foreign_plants_slot_is_not_resolvable(self):
         assert self._repo().get_slot_for_plant(FOREIGN_PLANT, tenant_key=TENANT_KEY) is None
 
     def test_the_callers_own_plant_still_resolves_its_slot(self):
+        """Red against a ``slot.tenant_key`` predicate: every slot resolves to ``None``.
+
+        Both callers treat ``None`` as "plant is not placed", so the loss is
+        silent — no irrigation warnings, no REQ-005 soil-moisture override.
+        """
         slot = self._repo().get_slot_for_plant(OWN_PLANT, tenant_key=TENANT_KEY)
 
         assert slot is not None
         assert slot.key == OWN_SLOT
+        assert slot.tenant_key == ""
 
     @pytest.mark.parametrize(("method", "anchor"), [("get_location_tree", OWN_SITE), ("get_slot_for_plant", OWN_PLANT)])
     def test_an_empty_tenant_key_is_rejected(self, method, anchor):
