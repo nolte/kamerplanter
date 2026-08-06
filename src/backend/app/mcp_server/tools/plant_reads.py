@@ -53,7 +53,12 @@ def _summarise(plant: Any) -> dict[str, Any]:
         # cec_meq_per_100g) would have no way in.
         "substrate_key": plant.substrate_key,
         "substrate_batch_key": plant.substrate_batch_key,
-        "substrate_type_override": plant.substrate_type_override,
+        # ``str()`` rather than the bare enum, as every other tool in the palette
+        # emits its enums. ``SubstrateType`` is a ``StrEnum``, so the JSON is the
+        # same either way today — but that equivalence is a property of the enum
+        # base class, not of this projection, and it would end silently if the
+        # enum ever stopped deriving from ``str``.
+        "substrate_type_override": str(plant.substrate_type_override) if plant.substrate_type_override else None,
         "planted_on": plant.planted_on,
         "removed_on": plant.removed_on,
         "current_phase_key": plant.current_phase_key,
@@ -153,16 +158,16 @@ class GetPlant(ToolBase):
         # declares and WateringService applies: an explicit override wins, else
         # the referenced Substrate's own type. Rebuilding that order in a recipe
         # would be a second opinion on the same data.
-        data["substrate_type"] = plant.substrate_type_override
+        resolved_type: Any = plant.substrate_type_override
+        data["substrate_name"] = None
         if plant.substrate_key:
             try:
                 substrate = ctx.substrate_service.get_substrate(plant.substrate_key)
-                data["substrate_type"] = data["substrate_type"] or getattr(substrate, "type", None)
+                resolved_type = resolved_type or getattr(substrate, "type", None)
                 data["substrate_name"] = getattr(substrate, "name", None)
             except Exception:  # noqa: BLE001 — a missing catalogue entry must not fail the read
                 data["substrate_name"] = None
-        else:
-            data["substrate_name"] = None
+        data["substrate_type"] = str(resolved_type) if resolved_type else None
 
         name = plant.plant_name or plant.instance_id
         return self._response(

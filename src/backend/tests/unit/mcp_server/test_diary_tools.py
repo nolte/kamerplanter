@@ -1633,6 +1633,34 @@ async def test_list_entries_reports_the_total_beyond_the_page(world: _World) -> 
 
 
 @pytest.mark.asyncio
+async def test_list_entries_returns_the_newest_first(world: _World) -> None:
+    """Newest-first is a contract, not an accident of the query.
+
+    REQ-050's evidence ladder rates a measurement by how recent it is, so a
+    recipe that reads the first row is entitled to the latest one. Without this
+    the tool could silently start answering in insertion order — every other
+    assertion in this file would still pass, and every dose derived from the
+    "current" EC would be derived from an old one.
+    """
+
+    # Created out of order on purpose: insertion order must not be the answer.
+    for day in (2, 5, 1, 4):
+        world.repo.create(_measurement(f"m-{day}", day=day))
+    tool = ListDiaryEntries()
+
+    response = await tool.run(world.ctx, tool.Input())
+
+    assert [r["entry_key"] for r in response.data["entries"]] == ["m-5", "m-4", "m-2", "m-1"]
+    assert response.data["entries"][0]["created_at"] == "2026-08-05T09:00:00Z"
+
+    # And the order survives paging — page 2 continues where page 1 stopped.
+    page1 = await tool.run(world.ctx, tool.Input(limit=2))
+    page2 = await tool.run(world.ctx, tool.Input(limit=2, offset=2))
+    assert [r["entry_key"] for r in page1.data["entries"]] == ["m-5", "m-4"]
+    assert [r["entry_key"] for r in page2.data["entries"]] == ["m-2", "m-1"]
+
+
+@pytest.mark.asyncio
 async def test_list_entries_reports_the_displayed_analysis_state(world: _World) -> None:
     """An expired lease reads as 'requested' here too, as on every other read path.
 

@@ -994,6 +994,14 @@ class ListDiaryEntries(ToolBase):
       A search that matched against text this tool then refuses to return would
       be a half-open door — the REST overview keeps it for the UI, which does
       show the text.
+
+    **Newest first, always.** The rows come back sorted by ``created_at``
+    descending, with ``_key`` as the tiebreaker so paging cannot show one entry
+    on two pages and another on none. This is part of the contract rather than
+    an accident of the query: REQ-050's evidence ladder rates a measurement by
+    how recent it is, so a recipe that reads the first row is entitled to the
+    latest one. The order is the repository's and is passed through untouched —
+    re-sorting here would be a second, silently diverging opinion on it.
     """
 
     class Input(TenantToolInput):
@@ -1029,6 +1037,14 @@ class ListDiaryEntries(ToolBase):
             limit=args.limit,
         )
 
+        # Labels are resolved per row, deduplicated per call. Worst case is a
+        # page whose entries all sit on different plants: ``limit`` plant reads
+        # plus up to ``limit`` species reads. That is the same bound the REST
+        # overview carries, and it is bounded by ``limit`` rather than by the
+        # tenant's diary — but this tool's ceiling is 100 where the analysis
+        # queue's is 20, so the worst case here is five times theirs. Resolving
+        # in the query instead would move the join into the repository, which is
+        # a change to the shared read path, not to this tool.
         species_cache: dict[str, str | None] = {}
         plant_cache: dict[str, Any | None] = {}
         items: list[dict[str, Any]] = []

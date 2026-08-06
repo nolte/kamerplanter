@@ -196,7 +196,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `list_plants` | Pflanzen auflisten, optional nach Name gefiltert — so wird aus „meine Tomate" der `plant_key`, den die Schreib-Werkzeuge brauchen |
 | `get_plant` | Eine Pflanze im Detail: Art (mit aufgelöstem Namen), Phase, Standort, Substrat (mit aufgelöstem Typ und Namen), Pflanz- und Entfernungsdatum |
 | `get_plant_care_log` | Pflegehistorie einer Pflanze — mit `reminder_type: "watering"` das Gießprotokoll |
-| `list_diary_entries` | Tagebuch-Einträge durchsehen, filterbar nach Pflanze, Art, Eintragstyp, Tag, Analyse-Zustand und Zeitraum — mit Messwerten, aber ohne Freitext |
+| `list_diary_entries` | Tagebuch-Einträge durchsehen, filterbar nach Pflanze, Art, Eintragstyp, Tag, Analyse-Zustand und Zeitraum — neueste zuerst, mit Messwerten, aber ohne Freitext |
 | `list_plants_at_location` | Alle Pflanzen an einem Standort, Beet oder Slot |
 | `list_nutrient_plans` | Verfügbare Nährstoffpläne — eigene plus globale Vorlagen |
 | `get_nutrient_plan` | Ein Plan mit allen Phasen: NPK-Verhältnis, Ziel-EC, Nährstoffe, Wochenfenster |

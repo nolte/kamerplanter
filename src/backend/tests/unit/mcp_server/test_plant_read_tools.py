@@ -14,7 +14,7 @@ from datetime import date, datetime
 
 import pytest
 
-from app.common.enums import ReminderType, TenantRole
+from app.common.enums import ReminderType, SubstrateType, TenantRole
 from app.common.exceptions import ValidationError
 from app.mcp_server.context import ToolContext
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
@@ -179,7 +179,7 @@ class _SubstrateService:
         return self._substrate
 
 
-def _substrate(name="Coco 70/30", type_="coco"):
+def _substrate(name="Coco 70/30", type_=SubstrateType.COCO):
     return type("Sub", (), {"name": name, "type": type_})()
 
 
@@ -195,6 +195,10 @@ async def test_get_plant_resolves_the_substrate_so_the_catalogue_becomes_reachab
     assert resp.data["substrate_type"] == "coco"
     assert resp.data["substrate_name"] == "Coco 70/30"
     assert substrates.calls == ["sub-coco"], "resolved once, like the species name"
+    # A plain str, not the enum member. StrEnum makes the two compare equal, so
+    # `== "coco"` above would pass either way; this is the assertion that would
+    # actually notice if the enum stopped deriving from str.
+    assert type(resp.data["substrate_type"]) is str
 
 
 @pytest.mark.asyncio
@@ -204,17 +208,18 @@ async def test_an_explicit_substrate_override_wins_over_the_referenced_record():
     Reversing it would report the medium the grower explicitly said it is *not*.
     """
 
-    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="sub-coco", substrate_type_override="soil")])
+    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="sub-coco", substrate_type_override=SubstrateType.SOIL)])
     ctx = _ctx(
         plant_instance_service=svc,
         species_service=_SpeciesStub(),
-        substrate_service=_SubstrateService(_substrate(type_="coco")),
+        substrate_service=_SubstrateService(_substrate(type_=SubstrateType.COCO)),
     )
 
     resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
 
     assert resp.data["substrate_type"] == "soil"
     assert resp.data["substrate_type_override"] == "soil", "the raw field stays visible next to the resolution"
+    assert type(resp.data["substrate_type_override"]) is str, "the list projection emits a str too"
 
 
 @pytest.mark.asyncio
