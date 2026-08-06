@@ -5,6 +5,7 @@ from typing import NoReturn
 
 import structlog
 
+from app.common.decoys import decoy_document_key, email_digest
 from app.common.enums import AuthProviderType, TenantRole
 from app.common.exceptions import (
     AccountLockedError,
@@ -53,37 +54,6 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
 
 
 _API_KEY_PREFIX = "kp_"
-
-#: Digit count of the decoy ``_key`` handed out by the SEC-H-009 registration
-#: guard. ArangoDB's default (traditional) key generator produces a plain
-#: decimal counter value, so a decoy of the same character class and width is
-#: the closest a synthesised key can get to a genuinely generated one.
-_DECOY_USER_KEY_DIGITS = 7
-
-
-def _decoy_user_key() -> str:
-    """Return a random, never-stored key shaped like an ArangoDB-generated one.
-
-    Used only by the SEC-H-009 registration guard. The value identifies no
-    document: it is never written, and every key-addressed endpoint requires
-    authentication, so the (negligible) chance of colliding with a real key
-    grants the caller nothing.
-    """
-    lower = 10 ** (_DECOY_USER_KEY_DIGITS - 1)
-    return str(lower + secrets.randbelow(9 * lower))
-
-
-def _email_digest(email: str) -> str:
-    """Return a stable, non-plaintext digest of an email for log correlation.
-
-    Follows the pseudonymisation convention already used for audit records
-    (``ai_audit_logger.hash_question``, ``ErasureEngine.compute_tombstone_hash``):
-    truncated sha256 over the normalised address. Repeated probes of the same
-    address stay correlatable without writing the address itself into a log
-    stream that has no retention rule of its own (NFR-011).
-    """
-    return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()[:16]
-
 
 #: Cache for the throw-away hash the SEC-H-010 login guard verifies against.
 #: Computed once per process on first use rather than at import time, so a
@@ -185,14 +155,14 @@ class AuthService:
         # brand-new account would carry, so it matches what a genuine
         # registration returns field for field.
         if self._user_repo.get_by_email(email) is not None:
-            logger.info("registration_duplicate_suppressed", email_sha256=_email_digest(email))
+            logger.info("registration_duplicate_suppressed", email_sha256=email_digest(email))
             decoy = User(
                 email=email,
                 display_name=display_name,
                 email_verified=skip_verification,
                 created_at=datetime.now(UTC),
             )
-            decoy.key = _decoy_user_key()
+            decoy.key = decoy_document_key()
             return self._to_profile(decoy)
 
         # Create user
@@ -337,7 +307,7 @@ class AuthService:
         )
         logger.info(
             "login_unknown_account_attempt",
-            email_sha256=_email_digest(email),
+            email_sha256=email_digest(email),
             failed_attempts=failed_attempts,
         )
         raise UnauthorizedError("Invalid email or password.")
