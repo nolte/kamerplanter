@@ -145,6 +145,30 @@
       ],
       enabled: false,
     },
+    // ── pip held below 26.2 until pip-tools catches up (#929) ───────────────
+    // pip 26.2 removed `pip._internal.utils.compat.stdlib_pkgs`. pip-tools
+    // imports it unconditionally via `piptools.sync`, which `pip-compile` pulls
+    // in while validating its config — so `pip-compile` dies with an ImportError
+    // before doing any work, and the `Lock staleness` gate in backend.yml fails
+    // on every run.
+    //
+    // There is nothing to bump *to*: pip-tools 7.6.0 is the latest release and
+    // is affected, as is 7.5.3. The workflow therefore pins pip explicitly
+    // rather than merely upgrading it (see backend.yml "Install pip-tools"), and
+    // this rule stops Renovate from re-raising the bump that breaks the pin.
+    //
+    // Revisit when pip-tools ships a release that drops the `stdlib_pkgs`
+    // import, then drop this rule and bump both together — pinning pip forever
+    // is the other half of the reproducibility problem, not a resting state.
+    {
+      matchDatasources: [
+        'pypi',
+      ],
+      matchPackageNames: [
+        'pip',
+      ],
+      allowedVersions: '<26.2',
+    },
     {
       groupName: 'frontend eslint',
       matchManagers: [
