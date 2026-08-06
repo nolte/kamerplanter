@@ -6,7 +6,6 @@ plus the PhaseTransitionDialog interaction, into one cohesive page object.
 
 from __future__ import annotations
 
-from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -288,13 +287,10 @@ class PlantInstanceDetailExt(BasePage):
 
     def is_transition_dialog_open(self) -> bool:
         # Stale-safe: an element unmounting mid fade-out is by definition gone.
-        for el in self.driver.find_elements(*self.TRANSITION_DIALOG):
-            try:
-                if el.is_displayed():
-                    return True
-            except StaleElementReferenceException:
-                continue
-        return False
+        # The verdict (and the opt-out that keeps it one) lives in
+        # `BasePage.is_any_displayed` -- see the "Staleness as a *verdict*" block
+        # in `base_page.py` for why it must not be allowed to heal.
+        return self.is_any_displayed(self.TRANSITION_DIALOG)
 
     def open_target_phase_select(self) -> None:
         """Open the target-phase dropdown (combobox-scoped, verified, loud)."""
@@ -376,13 +372,7 @@ class PlantInstanceDetailExt(BasePage):
     def is_confirm_dialog_visible(self) -> bool:
         # Stale-safe: the termination dialog animates out on cancel, so an element
         # can go stale between find and is_displayed() — treat that as "gone".
-        for el in self.driver.find_elements(*self.CONFIRM_DIALOG):
-            try:
-                if el.is_displayed():
-                    return True
-            except StaleElementReferenceException:
-                continue
-        return False
+        return self.is_any_displayed(self.CONFIRM_DIALOG)
 
     # ── Core-lifecycle-journey helpers (self-provisioning) ─────────────
 

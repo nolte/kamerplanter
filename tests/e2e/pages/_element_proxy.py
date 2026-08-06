@@ -79,11 +79,16 @@ never returns a dead or a substituted-but-unverified element.
 
 ## Known limits — deliberately not solved here
 
-* **Plural lookups are not covered.** ``driver.find_elements(...)`` and
+* **Plural lookups are not covered**, and #835 P4 settled that this is
+  permanent rather than pending. ``driver.find_elements(...)`` and
   ``proxy.find_element(...)`` both return raw elements (the driver builds them
   via ``create_web_element``), so rows and children do not inherit this
-  behaviour. The three row helpers in ``base_page.py`` are covered by
-  ``retry_on_stale`` instead.
+  behaviour. A list element has no re-resolution key: the only one available to
+  a generic wrapper is ``(locator, index)``, and an index means nothing across a
+  re-render — it is the exact recovery ``click_data_table_row`` refuses. The
+  three row helpers in ``base_page.py`` are covered by ``retry_on_stale``
+  instead; see the "Why the *plural* path is not wrapped" block there for the
+  full argument.
 * **Re-resolution re-runs the locator.** If the locator matches several nodes,
   the replacement may be a different node than the original — the same exposure
   the first capture already had, not a new one.

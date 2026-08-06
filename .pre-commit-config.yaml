@@ -101,8 +101,13 @@ repos:
   # repository root, where pre-commit runs every hook) on `sys.path`.
   #
   # `language_version` is pinned because the subject needs 3.14: the page objects
-  # use PEP 758 (`except A, B:` without parentheses, base_page.py:998), a
-  # SyntaxError on 3.13 and older. Unpinned, pre-commit builds the env with the
+  # use PEP 758 (`except A, B:` without parentheses) in seven places, a
+  # SyntaxError on 3.13 and older. Cited by construct rather than by `file:line`
+  # -- the line this used to name moved when #835 P4 rewrote the row helpers, and
+  # a stale citation reads as a premise that no longer holds. Enumerate them with
+  # `grep -rnE '^\s*except\s+[^(\s][^:]*,' tests/` (the `[^:]*` is what keeps an
+  # `except X as e:` with a comma in its trailing comment out of the count).
+  # Unpinned, pre-commit builds the env with the
   # interpreter *it* runs on, which on a developer machine is often the distro
   # python -- this hook collapsed with that SyntaxError on 3.12 before the pin.
   # The CI runner is CPython 3.14.6 (setup-python `3.x`), so `python3.14` is on

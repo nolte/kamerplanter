@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import BasePage, DEFAULT_TIMEOUT
+from .base_page import BasePage, DEFAULT_TIMEOUT, raw_reference
 
 
 class TaskDetailPage(BasePage):
@@ -274,12 +274,21 @@ class TaskDetailPage(BasePage):
         alone cannot tell apart from a swallowed click. It is probed *last*
         because the absence of a snackbar costs the full implicit wait, while
         the button state is a present-element read and therefore instant.
+
+        **This is the suite's only staleness verdict whose answer is a success
+        signal**, so it is the one place where a self-healing reference would not
+        merely change an answer but manufacture a pass: the healed replacement
+        would report on the re-rendered form, and "the form I clicked is gone"
+        would become "wait, then read the new one". `raw_reference` strips the
+        healing before the read (#835 P4). It is a no-op on the raw element
+        `find_elements` yields today and stays correct if that ever changes --
+        the verdict must not depend on which lookup paths happen to be wrapped.
         """
         buttons = self.driver.find_elements(*self.FORM_SUBMIT)
         if not buttons:
             return True
         try:
-            if not buttons[0].is_enabled():
+            if not raw_reference(buttons[0]).is_enabled():
                 return True
         except StaleElementReferenceException:
             return True

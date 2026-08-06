@@ -55,41 +55,156 @@ POLL_TRANSIENTS = (NoSuchElementException, StaleElementReferenceException)
 Locator = tuple[str, str]
 
 
+class TableNotSettled(StaleElementReferenceException):
+    """A `DataTable` row is in the DOM but has not rendered its identifying cell.
+
+    The second signal a re-rendering table emits, and the one the retry did not
+    cover before #835 P4. React replaces a row wholesale when its key changes --
+    that is the reference dying, i.e. ``StaleElementReferenceException``. But it
+    also *reconciles a surviving row's children in place*, and mid-reconciliation
+    that row exposes neither its ``cell-<col_id>`` nor its ``card-title``. The
+    reference is then perfectly alive and :meth:`BasePage.get_row_primary_text`
+    raises ``AssertionError`` -- which :meth:`BasePage.retry_on_stale` does not
+    catch, so it escaped the three row helpers as a hard failure.
+
+    That the shape is real was never in doubt: `click_data_table_row` has been
+    defending against it since #835, in a closure that catches
+    ``StaleElementReferenceException, AssertionError`` with the note "a row
+    mid-render exposes neither its cell nor its card title". The defence just
+    lived in one branch of one helper. This class is that knowledge promoted to
+    a name so the other readers can share it.
+
+    A ``StaleElementReferenceException`` **subclass**, for the same reason
+    ``ElementReResolutionError`` is one: the mechanisms already built around that
+    class are exactly the ones this needs. ``retry_on_stale`` re-runs the whole
+    acquisition, and ``POLL_TRANSIENTS`` treats it as "not yet" inside a poll
+    that carries its own budget. The reference is *not* dead, which is the one
+    respect in which the name overstates -- what both states share, and all a
+    caller can act on, is "re-acquire and look again".
+
+    **What it costs when the row is not mid-render at all.** A row that renders
+    no such cell because the caller named a column this table does not have is
+    indistinguishable from a mid-render row *at one instant*; the two are only
+    told apart over time, which is what a bounded retry does. So a genuinely
+    wrong ``col_id`` now surfaces after the retry budget instead of immediately.
+    It stays just as loud, and it carries the original assertion's message
+    verbatim plus both hypotheses -- see
+    :meth:`BasePage.require_row_primary_text`.
+    """
+
+
+# ── Why the *plural* path is not wrapped ──────────────────────────────────
+# The three element-returning waits hand back a `ReResolvingElement` (#835 P3).
+# `driver.find_elements(...)` -- 801 call sites -- deliberately does **not**, and
+# this is the reasoned decision, not an omission left for later (#835 P4).
+#
+# A singular reference can re-acquire itself because it knows *what it was
+# asked for*: a locator plus the condition that accepted it. A list element has
+# no such key. The only key available to a generic wrapper would be
+# `(locator, index)` -- and re-resolving a row by its index after a re-render is
+# precisely the recovery this module already refuses, three screens down in
+# `click_data_table_row`: #871 measured it turning a loud
+# `StaleElementReferenceException` into four journey tests that opened the
+# globally-first plant and then asserted against the one they meant to create.
+# Wrapping the plural path would reinstate that recovery *below* the guard that
+# rejects it, at 801 sites, where the guard cannot see it. A wrong element that
+# reads as success is worse than the exception it replaces.
+#
+# It would also buy nothing at most of those sites. The dominant shape there is
+# a count or an emptiness probe -- `is_present`, `has_alert_notification`,
+# `close_mui_dropdown`, `is_select_open`, `is_card_layout` -- which reads
+# `len(...)` or `next(iter(...), None)` and never touches the elements at all.
+# Healing is undefined for an empty list and irrelevant for a length.
+#
+# The complementary mechanism for the plural path is therefore the one that was
+# already here: `retry_on_stale`, which re-runs an *action that re-acquires what
+# it touches*. Where it may sit follows from that clause and from nothing else:
+# a closure over an element the caller already resolved would retry the same
+# dead reference (its own docstring says so). That rules out every row *reader*
+# whose row comes from its caller -- `get_row_cell_text`,
+# `get_row_text_fragments`, `get_row_chip_texts`, `resolve_row_click_target`,
+# `click_row_via_column` -- and it rules *in* every helper that does its own
+# `find_elements` **and then reads through the elements it found**.
+#
+# #835 P4 applied that rule instead of restating it, and it selects six helpers,
+# not the three that had it. The three it already occupied (`get_column_texts`,
+# `find_row_by_text`, `click_data_table_row`) plus three that qualified just as
+# squarely and were simply never revisited: `get_all_row_text_fragments`,
+# `get_column_chip_texts` and `get_column_chip_colors`. Each owns its row lookup
+# and then reads `.text`, a class attribute or a child element off every row it
+# found, so a re-render mid-scan let a raw `StaleElementReferenceException` out
+# of a pure read -- the same shape as the three, at eight page objects' worth of
+# list assertions (`get_visible_*` on harvest batches, planting runs,
+# substrates, treatments, tanks, watering logs, pests, diseases).
+#
+# What the rule keeps *out* is as load-bearing as what it lets in. A helper that
+# only counts or probes emptiness -- `get_all_table_row_count`,
+# `get_watering_log_row_count`, `is_present` -- never touches an element, so
+# there is nothing to go stale; and `get_watering_log_rows`, which hands its raw
+# rows to the caller, is the "the retry covers the scan, not the use" case
+# `find_row_by_text` documents, where wrapping the lookup would buy the caller
+# nothing.
+#
+# The second thing P4 closed is a different gap, and a measured one: a
+# re-rendering `DataTable` emits **two** signals, and the retry only ever
+# covered one. See `TableNotSettled`.
+
+
 # ── Staleness as a *verdict*, and how to keep it one ──────────────────────
 # `POLL_TRANSIENTS` above states the majority rule: inside a poll, a stale
 # reference means "look again". A handful of reads mean the opposite -- they
 # catch `StaleElementReferenceException` and *answer* with it ("the element is
-# gone, so: not displayed / not open / already closed"). For those, the
-# re-resolving reference the three element waits now return would change the
-# answer rather than stabilise it: the healed replacement would report on the
-# node that came back, where the caller asked about the node that left.
+# gone, so: not displayed / not open / already closed"). For those, a
+# re-resolving reference would change the answer rather than stabilise it: the
+# healed replacement would report on the node that came back, where the caller
+# asked about the node that left.
 #
-# The full classification, made when the waits were wired (#835 P3). Every site
-# in `tests/e2e/` that catches `StaleElementReferenceException`:
+# Re-run after P4 against the code as it now stands. The six verdict *sites* P3
+# counted are four verdict *implementations* now -- three page objects had
+# written the same dialog probe out for themselves and now share
+# `is_any_displayed` -- and all four still read their element from
+# `driver.find_elements(...)`, which is still not wrapped, so, as in P3, **no
+# verdict is reachable by a proxy today**. That
+# fact has now been re-derived twice and reversed once (P1 predicted
+# reachability, P3 refuted it), which is the argument for not relying on it a
+# third time: every verdict site is opted out **structurally**, so its answer no
+# longer depends on which paths happen to be wrapped this week.
 #
-#   Reads it as a VERDICT -- and reads an element that came from
-#   `driver.find_elements(...)`, which this change does **not** wrap, so none of
-#   them is reached by a proxy today:
-#     * `BasePage.is_displayed_in_scroll_container`  (verdict: False)
-#     * `BasePage._read_select_value`                (verdict: None -> loud)
-#     * `TaskDetailPage._submit_registered`          (verdict: True)
-#     * `PhaseTransitionPage.is_transition_dialog_open` / `.is_confirm_dialog_visible`
-#     * `FeedingEventListPage.is_create_dialog_open`
+#   Reads it as a VERDICT -- each opted out, each with the decision at the site:
+#     * `BasePage.is_displayed_in_scroll_container`  (False)  `raw_reference`
+#     * `BasePage._read_select_value`                (None -> loud) `raw_reference`
+#     * `BasePage.is_any_displayed`                  (False)  `raw_reference`,
+#       and the three page-object dialog probes that each used to write this
+#       loop out for themselves now route through it:
+#       `phase_transition_page.PlantInstanceDetailExt.is_transition_dialog_open`
+#       and `.is_confirm_dialog_visible` (the class name P3 recorded here as
+#       `PhaseTransitionPage` was wrong -- there is no such class in that
+#       module), plus `FeedingEventListPage.is_create_dialog_open`
+#     * `TaskDetailPage._submit_registered`          (**True**) `raw_reference`
+#       -- the one whose verdict is a *success* signal ("the submit went
+#       through"), so a healed reference would not merely change an answer, it
+#       would manufacture a pass. Guarded first for that reason.
+#
+# All four opt-outs are exercised against a deliberately proxied element by
+# `tests/e2e_selftest/test_row_helpers.py::TestVerdictsStayVerdicts`, so none of
+# them rests on being unreachable.
 #
 #   Reads it as a TRANSIENT (retry, or consult a second signal) -- healing is an
 #   improvement there, so these stay wired:
 #     * `BasePage.retry_on_stale`, `.get_text_stable`, `.close_mui_dropdown`,
-#       `._row_identity` (inside `click_data_table_row`)
+#       `.row_primary_text_or_none` (used by `click_data_table_row`)
 #     * `BasePage._aria_expanded` -- see its docstring for why it deliberately
 #       does not opt out
 #     * `WorkflowDetailPage.get_workflow_title`, `SiteListPageExt.open`,
-#       `_journey_helpers.provision_task`
+#       `_journey_helpers.create_care_task` (P3 recorded this one as
+#       `_journey_helpers.provision_task`; no such function exists -- the
+#       staleness handler is in `create_care_task`, and the module sits at
+#       `tests/e2e/_journey_helpers.py`, not under `pages/`)
 #
-# The two verdict sites that live in *this* module opt out structurally via
-# `raw_reference` below, so the verdict survives a caller that hands them a
-# proxied element -- a comment about who calls them today would not. The four in
-# page objects are left as they are because they resolve their own elements from
-# `find_elements`; **P4 wraps that path and must re-run this classification.**
+# The list above is the whole population, re-derived by walking the AST of
+# `tests/e2e/` for `except` handlers naming `StaleElementReferenceException` --
+# a text grep misses the ones written as a multi-line tuple, which is how
+# `close_mui_dropdown` and `create_care_task` spell theirs.
 
 
 def raw_reference(element: WebElement) -> WebElement:
@@ -832,6 +947,40 @@ class BasePage:
         """Return True if at least one element matching *locator* exists in the DOM."""
         return len(self.driver.find_elements(*locator)) > 0
 
+    def is_any_displayed(self, locator: tuple[str, str]) -> bool:
+        """Return whether any element matching *locator* is displayed right now.
+
+        The plural counterpart of a staleness *verdict*, and the shape three
+        page objects had each written out for themselves: a dialog animating
+        out can unmount between the ``find_elements`` and the
+        ``is_displayed()``, and a reference that dies in that window means the
+        dialog is **gone** -- not "look again". The three copies
+        (`PhaseTransitionPage.is_transition_dialog_open` /
+        `.is_confirm_dialog_visible`, `FeedingEventListPage.is_create_dialog_open`)
+        now delegate here, so the decision is recorded in one place instead of
+        being re-made per page.
+
+        :func:`raw_reference` is applied even though ``find_elements`` yields
+        raw elements today. The point is that the verdict must not depend on
+        that: this is a *negative* answer built out of an exception, so if the
+        plural path ever started healing, every "the dialog closed" assertion
+        would quietly start waiting for the replacement instead -- and pass or
+        fail on the node that came back rather than on the one that left. The
+        strip is a no-op on a raw element (it returns it unchanged), so the
+        guard costs nothing to hold.
+
+        Deliberately *not* a poll: callers use it as an instantaneous read
+        inside their own waits.
+        """
+        for element in self.driver.find_elements(*locator):
+            node = raw_reference(element)
+            try:
+                if node.is_displayed():
+                    return True
+            except StaleElementReferenceException:
+                continue
+        return False
+
     def get_text_stable(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> str:
         """Return text of *locator*, retrying on StaleElementReferenceException."""
         deadline = time.time() + timeout
@@ -1012,9 +1161,12 @@ class BasePage:
         Hence :func:`raw_reference`: the reference is stripped of its healing
         *before* it is read, so the question stays "did **this** node survive"
         rather than "does something matching its locator exist now". Today both
-        callers pass a raw element out of ``find_elements`` anyway; the strip is
-        what keeps the verdict true when that stops being so (#835 P4 wraps the
-        plural path).
+        callers pass a raw element out of ``find_elements``, and #835 P4 decided
+        *not* to wrap that path -- so the strip guards a case that cannot arise
+        yet. It is kept, and pinned by a test that hands this method a proxy on
+        purpose (`tests/e2e_selftest/test_row_helpers.py`), because an opt-out
+        that is only correct while nothing exercises it is a coincidence rather
+        than a guard.
         """
         node = raw_reference(element)
         try:
@@ -1415,8 +1567,10 @@ class BasePage:
         failure as fast as it is loud.
 
         Today's only caller (:meth:`select_option_by_value`) resolves the trigger
-        with ``find_elements`` and hands over a raw element, so this is a guard
-        on the contract rather than on present behaviour.
+        with ``find_elements`` and hands over a raw element, and #835 P4 decided
+        that path stays unwrapped -- so this is a guard on the contract rather
+        than on present behaviour. Exercised anyway by
+        `tests/e2e_selftest/test_row_helpers.py`, which hands it a proxy.
         """
         if field_name:
             value = self.driver.execute_script(
@@ -1628,11 +1782,21 @@ class BasePage:
         return exact + lines[len(exact) :]
 
     def get_all_row_text_fragments(self) -> list[list[str]]:
-        """Return :meth:`get_row_text_fragments` for every visible DataTable row."""
-        return [
-            self.get_row_text_fragments(row)
-            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
-        ]
+        """Return :meth:`get_row_text_fragments` for every visible DataTable row.
+
+        Re-read as a whole while the table moves (#835 P4), for the reason
+        :meth:`get_column_texts` gives: this owns its row lookup *and* reads
+        through every row it found, so a re-render mid-scan let a raw
+        ``StaleElementReferenceException`` out of what callers use as a plain
+        list assertion. Retrying the scan as a unit is also what keeps a partial
+        list mixed from two renders from escaping as a legitimate-looking result.
+        """
+        return self.retry_on_stale(
+            lambda: [
+                self.get_row_text_fragments(row)
+                for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
+            ]
+        )
 
     #: `MobileCard`'s own hooks. ``card-title`` is unconditional, so its
     #: absence means "this row renders no card" -- never "the title is
@@ -1737,12 +1901,22 @@ class BasePage:
         return scope.find_elements(By.CSS_SELECTOR, self.CHIP_ROOT_CSS)
 
     def get_column_chip_texts(self, col_id: str) -> list[str]:
-        """Return the chip labels of column *col_id*, across all visible rows."""
-        texts: list[str] = []
-        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            for scope in self._column_chip_scopes(row, col_id):
-                texts.extend(c.text for c in self._chip_elements(scope))
-        return texts
+        """Return the chip labels of column *col_id*, across all visible rows.
+
+        Re-read as a whole while the table moves (#835 P4) — see
+        :meth:`get_all_row_text_fragments`. This one reaches *two* levels
+        through the captured row (row -> chip scope -> chip), so it has the
+        longest window of the three in which a re-render can kill the reference.
+        """
+
+        def _scan() -> list[str]:
+            texts: list[str] = []
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+                for scope in self._column_chip_scopes(row, col_id):
+                    texts.extend(c.text for c in self._chip_elements(scope))
+            return texts
+
+        return self.retry_on_stale(_scan)
 
     def get_column_chip_colors(self, col_id: str) -> list[str]:
         """Return the MUI palette name of column *col_id*'s chips, across all rows.
@@ -1751,12 +1925,19 @@ class BasePage:
         class -- there is no product hook for a chip's colour -- so this reads
         the class by design. What it no longer does is *find* the chip by
         class: the scope comes from ``cell-<col_id>`` / ``card-chip-<col_id>``.
+
+        Re-read as a whole while the table moves (#835 P4) — see
+        :meth:`get_column_chip_texts`, whose scan shape this shares exactly.
         """
-        colors: list[str] = []
-        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            for scope in self._column_chip_scopes(row, col_id):
-                colors.extend(self._chip_colors(self._chip_elements(scope)))
-        return colors
+
+        def _scan() -> list[str]:
+            colors: list[str] = []
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+                for scope in self._column_chip_scopes(row, col_id):
+                    colors.extend(self._chip_colors(self._chip_elements(scope)))
+            return colors
+
+        return self.retry_on_stale(_scan)
 
     def _chip_colors(self, chips: list[WebElement]) -> list[str]:
         """Map each Chip onto its MUI palette name (``MuiChip-colorSuccess`` -> ``success``)."""
@@ -1806,15 +1987,64 @@ class BasePage:
             )
         return self._text_content(titles[0])
 
+    def require_row_primary_text(self, row: WebElement, col_id: str) -> str:
+        """:meth:`get_row_primary_text`, with an unreadable row as a *transient*.
+
+        The reader to use inside anything wrapped in :meth:`retry_on_stale`. A
+        row that renders none of its three identifying hooks is either mid-render
+        or wrongly addressed, and at one instant those are the same observation
+        (see :class:`TableNotSettled`); raising a retryable exception lets the
+        enclosing retry tell them apart by outliving the first. Without it the
+        ``AssertionError`` walks straight out through ``retry_on_stale``, which
+        catches only staleness -- measured as a hard failure in both
+        :meth:`get_column_texts` and :meth:`click_data_table_row`.
+
+        The original assertion's message is carried verbatim and kept as
+        ``__cause__``, so the diagnosis that survives the retry budget is the
+        specific one ("this row exposes neither 'cell-x' nor ...") rather than a
+        generic timeout.
+        """
+        try:
+            return self.get_row_primary_text(row, col_id)
+        except AssertionError as exc:
+            raise TableNotSettled(
+                f"{exc} Either the table is mid-render -- in which case the "
+                "enclosing retry will re-read it -- or the column id is wrong "
+                "for this table, in which case this message repeats until the "
+                "retry budget is out and is then the answer."
+            ) from exc
+
+    def row_primary_text_or_none(self, row: WebElement, col_id: str) -> str | None:
+        """*row*'s identifying text, or ``None`` while it is unreadable.
+
+        The sampling form, for a predicate that is polled: ``None`` means "this
+        row cannot be compared *yet*", covering both the row that went stale and
+        the row that is mid-render. Unreadable is not "different" -- treating it
+        as a mismatch is what made :meth:`click_data_table_row` reject a row that
+        was still there and merely further along (#835).
+        """
+        try:
+            return self.require_row_primary_text(row, col_id)
+        except StaleElementReferenceException:
+            # Includes `TableNotSettled`, which is the mid-render half.
+            return None
+
     def get_column_texts(self, col_id: str) -> list[str]:
         """Return the identifying text of every visible DataTable row.
 
-        Re-read as a whole on a stale row: a partial list mixed from two renders
-        would be worse than a retry, because it reads as a legitimate result.
+        Re-read as a whole while the table moves: a partial list mixed from two
+        renders would be worse than a retry, because it reads as a legitimate
+        result. That covers a row that went stale *and* -- since #835 P4, via
+        :meth:`require_row_primary_text` -- a row that is in the DOM but has not
+        rendered its cell yet, which used to escape as an ``AssertionError``.
+
+        An unreadable row is never answered with ``''``: an empty string is
+        indistinguishable from a legitimately blank cell, and would turn "the
+        deleted entry is gone" into a pass for the wrong reason.
         """
         return self.retry_on_stale(
             lambda: [
-                self.get_row_primary_text(row, col_id)
+                self.require_row_primary_text(row, col_id)
                 for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
             ]
         )
@@ -1829,6 +2059,16 @@ class BasePage:
         Reading ``.text`` off a captured row is itself a capture-then-use, so the
         scan is retried as a whole rather than returning ``None`` — "no such row"
         and "the table re-rendered mid-scan" must not collapse into one answer.
+
+        **The retry covers the scan, not the use.** The row handed back is a raw
+        reference to the render that was live when the scan ended, so a caller
+        that keeps it across a re-render holds a dead one and no mechanism here
+        can help -- ``retry_on_stale`` re-runs an action, and the action is over.
+        A caller that needs to *act* on the row wants
+        :meth:`click_data_table_row`, which keeps the lookup and the use inside
+        one retryable unit and re-finds by identity. This helper currently has no
+        call sites at all (checked across `tests/e2e/`, #835 P4), so the caveat
+        is a warning to the next caller rather than a live defect.
         """
 
         def _scan() -> WebElement | None:
@@ -1998,18 +2238,21 @@ class BasePage:
         And the re-find *waits*. Mid-re-render the table briefly exposes no rows
         at all, so a first non-match means "not yet", not "gone" — raising on it
         immediately was the third thing #835 got wrong here.
+
+        **What the guard does not cover, measured (#835 P4).** It protects the
+        *click*, and it can only protect an identity it has already read. If the
+        table re-renders during that very first read, ``identity`` is never
+        assigned, the whole attempt is retried, and the index is resolved against
+        the new render — so a re-render that *reorders* the rows in that window
+        activates a different record. This is not a hole that can be closed here:
+        before the first read there is no identity to re-find by, and the
+        caller's ``index`` was itself derived from a render this method never
+        saw. It is bounded to that one window and pinned as a test
+        (`tests/e2e_selftest/test_row_helpers.py`) so the claim above is not read
+        as covering more than it does.
         """
         locator = rows_locator or self.DATA_TABLE_ROWS
         identity: str | None = None
-
-        def _row_identity(row: WebElement) -> str | None:
-            """This row's identifying text, or ``None`` while it is unreadable."""
-            try:
-                return self.get_row_primary_text(row, col_id)
-            except StaleElementReferenceException, AssertionError:
-                # A row mid-render exposes neither its cell nor its card title.
-                # Unreadable is not "different" — leave it to the next poll.
-                return None
 
         def _click() -> None:
             nonlocal identity
@@ -2017,11 +2260,18 @@ class BasePage:
                 # First attempt: nothing has been clicked yet, so the index is
                 # still the caller's own selection and safe to resolve.
                 row = self.require_index(self.driver.find_elements(*locator), index, what)
-                identity = self.get_row_primary_text(row, col_id)
+                # `require_` and not the bare reader: a row that has not rendered
+                # its cell yet must send us round the retry, not out of the
+                # helper with an AssertionError.
+                identity = self.require_row_primary_text(row, col_id)
             else:
                 row = self.poll(IMPLICIT_WAIT_EQUIVALENT).until(
                     lambda d: next(
-                        (r for r in d.find_elements(*locator) if _row_identity(r) == identity),
+                        (
+                            r
+                            for r in d.find_elements(*locator)
+                            if self.row_primary_text_or_none(r, col_id) == identity
+                        ),
                         False,
                     ),
                     f"{what} identified by {identity!r} went stale mid-click and did not "

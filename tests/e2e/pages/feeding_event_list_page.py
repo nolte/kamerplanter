@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -162,15 +161,12 @@ class FeedingEventListPage(BasePage):
         """Return True if the create dialog is visible.
 
         Stale-safe: a dialog mid fade-out can unmount between find_elements and
-        is_displayed(); a stale reference means the dialog is already gone.
+        is_displayed(); a stale reference means the dialog is already gone. The
+        verdict is made once, in `BasePage.is_any_displayed`, which also strips
+        any healing off the reference before reading it -- a healed replacement
+        would answer about the dialog that came back, not the one that left.
         """
-        for dialog in self.driver.find_elements(*self.CREATE_DIALOG):
-            try:
-                if dialog.is_displayed():
-                    return True
-            except StaleElementReferenceException:
-                continue
-        return False
+        return self.is_any_displayed(self.CREATE_DIALOG)
 
     def select_plant(self, option_text: str) -> None:
         """Open the plant_key select and pick an option whose label contains text."""
