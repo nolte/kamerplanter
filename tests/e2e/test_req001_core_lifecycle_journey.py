@@ -161,13 +161,23 @@ class TestCoreJourneyCreatePlantInstance:
         # Also visible in the list view.
         plant_list.open()
         plant_list.search(instance_id)
-        plant_list.wait_for_loading_complete()
+        # `wait_for_loading_complete()` + `get_row_count() >= 1` stood here and
+        # could not fail: the DataTable filter is client-side behind a 300 ms
+        # debounce, so no skeleton ever mounts, the poll returns at once and the
+        # count is that of the *unfiltered* tenant list -- which is >= 1 whatever
+        # this test did. The chip proves the filter reached the table, the row
+        # identity proves the listed row is this plant and not just any row.
+        plant_list.wait_for_search_applied(instance_id, what="plant instance list")
         screenshot(
             "TC-REQ-001-J080_plant-in-list",
             "Plant instance list filtered to the new plant",
         )
-        assert plant_list.get_row_count() >= 1, (
-            f"TC-REQ-001-J080 FAIL: Plant '{instance_id}' should be listed (key={key})"
+        plant_list.wait_for_row_identity(
+            0,
+            PlantInstanceListPage.INSTANCE_ID_COLUMN_ID,
+            instance_id,
+            rows_locator=PlantInstanceListPage.TABLE_ROWS,
+            what=f"TC-REQ-001-J080: plant {instance_id!r} in the list (key={key})",
         )
 
 

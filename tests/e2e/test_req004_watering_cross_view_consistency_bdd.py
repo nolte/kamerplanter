@@ -234,7 +234,10 @@ def global_log_holds_waterings(
     expected = int(count)
     watering_list.open()
     watering_list.search(context["instance_id"])
-    watering_list.wait_for_loading_complete()
+    # Not `wait_for_loading_complete()`: the DataTable filter is client-side
+    # behind a 300 ms debounce, so no skeleton ever mounts and that poll returns
+    # while the table still holds every watering log in the tenant (#835).
+    watering_list.wait_for_search_applied(context["instance_id"], what="global watering log")
 
     row_count = watering_list.get_row_count()
     assert row_count == expected, (

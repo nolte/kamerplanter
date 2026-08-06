@@ -679,12 +679,27 @@ class TestNutrientPlanDetailPage:
         plan_list.submit_create_form()
         plan_list.wait_for_loading_complete()
 
-        # Navigate to it via list
+        # Navigate to it via list. The two waits below replace a
+        # `wait_for_loading_complete()` that proved nothing: the DataTable filter
+        # is client-side behind a 300 ms debounce, so no skeleton mounts and the
+        # poll returned while the table still rendered the *unfiltered* plans.
+        # `click_row(0)` then opened a seeded system plan, which renders no
+        # delete button at all (UI-NFR-018 R-012) -- reported on run 31113673507
+        # as an empty `TimeoutException` 15 s later, nowhere near the cause.
+        #
+        # The skip that stood here went with it: this plan was created by this
+        # test four lines above, so "could not find it" is a defect of the
+        # feature under test, not an unmet environmental precondition.
         plan_list.open()
         plan_list.search(delete_plan_name)
-        plan_list.wait_for_loading_complete()
-        if plan_list.get_row_count() == 0:
-            pytest.skip("Could not find the freshly created plan to delete")
+        plan_list.wait_for_search_applied(delete_plan_name, what="nutrient plan list")
+        plan_list.wait_for_row_identity(
+            0,
+            NutrientPlanListPage.NAME_COLUMN_ID,
+            delete_plan_name,
+            rows_locator=NutrientPlanListPage.TABLE_ROWS,
+            what=f"self-provisioned nutrient plan {delete_plan_name!r}",
+        )
 
         plan_list.click_row(0)
         plan_list.wait_for_url_contains("/duengung/plans/")

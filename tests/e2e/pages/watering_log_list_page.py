@@ -174,15 +174,23 @@ class WateringLogListPage(BasePage):
     # -- Search and filter --------------------------------------------------
 
     def search(self, term: str) -> None:
-        """Type *term* into the search field."""
+        """Type *term* into the search field.
+
+        **This does not settle the table.** The comment that used to claim it
+        did -- "callers can rely on the result being settled once this method
+        returns" -- was wrong by exactly the margin that matters: the sleep
+        below is the *same* 300 ms as the debounce it is waiting out, so whether
+        the re-render has happened on return is a coin flip. A caller that then
+        reads or counts rows must gate on
+        :meth:`BasePage.wait_for_search_applied` (#835).
+        """
         import time
 
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
-        # debounce: bounded, justified (table-search-input has a 300ms
-        # debounce before it re-filters, so callers can rely on the result
-        # being settled once this method returns)
+        # Nudges past the bulk of the 300 ms debounce so a following poll
+        # usually succeeds on its first cycle. It is not the post-condition.
         time.sleep(0.3)
 
     def clear_search(self) -> None:

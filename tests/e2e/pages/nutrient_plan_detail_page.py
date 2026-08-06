@@ -14,7 +14,16 @@ class NutrientPlanDetailPage(BasePage):
     # Locators
     PAGE = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page']")
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
-    DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
+    # The app's own hook (`NutrientPlanDetailPage.tsx:114`). The XPath that stood
+    # here -- `//button[contains(@class, 'MuiButton-colorError')]` -- was
+    # unscoped and structural: it matched *any* error-coloured button in the
+    # document, so a hit proved nothing about which control was clicked. It also
+    # made the miss unreadable, and the miss matters here: the button is rendered
+    # conditionally (`{!c.isDeletionProtected && ...}`, UI-NFR-018 R-012), so on
+    # a system plan it is legitimately absent -- which is precisely what run
+    # 31113673507 hit after the row click opened a seeded plan instead of the
+    # freshly created one, and reported as a bare empty `TimeoutException`.
+    DELETE_BUTTON = (By.CSS_SELECTOR, "[data-testid='delete-nutrient-plan-button']")
 
     # Confirm dialog
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
