@@ -192,7 +192,7 @@ def assign_nutrient_plan(
 ) -> AssignNutrientPlanStatusResponse:
     """Assign a nutrient plan to a plant instance."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
-    plan_service.assign_to_plant(key, body.plan_key, body.assigned_by)
+    plan_service.assign_to_plant(key, body.plan_key, body.assigned_by, tenant_key=ctx.tenant_key)
     return AssignNutrientPlanStatusResponse(status="assigned")
 
 
@@ -254,7 +254,7 @@ def get_active_channels(
     if plan is None or plan.key is None:
         return []
     phase_name = plant_service.resolve_phase_name(plant.current_phase_key or "")
-    channels = plan_service.get_active_channels_for_plan(plan.key, phase_name, current_week)
+    channels = plan_service.get_active_channels_for_plan(plan.key, phase_name, current_week, tenant_key=ctx.tenant_key)
     return channels
 
 

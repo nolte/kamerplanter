@@ -22,6 +22,11 @@ class INutrientPlanRepository(ABC):
     def get_or_raise(self, key: NutrientPlanKey) -> NutrientPlan: ...
 
     @abstractmethod
+    def get_readable_or_raise(self, key: NutrientPlanKey, *, tenant_key: str) -> NutrientPlan:
+        """Return a plan readable from ``tenant_key`` — own or global — else 404 (#950)."""
+        ...
+
+    @abstractmethod
     def create(self, plan: NutrientPlan) -> NutrientPlan: ...
 
     @abstractmethod

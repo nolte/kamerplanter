@@ -164,8 +164,28 @@ class NutrientPlanService:
 
     # ── Plant assignment ─────────────────────────────────────────────
 
-    def assign_to_plant(self, plant_key: str, plan_key: NutrientPlanKey, assigned_by: str = "") -> dict:
-        self.get_plan(plan_key)
+    def assign_to_plant(
+        self,
+        plant_key: str,
+        plan_key: NutrientPlanKey,
+        assigned_by: str = "",
+        *,
+        tenant_key: str,
+    ) -> dict:
+        """Bind a plant to a plan the caller's tenant may actually read (#950).
+
+        ``tenant_key`` is required and keyword-only. The previous signature had no
+        tenant at all and called ``get_plan(plan_key)`` with its empty default,
+        which skips the access check: a member of tenant A could bind their own
+        plant to tenant B's plan, and every later read — ``GET …/nutrient-plan``,
+        ``/current-dosages``, ``/active-channels``, MCP ``get_plant_nutrient_plan``
+        — then returned the foreign plan, because those are anchored on the plant
+        and the plant genuinely is the caller's.
+
+        Read access, not write access: a globally seeded system plan must stay
+        assignable to every tenant, otherwise this becomes the #324 regression.
+        """
+        self._repo.get_readable_or_raise(plan_key, tenant_key=tenant_key)
         return self._repo.assign_to_plant(plant_key, plan_key, assigned_by)
 
     def get_plant_plan(self, plant_key: str, *, tenant_key: str) -> NutrientPlan | None:
@@ -274,13 +294,22 @@ class NutrientPlanService:
         plan_key: str,
         current_phase: str,
         current_week: int,
+        *,
+        tenant_key: str,
     ) -> list[dict]:
         """Return active delivery channels with enriched dosage data.
 
         Works for any entity that has a nutrient plan assigned (plant or run).
         Returns only enabled channels from the effective phase entry.
+
+        ``tenant_key`` is required and keyword-only (#950). ``plan_key`` reaches
+        this method from a ``follows_plan`` edge, and until #950 nothing stopped
+        that edge from pointing at another tenant's plan; historical rows written
+        before the fix can still do so. A plan the caller may not read yields an
+        empty channel list — the same answer as "this entity has no plan" — rather
+        than the foreign plan's phase entries, fertilisers and EC targets.
         """
-        plan = self._repo.get_by_key(plan_key)
+        plan = self._plan_for_read(plan_key, tenant_key)
         if plan is None or plan.key is None:
             return []
 
@@ -304,6 +333,13 @@ class NutrientPlanService:
             ch["week_start"] = entry.week_start
             ch["week_end"] = entry.week_end
         return channels_data
+
+    def _plan_for_read(self, plan_key: str, tenant_key: str) -> NutrientPlan | None:
+        """A plan the caller may read, or ``None`` — never a foreign tenant's (#950)."""
+        try:
+            return self._repo.get_readable_or_raise(plan_key, tenant_key=tenant_key)
+        except NotFoundError:
+            return None
 
     def _build_channels_data(self, channels: list[DeliveryChannel]) -> list[dict]:
         """Build enriched channel data with fertilizer names and mixing priorities."""
