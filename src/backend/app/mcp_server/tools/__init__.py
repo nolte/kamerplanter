@@ -16,7 +16,8 @@ the ~30-tool inventory in §2):
   list_pests, get_pest, list_diseases, get_disease, get_treatment,
   get_plant_inspections, list_cultivars, get_cultivar, list_substrates,
   list_overwintering_profiles, list_starter_kits, list_phase_definitions,
-  list_hardiness_zones, search_glossary, get_mcp_activity,
+  list_hardiness_zones, search_glossary, search_plant_knowledge,
+  get_mcp_activity,
   list_pending_diary_analyses, get_diary_entry, get_diary_entry_photos
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location,
   add_plant_diary_entry, claim_diary_analysis, submit_diary_analysis,
@@ -47,6 +48,7 @@ from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
     feeding,
     harvest,
     ipm,
+    knowledge,
     nutrient_calc,
     nutrition,
     plant_reads,
