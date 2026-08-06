@@ -5,7 +5,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage, DEFAULT_TIMEOUT
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class TenantSettingsPage(BasePage):
@@ -142,9 +142,13 @@ class TenantSettingsPage(BasePage):
         self.scroll_and_click(btn)
 
     def has_empty_state(self) -> bool:
-        """Check if the empty state message is displayed."""
-        elements = self.driver.find_elements(*self.EMPTY_STATE)
-        return len(elements) > 0 and elements[0].is_displayed()
+        """Check if the empty state message is displayed.
+
+        Kept rather than inherited from `BasePage`: this one also requires the
+        node to be *displayed*, which is the stronger claim. Waits for it, for
+        the reason the base version does.
+        """
+        return self.is_visible_within(self.EMPTY_STATE, IMPLICIT_WAIT_EQUIVALENT)
 
     def has_any_remove_buttons(self) -> bool:
         """Check if any remove-member buttons are visible (admin indicator)."""

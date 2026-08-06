@@ -13,7 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import BasePage
+from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 DETAIL_PATH_PREFIX = "/pflanzen/plant-instances"
 
@@ -122,8 +122,8 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.PHOTO_ITEMS))
 
     def has_empty_state(self) -> bool:
-        els = self.driver.find_elements(*self.EMPTY_STATE)
-        return bool(els) and els[0].is_displayed()
+        """Whether the gallery's empty state is displayed (waits; see `BasePage`)."""
+        return self.is_visible_within(self.EMPTY_STATE, IMPLICIT_WAIT_EQUIVALENT)
 
     def has_add_button(self) -> bool:
         els = self.driver.find_elements(*self.ADD_BUTTON)

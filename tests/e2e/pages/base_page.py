@@ -953,8 +953,31 @@ class BasePage:
         Order matters: the direct control is tried first, so desktop keeps its
         single click and no menu is opened that would then have to be closed
         again.
+
+        **Both probes wait for the header to exist before either decides.** They
+        used to be two raw ``find_elements``, taken in the same millisecond as
+        the caller's navigation, so on a page header that had not rendered yet
+        *neither* matched and this raised "neither visible nor behind an
+        overflow menu" -- a message describing the page's contents when it was
+        really describing the instant. TC-REQ-001-030 failed exactly that way
+        once #835 removed the implicit wait that had been granting both probes
+        3 s. Waiting for the disjunction keeps the branch choice intact: the
+        direct control still wins when present, and a header that genuinely
+        offers neither still raises, now after a real look.
         """
-        direct = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        direct_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        try:
+            self.wait_for_any_present(
+                (direct_locator, self.PAGE_HEADER_OVERFLOW),
+                f"header action {testid!r}",
+                timeout=IMPLICIT_WAIT_EQUIVALENT,
+            )
+        except AssertionError:
+            # Neither arm appeared; fall through to the raise below, which names
+            # both and is the diagnosis this method already owned.
+            pass
+
+        direct = self.driver.find_elements(*direct_locator)
         if direct and direct[0].is_displayed():
             self.scroll_and_click(direct[0])
             return
@@ -1018,7 +1041,7 @@ class BasePage:
     #: in the millisecond after ``search()`` typed -- i.e. inside the component's
     #: own 300 ms debounce, before the chip can exist. TC-REQ-013-005 asserted
     #: on it and failed for that reason with the implicit wait gone.
-    def has_search_chip(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+    def has_search_chip(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
         """Whether the search chip is rendered, waiting for it to appear.
 
         The chip's presence is a *product* claim ("an active search is shown as
@@ -1027,6 +1050,48 @@ class BasePage:
         answer that meant "the debounce has not fired yet" is gone.
         """
         return bool(self.await_presence(self.SEARCH_CHIP, timeout))
+
+    #: `DataTable`'s sort chip. Fifteen identical private copies, same shape and
+    #: same exposure as the search chip above.
+    SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
+
+    def has_sort_chip(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether the sort chip is rendered, waiting for it to appear."""
+        return bool(self.await_presence(self.SORT_CHIP, timeout))
+
+    def has_empty_state(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether the `EmptyState` branch is rendered, waiting for it to appear.
+
+        Seventeen page objects carried an identical private copy. The budget
+        matters more here than for the chips: several callers ask this as one
+        arm of a disjunction (``assert has_empty or has_cards``) where the
+        *populated* answer is the normal one, so a full ``DEFAULT_TIMEOUT``
+        would charge 15 s on every healthy run for an element that is correctly
+        absent. Three seconds is what those reads were actually getting before
+        #835, so this restores their behaviour rather than inventing a new one.
+        """
+        return bool(self.await_presence(self.EMPTY_STATE, timeout))
+
+    def is_absent_within(self, locator: Locator, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Whether *locator* is gone, waiting for it to disappear.
+
+        The mirror of :meth:`is_visible_within`, and the reader an **absence**
+        assertion needs. The instantaneous read is not safe at either polarity:
+        a presence read taken too early sees nothing that is about to appear,
+        and an absence read taken too early sees something that is about to
+        leave -- a MUI dialog fading out over ~195 ms is the everyday case. The
+        implicit wait used to cover both, because it made every *empty*
+        ``find_elements`` block for 3 s, which is why removing it put pressure on
+        absence assertions too.
+
+        ``False`` here means "still present after *timeout*", which is a genuine
+        positive, so an element that never goes away still fails its caller.
+        """
+        try:
+            self.poll(timeout).until(lambda d: not d.find_elements(*locator))
+        except TimeoutException:
+            return False
+        return True
 
     def await_presence(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT

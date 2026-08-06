@@ -49,9 +49,6 @@ class PlantInstanceListExt(BasePage):
         elements = self.driver.find_elements(*self.TABLE)
         return len(elements) > 0 and elements[0].is_displayed()
 
-    def has_empty_state(self) -> bool:
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
-
     #: Column id of the identifying column (PlantInstanceListPage `columns`).
     INSTANCE_ID_COLUMN_ID = "instanceId"
     #: Column id carrying the current-phase chip.
@@ -114,9 +111,6 @@ class PlantInstanceListExt(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
-
-    def has_sort_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
 
     def get_column_headers(self) -> list[str]:
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")

@@ -132,10 +132,6 @@ class WorkflowListPage(BasePage):
         # Allow debounce/filtering to take effect
         time.sleep(0.5)
 
-    def has_empty_state(self) -> bool:
-        """Check if the empty state illustration is shown."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
-
     # ── Buttons ────────────────────────────────────────────────────────
 
     def click_create_workflow(self) -> None:

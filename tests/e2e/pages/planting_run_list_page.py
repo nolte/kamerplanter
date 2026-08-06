@@ -133,9 +133,6 @@ class PlantingRunListPage(BasePage):
         search_input.clear()
         search_input.send_keys(Keys.BACKSPACE)
 
-    def has_sort_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
-
     def click_reset_filters(self) -> None:
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
 
@@ -145,9 +142,6 @@ class PlantingRunListPage(BasePage):
     def get_showing_count_text(self) -> str:
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
-
-    def has_empty_state(self) -> bool:
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     # ── Create dialog ──────────────────────────────────────────────────
 

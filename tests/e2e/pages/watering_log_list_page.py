@@ -203,10 +203,6 @@ class WateringLogListPage(BasePage):
         # debounce: bounded, justified (same 300ms debounce as search())
         time.sleep(0.3)
 
-    def has_empty_state(self) -> bool:
-        """Return True if the empty state illustration is visible."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
-
     def has_table(self) -> bool:
         """Return True if the DataTable is present."""
         return len(self.driver.find_elements(*self.TABLE)) > 0
@@ -246,8 +242,19 @@ class WateringLogListPage(BasePage):
         self.wait_for_element_visible(self.REMOVE_FERTILIZER_BUTTON_0)
 
     def has_remove_fertilizer_button(self) -> bool:
-        """Return True if a remove-fertilizer button is present (row 0)."""
-        return len(self.driver.find_elements(*self.REMOVE_FERTILIZER_BUTTON_0)) > 0
+        """Return True if a remove-fertilizer button is present (row 0).
+
+        Waits, even though :meth:`click_add_fertilizer` already waited for this
+        very button -- because something between the two can take it away again
+        and put it straight back. TC-REQ-004-W004b failed with the action's wait
+        satisfied and this read empty one line later, with only a `screenshot()`
+        checkpoint in between: `_cdp_full_page_screenshot` passes
+        ``captureBeyondViewport``, which resizes the layout viewport to the
+        document height, and MUI re-evaluates every `useMediaQuery` on the
+        resulting resize. The checkpoint is not observation-neutral, so a raw
+        read taken after one is exposed to a re-render it did not cause.
+        """
+        return bool(self.await_presence(self.REMOVE_FERTILIZER_BUTTON_0))
 
     def select_first_plant(self) -> bool:
         """Type into the plant autocomplete and select the first option.

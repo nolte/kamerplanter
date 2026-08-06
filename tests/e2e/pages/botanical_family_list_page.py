@@ -60,8 +60,8 @@ class BotanicalFamilyListPage(BasePage):
         return self
 
     def is_page_visible(self) -> bool:
-        """Check whether the list page root element is present."""
-        return len(self.driver.find_elements(*self.PAGE)) > 0
+        """Check whether the list page root element is present (waits)."""
+        return bool(self.await_presence(self.PAGE))
 
     def get_form_field_count(self) -> int:
         """Return the number of ``form-field-*`` elements rendered on the current page."""
@@ -145,9 +145,6 @@ class BotanicalFamilyListPage(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         self.clear_and_fill(search_input, "")
 
-    def has_sort_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
-
     def click_reset_filters(self) -> None:
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
 
@@ -157,9 +154,6 @@ class BotanicalFamilyListPage(BasePage):
     def get_showing_count_text(self) -> str:
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
-
-    def has_empty_state(self) -> bool:
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     def has_error_snackbar(self) -> bool:
         """Check whether an error Alert/Snackbar (backend validation) is visible."""

@@ -111,10 +111,6 @@ class PlantInstanceListPage(BasePage):
         search_input.clear()
         search_input.send_keys(Keys.BACKSPACE)
 
-    def has_sort_chip(self) -> bool:
-        """Return True if the sort chip is visible."""
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
-
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
@@ -127,10 +123,6 @@ class PlantInstanceListPage(BasePage):
         """Return the text of the showing-count element."""
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
-
-    def has_empty_state(self) -> bool:
-        """Return True if the empty state element is visible."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     # ── Create dialog ──────────────────────────────────────────────────
 

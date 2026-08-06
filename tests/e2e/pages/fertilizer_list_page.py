@@ -102,10 +102,6 @@ class FertilizerListPage(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         self.clear_and_fill(search_input, "")
 
-    def has_sort_chip(self) -> bool:
-        """Return True if the sort chip is visible."""
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
-
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
@@ -119,10 +115,6 @@ class FertilizerListPage(BasePage):
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
 
-    def has_empty_state(self) -> bool:
-        """Return True if the empty state is shown."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
-
     def has_table(self) -> bool:
         """Return True if the DataTable is present."""
         return len(self.driver.find_elements(*self.TABLE)) > 0
@@ -133,14 +125,15 @@ class FertilizerListPage(BasePage):
         return el.get_attribute("value") or ""
 
     def has_form_field(self, field_name: str) -> bool:
-        """Return True if a ``form-field-{field_name}`` element is present in the dialog."""
-        return (
-            len(
-                self.driver.find_elements(
-                    By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
-                )
-            )
-            > 0
+        """Return True if a ``form-field-{field_name}`` element is in the dialog.
+
+        Waits: every caller asserts the field *is* there, right after the
+        dialog opened, and a MUI Dialog mounts its paper before its form
+        children. The raw read this replaces could answer for the frame in
+        between. A field that never renders still answers ``False``.
+        """
+        return bool(
+            self.await_presence((By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"))
         )
 
     # ── Create dialog ──────────────────────────────────────────────────

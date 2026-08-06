@@ -111,9 +111,6 @@ class SpeciesListPage(BasePage):
                 return
         raise ValueError(f"Row with name '{name}' not found")
 
-    def has_empty_state(self) -> bool:
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
-
     def click_next_page(self) -> None:
         self.wait_for_element_clickable(self.NEXT_PAGE).click()
 

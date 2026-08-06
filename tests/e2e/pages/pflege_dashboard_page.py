@@ -11,7 +11,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import DEFAULT_TIMEOUT, BasePage
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class PflegeDashboardPage(BasePage):
@@ -130,9 +130,14 @@ class PflegeDashboardPage(BasePage):
         return self.wait_for_element(self.PAGE_TITLE).text
 
     def has_empty_state(self) -> bool:
-        """Return True if the 'Alle Pflanzen versorgt' empty state is shown."""
-        elements = self.driver.find_elements(*self.EMPTY_STATE)
-        return len(elements) > 0 and elements[0].is_displayed()
+        """Return True if the 'Alle Pflanzen versorgt' empty state is shown.
+
+        Waits, on the short `IMPLICIT_WAIT_EQUIVALENT` budget: TC-REQ-022-017
+        asks this as one arm of ``has_empty or has_cards``, where the populated
+        answer is the normal one, so a full timeout would be charged on every
+        healthy run for an element that is correctly absent.
+        """
+        return self.is_visible_within(self.EMPTY_STATE, IMPLICIT_WAIT_EQUIVALENT)
 
     def has_task_cards(self) -> bool:
         """Return True if any task card is rendered.
