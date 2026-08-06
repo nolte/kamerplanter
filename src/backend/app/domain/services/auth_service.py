@@ -51,6 +51,36 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
 
 _API_KEY_PREFIX = "kp_"
 
+#: Digit count of the decoy ``_key`` handed out by the SEC-H-009 registration
+#: guard. ArangoDB's default (traditional) key generator produces a plain
+#: decimal counter value, so a decoy of the same character class and width is
+#: the closest a synthesised key can get to a genuinely generated one.
+_DECOY_USER_KEY_DIGITS = 7
+
+
+def _decoy_user_key() -> str:
+    """Return a random, never-stored key shaped like an ArangoDB-generated one.
+
+    Used only by the SEC-H-009 registration guard. The value identifies no
+    document: it is never written, and every key-addressed endpoint requires
+    authentication, so the (negligible) chance of colliding with a real key
+    grants the caller nothing.
+    """
+    lower = 10 ** (_DECOY_USER_KEY_DIGITS - 1)
+    return str(lower + secrets.randbelow(9 * lower))
+
+
+def _email_digest(email: str) -> str:
+    """Return a stable, non-plaintext digest of an email for log correlation.
+
+    Follows the pseudonymisation convention already used for audit records
+    (``ai_audit_logger.hash_question``, ``ErasureEngine.compute_tombstone_hash``):
+    truncated sha256 over the normalised address. Repeated probes of the same
+    address stay correlatable without writing the address itself into a log
+    stream that has no retention rule of its own (NFR-011).
+    """
+    return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()[:16]
+
 
 class AuthService:
     def __init__(
@@ -106,15 +136,35 @@ class AuthService:
         if errors:
             raise ValidationError("; ".join(errors))
 
-        # Check duplicate email — return generic profile to prevent account enumeration
-        # (SEC-H-009). The caller cannot distinguish between new and existing accounts.
-        existing = self._user_repo.get_by_email(email)
-        if existing:
-            logger.info("registration_duplicate_suppressed", email=email)
-            return self._to_profile(existing)
+        skip_verification = not self._require_email_verification
+
+        # Duplicate email — account-enumeration guard (SEC-H-009).
+        #
+        # This branch used to return ``self._to_profile(existing)``: the stored
+        # record of whoever owns the address, handed to an unauthenticated caller
+        # who had just proven nothing (any password, right or wrong, took this
+        # path). That inverted the very property the comment claimed — the
+        # response differed from a real registration in every field derived from
+        # the account (key, display_name, email_verified, is_active, avatar_url,
+        # locale, timezone, last_login_at, created_at), so it both confirmed the
+        # address exists and disclosed another person's data.
+        #
+        # Nothing below is read from ``existing``: the profile is synthesised
+        # from the SUBMITTED email and display name plus the defaults a
+        # brand-new account would carry, so it matches what a genuine
+        # registration returns field for field.
+        if self._user_repo.get_by_email(email) is not None:
+            logger.info("registration_duplicate_suppressed", email_sha256=_email_digest(email))
+            decoy = User(
+                email=email,
+                display_name=display_name,
+                email_verified=skip_verification,
+                created_at=datetime.now(UTC),
+            )
+            decoy.key = _decoy_user_key()
+            return self._to_profile(decoy)
 
         # Create user
-        skip_verification = not self._require_email_verification
         verification_token = None if skip_verification else secrets.token_urlsafe(32)
         user = User(
             email=email,
