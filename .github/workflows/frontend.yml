@@ -167,7 +167,22 @@ jobs:
   coverage:
     name: Coverage
     needs: changes
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+    # `needs.changes.result` is load-bearing, for the same reason it is in the
+    # `lint-test-build` job above and in e2e-smoke.yml. A failed or cancelled
+    # `changes` leaves `outputs.frontend` an empty string; both remaining
+    # clauses would then be false, the job would be skipped, and a job whose
+    # steps are all skipped reports Success. Coverage would go green without
+    # measuring anything.
+    #
+    # Lower stakes than `lint-test-build (22)`, which is a required context —
+    # this one is advisory. It is guarded anyway because it is the same defect
+    # two dozen lines from the fix for it, and the next reader copying either
+    # job should copy the guarded form.
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.changes.result != 'success'
+          || needs.changes.outputs.frontend == 'true')
     uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@d51e51ec3ec17ceea09fe9eb40ac00857b6fa1be # v2.0.0
     with:
       node-version: '22'
