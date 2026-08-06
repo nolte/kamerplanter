@@ -237,7 +237,21 @@ class TestPlantInstanceCreateDialog:
         assert instance_id, "TC-REQ-001-PI-005 FAIL: Expected instance_id to be auto-generated"
 
         plant_list.submit_create_form()
-        plant_list.wait_for_loading_complete()
+        # Two post-conditions replacing a `wait_for_loading_complete()` that was
+        # only ever worth the ~3 s the implicit wait charged for its empty
+        # lookup. Without that pause the reads below landed *inside* the list's
+        # own refetch — `onCreated` dispatches `fetchPlantInstances({})`, which
+        # empties `rows` while the request is in flight — and the test reported
+        # `final: 0, names: []`: it blamed the create for a table that was
+        # merely mid-request (#835).
+        #
+        # The dialog closing proves the POST resolved; re-opening the list then
+        # reads a page that fetched from scratch. `open()`'s own
+        # `wait_for_loading_complete` *is* meaningful after a full navigation,
+        # where the skeleton reliably mounts — unlike after a client-side
+        # mutation, where it may never appear at all.
+        plant_list.wait_for_create_dialog_closed()
+        plant_list.open()
         screenshot(
             "TC-REQ-001-PI-005_after-create",
             "Plant list after creation",
