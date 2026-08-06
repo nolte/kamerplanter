@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from .base_page import BasePage
+from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class TankDetailPage(BasePage):
@@ -292,20 +292,53 @@ class TankDetailPage(BasePage):
         el.send_keys(notes)
 
     def submit_maintenance_form(self) -> None:
-        """Submit the maintenance log form."""
+        """Submit the maintenance log form and wait for the dialog to close.
+
+        The dialog closing is an exact post-condition:
+        ``MaintenanceLogDialog.onSubmit`` calls ``onCreated()`` -- which the
+        parent implements as ``setMaintenanceDialogOpen(false); load()`` -- only
+        after ``await api.logMaintenance(...)`` resolves.
+
+        Checked before adding it, per the lesson of the cultivar submit: this
+        helper has **one** caller and it expects success, so the success
+        post-condition is a property of every current use. A caller expecting a
+        rejected submit must not use it.
+        """
         self.wait_and_click(self.MAINT_FORM_SUBMIT)
+        self.wait_for_element_hidden(self.MAINTENANCE_DIALOG)
 
     def cancel_maintenance_form(self) -> None:
         """Cancel the maintenance dialog."""
         self.wait_and_click(self.MAINT_FORM_CANCEL)
 
+    def wait_for_maintenance_table(self) -> None:
+        """Wait for the maintenance table to be back on screen; never raises.
+
+        The anchor both readers below need, and the one the weak
+        ``wait_for_loading_complete()`` cannot give them. Logging a maintenance
+        entry runs the parent's ``load()``, and this page answers
+        ``if (loading) return <LoadingSkeleton variant="form" />`` -- so for the
+        length of that refetch there is no tab strip, no table and no row at
+        all. An absence poll on the skeleton cannot tell "not mounted yet" from
+        "already gone", which is why TC-REQ-014-027 read **0** rows where it had
+        read 5 a moment earlier, once in six runs.
+
+        Anchored on the *table*, not on rows: a tank with no maintenance history
+        renders the table and no rows, and that has to stay readable as 0 rather
+        than cost a budget. The two are mutually exclusive here -- skeleton or
+        content -- so the table's presence is exactly "the refetch landed".
+        """
+        self.await_presence(self.MAINTENANCE_TABLE, IMPLICIT_WAIT_EQUIVALENT)
+
     def get_maintenance_row_count(self) -> int:
         """Return the number of rows in the maintenance history table."""
+        self.wait_for_maintenance_table()
         rows = self.driver.find_elements(*self.MAINTENANCE_ROWS)
         return len(rows)
 
     def get_maintenance_row_texts(self) -> list[list[str]]:
         """Return the readable text fragments of every visible maintenance row."""
+        self.wait_for_maintenance_table()
         return [
             self.get_row_text_fragments(row)
             for row in self.driver.find_elements(*self.MAINTENANCE_ROWS)
