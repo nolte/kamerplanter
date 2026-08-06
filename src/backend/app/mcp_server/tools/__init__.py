@@ -9,6 +9,7 @@ the ~30-tool inventory in §2):
 
 * read (mcp.read):  list_tenants, list_species, get_species_info,
   list_plants, get_plant, list_plants_at_location, get_plant_care_log,
+  get_plant_diagnostics,
   list_planting_runs, list_tasks, get_due_care_tasks, get_harvest_readiness,
   list_nutrient_plans, get_nutrient_plan, get_plant_nutrient_plan,
   get_sowing_calendar, list_fertilizers, calculate_mixing_protocol,
@@ -18,7 +19,8 @@ the ~30-tool inventory in §2):
   list_hardiness_zones, search_glossary, get_mcp_activity,
   list_pending_diary_analyses, get_diary_entry, get_diary_entry_photos
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location,
-  add_plant_diary_entry, claim_diary_analysis, submit_diary_analysis
+  add_plant_diary_entry, claim_diary_analysis, submit_diary_analysis,
+  record_feeding_event
 * setup (mcp.setup): create_site
 
 The five ``*_diary_analys*`` / ``get_diary_entry*`` tools (REQ-050 §4,
@@ -40,7 +42,9 @@ from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
     calendar,
     care,
     catalogs,
+    diagnostics,
     diary,
+    feeding,
     harvest,
     ipm,
     nutrient_calc,
