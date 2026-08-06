@@ -125,7 +125,12 @@ SCHEMA_FILENAME = "schemas.py"
 #: schema class (``RequirementProfileResponse``, ``NutrientProfileResponse``,
 #: ``StarterKitTenantResponse``). All three are real response bodies in the
 #: published document, so they belong in the count.
-MAX_MODELS_WITHOUT_EXAMPLE = 711
+#:
+#: 709 since issue #931: ``InspectionCreate`` and ``InspectionResponse`` gained
+#: the ``findings`` field and, with it, the example BACKEND.md §5.3 requires of a
+#: *changed* schema. The new ``InspectionFindingSchema`` carries one from the
+#: start, so it joins the total on the credit side and the debt falls by two.
+MAX_MODELS_WITHOUT_EXAMPLE = 709
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
