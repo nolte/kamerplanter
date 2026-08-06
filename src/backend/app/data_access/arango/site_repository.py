@@ -200,13 +200,37 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         against the caller's tenant before asking, so a foreign ``site_key`` is
         already rejected today. The traversal itself named no tenant, though, so
         any new caller that skipped that check would walk another tenant's tree.
+
+        **The predicate is on the site, not on the location — deliberately.** The
+        obvious ``FILTER v.tenant_key == @tenant_key`` is wrong here and would not
+        block foreign rows but *all* rows: ``Location.tenant_key`` defaults to
+        ``""`` and no write path ever fills it. ``LocationCreate`` does not carry
+        the field, ``create_location`` builds ``Location(**body.model_dump())``
+        without it, and ``PUT /locations/{key}`` replaces the whole document — so
+        it also wipes whatever the one-off ``v0004_backfill_tenant_key`` migration
+        had put there. That is the documented design (see
+        ``PlantInstanceService``: "Location documents are persisted with an empty
+        tenant_key and are tenant-verified through their parent site"), and Issue
+        #706 already lost a guard to the same assumption.
+
+        Anchoring on the traversal's start vertex instead is correct *and*
+        cheaper: sites are stamped on every write path (both site routers, the
+        onboarding service, the MCP ``CreateSite`` tool), and a location belongs
+        to whatever tenant owns the site it hangs under — which is exactly how
+        ``_verify_location_tenant`` in the locations router decides ownership.
+        Same shape as ``ArangoTaskRepository.get_comments_for_task``, which takes
+        a comment's tenant from its parent task.
         """
         self._require_tenant_key(tenant_key, "get_location_tree")
+        # The ``LET`` is loop-invariant, so the optimiser hoists it out
+        # (``move-calculations-up``) and the site document is read once; the
+        # ``FILTER`` has to sit inside the ``FOR`` because AQL has no top-level one.
         aql = """
         FOR v IN 1..10 OUTBOUND @start_id GRAPH @graph
             OPTIONS {edgeCollections: [@contains_col]}
             FILTER IS_SAME_COLLECTION(@locations_col, v)
-            FILTER v.tenant_key == @tenant_key
+            LET site = DOCUMENT(@start_id)
+            FILTER site != null AND site.tenant_key == @tenant_key
             RETURN v
         """
         cursor = self._db.aql.execute(
@@ -262,13 +286,42 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         caller-supplied plant key and named no tenant; both current callers sit in
         the watering service, which reaches this with a plant of the caller's own
         tenant. The predicate now belongs to the query instead of to that habit.
+
+        **The predicate is on the plant, not on the slot — deliberately.**
+        ``Slot.tenant_key`` has the same problem as ``Location.tenant_key``: it
+        defaults to ``""``, ``SlotCreate`` does not carry it, ``create_slot``
+        builds ``Slot(**body.model_dump())`` without it and ``PUT /slots/{key}``
+        replaces the whole document. ``FILTER slot.tenant_key == @tenant_key``
+        would therefore answer ``None`` for *every* slot rather than only for
+        foreign ones — and both callers swallow a ``None`` silently:
+        ``WateringService.create_event`` would lose the irrigation-dependent
+        warnings of ``WateringEngine.validate_and_warn``, and
+        ``_latest_soil_moisture_percent`` would never fire the REQ-005 sensor
+        override on the volume recommendation again. A slot is tenant-resolved
+        through its location's site, exactly as ``_verify_slot_tenant`` in the
+        slots router resolves it.
+
+        The plant is the anchor the application does maintain: the plant router's
+        create, the onboarding service and the pup spawn in
+        ``PlantInstanceService`` all stamp ``PlantInstance.tenant_key``, and the
+        plant is where the caller's request starts anyway.
+
+        One write path does *not* stamp it — ``PlantingRunService.start_run``
+        builds its batch ``PlantInstance``s without a ``tenant_key`` although the
+        run itself carries one. That is a pre-existing defect of the same family,
+        out of scope here, and it does not weaken this predicate: such a plant is
+        already invisible to ``list_plants``/``get_plant`` and every other
+        tenant-scoped read, so anchoring on it is no stricter than the rest of the
+        application. Stamping it belongs with a backfill migration, not here.
         """
         self._require_tenant_key(tenant_key, "get_slot_for_plant")
         query = """
         FOR e IN @@placed_in
           FILTER e._from == @plant_id
+          LET plant = DOCUMENT(@plant_id)
+          FILTER plant != null AND plant.tenant_key == @tenant_key
           LET slot = DOCUMENT(e._to)
-          FILTER slot != null AND slot.tenant_key == @tenant_key
+          FILTER slot != null
           RETURN slot
         """
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
