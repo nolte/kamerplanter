@@ -8,7 +8,7 @@
 # names stable; the workflows look them up via `yq`.
 
 # datasource=github-tags depName=projectdiscovery/nuclei-templates
-nuclei_templates_version: v10.4.6
+nuclei_templates_version: v10.4.7
 
 # The commit the tag above pointed at when it was reviewed. The workflows fetch
 # the TAG and then assert it still resolves here.
