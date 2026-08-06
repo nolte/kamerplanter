@@ -357,6 +357,12 @@ class PlantingRunService:
             slot_key = available_slots[i].key if i < len(available_slots) else None
             species_phase_key, _ = initial_phases.get(spec["species_key"], ("", ""))
             plant = PlantInstance(
+                # The run's own tenant (#951). Batch-created instances were built
+                # without one although ``run.tenant_key`` was right here, so they
+                # persisted with the model default ``""`` — invisible to every
+                # tenant-scoped plant read, and the reason ``get_slot_for_plant``
+                # had to note this path as the one that does not stamp.
+                tenant_key=run.tenant_key,
                 instance_id=spec["instance_id"],
                 species_key=spec["species_key"],
                 cultivar_key=spec.get("cultivar_key"),

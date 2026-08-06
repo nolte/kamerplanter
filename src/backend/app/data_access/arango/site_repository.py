@@ -306,13 +306,14 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         ``PlantInstanceService`` all stamp ``PlantInstance.tenant_key``, and the
         plant is where the caller's request starts anyway.
 
-        One write path does *not* stamp it — ``PlantingRunService.start_run``
-        builds its batch ``PlantInstance``s without a ``tenant_key`` although the
-        run itself carries one. That is a pre-existing defect of the same family,
-        out of scope here, and it does not weaken this predicate: such a plant is
-        already invisible to ``list_plants``/``get_plant`` and every other
-        tenant-scoped read, so anchoring on it is no stricter than the rest of the
-        application. Stamping it belongs with a backfill migration, not here.
+        One write path used not to stamp it: ``PlantingRunService.create_plants``
+        built its batch ``PlantInstance``s without a ``tenant_key`` although
+        ``run.tenant_key`` was right there. That was noted here as a pre-existing
+        defect of the same family and is fixed under #951, with migration
+        ``v0034`` binding the instances already written to their run's tenant.
+        The predicate never depended on it — such a plant was already invisible to
+        ``list_plants``/``get_plant`` and every other tenant-scoped read, so
+        anchoring on it was no stricter than the rest of the application.
         """
         self._require_tenant_key(tenant_key, "get_slot_for_plant")
         query = """

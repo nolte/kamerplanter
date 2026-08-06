@@ -123,6 +123,7 @@ def confirm_watering(
         measured_ph=body.measured_ph,
         volume_liters=body.volume_liters,
         overrides=body.overrides,
+        tenant_key=ctx.tenant_key,
     )
     return WateringConfirmResponse(**result)
 
@@ -134,7 +135,7 @@ def quick_confirm_watering(
     service: WateringService = Depends(get_watering_service),
 ):
     """Quick-confirm a scheduled watering task with default values."""
-    result = service.quick_confirm_watering(body.run_key, body.task_key)
+    result = service.quick_confirm_watering(body.run_key, body.task_key, tenant_key=ctx.tenant_key)
     return WateringConfirmResponse(**result)
 
 

@@ -145,8 +145,25 @@ class WateringService:
         volume_liters: float | None = None,
         overrides: dict | None = None,
         channel_id: str | None = None,
+        *,
+        tenant_key: str,
     ) -> dict:
-        """Confirm a scheduled watering task: create WateringEvent + FeedingEvents, complete task."""
+        """Confirm a scheduled watering task: create WateringEvent + FeedingEvents, complete task.
+
+        ``tenant_key`` is the confirming request's tenant (#951) and is stamped
+        onto **both** the ``WateringEvent`` and the derived ``FeedingEvent``s.
+        Neither carried it before: both models default the field to ``""`` and
+        ``BaseArangoRepository.create`` does not stamp it afterwards.
+
+        That was invisible while nothing filtered on the field. #947 correctly
+        added the predicate to ``get_by_plant``, ``get_by_location`` and
+        ``get_stats_by_location``, at which point every row this live UI path
+        produces — ``WateringConfirmDialog``, ``PlantingRunDetailPage`` — would
+        have dropped out of all three reads. The twin
+        ``WateringLogService.confirm_watering`` was given the same treatment under
+        #580; this one was simply missed, and nothing noticed because no read
+        filtered. Migration ``v0034`` repairs the rows already written.
+        """
         if self._run_repo is None or self._task_repo is None:
             raise ValueError("confirm_watering requires run_repo and task_repo")
 
@@ -168,6 +185,7 @@ class WateringService:
         # Create watering event
         now = datetime.now(UTC)
         event = WateringEvent(
+            tenant_key=tenant_key,
             watered_at=now,
             application_method=watering_schedule.application_method if watering_schedule else ApplicationMethod.DRENCH,
             volume_liters=volume_liters or 1.0,
@@ -189,6 +207,7 @@ class WateringService:
                     method = watering_schedule.application_method if watering_schedule else ApplicationMethod.DRENCH
                     event_key = created_event.key if hasattr(created_event, "key") else None
                     feeding = FeedingEvent(
+                        tenant_key=tenant_key,
                         plant_key=plant_key,
                         timestamp=now,
                         application_method=method,
@@ -233,9 +252,9 @@ class WateringService:
             "warnings": [],
         }
 
-    def quick_confirm_watering(self, run_key: str, task_key: str) -> dict:
+    def quick_confirm_watering(self, run_key: str, task_key: str, *, tenant_key: str) -> dict:
         """Quick confirm using plan defaults — no overrides."""
-        return self.confirm_watering(run_key, task_key)
+        return self.confirm_watering(run_key, task_key, tenant_key=tenant_key)
 
     # ── Volume suggestion ─────────────────────────────────────────────
 
