@@ -30,6 +30,14 @@ Plus the two guards that must not regress: the identity-based recovery in
 `click_data_table_row` (#871), and the staleness *verdicts*, which answer with
 the exception and must therefore never be handed a self-healing reference.
 
+And, since run 31113673507, a fourth property that comes *before* all of them:
+4. **The row an index resolves to is the one the caller searched for.**
+   `click_data_table_row`'s identity guard can only defend the identity it was
+   handed, so if that first read already came off the pre-filter render the
+   guard faithfully defends the wrong row. `wait_for_search_applied` and
+   `wait_for_row_identity` are what make the first read trustworthy; both are
+   pinned against the render they must refuse.
+
 ## Why the driver is stubbed and nothing else is
 
 Same technique and same reason as `test_element_proxy.py`: the tests build a
@@ -186,6 +194,21 @@ class TableDom:
     def render_dialog(self, testid: str) -> StubNode:
         """Render a single non-row node (a dialog paper) and return it."""
         node = self._new(testid)
+        self.root.children.append(node)
+        return node
+
+    SEARCH_CHIP_TESTID = "search-chip"
+
+    def render_search_chip(self, term: str) -> StubNode:
+        """Render `DataTable`'s search chip carrying *term*.
+
+        The label shape is the component's own -- ``<i18n label>: "<term>"`` --
+        because that quoting is exactly what `wait_for_search_applied` matches
+        on. A stub that dropped it would let a helper pass that merely looked
+        for the bare term anywhere in the toolbar, including in the input box,
+        which changes one debounce *earlier* and proves nothing.
+        """
+        node = self._new(self.SEARCH_CHIP_TESTID, f'Suche: "{term}"')
         self.root.children.append(node)
         return node
 
@@ -823,3 +846,163 @@ class TestVerdictsStayVerdicts:
             "the stale reference must have decided the verdict; consulting the "
             "snackbar means the reference healed and answered for the new form"
         )
+
+
+# ── 5. The post-search settling (#835, run 31113673507) ──────────────────────
+
+
+#: Short enough that the loud-failure cases do not spend `DEFAULT_TIMEOUT`, long
+#: enough for `WebDriverWait`'s 0.5 s poll interval to run several cycles.
+SETTLE_TIMEOUT = 2
+
+
+class TestThePostSearchSettling:
+    """The two waits that make an index-based row click sound after a search.
+
+    The gap they close was the single largest failure cluster of run
+    31113673507: a `DataTable`'s search is client-side behind a 300 ms debounce,
+    so no `loading-skeleton` mounts, `wait_for_loading_complete()` returns at
+    once, and the table still renders the *previous* rows. `provision_plant`
+    then counted those rows and clicked index 0 — the globally-first record,
+    belonging to another test.
+
+    What each test here has to distinguish is "the wait returned too early" from
+    "the wait worked", and the stub makes that observable the only way it can
+    be: the DOM only reaches the expected state after a few lookups, so a helper
+    that reads once and answers cannot pass.
+    """
+
+    def _swap_chip_after(self, harness: Harness, lookups: int, term: str) -> None:
+        """Replace the search chip with one carrying *term*, after *lookups* scans."""
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == lookups:
+                for node in harness.dom.root.children:
+                    if node.testid == TableDom.SEARCH_CHIP_TESTID:
+                        node.attached = False
+                harness.dom.render_search_chip(term)
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+    # ── wait_for_search_applied ──
+
+    def test_it_waits_until_the_chip_carries_the_new_term(self, harness: Harness) -> None:
+        """The debounce lands mid-poll; the wait must outlive the stale chip."""
+        harness.dom.render_search_chip("OLD-TERM")
+        self._swap_chip_after(harness, 3, "NEW-TERM")
+
+        harness.page.wait_for_search_applied("NEW-TERM", timeout=SETTLE_TIMEOUT)
+
+    def test_it_fails_loudly_while_the_table_is_filtered_by_the_old_term(
+        self, harness: Harness
+    ) -> None:
+        """The exact shape of the defect: the chip proves the table is on the old filter."""
+        harness.dom.render_search_chip("OLD-TERM")
+
+        with pytest.raises(AssertionError) as raised:
+            harness.page.wait_for_search_applied("NEW-TERM", timeout=SETTLE_TIMEOUT)
+
+        message = str(raised.value)
+        assert "OLD-TERM" in message, "the read-back that discriminates must be in the message"
+        assert "different term" in message
+
+    def test_it_names_the_absent_chip_as_its_own_mechanism(self, harness: Harness) -> None:
+        """No chip and a stale chip are different causes and must not share a message."""
+        with pytest.raises(AssertionError) as raised:
+            harness.page.wait_for_search_applied("NEW-TERM", timeout=SETTLE_TIMEOUT)
+
+        message = str(raised.value)
+        assert "No search chip is rendered at all" in message
+        assert "different term" not in message, (
+            "a message two mechanisms could produce names neither of them"
+        )
+
+    def test_a_term_that_is_only_a_prefix_of_the_applied_one_does_not_count(
+        self, harness: Harness
+    ) -> None:
+        """Why the match is on the *quoted* term and not on the bare string.
+
+        A search for ``TC089`` while the table is still filtered by ``TC0891``
+        is the previous filter, not this one -- and the ids these waits are used
+        with are prefix-structured (`TC089-604921`), so this is the realistic
+        collision, not a contrived one. The closing quote is what makes the
+        distinction; drop it and this wait starts reporting the wrong render as
+        settled.
+        """
+        harness.dom.render_search_chip("TC0891")
+
+        with pytest.raises(AssertionError) as raised:
+            harness.page.wait_for_search_applied("TC089", timeout=SETTLE_TIMEOUT)
+
+        assert "TC0891" in str(raised.value)
+
+    # ── wait_for_row_identity ──
+
+    def test_it_waits_until_the_filtered_row_is_the_one_at_the_index(
+        self, harness: Harness
+    ) -> None:
+        """The filter re-renders the table mid-poll; the wait must see the new render."""
+        harness.dom.render(ROWS)
+        rendered: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            rendered.append(1)
+            if len(rendered) == 3:
+                harness.dom.render(["gamma"])
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+        harness.page.wait_for_row_identity(0, COL, "gamma", timeout=SETTLE_TIMEOUT)
+
+    def test_it_rejects_the_still_unfiltered_table(self, harness: Harness) -> None:
+        """The #835 regression guard: row 0 belongs to another record, so refuse it.
+
+        Without this the caller clicks `alpha` — the globally-first row — and
+        every assertion afterwards is about that record. The message has to carry
+        the read-back, because "row 0 is not what you searched for" is unusable
+        without knowing what it *was*.
+        """
+        harness.dom.render(ROWS)
+
+        with pytest.raises(AssertionError) as raised:
+            harness.page.wait_for_row_identity(0, COL, "wanted", timeout=SETTLE_TIMEOUT)
+
+        message = str(raised.value)
+        assert "'alpha'" in message, "row 0's actual identity must be read back into the message"
+        assert "unfiltered" in message
+
+    def test_it_reports_the_expected_record_sitting_at_another_index(
+        self, harness: Harness
+    ) -> None:
+        """A different cause -- sorting, not a missed filter -- gets a different message."""
+        harness.dom.render(["alpha", "wanted"])
+
+        with pytest.raises(AssertionError) as raised:
+            harness.page.wait_for_row_identity(0, COL, "wanted", timeout=SETTLE_TIMEOUT)
+
+        message = str(raised.value)
+        assert "at index 1, not 0" in message
+        assert "unfiltered" not in message
+
+    def test_it_reports_an_empty_table_as_its_own_cause(self, harness: Harness) -> None:
+        """ "The record was never created" must not read as "the wrong row is first"."""
+        harness.dom.render([])
+
+        with pytest.raises(AssertionError) as raised:
+            harness.page.wait_for_row_identity(0, COL, "wanted", timeout=SETTLE_TIMEOUT)
+
+        assert "renders no rows at all" in str(raised.value)
+
+    def test_a_row_that_has_not_rendered_its_cell_is_not_a_mismatch(self, harness: Harness) -> None:
+        """Unreadable means "not yet", exactly as it does for the other row readers.
+
+        The mid-render shape of `TableNotSettled`: the row is attached and is the
+        right one, it simply has no identifying cell yet. Treating that as a
+        mismatch would reject a table that was already correct.
+        """
+        harness.dom.render_without_cells(["wanted"])
+        harness.settle_rows_on_second_lookup()
+
+        harness.page.wait_for_row_identity(0, COL, "wanted", timeout=SETTLE_TIMEOUT)

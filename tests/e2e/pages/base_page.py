@@ -2220,7 +2220,7 @@ class BasePage:
                 "table renders no searchable toolbar and must not be searched."
                 if not chips
                 else f"The rendered chip(s) read {chips!r}, so the table is "
-                "filtered by a *different* term. A React-controlled search box "
+                "filtered by a different term. A React-controlled search box "
                 "keeps its previous value when `WebElement.clear()` is used "
                 "instead of `clear_and_fill`, and the new term is appended."
             )
