@@ -94,7 +94,7 @@ jobs:
         # Pinned, hash-verified lock — same install truth as api-docs.yml.
         working-directory: src/backend
         run: |
-          python -m pip install 'pip==26.1.2'
+          python -m pip install 'pip==26.2.1'
           pip install --require-hashes -r requirements.txt
           pip install --no-deps -e .
 
