@@ -975,6 +975,50 @@ class BasePage:
         """Return True if at least one element matching *locator* exists in the DOM."""
         return len(self.driver.find_elements(*locator)) > 0
 
+    # ── Honest negatives after a client-side navigation ───────────────────
+    # `driver.find_elements(...) -> [] -> False` is an *instantaneous* read, and
+    # right after a route change, a tab switch or a drawer opening it cannot
+    # tell "React has not committed the destination yet" from "this element is
+    # genuinely absent" -- the unfalsifiable-absence shape `e2e-test-stability`
+    # §D forbids. The driver-level implicit wait had been granting every such
+    # read up to 3 s; #835 removed it and six assertions that had always been
+    # asking one render too early started failing (tank tabs "found 0 tabs",
+    # `workflow-detail-page` not visible, the tenant-settings create-link
+    # button, the notification drawer's action buttons).
+    #
+    # The two helpers below are the honest form: wait for the element to appear
+    # first, and answer "absent" only once the budget is spent. That removes the
+    # false negative without weakening the true one -- an element that never
+    # renders still yields `False`/`[]` and the caller's assertion still fails.
+
+    def await_presence(
+        self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
+    ) -> list[WebElement]:
+        """Every element matching *locator*, after waiting for the first to appear.
+
+        Returns ``[]`` when none appears within *timeout* -- a genuine negative,
+        because the wait has been spent, unlike the bare ``find_elements`` this
+        replaces.
+        """
+        try:
+            self.poll(timeout).until(lambda d: len(d.find_elements(*locator)) > 0)
+        except TimeoutException:
+            return []
+        return self.driver.find_elements(*locator)
+
+    def is_visible_within(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Whether *locator* is displayed, waiting for it to appear first.
+
+        The honest counterpart of ``find_elements(...)[0].is_displayed()``: a
+        ``False`` here means "not displayed after waiting *timeout*", not "not
+        displayed in this millisecond".
+        """
+        try:
+            self.poll(timeout).until(EC.visibility_of_element_located(locator))
+        except TimeoutException:
+            return False
+        return True
+
     def is_any_displayed(self, locator: tuple[str, str]) -> bool:
         """Return whether any element matching *locator* is displayed right now.
 

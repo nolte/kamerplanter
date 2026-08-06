@@ -122,6 +122,15 @@ class WorkflowDetailPage(BasePage):
         return len(self.driver.find_elements(*self.DIALOG)) > 0
 
     def is_page_visible(self) -> bool:
-        """Check whether the workflow detail page container is displayed."""
-        els = self.driver.find_elements(*self.PAGE)
-        return len(els) > 0 and els[0].is_displayed()
+        """Check whether the workflow detail page container is displayed.
+
+        Waits for it to appear first. TC-REQ-006-033 reaches this page by
+        clicking a list card and then waiting on the URL alone, and the URL
+        changes one commit *before* the route renders — so the bare
+        ``find_elements`` this replaces answered ``False`` for "not yet", and
+        the assertion failed on run 31113673507 once #835 removed the implicit
+        wait that had been covering the gap. A ``False`` here now means "not
+        displayed after the full budget": a genuine negative that still fails
+        the test when the page really does not render.
+        """
+        return self.is_visible_within(self.PAGE)

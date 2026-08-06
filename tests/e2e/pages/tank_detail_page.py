@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -132,14 +133,28 @@ class TankDetailPage(BasePage):
 
     # ── Tab navigation ─────────────────────────────────────────────────
 
+    def _tabs(self) -> list[WebElement]:
+        """Every tab of this detail page, waiting for the route to render first.
+
+        The tank tests reach this page by clicking a list row and then waiting
+        on the URL only, so every reader below used to run while React was still
+        committing the destination route. A bare ``find_elements`` answers ``[]``
+        there and cannot tell that from "this page has no tabs" — which is how
+        ten tank tests reported "found 0 tabs" on run 31113673507 once #835
+        removed the implicit wait that had been granting them 3 s.
+
+        Keyed on the tabs themselves rather than only on the page root: the root
+        mounts one commit before the `Tabs` do.
+        """
+        return self.await_presence(self.TABS)
+
     def get_tab_labels(self) -> list[str]:
         """Return the labels of all visible tabs."""
-        tabs = self.driver.find_elements(*self.TABS)
-        return [t.text for t in tabs]
+        return [t.text for t in self._tabs()]
 
     def click_tab(self, index: int) -> None:
         """Click the tab at *index* (0-based)."""
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self._tabs()
         if index < len(tabs):
             self.scroll_and_click(tabs[index])
         else:
@@ -147,8 +162,7 @@ class TankDetailPage(BasePage):
 
     def get_active_tab_index(self) -> int:
         """Return the index of the currently selected tab."""
-        tabs = self.driver.find_elements(*self.TABS)
-        for i, tab in enumerate(tabs):
+        for i, tab in enumerate(self._tabs()):
             if tab.get_attribute("aria-selected") == "true":
                 return i
         return -1
@@ -156,8 +170,13 @@ class TankDetailPage(BasePage):
     # ── Details tab (tab=0) ────────────────────────────────────────────
 
     def get_detail_cards_text(self) -> str:
-        """Return combined text of all detail cards."""
-        cards = self.driver.find_elements(*self.DETAIL_TABLES)
+        """Return combined text of all detail cards.
+
+        Waits for the first card, for the same reason :meth:`_tabs` does: an
+        empty read one render too early is indistinguishable from a page that
+        renders no cards, and TC-REQ-014-020 asserted on it (``assert ''``).
+        """
+        cards = self.await_presence(self.DETAIL_TABLES)
         return " ".join(c.text for c in cards)
 
     def get_alert_count(self) -> int:

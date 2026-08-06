@@ -179,9 +179,17 @@ class TenantSettingsPage(BasePage):
         return self.is_present(self.INVITE_EMAIL_FIELD)
 
     def is_create_link_button_visible(self) -> bool:
-        """Check if the Create Link button is present and displayed (admin indicator)."""
-        elements = self.driver.find_elements(*self.CREATE_LINK_BTN)
-        return len(elements) > 0 and elements[0].is_displayed()
+        """Check if the Create Link button is present and displayed (admin indicator).
+
+        Waits for the button to appear first: the only caller reads it directly
+        after :meth:`click_tab_invitations`, which waits for the *tab* to be
+        clickable and says nothing about the tab **panel** having rendered. The
+        bare ``find_elements`` this replaces therefore answered ``False`` for
+        "the panel is still mounting" — TC-REQ-024-016 failed that way on the
+        ``full-mobile`` profile of run 31113673507. ``False`` after the full
+        budget is still a genuine "no create-link button for this role".
+        """
+        return self.is_visible_within(self.CREATE_LINK_BTN)
 
     def get_invitation_count(self) -> int:
         """Return the number of invitations in the table."""

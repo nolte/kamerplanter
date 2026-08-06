@@ -251,13 +251,18 @@ class PlantInstanceDetailExt(BasePage):
     def get_phase_info_card(self) -> WebElement:
         return self.wait_for_element_visible(self.PHASE_INFO_CARD)
 
+    # Both readers wait for the card to appear before answering. Every caller is
+    # a positive assertion reached straight after a client-side navigation, so
+    # the bare ``find_elements`` they replace could not tell "React has not
+    # committed the detail route yet" from "the card is absent" — TC-REQ-001-J080
+    # failed on exactly that on run 31113673507, once #835 removed the implicit
+    # wait. `False` still means absent, it just now means absent after waiting.
+
     def is_phase_info_card_visible(self) -> bool:
-        elements = self.driver.find_elements(*self.PHASE_INFO_CARD)
-        return bool(elements) and elements[0].is_displayed()
+        return self.is_visible_within(self.PHASE_INFO_CARD)
 
     def is_plant_info_card_visible(self) -> bool:
-        elements = self.driver.find_elements(*self.PLANT_INFO_CARD)
-        return bool(elements) and elements[0].is_displayed()
+        return self.is_visible_within(self.PLANT_INFO_CARD)
 
     def has_phase_history(self) -> bool:
         elements = self.driver.find_elements(*self.PHASE_HISTORY)
