@@ -301,7 +301,7 @@ def create_task_template(
     if cat in _ACTIVITY_TO_TASK_CATEGORY:
         data["category"] = _ACTIVITY_TO_TASK_CATEGORY[cat]
     tt = TaskTemplate(**data)
-    created = service.create_task_template(tt)
+    created = service.create_task_template(tt, tenant_key=ctx.tenant_key)
     return _tt_response(created)
 
 
@@ -324,7 +324,7 @@ def update_task_template(
 ):
     """Update a task template."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_task_template(key, data)
+    updated = service.update_task_template(key, data, tenant_key=ctx.tenant_key)
     return _tt_response(updated)
 
 
