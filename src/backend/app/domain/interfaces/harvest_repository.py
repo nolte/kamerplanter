@@ -21,7 +21,9 @@ class IHarvestRepository(ABC):
     def get_indicators_for_species(self, species_key: str) -> list[HarvestIndicator]: ...
 
     @abstractmethod
-    def create_observation(self, observation: HarvestObservation) -> HarvestObservation: ...
+    def create_observation(self, observation: HarvestObservation, *, tenant_key: str) -> HarvestObservation:
+        """Record an observation about a plant of ``tenant_key`` (#948)."""
+        ...
 
     @abstractmethod
     def get_observations_for_plant(

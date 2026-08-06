@@ -128,6 +128,25 @@ class NutrientPlanService:
 
     # ── Channel fertilizer assignment ─────────────────────────────────
 
+    def _owned_phase_entry_or_raise(
+        self,
+        entry_key: NutrientPlanPhaseEntryKey,
+        tenant_key: str,
+    ) -> NutrientPlanPhaseEntry:
+        """Resolve a phase entry through its plan's **write** ownership (#948).
+
+        ``NutrientPlanPhaseEntry`` carries no tenant of its own; it belongs to
+        the plan named by ``plan_key``. The two channel-fertilizer routes take
+        the entry key straight from the URL and checked nothing, so a member of
+        tenant A could add or remove fertiliser dosages inside another tenant's
+        plan — and inside a globally seeded system plan, which no tenant may
+        mutate. Ownership rather than read access for exactly that reason: this
+        is a write, and ``for_write=True`` refuses the global catalog too.
+        """
+        entry = self._repo.get_phase_entry_or_raise(entry_key)
+        self.get_plan(entry.plan_key, tenant_key=tenant_key, for_write=True)
+        return entry
+
     def add_fertilizer_to_channel(
         self,
         entry_key: NutrientPlanPhaseEntryKey,
@@ -135,8 +154,10 @@ class NutrientPlanService:
         fertilizer_key: FertilizerKey,
         ml_per_liter: float,
         optional: bool = False,
+        *,
+        tenant_key: str,
     ) -> dict:
-        entry = self._repo.get_phase_entry_or_raise(entry_key)
+        entry = self._owned_phase_entry_or_raise(entry_key, tenant_key)
         # Validate channel exists
         channel_ids = [ch.channel_id for ch in entry.delivery_channels]
         if channel_id not in channel_ids:
@@ -155,7 +176,10 @@ class NutrientPlanService:
         entry_key: NutrientPlanPhaseEntryKey,
         channel_id: str,
         fertilizer_key: FertilizerKey,
+        *,
+        tenant_key: str,
     ) -> bool:
+        self._owned_phase_entry_or_raise(entry_key, tenant_key)
         return self._repo.remove_fertilizer_from_channel(
             entry_key,
             channel_id,

@@ -568,17 +568,31 @@ class TaskService:
         return self._repo.update_task(key, task)
 
     # ── Batch Operations ──
+    #
+    # Found by the #948 write-surface sweep. Every *single*-task route resolves
+    # its key with ``service.get_task(key, tenant_key=ctx.tenant_key)`` first —
+    # the line each router has to remember — and all three batch routes forgot
+    # it, while taking their ``task_keys`` from the request body. A member of
+    # tenant A could therefore complete, skip, delete or reassign another
+    # tenant's tasks in bulk. ``tenant_key`` is now required and keyword-only on
+    # all three, and each key is resolved through the tenant guard before
+    # anything is written. A foreign key lands in ``failed`` with the same
+    # "not found" text an unknown key produces, so the batch envelope is not a
+    # cross-tenant oracle either.
 
     def batch_status_change(
         self,
         task_keys: list[str],
         action: str,
         completion_notes: str | None = None,
+        *,
+        tenant_key: str,
     ) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
             try:
+                self.get_task(tk, tenant_key=tenant_key)
                 if action == "start":
                     self.start_task(tk)
                 elif action == "complete":
@@ -593,11 +607,12 @@ class TaskService:
                 failed.append({"key": tk, "error": str(e)})
         return succeeded, failed
 
-    def batch_delete(self, task_keys: list[str]) -> tuple[list[str], list[dict]]:
+    def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
             try:
+                self.get_task(tk, tenant_key=tenant_key)
                 self.delete_task(tk)
                 succeeded.append(tk)
             except (NotFoundError, ValidationError) as e:
@@ -608,12 +623,14 @@ class TaskService:
         self,
         task_keys: list[str],
         assigned_to_user_key: str,
+        *,
+        tenant_key: str,
     ) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
             try:
-                task = self.get_task(tk)
+                task = self.get_task(tk, tenant_key=tenant_key)
                 previous_assignee = task.assigned_to_user_key
                 task.assigned_to_user_key = assigned_to_user_key
                 updated = self._repo.update_task(tk, task)

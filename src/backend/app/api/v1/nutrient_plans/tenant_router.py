@@ -266,7 +266,9 @@ def assign_channel_fertilizer(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Assign a fertilizer to a phase entry's delivery channel."""
-    service.add_fertilizer_to_channel(ek, cid, body.fertilizer_key, body.ml_per_liter, body.optional)
+    service.add_fertilizer_to_channel(
+        ek, cid, body.fertilizer_key, body.ml_per_liter, body.optional, tenant_key=ctx.tenant_key
+    )
     return {"status": "assigned"}
 
 
@@ -279,4 +281,4 @@ def remove_channel_fertilizer(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Remove a fertilizer from a phase entry's delivery channel."""
-    service.remove_fertilizer_from_channel(ek, cid, fk)
+    service.remove_fertilizer_from_channel(ek, cid, fk, tenant_key=ctx.tenant_key)

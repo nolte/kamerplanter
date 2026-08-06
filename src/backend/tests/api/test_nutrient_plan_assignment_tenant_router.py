@@ -35,6 +35,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
+from app.api.v1.nutrient_plans.tenant_router import router as nutrient_plans_router
 from app.api.v1.plant_instances.tenant_router import router as plant_instances_router
 from app.api.v1.planting_runs.tenant_router import router as planting_runs_router
 from app.common.auth import get_current_tenant
@@ -43,10 +44,11 @@ from app.common.dependencies import (
     get_plant_instance_service,
     get_planting_run_service,
 )
-from app.common.enums import PlantingRunStatus, PlantingRunType, TenantRole
+from app.common.enums import ApplicationMethod, PhaseName, PlantingRunStatus, PlantingRunType, TenantRole
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
+from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlanPhaseEntry
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_run import PlantingRun
 from app.domain.models.tenant_context import TenantContext
@@ -360,3 +362,83 @@ class TestTheTenantParameterCannotBeSkipped:
 
         with pytest.raises(TypeError):
             service.assign_to_plant(OWN_PLANT, OWN_PLAN)  # type: ignore[call-arg]
+
+
+# ── 4: writing into a plan's phase entry (#948 sweep finding) ────────────────
+
+
+def _phase_entry_client(entry_plan_key: str) -> tuple[TestClient, _EdgeCollection]:
+    """The two channel-fertilizer routes take the phase-entry key from the URL.
+
+    ``NutrientPlanPhaseEntry`` carries no tenant of its own — it belongs to the
+    plan named by ``plan_key`` — and nothing resolved it, so a member of tenant A
+    could add or remove fertiliser dosages inside another tenant's plan, and
+    inside a globally seeded system plan that no tenant may mutate.
+    """
+    repo, edges = _plan_repository()
+    entry = NutrientPlanPhaseEntry(
+        _key="entry-1",
+        plan_key=entry_plan_key,
+        phase_name=PhaseName.VEGETATIVE,
+        sequence_order=1,
+        week_start=1,
+        week_end=4,
+        delivery_channels=[DeliveryChannel(channel_id="ch-1", label="A", application_method=ApplicationMethod.DRENCH)],
+    )
+    repo.get_phase_entry_or_raise = lambda key: entry  # type: ignore[method-assign]
+    repo.add_fertilizer_to_channel = lambda *a, **k: {"status": "assigned"}  # type: ignore[method-assign]
+    repo.remove_fertilizer_from_channel = lambda *a, **k: True  # type: ignore[method-assign]
+
+    fert_repo = MagicMock()
+    plan_service = NutrientPlanService(repo, fert_repo, MagicMock())
+
+    app = FastAPI()
+    app.include_router(nutrient_plans_router, prefix="/api/v1/t/{tenant_slug}")
+    app.add_exception_handler(KamerplanterError, _error_handler)
+    app.dependency_overrides[get_current_tenant] = _tenant_context
+    app.dependency_overrides[get_nutrient_plan_service] = lambda: plan_service
+    return TestClient(app), edges
+
+
+class TestChannelFertilizerWrite:
+    """``POST/DELETE /t/{slug}/nutrient-plans/entries/{ek}/channels/{cid}/fertilizers``."""
+
+    def test_an_entry_of_a_foreign_plan_is_not_found(self):
+        client, _ = _phase_entry_client(FOREIGN_PLAN)
+
+        resp = client.post(
+            _url("/nutrient-plans/entries/entry-1/channels/ch-1/fertilizers"),
+            json={"fertilizer_key": "fert-1", "ml_per_liter": 1.0},
+        )
+
+        assert resp.status_code == 404, resp.text
+        assert resp.json()["error_code"] == "ENTITY_NOT_FOUND"
+
+    def test_an_entry_of_a_global_system_plan_cannot_be_mutated_either(self):
+        """A write, so this is ownership — read access would open the catalogue."""
+        client, _ = _phase_entry_client(GLOBAL_PLAN)
+
+        resp = client.post(
+            _url("/nutrient-plans/entries/entry-1/channels/ch-1/fertilizers"),
+            json={"fertilizer_key": "fert-1", "ml_per_liter": 1.0},
+        )
+
+        assert resp.status_code == 404, resp.text
+
+    def test_an_entry_of_the_callers_own_plan_still_accepts_the_write(self):
+        client, _ = _phase_entry_client(OWN_PLAN)
+
+        resp = client.post(
+            _url("/nutrient-plans/entries/entry-1/channels/ch-1/fertilizers"),
+            json={"fertilizer_key": "fert-1", "ml_per_liter": 1.0},
+        )
+
+        assert resp.status_code == 201, resp.text
+
+    def test_removal_is_guarded_the_same_way(self):
+        foreign, _ = _phase_entry_client(FOREIGN_PLAN)
+        own, _ = _phase_entry_client(OWN_PLAN)
+
+        path = "/nutrient-plans/entries/entry-1/channels/ch-1/fertilizers/fert-1"
+        assert foreign.delete(_url(path)).status_code == 404
+        assert own.delete(_url(path)).status_code == 204

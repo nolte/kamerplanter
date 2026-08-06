@@ -97,9 +97,13 @@ def create_observation(
     ctx: TenantContext = Depends(get_current_tenant),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    """Record a harvest-readiness observation for a plant."""
+    """Record a harvest-readiness observation for a plant.
+
+    A ``plant_key`` outside the caller's tenant answers **404** — the write-side
+    twin of the read #927 closed (#948).
+    """
     observation = HarvestObservation(**body.model_dump())
-    created = service.record_observation(plant_key, observation)
+    created = service.record_observation(plant_key, observation, tenant_key=ctx.tenant_key)
     return _observation_response(created)
 
 

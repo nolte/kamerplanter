@@ -11,6 +11,11 @@ from app.domain.models.watering_log import WateringLog
 class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLogRepository):
     is_tenant_scoped = True
     _model_cls = WateringLog
+    #: ``POST /t/{slug}/watering-logs`` takes ``plant_keys`` from the request
+    #: body and the create path wires a ``log_plant`` edge per key, so every
+    #: reference is ownership-verified before the write (#948). This is also the
+    #: write half of the name-disclosure #952 closed on the read side.
+    _owned_reference_fields = {"plant_keys": col.PLANT_INSTANCES}
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.WATERING_LOGS)
