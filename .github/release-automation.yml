@@ -1,0 +1,48 @@
+# Version-bearing file declaration for spec/project/release-automation/
+# §Version-bearing files.
+#
+# Kamerplanter declares NO version-bearing files. The declared list replaces the
+# portfolio default rather than extending it, so this empty list is what removes
+# the `Python package` and `Node.js package` default rows from the pre-publish
+# alignment gate.
+#
+# Why the default rows do not apply here:
+#
+# The default table keys on what a repository *ships*. Kamerplanter ships
+# container images (ghcr.io) plus a Helm chart — it is a self-hosted
+# application, not a distributable package. It happens to contain a
+# `pyproject.toml` and a `package.json`, but neither is ever published:
+# `src/frontend/package.json` is `private: true`, and `src/backend` has no
+# `[project.scripts]` entry point and is never uploaded to PyPI. Their `version`
+# fields are build metadata that no consumer can observe. Treating them as
+# version-bearing would gate every release on aligning two numbers nobody reads.
+#
+# The evidence that they were never maintained as release versions: at the time
+# this file was written, `src/backend/pyproject.toml` still carried the
+# `1.0.0` it was created with in the initial commit, across 24 published
+# releases, while the release line stood at v0.0.24 — a *lower* number than the
+# manifest claimed. `src/frontend/package.json` read `0.1.0`, and
+# `helm/kamerplanter/Chart.yaml` carried `version: 0.2.0` with
+# `appVersion: "1.0.0"`. Four files, four different answers, none of them the
+# release tag. Declaring them version-bearing now would not restore a convention
+# that once held; it would invent one and demand a retroactive bump.
+#
+# What this deliberately leaves on the table:
+#
+# `helm/kamerplanter/Chart.yaml` `appVersion` is the one version a consumer
+# actually sees — a self-hoster running `helm install` reads it. It is the
+# obvious candidate for the first real entry in this list. It is not listed yet
+# because the alignment fallback path (spec §Version-bearing file alignment) is
+# the only one available in this portfolio today: it requires a maintainer to
+# open a `chore(release): <tag>` PR and squash-merge it through the GitHub UI
+# — explicitly NOT via the `automerge` label — before every single release.
+# That is real recurring process cost, and it should be a deliberate decision
+# rather than a side effect of unblocking one release. Revisit when the
+# portfolio App/PAT ships via `nolte/gh-plumbing` and the workflow-driven
+# primary path becomes usable; at that point the alignment commit is authored by
+# the workflow and the cost disappears.
+#
+# Chart `version` (as opposed to `appVersion`) should NOT be added: it versions
+# the chart's own packaging contract and moves independently of the application
+# release, which is why it reads 0.2.0 against an app at 1.0.0.
+version_bearing_files: []
