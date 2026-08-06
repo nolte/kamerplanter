@@ -236,9 +236,35 @@ class WateringLogListPage(BasePage):
         return len(self.driver.find_elements(*self.PLANT_KEYS_AUTOCOMPLETE)) > 0
 
     def click_add_fertilizer(self) -> None:
-        """Click 'add fertilizer' and wait for the new row's remove button."""
-        add_btn = self.wait_for_element_clickable(self.ADD_FERTILIZER_BUTTON)
-        self.scroll_and_click(add_btn)
+        """Click 'add fertilizer' coordinate-free and wait for the new row.
+
+        Coordinate-free because this button is the shape
+        :meth:`BasePage.click_coordinate_free` was written for, reached from a
+        second direction. It is the *last* control of a scrolling
+        ``DialogContent`` -- the fertilizer rows render above it, the
+        performed-by and notes fields below -- so on the light profile it sits
+        below the dialog's fold. `scroll_into_view` centres it, then
+        ``WebElement.click()`` resolves an in-view centre point and dispatches
+        at those coordinates, and any residual scrolling in between puts the
+        point off the button. Nothing raises: the hit-test passed, the events
+        went out, and ``append()`` never ran. That is why the JS fallback in
+        `scroll_and_click` could not save it either -- the fallback only fires
+        on an exception, and this failure mode produces none.
+
+        Measured as a 2-in-5 flake on TC-004-106 (runs `20260806_204527` and
+        `20260806_214842`): the failure screenshot shows the button in view,
+        no fertilizer row, and 15 s of `wait_for_element_visible` spent on a row
+        that was never appended. The same class is on record for the mobile
+        profile in `click_coordinate_free`; this is its desktop instance.
+
+        Sound for this target: the button activates on ``onClick``
+        (``append({...})`` from `useFieldArray`), which is pure client-side
+        state, so ``HTMLElement.click()`` produces exactly the activation a
+        pointer does. `click_coordinate_free` rejects a disabled control or a
+        mousedown-only opener itself, so the soundness condition is enforced
+        rather than assumed.
+        """
+        self.click_coordinate_free(self.wait_for_element_clickable(self.ADD_FERTILIZER_BUTTON))
         self.wait_for_element_visible(self.REMOVE_FERTILIZER_BUTTON_0)
 
     def has_remove_fertilizer_button(self) -> bool:

@@ -88,6 +88,7 @@ from tests.e2e.pages.base_page import (
 )
 from tests.e2e.pages.pflege_dashboard_page import PflegeDashboardPage
 from tests.e2e.pages.species_detail_page import SpeciesDetailPage
+from tests.e2e.pages.watering_log_list_page import WateringLogListPage
 from tests.e2e.pages.task_detail_page import TaskDetailPage
 
 #: The W3C element identifier key — see `test_element_proxy.py` for why it is
@@ -1288,3 +1289,54 @@ class TestTheSubmitPolarities:
         page.submit_cultivar_form_expecting_rejection()
 
         assert clicked == [1], "the submit must still be delivered, only the wait is gone"
+
+
+# ── 10. The coordinate miss that raises nothing (#835, TC-004-106) ───────────
+
+
+class TestTheCoordinateFreeAddFertilizer:
+    """`click_add_fertilizer` must not go through coordinates.
+
+    The failure mode `click_coordinate_free` was written for, reached from a
+    second direction. A native `WebElement.click()` resolves the element's
+    in-view centre and *then* dispatches at those coordinates; for a control at
+    the bottom of a scrolling `DialogContent`, any residual scrolling in between
+    puts the point off the button. Nothing raises — the hit-test passed, the
+    events went out, and `append()` never ran — so `scroll_and_click`'s JS
+    fallback never fires either, because it is keyed on an exception.
+
+    Measured as a 2-in-5 flake on the light profile. Pinned here because the
+    two implementations are indistinguishable on a fast machine: the only stable
+    difference is *which command goes over the wire*, which is exactly what this
+    tier can see and a browser run cannot.
+    """
+
+    def _page(self, harness: Harness) -> WateringLogListPage:
+        harness.dom.render_dialog("add-fertilizer-button")
+        harness.dom.render_dialog("remove-fertilizer-0")
+        return WateringLogListPage(harness.driver, "http://stub.invalid")
+
+    def test_it_dispatches_no_coordinate_click(self, harness: Harness) -> None:
+        """The regression guard: a native click here is the defect."""
+        self._page(harness).click_add_fertilizer()
+
+        assert harness.connection.count(Command.CLICK_ELEMENT) == 0, (
+            "a native WebElement.click() resolves coordinates and can miss "
+            "silently; this control must be activated coordinate-free"
+        )
+
+    def test_it_still_activates_the_button(self, harness: Harness) -> None:
+        """…and the coordinate-free path must actually deliver the activation."""
+        page = self._page(harness)
+        dispatched: list[str] = []
+        original = page.driver.execute_script
+
+        def spy(script: str, *args: object) -> object:
+            if "arguments[0].click()" in script:
+                dispatched.append(script)
+            return original(script, *args)
+
+        page.driver.execute_script = spy  # type: ignore[method-assign]
+        page.click_add_fertilizer()
+
+        assert dispatched, "no click was dispatched at all — the helper is now a no-op"
