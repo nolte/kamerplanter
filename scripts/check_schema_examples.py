@@ -130,7 +130,7 @@ SCHEMA_FILENAME = "schemas.py"
 #: ``WateringConfirmRequest`` changed (enum-typed fields, a typed ``overrides``)
 #: and therefore had to gain an example per BACKEND.md §5.3. The new
 #: ``WateringConfirmOverrides`` is born with one, so it never entered the debt.
-MAX_MODELS_WITHOUT_EXAMPLE = 706
+MAX_MODELS_WITHOUT_EXAMPLE = 704
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
