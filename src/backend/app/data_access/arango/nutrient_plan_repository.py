@@ -120,15 +120,32 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         edge_data = {"assigned_by": assigned_by, "assigned_at": datetime.now(UTC).isoformat()}
         return self.create_edge(col.FOLLOWS_PLAN, plant_id, plan_id, edge_data)
 
-    def get_plant_plan(self, plant_key: str) -> NutrientPlan | None:
+    def get_plant_plan(self, plant_key: str, *, tenant_key: str) -> NutrientPlan | None:
+        """The plan assigned to a plant, readable only from the plant's tenant (#927).
+
+        **The predicate sits on the plant, not on the plan.** Nutrient plans are a
+        hybrid catalog: globally seeded system plans carry ``tenant_key == ""``
+        and are legitimately assigned to plants of every tenant (PR #324). A
+        strict ``plan.tenant_key == @tenant_key`` here would answer ``None`` for
+        every plant on a system plan — the #324 regression class, traded for the
+        leak instead of a fix. What must not cross tenants is the *assignment*,
+        and that hangs off the plant.
+
+        Listed in #927 under "one line away": every current caller resolves the
+        plant against the tenant first. The filter moves that obligation into the
+        query so the next caller cannot forget it.
+        """
+        self._require_tenant_key(tenant_key, "get_plant_plan")
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         query = f"""
         FOR e IN {col.FOLLOWS_PLAN}
           FILTER e._from == @pid
+          LET plant = DOCUMENT(e._from)
+          FILTER plant != null AND plant.tenant_key == @tenant_key
           LET plan = DOCUMENT(e._to)
           RETURN plan
         """
-        cursor = self._db.aql.execute(query, bind_vars={"pid": plant_id})
+        cursor = self._db.aql.execute(query, bind_vars={"pid": plant_id, "tenant_key": tenant_key})
         docs = list(cursor)
         if not docs or docs[0] is None:
             return None

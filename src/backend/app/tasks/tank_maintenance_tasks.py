@@ -252,12 +252,19 @@ def check_runoff_trends() -> dict:
 
     # Get all active plant instances in vegetative or flowering phase.
     # Removed plants must not spawn flush tasks.
+    #
+    # The owning tenant is projected alongside the key (#927): the feeding
+    # lookup below is tenant-scoped since the cross-tenant fix, and reading the
+    # tenant off the very document that selected the plant keeps producer and
+    # consumer on the same row. It also replaces the per-plant
+    # ``get_plant_repo().get_by_key()`` round-trip this task used to make just to
+    # stamp the resulting task with a tenant.
     query = """
     FOR doc IN plant_instances
       FILTER doc.removed_on == null
       LET gp = DOCUMENT(CONCAT('growth_phases/', doc.current_phase_key))
       FILTER gp != null AND gp.name IN @phases
-      RETURN doc._key
+      RETURN { key: doc._key, tenant_key: doc.tenant_key }
     """
     from app.common.dependencies import get_db
 
@@ -268,13 +275,23 @@ def check_runoff_trends() -> dict:
             "phases": [PhaseName.VEGETATIVE.value, PhaseName.FLOWERING.value],
         },
     )
-    plant_keys = list(cursor)
+    plants = list(cursor)
 
     created = 0
     skipped = 0
 
-    for plant_key in plant_keys:
-        events = feeding_repo.get_recent_runoff_events(plant_key, limit=5)
+    for plant in plants:
+        plant_key = plant["key"]
+        plant_tenant_key = plant.get("tenant_key") or ""
+        if not plant_tenant_key:
+            # Fail closed. A plant without a tenant would force an unscoped
+            # feeding read — precisely the cross-tenant scan #927 removes — so
+            # the sweep skips it and says so instead of widening the query.
+            logger.warning("runoff_trend_check_skipped_tenantless_plant", plant_key=plant_key)
+            skipped += 1
+            continue
+
+        events = feeding_repo.get_recent_runoff_events(plant_key, limit=5, tenant_key=plant_tenant_key)
         if len(events) < 3:
             continue
 
@@ -305,14 +322,6 @@ def check_runoff_trends() -> dict:
             skipped += 1
             continue
 
-        # Resolve tenant from plant instance
-        plant_tenant_key = ""
-        from app.common.dependencies import get_plant_repo
-
-        plant = get_plant_repo().get_by_key(plant_key)
-        if plant is not None:
-            plant_tenant_key = plant.tenant_key
-
         task = Task(
             name=task_name,
             instruction=(
@@ -331,8 +340,8 @@ def check_runoff_trends() -> dict:
 
     logger.info(
         "runoff_trend_check_completed",
-        plants_checked=len(plant_keys),
+        plants_checked=len(plants),
         flush_tasks_created=created,
         skipped=skipped,
     )
-    return {"plants_checked": len(plant_keys), "created": created, "skipped": skipped}
+    return {"plants_checked": len(plants), "created": created, "skipped": skipped}

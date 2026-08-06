@@ -6,6 +6,14 @@ from app.domain.models.watering_event import WateringEvent
 
 
 class IWateringRepository(ABC):
+    """Watering-event data access.
+
+    Every query below that is entered through a *caller-supplied* key — a plant,
+    a location, a run — takes a **required, keyword-only** ``tenant_key`` (#927).
+    The parameter has no default so that a tenant-blind read cannot be written by
+    accident; the implementation additionally rejects the empty-string sentinel.
+    """
+
     # ── Create & Read ──────────────────────────────────────────────────
 
     @abstractmethod
@@ -32,6 +40,8 @@ class IWateringRepository(ABC):
         plant_key: PlantInstanceKey,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringEvent]: ...
 
     @abstractmethod
@@ -40,10 +50,12 @@ class IWateringRepository(ABC):
         location_key: LocationKey,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringEvent]: ...
 
     @abstractmethod
-    def get_stats_by_location(self, location_key: LocationKey) -> dict: ...
+    def get_stats_by_location(self, location_key: LocationKey, *, tenant_key: str) -> dict: ...
 
     @abstractmethod
-    def get_last_watering_date_for_run(self, run_key: str) -> date | None: ...
+    def get_last_watering_date_for_run(self, run_key: str, *, tenant_key: str) -> date | None: ...

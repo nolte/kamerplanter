@@ -5,6 +5,11 @@ import pytest
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.models.species import Species
 
+#: Every slot read behind the validator is tenant-scoped (#927), so the tests
+#: name a tenant. The assertions below then also pin that the tenant reaches
+#: the repository rather than being dropped on the way.
+TENANT_KEY = "tenant-a"
+
 
 def _make_species(key: str, family_key: str) -> Species:
     return Species(scientific_name=f"Test {key}", genus="Test", family_key=family_key, _key=key)
@@ -33,7 +38,7 @@ class TestCropRotationValidator:
         self.graph_repo.get_pest_risks.return_value = []
         self.graph_repo.get_rotation_successors.return_value = []
 
-        results = self.validator.validate_planting("slot1", "sp1")
+        results = self.validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
         assert any(r.severity == "CRITICAL" for r in results)
         assert "Same family" in results[0].message
 
@@ -49,7 +54,7 @@ class TestCropRotationValidator:
         ]
         self.graph_repo.get_rotation_successors.return_value = []
 
-        results = self.validator.validate_planting("slot1", "sp1")
+        results = self.validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
         assert any(r.severity == "WARNING" for r in results)
 
     def test_ok_good_rotation(self):
@@ -64,7 +69,7 @@ class TestCropRotationValidator:
             {"family": {"_key": "fam_a"}, "benefit_score": 0.9, "benefit_reason": "nitrogen_fixation"},
         ]
 
-        results = self.validator.validate_planting("slot1", "sp1")
+        results = self.validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
         assert any(r.severity == "OK" for r in results)
         ok_result = next(r for r in results if r.severity == "OK")
         assert ok_result.rotation_benefit is not None
@@ -77,7 +82,7 @@ class TestCropRotationValidator:
         self.species_repo.get_by_key = lambda k: planned if k == "sp1" else None
         self.plant_repo.get_history_by_slot.return_value = []
 
-        results = self.validator.validate_planting("slot1", "sp1")
+        results = self.validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
         assert len(results) == 1
         assert results[0].severity == "INFO"
 
@@ -94,7 +99,7 @@ class TestCropRotationValidator:
         from app.common.exceptions import RotationViolationError
 
         with pytest.raises(RotationViolationError):
-            self.validator.validate_or_raise("slot1", "sp1")
+            self.validator.validate_or_raise("slot1", "sp1", tenant_key=TENANT_KEY)
 
     def test_validate_or_raise_ok(self):
         """validate_or_raise should not raise when OK."""
@@ -109,15 +114,32 @@ class TestCropRotationValidator:
         ]
 
         # Should not raise
-        self.validator.validate_or_raise("slot1", "sp1")
+        self.validator.validate_or_raise("slot1", "sp1", tenant_key=TENANT_KEY)
 
     def test_species_not_found(self):
         """Missing species should return CRITICAL."""
         self.species_repo.get_by_key.return_value = None
 
-        results = self.validator.validate_planting("slot1", "sp_missing")
+        results = self.validator.validate_planting("slot1", "sp_missing", tenant_key=TENANT_KEY)
         assert results[0].severity == "CRITICAL"
         assert "not found" in results[0].message
+
+    def test_slot_history_is_read_within_the_callers_tenant(self):
+        """The tenant reaches the repository, it is not dropped in the engine (#927).
+
+        The rotation verdict names the botanical families previously grown in the
+        bed. Reading that history unscoped would describe another tenant's slot,
+        so the engine must forward the tenant it was given.
+        """
+        planned = _make_species("sp1", "fam_a")
+        self.species_repo.get_by_key = lambda k: {"sp1": planned}.get(k)
+        self.plant_repo.get_history_by_slot.return_value = []
+        self.graph_repo.get_pest_risks.return_value = []
+        self.graph_repo.get_rotation_successors.return_value = []
+
+        self.validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
+
+        assert self.plant_repo.get_history_by_slot.call_args.kwargs["tenant_key"] == TENANT_KEY
 
     def test_no_graph_repo(self):
         """Validator without graph_repo should still work (no pest/rotation checks)."""
@@ -128,5 +150,5 @@ class TestCropRotationValidator:
         self.species_repo.get_by_key = lambda k: {"sp1": planned, "sp2": past}.get(k)
         self.plant_repo.get_history_by_slot.return_value = [_make_plant("sp2")]
 
-        results = validator.validate_planting("slot1", "sp1")
+        results = validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
         assert results[0].severity == "INFO"

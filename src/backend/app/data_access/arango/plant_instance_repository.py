@@ -77,27 +77,44 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         results = self.get_edges(col.PLACED_IN, slot_id, direction="inbound")
         return [PlantInstance(**self._resolve_phase_name(self._from_doc(r["vertex"]))) for r in results]
 
-    def get_active_by_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
+    def get_active_by_slot(self, slot_key: SlotKey, *, tenant_key: str) -> list[PlantInstance]:
+        """Plants currently occupying a slot, **inside one tenant** (#927).
+
+        Listed in #927 under "one line away". The traversal starts at a
+        caller-supplied slot key and named no tenant; the companion-planting
+        engine reads it to decide whether a neighbouring plant conflicts, so an
+        unscoped answer would describe another tenant's bed in a warning message.
+        """
+        self._require_tenant_key(tenant_key, "get_active_by_slot")
         query = """
         FOR v, e IN 1..1 INBOUND @slot_id GRAPH 'kamerplanter_graph'
           OPTIONS {edgeCollections: [@edge_col]}
           FILTER v.removed_on == null
+          FILTER v.tenant_key == @tenant_key
           RETURN v
         """
         bind_vars = {
             "slot_id": f"{col.SLOTS}/{slot_key}",
             "edge_col": col.PLACED_IN,
+            "tenant_key": tenant_key,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantInstance(**self._resolve_phase_name(self._from_doc(doc))) for doc in cursor]
 
-    def get_history_by_slot(self, slot_key: SlotKey, years: int = 3) -> list[PlantInstance]:
+    def get_history_by_slot(self, slot_key: SlotKey, years: int = 3, *, tenant_key: str) -> list[PlantInstance]:
+        """Past plantings of a slot within ``years``, **inside one tenant** (#927).
+
+        Same treatment as :meth:`get_active_by_slot`; this is the crop-rotation
+        history, which says which botanical families were grown in that bed.
+        """
+        self._require_tenant_key(tenant_key, "get_history_by_slot")
         cutoff = datetime.now(UTC).replace(year=datetime.now(UTC).year - years)
         cutoff_iso = cutoff.isoformat()
         query = """
         FOR v, e IN 1..1 INBOUND @slot_id GRAPH 'kamerplanter_graph'
           OPTIONS {edgeCollections: [@edge_col]}
           FILTER v.planted_on >= @cutoff
+          FILTER v.tenant_key == @tenant_key
           SORT v.planted_on DESC
           RETURN v
         """
@@ -105,6 +122,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "slot_id": f"{col.SLOTS}/{slot_key}",
             "edge_col": col.PLACED_IN,
             "cutoff": cutoff_iso,
+            "tenant_key": tenant_key,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantInstance(**self._resolve_phase_name(self._from_doc(doc))) for doc in cursor]

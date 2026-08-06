@@ -32,12 +32,25 @@ class IFeedingRepository(ABC):
     # ── Queries ──────────────────────────────────────────────────────
 
     @abstractmethod
-    def get_by_plant(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[FeedingEvent]: ...
+    def get_by_plant(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[FeedingEvent]:
+        """Return a plant's feeding events inside ``tenant_key`` (#927).
+
+        ``tenant_key`` is required and keyword-only: ``plant_key`` alone selects
+        across every tenant, and it arrives from the URL.
+        """
+        ...
 
     @abstractmethod
-    def get_latest_by_plant(self, plant_key: str) -> FeedingEvent | None: ...
+    def get_latest_by_plant(self, plant_key: str, *, tenant_key: str) -> FeedingEvent | None: ...
 
     @abstractmethod
-    def get_recent_runoff_events(self, plant_key: str, limit: int = 5) -> list[FeedingEvent]:
+    def get_recent_runoff_events(self, plant_key: str, limit: int = 5, *, tenant_key: str) -> list[FeedingEvent]:
         """Return last N FeedingEvents with non-null runoff_ec, ordered by timestamp desc."""
         ...

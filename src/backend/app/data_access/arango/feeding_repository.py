@@ -45,7 +45,29 @@ class ArangoFeedingRepository(BaseArangoRepository[FeedingEvent], IFeedingReposi
 
     # ── Queries ──────────────────────────────────────────────────────
 
-    def get_by_plant(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[FeedingEvent]:
+    def get_by_plant(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[FeedingEvent]:
+        """One plant's feeding events **inside one tenant**, newest first (#927).
+
+        ``tenant_key`` is keyword-only and has no default. The selection is a
+        bare ``plant_key == @plant_key`` scan over a tenant-scoped collection, and
+        ``plant_key`` comes from the URL of
+        ``GET /t/{slug}/feeding-events/plant/{pk}``. Without the second predicate
+        a member of tenant A read tenant B's fertigation record — EC/pH before
+        and after, runoff, volumes, notes.
+
+        The filter lives here rather than in the endpoint so that the isolation
+        is a property of the data-access layer: the parameter cannot be omitted,
+        and :meth:`BaseArangoRepository._require_tenant_key` rejects the empty
+        sentinel that would otherwise re-open the scan.
+        """
+        self._require_tenant_key(tenant_key, "get_by_plant")
         return self.find_by_field(
             "plant_key",
             plant_key,
@@ -53,13 +75,22 @@ class ArangoFeedingRepository(BaseArangoRepository[FeedingEvent], IFeedingReposi
             sort_direction="DESC",
             offset=offset,
             limit=limit,
+            extra_filters=[("tenant_key", "==", tenant_key)],
         )
 
-    def get_latest_by_plant(self, plant_key: str) -> FeedingEvent | None:
-        events = self.get_by_plant(plant_key, offset=0, limit=1)
+    def get_latest_by_plant(self, plant_key: str, *, tenant_key: str) -> FeedingEvent | None:
+        """Newest feeding event of a plant inside ``tenant_key`` (#927)."""
+        events = self.get_by_plant(plant_key, offset=0, limit=1, tenant_key=tenant_key)
         return events[0] if events else None
 
-    def get_recent_runoff_events(self, plant_key: str, limit: int = 5) -> list[FeedingEvent]:
+    def get_recent_runoff_events(self, plant_key: str, limit: int = 5, *, tenant_key: str) -> list[FeedingEvent]:
+        """Last ``limit`` runoff-carrying feeding events of a plant, tenant-scoped (#927).
+
+        Same unfiltered ``plant_key`` scan as :meth:`get_by_plant`. Its only
+        caller is a Celery sweep, which now reads the owning tenant off the plant
+        document and passes it in rather than querying across every tenant.
+        """
+        self._require_tenant_key(tenant_key, "get_recent_runoff_events")
         return self.find_by_field(
             "plant_key",
             plant_key,
@@ -67,5 +98,8 @@ class ArangoFeedingRepository(BaseArangoRepository[FeedingEvent], IFeedingReposi
             sort_direction="DESC",
             offset=0,
             limit=limit,
-            extra_filters=[("runoff_ec", "!=", None)],
+            extra_filters=[
+                ("tenant_key", "==", tenant_key),
+                ("runoff_ec", "!=", None),
+            ],
         )
