@@ -86,6 +86,7 @@ from tests.e2e.pages.base_page import (
     BasePage,
     TableNotSettled,
 )
+from tests.e2e.pages.pflege_dashboard_page import PflegeDashboardPage
 from tests.e2e.pages.task_detail_page import TaskDetailPage
 
 #: The W3C element identifier key — see `test_element_proxy.py` for why it is
@@ -331,6 +332,24 @@ class StubConnection:
             if node is None or not node.attached:
                 return _w3c_error("stale element reference", "argument is detached")
 
+        if script.startswith("var sels = arguments[0]"):
+            # `BasePage._PROBE_CSS_BRANCHES`: one round-trip that reports which
+            # of N CSS selectors are present. Modelled because the anchored
+            # readers reach it through `wait_for_any_present`, and a stub that
+            # raised here would have made those readers untestable in this tier
+            # rather than merely unmodelled.
+            #
+            # Matched on the script's opening rather than on "querySelector":
+            # `_swallows_row_click` contains that word too, and a looser match
+            # answered it with a list where it expects a bool — which broke five
+            # row-helper tests and is exactly the kind of stub over-reach that
+            # would have silently changed what they measure.
+            selectors = params["args"][0]
+            return {
+                "value": [
+                    i for i, sel in enumerate(selectors) if self.dom.match(self.dom.root, sel)
+                ]
+            }
         if script.startswith("/* isDisplayed */"):
             return {"value": True}
         if script.startswith("/* getAttribute */"):
@@ -1136,3 +1155,64 @@ class TestTheConsolidatedReaders:
         assert harness.page.is_absent_within(self.DIALOG, timeout=SETTLE_TIMEOUT) is False
 
     DIALOG = (By.CSS_SELECTOR, "[data-testid='some-dialog']")
+
+
+# ── 8. The sample loop that could not succeed (#835, CI run 31121415686) ─────
+
+
+class TestTheAnchoredCareCardReaders:
+    """The counter-example: a caller-side retry that protects nothing.
+
+    `_wait_for_watering_card` retried fifteen times over 15 s, calling
+    `pflege.open()` and then sampling `has_care_card` immediately. Every sample
+    therefore landed at the *same phase offset* after a navigation — inside the
+    window where the dashboard root exists and its fetch has not painted — so
+    all fifteen observed the same nothing. The loop could not succeed however
+    long it ran, and a call-site glance cleared it precisely because the retry
+    was visible.
+
+    The lesson these tests hold: retrying is not waiting. Only decorrelating the
+    sample from the navigation is waiting, and that is a property of the
+    *reader*, not of the loop around it.
+    """
+
+    PLANT = "85142"
+
+    def _page(self, harness: Harness) -> PflegeDashboardPage:
+        return PflegeDashboardPage(harness.driver, "http://stub.invalid")
+
+    def _render_card_after(self, harness: Harness, probes: int) -> None:
+        """Render the card once the DOM has been *probed* `probes` times.
+
+        Hooked on the branch-probe script as well as on `find_elements`: the
+        anchor sweeps its three branches in one `execute_script` round-trip, so
+        a hook counting only element lookups would never fire during the wait
+        and would test the timeout instead of the wait.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                harness.dom.render_dialog(f"care-card-care-{self.PLANT}-watering")
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def test_the_card_reader_outlives_the_navigation_window(self, harness: Harness) -> None:
+        """A single anchored read beats fifteen unanchored samples."""
+        self._render_card_after(harness, 3)
+
+        assert self._page(harness).has_care_card(self.PLANT, "watering") is True
+
+    def test_the_card_reader_still_reports_a_card_that_never_comes(self, harness: Harness) -> None:
+        """Three of six call sites assert the card is *gone*; that must stay provable."""
+        assert self._page(harness).has_care_card(self.PLANT, "watering") is False
+
+    def test_the_presence_sibling_waits_and_still_answers_no(self, harness: Harness) -> None:
+        """`wait_for_care_card` is the presence polarity, with the same two halves."""
+        page = self._page(harness)
+        assert page.wait_for_care_card(self.PLANT, "watering", timeout=SETTLE_TIMEOUT) is False
+
+        self._render_card_after(harness, 3)
+        assert page.wait_for_care_card(self.PLANT, "watering", timeout=SETTLE_TIMEOUT) is True

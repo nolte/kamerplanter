@@ -398,11 +398,14 @@ def wait_for_watering_card(
     ``care-card-care-{plant_key}-watering`` card on its own — no explicit
     "Generate reminders" click (which would materialise a task and deduplicate
     the live card away). Returns True once the card appears within *timeout*.
+
+    One navigation and one continuous poll, replacing a loop that re-navigated
+    and then sampled a raw reader on every attempt. That loop looked robust and
+    was inert: every sample landed in the same just-navigated, not-yet-rendered
+    window, so all fifteen of them observed the same nothing. A caller-side
+    retry buys nothing when each attempt re-creates the condition it is retrying
+    against — the sample has to be decorrelated from the navigation, which is
+    what a poll does and a sample loop does not (#835).
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        pflege.open()
-        if pflege.has_care_card(plant_key, "watering"):
-            return True
-        time.sleep(1.0)
-    return False
+    pflege.open()
+    return pflege.wait_for_care_card(plant_key, "watering", timeout=int(timeout))
