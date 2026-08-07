@@ -353,6 +353,26 @@ def get_diary_analysis_consent_checker():
     return _consent_granted
 
 
+def get_environment_snapshot_service():
+    """REQ-013 §2.3a — resolves a plant's live environment for a diary entry.
+
+    Every optional collaborator is passed even though the chain tolerates their
+    absence: an installation without TimescaleDB or without weather sources still
+    produces an honest (shorter) chain, and wiring them all here means the chain
+    degrades because a *source* is missing, never because the wiring forgot one.
+    """
+    from app.domain.services.environment_snapshot_service import EnvironmentSnapshotService
+
+    return EnvironmentSnapshotService(
+        plant_repo=get_plant_repo(),
+        sensor_repo=get_sensor_repo(),
+        sensor_service=get_sensor_service(),
+        observation_repo=get_observation_repo(),
+        weather_forecast_repo=get_weather_forecast_repo(),
+        site_repo=get_site_repo(),
+    )
+
+
 def get_plant_diary_service():
     from app.domain.services.plant_diary_service import PlantDiaryService
 
@@ -360,6 +380,10 @@ def get_plant_diary_service():
         diary_repo=get_plant_diary_repo(),
         run_repo=get_planting_run_repo(),
         plant_repo=get_plant_repo(),
+        # REQ-013 §2.3a — the environment snapshot taken on create. Absent, an
+        # entry is stored with ``environment_status: not_attempted``, which says
+        # exactly that and is not mistakable for "we looked and found nothing".
+        environment_service=get_environment_snapshot_service(),
         # REQ-050 §7.1 — replaces the ``_consent_not_evaluated`` placeholder.
         # Both the enforcement (``request_analysis``) and the display flag
         # (``can_request_analysis``) go through

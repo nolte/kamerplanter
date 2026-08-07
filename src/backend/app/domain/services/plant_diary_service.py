@@ -33,7 +33,7 @@ import structlog
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.datetimes import ensure_aware_utc, now_utc
-from app.common.enums import AttachmentCategory, DiaryAnalysisState, TenantRole
+from app.common.enums import AttachmentCategory, DiaryAnalysisState, DiaryEnvironmentStatus, TenantRole
 from app.common.exceptions import (
     ConsentRequiredError,
     DiaryAnalysisAlreadyClaimedError,
@@ -52,6 +52,7 @@ from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter, IP
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.plant_diary_entry import DiaryAnalysis, PlantDiaryEntry
+from app.domain.services.environment_snapshot_service import EnvironmentSnapshot, EnvironmentSnapshotService
 
 logger = structlog.get_logger()
 
@@ -134,6 +135,20 @@ _ANALYSIS_FIELDS: frozenset[str] = frozenset(
         "analysis_lease_expires_at",
         "analysis",
         "analysis_error",
+    }
+)
+
+#: REQ-013 §2.3a — the environment snapshot is machine-written evidence, so an
+#: edit may neither change it nor trigger a fresh capture. A later correction of
+#: the *text* must not silently restamp the entry with a different climate: the
+#: entry would then claim conditions that were never the ones it was written
+#: under, which is the one property that makes the snapshot worth having.
+#: A corrected value is a *manual* measurement and belongs in ``measurements``.
+_ENVIRONMENT_FIELDS: frozenset[str] = frozenset(
+    {
+        "environment",
+        "environment_captured_at",
+        "environment_status",
     }
 )
 
@@ -378,10 +393,16 @@ class PlantDiaryService:
         plant_repo: IPlantInstanceRepository | None = None,
         consent_checker: ConsentChecker | None = None,
         attachment_repo: IAttachmentRepository | None = None,
+        environment_service: EnvironmentSnapshotService | None = None,
     ) -> None:
         self._repo = diary_repo
         self._run_repo = run_repo
         self._plant_repo = plant_repo
+        #: REQ-013 §2.3a — resolves the plant's environment on create. ``None``
+        #: means "this installation does not capture", which is recorded honestly
+        #: as ``not_attempted`` rather than silently looking like "we looked and
+        #: found nothing".
+        self._environment_service = environment_service
         #: REQ-050 §7.1 hook — see :func:`_consent_not_evaluated`.
         self._consent_checker = consent_checker or _consent_not_evaluated
         #: SEC-003 — resolves a ``photo_refs`` entry to its attachment record so
@@ -399,10 +420,19 @@ class PlantDiaryService:
         run_key: str | None = None,
         *,
         actor_role: TenantRole,
+        capture_environment: bool = True,
     ) -> PlantDiaryEntry:
         """Create a diary entry for a plant.
 
         If run_key is provided, validates that the plant belongs to the run.
+
+        **The environment snapshot is taken here, and only here** (REQ-013
+        §2.3a). ``capture_environment`` is the author's opt-out from the create
+        dialog — it says whether to *look*, never what to store; the values
+        themselves come from the plant's own location and whatever the caller put
+        on ``entry.environment`` is overwritten unconditionally, so the snapshot
+        cannot be supplied, shaped or forged through the request body. Capture
+        happens on create only: :meth:`update_entry` protects the three fields.
 
         ``photo_refs`` is validated against the attachment catalogue before
         anything is written (SEC-003): until now it was free-form input that
@@ -429,10 +459,51 @@ class PlantDiaryService:
         )
 
         entry.plant_key = plant_key
+        snapshot = self._capture_environment(
+            plant_key,
+            tenant_key=entry.tenant_key,
+            requested=capture_environment,
+        )
+        entry.environment = snapshot.readings
+        entry.environment_captured_at = snapshot.captured_at
+        entry.environment_status = snapshot.status
         now = now_utc()
         entry.created_at = now
         entry.updated_at = now
         return self._repo.create(entry)
+
+    def _capture_environment(
+        self,
+        plant_key: str,
+        *,
+        tenant_key: str,
+        requested: bool,
+    ) -> EnvironmentSnapshot:
+        """Resolve the snapshot, and never let it stop the write.
+
+        The service already degrades internally; this second net exists because
+        the promise here is absolute. A grower documenting a problem is the worst
+        possible moment to refuse an entry over a sensor — so any escape at all
+        is recorded as ``unavailable`` and the entry is written.
+        """
+        if not requested:
+            return EnvironmentSnapshot.opted_out()
+        if self._environment_service is None:
+            return EnvironmentSnapshot.not_attempted()
+        try:
+            return self._environment_service.capture_for_plant(plant_key, tenant_key=tenant_key)
+        except Exception as exc:  # noqa: BLE001 — a snapshot never fails a write
+            logger.warning(
+                "diary_environment_capture_skipped",
+                plant_key=plant_key,
+                tenant_key=tenant_key,
+                error=str(exc),
+            )
+            return EnvironmentSnapshot(
+                readings=[],
+                status=DiaryEnvironmentStatus.UNAVAILABLE,
+                captured_at=now_utc(),
+            )
 
     def get_entry(self, key: str) -> PlantDiaryEntry:
         """Get a single diary entry by key."""
@@ -475,7 +546,7 @@ class PlantDiaryService:
                 role=actor_role,
                 already_attached=existing.photo_refs,
             )
-        protected_fields = {"key", "plant_key", "created_by", "created_at"} | _ANALYSIS_FIELDS
+        protected_fields = {"key", "plant_key", "created_by", "created_at"} | _ANALYSIS_FIELDS | _ENVIRONMENT_FIELDS
         for field, value in data.items():
             if hasattr(existing, field) and field not in protected_fields:
                 setattr(existing, field, value)
