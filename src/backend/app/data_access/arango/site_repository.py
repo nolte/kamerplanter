@@ -1,9 +1,5 @@
-from datetime import UTC, datetime
-
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentUpdateError
 
-from app.common.exceptions import NotFoundError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -12,40 +8,29 @@ from app.domain.models.site import Location, Site, Slot
 
 
 class _LocationRepository(BaseArangoRepository[Location]):
-    """Location view with a null-preserving update (Issue #714, P1).
+    """Location view with a null-clearing update (Issue #714, P1).
 
     A stored ``Location.frost_exposed`` override (``true``/``false``) must be
-    resettable to ``null`` ("inherit from the parent site") via an update. The
-    base :meth:`BaseArangoRepository._update_doc` dumps with
-    ``exclude_none=True`` and ArangoDB merges with ``keepNull=true``, so an
-    explicit ``null`` is dropped from the patch and the stored value survives.
+    resettable to ``null`` ("inherit from the parent site") via an update. A
+    *merging* update dumps with ``exclude_none=True`` and ArangoDB keeps nulls,
+    so the explicit ``null`` never reaches the document and the stored value
+    survives — the #714 defect.
 
-    This override dumps the *full* model (``exclude_none=False``) and passes
-    ``keep_none=False`` so ArangoDB removes a null attribute from the document —
-    the Pydantic default then reads back as ``None`` (= inherit). It mirrors
-    :meth:`ArangoPlantInstanceRepository.update` and keeps the base
-    ``DocumentUpdateError`` → :class:`NotFoundError` mapping (error code 1202).
+    This view therefore selects the base class's full-replace mode: the model is
+    dumped with ``exclude_none=False`` and ArangoDB is told ``keep_none=False``,
+    so a null attribute is removed from the document and the Pydantic default
+    reads back as ``None`` (= inherit).
+
+    It used to hand-roll that write, which meant a ``Location`` — the entity
+    every plant is placed in — reached ArangoDB without the base class's
+    re-validation (#968 §2). Nothing is hand-rolled here any more: the semantics
+    are a class attribute and the write is the inherited one, including the
+    ``DocumentUpdateError`` → :class:`NotFoundError` mapping (error code 1202)
+    and the ``created_at`` strip that stops a model without one erasing it.
     """
 
     _model_cls = Location
-
-    def update(self, key: str, model: Location) -> Location:
-        # exclude_none=False writes the full model so user-nullable fields
-        # (frost_exposed, tank_key, orientation, …) sent as null are honoured;
-        # keep_none=False tells ArangoDB to drop the null attribute instead of
-        # merging it away (Full-Replace-PUT semantics).
-        data = model.model_dump(by_alias=True, exclude_none=False, mode="json")
-        data.pop("_key", None)
-        data.pop("created_at", None)
-        data.pop("updated_at", None)
-        data["updated_at"] = datetime.now(UTC).isoformat()
-        try:
-            result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=False)
-        except DocumentUpdateError as e:
-            if e.error_code == 1202:  # document not found
-                raise NotFoundError(self._collection_name, key) from e
-            raise
-        return Location(**self._from_doc(result["new"]))
+    _update_is_full_replace = True
 
 
 class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):

@@ -98,6 +98,25 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: single key, any other iterable as a batch.
     _owned_reference_fields: ClassVar[dict[str, str]] = {}
 
+    #: Full-replace semantics for :meth:`update` (Issue #714).
+    #:
+    #: ``False`` (default) — the model is dumped with ``exclude_none=True`` and
+    #: ArangoDB merges it with ``keepNull=true``: a field the caller set to
+    #: ``None`` is simply absent from the patch, so the stored value survives.
+    #:
+    #: ``True`` — the model is dumped with ``exclude_none=False`` and ArangoDB is
+    #: told ``keep_none=False``, so an explicit ``None`` *removes* the attribute
+    #: from the stored document and the Pydantic default reads back as ``None``.
+    #: That is what a PUT needs when "unset" is a meaningful value:
+    #: ``Location.frost_exposed = null`` means "inherit from the parent site",
+    #: and ``PlantInstance.slot_key = null`` means "not placed anywhere".
+    #:
+    #: Under this mode ``created_at`` is stripped from the payload, because a
+    #: model that carries none would otherwise *erase* the stored creation
+    #: timestamp. Under the default mode ``exclude_none=True`` already drops it,
+    #: and a model that carries one writes back the value it was read with.
+    _update_is_full_replace: ClassVar[bool] = False
+
     def __init__(
         self,
         db: StandardDatabase,
@@ -180,8 +199,39 @@ class BaseArangoRepository[TModel: BaseModel]:
     def _now(self) -> str:
         return datetime.now(UTC).isoformat()
 
-    def _to_doc(self, model: BaseModel) -> dict[str, Any]:
-        data = model.model_dump(by_alias=True, exclude_none=True, mode="json")
+    def _to_doc(self, model: BaseModel, *, exclude_none: bool = True) -> dict[str, Any]:
+        """Serialise a model into an ArangoDB document, re-validating it first (#968).
+
+        **Why the guard lives here.** #968 was written as if
+        :meth:`update` were the single place a full model reaches the database.
+        Measured, it is not: six repositories override :meth:`update`, and 33
+        hand-written repository methods dump a model and write it themselves —
+        21 of them through *this* method (``upsert_zone``, the phase-sequence and
+        task-repository writers, the species UPSERT, …). Sitting on the
+        serialisation step rather than on one public method means every one of
+        those is covered, and a new hand-written writer is covered the moment it
+        serialises through the house helper instead of calling ``model_dump``
+        itself.
+
+        It is validated **exactly once** per write: :meth:`update` no longer
+        checks separately, because :meth:`_update_doc` reaches the database only
+        through this method.
+
+        **On the create path this is deliberate, and largely redundant.** A model
+        that was just constructed was validated by Pydantic at construction, so
+        :meth:`create` will almost never see a rejection here. Almost never is not
+        never: a service is free to build a model, mutate it, and then insert it
+        (no domain model sets ``validate_assignment=True``, so the mutation is
+        unchecked), and the seed/import paths assemble models over several steps.
+        Excluding the create path would therefore buy nothing but a second rule to
+        remember and a hole exactly where bulk writes live. The cost is one model
+        validation per inserted document, against an ArangoDB round-trip.
+
+        ``exclude_none`` selects the null handling; see
+        :attr:`_update_is_full_replace` for the two modes and why they differ.
+        """
+        self._validate_model_before_write(model)
+        data = model.model_dump(by_alias=True, exclude_none=exclude_none, mode="json")
         data.pop("_key", None)
         return data
 
@@ -274,7 +324,7 @@ class BaseArangoRepository[TModel: BaseModel]:
         tenant_ownership.verify_entities_ownership(self._db, collection, keys, tenant_key, entity_name=entity_name)
 
     def _validate_model_before_write(self, model: BaseModel) -> None:
-        """Re-validate a full model on its way to the database (#968, probe).
+        """Re-validate a full model on its way to the database (#968).
 
         No domain model sets ``validate_assignment=True`` (0 of 261 under
         ``app/domain/models/``), so ``plan.reference_substrate_type = "gravel"``
@@ -285,20 +335,14 @@ class BaseArangoRepository[TModel: BaseModel]:
 
         Turning ``validate_assignment`` on globally would validate on *every*
         assignment, including the engines' hot loops. This check instead sits on
-        the inherited full-model write path, so the cost is one model validation
-        per persisted write — negligible next to the ArangoDB round-trip it
-        precedes — and no caller of :meth:`update` can forget it.
+        the serialisation step every model-to-document write shares, so the cost
+        is one model validation per persisted write — negligible next to the
+        ArangoDB round-trip it precedes — and no writer can forget it.
 
-        **It is not yet the only way in, and must not be read as one.** #968 was
-        written as if :meth:`update` were the single place a full model reaches
-        the database; measured, it is not. Six repositories override
-        :meth:`update` without calling ``super()`` — ``plant_instance`` and
-        ``site`` with a full model, ``tenant``/``membership``/``invitation``/
-        ``location_assignment`` with a ``dict`` under a name that looks like this
-        one — and 33 hand-written repository methods dump a model and write it
-        themselves. 21 of those go through :meth:`_to_doc`, which is the wider
-        funnel a follow-up should aim at if this guarantee is to hold everywhere
-        rather than only where the base method is used.
+        **Called from exactly one place:** :meth:`_to_doc`. Do not add a second
+        call site on a public method; that would validate twice on the paths that
+        already go through the serialiser. See :meth:`_to_doc` for why the guard
+        sits there and what that reaches.
 
         The value is checked against ``type(model)`` rather than the bound
         ``_model_cls``, so composed views and raw-mode repositories are covered
@@ -314,7 +358,10 @@ class BaseArangoRepository[TModel: BaseModel]:
         **This does not cover :meth:`update_fields`.** That path writes a caller
         -built ``dict`` straight into the document and never materialises a full
         model, so there is nothing here to validate; see its docstring for the
-        caller obligation that stands in for this check.
+        caller obligation that stands in for this check. Nor does it cover a
+        repository method that bypasses :meth:`_to_doc` and calls
+        ``model.model_dump()`` itself — 12 such methods remain, which is why the
+        house rule is to serialise through :meth:`_to_doc`.
 
         Raises:
             ValidationError: The model contradicts its own annotations. 422, with
@@ -457,10 +504,19 @@ class BaseArangoRepository[TModel: BaseModel]:
         return self._from_doc(result["new"])
 
     def _update_doc(self, key: str, model: BaseModel) -> dict[str, Any]:
-        data = self._to_doc(model)
+        """Rewrite a document from a full model dump (:meth:`_to_doc` validates it).
+
+        Null handling follows :attr:`_update_is_full_replace`; ``created_at`` is
+        stripped in full-replace mode so a model without one cannot erase the
+        stored timestamp.
+        """
+        full_replace = self._update_is_full_replace
+        data = self._to_doc(model, exclude_none=not full_replace)
+        if full_replace:
+            data.pop("created_at", None)
         data["updated_at"] = self._now()
         try:
-            result = self.collection.update({"_key": key, **data}, return_new=True)
+            result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=not full_replace)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 raise NotFoundError(self._collection_name, key) from e
@@ -626,11 +682,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         Every field is checked against its own annotation before anything is
         written, because no domain model sets ``validate_assignment=True`` and
         the services reach this method with objects they mutated attribute by
-        attribute. See :meth:`_validate_model_before_write` for why the check
-        lives here rather than on the models, and for the
-        :meth:`update_fields` hole it does not close.
+        attribute. The check itself is **not** invoked here: it lives in
+        :meth:`_to_doc`, which :meth:`_update_doc` goes through, so this path
+        validates exactly once and every hand-written writer that serialises the
+        same way is covered too. See :meth:`_validate_model_before_write` for why
+        the check exists at all and for the :meth:`update_fields` hole it does
+        not close, and :attr:`_update_is_full_replace` for the null semantics.
         """
-        self._validate_model_before_write(model)
         return self._wrap(self._update_doc(key, model))
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> TModel:

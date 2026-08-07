@@ -15,6 +15,11 @@ from app.domain.models.plant_instance import PlantInstance
 class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantInstanceRepository):
     is_tenant_scoped = True
     _model_cls = PlantInstance
+    #: A PUT must be able to *clear* a nullable field: ``location_key``/``slot_key``
+    #: set to ``null`` means "not placed anywhere", and a merging update would keep
+    #: the stale placement. See
+    #: :attr:`BaseArangoRepository._update_is_full_replace`.
+    _update_is_full_replace = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PLANT_INSTANCES)
@@ -46,16 +51,24 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         return created
 
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
-        # Use exclude_none=False so nullable fields (location_key, slot_key, etc.)
-        # can be explicitly set to null.  keep_none=False tells ArangoDB to remove
-        # the attribute from the document when the value is null.
-        data = plant.model_dump(by_alias=True, exclude_none=False, mode="json")
-        data.pop("_key", None)
-        data.pop("created_at", None)
-        data.pop("updated_at", None)
-        data["updated_at"] = datetime.now(UTC).isoformat()
-        result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=False)
-        return PlantInstance(**self._from_doc(result["new"]))
+        """Full-replace update, on the shared base path (#968 §2).
+
+        This used to hand-roll the whole write — ``model_dump``, strip ``_key``
+        and the timestamps, ``collection.update(..., keep_none=False)`` — which
+        meant a ``PlantInstance`` reached ArangoDB without passing the base
+        class's re-validation, on one of the two most central entities in the
+        system. The null-clearing semantics that motivated the hand-rolling are
+        now :attr:`_update_is_full_replace` on the class, so the write itself is
+        the inherited one.
+
+        The override survives only to keep the ``IPlantInstanceRepository``
+        signature (``plant``, ``PlantID``). Two things also changed for the
+        better and are worth naming rather than discovering later: the model is
+        now re-validated before the write, and a missing document now raises
+        :class:`NotFoundError` instead of surfacing the raw
+        ``DocumentUpdateError`` — the hand-rolled version never mapped 1202.
+        """
+        return super().update(key, plant)
 
     def delete(self, key: PlantID) -> bool:
         plant_id = f"{col.PLANT_INSTANCES}/{key}"
