@@ -123,6 +123,15 @@ tasks:
   # skipped 29 of 36 cases. A green gate that measured nothing is worse than an
   # absent one. Run it against a dev stack (`task dev:core`, then
   # `python -m pytest tests/integration/`) before changing repositories or AQL.
+  #
+  # `tests/unit/` and `tests/api/` carry a datastore guard (#978,
+  # src/backend/tests/support/db_guard.py): any ArangoDB, TimescaleDB or Valkey
+  # connection raises on the spot, naming the provider chain that asked for it.
+  # Without it such a test passes on a machine with the dev stack up — against
+  # the dev database — and fails in CI after ~18 s of connection retries.
+  # `tests/contracts/` has no guard: it compares enums and JSON, builds no
+  # service, and measured zero connection attempts. `tests/integration/` must
+  # connect and is deliberately untouched.
   test:backend:unit:
     desc: Backend unit tests — the CI gate's exact invocation
     dir: src/backend

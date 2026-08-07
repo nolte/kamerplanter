@@ -521,7 +521,11 @@ class TestDataSubjectServiceFacade:
         from app.domain.services.data_subject_service import DataSubjectService
 
         facade = DataSubjectService(service)
-        export = facade.access(USER_KEY)
+        # Stub the dispatch like every other export test above (#978): unstubbed,
+        # `.delay()` publishes to the real Celery broker — a message in the dev
+        # Valkey when the stack is up, a connect timeout when it is not.
+        with patch("app.tasks.retention_tasks.process_data_export.delay"):
+            export = facade.access(USER_KEY)
 
         assert export.status == "pending"
 
