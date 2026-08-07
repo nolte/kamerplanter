@@ -182,31 +182,43 @@ class TestEvaluateForecastFrostWarning:
         assert result["source"] == "open-meteo"
 
 
+def _reading(metric_type: str, value, entity_id: str, **extra) -> dict:
+    """One entry of the sensor-keyed live-state ``readings`` map."""
+    return {"metric_type": metric_type, "value": value, "entity_id": entity_id, **extra}
+
+
 class TestPickAirTemperature:
+    """The picker reads the sensor-keyed ``readings`` map (Issue #977).
+
+    Metric priority is unchanged; what is new is that several sensors can report
+    the same metric, and the frost warning answers that with the *coldest* of
+    them rather than with whichever one the map happened to keep.
+    """
+
     def test_prefers_canonical_temperature_celsius(self):
-        values = {
-            "temperature_celsius": {"value": 2.5, "entity_id": "sensor.air"},
-            "water_temp_celsius": {"value": 18.0, "entity_id": "sensor.water"},
+        readings = {
+            "s-air": _reading("temperature_celsius", 2.5, "sensor.air"),
+            "s-water": _reading("water_temp_celsius", 18.0, "sensor.water"),
         }
-        temp, entity_id = pick_air_temperature(values)
+        temp, entity_id = pick_air_temperature(readings)
         assert temp == 2.5
         assert entity_id == "sensor.air"
 
     def test_falls_back_to_water_temp_celsius(self):
-        values = {"water_temp_celsius": {"value": 1.0, "entity_id": "sensor.temp"}}
-        temp, entity_id = pick_air_temperature(values)
+        readings = {"s-1": _reading("water_temp_celsius", 1.0, "sensor.temp")}
+        temp, entity_id = pick_air_temperature(readings)
         assert temp == 1.0
         assert entity_id == "sensor.temp"
 
     def test_no_temperature_metric_returns_none(self):
-        values = {"humidity_percent": {"value": 55.0, "entity_id": "sensor.hum"}}
-        temp, entity_id = pick_air_temperature(values)
+        readings = {"s-hum": _reading("humidity_percent", 55.0, "sensor.hum")}
+        temp, entity_id = pick_air_temperature(readings)
         assert temp is None
         assert entity_id is None
 
     def test_none_value_skipped(self):
-        values = {"temperature_celsius": {"value": None, "entity_id": "sensor.air"}}
-        temp, entity_id = pick_air_temperature(values)
+        readings = {"s-air": _reading("temperature_celsius", None, "sensor.air")}
+        temp, entity_id = pick_air_temperature(readings)
         assert temp is None
         assert entity_id is None
 
@@ -214,25 +226,25 @@ class TestPickAirTemperature:
         # Home Assistant reports "unavailable"/"unknown" as the entity value; that
         # must not raise ValueError (→ 500 on the frost-warning endpoint).
         for bad in ("unavailable", "unknown", ""):
-            values = {"temperature_celsius": {"value": bad, "entity_id": "sensor.air"}}
-            temp, entity_id = pick_air_temperature(values)
+            readings = {"s-air": _reading("temperature_celsius", bad, "sensor.air")}
+            temp, entity_id = pick_air_temperature(readings)
             assert temp is None
             assert entity_id is None
 
     def test_non_numeric_primary_falls_back_to_numeric_secondary(self):
         # A non-numeric canonical metric is skipped; the numeric fallback wins.
-        values = {
-            "temperature_celsius": {"value": "unavailable", "entity_id": "sensor.air"},
-            "water_temp_celsius": {"value": 1.5, "entity_id": "sensor.water"},
+        readings = {
+            "s-air": _reading("temperature_celsius", "unavailable", "sensor.air"),
+            "s-water": _reading("water_temp_celsius", 1.5, "sensor.water"),
         }
-        temp, entity_id = pick_air_temperature(values)
+        temp, entity_id = pick_air_temperature(readings)
         assert temp == 1.5
         assert entity_id == "sensor.water"
 
     def test_numeric_string_is_parsed(self):
         # A numeric HA state delivered as a string still parses.
-        values = {"temperature_celsius": {"value": "2.5", "entity_id": "sensor.air"}}
-        temp, entity_id = pick_air_temperature(values)
+        readings = {"s-air": _reading("temperature_celsius", "2.5", "sensor.air")}
+        temp, entity_id = pick_air_temperature(readings)
         assert temp == 2.5
         assert entity_id == "sensor.air"
 
@@ -240,6 +252,43 @@ class TestPickAirTemperature:
         temp, entity_id = pick_air_temperature({})
         assert temp is None
         assert entity_id is None
+
+    def test_two_thermometers_the_coldest_warns(self):
+        # Two thermometers at opposite ends of one tent: the warm end must not
+        # silence the cold one. The freshest-wins rule of the derived view would
+        # have reported 6.0 °C here — right for a gauge, wrong for a warning.
+        readings = {
+            "s-front": _reading("temperature_celsius", 6.0, "sensor.front", last_reported="2026-08-06T06:05:00Z"),
+            "s-back": _reading("temperature_celsius", 1.2, "sensor.back", last_reported="2026-08-06T06:01:00Z"),
+        }
+        temp, entity_id = pick_air_temperature(readings)
+        assert temp == 1.2
+        assert entity_id == "sensor.back"
+
+    def test_coldest_wins_independently_of_map_order(self):
+        cold = _reading("temperature_celsius", -1.0, "sensor.cold")
+        warm = _reading("temperature_celsius", 14.0, "sensor.warm")
+        assert pick_air_temperature({"s-a": cold, "s-b": warm}) == (-1.0, "sensor.cold")
+        assert pick_air_temperature({"s-b": warm, "s-a": cold}) == (-1.0, "sensor.cold")
+
+    def test_equal_temperatures_break_the_tie_on_sensor_key(self):
+        # Same reading twice: the reported entity must not depend on dict order.
+        first = _reading("temperature_celsius", 2.0, "sensor.one")
+        second = _reading("temperature_celsius", 2.0, "sensor.two")
+        assert pick_air_temperature({"s-1": first, "s-2": second}) == (2.0, "sensor.one")
+        assert pick_air_temperature({"s-2": second, "s-1": first}) == (2.0, "sensor.one")
+
+    def test_a_colder_alias_never_outranks_a_canonical_metric(self):
+        # Priority still decides *which metric* answers; coldest only decides
+        # between the sensors of that metric. A cold water probe must not take
+        # over from a warm air thermometer.
+        readings = {
+            "s-air": _reading("temperature_celsius", 12.0, "sensor.air"),
+            "s-water": _reading("water_temp_celsius", -3.0, "sensor.water"),
+        }
+        temp, entity_id = pick_air_temperature(readings)
+        assert temp == 12.0
+        assert entity_id == "sensor.air"
 
     def test_metric_priority_order(self):
         assert AIR_TEMPERATURE_METRIC_TYPES[0] == "temperature_celsius"

@@ -468,6 +468,13 @@ class WateringService:
         read-throughs its live Home Assistant state (REQ-005 semi-automatic tier).
         Returns None when no sensor service, location, sensor, or live value is available
         — the caller then falls back to the static recommendation.
+
+        Reads the **derived single-value view** on purpose (Issue #977): a volume
+        suggestion needs one number, and "what is the moisture right now" is best
+        answered by the probe that reported most recently. Where a bed carries
+        several probes, all of them remain in the live state's ``readings`` map;
+        picking a different one (the driest, say) would be a product decision
+        about watering, not a consequence of this lookup.
         """
         if self._sensor_service is None:
             return None

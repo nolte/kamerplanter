@@ -161,36 +161,53 @@ def evaluate_forecast_frost_warning(
     }
 
 
-def pick_air_temperature(values: dict[str, dict]) -> tuple[float | None, str | None]:
-    """Extract the ambient air temperature from a live-state ``values`` map.
+def pick_air_temperature(readings: dict[str, dict]) -> tuple[float | None, str | None]:
+    """Extract the ambient air temperature from a live-state ``readings`` map.
 
     Args:
-        values: The ``values`` mapping produced by
-            ``SensorService.get_live_state_for_sensors`` — keyed by
-            ``metric_type`` with ``{"value", "entity_id", ...}`` entries.
+        readings: The ``readings`` mapping produced by
+            ``SensorService.get_live_state_for_sensors`` — keyed by *sensor key*,
+            each entry carrying ``{"metric_type", "value", "entity_id", ...}``.
 
     Returns:
         A ``(temperature_celsius, entity_id)`` tuple. Both are ``None`` when no
-        accepted air-temperature metric is present. The first matching metric in
-        :data:`AIR_TEMPERATURE_LIVE_PRIORITY` wins — canonical air-temperature
-        names first, the tolerated ``water_temp_celsius`` alias last.
+        accepted air-temperature metric is present.
+
+    The metric priority is unchanged (:data:`AIR_TEMPERATURE_LIVE_PRIORITY` —
+    canonical air-temperature names first, the tolerated ``water_temp_celsius``
+    alias last), but **within** the winning metric the *coldest* numeric reading
+    is taken rather than an arbitrary one.
+
+    That is this consumer's own answer to "which of several readings", and it is
+    deliberately not the derived single-value view's (Issue #977): the derived
+    view answers "what is it right now" with the freshest reading, which is right
+    for a gauge and wrong for a warning. Two thermometers at opposite ends of a
+    tent are installed precisely because the ends differ, and a frost warning that
+    reported the warm end — because it happened to report more recently — would be
+    silent on the end where the frost actually is. Ties are broken by sensor key,
+    so the reported ``entity_id`` is stable rather than repository-order dependent.
     """
     for metric_type in AIR_TEMPERATURE_LIVE_PRIORITY:
-        entry = values.get(metric_type)
-        if entry is None:
+        candidates: list[tuple[float, str, str | None]] = []
+        for sensor_key, entry in sorted(readings.items()):
+            if entry.get("metric_type") != metric_type:
+                continue
+            raw = entry.get("value")
+            if raw is None:
+                continue
+            # A non-numeric live state (Home Assistant reports ``"unavailable"`` /
+            # ``"unknown"`` as the entity value) must not surface as a 500 on the
+            # frost-warning endpoint. Skip this reading; if none of them is numeric
+            # we honestly report "no temperature".
+            # NB: the ``as exc`` binding is deliberate — a bare tuple-except without it
+            # is miscompiled by ``ruff format`` into invalid ``except A, B:`` syntax.
+            try:
+                temperature = float(raw)
+            except (ValueError, TypeError) as exc:  # noqa: F841
+                continue
+            candidates.append((temperature, sensor_key, entry.get("entity_id")))
+        if not candidates:
             continue
-        raw = entry.get("value")
-        if raw is None:
-            continue
-        # A non-numeric live state (Home Assistant reports ``"unavailable"`` /
-        # ``"unknown"`` as the entity value) must not surface as a 500 on the
-        # frost-warning endpoint. Skip this metric and fall through to the next
-        # candidate; if none is numeric we honestly report "no temperature".
-        # NB: the ``as exc`` binding is deliberate — a bare tuple-except without it
-        # is miscompiled by ``ruff format`` into invalid ``except A, B:`` syntax.
-        try:
-            temperature = float(raw)
-        except (ValueError, TypeError) as exc:  # noqa: F841
-            continue
-        return temperature, entry.get("entity_id")
+        coldest = min(candidates, key=lambda candidate: (candidate[0], candidate[1]))
+        return coldest[0], coldest[2]
     return None, None
