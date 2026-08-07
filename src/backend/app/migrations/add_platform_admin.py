@@ -73,7 +73,7 @@ def add_platform_admin(email: str) -> None:
             return
         # Promote to the platform role (REQ-049 §2.5): the top domain role in
         # the technical ``platform`` tenant, plus both administrative scopes.
-        membership_repo.update(
+        membership_repo.update_fields(
             existing.key,
             {
                 "role": TenantRole.LEAD,

@@ -33,7 +33,7 @@ def _service(membership: Membership, manager_count: int) -> tuple[TenantService,
     membership_repo.get_by_user_and_tenant.return_value = membership
     membership_repo.count_managers.return_value = manager_count
     membership_repo.delete.return_value = True
-    membership_repo.update.return_value = membership
+    membership_repo.update_fields.return_value = membership
 
     service = TenantService(
         tenant_repo=MagicMock(),
@@ -103,7 +103,7 @@ class TestLastManagerGuard:
 
         with pytest.raises(ValidationError, match="management"):
             service.change_member_scopes("t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER)
-        repo.update.assert_not_called()
+        repo.update_fields.assert_not_called()
 
     def test_the_domain_role_may_still_be_demoted_freely(self):
         # Axis 1 carries no administrative rights, so lowering it can never
@@ -112,4 +112,4 @@ class TestLastManagerGuard:
 
         service.change_member_role("t1", "m1", new_role=TenantRole.VIEWER, actor_scopes=_MANAGER)
 
-        repo.update.assert_called_once_with("m1", {"role": TenantRole.VIEWER})
+        repo.update_fields.assert_called_once_with("m1", {"role": TenantRole.VIEWER})

@@ -176,6 +176,16 @@ class TenantService:
         return tenant
 
     def update_tenant(self, tenant_key: str, data: dict) -> Tenant:
+        """Apply a partial update to one tenant, re-deriving the slug on rename.
+
+        ``data`` is a partial payload and is passed through to
+        :meth:`ITenantRepository.update_fields`, so the **caller owns the
+        allow-list**: build it from ``TenantUpdateRequest.model_dump()`` or from
+        named fields, never from a raw request body. The only endpoint that
+        reaches this (``PATCH /t/{slug}``) does the former, and that closed
+        schema is what keeps ``owner_user_key``, ``is_platform`` and
+        ``tenant_type`` out of the payload.
+        """
         if "name" in data:
             errors = self._tenant_engine.validate_tenant_name(data["name"])
             if errors:
@@ -183,7 +193,7 @@ class TenantService:
             data["slug"] = self._tenant_engine.generate_slug(data["name"])
             data["slug"] = self._ensure_unique_slug(data["slug"], exclude_key=tenant_key)
 
-        tenant = self._tenant_repo.update(tenant_key, data)
+        tenant = self._tenant_repo.update_fields(tenant_key, data)
         if not tenant:
             raise NotFoundError("tenants", tenant_key)
         return tenant
@@ -340,7 +350,7 @@ class TenantService:
         if not membership or membership.tenant_key != tenant_key:
             raise NotFoundError("memberships", membership_key)
 
-        result = self._membership_repo.update(membership_key, {"role": new_role})
+        result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
             raise NotFoundError("memberships", membership_key)
         return result
@@ -372,7 +382,7 @@ class TenantService:
                 "Cannot remove the management scope from the last member who has it",
             )
 
-        result = self._membership_repo.update(membership_key, {"admin_scopes": list(new_scopes)})
+        result = self._membership_repo.update_fields(membership_key, {"admin_scopes": list(new_scopes)})
         if not result:
             raise NotFoundError("memberships", membership_key)
         return result
@@ -473,7 +483,7 @@ class TenantService:
         if not invitation or invitation.tenant_key != tenant_key:
             raise NotFoundError("invitations", invitation_key)
 
-        result = self._invitation_repo.update(invitation_key, {"status": InvitationStatus.REVOKED})
+        result = self._invitation_repo.update_fields(invitation_key, {"status": InvitationStatus.REVOKED})
         if not result:
             raise NotFoundError("invitations", invitation_key)
         return result
@@ -507,7 +517,7 @@ class TenantService:
         membership = self._membership_repo.create(membership)
 
         # Mark invitation as accepted
-        self._invitation_repo.update(
+        self._invitation_repo.update_fields(
             invitation.key,
             {
                 "status": InvitationStatus.ACCEPTED,
@@ -556,11 +566,21 @@ class TenantService:
         return self._assignment_repo.create(assignment)
 
     def update_assignment(self, tenant_key: str, assignment_key: str, data: dict) -> LocationAssignment:
+        """Apply a partial update to one location assignment.
+
+        ``data`` is a partial payload and is passed through to
+        :meth:`ILocationAssignmentRepository.update_fields`, so the **caller owns
+        the allow-list**: build it from ``AssignmentUpdateRequest.model_dump()``
+        or from named fields, never from a raw request body. The only endpoint
+        that reaches this (``PATCH /t/{slug}/assignments/{key}``) does the
+        former, and that closed schema is what keeps ``tenant_key`` /
+        ``membership_key`` / ``location_key`` out of the payload.
+        """
         assignment = self._assignment_repo.get_by_key(assignment_key)
         if not assignment or assignment.tenant_key != tenant_key:
             raise NotFoundError("location_assignments", assignment_key)
 
-        result = self._assignment_repo.update(assignment_key, data)
+        result = self._assignment_repo.update_fields(assignment_key, data)
         if not result:
             raise NotFoundError("location_assignments", assignment_key)
         return result

@@ -14,7 +14,20 @@ class IInvitationRepository(ABC):
     def create(self, invitation: Invitation) -> Invitation: ...
 
     @abstractmethod
-    def update(self, key: str, data: dict) -> Invitation | None: ...
+    def update_fields(self, key: str, fields: dict) -> Invitation | None:
+        """Apply a partial field update to one invitation (#968 §2).
+
+        Named ``update_fields`` rather than ``update`` because that is what it
+        is: ``fields`` is a partial payload, not a full model. Under the old
+        name it shadowed the full-model ``update`` of the base repository with
+        an arbitrary-``dict`` signature — an "update" that silently accepted
+        mass assignment.
+
+        Callers MUST build ``fields`` from named fields or a validated
+        schema's ``model_dump()``, never from a raw request body.
+
+        Returns ``None`` when no invitation carries ``key``.
+        """
 
     @abstractmethod
     def delete(self, key: str) -> bool: ...

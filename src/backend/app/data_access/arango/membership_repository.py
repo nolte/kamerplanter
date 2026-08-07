@@ -43,12 +43,41 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         self.create_edge(col.MEMBERSHIP_IN, membership_id, tenant_id)
         return created
 
-    def update(self, key: str, data: dict) -> Membership | None:
+    def update_fields(self, key: str, fields: dict) -> Membership | None:
+        """Merge ``fields`` into the stored membership and rewrite it (#968 §2).
+
+        **Renamed from ``update``.** The old name shadowed
+        :meth:`BaseArangoRepository.update`, whose signature takes a full
+        *model*, with one that takes an arbitrary ``dict``. That reads like
+        the checked full-model path while accepting whatever keys it is
+        handed, so a caller who forwarded request data would have performed
+        mass assignment under a reassuring name. The name now says what the
+        payload is, and the inherited full-model :meth:`update` is reachable
+        again on this repository instead of being shadowed.
+
+        **Caller obligation.** ``fields`` is applied key-by-key, so it must be
+        built from named fields or a validated schema's ``model_dump()`` —
+        never from a raw request body. ``model_copy(update=...)`` does not
+        validate, so an unknown or ill-typed key survives this step; what
+        catches an ill-typed *declared* field is the re-validation the
+        inherited :meth:`update` performs on the merged model (#968).
+
+        **Not the base class's merge.** This deliberately keeps its
+        read-modify-write shape rather than delegating to
+        :meth:`BaseArangoRepository.update_fields`: that method writes the
+        dict straight through and is documented as unchecked, whereas this
+        one materialises a full Membership and therefore gets validated. The
+        price is the base method's lost-update commutativity — two concurrent
+        calls touching *disjoint* fields can clobber each other here. Swapping
+        that trade is a decision of its own, not a side effect of a rename.
+
+        Returns ``None`` when no membership carries ``key``.
+        """
         existing = self.get_by_key(key)
         if not existing:
             return None
-        update_data = existing.model_copy(update=data)
-        return super().update(key, update_data)
+        merged = existing.model_copy(update=fields)
+        return super().update(key, merged)
 
     def delete(self, key: str) -> bool:
         membership_id = f"{col.MEMBERSHIPS}/{key}"
