@@ -72,7 +72,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest              # In production: use a fixed version
+          tag: latest@sha256:af9bec…   # immutable digest — see "Pin a specific image version"
         envFrom:
           - secret: kamerplanter-secrets    # ARANGODB_PASSWORD, JWT_SECRET_KEY, FERNET_KEY, ERASURE_TOMBSTONE_SALT
         env:
@@ -107,7 +107,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest
+          tag: latest@sha256:fea5a3…
         resources:
           requests:
             cpu: 100m
@@ -303,22 +303,36 @@ controllers:
 
 ### Pin a specific image version
 
+The chart already ships pinned digests — override them only if you want a version other than the one the chart carries. In that case, override them completely, digest included:
+
 ```yaml
 controllers:
   backend:
     containers:
       main:
         image:
-          tag: "1.2.3"    # Instead of "latest"
+          tag: "1.2.3@sha256:c6689b…"    # (1)!
   frontend:
     containers:
       main:
         image:
-          tag: "1.2.3"
+          tag: "1.2.3@sha256:6727d2…"
 ```
 
-!!! tip "Image tags"
-    In production, always use fixed version tags instead of `latest`. This ensures that a `helm upgrade` deploys the expected version.
+1. Resolve the digest with:
+   `docker buildx imagetools inspect ghcr.io/nolte/kamerplanter-backend:1.2.3`
+
+!!! danger "An override without a digest undoes the chart's pinning"
+    The override beats the chart default. `tag: "1.2.3"` — without the part
+    after the `@` — replaces an immutable reference with a name that can be
+    re-pushed. Combined with `pullPolicy: IfNotPresent`, a node may then keep
+    serving old bytes without that showing up anywhere. This is exactly what the
+    `inference-service` incident hung on.
+
+!!! tip "And do not use `latest` at all"
+    `latest` moves on every push to `develop`. A reference that moves cannot be
+    rolled back: "the previous image" resolves to the current one. See
+    [Deployment and rollback](ci-cd.md#deployment-and-rollback).
 
 ---
 

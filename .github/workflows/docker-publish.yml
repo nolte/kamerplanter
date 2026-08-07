@@ -658,9 +658,31 @@ jobs:
           push-to-registry: true
 
   publish-helm-charts:
-    needs: changes
+    # Ordered after the image builds since #987, and only for that reason: the
+    # release pin resolves `<image>:<version>` to a DIGEST in the registry, so
+    # the images have to exist before the chart is packaged. The dependency is
+    # real either way — a chart released ahead of its images references
+    # something unpullable — it was just never expressible while the pin was a
+    # string substitution that could not fail.
+    #
+    # `always()` in the condition keeps the develop path intact: on a push that
+    # touches only `helm/**` every build job is skipped, and a skipped `needs`
+    # would otherwise skip this job too. Nothing here consumes a build output,
+    # so a skipped build is fine; a FAILED one is not, hence the failure guard.
+    needs:
+      - changes
+      - build-backend
+      - build-frontend
+      - build-vectordb
+      - build-knowledge
+      - build-embedding-service
+      - build-inference-service
+      - build-reranker-service
+      - build-knowledge-service
     if: |
       always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
       (needs.changes.outputs.helm == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -702,49 +724,22 @@ jobs:
           set -euo pipefail
           yq -i ".version = \"$VERSION\" | .appVersion = \"$VERSION\"" "helm/$CHART/Chart.yaml"
 
-      - name: Pin image tags in chart values for release
+      - name: Pin image digests in chart values for release
         if: steps.version.outputs.version != '' && matrix.chart == 'kamerplanter'
         env:
           VERSION: ${{ steps.version.outputs.version }}
           CHART: ${{ matrix.chart }}
-        run: |
-          set -euo pipefail
-          # Addresses every Kamerplanter-owned image by PATH rather than by
-          # rewriting the literal string "tag: latest".
-          #
-          # The sed this replaces matched on that literal, which made it silently
-          # conditional on a default nobody guarantees: change `values.yaml` to
-          # ship a pinned default and the substitution stops matching, the step
-          # still exits 0, and the released chart quietly carries whatever tag
-          # happened to be committed. It also rewrote commented-out example
-          # blocks, because a comment contains the literal too.
-          yq -i "
-            (.. | select(has(\"repository\")) |
-             select(.repository == \"*ghcr.io/nolte/kamerplanter-*\") | .tag) = \"$VERSION\"
-          " "helm/$CHART/values.yaml"
-
-      - name: Verify no Kamerplanter image escaped the pin
-        if: steps.version.outputs.version != '' && matrix.chart == 'kamerplanter'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          CHART: ${{ matrix.chart }}
-        run: |
-          set -euo pipefail
-          # The substitution above must not be trusted to have worked. A release
-          # that ships a chart still pointing at a moving tag is exactly the
-          # defect continuous-delivery §B exists to prevent, and the previous
-          # implementation had no way to notice.
-          escaped=$(yq "
-            [.. | select(has(\"repository\")) |
-             select(.repository == \"*ghcr.io/nolte/kamerplanter-*\") |
-             select(.tag != \"$VERSION\") | .repository + \":\" + .tag] | .[]
-          " "helm/$CHART/values.yaml")
-          if [[ -n "$escaped" ]]; then
-            echo "::error::Chart values still carry unpinned Kamerplanter images:" >&2
-            printf '%s\n' "$escaped" | sed 's/^/  /' >&2
-            exit 1
-          fi
-          echo "All Kamerplanter images pinned to $VERSION."
+          # Used for the registry token exchange. Anonymous access works for the
+          # public packages today; this keeps working if one is ever made private.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Rewrites `.tag` to `<version>@sha256:<digest>` and re-reads the file to
+        # prove it, both in one script so the check cannot drift from the change
+        # it checks. Until #987 this step pinned the bare version: better than
+        # the `:latest` the develop tree carried, but a version tag is immutable
+        # only by convention — republish it and every consumer silently follows.
+        # The digest is resolved from the registry, which also proves the images
+        # for this release actually exist (see the `needs:` on this job).
+        run: scripts/ci/pin_chart_image_digests.sh "helm/$CHART/values.yaml" "$VERSION"
 
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin

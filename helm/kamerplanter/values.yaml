@@ -54,6 +54,47 @@ defaultPodOptions:
     seccompProfile:
       type: RuntimeDefault
 
+# -- Image references: immutable digests, not moving tags (#987)
+#
+# Every Kamerplanter-owned image below is addressed as
+# `tag: <channel>@sha256:<digest>`. READ THE PART AFTER THE `@`: the digest is
+# what the kubelet resolves and it is content-addressed, so the reference cannot
+# move underneath a running cluster. The `latest` in front of it is NOT a moving
+# reference here — it is a label recording which channel the digest was taken
+# from. Nothing in the deploy path resolves it.
+#
+# Why this replaced the bare `tag: latest`: `latest` is rewritten by every
+# publish, so "roll back to the previous image" had nothing to name — the
+# reference it targets moves with the very deploy it is meant to undo. The
+# documented recovery path was inert in exactly the situation it exists for.
+#
+# Why the digest goes INTO `tag:` and not into the `digest:` field that
+# bjw-s/common also offers: Renovate keeps these current, and its `helm-values`
+# manager only knows `repository` + `tag`. It writes a pin as
+# `{{newValue}}@{{newDigest}}` into the tag string and never looks at a sibling
+# `digest:` key — so using that field would leave Renovate bumping the tag while
+# the digest stayed behind. That is the same "a tag bumped without its digest
+# would leave us silently on the old image" failure renovate.json5 already
+# guards against for the workflow images.
+#
+# How a new version reaches a cluster now — the tag no longer moves, so this
+# replaces "dispatch docker-publish, then rollout restart":
+#   1. docker-publish pushes the image and moves `:latest` in GHCR
+#   2. Renovate opens the grouped `kamerplanter images` digest PR, it merges
+#   3. ArgoCD syncs the new digest; pods roll because the pod spec changed
+# Rollback is `git revert` of that commit — ArgoCD reconciles it the same way.
+#
+# pullPolicy stays `IfNotPresent` deliberately. A digest is content-addressed:
+# an image already present on the node IS the requested bytes, so a re-pull can
+# only confirm what is there, and `Always` would make every pod start depend on
+# GHCR being reachable. The same setting was a trap with the old moving tag —
+# an explicit `IfNotPresent` beats the implicit `Always` Kubernetes applies to
+# a `:latest` reference, so a node with a cached `latest` kept serving the old
+# image straight through a `rollout restart` (that is how the inference-service
+# answered 404 on the pest routes for weeks).
+#
+# scripts/check_chart_image_digests.py fails the required `static` gate if a
+# Kamerplanter image in this chart loses its digest.
 controllers:
   backend:
     type: deployment
@@ -79,7 +120,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest
+          tag: latest@sha256:af9bec445f9fb52d43ff985e289cabf475ab475bfed5bec486d4bfddaa15c0c3
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -223,7 +264,7 @@ controllers:
       init-runtime-config:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest
+          tag: latest@sha256:fea5a31929047d893723b810a06468ab3f40d66ddb5c500127feb4dd9aa5ad27
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -260,7 +301,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest
+          tag: latest@sha256:fea5a31929047d893723b810a06468ab3f40d66ddb5c500127feb4dd9aa5ad27
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -390,7 +431,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest
+          tag: latest@sha256:af9bec445f9fb52d43ff985e289cabf475ab475bfed5bec486d4bfddaa15c0c3
           pullPolicy: IfNotPresent
         command: ["celery"]
         args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
@@ -477,7 +518,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest
+          tag: latest@sha256:af9bec445f9fb52d43ff985e289cabf475ab475bfed5bec486d4bfddaa15c0c3
           pullPolicy: IfNotPresent
         command: ["celery"]
         args: ["-A", "app.tasks", "beat", "--loglevel=info", "--schedule=/tmp/celery-beat/celerybeat-schedule"]
@@ -559,7 +600,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-vectordb
-          tag: latest
+          tag: latest@sha256:c62ecd5e90d93017edcf31f93c2fae9b5c585c6a30d5b6495e34b8ac63a38f0d
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -637,7 +678,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-inference-service
-          tag: latest
+          tag: latest@sha256:79329fd4c295802c3f1ebeb301d6f00b7051146c8ee960288646979dc5ec7e58
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -854,7 +895,16 @@ controllers:
   #     main:
   #       image:
   #         repository: ghcr.io/nolte/kamerplanter-embedding-service
-  #         tag: latest
+  #         # Pin a digest before enabling this, exactly like the live
+  #         # controllers above: `<version>@sha256:<digest>`, resolved with
+  #         # `docker buildx imagetools inspect \
+  #         #    ghcr.io/nolte/kamerplanter-embedding-service:<version>`.
+  #         # This example read `tag: latest` until #987 — which is how an
+  #         # operator uncommenting it would have re-introduced the moving
+  #         # reference the rest of this file just lost. A commented example
+  #         # teaches as loudly as a live one, and the digest guard cannot see
+  #         # into comments.
+  #         tag: "<version>@sha256:<digest>"
   #         pullPolicy: IfNotPresent
   #       securityContext:
   #         allowPrivilegeEscalation: false

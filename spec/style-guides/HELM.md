@@ -163,6 +163,37 @@ containers:
             port: *backend-port
 ```
 
+### 3.4 Image-Referenzen: Digest statt beweglichem Tag
+
+**Regel:** Jedes von diesem Projekt veroeffentlichte Image
+(`ghcr.io/nolte/kamerplanter-*`) wird in `values.yaml` mit unveraenderlichem
+Digest referenziert:
+
+```yaml
+image:
+  repository: ghcr.io/nolte/kamerplanter-backend
+  tag: latest@sha256:af9bec…   # Digest entscheidet, Tag ist nur ein Etikett
+  pullPolicy: IfNotPresent
+```
+
+- Der Digest steht **im `tag`-Feld**, nicht im `digest`-Feld, das bjw-s/common
+  ebenfalls anbietet: Renovate pflegt diese Werte, und sein `helm-values`-Manager
+  kennt nur `repository` + `tag`. Ein separates `digest`-Feld wuerde er nie
+  aktualisieren — der Tag zoege weiter, der Digest bliebe stehen.
+- `pullPolicy: IfNotPresent` bleibt korrekt und ist bei einer Digest-Referenz
+  auch sicher: Ein vorhandenes Image *ist* das angeforderte. Bei einem
+  beweglichen Tag war derselbe Wert eine Falle — er schlaegt das implizite
+  `Always`, das Kubernetes fuer `:latest` setzt.
+- Ausnahme: **lokal von Skaffold gebaute** Images (`kamerplanter-backend` ohne
+  Registry-Praefix in `values-dev*.yaml`). Die existieren in keiner Registry,
+  haben keinen Digest, und Skaffold ersetzt die Referenz ohnehin.
+- Durchgesetzt von `scripts/check_chart_image_digests.py` im Pflicht-Check
+  `static`; beim Release pinnt `scripts/ci/pin_chart_image_digests.sh` auf
+  `<version>@sha256:<digest>`.
+
+Begruendung: Eine bewegliche Referenz macht Rollback unmoeglich — „das
+vorherige Image" loest sich auf das aktuelle auf (#987).
+
 ---
 
 ## 4. Controller-Definition
