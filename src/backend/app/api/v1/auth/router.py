@@ -1,7 +1,7 @@
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Cookie, Depends, Path, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Path, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from slowapi import Limiter
@@ -96,15 +96,48 @@ def _clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(key="kp_refresh", path="/api/v1/auth")
 
 
+def _enqueue_duplicate_registration_notice(user_key: str) -> None:
+    """Hand the REQ-023 §3.2 notice to Celery, from a background task.
+
+    Two properties are load-bearing and neither is visible at the call site, so
+    they are written down here:
+
+    * **It runs after the response.** Starlette sends the response and only then
+      awaits ``response.background``, so no part of this — not the import, not
+      the broker publish, not a broker that hangs — falls inside the window a
+      caller with a stopwatch measures. That is what keeps the duplicate branch
+      indistinguishable from a genuine registration, which sends no mail at all
+      while ``require_email_verification`` is off.
+    * **The import is lazy.** ``app.tasks`` registers the external adapters and
+      initialises error tracking as ``component="worker"`` at import time;
+      pulling that into the API process at module import would be a side effect
+      nobody asked for. Every other dispatch site in this codebase does the same.
+    """
+    from app.tasks.auth_tasks import dispatch_duplicate_registration_notice
+
+    dispatch_duplicate_registration_notice(user_key)
+
+
 @router.post("/register", response_model=UserProfileResponse, status_code=201)
 @limiter.limit(settings.rate_limit_auth)
 def register(
     request: Request,
     body: RegisterRequest,
+    background_tasks: BackgroundTasks,
     service: AuthService = Depends(get_auth_service),
 ):
     """Register a new local account with email and password."""
-    profile = service.register_local(body.email, body.password, body.display_name)
+    profile = service.register_local(
+        body.email,
+        body.password,
+        body.display_name,
+        # Appending to the background list is the only work this adds to the
+        # request; the enqueue itself happens once the 201 is on the wire.
+        on_existing_address=lambda user_key: background_tasks.add_task(
+            _enqueue_duplicate_registration_notice,
+            user_key,
+        ),
+    )
     return UserProfileResponse(**profile.model_dump())
 
 
