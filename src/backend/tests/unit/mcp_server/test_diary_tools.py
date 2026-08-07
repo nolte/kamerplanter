@@ -1520,6 +1520,101 @@ def test_add_entry_publishes_its_bounds_and_carries_no_photo_refs() -> None:
         assert field in properties
 
 
+# ── `measurements`: declared quantities, still an open object (issue #931) ────
+#
+# The object was `additionalProperties: true` with no declared properties and one
+# example. Units and provenance were unknowable, so a consuming spec had to throw
+# ambiguous values away — a number a reader must discard is worse than no number.
+# The tests below pin both halves of the answer: the recognised quantities are
+# now in the published schema *with their unit in the key*, and nothing that was
+# writable before stopped being writable.
+def test_measurements_declares_the_recognised_quantities_with_units_in_the_key() -> None:
+    schema = AddPlantDiaryEntry.Input.model_json_schema()
+    ref = schema["properties"]["measurements"]["anyOf"][0]["$ref"].rsplit("/", 1)[-1]
+    declared = schema["$defs"][ref]["properties"]
+
+    assert set(declared) == {
+        "ec_ms_cm",
+        "ph",
+        "temperature_c",
+        "humidity_percent",
+        "height_cm",
+        "leaf_count",
+    }
+    # None of them is required: an entry may measure nothing, or only one thing.
+    assert not schema["$defs"][ref].get("required")
+
+
+def test_measurements_stays_open_for_everything_else() -> None:
+    """Backward compatibility, asserted rather than hoped for.
+
+    The web UI writes ``measurements`` through a free-form key/value editor, and
+    entries in the wild carry keys nobody declared. Closing the object would have
+    made every one of those a rejection.
+    """
+
+    schema = AddPlantDiaryEntry.Input.model_json_schema()
+    ref = schema["properties"]["measurements"]["anyOf"][0]["$ref"].rsplit("/", 1)[-1]
+    assert schema["$defs"][ref]["additionalProperties"] is True
+
+    args = AddPlantDiaryEntry.Input(
+        plant_key="plant-1",
+        text="x",
+        measurements={"ph": 6.3, "Blattbreite in cm": 7, "internode_spacing_cm": 4.2},
+    )
+    assert args.measurements is not None
+    dumped = args.measurements.model_dump(exclude_none=True)
+    assert dumped == {"ph": 6.3, "Blattbreite in cm": 7, "internode_spacing_cm": 4.2}
+
+
+@pytest.mark.asyncio
+async def test_measurements_are_stored_without_padding_unset_keys_with_nulls(world: _World) -> None:
+    """``{"ph": null}`` reads as "measured, result unknown" — an omitted key does not.
+
+    Padding every entry with six nulls would also change what the read tools
+    return for entries that measured nothing at all.
+    """
+
+    tool = AddPlantDiaryEntry()
+    response = await tool.execute(
+        world.ctx,
+        tool.Input(plant_key="plant-1", text="EC gemessen.", measurements={"ec_ms_cm": 1.8}),
+    )
+    assert world.repo.get_or_raise(response.data["entry_key"]).measurements == {"ec_ms_cm": 1.8}
+
+
+@pytest.mark.parametrize(("field", "value"), [("ph", 15.0), ("ec_ms_cm", -1.0), ("humidity_percent", 140.0)])
+def test_measurements_rejects_physically_impossible_declared_values(field: str, value: float) -> None:
+    """Bounds only on the *declared* keys, where the physics is unambiguous.
+
+    A pH of 15 is a typo, not a reading. Nothing is asserted about undeclared
+    keys — their meaning is the writer's, so their range is too.
+    """
+
+    from pydantic import ValidationError as PydanticValidationError
+
+    with pytest.raises(PydanticValidationError, match=field):
+        AddPlantDiaryEntry.Input(plant_key="plant-1", text="x", measurements={field: value})
+
+
+def test_measurements_keeps_the_spelling_already_in_the_data() -> None:
+    """``ph`` and ``height_cm`` are declared as stored, not renamed to a tidier form.
+
+    The read tools return ``measurements`` verbatim and cannot migrate what is
+    persisted, so renaming would have split every plant's history across two key
+    sets. Only quantities with no established spelling (EC, temperature,
+    humidity) got a unit-bearing name.
+    """
+
+    args = AddPlantDiaryEntry.Input(
+        plant_key="plant-1",
+        text="x",
+        measurements={"height_cm": 84, "leaf_count": 22, "ph": 6.3},
+    )
+    assert args.measurements is not None
+    assert set(args.measurements.model_dump(exclude_none=True)) == {"height_cm", "leaf_count", "ph"}
+
+
 # ══ REQ-033 §2.1 — list_diary_entries ════════════════════════════════════════
 #
 # The seventh tool, and the second one outside the analysis contract. Before it
