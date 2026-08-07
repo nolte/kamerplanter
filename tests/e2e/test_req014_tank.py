@@ -36,6 +36,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-014.md):
 from __future__ import annotations
 
 import time
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -778,7 +779,12 @@ class TestMaintenanceLog:
         tank_detail.click_log_maintenance()
         screenshot("TC-REQ-014-027_maintenance-dialog-open", "Maintenance dialog open")
 
-        tank_detail.fill_maintenance_performed_by("E2E Test Runner")
+        # Per-run identity, so the read-back below cannot be satisfied by an
+        # entry some earlier run left behind. Kept short on purpose: the mobile
+        # `MobileCard` field it is read back from ellipsises long values, and a
+        # truncated value would read as "not listed".
+        performed_by = f"E2E-{uuid.uuid4().hex[:6]}"
+        tank_detail.fill_maintenance_performed_by(performed_by)
         tank_detail.fill_maintenance_duration(30)
         tank_detail.fill_maintenance_products("H2O2 3%")
         tank_detail.fill_maintenance_notes("Automated E2E maintenance test entry")
@@ -788,10 +794,19 @@ class TestMaintenanceLog:
         tank_detail.wait_for_loading_complete()
         screenshot("TC-REQ-014-027_after-maintenance-logged", "Maintenance tab after logging")
 
-        final_maint_count = tank_detail.get_maintenance_row_count()
-        assert final_maint_count >= initial_maint_count, (
-            f"TC-REQ-014-027 FAIL: Expected maintenance count >= {initial_maint_count}, "
-            f"got {final_maint_count}"
+        # `final >= initial` was satisfied by a submit that saved nothing -- a
+        # count that never falls holds whether or not the entry exists (#956).
+        # The test's own docstring claims a *new row in the history table*, so
+        # that is what is read back, by the name this run wrote.
+        final_rows = tank_detail.get_maintenance_row_texts()
+        assert any(performed_by in fragment for row in final_rows for fragment in row), (
+            f"TC-REQ-014-027 FAIL: The maintenance history must list the entry "
+            f"just logged by {performed_by!r}, but none of the {len(final_rows)} "
+            f"rendered rows names it: {final_rows[:5]!r} (the tab held "
+            f"{initial_maint_count} row(s) before). The dialog closed, so "
+            f"`logMaintenance` resolved 2xx and the parent's `load()` ran -- so "
+            f"either the refetch dropped the entry, or the history is paginated "
+            f"past it (25 rows per page, oldest first)."
         )
 
     @pytest.mark.core_crud
