@@ -15,10 +15,16 @@ Das Erntemanagement begleitet dich von der Beobachtung der Erntereife über die 
 
 ### Erwartetes Erntedatum
 
-Für Pflanzen mit einer Erntephase zeigt Kamerplanter auf der Pflanzendetailseite ein **erwartetes Erntedatum** an. Es berechnet sich aus dem Pflanzdatum plus der Summe der geplanten Phasendauern (Wachstumsphasen-Verwaltung) und zeigt zusätzlich die verbleibenden Tage bzw. eine Überfälligkeits-Anzeige. Bei mehrjährigen Pflanzen oder Arten ohne definierte Erntephase erscheint kein Termin — hier hilft dir ausschließlich die Beobachtung vor Ort.
+Für Pflanzen mit einer Erntephase zeigt Kamerplanter auf der Pflanzendetailseite ein **erwartetes Erntedatum** an. Es berechnet sich aus dem Pflanzdatum plus der Summe der geplanten Phasendauern (Wachstumsphasen-Verwaltung) und zeigt zusätzlich die verbleibenden Tage bzw. eine Überfälligkeits-Anzeige. Kein Termin erscheint bei mehrjährigen Pflanzen, bei Arten ohne definierte Erntephase — und bei Pflanzenarten, die laut Stammdaten grundsätzlich nicht geerntet werden können (z. B. reine Zierpflanzen). In allen diesen Fällen hilft dir ausschließlich die Beobachtung vor Ort.
 
-!!! info "Reife-Beobachtungssystem nur über API"
-    Kamerplanter bietet zusätzlich ein Datenmodell für pflanzenspezifische Reife-Indikatoren (Trichome, Brix, Krautsterben, Farbe u. a.) mit Einzelbeobachtungen und einem gewichteten Reifegrad-Score. Dieses System ist vollständig über die API nutzbar, aber noch nicht an eine Oberfläche im Frontend angebunden — du kannst es aktuell nicht über Menüs bedienen. Bis zur Anbindung orientierst du dich an den folgenden manuellen Reifeindikatoren.
+### Erntereife-Panel und Reife-Beobachtungen
+
+Für Pflanzenarten, die geerntet werden können, zeigt die Pflanzendetailseite zusätzlich ein eigenes **Erntereife**-Panel. Es berechnet aus deinen erfassten Reife-Beobachtungen (Trichome, Brix, Krautsterben, Farbe u. a.) eine **Gesamtbewertung (0–100)**, eine **Empfehlung** (z. B. „Optimal", „Naht sich", „In Entwicklung") sowie eine Indikator-Aufschlüsselung mit Stadium, Einzelbewertung, Zuverlässigkeit und Gewichtungsbeitrag pro Indikator.
+
+Liegen für die Pflanze noch keine Beobachtungen vor, zeigt das Panel einen entsprechenden Hinweis statt einer nichtssagenden Bewertung von 0 Punkten. Über die Schaltfläche **„Reife-Beobachtung erfassen"** trägst du direkt hier eine neue Messung ein (Indikator, Beobachter, Reifestadium, geschätzte Tage bis zur Ernte, Notizen) — das Panel aktualisiert die Bewertung danach automatisch.
+
+!!! note "Panel erscheint nicht bei nicht erntbaren Pflanzenarten"
+    Ist eine Pflanzenart in den Stammdaten explizit als nicht erntbar hinterlegt (z. B. reine Zierpflanzen), blendet Kamerplanter das Erntereife-Panel für diese Pflanze komplett aus — analog zum erwarteten Erntedatum oben. Fehlt die Angabe (z. B. bei importierten Arten ohne kuratierten Wert), gilt die Pflanze als erntbar, und das Panel erscheint.
 
 ### Reifeindikatoren nach Pflanzentyp
 

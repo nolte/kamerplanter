@@ -160,6 +160,9 @@ Navigate to **Tasks → Workflow Templates** (`/aufgaben/workflows`). Kamerplant
 !!! tip "Tasks adapt to the growth phase"
     Tasks tied to a specific growth phase (e.g. "Flip to 12/12" in Cannabis SOG) are created with status **Dormant** when applying the template and only activate once the plant actually reaches that phase.
 
+!!! note "System templates are read-only — duplicate them to customise"
+    The four system templates belong to the system catalogue and are available to every tenant alike. That is why neither their phases nor their task templates can be changed — a system template's detail page has no buttons to add, edit, or delete phases and task templates, and the enabled switch and day-offset field of individual task templates are disabled as well. To adapt a system template to your needs, **duplicate** it first using the **Duplicate** button in the workflow overview: the copy takes over all phases and task templates and then belongs entirely to you — fully editable.
+
 ### Step 2: Apply the Template to an Entity
 
 1. Click **Apply Template** next to the desired template.

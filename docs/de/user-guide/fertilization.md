@@ -168,7 +168,10 @@ Navigiere zu **Düngung → Nährstoffpläne** und klicke auf **Neuer Plan**.
 
 ### Schritt 2: Plan benennen und Substrat wählen
 
-Gib einen Namen ein (z.B. "Tomaten Hochbeet 2026") und wähle den Substrat-Typ (Erde, Coco, Hydroponik). Das Substrat beeinflusst die EC-Toleranz und CalMag-Empfehlungen.
+Gib einen Namen ein (z.B. "Tomaten Hochbeet 2026") und wähle optional ein **empfohlenes Substrat** (Erde, Coco, Hydroponik) — ein Hinweis für dich und andere Nutzer:innen, für welches Substrat der Plan gedacht ist. Diese Angabe ist rein informativ und fließt in keine Berechnung ein.
+
+!!! note "Referenz-Substrat für die EC-Berechnung ist ein eigenes Feld"
+    Das Substrat, gegen das Kamerplanter EC-Toleranz und CalMag-Empfehlungen berechnet (`reference_substrate_type`), ist beim Anlegen nicht sichtbar und steht standardmäßig auf **Erde**. Du änderst es später im Tab **Bearbeiten** über das Feld **„Referenz-Substrat (EC-Kalibrierung)"** — sichtbar ab der Erfahrungsstufe **Experte**.
 
 ### Schritt 3: Phaseneinträge hinzufügen
 

@@ -168,7 +168,10 @@ Navigate to **Fertilization → Nutrient Plans** and click **New Plan**.
 
 ### Step 2: Name the Plan and Choose Substrate
 
-Enter a name (e.g. "Tomatoes Raised Bed 2026") and select the substrate type (soil, coco, hydroponics). The substrate influences EC tolerance and CalMag recommendations.
+Enter a name (e.g. "Tomatoes Raised Bed 2026") and optionally select a **recommended substrate** (soil, coco, hydroponics) — a hint for you and other users about which substrate the plan is intended for. This value is purely informational and does not feed into any calculation.
+
+!!! note "The reference substrate for EC calculations is a separate field"
+    The substrate Kamerplanter calculates EC tolerance and CalMag recommendations against (`reference_substrate_type`) is not shown when creating a plan and defaults to **soil**. You change it later on the **Edit** tab via the **"Reference Substrate (EC Calibration)"** field — visible from the **Expert** experience level upward.
 
 ### Step 3: Add Phase Entries
 
