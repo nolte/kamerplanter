@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+import structlog
+
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -17,6 +19,8 @@ from app.domain.models.task import (
     WorkflowTemplate,
 )
 from app.domain.services.notification_propagation_service import NotificationPropagationService
+
+logger = structlog.get_logger(__name__)
 
 # ── Update allow-lists (mass assignment, #965) ──
 #
@@ -108,15 +112,38 @@ TASK_TEMPLATE_UPDATABLE_FIELDS = frozenset(
 )
 
 
-#: Refusal raised when a caller tries to write a *child* into a globally seeded
-#: system workflow (#965 item 3). Deliberately the same ``ValidationError`` —
-#: HTTP 422, ``VALIDATION_ERROR`` — that ``update_workflow_template`` and
+#: Fields the *activity-plan editor* may write on a task template (#992).
+#: Mirrors ``app.api.v1.activity_plans.schemas.TaskTemplateUpdateRequest``, which
+#: is a strictly smaller surface than the workflow editor's ``TaskTemplateUpdate``
+#: above: the activity-plan tab only switches an activity on and off, re-times it
+#: and re-points its trigger phase. Kept as its own set rather than folded into
+#: :data:`TASK_TEMPLATE_UPDATABLE_FIELDS` for two reasons — an allow-list mirrors
+#: exactly one request schema, and ``enabled`` (which only this editor exposes)
+#: would otherwise silently widen the workflow editor's write surface too.
+ACTIVITY_PLAN_TASK_TEMPLATE_UPDATABLE_FIELDS = frozenset(
+    {
+        "enabled",
+        "days_offset",
+        "trigger_phase",
+    }
+)
+
+
+#: Refusal raised when a caller tries to write a *child* of a globally seeded
+#: system workflow (#965 item 3, #992). Deliberately the same ``ValidationError``
+#: — HTTP 422, ``VALIDATION_ERROR`` — that ``update_workflow_template`` and
 #: ``delete_workflow_template`` already raise on the parent itself, rather than a
-#: third convention for what is the same rule one level down. It is not the 404
-#: a foreign or unknown parent produces: that answer means "you may not even see
+#: third convention for what is the same rule one level down. It is not the 404 a
+#: foreign or unknown parent produces: that answer means "you may not even see
 #: this", while a system workflow is visible to every tenant on purpose and only
 #: refuses to be written into. The message names the supported way forward,
 #: because duplicating is what the caller actually wants and it still works.
+#:
+#: Shared by both child surfaces: the tenant-scoped ``/tasks`` child routes
+#: (#984) and the activity-plan template routes (#992), which were developed in
+#: parallel and deliberately defined this contract identically so that the second
+#: one to land collapsed into a single definition rather than leaving the project
+#: with two refusal wordings for one rule.
 SYSTEM_WORKFLOW_CHILD_REFUSAL = (
     "Cannot modify system workflow templates. "
     "Duplicate the workflow first to get an editable copy of its phases and task templates."
@@ -440,6 +467,79 @@ class TaskService:
         """
         tt = self.get_task_template(key)
         self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
+        return self._repo.delete_task_template(key)
+
+    # ── Task Templates of an activity plan (tenant-anchored, #992) ──
+
+    def _resolve_task_template_for_tenant_write(self, key: str, tenant_key: str) -> TaskTemplate:
+        """Load a task template only if ``tenant_key`` may write it (#992).
+
+        ``TaskTemplate`` carries no ``tenant_key`` of its own — ownership is not
+        stored on the entity, exactly like ``Location``/``Slot``, which are
+        verified through their parent site. The only anchor is the parent
+        ``WorkflowTemplate`` behind ``workflow_template_key``, so the predicate
+        hangs there. Hanging it on the template itself would match nothing and
+        refuse every caller while looking like a working guard.
+
+        Three answers, and the difference between them is deliberate:
+
+        * **Foreign or unknown parent → 404.** Resolution goes through
+          :meth:`get_workflow_template`, whose ``verify_tenant_read_access``
+          answers ``NotFoundError`` for both, so this route cannot be used as a
+          cross-tenant existence oracle.
+        * **System workflow → 422.** A globally seeded workflow is visible to
+          every tenant on purpose (#324: the strict direction must not hide the
+          global catalogue), so it resolves — and then refuses the *write*, with
+          the shared :data:`SYSTEM_WORKFLOW_CHILD_REFUSAL`. Deleting one of its
+          task templates would remove it for every tenant.
+        * **No parent at all → 404.** An activity plan's task templates always
+          have one: ``ActivityPlanService.generate_plan`` assigns
+          ``tt.workflow_template_key = wt.key`` to every template before it is
+          persisted, and the seeder skips any template whose workflow it cannot
+          resolve. A parentless template is therefore an unreachable state here,
+          and it has no owner — so it is refused rather than left writable by
+          anyone, which is what "no anchor, so no refusal" would mean on a route
+          that has no tenant scoping of its own. The answer is the 404 rather
+          than a 422 because "who owns this" has no answer: telling the caller
+          the key exists but is unowned is the oracle the 404 avoids. The state
+          is logged so it fails loudly where loudness helps — in the operator's
+          log, not in an attacker's response body.
+
+        The caller's *own* tenant and the global auto-generated activity plans
+        (``tenant_key == ""``, ``is_system == False`` — what
+        ``ActivityPlanService`` produces, see :meth:`generate_plan`) both pass.
+        """
+        template = self.get_task_template(key)
+        parent_key = template.workflow_template_key
+        if not parent_key:
+            logger.warning(
+                "task_template_without_parent_workflow",
+                task_template_key=key,
+                tenant_key=tenant_key,
+            )
+            raise NotFoundError("TaskTemplate", key)
+        parent = self.get_workflow_template(parent_key, tenant_key=tenant_key)
+        if parent.is_system:
+            raise ValidationError(SYSTEM_WORKFLOW_CHILD_REFUSAL)
+        return template
+
+    def update_activity_plan_task_template(self, key: str, data: dict, *, tenant_key: str) -> TaskTemplate:
+        """Apply the activity-plan editor's partial edit, anchored on the parent workflow (#992).
+
+        ``tenant_key`` is required and keyword-only, following #948: a route that
+        forgets to thread it fails loudly instead of silently authorising
+        everyone — which is precisely how the previous version of this edit, made
+        in the API layer straight against the repository, let any authenticated
+        user retime any tenant's task template.
+        """
+        template = self._resolve_task_template_for_tenant_write(key, tenant_key)
+        for field, value in _allowed(data, ACTIVITY_PLAN_TASK_TEMPLATE_UPDATABLE_FIELDS).items():
+            setattr(template, field, value)
+        return self._repo.update_task_template(key, template)
+
+    def delete_activity_plan_task_template(self, key: str, *, tenant_key: str) -> bool:
+        """Remove a task template of an activity plan, anchored on the parent workflow (#992)."""
+        self._resolve_task_template_for_tenant_write(key, tenant_key)
         return self._repo.delete_task_template(key)
 
     # ── Workflow Instantiation ──

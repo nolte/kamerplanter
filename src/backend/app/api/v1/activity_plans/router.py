@@ -1,18 +1,23 @@
-from typing import Annotated
+"""Global activity-plan routes: generate a plan, apply it to a run or plant.
 
-from fastapi import APIRouter, Depends, Path
+The two *write* routes on a plan's task templates (``PATCH``/``DELETE
+/templates/{key}``) used to live here as well, unanchored — see
+``app/api/v1/activity_plans/tenant_router.py``, which now serves them under
+``/t/{tenant_slug}/`` with a tenant context to verify against (#992).
+"""
 
+from fastapi import APIRouter, Depends
+
+from app.api.v1.activity_plans.mapping import task_template_response
 from app.api.v1.activity_plans.schemas import (
     ActivityPlanApplyRequest,
     ActivityPlanApplyResponse,
     ActivityPlanGenerateRequest,
     ActivityPlanResponse,
-    TaskTemplateResponse,
-    TaskTemplateUpdateRequest,
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_activity_plan_service, get_task_repo
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ValidationError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.domain.services.activity_plan_service import ActivityPlanService
 
@@ -33,34 +38,7 @@ def _build_response(
     if templates is None and task_repo and wt.key:
         templates = task_repo.get_task_templates_for_workflow(wt.key)
 
-    tt_responses = [
-        TaskTemplateResponse(
-            key=tt.key or "",
-            name=tt.name,
-            name_de=tt.name_de,
-            instruction=tt.instruction,
-            instruction_de=tt.instruction_de,
-            trigger_phase=tt.trigger_phase,
-            phase_display_name=tt.phase_display_name,
-            phase_duration_days=tt.phase_duration_days,
-            phase_stress_tolerance=tt.phase_stress_tolerance,
-            days_offset=tt.days_offset,
-            rationale=tt.rationale,
-            rationale_de=tt.rationale_de,
-            category=tt.category.value if hasattr(tt.category, "value") else str(tt.category),
-            stress_level=tt.stress_level.value if hasattr(tt.stress_level, "value") else str(tt.stress_level),
-            skill_level=tt.skill_level.value if hasattr(tt.skill_level, "value") else str(tt.skill_level),
-            estimated_duration_minutes=tt.estimated_duration_minutes,
-            tools_required=list(tt.tools_required),
-            recovery_days=tt.recovery_days,
-            is_optional=tt.is_optional,
-            enabled=tt.enabled,
-            activity_key=tt.activity_key,
-            description=tt.description,
-            description_de=tt.description_de,
-        )
-        for tt in (templates or [])
-    ]
+    tt_responses = [task_template_response(tt) for tt in (templates or [])]
 
     return ActivityPlanResponse(
         workflow_template_key=wt.key or "",
@@ -131,64 +109,3 @@ def apply_plan(
         )
 
     raise ValidationError("Either plant_key or run_key must be provided.")
-
-
-@router.patch("/templates/{key}", response_model=TaskTemplateResponse)
-def update_task_template(
-    key: Annotated[str, Path(description="Document key of the task template.")],
-    body: TaskTemplateUpdateRequest,
-    task_repo=Depends(get_task_repo),
-) -> TaskTemplateResponse:
-    """Update a single task template of a generated activity plan."""
-    existing = task_repo.get_task_template_by_key(key)
-    if not existing:
-        raise NotFoundError("TaskTemplate", key)
-
-    if body.enabled is not None:
-        existing.enabled = body.enabled
-    if body.days_offset is not None:
-        existing.days_offset = body.days_offset
-    if body.trigger_phase is not None:
-        existing.trigger_phase = body.trigger_phase
-
-    updated = task_repo.update_task_template(key, existing)
-
-    return TaskTemplateResponse(
-        key=updated.key or "",
-        name=updated.name,
-        name_de=updated.name_de,
-        instruction=updated.instruction,
-        instruction_de=updated.instruction_de,
-        trigger_phase=updated.trigger_phase,
-        phase_display_name=updated.phase_display_name,
-        phase_duration_days=updated.phase_duration_days,
-        phase_stress_tolerance=updated.phase_stress_tolerance,
-        days_offset=updated.days_offset,
-        rationale=updated.rationale,
-        rationale_de=updated.rationale_de,
-        category=updated.category.value if hasattr(updated.category, "value") else str(updated.category),
-        stress_level=(
-            updated.stress_level.value if hasattr(updated.stress_level, "value") else str(updated.stress_level)
-        ),
-        skill_level=updated.skill_level.value if hasattr(updated.skill_level, "value") else str(updated.skill_level),
-        estimated_duration_minutes=updated.estimated_duration_minutes,
-        tools_required=list(updated.tools_required),
-        recovery_days=updated.recovery_days,
-        is_optional=updated.is_optional,
-        enabled=updated.enabled,
-        activity_key=updated.activity_key,
-        description=updated.description,
-        description_de=updated.description_de,
-    )
-
-
-@router.delete("/templates/{key}", status_code=204)
-def delete_task_template(
-    key: Annotated[str, Path(description="Document key of the task template.")],
-    task_repo=Depends(get_task_repo),
-) -> None:
-    """Delete a single task template of a generated activity plan."""
-    existing = task_repo.get_task_template_by_key(key)
-    if not existing:
-        raise NotFoundError("TaskTemplate", key)
-    task_repo.delete_task_template(key)
