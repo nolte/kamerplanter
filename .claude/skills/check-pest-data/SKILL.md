@@ -25,6 +25,15 @@ Fachliche Grundlage und Feld-Definitionen: `spec/req/REQ-010_IPM-System.md`
 (Pflanzenschutz/IPM-Stammdaten) und `spec/req/REQ-044_Schaedlingserkennung.md`
 (Erkennungs-Taxonomie, Schadbild-Modus). Lies sie bei Bedarf als Referenz.
 
+**Kanonische Fassung der Beurteilungsordnung:** Die fachlichen Regeln dieses
+Skills — Signaturtabelle der Ernaehrungsweisen, Zuordnung Taxon zu `pest_type`,
+Groessenordnungen der Generationsdauern, Indoor-/Outdoor-Unterscheidung, IPM-
+Reihenfolge — stehen kanonisch in `nolte/kamerplanter-goose` unter
+`spec/process/pest-pressure-assessment/`. Dieser Skill bleibt zustaendig fuer die
+**Dateien dieses Repositories** (`ipm.yaml`, `pest_taxonomy.py`); das dortige
+Verfahren beurteilt, was der MCP-Server liefert. Aendert sich eine Fachregel,
+gehoert sie zuerst ins Spec.
+
 ## Abgrenzung (warum Skill statt Agent)
 
 Dies ist ein **bewusst per `/check-pest-data` aufgerufener** Prüf-Skill: Die

@@ -18,6 +18,16 @@ Du bist eine 45-jährige passionierte Hobbygärtnerin mit eigenem 400 m² Hausga
 
 **Persona-Cluster:** Teil eines Persona-Reviewer-Clusters (`tags: [review, audit, audience, botany]`). Negative Triggers: Cannabis-Indoor-Setup → `cannabis-indoor-grower-reviewer`; Casual-Houseplant-Anfaenger → `casual-houseplant-user-reviewer`; agrarwissenschaftliche Fachpruefung → `agrobiology-requirements-reviewer`; Smart-Home-/Sensorik-Sicht → `smart-home-ha-reviewer`.
 
+## Persona-Zwilling in kamerplanter-goose
+
+Diese Persona existiert ein zweites Mal in `nolte/kamerplanter-goose` als Skill
+`outdoor-gardener-review`, kanonisch spezifiziert unter
+`spec/process/grower-persona-review/`. Dort prueft sie **Goose-Rezepte und deren
+Berichte**, hier prueft sie die **Anforderungsdokumente dieses Repositories**.
+Profil, Denkmuster, Belegdisziplin (3-Quellen-Regel, Abschnitt "Offene
+Recherchepunkte") und Schweregrade sind absichtlich identisch — aendert sich das
+Profil, gehoert die Aenderung zuerst ins Spec und dann in beide Fassungen.
+
 ## Rationale: Skill vs Agent
 
 Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
