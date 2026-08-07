@@ -2730,6 +2730,52 @@ class BasePage:
 
         self.retry_on_stale(_click)
 
+    def require_interactable(self, element: WebElement, what: str) -> None:
+        """Fail loudly unless *element* is displayed and enabled **right now**.
+
+        An instantaneous re-check, not a wait — see :meth:`clear_and_fill` for
+        why looping here would be the wrong shape. Reading ``is_displayed()``
+        and ``is_enabled()`` costs nothing extra when *element* is a
+        :class:`~._element_proxy.ReResolvingElement`: both calls already funnel
+        through its ``_execute`` override, so a merely-stale reference heals
+        itself against the same ``(locator, condition)`` it was captured with
+        before this method ever gets an answer (see ``_element_proxy.py``). A
+        plain ``WebElement`` that has gone truly stale raises
+        ``StaleElementReferenceException`` out of the read itself, which this
+        re-raises as the same loud, diagnosable failure as the visible/enabled
+        case rather than letting a bare Selenium exception surface with no
+        context attached.
+
+        Narrows the race rather than closing it: a field that is displayed and
+        enabled yet covered by a click-blocking overlay still passes this
+        guard and can still raise ``ElementNotInteractableException`` out of
+        the write that follows — that failure remains loud on its own, just
+        undiagnosed by this method.
+        """
+        try:
+            displayed = element.is_displayed()
+            enabled = element.is_enabled()
+        except StaleElementReferenceException as exc:
+            raise AssertionError(
+                f"{what}: the target element is no longer attached to the DOM. "
+                "Most likely its container re-rendered (e.g. a DataTable's "
+                "LoadingSkeleton swap unmounting the whole toolbar around a "
+                "refetch) in the window between capturing this element and this "
+                "write."
+            ) from exc
+        if displayed and enabled:
+            return
+        reason = "hidden" if not displayed else "disabled"
+        raise AssertionError(
+            f"{what}: the target element is {reason} right now, so writing to "
+            "it here would not reflect an interaction a real user could "
+            "perform. Most likely its container re-rendered (e.g. a "
+            "DataTable's LoadingSkeleton swap unmounting the whole toolbar "
+            "around a refetch) in the window between capturing this element "
+            "and this write; the caller must re-capture the field once it has "
+            "settled again rather than have this method write through the gap."
+        )
+
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.
 
@@ -2738,9 +2784,40 @@ class BasePage:
         the JS clear, verifies the field is actually empty — if React restored
         the old value, falls back to Ctrl+A to select all before typing so
         the new value replaces whatever is in the field.
+
+        **Interactability is re-checked immediately before each write, not just
+        at the call site (#986).** The JS write below dispatches straight
+        through ``execute_script``, which performs no interactability check at
+        all -- it "succeeds" against a hidden, zero-size or covered field just
+        as readily as against a visible one, entering a value the field's own
+        user could never have typed. A caller's own
+        ``wait_for_element_clickable()`` only proves interactability at capture
+        time: ``DataTable``'s ``LoadingSkeleton`` (``DataTable.tsx:230``)
+        unmounts the whole toolbar -- search box included -- around every
+        refetch, so that guarantee can expire before this method's first line
+        runs, and again in the ``time.sleep(0.15)`` between the two writes
+        here. :meth:`require_interactable` re-asserts it next to each write,
+        which is where it can actually still be trusted, instead of leaning on
+        a precondition proven tens of milliseconds earlier -- and applying it
+        to *both* halves is deliberate: without it, the JS write would happily
+        commit a value the following ``send_keys`` could not have, and the two
+        halves would disagree about whether the edit was ever possible.
+
+        Deliberately **not** a retry loop around the write itself. A field
+        cycling through this unmount/remount shape needs a *wait for a real
+        signal* to come back interactable -- which is what
+        :meth:`require_interactable`'s read-through-healing already gives a
+        ``ReResolvingElement`` for free -- not a blind retry of ``send_keys``
+        that, on a still-hidden field, re-enters the exact window it just
+        failed in and calls that robustness. (Project rule: a retry loop that
+        regenerates the bad state is inert and looks like the safest option.)
+        A caller whose captured element keeps failing this guard has a real
+        gap to close upstream -- typically a missing settling wait before the
+        field was captured -- not a reason for this method to paper over it.
         """
         from selenium.webdriver.common.keys import Keys
 
+        self.require_interactable(element, "clear_and_fill (before JS clear)")
         self.driver.execute_script(
             "var el = arguments[0];"
             "var proto = el.tagName === 'TEXTAREA'"
@@ -2761,6 +2838,7 @@ class BasePage:
             element.send_keys(Keys.CONTROL + "a")
             time.sleep(0.05)
 
+        self.require_interactable(element, "clear_and_fill (before send_keys)")
         element.send_keys(value)
 
     # ── Sidebar navigation ─────────────────────────────────────────────────
