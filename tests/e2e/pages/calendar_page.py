@@ -393,9 +393,40 @@ class CalendarPage(BasePage):
         """Return True if the feed Save button is currently enabled."""
         return self.wait_for_element(self.FEED_SAVE_BTN).is_enabled()
 
+    #: Every iCal feed row, by the product's own per-feed testid.
+    FEED_ITEMS = (By.CSS_SELECTOR, "[data-testid^='feed-item-']")
+    #: The feed's *name* inside such a row. `renderFeedItem` puts it in the
+    #: `ListItemText` primary slot and the iCal URL in the secondary one, so the
+    #: whole row's text is not a statement about the name alone.
+    FEED_NAME = (By.CSS_SELECTOR, ".MuiListItemText-primary")
+
     def get_feed_items(self) -> list[WebElement]:
         """Return all feed list items."""
-        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='feed-item-']")
+        return self.driver.find_elements(*self.FEED_ITEMS)
+
+    def get_feed_names(self) -> list[str]:
+        """Return the name of every listed iCal feed.
+
+        Fails loudly on a row that renders no primary text rather than reporting
+        it as ``''``: an empty string is indistinguishable from a feed that was
+        saved without a name, and would turn "the created feed is listed" into a
+        pass for the wrong reason.
+        """
+
+        def _read() -> list[str]:
+            names = []
+            for item in self.driver.find_elements(*self.FEED_ITEMS):
+                primary = item.find_elements(*self.FEED_NAME)
+                if not primary:
+                    raise AssertionError(
+                        f"Feed row {item.get_attribute('data-testid')!r} renders no "
+                        "`ListItemText` primary slot, so its name cannot be read at "
+                        "all -- this is a changed row structure, not a nameless feed."
+                    )
+                names.append(self._text_content(primary[0]).strip())
+            return names
+
+        return self.retry_on_stale(_read)
 
     def click_feed_copy(self, feed_key: str) -> None:
         """Click the copy URL button for a feed."""

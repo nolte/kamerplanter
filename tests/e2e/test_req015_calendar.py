@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable
+import uuid
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -455,22 +456,40 @@ class TestCalendarFeedManagement:
         calendar.open()
 
         calendar.toggle_feeds_section()
-        feeds_before = calendar.get_feed_items()
-        count_before = len(feeds_before)
+        names_before = calendar.get_feed_names()
 
         calendar.click_create_feed()
-        calendar.enter_feed_name("E2E Test Feed")
+        # Per-run identity. The fixed ``"E2E Test Feed"`` this replaces would
+        # have made the read-back below satisfiable by a feed an earlier run
+        # created — nothing deletes them between runs.
+        feed_name = f"E2E Test Feed {uuid.uuid4().hex[:6]}"
+        calendar.enter_feed_name(feed_name)
         screenshot("TC-REQ-015-016_feed-name-entered", "Feed name entered in dialog")
 
         calendar.save_feed()
         screenshot("TC-REQ-015-016_after-feed-save", "After saving new feed")
 
+        # The dialog closes only after `createCalendarFeed(...).unwrap()`
+        # resolves — `unwrap()` re-raises a rejected thunk, so a failed create
+        # never reaches `setCreateFeedDialogOpen(false)`.
         calendar.wait_for_create_feed_dialog_closed(timeout=10)
+        calendar.wait_for_row_containing(
+            feed_name,
+            rows_locator=CalendarPage.FEED_ITEMS,
+            what=f"iCal feed list after creating {feed_name!r}",
+        )
 
-        feeds_after = calendar.get_feed_items()
-        assert len(feeds_after) >= count_before, (
-            f"TC-REQ-015-016 FAIL: Expected at least {count_before} feeds after creation, "
-            f"got {len(feeds_after)}"
+        # Identity, not arithmetic. `len(feeds_after) >= count_before` is
+        # satisfied by a create that was rejected or never submitted -- the
+        # number of feeds cannot fall either way (#956). The name carries a
+        # per-run uuid, so nothing but this create can satisfy this.
+        names_after = calendar.get_feed_names()
+        assert feed_name in names_after, (
+            f"TC-REQ-015-016 FAIL: The feed list must name the feed just created, "
+            f"{feed_name!r}, but reads {names_after!r} ({len(names_before)} feed(s) "
+            f"were listed before). The dialog closed, so `createCalendarFeed` resolved "
+            f"— so the name reached the row but not its `ListItemText` primary slot, "
+            f"or it was persisted trimmed to something else."
         )
 
     @pytest.mark.core_crud
