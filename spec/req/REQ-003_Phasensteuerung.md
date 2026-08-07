@@ -7,13 +7,14 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.17 (Seed↔Phase-Sequence-Tracking #611: attributgetriebener Sequenz-Resolver als First-Class-Spezifikation, D14)
+Version: 2.18 (#949: Resolver-Fallback für unauflösbare Arten korrigiert, Null-Semantik der Resolver-Inputs dokumentiert, schreibbarer Zuweisungspunkt + MCP-Oberfläche der Phasen-Ebene, D15)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.18 | 2026-08-07 | **Resolver-Fallback, Zuweisungspunkt und MCP-Oberfläche (Issue #949):** (1) **§D14 Regel 6 aufgespalten:** Die bisherige Sammelregel „annuell / biennial / **unbekannt** → `indoor_default`" wertete *Abwesenheit einer Antwort* als die stärkstmögliche aus. Eine Art ohne LifecycleConfig (null-`cycle_type`) landete auf einem 126-Tage-Zyklus mit terminaler, ernte-erlaubender Schlussphase — eine _Yucca gigantea_ (immergrün, perennierend, polykarp) war dadurch 126 Tage nach dem Pflanzen als erntereif und lebenszyklus-beendet eingeplant. Neu: Regel 6 gilt nur für **bekannt** determinierte Zyklen (`annual`/`biennial`), Regel 7 schickt jeden unauflösbaren Fall auf `evergreen_foliage_perennial` — eine Sicherheits-, keine botanische Regel (die beiden Irrtümer kosten nicht gleich viel). `LifecycleCreate.cycle_type` verliert seinen `annual`-Default und wird Pflichtfeld. (2) **Null-Semantik dokumentiert:** neue Tabelle in §D14, die je Resolver-Input Quelle und Wirkung eines fehlenden Werts benennt — das Verhalten war aus keinem Schema ablesbar, obwohl `photosynthesis_type` innerhalb `indoor_houseplant` ein tragender Diskriminator ist. (3) **Neuer §D15:** der schreibbare Zuweisungspunkt (`phase_sequence_key` im Lifecycle-Schreib-Schema; `PhaseService.assign_phase_sequence` als einzige Stelle, die Kante **und** Feld schreibt; Auslassung löscht nie) — vorher quittierten beide Schreibwege mit `200`, ohne etwas Dauerhaftes zu ändern. Dazu die acht MCP-Werkzeuge der Phasen-Ebene inkl. `phase_state`, das `never_initialised` von `unresolved` trennt. Sequenz-Authoring bleibt außerhalb der Palette. Siehe REQ-033 §2.1/§2.2/§2.3. |
 | 2.17 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586 → #616):** Der in v2.15 nur als Changelog-Notiz geführte **attributgetriebene Sequenz-Resolver** wird zur **First-Class-Spezifikation** ausgebaut (neuer Abschnitt **§D14**): (1) explizite Präzedenz-Kaskade `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type` als geordnete Entscheidungsregel mit Zuordnungstabelle; (2) `indoor_default` verbindlich als **Last-Resort-Fallback** deklariert (nur annuell/biennial/unbekannt), nicht als Blankett; (3) die 8 Audit-Archetypen (`cam_succulent_rest`, `cam_double_rest`, `clonal_monocarp`, `photoperiodic_ornamental`, `palm_evergreen`, `fern_spore`, `geophyte_fine`, `evergreen_foliage_perennial`) als benannte First-Class-Sequenzen in den Katalog aufgenommen (Deckung geprüft gegen `phase_sequences.yaml`: 21 Sequenzen / 28 `phase_definitions` auf `develop`); (4) Faktenkorrektur der Migration-Referenz (v0025 → real **v0027**) und der Kohorten-Ausnahmen (Cannabis annuell, Herbst-Anemone + Allium via WP-8 outdoor). Verweis REQ-001 v4.7 (drei Lifecycle-Achsen als **Pflicht-Resolution-Inputs**), REQ-047 (Dormanz-Kopplung der neuen Rest-Phasen bestätigt). Reine Spec-Schärfung, keine Code-/Seed-Änderung — beschreibt den auf `develop` bereits gelandeten Zustand. |
 | 2.16 | 2026-07-19 | **ADR-006 E6 Umsetzung (Epic #565 Nachzügler, WP-6/#615 — `cultivation_flexible`-Flag):** Additives Boolean `Species.cultivation_flexible` (default `false`) macht die in v2.13 (E1/#605) eingeführte per-Instanz-Kulturführungs-Wahl **botanisch gated**: Der „Kulturführung"-Select im Plant-Instance-Create-Flow wird nur noch für **fakultative** Arten angeboten (die genuin annuell ODER perennial gezogen werden können), sonst versteckt + informativer Hinweis. Die Steckbrief-belegte Kohorte (Tomate, Paprika, Aubergine, Andenbeere, Basilikum, Geranie, Petunie, Verbene, Stiefmütterchen, Erdbeere, Wachsbegonie, Fleißiges Lieschen) ist in `species.yaml/lifecycle_overrides` geflaggt und wird per idempotentem Seed-Pass (`seed_cultivation_flexible`) auf die Species-Records angewendet; strikt einjährig gezogene botanische Perennials (Kartoffel, Kapuzinerkresse) bleiben bewusst ungeflaggt. `resolve_effective_cycle`-Semantik (v2.13) **unverändert** (non-flexible → Art-Default). Additiv/non-breaking, **keine Migration** (schemaloses Feld, default false). #297 unangetastet — das Flag drückt die *Fähigkeit* aus, nicht den Wert. Siehe REQ-001 v4.6. |
 | 2.15 | 2026-07-19 | **CAM-/Monokarp-/Photoperioden-Feintypisierung (Epic #565 Nachzügler, #616 / Audit #576):** Die von Phase 1 (#601 / v0022) bewusst auf den generischen Templates (`evergreen_foliage_perennial` / annuelles `indoor_default`) belassenen Indoor-Kohorten erhalten ihre biologisch präzisen Sequenzen als **First-Class-Templates** (D9–D12). Neu geseedet in `phase_sequences.yaml` (additiv, schema-valide, DE+EN): **`cam_succulent_rest`** (D9a — Aktivwachstum→Blüte→kühl-trockene `winter_rest` ↻), **`cam_double_rest`** (D9b — Lithops/Mesemb mit `winter_hull_change` + `summer_rest`), **`clonal_monocarp`** (D10 — `juvenile`→`mature`→Blüte→`pup_establishment` terminal = klonale Kindel-Fortführung, **kein** Zyklus-Neustart; #390-Präzedenz), **`photoperiodic_ornamental`** (D11 — `short_day_induction`→`bract_coloring`, `critical_day_length_hours: 12`; Weihnachtsstern/Kalanchoe), **`palm_evergreen`**, **`fern_spore`** und **`geophyte_fine`** (D12) — dazu 15 neue `phase_definitions`. Der bisherige Blankett-Link wird durch einen **attributgetriebenen Resolver** (`resolve_phase_sequence_name`) ersetzt: Präzedenz `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type`, der **vor** dem `indoor_default`-Last-Resort läuft (Kurztag-Induktion nur für Perennials, damit die annuelle Cannabis-Ernte nicht zum blütenlosen Zierzyklus wird). Re-Assignment pro Kohorte: cam_succulent_rest 20, cam_double_rest 1 (Lithops), clonal_monocarp 4, photoperiodic_ornamental 11 (Cannabis annuell + Herbst-Anemone via WP-8 outdoor ausgenommen), palm_evergreen 4, fern_spore 4, geophyte_fine 6 (Allium cepa/sativum via WP-8 ausgenommen). Migration **v0027** (additiv/idempotent) hängt bestehende Installationen von den Blankett-Sequenzen auf das feingetypte Ziel um bzw. legt fehlende Kanten an; WP-8-Outdoor-Arten (v0024) werden durch einen Scope-Guard nicht angetastet. |
@@ -1674,7 +1675,40 @@ flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit
 | 4 | `growth_habit = bulb_geophyte` | `geophyte_fine` | D12 |
 | 4 | Gattung ∈ {Chamaedorea, Dypsis, Howea, Livistona} (Palmen; `growth_habit = tree`) | `palm_evergreen` | D12 |
 | 5 | `cycle_type = perennial` (jede verbleibende Staude) | `evergreen_foliage_perennial` | Audit-Fund |
-| 6 | sonst (annuell / biennial / unbekannt) | **`indoor_default`** (Last-Resort) | — |
+| 6 | `cycle_type ∈ {annual, biennial}` — ein **bekannt** determinierter Zyklus | **`indoor_default`** (Last-Resort) | — |
+| 7 | sonst (**unauflösbar**: `cycle_type` null oder unbekannt) | `evergreen_foliage_perennial` | Sicherheitsregel |
+
+**Regel 6/7 — die Fallback-Aufspaltung (Issue #949):** Bis dahin fasste eine einzige Regel „annuell /
+biennial / **unbekannt**" zusammen und schickte alle drei auf `indoor_default`. Das war der Kern des
+Defekts: ein null-`cycle_type` bedeutet „diese Art hat **gar keine** LifecycleConfig", also *keine
+Antwort* — und wurde als die stärkstmögliche Antwort ausgewertet, nämlich ein 126-Tage-Zyklus mit
+terminaler, ernte-erlaubender Schlussphase. Eine _Yucca gigantea_ (immergrün, perennierend, polykarp)
+war dadurch 126 Tage nach dem Pflanzen als erntereif **und lebenszyklus-beendet** eingeplant.
+
+Regel 7 ist eine **Sicherheits-, keine botanische Regel**. Die beiden Irrtümer kosten nicht gleich viel:
+eine echte Annuelle auf einem perennierenden Zyklus verliert nur einen Ernte-Hinweis, den ein Nutzer
+weiterhin von Hand auslösen kann; eine Perennierende auf einem annuellen Zyklus bekommt eine Ernte **und
+ein Lebensende** erfunden, die niemand vorgesehen hat. Der Zweifelsfall fällt deshalb auf den
+wiederholenden, nicht-terminalen, ernte-freien Zyklus. Analog verliert `LifecycleCreate.cycle_type` seinen
+`annual`-Default und wird **Pflichtfeld**: eine ausdrückliche `422` schlägt eine stillschweigend geratene
+Angabe, gerade weil der Resolver genau auf diesem Feld aufsetzt.
+
+**Resolver-Inputs und ihre Null-Semantik** (die zweite Hälfte von #949: das Verhalten war aus keinem Schema
+ablesbar). Jeder Input wird aus einer anderen Quelle gelesen, und ein fehlender Wert *deaktiviert* jeweils
+eine bestimmte Regel — er ist nie ein Standardwert:
+
+| Input | Quelle | Wenn null |
+|---|---|---|
+| `scientific_name` | `Species.scientific_name` | Gattungs-Tests (Palme, Lithops) und die Runner-Whitelist greifen nie |
+| `cycle_type` | **effektiver** Zyklus: `cultivation_cycle_type` vor `cycle_type` über `resolve_effective_cycle`; null, wenn die Art gar keine LifecycleConfig hat | Art gilt als **unauflösbar** → Regel 7 |
+| `flowering_strategy` | `LifecycleConfig.flowering_strategy` | Regel 2 greift nicht; eine Monokarpe wird wie eine Polykarpe behandelt |
+| `photosynthesis_type` | `Species.photosynthesis_type` | Regel 3 greift nicht; eine CAM-Sukkulente fällt auf ihr zyklustyp-basiertes Ziel durch |
+| `photoperiod_type` | `LifecycleConfig.photoperiod_type` | Regel 1 greift nicht |
+| `growth_habit` | `Species.growth_habit` | Farn-/Geophyten-Tests aus Regel 4 greifen nicht (der Palmen-Test hängt an der Gattung, nicht am Habitus) |
+
+Innerhalb von `plant_category: indoor_houseplant` ist `photosynthesis_type` damit ein **tragender**
+Diskriminator: `c3` → Blattschmuck-Perennial, `cam` → Sukkulenten-Ruhe, null → keine Regel greift. Vor #949
+kippte dieses eine leere Feld einen Baum in eine 126-Tage-Erntekultur.
 
 **Begründete Sonderfälle:**
 
@@ -1712,6 +1746,59 @@ _Allium cepa_/_sativum_) bereits anderweitig gebunden sind.
 **Pflicht-Inputs:** Der Resolver ist nur so gut wie die im Steckbrief erfassten Attribute. `flowering_strategy`,
 `cultivation_cycle_type` und `growth_determinacy` sind daher **Pflicht-Resolution-Inputs je Species**, nicht
 optionale Metadaten — siehe REQ-001 §Lifecycle-Resolution-Pflichtfelder.
+
+### D15 — Schreibbarer Zuweisungspunkt und MCP-Oberfläche (Issue #949)
+
+**Der Zuweisungspunkt.** Die Bindung Art→Sequenz lebt in **zwei** Datensätzen, die nicht auseinanderlaufen
+dürfen:
+
+1. der `has_phase_sequence`-**Kante** — das ist, was `get_sequence_by_species` und damit die gesamte
+   Lifecycle-Engine tatsächlich ausliest; und
+2. `LifecycleConfig.phase_sequence_key` — das Feld, das jede Lifecycle-*Antwort* meldet und das Seed- und
+   Migrationspfade pflegen.
+
+Vor #949 war keines von beiden über die dokumentierte Oberfläche schreibbar, und beide Fehlversuche
+lieferten `200`: `PhaseSequence.species_key` ließ sich per `PUT /phase-sequences/{key}` setzen, ist aber ein
+Feld, gegen das nichts auflöst — die Zuweisung blieb wirkungslos. Und `LifecycleConfig.phase_sequence_key`
+fehlte im Schreib-Schema, sodass ein `PUT` den gespeicherten Wert mit `None` überschrieb: kein stiller
+No-Op, sondern ein stiller **Datenverlust**. Ein stillschweigendes Verwerfen mit `200` ist schlechter als
+eine `422`.
+
+Verbindlich ab #949:
+
+- `LifecycleCreate` (Body von `POST` **und** `PUT /species/{key}/lifecycle`) führt `phase_sequence_key`.
+  Angegeben, hängt es die Kante um **und** synchronisiert das Feld; weggelassen, bleibt die bestehende
+  Bindung unangetastet — sie wird nie durch Auslassung gelöscht.
+- `PhaseService.assign_phase_sequence(species_key, sequence_key)` ist die **eine** Stelle, die beides
+  schreibt. Eine unbekannte Sequenz wirft `NotFoundError`, damit ein Tippfehler keine baumelnde Kante
+  hinterlässt.
+- Genau ein `has_phase_sequence`-Ausgang je Art: die Kante wird ersetzt, nicht ergänzt. Ein zweiter Ausgang
+  machte die Auflösung reihenfolgeabhängig, weil `get_sequence_by_species` die erste gefundene nimmt.
+
+**MCP-Oberfläche.** Bis #949 war von dieser Ebene über MCP nur `list_phase_definitions` sichtbar — der
+Katalog der *Bausteine*, nicht die Abfolgen, nicht die Zuordnung, nicht der Phasenstand einer Instanz. Die
+Frage „läuft diese Pflanze auf der botanisch richtigen Abfolge?" war darüber unbeantwortbar. Acht Werkzeuge
+schließen das (normativ in REQ-033 §2.1/§2.2/§2.3):
+
+| Werkzeug | Permission | Deckt ab |
+|---|---|---|
+| `get_species_phase_sequence` | `mcp.read` | die aufgelöste Abfolge samt `cycle_type`, `is_repeating`, `dormancy_required` und den Entries |
+| `list_phase_sequences` | `mcp.read` | den Katalog — damit die *richtige* Abfolge benennbar wird |
+| `list_species_by_phase_sequence` | `mcp.read` | die Rückwärtssuche, die eine Vorlagen-Kollision sichtbar macht |
+| `get_species_lifecycle` | `mcp.read` | die Ebene, auf der „perennierend und polykarp" überhaupt steht |
+| `get_plant_phase_status` | `mcp.read` | `days_in_phase`, `next_phase`, `cycle_number`, `has_harvest_phase` + `phase_state` |
+| `get_plant_phase_history` | `mcp.read` | den Verlauf mit `transition_reason` |
+| `transition_plant_phase` | `mcp.write` | Phase einer Instanz setzen/korrigieren, Ziel gegen die eigene Abfolge geprüft |
+| `assign_species_phase_sequence` | `mcp.setup` | die Bindung einer Art an eine bestehende Abfolge |
+
+**`phase_state`** trennt die drei Situationen, die `current_phase_key: null` zusammenwirft und die
+unterschiedliche Reparaturen verlangen: `never_initialised` (kein Verlaufseintrag — Lebenszyklus nie
+gestartet), `unresolved` (offener Verlaufseintrag, der auf keine auflösbare Phase zeigt — die Pflanze steht
+still, ohne dass es auffällt; genau der Zustand der Referenz-Instanz aus #949, 50 Tage lang),
+`between_cycles` (alle Phasen abgeschlossen, keine offen — bei Perennials normal) und `in_phase`.
+
+Sequenzen zu **definieren** bleibt bewusst außerhalb der MCP-Palette: Entries ordnen, Dauern setzen und
+`is_terminal`/`allows_harvest` vergeben ist Redaktionsarbeit mit einer dafür gebauten Oberfläche.
 
 <!-- Spec-Audit 2026-07-02 E1-E8: Lifecycle-Vollständigkeits-Audit II — Trigger-Vollständigkeit, nicht-lineare Pfade, Ausfallbehandlung, Bewässerung & Nährstoffbedarf über den Lebenszyklus. Quelle: spec/analysis/lifecycle-flow-completeness-audit.md -->
 ## Lifecycle-Vollständigkeits-Audit II (E1–E8)
@@ -1908,7 +1995,10 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 - [ ] **Saison-Vergleich:** Ertrag und Phasen-Dauern sind über mehrere Jahre vergleichbar
 - [ ] **Perennial-Phasen-Template:** Standard-Phasensequenz für Dauerkulturen (dormancy → bud_break → vegetative → flowering → fruit_development → ripening → senescence)
 <!-- Quelle: #611 WS1 (Audit #576/#586) — attributgetriebener Sequenz-Resolver -->
-- [ ] **Attributgetriebener Sequenz-Resolver (§D14):** Eine geseedete Art ohne handkuratierten `phase_sequence:`-Eintrag wird über die Präzedenz `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type` auf ihre biologisch passende Sequenz gebunden; `indoor_default` gilt nur als Last-Resort-Fallback (annuell/biennial/unbekannt). Der Resolver ist zwischen Seed (`resolve_phase_sequence_name`) und Rebind-Migration v0027 geteilt (keine Drift). Repräsentative Kohorten-Vertreter (CAM-Sukkulente, monokarpe Bromelie, Weihnachtsstern, Palme, Farn, Geophyt) lösen auf ihre feingetypte Sequenz auf, nicht auf `indoor_default`.
+- [ ] **Attributgetriebener Sequenz-Resolver (§D14):** Eine geseedete Art ohne handkuratierten `phase_sequence:`-Eintrag wird über die Präzedenz `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type` auf ihre biologisch passende Sequenz gebunden; `indoor_default` gilt nur als Last-Resort-Fallback für **bekannt** annuelle/biennale Arten. Der Resolver ist zwischen Seed (`resolve_phase_sequence_name`) und Rebind-Migration v0027 geteilt (keine Drift). Repräsentative Kohorten-Vertreter (CAM-Sukkulente, monokarpe Bromelie, Weihnachtsstern, Palme, Farn, Geophyt) lösen auf ihre feingetypte Sequenz auf, nicht auf `indoor_default`.
+- [ ] **Fallback für unauflösbare Arten (§D14 Regel 7, #949):** Eine Art ohne LifecycleConfig — also mit null-`cycle_type` — landet auf einem **wiederholenden perennierenden** Zyklus, niemals auf `indoor_default`/`annual`. `LifecycleCreate.cycle_type` hat keinen Default mehr und erzwingt eine `422` statt eine Angabe zu raten. Die Null-Semantik jedes Resolver-Inputs ist in §D14 tabellarisch dokumentiert.
+- [ ] **Schreibbarer Zuweisungspunkt (§D15, #949):** `phase_sequence_key` ist Teil des Lifecycle-Schreib-Schemas; angegeben hängt es die `has_phase_sequence`-Kante um und synchronisiert das Feld, weggelassen bleibt die Bindung erhalten. Kein Schreibpfad quittiert mehr mit `200`, ohne etwas Dauerhaftes zu ändern.
+- [ ] **MCP-Oberfläche der Phasen-Ebene (§D15, #949):** Die acht Werkzeuge aus §D15 sind in der MCP-Registry registriert und über `tools/list` erreichbar; `get_plant_phase_status` unterscheidet `never_initialised` von `unresolved`, und `transition_plant_phase` prüft sein Ziel gegen die Abfolge, die die Art *dieser* Pflanze auflöst.
 - [ ] **Kältestunden-Integration:** Chill-Hours pro Saison aus VernalizationTracker (REQ-001) übernommen
 <!-- Quelle: Cannabis Indoor Grower Review G-009 -->
 - [ ] **Autoflower-Transition:** Bei `cultivar_photoperiod_type='autoflower'` ist Vegi→Blüte automatisch zeitbasiert (kein manueller Trigger, keine Photoperioden-Änderung)
