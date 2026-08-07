@@ -18,6 +18,7 @@ Spec-TC Mapping:
   TC-004-111  Detail page — analyze-runoff button visible
   TC-004-112  Detail page — delete opens confirmation dialog
   TC-004-113  Detail page — edit tab shows pre-filled form
+  TC-004-114  Pflichtfeld-Validierung (Ziel: Pflanze oder Slot)
 
 These generic list/dialog/detail mechanics are distinct from the
 self-provisioning Core-Lifecycle-Journey cases (TC-004-089, TC-004-090,
@@ -298,14 +299,88 @@ class TestWateringLogCreateDialog:
         )
 
         watering_list.submit_create_form()
-        watering_list.wait_for_loading_complete()
+        message = watering_list.wait_for_validation_error("volume_liters")
         screenshot(
             "TC-REQ-004-W005_validation-error",
             "Validation error after submitting with volume=0",
         )
 
-        assert watering_list.is_create_dialog_open(), (
-            "TC-REQ-004-W005 FAIL: Expected dialog to remain open when volume is invalid"
+        # Asserting the *message* rather than `is_create_dialog_open()`. That
+        # predicate is also satisfied by a crash, by a submit button that was
+        # disabled, and by a click the dialog swallowed — three states in which
+        # the user is told nothing at all, and the one the test claims to
+        # observe is only one of them (#970).
+        #
+        # The text is asserted non-empty rather than matched: the message is
+        # zod's own default for `.gt(0)`, so its wording belongs to the zod
+        # version in `package.json` and would turn a dependency bump into a
+        # test failure. What the test owns is that the field the user must fix
+        # is the one carrying the message.
+        assert message, (
+            "TC-REQ-004-W005 FAIL: Expected the volume field to show a validation "
+            "message after submitting volume=0, got none. The dialog staying open "
+            "is not enough — a swallowed click looks the same to the user."
+        )
+
+        watering_list.cancel_create_form()
+
+    @pytest.mark.core_crud
+    def test_create_dialog_validation_target_required(
+        self,
+        watering_list: WateringLogListPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-004-114: Submitting with neither plant nor slot shows a field-level error.
+
+        The domain rule "at least one of slot_keys or plant_keys must be
+        provided" is a *cross-field* rule, so no single input can carry it and
+        the form's per-field constraints cannot catch it. This is the path that
+        went uncovered: a valid volume plus no target submits, the API answers
+        422 with the offending fields named, and until #970 the user was shown
+        only a generic "check your input" toast that named neither field.
+
+        Spec: TC-004-114 -- Giessvorgang erfassen -- Pflichtfeld-Validierung
+        (Pflanze oder Slot).
+        """
+        watering_list.open()
+        watering_list.click_create()
+
+        # Deliberately touch nothing: the dialog opens with no plant selected,
+        # an empty slot field and a valid default volume — exactly the state the
+        # rule is about.
+        screenshot(
+            "TC-REQ-004-W014_before-submit-no-target",
+            "Create dialog with a valid volume but neither plant nor slot",
+        )
+
+        watering_list.submit_create_form()
+
+        plant_message = watering_list.wait_for_validation_error("plant_keys")
+        slot_message = watering_list.wait_for_validation_error("slot_keys_input")
+        screenshot(
+            "TC-REQ-004-W014_validation-error",
+            "Field-level validation error for the missing watering target",
+        )
+
+        # Both fields, because the rule is about both and the user may satisfy
+        # it through either one. Marking only one would send the user to fix a
+        # field they were free to leave empty.
+        assert plant_message, (
+            "TC-REQ-004-W014 FAIL: Expected the plant field to name the missing "
+            "watering target, got no message. A generic toast does not tell the "
+            "user which field to fill."
+        )
+        assert slot_message, (
+            "TC-REQ-004-W014 FAIL: Expected the slot field to name the missing "
+            "watering target, got no message."
+        )
+        # One content probe on the rule's subject, so "some error appeared"
+        # cannot pass for "the right error appeared". Kept to a single stem
+        # rather than the full sentence: the wording is owned by the i18n
+        # catalogue and may be edited, the subject may not.
+        assert "pflanze" in plant_message.lower(), (
+            "TC-REQ-004-W014 FAIL: Expected the message under the plant field to be "
+            f"about the missing plant/slot target, got {plant_message!r}"
         )
 
         watering_list.cancel_create_form()

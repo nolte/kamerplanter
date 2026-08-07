@@ -607,6 +607,25 @@ export default function SpeciesForm({ species, onSave }: SpeciesFormProps) {
 }
 ```
 
+### 11.2a Feldübergreifende Domänenregeln gehören **nicht** ins Zod-Schema
+
+**Einzelfeld-Constraints spiegeln, feldübergreifende Regeln nicht.**
+
+| Art der Regel | Beispiel | Gehört ins Zod-Schema? |
+|---|---|---|
+| Einzelfeld-Constraint (Wertebereich, Pflichtfeld, Enum) | `volume_liters > 0`, `ph <= 14` | **Ja** — steht ohnehin als `min`/`max` am Input, der Nutzer darf sie vor dem Absenden sehen, und „strenger als der Server" kann bei einem Zahlenbereich niemanden aussperren. |
+| Feldübergreifende Domänenregel | „mindestens `slot_keys` **oder** `plant_keys`" | **Nein** — der Server prüft sie und antwortet mit 422 samt Feldangabe; die Antwort wird an den beteiligten Feldern angezeigt. |
+
+Begründung (#970):
+
+1. **Nichts kann die beiden Kopien vergleichen.** Backend-seitig funktioniert der Schutz gegen genau diese Klasse, weil beide Seiten Python sind und dieselbe Funktion aufrufen (`find_watering_log_violations` + `TestRequestSchemaAndDomainModelAgree`). Eine TypeScript-Kopie liegt ausserhalb dieser Reichweite — die Drift fände ein Nutzer, nicht die CI.
+2. **Die beiden Drift-Richtungen scheitern unterschiedlich, und nur eine ist tragbar.** Eine veraltete Client-Kopie, die *strenger* ist als die Domäne, blockiert eine Eingabe, die der Server akzeptiert hätte: Der Nutzer kann etwas Erlaubtes nicht tun und hat keinen Ausweg. Wer nur die Serverantwort rendert, kann höchstens *hinterherhinken* — eine unbekannte Regel fällt auf den generischen Validierungs-Toast zurück, der Dialog bleibt offen. Sichtbar-degradiert schlägt falsch-blockierend.
+3. **Eine Meldung ist keine Regel.** Der Client muss ohnehin einen übersetzten Text vorhalten, weil `reason` aus dem Backend englisch ist (NFR-003). Über den stabilen `code` der Verletzung gekoppelt ist eine veraltete Meldung *falscher Text*; ein veraltetes Prädikat wäre eine *falsche Entscheidung*.
+
+**Umsetzung:** `getFieldViolations()` (`@/api/errors`) liefert `{ field, reason, code }` mit abgeschnittenem `body.`-Präfix. Der Dialog hält zwei Tabellen — Server-Feld → Formularfeld und Verletzungs-`code` → i18n-Key — und setzt `setError()` nur, wenn **beide** treffen; sonst bleibt es beim generischen Toast aus `handleError()`. Referenz: `WateringLogCreateDialog.tsx`.
+
+Ein Feld, das eine Servermeldung tragen soll, braucht eine sichtbare Fehlerfläche und den `form-field-<name>`-Hook. Die `Form*Field`-Wrapper bringen beides mit; ein direkt eingesetztes MUI-Control (z. B. `Autocomplete`) nicht — dort `fieldState.error` selbst verdrahten und in ein `<Box data-testid="form-field-<name>">` wickeln. Ohne das verschluckt der Mapping-Schritt die Verletzung lautlos.
+
 ### 11.3 Formular-Feld-Komponenten
 
 Wiederverwendbare Wrapper um MUI + react-hook-form `Controller`:

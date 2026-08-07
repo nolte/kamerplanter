@@ -434,15 +434,56 @@ class WateringLogListPage(BasePage):
         self.open_select(field_testid)
         self.select_option_by_label(value_text)
 
-    def get_validation_error(self, field_name: str) -> str:
-        """Return the validation error text for a form field."""
-        locator = (
+    @staticmethod
+    def field_error_locator(field_name: str) -> tuple[str, str]:
+        """Locator of the error helper text MUI renders under *field_name*.
+
+        One expression of the selector for all three readers below, so a change
+        to the form components' error markup is a single edit rather than three
+        that can fall out of step.
+        """
+        return (
             By.CSS_SELECTOR,
             f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
         )
-        elements = self.driver.find_elements(*locator)
+
+    def get_validation_error(self, field_name: str) -> str:
+        """Return the validation error text for a form field, read once, now.
+
+        **Deliberately not waiting**, and deliberately not turned into a waiting
+        reader when :meth:`wait_for_validation_error` was added next to it. This
+        method and :meth:`has_validation_error` serve *both* polarities: several
+        suites in this repository ask "is there an error?" expecting **no**, and
+        a reader that waits answers that question by burning the timeout and
+        then returning the same ``False`` — which hides the case where the error
+        appears one poll after the wait gave up. A caller that needs the error to
+        *arrive* asks for it by name.
+        """
+        elements = self.driver.find_elements(*self.field_error_locator(field_name))
         return elements[0].text if elements else ""
 
     def has_validation_error(self, field_name: str) -> bool:
-        """Return True if a validation error is visible for *field_name*."""
+        """Return True if a validation error is visible for *field_name* right now.
+
+        Same single-sample contract as :meth:`get_validation_error`; see there.
+        """
         return bool(self.get_validation_error(field_name))
+
+    def wait_for_validation_error(self, field_name: str, timeout: int = 15) -> str:
+        """Return the error text under *field_name*, waiting for it to appear.
+
+        The reader for the **positive** direction only: a caller uses this when
+        the error is the expected outcome, so spending the timeout on its
+        absence is the correct cost. ``""`` after the wait is a genuine negative
+        — the message did not arrive — not "it was not there in this
+        millisecond", which is what :meth:`get_validation_error` reports.
+
+        Anchored on the create dialog first, not on the message: an empty result
+        must be able to mean "the dialog was up and stayed silent". Without that
+        anchor a timeout is ambiguous between a missing message and a dialog
+        that never opened (or closed again because the submit went through), and
+        the failure text would blame the wrong thing.
+        """
+        self.wait_for_element_visible(self.CREATE_DIALOG, timeout)
+        elements = self.await_presence(self.field_error_locator(field_name), timeout)
+        return elements[0].text.strip() if elements else ""

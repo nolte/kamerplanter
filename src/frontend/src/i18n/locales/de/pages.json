@@ -2815,6 +2815,10 @@
     "wateringLogs": {
       "title": "Gießprotokoll",
       "description": "Alle Gieß- und Düngevorgänge auf einen Blick.",
+      "errors": {
+        "targetRequired": "Bitte mindestens eine Pflanze oder einen Stellplatz angeben — ohne Ziel lässt sich der Gießvorgang nicht zuordnen.",
+        "supplementalCannotFertigate": "Eine Zusatzgabe kann nicht als Fertigation erfasst werden — bitte eine andere Ausbringungsart wählen oder „Zusatzgabe“ abschalten."
+      },
       "create": "Gießvorgang erfassen",
       "logged": "Gießvorgang erfolgreich protokolliert",
       "channelPresetInfo": "Vorauswahl aus Kanal «{{channel}}»",

@@ -2643,10 +2643,13 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 2. Nutzer klickt „Speichern".
 
 **Expected Results**:
-- Der Dialog bleibt geöffnet; das Formular wird nicht abgeschickt.
+- Unter dem Volumenfeld erscheint eine Fehlermeldung; der Dialog bleibt geöffnet.
+- Das Formular wird nicht abgeschickt.
 
 **Postconditions**:
 - Kein Gießvorgang wurde erstellt.
+
+**Hinweis (Prüftiefe)**: Geprüft wird die Meldung *am Volumenfeld*, nicht nur „Dialog bleibt offen". Letzteres ist auch dann erfüllt, wenn der Server abstürzt, der Speichern-Button deaktiviert ist oder der Klick verschluckt wurde — in allen drei Fällen erfährt der Nutzer nichts (#970).
 
 **Tags**: [REQ-004, watering-log, giessprotokoll, create, validation]
 
@@ -2845,6 +2848,31 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 
 ---
 
+## TC-004-114: Gießvorgang erfassen — Pflichtfeld-Validierung (Ziel: Pflanze oder Slot)
+
+**Requirement**: REQ-004 §3 (WateringLog: mindestens `slot_keys` **oder** `plant_keys`)
+**Priority**: High
+**Category**: Formvalidierung
+**Preconditions**:
+- Der Erstellen-Dialog ist geöffnet (Standardwerte, gültiges Volumen).
+
+**Test Steps**:
+1. Nutzer wählt weder eine Pflanze noch einen Slot aus.
+2. Nutzer klickt „Speichern".
+
+**Expected Results**:
+- Sowohl unter dem Pflanzenfeld als auch unter dem Slot-Feld erscheint eine Fehlermeldung, die das fehlende Ziel benennt.
+- Der Dialog bleibt geöffnet.
+
+**Postconditions**:
+- Kein Gießvorgang wurde erstellt.
+
+**Hinweis (Abgrenzung)**: Dies ist eine **feldübergreifende** Regel — keines der beiden Felder kann sie allein tragen, deshalb greift keine Einzelfeld-Prüfung des Formulars. Die Regel wird serverseitig geprüft (422 mit Feldangabe), die Meldung erscheint an beiden beteiligten Feldern, weil der Nutzer sie über jedes von beiden erfüllen darf.
+
+**Tags**: [REQ-004, watering-log, giessprotokoll, create, validation, cross-field]
+
+---
+
 ## Abdeckungs-Übersicht
 
 | Spec-Abschnitt | Beschreibung | Testfälle |
@@ -2855,7 +2883,7 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 | REQ-004 §3 (Fertilizer-CRUD) | Erstellen, Filtern, Lagerbestand, Reverse Lookup | TC-004-001 bis TC-004-011 |
 | REQ-004 §3 (NutrientPlan-CRUD) | Plan, Phase-Entry, Dünger-Zuweisung, Klonen, Zuweisung | TC-004-012 bis TC-004-027 |
 | REQ-004 §3 (WateringSchedule) | Wochentage/Intervall, Validierungen | TC-004-055 bis TC-004-060 |
-| REQ-004 §3 (WateringLog / Gießprotokoll — UI-Mechanik) | Listen-/Erstellen-Dialog-/Detailseiten-Mechanik unabhängig von der Core-Journey | TC-004-101 bis TC-004-113 |
+| REQ-004 §3 (WateringLog / Gießprotokoll — UI-Mechanik) | Listen-/Erstellen-Dialog-/Detailseiten-Mechanik unabhängig von der Core-Journey | TC-004-101 bis TC-004-114 |
 | REQ-004 §3 (FeedingEvent — UI-Mechanik) | Listen-/Erstellen-Dialog-Mechanik unabhängig von den fachlichen Szenarien | TC-004-093 bis TC-004-100 |
 | REQ-004 §4 (Multi-Channel Delivery) | Channel-CRUD, Validierungsregeln MCD-V01–V22 | TC-004-068 bis TC-004-075 |
 | REQ-004 §4b (Normalisierte Referenzdosierung) | Dosierungsrechner-Tab, Proportionen, Quell-Feld | TC-004-038 bis TC-004-042 |

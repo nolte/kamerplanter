@@ -28,6 +28,7 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { getFieldViolations } from '@/api/errors';
 import * as wateringLogApi from '@/api/endpoints/watering-logs';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as fertApi from '@/api/endpoints/fertilizers';
@@ -42,6 +43,50 @@ const fertilizerLineSchema = z.object({
   ml_per_liter: z.number().gt(0),
 });
 
+/**
+ * Client-side shape of the create form.
+ *
+ * ## Why the cross-field rule is *not* restated here
+ *
+ * The domain requires at least one of `slot_keys` / `plant_keys` (see
+ * `find_watering_log_violations` in the backend, which is the single statement
+ * of the watering log's cross-field rules). `plant_keys` and `slot_keys_input`
+ * below therefore accept "empty" on purpose. The rule is enforced at the API
+ * boundary, which answers 422 naming both fields, and `onSubmit` anchors that
+ * answer on the two inputs — so the user still gets a field-level message,
+ * just one round trip later.
+ *
+ * The alternative — a `superRefine` copy of the predicate here — was weighed
+ * and rejected (#970):
+ *
+ * 1. **Nothing can compare the two copies.** The backend's own guard against
+ *    this class works because both sides are Python and call the same function
+ *    (`TestRequestSchemaAndDomainModelAgree` pins request schema against domain
+ *    model from outside). A TypeScript copy is out of that reach; the drift
+ *    would be found by a user, not by CI.
+ * 2. **The two drift directions fail differently, and only one is bearable.**
+ *    A stale copy here that is *stricter* than the domain blocks a submission
+ *    the server would have accepted: the user cannot do a legal thing and has
+ *    no way around it. Rendering the server's answer instead can only be
+ *    *behind* the domain — an unknown rule falls back to the generic
+ *    validation toast with the dialog left open. Degraded and visible beats
+ *    wrong and blocking.
+ * 3. **A message is not a predicate.** The client must hold a German message
+ *    either way, because the backend's `reason` is English. Keyed on the
+ *    violation `code` (which the backend promises to keep stable), an
+ *    out-of-date message is wrong *text*; an out-of-date predicate is a wrong
+ *    *decision*.
+ *
+ * Single-field constraints such as `volume_liters > 0` are a different case and
+ * are mirrored: they are also expressed on the input element itself (`min`), the
+ * user is entitled to see them before submitting, and being stricter than the
+ * server about a numeric range cannot lock anyone out of a valid state.
+ *
+ * TC-004-114 pins the whole chain end to end — domain rule → violation code and
+ * fields → 422 envelope → field mapping → i18n key → rendered helper text — so
+ * a change on the domain side that this dialog cannot render goes red instead
+ * of quietly degrading to the toast.
+ */
 const schema = z.object({
   plant_keys: z.array(z.string()).min(0),
   slot_keys_input: z.string(),
@@ -62,6 +107,45 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+/**
+ * Request-body field (as the 422 envelope names it) → the form field that shows
+ * its message.
+ *
+ * Only fields that actually *render* an error belong here: every entry maps to a
+ * `Form*Field` (or, for `plant_keys`, the wrapper below) whose helper text
+ * carries `error.message`. An entry pointing at a field with no error surface
+ * would consume the violation and display nothing — the silent-swallow the 422
+ * handling exists to remove.
+ *
+ * The one name that differs is `slot_keys`: the form edits it as a single
+ * comma-separated string (`slot_keys_input`) and splits it on submit, so the
+ * request field and the form field genuinely are two different things.
+ */
+const SERVER_FIELD_TO_FORM_FIELD: Record<string, keyof FormData> = {
+  plant_keys: 'plant_keys',
+  slot_keys: 'slot_keys_input',
+  volume_liters: 'volume_liters',
+  application_method: 'application_method',
+  is_supplemental: 'is_supplemental',
+};
+
+/**
+ * Violation `code` (stable, from `find_watering_log_violations`) → i18n key.
+ *
+ * Keyed on `code` rather than on the field, because one field can break several
+ * rules and each needs its own wording; and translated here rather than taken
+ * from the envelope, because the backend's `reason` is English.
+ *
+ * A code with no entry is deliberately *not* rendered on the field: showing the
+ * English reason in a German form is worse than the generic validation toast
+ * `handleError` raises anyway, and this is the fallback that keeps a new
+ * backend rule from breaking the dialog.
+ */
+const VIOLATION_MESSAGE_KEYS: Record<string, string> = {
+  watering_target_required: 'pages.wateringLogs.errors.targetRequired',
+  supplemental_cannot_fertigate: 'pages.wateringLogs.errors.supplementalCannotFertigate',
+};
 
 export interface ChannelPreset {
   channelId: string;
@@ -142,7 +226,7 @@ export default function WateringLogCreateDialog({
     notes: null,
   });
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset, setError } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: buildDefaults(),
   });
@@ -165,6 +249,28 @@ export default function WateringLogCreateDialog({
     })),
     [fertilizerOptions],
   );
+
+  /**
+   * Put the API's field-scoped 422 detail onto the inputs it is about.
+   *
+   * Without this the dialog answered a rejected cross-field rule with nothing
+   * but "Bitte überprüfen Sie Ihre Eingaben." — a toast that names no field, on
+   * a form of twenty inputs (#970). The information to do better was in the
+   * response all along; `handleError` only maps it when a setter is handed in,
+   * and translating by `code` needs the `code`, which the setter contract does
+   * not carry.
+   *
+   * Violations whose field or code this dialog cannot render are skipped by
+   * design, so the generic toast remains the floor rather than the ceiling.
+   */
+  const applyServerFieldErrors = (error: unknown) => {
+    for (const violation of getFieldViolations(error)) {
+      const formField = SERVER_FIELD_TO_FORM_FIELD[violation.field];
+      const messageKey = VIOLATION_MESSAGE_KEYS[violation.code];
+      if (!formField || !messageKey) continue;
+      setError(formField, { type: violation.code, message: t(messageKey) });
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -197,6 +303,7 @@ export default function WateringLogCreateDialog({
       reset();
       onCreated();
     } catch (err) {
+      applyServerFieldErrors(err);
       handleError(err);
     } finally {
       setSaving(false);
@@ -233,46 +340,60 @@ export default function WateringLogCreateDialog({
           <Controller
             name="plant_keys"
             control={control}
-            render={({ field }) => (
-              <Autocomplete
-                multiple
-                options={plantOptions}
-                getOptionLabel={(option) => getPlantLabel(option)}
-                value={plantOptions.filter((p) => field.value.includes(p.key))}
-                onChange={(_, newValue) => {
-                  field.onChange(newValue.map((p) => p.key));
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={t('pages.wateringLogs.plants')}
-                    margin="dense"
-                    fullWidth
-                    autoFocus
-                    data-testid="plant-keys-input"
-                    sx={{ mb: 2 }}
-                  />
-                )}
-                renderValue={(value, getItemProps) =>
-                  value.map((option, index) => {
-                    const { key, ...tagProps } = getItemProps({ index });
-                    return (
-                      <Chip
-                        key={key}
-                        label={getPlantLabel(option)}
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                        sx={{ maxWidth: 'none' }}
-                        {...tagProps}
-                      />
-                    );
-                  })
-                }
-                disabled={!!initialPlantKeys}
-                data-testid="plant-keys-autocomplete"
-                isOptionEqualToValue={(option, value) => option.key === value.key}
-              />
+            render={({ field, fieldState: { error } }) => (
+              // Wrapped rather than tagged: this field is an `Autocomplete`, not
+              // a `Form*Field`, so nothing emitted the `form-field-<name>` hook
+              // every other input in this form carries — and the inner
+              // `TextField` already owns `plant-keys-input`, which the E2E page
+              // object types into. The wrapper adds the missing hook without
+              // taking that one away, and the helper text renders inside it.
+              <Box data-testid="form-field-plant_keys">
+                <Autocomplete
+                  multiple
+                  options={plantOptions}
+                  getOptionLabel={(option) => getPlantLabel(option)}
+                  value={plantOptions.filter((p) => field.value.includes(p.key))}
+                  onChange={(_, newValue) => {
+                    field.onChange(newValue.map((p) => p.key));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('pages.wateringLogs.plants')}
+                      margin="dense"
+                      fullWidth
+                      autoFocus
+                      // The server's cross-field verdict lands here (see
+                      // `applyServerFieldErrors`); the schema itself never marks
+                      // this field, so without the wiring the message had no way
+                      // onto the input at all.
+                      error={!!error}
+                      helperText={error?.message}
+                      data-testid="plant-keys-input"
+                      sx={{ mb: 2 }}
+                    />
+                  )}
+                  renderValue={(value, getItemProps) =>
+                    value.map((option, index) => {
+                      const { key, ...tagProps } = getItemProps({ index });
+                      return (
+                        <Chip
+                          key={key}
+                          label={getPlantLabel(option)}
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                          sx={{ maxWidth: 'none' }}
+                          {...tagProps}
+                        />
+                      );
+                    })
+                  }
+                  disabled={!!initialPlantKeys}
+                  data-testid="plant-keys-autocomplete"
+                  isOptionEqualToValue={(option, value) => option.key === value.key}
+                />
+              </Box>
             )}
           />
 
