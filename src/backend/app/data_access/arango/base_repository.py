@@ -3,6 +3,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
 
+import structlog
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError, DocumentUpdateError
 from pydantic import BaseModel
@@ -10,6 +11,8 @@ from pydantic import BaseModel
 from app.common.exceptions import DuplicateError, NotFoundError
 from app.data_access.arango import tenant_ownership
 from app.data_access.arango.query_builder import AQLBuilder
+
+logger = structlog.get_logger(__name__)
 
 #: ``(field, operator, value)`` filter triple. ``operator`` must be one of the
 #: :attr:`AQLBuilder._ALLOWED_OPS` whitelist (injection guard).
@@ -82,6 +85,17 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: When neither is supplied :meth:`get_all` raises instead of silently
     #: returning documents of *all* tenants (SEC-B4 cross-tenant leak guard).
     is_tenant_scoped: bool = False
+
+    #: Caller-supplied foreign references this repository's documents carry, as
+    #: ``{model field: target collection}``. Every declared field is
+    #: ownership-verified against the row's own ``tenant_key`` before the
+    #: document is written — see :meth:`_verify_owned_references` (#948).
+    #:
+    #: Declaring it here rather than calling ``verify_entity_ownership`` by hand
+    #: in each create method is the whole point: #948 is what happens when the
+    #: check is a line someone has to remember. A ``str`` field is verified as a
+    #: single key, any other iterable as a batch.
+    _owned_reference_fields: ClassVar[dict[str, str]] = {}
 
     def __init__(
         self,
@@ -257,6 +271,47 @@ class BaseArangoRepository[TModel: BaseModel]:
         with :class:`NotFoundError` on the first missing/foreign reference.
         """
         tenant_ownership.verify_entities_ownership(self._db, collection, keys, tenant_key, entity_name=entity_name)
+
+    def _verify_owned_references(self, model: BaseModel) -> None:
+        """Ownership-verify every declared foreign reference before a write (#948).
+
+        The tenant compared against is the **row's own** ``tenant_key``, which the
+        tenant routers stamp from ``ctx.tenant_key`` on the way in. That is the
+        caller's authenticated tenant, so this is not the self-comparison #952
+        catalogues: what is checked is that the *referenced* document belongs to
+        the tenant the new row is being written for.
+
+        Fails closed with :class:`NotFoundError` → HTTP 404, never 403, so a
+        foreign key's existence is never disclosed (no cross-tenant oracle).
+        Globally seeded catalog rows (empty ``tenant_key``) stay referenceable,
+        mirroring the hybrid-catalog read visibility.
+
+        A row that carries no tenant of its own cannot be verified against
+        anything, so the check is skipped — and said out loud, because a silent
+        skip is how #952's fail-closed branches hid work they were not doing.
+        Such a row is in any case invisible to every tenant-scoped read, so it is
+        not a disclosure route; it is a defect in whichever write path failed to
+        stamp it (see #951 for two of those).
+        """
+        if not self._owned_reference_fields:
+            return
+        tenant_key = getattr(model, "tenant_key", "") or ""
+        if not tenant_key:
+            logger.warning(
+                "owned_reference_check_skipped_tenantless_row",
+                collection=self._collection_name,
+                fields=sorted(self._owned_reference_fields),
+            )
+            return
+        for field, collection in self._owned_reference_fields.items():
+            value = getattr(model, field, None)
+            if value is None:
+                continue
+            if isinstance(value, str):
+                if value:
+                    self.verify_entity_ownership(collection, value, tenant_key)
+            else:
+                self.verify_entities_ownership(collection, value, tenant_key)
 
     def _enforce_tenant_scope(self, tenant_key: str | None, all_tenants: bool) -> None:
         """Fail loudly when a tenant-scoped list query is not tenant-bound.
@@ -481,7 +536,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         (e.g. ``applied_at``, ``inspected_at``) that is missing/empty on the
         model, replacing the copied ``if not data.get(...): data[...] = now``
         idiom in the IPM/harvest repositories.
+
+        Every foreign reference the repository declares in
+        :attr:`_owned_reference_fields` is ownership-verified first (#948), so a
+        write that points at another tenant's entity raises before anything is
+        persisted.
         """
+        self._verify_owned_references(model)
         return self._wrap(self._insert_doc(model, default_now_fields=default_now_fields))
 
     def update(self, key: str, model: TModel) -> TModel:

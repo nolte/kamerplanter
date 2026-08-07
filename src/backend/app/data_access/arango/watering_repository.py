@@ -13,6 +13,12 @@ from app.domain.models.watering_event import WateringEvent
 class ArangoWateringRepository(BaseArangoRepository[WateringEvent], IWateringRepository):
     is_tenant_scoped = True
     _model_cls = WateringEvent
+    #: ``POST /t/{slug}/watering-events`` takes ``plant_keys`` from the request
+    #: body and the create path wires a ``watered_plant`` edge per key, so every
+    #: reference is ownership-verified before the write (#948). ``create`` below
+    #: is hand-written rather than delegating to the base, so it invokes the
+    #: check explicitly — the one place this declaration is not automatic.
+    _owned_reference_fields = {"plant_keys": col.PLANT_INSTANCES}
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.WATERING_EVENTS)
@@ -20,6 +26,9 @@ class ArangoWateringRepository(BaseArangoRepository[WateringEvent], IWateringRep
     # ── Create & Read ──────────────────────────────────────────────────
 
     def create(self, event: WateringEvent) -> WateringEvent:
+        # This create does not go through ``BaseArangoRepository.create``, so the
+        # declared foreign-reference check has to be invoked by hand (#948).
+        self._verify_owned_references(event)
         # NOTE: unlike the base ``create`` this intentionally sets only
         # ``created_at`` (no ``updated_at``) for a watering event; keep custom.
         data = event.model_dump(by_alias=True, exclude_none=True, mode="json")

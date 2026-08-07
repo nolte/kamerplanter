@@ -18,6 +18,92 @@ from app.domain.models.task import (
 )
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 
+# ── Update allow-lists (mass assignment, #965) ──
+#
+# The three ``update_*`` methods below used to loop over the caller's dict and
+# ``setattr`` every entry onto the loaded model. That is mass assignment: the
+# request body decided which *fields* were written, not the service — and since
+# no domain model sets ``validate_assignment`` (#968), none of those writes was
+# validated either. ``BaseArangoRepository.update_fields`` already states the
+# obligation these sets discharge: a partial update must be built from an
+# explicit allow-list, never from a raw body.
+#
+# Each set is the field list the corresponding request schema exposes, so no
+# reachable edit is lost. What they keep out is what an editor must never move:
+# identity and audit fields (``key``, ``created_at``, ``updated_at``), the
+# ownership marker ``tenant_key`` and the ``is_system`` flag that guards the
+# global catalog, and foreign references no route exposes (``activity_key``,
+# ``phase_definition_key``) and which are therefore unverified.
+
+#: Fields ``update_workflow_template`` may write (mirrors ``WorkflowTemplateUpdate``).
+WORKFLOW_TEMPLATE_UPDATABLE_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "version",
+        "species_compatible",
+        "growth_system",
+        "difficulty_level",
+        "category",
+        "tags",
+        "target_entity_types",
+    }
+)
+
+#: Fields ``update_workflow_phase`` may write (mirrors ``WorkflowPhaseUpdate``).
+#: ``workflow_template_key`` is deliberately absent: a phase belongs to the
+#: workflow it was created under, and re-pointing it is how it would land in
+#: another tenant's workflow.
+WORKFLOW_PHASE_UPDATABLE_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "phase_order",
+        "duration_days",
+        "stress_tolerance",
+        "trigger_phase",
+    }
+)
+
+#: Fields ``update_task_template`` may write (mirrors ``TaskTemplateUpdate``).
+#: ``workflow_template_key`` is included because moving a task template between
+#: the caller's own workflows is a legitimate edit — and it is exactly the field
+#: :meth:`TaskService._verify_workflow_template_reference` checks, so the check
+#: stays live on the update path instead of being dead code.
+TASK_TEMPLATE_UPDATABLE_FIELDS = frozenset(
+    {
+        "name",
+        "instruction",
+        "category",
+        "trigger_type",
+        "trigger_phase",
+        "days_offset",
+        "stress_level",
+        "estimated_duration_minutes",
+        "requires_photo",
+        "timer_duration_seconds",
+        "timer_label",
+        "tools_required",
+        "skill_level",
+        "optimal_time_of_day",
+        "workflow_template_key",
+        "workflow_phase_key",
+        "sequence_order",
+        "default_checklist",
+        "require_all_checklist_items",
+    }
+)
+
+
+def _allowed(data: dict, allowed_fields: frozenset[str]) -> dict:
+    """Return only the entries of ``data`` the caller is allowed to write.
+
+    Everything else is dropped rather than rejected, mirroring how the request
+    schemas already treat an unknown field (Pydantic ``extra='ignore'``): the
+    body cannot widen the set of fields an update touches.
+    """
+    return {field: value for field, value in data.items() if field in allowed_fields}
+
 
 def _as_aware_utc(value: datetime | None) -> datetime | None:
     """Anchor a naive datetime to UTC so it can be compared safely.
@@ -89,12 +175,20 @@ class TaskService:
         return self._repo.create_workflow_template(template)
 
     def update_workflow_template(self, key: str, data: dict) -> WorkflowTemplate:
+        """Apply an allow-listed partial edit to a workflow template (#965).
+
+        ``data`` is filtered through :data:`WORKFLOW_TEMPLATE_UPDATABLE_FIELDS`
+        before anything is assigned, so the body can no longer reach
+        ``tenant_key`` (handing the template to another tenant, or emptying it
+        into the global catalog) or ``is_system`` (clearing the very flag the
+        guard below reads).
+        """
         wt = self.get_workflow_template(key)
         if wt.is_system:
             # Read access is hybrid-catalog-wide, so the router guard now admits
             # system templates; writes must stay blocked (mirrors delete below).
             raise ValidationError("Cannot modify system workflow templates.")
-        for field, value in data.items():
+        for field, value in _allowed(data, WORKFLOW_TEMPLATE_UPDATABLE_FIELDS).items():
             setattr(wt, field, value)
         return self._repo.update_workflow_template(key, wt)
 
@@ -170,8 +264,15 @@ class TaskService:
         return self._repo.create_phase(phase)
 
     def update_workflow_phase(self, key: str, data: dict) -> WorkflowPhase:
+        """Apply an allow-listed partial edit to a workflow phase (#965).
+
+        Same shape as :meth:`update_task_template`: the phase carries no tenant
+        of its own and is anchored on ``workflow_template_key``, which the
+        allow-list keeps out of reach — re-pointing it is how a phase would move
+        into another tenant's workflow.
+        """
         phase = self.get_workflow_phase(key)
-        for field, value in data.items():
+        for field, value in _allowed(data, WORKFLOW_PHASE_UPDATABLE_FIELDS).items():
             setattr(phase, field, value)
         return self._repo.update_phase(key, phase)
 
@@ -193,12 +294,53 @@ class TaskService:
     def get_task_template(self, key: str) -> TaskTemplate:
         return self._repo.get_task_template_or_raise(key)
 
-    def create_task_template(self, template: TaskTemplate) -> TaskTemplate:
+    def _verify_workflow_template_reference(self, workflow_template_key: str | None, tenant_key: str) -> None:
+        """Resolve a caller-supplied ``workflow_template_key`` before it is written (#965).
+
+        ``TaskTemplate`` carries no ``tenant_key``; its parent ``WorkflowTemplate``
+        does, and is therefore the anchor. The key went unchecked on both write
+        paths: the repository builds a ``wf_contains`` edge from it on create,
+        and ``get_task_templates_for_workflow`` filters on the *field*, so a
+        foreign key attaches the caller's template to another tenant's workflow —
+        an edge written across the isolation boundary, and a task that tenant's
+        next instantiation will generate.
+
+        Resolution goes through :meth:`get_workflow_template`, so an unknown key
+        and a foreign tenant's key produce the identical ``NotFoundError`` (404,
+        never 403 — no cross-tenant oracle). Globally seeded system workflows
+        stay referenceable, exactly as the sibling ``POST /workflows/{wf_key}/
+        phases`` route resolves its parent; a template with **no** parent at all
+        is a supported standalone state and is left alone.
+        """
+        if not workflow_template_key:
+            return
+        self.get_workflow_template(workflow_template_key, tenant_key=tenant_key)
+
+    def create_task_template(self, template: TaskTemplate, *, tenant_key: str) -> TaskTemplate:
+        """Create a task template for ``tenant_key``, verifying its parent workflow (#965).
+
+        ``tenant_key`` is required and keyword-only, following #948: a route that
+        forgets to thread it does not compile away silently, it fails loudly.
+        """
+        self._verify_workflow_template_reference(template.workflow_template_key, tenant_key)
         return self._repo.create_task_template(template)
 
-    def update_task_template(self, key: str, data: dict) -> TaskTemplate:
+    def update_task_template(self, key: str, data: dict, *, tenant_key: str) -> TaskTemplate:
+        """Apply an allow-listed partial edit to a task template (#965).
+
+        Two defects met here. ``data`` was assigned field by field with no
+        allow-list, so the request body chose what got written; and
+        ``workflow_template_key`` is among the fields an edit may legitimately
+        move, so the update path could re-point a template into another tenant's
+        workflow just as create could. The allow-list bounds *which* fields are
+        written, the reference check bounds *which values* the parent field may
+        take.
+        """
         tt = self.get_task_template(key)
-        for field, value in data.items():
+        fields = _allowed(data, TASK_TEMPLATE_UPDATABLE_FIELDS)
+        if "workflow_template_key" in fields:
+            self._verify_workflow_template_reference(fields["workflow_template_key"], tenant_key)
+        for field, value in fields.items():
             setattr(tt, field, value)
         return self._repo.update_task_template(key, tt)
 
@@ -568,17 +710,31 @@ class TaskService:
         return self._repo.update_task(key, task)
 
     # ── Batch Operations ──
+    #
+    # Found by the #948 write-surface sweep. Every *single*-task route resolves
+    # its key with ``service.get_task(key, tenant_key=ctx.tenant_key)`` first —
+    # the line each router has to remember — and all three batch routes forgot
+    # it, while taking their ``task_keys`` from the request body. A member of
+    # tenant A could therefore complete, skip, delete or reassign another
+    # tenant's tasks in bulk. ``tenant_key`` is now required and keyword-only on
+    # all three, and each key is resolved through the tenant guard before
+    # anything is written. A foreign key lands in ``failed`` with the same
+    # "not found" text an unknown key produces, so the batch envelope is not a
+    # cross-tenant oracle either.
 
     def batch_status_change(
         self,
         task_keys: list[str],
         action: str,
         completion_notes: str | None = None,
+        *,
+        tenant_key: str,
     ) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
             try:
+                self.get_task(tk, tenant_key=tenant_key)
                 if action == "start":
                     self.start_task(tk)
                 elif action == "complete":
@@ -593,11 +749,12 @@ class TaskService:
                 failed.append({"key": tk, "error": str(e)})
         return succeeded, failed
 
-    def batch_delete(self, task_keys: list[str]) -> tuple[list[str], list[dict]]:
+    def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
             try:
+                self.get_task(tk, tenant_key=tenant_key)
                 self.delete_task(tk)
                 succeeded.append(tk)
             except (NotFoundError, ValidationError) as e:
@@ -608,12 +765,14 @@ class TaskService:
         self,
         task_keys: list[str],
         assigned_to_user_key: str,
+        *,
+        tenant_key: str,
     ) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
             try:
-                task = self.get_task(tk)
+                task = self.get_task(tk, tenant_key=tenant_key)
                 previous_assignee = task.assigned_to_user_key
                 task.assigned_to_user_key = assigned_to_user_key
                 updated = self._repo.update_task(tk, task)

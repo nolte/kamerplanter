@@ -363,8 +363,7 @@ def assign_nutrient_plan(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Assign a nutrient plan to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.assign_nutrient_plan(key, body.plan_key, body.assigned_by)
+    result = service.assign_nutrient_plan(key, body.plan_key, body.assigned_by, tenant_key=ctx.tenant_key)
     return NutrientPlanAssignResponse(**result)
 
 
@@ -375,8 +374,7 @@ def get_nutrient_plan(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Return the nutrient plan assigned to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    plan = service.get_nutrient_plan(key)
+    plan = service.get_nutrient_plan(key, tenant_key=ctx.tenant_key)
     if plan is None:
         return {"plan": None}
     return {"plan": plan}
@@ -430,7 +428,9 @@ def get_active_channels(
             # week early/late for part of every day (§12a).
             delta_days = (today_utc() - started_date).days
             current_week = max(1, delta_days // 7 + 1)
-    channels = plan_service.get_active_channels_for_plan(plan_key, dominant_phase, current_week)
+    channels = plan_service.get_active_channels_for_plan(
+        plan_key, dominant_phase, current_week, tenant_key=ctx.tenant_key
+    )
     return channels
 
 
