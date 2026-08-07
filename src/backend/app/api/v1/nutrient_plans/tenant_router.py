@@ -66,7 +66,13 @@ def create_plan(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Create a nutrient plan for the tenant."""
-    plan = NutrientPlan(**body.model_dump(), tenant_key=ctx.tenant_key)
+    # ``exclude_unset`` keeps a field the caller never sent out of the splat, so the
+    # domain model's own default decides. A plain ``model_dump()`` always emits every
+    # key, and a dumped ``None`` *disables* the domain default instead of falling back
+    # to it — that default only applies to a **missing** key. That is how an omitted
+    # ``reference_substrate_type`` turned into an unhandled ``ValidationError`` and a
+    # 500 on every create the UI sent (#966).
+    plan = NutrientPlan(**body.model_dump(exclude_unset=True), tenant_key=ctx.tenant_key)
     created = service.create_plan(plan)
     return _plan_response(created)
 

@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.common.enums import DataOrigin
+from app.common.enums import DataOrigin, SubstrateType
 
 # ── WateringSchedule schema ─────────────────────────────────────────
 
@@ -77,8 +77,17 @@ class ChannelFertilizerAssignRequest(BaseModel):
 class NutrientPlanCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
-    recommended_substrate_type: str | None = None
-    reference_substrate_type: str | None = None
+    # Both substrate fields mirror the domain contract (``NutrientPlan``) exactly:
+    # ``recommended_substrate_type`` is nullable ("no recommendation"),
+    # ``reference_substrate_type`` is not — it is optional to *send*, never null.
+    # Typing them as ``str`` let an unknown value through the API layer and blow up
+    # inside the domain model as an unhandled ``ValidationError`` (HTTP 500); as
+    # enums, the boundary rejects it with 422 (#966). The ``soil`` default below
+    # documents the domain default in OpenAPI — the router dumps with
+    # ``exclude_unset``, so on an omitted field the domain model's default wins and
+    # the two can never drift into disagreement.
+    recommended_substrate_type: SubstrateType | None = None
+    reference_substrate_type: SubstrateType = SubstrateType.SOIL
     author: str = ""
     is_template: bool = False
     version: str = "1.0"
@@ -87,12 +96,34 @@ class NutrientPlanCreate(BaseModel):
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
     cycle_restart_from_sequence: int | None = Field(default=None, ge=1)
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "Tomaten Freiland — organische Basisdüngung",
+                    "description": "Vierphasiger Plan für Solanum lycopersicum im Hochbeet.",
+                    "recommended_substrate_type": "soil",
+                    "reference_substrate_type": "soil",
+                    "author": "Lisa",
+                    "is_template": False,
+                    "version": "1.0",
+                    "tags": ["outdoor", "gemuese"],
+                }
+            ]
+        }
+    )
+
 
 class NutrientPlanUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
-    recommended_substrate_type: str | None = None
-    reference_substrate_type: str | None = None
+    # ``None`` means "leave unchanged" here (the router dumps with
+    # ``exclude_none=True``), so both fields are nullable — but a *sent* value is
+    # validated against the enum. As plain ``str`` an unknown value was assigned
+    # onto the domain model unvalidated (Pydantic does not validate on assignment)
+    # and persisted, poisoning every later read of the plan (#966).
+    recommended_substrate_type: SubstrateType | None = None
+    reference_substrate_type: SubstrateType | None = None
     author: str | None = None
     is_template: bool | None = None
     version: str | None = None
@@ -100,6 +131,18 @@ class NutrientPlanUpdate(BaseModel):
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
     cycle_restart_from_sequence: int | None = Field(default=None, ge=1)
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "Tomaten Freiland — organische Basisdüngung",
+                    "reference_substrate_type": "coco",
+                    "tags": ["outdoor", "gemuese", "2026"],
+                }
+            ]
+        }
+    )
 
 
 class NutrientPlanResponse(BaseModel):
