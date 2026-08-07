@@ -196,6 +196,8 @@ Automatisch erfasste Messwerte werden gestuft heruntergerechnet und irgendwann g
 ??? question "Kann ich mehrere Sensoren für denselben Standort haben?"
     Ja. Du kannst beliebig viele Sensoren einem Standort zuordnen. Wenn z. B. Temperatur und Luftfeuchte von verschiedenen Geräten kommen, konfiguriere diese als separate Sensoren.
 
+    Das gilt ausdrücklich auch für **zwei Sensoren derselben Messgröße** — etwa zwei Thermometer an den gegenüberliegenden Enden eines Zeltes, mit denen du ein Temperaturgefälle sichtbar machst. Beide Messwerte bleiben erhalten und werden getrennt geführt. Wo Kamerplanter zwangsläufig **eine** Zahl je Messgröße braucht (etwa für eine Kachel im Dashboard), zeigt es die zuletzt gemeldete Messung. Die Frostwarnung eines Standorts entscheidet dagegen nach dem **kältesten** Thermometer — sonst bliebe sie genau an dem Ende still, an dem der Frost steht. <!-- Issue #977 -->
+
 ??? question "Was bedeutet der Hinweis „Veraltet" bei einem Tank?"
     Dieser Hinweis erscheint nur bei der Live-Abfrage auf der Tank-Detailseite: Ist der letzte erfasste Zustand älter als 60 Minuten, zeigt Kamerplanter „Veraltet" an (unter 5 Minuten: „Aktuell", dazwischen: „Vor X Min"). Für Standort-Sensoren (Site/Location) gibt es diese Kennzeichnung aktuell nicht.
 

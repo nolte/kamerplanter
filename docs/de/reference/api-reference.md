@@ -317,6 +317,102 @@ GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning
 
 ---
 
+## Live-Sensorwerte eines Standorts, einer Site oder eines Tanks <!-- REQ-005 / Issue #977 -->
+
+Liest die aktuellen Zustände aller Home-Assistant-Sensoren, die an dem jeweiligen Element hängen — ohne dabei etwas zu speichern. Die Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordern ein gültiges JWT-Token; jedes aktive Mandanten-Mitglied (auch die Rolle **Beobachter**) darf lesen.
+
+```
+GET /api/v1/t/{tenant_slug}/locations/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/sites/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/tanks/{key}/states/live
+```
+
+**Response (200):** `LiveStateResponse`
+
+```json
+{
+  "readings": {
+    "884210": {
+      "sensor_key": "884210",
+      "sensor_name": "Zelt vorne",
+      "metric_type": "temperature_celsius",
+      "value": 21.4,
+      "last_changed": "2026-08-06T05:12:44Z",
+      "last_updated": "2026-08-06T05:12:44Z",
+      "last_reported": "2026-08-06T06:03:01Z",
+      "entity_id": "sensor.zelt_vorne_temperatur",
+      "unit": "°C"
+    },
+    "884211": {
+      "sensor_key": "884211",
+      "sensor_name": "Zelt hinten",
+      "metric_type": "temperature_celsius",
+      "value": 23.9,
+      "last_changed": "2026-08-06T06:01:10Z",
+      "last_updated": "2026-08-06T06:01:10Z",
+      "last_reported": "2026-08-06T06:04:55Z",
+      "entity_id": "sensor.zelt_hinten_temperatur",
+      "unit": "°C"
+    }
+  },
+  "values": {
+    "temperature_celsius": {
+      "sensor_key": "884211",
+      "sensor_name": "Zelt hinten",
+      "metric_type": "temperature_celsius",
+      "value": 23.9,
+      "last_changed": "2026-08-06T06:01:10Z",
+      "last_updated": "2026-08-06T06:01:10Z",
+      "last_reported": "2026-08-06T06:04:55Z",
+      "entity_id": "sensor.zelt_hinten_temperatur",
+      "unit": "°C",
+      "sensor_count": 2,
+      "superseded_sensor_keys": ["884210"]
+    }
+  },
+  "errors": [],
+  "source": "ha_live"
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `readings` | Objekt | **Die vollständige Antwort**, nach Sensor-Schlüssel. Ein Eintrag je Sensor, der geantwortet hat — zwei Sensoren mit derselben Messgröße sind zwei Einträge |
+| `values` | Objekt | **Abgeleitete** Einzelwert-Ansicht, nach Messgröße. Nie vollständiger als `readings` |
+| `errors` | Liste | Ein Eintrag je Entity, die nicht gelesen werden konnte (`entity_id`, `error`) |
+| `source` | string | `ha_live`, oder `unavailable`, wenn Home Assistant gar nicht eingerichtet ist |
+| `message` | string \| null | Erklärung zu `source: "unavailable"` |
+
+**Felder eines Eintrags in `readings`:**
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `sensor_key` | string \| null | Dokumentschlüssel des Sensors — der Schlüssel, unter dem der Eintrag steht |
+| `sensor_name` | string \| null | Anzeigename des Sensors |
+| `metric_type` | string \| null | Was der Sensor misst, wortgleich wie am Sensor hinterlegt |
+| `value` | number | Der aktuelle Messwert |
+| `last_changed` / `last_updated` / `last_reported` | string \| null | Zeitstempel aus Home Assistant. `last_reported` (ab Home Assistant 2024.6) ist der verlässlichste: er bewegt sich bei jeder Meldung, `last_changed` nur bei einem Wertwechsel |
+| `entity_id` | string \| null | Die Home-Assistant-Entity, aus der der Wert stammt |
+| `unit` | string \| null | Einheit des Messwerts |
+
+**Zusätzliche Felder eines Eintrags in `values`:**
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `sensor_count` | integer | Wie viele Sensoren diese Messgröße beantwortet haben. `1` heißt: nichts wurde weggelassen |
+| `superseded_sensor_keys` | Liste | Schlüssel der Messungen, die diese Ansicht **nicht** zeigt — nachschlagbar in `readings` |
+
+### Auswahlregel der Einzelwert-Ansicht
+
+Messen mehrere Sensoren dieselbe Größe, zeigt `values` **die frischeste Messung**. Der Messzeitpunkt wird in der Reihenfolge `last_reported` → `last_updated` → `last_changed` gelesen; eine Messung ohne jeden Zeitstempel steht hinten an, und bei Gleichstand entscheidet der kleinere Sensor-Schlüssel. Die Ansicht ist damit unabhängig von der Reihenfolge, in der die Sensoren aus der Datenbank kommen.
+
+Wer eine andere Antwort braucht, liest `readings` und entscheidet selbst. Die Frostwarnung tut genau das: sie wertet **die kälteste** Lufttemperatur des Standorts aus, denn eine Warnung, die den warmen Zeltrand meldet, wäre am kalten Ende still.
+
+!!! info "Nur über API: `values` ist abgeleitet, nicht maßgeblich"
+    Bestehende Integrationen, die `values` lesen, funktionieren unverändert weiter — die Karte behält Schlüssel und Feldnamen. Sie ist aber ausdrücklich eine Zusammenfassung: Solange `sensor_count` grösser als `1` ist, gibt es mehr zu sehen, und `readings` zeigt es. <!-- Issue #977 -->
+
+---
+
 ## Standort-Klimanormalen (NASA POWER) <!-- REQ-041 -->
 
 Liefert die langjährigen monatlichen Klima-Normalwerte eines Standorts für den Abschnitt „Klima am Standort" der Standort-Detailseite. Der Endpunkt liegt unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordert ein gültiges JWT-Token; jedes aktive Mandanten-Mitglied (auch die Rolle **Beobachter**) darf lesen. Standort-Besitz wird serverseitig geprüft (404 unbekannt / 403 fremd). Der Endpunkt ist **graceful**: Liegen für einen berechtigten Standort noch keine Klimanormalen vor (Hintergrund-Abholung noch nicht gelaufen), liefert er eine leere `normals`-Liste statt eines Fehlers.
