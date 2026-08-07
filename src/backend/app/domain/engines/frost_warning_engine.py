@@ -25,17 +25,30 @@ Default threshold — 3.0 °C:
 
 from datetime import date, timedelta
 
+from app.domain.engines.sensor_metrics import (
+    AIR_TEMPERATURE_LIVE_PRIORITY,
+    AIR_TEMPERATURE_METRIC_TYPES,
+)
 from app.domain.models.weather import WeatherForecast
 
-#: Ambient-temperature metric types accepted for a location, in priority order.
-#: ``temperature_celsius`` is the canonical air-temperature metric for
-#: locations/sites (frontend default for non-tank sensors); ``water_temp_celsius``
-#: is tolerated as a fallback because Home-Assistant-suggested temperature
-#: entities are mapped onto that key by ``SensorService.get_ha_entities``.
-AIR_TEMPERATURE_METRIC_TYPES: tuple[str, ...] = (
-    "temperature_celsius",
-    "water_temp_celsius",
-)
+#: Re-exported from :mod:`app.domain.engines.sensor_metrics`, which is now the
+#: single place metric classification lives (Issue #961). The tuple used to be
+#: defined here *and* contradicted by a second heuristic in
+#: ``QuarterClimateService``. The SSOT keeps the canonical names and moves
+#: ``water_temp_celsius`` into the explicitly *tolerated* aliases that
+#: :data:`AIR_TEMPERATURE_LIVE_PRIORITY` appends, so
+#: :func:`pick_air_temperature` accepts exactly what it accepted before —
+#: it just no longer decides it on its own.
+__all__ = [
+    "AIR_TEMPERATURE_LIVE_PRIORITY",
+    "AIR_TEMPERATURE_METRIC_TYPES",
+    "DEFAULT_FROST_FORECAST_HORIZON_DAYS",
+    "DEFAULT_FROST_FORECAST_THRESHOLD_CELSIUS",
+    "DEFAULT_FROST_WARNING_THRESHOLD_CELSIUS",
+    "evaluate_forecast_frost_warning",
+    "evaluate_frost_warning",
+    "pick_air_temperature",
+]
 
 #: Sensible default warning threshold in °C (see module docstring for rationale).
 DEFAULT_FROST_WARNING_THRESHOLD_CELSIUS: float = 3.0
@@ -159,9 +172,10 @@ def pick_air_temperature(values: dict[str, dict]) -> tuple[float | None, str | N
     Returns:
         A ``(temperature_celsius, entity_id)`` tuple. Both are ``None`` when no
         accepted air-temperature metric is present. The first matching metric in
-        :data:`AIR_TEMPERATURE_METRIC_TYPES` wins.
+        :data:`AIR_TEMPERATURE_LIVE_PRIORITY` wins — canonical air-temperature
+        names first, the tolerated ``water_temp_celsius`` alias last.
     """
-    for metric_type in AIR_TEMPERATURE_METRIC_TYPES:
+    for metric_type in AIR_TEMPERATURE_LIVE_PRIORITY:
         entry = values.get(metric_type)
         if entry is None:
             continue
