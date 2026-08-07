@@ -967,9 +967,10 @@ class TestNotificationSourcePropagation:
             "TC-REQ-030-014_notification-center",
             "Notification centre -- looking for an actionable 'Erledigt' button",
         )
-        done_buttons = notif_center.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='notification-action-done-']"
-        )
+        # Through the page object, which waits for the drawer's own refetch to
+        # land. The raw lookup that stood here read one render too early and
+        # could not tell "still loading" from "no actionable notification".
+        done_buttons = notif_center.get_action_done_buttons()
 
         assert done_buttons, (
             "TC-REQ-030-014 FAIL (Soll): Expected a dedicated actionable 'Erledigt' button "

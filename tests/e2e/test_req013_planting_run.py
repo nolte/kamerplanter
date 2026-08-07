@@ -160,7 +160,16 @@ class TestPlantingRunListPage:
         screenshot("TC-REQ-013-005_before-search", "PlantingRun list before search")
 
         run_list.search("ZZZ_NONEXISTENT_RUN_9999")
-        run_list.wait_for_loading_complete()
+        # The chip assertion comes FIRST, deliberately. `has_search_chip()` waits
+        # for the chip, and the chip is rendered in the same commit that applies
+        # the filter, so asserting it here is both the product claim and the only
+        # honest gate for the row count below. Read in the old order, the count
+        # was that of the still-unfiltered table (the DataTable filter is
+        # client-side behind a 300 ms debounce, so `wait_for_loading_complete()`
+        # returned at once) and `<= initial_count` held for the wrong reason.
+        assert run_list.has_search_chip(), (
+            "TC-REQ-013-005 FAIL: Expected search chip to be visible after entering a search term"
+        )
         screenshot(
             "TC-REQ-013-005_after-search-no-results", "PlantingRun list after search — no results"
         )
@@ -168,9 +177,6 @@ class TestPlantingRunListPage:
         filtered_count = run_list.get_row_count()
         assert filtered_count <= initial_count, (
             f"TC-REQ-013-005 FAIL: Expected filtered count ({filtered_count}) <= initial ({initial_count})"
-        )
-        assert run_list.has_search_chip(), (
-            "TC-REQ-013-005 FAIL: Expected search chip to be visible after entering a search term"
         )
 
     @pytest.mark.core_crud

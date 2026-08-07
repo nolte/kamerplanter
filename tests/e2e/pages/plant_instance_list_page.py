@@ -86,24 +86,30 @@ class PlantInstanceListPage(BasePage):
     # ── Search and filter ──────────────────────────────────────────────
 
     def search(self, term: str) -> None:
-        """Type *term* into the search field."""
+        """Type *term* into the search field.
+
+        Uses ``clear_and_fill`` rather than ``WebElement.clear()``: the search
+        box is a React-controlled input, where ``clear()`` empties the DOM value
+        without notifying React, so the previous term survives and the new one is
+        appended to it — the defect measured on the substrate list as #802.
+
+        Typing is only half the post-condition. The `DataTable` filter is
+        client-side behind a 300 ms debounce, so on return the table may still
+        render the *previous* rows; a caller that then reads or clicks a row must
+        gate on :meth:`BasePage.wait_for_search_applied` (and, when it knows
+        which record it wants, :meth:`BasePage.wait_for_row_identity`). This
+        method deliberately does not do that itself: several call sites search
+        for a term that must match *nothing*, and a wait for a filtered row would
+        be wrong there.
+        """
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(term)
+        self.clear_and_fill(search_input, term)
 
     def clear_search(self) -> None:
         """Clear the search field."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(Keys.BACKSPACE)
-
-    def has_search_chip(self) -> bool:
-        """Return True if the search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
-    def has_sort_chip(self) -> bool:
-        """Return True if the sort chip is visible."""
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
 
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
@@ -118,10 +124,6 @@ class PlantInstanceListPage(BasePage):
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
 
-    def has_empty_state(self) -> bool:
-        """Return True if the empty state element is visible."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
-
     # ── Create dialog ──────────────────────────────────────────────────
 
     def click_create(self) -> None:
@@ -132,6 +134,18 @@ class PlantInstanceListPage(BasePage):
     def is_create_dialog_open(self) -> bool:
         """Return True if the create dialog is currently open."""
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
+
+    def wait_for_create_dialog_closed(self) -> None:
+        """Wait until the create dialog has finished fading out.
+
+        The post-condition of :meth:`submit_create_form` for any caller that
+        goes on to touch the page *underneath* the dialog. The MUI Dialog's
+        backdrop outlives the submit by the length of its fade transition, and
+        an element covered by it is not interactable — measured as an
+        ``ElementNotInteractableException`` from ``search()`` on the ``full``
+        profile of run 31113673507 (#835).
+        """
+        self.wait_for_element_hidden(self.CREATE_DIALOG)
 
     def select_species(self, search_text: str) -> None:
         """Select a species in the SpeciesAutocompleteField by typing and picking the first option.

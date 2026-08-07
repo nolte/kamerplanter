@@ -68,14 +68,16 @@ def _wait_for_watering_card(
     live care card away (rendering it as a task card instead), which would hide
     the very card this journey asserts on. The dedup is intentional app
     behaviour — see TaskQueuePage's merged-queue logic — not a regression.
+
+    One navigation and one continuous poll. The loop this replaces re-navigated
+    per attempt and then sampled a raw reader immediately, so every sample hit
+    the same not-yet-rendered window; it could not succeed however long it ran.
+    CI caught it on `c2b973b07` (TC-REQ-022-J087) after three local light runs
+    passed — this machine is fast enough to render inside the sample window, so
+    a green local run does not clear a test of this shape.
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        pflege.open()
-        if pflege.has_care_card(plant_key, "watering"):
-            return True
-        time.sleep(1.0)
-    return False
+    pflege.open()
+    return pflege.wait_for_care_card(plant_key, "watering", timeout=int(timeout))
 
 
 # ── TC-022-087 ───────────────────────────────────────────────────────────────

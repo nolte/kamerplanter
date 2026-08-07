@@ -67,7 +67,7 @@ class WorkflowDetailPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return all visible tab labels."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         return [t.text for t in tabs if t.text]
 
     def get_active_tab_label(self) -> str:
@@ -77,7 +77,7 @@ class WorkflowDetailPage(BasePage):
 
     def click_tab(self, label: str) -> None:
         """Click a tab by its visible label text."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         for t in tabs:
             if t.text == label:
                 self.scroll_and_click(t)
@@ -86,7 +86,7 @@ class WorkflowDetailPage(BasePage):
 
     def click_tab_by_index(self, index: int) -> None:
         """Click a tab by its zero-based index."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         if index < len(tabs):
             self.scroll_and_click(tabs[index])
         else:
@@ -94,7 +94,7 @@ class WorkflowDetailPage(BasePage):
 
     def get_tab_count(self) -> int:
         """Return the number of visible tabs."""
-        return len(self.driver.find_elements(*self.TAB_ITEMS))
+        return len(self.tab_elements(self.TAB_ITEMS))
 
     # ── Confirm dialog ─────────────────────────────────────────────────
 
@@ -122,6 +122,15 @@ class WorkflowDetailPage(BasePage):
         return len(self.driver.find_elements(*self.DIALOG)) > 0
 
     def is_page_visible(self) -> bool:
-        """Check whether the workflow detail page container is displayed."""
-        els = self.driver.find_elements(*self.PAGE)
-        return len(els) > 0 and els[0].is_displayed()
+        """Check whether the workflow detail page container is displayed.
+
+        Waits for it to appear first. TC-REQ-006-033 reaches this page by
+        clicking a list card and then waiting on the URL alone, and the URL
+        changes one commit *before* the route renders — so the bare
+        ``find_elements`` this replaces answered ``False`` for "not yet", and
+        the assertion failed on run 31113673507 once #835 removed the implicit
+        wait that had been covering the gap. A ``False`` here now means "not
+        displayed after the full budget": a genuine negative that still fails
+        the test when the page really does not render.
+        """
+        return self.is_visible_within(self.PAGE)

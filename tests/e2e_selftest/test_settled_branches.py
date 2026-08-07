@@ -86,8 +86,13 @@ class TestProbeBranches:
             }
         )
         assert present == ("error",)
-        # One script call for three branches -- not three find_elements, each of
-        # which would pay the session's implicit wait on its empty result.
+        # One script call for three branches, not three find_elements. The
+        # original reason was cost -- each empty result paid the session's
+        # implicit wait, which #835 removed. What the assertion now pins is
+        # atomicity: three lookups are three instants, so a branch that appears
+        # midway through the sweep could be reported next to one that has
+        # already gone, and "exactly one branch matched" would describe the
+        # sweep rather than the page.
         assert driver.script_calls == 1
         assert driver.find_elements_calls == 0
 

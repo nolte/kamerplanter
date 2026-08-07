@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import BasePage, DEFAULT_TIMEOUT
+from .base_page import BasePage, DEFAULT_TIMEOUT, raw_reference
 
 
 class TaskDetailPage(BasePage):
@@ -81,7 +81,7 @@ class TaskDetailPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return all visible tab labels."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         return [t.text for t in tabs if t.text]
 
     def get_active_tab_label(self) -> str:
@@ -91,7 +91,7 @@ class TaskDetailPage(BasePage):
 
     def click_tab(self, label: str) -> None:
         """Click a tab by its visible label text."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         for t in tabs:
             if t.text == label:
                 self.scroll_and_click(t)
@@ -100,7 +100,7 @@ class TaskDetailPage(BasePage):
 
     def click_tab_by_index(self, index: int) -> None:
         """Click a tab by its zero-based index."""
-        tabs = self.driver.find_elements(*self.TAB_ITEMS)
+        tabs = self.tab_elements(self.TAB_ITEMS)
         if index < len(tabs):
             self.scroll_and_click(tabs[index])
         else:
@@ -108,7 +108,7 @@ class TaskDetailPage(BasePage):
 
     def get_tab_count(self) -> int:
         """Return the number of visible tabs."""
-        return len(self.driver.find_elements(*self.TAB_ITEMS))
+        return len(self.tab_elements(self.TAB_ITEMS))
 
     # ── Action buttons ─────────────────────────────────────────────────
 
@@ -248,9 +248,19 @@ class TaskDetailPage(BasePage):
     #: Inline validation errors MUI renders under a rejected field.
     FORM_FIELD_ERRORS = (By.CSS_SELECTOR, ".MuiFormHelperText-root.Mui-error")
 
-    #: Budget for the "did the submit register?" post-condition. Generous on
-    #: purpose: each negative poll pays the session's implicit wait for the
-    #: absent snackbar, so this must cover more than one iteration.
+    #: Budget for the "did the submit register?" post-condition.
+    #:
+    #: Sized when each negative poll paid the session's implicit wait for the
+    #: absent snackbar, so 8 s was "more than one iteration". #835 removed that
+    #: wait and the arithmetic behind this number went with it -- an absent
+    #: snackbar is an instant answer now.
+    #:
+    #: Left at 8 s deliberately. Cutting it can only be justified by measuring
+    #: what the post-condition now costs across the profiles, and the value is
+    #: not on the failure path of the removal: too *generous* a budget costs
+    #: seconds on a genuine failure and nothing at all on a pass. Re-cutting it
+    #: on the same commit that removed the wait would also confound the two
+    #: effects in precisely the run that has to tell them apart.
     SUBMIT_REGISTERED_TIMEOUT = 8
 
     def _get_field_errors(self) -> list[str]:
@@ -272,14 +282,26 @@ class TaskDetailPage(BasePage):
         A visible snackbar also counts: on a *rejected* save the error handler
         toasts and the form goes dirty-and-enabled again, which the button state
         alone cannot tell apart from a swallowed click. It is probed *last*
-        because the absence of a snackbar costs the full implicit wait, while
-        the button state is a present-element read and therefore instant.
+        because it used to cost the full implicit wait when absent, while the
+        button state is a present-element read and therefore instant. #835
+        removed that wait, so the two probes now cost the same; the order is
+        kept because it is also the right one on meaning — the button state is
+        the direct evidence and the snackbar is the corroborating signal.
+
+        **This is the suite's only staleness verdict whose answer is a success
+        signal**, so it is the one place where a self-healing reference would not
+        merely change an answer but manufacture a pass: the healed replacement
+        would report on the re-rendered form, and "the form I clicked is gone"
+        would become "wait, then read the new one". `raw_reference` strips the
+        healing before the read (#835 P4). It is a no-op on the raw element
+        `find_elements` yields today and stays correct if that ever changes --
+        the verdict must not depend on which lookup paths happen to be wrapped.
         """
         buttons = self.driver.find_elements(*self.FORM_SUBMIT)
         if not buttons:
             return True
         try:
-            if not buttons[0].is_enabled():
+            if not raw_reference(buttons[0]).is_enabled():
                 return True
         except StaleElementReferenceException:
             return True

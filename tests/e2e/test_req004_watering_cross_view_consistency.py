@@ -140,7 +140,12 @@ class TestWateringCrossViewConsistency:
         # ── View 1: global Gießprotokoll ─────────────────────────────────────
         watering_list.open()
         watering_list.search(instance_id)
-        watering_list.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: the DataTable filter is client-side
+        # behind a 300 ms debounce, so no skeleton ever mounts and that poll
+        # returns while the table still holds every watering log in the tenant.
+        # The count below would then be that list's length -- a failure blamed
+        # on the feature rather than on the wait (#835).
+        watering_list.wait_for_search_applied(instance_id, what="global watering log")
         assert watering_list.get_row_count() == 1, (
             "TC-004-092 FAIL (View 1): expected exactly one global watering-log "
             f"row for '{instance_id}', found {watering_list.get_row_count()}"

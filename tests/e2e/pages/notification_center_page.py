@@ -109,9 +109,31 @@ class NotificationCenterPage(BasePage):
 
     # ── Notification cards ──────────────────────────────────────────────
 
+    #: The per-notification "Erledigt" action (``NotificationDrawer.tsx:408``),
+    #: rendered once per *actionable* care/task notification.
+    ACTION_DONE_BUTTONS = (By.CSS_SELECTOR, "[data-testid^='notification-action-done-']")
+
     def get_notification_cards(self) -> list[WebElement]:
         """Return all rendered ``notification-card-{key}`` elements."""
         return self.driver.find_elements(*self.NOTIFICATION_CARDS)
+
+    def get_action_done_buttons(self) -> list[WebElement]:
+        """Return every actionable 'Erledigt' button, once the drawer has loaded.
+
+        Waiting is the point. ``NotificationDrawer`` refetches on **every**
+        opening (a ``useEffect`` on ``open`` calling ``loadNotifications(0,
+        false)``, with ``notifications`` starting out as ``[]``), so at the
+        instant the drawer becomes visible there are provably no cards yet. A
+        bare ``find_elements`` there answers ``[]`` for "the fetch is still in
+        flight", which is indistinguishable from "no notification is
+        actionable" — TC-REQ-030-014 asserted on exactly that difference and
+        failed on all three ``full`` profiles of run 31113673507, once #835
+        removed the implicit wait that had been granting the read 3 s.
+
+        An empty list after the full budget is still a genuine negative, so the
+        Soll assertion this feeds keeps failing when the feature is absent.
+        """
+        return self.await_presence(self.ACTION_DONE_BUTTONS)
 
     @staticmethod
     def _key_from_testid(testid: str) -> str:

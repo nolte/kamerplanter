@@ -6,12 +6,14 @@ integrates both regular tasks and care-reminder cards in a unified view.
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import DEFAULT_TIMEOUT, BasePage
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class PflegeDashboardPage(BasePage):
@@ -130,9 +132,14 @@ class PflegeDashboardPage(BasePage):
         return self.wait_for_element(self.PAGE_TITLE).text
 
     def has_empty_state(self) -> bool:
-        """Return True if the 'Alle Pflanzen versorgt' empty state is shown."""
-        elements = self.driver.find_elements(*self.EMPTY_STATE)
-        return len(elements) > 0 and elements[0].is_displayed()
+        """Return True if the 'Alle Pflanzen versorgt' empty state is shown.
+
+        Waits, on the short `IMPLICIT_WAIT_EQUIVALENT` budget: TC-REQ-022-017
+        asks this as one arm of ``has_empty or has_cards``, where the populated
+        answer is the normal one, so a full timeout would be charged on every
+        healthy run for an element that is correctly absent.
+        """
+        return self.is_visible_within(self.EMPTY_STATE, IMPLICIT_WAIT_EQUIVALENT)
 
     def has_task_cards(self) -> bool:
         """Return True if any task card is rendered.
@@ -226,11 +233,63 @@ class PflegeDashboardPage(BasePage):
         locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
         return self.wait_for_element(locator)
 
+    #: The three states this dashboard settles into once its fetch has landed.
+    #: Anchoring on the *region* rather than on one card is what makes a read
+    #: honest at BOTH polarities: "the card is there" and "the card is gone"
+    #: are only different observations once something has rendered. Before that
+    #: they are the same observation -- nothing -- which is why an early read
+    #: fails a presence assertion and silently *passes* an absence one.
+    TASK_CARD_ANY = (By.CSS_SELECTOR, "[data-testid='task-card']")
+    DASHBOARD_BRANCHES = (CARE_CARDS, TASK_CARD_ANY, EMPTY_STATE)
+
+    def wait_for_dashboard_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the dashboard has rendered cards or its empty state.
+
+        Deliberately does not raise: this is an *anchor* for the readers below,
+        not an assertion of its own. A tenant whose dashboard legitimately shows
+        none of the three is a state the caller's assertion must still be able
+        to observe, so the budget is spent and the read proceeds.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                self.DASHBOARD_BRANCHES, "pflege dashboard content", timeout=timeout
+            )
+
     def has_care_card(self, plant_key: str, reminder_type: str) -> bool:
-        """Return True if a care card for the given plant/type exists."""
+        """Return True if a care card for the given plant/type exists.
+
+        Anchored, not waited-for. The card itself is *not* waited on, because
+        three of this method's six call sites assert the card is **gone** after a
+        confirmation -- waiting for it there would be the wrong primitive. What
+        is waited on is the dashboard having rendered at all, which both
+        polarities need equally.
+
+        This is the reader behind the defect CI caught on `c2b973b07` and three
+        local light runs did not (TC-REQ-022-J087). Its caller retried fifteen
+        times over 15 s, re-navigating each round -- and every one of the fifteen
+        samples landed in the same just-navigated, not-yet-rendered window, so
+        the loop could not succeed however long it ran. A caller-side retry
+        gives no protection when every attempt samples at the identical bad
+        moment; only decorrelating the sample from the navigation does, which is
+        what the anchor above is.
+        """
+        self.wait_for_dashboard_content()
         testid = f"care-card-care-{plant_key}-{reminder_type}"
         elements = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
         return len(elements) > 0
+
+    def wait_for_care_card(
+        self, plant_key: str, reminder_type: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> bool:
+        """Wait for a specific care card to appear; ``False`` once the budget is spent.
+
+        The presence-polarity sibling of :meth:`has_care_card`, for the callers
+        that are waiting for a reminder to materialise rather than checking it is
+        gone. One continuous poll rather than a hand-rolled sample loop -- see
+        `has_care_card` on why re-navigating per attempt made that loop inert.
+        """
+        testid = f"care-card-care-{plant_key}-{reminder_type}"
+        return bool(self.await_presence((By.CSS_SELECTOR, f"[data-testid='{testid}']"), timeout))
 
     def count_care_cards_for_plant(self, plant_key: str, reminder_type: str | None = None) -> int:
         """Return how many care cards a plant currently renders on the dashboard.
@@ -244,6 +303,11 @@ class PflegeDashboardPage(BasePage):
             selector = f"[data-testid='care-card-care-{plant_key}-{reminder_type}']"
         else:
             selector = f"[data-testid^='care-card-care-{plant_key}-']"
+        # Same anchor and the same reason as `has_care_card`: this count is read
+        # before and after a mutation and compared, so a zero taken before the
+        # dashboard rendered would satisfy "the count did not increase" without
+        # having counted anything.
+        self.wait_for_dashboard_content()
         return len(self.driver.find_elements(By.CSS_SELECTOR, selector))
 
     def get_card_urgency_indicator(self, card: WebElement) -> str:

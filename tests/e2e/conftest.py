@@ -1054,34 +1054,64 @@ def browser(
     os.environ["E2E_BROWSER"] = browser_name
     os.environ["E2E_DEVICE"] = dev["name"]
 
-    # The implicit wait stays — and #835 is the measurement that says why, so the
-    # next attempt does not start from the same wrong estimate.
+    # ── No implicit wait is configured here. What stands in its place ──────
+    # A driver-level implicit wait of 3 s used to sit on this line; #835 removed
+    # it. Nothing replaces it *as a driver setting* — the driver now runs at
+    # Selenium's default of 0 — so this comment records what the suite grew
+    # instead, because the line was load-bearing and its absence is not obvious
+    # from anything nearby.
     #
-    # Mixing implicit and explicit waits *is* the anti-pattern the old comment
-    # here called it: the implicit wait also applies to the `find_element` calls
-    # inside a `WebDriverWait`, so the budgets multiply instead of bounding each
-    # other. Removing it is still the right destination.
+    # The setter's own name is spelled nowhere in this block on purpose:
+    # grepping `tests/` for it and getting nothing back is the acceptance
+    # criterion of #835, and it stays a clean signal that the anti-pattern has
+    # not come back only for as long as no prose answers that grep.
     #
-    # What removing it actually costs, measured over five smoke runs (#835):
-    # every one of the suite's ~800 element lookups is a *capture-then-use* — a
-    # `WebDriverWait` resolves a `WebElement`, then the next line clicks or types
-    # into it. 437 such captures exist, 231 of which then interact. The implicit
-    # wait was not merely padding those lookups; it was delaying each one enough
-    # that a re-rendering React table had usually settled before the reference was
-    # taken. Remove it and every one of the 231 can lose its element mid-use.
+    # Why it had to go. Mixing implicit and explicit waits is a genuine
+    # anti-pattern rather than a stylistic one: the implicit wait also applied to
+    # the `find_element` calls *inside* a `WebDriverWait`, so the two budgets
+    # multiplied instead of bounding each other, and a poll documenting a 15 s
+    # ceiling could spend far longer without saying so.
     #
-    # That is not a `implicitly_wait(0)` one-liner. It is a conversion of the
-    # suite's interaction model from capture-then-use to locator-based
-    # re-resolution — either 231 call-site conversions, or a re-resolving element
-    # proxy returned by the four wait helpers. #835 carries both options and the
-    # numbers behind them.
+    # Why it could not simply be deleted. Measured on the base commit
+    # `1d98bf3ca` (#835): the suite resolves an element and then uses it on a
+    # later line — capture-then-use — at 459 sites, 389 of which go on to
+    # interact with what they captured. The implicit wait was not padding those
+    # lookups; it was delaying each one enough that a re-rendering React table
+    # had usually settled *before* the reference was taken. Delete the line on
+    # its own and any of those 389 can lose its element between the capture and
+    # the use. Five smoke runs confirmed it, and the telling detail was that the
+    # failure set *moved* between runs instead of shrinking.
     #
-    # What this branch keeps is the part that is correct either way: five latent
-    # defects the removal exposed, each a real bug with the implicit wait still in
-    # place. See the PR — the most valuable of them was a post-condition that
-    # could not fail (`url_contains` on a fragment already present), which had
-    # journeys asserting against a plant from an earlier test.
-    driver.implicitly_wait(3)
+    # What actually replaced it — a change of interaction model, in four steps:
+    #
+    #   * `pages/_element_proxy.py` — `ReResolvingElement`, a real `WebElement`
+    #     subclass that re-acquires itself from its own locator and capture
+    #     condition when the node it points at dies. Bounded on every path, and
+    #     it raises rather than healing forever.
+    #   * `BasePage.wait_for_element`, `.wait_for_element_visible` and
+    #     `.wait_for_element_clickable` hand that back instead of a raw element,
+    #     so all 459 capture sites inherit it through the call chain — including
+    #     the 48 that go through `find_present`, and `find_by_testid`, which
+    #     builds on them but currently has no callers at all.
+    #     `wait_for_element_hidden` is unchanged; it returns `None`.
+    #   * The plural path (`find_elements`, 804 calls) is deliberately *not*
+    #     wrapped — a list element has no re-resolution key but its index, and
+    #     re-selecting by index after a re-render is the #871 defect. Its lever
+    #     is `BasePage.retry_on_stale`, which re-runs a whole acquisition, and it
+    #     now sits on all six helpers that own their row lookup and read through
+    #     the rows. See the two block comments at the top of `pages/base_page.py`.
+    #   * The reads that treat staleness as an *answer* rather than as a
+    #     transient are opted out of healing via `BasePage.raw_reference`, so the
+    #     change cannot turn "this element is gone" into "something matching its
+    #     locator is here". They are enumerated in the second of those blocks.
+    #
+    # What is left uncovered, deliberately: the 31 singular `find_element(` call
+    # sites still hand back raw elements. They were counted, not converted.
+    #
+    # None of this is proven by the E2E suite alone — a green run cannot
+    # distinguish "the healing worked" from "the timing never provoked it". The
+    # mechanism is pinned by `tests/e2e_selftest/`, which drives a real
+    # `WebDriver` over a stub executor and is in the required `static` gate.
 
     # Set German locale in localStorage so i18next picks it up (detection
     # order: localStorage → navigator).  We need to navigate to the origin

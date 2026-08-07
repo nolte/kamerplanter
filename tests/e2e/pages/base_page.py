@@ -22,14 +22,25 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from ._element_proxy import ReResolvingElement, resolve_element
+
 DEFAULT_TIMEOUT = 15
 
 #: The grace period the driver-level implicit wait used to grant *every*
 #: ``find_element`` call before #835 removed it. The singular finders that were
 #: relying on it now ask for it explicitly (``find_present``), so the removal
 #: changes no test's timing — while every *absence* check stopped paying it,
-#: which is where the cost actually sat: 41 ``is_present`` call sites blocked
-#: the full budget on every negative answer.
+#: which is where the cost actually sat: 29 ``is_present`` call sites blocked
+#: the full budget on every negative answer (31 counting the two that reach
+#: `PrintButtonPage`'s same-named, argument-less helper, which is the same
+#: ``find_elements`` shape).
+#:
+#: Those figures are AST call counts, not grep hits, and the difference is not
+#: pedantry: a grep for the bare name reports 39 here. It picks up the two
+#: definitions, five ``def test_..._is_present`` *test names*, and three
+#: ``EC.alert_is_present()`` calls — a different Selenium API entirely. The 41
+#: this docstring carried before #835 P6 came from exactly that over-count, and
+#: so did the 49 that :meth:`find_present` carried.
 #:
 #: Deliberately not ``DEFAULT_TIMEOUT``. These are lookups of something the
 #: caller believes is already rendered, not waits for a transition; raising the
@@ -51,6 +62,189 @@ POLL_TRANSIENTS = (NoSuchElementException, StaleElementReferenceException)
 
 #: A Selenium locator: ``(By.<STRATEGY>, value)``.
 Locator = tuple[str, str]
+
+
+class TableNotSettled(StaleElementReferenceException):
+    """A `DataTable` row is in the DOM but has not rendered its identifying cell.
+
+    The second signal a re-rendering table emits, and the one the retry did not
+    cover before #835 P4. React replaces a row wholesale when its key changes --
+    that is the reference dying, i.e. ``StaleElementReferenceException``. But it
+    also *reconciles a surviving row's children in place*, and mid-reconciliation
+    that row exposes neither its ``cell-<col_id>`` nor its ``card-title``. The
+    reference is then perfectly alive and :meth:`BasePage.get_row_primary_text`
+    raises ``AssertionError`` -- which :meth:`BasePage.retry_on_stale` does not
+    catch, so it escaped the three row helpers as a hard failure.
+
+    That the shape is real was never in doubt: `click_data_table_row` has been
+    defending against it since #835, in a closure that catches
+    ``StaleElementReferenceException, AssertionError`` with the note "a row
+    mid-render exposes neither its cell nor its card title". The defence just
+    lived in one branch of one helper. This class is that knowledge promoted to
+    a name so the other readers can share it.
+
+    A ``StaleElementReferenceException`` **subclass**, for the same reason
+    ``ElementReResolutionError`` is one: the mechanisms already built around that
+    class are exactly the ones this needs. ``retry_on_stale`` re-runs the whole
+    acquisition, and ``POLL_TRANSIENTS`` treats it as "not yet" inside a poll
+    that carries its own budget. The reference is *not* dead, which is the one
+    respect in which the name overstates -- what both states share, and all a
+    caller can act on, is "re-acquire and look again".
+
+    **What it costs when the row is not mid-render at all.** A row that renders
+    no such cell because the caller named a column this table does not have is
+    indistinguishable from a mid-render row *at one instant*; the two are only
+    told apart over time, which is what a bounded retry does. So a genuinely
+    wrong ``col_id`` now surfaces after the retry budget instead of immediately.
+    It stays just as loud, and it carries the original assertion's message
+    verbatim plus both hypotheses -- see
+    :meth:`BasePage.require_row_primary_text`.
+    """
+
+
+# ── Why the *plural* path is not wrapped ──────────────────────────────────
+# The three element-returning waits hand back a `ReResolvingElement` (#835 P3).
+# `driver.find_elements(...)` -- 804 call sites -- deliberately does **not**, and
+# this is the reasoned decision, not an omission left for later (#835 P4).
+#
+# A singular reference can re-acquire itself because it knows *what it was
+# asked for*: a locator plus the condition that accepted it. A list element has
+# no such key. The only key available to a generic wrapper would be
+# `(locator, index)` -- and re-resolving a row by its index after a re-render is
+# precisely the recovery this module already refuses, three screens down in
+# `click_data_table_row`: #871 measured it turning a loud
+# `StaleElementReferenceException` into four journey tests that opened the
+# globally-first plant and then asserted against the one they meant to create.
+# Wrapping the plural path would reinstate that recovery *below* the guard that
+# rejects it, at 804 sites, where the guard cannot see it. A wrong element that
+# reads as success is worse than the exception it replaces.
+#
+# It would also buy nothing at most of those sites. The dominant shape there is
+# a count or an emptiness probe -- `is_present`, `has_alert_notification`,
+# `close_mui_dropdown`, `is_select_open`, `is_card_layout` -- which reads
+# `len(...)` or `next(iter(...), None)` and never touches the elements at all.
+# Healing is undefined for an empty list and irrelevant for a length.
+#
+# The complementary mechanism for the plural path is therefore the one that was
+# already here: `retry_on_stale`, which re-runs an *action that re-acquires what
+# it touches*. Where it may sit follows from that clause and from nothing else:
+# a closure over an element the caller already resolved would retry the same
+# dead reference (its own docstring says so). That rules out every row *reader*
+# whose row comes from its caller -- `get_row_cell_text`,
+# `get_row_text_fragments`, `get_row_chip_texts`, `resolve_row_click_target`,
+# `click_row_via_column` -- and it rules *in* every helper that does its own
+# `find_elements` **and then reads through the elements it found**.
+#
+# #835 P4 applied that rule instead of restating it, and it selects six helpers,
+# not the three that had it. The three it already occupied (`get_column_texts`,
+# `find_row_by_text`, `click_data_table_row`) plus three that qualified just as
+# squarely and were simply never revisited: `get_all_row_text_fragments`,
+# `get_column_chip_texts` and `get_column_chip_colors`. Each owns its row lookup
+# and then reads `.text`, a class attribute or a child element off every row it
+# found, so a re-render mid-scan let a raw `StaleElementReferenceException` out
+# of a pure read -- the same shape as the three, at eight page objects' worth of
+# list assertions (`get_visible_*` on harvest batches, planting runs,
+# substrates, treatments, tanks, watering logs, pests, diseases).
+#
+# "Six" is checkable rather than asserted: `retry_on_stale` has exactly six call
+# expressions under `tests/e2e/`, all in this module. Count them from the AST,
+# not with a grep -- see `IMPLICIT_WAIT_EQUIVALENT` for what a grep does to a
+# figure like this one.
+#
+# What the rule keeps *out* is as load-bearing as what it lets in. A helper that
+# only counts or probes emptiness -- `get_all_table_row_count`,
+# `get_watering_log_row_count`, `is_present` -- never touches an element, so
+# there is nothing to go stale; and `get_watering_log_rows`, which hands its raw
+# rows to the caller, is the "the retry covers the scan, not the use" case
+# `find_row_by_text` documents, where wrapping the lookup would buy the caller
+# nothing.
+#
+# The second thing P4 closed is a different gap, and a measured one: a
+# re-rendering `DataTable` emits **two** signals, and the retry only ever
+# covered one. See `TableNotSettled`.
+
+
+# ── Staleness as a *verdict*, and how to keep it one ──────────────────────
+# `POLL_TRANSIENTS` above states the majority rule: inside a poll, a stale
+# reference means "look again". A handful of reads mean the opposite -- they
+# catch `StaleElementReferenceException` and *answer* with it ("the element is
+# gone, so: not displayed / not open / already closed"). For those, a
+# re-resolving reference would change the answer rather than stabilise it: the
+# healed replacement would report on the node that came back, where the caller
+# asked about the node that left.
+#
+# Re-run after P4 against the code as it now stands. The six verdict *sites* P3
+# counted are four verdict *implementations* now -- three page objects had
+# written the same dialog probe out for themselves and now share
+# `is_any_displayed` -- and all four still read their element from
+# `driver.find_elements(...)`, which is still not wrapped, so, as in P3, **no
+# verdict is reachable by a proxy today**. That
+# fact has now been re-derived twice and reversed once (P1 predicted
+# reachability, P3 refuted it), which is the argument for not relying on it a
+# third time: every verdict site is opted out **structurally**, so its answer no
+# longer depends on which paths happen to be wrapped this week.
+#
+#   Reads it as a VERDICT -- each opted out, each with the decision at the site:
+#     * `BasePage.is_displayed_in_scroll_container`  (False)  `raw_reference`
+#     * `BasePage._read_select_value`                (None -> loud) `raw_reference`
+#     * `BasePage.is_any_displayed`                  (False)  `raw_reference`,
+#       and the three page-object dialog probes that each used to write this
+#       loop out for themselves now route through it:
+#       `phase_transition_page.PlantInstanceDetailExt.is_transition_dialog_open`
+#       and `.is_confirm_dialog_visible` (the class name P3 recorded here as
+#       `PhaseTransitionPage` was wrong -- there is no such class in that
+#       module), plus `FeedingEventListPage.is_create_dialog_open`
+#     * `TaskDetailPage._submit_registered`          (**True**) `raw_reference`
+#       -- the one whose verdict is a *success* signal ("the submit went
+#       through"), so a healed reference would not merely change an answer, it
+#       would manufacture a pass. Guarded first for that reason.
+#
+# All four opt-outs are exercised against a deliberately proxied element by
+# `tests/e2e_selftest/test_row_helpers.py::TestVerdictsStayVerdicts`, so none of
+# them rests on being unreachable.
+#
+#   Reads it as a TRANSIENT (retry, or consult a second signal) -- healing is an
+#   improvement there, so these stay wired:
+#     * `BasePage.retry_on_stale`, `.get_text_stable`, `.close_mui_dropdown`,
+#       `.row_primary_text_or_none` (used by `click_data_table_row`)
+#     * `BasePage._aria_expanded` -- see its docstring for why it deliberately
+#       does not opt out
+#     * `WorkflowDetailPage.get_workflow_title`, `SiteListPageExt.open`,
+#       `_journey_helpers.create_care_task` (P3 recorded this one as
+#       `_journey_helpers.provision_task`; no such function exists -- the
+#       staleness handler is in `create_care_task`, and the module sits at
+#       `tests/e2e/_journey_helpers.py`, not under `pages/`)
+#
+# The list above is the whole population, re-derived by walking the AST of
+# `tests/e2e/` for `except` handlers naming `StaleElementReferenceException` --
+# a text grep misses the ones written as a multi-line tuple, which is how
+# `close_mui_dropdown` and `create_care_task` spell theirs.
+
+
+def raw_reference(element: WebElement) -> WebElement:
+    """Return a plain reference to the node *element* points at **right now**.
+
+    The opt-out from re-resolution, for the few reads that treat staleness as an
+    answer rather than as a transient (see the block above). A
+    :class:`~._element_proxy.ReResolvingElement` handed to one of those would
+    heal and let the replacement answer, silently converting "this element is
+    gone" into "an element matching its locator is here" -- the one way this
+    change could make an assertion pass without it staying true.
+
+    Wrapping happens in exactly one place (``_element_proxy.resolve_element``),
+    which is what makes unwrapping expressible at all: the proxy holds the live
+    id in the plain ``_id`` attribute rather than in a second source of truth, so
+    a bare ``WebElement`` over that id is the same node, minus the healing. The
+    public ``id`` property is deliberately *not* used here -- reading it probes
+    liveness and would perform the very re-resolution being opted out of.
+
+    A raw ``WebElement`` is returned unchanged, so this is safe to apply
+    defensively at a verdict site regardless of where its element came from.
+    """
+    if isinstance(element, ReResolvingElement):
+        return WebElement(element.parent, element._id)
+    return element
+
 
 # German ``d.m.Y`` date, tolerant of zero-padded and numeric parts alike.
 DE_DATE_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
@@ -175,28 +369,73 @@ class BasePage:
         """
         return WebDriverWait(self.driver, timeout, ignored_exceptions=POLL_TRANSIENTS)
 
+    # ── The three element-returning waits ─────────────────────────────────
+    # All three go through `resolve_element`, which is what makes the reference
+    # they hand back survive a re-render: it re-runs its own
+    # `(locator, condition)` when the node underneath it dies (see
+    # `_element_proxy`). Every capture site in this suite reaches the proxy
+    # through one of these three -- there is no fourth singular capture helper --
+    # so this is the single wiring point rather than 459 call-site changes.
+    #
+    # `resolve_element` takes the condition *factory*, never a ready-made
+    # condition, and uses it for the first capture and for every re-resolution
+    # alike. That is what keeps "waited for clickable" and "healed to clickable"
+    # the same predicate **by construction**: there is no way to write a helper
+    # here that waits for one condition and heals to another without passing two
+    # different factories, and each helper below passes exactly one. Pinned by
+    # `tests/e2e_selftest/test_element_proxy.py`
+    # (`test_a_clickable_capture_only_heals_to_a_clickable_element`).
+    #
+    # The declared return type is the concrete `ReResolvingElement`, not
+    # `WebElement`: it is a `WebElement` subclass, so all 62 page objects keep
+    # type-checking unchanged, while the narrower annotation states at the
+    # signature what the caller is actually holding. A caller that must reason
+    # about the *node* rather than about the *locator* -- a staleness-as-verdict
+    # read -- can strip the healing back off with `raw_reference` (see there).
+
     def wait_for_element(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
-    ) -> WebElement:
-        """Wait until an element is present in the DOM and return it."""
-        return self.poll(timeout).until(EC.presence_of_element_located(locator))
+    ) -> ReResolvingElement:
+        """Wait until an element is present in the DOM and return it.
+
+        The returned reference re-resolves through
+        ``EC.presence_of_element_located`` -- the same condition this wait used
+        -- if the node it points at is replaced by a re-render.
+        """
+        return resolve_element(self.poll, locator, EC.presence_of_element_located, timeout)
 
     def wait_for_element_visible(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
-    ) -> WebElement:
-        """Wait until an element is visible and return it."""
-        return self.poll(timeout).until(EC.visibility_of_element_located(locator))
+    ) -> ReResolvingElement:
+        """Wait until an element is visible and return it.
+
+        The returned reference re-resolves through
+        ``EC.visibility_of_element_located``, so a healed replacement is visible
+        too -- it can never quietly decay into a merely present element.
+        """
+        return resolve_element(self.poll, locator, EC.visibility_of_element_located, timeout)
 
     def wait_for_element_clickable(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
-    ) -> WebElement:
-        """Wait until an element is clickable and return it."""
-        return self.poll(timeout).until(EC.element_to_be_clickable(locator))
+    ) -> ReResolvingElement:
+        """Wait until an element is clickable and return it.
+
+        The returned reference re-resolves through ``EC.element_to_be_clickable``
+        -- the strongest of the three -- so a click retried after a re-render is
+        still aimed at something the same predicate accepted.
+        """
+        return resolve_element(self.poll, locator, EC.element_to_be_clickable, timeout)
 
     def wait_for_element_hidden(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> None:
-        """Wait until an element is no longer visible (e.g. MUI Dialog fade-out)."""
+        """Wait until an element is no longer visible (e.g. MUI Dialog fade-out).
+
+        Deliberately **not** re-resolving, and it never will be: it returns
+        ``None``. There is no reference to hand back, hence none to heal -- and
+        an absence wait is precisely where healing would be wrong, since
+        re-acquiring the element is the outcome this wait exists to rule out.
+        """
         self.poll(timeout).until(EC.invisibility_of_element_located(locator))
 
     #: The Suspense/query loading placeholder every page renders while its data
@@ -272,11 +511,19 @@ class BasePage:
     #      cause that is nowhere near the real one.
 
     #: Probes every CSS branch selector in ONE driver round-trip and returns the
-    #: indices that matched. Deliberately JS rather than N× ``find_elements``:
-    #: the session runs with a 3 s implicit wait (see ``conftest.py``), which
-    #: applies to every *empty* ``find_elements`` result, so an N-branch probe
-    #: would cost N×3 s per poll cycle and burn the whole timeout budget on two
-    #: cycles. ``execute_script`` is not subject to the implicit wait.
+    #: indices that matched. Deliberately JS rather than N× ``find_elements``.
+    #:
+    #: The original reason was cost: the session ran with a driver-level implicit
+    #: wait, which applied to every *empty* ``find_elements`` result, so an
+    #: N-branch probe spent N×3 s per poll cycle and burned the whole budget in
+    #: two cycles. #835 removed that wait, so the arithmetic no longer holds --
+    #: an empty ``find_elements`` now returns at once.
+    #:
+    #: It stays JS for the reason that outlived the wait: N separate lookups are
+    #: N separate instants, so a branch that appears midway through the sweep can
+    #: be reported alongside one that has already gone. One round-trip reads all
+    #: branches against a single DOM state, which is what makes "exactly one
+    #: branch matched" a statement about the page rather than about the sweep.
     _PROBE_CSS_BRANCHES = (
         "var sels = arguments[0], out = [];"
         "for (var i = 0; i < sels.length; i++) {"
@@ -545,18 +792,33 @@ class BasePage:
 
     # ── Queries ───────────────────────────────────────────────────────────
 
-    def find_present(self, locator: Locator, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> WebElement:
+    def find_present(
+        self, locator: Locator, timeout: int = IMPLICIT_WAIT_EQUIVALENT
+    ) -> ReResolvingElement:
         """Find an element the caller expects to be rendered already.
 
         The explicit counterpart to the driver-level implicit wait #835 removed:
         same budget, but visible at the call site and no longer silently added to
         every lookup *inside* a ``WebDriverWait``, where the two wait kinds
         compounded into timeouts nobody could predict — the reason one
-        post-condition needed an 8 s budget where 3 s should have done.
+        post-condition (``TaskDetailPage.SUBMIT_REGISTERED_TIMEOUT``) was given
+        an 8 s budget where 3 s should have done. That budget has *not* been
+        re-cut here: its size was justified by a cost that no longer exists, but
+        shrinking it is a measurement, not a docstring edit.
 
         Use :meth:`wait_for_element` instead when the element is genuinely
         expected to *appear*. That is a page transition, not a lookup, and
         deserves the full ``DEFAULT_TIMEOUT``.
+
+        Its 48 call sites — an AST call count, for the reason
+        :data:`IMPLICIT_WAIT_EQUIVALENT` sets out; the 49 carried here before
+        #835 P6 had counted this definition as one of them — inherit the
+        re-resolving reference from the `return`
+        below rather than from a rule anybody has to remember: this **is**
+        :meth:`wait_for_element` on a shorter budget, so there is no second code
+        path here that could be left un-wired. The narrowed return type is what
+        makes that structural instead of incidental -- widen the body back to a
+        raw lookup and the signature stops type-checking.
         """
         return self.wait_for_element(locator, timeout)
 
@@ -583,8 +845,12 @@ class BasePage:
                 if time.time() >= deadline:
                     raise
 
-    def find_by_testid(self, testid: str) -> WebElement:
-        """Shorthand for finding an element by its ``data-testid``."""
+    def find_by_testid(self, testid: str) -> ReResolvingElement:
+        """Shorthand for finding an element by its ``data-testid``.
+
+        Re-resolving for the same structural reason as :meth:`find_present`: it
+        builds a locator and delegates, so it has no lookup of its own to wire.
+        """
         return self.find_present((By.CSS_SELECTOR, f"[data-testid='{testid}']"))
 
     def find_all_by_testid(self, testid: str) -> list[WebElement]:
@@ -687,8 +953,31 @@ class BasePage:
         Order matters: the direct control is tried first, so desktop keeps its
         single click and no menu is opened that would then have to be closed
         again.
+
+        **Both probes wait for the header to exist before either decides.** They
+        used to be two raw ``find_elements``, taken in the same millisecond as
+        the caller's navigation, so on a page header that had not rendered yet
+        *neither* matched and this raised "neither visible nor behind an
+        overflow menu" -- a message describing the page's contents when it was
+        really describing the instant. TC-REQ-001-030 failed exactly that way
+        once #835 removed the implicit wait that had been granting both probes
+        3 s. Waiting for the disjunction keeps the branch choice intact: the
+        direct control still wins when present, and a header that genuinely
+        offers neither still raises, now after a real look.
         """
-        direct = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        direct_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        try:
+            self.wait_for_any_present(
+                (direct_locator, self.PAGE_HEADER_OVERFLOW),
+                f"header action {testid!r}",
+                timeout=IMPLICIT_WAIT_EQUIVALENT,
+            )
+        except AssertionError:
+            # Neither arm appeared; fall through to the raise below, which names
+            # both and is the diagnosis this method already owned.
+            pass
+
+        direct = self.driver.find_elements(*direct_locator)
         if direct and direct[0].is_displayed():
             self.scroll_and_click(direct[0])
             return
@@ -708,6 +997,163 @@ class BasePage:
     def is_present(self, locator: tuple[str, str]) -> bool:
         """Return True if at least one element matching *locator* exists in the DOM."""
         return len(self.driver.find_elements(*locator)) > 0
+
+    # ── Honest negatives after a client-side navigation ───────────────────
+    # `driver.find_elements(...) -> [] -> False` is an *instantaneous* read, and
+    # right after a route change, a tab switch or a drawer opening it cannot
+    # tell "React has not committed the destination yet" from "this element is
+    # genuinely absent" -- the unfalsifiable-absence shape `e2e-test-stability`
+    # §D forbids. The driver-level implicit wait had been granting every such
+    # read up to 3 s; #835 removed it and six assertions that had always been
+    # asking one render too early started failing (tank tabs "found 0 tabs",
+    # `workflow-detail-page` not visible, the tenant-settings create-link
+    # button, the notification drawer's action buttons).
+    #
+    # The two helpers below are the honest form: wait for the element to appear
+    # first, and answer "absent" only once the budget is spent. That removes the
+    # false negative without weakening the true one -- an element that never
+    # renders still yields `False`/`[]` and the caller's assertion still fails.
+
+    def tab_elements(self, locator: Locator, timeout: int = DEFAULT_TIMEOUT) -> list[WebElement]:
+        """Every tab of the strip *locator* addresses, waiting for it to render.
+
+        The tab strip is the shape that bit hardest after #835 removed the
+        implicit wait, because eleven page objects had each written out
+        ``self.driver.find_elements(*self.TABS)`` and every one of them is
+        reached the same way: click a list row, wait on the **URL**, then read.
+        The URL changes one commit before the route renders, so the read lands
+        on a document that has no tab strip yet -- and an empty list there is
+        indistinguishable from "this page has no tabs". Measured twice: ten
+        `test_req014_tank.py` cases as ``found 0 tabs`` in CI run 31113673507,
+        then `test_req013_planting_run.py` as ``got 0: []`` and
+        ``get_active_tab_index() == -1`` in the local light run that followed.
+
+        Named rather than left as a bare :meth:`await_presence` call so the
+        rationale lives once, next to the shape, instead of being re-derived per
+        page. ``[]`` after the budget is still a genuine "no tabs", so a page
+        that truly renders none still fails its caller's assertion.
+        """
+        return self.await_presence(locator, timeout)
+
+    #: `DataTable`'s search chip, as a *reader* rather than as the settling
+    #: signal :meth:`wait_for_search_applied` uses. Sixteen list page objects had
+    #: an identical private copy of this, each a raw ``find_elements`` answering
+    #: in the millisecond after ``search()`` typed -- i.e. inside the component's
+    #: own 300 ms debounce, before the chip can exist. TC-REQ-013-005 asserted
+    #: on it and failed for that reason with the implicit wait gone.
+    def has_search_chip(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether the search chip is rendered, waiting for it to appear.
+
+        The chip's presence is a *product* claim ("an active search is shown as
+        a removable chip") and stays fully falsifiable: a table that never
+        renders one still answers ``False`` once the budget is spent. Only the
+        answer that meant "the debounce has not fired yet" is gone.
+        """
+        return bool(self.await_presence(self.SEARCH_CHIP, timeout))
+
+    #: `DataTable`'s sort chip. Fifteen identical private copies, same shape and
+    #: same exposure as the search chip above.
+    SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
+
+    def has_sort_chip(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether the sort chip is rendered, waiting for it to appear."""
+        return bool(self.await_presence(self.SORT_CHIP, timeout))
+
+    def has_empty_state(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether the `EmptyState` branch is rendered, waiting for it to appear.
+
+        Seventeen page objects carried an identical private copy. The budget
+        matters more here than for the chips: several callers ask this as one
+        arm of a disjunction (``assert has_empty or has_cards``) where the
+        *populated* answer is the normal one, so a full ``DEFAULT_TIMEOUT``
+        would charge 15 s on every healthy run for an element that is correctly
+        absent. Three seconds is what those reads were actually getting before
+        #835, so this restores their behaviour rather than inventing a new one.
+        """
+        return bool(self.await_presence(self.EMPTY_STATE, timeout))
+
+    def is_absent_within(self, locator: Locator, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Whether *locator* is gone, waiting for it to disappear.
+
+        The mirror of :meth:`is_visible_within`, and the reader an **absence**
+        assertion needs. The instantaneous read is not safe at either polarity:
+        a presence read taken too early sees nothing that is about to appear,
+        and an absence read taken too early sees something that is about to
+        leave -- a MUI dialog fading out over ~195 ms is the everyday case. The
+        implicit wait used to cover both, because it made every *empty*
+        ``find_elements`` block for 3 s, which is why removing it put pressure on
+        absence assertions too.
+
+        ``False`` here means "still present after *timeout*", which is a genuine
+        positive, so an element that never goes away still fails its caller.
+        """
+        try:
+            self.poll(timeout).until(lambda d: not d.find_elements(*locator))
+        except TimeoutException:
+            return False
+        return True
+
+    def await_presence(
+        self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
+    ) -> list[WebElement]:
+        """Every element matching *locator*, after waiting for the first to appear.
+
+        Returns ``[]`` when none appears within *timeout* -- a genuine negative,
+        because the wait has been spent, unlike the bare ``find_elements`` this
+        replaces.
+        """
+        try:
+            self.poll(timeout).until(lambda d: len(d.find_elements(*locator)) > 0)
+        except TimeoutException:
+            return []
+        return self.driver.find_elements(*locator)
+
+    def is_visible_within(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Whether *locator* is displayed, waiting for it to appear first.
+
+        The honest counterpart of ``find_elements(...)[0].is_displayed()``: a
+        ``False`` here means "not displayed after waiting *timeout*", not "not
+        displayed in this millisecond".
+        """
+        try:
+            self.poll(timeout).until(EC.visibility_of_element_located(locator))
+        except TimeoutException:
+            return False
+        return True
+
+    def is_any_displayed(self, locator: tuple[str, str]) -> bool:
+        """Return whether any element matching *locator* is displayed right now.
+
+        The plural counterpart of a staleness *verdict*, and the shape three
+        page objects had each written out for themselves: a dialog animating
+        out can unmount between the ``find_elements`` and the
+        ``is_displayed()``, and a reference that dies in that window means the
+        dialog is **gone** -- not "look again". The three copies
+        (`PhaseTransitionPage.is_transition_dialog_open` /
+        `.is_confirm_dialog_visible`, `FeedingEventListPage.is_create_dialog_open`)
+        now delegate here, so the decision is recorded in one place instead of
+        being re-made per page.
+
+        :func:`raw_reference` is applied even though ``find_elements`` yields
+        raw elements today. The point is that the verdict must not depend on
+        that: this is a *negative* answer built out of an exception, so if the
+        plural path ever started healing, every "the dialog closed" assertion
+        would quietly start waiting for the replacement instead -- and pass or
+        fail on the node that came back rather than on the one that left. The
+        strip is a no-op on a raw element (it returns it unchanged), so the
+        guard costs nothing to hold.
+
+        Deliberately *not* a poll: callers use it as an instantaneous read
+        inside their own waits.
+        """
+        for element in self.driver.find_elements(*locator):
+            node = raw_reference(element)
+            try:
+                if node.is_displayed():
+                    return True
+            except StaleElementReferenceException:
+                continue
+        return False
 
     def get_text_stable(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> str:
         """Return text of *locator*, retrying on StaleElementReferenceException."""
@@ -878,11 +1324,28 @@ class BasePage:
         container's *scroll position*. Scrolling first collapses the two cases
         onto the one the caller actually asks about.
 
-        A stale element is genuinely gone, hence ``False``.
+        A stale element is genuinely gone, hence ``False`` -- and that verdict is
+        held open deliberately. Both callers drive a *hidden*-ness decision from
+        it (``ExpertiseLevelPage.wait_for_nav_item_hidden``,
+        :meth:`navigate_via_sidebar`'s "the item is not there, so warn and route
+        by URL"), so an element that re-resolved itself and answered ``True``
+        would turn "the app correctly hides this nav item" into "it is visible"
+        and "the drawer was not exercised" into a silent pass.
+
+        Hence :func:`raw_reference`: the reference is stripped of its healing
+        *before* it is read, so the question stays "did **this** node survive"
+        rather than "does something matching its locator exist now". Today both
+        callers pass a raw element out of ``find_elements``, and #835 P4 decided
+        *not* to wrap that path -- so the strip guards a case that cannot arise
+        yet. It is kept, and pinned by a test that hands this method a proxy on
+        purpose (`tests/e2e_selftest/test_row_helpers.py`), because an opt-out
+        that is only correct while nothing exercises it is a coincidence rather
+        than a guard.
         """
+        node = raw_reference(element)
         try:
-            self.scroll_into_view(element)
-            return element.is_displayed()
+            self.scroll_into_view(node)
+            return node.is_displayed()
         except StaleElementReferenceException:
             return False
 
@@ -1048,7 +1511,25 @@ class BasePage:
 
     @staticmethod
     def _aria_expanded(trigger: WebElement) -> str:
-        """Return *trigger*'s ``aria-expanded``, or ``'<stale>'`` if it unmounted."""
+        """Return *trigger*'s ``aria-expanded``, or ``'<stale>'`` if it unmounted.
+
+        The one staleness handler in this module that deliberately keeps its
+        healing (no :func:`raw_reference` here), because ``'<stale>'`` was never
+        a verdict: it is neither ``'true'`` nor ``'false'``, and
+        :meth:`is_select_open` falls through to the rendered listbox precisely
+        because a trigger that unmounted on the re-render its own opening caused
+        has *no* answer to give. A re-resolving trigger supplies the real one
+        from the re-rendered node -- which is what the listbox fallback was
+        approximating in the first place.
+
+        Its callers hand it a proxy (:meth:`open_select_in` resolves the trigger
+        through :meth:`wait_for_element_clickable`), so this path is live rather
+        than hypothetical. A trigger that is genuinely gone still reaches
+        ``'<stale>'``: the proxy raises ``ElementReResolutionError``, a
+        ``StaleElementReferenceException`` subclass, once its own budget is out.
+        It costs that budget to say so, which is why the answer is a fallback
+        signal and not something a poll spins on.
+        """
         try:
             return trigger.get_attribute("aria-expanded") or ""
         except StaleElementReferenceException:
@@ -1245,7 +1726,26 @@ class BasePage:
         )
 
     def _read_select_value(self, trigger: WebElement | None, field_name: str | None) -> str | None:
-        """Return the committed value of the Select that was just operated on."""
+        """Return the committed value of the Select that was just operated on.
+
+        The trigger read is a staleness *verdict*: ``None`` here makes
+        :meth:`_verify_select_committed` raise "cannot read back the value",
+        which is the loud outcome the whole verify-the-click mechanism exists
+        for. :func:`raw_reference` keeps it that way. A proxied trigger would
+        instead be marshalled through the liveness probe in
+        ``ReResolvingElement.id`` and re-resolve through
+        :data:`OPEN_SELECT_TRIGGER` -- a locator that requires
+        ``aria-expanded='true'``, i.e. a *still-open* dropdown, while this runs
+        after the option click has closed it. So healing could only ever spend
+        its 3 s budget and end in the same ``None``; stripping it keeps the
+        failure as fast as it is loud.
+
+        Today's only caller (:meth:`select_option_by_value`) resolves the trigger
+        with ``find_elements`` and hands over a raw element, and #835 P4 decided
+        that path stays unwrapped -- so this is a guard on the contract rather
+        than on present behaviour. Exercised anyway by
+        `tests/e2e_selftest/test_row_helpers.py`, which hands it a proxy.
+        """
         if field_name:
             value = self.driver.execute_script(
                 self._SELECT_VALUE_FROM_CONTAINER,
@@ -1256,7 +1756,9 @@ class BasePage:
         if trigger is None:
             return None
         try:
-            value = self.driver.execute_script(self._SELECT_VALUE_FROM_TRIGGER, trigger)
+            value = self.driver.execute_script(
+                self._SELECT_VALUE_FROM_TRIGGER, raw_reference(trigger)
+            )
         except StaleElementReferenceException:
             return None
         return None if value is None else str(value)
@@ -1454,11 +1956,21 @@ class BasePage:
         return exact + lines[len(exact) :]
 
     def get_all_row_text_fragments(self) -> list[list[str]]:
-        """Return :meth:`get_row_text_fragments` for every visible DataTable row."""
-        return [
-            self.get_row_text_fragments(row)
-            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
-        ]
+        """Return :meth:`get_row_text_fragments` for every visible DataTable row.
+
+        Re-read as a whole while the table moves (#835 P4), for the reason
+        :meth:`get_column_texts` gives: this owns its row lookup *and* reads
+        through every row it found, so a re-render mid-scan let a raw
+        ``StaleElementReferenceException`` out of what callers use as a plain
+        list assertion. Retrying the scan as a unit is also what keeps a partial
+        list mixed from two renders from escaping as a legitimate-looking result.
+        """
+        return self.retry_on_stale(
+            lambda: [
+                self.get_row_text_fragments(row)
+                for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
+            ]
+        )
 
     #: `MobileCard`'s own hooks. ``card-title`` is unconditional, so its
     #: absence means "this row renders no card" -- never "the title is
@@ -1563,12 +2075,22 @@ class BasePage:
         return scope.find_elements(By.CSS_SELECTOR, self.CHIP_ROOT_CSS)
 
     def get_column_chip_texts(self, col_id: str) -> list[str]:
-        """Return the chip labels of column *col_id*, across all visible rows."""
-        texts: list[str] = []
-        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            for scope in self._column_chip_scopes(row, col_id):
-                texts.extend(c.text for c in self._chip_elements(scope))
-        return texts
+        """Return the chip labels of column *col_id*, across all visible rows.
+
+        Re-read as a whole while the table moves (#835 P4) — see
+        :meth:`get_all_row_text_fragments`. This one reaches *two* levels
+        through the captured row (row -> chip scope -> chip), so it has the
+        longest window of the three in which a re-render can kill the reference.
+        """
+
+        def _scan() -> list[str]:
+            texts: list[str] = []
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+                for scope in self._column_chip_scopes(row, col_id):
+                    texts.extend(c.text for c in self._chip_elements(scope))
+            return texts
+
+        return self.retry_on_stale(_scan)
 
     def get_column_chip_colors(self, col_id: str) -> list[str]:
         """Return the MUI palette name of column *col_id*'s chips, across all rows.
@@ -1577,12 +2099,19 @@ class BasePage:
         class -- there is no product hook for a chip's colour -- so this reads
         the class by design. What it no longer does is *find* the chip by
         class: the scope comes from ``cell-<col_id>`` / ``card-chip-<col_id>``.
+
+        Re-read as a whole while the table moves (#835 P4) — see
+        :meth:`get_column_chip_texts`, whose scan shape this shares exactly.
         """
-        colors: list[str] = []
-        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            for scope in self._column_chip_scopes(row, col_id):
-                colors.extend(self._chip_colors(self._chip_elements(scope)))
-        return colors
+
+        def _scan() -> list[str]:
+            colors: list[str] = []
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+                for scope in self._column_chip_scopes(row, col_id):
+                    colors.extend(self._chip_colors(self._chip_elements(scope)))
+            return colors
+
+        return self.retry_on_stale(_scan)
 
     def _chip_colors(self, chips: list[WebElement]) -> list[str]:
         """Map each Chip onto its MUI palette name (``MuiChip-colorSuccess`` -> ``success``)."""
@@ -1632,15 +2161,64 @@ class BasePage:
             )
         return self._text_content(titles[0])
 
+    def require_row_primary_text(self, row: WebElement, col_id: str) -> str:
+        """:meth:`get_row_primary_text`, with an unreadable row as a *transient*.
+
+        The reader to use inside anything wrapped in :meth:`retry_on_stale`. A
+        row that renders none of its three identifying hooks is either mid-render
+        or wrongly addressed, and at one instant those are the same observation
+        (see :class:`TableNotSettled`); raising a retryable exception lets the
+        enclosing retry tell them apart by outliving the first. Without it the
+        ``AssertionError`` walks straight out through ``retry_on_stale``, which
+        catches only staleness -- measured as a hard failure in both
+        :meth:`get_column_texts` and :meth:`click_data_table_row`.
+
+        The original assertion's message is carried verbatim and kept as
+        ``__cause__``, so the diagnosis that survives the retry budget is the
+        specific one ("this row exposes neither 'cell-x' nor ...") rather than a
+        generic timeout.
+        """
+        try:
+            return self.get_row_primary_text(row, col_id)
+        except AssertionError as exc:
+            raise TableNotSettled(
+                f"{exc} Either the table is mid-render -- in which case the "
+                "enclosing retry will re-read it -- or the column id is wrong "
+                "for this table, in which case this message repeats until the "
+                "retry budget is out and is then the answer."
+            ) from exc
+
+    def row_primary_text_or_none(self, row: WebElement, col_id: str) -> str | None:
+        """*row*'s identifying text, or ``None`` while it is unreadable.
+
+        The sampling form, for a predicate that is polled: ``None`` means "this
+        row cannot be compared *yet*", covering both the row that went stale and
+        the row that is mid-render. Unreadable is not "different" -- treating it
+        as a mismatch is what made :meth:`click_data_table_row` reject a row that
+        was still there and merely further along (#835).
+        """
+        try:
+            return self.require_row_primary_text(row, col_id)
+        except StaleElementReferenceException:
+            # Includes `TableNotSettled`, which is the mid-render half.
+            return None
+
     def get_column_texts(self, col_id: str) -> list[str]:
         """Return the identifying text of every visible DataTable row.
 
-        Re-read as a whole on a stale row: a partial list mixed from two renders
-        would be worse than a retry, because it reads as a legitimate result.
+        Re-read as a whole while the table moves: a partial list mixed from two
+        renders would be worse than a retry, because it reads as a legitimate
+        result. That covers a row that went stale *and* -- since #835 P4, via
+        :meth:`require_row_primary_text` -- a row that is in the DOM but has not
+        rendered its cell yet, which used to escape as an ``AssertionError``.
+
+        An unreadable row is never answered with ``''``: an empty string is
+        indistinguishable from a legitimately blank cell, and would turn "the
+        deleted entry is gone" into a pass for the wrong reason.
         """
         return self.retry_on_stale(
             lambda: [
-                self.get_row_primary_text(row, col_id)
+                self.require_row_primary_text(row, col_id)
                 for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
             ]
         )
@@ -1655,6 +2233,16 @@ class BasePage:
         Reading ``.text`` off a captured row is itself a capture-then-use, so the
         scan is retried as a whole rather than returning ``None`` — "no such row"
         and "the table re-rendered mid-scan" must not collapse into one answer.
+
+        **The retry covers the scan, not the use.** The row handed back is a raw
+        reference to the render that was live when the scan ended, so a caller
+        that keeps it across a re-render holds a dead one and no mechanism here
+        can help -- ``retry_on_stale`` re-runs an action, and the action is over.
+        A caller that needs to *act* on the row wants
+        :meth:`click_data_table_row`, which keeps the lookup and the use inside
+        one retryable unit and re-finds by identity. This helper currently has no
+        call sites at all (checked across `tests/e2e/`, #835 P4), so the caveat
+        is a warning to the next caller rather than a live defect.
         """
 
         def _scan() -> WebElement | None:
@@ -1664,6 +2252,166 @@ class BasePage:
             return None
 
         return self.retry_on_stale(_scan)
+
+    # ── Truthful post-search settling ─────────────────────────────────────
+    # A `DataTable`'s search is **client-side**, behind a 300 ms input debounce
+    # (`DataTable.tsx`: `useDebounce(searchInput, 300)` feeding
+    # `tableState.setSearch`). Nothing is fetched, so no `loading-skeleton` ever
+    # mounts -- and `wait_for_loading_complete()`, which every search call site
+    # paired with the search, is therefore satisfied *immediately*, while the
+    # table still renders the previous, unfiltered rows. It is the
+    # unfalsifiable-absence poll its own docstring warns about, standing exactly
+    # where the strongest statement was needed.
+    #
+    # #835 measured the consequence. `provision_plant` searched for its own
+    # unique instance id, read `get_row_count()` off the still-unfiltered table
+    # and clicked row 0 -- the globally-first plant, a *stranger's* record. 19 of
+    # the 34 `--profile light` failures of run 31113673507 were that one gap, in
+    # two shapes: a `TimeoutException` out of `click_data_table_row` when the
+    # filter landed mid-click (the identity read before the click no longer
+    # exists after it), and `provision_plant`'s identity guard catching a
+    # foreign detail page when it landed just after. The driver-level implicit
+    # wait had been papering over it by delaying every lookup by up to 3 s,
+    # which was usually enough for the debounce to have fired first.
+    #
+    # The two waits below are the truthful replacements, and they are ordered:
+    # the chip proves the *filter* reached the table, the identity proves the
+    # *row* is the caller's. Neither can be satisfied by the state the table is
+    # leaving, which is the property `wait_for_loading_complete` lacked.
+
+    #: `DataTable`'s search chip. Rendered exactly when `tableState.search` is
+    #: non-empty -- i.e. in the first commit *after* the debounce propagated,
+    #: which is the same commit that recomputes the filtered `processedData`.
+    #: That coincidence is what makes the chip a statement about the rendered
+    #: **rows** rather than merely about the input box, whose value changes one
+    #: debounce earlier and therefore proves nothing.
+    SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
+
+    def wait_for_search_applied(
+        self, term: str, what: str = "DataTable", timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Wait until the table has re-rendered *filtered by* ``term``.
+
+        The post-condition of a `DataTable` search, and the one
+        :meth:`wait_for_loading_complete` cannot express (see the section
+        comment above). Keyed on the presence of the search chip carrying the
+        term, so it cannot be true before the filter exists.
+
+        Matches on the quoted term inside the chip's text because the chip reads
+        ``<i18n label>: "<term>"`` -- the label is translated, the quoted term is
+        not, so this stays locale-independent.
+        """
+        needle = f'"{term}"'
+
+        def _applied(driver: WebDriver) -> bool:
+            return any(
+                needle in (chip.get_attribute("textContent") or "")
+                for chip in driver.find_elements(*self.SEARCH_CHIP)
+            )
+
+        try:
+            self.poll(timeout).until(_applied)
+        except TimeoutException as exc:
+            # The read-back is itself a capture-then-use on a table that is by
+            # definition moving, so a chip dying here must not replace the
+            # diagnosis with a `StaleElementReferenceException` from the
+            # reporting code -- the failure would then name the reporter.
+            chips: list[str] = []
+            for chip in self.driver.find_elements(*self.SEARCH_CHIP):
+                try:
+                    chips.append((chip.get_attribute("textContent") or "").strip())
+                except StaleElementReferenceException:  # noqa: PERF203
+                    chips.append("<chip re-rendered while being read>")
+            mechanism = (
+                "No search chip is rendered at all, so `tableState.search` is "
+                "still empty: the term never arrived in the input, or this "
+                "table renders no searchable toolbar and must not be searched."
+                if not chips
+                else f"The rendered chip(s) read {chips!r}, so the table is "
+                "filtered by a different term. A React-controlled search box "
+                "keeps its previous value when `WebElement.clear()` is used "
+                "instead of `clear_and_fill`, and the new term is appended."
+            )
+            raise AssertionError(
+                f"{what}: the search for {term!r} never reached the table within "
+                f"{timeout}s. {mechanism} Reading rows here would read the "
+                "*unfiltered* table and act on whatever record happens to sort "
+                "first."
+            ) from exc
+
+    def wait_for_row_identity(
+        self,
+        index: int,
+        col_id: str,
+        expected: str,
+        rows_locator: Locator | None = None,
+        what: str = "DataTable row",
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> None:
+        """Wait until the row at *index* identifies as *expected*.
+
+        The check that makes an index-based row click sound: an index only means
+        anything relative to one render, so before capturing ``rows[index]`` a
+        caller that knows *which* record it wants must confirm the render it is
+        indexing into is the one it expects. :meth:`click_data_table_row`
+        protects the click by re-finding the row by identity, but it can only
+        protect the identity it was handed -- if that first read already came off
+        the wrong render, the guard faithfully defends the wrong row.
+
+        Matching is containment, not equality, because the identifying text is
+        read through :meth:`get_row_primary_text`, whose mobile fallback is the
+        card *title*. For the unique, per-run ids this is used with, containment
+        is exactly as falsifiable as equality: no other record's identifier can
+        contain them.
+
+        An unreadable row counts as "not yet", never as a mismatch -- see
+        :meth:`row_primary_text_or_none`.
+        """
+        locator = rows_locator or self.DATA_TABLE_ROWS
+
+        def _matches(driver: WebDriver) -> bool:
+            rows = driver.find_elements(*locator)
+            if not 0 <= index < len(rows):
+                return False
+            text = self.row_primary_text_or_none(rows[index], col_id)
+            return text is not None and expected in text
+
+        try:
+            self.poll(timeout).until(_matches)
+        except TimeoutException as exc:
+            rows = self.driver.find_elements(*locator)
+            found = [self.row_primary_text_or_none(row, col_id) for row in rows]
+            if not rows:
+                mechanism = (
+                    "The table renders no rows at all, so either the record was "
+                    "never created, or the filter in force excludes it."
+                )
+            elif not 0 <= index < len(rows):
+                mechanism = (
+                    f"Only {len(rows)} row(s) are rendered, so index {index} does "
+                    "not exist in this render."
+                )
+            elif any(text is not None and expected in text for text in found):
+                at = next(i for i, text in enumerate(found) if text and expected in text)
+                mechanism = (
+                    f"The expected record is rendered, but at index {at}, not "
+                    f"{index}. The table is sorted or filtered differently from "
+                    "what the caller assumed."
+                )
+            else:
+                mechanism = (
+                    f"Row {index} identifies as {found[index]!r}. The table is "
+                    "showing a render that does not contain the expected record "
+                    "-- typically the previous, unfiltered one, because the "
+                    "search has not been applied yet."
+                )
+            raise AssertionError(
+                f"{what}: row {index} never identified as {expected!r} within "
+                f"{timeout}s. Column {col_id!r} of the {len(rows)} rendered "
+                f"row(s) reads {found!r}. {mechanism} Clicking here would "
+                "activate a different record and every assertion after it would "
+                "be about that one."
+            ) from exc
 
     # ── Guarded row/card activation ───────────────────────────────────────
     # Two defects that kept re-entering the suite as per-page copies:
@@ -1824,18 +2572,21 @@ class BasePage:
         And the re-find *waits*. Mid-re-render the table briefly exposes no rows
         at all, so a first non-match means "not yet", not "gone" — raising on it
         immediately was the third thing #835 got wrong here.
+
+        **What the guard does not cover, measured (#835 P4).** It protects the
+        *click*, and it can only protect an identity it has already read. If the
+        table re-renders during that very first read, ``identity`` is never
+        assigned, the whole attempt is retried, and the index is resolved against
+        the new render — so a re-render that *reorders* the rows in that window
+        activates a different record. This is not a hole that can be closed here:
+        before the first read there is no identity to re-find by, and the
+        caller's ``index`` was itself derived from a render this method never
+        saw. It is bounded to that one window and pinned as a test
+        (`tests/e2e_selftest/test_row_helpers.py`) so the claim above is not read
+        as covering more than it does.
         """
         locator = rows_locator or self.DATA_TABLE_ROWS
         identity: str | None = None
-
-        def _row_identity(row: WebElement) -> str | None:
-            """This row's identifying text, or ``None`` while it is unreadable."""
-            try:
-                return self.get_row_primary_text(row, col_id)
-            except StaleElementReferenceException, AssertionError:
-                # A row mid-render exposes neither its cell nor its card title.
-                # Unreadable is not "different" — leave it to the next poll.
-                return None
 
         def _click() -> None:
             nonlocal identity
@@ -1843,11 +2594,18 @@ class BasePage:
                 # First attempt: nothing has been clicked yet, so the index is
                 # still the caller's own selection and safe to resolve.
                 row = self.require_index(self.driver.find_elements(*locator), index, what)
-                identity = self.get_row_primary_text(row, col_id)
+                # `require_` and not the bare reader: a row that has not rendered
+                # its cell yet must send us round the retry, not out of the
+                # helper with an AssertionError.
+                identity = self.require_row_primary_text(row, col_id)
             else:
                 row = self.poll(IMPLICIT_WAIT_EQUIVALENT).until(
                     lambda d: next(
-                        (r for r in d.find_elements(*locator) if _row_identity(r) == identity),
+                        (
+                            r
+                            for r in d.find_elements(*locator)
+                            if self.row_primary_text_or_none(r, col_id) == identity
+                        ),
                         False,
                     ),
                     f"{what} identified by {identity!r} went stale mid-click and did not "

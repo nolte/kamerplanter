@@ -6,7 +6,6 @@ plus the PhaseTransitionDialog interaction, into one cohesive page object.
 
 from __future__ import annotations
 
-from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -49,9 +48,6 @@ class PlantInstanceListExt(BasePage):
     def is_table_visible(self) -> bool:
         elements = self.driver.find_elements(*self.TABLE)
         return len(elements) > 0 and elements[0].is_displayed()
-
-    def has_empty_state(self) -> bool:
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     #: Column id of the identifying column (PlantInstanceListPage `columns`).
     INSTANCE_ID_COLUMN_ID = "instanceId"
@@ -115,12 +111,6 @@ class PlantInstanceListExt(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
-
-    def has_search_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
-    def has_sort_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
 
     def get_column_headers(self) -> list[str]:
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
@@ -252,13 +242,18 @@ class PlantInstanceDetailExt(BasePage):
     def get_phase_info_card(self) -> WebElement:
         return self.wait_for_element_visible(self.PHASE_INFO_CARD)
 
+    # Both readers wait for the card to appear before answering. Every caller is
+    # a positive assertion reached straight after a client-side navigation, so
+    # the bare ``find_elements`` they replace could not tell "React has not
+    # committed the detail route yet" from "the card is absent" — TC-REQ-001-J080
+    # failed on exactly that on run 31113673507, once #835 removed the implicit
+    # wait. `False` still means absent, it just now means absent after waiting.
+
     def is_phase_info_card_visible(self) -> bool:
-        elements = self.driver.find_elements(*self.PHASE_INFO_CARD)
-        return bool(elements) and elements[0].is_displayed()
+        return self.is_visible_within(self.PHASE_INFO_CARD)
 
     def is_plant_info_card_visible(self) -> bool:
-        elements = self.driver.find_elements(*self.PLANT_INFO_CARD)
-        return bool(elements) and elements[0].is_displayed()
+        return self.is_visible_within(self.PLANT_INFO_CARD)
 
     def has_phase_history(self) -> bool:
         elements = self.driver.find_elements(*self.PHASE_HISTORY)
@@ -288,13 +283,10 @@ class PlantInstanceDetailExt(BasePage):
 
     def is_transition_dialog_open(self) -> bool:
         # Stale-safe: an element unmounting mid fade-out is by definition gone.
-        for el in self.driver.find_elements(*self.TRANSITION_DIALOG):
-            try:
-                if el.is_displayed():
-                    return True
-            except StaleElementReferenceException:
-                continue
-        return False
+        # The verdict (and the opt-out that keeps it one) lives in
+        # `BasePage.is_any_displayed` -- see the "Staleness as a *verdict*" block
+        # in `base_page.py` for why it must not be allowed to heal.
+        return self.is_any_displayed(self.TRANSITION_DIALOG)
 
     def open_target_phase_select(self) -> None:
         """Open the target-phase dropdown (combobox-scoped, verified, loud)."""
@@ -376,13 +368,7 @@ class PlantInstanceDetailExt(BasePage):
     def is_confirm_dialog_visible(self) -> bool:
         # Stale-safe: the termination dialog animates out on cancel, so an element
         # can go stale between find and is_displayed() — treat that as "gone".
-        for el in self.driver.find_elements(*self.CONFIRM_DIALOG):
-            try:
-                if el.is_displayed():
-                    return True
-            except StaleElementReferenceException:
-                continue
-        return False
+        return self.is_any_displayed(self.CONFIRM_DIALOG)
 
     # ── Core-lifecycle-journey helpers (self-provisioning) ─────────────
 

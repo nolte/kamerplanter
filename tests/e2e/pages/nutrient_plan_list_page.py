@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import BasePage
+from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class NutrientPlanListPage(BasePage):
@@ -25,8 +27,11 @@ class NutrientPlanListPage(BasePage):
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
-    # MUI Dialog (create)
-    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root")
+    # MUI Dialog (create). Addressed by the app's own hook
+    # (`NutrientPlanCreateDialog.tsx`) rather than by `.MuiDialog-root`, which
+    # matches *whichever* dialog is open -- so "the create dialog is still open"
+    # and "some confirm dialog is open" were the same observation.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-create-dialog']")
 
     # Create form fields
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
@@ -103,14 +108,6 @@ class NutrientPlanListPage(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         self.clear_and_fill(search_input, "")
 
-    def has_search_chip(self) -> bool:
-        """Return True if the search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
-    def has_sort_chip(self) -> bool:
-        """Return True if the sort chip is visible."""
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
-
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
@@ -119,10 +116,6 @@ class NutrientPlanListPage(BasePage):
         """Return the text of the showing count element."""
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
-
-    def has_empty_state(self) -> bool:
-        """Return True if the empty state is shown."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     # ── Create dialog ──────────────────────────────────────────────────
 
@@ -168,9 +161,76 @@ class NutrientPlanListPage(BasePage):
         self.scroll_and_click(switch)
 
     def submit_create_form(self) -> None:
-        """Submit the create form."""
-        btn = self.wait_for_element(self.FORM_SUBMIT)
-        self.scroll_and_click(btn)
+        """Submit the create form.
+
+        Waits for the button to be *clickable*, not merely present. Presence is
+        satisfied by a button that is still `disabled` while the form finishes
+        validating, and clicking a disabled button is a silent no-op that leaves
+        the dialog open with no error to show for it — indistinguishable, from
+        the outside, from a create that was rejected.
+        """
+        self.scroll_and_click(self.wait_for_element_clickable(self.FORM_SUBMIT))
+
+    def wait_for_create_dialog_closed(self) -> None:
+        """Wait until the create dialog is gone, i.e. the plan really was created.
+
+        The read-back :meth:`submit_create_form` does not have, and an exact one
+        rather than a proxy: ``NutrientPlanCreateDialog.onSubmit`` calls
+        ``onCreated()`` -- which is what closes the dialog -- only **after**
+        ``await api.createNutrientPlan(...)`` resolves. A rejected create runs
+        ``handleError`` instead and leaves the dialog up, which TC-004-046
+        already relies on. So the dialog being gone means the POST returned 2xx,
+        and nothing weaker does.
+
+        It also removes a race the implicit wait had been paying for. Callers
+        used to follow the submit with ``wait_for_loading_complete()`` and then
+        ``open()``. That wait is an *absence* poll on a skeleton that never
+        mounts here, so its whole cost was the implicit wait inside its empty
+        ``find_element`` -- roughly 3 s, which is what let the POST land before
+        ``open()`` fired a hard navigation. #835 removed the implicit wait, the
+        pause went to zero, and the navigation could abort the create in flight:
+        TC-004-027 then found its freshly created plan missing from the list.
+
+        Fails with what the dialog is actually showing. The first version of
+        this let ``wait_for_element_hidden``'s bare ``TimeoutException`` out,
+        whose message is the empty string -- it proved the create had failed and
+        then said nothing about *why*, which is the diagnosis defect this whole
+        round has been removing from other people's code.
+        """
+        try:
+            self.poll(DEFAULT_TIMEOUT).until(EC.invisibility_of_element_located(self.CREATE_DIALOG))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"The nutrient-plan create dialog was still open {DEFAULT_TIMEOUT}s "
+                f"after submit, so `createNutrientPlan` never resolved 2xx — the "
+                f"plan does not exist. Submit button enabled: "
+                f"{self._submit_enabled()}. Field errors: {self._dialog_field_errors()}. "
+                f"Page alerts: {self._alert_texts()}. An enabled button with no "
+                f"error means the request failed or is still in flight; a disabled "
+                f"one means the form never validated and the click was a no-op."
+            ) from exc
+
+    def _submit_enabled(self) -> bool | None:
+        """Whether the dialog's submit button is enabled, or ``None`` if it is gone."""
+        buttons = self.driver.find_elements(*self.FORM_SUBMIT)
+        return buttons[0].is_enabled() if buttons else None
+
+    def _dialog_field_errors(self) -> list[str]:
+        """Every ``Mui-error`` helper text currently rendered inside the dialog."""
+        return [
+            (el.get_attribute("textContent") or "").strip()
+            for el in self.driver.find_elements(
+                By.CSS_SELECTOR,
+                "[data-testid='nutrient-plan-create-dialog'] .MuiFormHelperText-root.Mui-error",
+            )
+        ]
+
+    def _alert_texts(self) -> list[str]:
+        """Every ``role='alert'`` text on the page — the app's error notifications."""
+        return [
+            (el.get_attribute("textContent") or "").strip()
+            for el in self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']")
+        ]
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""

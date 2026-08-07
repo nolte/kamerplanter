@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import BasePage, DEFAULT_TIMEOUT
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class TaskQueuePage(BasePage):
@@ -399,13 +400,41 @@ class TaskQueuePage(BasePage):
 
     # ── Task lookup by name (self-provisioning journey) ────────────────
 
+    #: The states the queue settles into once its fetch has landed.
+    QUEUE_BRANCHES = (
+        (By.CSS_SELECTOR, "[data-testid^='task-card-']"),
+        (By.CSS_SELECTOR, "[data-testid^='care-card-care-']"),
+        (By.CSS_SELECTOR, "[data-testid='empty-state']"),
+    )
+
+    def wait_for_queue_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the queue rendered cards or its empty state; never raises.
+
+        An anchor for the readers, not an assertion: a queue that legitimately
+        shows none of the three is a state the caller must still be able to
+        observe.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(self.QUEUE_BRANCHES, "task queue content", timeout=timeout)
+
     def find_task_key_by_name(self, name: str) -> str | None:
         """Return the key of the task card whose text contains *name*.
 
         The outer card carries ``data-testid='task-card-{key}'``; this parses
         the key so the journey can target the correct complete-button without
         relying on card ordering.
+
+        Anchored on the queue having rendered its cards or its empty state
+        before the scan, at both polarities -- this reader backs
+        ``has_task_with_name`` too, which is asserted negatively. Without the
+        anchor a read taken right after ``open()`` scans an empty document, so a
+        presence caller sees ``None`` and an absence caller passes without
+        having looked. Both of this method's reload-poll callers re-navigate on
+        every attempt, which put every one of their samples in exactly that
+        window -- see `PflegeDashboardPage.has_care_card` for the case where CI
+        caught it.
         """
+        self.wait_for_queue_content()
         cards = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='task-card-']")
         for card in cards:
             testid = card.get_attribute("data-testid") or ""

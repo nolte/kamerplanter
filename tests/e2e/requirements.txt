@@ -1,4 +1,10 @@
-selenium>=4.25.0
+# Upper-bounded because `pages/_element_proxy.py` depends on Selenium internals
+# that are not public API: `WebElement._execute` and the private `_id` attribute
+# it reads (`remote/webelement.py:507`), plus `WebDriver._wrap_value`'s
+# element-detection contract (`remote/webdriver.py:410-416`). A major release is
+# free to rename either, and the re-resolving element reference would stop
+# healing. `<5` keeps that upgrade a reviewed decision instead of a silent one.
+selenium>=4.25.0,<5
 webdriver-manager>=4.0.0
 pytest>=8.3.0
 pytest-bdd>=8.1.0

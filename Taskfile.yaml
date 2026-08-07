@@ -239,9 +239,13 @@ tasks:
     desc: |
       Run the browser-free unit tests for the E2E harness itself
       (tests/e2e_selftest/): branch resolution in BasePage's settling helpers,
-      the sidebar-navigation fallback contract, and the shrink-only ratchet on
-      bare `navigate()` calls. No stack, no browser, no Grid — only `selenium`
-      needs to be importable.
+      the sidebar-navigation fallback contract, the shrink-only ratchet on bare
+      `navigate()` calls, and the re-resolving element reference in
+      pages/_element_proxy.py — what it heals, what it must not, and the budget
+      that bounds it. No stack, no browser, no Grid — only `selenium` needs to
+      be importable. The same tier runs in the required `static` gate through
+      the `e2e-selftest` pre-commit hook, so this task is the local preview of
+      a check that also blocks the PR.
     cmds:
       - python3 -m pytest tests/e2e_selftest {{.CLI_ARGS}}
 

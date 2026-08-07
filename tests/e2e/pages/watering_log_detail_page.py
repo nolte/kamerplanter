@@ -56,16 +56,16 @@ class WateringLogDetailPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return the text of all visible tabs."""
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         return [t.text for t in tabs if t.text]
 
     def get_tab_count(self) -> int:
         """Return the number of visible tabs."""
-        return len(self.driver.find_elements(*self.TABS))
+        return len(self.tab_elements(self.TABS))
 
     def click_tab(self, index: int) -> None:
         """Click the tab at *index*."""
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         self.scroll_and_click(self.require_index(tabs, index, "watering log detail tab"))
 
     def click_details_tab(self) -> None:

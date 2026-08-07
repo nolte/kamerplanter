@@ -114,9 +114,6 @@ class CropRotationPage(BasePage):
         items = self.driver.find_elements(*self.SUCCESSOR_LIST)
         return [i.find_element(By.CSS_SELECTOR, ".MuiListItemText-primary").text for i in items]
 
-    def has_empty_state(self) -> bool:
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
-
     def click_add_successor(self) -> None:
         self.close_mui_dropdown()
         time.sleep(0.5)  # Wait for MUI animation to complete before clicking

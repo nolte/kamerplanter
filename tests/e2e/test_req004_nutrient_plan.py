@@ -677,14 +677,43 @@ class TestNutrientPlanDetailPage:
         delete_plan_name = f"DeleteMe-{unique}"
         plan_list.fill_name(delete_plan_name)
         plan_list.submit_create_form()
-        plan_list.wait_for_loading_complete()
+        # Read-back on the arrange step, replacing a `wait_for_loading_complete()`
+        # whose only real effect here was the ~3 s the implicit wait charged for
+        # its empty lookup. That pause was what let the create POST land before
+        # the `open()` below fired a hard navigation; with the pause gone the
+        # navigation could abort the request, and the test then blamed the list
+        # for not showing a plan that was never persisted. The dialog closes only
+        # after `await api.createNutrientPlan(...)` resolves, so this is an exact
+        # post-condition and it fails *here* when the create fails.
+        plan_list.wait_for_create_dialog_closed()
 
-        # Navigate to it via list
+        # Navigate to it via list. The two waits below replace a
+        # `wait_for_loading_complete()` that proved nothing: the DataTable filter
+        # is client-side behind a 300 ms debounce, so no skeleton mounts and the
+        # poll returned while the table still rendered the *unfiltered* plans.
+        # `click_row(0)` then opened a seeded system plan, which renders no
+        # delete button at all (UI-NFR-018 R-012) -- reported on run 31113673507
+        # as an empty `TimeoutException` 15 s later, nowhere near the cause.
+        #
+        # The skip that stood here went with it: this plan was created by this
+        # test four lines above, so "could not find it" is a defect of the
+        # feature under test, not an unmet environmental precondition.
         plan_list.open()
         plan_list.search(delete_plan_name)
-        plan_list.wait_for_loading_complete()
-        if plan_list.get_row_count() == 0:
-            pytest.skip("Could not find the freshly created plan to delete")
+        plan_list.wait_for_search_applied(delete_plan_name, what="nutrient plan list")
+        plan_list.wait_for_row_identity(
+            0,
+            NutrientPlanListPage.NAME_COLUMN_ID,
+            delete_plan_name,
+            rows_locator=NutrientPlanListPage.TABLE_ROWS,
+            # With the create now proven above, a "0 rows" here can no longer
+            # mean "never created" — it would mean the plan exists but is not in
+            # what the page fetched. `fetchNutrientPlans` defaults to `limit=50`
+            # and the backend sorts by name server-side, while the DataTable
+            # search filters only the fetched slice. The two hypotheses this
+            # message names are therefore bisected by which step failed.
+            what=f"self-provisioned nutrient plan {delete_plan_name!r} (create confirmed)",
+        )
 
         plan_list.click_row(0)
         plan_list.wait_for_url_contains("/duengung/plans/")

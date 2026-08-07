@@ -176,12 +176,6 @@ class SiteListPageExt(BasePage):
         search_input.send_keys(Keys.CONTROL + "a")
         search_input.send_keys(Keys.BACKSPACE)
 
-    def has_search_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
-    def has_sort_chip(self) -> bool:
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
-
     def click_reset_filters(self) -> None:
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
 
@@ -194,9 +188,6 @@ class SiteListPageExt(BasePage):
 
     def has_table(self) -> bool:
         return len(self.driver.find_elements(*self.TABLE)) > 0
-
-    def has_empty_state(self) -> bool:
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     def has_no_search_results(self) -> bool:
         return len(self.driver.find_elements(*self.NO_SEARCH_RESULTS)) > 0

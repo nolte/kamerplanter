@@ -137,14 +137,6 @@ class HarvestBatchListPage(BasePage):
         search_input.clear()
         search_input.send_keys(Keys.BACKSPACE)
 
-    def has_search_chip(self) -> bool:
-        """Return True if a search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
-    def has_sort_chip(self) -> bool:
-        """Return True if a sort chip is visible."""
-        return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
-
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
@@ -157,10 +149,6 @@ class HarvestBatchListPage(BasePage):
         """Return the text of the showing count element."""
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
-
-    def has_empty_state(self) -> bool:
-        """Return True if the empty state is visible."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     # -- Quality grade chips ------------------------------------------------
 
@@ -289,9 +277,8 @@ class HarvestBatchListPage(BasePage):
         return any(el.is_displayed() for el in els) if els else False
 
     def is_page_visible(self) -> bool:
-        """Check whether the harvest list page container is displayed."""
-        els = self.driver.find_elements(*self.PAGE)
-        return len(els) > 0 and els[0].is_displayed()
+        """Check whether the harvest list page container is displayed (waits)."""
+        return self.is_visible_within(self.PAGE)
 
     def is_create_button_visible(self) -> bool:
         """Check whether the create button is displayed."""

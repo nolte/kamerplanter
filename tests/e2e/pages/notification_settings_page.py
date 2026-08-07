@@ -121,7 +121,7 @@ class NotificationSettingsPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return the visible tab labels in the AccountSettings tab strip."""
-        tabs = self.driver.find_elements(*self.TAB_BUTTONS)
+        tabs = self.tab_elements(self.TAB_BUTTONS)
         return [tab.text for tab in tabs if tab.is_displayed()]
 
     # ── Channel queries ─────────────────────────────────────────────────

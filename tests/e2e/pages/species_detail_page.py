@@ -13,7 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class SpeciesDetailPage(BasePage):
@@ -85,21 +85,26 @@ class SpeciesDetailPage(BasePage):
     # ── Tabs ───────────────────────────────────────────────────────────
 
     def get_tab_labels(self) -> list[str]:
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         return [t.text for t in tabs]
 
     def click_tab(self, index: int) -> None:
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         self.scroll_and_click(self.require_index(tabs, index, "species detail tab"))
 
     def click_tab_by_label(self, label: str) -> None:
         import time
 
-        # Wait for at least one tab to render (detail page may still be loading)
-        self.wait_for_element(self.TABS, timeout=15)
-        # Allow tabs to fully render
+        # `tab_elements` carries the "wait for the strip to render" half that was
+        # a separate `wait_for_element(self.TABS)` here. This page object had
+        # found the defect the whole suite has now been swept for, and fixed it
+        # in this one method; the wait is no longer this method's business.
+        #
+        # The sleep stays, and is a different concern: MUI mounts the strip
+        # before every `Tab` has its label laid out, and this reader matches on
+        # label text rather than on presence.
         time.sleep(0.5)
-        tabs = self.driver.find_elements(*self.TABS)
+        tabs = self.tab_elements(self.TABS)
         for tab in tabs:
             if tab.text.upper() == label.upper():
                 self.scroll_and_click(tab)
@@ -207,7 +212,16 @@ class SpeciesDetailPage(BasePage):
         at all, so a ``By.TAG_NAME, 'td'`` scan returned an empty list there and
         an "is the new cultivar listed?" assertion failed for the wrong reason
         (TC-REQ-001-J079).
+
+        Gated on the table having rows, on the short `IMPLICIT_WAIT_EQUIVALENT`
+        budget. The dialog closing proves the cultivar exists server-side, but
+        `CultivarListSection` then refetches, and during that refetch the table
+        renders nothing -- so the reader's single call site could still read
+        ``[]`` for a cultivar that was created. If no row ever arrives the list
+        is returned empty exactly as before and the caller's assertion still
+        fails, naming what it saw.
         """
+        self.await_presence(self.DATA_TABLE_ROWS, IMPLICIT_WAIT_EQUIVALENT)
         return self.get_column_texts(self.CULTIVAR_NAME_COLUMN_ID)
 
     def get_trait_chip_texts(self) -> list[str]:
@@ -282,20 +296,72 @@ class SpeciesDetailPage(BasePage):
             el.clear()
             el.send_keys(value)
 
+    CULTIVAR_CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='cultivar-create-dialog']")
+
     def submit_cultivar_form(self) -> None:
-        """Submit the cultivar-create dialog.
+        """Submit the cultivar-create dialog and wait for it to close.
 
         Scoped to the cultivar dialog -- the same ``[data-testid='form-
         submit-button']`` this used to address unscoped also matches the
         in-page "Bearbeiten" tab's FORM_SUBMIT and the growth-phase dialog's
         LIFECYCLE_FORM_SUBMIT (see #778 A5).
+
+        The dialog closing is the post-condition, and an exact one:
+        ``CultivarCreateDialog.onSubmit`` calls ``onCreated()`` -- which closes
+        it -- only after ``await api.createCultivar(...)`` resolves. Without it
+        the caller carried on into the refetch the create triggers, which is how
+        TC-REQ-001-J079 read ``[]`` off the Cultivars table for a cultivar the
+        backend had already answered ``201`` for (#835).
+
+        **This method asserts success, so only a caller that expects success may
+        use it.** A submit helper is shared between the happy path and the
+        rejection path, and its post-condition is not a property of the action --
+        it is a property of what the caller *intends*. Baking "the dialog
+        closed" in unconditionally broke TC-REQ-001-038, which submits an empty
+        name precisely so that validation keeps the dialog open. That is the
+        limit of "a reader is only as good as the action before it": the action
+        cannot know which outcome is being asserted.
+        A caller expecting rejection uses
+        :meth:`submit_cultivar_form_expecting_rejection`.
         """
+        self._click_cultivar_submit()
+        self.wait_for_element_hidden(self.CULTIVAR_CREATE_DIALOG)
+
+    def _click_cultivar_submit(self) -> None:
+        """Click the cultivar dialog's submit button. No post-condition."""
         self.wait_and_click(
             (
                 By.CSS_SELECTOR,
                 "[data-testid='cultivar-create-dialog'] [data-testid='form-submit-button']",
             )
         )
+
+    def submit_cultivar_form_expecting_rejection(self) -> None:
+        """Submit the cultivar dialog when the form is expected to be **rejected**.
+
+        Deliberately carries no post-condition of its own, and the name says so
+        rather than leaving a bare ``submit_cultivar_form()`` for the next reader
+        to mistake for an oversight. There is nothing here this method could
+        assert that the caller is not already asserting: the only observable
+        outcome of a rejected submit is that the dialog stays open, and asserting
+        it here would leave the caller's own assertion unable to fail.
+
+        The caller's post-condition is
+        :meth:`cultivar_dialog_stays_open`, which is the falsifiable form.
+        """
+        self._click_cultivar_submit()
+
+    def cultivar_dialog_stays_open(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether the cultivar dialog is **still** open after *timeout*.
+
+        The rejection-path post-condition, and stronger than the instantaneous
+        ``is_create_dialog_open()`` it replaces at that one call site: a dialog
+        that is merely on its way out still satisfies an instant read, so should
+        validation ever stop rejecting an empty name, the old check could pass
+        on the closing animation. This waits for the close it does *not* expect
+        and reports that it never came.
+        """
+        return not self.is_absent_within(self.CULTIVAR_CREATE_DIALOG, timeout)
 
     # ── Lifecycle tab (tab 2) ─────────────────────────────────────────
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage, DEFAULT_TIMEOUT
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class TenantSettingsPage(BasePage):
@@ -70,7 +70,7 @@ class TenantSettingsPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return the labels of all visible tabs."""
-        tabs = self.driver.find_elements(By.CSS_SELECTOR, ".MuiTabs-root button")
+        tabs = self.tab_elements((By.CSS_SELECTOR, ".MuiTabs-root button"))
         return [t.text for t in tabs if t.text]
 
     def is_tab_visible(self, label: str) -> bool:
@@ -79,7 +79,7 @@ class TenantSettingsPage(BasePage):
 
     def get_active_tab_index(self) -> int:
         """Return the index of the currently active tab (0-based)."""
-        tabs = self.driver.find_elements(By.CSS_SELECTOR, ".MuiTabs-root button")
+        tabs = self.tab_elements((By.CSS_SELECTOR, ".MuiTabs-root button"))
         for i, tab in enumerate(tabs):
             if "Mui-selected" in (tab.get_attribute("class") or ""):
                 return i
@@ -142,9 +142,13 @@ class TenantSettingsPage(BasePage):
         self.scroll_and_click(btn)
 
     def has_empty_state(self) -> bool:
-        """Check if the empty state message is displayed."""
-        elements = self.driver.find_elements(*self.EMPTY_STATE)
-        return len(elements) > 0 and elements[0].is_displayed()
+        """Check if the empty state message is displayed.
+
+        Kept rather than inherited from `BasePage`: this one also requires the
+        node to be *displayed*, which is the stronger claim. Waits for it, for
+        the reason the base version does.
+        """
+        return self.is_visible_within(self.EMPTY_STATE, IMPLICIT_WAIT_EQUIVALENT)
 
     def has_any_remove_buttons(self) -> bool:
         """Check if any remove-member buttons are visible (admin indicator)."""
@@ -179,9 +183,17 @@ class TenantSettingsPage(BasePage):
         return self.is_present(self.INVITE_EMAIL_FIELD)
 
     def is_create_link_button_visible(self) -> bool:
-        """Check if the Create Link button is present and displayed (admin indicator)."""
-        elements = self.driver.find_elements(*self.CREATE_LINK_BTN)
-        return len(elements) > 0 and elements[0].is_displayed()
+        """Check if the Create Link button is present and displayed (admin indicator).
+
+        Waits for the button to appear first: the only caller reads it directly
+        after :meth:`click_tab_invitations`, which waits for the *tab* to be
+        clickable and says nothing about the tab **panel** having rendered. The
+        bare ``find_elements`` this replaces therefore answered ``False`` for
+        "the panel is still mounting" — TC-REQ-024-016 failed that way on the
+        ``full-mobile`` profile of run 31113673507. ``False`` after the full
+        budget is still a genuine "no create-link button for this role".
+        """
+        return self.is_visible_within(self.CREATE_LINK_BTN)
 
     def get_invitation_count(self) -> int:
         """Return the number of invitations in the table."""

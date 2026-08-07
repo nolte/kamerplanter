@@ -174,15 +174,23 @@ class WateringLogListPage(BasePage):
     # -- Search and filter --------------------------------------------------
 
     def search(self, term: str) -> None:
-        """Type *term* into the search field."""
+        """Type *term* into the search field.
+
+        **This does not settle the table.** The comment that used to claim it
+        did -- "callers can rely on the result being settled once this method
+        returns" -- was wrong by exactly the margin that matters: the sleep
+        below is the *same* 300 ms as the debounce it is waiting out, so whether
+        the re-render has happened on return is a coin flip. A caller that then
+        reads or counts rows must gate on
+        :meth:`BasePage.wait_for_search_applied` (#835).
+        """
         import time
 
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
-        # debounce: bounded, justified (table-search-input has a 300ms
-        # debounce before it re-filters, so callers can rely on the result
-        # being settled once this method returns)
+        # Nudges past the bulk of the 300 ms debounce so a following poll
+        # usually succeeds on its first cycle. It is not the post-condition.
         time.sleep(0.3)
 
     def clear_search(self) -> None:
@@ -194,14 +202,6 @@ class WateringLogListPage(BasePage):
         search_input.send_keys(Keys.BACKSPACE)
         # debounce: bounded, justified (same 300ms debounce as search())
         time.sleep(0.3)
-
-    def has_search_chip(self) -> bool:
-        """Return True if a search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
-
-    def has_empty_state(self) -> bool:
-        """Return True if the empty state illustration is visible."""
-        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     def has_table(self) -> bool:
         """Return True if the DataTable is present."""
@@ -236,14 +236,51 @@ class WateringLogListPage(BasePage):
         return len(self.driver.find_elements(*self.PLANT_KEYS_AUTOCOMPLETE)) > 0
 
     def click_add_fertilizer(self) -> None:
-        """Click 'add fertilizer' and wait for the new row's remove button."""
-        add_btn = self.wait_for_element_clickable(self.ADD_FERTILIZER_BUTTON)
-        self.scroll_and_click(add_btn)
+        """Click 'add fertilizer' coordinate-free and wait for the new row.
+
+        Coordinate-free because this button is the shape
+        :meth:`BasePage.click_coordinate_free` was written for, reached from a
+        second direction. It is the *last* control of a scrolling
+        ``DialogContent`` -- the fertilizer rows render above it, the
+        performed-by and notes fields below -- so on the light profile it sits
+        below the dialog's fold. `scroll_into_view` centres it, then
+        ``WebElement.click()`` resolves an in-view centre point and dispatches
+        at those coordinates, and any residual scrolling in between puts the
+        point off the button. Nothing raises: the hit-test passed, the events
+        went out, and ``append()`` never ran. That is why the JS fallback in
+        `scroll_and_click` could not save it either -- the fallback only fires
+        on an exception, and this failure mode produces none.
+
+        Measured as a 2-in-5 flake on TC-004-106 (runs `20260806_204527` and
+        `20260806_214842`): the failure screenshot shows the button in view,
+        no fertilizer row, and 15 s of `wait_for_element_visible` spent on a row
+        that was never appended. The same class is on record for the mobile
+        profile in `click_coordinate_free`; this is its desktop instance.
+
+        Sound for this target: the button activates on ``onClick``
+        (``append({...})`` from `useFieldArray`), which is pure client-side
+        state, so ``HTMLElement.click()`` produces exactly the activation a
+        pointer does. `click_coordinate_free` rejects a disabled control or a
+        mousedown-only opener itself, so the soundness condition is enforced
+        rather than assumed.
+        """
+        self.click_coordinate_free(self.wait_for_element_clickable(self.ADD_FERTILIZER_BUTTON))
         self.wait_for_element_visible(self.REMOVE_FERTILIZER_BUTTON_0)
 
     def has_remove_fertilizer_button(self) -> bool:
-        """Return True if a remove-fertilizer button is present (row 0)."""
-        return len(self.driver.find_elements(*self.REMOVE_FERTILIZER_BUTTON_0)) > 0
+        """Return True if a remove-fertilizer button is present (row 0).
+
+        Waits, even though :meth:`click_add_fertilizer` already waited for this
+        very button -- because something between the two can take it away again
+        and put it straight back. TC-REQ-004-W004b failed with the action's wait
+        satisfied and this read empty one line later, with only a `screenshot()`
+        checkpoint in between: `_cdp_full_page_screenshot` passes
+        ``captureBeyondViewport``, which resizes the layout viewport to the
+        document height, and MUI re-evaluates every `useMediaQuery` on the
+        resulting resize. The checkpoint is not observation-neutral, so a raw
+        read taken after one is exposed to a re-render it did not cause.
+        """
+        return bool(self.await_presence(self.REMOVE_FERTILIZER_BUTTON_0))
 
     def select_first_plant(self) -> bool:
         """Type into the plant autocomplete and select the first option.

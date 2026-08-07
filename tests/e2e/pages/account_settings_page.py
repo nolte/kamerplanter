@@ -78,12 +78,12 @@ class AccountSettingsPage(BasePage):
 
     def get_tab_labels(self) -> list[str]:
         """Return the text labels of all visible tabs."""
-        tabs = self.driver.find_elements(*self.TAB_BUTTONS)
+        tabs = self.tab_elements(self.TAB_BUTTONS)
         return [tab.text for tab in tabs if tab.is_displayed()]
 
     def click_tab(self, label: str) -> None:
         """Click a tab by its label text (case-insensitive)."""
-        tabs = self.driver.find_elements(*self.TAB_BUTTONS)
+        tabs = self.tab_elements(self.TAB_BUTTONS)
         target = label.lower()
         for tab in tabs:
             if tab.text.strip().lower() == target:
@@ -94,7 +94,7 @@ class AccountSettingsPage(BasePage):
 
     def click_tab_by_index(self, index: int) -> None:
         """Click a tab by its zero-based index."""
-        tabs = self.driver.find_elements(*self.TAB_BUTTONS)
+        tabs = self.tab_elements(self.TAB_BUTTONS)
         self.scroll_and_click(self.require_index(tabs, index, "account settings tab"))
 
     # ── Profile tab ─────────────────────────────────────────────────────
