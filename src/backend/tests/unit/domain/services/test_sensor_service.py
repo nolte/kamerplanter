@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
+import structlog.testing
 
 from app.config.settings import settings
 from app.domain.models.sensor import Sensor
@@ -187,6 +188,141 @@ class TestGetLiveStateForSensors:
         result = service_no_ha.get_live_state_for_sensors(sensors)
         assert result["source"] == "unavailable"
         assert result["message"] == "Home Assistant not configured"
+
+
+class TestTwoSensorsOfOneMetricAreReportedNotSwallowed:
+    """Issue #977, item 3: the collapse stays, but it stops being silent.
+
+    ``values`` is keyed by ``metric_type``, so two sensors reporting the same
+    metric on one location cannot both be represented — the map physically holds
+    one. That map is a published contract and re-keying it is items 1 and 2 of
+    the issue; what is fixable without touching a consumer is that the loss was
+    reported *nowhere*.
+
+    A grower puts a second thermometer at the far end of a tent precisely because
+    a gradient is suspected. One of the two then disappeared from every consumer
+    of this map, with nothing to read anywhere.
+    """
+
+    @staticmethod
+    def _thermometer(name: str, entity: str, key: str) -> Sensor:
+        return Sensor(
+            _key=key,
+            name=name,
+            metric_type="temperature_celsius",
+            ha_entity_id=entity,
+            location_key="tent-1",
+        )
+
+    @staticmethod
+    def _state(entity: str, value: float) -> dict:
+        return {
+            "value": value,
+            "last_changed": "2026-03-01T12:00:00Z",
+            "entity_id": entity,
+            "unit": "°C",
+        }
+
+    def test_the_discarded_sensor_is_named_in_a_warning(self, service, mock_ha_client):
+        """Two thermometers, one tent: the reading that loses is named, with its sensor."""
+        sensors = [
+            self._thermometer("Tent front", "sensor.tent_front_temp", "sensor-front"),
+            self._thermometer("Tent back", "sensor.tent_back_temp", "sensor-back"),
+        ]
+        mock_ha_client.get_state.side_effect = [
+            self._state("sensor.tent_front_temp", 21.0),
+            self._state("sensor.tent_back_temp", 27.5),
+        ]
+
+        with structlog.testing.capture_logs() as logs:
+            result = service.get_live_state_for_sensors(sensors)
+
+        # The contract is untouched: one entry, keyed by metric type, last read wins.
+        assert list(result["values"]) == ["temperature_celsius"]
+        assert result["values"]["temperature_celsius"]["value"] == 27.5
+
+        collapses = [entry for entry in logs if entry["event"] == "ha_live_reading_discarded"]
+        assert len(collapses) == 1, "the lost reading was not reported"
+        report = collapses[0]
+        assert report["log_level"] == "warning"
+        assert report["metric_type"] == "temperature_celsius"
+        assert report["discarded_entity_id"] == "sensor.tent_front_temp"
+        assert report["discarded_sensor_key"] == "sensor-front"
+        assert report["kept_entity_id"] == "sensor.tent_back_temp"
+        assert report["kept_sensor_key"] == "sensor-back"
+        assert report["location_key"] == "tent-1"
+
+    def test_three_sensors_of_one_metric_report_every_loss(self, service, mock_ha_client):
+        """N sensors on one metric lose N-1 readings, and each loss is its own line.
+
+        A single "there was a collision" line would understate a rack of probes.
+        """
+        sensors = [
+            self._thermometer("Tent front", "sensor.tent_front_temp", "sensor-front"),
+            self._thermometer("Tent middle", "sensor.tent_middle_temp", "sensor-middle"),
+            self._thermometer("Tent back", "sensor.tent_back_temp", "sensor-back"),
+        ]
+        mock_ha_client.get_state.side_effect = [
+            self._state("sensor.tent_front_temp", 21.0),
+            self._state("sensor.tent_middle_temp", 24.0),
+            self._state("sensor.tent_back_temp", 27.5),
+        ]
+
+        with structlog.testing.capture_logs() as logs:
+            service.get_live_state_for_sensors(sensors)
+
+        discarded = [entry["discarded_entity_id"] for entry in logs if entry["event"] == "ha_live_reading_discarded"]
+        assert discarded == ["sensor.tent_front_temp", "sensor.tent_middle_temp"]
+
+    def test_distinct_metrics_are_not_reported(self, service, mock_ha_client):
+        """The counter-case that keeps this a signal.
+
+        Two sensors measuring *different* metrics both fit in the map, so nothing
+        is lost and nothing may be reported. A warning on every multi-sensor
+        location would be noise, and noise is how a real one gets filtered out.
+        """
+        sensors = [
+            self._thermometer("Tent front", "sensor.tent_front_temp", "sensor-front"),
+            Sensor(
+                _key="sensor-humidity",
+                name="Tent humidity",
+                metric_type="humidity_percent",
+                ha_entity_id="sensor.tent_humidity",
+                location_key="tent-1",
+            ),
+        ]
+        mock_ha_client.get_state.side_effect = [
+            self._state("sensor.tent_front_temp", 21.0),
+            self._state("sensor.tent_humidity", 55.0),
+        ]
+
+        with structlog.testing.capture_logs() as logs:
+            result = service.get_live_state_for_sensors(sensors)
+
+        assert set(result["values"]) == {"temperature_celsius", "humidity_percent"}
+        assert [entry for entry in logs if entry["event"] == "ha_live_reading_discarded"] == []
+
+    def test_a_second_sensor_that_returns_nothing_is_not_reported_as_discarded(self, service, mock_ha_client):
+        """A failed or empty read displaces nothing — reporting it would misattribute the loss.
+
+        The entity that answered ``None`` never entered the map, so the first
+        reading survives. Calling that a discarded reading would send whoever
+        reads the log looking for a collision that did not happen.
+        """
+        sensors = [
+            self._thermometer("Tent front", "sensor.tent_front_temp", "sensor-front"),
+            self._thermometer("Tent back", "sensor.tent_back_temp", "sensor-back"),
+        ]
+        mock_ha_client.get_state.side_effect = [
+            self._state("sensor.tent_front_temp", 21.0),
+            {"value": None, "last_changed": None, "entity_id": "sensor.tent_back_temp", "unit": "°C"},
+        ]
+
+        with structlog.testing.capture_logs() as logs:
+            result = service.get_live_state_for_sensors(sensors)
+
+        assert result["values"]["temperature_celsius"]["value"] == 21.0
+        assert [entry for entry in logs if entry["event"] == "ha_live_reading_discarded"] == []
 
 
 class TestGetLocationFrostWarning:

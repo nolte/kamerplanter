@@ -58,6 +58,20 @@ class SensorService:
     def get_live_state_for_sensors(self, sensors: list[Sensor], *, deadline: float | None = None) -> dict:
         """Read-through live query for a list of sensors — NO persistence.
 
+        ``values`` is keyed by ``metric_type``, so two sensors reporting the same
+        metric collapse to one entry and a reading is lost. That is a defect of the
+        map's shape, not of this loop: two thermometers at opposite ends of a tent
+        — exactly what a grower installs when a gradient is suspected — cannot both
+        be represented. Re-keying the map is issue #977 items 1 and 2 and breaks a
+        published contract (the Home Assistant integration, the live endpoint's
+        response schema, the frontend, the diary snapshot in #976), so it is not
+        done here.
+
+        What is done here is item 3: every dropped reading is reported as an
+        ``ha_live_reading_discarded`` warning naming both sensors, so the loss is
+        readable instead of invisible. The returned ``dict`` keeps its shape — a
+        new key would reach those same consumers.
+
         Args:
             sensors: The sensors to read. Those without an ``ha_entity_id`` are
                 skipped — they have nothing live to read.
@@ -88,6 +102,12 @@ class SensorService:
 
         values: dict = {}
         errors: list[dict] = []
+        # Which sensor produced the entry currently sitting under each metric
+        # type. Kept beside ``values`` rather than inside it: the entries are
+        # serialised straight into ``LiveStateResponse.values``, so an extra
+        # field there would be an API change (#977 items 1/2), while this stays
+        # local to the loop.
+        written_by: dict[str, Sensor] = {}
         for sensor in sensors:
             if not sensor.ha_entity_id:
                 continue
@@ -100,6 +120,26 @@ class SensorService:
             try:
                 result = self._ha_client.get_state(sensor.ha_entity_id, timeout=remaining)
                 if result and result["value"] is not None:
+                    displaced = written_by.get(sensor.metric_type)
+                    if displaced is not None:
+                        # Reported per lost reading, not once per collision: a rack
+                        # of probes on one metric loses N-1 of them, and a single
+                        # "there was a collision" line would understate that.
+                        logger.warning(
+                            "ha_live_reading_discarded",
+                            metric_type=sensor.metric_type,
+                            discarded_entity_id=displaced.ha_entity_id,
+                            discarded_sensor_key=displaced.key,
+                            discarded_sensor_name=displaced.name,
+                            kept_entity_id=sensor.ha_entity_id,
+                            kept_sensor_key=sensor.key,
+                            kept_sensor_name=sensor.name,
+                            location_key=sensor.location_key,
+                            site_key=sensor.site_key,
+                            tank_key=sensor.tank_key,
+                            reason="live_state_map_is_keyed_by_metric_type",
+                        )
+                    written_by[sensor.metric_type] = sensor
                     values[sensor.metric_type] = {
                         "value": result["value"],
                         "last_changed": result["last_changed"],
