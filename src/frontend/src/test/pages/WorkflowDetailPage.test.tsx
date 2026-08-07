@@ -786,6 +786,76 @@ describe('WorkflowDetailPage', () => {
     );
   });
 
+  // ── #965 item 3: a system workflow's children are read-only ──
+  //
+  // The backend now answers every child write below with a 422. Leaving the
+  // buttons in place would turn each of them into an error toast, which is worse
+  // than not offering them: the page would keep promising an edit it cannot
+  // perform. So the whole write surface of the templates tab is replaced by one
+  // explanation, and these tests pin *both* halves — the actions are gone, and
+  // the data plus the read-only jump to the linked activity are still there.
+
+  it('replaces the templates-tab write actions with one explanation for a system workflow', async () => {
+    useWorkflow({
+      workflow: makeWorkflow({ is_system: true }),
+      templates: [makeTemplate({ activity_key: 'act-1' })],
+      phases: [makePhase()],
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+
+    await screen.findByTestId('workflow-detail-page');
+    await user.click(screen.getByRole('tab', { name: i18n.t('pages.tasks.taskTemplates') }));
+
+    expect(await screen.findByTestId('system-workflow-children-readonly')).toHaveTextContent(
+      i18n.t('pages.tasks.systemWorkflowChildrenReadOnly'),
+    );
+
+    // Nothing that would write a child is offered any more.
+    expect(screen.queryByTestId('create-workflow-phase-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('create-task-template-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('add-activity-from-catalog-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('add-activity-to-phase-p1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('duplicate-task-template-tt-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('edit-task-template-tt-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('delete-task-template-tt-1')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('pages.tasks.movePhaseUp') }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('pages.tasks.editPhase') }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('pages.tasks.deletePhase') }),
+    ).not.toBeInTheDocument();
+
+    // The catalogue itself stays fully visible — #324 is what over-strictness costs.
+    expect(screen.getByTestId('task-template-row-tt-1')).toBeInTheDocument();
+    expect(screen.getByText('Gießen')).toBeInTheDocument();
+    expect(screen.getByTestId('open-activity-tt-1')).toBeInTheDocument();
+
+    // The two inline editors write through the same refused endpoint.
+    expect(screen.getAllByRole('switch')[0]).toBeDisabled();
+    expect(screen.getAllByRole('spinbutton')[0]).toBeDisabled();
+  });
+
+  it("keeps the templates-tab write actions for the tenant's own workflow", async () => {
+    useWorkflow({ templates: [makeTemplate()], phases: [makePhase()] });
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+
+    await screen.findByTestId('workflow-detail-page');
+    await user.click(screen.getByRole('tab', { name: i18n.t('pages.tasks.taskTemplates') }));
+
+    expect(await screen.findByTestId('create-workflow-phase-button')).toBeInTheDocument();
+    expect(screen.getByTestId('create-task-template-button')).toBeInTheDocument();
+    expect(screen.getByTestId('add-activity-from-catalog-button')).toBeInTheDocument();
+    expect(screen.getByTestId('duplicate-task-template-tt-1')).toBeInTheDocument();
+    expect(screen.getByTestId('delete-task-template-tt-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('system-workflow-children-readonly')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('switch')[0]).toBeEnabled();
+  });
+
   it('renders an error state when the workflow fails to load', async () => {
     server.use(
       http.get(WF_URL, () => new HttpResponse(null, { status: 500 })),

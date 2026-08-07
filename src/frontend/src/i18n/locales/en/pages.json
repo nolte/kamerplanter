@@ -3147,6 +3147,7 @@
       "taskTemplateDuplicated": "Task template duplicated.",
       "duplicateTemplate": "Duplicate",
       "noTaskTemplates": "No task templates yet.",
+      "systemWorkflowChildrenReadOnly": "This workflow belongs to the system catalogue. You cannot change its phases or task templates. Duplicate it from the workflow overview if you need your own editable copy.",
       "sequenceOrder": "Sequence Order",
       "triggerType": "Trigger Type",
       "triggerPhase": "Trigger Phase",

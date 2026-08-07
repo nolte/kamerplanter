@@ -3147,6 +3147,7 @@
       "taskTemplateDuplicated": "Aufgabenvorlage dupliziert.",
       "duplicateTemplate": "Duplizieren",
       "noTaskTemplates": "Noch keine Aufgabenvorlagen vorhanden.",
+      "systemWorkflowChildrenReadOnly": "Dieser Workflow gehört zum Systemkatalog. Seine Phasen und Aufgabenvorlagen kannst du nicht ändern. Dupliziere ihn in der Workflow-Übersicht, wenn du eine eigene, bearbeitbare Kopie brauchst.",
       "sequenceOrder": "Reihenfolge",
       "triggerType": "Auslöser-Typ",
       "triggerPhase": "Auslöser-Phase",

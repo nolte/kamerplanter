@@ -160,14 +160,22 @@ class TestTaskTemplateCreateResolvesItsParentWorkflow:
         assert [t["workflow_template_key"] for t in templates.inserted] == [OWN_WORKFLOW]
         assert [e["_from"] for e in edges.inserted] == [f"{col.WORKFLOW_TEMPLATES}/{OWN_WORKFLOW}"]
 
-    def test_a_globally_seeded_system_workflow_stays_referenceable(self):
-        """The hybrid catalogue direction — #324 is what over-strictness costs."""
-        client, templates, _ = _client()
+    def test_a_globally_seeded_system_workflow_resolves_but_refuses_the_write(self):
+        """#965 item 3; the route-level story is in
+        ``test_system_workflow_children_tenant_router``.
+
+        The hybrid-catalogue direction is unchanged — the workflow still
+        resolves, so #324 does not recur — but the write is refused with the
+        parent guard's 422, not this route's 404.
+        """
+        client, templates, edges = _client()
 
         resp = client.post(_url("/tasks/templates"), json=_body(SYSTEM_WORKFLOW))
 
-        assert resp.status_code == 201, resp.text
-        assert [t["workflow_template_key"] for t in templates.inserted] == [SYSTEM_WORKFLOW]
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["error_code"] == "VALIDATION_ERROR"
+        assert templates.inserted == []
+        assert edges.inserted == []
 
     def test_a_standalone_template_without_a_parent_is_still_creatable(self):
         client, templates, edges = _client()
