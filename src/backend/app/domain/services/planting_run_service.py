@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.common.datetimes import today_utc
 from app.common.enums import PlantingRunStatus
-from app.common.exceptions import InvalidRunStateError, ValidationError
+from app.common.exceptions import InvalidRunStateError, NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
@@ -271,11 +271,28 @@ class PlantingRunService:
         guard. No-op when the engines are unwired.
 
         ``tenant_key`` is the run's own — both engines read the slot's history and
-        neighbourhood, which are tenant-scoped since #927. Without a tenant the
-        checks are skipped rather than run unscoped.
+        neighbourhood, which are tenant-scoped since #927.
+
+        A run with no tenant **refuses to plant** rather than planting unchecked
+        (#952). This branch used to ``return`` on an empty ``tenant_key``, which
+        skipped crop-rotation and companion-planting validation altogether: a
+        fail-*open* on a business rule, in a codebase whose tenant handling is
+        otherwise fail-closed, and a silent divergence from the single-plant path
+        — ``PlantInstanceService.create_plant`` has no such guard and raises out
+        of ``_require_tenant_key`` on the same data. The two now agree that a
+        tenantless run is a defect to surface, not a validation to drop; the
+        error names the cause instead of surfacing as a bare ``ValueError`` from
+        two layers down. Runs are stamped on create and backfilled by
+        ``v0004_backfill_tenant_key``, so this is unreachable in normal operation.
         """
-        if self._rotation is None or self._companion is None or not tenant_key:
+        if self._rotation is None or self._companion is None:
             return
+        if not tenant_key:
+            raise ValidationError(
+                "This planting run carries no tenant, so its crop-rotation and companion-planting "
+                "checks cannot be run against the slot's history. Planting is refused rather than "
+                "performed unvalidated."
+            )
         for i, spec in enumerate(plant_specs):
             slot_key = available_slots[i].key if i < len(available_slots) else None
             if not slot_key:
@@ -340,6 +357,12 @@ class PlantingRunService:
             slot_key = available_slots[i].key if i < len(available_slots) else None
             species_phase_key, _ = initial_phases.get(spec["species_key"], ("", ""))
             plant = PlantInstance(
+                # The run's own tenant (#951). Batch-created instances were built
+                # without one although ``run.tenant_key`` was right here, so they
+                # persisted with the model default ``""`` — invisible to every
+                # tenant-scoped plant read, and the reason ``get_slot_for_plant``
+                # had to note this path as the one that does not stamp.
+                tenant_key=run.tenant_key,
                 instance_id=spec["instance_id"],
                 species_key=spec["species_key"],
                 cultivar_key=spec.get("cultivar_key"),
@@ -1019,17 +1042,48 @@ class PlantingRunService:
 
     # ── Nutrient plan assignment ───────────────────────────────────────
 
-    def assign_nutrient_plan(self, run_key: PlantingRunKey, plan_key: str, assigned_by: str = "") -> dict:
-        self.get_run(run_key)
+    def assign_nutrient_plan(
+        self,
+        run_key: PlantingRunKey,
+        plan_key: str,
+        assigned_by: str = "",
+        *,
+        tenant_key: str,
+    ) -> dict:
+        """Bind a run to a plan the caller's tenant may read (#950).
+
+        The run side was already verified by the router; the *plan* side was not
+        checked anywhere, so the run's ``follows_plan`` edge could be pointed at
+        another tenant's plan and read back through ``GET …/nutrient-plan``.
+        Read access, not ownership — global system plans stay assignable (#324).
+        """
+        self.get_run(run_key, tenant_key=tenant_key)
+        self._readable_plan_or_raise(plan_key, tenant_key)
         return self._repo.assign_nutrient_plan(run_key, plan_key, assigned_by)
 
-    def get_nutrient_plan(self, run_key: PlantingRunKey) -> dict | None:
-        self.get_run(run_key)
+    def _readable_plan_or_raise(self, plan_key: str, tenant_key: str):  # type: ignore[no-untyped-def]
+        """Resolve a plan through the repository's tenant read predicate (#950)."""
+        if self._nutrient_plan_repo is None:
+            return None
+        return self._nutrient_plan_repo.get_readable_or_raise(plan_key, tenant_key=tenant_key)
+
+    def get_nutrient_plan(self, run_key: PlantingRunKey, *, tenant_key: str) -> dict | None:
+        """The plan assigned to a run, resolved through the tenant predicate (#950).
+
+        This used to load the plan with a raw ``get_by_key`` and no tenant check
+        at all — the most direct of the two routes #950 describes. A stored edge
+        that points at a foreign plan (possible for rows written before #950)
+        now answers "no plan" rather than handing the plan over.
+        """
+        self.get_run(run_key, tenant_key=tenant_key)
         plan_key = self._repo.get_run_nutrient_plan_key(run_key)
         if plan_key is None:
             return None
         if self._nutrient_plan_repo is not None:
-            plan = self._nutrient_plan_repo.get_by_key(plan_key)
+            try:
+                plan = self._readable_plan_or_raise(plan_key, tenant_key)
+            except NotFoundError:
+                return None
             if plan:
                 return plan.model_dump(mode="json") if hasattr(plan, "model_dump") else plan
         return {"key": plan_key}

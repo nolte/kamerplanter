@@ -241,9 +241,9 @@ class WateringLogService:
         """A location's watering-log statistics, scoped to ``tenant_key`` (#927)."""
         return self._repo.get_stats_by_location(location_key, tenant_key=tenant_key)
 
-    def resolve_plant_names(self, plant_keys: list[str]) -> dict[str, str]:
-        """Batch-resolve plant keys → display names."""
-        return self._repo.resolve_plant_names(plant_keys)
+    def resolve_plant_names(self, plant_keys: list[str], *, tenant_key: str) -> dict[str, str]:
+        """Batch-resolve plant keys → display names, inside ``tenant_key`` (#952)."""
+        return self._repo.resolve_plant_names(plant_keys, tenant_key=tenant_key)
 
     def resolve_fertilizer_names(self, fert_keys: list[str]) -> dict[str, str]:
         """Batch-resolve fertilizer keys → display names (product_name + brand)."""
