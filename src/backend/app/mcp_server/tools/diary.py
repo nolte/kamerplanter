@@ -56,7 +56,7 @@ from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_MIME_TYPE, can_render, metadata_keys
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter
 from app.domain.models.mcp import McpToolResponse
-from app.domain.models.plant_diary_entry import DiaryAnalysis, PlantDiaryEntry
+from app.domain.models.plant_diary_entry import DiaryAnalysis, DiaryEnvironmentReading, PlantDiaryEntry
 from app.domain.services.plant_diary_service import (
     ANALYSIS_DISCLAIMER,
     DEFAULT_LEASE_SECONDS,
@@ -446,6 +446,27 @@ class GetDiaryEntry(ToolBase):
     It also carries the **previously persisted** ``analysis`` / ``analysis_error``
     (§4.3): a repeat analysis (AK-21) reaches the earlier finding through no other
     tool, and an agent that cannot see it re-analyses blind.
+
+    **``environment`` is part of the published contract** (REQ-013 §2.3a). The
+    reason this tool exists at all is to hand an analysing agent everything the
+    system knows about an observation, and the climate the plant was standing in
+    is the single most diagnostic piece of context available for free — "why are
+    the lower leaves browning" is a different question at 31 °C / 28 % RH than at
+    19 °C / 65 %. It is a **separate** key from ``measurements`` and stays one:
+    ``measurements`` is what a human typed, ``environment`` is what a machine
+    reported, and each reading carries its own ``source`` / ``measured_at`` /
+    ``origin`` so a recipe can weigh a sensor in the plant's own location against
+    a site-wide weather value. Merging the two would destroy exactly that.
+
+    ``measured_at`` is when the reading was taken and is regularly *older* than
+    ``created_at``; readings beyond the server's staleness bound are not captured
+    at all, so anything present here was measured close to the observation.
+
+    Read ``environment_status`` before concluding anything from an empty list:
+    ``no_source`` means nothing covers this plant, ``unavailable`` means the
+    reading did not get through, ``opted_out`` means the author declined it, and
+    ``not_attempted`` means the entry predates the feature. Only the first is a
+    statement about the garden.
     """
 
     class Input(TenantToolInput):
@@ -467,6 +488,11 @@ class GetDiaryEntry(ToolBase):
             # answers with an empty object rather than null, so a recipe can
             # iterate it unconditionally.
             "measurements": dict(entry.measurements or {}),
+            # REQ-013 §2.3a — machine-read conditions, deliberately NOT folded
+            # into ``measurements`` above. See the class docstring.
+            "environment": [_environment_payload(r) for r in entry.environment],
+            "environment_captured_at": _iso_z(entry.environment_captured_at),
+            "environment_status": str(entry.environment_status),
             "photo_refs": list(entry.photo_refs),
             "created_at": _iso_z(entry.created_at),
             # The bare ``user_key`` as stored — §4.3 shows no ``user/`` prefix,
@@ -958,7 +984,15 @@ class DiaryMeasurementsInput(BaseModel):
 
 @mcp_tool(name="add_plant_diary_entry", permission=McpPermission.WRITE)
 class AddPlantDiaryEntry(WriteToolBase):
-    """Record a diary entry (observation, problem, measurement) for a plant."""
+    """Record a diary entry (observation, problem, measurement) for a plant.
+
+    The environment snapshot (REQ-013 §2.3a) is captured on this path too, and
+    there is deliberately **no input field** to supply or suppress it: the values
+    are resolved server-side from the plant's own location, and an agent that
+    could write them could write anything. The result reports
+    ``environment_status`` so a recipe can see whether the entry it just filed
+    carries climate context.
+    """
 
     class Input(WriteToolInput):
         plant_key: str = Field(description="Key of the plant instance the entry belongs to.")
@@ -1033,6 +1067,11 @@ class AddPlantDiaryEntry(WriteToolBase):
                 # no tool for it — an agent that expects otherwise would poll
                 # list_pending_diary_analyses forever.
                 "analysis_state": str(created.analysis_state),
+                # REQ-013 §2.3a — whether the entry picked up the plant's
+                # conditions. The readings themselves are not echoed: they are a
+                # property of the stored entry and ``get_diary_entry`` is the
+                # tool that reads one back.
+                "environment_status": str(created.environment_status),
             },
             links=[
                 ctx.api_link(f"/plant-instances/{created.plant_key}/diary"),
@@ -1061,6 +1100,11 @@ class ListDiaryEntries(ToolBase):
       A search that matched against text this tool then refuses to return would
       be a half-open door — the REST overview keeps it for the UI, which does
       show the text.
+    * **No ``environment``.** The snapshot (REQ-013 §2.3a) is several
+      provenance-carrying records per entry and would dominate a row whose job is
+      to help *pick* an entry. It is on ``get_diary_entry``, which is the
+      deliberate read of one entry — the same line this tool already draws for
+      the free text.
 
     **Newest first, always.** The rows come back sorted by ``created_at``
     descending, with ``_key`` as the tiebreaker so paging cannot show one entry
@@ -1161,6 +1205,27 @@ def _analysis_payload(analysis: DiaryAnalysis) -> dict[str, Any]:
         "recipe_version": analysis.recipe_version,
         "analyzed_at": _iso_z(analysis.analyzed_at),
         "disclaimer": analysis.disclaimer,
+    }
+
+
+def _environment_payload(reading: DiaryEnvironmentReading) -> dict[str, Any]:
+    """One environment-snapshot reading in its published wire shape (REQ-013 §2.3a).
+
+    Every key here is a contract for the external recipe repository, exactly like
+    the ``analysis`` payload above. ``origin`` and ``source`` are both present and
+    are not the same question: ``origin`` says how close to the plant the value
+    was measured (``location`` / ``site`` / ``weather``), ``source`` says how it
+    was produced (REQ-005 §2 provenance, or the weather adapter's name).
+    """
+
+    return {
+        "metric_type": reading.metric_type,
+        "value": reading.value,
+        "unit": reading.unit,
+        "source": reading.source,
+        "measured_at": _iso_z(reading.measured_at),
+        "sensor_key": reading.sensor_key,
+        "origin": str(reading.origin),
     }
 
 

@@ -104,14 +104,24 @@ def create_plant_diary_entry(
 
     ``body.photo_refs`` is checked against the attachment catalogue by the
     service before anything is stored (SEC-003).
+
+    ``body.capture_environment`` is popped out of the payload rather than passed
+    through: it is an instruction to the *service*, not a field of the entry, and
+    the snapshot it governs is resolved server-side (REQ-013 §2.3a). Nothing a
+    client sends ever reaches ``entry.environment``.
     """
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     entry = PlantDiaryEntry(
         tenant_key=ctx.tenant_key,
         created_by=ctx.user_key,
-        **body.model_dump(),
+        **body.model_dump(exclude={"capture_environment"}),
     )
-    created = diary_service.create_entry(key, entry, actor_role=ctx.role)
+    created = diary_service.create_entry(
+        key,
+        entry,
+        actor_role=ctx.role,
+        capture_environment=body.capture_environment,
+    )
     return diary_entry_response_for_caller(created, diary_service=diary_service, ctx=ctx)
 
 

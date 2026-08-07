@@ -556,14 +556,25 @@ def create_plant_diary_entry(
     ``body.photo_refs`` is checked against the attachment catalogue by the
     service before anything is stored (SEC-003) — it is caller-supplied input
     that decides which images REQ-050 §4.4 later hands to an external model.
+
+    The environment snapshot (REQ-013 §2.3a) is captured here exactly as on the
+    standalone prefix — the entry hangs off the plant either way, so an entry
+    created through a run must not be poorer evidence than the same entry created
+    from the plant page.
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
     entry = PlantDiaryEntry(
         tenant_key=ctx.tenant_key,
         created_by=ctx.user_key,
-        **body.model_dump(),
+        **body.model_dump(exclude={"capture_environment"}),
     )
-    created = diary_service.create_entry(plant_key, entry, run_key=key, actor_role=ctx.role)
+    created = diary_service.create_entry(
+        plant_key,
+        entry,
+        run_key=key,
+        actor_role=ctx.role,
+        capture_environment=body.capture_environment,
+    )
     return _diary_response(created, diary_service, ctx)
 
 
