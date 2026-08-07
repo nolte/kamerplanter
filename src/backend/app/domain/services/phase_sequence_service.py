@@ -100,6 +100,19 @@ class PhaseSequenceService:
     def get_sequence_by_species(self, species_key: str) -> PhaseSequence | None:
         return self._repo.get_sequence_by_species(species_key)
 
+    def get_species_for_sequence(self, key: str) -> list[dict]:
+        """List the species bound to a sequence — the reverse lookup (issue #949).
+
+        This is what turns "this one plant looks wrong" into "a whole cohort sits on
+        the wrong template": seeing *Yucca gigantea* bucketed with Rosenkohl and
+        Porree is a systemic finding, not a per-plant complaint.
+
+        An unknown sequence raises ``NotFoundError``; an empty species list is a
+        valid result, mirroring :meth:`get_species_for_definition`.
+        """
+        self.get_sequence(key)
+        return self._repo.get_species_for_sequence(key)
+
     def list_sequences(
         self,
         offset: int = 0,

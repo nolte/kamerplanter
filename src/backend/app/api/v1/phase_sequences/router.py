@@ -260,8 +260,9 @@ def list_species_for_sequence(
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
     """List all species that use this phase sequence."""
-    service.get_sequence(key)  # ensure exists
-    return [PhaseSequenceSpeciesResponse(**row) for row in service._repo.get_species_for_sequence(key)]
+    # Goes through the service (which itself checks the sequence exists) rather than
+    # reaching into its private repository — the API layer must not skip a layer.
+    return [PhaseSequenceSpeciesResponse(**row) for row in service.get_species_for_sequence(key)]
 
 
 @router.get(

@@ -106,6 +106,18 @@ class GetSpeciesInfo(ToolBase):
                 "plant_category": get("plant_category"),
                 "description": get("description"),
                 "native_habitat": get("native_habitat"),
+                # ── The phase-sequence resolver's own discriminators (issue #949).
+                # Not cosmetic: ``plant_category``, ``photosynthesis_type`` and
+                # ``growth_habit`` are what decide which sequence a species lands on,
+                # so an agent assessing a resolution could otherwise see neither the
+                # inputs of the decision nor whether the record is complete enough to
+                # resolve at all. An empty ``photosynthesis_type`` alone is what put a
+                # perennial tree on a 126-day annual harvest cycle. ``_drop_empty``
+                # omits the nulls, so a sparse record reads as sparse — which is
+                # itself the answer to "is this record complete?".
+                "photosynthesis_type": get("photosynthesis_type"),
+                "indoor_suitable": get("indoor_suitable"),
+                "mature_height_cm": get("mature_height_cm"),
                 # ── Timing: the part the sowing calendar and task engine build on
                 "direct_sow_months": get("direct_sow_months"),
                 "harvest_months": get("harvest_months"),
