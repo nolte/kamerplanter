@@ -42,6 +42,10 @@ class FertilizerListPage(BasePage):
 
     # MUI Dialog
     CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root")
+    #: The create dialog by its own testid. `CREATE_DIALOG` above matches *any*
+    #: MUI dialog on the page, which is enough for "a dialog opened" but not for
+    #: "this dialog closed" — the statement that a create returned 2xx.
+    CREATE_DIALOG_EXACT = (By.CSS_SELECTOR, "[data-testid='fertilizer-create-dialog']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -200,6 +204,24 @@ class FertilizerListPage(BasePage):
     def submit_create_form(self) -> None:
         """Submit the create form."""
         self.wait_and_click(self.FORM_SUBMIT)
+
+    def wait_for_create_dialog_closed(self) -> None:
+        """Wait until the create dialog is gone, i.e. the fertilizer really was created.
+
+        The read-back :meth:`submit_create_form` does not have, and an exact one
+        rather than a proxy: ``FertilizerCreateDialog.onSubmit`` calls
+        ``onCreated()`` -- the only thing that clears ``createOpen`` on the
+        submit path -- **after** ``await api.createFertilizer(...)`` resolves. A
+        rejected create runs ``handleError`` instead and leaves the dialog up.
+        So the dialog being gone means the POST returned 2xx, and nothing weaker
+        does (#956/#966).
+
+        Scoped to the dialog's own testid rather than to :data:`CREATE_DIALOG`
+        (``.MuiDialog-root``): an unrelated dialog or a lingering MUI portal
+        would keep the generic selector alive and turn this wait into a timeout
+        that names the wrong thing.
+        """
+        self.wait_for_element_hidden(self.CREATE_DIALOG_EXACT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
