@@ -9,14 +9,22 @@ API only when it explicitly opts into raw dict mode (``raw=True``); otherwise
 the typed methods raise ``TypeError`` instead of silently returning dicts.
 """
 
+from enum import StrEnum
 from unittest.mock import MagicMock
 
 import pytest
 from arango.exceptions import DocumentInsertError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.data_access.arango.base_repository import BaseArangoRepository
+
+
+class Material(StrEnum):
+    """Test-local enum for the #968 re-validation tests."""
+
+    STEEL = "steel"
+    BRASS = "brass"
 
 
 class Widget(BaseModel):
@@ -375,6 +383,146 @@ class TestWrite:
         mock_db.collection.return_value.delete.side_effect = Exception("nope")
 
         assert repo.delete("w1") is False
+
+
+# ── #968: update() re-validates the model it is handed ───────────────────────
+
+
+class Gauge(BaseModel):
+    """Stand-in for a domain model: an enum field and a bounded number.
+
+    Mirrors ``NutrientPlan.reference_substrate_type`` (``SubstrateType``) and
+    ``water_mix_ratio_ro_percent`` (``int``, ``0..100``) — the shapes #966/#967
+    tripped over — without pulling a real domain model into a base-class test.
+    """
+
+    key: str | None = None
+    name: str
+    material: Material = Material.STEEL
+    pressure_bar: int = Field(default=0, ge=0, le=10)
+
+    model_config = {"populate_by_name": True}
+
+
+class GaugeRepo(BaseArangoRepository[Gauge]):
+    _model_cls = Gauge
+
+
+class TestUpdateRevalidatesTheModel:
+    """``update`` refuses a model that contradicts its own annotations.
+
+    No domain model sets ``validate_assignment=True``, so a service that writes
+    ``obj.material = "gravel"`` attribute-by-attribute puts a raw ``str`` into a
+    field annotated as an enum and Pydantic says nothing until a later read
+    trips over the type. These tests pin the choke-point check that stops such a
+    document reaching ArangoDB.
+    """
+
+    def test_enum_field_assigned_a_bogus_string_is_rejected(self, mock_db):
+        """The #967 shape: ``"gravel"`` into an enum field, via plain assignment."""
+        repo = GaugeRepo(mock_db, "gauges")
+        coll = mock_db.collection.return_value
+        gauge = Gauge(name="Manometer")
+        gauge.material = "gravel"  # type: ignore[assignment]  # exactly what a service does
+
+        with pytest.raises(ValidationError) as excinfo:
+            repo.update("g1", gauge)
+
+        assert excinfo.value.status_code == 422
+        assert [detail["field"] for detail in excinfo.value.details] == ["material"]
+        coll.update.assert_not_called()
+
+    def test_a_rejected_write_never_reaches_the_database(self, mock_db):
+        """The point of the guard: the invalid document is not persisted."""
+        repo = GaugeRepo(mock_db, "gauges")
+        coll = mock_db.collection.return_value
+        gauge = Gauge(name="Manometer")
+        setattr(gauge, "pressure_bar", 99)  # noqa: B010 — the setattr() write path
+
+        with pytest.raises(ValidationError):
+            repo.update("g1", gauge)
+
+        coll.update.assert_not_called()
+
+    def test_constraint_violation_is_reported_with_its_field(self, mock_db):
+        repo = GaugeRepo(mock_db, "gauges")
+        gauge = Gauge(name="Manometer")
+        gauge.pressure_bar = 99  # ``le=10``
+
+        with pytest.raises(ValidationError) as excinfo:
+            repo.update("g1", gauge)
+
+        detail = excinfo.value.details[0]
+        assert detail["field"] == "pressure_bar"
+        assert detail["code"] == "less_than_equal"
+
+    def test_every_offending_field_is_reported_not_just_the_first(self, mock_db):
+        repo = GaugeRepo(mock_db, "gauges")
+        gauge = Gauge(name="Manometer")
+        gauge.material = "gravel"  # type: ignore[assignment]
+        gauge.pressure_bar = 99
+
+        with pytest.raises(ValidationError) as excinfo:
+            repo.update("g1", gauge)
+
+        assert {detail["field"] for detail in excinfo.value.details} == {"material", "pressure_bar"}
+
+    def test_the_offending_value_is_not_echoed_back(self, mock_db):
+        """The rejected value can be personal data (NFR-011) — field and reason suffice."""
+        repo = GaugeRepo(mock_db, "gauges")
+        gauge = Gauge(name="Manometer")
+        gauge.material = "user@example.com"  # type: ignore[assignment]
+
+        with pytest.raises(ValidationError) as excinfo:
+            repo.update("g1", gauge)
+
+        rendered = excinfo.value.message + str(excinfo.value.details)
+        assert "user@example.com" not in rendered
+
+    def test_a_valid_model_is_written_unchanged(self, mock_db):
+        """No regression: the guard is invisible on the happy path."""
+        repo = GaugeRepo(mock_db, "gauges")
+        coll = mock_db.collection.return_value
+        coll.update.return_value = {"new": {"_key": "g1", "name": "Manometer", "material": "brass", "pressure_bar": 4}}
+        gauge = Gauge(name="Manometer")
+        gauge.material = Material.BRASS
+
+        result = repo.update("g1", gauge)
+
+        assert result.material is Material.BRASS
+        assert coll.update.call_args.args[0]["_key"] == "g1"
+
+    def test_a_composition_bound_view_is_covered_too(self, mock_db):
+        """Validation keys off ``type(model)``, not ``_model_cls``.
+
+        Composed views (``BaseArangoRepository(db, col, Gauge)``) and raw-mode
+        repositories reach :meth:`update` with a real model just as subclass-bound
+        ones do; the check must not depend on the binding style.
+        """
+        repo = BaseArangoRepository(mock_db, "gauges", Gauge)
+        gauge = Gauge(name="Manometer")
+        gauge.material = "gravel"  # type: ignore[assignment]
+
+        with pytest.raises(ValidationError):
+            repo.update("g1", gauge)
+
+    def test_update_fields_is_still_unchecked(self, mock_db):
+        """Characterisation, not endorsement — the hole #968 leaves open.
+
+        ``update_fields`` takes a bare ``dict`` and never materialises a model,
+        so the choke-point check cannot see it: the same ``"gravel"`` that
+        :meth:`update` now rejects is written straight through here. This test
+        exists so the gap is visible in the suite rather than only in a
+        docstring, and so that closing it later shows up as a deliberate change
+        to this expectation.
+        """
+        repo = GaugeRepo(mock_db, "gauges")
+        coll = mock_db.collection.return_value
+        coll.update.return_value = {"new": {"_key": "g1", "name": "Manometer", "material": "steel", "pressure_bar": 0}}
+
+        repo.update_fields("g1", {"material": "gravel"})
+
+        assert coll.update.call_args.args[0]["material"] == "gravel"
 
 
 # ── get_all / get_page ───────────────────────────────────────────────────────

@@ -7,8 +7,9 @@ import structlog
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError, DocumentUpdateError
 from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.data_access.arango import tenant_ownership
 from app.data_access.arango.query_builder import AQLBuilder
 
@@ -271,6 +272,80 @@ class BaseArangoRepository[TModel: BaseModel]:
         with :class:`NotFoundError` on the first missing/foreign reference.
         """
         tenant_ownership.verify_entities_ownership(self._db, collection, keys, tenant_key, entity_name=entity_name)
+
+    def _validate_model_before_write(self, model: BaseModel) -> None:
+        """Re-validate a full model on its way to the database (#968, probe).
+
+        No domain model sets ``validate_assignment=True`` (0 of 261 under
+        ``app/domain/models/``), so ``plan.reference_substrate_type = "gravel"``
+        stores a raw ``str`` in a field annotated ``SubstrateType`` and Pydantic
+        says nothing. #966/#967 hit exactly that through ``PUT
+        /nutrient-plans/{key}``: HTTP 200, and every later read would have
+        returned a string where the code expects an enum.
+
+        Turning ``validate_assignment`` on globally would validate on *every*
+        assignment, including the engines' hot loops. This check instead sits on
+        the inherited full-model write path, so the cost is one model validation
+        per persisted write — negligible next to the ArangoDB round-trip it
+        precedes — and no caller of :meth:`update` can forget it.
+
+        **It is not yet the only way in, and must not be read as one.** #968 was
+        written as if :meth:`update` were the single place a full model reaches
+        the database; measured, it is not. Six repositories override
+        :meth:`update` without calling ``super()`` — ``plant_instance`` and
+        ``site`` with a full model, ``tenant``/``membership``/``invitation``/
+        ``location_assignment`` with a ``dict`` under a name that looks like this
+        one — and 33 hand-written repository methods dump a model and write it
+        themselves. 21 of those go through :meth:`_to_doc`, which is the wider
+        funnel a follow-up should aim at if this guarantee is to hold everywhere
+        rather than only where the base method is used.
+
+        The value is checked against ``type(model)`` rather than the bound
+        ``_model_cls``, so composed views and raw-mode repositories are covered
+        too, and a caller that passes a *different* model type is still checked
+        against the annotations it actually carries.
+
+        The dump is taken ``by_alias=True`` and re-validated, mirroring how
+        :meth:`_wrap` reconstructs a document (``model_cls(**doc)``). Serializer
+        warnings are suppressed (``warnings=False``): an invalid value makes the
+        serializer complain *and* the validator reject, and the validator is the
+        one that carries the field, the reason and a status code.
+
+        **This does not cover :meth:`update_fields`.** That path writes a caller
+        -built ``dict`` straight into the document and never materialises a full
+        model, so there is nothing here to validate; see its docstring for the
+        caller obligation that stands in for this check.
+
+        Raises:
+            ValidationError: The model contradicts its own annotations. 422, with
+                one detail per offending field. The offending *value* is
+                deliberately absent from both the response and the log — it can
+                be personal data (NFR-011) and the field plus the reason already
+                identify the defect.
+        """
+        model_cls = type(model)
+        try:
+            model_cls.model_validate(model.model_dump(by_alias=True, warnings=False))
+        except PydanticValidationError as exc:
+            details = [
+                {
+                    "field": ".".join(str(part) for part in error["loc"]),
+                    "reason": error["msg"],
+                    "code": error["type"],
+                }
+                for error in exc.errors()
+            ]
+            logger.error(
+                "repository_write_rejected_invalid_model",
+                collection=self._collection_name,
+                model=model_cls.__name__,
+                fields=[detail["field"] for detail in details],
+                codes=[detail["code"] for detail in details],
+            )
+            raise ValidationError(
+                f"{model_cls.__name__} does not satisfy its own field types and was not written.",
+                details=details,
+            ) from exc
 
     def _verify_owned_references(self, model: BaseModel) -> None:
         """Ownership-verify every declared foreign reference before a write (#948).
@@ -546,6 +621,16 @@ class BaseArangoRepository[TModel: BaseModel]:
         return self._wrap(self._insert_doc(model, default_now_fields=default_now_fields))
 
     def update(self, key: str, model: TModel) -> TModel:
+        """Replace a document from a full model, re-validating it first (#968).
+
+        Every field is checked against its own annotation before anything is
+        written, because no domain model sets ``validate_assignment=True`` and
+        the services reach this method with objects they mutated attribute by
+        attribute. See :meth:`_validate_model_before_write` for why the check
+        lives here rather than on the models, and for the
+        :meth:`update_fields` hole it does not close.
+        """
+        self._validate_model_before_write(model)
         return self._wrap(self._update_doc(key, model))
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> TModel:
@@ -566,6 +651,15 @@ class BaseArangoRepository[TModel: BaseModel]:
         (``_key``/``_id``/``_rev``/``_from``/``_to``) are stripped defensively, so
         a payload can neither redirect the write onto another document nor
         re-point an edge; every *domain* field it names is still written.
+
+        **No type check (#968).** :meth:`update` re-validates the full model it
+        is handed; this method cannot, because it never sees one — ``fields`` is
+        a bare ``dict`` and the stored document it merges into is not read back
+        first. A ``{"reference_substrate_type": "gravel"}`` passed here is still
+        persisted as a raw string. The caller obligation above is therefore the
+        *only* thing standing between this method and an invalid document: build
+        ``fields`` from a validated schema's ``model_dump()``, which types each
+        value on the way in, rather than from a hand-rolled dict.
         """
         return self._wrap(self._update_doc_fields(key, fields))
 
