@@ -160,6 +160,9 @@ Navigiere zu **Aufgaben → Workflow-Templates** (`/aufgaben/workflows`). Kamerp
 !!! tip "Aufgaben passen sich der Wachstumsphase an"
     Aufgaben, die an eine bestimmte Wachstumsphase gebunden sind (z.B. „Auf 12/12 umstellen" bei Cannabis SOG), werden beim Anwenden mit dem Status **Ruhend** angelegt und erst aktiviert, sobald die Pflanze diese Phase tatsächlich erreicht.
 
+!!! note "System-Vorlagen sind schreibgeschützt — dupliziere sie zum Anpassen"
+    Die vier System-Vorlagen gehören zum Systemkatalog und stehen allen Mandanten gleichermaßen zur Verfügung. Deshalb lassen sich weder ihre Phasen noch ihre Aufgabenvorlagen ändern — auf der Detailseite einer System-Vorlage fehlen entsprechend die Schaltflächen zum Hinzufügen, Bearbeiten und Löschen von Phasen und Aufgabenvorlagen, und auch der Aktiv-Schalter sowie das Tage-Offset-Feld einzelner Aufgabenvorlagen sind deaktiviert. Möchtest du eine System-Vorlage an deine Bedürfnisse anpassen, **dupliziere** sie zunächst über die Schaltfläche **Duplizieren** in der Workflow-Übersicht: Die Kopie übernimmt alle Phasen und Aufgabenvorlagen und gehört danach vollständig dir — sie ist frei bearbeitbar.
+
 ### Schritt 2: Template anwenden
 
 1. Klicke auf **Template anwenden** neben dem gewünschten Template.

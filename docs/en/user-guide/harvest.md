@@ -15,10 +15,16 @@ Harvest management guides you from observing harvest maturity through documentin
 
 ### Expected Harvest Date
 
-For plants with a harvest phase, Kamerplanter shows an **expected harvest date** on the plant detail page. It is calculated from the planting date plus the sum of the planned phase durations (growth phase management) and additionally shows the remaining days or an overdue indicator. For perennial plants or species without a defined harvest phase, no date appears — here you rely entirely on on-site observation.
+For plants with a harvest phase, Kamerplanter shows an **expected harvest date** on the plant detail page. It is calculated from the planting date plus the sum of the planned phase durations (growth phase management) and additionally shows the remaining days or an overdue indicator. No date appears for perennial plants, for species without a defined harvest phase, or for plant species that master data marks as not yielding a harvest at all (purely ornamental plants, for example). In these cases you rely entirely on on-site observation.
 
-!!! info "Maturity observation system — API only"
-    Kamerplanter also provides a data model for plant-specific ripeness indicators (trichomes, brix, foliage die-back, colour, and others) with individual observations and a weighted readiness score. This system is fully usable via the API but is not yet wired up to a frontend surface — you cannot currently operate it through menus. Until it is connected, use the manual maturity indicators below.
+### Harvest Readiness Panel and Ripeness Observations
+
+For species that yield a harvest, the plant detail page also shows a dedicated **Harvest Readiness** panel. It calculates an **overall score (0–100)**, a **recommendation** (for example "Optimal," "Approaching," or "Developing"), and an indicator breakdown with stage, individual score, reliability and weighted contribution per indicator — all from the ripeness observations you record (trichomes, brix, foliage die-back, colour, and others).
+
+If no observations exist yet for the plant, the panel shows a corresponding hint instead of an uninformative score of 0. Use the **"Record Ripeness Observation"** button to enter a new measurement right here (indicator, observer, ripeness stage, estimated days to harvest, notes) — the panel then refreshes the assessment automatically.
+
+!!! note "Panel does not appear for species without a harvest"
+    If a species is explicitly marked in master data as not yielding a harvest, Kamerplanter hides the harvest readiness panel for that plant entirely, the same rule as for the expected harvest date above. If the field is missing, for imported species without a curated value, the plant counts as harvestable and the panel appears.
 
 ### Maturity Indicators by Plant Type
 
