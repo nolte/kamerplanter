@@ -152,41 +152,54 @@ def update_tenant(
     key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminTenantUpdate,
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Update a tenant. Platform admin only."""
-    db = get_db()
-    collection = db.collection(col.TENANTS)
+    """Update a tenant. Platform admin only.
 
-    existing = collection.get(key)
-    if not existing:
-        raise NotFoundError("Tenant", key)
+    Routes through ``TenantService.update_tenant`` (#997). This endpoint used to
+    call ``get_db()`` and write to ``db.collection(TENANTS)`` from here, which
+    put the Presentation layer straight onto Persistence (NFR-001) and — the
+    part that actually bit — outside every guard the repository layer applies:
+    the #968/#982/#996 model re-validation, the reserved-attribute strip, the
+    error-code-1202 → :class:`NotFoundError` mapping, and ``updated_at``
+    maintenance. Each invariant added to the repositories since simply did not
+    reach this path, and nothing signalled that.
 
+    Two consequences of the move, both intended:
+
+    * ``AdminTenantUpdate.name`` is a bare ``str | None`` where the
+      tenant-scoped ``TenantUpdateRequest`` carries ``min_length``/
+      ``max_length``. Names the domain forbids (empty, blank, one character,
+      over 200 characters) were persisted verbatim; they are now rejected by
+      ``TenantEngine.validate_tenant_name`` and the ``Tenant`` model, 422.
+    * A rename now **re-derives the slug**, exactly as ``PATCH /t/{slug}``
+      already does, so an admin rename can no longer leave a slug contradicting
+      the tenant's name. The new slug is returned in the response.
+
+    ``is_active`` is the one field the tenant-scoped request schema does not
+    carry; ``update_tenant`` takes a partial payload and does not refuse it, so
+    the platform-admin path needs no separate service method — only the closed
+    ``AdminTenantUpdate`` schema that keeps ``owner_user_key``, ``is_platform``,
+    ``tenant_type``, ``slug`` and ``settings`` out of it.
+    """
     update_data = body.model_dump(exclude_none=True)
-    if update_data:
-        update_data["updated_at"] = datetime.now(UTC).isoformat()
-        collection.update({"_key": key, **update_data})
-        existing = collection.get(key)
+    tenant = tenant_service.update_tenant(key, update_data) if update_data else tenant_service.get_tenant(key)
 
-    # Compute member_count
-    member_count_cursor = db.aql.execute(
-        "FOR m IN @@col FILTER m.tenant_key == @key AND m.is_active == true COLLECT WITH COUNT INTO c RETURN c",
-        bind_vars={"@col": col.MEMBERSHIPS, "key": key},
-    )
-    member_count = next(member_count_cursor, 0)
+    member_count = sum(1 for member in tenant_service.list_members(key) if member.is_active)
 
     return AdminTenantResponse(
-        key=existing["_key"],
-        name=existing["name"],
-        slug=existing["slug"],
-        tenant_type=existing.get("tenant_type", "personal"),
-        description=existing.get("description"),
-        owner_user_key=existing.get("owner_user_key", ""),
-        is_active=existing.get("is_active", True),
-        is_platform=existing.get("is_platform", False),
-        max_members=existing.get("max_members", 1),
+        key=tenant.key or key,
+        name=tenant.name,
+        slug=tenant.slug,
+        tenant_type=tenant.tenant_type,
+        description=tenant.description,
+        owner_user_key=tenant.owner_user_key,
+        is_active=tenant.is_active,
+        is_platform=tenant.is_platform,
+        max_members=tenant.max_members,
         member_count=member_count,
-        created_at=existing.get("created_at"),
-        updated_at=existing.get("updated_at"),
+        created_at=tenant.created_at,
+        updated_at=tenant.updated_at,
     )
 
 
