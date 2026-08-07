@@ -550,6 +550,57 @@ class DiaryAnalysisState(StrEnum):
     FAILED = "failed"
 
 
+class DiaryEnvironmentOrigin(StrEnum):
+    """Which level of the REQ-005 fallback chain answered a snapshot reading.
+
+    Not the same thing as the reading's ``source`` (REQ-005 §2 provenance:
+    ``ha_auto``, ``mqtt_auto``, ``manual``, …). ``source`` says *how* the value
+    was produced, ``origin`` says *how close to the plant* it was measured — a
+    ``manual`` entry on the location's own sensor is better evidence for this
+    plant than an ``ha_auto`` reading from a sensor at the far end of the site.
+    Both are needed to read the record honestly, so both are stored.
+
+    There is deliberately no ``slot`` level: :class:`~app.domain.models.sensor.Sensor`
+    attaches to a tank, a site or a location — never to a slot — so the chain
+    starts at the location even though a plant may name a ``slot_key``.
+    """
+
+    LOCATION = "location"
+    SITE = "site"
+    WEATHER = "weather"
+
+
+class DiaryEnvironmentStatus(StrEnum):
+    """Outcome of the environment capture on a diary entry (REQ-013 §2.3a).
+
+    An empty ``environment`` list on its own is ambiguous — it could mean "no
+    sensor covers this plant", "Home Assistant was down", or "this entry predates
+    the feature". Those are three different statements about the same document,
+    and only one of them is a reason to distrust the *absence* of numbers. This
+    enum is what tells them apart; the readings list alone never can.
+
+    ``NOT_ATTEMPTED`` is the default, which is exactly what a document written
+    before the feature means: nothing was tried when it was written.
+    """
+
+    #: No capture ran — an entry written before the feature existed, or an
+    #: installation with the capture switched off.
+    NOT_ATTEMPTED = "not_attempted"
+    #: The author declined the snapshot on the create dialog.
+    OPTED_OUT = "opted_out"
+    #: The chain ran cleanly and produced at least one reading.
+    CAPTURED = "captured"
+    #: The chain ran cleanly and found nothing — no sensor and no current
+    #: weather record covers this plant. ``environment`` is ``[]``, and that is
+    #: the *truth* rather than a failure.
+    NO_SOURCE = "no_source"
+    #: The chain was cut short: a source errored, or the capture ran out of its
+    #: latency budget. ``environment`` holds whatever answered before that — a
+    #: non-empty list here means a **partial** snapshot, an empty one means
+    #: nothing got through. Never a reason to reject the entry.
+    UNAVAILABLE = "unavailable"
+
+
 class TankType(StrEnum):
     NUTRIENT = "nutrient"
     IRRIGATION = "irrigation"
