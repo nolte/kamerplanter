@@ -137,23 +137,57 @@ class TestBotanicalFamilyListPage:
         Spec: TC-001-003 -- Suchfunktion — Filter zuruecksetzen.
         """
         family_list.open()
-        initial_count = family_list.get_row_count()
+        term = "Fabaceae"
+        names_before = family_list.get_first_column_texts()
+        # The arrange has to be verified, not assumed: with no family outside the
+        # term's own match set there is nothing for the reset to restore, and
+        # every assertion below would hold for a reset button that does nothing.
+        assert [n for n in names_before if term.lower() not in n.lower()], (
+            f"TC-REQ-001-010 FAIL: The unfiltered family list must contain at least "
+            f"one family that {term!r} excludes, otherwise this test cannot tell a "
+            f"working reset from a broken one. It lists {names_before!r}."
+        )
 
-        family_list.search("Fabaceae")  # debounce handled inside the page object
-        filtered_count = family_list.get_row_count()
+        family_list.search(term)  # typing only; the 300 ms sleep inside is a bet
+        # …and this is the check that bet needs: the chip is rendered in the same
+        # commit that recomputes the filtered rows, so nothing read before it is
+        # a statement about the filter.
+        family_list.wait_for_search_applied(term, what="botanical family list")
+        names_filtered = family_list.get_first_column_texts()
         screenshot("TC-REQ-001-010_filtered", "Family list filtered by 'Fabaceae'")
 
-        assert filtered_count <= initial_count, (
-            "TC-REQ-001-010 FAIL: Filtered count should be less or equal"
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it (#956).
+        # `name` is the only searchable column that can carry this term (the
+        # others hold common names, translated enum labels and a species count),
+        # so the filtered list must name Fabaceae and nothing else.
+        assert names_filtered and all(term.lower() in n.lower() for n in names_filtered), (
+            f"TC-REQ-001-010 FAIL: Filtering by {term!r} must leave only families "
+            f"whose name carries it, but the list reads {names_filtered!r} (it held "
+            f"{len(names_before)} rows before). The chip already carries the term, so "
+            f"the filter has run -- a surviving row that does not name Fabaceae means "
+            f"`processedData` matched it through another column."
         )
 
         family_list.click_reset_filters()
-        family_list.wait_for_loading_complete()
+        # The chip disappears in the same commit that recomputes the *unfiltered*
+        # rows, so it is the post-condition of the reset. `wait_for_loading_complete()`,
+        # which stood here, polls a skeleton that a client-side reset never mounts.
+        family_list.wait_for_element_hidden(family_list.SEARCH_CHIP)
         screenshot("TC-REQ-001-010_after-reset", "Family list after resetting all filters")
 
-        reset_count = family_list.get_row_count()
-        assert reset_count >= filtered_count, (
-            "TC-REQ-001-010 FAIL: Reset should show more or equal rows"
+        # `reset_count >= filtered_count` is satisfied by a reset that does
+        # nothing: the filtered list is a subset of the full one, so the count
+        # can only rise. What the reset claims is that the rows the *filter*
+        # removed are listed again -- read by name, not counted.
+        names_after = family_list.get_first_column_texts()
+        restored = [n for n in names_after if term.lower() not in n.lower()]
+        assert restored, (
+            f"TC-REQ-001-010 FAIL: After resetting the filters the list must name "
+            f"families again that {term!r} excluded, but every one of the "
+            f"{len(names_after)} rows still carries the term: {names_after!r}. The "
+            f"chip is gone, so `tableState.search` is empty and the table re-rendered "
+            f"-- the rows it re-rendered are still the filtered ones."
         )
 
     @pytest.mark.smoke
