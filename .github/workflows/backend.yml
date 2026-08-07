@@ -3,10 +3,22 @@ name: Backend CI
 on:
   push:
     branches: [develop]
-    paths: ['src/backend/**', 'scripts/check_schema_examples.py', '.github/workflows/backend.yml']
+    # The two scripts are listed beside src/backend/** because their unit tests
+    # live in this suite (tests/unit/test_*_ratchet.py, test_boundary_*.py) — a
+    # change to a script alone would otherwise run neither its own tests nor the
+    # tree assertions they carry.
+    paths:
+      - 'src/backend/**'
+      - 'scripts/check_schema_examples.py'
+      - 'scripts/check_boundary_validation.py'
+      - '.github/workflows/backend.yml'
   pull_request:
     branches: [develop]
-    paths: ['src/backend/**', 'scripts/check_schema_examples.py', '.github/workflows/backend.yml']
+    paths:
+      - 'src/backend/**'
+      - 'scripts/check_schema_examples.py'
+      - 'scripts/check_boundary_validation.py'
+      - '.github/workflows/backend.yml'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.

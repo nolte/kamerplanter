@@ -320,6 +320,93 @@ umbenennt.
     nur fest, dass sie nicht weiter waechst. Wer wissen will, wie gut die API
     beschrieben ist, liest die Zahl in der Baseline — nicht die Farbe des Gates.
 
+### 5.4 Validierung gehoert an die Grenze, pro Endpunkt
+
+**Regel:** Ein Request-Schema lehnt alles ab, was sein Domain-Modell ablehnen
+wuerde. Was der Router in ein Domain-Modell hineinschuettet, ist zu diesem
+Zeitpunkt bereits geprueft — das Domain-Modell ist die letzte Verteidigungslinie
+fuer Nicht-HTTP-Aufrufer (Celery, MCP, Migrationen), nicht die erste fuer HTTP.
+
+```python
+# In api/v1/watering_logs/schemas.py
+from app.common.enums import ApplicationMethod
+
+# RICHTIG — die Grenze kennt denselben Wertebereich wie die Domaene
+class WateringLogCreate(BaseModel):
+    application_method: ApplicationMethod = ApplicationMethod.DRENCH
+
+# FALSCH — nimmt jeden String an, das Domain-Modell nimmt ihn nicht
+class WateringLogCreate(BaseModel):
+    application_method: str = "drench"
+```
+
+Fuer Cross-Field-Regeln wird die Regel **nicht abgeschrieben**, sondern aus der
+einen Stelle gelesen, die sie besitzt — sonst hat dieselbe Bedingung zwei
+Zuhause und eines davon einen blinden Fleck. `find_watering_log_violations()`
+ist das Muster: Die Funktion *meldet* Verstoesse, statt zu werfen, und jeder
+Leser formt daraus seine eigene Fehlergestalt (422 an der Grenze, `ValueError`
+im Domain-Modell).
+
+**Warum die Antwort sonst 500 lautet.** `main.py` registriert einen Handler fuer
+`RequestValidationError` (→ 422) und einen fuer `Exception` (→ 500). Ein
+Domain-Modell, das im Handler gebaut wird, wirft eine blanke
+`pydantic.ValidationError` — das ist **keine** `RequestValidationError`. Sie
+passt auf keinen der beiden Validierungs-Handler und faellt auf den
+500er-Handler durch. Der Aufrufer hoert „bei uns ist etwas kaputt" fuer eine
+Eingabe, die wir selbst fuer ungueltig halten.
+
+**Warum kein globaler Handler.** Ein einzelner Handler
+`pydantic.ValidationError` → 422 wuerde die Klasse an einer Stelle schliessen,
+und genau deshalb wurde er verworfen: Dieselbe Exception bedeutet zwei
+entgegengesetzte Dinge.
+
+- Der Aufrufer hat etwas geschickt, das die Domaene ablehnt → **422 ist richtig**.
+- *Wir* haben das Modell falsch zusammengebaut → **500 ist richtig**, und der
+  Fehler muss ins Error-Tracking, statt als Schuld des Aufrufers zu erscheinen.
+
+#966 war der zweite Fall: An der Anfrage war nichts falsch, der Router baute das
+Modell falsch (`model_dump()` schickte ein `None` ueber ein nicht-nullable
+Domain-Feld und schaltete damit dessen Default ab). Jede einzelne Anfrage an
+`POST /nutrient-plans` antwortete mit 500 — **274 Tage lang**. Ein pauschaler
+422er-Handler haette diesen Ausfall in einen leisen Strom von Client-Fehlern
+verwandelt und ihn *schwerer* auffindbar gemacht, nicht leichter. Eine Variante
+mit Marker (kaller- vs. intern verursacht) waere korrekt, kostet aber an jeder
+Konstruktionsstelle eine Entscheidung — und wer sie vergisst, ist wieder bei 500.
+
+**Durchsetzung.** `scripts/check_boundary_validation.py` laeuft als
+pre-commit-Hook in der required `static`-Lane und zusaetzlich als Unit-Test
+(`tests/unit/test_boundary_validation_check.py`). Es paart jedes Request-Schema
+mit dem Domain-Modell, in das der Router es schuettet
+(`DomainModel(**body.model_dump())`), und meldet zwei Formen — beide allein aus
+den Annotationen entscheidbar:
+
+| Form | Bestand | Verhalten |
+|---|---|---|
+| Enum zu `str` verbreitert | 54 | Shrink-only-Deckel, Wachstum wird rot |
+| Nullable ueber nicht-nullable Domain-Feld | 0 | Keine Baseline, jeder Fall ist rot |
+
+```bash
+python3 scripts/check_boundary_validation.py --list
+```
+
+Update-Schemas werden ueber ihr Create-Geschwister mitgepaart, weil dort der
+teurere Fehler sitzt: Der Service schreibt die Felder per `setattr` auf das
+geladene Modell, Pydantic validiert bei Zuweisung nicht — ein unbekannter Wert
+wird also **erst gespeichert und wirft danach**, bei jedem spaeteren Lesen.
+
+**Was das Gate bewusst nicht sieht.** Eine Cross-Field-Regel im Domain-Modell,
+die das Request-Schema nicht nachbildet (die in #970 gemeldete Form), ist
+statisch nicht *entscheidbar*: 32 Paarungen tragen so einen Validator, die
+meisten davon zu Recht, und ob die Regel bei den Feldtypen des Request-Schemas
+ueberhaupt erreichbar ist, steht in ihrer Semantik. Eine Pruefung mit
+Fehlalarmen wird binnen einer Woche stillgelegt und schuetzt danach gar nichts.
+Diesen Teil der Regel setzt das Review durch, nicht das Gate.
+
+!!! warning "Ein gruenes Gate heisst nicht 'die Grenze validiert'"
+    Der Deckel **stundet** die 54 verbreiterten Enum-Felder, er tilgt sie nicht.
+    Wer eines dieser Schemas anfasst, zieht es bei der Gelegenheit gerade — so
+    waechst die Abdeckung mit der normalen Arbeit am Feature, wie bei §5.3.
+
 ---
 
 ## 6. FastAPI-Patterns
