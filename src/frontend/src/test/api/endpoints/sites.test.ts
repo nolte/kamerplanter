@@ -20,6 +20,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 import * as sites from '@/api/endpoints/sites';
+import { twoThermometersLiveState } from '../liveStateFixture';
 
 const globalClient = mocks.globalClient;
 const tenantClient = mocks.tenantClient;
@@ -177,6 +178,14 @@ describe('sites endpoints — site & location sensors (tenant client)', () => {
     expect(tenantClient.get).toHaveBeenCalledWith('/sites/s1/sensors/live');
   });
 
+  it('getSiteSensorsLive returns both sensors of one metric', async () => {
+    tenantClient.get.mockResolvedValue({ data: twoThermometersLiveState() });
+    const live = await sites.getSiteSensorsLive('s1');
+    expect(Object.keys(live.readings).sort()).toEqual(['s-back', 's-front']);
+    expect(live.readings['s-front'].value).toBe(21.4);
+    expect(live.readings['s-back'].value).toBe(23.9);
+  });
+
   it('getLocationSensors gets sensors for location', async () => {
     tenantClient.get.mockResolvedValue({ data: [] });
     await sites.getLocationSensors('l1');
@@ -194,5 +203,37 @@ describe('sites endpoints — site & location sensors (tenant client)', () => {
     tenantClient.get.mockResolvedValue({ data: {} });
     await sites.getLocationSensorsLive('l1');
     expect(tenantClient.get).toHaveBeenCalledWith('/locations/l1/sensors/live');
+  });
+
+  it('getLocationSensorsLive keeps both readings and reports the collapse', async () => {
+    tenantClient.get.mockResolvedValue({ data: twoThermometersLiveState() });
+
+    const live = await sites.getLocationSensorsLive('l1');
+
+    // The full map is the complete answer …
+    expect(Object.keys(live.readings)).toHaveLength(2);
+    // … and the derived view says out loud that it shows only one of them.
+    const derived = live.values.temperature_celsius;
+    expect(derived.value).toBe(23.9);
+    expect(derived.sensor_count).toBe(2);
+    expect(derived.superseded_sensor_keys).toEqual(['s-front']);
+    expect(live.readings[derived.superseded_sensor_keys[0]].value).toBe(21.4);
+  });
+
+  it('getLocationSensorsLive marks a lone sensor as uncollapsed', async () => {
+    const single = twoThermometersLiveState();
+    delete single.readings['s-back'];
+    single.values.temperature_celsius = {
+      ...single.readings['s-front'],
+      sensor_count: 1,
+      superseded_sensor_keys: [],
+    };
+    tenantClient.get.mockResolvedValue({ data: single });
+
+    const live = await sites.getLocationSensorsLive('l1');
+
+    expect(live.values.temperature_celsius.value).toBe(21.4);
+    expect(live.values.temperature_celsius.sensor_count).toBe(1);
+    expect(live.values.temperature_celsius.superseded_sensor_keys).toEqual([]);
   });
 });

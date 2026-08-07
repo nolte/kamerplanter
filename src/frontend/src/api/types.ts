@@ -1974,14 +1974,45 @@ export interface SensorUpdate {
   is_active?: boolean;
 }
 
-export interface LiveValueEntry {
+/**
+ * One live reading, from one sensor.
+ *
+ * Keyed by sensor in `LiveStateResponse.readings`, because a reading belongs to
+ * a sensor and not to a metric: two thermometers at opposite ends of one tent
+ * are two readings, and neither may disappear.
+ */
+export interface LiveReadingEntry {
+  /** Document key of the sensor. Null only for a sensor that was never persisted. */
+  sensor_key: string | null;
+  sensor_name: string | null;
+  metric_type: string | null;
   value: number;
   last_changed: string | null;
+  last_updated: string | null;
+  /** When the entity last reported — the most reliable measurement instant. */
+  last_reported: string | null;
   entity_id: string | null;
   unit: string | null;
 }
 
+/**
+ * The one reading a metric is represented by in the derived single-value view.
+ *
+ * The freshest reading of the metric wins (ties break on the sensor key), and
+ * the entry always says how many readings there were — a view that shows one
+ * number must never pretend that one number was all there was.
+ */
+export interface LiveValueEntry extends LiveReadingEntry {
+  /** How many sensors answered this metric. 1 means nothing was left out. */
+  sensor_count: number;
+  /** Keys of the readings this view does not show — look them up in `readings`. */
+  superseded_sensor_keys: string[];
+}
+
 export interface LiveStateResponse {
+  /** Every sensor that answered, keyed by its document key. The complete answer. */
+  readings: Record<string, LiveReadingEntry>;
+  /** Derived single-value view, keyed by metric type. Never more complete than `readings`. */
   values: Record<string, LiveValueEntry>;
   errors: Array<{ entity_id: string; error: string }>;
   source: string;
