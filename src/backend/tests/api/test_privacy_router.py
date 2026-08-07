@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api.v1.auth.router import limiter
 from app.api.v1.privacy.router import public_router as privacy_public_router
 from app.api.v1.privacy.router import router as privacy_router
 from app.common.auth import get_current_user
@@ -218,6 +219,12 @@ class TestRestrictionEndpoints:
 
 class TestEmailChangeEndpoints:
     def test_request_email_change(self):
+        # ``/privacy/email-change`` is rate-limited per IP with an hourly window
+        # (#958), shared under ``testclient`` with every other module that posts
+        # here. Without the reset this test depends on how many of them ran
+        # first — and the minimal app built below registers no 429 handler, so
+        # it would fail as a 500 naming nothing.
+        limiter.reset()
         service = _build_service()
         service.request_email_change.return_value = EmailChangeRequest(
             _key="ec1",
