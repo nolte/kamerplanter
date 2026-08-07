@@ -301,7 +301,7 @@ def create_task_template(
     if cat in _ACTIVITY_TO_TASK_CATEGORY:
         data["category"] = _ACTIVITY_TO_TASK_CATEGORY[cat]
     tt = TaskTemplate(**data)
-    created = service.create_task_template(tt)
+    created = service.create_task_template(tt, tenant_key=ctx.tenant_key)
     return _tt_response(created)
 
 
@@ -324,7 +324,7 @@ def update_task_template(
 ):
     """Update a task template."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_task_template(key, data)
+    updated = service.update_task_template(key, data, tenant_key=ctx.tenant_key)
     return _tt_response(updated)
 
 
@@ -449,7 +449,9 @@ def batch_status_change(
     service: TaskService = Depends(get_task_service),
 ):
     """Apply a status change to a batch of tasks."""
-    succeeded, failed = service.batch_status_change(body.task_keys, body.action, body.completion_notes)
+    succeeded, failed = service.batch_status_change(
+        body.task_keys, body.action, body.completion_notes, tenant_key=ctx.tenant_key
+    )
     return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
 
 
@@ -460,7 +462,7 @@ def batch_delete(
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a batch of tasks."""
-    succeeded, failed = service.batch_delete(body.task_keys)
+    succeeded, failed = service.batch_delete(body.task_keys, tenant_key=ctx.tenant_key)
     return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
 
 
@@ -471,7 +473,7 @@ def batch_assign(
     service: TaskService = Depends(get_task_service),
 ):
     """Assign a batch of tasks to a user."""
-    succeeded, failed = service.batch_assign(body.task_keys, body.assigned_to_user_key)
+    succeeded, failed = service.batch_assign(body.task_keys, body.assigned_to_user_key, tenant_key=ctx.tenant_key)
     return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
 
 

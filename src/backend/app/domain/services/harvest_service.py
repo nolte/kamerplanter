@@ -58,9 +58,22 @@ class HarvestService:
 
     # ── Observations ──
 
-    def record_observation(self, plant_key: str, observation: HarvestObservation) -> HarvestObservation:
+    def record_observation(
+        self,
+        plant_key: str,
+        observation: HarvestObservation,
+        *,
+        tenant_key: str,
+    ) -> HarvestObservation:
+        """Record a harvest observation about a plant of ``tenant_key`` (#948).
+
+        ``tenant_key`` is required and keyword-only; the repository fails closed
+        with 404 for a plant outside it, so an observation can no longer be
+        attributed to another tenant's crop — and therefore can no longer move
+        that tenant's ``assess_readiness`` verdict, which reads observations back.
+        """
         observation.plant_key = plant_key
-        return self._repo.create_observation(observation)
+        return self._repo.create_observation(observation, tenant_key=tenant_key)
 
     def get_observations(
         self,
