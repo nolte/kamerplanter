@@ -79,20 +79,20 @@ def test_update_task_reassignment_moves_notifications(service, propagation):
 
 def test_complete_task_marks_notification_done(service, propagation, repo):
     repo.get_task_or_raise.return_value = _task(status="pending", requires_photo=False)
-    service.complete_task("task1")
+    service.complete_task("task1", tenant_key="t1")
     propagation.on_task_completed.assert_called_once()
 
 
 def test_delete_task_removes_notification(service, propagation, repo):
     repo.get_task_or_raise.return_value = _task(status="pending")
-    service.delete_task("task1")
+    service.delete_task("task1", tenant_key="t1")
     propagation.on_task_deleted.assert_called_once()
 
 
 def test_delete_disallowed_status_does_not_propagate(service, propagation, repo):
     repo.get_task_or_raise.return_value = _task(status="completed")
     with pytest.raises(ValidationError):
-        service.delete_task("task1")
+        service.delete_task("task1", tenant_key="t1")
     propagation.on_task_deleted.assert_not_called()
 
 
@@ -116,4 +116,4 @@ def test_no_propagation_service_is_safe(repo):
     repo.get_task_or_raise.return_value = _task(status="pending")
     # Should complete without raising even though no propagation is wired.
     service.create_task(_task())
-    service.delete_task("task1")
+    service.delete_task("task1", tenant_key="t1")

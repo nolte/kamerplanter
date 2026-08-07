@@ -57,15 +57,19 @@ class _TaskServiceStub:
     def __init__(self, task: Task) -> None:
         self._task = task
         self.get_task_calls: list[tuple[str, str]] = []
+        self.skip_calls: list[tuple[str, str]] = []
+        self.complete_calls: list[tuple[str, str]] = []
 
-    def get_task(self, key: str, tenant_key: str = "") -> Task:
+    def get_task(self, key: str, *, tenant_key: str) -> Task:
         self.get_task_calls.append((key, tenant_key))
         return self._task
 
-    def complete_task(self, key, *args, **kwargs) -> Task:  # noqa: ANN002, ANN003 — router passes positionals
+    def complete_task(self, key, *args, tenant_key: str, **kwargs) -> Task:  # noqa: ANN002, ANN003 — router passes positionals
+        self.complete_calls.append((key, tenant_key))
         return self._task
 
-    def skip_task(self, key: str) -> Task:
+    def skip_task(self, key: str, *, tenant_key: str) -> Task:
+        self.skip_calls.append((key, tenant_key))
         return self._task
 
 
@@ -110,8 +114,10 @@ def test_skip_delegates_to_the_service_with_the_request_tenant(care_stub: _CareS
     skip_task("task-1", ctx=_ctx(), service=service)  # type: ignore[arg-type]
 
     assert [(t.key, tenant) for t, tenant in care_stub.skips] == [("task-1", TENANT)]
-    # The task's own tenant is still verified up front (unchanged behaviour).
-    assert service.get_task_calls == [("task-1", TENANT)]
+    # The request tenant is threaded into the mutating service call itself, which
+    # now owns the ownership check (GHSA-h5wp-r68x-97g8) instead of a separate
+    # router pre-check.
+    assert service.skip_calls == [("task-1", TENANT)]
 
 
 def test_complete_delegates_to_the_service_with_the_request_tenant(care_stub: _CareServiceStub) -> None:

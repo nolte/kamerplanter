@@ -645,10 +645,25 @@ class TaskService:
     ) -> tuple[list[Task], int]:
         return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_task(self, key: str, tenant_key: str = "") -> Task:
+    @staticmethod
+    def _require_tenant_key(tenant_key: str, method: str) -> None:
+        """Reject the empty-``tenant_key`` sentinel before a tenant-scoped load.
+
+        Mirrors ``BaseRepository._require_tenant_key`` at the service layer so a
+        caller that forgets the argument fails **closed** (GHSA-h5wp-r68x-97g8).
+        The ownership check used to be conditional on a truthy ``tenant_key`` with
+        a ``""`` default, so an omitted argument silently skipped it and read
+        across every tenant. Raising here removes that fragile invariant.
+        """
+        if not tenant_key:
+            raise ValueError(
+                f"{method} is tenant-scoped and requires a non-empty tenant_key (GHSA-h5wp-r68x-97g8 tenant isolation)."
+            )
+
+    def get_task(self, key: str, *, tenant_key: str) -> Task:
+        self._require_tenant_key(tenant_key, "get_task")
         task = self._repo.get_task_or_raise(key)
-        if tenant_key:
-            verify_tenant_ownership(task, tenant_key, "Task")
+        verify_tenant_ownership(task, tenant_key, "Task")
         return task
 
     def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
@@ -674,8 +689,11 @@ class TaskService:
             self._propagate(lambda p: p.on_task_reassigned(updated, previous_user_key=prev_assignee))
         return updated
 
-    def delete_task(self, key: str) -> bool:
-        task = self.get_task(key)
+    def delete_task(self, key: str, *, tenant_key: str) -> bool:
+        # ``get_task`` verifies tenant ownership before anything is read or
+        # deleted, so ``self._repo.delete_task`` below is only ever reached after
+        # a tenant-checked load (GHSA-h5wp-r68x-97g8).
+        task = self.get_task(key, tenant_key=tenant_key)
         allowed = {"pending", "skipped", "cancelled", "dormant"}
         if task.status not in allowed:
             raise ValidationError(
@@ -687,13 +705,13 @@ class TaskService:
             self._propagate(lambda p: p.on_task_deleted(task))
         return deleted
 
-    def add_photo_ref(self, key: str, url: str) -> Task:
-        task = self.get_task(key)
+    def add_photo_ref(self, key: str, url: str, *, tenant_key: str) -> Task:
+        task = self.get_task(key, tenant_key=tenant_key)
         task.photo_refs.append(url)
         return self._repo.update_task(key, task)
 
-    def start_task(self, key: str) -> Task:
-        task = self.get_task(key)
+    def start_task(self, key: str, *, tenant_key: str) -> Task:
+        task = self.get_task(key, tenant_key=tenant_key)
         if task.status != "pending":
             raise ValidationError(f"Cannot start task in status '{task.status}'.")
         task.status = "in_progress"
@@ -708,8 +726,10 @@ class TaskService:
         photo_refs: list[str] | None = None,
         difficulty_rating: int | None = None,
         quality_rating: int | None = None,
+        *,
+        tenant_key: str,
     ) -> Task:
-        task = self.get_task(key)
+        task = self.get_task(key, tenant_key=tenant_key)
         if task.status not in ("pending", "in_progress"):
             raise ValidationError(f"Cannot complete task in status '{task.status}'.")
 
@@ -835,8 +855,8 @@ class TaskService:
         """
         return self._recurrence.next_occurrence(rule, after)
 
-    def skip_task(self, key: str) -> Task:
-        task = self.get_task(key)
+    def skip_task(self, key: str, *, tenant_key: str) -> Task:
+        task = self.get_task(key, tenant_key=tenant_key)
         if task.status not in ("pending", "in_progress"):
             raise ValidationError(f"Cannot skip task in status '{task.status}'.")
         task.status = "skipped"
@@ -853,8 +873,10 @@ class TaskService:
         due_date_offset_days: int | None = None,
         target_entity_key: str | None = None,
         target_entity_type: str | None = None,
+        *,
+        tenant_key: str,
     ) -> Task:
-        source = self.get_task(key)
+        source = self.get_task(key, tenant_key=tenant_key)
         due_date = None
         if due_date_offset_days is not None:
             due_date = datetime.now(UTC) + timedelta(days=due_date_offset_days)
@@ -887,8 +909,8 @@ class TaskService:
 
     # ── Reopen ──
 
-    def reopen_task(self, key: str) -> Task:
-        task = self.get_task(key)
+    def reopen_task(self, key: str, *, tenant_key: str) -> Task:
+        task = self.get_task(key, tenant_key=tenant_key)
         if task.status not in ("completed", "skipped"):
             raise ValidationError(
                 f"Cannot reopen task in status '{task.status}'. Only completed or skipped tasks can be reopened.",
@@ -928,13 +950,16 @@ class TaskService:
         failed: list[dict] = []
         for tk in task_keys:
             try:
+                # Each mutating call now enforces the tenant guard itself; the
+                # explicit resolve is kept so the unknown-action branch below is
+                # also tenant-checked and never becomes an existence oracle.
                 self.get_task(tk, tenant_key=tenant_key)
                 if action == "start":
-                    self.start_task(tk)
+                    self.start_task(tk, tenant_key=tenant_key)
                 elif action == "complete":
-                    self.complete_task(tk, completion_notes=completion_notes)
+                    self.complete_task(tk, completion_notes=completion_notes, tenant_key=tenant_key)
                 elif action == "skip":
-                    self.skip_task(tk)
+                    self.skip_task(tk, tenant_key=tenant_key)
                 else:
                     failed.append({"key": tk, "error": f"Unknown action: {action}"})
                     continue
@@ -948,8 +973,7 @@ class TaskService:
         failed: list[dict] = []
         for tk in task_keys:
             try:
-                self.get_task(tk, tenant_key=tenant_key)
-                self.delete_task(tk)
+                self.delete_task(tk, tenant_key=tenant_key)
                 succeeded.append(tk)
             except (NotFoundError, ValidationError) as e:
                 failed.append({"key": tk, "error": str(e)})
@@ -991,8 +1015,8 @@ class TaskService:
         self.get_task(task_key, tenant_key=tenant_key)
         return self._repo.get_comments_for_task(task_key, tenant_key=tenant_key)
 
-    def create_comment(self, task_key: str, text: str, created_by: str) -> TaskComment:
-        self.get_task(task_key)  # ensure task exists
+    def create_comment(self, task_key: str, text: str, created_by: str, *, tenant_key: str) -> TaskComment:
+        self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
         comment = TaskComment(
             task_key=task_key,
             comment_text=text,
@@ -1001,8 +1025,8 @@ class TaskService:
         )
         return self._repo.create_comment(comment)
 
-    def update_comment(self, task_key: str, comment_key: str, text: str) -> TaskComment:
-        self.get_task(task_key)  # ensure task exists
+    def update_comment(self, task_key: str, comment_key: str, text: str, *, tenant_key: str) -> TaskComment:
+        self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
         comment = self._repo.get_comment_or_raise(comment_key)
         if comment.task_key != task_key:
             raise ValidationError("Comment does not belong to this task.")
@@ -1010,8 +1034,8 @@ class TaskService:
         comment.updated_at = datetime.now(UTC)
         return self._repo.update_comment(comment_key, comment)
 
-    def delete_comment(self, task_key: str, comment_key: str) -> bool:
-        self.get_task(task_key)  # ensure task exists
+    def delete_comment(self, task_key: str, comment_key: str, *, tenant_key: str) -> bool:
+        self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
         comment = self._repo.get_comment_or_raise(comment_key)
         if comment.task_key != task_key:
             raise ValidationError("Comment does not belong to this task.")
@@ -1019,8 +1043,8 @@ class TaskService:
 
     # ── Audit / History ──
 
-    def get_task_history(self, task_key: str) -> list[TaskAuditEntry]:
-        self.get_task(task_key)  # ensure task exists
+    def get_task_history(self, task_key: str, *, tenant_key: str) -> list[TaskAuditEntry]:
+        self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
         return self._repo.get_audit_entries_for_task(task_key)
 
     def _record_audit(
