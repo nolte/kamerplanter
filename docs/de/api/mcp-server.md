@@ -186,7 +186,16 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 ## Werkzeug-Katalog (aktueller Stand)
 
 !!! note "Teilweise verfügbar: Werkzeug-Umfang"
-    Umgesetzt sind derzeit 41 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)). Beim übrigen **Schreiben** fehlt noch einiges, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, IPM-Inspektionen anlegen, Ernte- und Düngeereignisse erfassen sowie eine Brücke zur RAG-Wissensbasis. Erweiterung ist ein dokumentierter Folgeschritt.
+    Umgesetzt sind derzeit 48 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, Standort- und Bereichsverwaltung, das Vorrücken einer Phase sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
+
+!!! info "Neu: was ein Analyse-Agent zurückschreiben kann"
+    Fünf Werkzeuge sind hinzugekommen, die extern betriebene Analyse-Agenten brauchten. Jedes ist mit dem Lese-Werkzeug gepaart, das sein Ergebnis wiederfindet — ein Schreibvorgang, den anschließend kein Lese-Werkzeug mehr sichtbar macht, gilt hier als Fehler:
+
+    - `record_feeding_event` erfasst **Menge, EC und pH** eines Düngevorgangs samt Tankbezug. Bisher stand im Pflegeprotokoll nur „quittiert" — ein Ja/Nein, aus dem sich Unter- und Überversorgung nicht unterscheiden lassen, obwohl beide gegensätzlich zu korrigieren sind. Sichtbar über `get_plant_diagnostics`.
+    - `get_plant_diagnostics` liefert **den Verlauf statt nur des letzten Werts**: EC- und pH-Reihen über einen wählbaren Zeitraum (Zulauf, Nachmessung und Drainage getrennt), Sensor-Momentaufnahme, IPM-Inspektionen, Karenz und jüngste Pflegevorgänge — in einem Aufruf.
+    - `create_inspection` legt eine IPM-Inspektion an und behält dabei je Befund die **Sicherheit** und den **betroffenen Pflanzenteil**. Ohne sie blieb die Befallshistorie einer rein per Agent betreuten Pflanze für immer leer. Sichtbar über `get_plant_inspections`.
+    - `search_plant_knowledge` durchsucht die Wissensbasis und liefert **zitierfähige Quellenverweise**, damit eine Begründung ihre Quelle benennen kann.
+    - `assign_nutrient_plan` bindet einen **vorhandenen** Nährstoffplan an eine Pflanze. Pläne zu *bearbeiten* bleibt bewusst Aufgabe der Oberfläche. Sichtbar über `get_plant_nutrient_plan`.
 
 ### Lese-Werkzeuge (`mcp.read`)
 
@@ -196,6 +205,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `list_plants` | Pflanzen auflisten, optional nach Name gefiltert — so wird aus „meine Tomate" der `plant_key`, den die Schreib-Werkzeuge brauchen |
 | `get_plant` | Eine Pflanze im Detail: Art (mit aufgelöstem Namen), Phase, Standort, Substrat (mit aufgelöstem Typ und Namen), Pflanz- und Entfernungsdatum |
 | `get_plant_care_log` | Pflegehistorie einer Pflanze — mit `reminder_type: "watering"` das Gießprotokoll |
+| `get_plant_diagnostics` | Diagnose-Momentaufnahme einer Pflanze in **einem** Aufruf: EC-/pH-**Verlauf** über einen wählbaren Zeitraum (Zulauf, Nachmessung und Drainage getrennt), Sensorwerte am Standort, IPM-Inspektionen, Karenz und jüngste Pflegevorgänge |
 | `list_diary_entries` | Tagebuch-Einträge durchsehen, filterbar nach Pflanze, Art, Eintragstyp, Tag, Analyse-Zustand und Zeitraum — neueste zuerst, mit Messwerten, aber ohne Freitext |
 | `list_plants_at_location` | Alle Pflanzen an einem Standort, Beet oder Slot |
 | `list_nutrient_plans` | Verfügbare Nährstoffpläne — eigene plus globale Vorlagen |
@@ -215,6 +225,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `list_phase_definitions` | Wachstumsphasen-Definitionen der Lebenszyklus-Logik |
 | `list_hardiness_zones` | Winterhärtezonen mit Temperaturbereichen |
 | `search_glossary` | Fachbegriffe aus dem Glossar nachschlagen (VPD, EC, Karenz …) |
+| `search_plant_knowledge` | Wissensbasis durchsuchen (RAG) — liefert **zitierfähige** Quellenverweise mit Score, damit eine Begründung ihre Quelle benennen kann. Mandantenunabhängig; nur die Suchanfrage verlässt die Instanz |
 | `list_species` | Pflanzenarten-Katalog auflisten (paginiert) |
 | `get_species_info` | **Vollständige** Stammdaten einer Art: Aussaat-, Blüte- und Erntefenster, Winterhärte, Frostempfindlichkeit, Nährstoffbedarf, Giftigkeit, Mischkultur-Hinweise und die zugehörigen Sorten |
 | `list_planting_runs` | Pflanzdurchläufe des Mandanten auflisten, optional nach Status gefiltert |
@@ -233,9 +244,12 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `confirm_care_task` | Pflegeerinnerung für eine Pflanze quittieren ("ich habe gegossen") |
 | `archive_plant` | Pflanze als entsorgt/abgegeben/gestorben kennzeichnen — **kein** Hard-Delete, Verlauf bleibt erhalten |
 | `set_plant_location` | Pflanze zu einem anderen Standort/Bereich/Slot verschieben |
-| `add_plant_diary_entry` | Einen Tagebuch-Eintrag zu einer Pflanze erfassen (Beobachtung, Problem, Messwert) — nur Text, keine Fotos |
+| `add_plant_diary_entry` | Einen Tagebuch-Eintrag zu einer Pflanze erfassen (Beobachtung, Problem, Messwert) — nur Text, keine Fotos. `measurements` benennt die erkannten Größen mit ihrer Einheit im Schlüssel (`ec_ms_cm`, `ph`, `temperature_c`, `humidity_percent`, `height_cm`, `leaf_count`) und nimmt darüber hinaus weiterhin beliebige eigene Schlüssel an |
 | `claim_diary_analysis` | Einen wartenden Tagebuch-Eintrag exklusiv beanspruchen (Lease) |
 | `submit_diary_analysis` | Das Analyse-Ergebnis eines beanspruchten Tagebuch-Eintrags zurückschreiben |
+| `record_feeding_event` | Einen Düngevorgang erfassen: Menge in Litern, EC und pH vor und nach der Gabe, Drainage-EC/-pH und der Tankbezug. Das Pflegeprotokoll kennt nur „quittiert" — hier stehen die Zahlen |
+| `create_inspection` | Eine IPM-Inspektion anlegen: Befallsdruck, Symptome und **strukturierte Befunde** mit Sicherheit (0.0–1.0) und betroffenem Pflanzenteil |
+| `assign_nutrient_plan` | Einen **vorhandenen** Nährstoffplan an eine Pflanze binden (eigener Plan oder globale Vorlage). Pläne anzulegen oder zu bearbeiten ist bewusst kein Werkzeug |
 
 ### Setup-Werkzeug (`mcp.setup`)
 
