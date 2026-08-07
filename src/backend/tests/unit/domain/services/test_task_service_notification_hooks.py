@@ -98,13 +98,15 @@ def test_delete_disallowed_status_does_not_propagate(service, propagation, repo)
 
 def test_batch_assign_propagates_reassignment(service, propagation, repo):
     repo.get_task_or_raise.return_value = _task(assigned_to_user_key="user-a")
-    service.batch_assign(["task1"], "user-b")
+    # ``tenant_key`` is required and keyword-only since #948 — the batch routes
+    # were the ones that forgot the guard every single-task route applies.
+    service.batch_assign(["task1"], "user-b", tenant_key="t1")
     propagation.on_task_reassigned.assert_called_once()
 
 
 def test_batch_assign_noop_when_same_assignee(service, propagation, repo):
     repo.get_task_or_raise.return_value = _task(assigned_to_user_key="user-a")
-    service.batch_assign(["task1"], "user-a")
+    service.batch_assign(["task1"], "user-a", tenant_key="t1")
     propagation.on_task_reassigned.assert_not_called()
 
 

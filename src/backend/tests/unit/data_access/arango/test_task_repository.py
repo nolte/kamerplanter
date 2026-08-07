@@ -125,25 +125,38 @@ class TestRemovedPlantGuard:
 
 
 class TestGetTasksForRun:
-    def test_filters_on_planting_run_key(self, repo, mock_db):
+    def test_filters_on_planting_run_key_and_tenant(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        repo.get_tasks_for_run("run-1")
+        repo.get_tasks_for_run("run-1", tenant_key="tenant-a")
 
         query = mock_db.aql.execute.call_args.args[0]
         bind = mock_db.aql.execute.call_args.kwargs["bind_vars"]
         assert "doc.planting_run_key == @run_key" in query
+        # #952 — the last tasks query that still scanned without a tenant.
+        assert "doc.tenant_key == @tenant_key" in query
         assert bind["run_key"] == "run-1"
+        assert bind["tenant_key"] == "tenant-a"
 
     def test_optional_status_filter(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        repo.get_tasks_for_run("run-1", status="pending")
+        repo.get_tasks_for_run("run-1", status="pending", tenant_key="tenant-a")
 
         query = mock_db.aql.execute.call_args.args[0]
         bind = mock_db.aql.execute.call_args.kwargs["bind_vars"]
         assert "doc.status == @status" in query
         assert bind["status"] == "pending"
+        # The status filter is an extra predicate, never a swap for the tenant one.
+        assert "doc.tenant_key == @tenant_key" in query
+
+    def test_an_empty_tenant_key_is_rejected_instead_of_matching_everything(self, repo, mock_db):
+        with pytest.raises(ValueError, match="tenant"):
+            repo.get_tasks_for_run("run-1", tenant_key="")
+
+    def test_omitting_the_tenant_entirely_is_a_type_error(self, repo, mock_db):
+        with pytest.raises(TypeError):
+            repo.get_tasks_for_run("run-1")
 
 
 class TestEntityFilterQuery:

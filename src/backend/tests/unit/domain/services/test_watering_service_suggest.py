@@ -6,9 +6,17 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.common.exceptions import NotFoundError
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import WateringVolumeEngine
 from app.domain.services.watering_service import WateringService
+
+#: The caller's tenant. ``suggest_volume`` takes it as a required keyword-only
+#: argument since #952 — it used to read the tenant off the record it had just
+#: loaded from the URL key, which made the downstream filters compare a row with
+#: itself.
+TENANT_KEY = "tenant-a"
+FOREIGN_TENANT_KEY = "tenant-b"
 
 
 class _PlantRepo:
@@ -63,7 +71,7 @@ def _plant(**kw):
         # The soil-moisture override resolves plant → slot → location, and that
         # slot lookup is tenant-scoped since #927 — a tenantless plant resolves to
         # "no slot" and the override never fires.
-        tenant_key="tenant-a",
+        tenant_key=TENANT_KEY,
         species_key="sp1",
         cultivar_key=None,
         substrate_key=None,
@@ -95,8 +103,10 @@ def _service(plant, species, *, location_key="loc1", sensor_service=None):
 class TestWaterloggingCap:
     def test_sensitive_species_caps_volume(self):
         plant = _plant(current_phase_key=None)
-        base = _service(plant, _species(waterlogging_tolerance=None)).suggest_volume("p1")
-        capped = _service(plant, _species(waterlogging_tolerance="sensitive")).suggest_volume("p1")
+        base = _service(plant, _species(waterlogging_tolerance=None)).suggest_volume("p1", tenant_key=TENANT_KEY)
+        capped = _service(plant, _species(waterlogging_tolerance="sensitive")).suggest_volume(
+            "p1", tenant_key=TENANT_KEY
+        )
         assert capped.volume_ml < base.volume_ml
 
 
@@ -104,54 +114,58 @@ class TestSoilMoistureOverride:
     def test_wet_soil_suppresses_watering(self):
         plant = _plant()
         svc = _service(plant, _species(), sensor_service=_SensorService(moisture_percent=85.0))
-        result = svc.suggest_volume("p1")
+        result = svc.suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.volume_ml == 0  # saturated → skip
         assert result.source == "sensor_soil_moisture"
         assert any("soil_moisture=85%" in a for a in result.adjustments)
 
     def test_dry_soil_keeps_full_volume(self):
         plant = _plant()
-        no_sensor = _service(plant, _species()).suggest_volume("p1")
-        dry = _service(plant, _species(), sensor_service=_SensorService(moisture_percent=20.0)).suggest_volume("p1")
+        no_sensor = _service(plant, _species()).suggest_volume("p1", tenant_key=TENANT_KEY)
+        dry = _service(plant, _species(), sensor_service=_SensorService(moisture_percent=20.0)).suggest_volume(
+            "p1", tenant_key=TENANT_KEY
+        )
         assert dry.volume_ml == no_sensor.volume_ml  # factor 1.0 → unchanged
 
     def test_mid_moisture_reduces_volume(self):
         plant = _plant()
-        no_sensor = _service(plant, _species()).suggest_volume("p1")
-        mid = _service(plant, _species(), sensor_service=_SensorService(moisture_percent=50.0)).suggest_volume("p1")
+        no_sensor = _service(plant, _species()).suggest_volume("p1", tenant_key=TENANT_KEY)
+        mid = _service(plant, _species(), sensor_service=_SensorService(moisture_percent=50.0)).suggest_volume(
+            "p1", tenant_key=TENANT_KEY
+        )
         assert 0 < mid.volume_ml < no_sensor.volume_ml
 
     def test_no_reading_falls_back_to_static(self):
         plant = _plant()
-        no_sensor = _service(plant, _species()).suggest_volume("p1")
+        no_sensor = _service(plant, _species()).suggest_volume("p1", tenant_key=TENANT_KEY)
         unavailable = _service(plant, _species(), sensor_service=_SensorService(moisture_percent=None)).suggest_volume(
-            "p1"
+            "p1", tenant_key=TENANT_KEY
         )
         assert unavailable.volume_ml == no_sensor.volume_ml
         assert unavailable.source == no_sensor.source
 
     def test_no_sensor_service_is_inert(self):
         plant = _plant()
-        result = _service(plant, _species(), sensor_service=None).suggest_volume("p1")
+        result = _service(plant, _species(), sensor_service=None).suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.source == "species_watering_guide"
 
 
 class TestEtSeam:
     def test_et_override_replaces_static_volume(self):
         plant = _plant()
-        result = _service(plant, _species()).suggest_volume("p1", et_net_demand_ml=1234.0)
+        result = _service(plant, _species()).suggest_volume("p1", et_net_demand_ml=1234.0, tenant_key=TENANT_KEY)
         assert result.volume_ml == 1234
         assert result.source == "evapotranspiration_demand"
 
     def test_et_seam_defaults_inert(self):
         plant = _plant()
-        result = _service(plant, _species()).suggest_volume("p1")
+        result = _service(plant, _species()).suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.source == "species_watering_guide"
 
     def test_et_zero_demand_means_no_water(self):
         # ET demand of 0 = "irrigate nothing" — must not be floored to 10 ml.
         plant = _plant()
-        result = _service(plant, _species()).suggest_volume("p1", et_net_demand_ml=0.0)
+        result = _service(plant, _species()).suggest_volume("p1", et_net_demand_ml=0.0, tenant_key=TENANT_KEY)
         assert result.volume_ml == 0
         assert result.source == "evapotranspiration_demand"
 
@@ -175,6 +189,9 @@ class _DemandRepo:
         self._liters = recommended_volume_liters
 
     def get_latest_for_run(self, run_key, tenant_key):  # noqa: ARG002
+        # The demand read is tenant-scoped; #952 requires the *caller's* tenant
+        # to arrive here, not one read back off the plant record.
+        assert tenant_key == TENANT_KEY
         if self._liters is None:
             return None
         return SimpleNamespace(recommended_volume_liters=self._liters)
@@ -196,32 +213,32 @@ def _service_with_demand(plant, species, *, run_repo=None, demand_repo=None):
 class TestEtDemandAutoLookup:
     def test_latest_demand_drives_volume_when_not_supplied(self):
         # 2 L for the whole run, split across 2 plants → 1 L = 1000 ml per plant.
-        plant = _plant(key="p1", tenant_key="t1")
+        plant = _plant(key="p1")
         svc = _service_with_demand(
             plant, _species(), run_repo=_RunRepo("run1", plant_count=2), demand_repo=_DemandRepo(2.0)
         )
-        result = svc.suggest_volume("p1")
+        result = svc.suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.volume_ml == 1000
         assert result.source == "evapotranspiration_demand"
 
     def test_zero_demand_suppresses_watering(self):
-        plant = _plant(key="p1", tenant_key="t1")
+        plant = _plant(key="p1")
         svc = _service_with_demand(
             plant, _species(), run_repo=_RunRepo("run1", plant_count=1), demand_repo=_DemandRepo(0.0)
         )
-        result = svc.suggest_volume("p1")
+        result = svc.suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.volume_ml == 0
         assert result.source == "evapotranspiration_demand"
 
     def test_no_demand_record_stays_inert(self):
-        plant = _plant(key="p1", tenant_key="t1")
+        plant = _plant(key="p1")
         svc = _service_with_demand(plant, _species(), run_repo=_RunRepo("run1"), demand_repo=_DemandRepo(None))
-        result = svc.suggest_volume("p1")
+        result = svc.suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.source == "species_watering_guide"
 
     def test_no_repo_wired_stays_inert(self):
-        plant = _plant(key="p1", tenant_key="t1")
-        result = _service_with_demand(plant, _species()).suggest_volume("p1")
+        plant = _plant(key="p1")
+        result = _service_with_demand(plant, _species()).suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.source == "species_watering_guide"
 
 
@@ -243,9 +260,37 @@ class TestFlushRegimeSurfacing:
             species_repo=_SpeciesRepo(_species()),
             lifecycle_repo=_Lifecycle(),
         )
-        result = svc.suggest_volume("p1")
+        result = svc.suggest_volume("p1", tenant_key=TENANT_KEY)
         assert result.water_only is True
         assert "flush" in result.regime_note
+
+
+class TestTheCallersTenantIsWhatCounts:
+    """#952 — the plant is resolved against the caller, not against itself.
+
+    ``suggest_volume`` used to load the plant straight from the URL key and then
+    feed ``plant.tenant_key`` into the reads #947 had scoped, so the predicate
+    compared the record's tenant with its own. The endpoint answered 200 for a
+    foreign key with a recommendation derived from the other tenant's plant.
+    """
+
+    def test_a_foreign_plant_is_not_found_rather_than_answered(self):
+        foreign = _plant(key="p1", tenant_key=FOREIGN_TENANT_KEY)
+        svc = _service(foreign, _species())
+
+        with pytest.raises(NotFoundError):
+            svc.suggest_volume("p1", tenant_key=TENANT_KEY)
+
+    def test_the_callers_own_plant_is_still_answered(self):
+        svc = _service(_plant(), _species())
+
+        assert svc.suggest_volume("p1", tenant_key=TENANT_KEY).volume_ml > 0
+
+    def test_omitting_the_tenant_entirely_is_a_type_error(self):
+        svc = _service(_plant(), _species())
+
+        with pytest.raises(TypeError):
+            svc.suggest_volume("p1")
 
 
 if __name__ == "__main__":  # pragma: no cover

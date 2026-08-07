@@ -3,6 +3,7 @@ from typing import Any
 
 from arango.database import StandardDatabase
 
+from app.common.exceptions import NotFoundError
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -59,6 +60,36 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = next(count_cursor, 0)
         return items, total
+
+    def get_readable_or_raise(self, key: NutrientPlanKey, *, tenant_key: str) -> NutrientPlan:
+        """The one hybrid-catalog read-access predicate for a single plan (#950).
+
+        A plan is readable from ``tenant_key`` when it is that tenant's own plan
+        **or** a globally seeded system plan (empty ``tenant_key`` — there is no
+        ``is_system`` flag, the empty tenant IS the global marker). Anything else
+        raises :class:`NotFoundError` → HTTP 404, never 403: a 403 would confirm
+        that the plan exists in someone else's tenant.
+
+        This lives in the repository rather than in each caller because #950 is
+        exactly what happens when it does not. ``NutrientPlanService.get_plan``
+        made its tenant argument optional, ``assign_to_plant`` omitted it, and the
+        check silently turned itself off — a member of tenant A could bind their
+        own plant to tenant B's plan and then read the plan back through the
+        plant-anchored predicate, which is satisfied because the *plant* is theirs.
+        With the parameter required and keyword-only, an assignment that does not
+        name a tenant cannot be written at all.
+
+        The predicate is deliberately **read** access, not ownership. A strict
+        ``plan.tenant_key == @tenant_key`` here would refuse every globally seeded
+        system plan — the #324 regression class, which traded a leak for a
+        catalogue that disappeared. Writes to the plan itself stay owner-only via
+        :func:`~app.common.tenant_guard.verify_tenant_ownership`.
+        """
+        self._require_tenant_key(tenant_key, "get_readable_or_raise")
+        plan = self.get_or_raise(key)
+        if plan.tenant_key not in ("", tenant_key):
+            raise NotFoundError("NutrientPlan", key)
+        return plan
 
     def delete(self, key: NutrientPlanKey) -> bool:
         plan_id = f"{col.NUTRIENT_PLANS}/{key}"
@@ -128,8 +159,18 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         and are legitimately assigned to plants of every tenant (PR #324). A
         strict ``plan.tenant_key == @tenant_key`` here would answer ``None`` for
         every plant on a system plan — the #324 regression class, traded for the
-        leak instead of a fix. What must not cross tenants is the *assignment*,
-        and that hangs off the plant.
+        leak instead of a fix.
+
+        What must therefore not cross tenants is the *assignment* — and until
+        #950 nothing enforced that. This docstring used to assert it as if it
+        held: ``NutrientPlanService.assign_to_plant`` called ``get_plan`` with the
+        default empty ``tenant_key``, which skips the access check entirely, so a
+        member of tenant A could bind their own plant to tenant B's plan and then
+        read it back right here — the plant *is* theirs, so the predicate below is
+        satisfied. The guarantee now exists where it can be relied on:
+        :meth:`get_readable_or_raise` is required and keyword-only on every
+        assignment path. This query stays plant-anchored on purpose and depends on
+        that guard for the plan side; it does not provide it.
 
         Listed in #927 under "one line away": every current caller resolves the
         plant against the tenant first. The filter moves that obligation into the

@@ -7,6 +7,8 @@ and failed tasks are kept as history.
 
 from unittest.mock import MagicMock
 
+import structlog.testing
+
 from app.domain.models.task import Task
 from app.domain.services.plant_instance_service import PlantInstanceService
 
@@ -177,3 +179,63 @@ class TestRemovePlantRunTaskCleanup:
         result = service.remove_plant("plant-1")
 
         assert result is self.plant
+
+    def test_the_run_task_lookup_carries_the_plants_tenant(self):
+        """#952 — ``get_tasks_for_run`` was the last unscoped scan over ``tasks``."""
+        self.run_repo.get_runs_for_plant.return_value = [self._run("run-1")]
+        self.run_repo.get_run_plants.return_value = [{"_key": "plant-1", "removed_on": "2026-06-30"}]
+        self.task_repo.get_tasks_for_run.return_value = []
+        service = self._service()
+
+        service.remove_plant("plant-1")
+
+        self.task_repo.get_tasks_for_run.assert_called_once_with("run-1", tenant_key="tenant-a")
+
+
+class TestATenantlessPlantSaysSoInsteadOfSkippingSilently:
+    """#952 — fail-closed here **omits work that must happen**, so it must be loud.
+
+    Both cleanups are skipped for a plant with no tenant, because the task reads
+    behind them are tenant-scoped since #927/#952 and a tenantless read would be
+    the cross-tenant scan those fixes remove. But skipping means the removed
+    plant's open tasks — including its REQ-022 care reminders — stay in the queue
+    forever. Previously that happened with no signal at all; the Celery sweep's
+    ``runoff_trend_check_skipped_tenantless_plant`` is the pattern followed here.
+    """
+
+    def setup_method(self):
+        self.plant_repo = MagicMock()
+        self.task_repo = MagicMock()
+        self.run_repo = MagicMock()
+
+        self.plant = MagicMock()
+        self.plant.slot_key = None
+        self.plant.tenant_key = ""  # a legacy, un-backfilled instance
+        self.plant_repo.get_by_key.return_value = self.plant
+        self.plant_repo.get_or_raise.return_value = self.plant
+        self.plant_repo.update.return_value = self.plant
+
+    def _service(self) -> PlantInstanceService:
+        return PlantInstanceService(
+            self.plant_repo,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            task_repo=self.task_repo,
+            planting_run_repo=self.run_repo,
+        )
+
+    def test_neither_cleanup_runs_an_unscoped_read(self):
+        self._service().remove_plant("plant-1")
+
+        self.task_repo.get_tasks_for_plant.assert_not_called()
+        self.task_repo.get_tasks_for_run.assert_not_called()
+
+    def test_both_skips_are_logged_rather_than_silent(self):
+        with structlog.testing.capture_logs() as logs:
+            self._service().remove_plant("plant-1")
+
+        events = {entry["event"] for entry in logs if entry.get("log_level") == "warning"}
+        assert "open_task_cleanup_skipped_tenantless_plant" in events
+        assert "orphaned_run_task_cleanup_skipped_tenantless_plant" in events
+        assert all(entry.get("plant_key") == "plant-1" for entry in logs if entry["event"] in events)
