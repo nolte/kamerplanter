@@ -65,6 +65,7 @@ import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
 import HarvestReadinessSection from './HarvestReadinessSection';
+import { plantCanBeHarvested, harvestDateIsPredictable } from './harvestability';
 import ProfilesSection from './ProfilesSection';
 import OverwinteringSection from './OverwinteringSection';
 import PestScanButton from '@/components/pests/PestScanButton';
@@ -736,22 +737,22 @@ export default function PlantInstanceDetailPage() {
     return null;
   }, [currentGrowthPhase, assignedCultivar]);
 
-  // Estimated harvest date: planted_on + sum(all growth phase durations)
-  // Perennials and plants without harvest phases do not show an estimated harvest date.
+  // Estimated harvest date: planted_on + sum(all growth phase durations).
+  // `harvestDateIsPredictable` answers the *narrow* question — species yields
+  // something at all (shared with the readiness panel below, #963) AND there is a
+  // single terminal harvest to count down to. Perennials and lifecycles without a
+  // harvest phase fail only the second half, which is why the two guards are
+  // deliberately not the same predicate; see ./harvestability.ts.
   const estimatedHarvest = useMemo(() => {
-    if (!plant?.planted_on || growthPhases.length === 0 || plant.removed_on) return null;
-    // Perennials have recurring cycles — no single harvest endpoint
-    if (currentPhase?.cycle_type === 'perennial') return null;
-    // No harvest phase configured — nothing to estimate
-    if (currentPhase?.has_harvest_phase === false) return null;
-    if (!growthPhases.some((gp) => gp.allows_harvest)) return null;
+    if (!plant?.planted_on || plant.removed_on) return null;
+    if (!harvestDateIsPredictable({ species, currentPhase, growthPhases })) return null;
     const totalDays = growthPhases.reduce((sum, gp) => sum + gp.typical_duration_days, 0);
     if (totalDays === 0) return null;
     const planted = new Date(plant.planted_on);
     const harvestDate = new Date(planted.getTime() + totalDays * 86400000);
     const daysRemaining = Math.ceil((harvestDate.getTime() - Date.now()) / 86400000);
     return { date: harvestDate, daysRemaining };
-  }, [plant?.planted_on, plant?.removed_on, growthPhases, currentPhase?.cycle_type, currentPhase?.has_harvest_phase]);
+  }, [plant?.planted_on, plant?.removed_on, species, growthPhases, currentPhase]);
 
   // Active nutrient plan phase entry for the current week (handles perennial cycle restarts)
   const activePhaseEntry = useMemo(() => {
@@ -1215,7 +1216,7 @@ export default function PlantInstanceDetailPage() {
                 </Typography>
               </Box>
               {estimatedHarvest && (
-                <Box>
+                <Box data-testid="estimated-harvest">
                   <Typography variant="caption" color="text.secondary">
                     {t('pages.plantInstances.estimatedHarvest')}
                   </Typography>
@@ -1678,8 +1679,19 @@ export default function PlantInstanceDetailPage() {
               "voraussichtliche Ernte": where is this plant in its run right now.
               Hidden once the plant is removed/harvested: readiness is a forecast
               towards an event that has already happened, mirroring the watering
-              card's `!plant.removed_on` guard directly above. */}
-          {plant && key && !plant.removed_on && (
+              card's `!plant.removed_on` guard directly above.
+
+              Hidden as well when the species yields nothing (#963). "Not removed
+              yet" used to be the only question asked, so a *Dracaena reflexa* was
+              offered a trichome/Brix observation it can never have — while the
+              summary bar above already declined to predict a harvest date for it.
+              Both displays now consult `plantCanBeHarvested`, so they can no
+              longer contradict each other about the same plant. Only the species
+              axis applies here: unlike the date estimate, a ripeness assessment
+              needs no phase durations, so a crop with an incomplete lifecycle
+              keeps its panel. The guard fails open on an unknown species — see
+              ./harvestability.ts for why. */}
+          {plant && key && !plant.removed_on && plantCanBeHarvested(species) && (
             <HarvestReadinessSection plantKey={key} />
           )}
 
