@@ -117,7 +117,9 @@ class ITaskRepository(ABC):
         ...
 
     @abstractmethod
-    def get_tasks_for_run(self, run_key: str, status: str | None = None) -> list[Task]: ...
+    def get_tasks_for_run(self, run_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+        """A run's tasks inside ``tenant_key`` (#952)."""
+        ...
 
     @abstractmethod
     def get_tasks_for_entity(

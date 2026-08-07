@@ -10,6 +10,10 @@ from app.domain.models.feeding_event import FeedingEvent
 class ArangoFeedingRepository(BaseArangoRepository[FeedingEvent], IFeedingRepository):
     is_tenant_scoped = True
     _model_cls = FeedingEvent
+    #: ``POST /t/{slug}/feeding-events`` takes ``plant_key`` from the request
+    #: body and the create path wires a ``fed_by`` edge to it, so the reference
+    #: is ownership-verified before the write (#948).
+    _owned_reference_fields = {"plant_key": col.PLANT_INSTANCES}
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.FEEDING_EVENTS)

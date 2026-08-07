@@ -123,6 +123,7 @@ def confirm_watering(
         measured_ph=body.measured_ph,
         volume_liters=body.volume_liters,
         overrides=body.overrides,
+        tenant_key=ctx.tenant_key,
     )
     return WateringConfirmResponse(**result)
 
@@ -134,7 +135,7 @@ def quick_confirm_watering(
     service: WateringService = Depends(get_watering_service),
 ):
     """Quick-confirm a scheduled watering task with default values."""
-    result = service.quick_confirm_watering(body.run_key, body.task_key)
+    result = service.quick_confirm_watering(body.run_key, body.task_key, tenant_key=ctx.tenant_key)
     return WateringConfirmResponse(**result)
 
 
@@ -149,6 +150,10 @@ def suggest_watering_volume(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    """Suggest a watering volume for a plant instance based on phase and season."""
-    suggestion = service.suggest_volume(plant_key, reference_date, hemisphere)
+    """Suggest a watering volume for a plant instance based on phase and season.
+
+    A ``plant_key`` outside the caller's tenant answers **404**, not a
+    recommendation computed from the other tenant's plant (#952).
+    """
+    suggestion = service.suggest_volume(plant_key, reference_date, hemisphere, tenant_key=ctx.tenant_key)
     return VolumeSuggestionResponse(**suggestion.model_dump())
