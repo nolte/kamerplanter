@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
+from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
 from app.domain.engines.watering_engine import WateringEngine
@@ -15,7 +16,11 @@ from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation
-from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
+from app.domain.models.watering_log import (
+    WateringLog,
+    WateringLogFertilizer,
+    find_watering_log_violations,
+)
 
 if TYPE_CHECKING:
     from app.domain.services.care_reminder_service import CareReminderService
@@ -134,6 +139,18 @@ class WateringLogService:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
     def update_log(self, key: str, data: dict) -> WateringLog:
+        """Apply a partial update to a watering log.
+
+        Args:
+            key: Document key of the log.
+            data: Field subset to change; unknown and ``None`` values are dropped.
+
+        Returns:
+            The updated log (or the unchanged one, when nothing applies).
+
+        Raises:
+            ValidationError: The patch would break a cross-field rule of the log.
+        """
         existing = self.get_log(key)
         allowed_fields = {
             "application_method",
@@ -149,9 +166,32 @@ class WateringLogService:
             "notes",
         }
         update_fields = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
-        if update_fields:
-            return self._repo.update_fields(key, update_fields)
-        return existing
+        if not update_fields:
+            return existing
+
+        # A patch is only ever valid against the *merged* state: ``is_supplemental``
+        # and ``application_method`` can each arrive alone, so no request schema can
+        # judge the pair. Checking here matters because the repository writes the
+        # document first and rebuilds the domain model from it afterwards — an
+        # invalid combination was persisted *and* answered with a 500, poisoning
+        # every later read of that log (#970). Same rules as everywhere else, read
+        # from the one place that states them.
+        violations = find_watering_log_violations(
+            is_supplemental=update_fields.get("is_supplemental", existing.is_supplemental),
+            application_method=update_fields.get("application_method", existing.application_method),
+            slot_keys=existing.slot_keys,
+            plant_keys=existing.plant_keys,
+        )
+        if violations:
+            raise ValidationError(
+                violations[0].message,
+                details=[
+                    {"field": field, "reason": violation.message, "code": violation.code}
+                    for violation in violations
+                    for field in violation.fields
+                ],
+            )
+        return self._repo.update_fields(key, update_fields)
 
     def delete_log(self, key: str) -> bool:
         self.get_log(key)

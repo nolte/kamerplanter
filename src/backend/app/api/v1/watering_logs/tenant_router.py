@@ -57,6 +57,10 @@ def create_log(
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Create a watering log and return it with resolved names and warnings."""
+    # ``WateringLogCreate`` already enforces the domain's cross-field rules, so this
+    # construction can no longer raise on caller input. It stays unguarded on
+    # purpose: a ``ValidationError`` from here would now mean *we* built the model
+    # wrongly, and that is a genuine 500 which must reach error tracking (#970).
     log = WateringLog(**body.model_dump(), tenant_key=ctx.tenant_key)
     result = service.create_log(log)
     created = result["log"]
@@ -218,7 +222,7 @@ def confirm_watering(
         measured_ec=body.measured_ec,
         measured_ph=body.measured_ph,
         volume_liters=body.volume_liters,
-        overrides=body.overrides,
+        overrides=body.overrides.model_dump() if body.overrides else None,
         tenant_key=ctx.tenant_key,
     )
     return WateringConfirmResponse(**result)
