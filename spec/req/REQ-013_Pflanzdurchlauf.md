@@ -318,11 +318,25 @@ Eine leere Liste allein ist mehrdeutig, deshalb traegt `environment_status` die 
 | `opted_out` | Die Autorin hat den Schnappschuss im Dialog abgewaehlt. | `[]` |
 | `captured` | Die Kette lief sauber durch und lieferte mindestens einen Wert. | gefuellt |
 | `no_source` | Die Kette lief sauber durch; **nichts misst diese Pflanze**. Das ist die Wahrheit, kein Fehler. | `[]` |
-| `unavailable` | Die Kette wurde abgeschnitten (Quelle fehlerhaft oder Zeitbudget erschoepft). Eine **nicht**-leere Liste heisst hier: Teilaufnahme. | leer oder teilgefuellt |
+| `unavailable` | Die Kette wurde abgeschnitten: Quelle fehlerhaft, Zeitbudget erschoepft, oder die Kette liess sich gar nicht erst aufbauen. Eine **nicht**-leere Liste heisst hier: Teilaufnahme. | leer oder teilgefuellt |
 
 Ein nicht konfiguriertes Home Assistant ist **kein** Fehler, sondern ein normaler Betrieb —
 die Kette faellt dann auf die persistierten Beobachtungen zurueck und meldet `captured`
 bzw. `no_source`, nicht `unavailable`.
+
+Die Abgrenzung zwischen `not_attempted` und `unavailable` traegt eine Unterscheidung, die
+leicht verlorengeht: „diese Instanz erfasst nicht" ist eine *Konfigurationsentscheidung*,
+„die Aufloesungs-Kette war nicht erreichbar" ist eine *Stoerung*. Auch ein Fehlschlag schon
+beim **Aufbau** der Kette (etwa eine nicht erreichbare Datenbank) ist eine Stoerung und
+faellt unter `unavailable` — sonst saehe der Eintrag ein Jahr spaeter so aus, als haette die
+Autorin sich bewusst gegen Klimawerte entschieden.
+
+**Aufbau erst bei Bedarf.** Die Kette wird aufgebaut, wenn tatsaechlich erfasst wird, nicht
+wenn der Tagebuch-Dienst entsteht (`environment_service_factory`, dieselbe Form wie
+`ha_client_factory` am `ActuatorService`). Sonst zoege jeder Tagebuch-*Lesezugriff* sechs
+Repositories und einen Home-Assistant-Client nach sich, obwohl er nie erfasst — und ein
+Dienst, der bei fehlenden Quellen bewusst degradiert, machte allein durch seine Entstehung
+alle diese Quellen zur harten Voraussetzung.
 
 #### 2.3a.5 Aktualitaetsgrenze
 

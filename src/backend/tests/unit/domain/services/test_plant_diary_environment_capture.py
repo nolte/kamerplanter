@@ -13,9 +13,11 @@ it, and each has a test that fails loudly if it is ever relaxed:
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 import pytest
 
+from app.common import dependencies as deps
 from app.common.enums import (
     DiaryEntryType,
     DiaryEnvironmentOrigin,
@@ -77,9 +79,16 @@ def _entry(**kwargs) -> PlantDiaryEntry:
 
 
 def _service(environment_service=None) -> tuple[PlantDiaryService, FakeDiaryRepository]:
+    """Build the service with a **factory** answering ``environment_service``.
+
+    The production wiring passes a factory rather than a built object (see
+    :class:`TestTheCollaboratorIsBuiltLazily` for why), so the tests build it the
+    same way — a helper injecting an instance would exercise a shape the
+    application no longer has.
+    """
     repo = FakeDiaryRepository()
     return (
-        PlantDiaryService(diary_repo=repo, environment_service=environment_service),
+        PlantDiaryService(diary_repo=repo, environment_service_factory=lambda: environment_service),
         repo,
     )
 
@@ -128,6 +137,152 @@ class TestCaptureOnCreate:
         assert created.environment == []
         assert created.environment_status is DiaryEnvironmentStatus.NOT_ATTEMPTED
         assert created.environment_captured_at is None
+
+    def test_without_a_factory_at_all_nothing_is_attempted(self):
+        repo = FakeDiaryRepository()
+        service = PlantDiaryService(diary_repo=repo)
+
+        created = service.create_entry(PLANT, _entry(), actor_role=TenantRole.GROWER)
+
+        assert created.environment_status is DiaryEnvironmentStatus.NOT_ATTEMPTED
+
+
+class TestTheCollaboratorIsBuiltLazily:
+    """The snapshot service is resolved when a snapshot is captured — not before.
+
+    This is a regression guard with a scar. The first version injected the built
+    :class:`EnvironmentSnapshotService`, and the provider therefore constructed
+    six repositories plus a Home Assistant client every time the *diary* service
+    was assembled. That turned ``get_plant_diary_service()`` into a database
+    round trip and broke ``test_diary_analysis_consent_wiring.py`` — a unit test
+    about consent that touches no environment whatsoever — in CI, where no
+    ArangoDB exists. It passed locally only because a dev database happened to
+    be listening.
+
+    The irony worth keeping in view: the snapshot service is built to *degrade*
+    when a source is missing, and eager wiring made merely constructing it a hard
+    dependency on every one of them.
+
+    None of the tests below open a connection or depend on one being absent —
+    they count calls, so they mean the same thing on a laptop with a live
+    database as they do on a bare CI runner.
+    """
+
+    def test_constructing_the_service_does_not_build_the_collaborator(self):
+        calls = 0
+
+        def factory():
+            nonlocal calls
+            calls += 1
+            return StubEnvironmentService()
+
+        PlantDiaryService(diary_repo=FakeDiaryRepository(), environment_service_factory=factory)
+
+        assert calls == 0
+
+    def test_the_collaborator_is_built_once_when_an_entry_is_created(self):
+        calls = 0
+        environment = StubEnvironmentService()
+
+        def factory():
+            nonlocal calls
+            calls += 1
+            return environment
+
+        repo = FakeDiaryRepository()
+        service = PlantDiaryService(diary_repo=repo, environment_service_factory=factory)
+
+        created = service.create_entry(PLANT, _entry(), actor_role=TenantRole.GROWER)
+
+        assert calls == 1
+        assert created.environment_status is DiaryEnvironmentStatus.CAPTURED
+
+    def test_reading_and_editing_never_build_the_collaborator(self):
+        calls = 0
+
+        def factory():
+            nonlocal calls
+            calls += 1
+            return StubEnvironmentService()
+
+        repo = FakeDiaryRepository()
+        service = PlantDiaryService(diary_repo=repo, environment_service_factory=factory)
+        created = service.create_entry(PLANT, _entry(), actor_role=TenantRole.GROWER)
+        calls_after_create = calls
+
+        service.get_entry(created.key)
+        service.update_entry(
+            created.key,
+            {"text": "Korrektur."},
+            tenant_key=TENANT,
+            user_key=AUTHOR,
+            actor_role=TenantRole.GROWER,
+        )
+
+        assert calls == calls_after_create == 1
+
+    def test_a_factory_that_cannot_build_is_unavailable_not_not_attempted(self):
+        """An outage is not a configuration choice.
+
+        The factory reaches for repositories; a database that is down there means
+        "we tried and could not get through", which is exactly what
+        ``unavailable`` says. Reporting ``not_attempted`` would file the outage
+        as a deliberate decision not to capture — and the entry would look, a
+        year later, like one the author chose to write without climate.
+        """
+
+        def factory():
+            raise RuntimeError("[Errno 111] Connection refused")
+
+        repo = FakeDiaryRepository()
+        service = PlantDiaryService(diary_repo=repo, environment_service_factory=factory)
+
+        created = service.create_entry(PLANT, _entry(text="Blätter braun"), actor_role=TenantRole.GROWER)
+
+        assert created.key is not None
+        assert repo.get_or_raise(created.key).text == "Blätter braun"
+        assert created.environment_status is DiaryEnvironmentStatus.UNAVAILABLE
+        assert created.environment == []
+
+
+class TestProviderWiringNeedsNoDatabase:
+    """``get_plant_diary_service()`` must not reach for the environment chain.
+
+    Builds the service through the **real** provider with only the repositories
+    it genuinely needs doubled — the same five ``test_diary_analysis_consent_wiring``
+    patches — and proves the environment provider is never called. That provider
+    is the one that opens the other six.
+    """
+
+    @pytest.fixture
+    def environment_provider_calls(self, monkeypatch):
+        monkeypatch.setattr(deps, "get_plant_diary_repo", lambda: FakeDiaryRepository())
+        monkeypatch.setattr(deps, "get_consent_repo", lambda: MagicMock())
+        monkeypatch.setattr(deps, "get_planting_run_repo", lambda: MagicMock())
+        monkeypatch.setattr(deps, "get_plant_repo", lambda: MagicMock())
+        monkeypatch.setattr(deps, "get_attachment_repo", lambda: MagicMock())
+
+        calls: list[int] = []
+        monkeypatch.setattr(
+            deps,
+            "get_environment_snapshot_service",
+            lambda: calls.append(1) or MagicMock(),
+        )
+        return calls
+
+    def test_building_the_diary_service_never_calls_the_environment_provider(self, environment_provider_calls):
+        deps.get_plant_diary_service()
+
+        assert environment_provider_calls == []
+
+    def test_the_provider_passes_the_function_itself_as_the_factory(self, environment_provider_calls):
+        # Not merely "uncalled" — the factory has to actually be the provider, or
+        # the service would be lazy about nothing.
+        service = deps.get_plant_diary_service()
+
+        assert service._environment_service_factory is not None
+        service._environment_service_factory()
+        assert environment_provider_calls == [1]
 
 
 class TestNeverFromTheClient:

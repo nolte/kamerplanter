@@ -112,7 +112,9 @@ class StubEnvironmentService:
 def _build(environment: StubEnvironmentService | None = None):
     environment = environment or StubEnvironmentService()
     repo = FakeDiaryRepository()
-    diary_service = PlantDiaryService(diary_repo=repo, environment_service=environment)
+    # A factory, exactly as ``get_plant_diary_service`` wires it: the service
+    # resolves the snapshot collaborator when it captures, not when it is built.
+    diary_service = PlantDiaryService(diary_repo=repo, environment_service_factory=lambda: environment)
     plant_service = FakePlantInstanceService(
         plants={
             PLANT_KEY: _plant(PLANT_KEY),

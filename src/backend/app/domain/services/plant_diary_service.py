@@ -393,16 +393,27 @@ class PlantDiaryService:
         plant_repo: IPlantInstanceRepository | None = None,
         consent_checker: ConsentChecker | None = None,
         attachment_repo: IAttachmentRepository | None = None,
-        environment_service: EnvironmentSnapshotService | None = None,
+        environment_service_factory: Callable[[], EnvironmentSnapshotService | None] | None = None,
     ) -> None:
         self._repo = diary_repo
         self._run_repo = run_repo
         self._plant_repo = plant_repo
-        #: REQ-013 §2.3a — resolves the plant's environment on create. ``None``
-        #: means "this installation does not capture", which is recorded honestly
-        #: as ``not_attempted`` rather than silently looking like "we looked and
-        #: found nothing".
-        self._environment_service = environment_service
+        #: REQ-013 §2.3a — resolves the plant's environment on create.
+        #:
+        #: A **factory**, not an instance, and the distinction is load-bearing:
+        #: the snapshot service owns six repositories and a Home Assistant
+        #: client, none of which this service needs in order to exist. Injecting
+        #: the built object made merely *assembling* the diary service open a
+        #: database connection, so a unit test about consent wiring — which
+        #: touches no environment at all — started needing infrastructure and
+        #: failed in CI. It is the same shape ``ActuatorService`` already uses
+        #: for ``ha_client_factory``: resolve the collaborator when the work
+        #: actually happens.
+        #:
+        #: ``None`` (or a factory answering ``None``) means "this installation
+        #: does not capture", recorded honestly as ``not_attempted`` rather than
+        #: silently looking like "we looked and found nothing".
+        self._environment_service_factory = environment_service_factory
         #: REQ-050 §7.1 hook — see :func:`_consent_not_evaluated`.
         self._consent_checker = consent_checker or _consent_not_evaluated
         #: SEC-003 — resolves a ``photo_refs`` entry to its attachment record so
@@ -481,17 +492,36 @@ class PlantDiaryService:
     ) -> EnvironmentSnapshot:
         """Resolve the snapshot, and never let it stop the write.
 
-        The service already degrades internally; this second net exists because
-        the promise here is absolute. A grower documenting a problem is the worst
-        possible moment to refuse an entry over a sensor — so any escape at all
-        is recorded as ``unavailable`` and the entry is written.
+        The snapshot service already degrades internally; this second net exists
+        because the promise here is absolute. A grower documenting a problem is
+        the worst possible moment to refuse an entry over a sensor — so any
+        escape at all is recorded as ``unavailable`` and the entry is written.
+
+        **Building the collaborator is itself a fallible step**, which is why it
+        sits in its own ``try``: the factory reaches for repositories and a Home
+        Assistant client, and a database that is down there means "we tried and
+        could not" (``unavailable``) — not "this installation does not capture"
+        (``not_attempted``). Collapsing the two would file an infrastructure
+        outage as a deliberate configuration choice.
         """
         if not requested:
             return EnvironmentSnapshot.opted_out()
-        if self._environment_service is None:
+        if self._environment_service_factory is None:
             return EnvironmentSnapshot.not_attempted()
         try:
-            return self._environment_service.capture_for_plant(plant_key, tenant_key=tenant_key)
+            environment_service = self._environment_service_factory()
+        except Exception as exc:  # noqa: BLE001 — a snapshot never fails a write
+            logger.warning(
+                "diary_environment_service_unavailable",
+                plant_key=plant_key,
+                tenant_key=tenant_key,
+                error=str(exc),
+            )
+            return self._degraded_snapshot()
+        if environment_service is None:
+            return EnvironmentSnapshot.not_attempted()
+        try:
+            return environment_service.capture_for_plant(plant_key, tenant_key=tenant_key)
         except Exception as exc:  # noqa: BLE001 — a snapshot never fails a write
             logger.warning(
                 "diary_environment_capture_skipped",
@@ -499,11 +529,16 @@ class PlantDiaryService:
                 tenant_key=tenant_key,
                 error=str(exc),
             )
-            return EnvironmentSnapshot(
-                readings=[],
-                status=DiaryEnvironmentStatus.UNAVAILABLE,
-                captured_at=now_utc(),
-            )
+            return self._degraded_snapshot()
+
+    @staticmethod
+    def _degraded_snapshot() -> EnvironmentSnapshot:
+        """A capture that was attempted and did not get through (REQ-013 §2.3a)."""
+        return EnvironmentSnapshot(
+            readings=[],
+            status=DiaryEnvironmentStatus.UNAVAILABLE,
+            captured_at=now_utc(),
+        )
 
     def get_entry(self, key: str) -> PlantDiaryEntry:
         """Get a single diary entry by key."""
