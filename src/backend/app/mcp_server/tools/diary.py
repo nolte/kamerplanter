@@ -899,6 +899,63 @@ class SubmitDiaryAnalysis(WriteToolBase):
         )
 
 
+class DiaryMeasurementsInput(BaseModel):
+    """The recognised quantities of ``measurements``, with the rest still open.
+
+    **The problem this solves.** ``measurements`` was an open object —
+    ``additionalProperties: true``, no declared properties — documented only by
+    the example ``{'height_cm': 42, 'ph': 6.3}``. An agent reading the published
+    ``inputSchema`` could learn neither the unit nor the spelling of any
+    quantity, so a consuming spec had to *discard* ambiguous values. A number a
+    reader must throw away is worse than no number.
+
+    **The decision: declare the recognised keys, keep the object open.**
+    ``extra="allow"`` means the JSON schema still carries
+    ``additionalProperties: true``, so nothing that was writable before stops
+    being writable. What changes is that the quantities a recipe is expected to
+    reason over now appear in the schema **with their unit in the key name** and
+    with the physical bounds that make a typo detectable.
+
+    **Backward compatibility was the constraint that shaped the key set.** This
+    module's own header warns that every published key is a contract for a
+    repository that cannot be grepped from here, and the same is true in the
+    other direction: entries already in the wild were written through the web
+    UI's free-form key/value editor and through the REST schema whose example is
+    ``{"height_cm": 84, "leaf_count": 22}``. So:
+
+    * ``ph``, ``height_cm`` and ``leaf_count`` are declared **under the spelling
+      that is already in the data**. Renaming them to a tidier form would have
+      split every plant's history across two key sets — the read tools return
+      ``measurements`` verbatim and cannot migrate what is stored.
+    * ``ec_ms_cm``, ``temperature_c`` and ``humidity_percent`` are new: no
+      established spelling existed for them in diary data, so the unit-bearing
+      name used elsewhere in the codebase (``TankStateCreate.ec_ms_cm``) is
+      adopted rather than inventing a third one.
+    * Nothing is made **required**, and nothing outside this list is rejected.
+
+    **Why only the MCP surface and not the REST request schema.** The two have
+    genuinely different consumers. The REST path serves the UI's free-form editor,
+    where a human types a label of their choosing; constraining it would break
+    that editor for every key it does not know. The MCP path serves an agent that
+    reads a JSON schema and has nobody to ask. Declaring the recognised set for
+    the reader that needs it, while leaving the store open for the reader that
+    does not, is the whole point of a typed surface over an open record.
+    """
+
+    model_config = {"extra": "allow"}
+
+    ec_ms_cm: float | None = Field(
+        default=None,
+        ge=0,
+        description="Electrical conductivity in mS/cm. Say in the text whether this is tank or runoff.",
+    )
+    ph: float | None = Field(default=None, ge=0, le=14, description="pH value, 0-14.")
+    temperature_c: float | None = Field(default=None, description="Temperature in degrees Celsius.")
+    humidity_percent: float | None = Field(default=None, ge=0, le=100, description="Relative humidity in percent.")
+    height_cm: float | None = Field(default=None, ge=0, description="Plant height in centimetres.")
+    leaf_count: int | None = Field(default=None, ge=0, description="Number of leaves counted.")
+
+
 @mcp_tool(name="add_plant_diary_entry", permission=McpPermission.WRITE)
 class AddPlantDiaryEntry(WriteToolBase):
     """Record a diary entry (observation, problem, measurement) for a plant."""
@@ -912,9 +969,14 @@ class AddPlantDiaryEntry(WriteToolBase):
         title: str | None = Field(default=None, max_length=200, description="Optional headline, max 200 characters.")
         text: str = Field(min_length=1, max_length=5000, description="The entry itself, 1 to 5000 characters.")
         tags: list[str] = Field(default_factory=list, description="Free-form tags.")
-        measurements: dict | None = Field(
+        measurements: DiaryMeasurementsInput | None = Field(
             default=None,
-            description="Optional measured values, e.g. {'height_cm': 42, 'ph': 6.3}.",
+            description=(
+                "Optional measured values. The recognised quantities carry their unit in the key "
+                "(ec_ms_cm, ph, temperature_c, humidity_percent, height_cm, leaf_count); any further "
+                "key is accepted unchanged. For a dose with EC and pH use record_feeding_event instead — "
+                "it stores amount, EC, pH and the tank reference in fields a reader can rely on."
+            ),
         )
 
         # The two length bounds are repeated from ``PlantDiaryEntry``, which is
@@ -947,7 +1009,12 @@ class AddPlantDiaryEntry(WriteToolBase):
             title=args.title,
             text=args.text,
             tags=list(args.tags),
-            measurements=args.measurements,
+            # ``exclude_none`` so an unset recognised key is *absent* rather than
+            # stored as an explicit null. Padding every entry with six nulls would
+            # change what the read tools return for entries that measured nothing,
+            # and ``{"ph": null}`` reads as "measured, result unknown" — which is
+            # not what an omitted field means.
+            measurements=args.measurements.model_dump(exclude_none=True) if args.measurements is not None else None,
         )
         # No ``run_key``: the entry hangs off the plant, so it surfaces in a run's
         # aggregation as soon as the plant belongs to one. Passing a run here
@@ -1191,6 +1258,7 @@ __all__ = [
     "AddPlantDiaryEntry",
     "ClaimDiaryAnalysis",
     "DiaryFindingInput",
+    "DiaryMeasurementsInput",
     "GetDiaryEntry",
     "GetDiaryEntryPhotos",
     "ListDiaryEntries",

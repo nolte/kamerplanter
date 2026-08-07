@@ -1,24 +1,44 @@
-"""REQ-033 read tools for integrated pest management (§2.1, REQ-010).
+"""REQ-033 tools for integrated pest management (§2.1 read, §2.2 write, REQ-010).
 
 Pests, diseases and treatments are **global** catalogue data — the same rows
-every tenant sees, exactly like the species catalogue — so these tools carry no
-``tenant`` argument. The one exception is the inspection history, which belongs
-to a specific plant and is therefore tenant-scoped.
+every tenant sees, exactly like the species catalogue — so those tools carry no
+``tenant`` argument. The exceptions are the inspection history and
+``create_inspection``, which belong to a specific plant and are therefore
+tenant-scoped.
 
 The treatment data carries the safety interval (Karenz) that gates harvesting
 after a chemical application; it is surfaced prominently because an LLM
 recommending a treatment without it would be giving unsafe advice.
+
+**Why the write tool had to exist.** The image-analysis process *reads*
+``get_plant_inspections`` to set its prior — a pest already recorded on a plant
+raises the likelihood of the same pest recurring — but before
+:class:`CreateInspection` an agent had no way to *write* one. On a plant tended
+entirely through agents the IPM history therefore stayed empty forever and the
+prior never accumulated, no matter how often the same pest was found.
+``create_inspection`` is what turns a sequence of one-off analyses into a
+history; ``get_plant_inspections`` is the read tool that finds the result again
+(REQ-033 §4.1 addressability rule).
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from app.common.enums import McpPermission
+from app.common.enums import McpPermission, PestPressureLevel, PlantPart
+from app.domain.models.ipm import Inspection, InspectionFinding
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.base import TenantToolInput, ToolBase, ToolInput, mcp_tool
+from app.mcp_server.base import (
+    TenantToolInput,
+    ToolBase,
+    ToolInput,
+    WriteToolBase,
+    WriteToolInput,
+    mcp_tool,
+)
 from app.mcp_server.context import ToolContext
 
 _MAX_LIMIT = 100
@@ -240,11 +260,17 @@ class GetPlantInspections(ToolBase):
 
         items = [
             {
+                "inspection_key": i.key,
                 "inspected_at": i.inspected_at,
                 "pressure_level": i.pressure_level,
                 "detected_pest_keys": i.detected_pest_keys,
                 "detected_disease_keys": i.detected_disease_keys,
                 "symptoms_observed": i.symptoms_observed,
+                # The structured half of what create_inspection wrote. Without it
+                # the confidence and the plant part an agent recorded would be
+                # write-only — the palette's addressability rule read the other
+                # way round (§4.1): a write whose result no read tool surfaces.
+                "findings": [_finding_payload(f) for f in getattr(i, "findings", [])],
                 "notes": i.notes,
             }
             for i in inspections
@@ -257,3 +283,210 @@ class GetPlantInspections(ToolBase):
             data={"plant_key": plant.key, "count": len(items), "total": total, "items": items},
             links=[ctx.ui_link(f"/plants/{plant.key}#ipm")],
         )
+
+
+# ── §2.2 create_inspection ────────────────────────────────────────────────────
+#: Bound on one call's findings. An inspection is one visit to one plant; beyond
+#: this the payload stops being an observation and starts being a data dump, and
+#: each finding costs up to two catalogue lookups for its pest/disease reference.
+MAX_FINDINGS_PER_INSPECTION = 25
+
+
+class InspectionFindingInput(BaseModel):
+    """The finding shape an analysis agent actually produces.
+
+    Named to match ``DiaryFinding`` (REQ-050 §5) where the concepts coincide, so
+    a result reached through ``submit_diary_analysis`` can become an inspection
+    without renaming anything. Bounds are declared on the domain model
+    :class:`~app.domain.models.ipm.InspectionFinding`; they are repeated in the
+    field descriptions here only so a recipe reading the published ``inputSchema``
+    learns them without being rejected first.
+    """
+
+    symptom: str = Field(min_length=1, max_length=500, description="What was observed, in plain words.")
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="How sure the observer is, 0.0-1.0. Omit rather than guessing.",
+    )
+    affected_plant_part: PlantPart | None = Field(
+        default=None,
+        description="Which part of the plant shows it: leaf, stem, root, flower or fruit.",
+    )
+    pest_key: str | None = Field(default=None, description="Attributed pest, from list_pests. Omit when unsure.")
+    disease_key: str | None = Field(
+        default=None,
+        description="Attributed disease, from list_diseases. Omit when unsure.",
+    )
+    rationale: str | None = Field(default=None, max_length=2000, description="Why this reading, max 2000 characters.")
+
+
+def _finding_payload(finding: Any) -> dict[str, Any]:
+    return {
+        "symptom": finding.symptom,
+        "confidence": finding.confidence,
+        "affected_plant_part": str(finding.affected_plant_part) if finding.affected_plant_part else None,
+        "pest_key": finding.pest_key,
+        "disease_key": finding.disease_key,
+        "rationale": finding.rationale,
+    }
+
+
+@mcp_tool(name="create_inspection", permission=McpPermission.WRITE)
+class CreateInspection(WriteToolBase):
+    """Record an IPM inspection for a plant: pressure level, symptoms and structured findings."""
+
+    class Input(WriteToolInput):
+        plant_key: str = Field(description="Key of the inspected plant. Resolve it with list_plants.")
+        pressure_level: PestPressureLevel = Field(
+            default=PestPressureLevel.NONE,
+            description="Observed pest pressure: none, low, medium, high or critical.",
+        )
+        findings: list[InspectionFindingInput] = Field(
+            default_factory=list,
+            max_length=MAX_FINDINGS_PER_INSPECTION,
+            description=(
+                "Structured observations — symptom, confidence, affected plant part. "
+                "Their symptom strings are mirrored into symptoms_observed automatically."
+            ),
+        )
+        symptoms_observed: list[str] = Field(
+            default_factory=list,
+            description="Plain symptom strings, for observations that carry no confidence or plant part.",
+        )
+        detected_pest_keys: list[str] = Field(
+            default_factory=list,
+            description="Pests identified, from list_pests. Merged with the pest_keys named in findings.",
+        )
+        detected_disease_keys: list[str] = Field(
+            default_factory=list,
+            description="Diseases identified, from list_diseases. Merged with the disease_keys named in findings.",
+        )
+        inspector: str = Field(
+            default="",
+            max_length=200,
+            description="Who inspected. Defaults to the calling account when left empty.",
+        )
+        inspected_at: datetime | None = Field(
+            default=None,
+            description="When the inspection happened (ISO-8601 UTC). Defaults to now.",
+        )
+        environmental_conditions: dict | None = Field(
+            default=None,
+            description="Conditions at inspection time, e.g. {'temperature_c': 24.5, 'humidity_percent': 62}.",
+        )
+        notes: str | None = Field(default=None, max_length=2000, description="Free-form remark, max 2000 characters.")
+
+    async def preview(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        plant, pest_keys, disease_keys, symptoms = self._resolve(ctx, args)
+        return self._response(
+            summary=(
+                f"Would record a '{args.pressure_level}' inspection for plant '{plant.key}' "
+                f"with {len(symptoms)} symptoms, {len(pest_keys)} pests and {len(disease_keys)} diseases."
+            ),
+            data={
+                "plant_key": plant.key,
+                "pressure_level": str(args.pressure_level),
+                "symptoms_observed": symptoms,
+                "detected_pest_keys": pest_keys,
+                "detected_disease_keys": disease_keys,
+                "findings": [_finding_payload(f) for f in args.findings],
+            },
+        )
+
+    async def execute(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        plant, pest_keys, disease_keys, symptoms = self._resolve(ctx, args)
+        inspection = Inspection(
+            tenant_key=ctx.tenant_key,
+            plant_key=plant.key,
+            # Attribution defaults to the calling account rather than staying
+            # empty: an inspection with no inspector is indistinguishable from a
+            # legacy row, and REQ-050's disclosure rule is that a machine-written
+            # record says so.
+            inspector=args.inspector.strip() or f"mcp:{ctx.principal.account_key}",
+            inspected_at=args.inspected_at,
+            pressure_level=args.pressure_level,
+            detected_pest_keys=pest_keys,
+            detected_disease_keys=disease_keys,
+            symptoms_observed=symptoms,
+            findings=[InspectionFinding(**finding.model_dump()) for finding in args.findings],
+            environmental_conditions=args.environmental_conditions,
+            notes=args.notes,
+        )
+        # create_inspection re-verifies the plant against inspection.tenant_key in
+        # the repository (#517) before wiring any edge, so the ownership gate holds
+        # even if this call site were ever refactored past the fetch above.
+        created = ctx.ipm_service.create_inspection(plant.key, inspection)
+
+        name = plant.plant_name or plant.instance_id
+        return self._response(
+            summary=(
+                f"Recorded a '{created.pressure_level}' inspection for '{name}' "
+                f"({len(created.symptoms_observed)} symptoms, {len(created.detected_pest_keys)} pests)."
+            ),
+            data={
+                "inspection_key": created.key,
+                "plant_key": created.plant_key,
+                "inspected_at": created.inspected_at,
+                "inspector": created.inspector,
+                "pressure_level": str(created.pressure_level),
+                "detected_pest_keys": list(created.detected_pest_keys),
+                "detected_disease_keys": list(created.detected_disease_keys),
+                "symptoms_observed": list(created.symptoms_observed),
+                "findings": [_finding_payload(f) for f in created.findings],
+                "notes": created.notes,
+            },
+            links=[
+                ctx.api_link(f"/ipm/plants/{created.plant_key}/inspections"),
+                ctx.ui_link(f"/plants/{created.plant_key}#ipm"),
+            ],
+        )
+
+    @staticmethod
+    def _resolve(ctx: ToolContext, args: Input) -> tuple[Any, list[str], list[str], list[str]]:
+        """Ownership-check the plant, validate every catalogue key, merge the lists.
+
+        Both the preview and the real call run this, so a dry run cannot approve
+        an inspection the write would reject.
+
+        Pest and disease keys are validated because the repository wires a
+        ``detected_pest`` edge to ``pests/{key}`` without looking: an unchecked
+        key becomes a dangling edge that every later graph traversal has to step
+        over. They are *global* catalogue reads, so no tenant is involved and
+        validating them leaks nothing.
+
+        Symptoms and catalogue keys are merged from the two channels — the flat
+        lists and the structured findings — and deduplicated with insertion order
+        preserved, so an agent that fills only ``findings`` still produces a row
+        that the existing ``symptoms_observed`` readers (the UI among them) can
+        read.
+        """
+
+        plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+
+        symptoms = list(args.symptoms_observed) + [f.symptom for f in args.findings]
+        pest_keys = list(args.detected_pest_keys) + [f.pest_key for f in args.findings if f.pest_key]
+        disease_keys = list(args.detected_disease_keys) + [f.disease_key for f in args.findings if f.disease_key]
+
+        pest_keys = list(dict.fromkeys(pest_keys))
+        disease_keys = list(dict.fromkeys(disease_keys))
+        for pest_key in pest_keys:
+            ctx.ipm_service.get_pest(pest_key)
+        for disease_key in disease_keys:
+            ctx.ipm_service.get_disease(disease_key)
+
+        return plant, pest_keys, disease_keys, list(dict.fromkeys(symptoms))
+
+
+__all__ = [
+    "MAX_FINDINGS_PER_INSPECTION",
+    "CreateInspection",
+    "GetDisease",
+    "GetPest",
+    "GetPlantInspections",
+    "GetTreatment",
+    "InspectionFindingInput",
+    "ListDiseases",
+    "ListPests",
+]

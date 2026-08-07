@@ -186,7 +186,16 @@ Because the role applies per garden, the same key can write in your own garden a
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    41 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, recording IPM inspections, harvest and feeding events, plus a bridge to the RAG knowledge base. Expansion is a documented follow-up.
+    48 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, site and location management, advancing a phase, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
+
+!!! info "New: what an analysis agent can write back"
+    Five tools were added that externally operated analysis agents needed. Each one ships paired with the read tool that finds its result again — a write no read tool surfaces afterwards counts as a defect here:
+
+    - `record_feeding_event` records the **amount, EC and pH** of a feeding plus its tank reference. Until now the care log only said "confirmed" — a yes/no that cannot tell undersupply from oversupply, although the two are corrected in opposite directions. Visible through `get_plant_diagnostics`.
+    - `get_plant_diagnostics` returns **the trend, not just the latest value**: EC and pH series over a window you choose (input, post-feed and runoff kept apart), a sensor snapshot, IPM inspections, the safety interval and recent care — in a single call.
+    - `create_inspection` records an IPM inspection and keeps, per finding, the **confidence** and the **affected plant part**. Without it, a plant tended entirely through agents kept an empty pest history forever. Visible through `get_plant_inspections`.
+    - `search_plant_knowledge` searches the knowledge base and returns **citable source references**, so a rationale can name where it came from.
+    - `assign_nutrient_plan` binds an **existing** nutrient plan to a plant. *Editing* plans stays deliberately a job for the web UI. Visible through `get_plant_nutrient_plan`.
 
 ### Read tools (`mcp.read`)
 
@@ -196,6 +205,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `list_plants` | List plants, optionally filtered by name — this is how "my tomato" becomes the `plant_key` the write tools need |
 | `get_plant` | One plant in detail: species (with resolved name), phase, location, substrate (with resolved type and name), planting and removal dates |
 | `get_plant_care_log` | A plant's care history — with `reminder_type: "watering"` this is the watering log |
+| `get_plant_diagnostics` | A plant's diagnostic snapshot in **one** call: EC/pH **trend** over a window you choose (input, post-feed and runoff kept apart), sensor values at its location, IPM inspections, safety interval and recent care |
 | `list_diary_entries` | Browse diary entries, filtered by plant, species, entry type, tag, analysis state and date range — newest first, with measurements, but without the free text |
 | `list_plants_at_location` | All plants at a given site, bed or slot |
 | `list_nutrient_plans` | Available nutrient plans — your own plus global templates |
@@ -215,6 +225,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `list_phase_definitions` | Growth-phase definitions behind the lifecycle logic |
 | `list_hardiness_zones` | Hardiness zones with their temperature ranges |
 | `search_glossary` | Look up domain terms from the glossary (VPD, EC, safety interval …) |
+| `search_plant_knowledge` | Search the knowledge base (RAG) — returns **citable** source references with a score, so a rationale can name where it came from. Tenant-independent; only the query itself leaves the instance |
 | `list_species` | List the plant species catalog (paginated) |
 | `get_species_info` | **Full** master data for one species: sowing, bloom and harvest windows, hardiness, frost sensitivity, nutrient demand, toxicity, companion-planting hints and its cultivars |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |
@@ -233,9 +244,12 @@ Because the role applies per garden, the same key can write in your own garden a
 | `confirm_care_task` | Confirm a care reminder for a plant ("I have watered it") |
 | `archive_plant` | Mark a plant as disposed / given away / died — **never** a hard delete, history is retained |
 | `set_plant_location` | Move a plant to another site / location / slot |
-| `add_plant_diary_entry` | Record a diary entry (observation, problem, measurement) for a plant — text only, no photos |
+| `add_plant_diary_entry` | Record a diary entry (observation, problem, measurement) for a plant — text only, no photos. `measurements` now names the recognised quantities with their unit in the key (`ec_ms_cm`, `ph`, `temperature_c`, `humidity_percent`, `height_cm`, `leaf_count`) and still accepts any further key of your own |
 | `claim_diary_analysis` | Exclusively claim a waiting diary entry (lease) |
 | `submit_diary_analysis` | Write back the analysis result of a claimed diary entry |
+| `record_feeding_event` | Record a feeding: litres applied, EC and pH before and after, runoff EC/pH, and the tank reference. The care log only knows "confirmed" — here are the numbers |
+| `create_inspection` | Record an IPM inspection: pressure level, symptoms and **structured findings** with a confidence (0.0–1.0) and the affected plant part |
+| `assign_nutrient_plan` | Bind an **existing** nutrient plan to a plant (your own or a global template). Creating or editing plans is deliberately not a tool |
 
 ### Setup tool (`mcp.setup`)
 

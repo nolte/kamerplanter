@@ -1,4 +1,4 @@
-"""REQ-033 read tools for nutrient plans (§2.1, REQ-004).
+"""REQ-033 tools for nutrient plans (§2.1 read, §2.2 write, REQ-004).
 
 A nutrient plan carries the per-phase feeding targets — NPK ratio, EC, secondary
 nutrients and the week window each phase covers. These tools expose them so an
@@ -7,8 +7,18 @@ real plan instead of from general horticultural lore.
 
 Nutrient plans are a **hybrid catalogue**: a tenant sees its own plans plus the
 globally seeded templates (which carry an empty ``tenant_key``). The service's
-``verify_tenant_read_access`` implements that split; these read tools inherit it
+``verify_tenant_read_access`` implements that split; these tools inherit it
 rather than reimplementing the rule.
+
+**One write tool, deliberately: binding, not authoring.** AC-25 speaks of "the
+plan assigned to a plant" as an existing state, while the palette offered only
+the reading side — so the assignment came from somewhere the MCP surface could
+not reach, and every plan recommendation an agent made ended as a manual
+instruction it could never verify was followed. :class:`AssignNutrientPlan`
+closes that last step. A plan **editor** is explicitly out of scope: phase
+windows, product doses and mixing order are editing work with a UI built for it,
+not agent work, and a tool that could author a plan would let a model invent
+feeding targets rather than pick one a human already vetted.
 """
 
 from __future__ import annotations
@@ -19,7 +29,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
+from app.mcp_server.base import TenantToolInput, ToolBase, WriteToolBase, WriteToolInput, mcp_tool
 from app.mcp_server.context import ToolContext
 
 _MAX_LIMIT = 100
@@ -158,3 +168,80 @@ class GetPlantNutrientPlan(ToolBase):
             data=data,
             links=[ctx.api_link(f"/nutrient-plans/{plan.key}"), ctx.ui_link(f"/plants/{plant.key}")],
         )
+
+
+@mcp_tool(name="assign_nutrient_plan", permission=McpPermission.WRITE)
+class AssignNutrientPlan(WriteToolBase):
+    """Bind an existing nutrient plan to a plant — the plan itself is never edited."""
+
+    class Input(WriteToolInput):
+        plant_key: str = Field(description="Key of the plant to put on the plan. Resolve it with list_plants.")
+        plan_key: str = Field(
+            description="Key of an existing plan, own or a global template. Resolve it with list_nutrient_plans.",
+        )
+
+    async def preview(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        plant, plan, current = self._resolve(ctx, args)
+        replaces = getattr(current, "name", None) if current is not None else None
+        return self._response(
+            summary=(
+                f"Would assign nutrient plan '{plan.name}' to plant '{plant.key}'"
+                + (f", replacing '{replaces}'." if replaces else ", which currently follows no plan.")
+            ),
+            data={
+                "plant_key": plant.key,
+                "plan_key": plan.key,
+                "plan_name": plan.name,
+                # An assignment replaces silently in the repository (the existing
+                # FOLLOWS_PLAN edge is deleted first). Naming what would be lost is
+                # the whole reason a dry run exists for this tool.
+                "replaces_plan_key": getattr(current, "key", None) if current is not None else None,
+                "replaces_plan_name": replaces,
+            },
+        )
+
+    async def execute(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        plant, plan, current = self._resolve(ctx, args)
+        ctx.nutrient_plan_service.assign_to_plant(plant.key, plan.key, f"mcp:{ctx.principal.account_key}")
+
+        name = plant.plant_name or plant.instance_id
+        replaced = getattr(current, "key", None) if current is not None else None
+        return self._response(
+            summary=f"'{name}' now follows nutrient plan '{plan.name}'."
+            + (" The previous assignment was replaced." if replaced else ""),
+            data={
+                "plant_key": plant.key,
+                "plan_key": plan.key,
+                "plan_name": plan.name,
+                "replaced_plan_key": replaced,
+            },
+            links=[
+                # get_plant_nutrient_plan is the read tool that surfaces this
+                # write again (REQ-033 §4.1 addressability rule); the deep links
+                # point at the same data over REST and in the UI.
+                ctx.api_link(f"/plant-instances/{plant.key}/nutrient-plan"),
+                ctx.ui_link(f"/plants/{plant.key}"),
+            ],
+        )
+
+    @staticmethod
+    def _resolve(ctx: ToolContext, args: Input) -> tuple[Any, Any, Any]:
+        """Ownership-check both sides and read the assignment being replaced.
+
+        Runs on the dry-run path too, so a preview cannot approve an assignment
+        the write would refuse.
+
+        ``get_plan`` spans the hybrid catalogue — the tenant's own plans plus the
+        global templates — and raises the project's cross-tenant 404 for anything
+        else, so a foreign tenant's private plan cannot be bound to this tenant's
+        plant. ``assign_to_plant`` itself takes no tenant, which is exactly why
+        both keys are resolved here first (SEC-001, the fetch-then-use guard).
+        """
+
+        plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+        plan = ctx.nutrient_plan_service.get_plan(args.plan_key, tenant_key=ctx.tenant_key)
+        current = ctx.nutrient_plan_service.get_plant_plan(plant.key, tenant_key=ctx.tenant_key)
+        return plant, plan, current
+
+
+__all__ = ["AssignNutrientPlan", "GetNutrientPlan", "GetPlantNutrientPlan", "ListNutrientPlans"]
