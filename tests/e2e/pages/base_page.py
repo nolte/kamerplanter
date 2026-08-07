@@ -2339,6 +2339,120 @@ class BasePage:
                 "first."
             ) from exc
 
+    #: `DataTable`'s "no search results" panel. Rendered exactly when
+    #: ``tableState && processedData.totalFiltered === 0 && rows.length > 0``
+    #: (`DataTable.tsx`), i.e. only in a render where the filter has run, has
+    #: matched nothing, **and** the source data is still there. That third
+    #: clause is what makes it a statement about the *search* rather than about
+    #: the table: a list that lost its rows for an unrelated reason renders the
+    #: `EmptyState` branch instead, never this one.
+    #:
+    #: It is emitted outside the toolbar block, so it exists even where the
+    #: toolbar -- and with it :data:`SEARCH_CHIP` -- does not. That is the only
+    #: settling signal available on a page passing ``searchable={false}``
+    #: (`FertilizerListPage`), which still routes its own search box through
+    #: `tableState.setSearch` and therefore still filters.
+    NO_SEARCH_RESULTS = (By.CSS_SELECTOR, "[data-testid='no-search-results']")
+
+    def wait_for_no_search_results(
+        self, term: str, what: str = "DataTable", timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Wait until the table reports that *term* matched none of its rows.
+
+        The falsifiable post-condition of "search for something that cannot
+        exist", and the one a row **count** cannot express: ``filtered_count <=
+        initial_count`` is satisfied by a filter that does nothing at all, since
+        every row staying put holds it (#956). This can only become true in a
+        render where the filter ran.
+
+        Not to be confused with polling for the *absence* of rows, which is the
+        unfalsifiable read this replaces: an empty table is also what a page
+        that never loaded looks like. The panel is a positive element, and its
+        render condition carries "the source rows are still there" with it.
+        """
+        try:
+            self.poll(timeout).until(
+                lambda driver: bool(driver.find_elements(*self.NO_SEARCH_RESULTS))
+            )
+        except TimeoutException as exc:
+            rows = self.driver.find_elements(*self.DATA_TABLE_ROWS)
+            if rows:
+                mechanism = (
+                    f"{len(rows)} row(s) are still rendered, so the filter never "
+                    "reached the table: the term did not arrive in the search input, "
+                    "or its 300 ms debounce has not fired."
+                )
+            elif self.driver.find_elements(*self.EMPTY_STATE):
+                mechanism = (
+                    "The table renders its `EmptyState` branch instead, which "
+                    "`DataTable` shows only while the *source* rows are empty. The "
+                    "list had nothing to filter, so this search proves nothing."
+                )
+            else:
+                mechanism = (
+                    "No rows, no `EmptyState` and no results panel: this page renders "
+                    "no `DataTable` at all, so the term was typed into something else."
+                )
+            raise AssertionError(
+                f"{what}: searching for {term!r} never produced the 'no search "
+                f"results' state within {timeout}s. {mechanism}"
+            ) from exc
+
+    def wait_for_row_containing(
+        self,
+        needle: str,
+        rows_locator: Locator | None = None,
+        what: str = "DataTable",
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> None:
+        """Wait until some rendered row's text contains *needle*.
+
+        The read-back for a create whose list cannot be searched down to a
+        single row -- a detail-page sub-table, a `List` of successors -- where
+        the alternative is the count #956 is about. Membership, not arithmetic:
+        a create that was rejected, never submitted or answered 500 leaves a
+        list that never names its record, whatever its length does.
+
+        Callers must pass a **per-run unique** needle. Containment against a
+        value an earlier run could also have written is satisfied by that
+        earlier run, which is the same defect one level down.
+
+        Matching is containment because rows are read through
+        :meth:`get_row_text_fragments`, whose mobile half returns rendered card
+        lines rather than cell-exact values.
+        """
+        locator = rows_locator or self.DATA_TABLE_ROWS
+
+        def _rows() -> list[list[str]]:
+            return self.retry_on_stale(
+                lambda: [
+                    self.get_row_text_fragments(row) for row in self.driver.find_elements(*locator)
+                ]
+            )
+
+        def _listed(_driver: WebDriver) -> bool:
+            return any(needle in fragment for row in _rows() for fragment in row)
+
+        try:
+            self.poll(timeout).until(_listed)
+        except TimeoutException as exc:
+            found = _rows()
+            if not found:
+                mechanism = (
+                    "The list renders no rows at all, so nothing was persisted -- or "
+                    "the read is against a different tab than the create wrote to."
+                )
+            else:
+                mechanism = (
+                    f"{len(found)} row(s) are rendered and none names it, so the "
+                    "submit never reached the store: a rejected create leaves the "
+                    "list exactly as it was."
+                )
+            raise AssertionError(
+                f"{what}: no listed row contains {needle!r} within {timeout}s. "
+                f"The rendered rows read {found[:5]!r}. {mechanism}"
+            ) from exc
+
     def wait_for_row_identity(
         self,
         index: int,
