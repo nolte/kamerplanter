@@ -322,7 +322,7 @@ The five `*_diary_*` tools are the complete technical contract for an externally
 1. A user marks a diary entry in the web UI — the entry switches to the `requested` state.
 2. `list_pending_diary_analyses` (`mcp.read`) returns the work queue — no free text, no images, so the response stays small.
 3. `claim_diary_analysis` (`mcp.write`) exclusively claims an entry via a lease (default 15 minutes, ceiling 60 minutes) and returns a `lease_token`. A second claim attempt on the same entry fails with `conflict.already_claimed`. If the lease expires without a submitted result, the entry reappears in the work queue.
-4. `get_diary_entry` (`mcp.read`) returns text, tags, measurements and plant context — without image data.
+4. `get_diary_entry` (`mcp.read`) returns text, tags, measurements, the **environment snapshot** (`environment`) and the plant context — without image data. The snapshot lives in its **own** field next to `measurements`, never inside it: `measurements` is what a human typed, `environment` is what a device reported, and every reading carries `source`, `measured_at` and `origin` (`location` | `site` | `weather`). `environment_status` says what an empty list means — `no_source` ("nothing measures this plant") is a different statement from `unavailable` ("the reading did not get through").
 5. `get_diary_entry_photos` (`mcp.read`) returns the photos as image content blocks, so an image-capable model sees them directly (see [Image delivery](#image-delivery) below).
 6. The agent calls the language model that the user operates and pays for themselves.
 7. `submit_diary_analysis` (`mcp.write`) writes back the result with a valid `lease_token` and sets the state to `completed` or `failed`.

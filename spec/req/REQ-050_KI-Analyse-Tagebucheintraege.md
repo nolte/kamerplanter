@@ -8,10 +8,10 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 6, MCP (JSON-RPC über Streamable HTTP)
 Status: Entwurf
 Priorität: Mittel
-Version: 1.3
-Datum: 2026-08-05
+Version: 1.4
+Datum: 2026-08-07
 Tags: [diary, ai-analysis, mcp, image-content, goose, async, opt-in]
-Abhängigkeit: REQ-013 v2.4 (Pflanzdurchlauf — PlantDiaryEntry), REQ-033 v1.5 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
+Abhängigkeit: REQ-013 v2.5 (Pflanzdurchlauf — PlantDiaryEntry, Umgebungs-Schnappschuss §2.3a), REQ-033 v1.5 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
 Wird benötigt von: —
 ```
 
@@ -19,6 +19,7 @@ Wird benötigt von: —
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.4 | 2026-08-07 | **Umgebungs-Schnappschuss im Analyse-Payload (Issue #961).** §4.3 trägt zusätzlich `environment`, `environment_captured_at` und `environment_status`: der Agent bekam bisher die Fotos und den Freitext, aber nicht das Klima, in dem die Pflanze steht — die diagnostisch wertvollste Information, die kostenlos verfügbar ist. Das Feld ist **getrennt** von `measurements` und bleibt es (Begründung in REQ-013 §2.3a.1). `list_diary_entries` trägt es bewusst **nicht** — dieselbe Linie, die dieses Werkzeug schon beim Freitext zieht. `add_plant_diary_entry` meldet im Ergebnis `environment_status`, hat aber kein Eingabefeld dafür: ein Agent, der die Werte schreiben könnte, könnte sie erfinden. |
 | 1.3 | 2026-08-05 | **O-04 entschieden: `add_plant_diary_entry` kommt, ohne `photo_refs`** (§9). Ein Agent konnte bis hierhin analysieren, aber nicht dokumentieren. Die beiden Grenzen der Entscheidung — keine Foto-Referenzen (SEC-003 lässt sie einem Service-Account ohnehin nicht zu) und kein Selbst-Markieren (§1.3, §7.1) — sind dort begründet. Das Werkzeug steht **außerhalb** des Analyse-Vertrags aus §4 und gehört zu REQ-033 §2.2. Ergänzt: `plant.cultivar_key` in §4.3 — die Prozess-Spezifikation des externen Agenten löst die Sorte über `get_cultivar` auf, das einen Schlüssel nimmt, und das Antwortschema trug nur `cultivar_name`. Nebenbei korrigiert: das Dokumentende trug noch „Version 1.1", während der Kopf 1.2 auswies. |
 | 1.2 | 2026-08-05 | **Anlass: §2.5.2 verlangt für `in_progress` den „Zeitpunkt des Beanspruchens", das Antwortschema trug ihn nicht.** `DiaryOverviewItem` bekommt `analysis_claimed_at` (Beginn des Lease — nicht `analyzed_at`, das der Abschluss ist), samt der Regel, dass der Wert zu dem Lauf gehört, den der **angezeigte** Zustand beschreibt, und bei abgelaufenem Lease als `null` unterdrückt wird. Ergänzt um die Klarstellung, dass `analysis_state` auf **allen** Lesepfaden der angezeigte Zustand ist (abgelaufenes Lease liest sich überall als `requested`) und `can_request_analysis` **auch** an `DiaryEntryResponse` steht, nicht nur an der Übersichtszeile — beides war seit dem Vorgängerpaket so gebaut, die Spezifikation hinkte nach (§2.5.2, §5). |
 | 1.1 | 2026-08-05 | **Korrekturen aus der Umsetzung (Issue #921)**, plus die beiden blockierenden offenen Punkte entschieden. §4.3: `created_by` ist der blanke `user_key` ohne Collection-Präfix; `analysis` und `analysis_error` ergänzt, ohne die ein Agent den Vorbefund einer Wiederholungsanalyse (AK-21) über keines der fünf Werkzeuge erreichte. §4.4: `pending[].status` kennt zusätzlich `unavailable`. §2.5.2: `created_at` ist `datetime \| None`, wie am Datensatz. §4.4/§7.3: das nie existierende `STORAGE_KEEP_EXIF_<CATEGORY>` durch das tatsächlich vorhandene `STORAGE_STRIP_EXIF` ersetzt (NFR-013 v1.4 §6.4). §9: **O-05 mit ja entschieden** (Standalone-Endpunkte nachgezogen), **O-07 entschieden** (Modul `diary`, Kategorie „Pflege & Planung", Stufe Einsteiger, `core: false`, `/tagebuch`) und in REQ-042 v1.1 §1.3 sowie REQ-021 v1.4 §3.3 eingetragen. |
@@ -668,6 +669,28 @@ Liefert den Eintrag **ohne** Bilddaten.
   "text": "Seit dem Umtopfen hängen die unteren Blätter, Substrat riecht sauer.",
   "tags": ["blatt", "substrat"],
   "measurements": { "height_cm": 84, "leaf_count": 22 },
+  "environment": [
+    {
+      "metric_type": "temperature_celsius",
+      "value": 31.2,
+      "unit": "\u00b0C",
+      "source": "ha_auto",
+      "measured_at": "2026-08-03T18:21:44Z",
+      "sensor_key": "7710455",
+      "origin": "location"
+    },
+    {
+      "metric_type": "humidity_percent",
+      "value": 28.0,
+      "unit": "%",
+      "source": "open-meteo",
+      "measured_at": "2026-08-03T18:10:00Z",
+      "sensor_key": null,
+      "origin": "weather"
+    }
+  ],
+  "environment_captured_at": "2026-08-03T18:22:11Z",
+  "environment_status": "captured",
   "photo_refs": ["01HQ8X9V3J7P5K2N4M6T8R0S2W", "01HQ8X9V3J7P5K2N4M6T8R0S2X"],
   "created_at": "2026-08-03T18:22:11Z",
   "created_by": "4471023",
@@ -693,6 +716,30 @@ Liefert den Eintrag **ohne** Bilddaten.
 `measurements` ist ein offenes Objekt (REQ-013) — ein Rezept darf keine feste Schlüsselmenge
 annehmen. Felder des `plant`-Objekts, die am Datensatz fehlen, kommen als `null`, nicht als
 ausgelassener Schlüssel; damit bleibt die Struktur über alle Einträge gleich.
+
+**`environment` ist der Umgebungs-Schnappschuss** (REQ-013 §2.3a): die Sensorwerte, die die
+Pflanze im Moment der Anlage abdeckten, serverseitig aufgelöst. Genau dafür gibt es dieses
+Werkzeug — „warum bräunen die unteren Blätter" ist bei 31 °C und 28 % rF eine andere Frage
+als bei 19 °C und 65 %, und die Antwort steht sonst nirgends im Payload.
+
+Es ist ein **eigener Schlüssel neben `measurements` und bleibt einer**. `measurements` ist,
+was ein Mensch getippt hat; `environment` ist, was eine Maschine gemeldet hat. Jeder Eintrag
+trägt sein eigenes `source` / `measured_at` / `origin`, damit ein Rezept eine Sonde am
+Standort der Pflanze gegen einen geländeweiten Wetterwert abwägen kann. Wer die beiden
+zusammenlegt, wirft genau das weg.
+
+`origin` und `source` beantworten verschiedene Fragen: `origin` (`location` | `site` |
+`weather`) sagt, wie nah an der Pflanze gemessen wurde, `source` sagt, wie der Wert entstand
+(REQ-005 §2 — `ha_auto`, `mqtt_auto`, `manual`, …) bzw. welcher Wetterdienst ihn lieferte.
+
+`measured_at` ist der **Messzeitpunkt** und regelmäßig älter als `created_at`. Werte jenseits
+der serverseitigen Aktualitätsgrenze werden gar nicht erst erfasst — was hier steht, wurde
+also zeitnah zur Beobachtung gemessen.
+
+`environment_status` ist vor jedem Schluss aus einer leeren Liste zu lesen: `no_source` heißt
+„nichts misst diese Pflanze", `unavailable` heißt „die Messung kam nicht durch", `opted_out`
+heißt „die Autorin wollte es nicht", `not_attempted` heißt „der Eintrag ist älter als das
+Feature". Nur das erste ist eine Aussage über den Garten.
 
 Neben `cultivar_name` steht der **`cultivar_key`**, weil `get_cultivar` einen Schlüssel nimmt
 und kein Label: mit dem Namen allein hielt ein Agent eine Bezeichnung in der Hand, mit der er

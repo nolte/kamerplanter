@@ -7,13 +7,14 @@ Kategorie: Gruppenmanagement
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 2.4 (Analyse-Felder am Tagebuch-Eintrag, REQ-050)
+Version: 2.5 (Umgebungs-Schnappschuss am Tagebuch-Eintrag)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.5 | 2026-08-07 | **Umgebungs-Schnappschuss am Tagebuch-Eintrag (Issue #961):** Neues §2.3a. `PlantDiaryEntry` traegt additiv `environment` / `environment_captured_at` / `environment_status`; beim Anlegen werden die Sensorwerte, die die Pflanze abdecken, **serverseitig** ueber die REQ-005-Kette (Standort → Gelaende → Wetterdienst → nichts) aufgeloest und mit Herkunft gespeichert. Bewusst **getrennt** von `measurements`: das offene Freitext-Dict traegt keine Provenienz, und REQ-005 §1 sowie NFR-011/REQ-025 verlangen, dass maschinell erhobene von handnotierten Werten unterscheidbar bleiben. Neuer Lesepunkt `GET /t/{slug}/plant-instances/{key}/environment` in §4.7 (Vorschau fuer den Anlege-Dialog). Die Klassifikation von Metriknamen (Lufttemperatur/Luftfeuchte) hat mit `app/domain/engines/sensor_metrics.py` genau **eine** Quelle; die beiden zuvor widerspruechlichen Heuristiken (Frostwarnung, Winterquartier) konsumieren sie. |
 | 2.4 | 2026-08-04 | **REQ-050 (KI-Analyse von Tagebuch-Eintraegen):** `PlantDiaryEntry` um additive Analyse-Felder erweitert (`analysis_state`, Lease-Felder, `analysis`, `analysis_error`) — §3 Knotendefinition und `PlantDiaryEntryResponse`. In §4.7 ergaenzt: zwei Endpunkte zum Markieren/Entmarkieren sowie die **mandantenweite** Uebersicht `GET /t/{slug}/diary` (die bisherige Aggregation deckt nur einen Durchlauf ab). `photo_refs` als `attachment_id` praezisiert (war faelschlich als „S3-URLs" beschrieben, obwohl Migration `v0003` sie normalisiert hat). Die Fachlogik (Zustandsmaschine, MCP-Vertrag, Oberflaeche, Datenschutz) steht in REQ-050, nicht hier. Ausserdem festgehalten: die seit v2.0 in §4.7 spezifizierten **Standalone**-Tagebuch-Endpunkte sind bis heute nicht implementiert. |
 | 2.3 | 2026-04-27 | **W-010 (CareProfile Run-Owned):** `detach_plant()` um Schritt 6 erweitert — beim Detach wird das aktuelle Run-CareProfile als Plant-CareProfile auf die nun-standalone Plant kopiert (analog Karenz-Snapshot ADR-001). |
 | 2.2 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `detach_plant()`-Operation um Karenz-Snapshot-Schritt erweitert. Aktive Run-Treatments werden als geerbte `to_plant`-Edges (mit `inherited_from_run` + `inherited_at`) auf die detachte Plant kopiert. Migrations-Strategie für REQ-013-v2.0-Rollout dokumentiert (Hard Cutover). |
@@ -220,6 +221,188 @@ PlantingRun: "White Widow Klone Runde 3"
     - `analysis: Optional[DiaryAnalysis]` (juengstes Ergebnis; Sub-Modell in REQ-050 §5)
     - `analysis_error: Optional[str]` (Fehlertext bei `failed`)
   - **Hinweis:** REQ-013 definiert nur *dass* diese Felder existieren. Zustandsmaschine, Berechtigungen, MCP-Vertrag und Datenschutz stehen vollstaendig in **REQ-050**. Fuer die Abfrage des Arbeitsvorrats ist ein persistenter Index ueber `(tenant_key, analysis_state, analysis_requested_at)` noetig.
+  - Properties fuer den Umgebungs-Schnappschuss (§2.3a, alle additiv und optional — Bestandsdokumente ohne diese Felder bleiben gueltig und brauchen **keine** Migration):
+    - `environment: list[DiaryEnvironmentReading]` (Default `[]`)
+    - `environment_captured_at: Optional[datetime]` (Zeitpunkt der Erfassung — **nicht** der Messung)
+    - `environment_status: Literal['not_attempted', 'opted_out', 'captured', 'no_source', 'unavailable']` (Default `'not_attempted'`)
+
+<!-- Quelle: Issue #961 -->
+### 2.3a Umgebungs-Schnappschuss am Tagebuch-Eintrag
+
+> „§2.3" ist der eingefuehrte Kurzverweis auf die Knotendefinition `:PlantDiaryEntry`
+> oben (so zitiert REQ-050 §4.3 und Issue #961). Dieser Abschnitt ergaenzt sie additiv.
+
+**Problem.** Ein Tagebuch-Eintrag haelt fest, *was* die Gaertnerin gesehen hat, aber
+nichts darueber, *in welchen Bedingungen die Pflanze stand, als sie es sah*. Der
+einzige Platz fuer Zahlen war `measurements` — ein offenes Dict, das komplett von
+Hand getippt wird, obwohl das System die Antwort meist schon kennt: eine
+`PlantInstance` traegt `site_key` / `location_key`, ein `Sensor` haengt an genau
+einem von `tank_key` / `site_key` / `location_key`.
+
+#### 2.3a.1 Warum ein eigenes Feld und nicht `measurements`
+
+Das ist die **tragende** Entscheidung. `measurements` ist ein offenes Dict ohne Platz
+fuer Provenienz. Wuerde ein automatisch gelesenes `22.4 °C` dort hineingemischt,
+entstuende ein Datensatz, dem niemand spaeter ansieht, was ein Mensch gemessen und was
+eine Maschine gemeldet hat. REQ-005 §1 verlangt, dass die Datenquelle mitgefuehrt wird,
+und die Aufbewahrung nach NFR-011 / REQ-025 behandelt sensorbasierte Daten anders als
+Freitext-Beobachtungen — diese Unterscheidung muss **im Dokument** ueberleben, nicht
+nur im Kopf der Leserin. Deshalb zwei Felder, nie eines.
+
+Aus demselben Grund ist ein automatischer Wert **nirgends editierbar**: ein korrigierter
+Sensorwert ist eine manuelle Messung und gehoert nach `measurements`.
+
+#### 2.3a.2 Datenmodell
+
+```python
+class DiaryEnvironmentReading(BaseModel):
+    """Ein maschinell gelesener Umgebungswert eines Tagebuch-Eintrags."""
+
+    metric_type: str            # Vokabular offen (REQ-005 §2), unveraendert uebernommen
+    value: float
+    unit: Optional[str]
+    source: str                 # REQ-005 §2: 'ha_auto' | 'mqtt_auto' | 'manual' | ...
+                                # bei origin='weather' stattdessen der Adaptername
+                                # ('open-meteo', 'dwd', ...) — REQ-046
+    measured_at: datetime       # wann GEMESSEN wurde, nicht wann der Eintrag entstand
+    sensor_key: Optional[str]   # None bei einem Wetter-Wert
+    origin: Literal['location', 'site', 'weather']
+```
+
+`source` und `origin` beantworten **verschiedene** Fragen und stehen deshalb beide im
+Datensatz: `source` sagt, *wie* der Wert entstanden ist, `origin` sagt, *wie nah an der
+Pflanze* gemessen wurde. Ein `manual`-Wert vom Sensor am eigenen Standort ist fuer diese
+Pflanze besseres Belegmaterial als ein `ha_auto`-Wert vom anderen Ende des Gelaendes.
+
+Der Adaptername bleibt bei Wetter-Werten **wortwoertlich** stehen, statt auf die
+REQ-005-Klasse `weather_api` eingedampft zu werden: die Klasse sagt bereits `origin`,
+und die Dienste widersprechen einander im Zweifel — „welcher Dienst hat das gesagt" ist
+aus `weather_api` nicht mehr rekonstruierbar.
+
+#### 2.3a.3 Aufloesungskette (REQ-005 §2, pro Metrik)
+
+1. **Standort-Sensoren** der Pflanze (`location_key`) — live ueber Home Assistant, mit
+   Rueckfall auf die juengste persistierte Beobachtung, wenn HA nicht konfiguriert ist
+   oder die Entitaet `unavailable` / `unknown` meldet.
+2. **Gelaende-Sensoren** (`site_key`) fuer die Metriken, die Stufe 1 nicht beantwortet
+   hat. Der Rueckfall gilt **pro Metrik**, nicht pro Stufe: deckt der Standort nur die
+   Temperatur ab, liefert das Gelaende weiterhin die Luftfeuchte.
+3. **Aktuelle Aussenbedingungen** — der `WeatherForecast`-Datensatz mit
+   `is_current_conditions=True` (REQ-046), nur fuer Lufttemperatur und Luftfeuchte, weil
+   ein solcher Datensatz nichts weiter traegt, was eine Messung *dieser Umgebung* waere.
+4. **Nichts.** Kein erfundener Wert, keine `0.0` — dasselbe Versprechen, das
+   `get_location_frost_warning` mit `source: "no_temperature"` bereits haelt.
+
+`slot_key` hat **keine** eigene Stufe: ein `Sensor` kann nicht an einem Slot haengen, die
+Kette beginnt also am Standort. Das ist eine Eigenschaft des Datenmodells, kein Versehen.
+
+**Es gibt keine kuratierte Metrik-Whitelist.** Ein Sensor haengt an diesem Standort, weil
+die Gaertnerin ihn dorthin gehaengt hat — was er misst, beschreibt die Umgebung der
+Pflanze. `metric_type` wird unveraendert uebernommen. Eine Auswahlliste haette eine
+*dritte* private Namensheuristik gebraucht (siehe §2.3a.7) und haette genau die CO₂-Sonde
+verschluckt, die jemand gekauft hat.
+
+#### 2.3a.4 Fehlverhalten: die Erfassung darf den Eintrag nie verhindern
+
+Sensoren sind optional und koennen ausfallen. Wer gerade ein Problem dokumentiert, ist im
+denkbar schlechtesten Moment, um wegen eines fehlenden Sensors abgewiesen zu werden.
+Jeder Fehlermodus — HA nicht erreichbar, TimescaleDB fehlt, ein Repository wirft, das
+Zeitbudget laeuft ab — endet in einem Schnappschuss und **nie** in einer abgelehnten
+Anlage.
+
+Eine leere Liste allein ist mehrdeutig, deshalb traegt `environment_status` die Bedeutung:
+
+| Status | Bedeutung | `environment` |
+|--------|-----------|---------------|
+| `not_attempted` | Es wurde nichts versucht: Dokument aus der Zeit vor diesem Feature, oder `DIARY_ENVIRONMENT_CAPTURE_ENABLED=false`. | `[]` |
+| `opted_out` | Die Autorin hat den Schnappschuss im Dialog abgewaehlt. | `[]` |
+| `captured` | Die Kette lief sauber durch und lieferte mindestens einen Wert. | gefuellt |
+| `no_source` | Die Kette lief sauber durch; **nichts misst diese Pflanze**. Das ist die Wahrheit, kein Fehler. | `[]` |
+| `unavailable` | Die Kette wurde abgeschnitten (Quelle fehlerhaft oder Zeitbudget erschoepft). Eine **nicht**-leere Liste heisst hier: Teilaufnahme. | leer oder teilgefuellt |
+
+Ein nicht konfiguriertes Home Assistant ist **kein** Fehler, sondern ein normaler Betrieb —
+die Kette faellt dann auf die persistierten Beobachtungen zurueck und meldet `captured`
+bzw. `no_source`, nicht `unavailable`.
+
+#### 2.3a.5 Aktualitaetsgrenze
+
+Ein Wert, dessen Messung aelter ist als `DIARY_ENVIRONMENT_MAX_AGE_MINUTES` (Default
+**60 Minuten**), wird **gar nicht** erfasst. Ein Eintrag, der „22 °C" von einem Sensor
+behauptet, der zuletzt gestern gesprochen hat, ist schlechteres Belegmaterial als ein
+Eintrag ganz ohne Klima — die Grenze irrt bewusst in Richtung „weglassen".
+
+Begruendung der 60 Minuten: Innenraum-Klimasensoren melden im Minutentakt, und selbst ein
+batteriebetriebener Zigbee-/BLE-Hygrometer sendet seinen Heartbeat innerhalb der Stunde;
+ein gesunder Sensor liegt also immer deutlich innerhalb des Fensters. Eine Stunde ist
+zugleich die groebste Aufloesung, bei der „die Bedingungen, als die Gaertnerin hinsah"
+noch dieselbe Wetterlage ist. Die Grenze ist global konfigurierbar und **nicht**
+mandantenspezifisch: sie folgt aus der Melde-Taktung der Hardware, nicht aus der Politik
+eines Gartens.
+
+**Frische wird an `last_reported` gemessen, nicht an `last_changed`.** Home Assistants
+`last_changed` bewegt sich nur, wenn sich der Zustands*string* aendert — ein
+kerngesunder Sensor, der konstant 22.0 °C meldet, traegt ein stundenaltes
+`last_changed`. `last_updated` hat fast dasselbe Problem. Nur `last_reported`
+(HA ≥ 2024.6) bewegt sich bei jeder Meldung. Die drei werden in dieser Reihenfolge
+probiert; ein aelteres Home Assistant funktioniert also weiter, verwirft aber
+konstante Werte eher als stale — die sichere Richtung. Ein Wert **ohne jeden**
+Zeitstempel wird nicht erfasst: unfalsifizierbare Frische ist genau das, was die
+Grenze verhindern soll.
+
+`entry_type: 'measurement'` verhaelt sich **nicht** anders. Ein veralteter Wert ist
+veraltet, egal wie die Autorin den Eintrag genannt hat; und `entry_type` ist frei
+waehlbar, eine Sonderregel waere also ein Dropdown, mit dem man sich eine schwaechere
+Provenienzregel aussuchen koennte.
+
+#### 2.3a.6 Antwortzeit
+
+Die Erfassung haengt an einem interaktiven POST, dessen Schreibvorgang Millisekunden
+kostet. `DIARY_ENVIRONMENT_CAPTURE_TIMEOUT_SECONDS` (Default **3.0 s**) ist eine harte
+Wanduhr-Obergrenze fuer die **gesamte** Erfassung: jeder ausgehende Aufruf bekommt
+hoechstens die Restzeit dieses Budgets, und wenn es aufgebraucht ist, wird nichts weiter
+gelesen. Ueberschreitung ist kein Fehlerzustand des Eintrags, sondern
+`environment_status: 'unavailable'` mit dem, was rechtzeitig ankam.
+
+#### 2.3a.7 Metrik-Klassifikation braucht eine einzige Quelle
+
+`Sensor.metric_type` ist ein blanker `str`. Welche Werte *Lufttemperatur* bzw.
+*Luftfeuchte* sind, wurde bis Issue #961 von zwei unabhaengigen Heuristiken entschieden,
+die einander widersprachen (`pick_air_temperature` akzeptierte `water_temp_celsius`,
+`QuarterClimateService` lehnte es ab und akzeptierte dafuer `substrate_temp_celsius`).
+Diese Aufloesung liegt jetzt in **einer** Datei (`app/domain/engines/sensor_metrics.py`),
+die beide bestehenden Aufrufer konsumieren:
+
+- Kanonisch sind `temperature_celsius` und `air_temp_celsius`.
+- `water_temp_celsius` ist ein ausdruecklich **toleriertes Alias**, das nur der
+  Frostwarnungs-Pfad annimmt (`accept_aliases=True`), weil `SensorService.get_ha_entities`
+  jede HA-Geraeteklasse `temperature` auf diesen Schluessel abbildet. Das ist ein
+  Namensunfall des Vorschlags-Mappers, keine Aussage ueber die Sonde.
+- Substrat-, Boden-, Wurzel-, Blatt- und Reservoir-Temperaturen sind **keine**
+  Lufttemperatur. Die alte Winterquartier-Heuristik nahm sie an; ein Winterquartier, das
+  „zu kalt" von einer Substratsonde ablieset, beantwortet eine andere Frage als die
+  gestellte.
+- Alles Uebrige mit `temp` im Namen gilt als Umgebungsluft, damit ein importiertes
+  `room_temp_c` weiterhin funktioniert (das Vokabular ist offen).
+
+#### 2.3a.8 Serverseitig, nie vom Client
+
+Der Schnappschuss wird in `PlantDiaryService.create_entry()` aus dem Standort der Pflanze
+aufgeloest und ueberschreibt bedingungslos, was am Modell stand. `DiaryEntryCreateRequest`
+traegt die Messwerte nicht — nur `capture_environment: bool = True`, also die Erlaubnis
+zu *schauen*, nie den Inhalt. Ein Wert, den der Client schreiben kann, ist ein Wert, den
+der Client erfinden kann, und dieser hier soll Belegmaterial sein (dieselbe Begruendung,
+aus der die REQ-050-Analysefelder in den Request-Schemata fehlen).
+
+Erfasst wird **nur beim Anlegen**. Eine spaetere Textkorrektur darf den Eintrag nicht
+still mit einem anderen Klima neu stempeln, deshalb schuetzt `update_entry` die drei
+Felder wie die Analysefelder.
+
+**Mandantentrennung.** Anker ist die Pflanze: sie wird geladen und ihr `tenant_key`
+fail-closed gegen den Aufrufer geprueft, bevor irgendetwas passiert; jede weitere Suche
+startet damit von einem Standort-/Gelaende-Schluessel, der nachweislich diesem Mandanten
+gehoert. Beobachtungs- und Wetterlesungen sind zusaetzlich selbst mandantengebunden, und
+das Gelaende wird vor dem Wetterzugriff erneut geprueft. Ein `Sensor` traegt keinen
+eigenen `tenant_key` — genau deshalb ist die Pflanzenpruefung nicht optional.
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-009 -->
 - **`:SuccessionPlan`** — Staffelanbau-Plan (generiert automatisch PlantingRuns)
@@ -1003,6 +1186,11 @@ class PlantDiaryEntryCreate(BaseModel):
         description="Strukturierte Messwerte: height_cm, leaf_count, branch_count, "
                     "stem_diameter_mm, canopy_width_cm etc."
     )
+    # §2.3a — NUR die Erlaubnis zu schauen, nie der Inhalt. Die Messwerte selbst
+    # tauchen in KEINEM Request-Schema auf: sie werden serverseitig aus dem
+    # Standort der Pflanze aufgeloest, weil ein Wert, den der Client schreiben
+    # kann, ein Wert ist, den der Client erfinden kann.
+    capture_environment: bool = True
 
 class PlantDiaryEntryUpdate(BaseModel):
     """Aktualisiert einen Tagebuch-Eintrag"""
@@ -1027,6 +1215,15 @@ class PlantDiaryEntryResponse(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
+
+    # Umgebungs-Schnappschuss (§2.3a). Bewusst NUR in der Response und bewusst
+    # NEBEN `measurements` statt darin: dieses Dict ist das der Gaertnerin,
+    # frei und ohne Provenienz. Zusammengelegt waere spaeter nicht mehr
+    # erkennbar, was gemessen und was notiert wurde.
+    environment: list[DiaryEnvironmentReading] = Field(default_factory=list)
+    environment_captured_at: Optional[datetime] = None
+    # Sagt, WAS eine leere Liste bedeutet — nie aus ihrer Laenge ableiten.
+    environment_status: DiaryEnvironmentStatus = DiaryEnvironmentStatus.NOT_ATTEMPTED
 
     # KI-Analyse (REQ-050). Bewusst NUR in der Response — der Analyse-Zustand
     # wird nicht per PUT gesetzt, sondern ueber die dedizierten Uebergaenge
@@ -1398,6 +1595,19 @@ class PlantDiaryEntryDocument(BaseModel):
 | `GET` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Einzelner Eintrag | Mitglied |
 | `PUT` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag aktualisieren | Mitglied |
 | `DELETE` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag loeschen | Mitglied |
+
+**Umgebungs-Vorschau (§2.3a):**
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/t/{tenant_slug}/plant-instances/{key}/environment` | Was eine Erfassung **jetzt** liefern wuerde — Vorschau fuer den Anlege-Dialog | Mitglied |
+
+Nur lesend, und ausdruecklich **keine** Eingabe: der Dialog stellt die Werte unveraenderbar
+dar und schickt nichts zurueck ausser `capture_environment`. Die Anlage loest alles erneut
+serverseitig auf, die beiden duerfen also abweichen — der Eintrag haelt fest, was beim
+Schreiben galt, nicht was der Dialog eine Minute vorher gemalt hatte. Eine fremde
+Pflanze antwortet 404, nie mit einem leeren Schnappschuss (ein leerer Schnappschuss
+bestaetigte immer noch, dass der Schluessel irgendwo existiert).
 
 **Mandantenweite Uebersicht (REQ-050 §2.5.2) — neu:**
 
