@@ -131,10 +131,13 @@ class PlantInstanceService:
         self._verify_site_ownership(plant)
 
         if not skip_validation and plant.slot_key:
+            # Both engines read the slot's neighbourhood/history, which is
+            # tenant-scoped since #927 — the plant being created carries the
+            # tenant those reads must be bound to.
             # Validate rotation
-            self._rotation.validate_or_raise(plant.slot_key, plant.species_key)
+            self._rotation.validate_or_raise(plant.slot_key, plant.species_key, tenant_key=plant.tenant_key)
             # Validate companion planting
-            self._companion.check_or_raise(plant.species_key, plant.slot_key)
+            self._companion.check_or_raise(plant.species_key, plant.slot_key, tenant_key=plant.tenant_key)
 
         if plant.current_phase_started_at is None:
             plant.current_phase_started_at = datetime.now(UTC)
@@ -585,7 +588,7 @@ class PlantInstanceService:
         # includes the CARE_REMINDER-category tasks that surface care reminders
         # (REQ-022), so removing/terminating a plant cancels its reminders too.
         # Completed/skipped/failed tasks are kept as history.
-        self._delete_open_tasks_for_plant(key)
+        self._delete_open_tasks_for_plant(key, tenant_key=plant.tenant_key)
         # Watering/feeding tasks hang off the planting run, not the instance, so
         # they are cleaned up separately — but only once the run has no active
         # instances left (a run may contain several plants).
@@ -594,7 +597,7 @@ class PlantInstanceService:
         if plant.slot_key:
             slot = self._site_repo.get_slot_by_key(plant.slot_key)
             if slot:
-                active = self._repo.get_active_by_slot(plant.slot_key)
+                active = self._repo.get_active_by_slot(plant.slot_key, tenant_key=plant.tenant_key)
                 if len(active) <= 1:
                     slot.currently_occupied = False
                     self._site_repo.update_slot(plant.slot_key, slot)
@@ -604,16 +607,19 @@ class PlantInstanceService:
     # Tasks that are still actionable when a plant is removed.
     _OPEN_TASK_STATUSES = ("pending", "in_progress", "dormant")
 
-    def _delete_open_tasks_for_plant(self, key: PlantID) -> int:
+    def _delete_open_tasks_for_plant(self, key: PlantID, *, tenant_key: str) -> int:
         """Delete all open tasks attached to the given plant.
 
         Returns the number of deleted tasks. No-op when no task repository
-        is wired (keeps the service usable in contexts without tasks).
+        is wired (keeps the service usable in contexts without tasks), and also
+        when the plant carries no tenant: the task lookup is tenant-scoped since
+        #927 and a tenantless read would be the cross-tenant scan that fix
+        removes.
         """
-        if self._task_repo is None:
+        if self._task_repo is None or not tenant_key:
             return 0
         deleted = 0
-        for task in self._task_repo.get_tasks_for_plant(key):
+        for task in self._task_repo.get_tasks_for_plant(key, tenant_key=tenant_key):
             if task.key and task.status in self._OPEN_TASK_STATUSES:
                 self._task_repo.delete_task(task.key)
                 deleted += 1
@@ -718,11 +724,13 @@ class PlantInstanceService:
             raise ValidationError("tenant_key is required to list plant instances in a phase definition.")
         return self._repo.list_active_in_phase_definition(tenant_key, phase_definition_key)
 
-    def get_plants_in_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
-        return self._repo.get_active_by_slot(slot_key)
+    def get_plants_in_slot(self, slot_key: SlotKey, *, tenant_key: str) -> list[PlantInstance]:
+        """Plants occupying a slot, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_active_by_slot(slot_key, tenant_key=tenant_key)
 
-    def get_slot_history(self, slot_key: SlotKey, years: int = 3) -> list[PlantInstance]:
-        return self._repo.get_history_by_slot(slot_key, years)
+    def get_slot_history(self, slot_key: SlotKey, years: int = 3, *, tenant_key: str) -> list[PlantInstance]:
+        """A slot's planting history, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_history_by_slot(slot_key, years, tenant_key=tenant_key)
 
     def _resolve_initial_phase_key(self, species_key: str) -> str | None:
         """Resolve the first phase key for a species.
@@ -830,12 +838,18 @@ class PlantInstanceService:
             return None
         return self._species_repo.get_cultivar_by_key(cultivar_key)
 
-    def validate_planting(self, slot_key: SlotKey, species_key: SpeciesKey) -> dict:
-        rotation_results = self._rotation.validate_planting(slot_key, species_key)
+    def validate_planting(self, slot_key: SlotKey, species_key: SpeciesKey, *, tenant_key: str) -> dict:
+        """Rotation + companion verdict for a slot of ``tenant_key`` (#927).
+
+        Both halves read the slot's neighbourhood and history, and both name the
+        species found there in their messages — so a foreign ``slot_key`` must
+        produce no findings rather than a description of another tenant's bed.
+        """
+        rotation_results = self._rotation.validate_planting(slot_key, species_key, tenant_key=tenant_key)
         rotation_valid = all(r.severity != "CRITICAL" for r in rotation_results)
         rotation_warnings = [r.message for r in rotation_results if r.severity in ("CRITICAL", "WARNING")]
         companion_ok, companion_warnings, companion_benefits = self._companion.check_compatibility(
-            species_key, slot_key
+            species_key, slot_key, tenant_key=tenant_key
         )
         return {
             "valid": rotation_valid and companion_ok,

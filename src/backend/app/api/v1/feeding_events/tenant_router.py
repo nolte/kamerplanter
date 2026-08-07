@@ -101,6 +101,10 @@ def get_plant_history(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FeedingService = Depends(get_feeding_service),
 ):
-    """List a plant's feeding-event history (paginated)."""
-    events = service.get_by_plant(pk, pagination.offset, pagination.limit)
+    """List a plant's feeding-event history (paginated).
+
+    A plant key belonging to another tenant yields an empty list — the tenant
+    scope is enforced in the repository query (#927).
+    """
+    events = service.get_by_plant(pk, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_event_response(e) for e in events]

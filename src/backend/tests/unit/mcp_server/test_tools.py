@@ -274,7 +274,12 @@ async def test_get_harvest_readiness_aggregates():
         SimpleNamespace(key="p2", removed_on="2026-01-01"),  # archived → skipped
     ]
     harvest = SimpleNamespace(
-        assess_readiness=lambda key: {"overall_score": 80, "recommendation": "harvest", "estimated_days": 0}
+        # ``tenant_key`` is required and keyword-only since #927.
+        assess_readiness=lambda key, *, tenant_key: {  # noqa: ARG005
+            "overall_score": 80,
+            "recommendation": "harvest",
+            "estimated_days": 0,
+        }
     )
     plant_svc = SimpleNamespace(list_plants=lambda offset, limit, tenant_key: (plants, 2))
     resp = await GetHarvestReadiness().run(
