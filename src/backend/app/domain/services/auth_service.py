@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import NoReturn
 
@@ -131,7 +132,32 @@ class AuthService:
         email: str,
         password: str,
         display_name: str,
+        *,
+        on_existing_address: Callable[[UserKey], None] | None = None,
     ) -> UserProfile:
+        """Register a local account, or answer as if one had been registered.
+
+        Args:
+            email: Submitted address.
+            password: Submitted password, validated against the policy.
+            display_name: Submitted display name.
+            on_existing_address: Called with the **key of the existing account**
+                when the address is already taken (REQ-023 §3.2). It MUST only
+                defer work — the caller is inside the timed request, and any
+                real I/O here would make the duplicate branch measurably differ
+                from a genuine registration, which is the oracle SEC-H-009
+                exists to close. The API layer passes a callback that appends to
+                the response's background tasks; the enqueue itself then runs
+                after the response has been written. ``None`` means "no notice",
+                which is what unit tests and any non-HTTP caller want.
+
+        Returns:
+            The profile of the created account — or, for a taken address, one
+            synthesised to be indistinguishable from it.
+
+        Raises:
+            ValidationError: If the password violates the policy.
+        """
         # Check password policy
         errors = self._password_engine.validate_password_policy(password)
         if errors:
@@ -154,7 +180,8 @@ class AuthService:
         # from the SUBMITTED email and display name plus the defaults a
         # brand-new account would carry, so it matches what a genuine
         # registration returns field for field.
-        if self._user_repo.get_by_email(email) is not None:
+        existing = self._user_repo.get_by_email(email)
+        if existing is not None:
             logger.info("registration_duplicate_suppressed", email_sha256=email_digest(email))
             # Hash the submitted password and throw the result away.
             #
@@ -171,6 +198,14 @@ class AuthService:
             # branch costs an attacker to trigger: exactly what a genuine
             # registration costs, and `/auth/register` is rate-limited per IP.
             self._password_engine.hash_password(password)
+            # REQ-023 §3.2: tell the address that already owns an account. Only
+            # the *handing over* happens here; the callback is contractually
+            # non-blocking (see the docstring), so this branch stays exactly as
+            # expensive as the genuine one below. Nothing about ``existing``
+            # other than its key crosses this line — the key never reaches the
+            # caller, only the worker that resolves it.
+            if on_existing_address is not None and existing.key:
+                on_existing_address(existing.key)
             decoy = User(
                 email=email,
                 display_name=display_name,

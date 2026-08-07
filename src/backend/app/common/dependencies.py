@@ -688,6 +688,19 @@ def get_unknown_account_store():
     return RedisUnknownAccountStore(_get_redis_client())
 
 
+def get_registration_notice_store():
+    """REQ-023 §3.2 suppression window of the duplicate-registration notice.
+
+    Redis-backed so all workers share one window per recipient; degrades to the
+    process-wide in-memory tier when Redis is unreachable. Consumed by the
+    Celery task, never by the request path — see
+    ``app.tasks.auth_tasks.send_duplicate_registration_notice``.
+    """
+    from app.data_access.external.registration_notice_store import RedisRegistrationNoticeStore
+
+    return RedisRegistrationNoticeStore(_get_redis_client())
+
+
 def get_api_key_repo():
     from app.data_access.arango.api_key_repository import ArangoApiKeyRepository
 

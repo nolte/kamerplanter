@@ -396,6 +396,19 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"
+    #: ``POST /api/v1/privacy/email-change`` (REQ-025 Art. 16), per client IP.
+    #:
+    #: Deliberately far below ``rate_limit_auth`` rather than equal to it. The
+    #: ``/auth/*`` routes are interactive retry surfaces — a user who mistypes a
+    #: password legitimately submits several times a minute — and their per-minute
+    #: budget is sized for that. This endpoint is different in kind: every call
+    #: mails a **caller-chosen address**, either the verification link (free
+    #: address) or the "someone tried to use your address" notice (taken one), so
+    #: its limit bounds outbound mail to third parties, not login retries.
+    #: 20/minute would allow 1200 such mails an hour from one source. Changing an
+    #: account's address is a rare, deliberate act; a handful of attempts an hour
+    #: covers a typo plus a change of mind.
+    rate_limit_email_change: str = "5/hour"
 
     # REQ-025 Privacy / GDPR
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production

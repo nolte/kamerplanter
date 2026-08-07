@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request
 
+from app.api.v1.auth.router import limiter
 from app.api.v1.privacy.schemas import (
     ConsentGrantRequest,
     ConsentPurposeInfoResponse,
@@ -26,6 +27,7 @@ from app.api.v1.privacy.schemas import (
 from app.common.auth import get_current_user
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.config.settings import settings
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
 from app.domain.models.mcp import McpAuditLogEntry
 from app.domain.models.privacy import (
@@ -163,12 +165,21 @@ def download_export(
 
 
 @router.post("/email-change", response_model=EmailChangeResponse, status_code=201)
+@limiter.limit(settings.rate_limit_email_change)
 def request_email_change(
+    request: Request,
     body: EmailChangeCreateRequest,
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Initiate an email-change request (Art. 16)."""
+    """Initiate an email-change request (Art. 16).
+
+    Rate-limited per client IP (``settings.rate_limit_email_change``): every call
+    mails an address the caller names and does not have to own — the verification
+    link when the address is free, the "someone tried to use your address" notice
+    when it is taken (#957). Authentication bounds *who* can trigger that but not
+    *how often*, and this router carried no limit at all.
+    """
     change = service.request_email_change(current_user.key or "", body.new_email)
     return _to_email_change_response(change)
 

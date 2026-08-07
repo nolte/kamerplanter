@@ -242,3 +242,96 @@ def test_duplicate_registration_still_writes_nothing(user_repo: MagicMock) -> No
     user_repo.create.assert_not_called()
     assert profile.key != STORED_KEY
     assert profile.key != CREATED_KEY
+
+
+# ── The REQ-023 §3.2 notice hand-off (#958) ────────────────────────
+#
+# The address that already owns an account gets told (see
+# ``app.tasks.auth_tasks.send_duplicate_registration_notice``). The service only
+# hands over a key; the enqueue happens after the response is written. These
+# tests pin the hand-off, and that it changed nothing else.
+
+
+def test_duplicate_registration_hands_the_existing_key_to_the_notifier(service: AuthService) -> None:
+    notified: list[str] = []
+
+    service.register_local(
+        TAKEN_EMAIL,
+        WRONG_PASSWORD,
+        "Attacker Chosen Name",
+        on_existing_address=notified.append,
+    )
+
+    assert notified == [STORED_KEY]
+
+
+def test_fresh_registration_never_notifies(service: AuthService) -> None:
+    """There is nobody to tell: the address had no owner a moment ago."""
+    notified: list[str] = []
+
+    service.register_local(
+        FREE_EMAIL,
+        REAL_PASSWORD,
+        "Attacker Chosen Name",
+        on_existing_address=notified.append,
+    )
+
+    assert notified == []
+
+
+def test_notified_key_never_reaches_the_caller(service: AuthService) -> None:
+    """The key goes to the worker, not into the response — that would be the leak."""
+    notified: list[str] = []
+
+    profile = service.register_local(
+        TAKEN_EMAIL,
+        WRONG_PASSWORD,
+        "Attacker Chosen Name",
+        on_existing_address=notified.append,
+    )
+
+    assert notified == [STORED_KEY]
+    assert profile.key != STORED_KEY
+
+
+def test_notifier_does_not_change_the_response(service: AuthService) -> None:
+    """With and without a notifier the caller sees the same thing."""
+    with_notifier = service.register_local(
+        TAKEN_EMAIL,
+        WRONG_PASSWORD,
+        "Attacker Chosen Name",
+        on_existing_address=lambda _key: None,
+    )
+    without = _register_duplicate(service)
+
+    volatile = {"key", "created_at"}
+    assert {k: v for k, v in with_notifier.model_dump().items() if k not in volatile} == {
+        k: v for k, v in without.model_dump().items() if k not in volatile
+    }
+
+
+def test_notifier_does_not_add_a_bcrypt_round_to_either_branch(user_repo: MagicMock) -> None:
+    """The compensating work stays exactly one hash on both sides.
+
+    The notice is the reason #958 could have reopened the gap #957 closed. It
+    cannot: the branch does the same single bcrypt round it did before, and the
+    hand-off adds one list append. Where the actual enqueue happens — after the
+    response — is asserted in ``tests/api/test_auth_register_duplicate_notice.py``.
+    """
+    duplicate_service, duplicate_engine = _service_with_spied_password_engine(user_repo)
+    fresh_service, fresh_engine = _service_with_spied_password_engine(user_repo)
+
+    duplicate_service.register_local(
+        TAKEN_EMAIL,
+        WRONG_PASSWORD,
+        "Attacker Chosen Name",
+        on_existing_address=lambda _key: None,
+    )
+    fresh_service.register_local(
+        FREE_EMAIL,
+        REAL_PASSWORD,
+        "Attacker Chosen Name",
+        on_existing_address=lambda _key: None,
+    )
+
+    assert duplicate_engine.hash_password.call_count == fresh_engine.hash_password.call_count == 1

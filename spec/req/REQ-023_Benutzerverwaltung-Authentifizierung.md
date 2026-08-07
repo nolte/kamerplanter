@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.10 (Service Accounts im Light-Modus deaktiviert, W-015)
+Version: 1.11 (SEC-H-009 Info-Mail asynchron + Sperrfenster je Empfänger)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.11 | 2026-08-07 | **SEC-H-009 Info-Mail gebaut (#958):** Die in §3.2 seit v1.8 geforderte Info-Mail an die bereits registrierte Adresse ist implementiert — aber unter zwei Bedingungen, die §3.2 jetzt ausformuliert, weil die naive Variante genau das Enumeration-Orakel wieder öffnet, das #957 geschlossen hat: (1) **asynchrone Zustellung** über den Celery-Task `app.tasks.auth_tasks.send_duplicate_registration_notice`, eingereiht in einem FastAPI-Background-Task, also erst nachdem die Antwort geschrieben ist; (2) **Sperrfenster je Empfängeradresse** (24 h, `IRegistrationNoticeStore`) statt je Absender-IP. Zusätzlich: `POST /api/v1/privacy/email-change` erhält ein eigenes Rate-Limit (`rate_limit_email_change`, Default 5/hour). |
 | 1.10 | 2026-04-27 | **W-015:** §3.7 M2M-Auth um Light-Modus-Hinweis ergänzt — Service Accounts und API-Keys sind im Light-Modus deaktiviert (REQ-027 §2.1). Bei Mode-Switch Light→Full müssen externe Integrationen neue Keys generieren. |
 | 1.9 | 2026-04-27 | **W-004 Fix (Refresh-Token Family + Offline-Grace-Window):** RefreshToken-Modell um `family_key`, `device_id`, `rotated_at`, `successor_key` erweitert. Token-Rotation idempotent innerhalb 60s Grace-Window bei Device-Match (für PWA-Reconnect-Race UI-NFR-012 R-049). Echter Replay (außerhalb Grace-Window oder Device-Mismatch) sprengt die ganze Token-Family. **Hard Cutover bei Deployment** — alle bestehenden Refresh-Tokens werden invalidiert, alle User müssen neu einloggen. Telemetrie: structlog `auth.refresh_replay_detected` + Prometheus `kp_auth_refresh_replay_total`. |
 | 1.8 | 2026-03-18 | **Security-Hardening (IT-Security-Review):** (1) SEC-M-001: PII-Minimierung im JWT-Payload — `email` und `display_name` entfernt, nur `sub`, `tenant_roles`, `is_platform_admin` im Access Token. (2) SEC-H-009: Account-Enumeration-Schutz bei Registrierung — generische Antwort bei existierender E-Mail. (3) SEC-M-002: RS256/ES256-Migrationsplan dokumentiert, JWT-Secret >= 256 Bit. |
@@ -534,7 +535,8 @@ class AuthService:
                  oauth_engine, login_throttle_engine, email_service): ...
 
     # --- Lokale Authentifizierung ---
-    async def register_local(self, email: str, password: str, display_name: str) -> User: ...
+    async def register_local(self, email: str, password: str, display_name: str,
+                             *, on_existing_address: Callable[[UserKey], None] | None = None) -> User: ...
         # 1. Validiert Passwort-Policy (PasswordEngine)
         # 2. Prüft E-Mail-Eindeutigkeit
         # 3. Erstellt User (status: unverified)
@@ -543,7 +545,9 @@ class AuthService:
         # SEC-H-009 (Account-Enumeration-Schutz): Bei bereits existierender E-Mail wird
         # die gleiche generische Antwort zurückgegeben ("Verifizierungs-E-Mail gesendet").
         # An die existierende Adresse wird stattdessen eine Info-Mail gesendet:
-        # "Jemand hat versucht, ein Konto mit Ihrer E-Mail zu erstellen."
+        # "Jemand hat versucht, ein Konto mit deiner E-Mail zu erstellen."
+        # Der Service verschickt sie NICHT selbst — er reicht nur den Key des
+        # existierenden Kontos an `on_existing_address` weiter (Details: §3.2a).
 
     async def login_local(self, email: str, password: str, remember_me: bool = False) -> TokenPair: ...
         # 1. Prüft Throttle (LoginThrottleEngine)
@@ -629,6 +633,73 @@ class AuthService:
     async def revoke_api_key(self, user_key: str, key_id: str) -> None: ...
         # Setzt revoked_at, Key ist sofort ungültig
 ```
+
+<!-- Quelle: Issue #942 / PR #957 / Issue #958 -->
+#### SEC-H-009 — Info-Mail an die bereits registrierte Adresse
+
+Die Info-Mail aus dem Kommentar oben ist **gebaut** (v1.11). Sie steht und fällt
+mit zwei Bedingungen. Beide sind hier festgehalten, damit die nächste Person sie
+nicht neu herleiten muss — und damit niemand die Mail „vereinfacht" und dabei
+genau das Orakel wieder öffnet, das SEC-H-009 schließen soll.
+
+**Bedingung 1 — asynchrone Zustellung, nach der Antwort.**
+`require_email_verification` ist per Default `false`. Eine *echte* Registrierung
+verschickt also **gar keine Mail**. Ein synchroner SMTP-Roundtrip nur im
+Duplikat-Zweig macht diesen Zweig damit messbar **langsamer** als eine echte
+Registrierung — dieselbe Auskunft, nur über die Uhr statt über den Body. Schlimmer
+noch: `SmtpEmailAdapter._send` wirft weiter, ein Zustellfehler würde aus dem
+Duplikat-Zweig eine **500** machen, während die echte Registrierung 201 antwortet.
+Das wäre ein *stärkeres* Orakel als das ursprüngliche.
+
+Deshalb:
+
+* `AuthService.register_local` verschickt nichts. Es ruft nur den Callback
+  `on_existing_address(user_key)` auf — vertraglich nicht-blockierend.
+* Der Router (`POST /auth/register`) hängt daran einen **FastAPI-Background-Task**.
+  Starlette sendet erst die Response und ruft danach `response.background` auf;
+  weder der Import noch das Einreihen noch ein hängender Broker liegen im
+  Zeitfenster, das ein Aufrufer mit Stoppuhr misst.
+* Der Background-Task reiht den Celery-Task
+  `app.tasks.auth_tasks.send_duplicate_registration_notice` ein und schluckt eine
+  Broker-Störung (geloggt, nicht geworfen). Kein Retry, kein Outbox — die Mail ist
+  rein informativ.
+* Nutzlast ist der **Konto-Key**, nicht die Adresse: die Adresse gehört einem
+  Dritten und läge sonst im Klartext in der Broker-Queue (NFR-011).
+
+Gemessen (Median über 25 bzw. 15 Durchläufe je Zweig, gleiche Maschine, gleiche
+Bedingungen wie in #957): Verhältnis echt/duplikat **1.000× vorher → 0.999×
+nachher** auf Service-Ebene und **1.001× → 1.001× (Broker ok), 1.002× (Broker
+tot), 0.999× (Broker hängt 5 s)** über HTTP. Der hängende Broker ist der
+eigentliche Beweis: er kostet den Duplikat-Zweig nichts, weil er hinter der
+Antwort liegt.
+
+**Bedingung 2 — Sperrfenster je Empfängeradresse, nicht je Absender-IP.**
+`/auth/register` ist anonym: der Angreifer wählt Empfänger *und* Auslöser. Ohne
+Schranke pro Empfänger ist die Mail ein unauthentifiziertes Mail-Bombing-Primitiv
+auf Kosten der Absender-Reputation dieser Installation. Eine Sperre gegen die
+*Quelle* hilft nicht — sie legt Passwort-Reset und E-Mail-Verifikation für alle
+mit lahm.
+
+* `IRegistrationNoticeStore.claim(email)` gewährt pro Adresse **einen** Versand
+  pro Fenster (24 h). Der Anspruch wird atomar erhoben (`SET … NX EX`), sonst
+  senden zwei gleichzeitige Versuche beide.
+* Zwei Stufen, analog `IUnknownAccountStore`: Valkey (geteilt über Worker) mit
+  Rückfall auf eine beschränkte In-Process-Map. Bei Redis-Störung wird **nicht**
+  fail-open entschieden — das wäre genau der unbeschränkte Versand.
+* Schlüssel ist der SHA-256 der normalisierten Adresse; die Adresse selbst wird
+  nirgends im Klartext abgelegt oder geloggt (NFR-011).
+* Der Anspruch wird **vor** dem Versand erhoben. Ein Zustellfehler verbrennt damit
+  das Fenster — bewusst: die Schranke existiert gegen den anonymen Auslöser, und
+  ein SMTP-Ausfall darf sie nicht aufheben.
+
+**Inhalt der Mail** (DE kanonisch, EN als Spiegel;
+`RegistrationNoticeEngine`, Auswahl über `user.locale`, Fallback `de`):
+Sie nennt genau den Vorgang, stellt fest, dass **nichts** passiert ist, und
+verlinkt Anmeldung und Passwort-Reset (aus `frontend_url`, nie aus Request-Daten).
+Sie enthält **nicht**: den vom Aufrufer gewählten Anzeigenamen (sonst wird die
+Mail zum Nachrichtenkanal in fremde Postfächer), das eingegebene Passwort, die
+IP, irgendein Feld des betroffenen Kontos und keinerlei Token oder Ein-Klick-Aktion.
+Sie geht nicht an deaktivierte oder gelöschte Konten.
 
 <!-- Quelle: Widerspruchsanalyse W-004 -->
 ### 3.2a Refresh-Token Family + Offline-Grace-Window (W-004)
