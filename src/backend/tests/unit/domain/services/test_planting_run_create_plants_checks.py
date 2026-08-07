@@ -17,15 +17,19 @@ from tests.conftest import wire_get_or_raise
 RUN_KEY = "run_1"
 LOCATION_KEY = "loc_beet_a"
 SPECIES_KEY = "sp_tomato"
+#: Both engines read tenant-scoped slot queries since #927, so the run under test
+#: has to carry a tenant — a tenantless run deliberately skips the checks.
+TENANT_KEY = "tenant-a"
 
 
 def _fake_slot(slot_id: str, key: str):
     return SimpleNamespace(slot_id=slot_id, key=key, currently_occupied=False)
 
 
-def _planned_run() -> PlantingRun:
+def _planned_run(tenant_key: str = TENANT_KEY) -> PlantingRun:
     return PlantingRun(
         _key=RUN_KEY,
+        tenant_key=tenant_key,
         name="Tomaten 2026",
         run_type=PlantingRunType.MONOCULTURE,
         status=PlantingRunStatus.PLANNED,
@@ -111,10 +115,10 @@ class TestCreatePlantsChecks:
         assert result["created_count"] == 2
         assert plant_repo.create.call_count == 2
         # Same argument order as the single-plant path.
-        rotation.validate_or_raise.assert_any_call("slot_a1", SPECIES_KEY)
-        rotation.validate_or_raise.assert_any_call("slot_a2", SPECIES_KEY)
-        companion.check_or_raise.assert_any_call(SPECIES_KEY, "slot_a1")
-        companion.check_or_raise.assert_any_call(SPECIES_KEY, "slot_a2")
+        rotation.validate_or_raise.assert_any_call("slot_a1", SPECIES_KEY, tenant_key=TENANT_KEY)
+        rotation.validate_or_raise.assert_any_call("slot_a2", SPECIES_KEY, tenant_key=TENANT_KEY)
+        companion.check_or_raise.assert_any_call(SPECIES_KEY, "slot_a1", tenant_key=TENANT_KEY)
+        companion.check_or_raise.assert_any_call(SPECIES_KEY, "slot_a2", tenant_key=TENANT_KEY)
 
     def test_instance_without_slot_skips_checks_without_crashing(self):
         # Two plants, but only one available slot -> the second instance has no
@@ -129,8 +133,8 @@ class TestCreatePlantsChecks:
         assert result["created_count"] == 2
         assert plant_repo.create.call_count == 2
         # Checks ran only for the single slot-assigned instance.
-        rotation.validate_or_raise.assert_called_once_with("slot_a1", SPECIES_KEY)
-        companion.check_or_raise.assert_called_once_with(SPECIES_KEY, "slot_a1")
+        rotation.validate_or_raise.assert_called_once_with("slot_a1", SPECIES_KEY, tenant_key=TENANT_KEY)
+        companion.check_or_raise.assert_called_once_with(SPECIES_KEY, "slot_a1", tenant_key=TENANT_KEY)
 
     def test_checks_skipped_when_engines_unwired(self):
         # Backward-compat: a service built without the engines still creates plants.

@@ -33,10 +33,13 @@ class _SiteRepo:
     def __init__(self, location_key: str | None) -> None:
         self._location_key = location_key
 
-    def get_slot_for_plant(self, plant_key):  # noqa: ARG002
+    def get_slot_for_plant(self, plant_key, *, tenant_key):  # noqa: ARG002
+        # Mirrors the real signature: ``tenant_key`` is required and keyword-only
+        # (#927), so a service that forgot to forward it fails here loudly.
+        assert tenant_key, "get_slot_for_plant must be called with a tenant (#927)"
         if self._location_key is None:
             return None
-        return SimpleNamespace(location_key=self._location_key)
+        return SimpleNamespace(location_key=self._location_key, tenant_key=tenant_key)
 
 
 class _SensorService:
@@ -57,6 +60,10 @@ class _SensorService:
 
 def _plant(**kw):
     defaults = dict(
+        # The soil-moisture override resolves plant → slot → location, and that
+        # slot lookup is tenant-scoped since #927 — a tenantless plant resolves to
+        # "no slot" and the override never fires.
+        tenant_key="tenant-a",
         species_key="sp1",
         cultivar_key=None,
         substrate_key=None,

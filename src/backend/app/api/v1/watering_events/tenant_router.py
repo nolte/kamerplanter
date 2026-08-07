@@ -69,8 +69,13 @@ def get_plant_events(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    """List a plant instance's watering events (paginated)."""
-    events = service.get_by_plant(plant_key, pagination.offset, pagination.limit)
+    """List a plant instance's watering events (paginated).
+
+    A ``plant_key`` belonging to another tenant yields an empty list — the
+    tenant scope is enforced in the repository query, not by an anchor check
+    here (#927).
+    """
+    events = service.get_by_plant(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_event_response(e) for e in events]
 
 
@@ -81,8 +86,11 @@ def get_location_events(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    """List a location's watering events (paginated)."""
-    events = service.get_by_location(location_key, pagination.offset, pagination.limit)
+    """List a location's watering events (paginated).
+
+    A ``location_key`` belonging to another tenant yields an empty list (#927).
+    """
+    events = service.get_by_location(location_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_event_response(e) for e in events]
 
 
@@ -92,8 +100,12 @@ def get_location_stats(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    """Return aggregated watering statistics for a location."""
-    stats = service.get_stats(location_key)
+    """Return aggregated watering statistics for a location.
+
+    A ``location_key`` belonging to another tenant reports zeroes rather than the
+    other tenant's event count and applied volume (#927).
+    """
+    stats = service.get_stats(location_key, tenant_key=ctx.tenant_key)
     return WateringStatsResponse(**stats)
 
 

@@ -17,10 +17,22 @@ class CompanionPlantingEngine:
         self._plant_repo = plant_repo
         self._species_repo = species_repo
 
-    def check_compatibility(self, species_key: str, slot_key: str) -> tuple[bool, list[str], list[str]]:
+    def check_compatibility(
+        self,
+        species_key: str,
+        slot_key: str,
+        *,
+        tenant_key: str,
+    ) -> tuple[bool, list[str], list[str]]:
         """Check companion planting compatibility for a species in a slot.
+
         Checks neighbors in adjacent slots.
         Returns (compatible, warnings, benefits).
+
+        ``tenant_key`` is required and keyword-only (#927): the neighbour lookup
+        is a tenant-scoped repository read, and the warnings it produces name the
+        species growing next door. Reading that unscoped would put another
+        tenant's crop into this tenant's warning text.
         """
         warnings: list[str] = []
         benefits: list[str] = []
@@ -39,7 +51,7 @@ class CompanionPlantingEngine:
             adj_slot_key = adj_slot.get("_key", "")
             if not adj_slot_key:
                 continue
-            active_plants = self._plant_repo.get_active_by_slot(adj_slot_key)
+            active_plants = self._plant_repo.get_active_by_slot(adj_slot_key, tenant_key=tenant_key)
             for plant in active_plants:
                 if plant.species_key in incompatible_keys:
                     species = self._species_repo.get_by_key(plant.species_key)
@@ -52,9 +64,9 @@ class CompanionPlantingEngine:
 
         return len(warnings) == 0, warnings, benefits
 
-    def check_or_raise(self, species_key: str, slot_key: str) -> list[str]:
+    def check_or_raise(self, species_key: str, slot_key: str, *, tenant_key: str) -> list[str]:
         """Check compatibility and raise on conflict. Returns benefits."""
-        compatible, warnings, benefits = self.check_compatibility(species_key, slot_key)
+        compatible, warnings, benefits = self.check_compatibility(species_key, slot_key, tenant_key=tenant_key)
         if not compatible and warnings:
             raise CompanionConflictError(species_key, f"neighbors in slot {slot_key}")
         return benefits

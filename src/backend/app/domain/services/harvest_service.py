@@ -67,13 +67,22 @@ class HarvestService:
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> tuple[list[HarvestObservation], int]:
-        return self._repo.get_observations_for_plant(plant_key, offset, limit)
+        """A plant's harvest observations, scoped to ``tenant_key`` (#927)."""
+        return self._repo.get_observations_for_plant(plant_key, offset, limit, tenant_key=tenant_key)
 
     # ── Readiness Assessment ──
 
-    def assess_readiness(self, plant_key: str) -> dict:
-        observations = self._repo.get_latest_observations_by_indicator(plant_key)
+    def assess_readiness(self, plant_key: str, *, tenant_key: str) -> dict:
+        """Harvest readiness of a plant of ``tenant_key`` (#927).
+
+        A foreign plant key has no observations to assess and falls through to
+        the "immature / score 0" answer rather than reporting on another
+        tenant's crop.
+        """
+        observations = self._repo.get_latest_observations_by_indicator(plant_key, tenant_key=tenant_key)
         if not observations:
             return {
                 "overall_score": 0,

@@ -29,10 +29,16 @@ class IHarvestRepository(ABC):
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
-    ) -> tuple[list[HarvestObservation], int]: ...
+        *,
+        tenant_key: str,
+    ) -> tuple[list[HarvestObservation], int]:
+        """Return a plant's observations and their total, both scoped to ``tenant_key`` (#927)."""
+        ...
 
     @abstractmethod
-    def get_latest_observations_by_indicator(self, plant_key: str) -> list[HarvestObservation]: ...
+    def get_latest_observations_by_indicator(self, plant_key: str, *, tenant_key: str) -> list[HarvestObservation]:
+        """Return the newest observation per indicator, scoped to ``tenant_key`` (#927)."""
+        ...
 
     @abstractmethod
     def get_all_batches(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestBatch], int]: ...
