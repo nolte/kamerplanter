@@ -19,6 +19,7 @@ from app.common.enums import McpPermission, ReminderType
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
+from app.mcp_server.tools.catalogs import substrate_display_name
 
 #: Upper bound on a single page. The palette favours compact, LLM-readable
 #: answers over completeness — a bigger page is a worse answer, not a better one.
@@ -158,13 +159,20 @@ class GetPlant(ToolBase):
         # declares and WateringService applies: an explicit override wins, else
         # the referenced Substrate's own type. Rebuilding that order in a recipe
         # would be a second opinion on the same data.
+        #
+        # The name is read through ``substrate_display_name`` because the
+        # catalogue model has ``name_de``/``name_en`` and no ``name``: asking for
+        # ``substrate.name`` resolved the join, then reported ``substrate_name:
+        # null`` beside a populated ``substrate_key`` and a resolved
+        # ``substrate_type``, which reads as "this medium has no name" rather
+        # than "this read asked for the wrong field" (#1006).
         resolved_type: Any = plant.substrate_type_override
         data["substrate_name"] = None
         if plant.substrate_key:
             try:
                 substrate = ctx.substrate_service.get_substrate(plant.substrate_key)
                 resolved_type = resolved_type or getattr(substrate, "type", None)
-                data["substrate_name"] = getattr(substrate, "name", None)
+                data["substrate_name"] = substrate_display_name(substrate)
             except Exception:  # noqa: BLE001 — a missing catalogue entry must not fail the read
                 data["substrate_name"] = None
         data["substrate_type"] = str(resolved_type) if resolved_type else None

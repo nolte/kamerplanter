@@ -12,6 +12,7 @@ import pytest
 
 from app.common.enums import TenantRole, ToxicitySeverity
 from app.domain.models.species import Species, Toxicity
+from app.domain.models.substrate import Substrate
 from app.mcp_server.context import ToolContext
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.tools.catalogs import (
@@ -253,12 +254,23 @@ class _Named:
 
 @pytest.mark.asyncio
 async def test_list_substrates_filters_by_name():
+    # Real ``Substrate`` records, not name-carrying stubs: the model has
+    # ``name_de``/``name_en`` and no ``name`` at all, so a filter written against
+    # ``name`` matches nothing while a stub with a ``name`` attribute would let
+    # that pass (#1006, same root cause as the get_plant join).
     class _Svc:
         def list_substrates(self, offset=0, limit=50):
-            return [_Named("Kokos"), _Named("Perlite")], 2
+            return [
+                Substrate(_key="s1", name_de="Kokos", name_en="Coco coir"),
+                Substrate(_key="s2", name_de="Perlite", name_en="Perlite"),
+            ], 2
 
     resp = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="koko"))
-    assert [i["name"] for i in resp.data["items"]] == ["Kokos"]
+    assert [i["name_de"] for i in resp.data["items"]] == ["Kokos"]
+
+    # The English name is part of the haystack too — the palette answers in both.
+    english = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="coco"))
+    assert [i["name_de"] for i in english.data["items"]] == ["Kokos"]
 
 
 @pytest.mark.asyncio
