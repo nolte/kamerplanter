@@ -171,7 +171,12 @@ jobs:
             -t tests/security/nuclei-templates \
             -t ./nuclei-templates \
             "${target_args[@]}" \
-            -tags exposure,misconfig,default-login,cve,vulnerability,kamerplanter \
+            # `token-spray` added 2026-08-07 (#993): it only ever ran in the
+            # per-push PR lane, which now runs post-merge. Without it here the
+            # nightly would not be a backstop for that tag should the push
+            # trigger ever stop firing. The reverse gap stands: the OpenAPI
+            # surface (§4.3) still runs only in the merge lane.
+            -tags exposure,misconfig,default-login,token-spray,cve,vulnerability,kamerplanter \
             -severity low,medium,high,critical \
             -rate-limit 100 \
             -timeout 15 \
