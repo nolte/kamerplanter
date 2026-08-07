@@ -69,28 +69,30 @@ describe('fertilizersSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchFertilizers calls the API without filters when none are given', async () => {
-    mocked.fetchFertilizers.mockResolvedValue([{ key: 'f1' }] as never);
+  // #995: the slice loads the *complete* catalogue, never a page of it. The
+  // negative assertion carries the regression — a test that only checked "some
+  // API call happened and the items landed" passed on the defect for months.
+  it('fetchFertilizers loads the complete catalogue, not a single page', async () => {
+    mocked.fetchAllFertilizers.mockResolvedValue([{ key: 'f1' }] as never);
     const store = makeStore();
     await store.dispatch(fetchFertilizers({}));
-    expect(mocked.fetchFertilizers).toHaveBeenCalledWith(undefined, undefined, undefined);
+    expect(mocked.fetchAllFertilizers).toHaveBeenCalledWith(undefined, undefined);
+    expect(mocked.fetchFertilizers).not.toHaveBeenCalled();
     expect(store.getState().fertilizers.fertilizers).toEqual([{ key: 'f1' }]);
   });
 
   it('fetchFertilizers builds a filter map from the provided options', async () => {
-    mocked.fetchFertilizers.mockResolvedValue([] as never);
+    mocked.fetchAllFertilizers.mockResolvedValue([] as never);
     const store = makeStore();
     await store.dispatch(
       fetchFertilizers({
-        offset: 10,
-        limit: 5,
         fertilizerType: 'mineral',
         brand: 'Acme',
         tankSafe: true,
         isOrganic: false,
       }),
     );
-    expect(mocked.fetchFertilizers).toHaveBeenCalledWith(10, 5, {
+    expect(mocked.fetchAllFertilizers).toHaveBeenCalledWith(undefined, {
       fertilizer_type: 'mineral',
       brand: 'Acme',
       tank_safe: 'true',
@@ -99,7 +101,7 @@ describe('fertilizersSlice thunks', () => {
   });
 
   it('fetchFertilizers surfaces a rejection as the slice error', async () => {
-    mocked.fetchFertilizers.mockRejectedValue(new Error('load failed'));
+    mocked.fetchAllFertilizers.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchFertilizers({}));
     expect(store.getState().fertilizers.error).toBe('load failed');

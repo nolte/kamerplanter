@@ -1,21 +1,26 @@
 import * as api from '@/api/endpoints/fertilizers';
 import { createListSlice } from '@/store/createListSlice';
 
-// `fetchFertilizers` returns a plain array. The slice keeps its domain-named
+// `fetchAllFertilizers` returns a plain array. The slice keeps its domain-named
 // state fields (`fertilizers`/`currentFertilizer`) so page selectors stay
 // unchanged (FR-002 §B1).
+//
+// The slice holds the **complete** catalogue, not a page of it (#995). Every
+// consumer of `s.fertilizers.fertilizers` — the list view and the "pick any
+// fertilizer" selectors alike — treats it as the whole set: the list view
+// searches, sorts and paginates it client-side, which is only truthful over a
+// complete set, and a selector that offers a subset silently makes products
+// unpickable. So `offset`/`limit` are deliberately absent from the thunk
+// argument: there is no page to ask for. Callers that genuinely want one page
+// call `api.fetchFertilizers()` directly.
 const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'fertilizers',
   list: ({
-    offset,
-    limit,
     fertilizerType,
     brand,
     tankSafe,
     isOrganic,
   }: {
-    offset?: number;
-    limit?: number;
     fertilizerType?: string;
     brand?: string;
     tankSafe?: boolean;
@@ -26,9 +31,8 @@ const { reducer, fetchList, fetchOne, actions } = createListSlice({
     if (brand) filters.brand = brand;
     if (tankSafe !== undefined) filters.tank_safe = String(tankSafe);
     if (isOrganic !== undefined) filters.is_organic = String(isOrganic);
-    return api.fetchFertilizers(
-      offset,
-      limit,
+    return api.fetchAllFertilizers(
+      undefined,
       Object.keys(filters).length > 0 ? filters : undefined,
     );
   },

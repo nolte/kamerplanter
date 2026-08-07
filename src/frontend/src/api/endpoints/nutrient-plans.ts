@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   NutrientPlan,
   NutrientPlanCreate,
@@ -26,6 +27,24 @@ export async function fetchNutrientPlans(
   }
   const { data } = await client.get<NutrientPlan[]>(BASE, { params });
   return data;
+}
+
+/**
+ * Loads the complete nutrient-plan catalogue by paging until a short page is
+ * returned. The list view uses this: its search, sort and pagination all run
+ * client-side, so a bounded first page makes the search deny plans that exist
+ * (#995). 38 plans are seeded today against a single-page default of 50 — plus
+ * 12 more that `nutrient_plans_hydro.yaml` declares and no seeder loads, which
+ * would put the catalogue exactly at the limit the moment that file is wired up.
+ */
+export async function fetchAllNutrientPlans(
+  pageSize = CATALOGUE_PAGE_SIZE,
+  filters?: Record<string, string>,
+): Promise<NutrientPlan[]> {
+  return fetchAllPages(
+    (offset, limit) => fetchNutrientPlans(offset, limit, filters),
+    pageSize,
+  );
 }
 
 export async function fetchNutrientPlan(key: string): Promise<NutrientPlan> {

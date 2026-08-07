@@ -281,6 +281,21 @@ tasks:
     cmds:
       - python3 scripts/check_schema_examples.py {{.CLI_ARGS}}
 
+  check:seed-catalogue-page-size:
+    desc: |
+      Compare the seeded rows of every reference catalogue against the page its
+      list view fetches (#995). Both numbers are derived from the tree — the row
+      count from the seed YAML, the fetch contract from the frontend slice — so
+      nothing here is a recorded count that concurrent pull requests collide on.
+      Red when a catalogue has more seeded rows than its list view can show, when
+      a catalogue registered as loading completely quietly went back to a bounded
+      page, or when a seed file carries rows that no seeder loads. Pass --list to
+      name every seed file counted. Also runs as a pre-commit hook in the
+      required `static` lane, and is asserted from
+      src/backend/tests/unit/test_seed_catalogue_page_size_check.py.
+    cmds:
+      - python3 scripts/check_seed_catalogue_page_size.py {{.CLI_ARGS}}
+
   # ── Documentation ───────────────────────────────────────────
 
   docs:catalog:

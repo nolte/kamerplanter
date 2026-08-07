@@ -34,6 +34,27 @@ describe('species endpoints — species CRUD', () => {
     });
   });
 
+  // #995: the list view asked for a fixed limit=1000 (this endpoint's own cap).
+  // It held the 207 seeded species, but it was a bound on a tenant-extensible
+  // catalogue whose overflow is invisible, since the page searches client-side.
+  it('listAllSpecies pages until a short page and reports the real total', async () => {
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `sp${i}` }));
+    client.get
+      .mockResolvedValueOnce({ data: { items: full, total: 999, offset: 0, limit: 200 } })
+      .mockResolvedValueOnce({ data: { items: [{ key: 'tail' }], total: 999, offset: 200, limit: 200 } });
+
+    const page = await species.listAllSpecies();
+
+    expect(page.items).toHaveLength(201);
+    // `total` is the number actually loaded, not the envelope's — the store's
+    // `total` must agree with `items` or the two disagree about the same set.
+    expect(page.total).toBe(201);
+    expect(client.get).toHaveBeenCalledTimes(2);
+    expect(client.get).toHaveBeenNthCalledWith(2, '/species', {
+      params: { offset: 200, limit: 200 },
+    });
+  });
+
   it('getSpecies gets species by key', async () => {
     client.get.mockResolvedValue({ data: { key: 'sp1' } });
     await species.getSpecies('sp1');

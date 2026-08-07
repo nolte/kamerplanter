@@ -28,6 +28,7 @@ import harvestReducer from '@/store/slices/harvestSlice';
 import postHarvestReducer from '@/store/slices/postHarvestSlice';
 import careRemindersReducer from '@/store/slices/careRemindersSlice';
 import wateringLogsReducer from '@/store/slices/wateringLogsSlice';
+import fertilizersReducer from '@/store/slices/fertilizersSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -53,6 +54,7 @@ const rootReducer = combineReducers({
   postHarvest: postHarvestReducer,
   careReminders: careRemindersReducer,
   wateringLogs: wateringLogsReducer,
+  fertilizers: fertilizersReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need

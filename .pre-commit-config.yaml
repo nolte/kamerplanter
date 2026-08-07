@@ -181,6 +181,47 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Seeded catalogue vs. list-view page size (#995) ────────────────────
+  # Refuses a reference catalogue that has more seeded rows than its list view
+  # fetches. `DataTable` searches, sorts and paginates client-side, so a bounded
+  # first request does not paginate — it drops the rest of the catalogue and then
+  # answers "no results" when a user searches for one of the dropped rows. Seven
+  # botanical families and one activity were unreachable that way when #995 was
+  # filed, and it was reported as a *search* defect two milestones later.
+  #
+  # No test can catch this. The two numbers that must not cross are YAML under
+  # src/backend and TypeScript under src/frontend; no unit test on either side
+  # sees both, and an end-to-end test would need a database seeded to the exact
+  # size that trips it — which is precisely the state nobody notices.
+  #
+  # Both numbers are derived from the tree: the row count from the seed YAML, the
+  # loaded-file set from the seeders' own `.yaml` literals, the fetch contract
+  # from the frontend slice. So this hook carries no hand-edited count, and two
+  # concurrent pull requests adding seed rows do not conflict on it — the failure
+  # mode #973 closed for the ratchet hooks below.
+  #
+  # Runs here, in the required `static` gate: stdlib plus PyYAML, no application
+  # import, no node_modules, no running stack — ~0.4 s over 37 seed files.
+  # `language: python` with an explicit PyYAML pin rather than `system`, matching
+  # the Steckbrief consistency hook further down: both read seed YAML, and the
+  # isolated pre-commit venv has no site-packages to inherit it from.
+  #
+  # always_run rather than a `files:` filter, for the reason the hooks below give:
+  # pre-commit hands a path-filtered hook only added/modified files, and a commit
+  # that *deletes* a seed file moves the count exactly as much as one that adds
+  # rows. Also asserted from
+  # src/backend/tests/unit/test_seed_catalogue_page_size_check.py, so a
+  # backend-only change goes red in the backend suite too, not only here.
+  - repo: local
+    hooks:
+      - id: seed-catalogue-page-size
+        name: seeded catalogues fit the page their list view fetches (#995)
+        entry: python scripts/check_seed_catalogue_page_size.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
+
   # ── Boundary validation (#970) ─────────────────────────────────────────
   # Refuses a request schema that accepts input its domain model rejects — the
   # shape that answers HTTP 500 where 422 is the truthful answer, because a
