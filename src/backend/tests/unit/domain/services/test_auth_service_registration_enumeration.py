@@ -193,3 +193,52 @@ def test_duplicate_registration_does_not_log_the_raw_email(service: AuthService)
     assert len(events) == 1
     assert TAKEN_EMAIL not in str(events[0])
     assert events[0]["email_sha256"]
+
+
+# ── The clock, not the body (#942 §3) ──────────────────────────────
+
+
+def _service_with_spied_password_engine(user_repo: MagicMock) -> tuple[AuthService, MagicMock]:
+    password_engine = MagicMock(wraps=PasswordEngine())
+    service = AuthService(
+        user_repo=user_repo,
+        auth_provider_repo=MagicMock(),
+        refresh_token_repo=MagicMock(),
+        password_engine=password_engine,
+        token_engine=TokenEngine("test-secret-key-for-unit-tests-32chars!", "HS256"),
+        throttle_engine=LoginThrottleEngine(),
+        email_service=MagicMock(),
+        frontend_url="http://localhost:5173",
+        tenant_service=MagicMock(),
+    )
+    return service, password_engine
+
+
+def test_duplicate_registration_burns_the_same_bcrypt_round_as_a_real_one(user_repo: MagicMock) -> None:
+    """The response is identical; without this the response time is not.
+
+    The duplicate branch skips the account write, the personal tenant and the
+    mail dispatch — single-digit milliseconds each. It also used to skip bcrypt,
+    which is ~100 ms, so a fast 201 meant "taken" and a slow one meant "created".
+    Asserting the *count* rather than a wall-clock delta keeps the check
+    deterministic; a timing assertion would be flaky on a shared runner.
+    """
+    duplicate_service, duplicate_engine = _service_with_spied_password_engine(user_repo)
+    fresh_service, fresh_engine = _service_with_spied_password_engine(user_repo)
+
+    _register_duplicate(duplicate_service)
+    _register_fresh(fresh_service)
+
+    assert duplicate_engine.hash_password.call_count == fresh_engine.hash_password.call_count == 1
+    assert duplicate_engine.hash_password.call_args[0][0] == WRONG_PASSWORD
+
+
+def test_duplicate_registration_still_writes_nothing(user_repo: MagicMock) -> None:
+    """The hash is thrown away — burning the round must not create an account."""
+    service, _ = _service_with_spied_password_engine(user_repo)
+
+    profile = _register_duplicate(service)
+
+    user_repo.create.assert_not_called()
+    assert profile.key != STORED_KEY
+    assert profile.key != CREATED_KEY
