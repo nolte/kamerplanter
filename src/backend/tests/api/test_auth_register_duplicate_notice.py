@@ -27,7 +27,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.v1.auth.router import limiter
 from app.common.dependencies import get_auth_service
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.password_engine import PasswordEngine
@@ -120,9 +119,9 @@ def order() -> list[str]:
 
 @pytest.fixture
 def client(order: list[str]) -> Iterator[TestClient]:
-    # The per-IP window is module-level state shared with every other test that
-    # touches an /auth route.
-    limiter.reset()
+    # The per-IP window is process-global state shared with every other test
+    # that touches an /auth route; ``tests/api/conftest.py`` clears it around
+    # every test (#989).
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
@@ -131,7 +130,6 @@ def client(order: list[str]) -> Iterator[TestClient]:
             yield TestClient(_OrderRecordingApp(app, order), raise_server_exceptions=False)
         finally:
             app.dependency_overrides.pop(get_auth_service, None)
-            limiter.reset()
 
 
 def _register(client: TestClient, email: str):  # noqa: ANN202 - httpx Response

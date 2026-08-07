@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.v1.auth.router import limiter
 from app.common.dependencies import get_privacy_service
 from app.config.settings import settings
 
@@ -53,12 +52,10 @@ def service() -> MagicMock:
 
 @pytest.fixture
 def client(service: MagicMock) -> Iterator[TestClient]:
-    # ``limiter`` is process-global for the whole API test session, so this
-    # module's window is shared with every other test that touches a limited
-    # route. Reset on both sides so neither this module nor its neighbours
-    # inherit a poisoned counter. Local by necessity — #989 covers making that
-    # structural; when it lands, this fixture is the thing to delete.
-    limiter.reset()
+    # ``limiter`` is process-global for the whole API test session, but the
+    # ``reset_rate_limiter`` autouse fixture in ``tests/api/conftest.py`` now
+    # clears it around every test (#989), so this module no longer resets it
+    # by hand — that is exactly the second mechanism #989 removed.
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
@@ -67,7 +64,6 @@ def client(service: MagicMock) -> Iterator[TestClient]:
             yield TestClient(app, raise_server_exceptions=False)
         finally:
             app.dependency_overrides.pop(get_privacy_service, None)
-            limiter.reset()
 
 
 def _confirm(client: TestClient, token: str):  # noqa: ANN202 - httpx Response

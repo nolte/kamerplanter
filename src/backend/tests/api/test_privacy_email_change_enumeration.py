@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.v1.auth.router import limiter
 from app.common.auth import get_current_user
 from app.common.dependencies import get_privacy_service
 from app.domain.engines.consent_engine import ConsentEngine
@@ -76,11 +75,10 @@ def _privacy_service() -> PrivacyService:
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     # ``/privacy/email-change`` is rate-limited per IP with an *hourly* window
-    # (#958), i.e. one long enough to outlive the whole test session. Every
-    # module that posts here shares that budget under the client IP
-    # ``testclient``, so without these resets the module that happens to run
-    # last inherits a spent counter and fails with 429 — the wandering flake.
-    limiter.reset()
+    # (#958), i.e. one long enough to outlive the whole test session, and every
+    # module posting here shares that budget under the client IP ``testclient``.
+    # The ``reset_rate_limiter`` autouse fixture in ``tests/api/conftest.py``
+    # clears it around every test (#989), so the ordering cannot bite here.
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
@@ -96,7 +94,6 @@ def client() -> Iterator[TestClient]:
         finally:
             app.dependency_overrides.pop(get_privacy_service, None)
             app.dependency_overrides.pop(get_current_user, None)
-            limiter.reset()
 
 
 def _request_change(client: TestClient, new_email: str):  # noqa: ANN202 - httpx Response

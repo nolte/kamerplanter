@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.v1.auth.router import limiter
 from app.common.auth import get_current_user
 from app.common.dependencies import get_privacy_service
 from app.config.settings import settings
@@ -62,11 +61,10 @@ def service() -> MagicMock:
 
 @pytest.fixture
 def client(service: MagicMock) -> Iterator[TestClient]:
-    # The per-IP window is module-level state shared with every other test in
-    # the session that touches a limited route — and this one's window is an
-    # hour, long enough to outlive the whole suite. Reset on both sides so
-    # neither this module nor its neighbours inherit a poisoned counter.
-    limiter.reset()
+    # The budget this module spends is process-global state shared with every
+    # other test that posts here; the ``reset_rate_limiter`` autouse fixture in
+    # ``tests/api/conftest.py`` clears it around every test (#989), so this
+    # module neither inherits a spent counter nor leaves one behind.
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
@@ -82,7 +80,6 @@ def client(service: MagicMock) -> Iterator[TestClient]:
         finally:
             app.dependency_overrides.pop(get_privacy_service, None)
             app.dependency_overrides.pop(get_current_user, None)
-            limiter.reset()
 
 
 def _request_change(client: TestClient, new_email: str):  # noqa: ANN202 - httpx Response

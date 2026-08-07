@@ -23,7 +23,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.v1.auth.router import limiter
 from app.common.dependencies import get_auth_service
 from app.data_access.external.unknown_account_store import MemoryUnknownAccountStore
 from app.domain.engines.login_throttle_engine import MAX_ATTEMPTS, LoginThrottleEngine
@@ -110,10 +109,10 @@ def _auth_service_factory():  # noqa: ANN202 - returns a FastAPI dependency over
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    # The per-IP window is module-level state shared with every other test that
-    # touches an /auth route — reset it so neither this module nor its
-    # neighbours inherit a poisoned counter.
-    limiter.reset()
+    # The per-IP window is process-global state shared with every other test
+    # that touches an /auth route; ``tests/api/conftest.py`` clears it around
+    # every test (#989). Each test here drives a full lockout sequence, so it
+    # needs the whole budget and must not leave a spent one behind.
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
@@ -122,7 +121,6 @@ def client() -> Iterator[TestClient]:
             yield TestClient(app, raise_server_exceptions=False)
         finally:
             app.dependency_overrides.pop(get_auth_service, None)
-            limiter.reset()
 
 
 def _login(client: TestClient, email: str, password: str = WRONG_PASSWORD):  # noqa: ANN202 - httpx Response
