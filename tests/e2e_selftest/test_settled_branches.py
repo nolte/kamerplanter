@@ -6,13 +6,20 @@ new helpers exist to provide (`e2e-test-stability` §D):
 * the wait cannot be satisfied before the content exists,
 * which branch was reached is reported, not inferred,
 * a non-accepted branch fails loudly and names what the app actually showed.
+
+The last class in this file covers the same shape one level up: the settling a
+*screenshot checkpoint* owes its caller, because `captureBeyondViewport` resizes
+the page under test and the checkpoint has to hand it back the way it found it
+(#959).
 """
 
 from __future__ import annotations
 
 import pytest
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 
+from tests.e2e.conftest import _cdp_full_page_screenshot, _settle_after_capture
 from tests.e2e.pages.base_page import BasePage, SettledState
 
 from .fake_driver import FakeDriver
@@ -227,3 +234,135 @@ class TestWaitForAnyPresent:
         """The positional form keeps its old, skeleton-agnostic semantics."""
         driver = FakeDriver({PAGE[1], SKELETON})
         assert page_for(driver).wait_for_any_present((PAGE,), "detail route", timeout=2) == PAGE
+
+
+# ── The screenshot checkpoint's own settling (#959) ──────────────────────────
+# `Page.captureScreenshot({captureBeyondViewport: true})` stretches the layout
+# viewport and puts it back, firing two `resize` events and flipping every
+# `useMediaQuery` on the way (measured; see the block comment in
+# `tests/e2e/conftest.py`). A checkpoint that returns before the page is back at
+# its own size hands the next line a re-laid-out page — which is how
+# `has_remove_fertilizer_button()` came back `False` one line after a helper had
+# waited for that button.
+#
+# There is no browser here, so what these pin is the *decision*: the restore is
+# verified rather than assumed, an unrestored viewport fails loudly and in
+# budget, and the frame barrier is actually awaited.
+
+
+class ViewportDriver:
+    """A driver whose viewport metrics are a scripted sequence.
+
+    Each ``execute_script`` for the metrics consumes one entry; the last one
+    repeats forever, so "comes back on the third poll" and "never comes back"
+    are both expressible. ``execute_async_script`` records that the frame
+    barrier ran instead of running one.
+    """
+
+    def __init__(
+        self,
+        *metrics: tuple[int, int] | None,
+        cdp_fails: bool = False,
+        screenshot_data: str = "aGk=",
+    ) -> None:
+        self.metrics = list(metrics) or [(800, 600)]
+        self.reads = 0
+        self.async_calls = 0
+        self.cdp_calls = 0
+        self.saved: list[str] = []
+        self.cdp_fails = cdp_fails
+        self.screenshot_data = screenshot_data
+
+    def execute_script(self, _script: str) -> list[int] | None:
+        value = self.metrics[min(self.reads, len(self.metrics) - 1)]
+        self.reads += 1
+        return None if value is None else [value[0], value[1]]
+
+    def execute_async_script(self, _script: str) -> str:
+        self.async_calls += 1
+        return "frames"
+
+    def execute_cdp_cmd(self, _method: str, _params: dict[str, object]) -> dict[str, str]:
+        self.cdp_calls += 1
+        if self.cdp_fails:
+            raise WebDriverException("no CDP on this grid")
+        return {"data": self.screenshot_data}
+
+    def save_screenshot(self, path: str) -> bool:
+        self.saved.append(path)
+        return True
+
+
+class TestCheckpointSettling:
+    """`_settle_after_capture`: the checkpoint's post-condition on the page."""
+
+    def test_it_returns_once_the_viewport_is_back_and_holds_one_frame(self) -> None:
+        driver = ViewportDriver((800, 600))
+        _settle_after_capture(driver, (800, 600))  # type: ignore[arg-type]
+        assert driver.async_calls == 1, (
+            "The frame barrier is the half that covers React's *asynchronous* "
+            "re-render; without it the checkpoint only proves the metrics came "
+            "back, which Chrome does on its own."
+        )
+
+    def test_it_polls_rather_than_sampling_once(self) -> None:
+        """A single comparison would fail a page that is one poll from restored."""
+        driver = ViewportDriver((800, 4000), (800, 4000), (800, 600))
+        _settle_after_capture(driver, (800, 600), timeout=2)  # type: ignore[arg-type]
+        assert driver.reads >= 3
+        assert driver.async_calls == 1
+
+    def test_a_viewport_that_never_comes_back_fails_loudly_and_in_budget(self) -> None:
+        driver = ViewportDriver((800, 4000))
+        with pytest.raises(AssertionError) as exc:
+            _settle_after_capture(driver, (800, 600), timeout=0.3)  # type: ignore[arg-type]
+        message = str(exc.value)
+        assert "800x600" in message, "the message must name what was expected"
+        assert "(800, 4000)" in message, "…and what the page actually reads now"
+        assert "captureBeyondViewport" in message, "…and the mechanism that did it"
+        assert driver.async_calls == 0, "a page that never settled must not be declared settled"
+
+    def test_a_page_that_cannot_be_asked_is_not_reported_as_a_changed_viewport(self) -> None:
+        """No baseline, no verdict.
+
+        A dead session or an open alert answers "could not look", and that must
+        not become "the viewport changed" — nor, in the other direction, a
+        silent claim that the checkpoint was passive.
+        """
+        driver = ViewportDriver((800, 600))
+        _settle_after_capture(driver, None)  # type: ignore[arg-type]
+        assert driver.reads == 0
+        assert driver.async_calls == 0
+
+
+class TestFullPageCaptureIsPassive:
+    """The wiring: the capture itself has to run the settle, not merely own it."""
+
+    def test_the_capture_verifies_the_restore(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        driver = ViewportDriver((800, 600), (800, 4000))
+        with pytest.raises(AssertionError) as exc:
+            _cdp_full_page_screenshot(driver, tmp_path / "shot.png")  # type: ignore[arg-type]
+        assert "screenshot checkpoint" in str(exc.value)
+        assert (tmp_path / "shot.png").exists(), (
+            "the image is still written — the failure is about the page the "
+            "checkpoint left behind, not about the capture"
+        )
+
+    def test_a_restored_page_captures_without_complaint(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        driver = ViewportDriver((800, 600))
+        _cdp_full_page_screenshot(driver, tmp_path / "shot.png")  # type: ignore[arg-type]
+        assert (tmp_path / "shot.png").read_bytes() == b"hi"
+        assert driver.async_calls == 1
+
+    def test_the_non_cdp_fallback_settles_nothing(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """`save_screenshot` resizes nothing, so there is nothing to wait out.
+
+        Asserted rather than assumed because the fallback runs on Firefox and on
+        grids without CDP, where a settle keyed on a resize that never happens
+        would be a pure cost — and, on a browser whose metrics read differently,
+        a false failure.
+        """
+        driver = ViewportDriver((800, 600), (800, 4000), cdp_fails=True)
+        _cdp_full_page_screenshot(driver, tmp_path / "shot.png")  # type: ignore[arg-type]
+        assert driver.saved == [str(tmp_path / "shot.png")]
+        assert driver.async_calls == 0

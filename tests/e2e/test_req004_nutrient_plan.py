@@ -107,18 +107,32 @@ class TestNutrientPlanListPage:
         if initial_count == 0:
             pytest.skip("No nutrient plans in database — cannot test search filtering")
 
-        plan_list.search("zzzz_nonexistent_plan_xxxx")
-        plan_list.wait_for_loading_complete()
+        term = "zzzz_nonexistent_plan_xxxx"
+        plan_list.search(term)
+        # The chip is the only signal that the *filter* reached the table: the
+        # `DataTable` search is client-side behind a 300 ms debounce, so the
+        # `wait_for_loading_complete()` that stood here polled a skeleton that
+        # never mounts and returned while the unfiltered rows were still up.
+        plan_list.wait_for_search_applied(term, what="nutrient plan list")
 
         screenshot(
             "TC-REQ-004-033_plan-search-no-match",
             "Nutrient plan list after searching for non-existent term",
         )
 
-        filtered_count = plan_list.get_row_count()
-        assert filtered_count <= initial_count, (
-            f"TC-REQ-004-033 FAIL: Search should reduce or keep equal row count. "
-            f"Before: {initial_count}, after: {filtered_count}"
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it, and so
+        # does a table that emptied for an unrelated reason (#956). No plan can
+        # match this term, so the falsifiable post-condition is that the list
+        # names none of them.
+        remaining = plan_list.get_first_column_texts()
+        assert remaining == [], (
+            f"TC-REQ-004-033 FAIL: Searching for {term!r} must leave the nutrient "
+            f"plan list empty, but {len(remaining)} of the {initial_count} rows are "
+            f"still listed: {remaining!r}. The search chip already carries the term, "
+            f"so `tableState.search` holds it and the filter has run -- a surviving "
+            f"row therefore means some column's `searchValue` matches this term, "
+            f"not that the search never arrived."
         )
 
     @pytest.mark.core_crud
@@ -262,7 +276,6 @@ class TestNutrientPlanCreateDialog:
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Minimal).
         """
         plan_list.open()
-        initial_count = plan_list.get_row_count()
 
         plan_list.click_create()
         unique = uuid.uuid4().hex[:8]
@@ -274,17 +287,40 @@ class TestNutrientPlanCreateDialog:
 
         plan_list.fill_name(plan_name)
         plan_list.submit_create_form()
+        # The exact post-condition of the create, replacing a
+        # `wait_for_loading_complete()` that polled a skeleton which never
+        # mounts: the dialog closes only after `await api.createNutrientPlan(...)`
+        # resolves 2xx. Had this stood here before, the 500 of #966 would have
+        # been reported on its first run instead of 274 days later.
+        plan_list.wait_for_create_dialog_closed()
 
-        plan_list.wait_for_loading_complete()
         plan_list.open()
+        plan_list.search(plan_name)
+        plan_list.wait_for_search_applied(plan_name, what="nutrient plan list")
+        plan_list.wait_for_row_identity(
+            0,
+            NutrientPlanListPage.NAME_COLUMN_ID,
+            plan_name,
+            rows_locator=NutrientPlanListPage.TABLE_ROWS,
+            what=f"self-provisioned nutrient plan {plan_name!r} (create confirmed)",
+        )
         screenshot(
             "TC-REQ-004-044_after-plan-create-minimal",
-            "Nutrient plan list after creating plan with minimal fields",
+            "Nutrient plan list filtered to the plan that was just created",
         )
 
-        new_count = plan_list.get_row_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-004-044 FAIL: Expected at least {initial_count} plans after create, got {new_count}"
+        # Identity, not arithmetic. `new_count >= initial_count` is satisfied by
+        # a create that was rejected, never submitted, or answered 500 -- which
+        # is exactly what it was doing for 274 days (#956/#966). The plan is
+        # named by a per-run uuid, so nothing but this create can satisfy this.
+        listed = plan_list.get_first_column_texts()
+        assert listed == [plan_name], (
+            f"TC-REQ-004-044 FAIL: The list filtered by {plan_name!r} must name "
+            f"exactly the plan just created, but reads {listed!r}. The create "
+            f"dialog closed, so the POST returned 2xx -- an empty list here means "
+            f"the plan is outside the 50-row slice `fetchNutrientPlans` requests "
+            f"(the backend sorts by name server-side, the search filters only the "
+            f"fetched slice), and more than one row means the name is not unique."
         )
 
     @pytest.mark.core_crud
@@ -296,32 +332,65 @@ class TestNutrientPlanCreateDialog:
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Full).
         """
         plan_list.open()
-        initial_count = plan_list.get_row_count()
 
         plan_list.click_create()
         unique = uuid.uuid4().hex[:6]
-        plan_name = f"FullPlan-E2E-{unique}"
+        # The ``E2E-`` prefix is load-bearing, not cosmetic: `fetchNutrientPlans`
+        # asks for 50 rows and the backend sorts by name, while the seed data
+        # already ships exactly 50 plans -- so a created plan is only inside the
+        # fetched slice if its name sorts early. ``FullPlan-…`` did; ``Template-…``
+        # (rank 49 of 54, measured against the seed names) was one position from
+        # falling out. Sorting the whole E2E-created set into one early block
+        # keeps the read-back below about the *create*, not about pagination.
+        plan_name = f"E2E-FullPlan-{unique}"
+        plan_author = f"E2E Test Author {unique}"
 
         plan_list.fill_name(plan_name)
         plan_list.fill_description("E2E test nutrient plan with full data")
-        plan_list.fill_author("E2E Test Author")
+        plan_list.fill_author(plan_author)
 
         screenshot(
             "TC-REQ-004-045_plan-create-full-fields", "Create dialog with all major fields filled"
         )
 
         plan_list.submit_create_form()
-        plan_list.wait_for_loading_complete()
+        plan_list.wait_for_create_dialog_closed()
 
         plan_list.open()
+        plan_list.search(plan_name)
+        plan_list.wait_for_search_applied(plan_name, what="nutrient plan list")
+        plan_list.wait_for_row_identity(
+            0,
+            NutrientPlanListPage.NAME_COLUMN_ID,
+            plan_name,
+            rows_locator=NutrientPlanListPage.TABLE_ROWS,
+            what=f"self-provisioned nutrient plan {plan_name!r} (create confirmed)",
+        )
         screenshot(
             "TC-REQ-004-045_after-plan-create-full",
-            "Nutrient plan list after creating plan with full data",
+            "Nutrient plan list filtered to the fully populated plan just created",
         )
 
-        new_count = plan_list.get_row_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-004-045 FAIL: Expected at least {initial_count} plans after full create, got {new_count}"
+        # Identity instead of a count that cannot fall (#956), and the *author*
+        # too: "all major fields" is the claim this test makes, and a create that
+        # persists the name while dropping the rest satisfied the old assertion
+        # exactly as well as a correct one.
+        listed = plan_list.get_first_column_texts()
+        assert listed == [plan_name], (
+            f"TC-REQ-004-045 FAIL: The list filtered by {plan_name!r} must name "
+            f"exactly the plan just created, but reads {listed!r}. The create "
+            f"dialog closed, so the POST returned 2xx -- an empty list here means "
+            f"the plan is outside the 50-row slice `fetchNutrientPlans` requests, "
+            f"and more than one row means the name is not unique."
+        )
+        authors = plan_list.get_column_texts("author")
+        assert authors == [plan_author], (
+            f"TC-REQ-004-045 FAIL: The created plan must carry the author "
+            f"{plan_author!r} that was typed into the dialog, but the author "
+            f"column of the one matching row reads {authors!r}. The plan itself "
+            f"exists (its name matched above), so this is the create dropping a "
+            f"field rather than a create that never happened -- '—' is the list's "
+            f"placeholder for an empty author."
         )
 
     @pytest.mark.core_crud
@@ -391,11 +460,14 @@ class TestNutrientPlanCreateDialog:
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Template Flag.
         """
         plan_list.open()
-        initial_count = plan_list.get_row_count()
 
         plan_list.click_create()
         unique = uuid.uuid4().hex[:6]
-        plan_list.fill_name(f"Template-E2E-{unique}")
+        # ``E2E-`` first, for the 50-row-slice reason spelled out in
+        # `test_create_plan_with_all_fields`: ``Template-…`` sorted at rank 49 of
+        # 54 against the 50 seeded plans, one position from being unfetchable.
+        plan_name = f"E2E-Template-{unique}"
+        plan_list.fill_name(plan_name)
         plan_list.toggle_is_template()
 
         screenshot(
@@ -403,17 +475,39 @@ class TestNutrientPlanCreateDialog:
         )
 
         plan_list.submit_create_form()
-        plan_list.wait_for_loading_complete()
+        plan_list.wait_for_create_dialog_closed()
 
         plan_list.open()
+        plan_list.search(plan_name)
+        plan_list.wait_for_search_applied(plan_name, what="nutrient plan list")
+        plan_list.wait_for_row_identity(
+            0,
+            NutrientPlanListPage.NAME_COLUMN_ID,
+            plan_name,
+            rows_locator=NutrientPlanListPage.TABLE_ROWS,
+            what=f"self-provisioned template plan {plan_name!r} (create confirmed)",
+        )
         screenshot(
             "TC-REQ-004-048_after-plan-create-template",
-            "Nutrient plan list after creating template plan",
+            "Nutrient plan list filtered to the template plan just created",
         )
 
-        new_count = plan_list.get_row_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-004-048 FAIL: Expected at least {initial_count} plans after template create, got {new_count}"
+        # Identity instead of a count that cannot fall (#956). The *flag* itself
+        # is still unverified, here and anywhere else: the `is_template` column
+        # is a chip on the desktop table but a conditionally rendered card chip
+        # on mobile, so reading it there answers "the flag did not persist" and
+        # "this page object cannot address the column" with the same error --
+        # one observation, two mechanisms. `test_nutrient_plans_tenant_router.py`
+        # only ever posts `is_template: False`, so nothing covers the true case;
+        # the gap is recorded here rather than papered over with a read that
+        # cannot say which of the two it saw.
+        listed = plan_list.get_first_column_texts()
+        assert listed == [plan_name], (
+            f"TC-REQ-004-048 FAIL: The list filtered by {plan_name!r} must name "
+            f"exactly the template plan just created, but reads {listed!r}. The "
+            f"create dialog closed, so the POST returned 2xx -- an empty list here "
+            f"means the plan is outside the 50-row slice `fetchNutrientPlans` "
+            f"requests, and more than one row means the name is not unique."
         )
 
 

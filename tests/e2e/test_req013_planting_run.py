@@ -159,24 +159,37 @@ class TestPlantingRunListPage:
         initial_count = run_list.get_row_count()
         screenshot("TC-REQ-013-005_before-search", "PlantingRun list before search")
 
-        run_list.search("ZZZ_NONEXISTENT_RUN_9999")
+        term = "ZZZ_NONEXISTENT_RUN_9999"
+        run_list.search(term)
         # The chip assertion comes FIRST, deliberately. `has_search_chip()` waits
         # for the chip, and the chip is rendered in the same commit that applies
         # the filter, so asserting it here is both the product claim and the only
-        # honest gate for the row count below. Read in the old order, the count
+        # honest gate for the rows read below. Read in the old order, the count
         # was that of the still-unfiltered table (the DataTable filter is
         # client-side behind a 300 ms debounce, so `wait_for_loading_complete()`
         # returned at once) and `<= initial_count` held for the wrong reason.
         assert run_list.has_search_chip(), (
             "TC-REQ-013-005 FAIL: Expected search chip to be visible after entering a search term"
         )
+        # …and the chip has to carry *this* term: a leftover chip from an earlier
+        # filter satisfies `has_search_chip()` just as well.
+        run_list.wait_for_search_applied(term, what="planting run list")
         screenshot(
             "TC-REQ-013-005_after-search-no-results", "PlantingRun list after search — no results"
         )
 
-        filtered_count = run_list.get_row_count()
-        assert filtered_count <= initial_count, (
-            f"TC-REQ-013-005 FAIL: Expected filtered count ({filtered_count}) <= initial ({initial_count})"
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it (#956). No
+        # run can be named after this term, so the falsifiable post-condition is
+        # that the table names none, read by name rather than counted.
+        remaining = run_list.get_first_column_texts()
+        assert remaining == [], (
+            f"TC-REQ-013-005 FAIL: Searching for {term!r} must leave the planting "
+            f"run list empty, but {len(remaining)} of the {initial_count} rows are "
+            f"still listed: {remaining!r}. The chip already carries the term, so "
+            f"`tableState.search` holds it and the filter has run -- a surviving "
+            f"row means some column's `searchValue` matches this term, not that "
+            f"the search never arrived."
         )
 
     @pytest.mark.core_crud
