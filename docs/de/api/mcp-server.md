@@ -186,7 +186,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 ## Werkzeug-Katalog (aktueller Stand)
 
 !!! note "Teilweise verfügbar: Werkzeug-Umfang"
-    Umgesetzt sind derzeit 48 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, Standort- und Bereichsverwaltung, das Vorrücken einer Phase sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
+    Umgesetzt sind derzeit 56 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) und die acht Werkzeuge der Wachstumsphasen-Ebene (siehe [Wachstumsphasen und Lebenszyklus](#wachstumsphasen-und-lebenszyklus)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, Standort- und Bereichsverwaltung sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
 
 !!! info "Neu: was ein Analyse-Agent zurückschreiben kann"
     Fünf Werkzeuge sind hinzugekommen, die extern betriebene Analyse-Agenten brauchten. Jedes ist mit dem Lese-Werkzeug gepaart, das sein Ergebnis wiederfindet — ein Schreibvorgang, den anschließend kein Lese-Werkzeug mehr sichtbar macht, gilt hier als Fehler:
@@ -222,7 +222,13 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `list_substrates` | Substratkatalog: Medien und ihre Eigenschaften |
 | `list_overwintering_profiles` | Überwinterungsprofile: Schutzmethode, Lagerbedingungen, Zeitpunkte |
 | `list_starter_kits` | Starter-Kits für den Einstieg |
-| `list_phase_definitions` | Wachstumsphasen-Definitionen der Lebenszyklus-Logik |
+| `list_phase_definitions` | Wachstumsphasen-Definitionen der Lebenszyklus-Logik — die einzelnen Bausteine, nicht die Abfolgen |
+| `get_species_phase_sequence` | Die Phasen-Abfolge, auf der eine Art tatsächlich läuft: Zyklustyp, ob sie sich wiederholt, ob eine Ruhephase nötig ist — dazu die geordneten Phasen mit ihrer effektiven Dauer und den Kennzeichen „Endphase" und „Ernte erlaubt" |
+| `list_phase_sequences` | Der Katalog aller Phasen-Abfolgen — damit sich nicht nur feststellen lässt, dass eine Zuordnung falsch ist, sondern auch die richtige benennen |
+| `list_species_by_phase_sequence` | Die Umkehrung: alle Arten, die an einer Abfolge hängen. Sitzt eine Zimmerpflanze in derselben Gruppe wie Rosenkohl und Porree, ist das kein Einzelfall, sondern eine Vorlagen-Kollision |
+| `get_species_lifecycle` | Der Lebenszyklus einer Art: ein- oder mehrjährig, ob sie nach der Blüte stirbt (monokarp) oder wieder blüht (polykarp), Lebenserwartung, Ruhebedarf |
+| `get_plant_phase_status` | Der Phasenstand einer Pflanze: Tage in der Phase, nächste Phase, Zyklusnummer, ob eine Ernte vorgesehen ist — und ein `phase_state`, das „nie gestartet", „steckt in einer nicht auflösbaren Phase", „zwischen zwei Zyklen" und „läuft" auseinanderhält |
+| `get_plant_phase_history` | Der Phasenverlauf einer Pflanze mit Grund, Datum und tatsächlicher Dauer je Übergang |
 | `list_hardiness_zones` | Winterhärtezonen mit Temperaturbereichen |
 | `search_glossary` | Fachbegriffe aus dem Glossar nachschlagen (VPD, EC, Karenz …) |
 | `search_plant_knowledge` | Wissensbasis durchsuchen (RAG) — liefert **zitierfähige** Quellenverweise mit Score, damit eine Begründung ihre Quelle benennen kann. Mandantenunabhängig; nur die Suchanfrage verlässt die Instanz |
@@ -250,14 +256,59 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `record_feeding_event` | Einen Düngevorgang erfassen: Menge in Litern, EC und pH vor und nach der Gabe, Drainage-EC/-pH und der Tankbezug. Das Pflegeprotokoll kennt nur „quittiert" — hier stehen die Zahlen |
 | `create_inspection` | Eine IPM-Inspektion anlegen: Befallsdruck, Symptome und **strukturierte Befunde** mit Sicherheit (0.0–1.0) und betroffenem Pflanzenteil |
 | `assign_nutrient_plan` | Einen **vorhandenen** Nährstoffplan an eine Pflanze binden (eigener Plan oder globale Vorlage). Pläne anzulegen oder zu bearbeiten ist bewusst kein Werkzeug |
+| `transition_plant_phase` | Eine Pflanze in eine Phase setzen oder eine falsche korrigieren. Das Ziel wird gegen die Abfolge geprüft, auf der die **Art dieser Pflanze** läuft — ein fremder Phasenschlüssel würde die Pflanze in einer Phase parken, aus der ihr Lebenszyklus nie wieder herausfindet |
 
-### Setup-Werkzeug (`mcp.setup`)
+### Setup-Werkzeuge (`mcp.setup`)
 
 | Werkzeug | Zweck |
 |----------|-------|
 | `create_site` | Standort-Wurzel anlegen (Wohnung, Garten, Balkon, Gewächshaus, Fensterbank, Growzelt) |
+| `assign_species_phase_sequence` | Eine Art an eine **vorhandene** Phasen-Abfolge binden. Verlangt `mcp.setup` und nicht nur `mcp.write`, weil Arten und Abfolgen zum gemeinsamen Katalog gehören: eine einzige Bindung ändert den Zeitplan aller Pflanzen dieser Art in *jedem* Garten. Abfolgen zu *definieren* bleibt bewusst Aufgabe der Oberfläche |
 
 Jedes Werkzeug prüft die referenzierten Schlüssel (Pflanze, Standort, Bereich, Slot) grundsätzlich gegen den für diesen Aufruf aufgelösten Mandanten. Ein Fremdschlüssel aus einem anderen Mandanten liefert konsequent `not_found` — niemals `permission.denied` — damit kein Werkzeug die Existenz fremder Ressourcen verrät.
+
+## Wachstumsphasen und Lebenszyklus
+
+Die Phasen-Logik steuert Aufgabenplanung, Düngefenster, Erntebereitschaft und Überwinterung (interne Referenz: REQ-003). Über MCP war davon lange nur `list_phase_definitions` sichtbar — der Katalog der einzelnen **Bausteine**. Nicht die Abfolgen, zu denen sie zusammengesetzt sind, nicht welche Abfolge für eine Art gilt, und nicht der Phasenstand einer konkreten Pflanze. Eine gewöhnliche Frage wie „läuft diese Pflanze auf der botanisch richtigen Phasen-Abfolge?" war darüber schlicht nicht zu beantworten.
+
+Acht Werkzeuge schließen diese Lücke. Sechs lesen, zwei schreiben — und jedes Schreib-Werkzeug ist mit dem Lese-Werkzeug gepaart, das seine Verweise auflöst, **und** dem, das sein Ergebnis wiederfindet:
+
+| Schreib-Werkzeug | Löst seine Verweise auf | Macht sein Ergebnis sichtbar |
+|------------------|-------------------------|------------------------------|
+| `transition_plant_phase` | `get_species_phase_sequence` (liefert die gültigen Phasenschlüssel) | `get_plant_phase_status` |
+| `assign_species_phase_sequence` | `list_phase_sequences` | `get_species_phase_sequence` |
+
+### Warum `phase_state` mehr sagt als „keine Phase"
+
+`get_plant` liefert für eine Pflanze ohne Phase nur `current_phase_key: null`. Darin stecken aber drei verschiedene Zustände, die jeweils etwas anderes verlangen:
+
+| `phase_state` | Bedeutung | Was zu tun ist |
+|---------------|-----------|----------------|
+| `never_initialised` | Es gibt überhaupt keinen Phasenverlauf — der Lebenszyklus wurde nie gestartet | Eine Startphase setzen |
+| `unresolved` | Es gibt einen offenen Verlaufseintrag, aber er zeigt auf keine auflösbare Phase. Die Pflanze steht still, ohne dass es auffällt | Auf eine gültige Phase der eigenen Abfolge korrigieren |
+| `between_cycles` | Alle Phasen sind abgeschlossen, keine ist offen — bei einer mehrjährigen Pflanze ein normaler Zustand | Nichts; der nächste Zyklus startet |
+| `in_phase` | Die Pflanze läuft | Nichts |
+
+### Wie eine Art zu ihrer Abfolge kommt
+
+Ist eine Art nicht ausdrücklich gebunden, leitet Kamerplanter die Abfolge aus ihren botanischen Merkmalen ab. Die Regeln greifen in dieser Reihenfolge; die erste, die passt, gewinnt:
+
+1. **Kurztag-Zierpflanzen**, die mehrjährig sind → photoperiodischer Zierpflanzen-Zyklus (Weihnachtsstern, Kalanchoe). Die Einschränkung auf Mehrjährige ist Absicht: einjährige Kurztag-*Nutzpflanzen* sollen ihren Erntezyklus behalten.
+2. **Monokarpe mehrjährige Aufsitzerpflanzen** (Bromelien) → Kindel-Zyklus: Die Mutterpflanze stirbt nach der Blüte, der Nachwuchs führt weiter.
+3. **CAM-Sukkulenten** → Zyklus mit kühl-trockener Winterruhe.
+4. **Wuchsform**: Farne, Zwiebelpflanzen und Palmen bekommen ihren jeweils eigenen Zyklus.
+5. **Jede weitere mehrjährige Art** → immergrüner Blattschmuck-Zyklus (die größte Gruppe im Zimmer).
+6. **Bekannt ein- oder zweijährig** → der einjährige Standardzyklus mit Ernte am Ende.
+7. **Alles andere** → ebenfalls der immergrüne, sich wiederholende Zyklus.
+
+!!! warning "Fehlende Angaben führen nicht mehr zu einer Ernte"
+    Punkt 7 ist eine Sicherheits- und keine botanische Regel. Fehlt einer Art die Lebenszyklus-Angabe ganz, ist das **keine Antwort** und darf nicht als „einjährig" gelesen werden. Früher landete eine solche Art auf dem einjährigen Standardzyklus — 126 Tage, mit Ernte und Lebensende am Schluss. Ein immergrüner, mehrjähriger Yucca-Baum war damit 126 Tage nach dem Pflanzen als erntereif und abgeschlossen eingeplant.
+
+    Die beiden Irrtümer kosten nicht gleich viel: Eine einjährige Pflanze auf einem mehrjährigen Zyklus verpasst nur einen Ernte-Hinweis, den du weiterhin selbst auslösen kannst. Eine mehrjährige Pflanze auf einem einjährigen Zyklus bekommt eine Ernte und ein Lebensende erfunden, die niemand vorgesehen hat. Deshalb fällt der Zweifelsfall auf den sich wiederholenden Zyklus.
+
+Welche Angaben in diese Entscheidung eingehen — und was passiert, wenn eine davon fehlt — zeigt `get_species_info`: Es liefert `plant_category`, `photosynthesis_type`, `growth_habit`, `indoor_suitable`, `mature_height_cm` und `frost_sensitivity`. Leere Felder werden weggelassen; ein dünn besetzter Datensatz sieht also auch dünn aus — was selbst schon die Antwort auf „reicht dieser Datensatz für eine verlässliche Zuordnung?" ist.
+
+Eine falsche Zuordnung korrigierst du mit `assign_species_phase_sequence`; welche Arten sonst noch auf derselben Abfolge sitzen, verrät `list_species_by_phase_sequence`.
 
 ## Tagebuch-Analyse: externe Agenten
 

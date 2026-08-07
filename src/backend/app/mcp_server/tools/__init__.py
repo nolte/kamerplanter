@@ -17,11 +17,15 @@ the inventory in §2):
   list_substrates, list_overwintering_profiles, list_starter_kits,
   list_phase_definitions, list_hardiness_zones, search_glossary,
   search_plant_knowledge, get_mcp_activity, list_pending_diary_analyses,
-  get_diary_entry, get_diary_entry_photos, list_diary_entries
+  get_diary_entry, get_diary_entry_photos, list_diary_entries,
+  get_species_phase_sequence, list_phase_sequences,
+  list_species_by_phase_sequence, get_species_lifecycle,
+  get_plant_phase_status, get_plant_phase_history
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location,
   add_plant_diary_entry, claim_diary_analysis, submit_diary_analysis,
-  record_feeding_event, create_inspection, assign_nutrient_plan
-* setup (mcp.setup): create_site
+  record_feeding_event, create_inspection, assign_nutrient_plan,
+  transition_plant_phase
+* setup (mcp.setup): create_site, assign_species_phase_sequence
 
 The five ``*_diary_analys*`` / ``get_diary_entry*`` tools (REQ-050 §4,
 REQ-033 §2.2a) are the complete contract for the external analysis agent in the
@@ -47,6 +51,24 @@ Five tools serve the two external **analysis processes** rather than the analysi
 * ``assign_nutrient_plan`` (write) — binds an *existing* plan to a plant;
   authoring plans stays UI work. Surfaced by ``get_plant_nutrient_plan``.
 
+The eight ``*phase*`` / ``*lifecycle*`` tools (issue #949, REQ-003) expose the
+growth-phase layer, which the engine driving task scheduling, feeding windows and
+harvest readiness runs on. Before them, ``list_phase_definitions`` was the only
+phase-aware tool in the palette and it returns the catalogue of *building blocks*
+— not the sequences, not a species' assignment, not an instance's phase state. So
+"is this plant on the botanically correct phase sequence?" had no MCP answer at
+all. Sequence **authoring** stays out on the same line #931 drew for nutrient
+plans; the two writes bind an existing sequence and set an instance's phase, each
+paired with its resolving and its result-surfacing read tool:
+
+* ``transition_plant_phase`` (write) — resolved by ``get_species_phase_sequence``,
+  which produces the legal ``target_phase_key`` values and against which the
+  target is validated; surfaced by ``get_plant_phase_status``.
+* ``assign_species_phase_sequence`` (setup) — resolved by ``list_phase_sequences``;
+  surfaced by ``get_species_phase_sequence``. Gated behind ``mcp.setup`` rather
+  than ``mcp.write``: species and sequences are **global** catalogue data, so one
+  binding changes the schedule of every tenant's plants of that species.
+
 Tools whose ``Input`` extends ``TenantToolInput`` act inside one tenant, which
 the dispatcher binds per call; the rest (``list_tenants``, the species catalogue,
 ``search_plant_knowledge``, ``get_mcp_activity``) read data that carries no
@@ -68,6 +90,7 @@ from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
     knowledge,
     nutrient_calc,
     nutrition,
+    phases,
     plant_reads,
     plants,
     privacy,

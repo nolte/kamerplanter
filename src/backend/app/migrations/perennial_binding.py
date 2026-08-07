@@ -55,6 +55,13 @@ _EPIPHYTE = "epiphyte"
 _FERN = "fern"
 _BULB_GEOPHYTE = "bulb_geophyte"
 
+#: Cycle types that are a *known, determinate* answer — the species really does
+#: end its lifecycle after one or two seasons, so the harvest-terminated
+#: ``indoor_default`` blanket is the correct destination for it. Anything outside
+#: this set (most importantly ``None``) is **absence of an answer**, not an
+#: annual, and must never be treated as one — see :func:`resolve_phase_sequence_name`.
+_DETERMINATE_CYCLES = frozenset({"annual", "biennial"})
+
 
 def resolve_perennial_sequence_name(
     scientific_name: str,
@@ -100,6 +107,30 @@ def resolve_phase_sequence_name(
 ) -> str | None:
     """Return the biologically precise phase sequence for an indoor species.
 
+    **The inputs this keys on, and what each one being null means** (issue #949 —
+    the previous behaviour was discoverable from no schema at all):
+
+    ===================== =========================================== ==================================
+    Input                 Read from                                   When null
+    ===================== =========================================== ==================================
+    ``scientific_name``   ``Species.scientific_name``                  genus tests (palm, Lithops) and
+                                                                      the runner allowlist never match
+    ``cycle_type``        the **effective** cycle — ``LifecycleConfig  the species is *unresolvable*;
+                          .cultivation_cycle_type`` over              step 6 applies the safe fallback
+                          ``.cycle_type`` via ``resolve_effective_
+                          cycle`` — ``None`` when the species has
+                          no ``LifecycleConfig`` at all
+    ``flowering_strategy````LifecycleConfig.flowering_strategy``       rule 2 cannot fire; a monocarp is
+                                                                      treated as polycarpic
+    ``photosynthesis_type````Species.photosynthesis_type``             rule 3 cannot fire; a CAM
+                                                                      succulent falls through to its
+                                                                      cycle-type-based destination
+    ``photoperiod_type``  ``LifecycleConfig.photoperiod_type``         rule 1 cannot fire
+    ``growth_habit``      ``Species.growth_habit``                     rule 4's fern/geophyte tests
+                                                                      cannot fire (the palm test keys
+                                                                      on genus, not habit)
+    ===================== =========================================== ==================================
+
     Attribute precedence (audit #576 ``target()`` logic, REQ-003 D9–D12)::
 
         flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type
@@ -117,7 +148,21 @@ def resolve_phase_sequence_name(
     4. **Growth-habit fine typing** (D12): ferns → ``fern_spore``; bulb geophytes →
        ``geophyte_fine``; palm genera → ``palm_evergreen``.
     5. **Any other perennial** → ``evergreen_foliage_perennial`` (largest indoor cohort).
-    6. Otherwise ``None`` → caller applies the ``indoor_default`` last-resort blanket.
+    6. **A known determinate cycle** (``annual`` / ``biennial``) → ``None``, and the
+       caller applies the ``indoor_default`` blanket. That is the correct home for a
+       species that really does terminate after one or two seasons.
+    7. **Anything else — i.e. an unresolvable species** → ``evergreen_foliage_perennial``.
+
+    Step 7 is the issue-#949 fix and it is a **safety** rule, not a botanical claim.
+    A null ``cycle_type`` means "no ``LifecycleConfig`` exists for this species", which
+    is *absence of an answer*; routing it to ``indoor_default`` silently asserted the
+    strongest possible one — a 126-day cycle ending in a terminal, harvest-allowing
+    phase. That scheduled a *Yucca gigantea* (evergreen, perennial, polycarpic) to be
+    harvest-ready and lifecycle-complete 126 days after planting. The two fallbacks are
+    not symmetric in cost: putting a genuine annual on a repeating perennial cycle omits
+    a harvest prompt a user can still trigger by hand, while putting a perennial tree on
+    an annual cycle fabricates a harvest and an end-of-life that no one asked for. The
+    fallback therefore lands on the repeating, non-terminal, harvest-free cycle.
 
     Runner-propagated stauden keep their E4 template. Pure attribute inputs; no I/O —
     shared by the seed linker and the rebind migration so neither can drift.
@@ -153,5 +198,12 @@ def resolve_phase_sequence_name(
     if cycle_type == _PERENNIAL:
         return EVERGREEN_PERENNIAL_SEQUENCE
 
-    # 6. Annual / biennial / unknown → indoor_default blanket (caller's last resort).
-    return None
+    # 6. A KNOWN determinate cycle → the caller's ``indoor_default`` blanket, which
+    #    is where a species that truly terminates after one or two seasons belongs.
+    if cycle_type in _DETERMINATE_CYCLES:
+        return None
+
+    # 7. Unresolvable (no LifecycleConfig, hence no cycle_type — issue #949) → the
+    #    repeating perennial cycle. Never the annual blanket: see the docstring for
+    #    why the two fallbacks are not symmetric in cost.
+    return EVERGREEN_PERENNIAL_SEQUENCE
