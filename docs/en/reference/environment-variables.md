@@ -209,6 +209,21 @@ These variables control the [MCP server](../api/mcp-server.md) — the tool inte
 
 ---
 
+## Diary — Environment Snapshot
+
+When a diary entry is created, Kamerplanter reads the sensor values covering the plant and stores them alongside — never merged into — the hand-noted measurements. See [Diary — The environment is recorded automatically](../user-guide/plant-diary.md#environment).
+
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `DIARY_ENVIRONMENT_CAPTURE_ENABLED` | `true` | No | Master switch. With `false`, every new entry is stored marked "not attempted" — distinguishable from "we looked and found nothing". |
+| `DIARY_ENVIRONMENT_MAX_AGE_MINUTES` | `60` | No | A reading older than this is **not** captured at all. An entry presenting yesterday's sensor value as current is worse evidence than an entry with no climate values. |
+| `DIARY_ENVIRONMENT_CAPTURE_TIMEOUT_SECONDS` | `3.0` | No | Hard ceiling for the whole capture. When it runs out, the entry is stored with whatever arrived in time — creating an entry never waits longer on a sensor. |
+
+!!! note "A failure never blocks the entry"
+    An unreachable Home Assistant, a missing TimescaleDB or an exhausted time budget produce an entry **without** (or with incomplete) environment values, never a rejected creation.
+
+---
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Default | Required | Description |

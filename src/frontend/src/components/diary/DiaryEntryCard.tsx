@@ -20,6 +20,7 @@ import { formatDateTime } from '@/utils/formatting';
 import type { PlantDiaryEntry } from '@/api/types';
 import DiaryAnalysisResult from './DiaryAnalysisResult';
 import DiaryAnalysisStateChip from './DiaryAnalysisStateChip';
+import DiaryEnvironmentReadings from './DiaryEnvironmentReadings';
 import DiaryPhotoStrip from './DiaryPhotoStrip';
 
 interface DiaryEntryCardProps {
@@ -87,6 +88,11 @@ export default function DiaryEntryCard({
     () => Object.entries(entry.measurements ?? {}),
     [entry.measurements],
   );
+
+  // REQ-013 §2.3a — read defensively: an entry stored before the field existed
+  // carries no `environment` at all, and this component is also fed by fixtures
+  // and by the overview's detail view.
+  const environment = useMemo(() => entry.environment ?? [], [entry.environment]);
 
   const title = entry.title ?? t(`enums.diaryEntryType.${entry.entry_type}`);
 
@@ -188,6 +194,30 @@ export default function DiaryEntryCard({
                 />
               ))}
             </Box>
+          </Box>
+        )}
+
+        {/* ── Environment snapshot (REQ-013 §2.3a) ─────────────────── */}
+        {/* Its own block, below the grower's measurements and visibly labelled
+            as automatic. Rendering the two in one list would tell the reader
+            that a machine and a human said the same kind of thing, which is
+            precisely the confusion the two separate fields prevent. */}
+        {environment.length > 0 && (
+          <Box sx={{ mt: 1 }} data-testid="diary-entry-environment">
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              {t('pages.plantDiary.environment.entryTitle')}
+            </Typography>
+            <DiaryEnvironmentReadings readings={environment} testIdPrefix="diary-entry-environment" />
+            {entry.environment_status === 'unavailable' && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+                data-testid="diary-entry-environment-partial"
+              >
+                {t('pages.plantDiary.environment.partial')}
+              </Typography>
+            )}
           </Box>
         )}
 

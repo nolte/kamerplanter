@@ -1266,6 +1266,61 @@ export interface DiaryAnalysis {
 }
 
 /**
+ * REQ-013 §2.3a — which level of the REQ-005 fallback chain answered a reading.
+ *
+ * Not the same question as `source`: `origin` says how *close to the plant* the
+ * value was measured, `source` says how it was produced. There is no `slot`
+ * level — a sensor cannot be attached to a slot.
+ */
+export type DiaryEnvironmentOrigin = 'location' | 'site' | 'weather';
+
+/**
+ * REQ-013 §2.3a — what an empty `environment` list *means*.
+ *
+ * The list alone is ambiguous, and the four empty cases are different
+ * statements: only `no_source` says something about the garden.
+ */
+export type DiaryEnvironmentStatus =
+  /** No capture ran — an entry from before the feature, or the switch is off. */
+  | 'not_attempted'
+  /** The author declined the snapshot when creating the entry. */
+  | 'opted_out'
+  /** The chain ran cleanly and produced at least one reading. */
+  | 'captured'
+  /** The chain ran cleanly; nothing measures this plant. */
+  | 'no_source'
+  /** The chain was cut short. A non-empty list here is a *partial* snapshot. */
+  | 'unavailable';
+
+/**
+ * REQ-013 §2.3a — one machine-read value of an entry's environment snapshot.
+ *
+ * Read-only everywhere. Editing an automatic value is deliberately not offered:
+ * a corrected sensor reading is a manual measurement and belongs in
+ * `measurements`, which is the field that carries no provenance precisely
+ * because a human wrote it.
+ */
+export interface DiaryEnvironmentReading {
+  metric_type: string;
+  value: number;
+  unit: string | null;
+  /** REQ-005 §2 provenance, or the weather adapter's name for `origin: weather`. */
+  source: string;
+  /** When the reading was **measured** — regularly older than `created_at`. */
+  measured_at: string;
+  sensor_key: string | null;
+  origin: DiaryEnvironmentOrigin;
+}
+
+/** Response of `GET /plant-instances/{key}/environment` — the create preview. */
+export interface PlantEnvironmentPreview {
+  plant_key: string;
+  readings: DiaryEnvironmentReading[];
+  captured_at: string | null;
+  environment_status: DiaryEnvironmentStatus;
+}
+
+/**
  * A plant diary entry as returned by the standalone diary endpoints
  * (`/t/{slug}/plant-instances/{key}/diary`, REQ-013 §4.7 + REQ-050 §5).
  *
@@ -1287,6 +1342,21 @@ export interface PlantDiaryEntry {
   created_by: string;
   created_at: string;
   updated_at: string;
+
+  /**
+   * REQ-013 §2.3a — the machine-read conditions at the moment the entry was
+   * created, resolved server-side from the plant's location.
+   *
+   * Strictly separate from {@link PlantDiaryEntry.measurements}: that dict is
+   * the grower's own, free-form and unprovenanced. Merging the two would make it
+   * impossible to tell afterwards what a human measured and what a machine
+   * reported — which is the only thing that makes either readable as evidence.
+   */
+  environment: DiaryEnvironmentReading[];
+  /** When the capture ran. `null` when none ran (`not_attempted`/`opted_out`). */
+  environment_captured_at: string | null;
+  /** What an empty `environment` means — never derive it from the list length. */
+  environment_status: DiaryEnvironmentStatus;
 
   // REQ-050 §5 — read-only projection of the analysis state machine. None of
   // these may be sent back through create/update; every transition has its own
@@ -1327,6 +1397,15 @@ export interface PlantDiaryEntryCreate {
   photo_refs?: string[];
   tags?: string[];
   measurements?: Record<string, unknown> | null;
+  /**
+   * REQ-013 §2.3a — whether the server should capture the environment snapshot.
+   * Defaults to `true` server-side.
+   *
+   * The readings themselves are **not** part of this body and never will be: a
+   * value the client can write is a value the client can invent, and this one is
+   * meant to be evidence. This flag says whether to look, not what to store.
+   */
+  capture_environment?: boolean;
 }
 
 /** PUT body for an existing diary entry (`DiaryEntryUpdateRequest`). */

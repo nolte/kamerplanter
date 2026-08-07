@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -54,8 +55,29 @@ class SensorService:
     def delete_sensor(self, key: str) -> bool:
         return self._repo.delete(key)
 
-    def get_live_state_for_sensors(self, sensors: list[Sensor]) -> dict:
-        """Read-through live query for a list of sensors — NO persistence."""
+    def get_live_state_for_sensors(self, sensors: list[Sensor], *, deadline: float | None = None) -> dict:
+        """Read-through live query for a list of sensors — NO persistence.
+
+        Args:
+            sensors: The sensors to read. Those without an ``ha_entity_id`` are
+                skipped — they have nothing live to read.
+            deadline: Optional :func:`time.monotonic` instant after which no
+                further entity is read. ``None`` (the default) keeps the previous
+                behaviour: every sensor is read with the client's own timeout, so
+                the worst case grows with the number of entities. A caller on a
+                latency budget — the diary environment capture writes an entry
+                behind this read (REQ-013 §2.3a) — passes a deadline, and each
+                remaining call is then capped by the time left, so the whole loop
+                stays inside it.
+
+        Returns:
+            ``values`` keyed by ``metric_type`` (two sensors sharing a metric type
+            therefore collapse — the last one read wins), ``errors`` with one
+            entry per entity that failed, and ``source``. An exhausted
+            ``deadline`` is reported as an ordinary error entry with
+            ``error: "timeout"``, never raised: the caller's job is to record an
+            incomplete read, not to abort.
+        """
         if not self._ha_client:
             return {
                 "values": {},
@@ -69,12 +91,24 @@ class SensorService:
         for sensor in sensors:
             if not sensor.ha_entity_id:
                 continue
+            remaining: float | None = None
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    errors.append({"entity_id": sensor.ha_entity_id, "error": "timeout"})
+                    continue
             try:
-                result = self._ha_client.get_state(sensor.ha_entity_id)
+                result = self._ha_client.get_state(sensor.ha_entity_id, timeout=remaining)
                 if result and result["value"] is not None:
                     values[sensor.metric_type] = {
                         "value": result["value"],
                         "last_changed": result["last_changed"],
+                        # Additive: ``last_changed`` only moves when the state
+                        # *string* changes, so it cannot tell a constant live
+                        # reading from a dead sensor. ``last_reported`` can, and
+                        # the staleness bound of the diary snapshot needs it.
+                        "last_updated": result.get("last_updated"),
+                        "last_reported": result.get("last_reported"),
                         "entity_id": sensor.ha_entity_id,
                         "unit": result["unit"],
                     }

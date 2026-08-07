@@ -37,6 +37,7 @@ from app.api.v1.onboarding.tenant_router import router as tenant_onboarding_rout
 from app.api.v1.overwintering_profiles.tenant_router import router as tenant_overwintering_profiles_router
 from app.api.v1.pest_detection.tenant_router import router as tenant_pest_detection_router
 from app.api.v1.plant_instances.diary_router import router as tenant_plant_diary_router
+from app.api.v1.plant_instances.environment_router import router as tenant_plant_environment_router
 from app.api.v1.plant_instances.photo_router import router as tenant_plant_photos_router
 from app.api.v1.plant_instances.tenant_router import router as tenant_plants_router
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
@@ -77,6 +78,10 @@ tenant_scoped_router.include_router(tenant_plant_photos_router)
 # shape as the photo gallery above; a plant without a planting run had no
 # reachable diary before this, although REQ-013 §1 grants it one.
 tenant_scoped_router.include_router(tenant_plant_diary_router)
+# REQ-013 §2.3a — read-only preview of what a diary entry's environment snapshot
+# would contain (/plant-instances/{key}/environment). Called before an entry
+# exists, so it hangs off the plant rather than off the diary prefix.
+tenant_scoped_router.include_router(tenant_plant_environment_router)
 tenant_scoped_router.include_router(tenant_planting_runs_router)
 # REQ-050 §2.5.2 — tenant-wide diary overview (/diary). The run aggregation
 # covers one run; a plant without a run appears in none of them.

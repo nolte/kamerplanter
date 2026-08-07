@@ -4401,6 +4401,33 @@
       "measurementValue": "Wert",
       "addMeasurement": "Messwert hinzufügen",
       "removeMeasurement": "Messwert entfernen",
+      "environment": {
+        "sectionTitle": "Umgebung zum Zeitpunkt des Eintrags",
+        "sectionHint": "Diese Werte liest Kamerplanter automatisch von den Sensoren, die deine Pflanze abdecken — du musst nichts eintippen. Sie werden getrennt von deinen eigenen Messwerten gespeichert, damit später erkennbar bleibt, was gemessen wurde und was du selbst notiert hast.",
+        "loading": "Sensorwerte werden gelesen …",
+        "entryTitle": "Umgebung (automatisch erfasst)",
+        "capture": "Umgebungswerte mit dem Eintrag speichern",
+        "captureHint": "Wenn du das abwählst, wird der Eintrag ohne Sensorwerte gespeichert. Deine eigenen Messwerte bleiben davon unberührt.",
+        "measuredAt": "gemessen {{time}} · Quelle {{source}}",
+        "partial": "Nicht alle Sensoren haben geantwortet — es fehlen möglicherweise Werte.",
+        "origin": {
+          "location": "Standort",
+          "site": "Gelände",
+          "weather": "Wetterdienst"
+        },
+        "originHint": {
+          "location": "Von einem Sensor am Standort dieser Pflanze — der Wert direkt bei der Pflanze.",
+          "site": "Von einem Sensor am Gelände; am Standort selbst hängt für diesen Wert kein Sensor.",
+          "weather": "Aktuelle Außenbedingungen vom Wetterdienst — nicht am Standort gemessen."
+        },
+        "empty": {
+          "no_source": "Für diese Pflanze liegen keine aktuellen Sensorwerte vor. Hänge einen Sensor an den Standort oder das Gelände, dann werden neue Einträge automatisch damit belegt.",
+          "unavailable": "Die Sensoren waren gerade nicht erreichbar. Der Eintrag lässt sich trotzdem speichern — er wird dann ohne Umgebungswerte abgelegt.",
+          "not_attempted": "Die automatische Erfassung ist auf dieser Instanz abgeschaltet.",
+          "opted_out": "Umgebungswerte werden für diesen Eintrag nicht gespeichert.",
+          "captured": "Für diese Pflanze liegen keine aktuellen Sensorwerte vor."
+        }
+      },
       "photos": {
         "sectionTitle": "Fotos",
         "sectionHint": "Bis zu {{max}} Fotos je Eintrag. Aufnahme per Webcam, Handykamera oder Datei-Upload.",

@@ -62,6 +62,12 @@ function entry(overrides: Partial<PlantDiaryEntry> = {}): PlantDiaryEntry {
     analysis_lease_expires_at: null,
     analysis: null,
     analysis_error: null,
+    // REQ-013 §2.3a — the fixture defaults to an entry written before the
+    // environment snapshot existed, which is the shape most tests here care
+    // about; the snapshot tests override it.
+    environment: [],
+    environment_captured_at: null,
+    environment_status: 'not_attempted',
     // §7.2, evaluated server-side per entry and per user (AK-18a). The tab
     // renders this verdict; it does not derive one.
     can_request_analysis: true,
