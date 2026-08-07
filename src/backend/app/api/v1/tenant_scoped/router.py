@@ -98,9 +98,10 @@ tenant_scoped_router.include_router(tenant_watering_logs_router)
 tenant_scoped_router.include_router(tenant_harvest_router)
 tenant_scoped_router.include_router(tenant_post_harvest_router)
 tenant_scoped_router.include_router(tenant_tasks_router)
-# REQ-006 §activity plans — only the *write* routes on a plan's task templates
-# are tenant-scoped (#992). Plan generation and application stay global, on
-# ``app.api.v1.activity_plans.router``.
+# REQ-006 §activity plans — the write routes on a plan's task templates (#992)
+# plus plan generation (#1003), which needs the caller's tenant to answer with
+# their private copy of a forked plan rather than with the shared template.
+# Only ``/apply`` stays global, on ``app.api.v1.activity_plans.router``.
 tenant_scoped_router.include_router(tenant_activity_plans_router)
 tenant_scoped_router.include_router(tenant_ipm_router)
 tenant_scoped_router.include_router(tenant_pest_detection_router)

@@ -21,6 +21,15 @@ an activity plan is precisely the case that would expose it — every plan
 ``ActivityPlanService`` generates is global (``tenant_key == ""``), so a strict
 ``tenant_key == caller`` predicate matches nothing at all.
 
+**Two of those positives changed for #1003, knowingly.** They were written to
+pin what #992 preserved — that a global non-system workflow is writable by
+anyone who can reach it — so that whoever changed that behaviour had to change
+them on purpose. #1003 did: the write now forks into a private copy instead of
+landing on the shared row. Both still assert what they were there to assert (the
+caller can act on a generated plan, so the fix did not pass by refusing
+everybody) and each additionally asserts where the write went. The semantics
+themselves live in ``tests/api/test_activity_plan_copy_on_write.py``.
+
 Exercised through the real router, the real service and the real repository
 against the replaying database double, so "wrote nothing" is asserted on the
 collection rather than on a stub's call log.
@@ -28,6 +37,7 @@ collection rather than on a stub's call log.
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -44,7 +54,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.task_service import TaskService
-from tests.support.tenant_replay import ReplayingAql, ReplayingDatabase
+from tests.support.tenant_replay import ReplayingAql, ReplayingDatabase, apply_predicates
 
 TENANT_SLUG = "anna"
 TENANT_KEY = "tenant-a"
@@ -77,13 +87,17 @@ WORKFLOWS: dict[str, dict[str, Any]] = {
     },
     # What ``ActivityPlanService.generate_plan`` actually persists: global
     # (``tenant_key == ""``) and *not* a system template. This row is the #324
-    # counter-example in the fixture — the route must keep writing it.
+    # counter-example in the fixture — the route must keep serving it. Since
+    # #1003 a write on it forks rather than landing here; ``species_key`` is what
+    # makes it a *generated plan* rather than an ownerless shared workflow, and
+    # ``generate_plan`` stamps it on every plan it persists.
     GLOBAL_PLAN_WORKFLOW: {
         "_key": GLOBAL_PLAN_WORKFLOW,
         "_id": f"{col.WORKFLOW_TEMPLATES}/{GLOBAL_PLAN_WORKFLOW}",
         "tenant_key": "",
         "name": "Tomate",
         "auto_generated": True,
+        "species_key": "solanum_lycopersicum",
     },
 }
 
@@ -124,22 +138,31 @@ class _RecordingCollection:
 
     def __init__(self, name: str, docs: dict[str, dict[str, Any]] | None = None) -> None:
         self._name = name
-        self._docs = docs or {}
+        self._keys = (f"{name}-{n}" for n in itertools.count(1))
+        self.docs = docs or {}
+        self.inserted: list[dict[str, Any]] = []
         self.updated: list[dict[str, Any]] = []
         self.deleted: list[str] = []
 
     def get(self, key: str) -> dict[str, Any] | None:
-        return self._docs.get(key)
+        return self.docs.get(key)
+
+    def insert(self, data: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+        key = data.get("_key") or next(self._keys)
+        stored = {**data, "_key": key, "_id": f"{self._name}/{key}"}
+        self.docs[key] = stored
+        self.inserted.append(stored)
+        return {"new": stored}
 
     def update(self, data: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
         key = data["_key"]
-        stored = {**self._docs.get(key, {}), **data}
-        self._docs[key] = stored
+        stored = {**self.docs.get(key, {}), **data}
+        self.docs[key] = stored
         self.updated.append(stored)
         return {"new": stored}
 
     def delete(self, key: str) -> bool:
-        self._docs.pop(key, None)
+        self.docs.pop(key, None)
         self.deleted.append(key)
         return True
 
@@ -150,6 +173,8 @@ class _Fixture:
             col.TASK_TEMPLATES,
             {k: dict(v) for k, v in TASK_TEMPLATES.items()},
         )
+        self.workflows = _RecordingCollection(col.WORKFLOW_TEMPLATES, {k: dict(v) for k, v in WORKFLOWS.items()})
+        self.phases = _RecordingCollection(col.WORKFLOW_PHASES)
 
     @property
     def client(self) -> TestClient:
@@ -158,12 +183,23 @@ class _Fixture:
             # removing the document; neither query returns rows.
             ReplayingAql()
             .route(col.WF_CONTAINS, lambda query, bind_vars: [])
+            .route(col.WF_HAS_PHASE, lambda query, bind_vars: [])
             .route(col.INSTANCE_OF, lambda query, bind_vars: [])
-            .route(col.TASK_TEMPLATES, lambda query, bind_vars: [])
+            # The generated-plan lookup behind copy-on-write (#1003). Filtered on
+            # the predicates the query spells out, with the caller's own row
+            # preferred over the shared one — see
+            # ``tests/api/test_activity_plan_copy_on_write.py`` for the module
+            # that exercises the union itself in both directions.
+            .route(col.WORKFLOW_TEMPLATES, self._generated_plan_lookup)
+            .route(col.WORKFLOW_PHASES, self._rows_of(lambda: self.phases))
+            .route(col.TASK_TEMPLATES, self._rows_of(lambda: self.templates))
         )
         collections = {
-            col.WORKFLOW_TEMPLATES: _RecordingCollection(col.WORKFLOW_TEMPLATES, dict(WORKFLOWS)),
+            col.WORKFLOW_TEMPLATES: self.workflows,
             col.TASK_TEMPLATES: self.templates,
+            col.WORKFLOW_PHASES: self.phases,
+            col.WF_CONTAINS: _RecordingCollection(col.WF_CONTAINS),
+            col.WF_HAS_PHASE: _RecordingCollection(col.WF_HAS_PHASE),
         }
         repo = ArangoTaskRepository(ReplayingDatabase(aql, collections))
         service = TaskService(repo, MagicMock(), MagicMock())
@@ -179,6 +215,21 @@ class _Fixture:
         )
         app.dependency_overrides[get_task_service] = lambda: service
         return TestClient(app)
+
+    def _generated_plan_lookup(self, query: str, bind_vars: dict[str, Any]) -> list[dict[str, Any]]:
+        rows = [
+            doc
+            for doc in self.workflows.docs.values()
+            if doc.get("auto_generated") and doc.get("species_key") == bind_vars.get("species_key")
+        ]
+        tenant_key = bind_vars.get("tenant_key", "")
+        rows = [doc for doc in rows if doc.get("tenant_key", "") in (tenant_key, "")]
+        rows.sort(key=lambda doc: (0 if doc.get("tenant_key", "") == tenant_key else 1, doc["_key"]))
+        return rows[:1]
+
+    @staticmethod
+    def _rows_of(collection: Any) -> Any:
+        return lambda query, bind_vars: apply_predicates(list(collection().docs.values()), query, bind_vars)
 
 
 def _url(path: str) -> str:
@@ -302,21 +353,51 @@ class TestTheEditorItselfStillWorks:
         assert fx.templates.deleted == [OWN_TEMPLATE]
 
     def test_a_globally_generated_activity_plans_template_is_still_editable(self):
-        """Every plan ``ActivityPlanService`` generates is global — the whole feature rides on this."""
+        """Every plan ``ActivityPlanService`` generates is global — the whole feature rides on this.
+
+        **Changed for #1003, on purpose.** This test and its ``…_deletable``
+        sibling were written to pin the behaviour #992 preserved: a global,
+        non-system workflow is writable by anyone who can reach it. #1003 decided
+        that is wrong — it is one object shared by every tenant growing that
+        species — and replaced it with copy-on-write.
+
+        What the two of them covered is unchanged and still asserted here: a
+        tenant can act on a generated plan, the route does not refuse them, and
+        the #324 direction stays honest. What is *added* is where the write
+        landed. It no longer lands on the shared row: the shared document is
+        asserted untouched, which is precisely the assertion that could not be
+        made before. ``tests/api/test_activity_plan_copy_on_write.py`` carries
+        the rest of the semantics; this module keeps only the part that belongs
+        to the route's own contract.
+        """
         fx = _Fixture()
 
         resp = fx.client.patch(_url(f"/templates/{PLAN_TEMPLATE}"), json={"days_offset": 9})
 
         assert resp.status_code == 200, resp.text
         assert resp.json()["days_offset"] == 9
+        # The edit is real, and it is *not* on the shared template.
+        assert resp.json()["key"] != PLAN_TEMPLATE
+        assert PLAN_TEMPLATE not in [doc["_key"] for doc in fx.templates.updated]
+        assert fx.templates.docs[PLAN_TEMPLATE]["days_offset"] == 3
 
     def test_a_globally_generated_activity_plans_template_is_still_deletable(self):
+        """Copy-on-write for the delete verb too (#1003): the caller's copy loses it, nobody else does.
+
+        Same knowing replacement as the sibling above. The original asserted
+        ``fx.templates.deleted == [PLAN_TEMPLATE]`` — the shared row was removed
+        for every tenant. That is now the failure, not the contract: the delete
+        still succeeds (204, unchanged), but it removes the activity from the
+        private copy the write materialised.
+        """
         fx = _Fixture()
 
         resp = fx.client.delete(_url(f"/templates/{PLAN_TEMPLATE}"))
 
         assert resp.status_code == 204, resp.text
-        assert fx.templates.deleted == [PLAN_TEMPLATE]
+        assert fx.templates.deleted != []
+        assert PLAN_TEMPLATE not in fx.templates.deleted
+        assert PLAN_TEMPLATE in fx.templates.docs
 
     def test_the_three_editable_fields_all_still_arrive(self):
         """The service filters through its own allow-list; none of the editor's fields may be dropped."""
@@ -342,5 +423,22 @@ class TestTheUnguardedGlobalRoutesAreGone:
 
         assert ("/activity-plans/templates/{key}", "PATCH") not in paths
         assert ("/activity-plans/templates/{key}", "DELETE") not in paths
-        assert ("/activity-plans/generate", "POST") in paths
         assert ("/activity-plans/apply", "POST") in paths
+
+    def test_generation_followed_the_writes_off_the_global_router(self):
+        """Changed for #1003: ``/generate`` used to be asserted *present* here.
+
+        It was, for #992, because that change deliberately did not touch it. It
+        had to move for #1003: which plan a caller is shown depends on whether
+        that caller's tenant has forked it, and a route with no tenant context
+        cannot ask. ``/apply`` above stays — its tenant comes from the request
+        body, which is #1000's separate defect.
+        """
+        from app.api.v1.activity_plans.router import router as global_router
+        from app.api.v1.activity_plans.tenant_router import router as tenant_router
+
+        global_paths = {(route.path, method) for route in global_router.routes for method in route.methods}
+        tenant_paths = {(route.path, method) for route in tenant_router.routes for method in route.methods}
+
+        assert ("/activity-plans/generate", "POST") not in global_paths
+        assert ("/activity-plans/generate", "POST") in tenant_paths

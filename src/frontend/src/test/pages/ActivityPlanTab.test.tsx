@@ -68,6 +68,9 @@ function plan(overrides: Partial<ActivityPlanResponse> = {}): ActivityPlanRespon
     skill_level_filter: null,
     total_activities: 2,
     total_duration_days: 60,
+    // Default: already the caller's own plan. The shared-template case gets its
+    // own describe block below, because it behaves differently on write (#1003).
+    is_shared_template: false,
     templates: [
       template({ key: 'tt-veg', trigger_phase: 'vegetative', phase_display_name: 'Vegetativ' }),
       template({
@@ -237,6 +240,99 @@ describe('ActivityPlanTab — plan generation fallback', () => {
     expect(
       await screen.findByRole('button', { name: i18n.t('pages.activityPlan.applyToPlant') }),
     ).toBeInTheDocument();
+  });
+});
+
+// ── Shared generated plan (#1003) ───────────────────────────────────
+
+/**
+ * A generated plan is one object shared by every tenant growing that species
+ * until one of them edits it; the backend then forks it into a private copy
+ * with fresh document keys. Two consequences the tab has to carry:
+ *
+ * - say so *before* the first edit, because nothing else distinguishes a shared
+ *   plan from a private one (#1003 §3);
+ * - reload after that edit rather than merging the response by key, because the
+ *   keys it holds — including the workflow key "Anwenden" posts — now address
+ *   the plan the user just stopped editing.
+ */
+describe('ActivityPlanTab — a plan that is still the shared template', () => {
+  const sharedPlan = () => plan({ is_shared_template: true });
+
+  it('says the plan is shared before anything is edited', async () => {
+    activityPlanApi.generatePlan.mockResolvedValue(sharedPlan());
+    const user = userEvent.setup();
+    renderWithProviders(<ActivityPlanTab speciesKey="sp-1" runKey="run-1" />);
+
+    await user.click(await screen.findByTestId('generate-activity-plan-button'));
+
+    const notice = await screen.findByTestId('shared-plan-notice');
+    expect(within(notice).getByText(i18n.t('pages.activityPlan.sharedPlanTitle'))).toBeInTheDocument();
+  });
+
+  it('says nothing of the sort once the plan belongs to the tenant', async () => {
+    activityPlanApi.generatePlan.mockResolvedValue(plan());
+    const user = userEvent.setup();
+    renderWithProviders(<ActivityPlanTab speciesKey="sp-1" runKey="run-1" />);
+
+    await user.click(await screen.findByTestId('generate-activity-plan-button'));
+    await screen.findByText('Cannabis Trainingsplan');
+
+    expect(screen.queryByTestId('shared-plan-notice')).toBeNull();
+  });
+
+  it('reloads the plan after the first edit and tells the user a copy was made', async () => {
+    activityPlanApi.generatePlan
+      .mockResolvedValueOnce(sharedPlan())
+      .mockResolvedValue(plan({ workflow_template_key: 'wf-copy' }));
+    activityPlanApi.updateTaskTemplate.mockResolvedValue(template({ key: 'tt-copy-1', enabled: false }));
+
+    const user = userEvent.setup();
+    renderWithProviders(<ActivityPlanTab speciesKey="sp-1" runKey="run-1" />);
+
+    await user.click(await screen.findByTestId('generate-activity-plan-button'));
+    const vegRow = (await screen.findByText('Entspitzen')).closest('tr') as HTMLElement;
+    await user.click(within(vegRow).getByRole('switch'));
+
+    await waitFor(() => expect(activityPlanApi.generatePlan).toHaveBeenCalledTimes(2));
+    expect(
+      await screen.findByText(i18n.t('pages.activityPlan.privateCopyCreated')),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByTestId('shared-plan-notice')).toBeNull());
+  });
+
+  it('reloads after a removal too, so the plan is not left holding stale keys', async () => {
+    activityPlanApi.generatePlan
+      .mockResolvedValueOnce(sharedPlan())
+      .mockResolvedValue(plan({ workflow_template_key: 'wf-copy' }));
+    activityPlanApi.deleteTaskTemplate.mockResolvedValue(undefined);
+
+    const user = userEvent.setup();
+    renderWithProviders(<ActivityPlanTab speciesKey="sp-1" runKey="run-1" />);
+
+    await user.click(await screen.findByTestId('generate-activity-plan-button'));
+    const vegRow = (await screen.findByText('Entspitzen')).closest('tr') as HTMLElement;
+    await user.click(
+      within(vegRow).getByRole('button', { name: i18n.t('pages.activityPlan.removeActivity') }),
+    );
+
+    await waitFor(() => expect(activityPlanApi.deleteTaskTemplate).toHaveBeenCalledWith('tt-veg'));
+    await waitFor(() => expect(activityPlanApi.generatePlan).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not reload after an edit on a plan the tenant already owns', async () => {
+    activityPlanApi.generatePlan.mockResolvedValue(plan());
+    activityPlanApi.updateTaskTemplate.mockResolvedValue(template({ key: 'tt-veg', enabled: false }));
+
+    const user = userEvent.setup();
+    renderWithProviders(<ActivityPlanTab speciesKey="sp-1" runKey="run-1" />);
+
+    await user.click(await screen.findByTestId('generate-activity-plan-button'));
+    const vegRow = (await screen.findByText('Entspitzen')).closest('tr') as HTMLElement;
+    await user.click(within(vegRow).getByRole('switch'));
+
+    await waitFor(() => expect(activityPlanApi.updateTaskTemplate).toHaveBeenCalled());
+    expect(activityPlanApi.generatePlan).toHaveBeenCalledTimes(1);
   });
 });
 

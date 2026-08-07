@@ -3977,7 +3977,10 @@
       "workflowHintText": "Dieser Plan basiert auf einem Workflow-Template, das auch für andere Pflanzen dieser Art verwendet werden kann.",
       "openWorkflow": "Workflow bearbeiten",
       "basedOnWorkflow": "Basierend auf Workflow",
-      "viewWorkflows": "Workflows anzeigen"
+      "viewWorkflows": "Workflows anzeigen",
+      "sharedPlanTitle": "Gemeinsame Vorlage",
+      "sharedPlanText": "Dieser Plan wird noch mit allen anderen Nutzerinnen und Nutzern dieser Pflanzenart geteilt. Sobald du etwas änderst, legen wir automatisch deine eigene Kopie an – dein Plan gehört dann nur dir, die Vorlage bleibt für alle anderen unverändert.",
+      "privateCopyCreated": "Deine eigene Kopie dieses Plans wurde angelegt. Ab jetzt wirken deine Änderungen nur noch für dich."
     },
     "gantt": {
       "title": "Phasen-Zeitplan",

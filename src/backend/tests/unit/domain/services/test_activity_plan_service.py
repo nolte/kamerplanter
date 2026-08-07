@@ -205,6 +205,70 @@ class TestRegenerateForSpecies:
         service._task_repo.delete_workflow_template.assert_called_once_with("wt1")
         service._task_repo.create_workflow_template.assert_called_once()
 
+    def _wire_generation(self, service):
+        service._species_repo.get_by_key.return_value = _make_species()
+        service._phase_repo.get_lifecycle_by_species.return_value = _make_lifecycle()
+        service._phase_repo.get_phases_by_lifecycle.return_value = [_make_phase()]
+        service._activity_repo.get_all.return_value = ([_make_activity()], 1)
+        service._task_repo.create_workflow_template.side_effect = lambda wt: wt
+
+    def test_a_tenants_regenerate_leaves_the_shared_template_alone(self, service):
+        """#1003: rebuilding the shared plan in place would discard every tenant's plan at once."""
+        shared = _make_workflow_template()
+        shared.tenant_key = ""
+        service._task_repo.get_auto_generated_workflow_for_species.return_value = shared
+        self._wire_generation(service)
+
+        service.regenerate_for_species("sp1", tenant_key="tenant-a")
+
+        service._task_repo.delete_workflow_template.assert_not_called()
+        service._task_repo.delete_task_templates_for_workflow.assert_not_called()
+
+    def test_a_tenants_regenerate_produces_a_plan_they_own(self, service):
+        shared = _make_workflow_template()
+        shared.tenant_key = ""
+        service._task_repo.get_auto_generated_workflow_for_species.return_value = shared
+        self._wire_generation(service)
+
+        created = service.regenerate_for_species("sp1", tenant_key="tenant-a")
+
+        assert created.tenant_key == "tenant-a"
+
+    def test_a_tenants_regenerate_replaces_their_own_previous_copy(self, service):
+        own_copy = _make_workflow_template(key="wt-copy")
+        own_copy.tenant_key = "tenant-a"
+        service._task_repo.get_auto_generated_workflow_for_species.return_value = own_copy
+        self._wire_generation(service)
+
+        service.regenerate_for_species("sp1", tenant_key="tenant-a")
+
+        service._task_repo.delete_task_templates_for_workflow.assert_called_once_with("wt-copy")
+        service._task_repo.delete_workflow_template.assert_called_once_with("wt-copy")
+
+
+class TestTheLookupIsAskedForTheCallersPlan:
+    """#1003: the read path has to know whose plan to answer with, or there is no fork to find."""
+
+    def test_get_or_generate_passes_the_tenant_to_the_lookup(self, service):
+        service._task_repo.get_auto_generated_workflow_for_species.return_value = _make_workflow_template()
+
+        service.get_or_generate_for_species("sp1", tenant_key="tenant-a")
+
+        service._task_repo.get_auto_generated_workflow_for_species.assert_called_once_with("sp1", tenant_key="tenant-a")
+
+    def test_what_gets_generated_when_nothing_exists_is_the_shared_template(self, service):
+        """Reading is not a write, and it is the write that forks."""
+        service._task_repo.get_auto_generated_workflow_for_species.return_value = None
+        service._species_repo.get_by_key.return_value = _make_species()
+        service._phase_repo.get_lifecycle_by_species.return_value = _make_lifecycle()
+        service._phase_repo.get_phases_by_lifecycle.return_value = [_make_phase()]
+        service._activity_repo.get_all.return_value = ([_make_activity()], 1)
+        service._task_repo.create_workflow_template.side_effect = lambda wt: wt
+
+        created = service.get_or_generate_for_species("sp1", tenant_key="tenant-a")
+
+        assert created.tenant_key == ""
+
 
 class TestApplyPlanToPlant:
     def test_creates_tasks_for_enabled_templates(self, service):
