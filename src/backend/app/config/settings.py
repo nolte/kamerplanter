@@ -409,6 +409,38 @@ class Settings(BaseSettings):
     #: account's address is a rare, deliberate act; a handful of attempts an hour
     #: covers a typo plus a change of mind.
     rate_limit_email_change: str = "5/hour"
+    #: ``POST /api/v1/privacy/email-change/confirm`` (REQ-025 Art. 16), per client IP.
+    #:
+    #: **Why there is a limit at all** (#990). The endpoint is unauthenticated and
+    #: state-changing. The argument for leaving it alone — the token is 32 random
+    #: bytes compared by hash, so guessing is not a realistic attack — is true
+    #: today and is a property of *code*, which can change without anyone
+    #: re-deriving this decision. A limit is cheap insurance that does not depend
+    #: on that property holding.
+    #:
+    #: **Why not ``rate_limit_email_change``.** That one bounds outbound mail to a
+    #: caller-chosen address, so its budget is cumulative and its window is an
+    #: hour. Confirming sends no mail; it bounds token *attempts*, where the thing
+    #: worth bounding is a burst from one source, not an hourly quota. An hourly
+    #: budget would also keep punishing a legitimate user long after a retry storm
+    #: spent it. A limit sized for a different threat is a limit nobody can reason
+    #: about, so this is its own setting with its own window.
+    #:
+    #: **Where 10 comes from — the legitimate side, not the attacker side.** No
+    #: per-IP figure makes a 2^256 token guessable or ungessable; an attacker with
+    #: many source addresses is not bounded by anything ``get_remote_address`` can
+    #: see. So the number is chosen as "comfortably above legitimate use, and no
+    #: higher". Legitimate use is one request; a reload or a retry over a flaky
+    #: connection makes two or three. Ten leaves room for several people
+    #: confirming in the same minute behind one NAT — for an act each account
+    #: performs a handful of times ever.
+    #:
+    #: **Link prefetching does not apply here**, which is the standard objection
+    #: to a tight limit on a confirm link. Outlook Safe Links, Gmail's proxy and
+    #: corporate URL detonation issue **GET** requests; this is a ``POST`` with a
+    #: JSON body, so a prefetcher cannot spend the budget. A sandbox that renders
+    #: the landing page and executes its JavaScript could — ten absorbs that too.
+    rate_limit_email_change_confirm: str = "10/minute"
 
     # REQ-025 Privacy / GDPR
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production

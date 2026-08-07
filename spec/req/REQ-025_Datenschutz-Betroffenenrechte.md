@@ -793,7 +793,7 @@ class PrivacyService:
 | GET | `/privacy/export/{key}` | Export-Status abfragen | Ja | 15/20 |
 | GET | `/privacy/export/{key}/download` | Export-Datei herunterladen | Ja | 15/20 |
 | POST | `/privacy/email-change` | E-Mail-Änderung beantragen | Ja | 16 |<!-- rate-limited, s. u. -->
-| POST | `/privacy/email-change/confirm` | E-Mail-Änderung bestätigen | Nein (Token) | 16 |
+| POST | `/privacy/email-change/confirm` | E-Mail-Änderung bestätigen | Nein (Token) | 16 |<!-- rate-limited, s. u. -->
 | POST | `/privacy/erasure` | Kontolöschung beantragen | Ja | 17 |
 | GET | `/privacy/erasure/{key}` | Löschstatus abfragen | Ja | 17 |
 | POST | `/privacy/restrict` | Verarbeitungseinschränkung setzen | Ja | 18 |
@@ -816,6 +816,33 @@ oft*; dieser Router trug als einziger schreibender Router überhaupt kein Limit.
 Bewusst deutlich strenger als `rate_limit_auth` (20/minute = 1200/Stunde): die
 `/auth/*`-Routen sind interaktive Wiederholungsflächen (Tippfehler beim Passwort),
 eine Adressänderung ist ein seltener, bewusster Vorgang.
+
+<!-- Quelle: Issue #990 -->
+**Rate-Limit auf `POST /privacy/email-change/confirm`**
+(`settings.rate_limit_email_change_confirm`, Default `10/minute` je Client-IP):
+Der Endpunkt ist unauthentifiziert und verändert Zustand. Das Gegenargument — der
+Token sind 32 Zufallsbytes, verglichen über den Hash, Raten ist also kein
+realistischer Angriff — stimmt heute und ist eine Eigenschaft von *Code*, die sich
+ändern kann, ohne dass jemand diese Entscheidung neu herleitet. Das Limit ist
+billige Versicherung, die nicht davon abhängt, dass die Eigenschaft bestehen
+bleibt.
+
+Bewusst **nicht** `rate_limit_email_change`: Jenes Limit begrenzt ausgehende Mail
+an eine frei gewählte Adresse, deshalb kumulativ und stundenweise. Das Bestätigen
+verschickt keine Mail, es begrenzt Token-*Versuche* — und dort ist der Burst aus
+einer Quelle die sinnvolle Einheit, nicht ein Stundenkontingent. Die Zahl ist von
+der legitimen Seite hergeleitet, nicht von der Angreiferseite: kein Per-IP-Wert
+macht einen 2^256-Token ratbar oder unratbar, ein legitimer Vorgang ist genau ein
+Request, ein Reload oder ein Retry macht zwei bis drei, und zehn lässt Raum für
+mehrere Personen hinter einer NAT in derselben Minute. Link-Prefetching (Outlook
+Safe Links, Gmail-Proxy, URL-Detonation) greift hier nicht: das sind GETs, dies
+ist ein POST mit JSON-Body.
+
+Die beiden Limits müssen unterschiedlich bleiben, und die Richtung ist
+festgeschrieben (`tests/api/test_privacy_email_change_confirm_rate_limit.py`):
+Bestätigen muss **großzügiger** als Beantragen sein — sonst nimmt das System mehr
+Änderungswünsche an, als es Bestätigungen zulässt — und **strenger** als
+`rate_limit_auth`, weil ein Klick keine interaktive Wiederholungsfläche ist.
 
 ### 3.4 Request/Response-Schemas
 

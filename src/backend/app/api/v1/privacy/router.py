@@ -185,11 +185,25 @@ def request_email_change(
 
 
 @router.post("/email-change/confirm", response_model=MessageResponse)
+@limiter.limit(settings.rate_limit_email_change_confirm)
 def confirm_email_change(
+    request: Request,
     body: EmailChangeConfirmRequest,
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Confirm an email change via the verification token (no auth required)."""
+    """Confirm an email change via the verification token (no auth required).
+
+    Rate-limited per client IP (``settings.rate_limit_email_change_confirm``,
+    #990). The endpoint is unauthenticated and state-changing; the reason its
+    token being 32 random bytes is not accepted as sufficient — and why the
+    budget is deliberately *not* the sibling's ``rate_limit_email_change`` — is
+    recorded on the setting.
+
+    ``request`` is unused by the body and required by the decorator: slowapi
+    inspects the signature and raises ``No "request" or "websocket" argument`` at
+    decoration time. Deleting the parameter as dead therefore breaks the import,
+    which is the loud failure — it cannot quietly disarm the limit.
+    """
     service.confirm_email_change(body.token)
     return MessageResponse(message="Email address has been updated.")
 
