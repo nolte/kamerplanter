@@ -20,6 +20,10 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
     # global catalog queried through dedicated raw-AQL methods, not get_all.
     is_tenant_scoped = True
     _model_cls = HarvestBatch
+    #: ``POST /t/{slug}/harvest/plants/{plant_key}/batches`` takes the plant key
+    #: from the URL and the create path wires a ``harvested_as`` edge to it, so
+    #: the reference is ownership-verified before the write (#948).
+    _owned_reference_fields = {"plant_key": col.PLANT_INSTANCES}
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.HARVEST_BATCHES)
@@ -49,7 +53,27 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
 
     # ── Observations ──
 
-    def create_observation(self, observation: HarvestObservation) -> HarvestObservation:
+    def create_observation(self, observation: HarvestObservation, *, tenant_key: str) -> HarvestObservation:
+        """Record an observation about a plant of ``tenant_key`` (#948).
+
+        The write-side twin of the read #927 closed. ``plant_key`` arrives from
+        the URL of ``POST /t/{slug}/harvest/plants/{plant_key}/observations`` and
+        was never checked, so an observation could be attributed to another
+        tenant's plant — and ``assess_readiness`` reads observations back, so an
+        injected one moves that tenant's harvest-readiness verdict. Writing into
+        another tenant's record is the mirror image of #927 and arguably worse.
+
+        ``HarvestObservation`` carries no ``tenant_key`` of its own — it is
+        tenant-resolved through the plant it is about, which is exactly why the
+        read predicate is plant-anchored. So the tenant cannot be taken off the
+        row the way :attr:`_owned_reference_fields` does elsewhere; it is a
+        required keyword-only argument instead, which a future caller cannot
+        omit. A foreign or unknown plant fails closed with 404, never 403.
+        """
+        if observation.plant_key:
+            self.verify_entity_ownership(
+                col.PLANT_INSTANCES, observation.plant_key, tenant_key, entity_name="PlantInstance"
+            )
         obs = self._observations.create(observation, default_now_fields=("observed_at",))
 
         obs_id = f"{col.HARVEST_OBSERVATIONS}/{obs.key}"
