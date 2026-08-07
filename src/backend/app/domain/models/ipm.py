@@ -108,6 +108,34 @@ class Treatment(BaseModel):
         return self
 
 
+class InspectionFinding(BaseModel):
+    """One structured observation inside an inspection (REQ-033 §2.2).
+
+    ``symptoms_observed`` is a list of bare strings and always was. That is enough
+    for a human filling in a form, but it drops the two things an image-analysis
+    agent actually produces alongside a symptom: **how sure it is** and **which
+    part of the plant** it saw. Folding those into the string ("webbing on leaves
+    (0.82)") would push the structure into prose that the next reader has to parse
+    back out — the lossy remapping REQ-033's ``create_inspection`` explicitly must
+    not require.
+
+    ``confidence`` is bounded to 0.0–1.0 to match ``DiaryFinding`` (REQ-050 §5),
+    so a finding keeps the same meaning whether it arrives through
+    ``submit_diary_analysis`` or through ``create_inspection``.
+
+    ``pest_key`` / ``disease_key`` are optional: an agent frequently sees a
+    symptom it cannot yet attribute, and forcing an attribution would turn a
+    hedged observation into a false certainty.
+    """
+
+    symptom: str = Field(min_length=1, max_length=500)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    affected_plant_part: PlantPart | None = None
+    pest_key: str | None = None
+    disease_key: str | None = None
+    rationale: str | None = Field(default=None, max_length=2000)
+
+
 class Inspection(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
@@ -118,6 +146,11 @@ class Inspection(BaseModel):
     detected_pest_keys: list[str] = Field(default_factory=list)
     detected_disease_keys: list[str] = Field(default_factory=list)
     symptoms_observed: list[str] = Field(default_factory=list)
+    # Additive and defaulted, so every inspection written before this field
+    # existed still validates and round-trips unchanged. ``symptoms_observed``
+    # stays the canonical flat list — a writer that fills ``findings`` mirrors the
+    # symptom strings into it, so no existing reader loses anything.
+    findings: list[InspectionFinding] = Field(default_factory=list)
     environmental_conditions: dict | None = None
     photo_refs: list[str] = Field(default_factory=list)
     notes: str | None = None

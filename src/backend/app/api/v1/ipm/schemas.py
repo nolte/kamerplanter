@@ -192,15 +192,69 @@ class TreatmentResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class InspectionFindingSchema(BaseModel):
+    """One structured observation inside an inspection — symptom plus what is known about it.
+
+    Mirrors :class:`~app.domain.models.ipm.InspectionFinding`. It exists next to
+    the flat ``symptoms_observed`` list rather than replacing it: a form-filling
+    human produces bare strings, while an image-analysis agent also knows a
+    confidence and a plant part, and squeezing those into the string would force
+    the next reader to parse them back out.
+    """
+
+    symptom: str = Field(min_length=1, max_length=500)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    affected_plant_part: PlantPart | None = None
+    pest_key: str | None = None
+    disease_key: str | None = None
+    rationale: str | None = Field(default=None, max_length=2000)
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "symptom": "Feine Gespinste an den Blattunterseiten",
+                    "confidence": 0.82,
+                    "affected_plant_part": "leaf",
+                    "pest_key": "tetranychus-urticae",
+                    "rationale": "Sprenkelung plus Gespinst deutet auf Spinnmilben.",
+                }
+            ]
+        }
+    }
+
+
 class InspectionCreate(BaseModel):
     inspector: str = ""
     pressure_level: str = "none"
     detected_pest_keys: list[str] = Field(default_factory=list)
     detected_disease_keys: list[str] = Field(default_factory=list)
     symptoms_observed: list[str] = Field(default_factory=list)
+    findings: list[InspectionFindingSchema] = Field(default_factory=list)
     environmental_conditions: dict | None = None
     photo_refs: list[str] = Field(default_factory=list)
     notes: str | None = None
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "inspector": "Maren",
+                    "pressure_level": "low",
+                    "detected_pest_keys": ["tetranychus-urticae"],
+                    "symptoms_observed": ["Feine Gespinste an den Blattunterseiten"],
+                    "findings": [
+                        {
+                            "symptom": "Feine Gespinste an den Blattunterseiten",
+                            "confidence": 0.82,
+                            "affected_plant_part": "leaf",
+                        }
+                    ],
+                    "notes": "Nur an der Sudseite der Pflanze.",
+                }
+            ]
+        }
+    }
 
 
 class InspectionResponse(BaseModel):
@@ -212,11 +266,38 @@ class InspectionResponse(BaseModel):
     detected_pest_keys: list[str]
     detected_disease_keys: list[str]
     symptoms_observed: list[str]
+    findings: list[InspectionFindingSchema] = Field(default_factory=list)
     environmental_conditions: dict | None = None
     photo_refs: list[str]
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "key": "4471102",
+                    "plant_key": "5512099",
+                    "inspector": "Maren",
+                    "inspected_at": "2026-08-06T07:15:00Z",
+                    "pressure_level": "low",
+                    "detected_pest_keys": ["tetranychus-urticae"],
+                    "detected_disease_keys": [],
+                    "symptoms_observed": ["Feine Gespinste an den Blattunterseiten"],
+                    "findings": [
+                        {
+                            "symptom": "Feine Gespinste an den Blattunterseiten",
+                            "confidence": 0.82,
+                            "affected_plant_part": "leaf",
+                        }
+                    ],
+                    "photo_refs": [],
+                    "notes": "Nur an der Sudseite der Pflanze.",
+                }
+            ]
+        }
+    }
 
 
 class TreatmentApplicationCreate(BaseModel):
