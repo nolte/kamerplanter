@@ -167,16 +167,36 @@ class TestTankListPage:
         initial_count = tank_list.get_row_count()
         screenshot("TC-REQ-014-005_before-search", "Tank list before search")
 
-        tank_list.search("ZZZ_NONEXISTENT_TANK_9999")
-        tank_list.wait_for_loading_complete()
-        screenshot("TC-REQ-014-005_after-search", "Tank list after search — no results")
-
-        filtered_count = tank_list.get_row_count()
-        assert filtered_count <= initial_count, (
-            f"TC-REQ-014-005 FAIL: Expected filtered count ({filtered_count}) <= initial ({initial_count})"
-        )
+        term = "ZZZ_NONEXISTENT_TANK_9999"
+        tank_list.search(term)
+        # Chip first, and carrying the term: `has_search_chip()` on its own is
+        # satisfied by a leftover chip from an earlier filter, and
+        # `wait_for_loading_complete()` — which stood here — polls a skeleton
+        # this client-side search never mounts, so it returned while the
+        # unfiltered rows were still rendered.
         assert tank_list.has_search_chip(), (
             "TC-REQ-014-005 FAIL: Expected search chip to be visible"
+        )
+        tank_list.wait_for_search_applied(term, what="tank list")
+        # And that the emptiness below is the *filter's* doing: `DataTable`
+        # renders this panel only while the source rows are still there, so it
+        # separates "the search excluded everything" from "the list lost its
+        # data", which an empty row read cannot tell apart.
+        tank_list.wait_for_no_search_results(term, what="tank list")
+        screenshot("TC-REQ-014-005_after-search", "Tank list after search — no results")
+
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it (#956).
+        # No tank can be named after this term, so the falsifiable post-condition
+        # is that the list names none of them.
+        remaining = tank_list.get_first_column_texts()
+        assert remaining == [], (
+            f"TC-REQ-014-005 FAIL: Searching for {term!r} must leave the tank list "
+            f"empty, but {len(remaining)} of the {initial_count} rows are still "
+            f"listed: {remaining!r}. The chip already carries the term, so "
+            f"`tableState.search` holds it and the filter has run -- a surviving row "
+            f"therefore means some column's `searchValue` matches this term, not that "
+            f"the search never arrived."
         )
 
     @pytest.mark.core_crud
@@ -194,18 +214,55 @@ class TestTankListPage:
         if tank_list.get_row_count() == 0:
             pytest.skip("No tanks — cannot test filter reset")
 
-        initial_count = tank_list.get_row_count()
-        tank_list.search("A")
-        tank_list.wait_for_loading_complete()
+        names_before = tank_list.get_first_column_texts()
+        # A term no tank name can carry, replacing the ``"A"`` that stood here: a
+        # broad term leaves most rows in place, and "the reset restored them" is
+        # then indistinguishable from "the filter never removed them".
+        term = "ZZZ_NONEXISTENT_TANK_9999"
+        tank_list.search(term)
+        tank_list.wait_for_search_applied(term, what="tank list")
+        filtered = tank_list.get_first_column_texts()
+        assert filtered == [], (
+            f"TC-REQ-014-006 FAIL: The arrange step must leave the tank list empty so "
+            f"that the reset has something to restore, but {len(filtered)} of the "
+            f"{len(names_before)} rows survive the search for {term!r}: {filtered!r}. "
+            f"The chip already carries the term, so the filter has run and some "
+            f"column's `searchValue` matches it."
+        )
 
-        if tank_list.has_reset_filters_button():
-            tank_list.click_reset_filters()
-            tank_list.wait_for_loading_complete()
-            screenshot("TC-REQ-014-006_after-reset", "Tank list after filter reset")
-            reset_count = tank_list.get_row_count()
-            assert reset_count >= initial_count - 1, (
-                f"TC-REQ-014-006 FAIL: Expected count after reset ({reset_count}) close to initial ({initial_count})"
-            )
+        # `if has_reset_filters_button():` swallowed the whole check -- a page
+        # that renders no reset button ran this test to a green with no assertion
+        # executed at all. `DataTable` renders the button whenever a search or a
+        # sort is active, and the search demonstrably is.
+        assert tank_list.has_reset_filters_button(), (
+            "TC-REQ-014-006 FAIL: With the search applied (its chip is rendered) "
+            "`DataTable` must offer the reset-filters button, but none is rendered — "
+            "so the reset this test is about cannot be exercised."
+        )
+        tank_list.click_reset_filters()
+        # The chip disappears in the same commit that recomputes the *unfiltered*
+        # rows; `wait_for_loading_complete()` polls a skeleton this client-side
+        # reset never mounts and returned while the empty table was still up.
+        tank_list.wait_for_element_hidden(tank_list.SEARCH_CHIP)
+        screenshot("TC-REQ-014-006_after-reset", "Tank list after filter reset")
+
+        # `reset_count >= initial_count - 1` was satisfied by a reset that does
+        # nothing whenever the filter kept nearly everything (#956), and its
+        # ``- 1`` is not a concurrency tolerance either: the suite runs
+        # ``-n 4 --dist=loadfile`` against one shared stack, so another file can
+        # create or delete any number of tanks while this one runs. Named identity
+        # survives that: the filter left the list empty, so the rows coming back
+        # are the reset's doing, and at least one of them must be a row this test
+        # saw before.
+        names_after = tank_list.get_first_column_texts()
+        assert set(names_after) & set(names_before), (
+            f"TC-REQ-014-006 FAIL: After the reset the tank list must name tanks it "
+            f"named before the filter, but the {len(names_after)} rows now listed "
+            f"({names_after[:5]!r}) share none of the {len(names_before)} earlier ones "
+            f"({names_before[:5]!r}). The chip is gone, so `tableState.search` is "
+            f"empty -- the table re-rendered without restoring the rows the filter "
+            f"had removed."
+        )
 
     @pytest.mark.requires_desktop
     @pytest.mark.core_crud
@@ -661,7 +718,17 @@ class TestTankStateRecording:
         tank_detail.click_record_state()
         screenshot("TC-REQ-014-024_state-dialog-open", "State dialog open for recording")
 
-        tank_detail.fill_state_ph(6.2)
+        # Per-run identity, so the read-back below cannot be satisfied by a
+        # measurement an earlier run left behind — the same move #980 made for
+        # the maintenance log's `performed_by`. A tank state has no name, so the
+        # pH carries it: `TankState.ph` is a free float (0–14) and the states
+        # table renders it verbatim (`render: (r) => r.ph ?? '—'`). Python's
+        # `str()` and JS's `String()` both print the shortest round-trip form of
+        # a float, so the value typed here and the text rendered there agree
+        # without any formatting assumption — 5.2 reads as "5.2" on both sides.
+        ph_value = round(5.0 + (int(uuid.uuid4().hex[:4], 16) % 290 + 1) / 100, 2)
+
+        tank_detail.fill_state_ph(ph_value)
         tank_detail.fill_state_ec(1.8)
         tank_detail.fill_state_temp(20.5)
         tank_detail.fill_state_fill_percent(75.0)
@@ -669,12 +736,29 @@ class TestTankStateRecording:
 
         tank_detail.submit_state_form()
         tank_detail.wait_for_loading_complete()
+        tank_detail.wait_for_row_containing(
+            str(ph_value),
+            rows_locator=TankDetailPage.STATES_ROWS,
+            what=f"tank states table after recording pH {ph_value}",
+        )
         screenshot("TC-REQ-014-024_after-state-recorded", "States tab after recording")
 
-        final_state_count = tank_detail.get_states_row_count()
-        assert final_state_count >= initial_state_count, (
-            f"TC-REQ-014-024 FAIL: Expected states count >= {initial_state_count}, "
-            f"got {final_state_count}"
+        # `final >= initial` was satisfied by a submit that saved nothing -- a
+        # count that never falls holds whether or not the measurement exists
+        # (#956). The test's own docstring claims a *new row in the states
+        # table*, so that is what is read back, by the value this run wrote.
+        #
+        # Through the pH *column* (`cell-ph` on desktop, `card-field-ph` on
+        # mobile) rather than through the whole-row text the wait above scanned:
+        # an exact cell comparison cannot be satisfied by the digits turning up
+        # in the timestamp or in a neighbouring measurement.
+        ph_column = tank_detail.get_column_texts("ph")
+        assert str(ph_value) in ph_column, (
+            f"TC-REQ-014-024 FAIL: The states table must list the measurement just "
+            f"recorded at pH {ph_value}, but its pH column reads {ph_column!r} across "
+            f"{len(ph_column)} row(s) (the tab held {initial_state_count} before). The "
+            f"row is rendered — the wait above found the value in it — so the pH is "
+            f"rendered outside the `ph` column, or persisted as a different number."
         )
 
     @pytest.mark.core_crud
