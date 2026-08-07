@@ -126,11 +126,11 @@ SCHEMA_FILENAME = "schemas.py"
 #: ``StarterKitTenantResponse``). All three are real response bodies in the
 #: published document, so they belong in the count.
 #:
-#: 709 since issue #931: ``InspectionCreate`` and ``InspectionResponse`` gained
-#: the ``findings`` field and, with it, the example BACKEND.md §5.3 requires of a
-#: *changed* schema. The new ``InspectionFindingSchema`` carries one from the
-#: start, so it joins the total on the credit side and the debt falls by two.
-MAX_MODELS_WITHOUT_EXAMPLE = 709
+#: 711 → 708 with #970: ``WateringLogCreate``, ``WateringLogUpdate`` and
+#: ``WateringConfirmRequest`` changed (enum-typed fields, a typed ``overrides``)
+#: and therefore had to gain an example per BACKEND.md §5.3. The new
+#: ``WateringConfirmOverrides`` is born with one, so it never entered the debt.
+MAX_MODELS_WITHOUT_EXAMPLE = 706
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
