@@ -180,11 +180,24 @@ class TenantService:
 
         ``data`` is a partial payload and is passed through to
         :meth:`ITenantRepository.update_fields`, so the **caller owns the
-        allow-list**: build it from ``TenantUpdateRequest.model_dump()`` or from
-        named fields, never from a raw request body. The only endpoint that
-        reaches this (``PATCH /t/{slug}``) does the former, and that closed
-        schema is what keeps ``owner_user_key``, ``is_platform`` and
-        ``tenant_type`` out of the payload.
+        allow-list**: build it from a closed request schema's ``model_dump()``
+        or from named fields, never from a raw request body.
+
+        Two endpoints reach this, and both do the former:
+
+        * ``PATCH /t/{slug}`` with ``TenantUpdateRequest`` (``name``,
+          ``description``, ``max_members``);
+        * ``PATCH /admin/platform/tenants/{key}`` with ``AdminTenantUpdate``
+          (the same three plus ``is_active``, which only a platform admin may
+          set) — routed here by #997, which ended a router that wrote to the
+          tenants collection itself.
+
+        Neither schema sets ``extra="allow"``, and that closedness is the only
+        thing keeping ``owner_user_key``, ``is_platform``, ``tenant_type``,
+        ``slug`` and ``settings`` out of the payload: ``update_fields`` applies
+        ``data`` through ``model_copy(update=...)``, which does not validate.
+        ``slug`` is derived here, from ``name``, and never accepted from a
+        caller.
         """
         if "name" in data:
             errors = self._tenant_engine.validate_tenant_name(data["name"])
