@@ -186,7 +186,7 @@ Because the role applies per garden, the same key can write in your own garden a
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    48 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, site and location management, advancing a phase, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
+    56 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) and the eight tools of the growth-phase layer (see [Growth Phases and Lifecycle](#growth-phases-and-lifecycle)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, site and location management, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
 
 !!! info "New: what an analysis agent can write back"
     Five tools were added that externally operated analysis agents needed. Each one ships paired with the read tool that finds its result again — a write no read tool surfaces afterwards counts as a defect here:
@@ -222,7 +222,13 @@ Because the role applies per garden, the same key can write in your own garden a
 | `list_substrates` | Substrate catalogue: media and their properties |
 | `list_overwintering_profiles` | Overwintering profiles: protection method, storage conditions, timing |
 | `list_starter_kits` | Starter kits for getting going |
-| `list_phase_definitions` | Growth-phase definitions behind the lifecycle logic |
+| `list_phase_definitions` | Growth-phase definitions behind the lifecycle logic — the individual building blocks, not the sequences |
+| `get_species_phase_sequence` | The phase sequence a species actually runs on: cycle type, whether it repeats, whether a rest period is required — plus the ordered phases with their effective duration and the "terminal" and "harvest allowed" flags |
+| `list_phase_sequences` | The catalogue of all phase sequences — so you can not only establish that an assignment is wrong but name the right one |
+| `list_species_by_phase_sequence` | The reverse lookup: every species bound to one sequence. A houseplant sitting in the same bucket as Brussels sprouts and leeks is not a one-off, it is a template collision |
+| `get_species_lifecycle` | A species' lifecycle: annual or perennial, whether it dies after flowering (monocarpic) or flowers again (polycarpic), life expectancy, dormancy requirement |
+| `get_plant_phase_status` | A plant's phase state: days in phase, next phase, cycle number, whether a harvest is scheduled — plus a `phase_state` that tells "never started", "stuck in an unresolvable phase", "between cycles" and "running" apart |
+| `get_plant_phase_history` | A plant's phase history with the reason, date and actual duration of each transition |
 | `list_hardiness_zones` | Hardiness zones with their temperature ranges |
 | `search_glossary` | Look up domain terms from the glossary (VPD, EC, safety interval …) |
 | `search_plant_knowledge` | Search the knowledge base (RAG) — returns **citable** source references with a score, so a rationale can name where it came from. Tenant-independent; only the query itself leaves the instance |
@@ -250,14 +256,59 @@ Because the role applies per garden, the same key can write in your own garden a
 | `record_feeding_event` | Record a feeding: litres applied, EC and pH before and after, runoff EC/pH, and the tank reference. The care log only knows "confirmed" — here are the numbers |
 | `create_inspection` | Record an IPM inspection: pressure level, symptoms and **structured findings** with a confidence (0.0–1.0) and the affected plant part |
 | `assign_nutrient_plan` | Bind an **existing** nutrient plan to a plant (your own or a global template). Creating or editing plans is deliberately not a tool |
+| `transition_plant_phase` | Put a plant into a phase, or correct a wrong one. The target is validated against the sequence **that plant's species** runs on — a phase key from elsewhere would park the plant in a phase its lifecycle can never advance out of |
 
-### Setup tool (`mcp.setup`)
+### Setup tools (`mcp.setup`)
 
 | Tool | Purpose |
 |------|---------|
 | `create_site` | Create a site root (apartment, garden, balcony, greenhouse, windowsill, grow tent) |
+| `assign_species_phase_sequence` | Bind a species to an **existing** phase sequence. Requires `mcp.setup` rather than just `mcp.write`, because species and sequences belong to the shared catalogue: a single binding changes the schedule of every plant of that species in *every* garden. *Defining* sequences stays deliberately a job for the web UI |
 
 Every tool validates referenced keys (plant, site, location, slot) against the tenant resolved for that call. A foreign key from another tenant consistently returns `not_found` — never `permission.denied` — so no tool ever discloses the existence of another tenant's resources.
+
+## Growth Phases and Lifecycle {#growth-phases-and-lifecycle}
+
+The phase logic drives task scheduling, feeding windows, harvest readiness and overwintering (internal reference: REQ-003). Over MCP, only `list_phase_definitions` was visible of it for a long time — the catalogue of individual **building blocks**. Not the sequences they are assembled into, not which sequence applies to a species, and not the phase state of an actual plant. An ordinary question such as "is this plant running on the botanically correct phase sequence?" simply could not be answered through it.
+
+Eight tools close that gap. Six read, two write — and each write tool is paired with the read tool that resolves its references **and** the one that surfaces its result:
+
+| Write tool | Resolves its references | Surfaces its result |
+|------------|-------------------------|---------------------|
+| `transition_plant_phase` | `get_species_phase_sequence` (supplies the valid phase keys) | `get_plant_phase_status` |
+| `assign_species_phase_sequence` | `list_phase_sequences` | `get_species_phase_sequence` |
+
+### Why `phase_state` says more than "no phase"
+
+For a plant without a phase, `get_plant` returns only `current_phase_key: null`. That conflates three different situations, each of which calls for something different:
+
+| `phase_state` | Meaning | What to do |
+|---------------|---------|------------|
+| `never_initialised` | There is no phase history at all — the lifecycle was never started | Set a starting phase |
+| `unresolved` | There is an open history record, but it points at no resolvable phase. The plant is standing still without it being noticeable | Correct it to a valid phase of its own sequence |
+| `between_cycles` | Every phase is closed, none is open — a normal state for a perennial | Nothing; the next cycle starts on its own |
+| `in_phase` | The plant is running | Nothing |
+
+### How a species gets its sequence
+
+If a species is not explicitly bound, Kamerplanter derives the sequence from its botanical attributes. The rules apply in this order; the first one that matches wins:
+
+1. **Short-day ornamentals** that are perennial → photoperiodic ornamental cycle (poinsettia, Kalanchoe). Restricting this to perennials is deliberate: annual short-day *crops* must keep their harvest cycle.
+2. **Monocarpic perennial epiphytes** (bromeliads) → offset cycle: the mother plant dies after flowering and its pups continue.
+3. **CAM succulents** → cycle with a cool, dry winter rest.
+4. **Growth habit**: ferns, bulb geophytes and palms each get their own cycle.
+5. **Any other perennial** → evergreen foliage cycle (the largest indoor group).
+6. **Known annual or biennial** → the annual default cycle, ending in a harvest.
+7. **Anything else** → the evergreen, repeating cycle as well.
+
+!!! warning "Missing data no longer leads to a harvest"
+    Point 7 is a safety rule, not a botanical claim. If a species has no lifecycle record at all, that is **not an answer** and must not be read as "annual". Such a species used to land on the annual default cycle — 126 days, with a harvest and an end of life at the end. An evergreen, perennial Yucca tree was consequently scheduled to be harvest-ready and complete 126 days after planting.
+
+    The two mistakes do not cost the same: an annual on a perennial cycle merely misses a harvest prompt you can still trigger yourself. A perennial on an annual cycle gets a harvest and an end of life invented for it that nobody asked for. The doubtful case therefore falls to the repeating cycle.
+
+Which data feeds that decision — and what happens when a field is missing — is what `get_species_info` shows: it returns `plant_category`, `photosynthesis_type`, `growth_habit`, `indoor_suitable`, `mature_height_cm` and `frost_sensitivity`. Empty fields are omitted, so a sparse record also reads as sparse — which is itself the answer to "is this record complete enough for a reliable assignment?".
+
+You correct a wrong assignment with `assign_species_phase_sequence`; `list_species_by_phase_sequence` tells you which other species sit on the same sequence.
 
 ## Diary Analysis: External Agents {#diary-analysis-external-agents}
 

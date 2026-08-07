@@ -6,8 +6,8 @@ Titel: Model Context Protocol (MCP) Server fuer Kamerplanter
 Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
-Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport, Bild-Content und 43 Werkzeuge; Rest des Werkzeugkatalogs und die stdio-Bruecke offen, siehe §4.1 und §9)
-Version: 1.5
+Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport, Bild-Content und 56 Werkzeuge; Rest des Werkzeugkatalogs und die stdio-Bruecke offen, siehe §4.1 und §9)
+Version: 1.6
 Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.4 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.10 (Service Accounts), REQ-024 v1.6 (RBAC Permission-Matrix), REQ-025 v1.5 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.3 (Rollenvokabular), REQ-050 v1.3 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.3 (Thumbnail-Renditions)
 ```
 
@@ -144,7 +144,13 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `list_substrates` | Substratkatalog (REQ-019) | `substrate_service.list_substrates` |
 | `list_overwintering_profiles` | Ueberwinterungsprofile: Schutzmethode, Lagerbedingungen, Zeitpunkte (REQ-047) | `overwintering_profile_service.list_profiles` |
 | `list_starter_kits` | Onboarding-Starter-Kits des Mandanten (REQ-020) | `starter_kit_service.list_kits_for_tenant` |
-| `list_phase_definitions` | Wachstumsphasen-Definitionen der Lifecycle-Engine (REQ-003) | `phase_sequence_service.list_definitions` |
+| `list_phase_definitions` | Wachstumsphasen-Definitionen der Lifecycle-Engine (REQ-003) — die **Bausteine**, nicht die Abfolgen | `phase_sequence_service.list_definitions` |
+| `get_species_phase_sequence` | Die aufgeloeste PhaseSequence einer Art: `cycle_type`, `is_repeating`, `dormancy_required` sowie die geordneten Entries mit `effective_duration_days`, `is_terminal` und `allows_harvest`. Dazu abgeleitet `total_duration_days` und `terminates_in_harvest` — die Konjunktion, an der ein terminaler Ernte-Zyklus erkennbar wird (REQ-003) | `phase_sequence_service.get_sequence_by_species` + `get_full_sequence` |
+| `list_phase_sequences` | Der PhaseSequence-Katalog mit Topologie je Abfolge (optional inkl. Entries) — eine falsche Zuordnung zu *diagnostizieren* reicht nicht, die richtige muss **benennbar** sein | `phase_sequence_service.list_sequences` + `get_full_sequence` |
+| `list_species_by_phase_sequence` | Rueckwaertssuche: alle Arten an einer Abfolge. Macht aus einer Einzelbeschwerde einen systemischen Befund (Vorlagen-Kollision) | `phase_sequence_service.get_species_for_sequence` |
+| `get_species_lifecycle` | LifecycleConfig einer Art: `cycle_type`, `cultivation_cycle_type`, `grown_as_annual`, `flowering_strategy`, `growth_determinacy`, `typical_lifespan_years`, `dormancy_required`, `phase_sequence_key`. Eine **fehlende** Config wird als Befund gemeldet statt als 404 — sie ist genau das, was die Resolver-Fallback-Regel ausloest | `phase_service.get_lifecycle_by_species` |
+| `get_plant_phase_status` | Phasenstand einer Instanz: `days_in_phase`, `next_phase`, `cycle_number`, `has_harvest_phase` — plus `phase_state` (`never_initialised` / `unresolved` / `between_cycles` / `in_phase`), das die drei Situationen trennt, die `current_phase_key: null` zusammenwirft | `phase_service.get_current_phase` + `get_phase_history` |
+| `get_plant_phase_history` | Phasenverlauf einer Instanz mit `transition_reason`, Ein-/Austrittsdatum, tatsaechlicher Dauer und `cycle_number` | `phase_service.get_phase_history` |
 | `list_hardiness_zones` | Winterhaertezonen mit Temperaturbereichen | `hardiness_zone_service.list_zones` |
 | `search_glossary` | Fachbegriffe aus dem projekteigenen Glossar (VPD, EC, Karenz, …) | `glossary_service.list_terms` |
 | `list_overdue_tasks` | Ueberfaellige Tasks (alle Sources: REQ-006, REQ-022) | `GET /t/{slug}/tasks?status=overdue` |
@@ -162,6 +168,7 @@ Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den 
 | `record_harvest` | Ernte-Eintrag mit Frischgewicht + Quality-Notes | `POST /t/{slug}/harvest/batches` |
 | `apply_treatment` | IPM-Treatment anwenden (Karenz-Gate aktiv) | `POST /t/{slug}/ipm/treatment-applications` |
 | `assign_nutrient_plan` | Einen **bestehenden** Naehrstoffplan an eine Pflanze binden — **kein** Plan-Editor | `POST /t/{slug}/plant-instances/{key}/nutrient-plan` |
+| `transition_plant_phase` | Die Phase einer **Instanz** setzen oder korrigieren. Das Ziel wird gegen die PhaseSequence geprueft, die die Art *dieser* Pflanze aufloest — nicht gegen die Gesamtmenge aller Phasenschluessel, sonst landet die Pflanze in einer Phase, aus der ihr Lebenszyklus nie wieder herausfindet | `POST /t/{slug}/plant-instances/{key}/phases/transition` |
 
 `assign_nutrient_plan` kam nachtraeglich hinzu (Issue #931). AC-25 spricht von "dem einer Pflanze zugewiesenen Plan" als bestehendem Zustand, waehrend die Palette nur die lesende Seite kannte — die Zuweisung kam also von einer Stelle, die die MCP-Oberflaeche nicht erreichte, und jede Plan-Empfehlung eines Agenten endete als Handanweisung, deren Befolgung er nie nachpruefen konnte. Plaene zu **verfassen** bleibt bewusst ausserhalb: Phasenfenster, Produktdosen und Mischreihenfolge sind Redaktionsarbeit mit einer dafuer gebauten Oberflaeche.
 
@@ -203,6 +210,9 @@ Die `mcp.setup`-Permission ist getrennt von `mcp.write`, damit ein "Diary-Bot" n
 | `set_water_profile` | Tap-Water- oder RO-Profil an Site haengen (REQ-002 v4.2) | `PUT /t/{slug}/sites/{key}/water-profile` |
 | `create_substrate_batch` | Neue Substrat-Charge fuer eine Site anlegen | `POST /t/{slug}/substrates` |
 | `apply_starter_kit` | Starter-Kit anwenden (Bypass kompletter Onboarding-Wizard) | `POST /t/{slug}/onboarding/starter-kits/{key}/apply` |
+| `assign_species_phase_sequence` | Eine Art an eine **bestehende** PhaseSequence binden — **kein** Sequence-Editor | `PUT /species/{key}/lifecycle` (Feld `phase_sequence_key`) |
+
+`assign_species_phase_sequence` steht hier und nicht unter §2.2, obwohl es keine Standorte anfasst: Arten und PhaseSequences sind **globale** Katalogdaten. Eine einzige Bindung aendert den Zeitplan aller Pflanzen dieser Art in *jedem* Mandanten, was ein `mcp.write`-Diary-Bot nicht koennen soll. Sequences zu **definieren** — Entries ordnen, Dauern setzen, `is_terminal`/`allows_harvest` vergeben — bleibt bewusst ausserhalb der Palette, dieselbe Linie, die #931 fuer Naehrstoffplaene zieht.
 
 ### 2.4 Write-Tools — Pflanzen erfassen (Permission `mcp.write`)
 
@@ -395,7 +405,9 @@ src/backend/tests/
 └── api/test_mcp_endpoints.py
 ```
 
-**Umsetzungsstand der Werkzeugpalette:** 48 Werkzeuge sind registriert — 38 lesende, 9 schreibende, 1 Setup. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_diagnostics`, `get_plant_inspections`, `list_cultivars`, `get_cultivar`, `list_substrates`, `list_overwintering_profiles`, `list_starter_kits`, `list_phase_definitions`, `list_hardiness_zones`, `search_glossary`, `search_plant_knowledge`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`, `list_pending_diary_analyses`, `get_diary_entry`, `get_diary_entry_photos`, `list_diary_entries`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`, `add_plant_diary_entry`, `claim_diary_analysis`, `submit_diary_analysis`, `record_feeding_event`, `create_inspection`, `assign_nutrient_plan`. Setup (`mcp.setup`): `create_site`.
+**Umsetzungsstand der Werkzeugpalette:** 56 Werkzeuge sind registriert — 44 lesende, 10 schreibende, 2 Setup. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_diagnostics`, `get_plant_inspections`, `list_cultivars`, `get_cultivar`, `list_substrates`, `list_overwintering_profiles`, `list_starter_kits`, `list_phase_definitions`, `get_species_phase_sequence`, `list_phase_sequences`, `list_species_by_phase_sequence`, `get_species_lifecycle`, `get_plant_phase_status`, `get_plant_phase_history`, `list_hardiness_zones`, `search_glossary`, `search_plant_knowledge`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`, `list_pending_diary_analyses`, `get_diary_entry`, `get_diary_entry_photos`, `list_diary_entries`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`, `add_plant_diary_entry`, `claim_diary_analysis`, `submit_diary_analysis`, `record_feeding_event`, `create_inspection`, `assign_nutrient_plan`, `transition_plant_phase`. Setup (`mcp.setup`): `create_site`, `assign_species_phase_sequence`.
+
+> Diese Zahl ist gegen die *laufende* Registry gepinnt: `test_the_palette_grew_by_exactly_the_five_specified_tools` in `tests/unit/mcp_server/test_palette_registration.py` zaehlt die unter `app.mcp_server.tools` deklarierten Werkzeuge und schlaegt fehl, wenn sie von `PALETTE_SIZE` abweicht. Diese Aufzaehlung, `docs/*/api/mcp-server.md` und die Konstante werden gemeinsam fortgeschrieben — sie sind schon einmal auseinandergelaufen (#931).
 
 Die Zahl stand bis hierhin auf 36 und listete die fuenf Tagebuch-Werkzeuge aus REQ-050 nicht mit, obwohl sie laengst registriert waren — ein Abgleich, der beim Nachziehen von §2.2a unterblieb.
 

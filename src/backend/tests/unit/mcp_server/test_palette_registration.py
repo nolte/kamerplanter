@@ -35,6 +35,22 @@ NEW_TOOLS: dict[str, tuple[McpPermission, bool, bool]] = {
     "create_inspection": (McpPermission.WRITE, True, True),
     "search_plant_knowledge": (McpPermission.READ, False, False),
     "assign_nutrient_plan": (McpPermission.WRITE, True, True),
+    # ── issue #949: the growth-phase and lifecycle layer ──
+    # The tenant column is the interesting one here. Species, sequences and
+    # lifecycles are GLOBAL catalogue data (tenant_scoped False); plant instances
+    # are not. Getting that backwards either strands a tool with no tenant bound
+    # or silently widens a catalogue write across tenants, which is why it is
+    # asserted per tool rather than described.
+    "get_species_phase_sequence": (McpPermission.READ, False, False),
+    "list_phase_sequences": (McpPermission.READ, False, False),
+    "list_species_by_phase_sequence": (McpPermission.READ, False, False),
+    "get_species_lifecycle": (McpPermission.READ, False, False),
+    "get_plant_phase_status": (McpPermission.READ, False, True),
+    "get_plant_phase_history": (McpPermission.READ, False, True),
+    "transition_plant_phase": (McpPermission.WRITE, True, True),
+    # mcp.setup, not mcp.write: one binding re-schedules every tenant's plants
+    # of that species, so it is an admin-only act on shared catalogue data.
+    "assign_species_phase_sequence": (McpPermission.SETUP, True, False),
 }
 
 #: Write tool → the read tool that surfaces its result again (§4.1).
@@ -43,6 +59,17 @@ WRITE_RESULT_READERS: dict[str, str] = {
     "create_inspection": "get_plant_inspections",
     "assign_nutrient_plan": "get_plant_nutrient_plan",
     "add_plant_diary_entry": "list_diary_entries",
+    "transition_plant_phase": "get_plant_phase_status",
+    "assign_species_phase_sequence": "get_species_phase_sequence",
+}
+
+#: Write tool → the read tool that RESOLVES its key arguments (§4.1). Distinct
+#: from the result reader: a write tool whose references no read tool can produce
+#: is un-callable in the first place, however findable its result would be.
+WRITE_REFERENCE_RESOLVERS: dict[str, str] = {
+    "transition_plant_phase": "get_species_phase_sequence",
+    "assign_species_phase_sequence": "list_phase_sequences",
+    "assign_nutrient_plan": "list_nutrient_plans",
 }
 
 
@@ -81,6 +108,15 @@ def test_every_new_write_tool_has_a_read_tool_that_finds_its_result(write_tool: 
     )
 
 
+@pytest.mark.parametrize(("write_tool", "read_tool"), sorted(WRITE_REFERENCE_RESOLVERS.items()))
+def test_every_new_write_tool_has_a_read_tool_that_resolves_its_references(write_tool: str, read_tool: str):
+    names = load_tools().names()
+    assert write_tool in names
+    assert read_tool in names, (
+        f"'{write_tool}' takes a key no read tool produces, so no agent can call it (REQ-033 §4.1)."
+    )
+
+
 @pytest.mark.parametrize("name", sorted(NEW_TOOLS))
 def test_tenant_binding_is_derived_from_the_input_model(name: str):
     tool = load_tools().get(name)
@@ -115,10 +151,11 @@ def test_every_write_tool_takes_a_key_a_read_tool_produces():
     assert not offenders, f"Write tools with no resolvable key argument: {offenders}"
 
 
-#: Palette size after issue #931 — 43 before, plus the five specified tools.
-#: This is the number ``docs/*/api/mcp-server.md`` and REQ-033 §Umsetzungsstand
-#: both quote, which is the whole reason it is asserted rather than described.
-PALETTE_SIZE = 48
+#: Palette size after issue #949 — 48 after #931, plus the eight phase/lifecycle
+#: tools. This is the number ``docs/*/api/mcp-server.md`` and REQ-033
+#: §Umsetzungsstand both quote, which is the whole reason it is asserted rather
+#: than described.
+PALETTE_SIZE = 56
 
 
 def test_the_palette_grew_by_exactly_the_five_specified_tools():

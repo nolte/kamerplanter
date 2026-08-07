@@ -79,6 +79,8 @@ _RUNNER = RUNNER_PERENNIAL_SEQUENCE
         ("Fragaria x ananassa", "perennial", "polycarpic", None, "day_neutral", "groundcover", _RUNNER),
         ("Lactuca sativa", "annual", None, None, "long_day", "herb", None),
         ("Solanum lycopersicum", "annual", "polycarpic", None, "day_neutral", "herb", None),
+        # -- A KNOWN biennial is still a determinate cycle → blanket is correct --
+        ("Daucus carota", "biennial", "monocarpic", None, "long_day", "herb", None),
     ],
 )
 def test_resolve_phase_sequence_name(name, cycle, flowering, photo_syn, photoperiod, habit, expected) -> None:
@@ -93,3 +95,79 @@ def test_resolve_phase_sequence_name(name, cycle, flowering, photo_syn, photoper
         )
         == expected
     )
+
+
+class TestUnresolvableSpeciesNeverFallToTheAnnualBlanket:
+    """Issue #949 — a null ``cycle_type`` is *no answer*, not ``annual``.
+
+    A species with no ``LifecycleConfig`` reaches the resolver with every
+    lifecycle-derived input null. Routing it to ``indoor_default`` asserted a
+    126-day cycle ending in a terminal, harvest-allowing phase — which is how a
+    *Yucca gigantea* (evergreen, perennial, polycarpic tree) came to be scheduled
+    harvest-ready and lifecycle-complete 126 days after planting.
+    """
+
+    def test_a_species_with_no_lifecycle_at_all_lands_on_the_repeating_cycle(self) -> None:
+        # Exactly the Yucca gigantea input: tenant record, empty photosynthesis_type,
+        # no LifecycleConfig, so cycle_type/flowering/photoperiod all arrive as None.
+        assert (
+            resolve_phase_sequence_name(
+                "Yucca gigantea",
+                cycle_type=None,
+                flowering_strategy=None,
+                photosynthesis_type=None,
+                photoperiod_type=None,
+                growth_habit=None,
+            )
+            == EVERGREEN_PERENNIAL_SEQUENCE
+        )
+
+    @pytest.mark.parametrize("name", ["Aglaonema modestum", "Dracaena reflexa"])
+    def test_the_other_two_species_from_the_same_bucket_move_too(self, name: str) -> None:
+        # Both sat on ``indoor_default`` alongside Rosenkohl and Porree — the
+        # template collision the issue's reverse lookup surfaced.
+        assert (
+            resolve_phase_sequence_name(
+                name,
+                cycle_type=None,
+                flowering_strategy=None,
+                photosynthesis_type=None,
+                photoperiod_type=None,
+                growth_habit=None,
+            )
+            == EVERGREEN_PERENNIAL_SEQUENCE
+        )
+
+    def test_an_unknown_cycle_string_is_also_treated_as_unresolved(self) -> None:
+        # Defensive: a cycle value the resolver does not know is absence of an
+        # answer too, and must not be read as a licence to schedule a harvest.
+        assert (
+            resolve_phase_sequence_name(
+                "Some novum",
+                cycle_type="not_a_real_cycle",
+                flowering_strategy=None,
+                photosynthesis_type=None,
+                photoperiod_type=None,
+                growth_habit=None,
+            )
+            == EVERGREEN_PERENNIAL_SEQUENCE
+        )
+
+    @pytest.mark.parametrize("cycle", ["annual", "biennial"])
+    def test_a_known_determinate_cycle_still_takes_the_blanket(self, cycle: str) -> None:
+        """The fix must not sweep genuine annuals off their harvest-terminated cycle.
+
+        ``None`` is the signal being changed, not ``annual`` — a lettuce really
+        does end after one season and belongs on ``indoor_default``.
+        """
+        assert (
+            resolve_phase_sequence_name(
+                "Lactuca sativa",
+                cycle_type=cycle,
+                flowering_strategy=None,
+                photosynthesis_type=None,
+                photoperiod_type=None,
+                growth_habit="herb",
+            )
+            is None
+        )
