@@ -51,3 +51,43 @@ export function getFieldErrors(error: unknown): Record<string, string> {
   }
   return fieldErrors;
 }
+
+/** One field-scoped entry of a backend error envelope, with the `body.` prefix stripped. */
+export interface FieldViolation {
+  /** Request-body field the violation is about, e.g. `plant_keys`. */
+  field: string;
+  /** The backend's own wording. **English** — see {@link getFieldViolations}. */
+  reason: string;
+  /** Stable machine-readable marker, e.g. `watering_target_required`. */
+  code: string;
+}
+
+/**
+ * Field-scoped violations of an API error, `code` included.
+ *
+ * The difference to {@link getFieldErrors} is the `code`, and it matters
+ * because `reason` is written by the backend and is **English**, while this app
+ * renders German (NFR-003 keeps source and API messages English, the UI is
+ * translated). Putting `reason` straight onto a form field therefore drops an
+ * English sentence into a German form — which is why `HarvestCreateDialog`
+ * overrides the reason it gets for a duplicate `batch_id`.
+ *
+ * `code` is the backend's stable contract for exactly this: a caller branches on
+ * it and supplies its own translated message, while `reason` stays free to be
+ * reworded. Callers that have no translation for a code should skip it and let
+ * the generic validation toast stand, rather than showing the English text.
+ *
+ * Later entries win per field: the envelope may name one field twice, and the
+ * last-checked rule is the more specific one.
+ */
+export function getFieldViolations(error: unknown): FieldViolation[] {
+  if (!isApiError(error)) return [];
+
+  return error.details
+    .filter((detail) => !!detail.field)
+    .map((detail) => ({
+      field: detail.field.replace(/^body\./, ''),
+      reason: detail.reason,
+      code: detail.code,
+    }));
+}

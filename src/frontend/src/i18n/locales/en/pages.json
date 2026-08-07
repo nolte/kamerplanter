@@ -2815,6 +2815,10 @@
     "wateringLogs": {
       "title": "Watering Log",
       "description": "All watering and fertilization events at a glance.",
+      "errors": {
+        "targetRequired": "Select at least one plant or slot — without a target the watering cannot be attributed.",
+        "supplementalCannotFertigate": "A supplemental watering cannot use fertigation — pick another application method or turn off “supplemental”."
+      },
       "create": "Record Watering",
       "detail": "Watering Log Detail",
       "loggedAt": "Logged At",

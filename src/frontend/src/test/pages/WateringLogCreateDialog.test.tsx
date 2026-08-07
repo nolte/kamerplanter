@@ -74,11 +74,44 @@ function makeFertilizer(overrides: Partial<Fertilizer> = {}): Fertilizer {
   } as Fertilizer;
 }
 
+/** The English reason the backend sends with the missing-target violation. */
+const TARGET_REQUIRED_REASON = 'At least one of slot_keys or plant_keys must be provided';
+
+/**
+ * The 422 body the API really answers when no watering target is given.
+ *
+ * Not invented here: `body.plant_keys` / `body.slot_keys`, this exact reason and
+ * the `watering_target_required` code are asserted verbatim by the backend's own
+ * pin, `src/backend/tests/api/test_watering_logs_tenant_router.py`
+ * ::TestCreateLogRequiresATarget::test_error_body_names_both_target_fields.
+ * A fixture drifting from that test would let this suite certify a response
+ * shape the server never sends.
+ *
+ * @param code Overridable so a test can ask what happens to a violation code
+ *   this dialog has no translation for.
+ */
+function targetRequiredEnvelope(code = 'watering_target_required'): Record<string, unknown> {
+  return {
+    error_id: 'err_test',
+    error_code: 'VALIDATION_ERROR',
+    message: 'The input data is invalid.',
+    details: [
+      { field: 'body.slot_keys', reason: TARGET_REQUIRED_REASON, code },
+      { field: 'body.plant_keys', reason: TARGET_REQUIRED_REASON, code },
+    ],
+    timestamp: '2026-08-07T00:00:00Z',
+    path: '/api/v1/t/test-tenant/watering-logs',
+    method: 'POST',
+  };
+}
+
 interface Seed {
   plants?: PlantInstance[];
   fertilizers?: Fertilizer[];
   plantsError?: boolean;
   createStatus?: number;
+  /** Exact error envelope the POST answers with; replaces the generic one. */
+  createError?: Record<string, unknown>;
   onPost?: (body: Record<string, unknown>) => void;
 }
 
@@ -88,6 +121,7 @@ function seed(state: Seed = {}) {
     fertilizers = [makeFertilizer()],
     plantsError = false,
     createStatus = 201,
+    createError,
     onPost,
   } = state;
 
@@ -101,9 +135,13 @@ function seed(state: Seed = {}) {
     http.post(CREATE_URL, async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       onPost?.(body);
-      return createStatus < 400
-        ? HttpResponse.json({ key: 'wl-new', ...body }, { status: createStatus })
-        : HttpResponse.json({ error_id: 'e', error_code: 'INTERNAL_ERROR', message: 'boom', details: [] }, { status: createStatus });
+      if (createStatus < 400) {
+        return HttpResponse.json({ key: 'wl-new', ...body }, { status: createStatus });
+      }
+      return HttpResponse.json(
+        createError ?? { error_id: 'e', error_code: 'INTERNAL_ERROR', message: 'boom', details: [] },
+        { status: createStatus },
+      );
     }),
   );
 }
@@ -281,6 +319,94 @@ describe('WateringLogCreateDialog', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     // No plants were selectable -> plant_keys omitted from the payload.
     expect(body!.plant_keys).toBeUndefined();
+  });
+
+  it('anchors the missing-target 422 on both target fields, translated', async () => {
+    seed({ createStatus: 422, createError: targetRequiredEnvelope() });
+    const user = userEvent.setup();
+    const { onCreated } = renderDialog();
+
+    await screen.findByTestId('watering-log-create-dialog');
+    // Neither a plant nor a slot: the cross-field rule the form deliberately
+    // does not restate, so this reaches the server (see the schema's docs).
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    const expected = i18n.t('pages.wateringLogs.errors.targetRequired');
+    await waitFor(() =>
+      expect(within(screen.getByTestId('form-field-plant_keys')).getByText(expected)).toBeInTheDocument(),
+    );
+    expect(
+      within(screen.getByTestId('form-field-slot_keys_input')).getByText(expected),
+    ).toBeInTheDocument();
+
+    // The backend's English wording must not reach a translated UI — the whole
+    // reason the message is keyed on the violation code rather than taken from
+    // the envelope.
+    expect(screen.queryByText(TARGET_REQUIRED_REASON)).not.toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.getByTestId('watering-log-create-dialog')).toBeInTheDocument();
+  });
+
+  it('anchors the supplemental/fertigation violation on the switch and the method select', async () => {
+    // The dialog's second reachable cross-field rule: nothing stops the user
+    // from turning on "supplemental" and picking fertigation, so this path is
+    // as real as the missing target and needs the same mapping to work. The
+    // fields and code mirror the backend's `find_watering_log_violations`.
+    const reason = 'Supplemental watering cannot use fertigation application method';
+    seed({
+      createStatus: 422,
+      createError: {
+        error_id: 'err_test',
+        error_code: 'VALIDATION_ERROR',
+        message: 'The input data is invalid.',
+        details: [
+          { field: 'body.is_supplemental', reason, code: 'supplemental_cannot_fertigate' },
+          { field: 'body.application_method', reason, code: 'supplemental_cannot_fertigate' },
+        ],
+        timestamp: '2026-08-07T00:00:00Z',
+        path: '/api/v1/t/test-tenant/watering-logs',
+        method: 'POST',
+      },
+    });
+    const user = userEvent.setup();
+    const { onCreated } = renderDialog();
+
+    await screen.findByTestId('watering-log-create-dialog');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    const expected = i18n.t('pages.wateringLogs.errors.supplementalCannotFertigate');
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('form-field-is_supplemental')).getByText(expected),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(screen.getByTestId('form-field-application_method')).getByText(expected),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(reason)).not.toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the generic toast for a violation code it cannot translate', async () => {
+    // The fail-soft direction the "do not mirror the rule client-side" decision
+    // rests on: a rule the backend gained and this dialog has never heard of
+    // must degrade to a visible generic message, never to silence and never to
+    // an English sentence in a German form.
+    seed({ createStatus: 422, createError: targetRequiredEnvelope('some_rule_added_later') });
+    const user = userEvent.setup();
+    const { onCreated } = renderDialog();
+
+    await screen.findByTestId('watering-log-create-dialog');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    expect(await screen.findByText(i18n.t('errors.validation'))).toBeInTheDocument();
+    expect(screen.queryByText(TARGET_REQUIRED_REASON)).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('form-field-plant_keys')).queryByText(
+        i18n.t('pages.wateringLogs.errors.targetRequired'),
+      ),
+    ).not.toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
   });
 
   it('closes via the cancel action', async () => {
