@@ -27,16 +27,34 @@ class IWateringLogRepository(ABC):
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
-    def get_by_slot(self, slot_key: str, offset: int = 0, limit: int = 50) -> list[WateringLog]: ...
+    def get_by_slot(
+        self,
+        slot_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[WateringLog]:
+        """Return a slot's watering logs inside ``tenant_key`` (#927)."""
+        ...
 
     @abstractmethod
-    def get_by_location(self, location_key: str, offset: int = 0, limit: int = 50) -> list[WateringLog]: ...
+    def get_by_location(
+        self,
+        location_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[WateringLog]:
+        """Return a location's watering logs inside ``tenant_key`` (#927)."""
+        ...
 
     @abstractmethod
-    def get_stats_by_location(self, location_key: str) -> dict: ...
+    def get_stats_by_location(self, location_key: str, *, tenant_key: str) -> dict: ...
 
     @abstractmethod
-    def get_last_watering_date_for_run(self, run_key: str) -> date | None: ...
+    def get_last_watering_date_for_run(self, run_key: str, *, tenant_key: str) -> date | None: ...
 
     @abstractmethod
     def get_by_plant(

@@ -441,9 +441,13 @@ def get_watering_schedule(
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
-    """Return the projected watering schedule for a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.get_watering_schedule(key, days_ahead)
+    """Return the projected watering schedule for a planting run.
+
+    The service verifies the run against ``tenant_key`` itself and forwards the
+    tenant to the "last watered" probe (#927), so the redundant pre-check that
+    used to stand here is gone.
+    """
+    result = service.get_watering_schedule(key, days_ahead, tenant_key=ctx.tenant_key)
     return WateringScheduleCalendarResponse(**result)
 
 

@@ -82,7 +82,12 @@ def generate_due_care_reminders() -> dict:
             continue
 
         has_plan = plant_key in plants_with_schedule
-        has_nutrient_plan = nutrient_plan_repo.get_plant_plan(plant_key) is not None
+        # Tenant-scoped since #927; the plant document is the authority on its own
+        # tenant. A tenantless plant answers ``False`` instead of forcing an
+        # unscoped read across every tenant's plan assignments.
+        has_nutrient_plan = bool(plant.tenant_key) and (
+            nutrient_plan_repo.get_plant_plan(plant_key, tenant_key=plant.tenant_key) is not None
+        )
 
         # REQ-022 §3.2 winter-reminder gating context (B1): without the
         # overwintering profile + frost sensitivity the engine suppresses every

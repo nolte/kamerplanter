@@ -81,9 +81,14 @@ class SiteService:
         self.get_location(parent_key)
         return self._repo.get_location_children(parent_key)
 
-    def get_location_tree(self, site_key: SiteKey) -> list[Location]:
-        self.get_site(site_key)
-        return self._repo.get_location_tree(site_key)
+    def get_location_tree(self, site_key: SiteKey, *, tenant_key: str) -> list[Location]:
+        """A site's location hierarchy, scoped to ``tenant_key`` (#927).
+
+        The site is verified against the tenant here *and* the traversal carries
+        the tenant predicate, so neither layer alone has to hold.
+        """
+        self.get_site(site_key, tenant_key=tenant_key)
+        return self._repo.get_location_tree(site_key, tenant_key=tenant_key)
 
     # --- Slots ---
 

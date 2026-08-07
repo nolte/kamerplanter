@@ -110,8 +110,17 @@ def list_observations(
     ctx: TenantContext = Depends(get_current_tenant),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    """List a plant's harvest-readiness observations (paginated)."""
-    observations, _ = service.get_observations(plant_key, pagination.offset, pagination.limit)
+    """List a plant's harvest-readiness observations (paginated).
+
+    A ``plant_key`` belonging to another tenant yields an empty list — the
+    tenant scope is enforced in the repository query (#927).
+    """
+    observations, _ = service.get_observations(
+        plant_key,
+        pagination.offset,
+        pagination.limit,
+        tenant_key=ctx.tenant_key,
+    )
     return [_observation_response(o) for o in observations]
 
 
@@ -121,8 +130,11 @@ def assess_readiness(
     ctx: TenantContext = Depends(get_current_tenant),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    """Assess a plant's current harvest readiness."""
-    return service.assess_readiness(plant_key)
+    """Assess a plant's current harvest readiness.
+
+    A ``plant_key`` belonging to another tenant assesses nothing (#927).
+    """
+    return service.assess_readiness(plant_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/batches", response_model=list[HarvestBatchResponse])

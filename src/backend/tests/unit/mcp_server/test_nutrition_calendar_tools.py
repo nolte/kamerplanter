@@ -76,7 +76,10 @@ class _NutrientService:
     def get_phase_entries(self, plan_key):
         return self._entries
 
-    def get_plant_plan(self, plant_key):
+    def get_plant_plan(self, plant_key, *, tenant_key):
+        # Mirrors the real signature: ``tenant_key`` is required and keyword-only
+        # since #927, so a tool that forgot to forward it fails here loudly.
+        self.seen_plant_plan_tenant = tenant_key
         return self._plant_plan
 
 
@@ -131,8 +134,8 @@ async def test_get_nutrient_plan_returns_phases_in_sequence_order():
 
 @pytest.mark.asyncio
 async def test_get_plant_nutrient_plan_checks_plant_ownership_first():
-    # get_plant_plan carries no tenant, so ownership has to be established on the
-    # plant — otherwise a foreign plant_key would leak its plan.
+    # Two guards, not one: ownership is established on the plant, and the plan
+    # lookup itself is tenant-scoped in the repository since #927.
     plants = _PlantService([_Plant("p1", "Tomate")])
     svc = _NutrientService([], entries=[_Entry("vegetative", 1)], plant_plan=_Plan("np1", "Tomate Bio"))
 
@@ -141,6 +144,9 @@ async def test_get_plant_nutrient_plan_checks_plant_ownership_first():
         GetPlantNutrientPlan.Input(plant_key="p1"),
     )
     assert plants.seen_tenant == "home"
+    # …and the tenant reaches the plan lookup too (#927), so the isolation does
+    # not rest on the plant fetch above alone.
+    assert svc.seen_plant_plan_tenant == "home"
     assert resp.data["plan_key"] == "np1"
     assert len(resp.data["phases"]) == 1
 

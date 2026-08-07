@@ -27,7 +27,13 @@ class TestRemovePlantTaskCleanup:
         # out of scope for these tests.
         self.plant = MagicMock()
         self.plant.slot_key = None
+        # The task cascade is tenant-scoped since #927 and reads the tenant off
+        # the plant being removed, so the double has to carry a real one.
+        self.plant.tenant_key = "tenant-a"
         self.plant_repo.get_by_key.return_value = self.plant
+        # ``remove_plant`` loads through ``get_or_raise``; the double has to
+        # answer there too, or the tenant read off the plant is a MagicMock.
+        self.plant_repo.get_or_raise.return_value = self.plant
         self.plant_repo.update.return_value = self.plant
 
     def _service(self, task_repo=None) -> PlantInstanceService:
@@ -84,7 +90,7 @@ class TestRemovePlantTaskCleanup:
         result = service.remove_plant("plant-1")
 
         assert result is self.plant
-        self.task_repo.get_tasks_for_plant.assert_called_once_with("plant-1")
+        self.task_repo.get_tasks_for_plant.assert_called_once_with("plant-1", tenant_key="tenant-a")
 
 
 class TestRemovePlantRunTaskCleanup:
@@ -105,7 +111,9 @@ class TestRemovePlantRunTaskCleanup:
 
         self.plant = MagicMock()
         self.plant.slot_key = None
+        self.plant.tenant_key = "tenant-a"
         self.plant_repo.get_by_key.return_value = self.plant
+        self.plant_repo.get_or_raise.return_value = self.plant
         self.plant_repo.update.return_value = self.plant
         # Isolate the run-scoped path: the plant-scoped cascade finds nothing.
         self.task_repo.get_tasks_for_plant.return_value = []

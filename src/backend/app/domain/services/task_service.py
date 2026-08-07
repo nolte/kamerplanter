@@ -414,7 +414,12 @@ class TaskService:
         return updated
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
-        if task.entity_key and task.entity_type:
+        # ``tenant_key`` is part of the guard, not an optional extra: the
+        # repository rejects the empty sentinel since #927, and a task without a
+        # tenant has no tenant-scoped sibling set to reschedule against. Such a
+        # task simply has no dependents here rather than triggering a scan across
+        # every tenant's tasks.
+        if task.entity_key and task.entity_type and task.tenant_key:
             all_tasks = self._repo.get_tasks_for_entity(
                 task.entity_type,
                 task.entity_key,
@@ -623,9 +628,15 @@ class TaskService:
 
     # ── Comments ──
 
-    def list_comments(self, task_key: str) -> list[TaskComment]:
-        self.get_task(task_key)  # ensure task exists
-        return self._repo.get_comments_for_task(task_key)
+    def list_comments(self, task_key: str, *, tenant_key: str) -> list[TaskComment]:
+        """A task's comments, scoped to ``tenant_key`` (#927).
+
+        The task lookup verifies ownership and answers 404 for a foreign key; the
+        repository applies the same tenant predicate to the comment query, so the
+        isolation survives a caller that forgets the first step.
+        """
+        self.get_task(task_key, tenant_key=tenant_key)
+        return self._repo.get_comments_for_task(task_key, tenant_key=tenant_key)
 
     def create_comment(self, task_key: str, text: str, created_by: str) -> TaskComment:
         self.get_task(task_key)  # ensure task exists
@@ -721,11 +732,18 @@ class TaskService:
 
     # ── Task Queue ──
 
-    def get_task_queue(self, plant_key: str | None = None) -> list[Task]:
+    def get_task_queue(self, plant_key: str | None = None, *, tenant_key: str) -> list[Task]:
+        """The prioritised task queue of one tenant (#927).
+
+        Both branches are tenant-scoped: the per-plant one because ``plant_key``
+        comes from a query parameter and used to select across tenants, the
+        unfiltered one because it used to return the whole installation's pending
+        tasks.
+        """
         if plant_key:
-            tasks = self._repo.get_tasks_for_plant(plant_key, "pending")
+            tasks = self._repo.get_tasks_for_plant(plant_key, "pending", tenant_key=tenant_key)
         else:
-            tasks, _ = self._repo.get_pending_tasks(0, 200)
+            tasks, _ = self._repo.get_pending_tasks(0, 200, tenant_key=tenant_key)
 
         # Deduplicate care_reminder tasks: keep only the newest per entity_key + name suffix
         tasks = self._deduplicate_care_tasks(tasks)
@@ -803,13 +821,19 @@ class TaskService:
 
         return result
 
-    def get_overdue_tasks(self) -> list[Task]:
-        tasks = self._repo.get_overdue_tasks()
+    def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]:
+        """Overdue tasks of one tenant (#927)."""
+        tasks = self._repo.get_overdue_tasks(tenant_key=tenant_key)
         return self._deduplicate_care_tasks(tasks)
 
-    def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]:
-        """Convenience method for plant-specific task queries."""
-        return self._repo.get_tasks_for_plant(plant_key, status)
+    def get_tasks_for_plant(self, plant_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+        """A plant's tasks, scoped to ``tenant_key`` (#927).
+
+        ``plant_key`` is not resolved against the caller's tenant here — the
+        repository's tenant predicate is what turns a foreign key into an empty
+        list instead of the other tenant's task list.
+        """
+        return self._repo.get_tasks_for_plant(plant_key, status, tenant_key=tenant_key)
 
     def get_tasks_for_entity(
         self,

@@ -114,11 +114,24 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
         slot_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringLog]:
+        """A slot's watering logs **inside one tenant** (#927).
+
+        Issue #927 lists this under "one line away — current callers do check".
+        They do not: ``GET /t/{slug}/slots/{slot_key}/watering-logs`` passes the
+        URL key straight through without resolving the slot against the caller's
+        tenant, so this was exploitable exactly like the five named endpoints.
+        The tenant predicate is therefore applied here, keyword-only and required,
+        rather than as a caller-side check.
+        """
+        self._require_tenant_key(tenant_key, "get_by_slot")
         query = """
         FOR e IN @@edge_col
           FILTER e._to == @slot_id
           LET doc = DOCUMENT(e._from)
+          FILTER doc != null AND doc.tenant_key == @tenant_key
           SORT doc.logged_at DESC
           LIMIT @offset, @limit
           RETURN doc
@@ -129,6 +142,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             bind_vars={
                 "@edge_col": col.LOG_SLOT,
                 "slot_id": slot_id,
+                "tenant_key": tenant_key,
                 "offset": offset,
                 "limit": limit,
             },
@@ -140,13 +154,23 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
         location_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> list[WateringLog]:
+        """A location's watering logs **inside one tenant** (#927).
+
+        Same correction as :meth:`get_by_slot`:
+        ``GET /t/{slug}/locations/{location_key}/watering-logs`` forwarded the URL
+        key unverified, so this too was live rather than merely latent.
+        """
+        self._require_tenant_key(tenant_key, "get_by_location")
         query = """
         FOR slot_edge IN @@has_slot
           FILTER slot_edge._from == @location_id
           FOR log_edge IN @@log_slot
             FILTER log_edge._to == slot_edge._to
             LET doc = DOCUMENT(log_edge._from)
+            FILTER doc != null AND doc.tenant_key == @tenant_key
             SORT doc.logged_at DESC
             LIMIT @offset, @limit
             RETURN DISTINCT doc
@@ -158,13 +182,20 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
                 "@has_slot": col.HAS_SLOT,
                 "@log_slot": col.LOG_SLOT,
                 "location_id": location_id,
+                "tenant_key": tenant_key,
                 "offset": offset,
                 "limit": limit,
             },
         )
         return [self._to_model(doc) for doc in cursor]
 
-    def get_stats_by_location(self, location_key: str) -> dict:
+    def get_stats_by_location(self, location_key: str, *, tenant_key: str) -> dict:
+        """A location's watering-log statistics, **inside one tenant** (#927).
+
+        The aggregate is nothing but counts and sums, so leaving it unfiltered
+        would disclose exactly the numbers the list query no longer returns.
+        """
+        self._require_tenant_key(tenant_key, "get_stats_by_location")
         query = """
         LET logs = (
           FOR slot_edge IN @@has_slot
@@ -172,6 +203,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             FOR log_edge IN @@log_slot
               FILTER log_edge._to == slot_edge._to
               LET doc = DOCUMENT(log_edge._from)
+              FILTER doc != null AND doc.tenant_key == @tenant_key
               RETURN DISTINCT doc
         )
         LET by_method = (
@@ -193,12 +225,20 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
                 "@has_slot": col.HAS_SLOT,
                 "@log_slot": col.LOG_SLOT,
                 "location_id": location_id,
+                "tenant_key": tenant_key,
             },
         )
         result = next(cursor, None)
         return result or {"total_events": 0, "total_volume": 0.0, "by_method": []}
 
-    def get_last_watering_date_for_run(self, run_key: str) -> date | None:
+    def get_last_watering_date_for_run(self, run_key: str, *, tenant_key: str) -> date | None:
+        """Newest watering-log date for a run's slots, **inside one tenant** (#927).
+
+        Structural twin of ``ArangoWateringRepository.get_last_watering_date_for_run``
+        and closed for the same reason: the query selects logs by a slot-key
+        intersection and named no tenant.
+        """
+        self._require_tenant_key(tenant_key, "get_last_watering_date_for_run")
         query = """
         LET slot_keys = (
           FOR rc IN @@run_contains
@@ -209,6 +249,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
               RETURN PARSE_IDENTIFIER(pi._to).key
         )
         FOR wl IN @@watering_logs
+          FILTER wl.tenant_key == @tenant_key
           FILTER LENGTH(INTERSECTION(wl.slot_keys, slot_keys)) > 0
           SORT wl.logged_at DESC
           LIMIT 1
@@ -222,6 +263,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
                 "@placed_in": col.PLACED_IN,
                 "@watering_logs": col.WATERING_LOGS,
                 "run_id": run_id,
+                "tenant_key": tenant_key,
             },
         )
         result = next(cursor, None)

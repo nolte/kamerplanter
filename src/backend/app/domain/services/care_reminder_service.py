@@ -1099,7 +1099,7 @@ class CareReminderService:
                     "species_name": (species.common_names[0] if species and species.common_names else None),
                     "botanical_family": None,
                     "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
-                    "has_nutrient_plan": self._has_nutrient_plan(plant_key),
+                    "has_nutrient_plan": self._has_nutrient_plan(plant_key, plant.tenant_key),
                     # REQ-022 §3.2 winter-reminder gating context (B1).
                     "frost_sensitivity": (species.frost_sensitivity if species else None),
                     "cultivar_traits": self._resolve_cultivar_traits(plant.cultivar_key, cultivar_traits_cache),
@@ -1222,11 +1222,16 @@ class CareReminderService:
         phase = self._lifecycle_repo.get_phase_by_key(phase_key)
         return phase.name if phase else None
 
-    def _has_nutrient_plan(self, plant_key: str) -> bool:
-        """Return whether the plant has a nutrient plan assigned."""
-        if self._nutrient_plan_repo is None:
+    def _has_nutrient_plan(self, plant_key: str, tenant_key: str) -> bool:
+        """Return whether the plant has a nutrient plan assigned.
+
+        ``tenant_key`` is the plant's own, forwarded to the tenant-scoped
+        repository lookup (#927). Without one the answer is ``False`` rather than
+        an unscoped read.
+        """
+        if self._nutrient_plan_repo is None or not tenant_key:
             return False
-        return self._nutrient_plan_repo.get_plant_plan(plant_key) is not None
+        return self._nutrient_plan_repo.get_plant_plan(plant_key, tenant_key=tenant_key) is not None
 
     def reset_profile(
         self,
