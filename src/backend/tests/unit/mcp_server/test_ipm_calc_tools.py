@@ -200,11 +200,16 @@ async def test_disease_lookup_round_trip():
 @pytest.mark.asyncio
 async def test_plant_inspections_verify_ownership_first():
     class _Inspection:
+        key = "i1"
         inspected_at = datetime(2026, 7, 1, 8, 0)
         pressure_level = "low"
         detected_pest_keys = ["pe1"]
         detected_disease_keys = []
         symptoms_observed = ["webbing"]
+        # Legacy shape: an inspection written before ``findings`` existed carries
+        # the attribute at all only because the model defaults it. The tool reads
+        # it defensively, so a row from a raw dict must still pass.
+        findings: list = []
         notes = None
 
     plants = _PlantService([_Plant("p1", "Tomate")])

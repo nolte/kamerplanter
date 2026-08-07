@@ -116,6 +116,48 @@ class ToolContext:
         return self._service("substrate_service")
 
     @property
+    def feeding_service(self) -> Any:
+        """Fertigation records — amount, EC/pH before/after, runoff, tank reference.
+
+        The same service ``/t/{slug}/feeding-events`` uses. Its plant-scoped read
+        (:meth:`FeedingService.get_by_plant`) takes ``tenant_key`` keyword-only
+        and without a default since #927, so a tool cannot read another tenant's
+        fertigation record by forgetting an argument.
+        """
+
+        return self._service("feeding_service")
+
+    @property
+    def observation_service(self) -> Any:
+        """Time-series sensor readings (TimescaleDB, REQ-005).
+
+        Degrades to a null repository when no TimescaleDB is configured, so a
+        reading tool must treat "no samples" and "no time-series backend" as
+        different answers rather than assuming the first.
+        """
+
+        return self._service("observation_service")
+
+    @property
+    def sensor_service(self) -> Any:
+        """Sensor master data — which sensors sit at a site, location or tank."""
+
+        return self._service("sensor_service")
+
+    @property
+    def knowledge_service(self) -> Any:
+        """Async RAG port to the Knowledge-Service microservice (REQ-031 §4.1).
+
+        Deliberately the **async** ``IKnowledgeService`` adapter and not the
+        synchronous ``KnowledgeServiceClient`` the REST proxy uses: a tool handler
+        runs on the event loop, and the sync client would block it for the whole
+        round-trip. The adapter also carries the per-call timeout, the retry and
+        the circuit breaker the sync client lacks (NFR-007).
+        """
+
+        return self._service("knowledge_service_adapter")
+
+    @property
     def overwintering_service(self) -> Any:
         return self._service("overwintering_profile_service")
 
