@@ -70,6 +70,19 @@ WORKFLOW_PHASE_UPDATABLE_FIELDS = frozenset(
 #: the caller's own workflows is a legitimate edit — and it is exactly the field
 #: :meth:`TaskService._verify_workflow_template_reference` checks, so the check
 #: stays live on the update path instead of being dead code.
+#:
+#: **It is not reachable over HTTP, and that is left as it is (#964, #965).**
+#: ``TaskTemplateUpdate`` does not declare the field, so Pydantic's
+#: ``extra='ignore'`` drops it from a request body. Declaring it would make the
+#: reference check genuinely reachable rather than accidentally unnecessary —
+#: but it would also *widen* the write surface, and not only in theory: the SPA's
+#: two inline editors (the enabled switch and the day-offset field) send
+#: ``{...template, enabled: …}``, and ``TaskTemplateResponse`` carries
+#: ``workflow_template_key``. Declaring the field turns that spread from
+#: "silently ignored" into a re-point written on every toggle and every
+#: keystroke, and any client posting a stale or partial template would move or
+#: orphan it. The field therefore stays undeclared, and the guard stays live for
+#: the non-HTTP callers that do reach this method.
 TASK_TEMPLATE_UPDATABLE_FIELDS = frozenset(
     {
         "name",
@@ -314,12 +327,22 @@ class TaskService:
     def _refuse_writing_into_a_system_workflow(self, workflow_template_key: str | None) -> None:
         """Refuse an edit whose *parent* workflow is a system template (#965 item 3).
 
-        Used by the phase routes, which reach their parent through the phase's
-        own ``workflow_template_key`` — the router has already resolved that key
-        against the caller's tenant, so this only adds the ``is_system``
-        predicate and never re-decides visibility. A phase with no parent key is
-        left alone: there is nothing to anchor on, and 404-ing it here would
-        break an unparented phase that is editable today.
+        Used wherever a child is edited or removed **in place** — the phase
+        routes and the two task-template routes — which reach their parent
+        through the child's own ``workflow_template_key``.
+
+        Resolution is deliberately **tenant-blind**: only ``is_system`` is
+        consulted, never the caller's tenant. That keeps this a pure system-data
+        guard and leaves #965 item 1 (a *foreign tenant's* child, reachable
+        because ``get_task_template`` is unanchored) exactly where it was.
+        Anchoring on the parent's tenant is the larger change that needs the
+        orphan-ownership field and its backfill; doing it here by accident would
+        settle that question in the wrong place.
+
+        A child with no parent key is left alone: there is nothing to anchor on,
+        and refusing it here would be an orphan decision bolted onto the delete
+        path — orphans do have an owner now (global, decided on #965), but that
+        belongs to items 1/2/4 with their own field, not to this guard.
         """
         if not workflow_template_key:
             return
@@ -388,8 +411,17 @@ class TaskService:
         workflow just as create could. The allow-list bounds *which* fields are
         written, the reference check bounds *which values* the parent field may
         take.
+
+        Both parents are checked, and in this order (#965 item 3). The template's
+        **current** parent decides whether this edit may happen at all: a seeded
+        template of "Tomato Standard" is system data, so renaming or re-timing it
+        is the same refusal as attaching a new one, only arriving by a different
+        verb — and it was previously unguarded, because this route never looked
+        at the parent. The **target** parent is then checked as before, so a move
+        can neither leave a system workflow's contents editable nor land in one.
         """
         tt = self.get_task_template(key)
+        self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
         fields = _allowed(data, TASK_TEMPLATE_UPDATABLE_FIELDS)
         if "workflow_template_key" in fields:
             self._verify_workflow_template_reference(fields["workflow_template_key"], tenant_key)
@@ -398,7 +430,16 @@ class TaskService:
         return self._repo.update_task_template(key, tt)
 
     def delete_task_template(self, key: str) -> bool:
-        self.get_task_template(key)  # ensure exists
+        """Remove a task template unless it belongs to a system workflow (#965 item 3).
+
+        Deleting a seeded template of a system workflow removes it for every
+        tenant, which is the same modification the two parent-level guards
+        already refuse — so it is refused here too, with the same 422. No
+        ``tenant_key`` is taken: this route never had one, and adding the tenant
+        anchor is item 1's change, not this one.
+        """
+        tt = self.get_task_template(key)
+        self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
         return self._repo.delete_task_template(key)
 
     # ── Workflow Instantiation ──

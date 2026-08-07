@@ -22,6 +22,17 @@ Both directions are pinned. The strict direction must not eat the legitimate
 uses of a system workflow that the UI depends on — reading it, duplicating it
 into an owned copy, instantiating it — nor the tenant's own workflows, which
 still accept children.
+
+The rule covers a child that is *already* inside a system workflow, not only one
+being attached: editing a seeded task template in place, or deleting it, is the
+same modification arriving by a different verb. That half needs no anchor
+decision — the parent is read off the child's own ``workflow_template_key`` and
+only its ``is_system`` flag is consulted, never the caller's tenant. What stays
+deliberately open is #965 item 1, the *foreign-tenant* half of the same two
+routes: a template belonging to another tenant's workflow is still reachable,
+because closing that needs the orphan-ownership field and backfill rather than a
+guard bolted onto the delete path. Two tests below pin that boundary so this file
+cannot be misread as having closed item 1.
 """
 
 from __future__ import annotations
@@ -173,6 +184,70 @@ class TestASystemWorkflowRefusesPhaseChildren:
         repo.delete_phase.assert_not_called()
 
 
+class TestASystemWorkflowsExistingTaskTemplatesAreAlsoOffLimits:
+    """The rule reaches the children already inside, not only the ones arriving.
+
+    ``PUT``/``DELETE /tasks/templates/{key}`` never looked at the parent at all,
+    so a tenant could rename, re-time or delete a seeded template of "Tomato
+    Standard" — for everyone. That is the same modification as attaching one,
+    arriving by a different verb, and it closes without the orphan-ownership
+    decision: the parent comes off the child's own ``workflow_template_key`` and
+    only ``is_system`` is consulted.
+    """
+
+    def test_editing_a_task_template_of_a_system_workflow_in_place_is_refused(self) -> None:
+        service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
+
+        with pytest.raises(ValidationError):
+            service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+
+        repo.update_task_template.assert_not_called()
+
+    def test_deleting_a_task_template_of_a_system_workflow_is_refused(self) -> None:
+        service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
+
+        with pytest.raises(ValidationError):
+            service.delete_task_template("tt-1")
+
+        repo.delete_task_template.assert_not_called()
+
+    def test_both_refusals_carry_the_shared_shape(self) -> None:
+        service, _ = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
+
+        with pytest.raises(ValidationError) as edit:
+            service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+        with pytest.raises(ValidationError) as removal:
+            service.delete_task_template("tt-1")
+
+        assert edit.value.status_code == removal.value.status_code == 422
+        assert edit.value.error_code == removal.value.error_code == "VALIDATION_ERROR"
+
+
+class TestItem1StaysOpen:
+    """The foreign-tenant half of the same two routes is deliberately untouched.
+
+    Guarding it means anchoring on the parent's *tenant*, which is exactly the
+    step that needs the orphan-ownership field and its backfill. These two tests
+    exist so a later reader cannot mistake the ``is_system`` guard for that fix —
+    if someone closes item 1, they should be replaced, not silently satisfied.
+    """
+
+    def test_a_foreign_tenants_task_template_is_still_editable(self) -> None:
+        service, repo = _service(_template(workflow_template_key=FOREIGN_WORKFLOW))
+
+        updated = service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+
+        assert updated.name == "Umbenannt"
+        repo.update_task_template.assert_called_once()
+
+    def test_a_foreign_tenants_task_template_is_still_deletable(self) -> None:
+        service, repo = _service(_template(workflow_template_key=FOREIGN_WORKFLOW))
+
+        service.delete_task_template("tt-1")
+
+        repo.delete_task_template.assert_called_once()
+
+
 class TestTheTenantsOwnWorkflowStillAcceptsChildren:
     """The positive direction — #324 is what over-strictness costs."""
 
@@ -212,6 +287,29 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
         assert service.delete_workflow_phase("ph-own") is True
         repo.update_phase.assert_called_once()
         repo.delete_phase.assert_called_once()
+
+    def test_the_callers_own_task_template_is_still_editable_and_deletable(self) -> None:
+        service, repo = _service(_template(workflow_template_key=OWN_WORKFLOW))
+
+        assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
+        service.delete_task_template("tt-1")
+        repo.update_task_template.assert_called_once()
+        repo.delete_task_template.assert_called_once()
+
+    def test_a_task_template_with_no_parent_workflow_is_left_alone(self) -> None:
+        """A standalone template has no anchor — this guard must not become an
+        orphan-ownership decision by the back door.
+
+        Orphans do have an owner now (global, decided on #965), but that belongs
+        to items 1/2/4 with their own field and backfill; refusing one here would
+        settle it in the wrong place and break a template that is editable today.
+        """
+        service, repo = _service(_template())
+
+        assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
+        service.delete_task_template("tt-1")
+        repo.update_task_template.assert_called_once()
+        repo.delete_task_template.assert_called_once()
 
     def test_a_phase_with_no_parent_workflow_is_left_alone(self) -> None:
         """An unparented phase has nothing to anchor on; the guard must not 404 it."""

@@ -47,11 +47,17 @@ TENANT_KEY = "tenant-a"
 FOREIGN_TENANT_KEY = "tenant-b"
 
 OWN_WORKFLOW = "wf-a1"
+#: A second workflow of the same tenant, so "move between the caller's own
+#: workflows" can be exercised with an own workflow on *both* ends. It used to
+#: start from the system workflow, which #965 item 3 now refuses as a source —
+#: moving a template out of "Tomato Standard" removes it for every tenant.
+OTHER_OWN_WORKFLOW = "wf-a2"
 FOREIGN_WORKFLOW = "wf-b1"
 SYSTEM_WORKFLOW = "wf-sys"
 
 WORKFLOWS: dict[str, WorkflowTemplate] = {
     OWN_WORKFLOW: WorkflowTemplate(_key=OWN_WORKFLOW, tenant_key=TENANT_KEY, name="Eigener Workflow"),
+    OTHER_OWN_WORKFLOW: WorkflowTemplate(_key=OTHER_OWN_WORKFLOW, tenant_key=TENANT_KEY, name="Zweiter Workflow"),
     FOREIGN_WORKFLOW: WorkflowTemplate(_key=FOREIGN_WORKFLOW, tenant_key=FOREIGN_TENANT_KEY, name="Fremd"),
     SYSTEM_WORKFLOW: WorkflowTemplate(_key=SYSTEM_WORKFLOW, tenant_key="", name="Tomato Standard", is_system=True),
 }
@@ -187,7 +193,7 @@ class TestUpdateTaskTemplateVerifiesItsParentWorkflow:
         assert foreign.value.error_code == unknown.value.error_code
 
     def test_moving_a_template_between_the_callers_own_workflows_still_works(self) -> None:
-        service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
+        service, repo = _service(_template(workflow_template_key=OTHER_OWN_WORKFLOW))
 
         updated = service.update_task_template(
             "tt-1",
@@ -197,6 +203,25 @@ class TestUpdateTaskTemplateVerifiesItsParentWorkflow:
 
         assert updated.workflow_template_key == OWN_WORKFLOW
         repo.update_task_template.assert_called_once()
+
+    def test_a_template_cannot_be_moved_out_of_a_system_workflow_either(self) -> None:
+        """Both ends of a move are checked (#965 item 3).
+
+        This case previously stood in for the one above, and it passed: only the
+        *target* was verified, so a template could be lifted out of "Tomato
+        Standard" into the caller's own workflow — which removes it from the
+        system workflow for every tenant just as surely as deleting it.
+        """
+        service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
+
+        with pytest.raises(ValidationError):
+            service.update_task_template(
+                "tt-1",
+                {"workflow_template_key": OWN_WORKFLOW},
+                tenant_key=TENANT_KEY,
+            )
+
+        repo.update_task_template.assert_not_called()
 
 
 class TestUpdateTaskTemplateIsAllowListed:

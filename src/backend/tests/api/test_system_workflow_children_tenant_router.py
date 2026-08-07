@@ -67,6 +67,26 @@ WORKFLOWS: dict[str, dict[str, Any]] = {
     },
 }
 
+OWN_TEMPLATE = "tt-own"
+SYSTEM_TEMPLATE = "tt-sys"
+FOREIGN_TEMPLATE = "tt-foreign"
+ORPHAN_TEMPLATE = "tt-orphan"
+
+TASK_TEMPLATES: dict[str, dict[str, Any]] = {
+    key: {
+        "_key": key,
+        "_id": f"{col.TASK_TEMPLATES}/{key}",
+        "name": "Giessen",
+        **({"workflow_template_key": parent} if parent else {}),
+    }
+    for key, parent in (
+        (OWN_TEMPLATE, OWN_WORKFLOW),
+        (SYSTEM_TEMPLATE, SYSTEM_WORKFLOW),
+        (FOREIGN_TEMPLATE, FOREIGN_WORKFLOW),
+        (ORPHAN_TEMPLATE, None),
+    )
+}
+
 PHASES: dict[str, dict[str, Any]] = {
     OWN_PHASE: {
         "_key": OWN_PHASE,
@@ -124,7 +144,10 @@ class _RecordingCollection:
 
 class _Fixture:
     def __init__(self) -> None:
-        self.templates = _RecordingCollection(col.TASK_TEMPLATES)
+        self.templates = _RecordingCollection(
+            col.TASK_TEMPLATES,
+            {k: dict(v) for k, v in TASK_TEMPLATES.items()},
+        )
         self.phases = _RecordingCollection(col.WORKFLOW_PHASES, {k: dict(v) for k, v in PHASES.items()})
         self.contains_edges = _RecordingCollection(col.WF_CONTAINS)
         self.phase_edges = _RecordingCollection(col.WF_HAS_PHASE)
@@ -134,8 +157,11 @@ class _Fixture:
         aql = (
             ReplayingAql()
             # ``delete_phase`` detaches the phase's edges and unlinks its task
-            # templates before removing the document; neither returns rows.
+            # templates before removing the document; ``delete_task_template``
+            # detaches its own two edge kinds. None of the four returns rows.
             .route(col.WF_HAS_PHASE, lambda query, bind_vars: [])
+            .route(col.WF_CONTAINS, lambda query, bind_vars: [])
+            .route(col.INSTANCE_OF, lambda query, bind_vars: [])
             .route(col.TASK_TEMPLATES, lambda query, bind_vars: [])
         )
         collections = {
@@ -201,6 +227,58 @@ class TestTaskTemplateChildrenOfASystemWorkflow:
 
         assert foreign.status_code == 404, foreign.text
         assert foreign.json()["error_code"] == "ENTITY_NOT_FOUND"
+
+
+class TestTheExistingTaskTemplatesOfASystemWorkflow:
+    """``PUT``/``DELETE /tasks/templates/{key}`` never looked at the parent at all."""
+
+    def test_editing_a_system_workflows_task_template_in_place_is_refused(self):
+        fx = _Fixture()
+
+        resp = fx.client.put(_url(f"/tasks/templates/{SYSTEM_TEMPLATE}"), json={"name": "Umbenannt"})
+
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["error_code"] == "VALIDATION_ERROR"
+        assert fx.templates.updated == []
+
+    def test_deleting_a_system_workflows_task_template_is_refused(self):
+        fx = _Fixture()
+
+        resp = fx.client.delete(_url(f"/tasks/templates/{SYSTEM_TEMPLATE}"))
+
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["error_code"] == "VALIDATION_ERROR"
+        assert fx.templates.deleted == []
+
+    def test_the_callers_own_task_template_is_still_editable_and_deletable(self):
+        fx = _Fixture()
+
+        updated = fx.client.put(_url(f"/tasks/templates/{OWN_TEMPLATE}"), json={"name": "Umbenannt"})
+        deleted = fx.client.delete(_url(f"/tasks/templates/{OWN_TEMPLATE}"))
+
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["name"] == "Umbenannt"
+        assert deleted.status_code == 204, deleted.text
+        assert fx.templates.deleted == [OWN_TEMPLATE]
+
+    def test_a_task_template_with_no_parent_workflow_is_left_alone(self):
+        """No anchor, so no refusal — the orphan question is not settled here."""
+        fx = _Fixture()
+
+        updated = fx.client.put(_url(f"/tasks/templates/{ORPHAN_TEMPLATE}"), json={"name": "Umbenannt"})
+        deleted = fx.client.delete(_url(f"/tasks/templates/{ORPHAN_TEMPLATE}"))
+
+        assert updated.status_code == 200, updated.text
+        assert deleted.status_code == 204, deleted.text
+
+    def test_a_foreign_tenants_task_template_is_still_reachable(self):
+        """#965 item 1, deliberately still open — anchoring on the parent's
+        *tenant* needs the orphan-ownership field, not a guard on this path."""
+        fx = _Fixture()
+
+        updated = fx.client.put(_url(f"/tasks/templates/{FOREIGN_TEMPLATE}"), json={"name": "Umbenannt"})
+
+        assert updated.status_code == 200, updated.text
 
 
 class TestPhaseChildrenOfASystemWorkflow:
