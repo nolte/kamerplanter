@@ -6,8 +6,20 @@ from app.common.enums import CycleType, FloweringStrategy, GrowthDeterminacy, Ph
 
 
 class LifecycleCreate(BaseModel):
+    """Write body for a species' lifecycle configuration (POST and PUT).
+
+    ``cycle_type`` is **required** on purpose (issue #949). It used to default to
+    ``annual``, which meant a caller that simply did not know the botanical cycle
+    got the strongest possible assertion recorded on its behalf — and the phase
+    sequence resolver keys on exactly this field. A missing cycle is now a ``422``:
+    an explicit refusal beats a silent, wrong answer.
+    """
+
     species_key: str
-    cycle_type: CycleType = CycleType.ANNUAL
+    cycle_type: CycleType = Field(
+        description="Botanical lifespan. Required — there is deliberately no default, "
+        "because guessing 'annual' schedules a terminal harvest for a perennial.",
+    )
     cultivation_cycle_type: CycleType | None = None
     flowering_strategy: FloweringStrategy | None = None
     growth_determinacy: GrowthDeterminacy | None = None
@@ -17,6 +29,12 @@ class LifecycleCreate(BaseModel):
     vernalization_min_days: int | None = Field(default=None, ge=1)
     photoperiod_type: PhotoperiodType = PhotoperiodType.DAY_NEUTRAL
     critical_day_length_hours: float | None = Field(default=None, ge=0, le=24)
+    phase_sequence_key: str | None = Field(
+        default=None,
+        description="Bind the species to this phase sequence. Omit to leave the current "
+        "binding untouched; it is never cleared by omission. Discover keys with "
+        "GET /api/v1/phase-sequences.",
+    )
 
 
 class LifecycleResponse(BaseModel):

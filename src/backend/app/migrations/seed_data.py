@@ -193,6 +193,20 @@ def link_indoor_species_to_phase_sequence() -> None:
         if target_key:
             fine_typed += 1
         else:
+            # ``target_name`` unset → the resolver deliberately chose the blanket for a
+            # KNOWN annual/biennial, which is where such a species belongs. ``target_name``
+            # set but not found here → the sequence the resolver picked is not seeded, and
+            # the species silently lands on an annual harvest cycle instead. That is a
+            # seed-data defect, not a routine fallback, so it is logged rather than
+            # absorbed (issue #949).
+            if target_name:
+                logger.warning(
+                    "phase_sequence_target_not_seeded",
+                    species_key=sp_key,
+                    scientific_name=sp.scientific_name,
+                    target_sequence=target_name,
+                    falling_back_to=INDOOR_DEFAULT_SEQUENCE,
+                )
             target_key = indoor_key  # last-resort blanket
 
         edge_col.insert({"_from": species_id, "_to": f"{col.PHASE_SEQUENCES}/{target_key}"})

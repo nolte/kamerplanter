@@ -151,8 +151,69 @@ class PhaseService:
         return self._repo.create_lifecycle(config)
 
     def update_lifecycle(self, key: str, config: LifecycleConfig) -> LifecycleConfig:
-        self.get_lifecycle(key)
+        """Update a lifecycle, preserving the phase-sequence binding on omission.
+
+        ``phase_sequence_key`` is the field that records which sequence a species is
+        bound to. Before issue #949 a PUT that did not mention it wrote ``None`` over
+        the stored value and returned ``200`` — a silent, destructive drop. An omitted
+        (``None``) value now means *"leave it alone"*; clearing a binding is done by
+        binding a different sequence, not by forgetting a field.
+        """
+        existing = self.get_lifecycle(key)
+        if config.phase_sequence_key is None:
+            config.phase_sequence_key = existing.phase_sequence_key
         return self._repo.update_lifecycle(key, config)
+
+    def assign_phase_sequence(self, species_key: str, sequence_key: str) -> dict:
+        """Bind a species to an existing phase sequence — the durable assignment point.
+
+        Two records describe the binding and they must not diverge:
+
+        * the ``HAS_PHASE_SEQUENCE`` **edge**, which is what
+          :meth:`PhaseSequenceService.get_sequence_by_species` and therefore the whole
+          lifecycle engine actually read; and
+        * ``LifecycleConfig.phase_sequence_key``, the field every lifecycle *response*
+          reports and which the seed and migration paths maintain.
+
+        Writing only one of them was the defect behind issue #949: setting
+        ``PhaseSequence.species_key`` through ``PUT /phase-sequences/{key}`` stored a
+        field nothing resolves against, so the assignment had no effect while the call
+        returned ``200``. This writes the edge (the effective binding) and syncs the
+        field when the species has a ``LifecycleConfig``.
+
+        Returns ``{"sequence_key", "previous_sequence_key", "lifecycle_key"}`` —
+        ``lifecycle_key`` is ``None`` when the species has no lifecycle to sync, which
+        is a valid state, not an error: the edge alone already drives the engine.
+
+        Raises ``NotFoundError`` when the sequence does not exist, so a typo cannot
+        strand a species on a dangling edge.
+        """
+        if self._phase_seq_repo is None:
+            raise NotFoundError("PhaseSequence", sequence_key)
+        sequence = self._phase_seq_repo.get_sequence_by_key(sequence_key)
+        if sequence is None:
+            raise NotFoundError("PhaseSequence", sequence_key)
+
+        previous = self._phase_seq_repo.set_species_sequence(species_key, sequence_key)
+
+        lifecycle = self._repo.get_lifecycle_by_species(species_key)
+        lifecycle_key = lifecycle.key if lifecycle else None
+        if lifecycle is not None and lifecycle.key:
+            lifecycle.phase_sequence_key = sequence_key
+            self._repo.update_lifecycle(lifecycle.key, lifecycle)
+
+        logger.info(
+            "phase_sequence_assigned",
+            species_key=species_key,
+            sequence_key=sequence_key,
+            previous_sequence_key=previous,
+            lifecycle_key=lifecycle_key,
+        )
+        return {
+            "sequence_key": sequence_key,
+            "previous_sequence_key": previous,
+            "lifecycle_key": lifecycle_key,
+        }
 
     # --- Phases ---
 

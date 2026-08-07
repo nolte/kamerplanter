@@ -50,6 +50,20 @@ class IPhaseSequenceRepository(ABC):
     def get_species_for_sequence(self, seq_key: str) -> list[dict]: ...
 
     @abstractmethod
+    def set_species_sequence(self, species_key: str, seq_key: str) -> str | None:
+        """Bind ``species_key`` to ``seq_key``, replacing any existing binding.
+
+        The binding that :meth:`get_sequence_by_species` reads is the
+        ``HAS_PHASE_SEQUENCE`` **edge**, not the ``PhaseSequence.species_key``
+        field — writing the field alone changes nothing anyone reads (issue #949).
+        This is the one write that actually moves a species onto a sequence.
+
+        Returns the key of the sequence that was previously bound, or ``None``
+        when the species had no binding, so a caller can report what it replaced.
+        """
+        ...
+
+    @abstractmethod
     def get_all_sequences(
         self,
         offset: int,

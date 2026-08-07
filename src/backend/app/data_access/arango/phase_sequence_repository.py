@@ -112,6 +112,24 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         doc = next(cursor, None)
         return PhaseSequence(**self._from_doc(doc)) if doc else None
 
+    def set_species_sequence(self, species_key: str, seq_key: str) -> str | None:
+        """Re-point the species' HAS_PHASE_SEQUENCE edge at ``seq_key`` (issue #949).
+
+        Every outbound edge is removed first so the species keeps exactly one
+        binding — :meth:`get_sequence_by_species` takes the first vertex it finds,
+        so a second edge would make resolution order-dependent and therefore
+        unstable. Returns the previously bound sequence key, or ``None``.
+        """
+        species_id = f"{col.SPECIES}/{species_key}"
+        previous = self.get_sequence_by_species(species_key)
+        self.delete_edges(col.HAS_PHASE_SEQUENCE, from_id=species_id)
+        self.create_edge(
+            col.HAS_PHASE_SEQUENCE,
+            species_id,
+            f"{col.PHASE_SEQUENCES}/{seq_key}",
+        )
+        return previous.key if previous else None
+
     def get_species_for_sequence(self, seq_key: str) -> list[dict]:
         """Return all species linked to a PhaseSequence via HAS_PHASE_SEQUENCE edge."""
         query = (
