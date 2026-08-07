@@ -6,6 +6,7 @@ import type {
   PlantDiaryEntry,
   PlantDiaryEntryCreate,
   PlantDiaryEntryUpdate,
+  PlantEnvironmentPreview,
 } from '../types';
 
 /**
@@ -63,6 +64,23 @@ export async function getPlantDiaryEntry(
 ): Promise<PlantDiaryEntry> {
   const { data } = await tenantClient.get<PlantDiaryEntry>(
     `${base(plantInstanceKey)}/${entryKey}`,
+  );
+  return data;
+}
+
+/**
+ * GET — what an entry's environment snapshot would contain right now.
+ *
+ * REQ-013 §2.3a. A *preview*, never an input: the dialog renders it read-only
+ * and sends nothing back but the opt-out flag, and the server re-resolves
+ * everything at create time. The two may legitimately differ if a sensor answers
+ * in between — the entry records what was true when it was written.
+ */
+export async function getPlantEnvironmentPreview(
+  plantInstanceKey: string,
+): Promise<PlantEnvironmentPreview> {
+  const { data } = await tenantClient.get<PlantEnvironmentPreview>(
+    `/plant-instances/${plantInstanceKey}/environment`,
   );
   return data;
 }
