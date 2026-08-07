@@ -40,12 +40,48 @@ Im Dialog trägst du ein:
 - **Beschreibung** — der einzige Pflichtwert; beschreibe frei, was du beobachtest.
 - **Tags** — freie Stichworte, mit Enter bestätigt.
 - **Messwerte** — optionale Zahlen oder Kurzangaben, z. B. Höhe in cm oder Blattanzahl.
+- **Umgebung zum Zeitpunkt des Eintrags** — die Sensorwerte, die deine Pflanze abdecken. Diese liest Kamerplanter selbst; du siehst sie im Dialog nur zur Kontrolle (siehe unten).
 - **Fotos** — bis zu **5 Fotos** je Eintrag, aufgenommen per Webcam, Smartphone-Kamera oder als Datei-Upload.
 
 !!! note "Datenschutz: EXIF-Daten"
     Fotos werden vor dem Hochladen verkleinert und von EXIF-Metadaten befreit — dazu gehören GPS-Koordinaten, Kameramodell und Aufnahmezeitpunkt.
 
 Neue Einträge erscheinen chronologisch absteigend, der jüngste zuerst.
+
+### Die Umgebung wird automatisch mitgeschrieben {#umgebung}
+
+Ein Eintrag hält fest, *was* dir aufgefallen ist. Genauso wichtig ist aber, *unter welchen Bedingungen* die Pflanze stand, als es dir auffiel — „untere Blätter hängen" liest sich bei 31 °C und 28 % Luftfeuchte ganz anders als bei 19 °C und 65 %.
+
+Deshalb liest Kamerplanter beim **Anlegen** eines Eintrags die Sensorwerte, die deine Pflanze abdecken, und speichert sie mit. Du musst nichts eintippen. Im Dialog siehst du unter **„Umgebung zum Zeitpunkt des Eintrags"** genau die Werte, die gespeichert werden — als Vorschau, nicht als Eingabefeld.
+
+Gesucht wird in dieser Reihenfolge, und zwar für jeden Messwert einzeln:
+
+1. **Standort** — Sensoren am Standort deiner Pflanze (z. B. im Zelt, im Gewächshaus, am Hochbeet).
+2. **Gelände** — Sensoren am Gelände, für alles, was der Standort nicht abdeckt. Hängt am Standort nur ein Thermometer, liefert das Gelände weiterhin die Luftfeuchte.
+3. **Wetterdienst** — für Außenstandorte die aktuellen Außenbedingungen deines Wetterdienstes, wenn kein Sensor geantwortet hat.
+4. **Nichts** — findet sich nichts, bleibt das Feld leer. Es wird **kein** Wert geschätzt oder erfunden.
+
+An jedem Wert steht, woher er kommt (Standort, Gelände oder Wetterdienst) und **wann er gemessen wurde**. Der Messzeitpunkt ist fast immer etwas älter als dein Eintrag, und das ist Absicht: nur so kannst du später erkennen, ob ein Wert wirklich zu deiner Beobachtung passt.
+
+!!! note "Alte Werte werden weggelassen, nicht geschönt"
+    Ein Messwert, der älter als eine Stunde ist, wird gar nicht erst übernommen. Ein Eintrag, der „22 °C" von einem Sensor behauptet, der zuletzt gestern gesprochen hat, wäre schlechter als ein Eintrag ganz ohne Klimawerte.
+
+!!! note "Getrennt von deinen eigenen Messwerten"
+    Automatisch gelesene Werte landen **nie** im Feld „Messwerte". Das bleibt deins: was du dort einträgst, hast du gemessen. Nur so ist später erkennbar, was ein Gerät gemeldet hat und was du selbst notiert hast. Aus demselben Grund lässt sich ein automatischer Wert nicht bearbeiten — willst du ihn korrigieren, ist das eine eigene Messung und gehört unter „Messwerte".
+
+**Nicht mitspeichern:** Mit dem Häkchen **„Umgebungswerte mit dem Eintrag speichern"** schaltest du die Erfassung für diesen einen Eintrag ab. Deine eigenen Messwerte bleiben davon unberührt.
+
+**Wenn nichts angezeigt wird**, sagt dir der Dialog, woran es liegt:
+
+| Meldung | Bedeutung | Was du tun kannst |
+|---------|-----------|-------------------|
+| Keine aktuellen Sensorwerte vorhanden | Kein Sensor deckt diese Pflanze ab. | Einen Sensor am [Standort oder Gelände](sensors.md) anlegen. |
+| Sensoren nicht erreichbar | Die Sensoren haben gerade nicht geantwortet. | Verbindung zu Home Assistant prüfen. Der Eintrag lässt sich trotzdem speichern. |
+
+Speichern lässt sich der Eintrag **immer** — auch wenn kein einziger Sensor antwortet. Gerade wenn du ein Problem dokumentierst, wäre das der schlechteste Moment für eine Fehlermeldung.
+
+!!! warning "Nur beim Anlegen"
+    Die Umgebungswerte werden ausschließlich beim **Anlegen** erfasst. Bearbeitest du den Text eines Eintrags später, bleiben sie unverändert stehen — sonst trüge dein Eintrag am Ende ein Klima, das beim Beobachten nie geherrscht hat.
 
 ### Eintrag bearbeiten oder löschen
 
@@ -122,7 +158,7 @@ Diese Einschränkung gilt zusätzlich zur Einwilligung — beides muss zutreffen
 
 ## Was in die Analyse eingeht
 
-Analysiert wird der **gesamte Eintrag**, nicht nur ein einzelnes Foto: Titel und Beschreibung, Eintragstyp und Tags, die erfassten Messwerte, alle angehängten Fotos sowie der Pflanzenkontext (Art, Sorte, aktuelle Phase, Standort, Pflanzdatum) — denn dieselbe Verfärbung ist an einem Sämling anders zu bewerten als an einer Pflanze in der Blüte.
+Analysiert wird der **gesamte Eintrag**, nicht nur ein einzelnes Foto: Titel und Beschreibung, Eintragstyp und Tags, die erfassten Messwerte, die [automatisch erfassten Umgebungswerte](#umgebung), alle angehängten Fotos sowie der Pflanzenkontext (Art, Sorte, aktuelle Phase, Standort, Pflanzdatum) — denn dieselbe Verfärbung ist an einem Sämling anders zu bewerten als an einer Pflanze in der Blüte, und bei 31 °C anders als bei 19 °C.
 
 !!! note "Nur verkleinerte Bildfassungen, nie das Original"
     An deinen Agenten und weiter an dein Sprachmodell gehen ausschließlich verkleinerte Bildfassungen ohne EXIF-Daten — niemals das Originalfoto und niemals Aufnahmeort oder Gerätekennung.
@@ -182,6 +218,15 @@ Das Tagebuch ist ein eigenes, abschaltbares Modul (`diary`, Kategorie „Pflege 
 ---
 
 ## Häufige Fragen
+
+??? question "Warum stehen die Sensorwerte nicht bei meinen Messwerten?"
+    Weil sonst später niemand mehr unterscheiden könnte, was ein Gerät gemeldet und was du selbst gemessen hast. Deine Messwerte bleiben deine; die automatischen stehen daneben, mit Herkunft und Messzeitpunkt.
+
+??? question "Im Dialog stand 22 °C, gespeichert wurden 22,4 °C. Ist das ein Fehler?"
+    Nein. Die Vorschau zeigt den Stand beim Öffnen des Dialogs, gespeichert wird der Stand beim Speichern. Der Eintrag hält fest, was beim Schreiben galt — nicht, was der Dialog eine Minute vorher angezeigt hat.
+
+??? question "Kann ich einen automatisch erfassten Wert korrigieren?"
+    Nicht direkt. Ein korrigierter Wert ist eine eigene Messung — trage ihn unter „Messwerte" ein. Der automatische Wert bleibt daneben stehen, damit die Abweichung sichtbar bleibt.
 
 ??? question "Ich habe einen Eintrag markiert, aber es passiert nichts. Woran liegt das?"
     Das ist erwartetes Verhalten. Kamerplanter analysiert nicht selbst — dafür braucht es einen von dir betriebenen Agenten. Solange keiner läuft, bleibt der Eintrag im Zustand „Wartet auf Analyse" stehen. Sobald du deinen Agenten startest, holt er markierte Einträge selbstständig ab.

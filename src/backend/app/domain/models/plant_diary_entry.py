@@ -3,7 +3,46 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.common.enums import DiaryAnalysisState, DiaryEntryType
+from app.common.enums import (
+    DiaryAnalysisState,
+    DiaryEntryType,
+    DiaryEnvironmentOrigin,
+    DiaryEnvironmentStatus,
+)
+
+
+class DiaryEnvironmentReading(BaseModel):
+    """One machine-read environmental value captured with a diary entry.
+
+    REQ-013 §2.3a. This is **not** a ``measurements`` entry and must never be
+    merged into one: ``measurements`` is an open ``dict`` the grower types into,
+    with no room for provenance, so a 22.4 °C moved across would become
+    indistinguishable from a value a human read off a thermometer. REQ-005 §1
+    requires the data source to be tracked, and NFR-011 / REQ-025 retention
+    treats sensor-derived data differently from free-text observation — the
+    distinction has to survive in the document, which means two fields, not one.
+
+    ``measured_at`` is when the *reading* was taken and is regularly older than
+    the entry's ``created_at``. It is the field that makes the record falsifiable:
+    without it a value captured from a sensor that last spoke this morning would
+    read as if it had been measured while the grower was writing.
+    """
+
+    #: The sensor's own ``metric_type``, verbatim — the vocabulary is open
+    #: (REQ-005 §2), so normalising it here would silently invent a value.
+    metric_type: str = Field(max_length=100)
+    value: float
+    unit: str | None = Field(default=None, max_length=50)
+    #: REQ-005 §2 provenance for a sensor reading (``ha_auto``, ``mqtt_auto``,
+    #: ``manual``, …). For an ``origin: weather`` reading it carries the adapter's
+    #: own source name instead (``open-meteo``, ``dwd``, …) — the REQ-005
+    #: ``weather_api`` class is already said by ``origin``, and collapsing the
+    #: adapter into it would throw away which service answered.
+    source: str = Field(max_length=100)
+    measured_at: datetime
+    #: ``None`` for a weather-derived reading: no sensor produced it.
+    sensor_key: str | None = None
+    origin: DiaryEnvironmentOrigin
 
 
 class DiaryFinding(BaseModel):
@@ -63,6 +102,21 @@ class PlantDiaryEntry(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    # ── REQ-013 §2.3a: environment snapshot (additive, no migration) ──────────
+    # Resolved **server-side** on create from the plant's own location, never
+    # taken from the request body: a value the client can write is a value the
+    # client can invent, and this one is meant to be evidence. Every field
+    # defaults, so a document written before this change validates and
+    # round-trips unchanged.
+    environment: list[DiaryEnvironmentReading] = Field(default_factory=list)
+    #: When the capture ran — *not* when any single value was measured (that is
+    #: each reading's ``measured_at``). ``None`` whenever no capture ran at all,
+    #: which is the ``not_attempted`` and ``opted_out`` case.
+    environment_captured_at: datetime | None = None
+    #: Tells ``[]`` apart from ``[]``: see
+    #: :class:`~app.common.enums.DiaryEnvironmentStatus`.
+    environment_status: DiaryEnvironmentStatus = DiaryEnvironmentStatus.NOT_ATTEMPTED
+
     # ── REQ-050: AI analysis (additive, no data migration required) ───────────
     # Every field below is optional and defaults to today's behaviour, so a
     # document written before REQ-050 validates unchanged and round-trips through
@@ -92,3 +146,20 @@ class PlantDiaryEntry(BaseModel):
         become unreadable — the opposite of what AK-26 promises.
         """
         return DiaryAnalysisState.NONE if value is None else value
+
+    @field_validator("environment", mode="before")
+    @classmethod
+    def _default_missing_environment(cls, value: Any) -> Any:
+        """Read a missing/``null`` ``environment`` as the empty list.
+
+        Same reason as :meth:`_default_missing_analysis_state`: the partial-update
+        path persists explicit ``null``s, so an entry whose snapshot was cleared
+        would otherwise stop validating and become unreadable.
+        """
+        return [] if value is None else value
+
+    @field_validator("environment_status", mode="before")
+    @classmethod
+    def _default_missing_environment_status(cls, value: Any) -> Any:
+        """Read a missing/``null`` ``environment_status`` as ``not_attempted``."""
+        return DiaryEnvironmentStatus.NOT_ATTEMPTED if value is None else value

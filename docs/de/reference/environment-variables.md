@@ -209,6 +209,21 @@ Diese Variablen steuern den [MCP-Server](../api/mcp-server.md) — die Werkzeug-
 
 ---
 
+## Tagebuch — Umgebungs-Schnappschuss
+
+Beim Anlegen eines Tagebuch-Eintrags liest Kamerplanter die Sensorwerte, die die Pflanze abdecken, und speichert sie getrennt von den handnotierten Messwerten mit — siehe [Tagebuch — Die Umgebung wird automatisch mitgeschrieben](../user-guide/plant-diary.md#umgebung).
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `DIARY_ENVIRONMENT_CAPTURE_ENABLED` | `true` | Nein | Gesamtschalter. Auf `false` wird jeder neue Eintrag mit dem Vermerk „nicht versucht" gespeichert — unterscheidbar von „gesucht und nichts gefunden". |
+| `DIARY_ENVIRONMENT_MAX_AGE_MINUTES` | `60` | Nein | Ein Messwert, der älter ist, wird **gar nicht** erfasst. Ein Eintrag, der einen gestrigen Sensorwert als aktuell ausweist, ist schlechteres Belegmaterial als ein Eintrag ohne Klimawerte. |
+| `DIARY_ENVIRONMENT_CAPTURE_TIMEOUT_SECONDS` | `3.0` | Nein | Harte Obergrenze für die gesamte Erfassung. Läuft sie ab, wird der Eintrag mit dem gespeichert, was rechtzeitig ankam — das Anlegen wartet nie länger auf einen Sensor. |
+
+!!! note "Ein Ausfall verhindert nie den Eintrag"
+    Nicht erreichbares Home Assistant, fehlende TimescaleDB oder ein abgelaufenes Zeitbudget führen zu einem Eintrag **ohne** (oder mit unvollständigen) Umgebungswerten, nie zu einer abgelehnten Anlage.
+
+---
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Standard | Pflicht | Beschreibung |

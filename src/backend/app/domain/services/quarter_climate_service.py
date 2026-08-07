@@ -21,6 +21,7 @@ import structlog
 
 from app.common.enums import ReminderType, TaskPriority
 from app.domain.engines.care_reminder_engine import evaluate_quarter_climate_violation
+from app.domain.engines.sensor_metrics import is_air_temperature
 from app.domain.services.care_reminder_service import build_care_reminder_task
 
 if TYPE_CHECKING:
@@ -109,23 +110,26 @@ class QuarterClimateService:
         """Freshest air-temperature reading at the winter quarter, or ``None``.
 
         Scans the sensors attached to the quarter location for an active
-        temperature sensor (metric type mentions "temp", excluding water-temperature
-        probes) and returns its latest observation value. Tenant-scoped through the
-        observation repository so a foreign reading can never leak in.
+        **ambient air** temperature sensor and returns its latest observation
+        value. Tenant-scoped through the observation repository so a foreign
+        reading can never leak in.
+
+        The classification is
+        :func:`~app.domain.engines.sensor_metrics.is_air_temperature` — the SSOT
+        this service shares with the frost-warning engine (Issue #961). It used
+        to be a local ``"temp" in metric and "water" not in metric`` rule, which
+        also accepted substrate/soil/leaf probes. Aliases are deliberately **not**
+        accepted here: the question is "is the room too cold for the plant", and a
+        heated reservoir must not answer it.
         """
         sensors = self._sensor_repo.find_by_location(location_key)
         for sensor in sensors:
-            if not sensor.is_active or not sensor.key or not self._is_air_temperature(sensor.metric_type):
+            if not sensor.is_active or not sensor.key or not is_air_temperature(sensor.metric_type):
                 continue
             reading = self._observation_repo.get_latest(sensor.key, tenant_key)
             if reading is not None:
                 return reading.value
         return None
-
-    @staticmethod
-    def _is_air_temperature(metric_type: str) -> bool:
-        metric = metric_type.lower()
-        return "temp" in metric and "water" not in metric
 
     @staticmethod
     def _instruction(plant_label: str, violation: str, temp_c: float | None, profile) -> str:  # noqa: ANN001

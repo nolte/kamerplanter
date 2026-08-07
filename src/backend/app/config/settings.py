@@ -350,6 +350,37 @@ class Settings(BaseSettings):
     #: instead of being reinterpreted.
     mcp_max_image_payload_mb: int = Field(default=4, ge=1)
 
+    # ── REQ-013 §2.3a — diary environment snapshot ───────────────────────────
+    #: Kill-switch. Off means every new entry is stored with
+    #: ``environment_status: not_attempted`` — honest, and distinguishable from
+    #: "we looked and found nothing".
+    diary_environment_capture_enabled: bool = True
+    #: A reading older than this is **not** captured. An entry that claims
+    #: "22 °C" from a sensor that last spoke yesterday is worse evidence than an
+    #: entry with no climate at all, so the bound errs towards dropping.
+    #:
+    #: 60 minutes: indoor climate sensors report every few minutes, and even a
+    #: battery-powered Zigbee/BLE hygrometer with a heartbeat sends within the
+    #: hour, so a healthy sensor is always well inside the window. An hour is
+    #: also the coarsest resolution at which "the conditions when the grower
+    #: looked" is still the same weather situation — beyond it the value
+    #: describes a different afternoon.
+    #:
+    #: Global rather than per-tenant on purpose: the bound follows from sensor
+    #: reporting cadence, which is a property of hardware, not of a garden.
+    diary_environment_max_age_minutes: int = Field(default=60, ge=1)
+    #: Hard wall-clock ceiling for the whole capture. Creating a diary entry is
+    #: an interactive POST and the write itself costs milliseconds; a sensor read
+    #: that hangs must not hold it. Every outbound call inside the capture is
+    #: given at most the time left of this budget, so the create can never wait
+    #: longer than this on the environment.
+    #:
+    #: 3 s: still inside "the save felt immediate", and generous enough for a LAN
+    #: Home Assistant to answer several entities. Overrunning it is not an error
+    #: state of the entry — it is recorded as ``environment_status: unavailable``
+    #: with whatever arrived in time.
+    diary_environment_capture_timeout_seconds: float = Field(default=3.0, gt=0)
+
     # Shared secret for the cluster-internal M2M services (knowledge-service,
     # inference-service). Sent as ``Authorization: Bearer <token>`` on every
     # call. Must match the token those services expect (same key in

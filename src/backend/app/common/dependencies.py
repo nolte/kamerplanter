@@ -353,6 +353,31 @@ def get_diary_analysis_consent_checker():
     return _consent_granted
 
 
+def get_environment_snapshot_service():
+    """REQ-013 §2.3a — resolves a plant's live environment for a diary entry.
+
+    Every optional collaborator is passed even though the chain tolerates their
+    absence: an installation without TimescaleDB or without weather sources still
+    produces an honest (shorter) chain, and wiring them all here means the chain
+    degrades because a *source* is missing, never because the wiring forgot one.
+
+    **Call this only when a snapshot is actually wanted.** The body opens six
+    repositories plus a Home Assistant client, so it is a real database round
+    trip — see the ``environment_service_factory`` note in
+    :func:`get_plant_diary_service`.
+    """
+    from app.domain.services.environment_snapshot_service import EnvironmentSnapshotService
+
+    return EnvironmentSnapshotService(
+        plant_repo=get_plant_repo(),
+        sensor_repo=get_sensor_repo(),
+        sensor_service=get_sensor_service(),
+        observation_repo=get_observation_repo(),
+        weather_forecast_repo=get_weather_forecast_repo(),
+        site_repo=get_site_repo(),
+    )
+
+
 def get_plant_diary_service():
     from app.domain.services.plant_diary_service import PlantDiaryService
 
@@ -360,6 +385,18 @@ def get_plant_diary_service():
         diary_repo=get_plant_diary_repo(),
         run_repo=get_planting_run_repo(),
         plant_repo=get_plant_repo(),
+        # REQ-013 §2.3a — the environment snapshot taken on create. Passed as a
+        # **factory**, deliberately un-called: building it opens six repositories
+        # and a Home Assistant client, none of which the diary service needs in
+        # order to exist. Calling it here made every construction of this service
+        # a database round trip and broke a consent-wiring unit test that touches
+        # no environment at all. Same shape as ``ha_client_factory`` on
+        # ``ActuatorService``.
+        #
+        # Absent — or answering ``None`` — an entry is stored with
+        # ``environment_status: not_attempted``, which says exactly that and is
+        # not mistakable for "we looked and found nothing".
+        environment_service_factory=get_environment_snapshot_service,
         # REQ-050 §7.1 — replaces the ``_consent_not_evaluated`` placeholder.
         # Both the enforcement (``request_analysis``) and the display flag
         # (``can_request_analysis``) go through

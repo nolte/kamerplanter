@@ -40,12 +40,48 @@ In the dialog you fill in:
 - **Description** — the only required value; describe freely what you observe.
 - **Tags** — free-form keywords, confirmed with Enter.
 - **Measurements** — optional numbers or short values, e.g. height in cm or leaf count.
+- **Conditions at the time of the entry** — the sensor values covering your plant. Kamerplanter reads these itself; the dialog only shows them so you can check them (see below).
 - **Photos** — up to **5 photos** per entry, captured via webcam, phone camera or file upload.
 
 !!! note "Privacy: EXIF data"
     Photos are downscaled and stripped of EXIF metadata before upload — including GPS coordinates, camera model and capture time.
 
 New entries appear in reverse chronological order, newest first.
+
+### The environment is recorded automatically {#environment}
+
+An entry records *what* you noticed. Just as important is *under which conditions* the plant was standing when you noticed it — "lower leaves drooping" reads very differently at 31 °C and 28 % humidity than at 19 °C and 65 %.
+
+That is why Kamerplanter reads the sensor values covering your plant when an entry is **created**, and stores them with it. You do not have to type anything. Under **"Conditions at the time of the entry"** the dialog shows exactly the values that will be stored — as a preview, not as input fields.
+
+The search runs in this order, and per individual value:
+
+1. **Location** — sensors at your plant's location (e.g. in the tent, the greenhouse, at the raised bed).
+2. **Site** — sensors at the site, for whatever the location does not cover. If the location only carries a thermometer, the site still supplies the humidity.
+3. **Weather service** — for outdoor sites, the current outdoor conditions from your weather service, when no sensor answered.
+4. **Nothing** — if nothing is found, the field stays empty. **No** value is estimated or invented.
+
+Every value states where it came from (location, site or weather service) and **when it was measured**. The measurement time is almost always a little older than your entry, and that is deliberate: it is the only way to tell later whether a value really matches your observation.
+
+!!! note "Old values are dropped, not polished"
+    A reading older than one hour is not taken over at all. An entry claiming "22 °C" from a sensor that last spoke yesterday would be worse than an entry with no climate values at all.
+
+!!! note "Separate from your own measurements"
+    Automatically read values **never** land in the "Measurements" field. That one stays yours: what you enter there, you measured. It is the only way to tell afterwards what a device reported and what you noted yourself. For the same reason an automatic value cannot be edited — if you want to correct it, that is a measurement of your own and belongs under "Measurements".
+
+**Not storing them:** the checkbox **"Store the environment values with this entry"** switches the capture off for this one entry. Your own measurements are unaffected.
+
+**If nothing is shown**, the dialog tells you why:
+
+| Message | Meaning | What you can do |
+|---------|---------|-----------------|
+| No current sensor values available | No sensor covers this plant. | Add a sensor at the [location or site](sensors.md). |
+| Sensors could not be reached | The sensors did not answer just now. | Check the connection to Home Assistant. The entry can still be saved. |
+
+The entry can **always** be saved — even if not a single sensor answers. Documenting a problem is precisely the worst moment for an error message.
+
+!!! warning "Only on creation"
+    The environment values are captured on **creation** only. If you edit an entry's text later, they stay as they are — otherwise your entry would end up carrying a climate that never held while you were observing.
 
 ### Editing or deleting an entry
 
@@ -122,7 +158,7 @@ This restriction applies in addition to the consent — both conditions must hol
 
 ## What goes into the analysis
 
-The **entire entry** is analysed, not just a single photo: title and description, entry type and tags, the recorded measurements, all attached photos, and the plant context (species, cultivar, current phase, location, planting date) — because the same discolouration means something different on a seedling than on a plant in bloom.
+The **entire entry** is analysed, not just a single photo: title and description, entry type and tags, the recorded measurements, the [automatically captured environment values](#environment), all attached photos, and the plant context (species, cultivar, current phase, location, planting date) — because the same discolouration means something different on a seedling than on a plant in bloom, and different at 31 °C than at 19 °C.
 
 !!! note "Only downscaled image renditions, never the original"
     Only downscaled image renditions without EXIF data are sent to your agent and on to your language model — never the original photo, and never the capture location or device identifier.
@@ -182,6 +218,15 @@ The diary is its own, hideable module (`diary`, category "Care & Planning", show
 ---
 
 ## Frequently asked questions
+
+??? question "Why are the sensor values not listed under my measurements?"
+    Because nobody could tell afterwards what a device reported and what you measured yourself. Your measurements stay yours; the automatic ones sit next to them, with their origin and measurement time.
+
+??? question "The dialog showed 22 °C, but 22.4 °C was stored. Is that a bug?"
+    No. The preview shows the state when the dialog was opened; what is stored is the state at the moment of saving. The entry records what held when it was written — not what the dialog painted a minute earlier.
+
+??? question "Can I correct an automatically captured value?"
+    Not directly. A corrected value is a measurement of its own — enter it under "Measurements". The automatic value stays next to it, so the difference remains visible.
 
 ??? question "I marked an entry, but nothing happens. Why?"
     That is expected. Kamerplanter does not analyse entries itself — that requires an agent that you operate. As long as none is running, the entry stays "Waiting for analysis". Once you start your agent, it fetches marked entries on its own.

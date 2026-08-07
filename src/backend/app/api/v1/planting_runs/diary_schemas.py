@@ -2,7 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.common.enums import DiaryAnalysisState, DiaryEntryType
+from app.common.enums import (
+    DiaryAnalysisState,
+    DiaryEntryType,
+    DiaryEnvironmentOrigin,
+    DiaryEnvironmentStatus,
+)
 from app.domain.models.plant_diary_entry import DiaryAnalysis, PlantDiaryEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.plant_diary_service import PlantDiaryService, effective_analysis_state
@@ -18,6 +23,27 @@ from app.domain.services.plant_diary_service import PlantDiaryService, effective
 MAX_PHOTO_REFS = 5
 
 
+class DiaryEnvironmentReadingResponse(BaseModel):
+    """REQ-013 §2.3a — one machine-read value of the entry's environment snapshot.
+
+    Read-only in every direction: it appears in responses and in nothing a client
+    may send. See :class:`~app.domain.models.plant_diary_entry.DiaryEnvironmentReading`
+    for why this is a list of provenance-carrying records instead of more keys in
+    ``measurements``.
+    """
+
+    metric_type: str
+    value: float
+    unit: str | None
+    #: REQ-005 §2 provenance (``ha_auto``, ``mqtt_auto``, ``manual``, …), or the
+    #: weather adapter's own source name for an ``origin: weather`` reading.
+    source: str
+    #: When the reading was **measured** — regularly older than ``created_at``.
+    measured_at: datetime
+    sensor_key: str | None
+    origin: DiaryEnvironmentOrigin
+
+
 class DiaryEntryCreateRequest(BaseModel):
     entry_type: DiaryEntryType
     title: str | None = Field(default=None, max_length=200)
@@ -25,6 +51,15 @@ class DiaryEntryCreateRequest(BaseModel):
     photo_refs: list[str] = Field(default_factory=list, max_length=MAX_PHOTO_REFS)
     tags: list[str] = Field(default_factory=list)
     measurements: dict | None = None
+    #: REQ-013 §2.3a — the author's opt-out from the environment snapshot.
+    #:
+    #: This says whether the server should **look**, never what it should store.
+    #: The readings themselves are resolved from the plant's own location and are
+    #: absent from this schema on purpose: a value the client can write is a value
+    #: the client can invent, and this one is meant to be evidence. Opting out
+    #: stores an empty snapshot flagged ``opted_out``, which is a different
+    #: statement from "nothing covers this plant".
+    capture_environment: bool = True
 
 
 class DiaryEntryUpdateRequest(BaseModel):
@@ -56,6 +91,21 @@ class DiaryEntryResponse(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
+
+    # REQ-013 §2.3a — read-only projection of the environment snapshot. Defaults
+    # mirror the domain model, so an entry stored before this feature serialises
+    # as "nothing was attempted" instead of failing the response model.
+    #
+    #: The machine-read conditions at the moment the entry was created. Strictly
+    #: separate from ``measurements`` above: that dict is the grower's own,
+    #: free-form and unprovenanced, and merging the two would destroy the only
+    #: thing that makes either readable as evidence a year later.
+    environment: list[DiaryEnvironmentReadingResponse] = Field(default_factory=list)
+    environment_captured_at: datetime | None = None
+    #: What an empty ``environment`` *means* — see
+    #: :class:`~app.common.enums.DiaryEnvironmentStatus`. Without it a client
+    #: cannot tell "no sensor covers this plant" from "the capture failed".
+    environment_status: DiaryEnvironmentStatus = DiaryEnvironmentStatus.NOT_ATTEMPTED
 
     # REQ-050 §5 — read-only projection of the analysis state machine and its
     # result. Defaults mirror the domain model so an entry stored before REQ-050
@@ -109,6 +159,28 @@ class DiaryEntryResponse(BaseModel):
                     "created_by": "4471023",
                     "created_at": "2026-08-03T18:22:11Z",
                     "updated_at": "2026-08-03T18:22:11Z",
+                    "environment": [
+                        {
+                            "metric_type": "temperature_celsius",
+                            "value": 31.2,
+                            "unit": "°C",
+                            "source": "ha_auto",
+                            "measured_at": "2026-08-03T18:21:44Z",
+                            "sensor_key": "7710455",
+                            "origin": "location",
+                        },
+                        {
+                            "metric_type": "humidity_percent",
+                            "value": 28.0,
+                            "unit": "%",
+                            "source": "ha_auto",
+                            "measured_at": "2026-08-03T18:21:44Z",
+                            "sensor_key": "7710456",
+                            "origin": "location",
+                        },
+                    ],
+                    "environment_captured_at": "2026-08-03T18:22:11Z",
+                    "environment_status": "captured",
                     "analysis_state": "completed",
                     "analysis_requested_at": "2026-08-04T07:05:00Z",
                     "analysis_requested_by": "4471023",
@@ -191,6 +263,10 @@ def diary_entry_response(entry: PlantDiaryEntry, *, can_request_analysis: bool) 
         created_by=entry.created_by,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
+        # REQ-013 §2.3a — read-only; captured on create and never re-derived.
+        environment=[DiaryEnvironmentReadingResponse(**r.model_dump()) for r in entry.environment],
+        environment_captured_at=entry.environment_captured_at,
+        environment_status=entry.environment_status,
         # REQ-050 §5 — read-only; transitions never run through the entry CRUD.
         analysis_state=effective_analysis_state(entry),
         analysis_requested_at=entry.analysis_requested_at,

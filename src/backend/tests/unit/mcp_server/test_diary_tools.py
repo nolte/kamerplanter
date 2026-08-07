@@ -31,7 +31,13 @@ import pytest
 
 from app.api.v1.mcp.router import _tool_error_result, _tool_result
 from app.common.datetimes import now_utc
-from app.common.enums import DiaryAnalysisState, DiaryEntryType, TenantRole
+from app.common.enums import (
+    DiaryAnalysisState,
+    DiaryEntryType,
+    DiaryEnvironmentOrigin,
+    DiaryEnvironmentStatus,
+    TenantRole,
+)
 from app.common.exceptions import (
     AttachmentNotFoundError,
     ContractError,
@@ -40,7 +46,12 @@ from app.common.exceptions import (
     NotFoundError,
 )
 from app.domain.engines.storage.thumbnail_generator import metadata_keys
-from app.domain.models.plant_diary_entry import DiaryAnalysis, DiaryFinding, PlantDiaryEntry
+from app.domain.models.plant_diary_entry import (
+    DiaryAnalysis,
+    DiaryEnvironmentReading,
+    DiaryFinding,
+    PlantDiaryEntry,
+)
 from app.domain.services.plant_diary_service import (
     ANALYSIS_DISCLAIMER,
     PlantDiaryService,
@@ -486,6 +497,11 @@ async def test_get_diary_entry_returns_the_published_shape_without_image_data(wo
         "text",
         "tags",
         "measurements",
+        # REQ-013 §2.3a — machine-read conditions, published alongside the
+        # grower's own ``measurements`` and never folded into it.
+        "environment",
+        "environment_captured_at",
+        "environment_status",
         "photo_refs",
         "created_at",
         "created_by",
@@ -502,6 +518,11 @@ async def test_get_diary_entry_returns_the_published_shape_without_image_data(wo
     assert response.data["analysis"] is None
     assert response.data["analysis_error"] is None
     assert response.data["measurements"] == {"height_cm": 84, "leaf_count": 22}
+    # An entry without a snapshot answers with an empty list and a reason —
+    # stable keys again, so a recipe can read them unconditionally.
+    assert response.data["environment"] == []
+    assert response.data["environment_captured_at"] is None
+    assert response.data["environment_status"] == "not_attempted"
     assert response.data["photo_refs"] == ["ph-1", "ph-2"]
     assert response.data["created_at"] == "2026-08-03T18:22:11Z"
     assert response.data["plant"] == {
@@ -521,6 +542,72 @@ async def test_get_diary_entry_returns_the_published_shape_without_image_data(wo
     # §4.3 is the text half of the split: no image blocks, no Base-64 anywhere.
     assert response.content_blocks == []
     assert world.attachments.original_reads == []
+
+
+@pytest.mark.asyncio
+async def test_get_diary_entry_publishes_the_environment_snapshot(world: _World) -> None:
+    """REQ-013 §2.3a — the climate the plant was standing in reaches the agent.
+
+    The whole point of §4.3 is to hand an analysing agent everything the system
+    knows about an observation, and "31 °C at 28 % RH" is what turns "the lower
+    leaves are browning" from a guess into a diagnosis. It travels as its own key
+    with its own provenance, next to ``measurements`` and never inside it.
+    """
+    entry = _entry("e-1")
+    entry.environment = [
+        DiaryEnvironmentReading(
+            metric_type="temperature_celsius",
+            value=31.2,
+            unit="°C",
+            source="ha_auto",
+            measured_at=datetime(2026, 8, 3, 18, 21, 44, tzinfo=UTC),
+            sensor_key="sensor-7710455",
+            origin=DiaryEnvironmentOrigin.LOCATION,
+        ),
+        DiaryEnvironmentReading(
+            metric_type="humidity_percent",
+            value=61.0,
+            unit="%",
+            source="open-meteo",
+            measured_at=datetime(2026, 8, 3, 18, 10, 0, tzinfo=UTC),
+            sensor_key=None,
+            origin=DiaryEnvironmentOrigin.WEATHER,
+        ),
+    ]
+    entry.environment_captured_at = datetime(2026, 8, 3, 18, 22, 11, tzinfo=UTC)
+    entry.environment_status = DiaryEnvironmentStatus.CAPTURED
+    world.repo.create(entry)
+    tool = GetDiaryEntry()
+
+    response = await tool.run(world.ctx, tool.Input(entry_key="e-1"))
+
+    assert response.data["environment_status"] == "captured"
+    assert response.data["environment_captured_at"] == "2026-08-03T18:22:11Z"
+    assert response.data["environment"] == [
+        {
+            "metric_type": "temperature_celsius",
+            "value": 31.2,
+            "unit": "°C",
+            "source": "ha_auto",
+            "measured_at": "2026-08-03T18:21:44Z",
+            "sensor_key": "sensor-7710455",
+            "origin": "location",
+        },
+        {
+            "metric_type": "humidity_percent",
+            "value": 61.0,
+            "unit": "%",
+            # The weather adapter's own name, not a flattened "weather_api" —
+            # ``origin`` already says the class, ``source`` says which service.
+            "source": "open-meteo",
+            "measured_at": "2026-08-03T18:10:00Z",
+            "sensor_key": None,
+            "origin": "weather",
+        },
+    ]
+    # The separation invariant on the published wire: the grower's dict is
+    # untouched and carries none of the machine values.
+    assert response.data["measurements"] == {"height_cm": 84, "leaf_count": 22}
 
 
 @pytest.mark.asyncio

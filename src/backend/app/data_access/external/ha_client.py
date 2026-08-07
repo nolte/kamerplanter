@@ -135,10 +135,34 @@ class HomeAssistantClient:
         data = resp.json()
         return data.get("attributes", {})
 
-    def get_state(self, entity_id: str) -> dict | None:
-        """GET /api/states/{entity_id} -> parsed state dict or None."""
+    def get_state(self, entity_id: str, *, timeout: float | None = None) -> dict | None:
+        """GET /api/states/{entity_id} -> parsed state dict or None.
+
+        Args:
+            entity_id: The Home Assistant entity to read.
+            timeout: Optional per-call ceiling in seconds, capped at the client's
+                configured timeout — never used to *raise* it. A caller working
+                against a wall-clock deadline (the diary environment capture,
+                REQ-013 §2.3a) passes the time it has left, so one slow entity
+                cannot spend the whole budget.
+
+        Returns:
+            ``value`` is ``None`` for a non-numeric state — Home Assistant
+            reports ``unavailable`` / ``unknown`` as the state string.
+
+            **Three timestamps, and they are not interchangeable.**
+            ``last_changed`` moves only when the state *string* changes, so a
+            perfectly healthy sensor reporting a constant 22.0 °C keeps a
+            ``last_changed`` that is hours old; ``last_updated`` moves when state
+            or attributes change and has almost the same problem;
+            ``last_reported`` (HA ≥ 2024.6) moves on **every** report and is the
+            only honest freshness signal. All three are returned so a consumer
+            can pick the one its question needs — see
+            ``EnvironmentSnapshotService`` for the staleness use.
+        """
         url = f"{self._base_url}/api/states/{entity_id}"
-        resp = httpx.get(url, headers=self._headers, timeout=self._timeout)
+        effective_timeout = self._timeout if timeout is None else min(self._timeout, timeout)
+        resp = httpx.get(url, headers=self._headers, timeout=effective_timeout)
         if resp.status_code == 404:
             return None
         resp.raise_for_status()
@@ -153,6 +177,8 @@ class HomeAssistantClient:
         return {
             "value": value,
             "last_changed": data.get("last_changed"),
+            "last_updated": data.get("last_updated"),
+            "last_reported": data.get("last_reported"),
             "entity_id": entity_id,
             "unit": data.get("attributes", {}).get("unit_of_measurement"),
         }

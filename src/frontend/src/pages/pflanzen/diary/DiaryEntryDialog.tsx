@@ -6,9 +6,13 @@ import { z } from 'zod';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import Checkbox from '@mui/material/Checkbox';
+import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -24,6 +28,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormTextField from '@/components/form/FormTextField';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import AuthImage from '@/components/common/AuthImage';
+import DiaryEnvironmentReadings from '@/components/diary/DiaryEnvironmentReadings';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import {
@@ -31,9 +36,10 @@ import {
   DIARY_MAX_PHOTOS,
   createPlantDiaryEntry,
   diaryPhotoUri,
+  getPlantEnvironmentPreview,
   updatePlantDiaryEntry,
 } from '@/api/endpoints/diary';
-import type { DiaryEntryType, PlantDiaryEntry } from '@/api/types';
+import type { DiaryEntryType, PlantDiaryEntry, PlantEnvironmentPreview } from '@/api/types';
 import DiaryPhotoUploadDialog from './DiaryPhotoUploadDialog';
 
 const schema = z.object({
@@ -122,6 +128,12 @@ export default function DiaryEntryDialog({
   const [saving, setSaving] = useState(false);
   const [photoRefs, setPhotoRefs] = useState<string[]>([]);
   const [uploadOpen, setUploadOpen] = useState(false);
+  // REQ-013 §2.3a — the environment preview. Deliberately *not* a form field:
+  // it is never sent back, and putting it in the form would make the dialog
+  // "dirty" for a value the user cannot change.
+  const [envPreview, setEnvPreview] = useState<PlantEnvironmentPreview | null>(null);
+  const [envLoading, setEnvLoading] = useState(false);
+  const [captureEnvironment, setCaptureEnvironment] = useState(true);
 
   const {
     control,
@@ -154,7 +166,38 @@ export default function DiaryEntryDialog({
       measurements: toRows(entry?.measurements),
     });
     setPhotoRefs(entry?.photo_refs ?? []);
+    setCaptureEnvironment(true);
+    // The preview belongs to the reset, not to the fetch below: clearing it here
+    // means the section never shows the previous plant's climate for a frame,
+    // and it keeps the fetching effect free of synchronous state writes.
+    setEnvPreview(null);
+    setEnvLoading(!entry);
   }, [open, entry, reset]);
+
+  // Load the preview only when a *new* entry is being written. Editing never
+  // re-captures (the server protects the fields), so previewing there would show
+  // a climate that is not going to be stored — a promise the save cannot keep.
+  useEffect(() => {
+    if (!open || entry) return;
+    let cancelled = false;
+    getPlantEnvironmentPreview(plantInstanceKey)
+      .then((preview) => {
+        if (!cancelled) setEnvPreview(preview);
+      })
+      .catch(() => {
+        // A failed preview is not an error the grower has to act on: the entry
+        // saves either way, and the server records honestly that the capture did
+        // not get through. Surfacing a toast here would turn a non-event into an
+        // interruption at the worst moment — while documenting a problem.
+        if (!cancelled) setEnvPreview(null);
+      })
+      .finally(() => {
+        if (!cancelled) setEnvLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, entry, plantInstanceKey]);
 
   const handlePhotoUploaded = useCallback((attachmentId: string) => {
     setPhotoRefs((prev) =>
@@ -182,7 +225,12 @@ export default function DiaryEntryDialog({
         };
         const saved = entry
           ? await updatePlantDiaryEntry(plantInstanceKey, entry.key, payload)
-          : await createPlantDiaryEntry(plantInstanceKey, payload);
+          : await createPlantDiaryEntry(plantInstanceKey, {
+              ...payload,
+              // Only the *permission* to look travels. The readings are resolved
+              // server-side; the client never sends them (REQ-013 §2.3a).
+              capture_environment: captureEnvironment,
+            });
         notification.success(entry ? t('common.saved') : t('pages.plantDiary.created'));
         onSaved(saved);
         onClose();
@@ -192,7 +240,17 @@ export default function DiaryEntryDialog({
         setSaving(false);
       }
     },
-    [entry, plantInstanceKey, photoRefs, notification, t, onSaved, onClose, handleError],
+    [
+      entry,
+      plantInstanceKey,
+      photoRefs,
+      captureEnvironment,
+      notification,
+      t,
+      onSaved,
+      onClose,
+      handleError,
+    ],
   );
 
   const typeOptions = DIARY_ENTRY_TYPES.map((value) => ({
@@ -295,6 +353,72 @@ export default function DiaryEntryDialog({
           >
             {t('pages.plantDiary.addMeasurement')}
           </Button>
+
+          {/* ── Environment snapshot (REQ-013 §2.3a) ───────────────── */}
+          {/* New entries only: an edit never re-captures, so showing a preview
+              there would advertise a value the save is not going to store. */}
+          {!entry && (
+            <Box sx={{ mt: 2 }} data-testid="diary-environment-section">
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                {t('pages.plantDiary.environment.sectionTitle')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('pages.plantDiary.environment.sectionHint')}
+              </Typography>
+
+              {envLoading && (
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                  data-testid="diary-environment-loading"
+                >
+                  <CircularProgress size={16} />
+                  <Typography variant="body2" color="text.secondary">
+                    {t('pages.plantDiary.environment.loading')}
+                  </Typography>
+                </Box>
+              )}
+
+              {!envLoading && envPreview && envPreview.readings.length > 0 && (
+                <DiaryEnvironmentReadings
+                  readings={envPreview.readings}
+                  testIdPrefix="diary-environment-preview"
+                />
+              )}
+
+              {/* An empty preview says *which* empty it is. "No sensor covers
+                  this plant" is a hint to attach one; "sensors unreachable" is
+                  a hint to check Home Assistant. One message for both would be
+                  useless for either. */}
+              {!envLoading && (!envPreview || envPreview.readings.length === 0) && (
+                <Alert severity="info" icon={false} data-testid="diary-environment-empty">
+                  {t(
+                    `pages.plantDiary.environment.empty.${envPreview?.environment_status ?? 'unavailable'}`,
+                  )}
+                </Alert>
+              )}
+
+              {/* The opt-out. Offered unconditionally, including when the
+                  preview is empty: the capture runs again at save time and may
+                  well find something the preview did not. */}
+              <FormControlLabel
+                sx={{ mt: 1 }}
+                control={
+                  <Checkbox
+                    checked={captureEnvironment}
+                    onChange={(event) => setCaptureEnvironment(event.target.checked)}
+                    slotProps={{
+                      input: { 'aria-label': t('pages.plantDiary.environment.capture') },
+                    }}
+                    data-testid="diary-environment-capture-toggle"
+                  />
+                }
+                label={t('pages.plantDiary.environment.capture')}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {t('pages.plantDiary.environment.captureHint')}
+              </Typography>
+            </Box>
+          )}
 
           {/* ── Photos (max 5) ─────────────────────────────────────── */}
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5, mt: 2 }}>

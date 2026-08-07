@@ -4400,6 +4400,33 @@
       "measurementValue": "Value",
       "addMeasurement": "Add measurement",
       "removeMeasurement": "Remove measurement",
+      "environment": {
+        "sectionTitle": "Conditions at the time of the entry",
+        "sectionHint": "Kamerplanter reads these values automatically from the sensors covering your plant — you do not have to type anything. They are stored separately from your own measurements, so it stays visible afterwards what was measured and what you noted yourself.",
+        "loading": "Reading sensor values …",
+        "entryTitle": "Environment (captured automatically)",
+        "capture": "Store the environment values with this entry",
+        "captureHint": "If you clear this, the entry is saved without sensor values. Your own measurements are unaffected.",
+        "measuredAt": "measured {{time}} · source {{source}}",
+        "partial": "Not every sensor answered — some values may be missing.",
+        "origin": {
+          "location": "Location",
+          "site": "Site",
+          "weather": "Weather service"
+        },
+        "originHint": {
+          "location": "From a sensor at this plant's location — the value right next to the plant.",
+          "site": "From a sensor at the site; the location itself carries no sensor for this value.",
+          "weather": "Current outdoor conditions from the weather service — not measured at the location."
+        },
+        "empty": {
+          "no_source": "No current sensor values are available for this plant. Attach a sensor to the location or the site and new entries will pick it up automatically.",
+          "unavailable": "The sensors could not be reached just now. You can still save the entry — it is then stored without environment values.",
+          "not_attempted": "Automatic capture is switched off on this installation.",
+          "opted_out": "Environment values are not stored for this entry.",
+          "captured": "No current sensor values are available for this plant."
+        }
+      },
       "photos": {
         "sectionTitle": "Photos",
         "sectionHint": "Up to {{max}} photos per entry. Capture via webcam, phone camera or file upload.",
