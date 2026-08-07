@@ -88,6 +88,28 @@ def _treatment_summary(t: Any) -> dict[str, Any]:
     }
 
 
+def _specificity_rank(beneficial: Any) -> tuple[int, str]:
+    """Sort key that puts the specialist ahead of the generalist (#1007).
+
+    Every beneficial returned for a pest does prey on it, so the list carries no
+    wrong entry — only a misleading order. Ladybirds and lacewings are primarily
+    aphid predators that take mites opportunistically; the predatory mites are
+    what a grower actually releases against spider mites. A consumer reading
+    top-down, or truncating to the first entry, recommended the ladybird.
+
+    The proxy for specificity is the length of ``preys_on`` **ascending**: the
+    fewer prey a beneficial has, the more of a specialist it is. It sorts on data
+    the catalogue already carries, rather than on a specialist/generalist flag
+    that would be a schema change.
+
+    Ties break on ``scientific_name`` so that two equally specific enemies keep a
+    deterministic order between reads instead of inheriting the storage order.
+    """
+
+    prey = getattr(beneficial, "preys_on", None) or []
+    return len(prey), str(getattr(beneficial, "scientific_name", "") or "")
+
+
 @mcp_tool(name="list_pests", permission=McpPermission.READ)
 class ListPests(ToolBase):
     """List the pest catalogue, optionally filtered by name or damage symptom."""
@@ -128,7 +150,7 @@ class ListPests(ToolBase):
 
 @mcp_tool(name="get_pest", permission=McpPermission.READ)
 class GetPest(ToolBase):
-    """One pest in full: biology, counter-measures by IPM tier, and its natural enemies."""
+    """One pest in full: biology, counter-measures by IPM tier, natural enemies (specialists first)."""
 
     class Input(ToolInput):
         pest_key: str
@@ -150,6 +172,8 @@ class GetPest(ToolBase):
                 "detection_symptom_hint": detail.get("detection_symptom_hint"),
                 # Sorted by IPM tier, so the first entries are the gentlest measures.
                 "treatments": [_treatment_summary(t) for t in detail.get("treatments", [])],
+                # Sorted by specificity against *this* pest, specialists first —
+                # see _specificity_rank for the proxy and the tie-break.
                 "beneficials": [
                     {
                         "common_name": b.common_name,
@@ -157,7 +181,7 @@ class GetPest(ToolBase):
                         "preys_on": b.preys_on,
                         "description": b.description,
                     }
-                    for b in detail.get("beneficials", [])
+                    for b in sorted(detail.get("beneficials", []), key=_specificity_rank)
                 ],
             }
         )
