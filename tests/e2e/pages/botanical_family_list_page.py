@@ -227,6 +227,19 @@ class BotanicalFamilyListPage(BasePage):
     def submit_create_form(self) -> None:
         self.wait_and_click(self.FORM_SUBMIT)
 
+    def wait_for_create_dialog_closed(self) -> None:
+        """Wait until the create dialog is gone, i.e. the family really was created.
+
+        The read-back :meth:`submit_create_form` does not have, and an exact one
+        rather than a proxy: ``BotanicalFamilyCreateDialog.onSubmit`` calls
+        ``onCreated()`` -- the only thing that clears ``createOpen`` on the
+        submit path -- **after** ``await api.createBotanicalFamily(...)``
+        resolves. A rejected create runs ``handleError`` instead and leaves the
+        dialog up. So the dialog being gone means the POST returned 2xx, and
+        nothing weaker does (#956/#966).
+        """
+        self.wait_for_element_hidden(self.CREATE_DIALOG)
+
     def cancel_create_form(self) -> None:
         self.wait_and_click(self.FORM_CANCEL)
 

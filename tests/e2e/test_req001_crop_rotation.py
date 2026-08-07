@@ -24,6 +24,17 @@ def rotation_page(browser: WebDriver, base_url: str) -> CropRotationPage:
     return CropRotationPage(browser, base_url)
 
 
+def _common_name(option_label: str) -> str:
+    """The part of a family dropdown label that the successor list renders.
+
+    `familyOptionLabel` builds ``"<common name> · <scientific name>"`` when a
+    family has a distinct common name and the bare name otherwise, while a
+    successor row's primary line is the common name alone. Comparing the whole
+    label against the row would therefore never match for the first shape.
+    """
+    return option_label.split(" · ")[0].strip()
+
+
 class TestCropRotationView:
     """View crop rotation successors (Spec: TC-001-050, TC-001-051, TC-001-052)."""
 
@@ -65,7 +76,7 @@ class TestCropRotationView:
             pytest.skip("Need at least 2 families for rotation")
 
         rotation_page.select_family(options[0])
-        initial_count = rotation_page.get_successor_count()
+        listed_before = rotation_page.get_successor_names()
         screenshot("TC-REQ-001-072_before-add", f"Before adding successor for {options[0]}")
 
         rotation_page.click_add_successor()
@@ -74,18 +85,50 @@ class TestCropRotationView:
         if len(target_options) == 0:
             pytest.skip("No target families available in dialog")
 
-        rotation_page.select_dialog_target(target_options[0])
+        # The dialog offers every family except the selected one -- including
+        # those that already *are* successors. Adding one of those and then
+        # looking for its name is a read-back that the arrange step satisfies on
+        # its own, so the target is chosen from the ones not yet listed.
+        target = next(
+            (o for o in target_options if _common_name(o) not in " ".join(listed_before)),
+            None,
+        )
+        if target is None:
+            pytest.skip(
+                f"Every family the dialog offers is already a successor of {options[0]} "
+                f"— adding one more cannot be observed"
+            )
+        expected = _common_name(target)
+
+        rotation_page.select_dialog_target(target)
         rotation_page.set_dialog_wait_years("2")
         screenshot("TC-REQ-001-072_dialog-filled", "Successor dialog filled with wait years 2")
 
         rotation_page.click_dialog_create()
-
-        rotation_page.wait_for_loading_complete()
+        # Not "the dialog closed": `handleAdd` calls `setDialogOpen(false)`
+        # *after* its try/except, so the dialog goes away whether the POST
+        # succeeded or ran into `handleError`. The list itself is the only signal
+        # -- `handleAdd` re-reads the successors and only a resolved
+        # `setSuccessor` puts the new one in there.
+        rotation_page.wait_for_row_containing(
+            expected,
+            rows_locator=CropRotationPage.SUCCESSOR_ITEMS,
+            what=f"rotation successors of {options[0]!r} after adding {expected!r}",
+        )
         screenshot("TC-REQ-001-072_after-create", "Crop rotation after adding successor")
 
-        new_count = rotation_page.get_successor_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-001-072 FAIL: Expected at least {initial_count} successors, got {new_count}"
+        # Identity, not arithmetic. `new_count >= initial_count` is satisfied by
+        # an add that was rejected or never submitted -- the count of a list
+        # nothing was added to still is "at least" what it was (#956). The target
+        # was demonstrably absent from the list a moment ago, so naming it now is
+        # a statement about this add and nothing else.
+        listed_after = rotation_page.get_successor_names()
+        assert any(expected in row for row in listed_after), (
+            f"TC-REQ-001-072 FAIL: {expected!r} must be listed as a successor of "
+            f"{options[0]!r} after adding it, but the list reads {listed_after!r} "
+            f"(it held {len(listed_before)} row(s) before). `handleAdd` refetches the "
+            f"successors itself, so a list without it means `setSuccessor` was "
+            f"rejected — the dialog closes either way and shows an error toast."
         )
 
     @pytest.mark.smoke

@@ -207,18 +207,55 @@ class TestPlantingRunListPage:
         if run_list.get_row_count() == 0:
             pytest.skip("No planting runs — cannot test filter reset")
 
-        initial_count = run_list.get_row_count()
-        run_list.search("A")
-        run_list.wait_for_loading_complete()
+        names_before = run_list.get_first_column_texts()
+        # A term no run name can carry, replacing the ``"A"`` that stood here: a
+        # broad term leaves most rows in place, and "the reset restored them" is
+        # then indistinguishable from "the filter never removed them".
+        term = "ZZZ_NONEXISTENT_RUN_9999"
+        run_list.search(term)
+        run_list.wait_for_search_applied(term, what="planting run list")
+        filtered = run_list.get_first_column_texts()
+        assert filtered == [], (
+            f"TC-REQ-013-006 FAIL: The arrange step must leave the planting run list "
+            f"empty so that the reset has something to restore, but {len(filtered)} of "
+            f"the {len(names_before)} rows survive the search for {term!r}: "
+            f"{filtered!r}. The chip already carries the term, so the filter has run "
+            f"and some column's `searchValue` matches it."
+        )
 
-        if run_list.has_reset_filters_button():
-            run_list.click_reset_filters()
-            run_list.wait_for_loading_complete()
-            screenshot("TC-REQ-013-006_after-reset-filters", "PlantingRun list after filter reset")
-            reset_count = run_list.get_row_count()
-            assert reset_count >= initial_count - 1, (
-                f"TC-REQ-013-006 FAIL: Expected count after reset ({reset_count}) close to initial ({initial_count})"
-            )
+        # `if has_reset_filters_button():` swallowed the whole check -- a page
+        # that renders no reset button ran this test to a green with no assertion
+        # executed at all. `DataTable` renders the button whenever a search or a
+        # sort is active, and the search demonstrably is.
+        assert run_list.has_reset_filters_button(), (
+            "TC-REQ-013-006 FAIL: With the search applied (its chip is rendered) "
+            "`DataTable` must offer the reset-filters button, but none is rendered — "
+            "so the reset this test is about cannot be exercised."
+        )
+        run_list.click_reset_filters()
+        # The chip disappears in the same commit that recomputes the *unfiltered*
+        # rows; `wait_for_loading_complete()` polls a skeleton this client-side
+        # reset never mounts and returned while the empty table was still up.
+        run_list.wait_for_element_hidden(run_list.SEARCH_CHIP)
+        screenshot("TC-REQ-013-006_after-reset-filters", "PlantingRun list after filter reset")
+
+        # `reset_count >= initial_count - 1` was satisfied by a reset that does
+        # nothing whenever the filter kept nearly everything (#956), and its
+        # ``- 1`` is not a concurrency tolerance either: the suite runs
+        # ``-n 4 --dist=loadfile`` against one shared stack, so another file can
+        # create or delete any number of runs while this one runs. Named identity
+        # survives that: the filter left the list empty, so the rows coming back
+        # are the reset's doing, and at least one of them must be a row this test
+        # saw before.
+        names_after = run_list.get_first_column_texts()
+        assert set(names_after) & set(names_before), (
+            f"TC-REQ-013-006 FAIL: After the reset the planting run list must name "
+            f"runs it named before the filter, but the {len(names_after)} rows now "
+            f"listed ({names_after[:5]!r}) share none of the {len(names_before)} "
+            f"earlier ones ({names_before[:5]!r}). The chip is gone, so "
+            f"`tableState.search` is empty -- the table re-rendered without restoring "
+            f"the rows the filter had removed."
+        )
 
     @pytest.mark.requires_desktop
     @pytest.mark.core_crud

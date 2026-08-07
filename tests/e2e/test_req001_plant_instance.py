@@ -486,20 +486,39 @@ class TestPlantInstanceSearchAndSort:
             "Plant list before search",
         )
 
-        plant_list.search("ZZZ_NONEXISTENT_PLANT_9999")
-        plant_list.wait_for_loading_complete()
+        term = "ZZZ_NONEXISTENT_PLANT_9999"
+        plant_list.search(term)
+        # The chip assertion comes FIRST and carries the term, as on the
+        # planting-run list: `has_search_chip()` alone is satisfied by a leftover
+        # chip from an earlier filter, and `wait_for_loading_complete()` — which
+        # stood here — polls a skeleton this client-side search never mounts, so
+        # it returned while the unfiltered rows were still up.
+        assert plant_list.has_search_chip(), (
+            "TC-REQ-001-PI-012 FAIL: Expected search chip to be visible"
+        )
+        plant_list.wait_for_search_applied(term, what="plant instance list")
+        # And that the emptiness below is the *filter's* doing: `DataTable`
+        # renders this panel only while the source rows are still there, so it
+        # separates "the search excluded everything" from "the list lost its
+        # data", which an empty row read cannot tell apart.
+        plant_list.wait_for_no_search_results(term, what="plant instance list")
         screenshot(
             "TC-REQ-001-PI-012_after-search",
             "Plant list after search — no results expected",
         )
 
-        filtered_count = plant_list.get_row_count()
-        assert filtered_count <= initial_count, (
-            f"TC-REQ-001-PI-012 FAIL: Expected filtered count ({filtered_count}) "
-            f"<= initial ({initial_count})"
-        )
-        assert plant_list.has_search_chip(), (
-            "TC-REQ-001-PI-012 FAIL: Expected search chip to be visible"
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it (#956).
+        # No plant instance can be named after this term, so the falsifiable
+        # post-condition is that the list names none of them.
+        remaining = plant_list.get_first_column_texts()
+        assert remaining == [], (
+            f"TC-REQ-001-PI-012 FAIL: Searching for {term!r} must leave the plant "
+            f"instance list empty, but {len(remaining)} of the {initial_count} rows "
+            f"are still listed: {remaining!r}. The chip already carries the term, so "
+            f"`tableState.search` holds it and the filter has run -- a surviving row "
+            f"therefore means some column's `searchValue` matches this term, not that "
+            f"the search never arrived."
         )
 
     @pytest.mark.requires_desktop
@@ -575,19 +594,57 @@ class TestPlantInstanceSearchAndSort:
         if plant_list.get_row_count() == 0:
             pytest.skip("No plant instances — cannot test filter reset")
 
-        initial_count = plant_list.get_row_count()
-        plant_list.search("A")
-        plant_list.wait_for_loading_complete()
+        names_before = plant_list.get_first_column_texts()
+        # A term no instance id can carry, replacing the ``"A"`` that stood here:
+        # a broad term leaves most rows in place, and "the reset restored them"
+        # is then indistinguishable from "the filter never removed them".
+        term = "ZZZ_NONEXISTENT_PLANT_9999"
+        plant_list.search(term)
+        plant_list.wait_for_search_applied(term, what="plant instance list")
+        filtered = plant_list.get_first_column_texts()
+        assert filtered == [], (
+            f"TC-REQ-001-PI-015 FAIL: The arrange step must leave the plant instance "
+            f"list empty so that the reset has something to restore, but "
+            f"{len(filtered)} of the {len(names_before)} rows survive the search for "
+            f"{term!r}: {filtered!r}. The chip already carries the term, so the filter "
+            f"has run and some column's `searchValue` matches it."
+        )
 
-        if plant_list.has_reset_filters_button():
-            plant_list.click_reset_filters()
-            plant_list.wait_for_loading_complete()
-            screenshot(
-                "TC-REQ-001-PI-015_after-reset",
-                "Plant list after filter reset",
-            )
-            reset_count = plant_list.get_row_count()
-            assert reset_count >= initial_count - 1, (
-                f"TC-REQ-001-PI-015 FAIL: Expected count after reset ({reset_count}) "
-                f"close to initial ({initial_count})"
-            )
+        # `if has_reset_filters_button():` swallowed the whole check -- a page
+        # that renders no reset button ran this test to a green with no assertion
+        # executed at all. `DataTable` renders the button whenever a search or a
+        # sort is active, and the search demonstrably is, so its absence is a
+        # product failure and now says so.
+        assert plant_list.has_reset_filters_button(), (
+            "TC-REQ-001-PI-015 FAIL: With the search applied (its chip is rendered) "
+            "`DataTable` must offer the reset-filters button, but none is rendered — "
+            "so the reset this test is about cannot be exercised."
+        )
+        plant_list.click_reset_filters()
+        # The chip disappears in the same commit that recomputes the *unfiltered*
+        # rows; `wait_for_loading_complete()` polls a skeleton this client-side
+        # reset never mounts and returned while the empty table was still up.
+        plant_list.wait_for_element_hidden(plant_list.SEARCH_CHIP)
+        screenshot(
+            "TC-REQ-001-PI-015_after-reset",
+            "Plant list after filter reset",
+        )
+
+        # `reset_count >= initial_count - 1` was satisfied by a reset that does
+        # nothing whenever the filter kept nearly everything (#956), and its
+        # ``- 1`` is not a concurrency tolerance either: the suite runs
+        # ``-n 4 --dist=loadfile`` against one shared stack, so another file can
+        # create or delete any number of plants while this one runs. Named
+        # identity is what survives that: the filter left the list empty, so the
+        # rows coming back are the reset's doing, and at least one of them must
+        # be a row this test saw before -- concurrent churn can add and remove
+        # rows, but it cannot replace the whole list between two reads.
+        names_after = plant_list.get_first_column_texts()
+        assert set(names_after) & set(names_before), (
+            f"TC-REQ-001-PI-015 FAIL: After the reset the plant instance list must "
+            f"name instances it named before the filter, but the {len(names_after)} "
+            f"rows now listed ({names_after[:5]!r}) share none of the "
+            f"{len(names_before)} earlier ones ({names_before[:5]!r}). The chip is "
+            f"gone, so `tableState.search` is empty -- the table re-rendered without "
+            f"restoring the rows the filter had removed."
+        )

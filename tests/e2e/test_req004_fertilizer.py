@@ -133,17 +133,42 @@ class TestFertilizerListPage:
         if initial_count == 0:
             pytest.skip("No fertilizers in database — cannot test search filtering")
 
-        fertilizer_list.search("xxxx_nonexistent_product_yyyy")
-        fertilizer_list.wait_for_loading_complete()
+        term = "xxxx_nonexistent_product_yyyy"
+        fertilizer_list.search(term)
+        # The results panel, not `wait_for_loading_complete()`: this page's
+        # search is client-side behind a 300 ms debounce and fetches nothing, so
+        # no skeleton ever mounts and that wait returned while the *unfiltered*
+        # rows were still up. `FertilizerListPage` passes `searchable={false}`
+        # and renders its own search box, so there is no search chip to gate on
+        # either -- but the box still feeds `tableState.setSearch`, so the
+        # `DataTable`'s own no-results panel is rendered and is the signal.
+        fertilizer_list.wait_for_no_search_results(term, what="fertilizer list")
 
         screenshot(
             "TC-REQ-004-004_fertilizer-search-no-match",
             "Fertilizer list after searching for non-existent product",
         )
 
-        filtered_count = fertilizer_list.get_row_count()
-        assert filtered_count <= initial_count, (
-            f"TC-REQ-004-004 FAIL: Search should reduce or equal row count: {filtered_count} vs {initial_count}"
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it (#956).
+        # The wait above is the replacement claim and fails loudly; it says the
+        # filter excluded every row *while the source rows are still there*,
+        # which is what a count could never separate from an emptied list.
+        #
+        # What it cannot say is *which* term did the excluding, and that is
+        # asserted here rather than by re-reading rows the wait already implies.
+        # It is a real claim on this page and on no other: `FertilizerListPage`
+        # keeps the search in two places -- a local `searchInput` and
+        # `tableState.search` -- joined by two `useEffect`s, one of which writes
+        # back into the input. The panel is evidence about `tableState.search`
+        # alone; only the box says the two still agree on the same term.
+        typed = fertilizer_list.get_search_input_value()
+        assert typed == term, (
+            f"TC-REQ-004-004 FAIL: The fertilizer list reports no matches, but its "
+            f"search box reads {typed!r} rather than {term!r}, so the empty result is "
+            f"not evidence about {term!r}. `tableState.search` and the local "
+            f"`searchInput` have diverged — the back-sync effect overwrote the box "
+            f"after the debounce forwarded the term."
         )
 
     @pytest.mark.core_crud
@@ -312,10 +337,16 @@ class TestFertilizerCreateDialog:
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Minimal).
         """
         fertilizer_list.open()
-        initial_count = fertilizer_list.get_row_count()
 
         fertilizer_list.click_create()
         unique = uuid.uuid4().hex[:8]
+        # The ``E2E-`` prefix is load-bearing, not cosmetic: `fetchFertilizers`
+        # asks for 50 rows and the backend sorts by `product_name`, while the
+        # seed data already ships **53** — so three seeded fertilizers are
+        # already unfetchable on a fresh install, and a created one is only
+        # inside the slice if its name sorts early. ``E2E-…`` ranks 21st of 54
+        # against the seed names; sorting the whole E2E-created set into one
+        # early block keeps the read-back below about the *create*.
         product_name = f"E2E-TestFertilizer-{unique}"
 
         screenshot(
@@ -324,17 +355,45 @@ class TestFertilizerCreateDialog:
 
         fertilizer_list.fill_product_name(product_name)
         fertilizer_list.submit_create_form()
+        # The exact post-condition of the create, replacing a
+        # `wait_for_loading_complete()` that can return before the POST has even
+        # been answered: the dialog closes only after
+        # `await api.createFertilizer(...)` resolves 2xx.
+        fertilizer_list.wait_for_create_dialog_closed()
 
-        fertilizer_list.wait_for_loading_complete()
         fertilizer_list.open()  # re-navigate to refresh list
+        fertilizer_list.search(product_name)
+        # No `wait_for_search_applied` here and on purpose: `FertilizerListPage`
+        # passes `searchable={false}`, so the `DataTable` renders no toolbar and
+        # no search chip. The identity wait below is the gate instead — it can
+        # only become true in a render where the filter has run, because in the
+        # unfiltered one row 0 is whichever fertilizer sorts first.
+        fertilizer_list.wait_for_row_identity(
+            0,
+            FertilizerListPage.NAME_COLUMN_ID,
+            product_name,
+            rows_locator=FertilizerListPage.TABLE_ROWS,
+            what=f"self-provisioned fertilizer {product_name!r} (create confirmed)",
+        )
         screenshot(
             "TC-REQ-004-014_after-create",
-            "Fertilizer list after creating fertilizer with minimal fields",
+            "Fertilizer list filtered to the fertilizer just created",
         )
 
-        new_count = fertilizer_list.get_row_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-004-014 FAIL: Expected at least {initial_count} fertilizers after create, got {new_count}"
+        # Identity, not arithmetic. `new_count >= initial_count` is satisfied by
+        # a create that was rejected, never submitted or answered 500 -- which is
+        # exactly what four nutrient-plan tests of this shape did for 274 days
+        # (#956/#966). The name carries a per-run uuid, so nothing but this
+        # create can satisfy this.
+        listed = fertilizer_list.get_first_column_texts()
+        assert listed == [product_name], (
+            f"TC-REQ-004-014 FAIL: The list filtered by {product_name!r} must name "
+            f"exactly the fertilizer just created, but reads {listed!r}. The create "
+            f"dialog closed, so the POST returned 2xx -- an empty list here means the "
+            f"fertilizer is outside the 50-row slice `fetchFertilizers` requests "
+            f"(53 are seeded, so the slice is already full and only the early-sorting "
+            f"``E2E-`` block is reachable), and more than one row means the name is "
+            f"not unique."
         )
 
     @pytest.mark.core_crud
@@ -346,12 +405,17 @@ class TestFertilizerCreateDialog:
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Full).
         """
         fertilizer_list.open()
-        initial_count = fertilizer_list.get_row_count()
 
         fertilizer_list.click_create()
         unique = uuid.uuid4().hex[:6]
-        product_name = f"FloraGro-E2E-{unique}"
-        brand = f"General-Hydro-E2E-{unique}"
+        # ``E2E-`` first, for the 50-row-slice reason spelled out in
+        # `test_create_fertilizer_minimal_required_fields`: the seed data already
+        # ships 53 fertilizers against a `limit=50` fetch, so only names that
+        # sort into the early block are reachable at all. ``FloraGro-E2E-…``
+        # ranked 22nd of 54 and would have worked today, but it drifts with every
+        # fertilizer another test creates; the prefixed block does not.
+        product_name = f"E2E-FloraGro-{unique}"
+        brand = f"E2E-General-Hydro-{unique}"
 
         fertilizer_list.fill_product_name(product_name)
         fertilizer_list.wait_for_loading_complete()
@@ -374,19 +438,54 @@ class TestFertilizerCreateDialog:
         )
 
         fertilizer_list.submit_create_form()
-        fertilizer_list.wait_for_loading_complete()
+        # The exact post-condition of the create: the dialog closes only after
+        # `await api.createFertilizer(...)` resolves 2xx.
+        fertilizer_list.wait_for_create_dialog_closed()
 
         fertilizer_list.open()
+        fertilizer_list.search(product_name)
+        # The identity wait is the gate: this page renders no search chip
+        # (`searchable={false}`), and in the *unfiltered* render row 0 is
+        # whichever fertilizer sorts first, never this one.
+        fertilizer_list.wait_for_row_identity(
+            0,
+            FertilizerListPage.NAME_COLUMN_ID,
+            product_name,
+            rows_locator=FertilizerListPage.TABLE_ROWS,
+            what=f"self-provisioned fertilizer {product_name!r} (create confirmed)",
+        )
         screenshot(
             "TC-REQ-004-015_after-create-full",
-            "Fertilizer list after creating fertilizer with full data",
+            "Fertilizer list filtered to the fully populated fertilizer just created",
         )
 
-        # Verify new entry appears in list
-        new_count = fertilizer_list.get_row_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-004-015 FAIL: Expected at least {initial_count} rows after create, got {new_count}"
+        # Identity instead of a count that cannot fall (#956), and the *brand*
+        # too: "all major fields" is the claim this test makes, and a create that
+        # persists the product name while dropping the rest satisfied the old
+        # assertion exactly as well as a correct one.
+        listed = fertilizer_list.get_first_column_texts()
+        assert listed == [product_name], (
+            f"TC-REQ-004-015 FAIL: The list filtered by {product_name!r} must name "
+            f"exactly the fertilizer just created, but reads {listed!r}. The create "
+            f"dialog closed, so the POST returned 2xx -- an empty list here means the "
+            f"fertilizer is outside the 50-row slice `fetchFertilizers` requests (53 "
+            f"are seeded, so the slice is already full), and more than one row means "
+            f"the name is not unique."
         )
+        brands = fertilizer_list.get_column_texts("brand")
+        assert brands == [brand], (
+            f"TC-REQ-004-015 FAIL: The created fertilizer must carry the brand "
+            f"{brand!r} that was typed into the dialog, but the brand column of the "
+            f"one matching row reads {brands!r}. The fertilizer itself exists (its "
+            f"product name matched above), so this is the create dropping a field "
+            f"rather than a create that never happened -- '—' is the list's "
+            f"placeholder for an empty brand."
+        )
+        # The NPK triple is deliberately *not* asserted alongside it: the column
+        # renders `${npk_ratio[0]}-${…}` straight off the JSON, so what a typed
+        # "3.0" reads back as depends on the backend's float handling, and a
+        # mismatch would arrive as "the create dropped the field" when it may
+        # only be formatting. It needs its own check, with its own evidence.
 
     @pytest.mark.core_crud
     def test_validation_empty_product_name(

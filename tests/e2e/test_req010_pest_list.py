@@ -206,17 +206,41 @@ class TestPestListPage:
         if initial_count == 0:
             pytest.skip("No pests in database to filter")
 
-        pest_list.search("XYZUnbekannt99")
-        pest_list.wait_for_loading_complete()
-        filtered_count = pest_list.get_row_count()
+        names_before = pest_list.get_first_column_texts()
+        term = "XYZUnbekannt99"
+        pest_list.search(term)
+        # Not `wait_for_loading_complete()`: the `DataTable` search is
+        # client-side behind a 300 ms debounce and fetches nothing, so the
+        # skeleton it polls for never mounts and it returned while the
+        # unfiltered rows were still up.
+        pest_list.wait_for_search_applied(term, what="pest list")
+        filtered = pest_list.get_first_column_texts()
+        assert filtered == [], (
+            f"TC-REQ-010-007 FAIL: The arrange step must leave the pest list empty so "
+            f"that the reset has something to restore, but {len(filtered)} of the "
+            f"{initial_count} rows survive the search for {term!r}: {filtered!r}. The "
+            f"chip already carries the term, so the filter has run and some column's "
+            f"`searchValue` matches it."
+        )
 
         pest_list.click_reset_filters()
-        pest_list.wait_for_loading_complete()
+        # The chip disappears in the same commit that recomputes the *unfiltered*
+        # rows, so it is the post-condition of the reset.
+        pest_list.wait_for_element_hidden(pest_list.SEARCH_CHIP)
         screenshot("TC-REQ-010-007_after-reset", "Pest list after filter reset")
 
-        reset_count = pest_list.get_row_count()
-        assert reset_count >= filtered_count, (
-            "TC-REQ-010-007 FAIL: Reset should show more or equal rows"
+        # `reset_count >= filtered_count` was a tautology, not a weak check: the
+        # term matches nothing, so `filtered_count` is 0 and every row count in
+        # the domain satisfies ``>= 0`` -- including the empty list a reset that
+        # did nothing would leave behind (#956). What the reset claims is that
+        # the rows the filter removed are listed again, read by name.
+        names_after = pest_list.get_first_column_texts()
+        assert set(names_after) & set(names_before), (
+            f"TC-REQ-010-007 FAIL: After the reset the pest list must name pests it "
+            f"named before the filter, but the {len(names_after)} rows now listed "
+            f"({names_after[:5]!r}) share none of the {len(names_before)} earlier ones "
+            f"({names_before[:5]!r}). The chip is gone, so `tableState.search` is "
+            f"empty -- the table re-rendered without restoring the filtered-out rows."
         )
 
     @pytest.mark.smoke

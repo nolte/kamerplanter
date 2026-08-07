@@ -23,6 +23,12 @@ class CropRotationPage(BasePage):
     # target picker below is still a real MUI <Select>.
     FAMILY_SELECT = (By.CSS_SELECTOR, "[data-testid='from-family-select'] input")
     SUCCESSOR_LIST = (By.CSS_SELECTOR, ".MuiList-root .MuiListItem-root")
+    #: The successor rows addressed by the product's own per-successor testid
+    #: (`CropRotationPage.tsx`: ``successor-family-link-<family_key>``) instead
+    #: of by MUI class structure. :data:`SUCCESSOR_LIST` matches *any* MUI list
+    #: item on the page and says nothing about what it is; this one cannot
+    #: resolve to anything but a successor.
+    SUCCESSOR_ITEMS = (By.CSS_SELECTOR, "[data-testid^='successor-family-link-']")
     ADD_SUCCESSOR_BTN = (By.CSS_SELECTOR, "[data-testid='add-successor-button']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
@@ -111,8 +117,26 @@ class CropRotationPage(BasePage):
         return len(self.driver.find_elements(*self.SUCCESSOR_LIST))
 
     def get_successor_names(self) -> list[str]:
-        items = self.driver.find_elements(*self.SUCCESSOR_LIST)
-        return [i.find_element(By.CSS_SELECTOR, ".MuiListItemText-primary").text for i in items]
+        """Return the rendered text of every listed rotation successor.
+
+        Read off the product's own ``successor-family-link-*`` element, one line
+        per successor, joined into a single string per row.
+
+        The predecessor read ``.MuiListItemText-primary`` inside every
+        `SUCCESSOR_LIST` item -- and `CropRotationPage` renders **no**
+        `ListItemText` at all: its successor rows are a `ListItemButton` holding
+        plain `Typography`. Every call therefore raised
+        ``NoSuchElementException`` as soon as the list had a row, i.e. exactly
+        when the caller had something to check. That is a reader that cannot
+        address its target, not a list that is empty, and the difference is the
+        whole point of reading it (#956).
+        """
+        return self.retry_on_stale(
+            lambda: [
+                " ".join((item.get_attribute("textContent") or "").split())
+                for item in self.driver.find_elements(*self.SUCCESSOR_ITEMS)
+            ]
+        )
 
     def click_add_successor(self) -> None:
         self.close_mui_dropdown()

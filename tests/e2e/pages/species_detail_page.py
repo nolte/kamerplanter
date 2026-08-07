@@ -64,6 +64,11 @@ class SpeciesDetailPage(BasePage):
     )
 
     # Growth phase locators
+    #: The growth-phase dialog on its own. `CREATE_DIALOG` above is a selector
+    #: *list* covering two dialogs, which is enough for "a dialog opened" but not
+    #: for "this dialog closed": a CSS list matches in document order, so a wait
+    #: on it would also answer for the cultivar dialog.
+    PHASE_DIALOG = (By.CSS_SELECTOR, "[data-testid='growth-phase-dialog']")
     PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
     # Section heading — present for every species with a lifecycle config,
     # including system/managed species, which hide the create button.
@@ -473,6 +478,18 @@ class SpeciesDetailPage(BasePage):
                 "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']",
             )
         )
+
+    def wait_for_phase_dialog_closed(self) -> None:
+        """Wait until the growth-phase dialog is gone, i.e. the phase really was saved.
+
+        The read-back :meth:`submit_phase_form` does not have, and an exact one
+        rather than a proxy: ``GrowthPhaseDialog.onSubmit`` calls ``onSaved()``
+        -- what closes the dialog -- **after** ``await
+        phasesApi.createGrowthPhase(...)`` resolves. A rejected save runs
+        ``handleError`` instead and leaves it up. So the dialog being gone means
+        the POST returned 2xx, and nothing weaker does (#956/#966).
+        """
+        self.wait_for_element_hidden(self.PHASE_DIALOG)
 
     def click_phase_row(self, index: int) -> None:
         """Open the growth phase at *index* via its inert `name` cell.

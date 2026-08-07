@@ -168,13 +168,33 @@ class TestSubstrateListPage:
         initial_count = substrate_list.get_row_count()
         screenshot("TC-REQ-019-005_before-search", "Substrate list before search")
 
-        substrate_list.search("ZZZ_NONEXISTENT_SUBSTRATE_9999")
-        substrate_list.wait_for_loading_complete()
+        term = "ZZZ_NONEXISTENT_SUBSTRATE_9999"
+        substrate_list.search(term)
+        # Not `wait_for_loading_complete()`: the `DataTable` search is
+        # client-side behind a 300 ms debounce and fetches nothing, so the
+        # skeleton it polls for never mounts and it returned while the
+        # unfiltered rows were still up. The chip is rendered in the commit that
+        # recomputes the filtered rows, so it is the honest gate.
+        substrate_list.wait_for_search_applied(term, what="substrate list")
+        # And that the emptiness below is the *filter's* doing: `DataTable`
+        # renders this panel only while the source rows are still there, so it
+        # separates "the search excluded everything" from "the list lost its
+        # data", which an empty row read cannot tell apart.
+        substrate_list.wait_for_no_search_results(term, what="substrate list")
         screenshot("TC-REQ-019-005_after-search", "Substrate list after search — no results")
 
-        filtered_count = substrate_list.get_row_count()
-        assert filtered_count <= initial_count, (
-            f"TC-REQ-019-005 FAIL: Expected filtered count ({filtered_count}) <= initial ({initial_count})"
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it (#956).
+        # No substrate can be named after this term, so the falsifiable
+        # post-condition is that the list names none of them.
+        remaining = substrate_list.get_first_column_texts()
+        assert remaining == [], (
+            f"TC-REQ-019-005 FAIL: Searching for {term!r} must leave the substrate "
+            f"list empty, but {len(remaining)} of the {initial_count} rows are still "
+            f"listed: {remaining!r}. The chip already carries the term, so "
+            f"`tableState.search` holds it and the filter has run -- a surviving row "
+            f"therefore means some column's `searchValue` matches this term, not that "
+            f"the search never arrived."
         )
 
     @pytest.mark.core_crud
@@ -192,12 +212,24 @@ class TestSubstrateListPage:
         if substrate_list.get_row_count() == 0:
             pytest.skip("No substrates — cannot test no-results message")
 
-        substrate_list.search("xyzxyz_nicht_vorhanden")
-        substrate_list.wait_for_loading_complete()
+        term = "xyzxyz_nicht_vorhanden"
+        substrate_list.search(term)
+        substrate_list.wait_for_search_applied(term, what="substrate list")
         screenshot("TC-REQ-019-006_no-search-results", "No search results message")
 
-        assert substrate_list.has_no_search_results() or substrate_list.get_row_count() == 0, (
-            "TC-REQ-019-006 FAIL: Expected no-search-results message or zero rows"
+        # The disjunction this replaces -- ``has_no_search_results() or
+        # get_row_count() == 0`` -- was satisfied by its second arm alone, and
+        # that arm is true in every world where the *message* is missing: a table
+        # with no rows and no hint passed a test whose whole subject is the hint
+        # (#956). The message is the claim, so it is asserted on its own.
+        assert substrate_list.has_no_search_results(), (
+            f"TC-REQ-019-006 FAIL: Searching for {term!r} must show the "
+            f"'no search results' hint, but no such element is rendered. The chip "
+            f"already carries the term, so the filter has run -- `DataTable` renders "
+            f"this hint whenever `processedData.totalFiltered === 0` and the source "
+            f"rows are non-empty, so either a substrate still matches the term, or "
+            f"the list has no source rows at all and is showing its `EmptyState` "
+            f"instead."
         )
 
     @pytest.mark.requires_desktop

@@ -273,24 +273,47 @@ class TestGrowthPhaseManagement:
 
         initial_count = species_detail.get_phase_count()
         unique = uuid.uuid4().hex[:4]
+        display_name = f"E2E Phase {unique}"
 
         species_detail.click_phase_create()
         species_detail.fill_phase_form(
             name=f"e2e_phase_{unique}",
-            display_name=f"E2E Phase {unique}",
+            display_name=display_name,
             duration="7",
             order=str(initial_count),
         )
         screenshot("TC-REQ-001-057_phase-form-filled", f"Phase form filled for e2e_phase_{unique}")
 
         species_detail.submit_phase_form()
-
-        species_detail.wait_for_loading_complete()
+        # The exact post-condition of the create, replacing a
+        # `wait_for_loading_complete()` that can return before the POST has even
+        # been answered: the dialog closes only after
+        # `await phasesApi.createGrowthPhase(...)` resolves 2xx.
+        species_detail.wait_for_phase_dialog_closed()
+        species_detail.wait_for_row_containing(
+            display_name,
+            rows_locator=SpeciesDetailPage.PHASE_TABLE_ROWS,
+            what=f"growth phase table after creating {display_name!r}",
+        )
         screenshot("TC-REQ-001-057_after-create", "Growth phases after creation")
 
-        new_count = species_detail.get_phase_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-001-057 FAIL: Expected at least {initial_count} phases, got {new_count}"
+        # Identity, not arithmetic. `new_count >= initial_count` is satisfied by
+        # a create that was rejected, never submitted or answered 500 -- the
+        # shape that kept four nutrient-plan tests green for 274 days while their
+        # POSTs returned HTTP 500 (#956/#966). The display name carries a per-run
+        # uuid, so nothing but this create can satisfy this.
+        #
+        # Read through the `name` *column* rather than through the row text the
+        # wait above scanned: the two disagree exactly when the value landed in
+        # some other cell, which a whole-row containment check cannot see.
+        phase_names = species_detail.get_phase_names()
+        assert any(display_name in name for name in phase_names), (
+            f"TC-REQ-001-057 FAIL: The growth-phase table must name the phase just "
+            f"created, {display_name!r}, in its `name` column, but that column reads "
+            f"{phase_names!r} across {len(phase_names)} row(s) (it held {initial_count} "
+            f"before). The dialog closed, so the POST returned 2xx and the row is "
+            f"rendered -- so the display name is being rendered somewhere other than "
+            f"the name column."
         )
 
     @pytest.mark.core_crud

@@ -63,30 +63,72 @@ class TestBotanicalFamilyCreateDialog:
         Spec: TC-001-006 -- Neue Botanische Familie erfolgreich erstellen (Happy Path).
         """
         family_list.open()
-        initial_count = family_list.get_row_count()
 
         family_list.click_create()
         unique = uuid.uuid4().hex[:6]
+        family_name = f"E2eTestaceae{unique}"
+        common_name_de = f"Testfamilie {unique}"
+        common_name_en = f"Test family {unique}"
         family_list.fill_create_form(
-            f"E2eTestaceae{unique}",
-            common_name_de=f"Testfamilie {unique}",
-            common_name_en=f"Test family {unique}",
+            family_name,
+            common_name_de=common_name_de,
+            common_name_en=common_name_en,
             order=f"Testales{unique}",
             description="E2E-Test botanische Familie",
             ph_min="5.5",
             ph_max="7.0",
             rotation_category="test",
         )
-        screenshot("TC-REQ-001-014_form-filled", f"Create dialog filled with E2eTestaceae{unique}")
+        screenshot("TC-REQ-001-014_form-filled", f"Create dialog filled with {family_name}")
 
         family_list.submit_create_form()
+        # The exact post-condition of the create, replacing a
+        # `wait_for_loading_complete()` that can return before the POST has even
+        # been answered: the dialog closes only after
+        # `await api.createBotanicalFamily(...)` resolves 2xx.
+        family_list.wait_for_create_dialog_closed()
 
-        family_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-014_after-create", "Family list after successful creation")
+        family_list.open()
+        family_list.search(family_name)
+        family_list.wait_for_search_applied(family_name, what="botanical family list")
+        family_list.wait_for_row_identity(
+            0,
+            BotanicalFamilyListPage.NAME_COLUMN_ID,
+            family_name,
+            rows_locator=BotanicalFamilyListPage.TABLE_ROWS,
+            what=f"self-provisioned botanical family {family_name!r} (create confirmed)",
+        )
+        screenshot("TC-REQ-001-014_after-create", "Family list filtered to the family just created")
 
-        new_count = family_list.get_row_count()
-        assert new_count >= initial_count, (
-            f"TC-REQ-001-014 FAIL: Expected at least {initial_count} rows, got {new_count}"
+        # Identity, not arithmetic. `new_count >= initial_count` is satisfied by
+        # a create that was rejected, never submitted or answered 500 -- which is
+        # exactly what four nutrient-plan tests of this shape did for 274 days
+        # (#956/#966). The name carries a per-run uuid, so nothing but this
+        # create can satisfy this.
+        listed = family_list.get_first_column_texts()
+        assert listed == [family_name], (
+            f"TC-REQ-001-014 FAIL: The list filtered by {family_name!r} must name "
+            f"exactly the family just created, but reads {listed!r}. The create dialog "
+            f"closed, so the POST returned 2xx -- an empty list here means the family "
+            f"fell outside the 50-row slice `fetchBotanicalFamilies` requests (18 "
+            f"families are seeded and 'E2e…' sorts among them, so that needs ~32 more "
+            f"created ones), and more than one row means the name is not unique."
+        )
+
+        # …and a second field, because "with all fields" is the claim this test
+        # makes: a create that persists the name while dropping the rest
+        # satisfied the old count exactly as well as a correct one. Either
+        # common name is accepted — the column renders the one matching the UI
+        # language, and both were typed, so this stays a statement about the
+        # *create* rather than about which locale the profile runs in.
+        common_names = family_list.get_column_texts("commonName")
+        assert common_names in ([common_name_de], [common_name_en]), (
+            f"TC-REQ-001-014 FAIL: The created family must carry a common name that "
+            f"was typed into the dialog ({common_name_de!r} / {common_name_en!r}), but "
+            f"the common-name column of the one matching row reads {common_names!r}. "
+            f"The family itself exists (its name matched above), so the create dropped "
+            f"the field rather than failing -- '—' is the list's placeholder for a "
+            f"family that carries neither common name."
         )
 
     @pytest.mark.core_crud
