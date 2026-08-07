@@ -1,5 +1,6 @@
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import beat_init, celeryd_init, worker_process_init
 
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
@@ -12,15 +13,53 @@ from app.observability.error_tracking import init_error_tracking, resolve_releas
 # module import time so every task has the adapters available.
 register_external_adapters()
 
-# The same reason applies to error tracking (#777): the worker is a separate
-# process that never runs ``app.main``. A background task that raises is the
-# least visible failure this system has — no request is held open waiting for it
-# — which makes the worker the component that needs a tracker most. No-op
-# without SENTRY_DSN.
-init_error_tracking(
-    component="worker",
-    release=resolve_release("kamerplanter-worker", settings.app_version),
-)
+
+def _init_worker_error_tracking(**_kwargs: object) -> None:
+    """Label this process as the worker for error tracking (#777, #991).
+
+    The worker and beat are separate processes that never run ``app.main``, and a
+    background task that raises is the least visible failure this system has — no
+    request is held open waiting for it — which makes them the components that
+    need a tracker most. No-op without ``SENTRY_DSN``.
+
+    **Why this is a signal handler and not a module-level call.** It used to be
+    one, and that made the *import* of this package label the importing process.
+    The API imports this package: that is how a request enqueues a task, and
+    there is no other way. So the first dispatch after startup re-initialised the
+    API's SDK as ``component="worker"``, release ``kamerplanter-worker@…``, and
+    nothing ever set it back — ``app.main`` inits once, at import, long before
+    the first request. Every event the API reported from then on was filed under
+    the wrong component, in the one place you go to find out what went wrong.
+
+    The rule written down to prevent that ("import ``app.tasks`` lazily, inside
+    the function") does not prevent it; it only defers the relabelling from
+    startup to the first dispatch, where — unlike at startup — no later init
+    corrects it. Measured on the pre-fix tree: importing ``app.main`` gave
+    ``component = backend``, and performing the documented lazy import afterwards
+    gave ``component = worker``. A guard forbidding eager imports would therefore
+    have passed on that tree while the defect was live. Hence this, which makes
+    importing the package inert and needs no rule at all.
+
+    ``register_external_adapters()`` above deliberately stays at import time: it
+    is idempotent, ``app.main`` performs it too, and it carries no process
+    identity to get wrong.
+    """
+    init_error_tracking(
+        component="worker",
+        release=resolve_release("kamerplanter-worker", settings.app_version),
+    )
+
+
+# All three, because they are three different processes and none implies another:
+# ``celeryd_init`` is the worker program's first step (fires for every pool),
+# ``worker_process_init`` fires inside each forked prefork child — the process
+# that actually executes a task, and the one an inherited-across-fork SDK client
+# is least safe in — and ``beat_init`` is the scheduler, which the worker signals
+# never reach. ``weak=False`` so the connection cannot be collected out from
+# under a module that holds no other reference to the handler.
+celeryd_init.connect(_init_worker_error_tracking, weak=False)
+worker_process_init.connect(_init_worker_error_tracking, weak=False)
+beat_init.connect(_init_worker_error_tracking, weak=False)
 
 celery_app = Celery(
     "kamerplanter",

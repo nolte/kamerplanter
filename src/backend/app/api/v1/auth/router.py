@@ -108,10 +108,17 @@ def _enqueue_duplicate_registration_notice(user_key: str) -> None:
       caller with a stopwatch measures. That is what keeps the duplicate branch
       indistinguishable from a genuine registration, which sends no mail at all
       while ``require_email_verification`` is off.
-    * **The import is lazy.** ``app.tasks`` registers the external adapters and
-      initialises error tracking as ``component="worker"`` at import time;
-      pulling that into the API process at module import would be a side effect
-      nobody asked for. Every other dispatch site in this codebase does the same.
+    * **The import is lazy.** It keeps Celery and the whole task-module graph out
+      of the API's import chain until something actually dispatches. Every other
+      dispatch site in this codebase does the same.
+
+      It is *not* what keeps the API's error tracking labelled ``backend``. This
+      docstring used to claim that, and it was wrong in the direction that
+      mattered: ``app.tasks`` initialised error tracking as ``component="worker"``
+      at import time, so the lazy import merely moved the relabelling from
+      startup — where ``app.main``'s own init corrected it afterwards — to the
+      first dispatch, where nothing did. #991 moved that init to the worker's own
+      Celery entry-point signals; importing ``app.tasks`` is now inert.
     """
     from app.tasks.auth_tasks import dispatch_duplicate_registration_notice
 
