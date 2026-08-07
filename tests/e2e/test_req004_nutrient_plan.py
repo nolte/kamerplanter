@@ -519,21 +519,52 @@ class TestNutrientPlanDetailPage:
 
     @pytest.fixture(autouse=True)
     def _ensure_plan_exists(self, plan_list: NutrientPlanListPage) -> None:
-        """Pre-condition: ensure at least one nutrient plan exists for detail tests."""
+        """Pre-condition: at least one nutrient plan must exist for the detail tests.
+
+        The seed data ships 50 plans, so on a seeded stack this returns after the
+        first read and the provisioning below never runs. It exists for a stack
+        that starts empty — and it now *provisions*, where it used to guess.
+
+        What it used to do was the shape #966 exploited, one level down:
+        ``except Exception: pass`` around the whole create, with the comment "if
+        creation fails, seed data may still provide plans", followed by a skip.
+        A create failing with HTTP 500 — which is exactly what
+        ``POST /nutrient-plans`` did for 274 days — was therefore reported as
+        "not available", and eight detail tests reported *skipped* rather than
+        pointing at the defect they had just triggered. A pre-condition that
+        cannot be established is a failure of this fixture, not a property of
+        the tests that depend on it.
+        """
         plan_list.open()
-        if plan_list.get_row_count() == 0:
-            try:
-                plan_list.click_create()
-                unique = uuid.uuid4().hex[:6]
-                plan_list.fill_name(f"DetailFixture-{unique}")
-                plan_list.submit_create_form()
-                plan_list.wait_for_loading_complete()
-                plan_list.open()
-            except Exception:
-                # If creation fails, seed data may still provide plans
-                plan_list.open()
-        if plan_list.get_row_count() == 0:
-            pytest.skip("No nutrient plans available for detail tests")
+        if plan_list.get_row_count() > 0:
+            return
+
+        # ``E2E-`` prefix for the 50-row-slice reason spelled out in
+        # `test_create_plan_with_all_fields`: the read-back has to be able to
+        # find what it just created.
+        plan_name = f"E2E-DetailFixture-{uuid.uuid4().hex[:6]}"
+        plan_list.click_create()
+        plan_list.fill_name(plan_name)
+        plan_list.submit_create_form()
+        # Loud where it used to be silent: the dialog closes only after
+        # `await api.createNutrientPlan(...)` resolves 2xx, so a rejected create
+        # times out here with the dialog still up instead of turning into a skip.
+        plan_list.wait_for_create_dialog_closed()
+
+        plan_list.open()
+        plan_list.search(plan_name)
+        plan_list.wait_for_search_applied(plan_name, what="nutrient plan list")
+        plan_list.wait_for_row_identity(
+            0,
+            NutrientPlanListPage.NAME_COLUMN_ID,
+            plan_name,
+            rows_locator=NutrientPlanListPage.TABLE_ROWS,
+            what=f"self-provisioned nutrient plan {plan_name!r} (detail-test fixture)",
+        )
+        # Back to the unfiltered list: `_navigate_to_first_plan` opens the route
+        # fresh, but the search lives in the URL query (`useTableUrlState`), and
+        # leaving it set would hand every test in this class a one-row table.
+        plan_list.open()
 
     def _navigate_to_first_plan(self, plan_list: NutrientPlanListPage) -> str:
         """Click the first row and return the resulting URL."""
