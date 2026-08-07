@@ -212,7 +212,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `get_nutrient_plan` | One plan with every phase: NPK ratio, target EC, nutrients, week window |
 | `get_plant_nutrient_plan` | The plan that applies to a specific plant |
 | `get_sowing_calendar` | Sowing, planting-out and harvest windows per species, shifted against your site's frost dates |
-| `list_pests` / `get_pest` | Search pests — by damage symptom too. The detail view shows counter-measures (gentlest first) **and matching beneficial insects** |
+| `list_pests` / `get_pest` | Search pests — by damage symptom too. The detail view shows counter-measures (gentlest first) **and matching beneficial insects**, specialists first |
 | `list_diseases` / `get_disease` | Diseases: pathogen, incubation period, triggering conditions, affected plant parts |
 | `get_treatment` | One treatment in detail — with the **safety interval** before harvest, protective equipment and application |
 | `get_plant_inspections` | A plant's IPM inspections: pressure level, findings, observed symptoms |
@@ -307,6 +307,9 @@ If a species is not explicitly bound, Kamerplanter derives the sequence from its
     The two mistakes do not cost the same: an annual on a perennial cycle merely misses a harvest prompt you can still trigger yourself. A perennial on an annual cycle gets a harvest and an end of life invented for it that nobody asked for. The doubtful case therefore falls to the repeating cycle.
 
 Which data feeds that decision — and what happens when a field is missing — is what `get_species_info` shows: it returns `plant_category`, `photosynthesis_type`, `growth_habit`, `indoor_suitable`, `mature_height_cm` and `frost_sensitivity`. Empty fields are omitted, so a sparse record also reads as sparse — which is itself the answer to "is this record complete enough for a reliable assignment?".
+
+!!! warning "Exception: safety fields are never omitted"
+    `toxicity`, `toxicity_severity`, `allergen_info` and `allows_harvest` are always part of the response — as `null` when nothing has been recorded. Otherwise "we hold no toxicity data on this species" would be indistinguishable from "this species is not toxic", and an agent would read the gap as an all-clear nobody gave. Only these four fields are exempt; everything else is still omitted when empty.
 
 You correct a wrong assignment with `assign_species_phase_sequence`; `list_species_by_phase_sequence` tells you which other species sit on the same sequence.
 

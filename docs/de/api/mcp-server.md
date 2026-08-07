@@ -212,7 +212,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `get_nutrient_plan` | Ein Plan mit allen Phasen: NPK-Verhältnis, Ziel-EC, Nährstoffe, Wochenfenster |
 | `get_plant_nutrient_plan` | Der Plan, der für eine bestimmte Pflanze gilt |
 | `get_sowing_calendar` | Aussaat-, Auspflanz- und Erntefenster je Art, verschoben gegen die Frostdaten deines Standorts |
-| `list_pests` / `get_pest` | Schädlinge suchen — auch nach Schadbild. Das Detail zeigt Gegenmaßnahmen (sanfteste zuerst) **und passende Nützlinge** |
+| `list_pests` / `get_pest` | Schädlinge suchen — auch nach Schadbild. Das Detail zeigt Gegenmaßnahmen (sanfteste zuerst) **und passende Nützlinge**, Spezialisten zuerst |
 | `list_diseases` / `get_disease` | Krankheiten: Erreger, Inkubationszeit, auslösende Bedingungen, betroffene Pflanzenteile |
 | `get_treatment` | Eine Behandlung im Detail — mit **Karenzzeit** vor der Ernte, Schutzausrüstung und Anwendung |
 | `get_plant_inspections` | Die IPM-Inspektionen einer Pflanze: Befallsdruck, Funde, beobachtete Symptome |
@@ -307,6 +307,9 @@ Ist eine Art nicht ausdrücklich gebunden, leitet Kamerplanter die Abfolge aus i
     Die beiden Irrtümer kosten nicht gleich viel: Eine einjährige Pflanze auf einem mehrjährigen Zyklus verpasst nur einen Ernte-Hinweis, den du weiterhin selbst auslösen kannst. Eine mehrjährige Pflanze auf einem einjährigen Zyklus bekommt eine Ernte und ein Lebensende erfunden, die niemand vorgesehen hat. Deshalb fällt der Zweifelsfall auf den sich wiederholenden Zyklus.
 
 Welche Angaben in diese Entscheidung eingehen — und was passiert, wenn eine davon fehlt — zeigt `get_species_info`: Es liefert `plant_category`, `photosynthesis_type`, `growth_habit`, `indoor_suitable`, `mature_height_cm` und `frost_sensitivity`. Leere Felder werden weggelassen; ein dünn besetzter Datensatz sieht also auch dünn aus — was selbst schon die Antwort auf „reicht dieser Datensatz für eine verlässliche Zuordnung?" ist.
+
+!!! warning "Ausnahme: Sicherheitsfelder werden nie weggelassen"
+    `toxicity`, `toxicity_severity`, `allergen_info` und `allows_harvest` stehen immer in der Antwort — ist nichts erfasst, als `null`. Sonst wäre „zu dieser Art liegen keine Giftigkeitsdaten vor" nicht von „diese Art ist nicht giftig" zu unterscheiden, und ein Agent läse die Lücke als Entwarnung, die niemand gegeben hat. Ausgenommen sind nur diese vier Felder; alle übrigen werden weiterhin weggelassen.
 
 Eine falsche Zuordnung korrigierst du mit `assign_species_phase_sequence`; welche Arten sonst noch auf derselben Abfolge sitzen, verrät `list_species_by_phase_sequence`.
 
