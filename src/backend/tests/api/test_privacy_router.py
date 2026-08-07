@@ -1,18 +1,27 @@
 """API smoke tests for the REQ-025 privacy router.
 
-These tests mount only the privacy router on a minimal FastAPI app to keep
-DB-dependent middleware out of the picture.
+Driven through the **real** application, as the other privacy modules are, with
+only ``app.main``'s datastore setup patched out. The module used to mount the
+router on a bare ``FastAPI()`` "to keep DB-dependent middleware out of the
+picture" — but that app registered neither ``app_error_handler`` nor slowapi's
+``RateLimitExceeded`` handler, so every error this router can raise came out as a
+bare 500 naming nothing (#989). ``/privacy/email-change`` carries an hourly limit
+whose counters are process-global, so a 429 here is reachable in principle, and
+"500, no message" is the worst possible thing for whoever trips it to read.
+
+Keeping the datastore out and keeping the app's error contract are not in
+conflict: patching the connection setup does the first without giving up the
+second.
 """
 
+from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.v1.auth.router import limiter
-from app.api.v1.privacy.router import public_router as privacy_public_router
-from app.api.v1.privacy.router import router as privacy_router
 from app.common.auth import get_current_user
 from app.common.dependencies import get_privacy_service
 from app.domain.engines.consent_engine import ConsentEngine
@@ -33,29 +42,47 @@ from app.domain.models.user import User
 USER_KEY = "u-test-1"
 
 
-def _build_app(service):
-    app = FastAPI()
-    app.include_router(privacy_router, prefix="/api/v1")
-    app.include_router(privacy_public_router, prefix="/api/v1")
-    app.dependency_overrides[get_privacy_service] = lambda: service
-    app.dependency_overrides[get_current_user] = lambda: User(
-        _key=USER_KEY,
-        email="user@example.com",
-        display_name="Test User",
-        is_active=True,
-    )
-    return app
-
-
-def _build_service():
+@pytest.fixture
+def service() -> MagicMock:
     service = MagicMock()
     service._consent_engine = ConsentEngine()  # noqa: SLF001 — used by router
     return service
 
 
+@pytest.fixture
+def privacy_app(service: MagicMock) -> Iterator[FastAPI]:
+    """The real app, with the privacy service and the caller faked out."""
+    with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
+        from app.main import app
+
+        app.dependency_overrides[get_privacy_service] = lambda: service
+        app.dependency_overrides[get_current_user] = lambda: User(
+            _key=USER_KEY,
+            email="user@example.com",
+            display_name="Test User",
+            is_active=True,
+        )
+        try:
+            yield app
+        finally:
+            app.dependency_overrides.pop(get_privacy_service, None)
+            app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def client(privacy_app: FastAPI) -> TestClient:
+    return TestClient(privacy_app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def anonymous_client(privacy_app: FastAPI) -> TestClient:
+    """Same app without the ``get_current_user`` override — nobody is logged in."""
+    privacy_app.dependency_overrides.pop(get_current_user, None)
+    return TestClient(privacy_app, raise_server_exceptions=False)
+
+
 class TestPrivacyPolicy:
-    def test_get_policy_is_public(self):
-        service = _build_service()
+    def test_get_policy_is_public(self, client: TestClient, service: MagicMock) -> None:
         service.get_privacy_policy.return_value = PrivacyPolicyInfo(
             version="1.0",
             effective_date=date(2026, 4, 27),
@@ -71,8 +98,6 @@ class TestPrivacyPolicy:
             rights_summary=[RightInfo(article="Art. 15", title="Access", description="...")],
         )
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.get("/api/v1/privacy/policy")
 
         assert response.status_code == 200
@@ -82,8 +107,7 @@ class TestPrivacyPolicy:
 
 
 class TestConsentEndpoints:
-    def test_list_consents_returns_purposes(self):
-        service = _build_service()
+    def test_list_consents_returns_purposes(self, client: TestClient, service: MagicMock) -> None:
         service.list_consents.return_value = [
             ConsentWithPurpose(
                 purpose="core_functionality",
@@ -103,16 +127,13 @@ class TestConsentEndpoints:
             ),
         ]
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.get("/api/v1/privacy/consents")
 
         assert response.status_code == 200
         purposes = {item["purpose"] for item in response.json()}
         assert {"core_functionality", "error_tracking"} <= purposes
 
-    def test_grant_consent_creates_record(self):
-        service = _build_service()
+    def test_grant_consent_creates_record(self, client: TestClient, service: MagicMock) -> None:
         service.grant_consent.return_value = ConsentRecord(
             _key="c1",
             user_key=USER_KEY,
@@ -121,8 +142,6 @@ class TestConsentEndpoints:
             granted_at=datetime.now(UTC),
         )
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.post(
             "/api/v1/privacy/consents",
             json={"purpose": "error_tracking"},
@@ -133,8 +152,7 @@ class TestConsentEndpoints:
         assert body["purpose"] == "error_tracking"
         assert body["granted"] is True
 
-    def test_revoke_consent(self):
-        service = _build_service()
+    def test_revoke_consent(self, client: TestClient, service: MagicMock) -> None:
         service.revoke_consent.return_value = ConsentRecord(
             _key="c1",
             user_key=USER_KEY,
@@ -143,8 +161,6 @@ class TestConsentEndpoints:
             revoked_at=datetime.now(UTC),
         )
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.delete("/api/v1/privacy/consents/error_tracking")
 
         assert response.status_code == 200
@@ -152,8 +168,7 @@ class TestConsentEndpoints:
 
 
 class TestExportEndpoints:
-    def test_request_export(self):
-        service = _build_service()
+    def test_request_export(self, client: TestClient, service: MagicMock) -> None:
         service.request_data_export.return_value = DataExportRequest(
             _key="e1",
             user_key=USER_KEY,
@@ -161,8 +176,6 @@ class TestExportEndpoints:
             requested_at=datetime.now(UTC),
         )
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.post("/api/v1/privacy/export")
 
         assert response.status_code == 201
@@ -170,8 +183,7 @@ class TestExportEndpoints:
 
 
 class TestErasureEndpoints:
-    def test_request_erasure(self):
-        service = _build_service()
+    def test_request_erasure(self, client: TestClient, service: MagicMock) -> None:
         service.request_erasure.return_value = ErasureRequest(
             _key="er1",
             user_key=USER_KEY,
@@ -182,8 +194,6 @@ class TestErasureEndpoints:
             anonymized_collections=["harvest_batches"],
         )
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.post(
             "/api/v1/privacy/erasure",
             json={"password": "very-strong-pass"},
@@ -196,8 +206,7 @@ class TestErasureEndpoints:
 
 
 class TestRestrictionEndpoints:
-    def test_create_restriction(self):
-        service = _build_service()
+    def test_create_restriction(self, client: TestClient, service: MagicMock) -> None:
         service.restrict_processing.return_value = ProcessingRestriction(
             _key="r1",
             user_key=USER_KEY,
@@ -206,8 +215,6 @@ class TestRestrictionEndpoints:
             created_at=datetime.now(UTC),
         )
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.post(
             "/api/v1/privacy/restrict",
             json={"scope": "analytics", "reason": "purpose_expired"},
@@ -218,14 +225,7 @@ class TestRestrictionEndpoints:
 
 
 class TestEmailChangeEndpoints:
-    def test_request_email_change(self):
-        # ``/privacy/email-change`` is rate-limited per IP with an hourly window
-        # (#958), shared under ``testclient`` with every other module that posts
-        # here. Without the reset this test depends on how many of them ran
-        # first — and the minimal app built below registers no 429 handler, so
-        # it would fail as a 500 naming nothing.
-        limiter.reset()
-        service = _build_service()
+    def test_request_email_change(self, client: TestClient, service: MagicMock) -> None:
         service.request_email_change.return_value = EmailChangeRequest(
             _key="ec1",
             user_key=USER_KEY,
@@ -236,8 +236,6 @@ class TestEmailChangeEndpoints:
             expires_at=datetime.now(UTC) + timedelta(hours=24),
         )
 
-        app = _build_app(service)
-        client = TestClient(app)
         response = client.post(
             "/api/v1/privacy/email-change",
             json={"new_email": "new@example.com"},
@@ -246,19 +244,43 @@ class TestEmailChangeEndpoints:
         assert response.status_code == 201
         assert response.json()["new_email"] == "new@example.com"
 
-    def test_confirm_email_change_no_auth_required(self):
-        service = _build_service()
+    def test_exhausted_budget_answers_429_not_a_bare_500(self, client: TestClient, service: MagicMock) -> None:
+        """What the old minimal app could not say (#989).
+
+        The limit itself is asserted in ``test_privacy_email_change_rate_limit``;
+        what this pins is that *this* app renders the refusal — before, the same
+        ``RateLimitExceeded`` reached no handler and became a 500 with no
+        ``error_code`` and no message, from which nothing could be diagnosed.
+        """
+        from app.config.settings import settings
+
+        service.request_email_change.return_value = EmailChangeRequest(
+            _key="ec1",
+            user_key=USER_KEY,
+            new_email="new@example.com",
+            verification_token_hash="hash",
+            status="pending",
+            requested_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(hours=24),
+        )
+        budget = int(settings.rate_limit_email_change.split("/")[0])
+
+        statuses = [
+            client.post("/api/v1/privacy/email-change", json={"new_email": f"new-{i}@example.com"}).status_code
+            for i in range(budget + 1)
+        ]
+
+        assert statuses[-1] == 429
+        assert 500 not in statuses
+
+    def test_confirm_email_change_no_auth_required(self, anonymous_client: TestClient, service: MagicMock) -> None:
         service.confirm_email_change.return_value = User(
             _key=USER_KEY,
             email="new@example.com",
             display_name="Test User",
         )
 
-        app = _build_app(service)
-        # Remove the auth override so we verify the endpoint works without it.
-        app.dependency_overrides.pop(get_current_user, None)
-        client = TestClient(app)
-        response = client.post(
+        response = anonymous_client.post(
             "/api/v1/privacy/email-change/confirm",
             json={"token": "raw-token-123"},
         )

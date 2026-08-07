@@ -104,14 +104,6 @@ def _build_app(authenticator: McpAuthenticator) -> TestClient:
 
 
 @pytest.fixture(autouse=True)
-def _reset_limiter():
-    limiter.enabled = True
-    limiter.reset()
-    yield
-    limiter.reset()
-
-
-@pytest.fixture(autouse=True)
 def _enable_mcp(monkeypatch):
     monkeypatch.setattr(settings, "mcp_server_enabled", True)
     yield
@@ -155,6 +147,9 @@ def test_validate_masks_valid_non_service_key_as_generic_401():
 
 def test_validate_is_rate_limited():
     # SEC-003: the endpoint is per-IP rate limited (reuses the auth limiter).
+    # Exhausting the budget inside one test is the point here; the full budget
+    # this starts from, and the clean one it leaves behind, come from the
+    # ``reset_rate_limiter`` autouse fixture in ``tests/api/conftest.py`` (#989).
     auth = _authenticator(_api_key(), _service_user(), [_Tenant("home", "home", TenantRole.GROWER)])
     client = _build_app(auth)
     limit = int(settings.rate_limit_auth.split("/")[0])
