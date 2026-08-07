@@ -279,6 +279,12 @@ class WateringLogListPage(BasePage):
         document height, and MUI re-evaluates every `useMediaQuery` on the
         resulting resize. The checkpoint is not observation-neutral, so a raw
         read taken after one is exposed to a re-render it did not cause.
+
+        The checkpoint now verifies the restore and holds one frame before
+        returning (#959, ``conftest._settle_after_capture``), which removes the
+        *known* instance of that window. The wait here stays: it costs nothing
+        when the button is there, and the frame barrier is a bounded heuristic
+        about React's scheduler, not a proof that no re-render can outlive it.
         """
         return bool(self.await_presence(self.REMOVE_FERTILIZER_BUTTON_0))
 

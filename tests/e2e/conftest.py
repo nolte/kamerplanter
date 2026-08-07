@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import time
 from collections.abc import Callable, Generator
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,7 @@ from typing import Any
 import pytest
 
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
@@ -1226,6 +1228,145 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
     return path
 
 
+# ── A checkpoint has to be a passive observation ──────────────────────────────
+# ``captureBeyondViewport`` is not passive: Chrome resizes the **layout
+# viewport** to capture past the fold and then puts it back. Measured on
+# Chromium 150.0.7871.128 (the major the Grid runs, see
+# ``docker-compose.e2e.yml``: ``selenium/node-chrome:150.0``) by driving CDP
+# directly against a synthetic page, 20 captures per configuration:
+#
+#   * two ``resize`` events fire per capture -- the payloads show the viewport
+#     collapsing to 1x1 (desktop) / 4x4 (emulated mobile) and coming back;
+#   * a ``matchMedia('(min-width: 600px)')`` listener flips **false and back to
+#     true** every single time, ~5-8 ms apart. So every `useMediaQuery` in the
+#     page re-evaluates, and a subtree gated on one unmounts and remounts;
+#   * Chrome restores the metrics itself, and does so *before* the CDP command
+#     returns: on 26/26 captures the first read after the response already
+#     matched the pre-capture ``innerWidth``/``innerHeight`` and the measured
+#     height of both a ``height: 100vh`` and a ``height: 60vh`` element.
+#
+# So the metrics do come back -- but nothing ever *checked* that they had, and
+# the media-query flips leave React work scheduled that lands after the response
+# (React re-renders asynchronously; the synthetic listener used for the
+# measurement above mutated the DOM synchronously and therefore cannot time it).
+# That is the window `test_create_dialog_add_fertilizer_button` fell into when
+# `has_remove_fertilizer_button()` answered `False` one line after a helper had
+# waited for that very button (#959). While the driver-level implicit wait was
+# in place every raw lookup got a 3 s grace period that outlasted it; #835
+# removed the wait and the window became reachable.
+#
+# The two things below close it without touching a single call site: verify the
+# restore instead of assuming it, and hold the checkpoint for a frame so the
+# scheduled re-render commits before the test reads again.
+#
+# Cost, measured the same way over 15 captures: the restore poll is satisfied by
+# its first sample every time (0.6 ms median) and the frame barrier resolves
+# through the two rAF callbacks every time (20.4 ms median, 37.5 ms worst), never
+# through its 250 ms fallback -- so ~21 ms per checkpoint against a capture that
+# already costs ~113 ms on desktop and ~900 ms under device emulation.
+#
+# The alternative the issue lists -- drop the flag and stitch scrolled captures
+# -- was not taken, and not only for the capture cost: stitching has to *scroll*
+# the page under test, which moves sticky chrome, fires IntersectionObservers and
+# can trigger lazy loads. It trades a resize the browser undoes for a scroll
+# position nobody restores, which is a larger observation effect, not a smaller
+# one.
+
+#: Budget for the layout to be back at its pre-capture metrics. Generous by two
+#: orders of magnitude against the measurement (restored before the response on
+#: every run), because its purpose is to fail loudly on a browser that does not
+#: restore at all, not to trade against a timing.
+_CAPTURE_RESTORE_TIMEOUT = 5.0
+
+_VIEWPORT_METRICS_JS = "return [window.innerWidth, window.innerHeight];"
+
+#: One full frame, bounded. Two nested ``requestAnimationFrame`` callbacks span
+#: a whole frame, which is enough for work React's scheduler posted from the
+#: capture's resize listeners to run and commit. The ``setTimeout`` race is not
+#: belt-and-braces: a page whose rAF never fires (a throttled or hidden document)
+#: would otherwise hang the checkpoint until the script timeout, so the barrier
+#: degrades to a bounded pause rather than to a stall.
+_SETTLE_FRAMES_JS = """
+const done = arguments[arguments.length - 1];
+let finished = false;
+const finish = (how) => { if (!finished) { finished = true; done(how); } };
+window.setTimeout(() => finish('timeout'), 250);
+window.requestAnimationFrame(() => window.requestAnimationFrame(() => finish('frames')));
+"""
+
+
+def _viewport_metrics(driver: webdriver.Remote) -> tuple[int, int] | None:
+    """Return ``(innerWidth, innerHeight)``, or ``None`` if the page cannot be asked.
+
+    ``None`` means "could not look" and is kept distinct from any pair of
+    numbers on purpose: a dead session, a page mid-navigation or an open JS
+    alert must not be reported as a viewport that changed size. The only thing
+    that follows from ``None`` is that this capture cannot be checked -- never
+    that it was fine.
+    """
+    try:
+        metrics = driver.execute_script(_VIEWPORT_METRICS_JS)
+    except WebDriverException:
+        return None
+    if not isinstance(metrics, list) or len(metrics) != 2:
+        return None
+    try:
+        return int(metrics[0]), int(metrics[1])
+    except TypeError, ValueError:
+        return None
+
+
+def _settle_after_capture(
+    driver: webdriver.Remote,
+    before: tuple[int, int] | None,
+    timeout: float = _CAPTURE_RESTORE_TIMEOUT,
+) -> None:
+    """Wait until the page is back at *before*'s viewport, then out one frame.
+
+    Called with the metrics read *before* the capture. Raises when they never
+    come back: a checkpoint that leaves the page at a different size has
+    silently re-laid-out everything the test is about to read, and there is no
+    honest way to continue from that -- every subsequent assertion would be
+    about a layout the test never asked for.
+
+    A ``before`` of ``None`` means the baseline could not be established (see
+    :func:`_viewport_metrics`), so there is nothing to compare against and the
+    check is skipped rather than guessed.
+    """
+    if before is None:
+        return
+
+    deadline = time.monotonic() + timeout
+    seen = _viewport_metrics(driver)
+    while seen != before and time.monotonic() < deadline:
+        time.sleep(0.02)
+        seen = _viewport_metrics(driver)
+
+    if seen != before:
+        raise AssertionError(
+            f"The screenshot checkpoint left the page at a different size: the "
+            f"viewport was {before[0]}x{before[1]} before the capture and reads "
+            f"{seen} {timeout}s after it. `captureBeyondViewport` stretches the "
+            f"layout viewport to the document height and is expected to put it "
+            f"back before `Page.captureScreenshot` returns; it did not. Every "
+            f"read after this checkpoint would be against a re-laid-out page — "
+            f"`None` here means the page could not be asked at all (dead "
+            f"session, open alert), any other pair means the restore is broken "
+            f"in this browser and the capture must stop using that flag."
+        )
+
+    # The metrics are back; the re-render the two media-query flips scheduled
+    # may not have committed yet. One frame, bounded, is what makes the
+    # checkpoint passive for the caller that reads on the next line.
+    try:
+        driver.execute_async_script(_SETTLE_FRAMES_JS)
+    except WebDriverException:
+        # Only reachable if the session died between the poll above and here;
+        # the restore has already been verified, so there is nothing left to
+        # assert and the real failure belongs to whatever the test does next.
+        pass
+
+
 def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
     """Capture a full-page screenshot via Chrome DevTools Protocol.
 
@@ -1239,9 +1380,15 @@ def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
     852px viewport — so **height in this image means nothing** and it cannot
     answer "is this below the fold". Its *width* stays a sound horizontal-overflow
     measurement. Use :func:`_cdp_viewport_screenshot` for anything vertical.
+
+    Returns only once the page is back at the viewport it had before, and one
+    frame after that — see the block comment above for what was measured and
+    why. The fallback path needs neither: ``save_screenshot`` captures the
+    viewport as it stands and resizes nothing.
     """
     import base64
 
+    before = _viewport_metrics(driver)
     try:
         result = driver.execute_cdp_cmd(
             "Page.captureScreenshot",
@@ -1251,6 +1398,8 @@ def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
     except Exception:
         # Fallback for non-Chrome browsers or remote grids without CDP
         driver.save_screenshot(str(filepath))
+        return
+    _settle_after_capture(driver, before)
 
 
 def _cdp_viewport_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
