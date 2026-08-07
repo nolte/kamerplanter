@@ -184,16 +184,34 @@ class TestHarvestBatchListPage:
             "Harvest list before search input",
         )
 
-        harvest_list.search("ZZZ_NONEXISTENT_BATCH_9999")  # debounce handled inside the page object
+        term = "ZZZ_NONEXISTENT_BATCH_9999"
+        harvest_list.search(term)  # typing only; the 300 ms sleep inside is a bet
+        # …and this is the check that bet needs. The chip is rendered in the same
+        # commit that recomputes `processedData`, so it is the only signal that
+        # the *filter* — not just the input — has reached the table.
+        harvest_list.wait_for_search_applied(term, what="harvest batch list")
+        # And that the emptiness below is the *filter's* doing: `DataTable`
+        # renders this panel only while the source rows are still there, so it
+        # separates "the search excluded everything" from "the list lost its
+        # data", which an empty row read cannot tell apart.
+        harvest_list.wait_for_no_search_results(term, what="harvest batch list")
         screenshot(
             "TC-REQ-007-021_after-search",
             "Harvest list after search -- filtered results",
         )
 
-        filtered_count = harvest_list.get_row_count()
-        assert filtered_count <= initial_count, (
-            f"TC-REQ-007-021 FAIL: Expected filtered count ({filtered_count}) "
-            f"<= initial ({initial_count})"
+        # `filtered_count <= initial_count` was satisfied by a filter that does
+        # nothing at all -- every one of the rows staying put holds it (#956).
+        # No batch can be named after this term, so the falsifiable
+        # post-condition is that the list names none of them.
+        remaining = harvest_list.get_first_column_texts()
+        assert remaining == [], (
+            f"TC-REQ-007-021 FAIL: Searching for {term!r} must leave the harvest "
+            f"batch list empty, but {len(remaining)} of the {initial_count} rows are "
+            f"still listed: {remaining!r}. The chip already carries the term, so "
+            f"`tableState.search` holds it and the filter has run -- a surviving row "
+            f"therefore means some column's `searchValue` matches this term, not that "
+            f"the search never arrived."
         )
 
     @pytest.mark.requires_desktop
