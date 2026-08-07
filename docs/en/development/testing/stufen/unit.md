@@ -44,3 +44,16 @@ Full prerequisites and patterns are in the [testing concept → Backend Tests](.
 - Service tests mock the repository (`AsyncMock(spec=…)`).
 - Redux slice tests run entirely without React — call the reducer as a pure function.
 - Every new feature needs at least one unit test for its business logic.
+- **No datastore access.** A backend unit test that reaches ArangoDB, TimescaleDB or
+  Valkey through a provider in `app/common/dependencies.py` aborts immediately —
+  with a message naming the provider chain (guard: `tests/support/db_guard.py`).
+  The same applies to `tests/api/`.
+
+!!! warning "Why this is a guard rather than just a convention"
+    With the dev stack running, `localhost:8529` answers. The test then goes green
+    locally while reading and writing the dev database, and only fails in CI where
+    nothing is listening — where the diagnosis costs about 18 seconds of connection
+    timeout per affected call. A test that genuinely needs a database belongs in
+    `tests/integration/`. The emergency exit is the marker
+    `@pytest.mark.allow_db_connection("<reason>")` — with a mandatory reason, so the
+    exceptions stay countable.

@@ -212,10 +212,16 @@ def _build(
     app.dependency_overrides[get_plant_photo_service] = lambda: photo_service
     app.dependency_overrides[get_identification_service] = lambda: ident
 
-    # Silence the off-path Celery dispatches.
+    # Silence the off-path Celery dispatches. Both are best-effort hooks whose
+    # failures production swallows, so an unstubbed one does not fail a test — it
+    # publishes to the real broker instead (#978): a message in the dev Valkey
+    # when the stack is up, a connect timeout when it is not. The reference feed
+    # only fires for a plant that has a species, which is why it stayed hidden.
+    import app.tasks.reference_contribution_tasks as reference_tasks
     import app.tasks.storage_tasks as storage_tasks
 
     storage_tasks.generate_thumbnails.delay = lambda *a, **k: None  # type: ignore[assignment]
+    reference_tasks.feed_user_reference.delay = lambda *a, **k: None  # type: ignore[assignment]
     return app, plant_repo, att_repo
 
 
