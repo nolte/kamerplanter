@@ -792,7 +792,7 @@ class PrivacyService:
 | POST | `/privacy/export` | Datenexport beantragen | Ja | 15/20 |
 | GET | `/privacy/export/{key}` | Export-Status abfragen | Ja | 15/20 |
 | GET | `/privacy/export/{key}/download` | Export-Datei herunterladen | Ja | 15/20 |
-| POST | `/privacy/email-change` | E-Mail-Änderung beantragen | Ja | 16 |
+| POST | `/privacy/email-change` | E-Mail-Änderung beantragen | Ja | 16 |<!-- rate-limited, s. u. -->
 | POST | `/privacy/email-change/confirm` | E-Mail-Änderung bestätigen | Nein (Token) | 16 |
 | POST | `/privacy/erasure` | Kontolöschung beantragen | Ja | 17 |
 | GET | `/privacy/erasure/{key}` | Löschstatus abfragen | Ja | 17 |
@@ -805,6 +805,17 @@ class PrivacyService:
 | GET | `/privacy/policy` | Datenschutzrichtlinie abrufen | Nein | 13/14 |
 
 **Gesamtanzahl API-Endpunkte:** 14
+
+<!-- Quelle: Issue #958 §2 -->
+**Rate-Limit auf `POST /privacy/email-change`** (`settings.rate_limit_email_change`,
+Default `5/hour` je Client-IP): Jeder Aufruf verschickt eine Mail an eine vom
+Aufrufer **frei gewählte** Adresse — den Verifikations-Link, wenn die Adresse frei
+ist, sonst die Info-Mail an deren Inhaber (SEC-H-009 / REQ-023 §3.2). Die
+Authentifizierung regelt, *wer* das auslösen darf, aber bis dahin nichts, *wie
+oft*; dieser Router trug als einziger schreibender Router überhaupt kein Limit.
+Bewusst deutlich strenger als `rate_limit_auth` (20/minute = 1200/Stunde): die
+`/auth/*`-Routen sind interaktive Wiederholungsflächen (Tippfehler beim Passwort),
+eine Adressänderung ist ein seltener, bewusster Vorgang.
 
 ### 3.4 Request/Response-Schemas
 
