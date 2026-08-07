@@ -347,6 +347,46 @@ describe('WateringLogCreateDialog', () => {
     expect(screen.getByTestId('watering-log-create-dialog')).toBeInTheDocument();
   });
 
+  it('anchors the supplemental/fertigation violation on the switch and the method select', async () => {
+    // The dialog's second reachable cross-field rule: nothing stops the user
+    // from turning on "supplemental" and picking fertigation, so this path is
+    // as real as the missing target and needs the same mapping to work. The
+    // fields and code mirror the backend's `find_watering_log_violations`.
+    const reason = 'Supplemental watering cannot use fertigation application method';
+    seed({
+      createStatus: 422,
+      createError: {
+        error_id: 'err_test',
+        error_code: 'VALIDATION_ERROR',
+        message: 'The input data is invalid.',
+        details: [
+          { field: 'body.is_supplemental', reason, code: 'supplemental_cannot_fertigate' },
+          { field: 'body.application_method', reason, code: 'supplemental_cannot_fertigate' },
+        ],
+        timestamp: '2026-08-07T00:00:00Z',
+        path: '/api/v1/t/test-tenant/watering-logs',
+        method: 'POST',
+      },
+    });
+    const user = userEvent.setup();
+    const { onCreated } = renderDialog();
+
+    await screen.findByTestId('watering-log-create-dialog');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    const expected = i18n.t('pages.wateringLogs.errors.supplementalCannotFertigate');
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('form-field-is_supplemental')).getByText(expected),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(screen.getByTestId('form-field-application_method')).getByText(expected),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(reason)).not.toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
   it('falls back to the generic toast for a violation code it cannot translate', async () => {
     // The fail-soft direction the "do not mirror the rule client-side" decision
     // rests on: a rule the backend gained and this dialog has never heard of
