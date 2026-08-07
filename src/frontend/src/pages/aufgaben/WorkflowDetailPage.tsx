@@ -23,6 +23,7 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -790,34 +791,49 @@ export default function WorkflowDetailPage() {
 
       {tab === 1 && (
         <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => { setEditPhase(undefined); setPhaseDialogOpen(true); }}
-            >
-              {t('pages.tasks.createPhase')}
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<BuildOutlinedIcon />}
-              onClick={() => { setEditTemplate(undefined); setTemplateDialogOpen(true); }}
-            >
-              {t('pages.tasks.createManually')}
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                const first = phaseGroups[0];
-                handleOpenAddFromCatalog(first?.phaseKey ?? '_unassigned');
-              }}
-            >
-              {t('pages.tasks.addActivityFromCatalog')}
-            </Button>
-          </Box>
+          {/* UI-NFR-018 R-011 + #965 item 3: "cannot modify system workflow
+              templates" reaches the children, so the backend refuses every write
+              below with a 422. Offering the buttons anyway would turn each one
+              into an error toast — worse than not offering them — so the whole
+              write surface of this tab is replaced by one explanation naming the
+              supported way forward (duplicating the workflow, which still works). */}
+          {isReadOnly ? (
+            <Alert severity="info" sx={{ mb: 2 }} data-testid="system-workflow-children-readonly">
+              {t('pages.tasks.systemWorkflowChildrenReadOnly')}
+            </Alert>
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                data-testid="create-workflow-phase-button"
+                onClick={() => { setEditPhase(undefined); setPhaseDialogOpen(true); }}
+              >
+                {t('pages.tasks.createPhase')}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<BuildOutlinedIcon />}
+                data-testid="create-task-template-button"
+                onClick={() => { setEditTemplate(undefined); setTemplateDialogOpen(true); }}
+              >
+                {t('pages.tasks.createManually')}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                data-testid="add-activity-from-catalog-button"
+                onClick={() => {
+                  const first = phaseGroups[0];
+                  handleOpenAddFromCatalog(first?.phaseKey ?? '_unassigned');
+                }}
+              >
+                {t('pages.tasks.addActivityFromCatalog')}
+              </Button>
+            </Box>
+          )}
 
           {phaseGroups.length === 0 && (
             <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
@@ -827,7 +843,9 @@ export default function WorkflowDetailPage() {
 
           {phaseGroups.map((group) => {
             const enabledCount = group.templates.filter((tt) => tt.enabled).length;
-            const hasActions = group.phaseKey !== '_unassigned';
+            // Reordering, renaming and deleting a phase are writes into the
+            // workflow too, so a system workflow offers none of them (#965).
+            const hasActions = group.phaseKey !== '_unassigned' && !isReadOnly;
             return (
               <Box key={group.phaseKey} sx={{ position: 'relative' }}>
                 <Accordion defaultExpanded>
@@ -875,11 +893,16 @@ export default function WorkflowDetailPage() {
                           const displayName = i18n.language === 'de' && tt.name_de ? tt.name_de : tt.name;
                           const desc = i18n.language === 'de' && tt.description_de ? tt.description_de : tt.description;
                           return (
-                            <TableRow key={tt.key} sx={{ opacity: tt.enabled ? 1 : 0.4 }}>
+                            <TableRow
+                              key={tt.key}
+                              sx={{ opacity: tt.enabled ? 1 : 0.4 }}
+                              data-testid={`task-template-row-${tt.key}`}
+                            >
                               <TableCell padding="checkbox">
                                 <Switch
                                   size="small"
                                   checked={tt.enabled}
+                                  disabled={isReadOnly}
                                   onChange={() => handleToggleEnabled(tt)}
                                 />
                               </TableCell>
@@ -922,6 +945,7 @@ export default function WorkflowDetailPage() {
                                   type="number"
                                   size="small"
                                   value={tt.days_offset}
+                                  disabled={isReadOnly}
                                   onChange={(e) => handleDaysOffsetChange(tt, Number(e.target.value))}
                                   slotProps={{ htmlInput: { min: 0, style: { width: 48, textAlign: 'center', padding: '4px 4px' } } }}
                                   variant="outlined"
@@ -943,28 +967,56 @@ export default function WorkflowDetailPage() {
                               </TableCell>
                               <TableCell>
                                 <Box sx={{ display: 'flex', gap: 0 }}>
-                                  <Tooltip title={t('pages.tasks.duplicateTemplate')}>
-                                    <IconButton size="small" onClick={() => handleDuplicate(tt)}>
-                                      <ContentCopyIcon sx={{ fontSize: 16 }} />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title={t('common.edit')}>
-                                    <IconButton size="small" onClick={() => { setEditTemplate(tt); setTemplateDialogOpen(true); }}>
-                                      <EditIcon sx={{ fontSize: 16 }} />
-                                    </IconButton>
-                                  </Tooltip>
+                                  {/* Duplicating writes a *new* template into this
+                                      same workflow, so it is a child write and is
+                                      refused for a system workflow just like the
+                                      edit and the delete (#965 item 3). Only the
+                                      read-only jump to the linked activity stays. */}
+                                  {!isReadOnly && (
+                                    <>
+                                      <Tooltip title={t('pages.tasks.duplicateTemplate')}>
+                                        <IconButton
+                                          size="small"
+                                          data-testid={`duplicate-task-template-${tt.key}`}
+                                          onClick={() => handleDuplicate(tt)}
+                                        >
+                                          <ContentCopyIcon sx={{ fontSize: 16 }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                      <Tooltip title={t('common.edit')}>
+                                        <IconButton
+                                          size="small"
+                                          data-testid={`edit-task-template-${tt.key}`}
+                                          onClick={() => { setEditTemplate(tt); setTemplateDialogOpen(true); }}
+                                        >
+                                          <EditIcon sx={{ fontSize: 16 }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                    </>
+                                  )}
                                   {tt.activity_key && (
                                     <Tooltip title={t('pages.tasks.openActivity')}>
-                                      <IconButton size="small" onClick={() => navigate(`/stammdaten/activities/${tt.activity_key}`)}>
+                                      <IconButton
+                                        size="small"
+                                        data-testid={`open-activity-${tt.key}`}
+                                        onClick={() => navigate(`/stammdaten/activities/${tt.activity_key}`)}
+                                      >
                                         <SearchIcon sx={{ fontSize: 16 }} />
                                       </IconButton>
                                     </Tooltip>
                                   )}
-                                  <Tooltip title={t('common.delete')}>
-                                    <IconButton size="small" color="error" onClick={() => setDeleteTemplateKey(tt.key)}>
-                                      <DeleteIcon sx={{ fontSize: 16 }} />
-                                    </IconButton>
-                                  </Tooltip>
+                                  {!isReadOnly && (
+                                    <Tooltip title={t('common.delete')}>
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        data-testid={`delete-task-template-${tt.key}`}
+                                        onClick={() => setDeleteTemplateKey(tt.key)}
+                                      >
+                                        <DeleteIcon sx={{ fontSize: 16 }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
                                 </Box>
                               </TableCell>
                             </TableRow>
@@ -973,15 +1025,18 @@ export default function WorkflowDetailPage() {
                       </TableBody>
                     </Table>
                   </TableContainer>
-                  <Box sx={{ mt: 1 }}>
-                    <Button
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={() => handleOpenAddFromCatalog(group.phaseKey)}
-                    >
-                      {t('pages.tasks.addActivityFromCatalog')}
-                    </Button>
-                  </Box>
+                  {!isReadOnly && (
+                    <Box sx={{ mt: 1 }}>
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        data-testid={`add-activity-to-phase-${group.phaseKey}`}
+                        onClick={() => handleOpenAddFromCatalog(group.phaseKey)}
+                      >
+                        {t('pages.tasks.addActivityFromCatalog')}
+                      </Button>
+                    </Box>
+                  )}
                 </AccordionDetails>
               </Accordion>
               {hasActions && (

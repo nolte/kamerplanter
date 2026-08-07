@@ -20,10 +20,16 @@ validated either. The two sibling ``update_*`` methods on this service had the
 identical shape and are fixed the same way.
 
 Both directions are pinned: a foreign or unknown parent answers **404, never
-403** (no cross-tenant oracle), while the caller's own workflow, a globally
-seeded system workflow (the #324 counter-example — a strict filter that hid the
-global catalogue) and a standalone template with no parent at all all still
-work.
+403** (no cross-tenant oracle), while the caller's own workflow and a standalone
+template with no parent at all still work.
+
+A globally seeded **system** workflow was a third case this file originally
+pinned as *permitted*, to avoid the #324 regression (a strict filter that hid
+the global catalogue). #965 item 3 decided otherwise: it still resolves, so the
+catalogue stays visible, but the write is refused with the same 422 the parent's
+own guard raises. ``test_system_workflow_children_write_guard`` carries that
+story; the one test here is kept so this file does not read as if the old
+permission were still in force.
 """
 
 from __future__ import annotations
@@ -32,7 +38,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.services.task_service import TaskService
 from tests.conftest import wire_or_raise
@@ -41,11 +47,17 @@ TENANT_KEY = "tenant-a"
 FOREIGN_TENANT_KEY = "tenant-b"
 
 OWN_WORKFLOW = "wf-a1"
+#: A second workflow of the same tenant, so "move between the caller's own
+#: workflows" can be exercised with an own workflow on *both* ends. It used to
+#: start from the system workflow, which #965 item 3 now refuses as a source —
+#: moving a template out of "Tomato Standard" removes it for every tenant.
+OTHER_OWN_WORKFLOW = "wf-a2"
 FOREIGN_WORKFLOW = "wf-b1"
 SYSTEM_WORKFLOW = "wf-sys"
 
 WORKFLOWS: dict[str, WorkflowTemplate] = {
     OWN_WORKFLOW: WorkflowTemplate(_key=OWN_WORKFLOW, tenant_key=TENANT_KEY, name="Eigener Workflow"),
+    OTHER_OWN_WORKFLOW: WorkflowTemplate(_key=OTHER_OWN_WORKFLOW, tenant_key=TENANT_KEY, name="Zweiter Workflow"),
     FOREIGN_WORKFLOW: WorkflowTemplate(_key=FOREIGN_WORKFLOW, tenant_key=FOREIGN_TENANT_KEY, name="Fremd"),
     SYSTEM_WORKFLOW: WorkflowTemplate(_key=SYSTEM_WORKFLOW, tenant_key="", name="Tomato Standard", is_system=True),
 }
@@ -117,17 +129,26 @@ class TestCreateTaskTemplateVerifiesItsParentWorkflow:
         assert created.workflow_template_key == OWN_WORKFLOW
         repo.create_task_template.assert_called_once()
 
-    def test_a_globally_seeded_system_workflow_stays_referenceable(self) -> None:
-        """#324's counter-example: the strict direction would hide the global catalogue."""
+    def test_a_globally_seeded_system_workflow_resolves_but_refuses_the_write(self) -> None:
+        """#965 item 3 turned this around; the full story is in
+        ``test_system_workflow_children_write_guard``.
+
+        Resolution still succeeds — read access spans the hybrid catalogue, and
+        #324 is what over-strictness costs — but the write is refused, because
+        "cannot modify system workflow templates" now reaches the children too.
+        The answer is the parent guard's 422, not this method's 404: the caller
+        may see this workflow, they may only not write into it.
+        """
         service, repo = _service()
 
-        created = service.create_task_template(
-            _template(workflow_template_key=SYSTEM_WORKFLOW),
-            tenant_key=TENANT_KEY,
-        )
+        with pytest.raises(ValidationError) as refusal:
+            service.create_task_template(
+                _template(workflow_template_key=SYSTEM_WORKFLOW),
+                tenant_key=TENANT_KEY,
+            )
 
-        assert created.workflow_template_key == SYSTEM_WORKFLOW
-        repo.create_task_template.assert_called_once()
+        assert refusal.value.status_code == 422
+        repo.create_task_template.assert_not_called()
 
     def test_a_standalone_template_without_a_parent_is_still_creatable(self) -> None:
         """A template with no workflow is a supported state — it has nothing to anchor on."""
@@ -172,7 +193,7 @@ class TestUpdateTaskTemplateVerifiesItsParentWorkflow:
         assert foreign.value.error_code == unknown.value.error_code
 
     def test_moving_a_template_between_the_callers_own_workflows_still_works(self) -> None:
-        service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
+        service, repo = _service(_template(workflow_template_key=OTHER_OWN_WORKFLOW))
 
         updated = service.update_task_template(
             "tt-1",
@@ -182,6 +203,25 @@ class TestUpdateTaskTemplateVerifiesItsParentWorkflow:
 
         assert updated.workflow_template_key == OWN_WORKFLOW
         repo.update_task_template.assert_called_once()
+
+    def test_a_template_cannot_be_moved_out_of_a_system_workflow_either(self) -> None:
+        """Both ends of a move are checked (#965 item 3).
+
+        This case previously stood in for the one above, and it passed: only the
+        *target* was verified, so a template could be lifted out of "Tomato
+        Standard" into the caller's own workflow — which removes it from the
+        system workflow for every tenant just as surely as deleting it.
+        """
+        service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
+
+        with pytest.raises(ValidationError):
+            service.update_task_template(
+                "tt-1",
+                {"workflow_template_key": OWN_WORKFLOW},
+                tenant_key=TENANT_KEY,
+            )
+
+        repo.update_task_template.assert_not_called()
 
 
 class TestUpdateTaskTemplateIsAllowListed:
@@ -255,6 +295,16 @@ class TestTheSiblingUpdatesAreAllowListedToo:
     def test_a_phase_cannot_be_moved_into_another_workflow(self) -> None:
         repo = MagicMock()
         wire_or_raise(repo, "WorkflowPhase", by_key="get_phase_by_key", or_raise="get_phase_or_raise")
+        # The phase edit resolves its parent since #965 item 3 (to refuse a
+        # system workflow's phase), so the parent lookup has to be wired — an
+        # unstubbed MagicMock would answer a truthy ``is_system``.
+        wire_or_raise(
+            repo,
+            "WorkflowTemplate",
+            by_key="get_workflow_template_by_key",
+            or_raise="get_workflow_template_or_raise",
+        )
+        repo.get_workflow_template_by_key.side_effect = lambda key: WORKFLOWS.get(key)
         repo.get_phase_by_key.return_value = WorkflowPhase(
             _key="ph-1",
             workflow_template_key=OWN_WORKFLOW,
