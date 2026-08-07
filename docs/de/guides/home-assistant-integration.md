@@ -207,6 +207,8 @@ Die Integration erstellt automatisch Entities für alle ausgewählten Pflanzen, 
 !!! note "Reaktiv, nicht vorausschauend"
     Diese Entity wird **reaktiv** befüllt: Ist am Standort ein Sensor mit Metrik `temperature_celsius` (ersatzweise `water_temp_celsius`) über Home Assistant eingebunden (siehe [Tokens einrichten](#tokens-einrichten) weiter oben), meldet Kamerplanter `on`, sobald die aktuellste gemessene Lufttemperatur den Schwellwert — Standard **3 °C**, für Self-Hoster konfigurierbar über die Umgebungsvariable `FROST_WARNING_THRESHOLD_CELSIUS` — unterschreitet, sonst `off`. Hat der Standort keine Lufttemperatur-Quelle, meldet die Entity ehrlich `unknown` statt eines erfundenen „kein Frost". Der HA-Coordinator fragt dafür pro Standort den Backend-Endpunkt `GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning` ab. <!-- REQ-005, REQ-018, REQ-039 -->
 
+    Hängen an einem Standort mehrere Thermometer, entscheidet **das kälteste**. Genau dafür hängt das zweite Thermometer am anderen Ende des Zeltes: Eine Warnung, die das warme Ende meldet, wäre dort still, wo der Frost tatsächlich ist. <!-- Issue #977 -->
+
     Was diese Entity **nicht** ist: eine vorausschauende Wetterprognose. Sie wertet nur den *aktuellen* Messwert aus — eine Frostwarnung auf Basis einer echten Wettervorhersage (DWD, OpenWeatherMap, Open-Meteo) bleibt weiterhin geplant, aber noch nicht umgesetzt — siehe [Sensorik: Sensoren für Freiland](../user-guide/sensors.md#sensoren-fuer-freiland-wetter-api-einrichten).
 
 ### Kalender & Aufgaben
@@ -322,6 +324,28 @@ Die Antwort ist eine Liste der aktualisierten Einzelstatus (gleiche Form wie bei
 
 !!! warning "Abgewählte Elemente entfernen"
     Wenn ein Element abgewählt wird (PUT `enabled: false`), sollte die HA-Integration die zugehörigen Entities aktiv aus Home Assistant entfernen (Entity-Registry-Eintrag löschen). Andernfalls bleiben veraltete „unavailable"-Entities im System.
+
+### Live-Sensorwerte lesen (für HA-Integrations-Entwickler)
+
+Die Live-Abfrage liefert die aktuellen Zustände aller Home-Assistant-Sensoren eines Standorts, einer Site oder eines Tanks:
+
+```
+GET /api/v1/t/{tenant_slug}/locations/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/sites/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/tanks/{key}/states/live
+```
+
+Die Antwort trägt **zwei** Karten:
+
+| Feld | Schlüssel | Inhalt |
+|------|-----------|--------|
+| `readings` | Sensor-Schlüssel | Die vollständige Antwort — ein Eintrag je Sensor, der geantwortet hat |
+| `values` | Messgröße | Eine abgeleitete Einzelwert-Ansicht; je Messgröße die frischeste Messung, dazu `sensor_count` und `superseded_sensor_keys` |
+
+Die vollständigen Feldlisten und die Auswahlregel der Einzelwert-Ansicht stehen in der [API-Referenz](../reference/api-reference.md#live-sensorwerte-eines-standorts-einer-site-oder-eines-tanks).
+
+!!! info "Was eine bestehende Installation tun muss: nichts"
+    `values` behält Schlüssel und Feldnamen, eine Integration, die nur diese Karte liest, läuft unverändert weiter. Neu ist, dass sie ehrlich sagt, wenn sie etwas verschweigt: Ist `sensor_count` grösser als `1`, hat mehr als ein Sensor diese Messgröße beantwortet, und `readings` enthält alle. Wer beide Thermometer eines Zeltes als getrennte Entities anlegen möchte, liest `readings`. <!-- Issue #977 -->
 
 ---
 

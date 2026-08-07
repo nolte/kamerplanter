@@ -10,6 +10,7 @@ from app.domain.engines.frost_warning_engine import (
     evaluate_frost_warning,
     pick_air_temperature,
 )
+from app.domain.engines.live_state import derive_single_value_view
 from app.domain.interfaces.sensor_repository import ISensorRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
@@ -58,19 +59,13 @@ class SensorService:
     def get_live_state_for_sensors(self, sensors: list[Sensor], *, deadline: float | None = None) -> dict:
         """Read-through live query for a list of sensors — NO persistence.
 
-        ``values`` is keyed by ``metric_type``, so two sensors reporting the same
-        metric collapse to one entry and a reading is lost. That is a defect of the
-        map's shape, not of this loop: two thermometers at opposite ends of a tent
-        — exactly what a grower installs when a gradient is suspected — cannot both
-        be represented. Re-keying the map is issue #977 items 1 and 2 and breaks a
-        published contract (the Home Assistant integration, the live endpoint's
-        response schema, the frontend, the diary snapshot in #976), so it is not
-        done here.
-
-        What is done here is item 3: every dropped reading is reported as an
-        ``ha_live_reading_discarded`` warning naming both sensors, so the loss is
-        readable instead of invisible. The returned ``dict`` keeps its shape — a
-        new key would reach those same consumers.
+        The map is keyed by **sensor**, so nothing collapses: two thermometers at
+        opposite ends of a tent — exactly what a grower installs when a gradient
+        is suspected — are two entries (Issue #977 items 1 and 2). The
+        ``ha_live_reading_discarded`` warning that item 3 added to report the
+        loss is gone with it: there is no longer a reading to discard, and a
+        warning that can never fire is worse than none. What the derived view
+        leaves out it reports in-band instead, per entry, via ``sensor_count``.
 
         Args:
             sensors: The sensors to read. Those without an ``ha_entity_id`` are
@@ -85,29 +80,34 @@ class SensorService:
                 stays inside it.
 
         Returns:
-            ``values`` keyed by ``metric_type`` (two sensors sharing a metric type
-            therefore collapse — the last one read wins), ``errors`` with one
-            entry per entity that failed, and ``source``. An exhausted
-            ``deadline`` is reported as an ordinary error entry with
-            ``error: "timeout"``, never raised: the caller's job is to record an
-            incomplete read, not to abort.
+            A mapping with four keys:
+
+            * ``readings`` — **the full truth**, keyed by *sensor key*: one entry
+              per sensor that answered, each carrying its own ``sensor_key``,
+              ``sensor_name`` and ``metric_type``. Two sensors reporting the same
+              metric on one location are both present; nothing collapses
+              (Issue #977).
+            * ``values`` — the derived single-value view keyed by ``metric_type``,
+              for consumers that want one number per metric. The freshest reading
+              wins and the entry says how many there were; see
+              :mod:`app.domain.engines.live_state` for the rule and its rationale.
+            * ``errors`` — one entry per entity that failed. An exhausted
+              ``deadline`` is reported here as ``error: "timeout"``, never raised:
+              the caller's job is to record an incomplete read, not to abort.
+            * ``source`` — ``ha_live``, or ``unavailable`` when Home Assistant is
+              not configured at all.
         """
         if not self._ha_client:
             return {
+                "readings": {},
                 "values": {},
                 "errors": [],
                 "source": "unavailable",
                 "message": "Home Assistant not configured",
             }
 
-        values: dict = {}
+        readings: dict = {}
         errors: list[dict] = []
-        # Which sensor produced the entry currently sitting under each metric
-        # type. Kept beside ``values`` rather than inside it: the entries are
-        # serialised straight into ``LiveStateResponse.values``, so an extra
-        # field there would be an API change (#977 items 1/2), while this stays
-        # local to the loop.
-        written_by: dict[str, Sensor] = {}
         for sensor in sensors:
             if not sensor.ha_entity_id:
                 continue
@@ -120,33 +120,22 @@ class SensorService:
             try:
                 result = self._ha_client.get_state(sensor.ha_entity_id, timeout=remaining)
                 if result and result["value"] is not None:
-                    displaced = written_by.get(sensor.metric_type)
-                    if displaced is not None:
-                        # Reported per lost reading, not once per collision: a rack
-                        # of probes on one metric loses N-1 of them, and a single
-                        # "there was a collision" line would understate that.
-                        logger.warning(
-                            "ha_live_reading_discarded",
-                            metric_type=sensor.metric_type,
-                            discarded_entity_id=displaced.ha_entity_id,
-                            discarded_sensor_key=displaced.key,
-                            discarded_sensor_name=displaced.name,
-                            kept_entity_id=sensor.ha_entity_id,
-                            kept_sensor_key=sensor.key,
-                            kept_sensor_name=sensor.name,
-                            location_key=sensor.location_key,
-                            site_key=sensor.site_key,
-                            tank_key=sensor.tank_key,
-                            reason="live_state_map_is_keyed_by_metric_type",
-                        )
-                    written_by[sensor.metric_type] = sensor
-                    values[sensor.metric_type] = {
+                    # The document key identifies the sensor. A ``Sensor`` without
+                    # one never comes out of a repository — every route loads them
+                    # through one — so it exists only in-process; it is filed under
+                    # its entity id, the only identity it has, and its entry's
+                    # ``sensor_key`` stays honestly ``None``.
+                    readings[sensor.key or sensor.ha_entity_id] = {
+                        "sensor_key": sensor.key,
+                        "sensor_name": sensor.name,
+                        "metric_type": sensor.metric_type,
                         "value": result["value"],
                         "last_changed": result["last_changed"],
-                        # Additive: ``last_changed`` only moves when the state
-                        # *string* changes, so it cannot tell a constant live
-                        # reading from a dead sensor. ``last_reported`` can, and
-                        # the staleness bound of the diary snapshot needs it.
+                        # ``last_changed`` only moves when the state *string*
+                        # changes, so it cannot tell a constant live reading from
+                        # a dead sensor. ``last_reported`` can — the staleness
+                        # bound of the diary snapshot and the freshness rule of
+                        # the derived view both need it.
                         "last_updated": result.get("last_updated"),
                         "last_reported": result.get("last_reported"),
                         "entity_id": sensor.ha_entity_id,
@@ -165,7 +154,12 @@ class SensorService:
                     }
                 )
 
-        return {"values": values, "errors": errors, "source": "ha_live"}
+        return {
+            "readings": readings,
+            "values": derive_single_value_view(readings),
+            "errors": errors,
+            "source": "ha_live",
+        }
 
     def get_ha_entities(self) -> list[dict]:
         """Return HA sensor entities with inferred metric_type and suggested name."""
@@ -240,12 +234,18 @@ class SensorService:
         site with N locations would otherwise trigger N identical site-level
         forecast reads on the HA poll hot path. Home Assistant reads the frost
         forecast once per site via ``GET /sites/{site_key}/weather-forecast``.
+
+        The temperature is picked from the **full** ``readings`` map, not from the
+        derived single-value view: with two thermometers at opposite ends of one
+        location the coldest is the one that matters, and a warning that missed
+        frost at one end because the other end reported more recently would be a
+        warning that costs a crop (Issue #977).
         """
         threshold = threshold_celsius if threshold_celsius is not None else settings.frost_warning_threshold_celsius
 
         sensors = self._repo.find_by_location(location_key)
         live = self.get_live_state_for_sensors(sensors)
-        temperature, entity_id = pick_air_temperature(live["values"])
+        temperature, entity_id = pick_air_temperature(live["readings"])
         frost_warning = evaluate_frost_warning(temperature, threshold)
 
         if live["source"] == "unavailable":

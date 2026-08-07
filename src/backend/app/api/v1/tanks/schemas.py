@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ── Tank schemas ────────────────────────────────────────────────────
 
@@ -312,18 +312,153 @@ class HAEntitySuggestion(BaseModel):
     suggested_name: str | None = None
 
 
-class LiveValueEntry(BaseModel):
+class LiveReadingEntry(BaseModel):
+    """One live reading, from one sensor (REQ-005 §2).
+
+    Filed under the sensor that produced it, because that is what a reading
+    belongs to. Two sensors reporting the same metric on one location are two
+    entries here, and neither is dropped.
+    """
+
+    sensor_key: str | None = Field(
+        default=None,
+        description="Document key of the sensor. Null only for a sensor that was never persisted.",
+    )
+    sensor_name: str | None = Field(default=None, description="The sensor's display name.")
+    metric_type: str | None = Field(default=None, description="What the sensor measures, verbatim.")
     value: float
     last_changed: str | None = None
+    last_updated: str | None = None
+    last_reported: str | None = Field(
+        default=None,
+        description="When the entity last reported (Home Assistant >= 2024.6). The most reliable measurement instant.",
+    )
     entity_id: str | None = None
     unit: str | None = None
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "sensor_key": "884210",
+                    "sensor_name": "Zelt vorne",
+                    "metric_type": "temperature_celsius",
+                    "value": 21.4,
+                    "last_changed": "2026-08-06T05:12:44Z",
+                    "last_updated": "2026-08-06T05:12:44Z",
+                    "last_reported": "2026-08-06T06:03:01Z",
+                    "entity_id": "sensor.zelt_vorne_temperatur",
+                    "unit": "°C",
+                }
+            ]
+        }
+    )
+
+
+class LiveValueEntry(LiveReadingEntry):
+    """The one reading a metric is represented by in the derived view.
+
+    Same fields as a reading, plus the two that keep the collapse visible: a
+    consumer reading ``values`` must be able to tell that more than one sensor
+    answered, and where to find the others.
+    """
+
+    sensor_count: int = Field(
+        default=1,
+        ge=1,
+        description="How many sensors answered this metric. 1 means nothing was left out.",
+    )
+    superseded_sensor_keys: list[str] = Field(
+        default_factory=list,
+        description="Keys of the readings this view does not show. Look them up in `readings`.",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "sensor_key": "884211",
+                    "sensor_name": "Zelt hinten",
+                    "metric_type": "temperature_celsius",
+                    "value": 23.9,
+                    "last_changed": "2026-08-06T06:01:10Z",
+                    "last_updated": "2026-08-06T06:01:10Z",
+                    "last_reported": "2026-08-06T06:04:55Z",
+                    "entity_id": "sensor.zelt_hinten_temperatur",
+                    "unit": "°C",
+                    "sensor_count": 2,
+                    "superseded_sensor_keys": ["884210"],
+                }
+            ]
+        }
+    )
+
 
 class LiveStateResponse(BaseModel):
-    values: dict[str, LiveValueEntry] = Field(default_factory=dict)
+    """The live sensor state of a tank, a site or a location.
+
+    ``readings`` is the complete answer, keyed by sensor key. ``values`` is a
+    *derived* single-value view keyed by metric type, kept for consumers that
+    want one number per metric: the freshest reading wins, ties are broken by
+    sensor key, and the entry reports how many readings there were. Anything that
+    must not miss a reading — a frost warning, an alarm — reads ``readings``.
+    """
+
+    readings: dict[str, LiveReadingEntry] = Field(
+        default_factory=dict,
+        description="Every sensor that answered, keyed by its document key.",
+    )
+    values: dict[str, LiveValueEntry] = Field(
+        default_factory=dict,
+        description="Derived single-value view, keyed by metric type. Never more complete than `readings`.",
+    )
     errors: list[dict] = Field(default_factory=list)
     source: str
     message: str | None = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "readings": {
+                        "884210": {
+                            "sensor_key": "884210",
+                            "sensor_name": "Zelt vorne",
+                            "metric_type": "temperature_celsius",
+                            "value": 21.4,
+                            "last_reported": "2026-08-06T06:03:01Z",
+                            "entity_id": "sensor.zelt_vorne_temperatur",
+                            "unit": "°C",
+                        },
+                        "884211": {
+                            "sensor_key": "884211",
+                            "sensor_name": "Zelt hinten",
+                            "metric_type": "temperature_celsius",
+                            "value": 23.9,
+                            "last_reported": "2026-08-06T06:04:55Z",
+                            "entity_id": "sensor.zelt_hinten_temperatur",
+                            "unit": "°C",
+                        },
+                    },
+                    "values": {
+                        "temperature_celsius": {
+                            "sensor_key": "884211",
+                            "sensor_name": "Zelt hinten",
+                            "metric_type": "temperature_celsius",
+                            "value": 23.9,
+                            "last_reported": "2026-08-06T06:04:55Z",
+                            "entity_id": "sensor.zelt_hinten_temperatur",
+                            "unit": "°C",
+                            "sensor_count": 2,
+                            "superseded_sensor_keys": ["884210"],
+                        }
+                    },
+                    "errors": [],
+                    "source": "ha_live",
+                }
+            ]
+        }
+    )
 
 
 # ── Active Nutrient Plan schemas ──────────────────────────────────

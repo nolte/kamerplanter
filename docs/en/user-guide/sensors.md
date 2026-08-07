@@ -196,6 +196,8 @@ Automatically collected measurements are downsampled in stages and eventually de
 ??? question "Can I have multiple sensors for the same location?"
     Yes. You can assign any number of sensors to a location. If, for example, temperature and humidity come from different devices, configure them as separate sensors.
 
+    That explicitly includes **two sensors of the same metric** — two thermometers at opposite ends of a tent, say, to make a temperature gradient visible. Both readings are kept and tracked separately. Wherever Kamerplanter unavoidably needs **one** number per metric (a dashboard tile, for instance), it shows the most recently reported reading. A location's frost warning, by contrast, goes by the **coldest** thermometer — otherwise it would stay silent at exactly the end where the frost is. <!-- Issue #977 -->
+
 ??? question "What does the 'Stale' notice on a tank mean?"
     This notice only appears in the live query on the tank detail page: if the last recorded state is older than 60 minutes, Kamerplanter shows "Stale" (under 5 minutes: "Live", in between: "X min ago"). For location sensors (site/location) this indicator does not currently exist.
 

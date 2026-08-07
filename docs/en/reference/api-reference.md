@@ -317,6 +317,102 @@ GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning
 
 ---
 
+## Live Sensor Readings of a Location, Site or Tank <!-- REQ-005 / Issue #977 -->
+
+Reads the current states of every Home Assistant sensor attached to the element — storing nothing in the process. The endpoints live under the tenant-specific path `/api/v1/t/{tenant_slug}/` and require a valid JWT token; any active tenant member (including the **Viewer** role) may read.
+
+```
+GET /api/v1/t/{tenant_slug}/locations/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/sites/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/tanks/{key}/states/live
+```
+
+**Response (200):** `LiveStateResponse`
+
+```json
+{
+  "readings": {
+    "884210": {
+      "sensor_key": "884210",
+      "sensor_name": "Tent front",
+      "metric_type": "temperature_celsius",
+      "value": 21.4,
+      "last_changed": "2026-08-06T05:12:44Z",
+      "last_updated": "2026-08-06T05:12:44Z",
+      "last_reported": "2026-08-06T06:03:01Z",
+      "entity_id": "sensor.tent_front_temperature",
+      "unit": "°C"
+    },
+    "884211": {
+      "sensor_key": "884211",
+      "sensor_name": "Tent back",
+      "metric_type": "temperature_celsius",
+      "value": 23.9,
+      "last_changed": "2026-08-06T06:01:10Z",
+      "last_updated": "2026-08-06T06:01:10Z",
+      "last_reported": "2026-08-06T06:04:55Z",
+      "entity_id": "sensor.tent_back_temperature",
+      "unit": "°C"
+    }
+  },
+  "values": {
+    "temperature_celsius": {
+      "sensor_key": "884211",
+      "sensor_name": "Tent back",
+      "metric_type": "temperature_celsius",
+      "value": 23.9,
+      "last_changed": "2026-08-06T06:01:10Z",
+      "last_updated": "2026-08-06T06:01:10Z",
+      "last_reported": "2026-08-06T06:04:55Z",
+      "entity_id": "sensor.tent_back_temperature",
+      "unit": "°C",
+      "sensor_count": 2,
+      "superseded_sensor_keys": ["884210"]
+    }
+  },
+  "errors": [],
+  "source": "ha_live"
+}
+```
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `readings` | object | **The complete answer**, keyed by sensor key. One entry per sensor that answered — two sensors reporting the same metric are two entries |
+| `values` | object | **Derived** single-value view, keyed by metric type. Never more complete than `readings` |
+| `errors` | list | One entry per entity that could not be read (`entity_id`, `error`) |
+| `source` | string | `ha_live`, or `unavailable` when Home Assistant is not configured at all |
+| `message` | string \| null | Explanation for `source: "unavailable"` |
+
+**Fields of a `readings` entry:**
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `sensor_key` | string \| null | Document key of the sensor — the key the entry is filed under |
+| `sensor_name` | string \| null | Display name of the sensor |
+| `metric_type` | string \| null | What the sensor measures, verbatim as configured on the sensor |
+| `value` | number | The current reading |
+| `last_changed` / `last_updated` / `last_reported` | string \| null | Timestamps from Home Assistant. `last_reported` (Home Assistant 2024.6 and newer) is the most reliable one: it moves on every report, `last_changed` only when the value changes |
+| `entity_id` | string \| null | The Home Assistant entity the value came from |
+| `unit` | string \| null | Unit of the reading |
+
+**Additional fields of a `values` entry:**
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `sensor_count` | integer | How many sensors answered this metric. `1` means nothing was left out |
+| `superseded_sensor_keys` | list | Keys of the readings this view does **not** show — look them up in `readings` |
+
+### Selection Rule of the Single-Value View
+
+When several sensors measure the same quantity, `values` shows **the freshest reading**. The measurement instant is read in the order `last_reported` → `last_updated` → `last_changed`; a reading without any timestamp ranks last, and ties are broken by the smaller sensor key. The view is therefore independent of the order the sensors arrive in from the database.
+
+Anyone who needs a different answer reads `readings` and decides for themselves. The frost warning does exactly that: it evaluates **the coldest** air temperature of the location, because a warning reporting the warm edge of the tent would be silent at the cold end.
+
+!!! info "API only / operator configuration: `values` is derived, not authoritative"
+    Existing integrations reading `values` keep working unchanged — the map keeps its key and its field names. It is explicitly a summary, though: as long as `sensor_count` is greater than `1` there is more to see, and `readings` shows it. <!-- Issue #977 -->
+
+---
+
 ## Site Climate Normals (NASA POWER) <!-- REQ-041 -->
 
 Returns a site's long-term monthly climate normals for the "Climate at the Site" section of the site detail page. The endpoint lives under the tenant-specific path `/api/v1/t/{tenant_slug}/` and requires a valid JWT token; any active tenant member (including the **Viewer** role) may read. Site ownership is verified server-side (404 unknown / 403 foreign). The endpoint is **graceful**: if no climate normals exist yet for an owned site (background fetch not yet run), it returns an empty `normals` list instead of an error.

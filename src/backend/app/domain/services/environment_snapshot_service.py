@@ -53,7 +53,9 @@ reporting a constant 22.0 °C carries a ``last_changed`` that is hours old;
 moves on every report and is the only one that answers "when was this measured".
 The three are tried in that order, so an older Home Assistant still works — it is
 merely more likely to have its constant readings judged stale, which is the safe
-direction to be wrong in.
+direction to be wrong in. That order lives in
+:mod:`app.domain.engines.live_state` now, because the live state's own
+single-value view ranks readings by the same instant and the two must not drift.
 """
 
 from __future__ import annotations
@@ -69,6 +71,7 @@ from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import DiaryEnvironmentOrigin, DiaryEnvironmentStatus
 from app.common.exceptions import NotFoundError
 from app.config.settings import settings
+from app.domain.engines.live_state import reading_measured_at, sort_readings
 from app.domain.engines.sensor_metrics import is_air_temperature, is_humidity
 from app.domain.models.plant_diary_entry import DiaryEnvironmentReading
 
@@ -273,13 +276,23 @@ class EnvironmentSnapshotService:
         ``already_answered`` carries the metric types the closer level produced:
         the fallback is per metric (REQ-005 §2), so a site humidity sensor still
         contributes when the location only has a thermometer.
+
+        **One reading per metric, chosen deliberately.** A diary entry records
+        "the temperature this plant stood in", so the snapshot files one value per
+        metric even where the location carries two thermometers — both survive in
+        the live state (Issue #977), and the *snapshot* picks among them by the
+        shared rule instead of by repository order: the freshest live reading
+        wins, and a candidate whose live value is missing, non-numeric or stale
+        hands the metric to the next one instead of ending it. Only when no
+        candidate of the metric has a usable live reading does the persisted
+        fallback run, on the first candidate, as before.
         """
         candidates = [s for s in sensors if s.is_active and s.key and s.metric_type not in already_answered]
         if not candidates:
             return [], False
 
         degraded = False
-        live: dict = {"values": {}, "errors": [], "source": "unavailable"}
+        live: dict = {"readings": {}, "values": {}, "errors": [], "source": "unavailable"}
         if time.monotonic() < deadline:
             try:
                 live = self._sensor_service.get_live_state_for_sensors(candidates, deadline=deadline)
@@ -294,39 +307,103 @@ class EnvironmentSnapshotService:
             # Home Assistant is not configured, which is a normal deployment.
             degraded = True
 
-        readings: list[DiaryEnvironmentReading] = []
-        seen: set[str] = set()
+        grouped: dict[str, list[Sensor]] = {}
         for sensor in candidates:
-            if sensor.metric_type in seen:
-                # Two sensors, one metric type: the live map is keyed by metric
-                # type and cannot hold both. Keeping the first keeps the snapshot
-                # deterministic instead of order-dependent on the repository.
-                continue
-            reading, sensor_degraded = self._read_one_sensor(
-                sensor,
-                live_values=live.get("values", {}),
+            grouped.setdefault(sensor.metric_type, []).append(sensor)
+
+        readings: list[DiaryEnvironmentReading] = []
+        for group in grouped.values():
+            reading, group_degraded = self._read_metric_group(
+                group,
+                live_readings=live.get("readings", {}),
                 origin=origin,
                 tenant_key=tenant_key,
                 max_age=max_age,
                 deadline=deadline,
             )
-            degraded = degraded or sensor_degraded
+            degraded = degraded or group_degraded
             if reading is not None:
                 readings.append(reading)
-                seen.add(sensor.metric_type)
         return readings, degraded
 
-    def _read_one_sensor(
+    def _read_metric_group(
         self,
-        sensor: Sensor,
+        group: list[Sensor],
         *,
-        live_values: dict,
+        live_readings: dict,
         origin: DiaryEnvironmentOrigin,
         tenant_key: str,
         max_age: timedelta,
         deadline: float,
     ) -> tuple[DiaryEnvironmentReading | None, bool]:
-        """Live value first, persisted observation second, nothing third.
+        """Resolve the one reading for a metric from the sensors that measure it.
+
+        The live lookup is **by sensor key**, so the value a sensor gets is the
+        value that sensor reported — full stop. It used to be a lookup by metric
+        type followed by an ``entity_id`` comparison, and that comparison was a
+        real defect: the live map kept the *last* sensor of a metric while this
+        method kept the *first*, so whenever the two disagreed the comparison
+        failed and a perfectly good live value was silently replaced by a stored
+        observation, or by nothing (Issue #977). Two maps cannot disagree about
+        which sensor a reading belongs to when the reading is filed under the
+        sensor.
+        """
+        by_key = {sensor.key: sensor for sensor in group if sensor.key}
+        live_for_group = [live_readings[key] for key in by_key if key in live_readings]
+        for live in sort_readings(live_for_group):
+            sensor = by_key.get(str(live.get("sensor_key")))
+            if sensor is None:
+                continue
+            reading = self._live_reading(sensor, live, origin=origin, max_age=max_age)
+            if reading is not None:
+                return reading, False
+
+        return self._read_stored_reading(
+            group[0],
+            origin=origin,
+            tenant_key=tenant_key,
+            max_age=max_age,
+            deadline=deadline,
+        )
+
+    @staticmethod
+    def _live_reading(
+        sensor: Sensor,
+        live: dict,
+        *,
+        origin: DiaryEnvironmentOrigin,
+        max_age: timedelta,
+    ) -> DiaryEnvironmentReading | None:
+        """The live reading of one sensor, or ``None`` when it is unusable.
+
+        Unusable means: no numeric value (Home Assistant reports ``unavailable`` /
+        ``unknown`` as the state), no timestamp at all, or older than the
+        staleness bound.
+        """
+        value = _as_float(live.get("value"))
+        measured_at = reading_measured_at(live)
+        if value is None or measured_at is None or now_utc() - measured_at > max_age:
+            return None
+        return DiaryEnvironmentReading(
+            metric_type=sensor.metric_type,
+            value=value,
+            unit=live.get("unit") or sensor.unit_of_measurement,
+            source="ha_auto",
+            measured_at=measured_at,
+            sensor_key=sensor.key,
+            origin=origin,
+        )
+
+    def _read_stored_reading(
+        self,
+        sensor: Sensor,
+        *,
+        origin: DiaryEnvironmentOrigin,
+        tenant_key: str,
+        max_age: timedelta,
+        deadline: float,
+    ) -> tuple[DiaryEnvironmentReading | None, bool]:
+        """The latest persisted observation of one sensor — the second choice.
 
         The live half is already inside the budget (``get_live_state_for_sensors``
         got the deadline). The persisted half is checked here, because the
@@ -334,24 +411,6 @@ class EnvironmentSnapshotService:
         otherwise walk past a ceiling that is supposed to be absolute.
         """
         now = now_utc()
-        live = live_values.get(sensor.metric_type)
-        if live is not None and live.get("entity_id") == sensor.ha_entity_id:
-            value = _as_float(live.get("value"))
-            measured_at = _live_measured_at(live)
-            if value is not None and measured_at is not None and now - measured_at <= max_age:
-                return (
-                    DiaryEnvironmentReading(
-                        metric_type=sensor.metric_type,
-                        value=value,
-                        unit=live.get("unit") or sensor.unit_of_measurement,
-                        source="ha_auto",
-                        measured_at=measured_at,
-                        sensor_key=sensor.key,
-                        origin=origin,
-                    ),
-                    False,
-                )
-
         if self._observation_repo is None or not sensor.key:
             return None, False
         if time.monotonic() >= deadline:
@@ -485,20 +544,3 @@ def _as_float(value: object) -> float | None:
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError) as exc:  # noqa: F841
         return None
-
-
-def _live_measured_at(live: dict) -> datetime | None:
-    """When the live reading was actually taken.
-
-    ``last_reported`` first (moves on every report), then ``last_updated``, then
-    ``last_changed`` — see the module docstring for why the order matters and why
-    an older Home Assistant is more likely to have a constant reading dropped as
-    stale rather than stored as fresh.
-    """
-    for field in ("last_reported", "last_updated", "last_changed"):
-        stamp = ensure_aware_utc(live.get(field))
-        if stamp is not None:
-            return stamp
-    # No timestamp at all: unfalsifiable freshness. Treating it as "now" would be
-    # the one thing the staleness bound exists to prevent, so it is not captured.
-    return None

@@ -207,6 +207,8 @@ The integration automatically creates entities for all selected plants, location
 !!! note "Reactive, not predictive"
     This entity is populated **reactively**: if the location has a sensor with metric `temperature_celsius` (or, as a fallback, `water_temp_celsius`) linked through Home Assistant (see [Setting Up Tokens](#setting-up-tokens) above), Kamerplanter reports `on` once the latest measured air temperature drops to/below the threshold — default **3 °C**, configurable for self-hosters via the `FROST_WARNING_THRESHOLD_CELSIUS` environment variable — and `off` otherwise. If the location has no air-temperature source, the entity honestly reports `unknown` instead of a fabricated "no frost". The HA coordinator polls the backend endpoint `GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning` per location for this. <!-- REQ-005, REQ-018, REQ-039 -->
 
+    If several thermometers hang in one location, the **coldest** of them decides. That is the point of a second thermometer at the other end of the tent: a warning that reported the warm end would be silent exactly where the frost is. <!-- Issue #977 -->
+
     What this entity is **not**: a predictive weather forecast. It only evaluates the *current* reading — a frost warning based on an actual weather forecast (DWD, OpenWeatherMap, Open-Meteo) remains planned but not yet implemented — see [Sensors: Outdoor Sensors](../user-guide/sensors.md#outdoor-sensors-setting-up-a-weather-api).
 
 ### Calendar & Tasks
@@ -322,6 +324,28 @@ The response is a list of the updated individual statuses (same shape as the ind
 
 !!! warning "Remove deselected entities"
     When an element is deselected (PUT `enabled: false`), the HA integration should actively remove the corresponding entities from Home Assistant (delete entity registry entry). Otherwise stale "unavailable" entities remain in the system.
+
+### Reading live sensor values (for HA integration developers)
+
+The live query returns the current states of every Home Assistant sensor of a location, a site or a tank:
+
+```
+GET /api/v1/t/{tenant_slug}/locations/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/sites/{key}/sensors/live
+GET /api/v1/t/{tenant_slug}/tanks/{key}/states/live
+```
+
+The response carries **two** maps:
+
+| Field | Key | Content |
+|------|-----------|--------|
+| `readings` | sensor key | The complete answer — one entry per sensor that answered |
+| `values` | metric type | A derived single-value view; the freshest reading per metric, plus `sensor_count` and `superseded_sensor_keys` |
+
+The full field lists and the selection rule of the single-value view are in the [API reference](../reference/api-reference.md#live-sensor-readings-of-a-location-site-or-tank).
+
+!!! info "What an existing installation has to do: nothing"
+    `values` keeps its key and its field names, so an integration reading only that map keeps working unchanged. What is new is that it now says honestly when it is holding something back: if `sensor_count` is greater than `1`, more than one sensor answered that metric, and `readings` contains all of them. To create both thermometers of a tent as separate entities, read `readings`. <!-- Issue #977 -->
 
 ---
 

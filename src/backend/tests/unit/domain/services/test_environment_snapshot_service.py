@@ -303,6 +303,149 @@ class TestLocationLevel:
         assert len(snapshot.readings) == 1
 
 
+class TestSeveralSensorsOnOneMetric:
+    """Issue #977 — the live map and this service used to disagree about *which*.
+
+    ``SensorService`` wrote the map last-wins; this service deduplicated
+    first-wins. Whenever the two candidates differed, the ``entity_id``
+    comparison that guarded the live value failed and a perfectly good reading
+    was silently replaced by a stored observation — or by nothing. The live map
+    is now keyed by sensor and looked up by sensor key, so the two cannot
+    disagree: there is no longer a comparison to fail.
+    """
+
+    def test_first_is_not_last_and_the_live_value_still_wins(self):
+        # Repository order [s-a, s-b]: "first" is s-a, "last" is s-b. The stored
+        # observation is deliberately far from both live values, so a fallback is
+        # unmistakable in the assertion.
+        service = _build(
+            location_sensors=[
+                _sensor("s-a", "temperature_celsius", entity="sensor.a"),
+                _sensor("s-b", "temperature_celsius", entity="sensor.b"),
+            ],
+            ha=FakeHaClient(
+                {
+                    "sensor.a": _live(21.0, entity="sensor.a", age_minutes=9.0),
+                    "sensor.b": _live(23.0, entity="sensor.b", age_minutes=1.0),
+                }
+            ),
+            observations=FakeObservationRepo(
+                {
+                    ("s-a", TENANT): SensorReading(
+                        time=NOW - timedelta(minutes=12),
+                        tenant_key=TENANT,
+                        sensor_key="s-a",
+                        sensor_type="temperature_celsius",
+                        value=-99.0,
+                        unit="°C",
+                        source="mqtt_auto",
+                    )
+                }
+            ),
+        )
+
+        snapshot = service.capture_for_plant(PLANT, tenant_key=TENANT)
+
+        assert len(snapshot.readings) == 1
+        reading = snapshot.readings[0]
+        assert reading.source == "ha_auto"
+        # The freshest live reading — the same rule the derived single-value view
+        # uses — and emphatically not the stored -99.0.
+        assert reading.value == 23.0
+        assert reading.sensor_key == "s-b"
+
+    def test_a_dead_first_sensor_hands_the_metric_to_the_second(self):
+        # s-a reports ``unavailable`` (non-numeric); s-b is fine. The metric must
+        # be answered live rather than fall through to the time series.
+        service = _build(
+            location_sensors=[
+                _sensor("s-a", "temperature_celsius", entity="sensor.a"),
+                _sensor("s-b", "temperature_celsius", entity="sensor.b"),
+            ],
+            ha=FakeHaClient(
+                {
+                    "sensor.a": {
+                        "value": "unavailable",
+                        "last_reported": _iso(NOW),
+                        "entity_id": "sensor.a",
+                        "unit": "°C",
+                    },
+                    "sensor.b": _live(23.0, entity="sensor.b", age_minutes=4.0),
+                }
+            ),
+            observations=FakeObservationRepo(
+                {
+                    ("s-a", TENANT): SensorReading(
+                        time=NOW - timedelta(minutes=12),
+                        tenant_key=TENANT,
+                        sensor_key="s-a",
+                        sensor_type="temperature_celsius",
+                        value=-99.0,
+                        unit="°C",
+                        source="mqtt_auto",
+                    )
+                }
+            ),
+        )
+
+        snapshot = service.capture_for_plant(PLANT, tenant_key=TENANT)
+
+        assert [(r.value, r.sensor_key, r.source) for r in snapshot.readings] == [(23.0, "s-b", "ha_auto")]
+
+    def test_no_usable_live_reading_still_falls_back_to_the_first_candidate(self):
+        # The fallback itself is unchanged: when no sensor of the metric has a
+        # usable live reading, the first candidate's stored observation answers.
+        service = _build(
+            location_sensors=[
+                _sensor("s-a", "temperature_celsius", entity="sensor.a"),
+                _sensor("s-b", "temperature_celsius", entity="sensor.b"),
+            ],
+            ha=FakeHaClient({}),
+            observations=FakeObservationRepo(
+                {
+                    ("s-a", TENANT): SensorReading(
+                        time=NOW - timedelta(minutes=12),
+                        tenant_key=TENANT,
+                        sensor_key="s-a",
+                        sensor_type="temperature_celsius",
+                        value=19.4,
+                        unit="°C",
+                        source="mqtt_auto",
+                    )
+                }
+            ),
+        )
+
+        snapshot = service.capture_for_plant(PLANT, tenant_key=TENANT)
+
+        assert [(r.value, r.sensor_key, r.source) for r in snapshot.readings] == [(19.4, "s-a", "mqtt_auto")]
+
+    def test_a_second_thermometer_does_not_displace_another_metric(self):
+        # Grouping per metric must not swallow the humidity probe standing next
+        # to the two thermometers.
+        service = _build(
+            location_sensors=[
+                _sensor("s-a", "temperature_celsius", entity="sensor.a"),
+                _sensor("s-hum", "humidity_percent", entity="sensor.hum"),
+                _sensor("s-b", "temperature_celsius", entity="sensor.b"),
+            ],
+            ha=FakeHaClient(
+                {
+                    "sensor.a": _live(21.0, entity="sensor.a", age_minutes=9.0),
+                    "sensor.hum": _live(48.0, entity="sensor.hum", unit="%"),
+                    "sensor.b": _live(23.0, entity="sensor.b", age_minutes=1.0),
+                }
+            ),
+        )
+
+        snapshot = service.capture_for_plant(PLANT, tenant_key=TENANT)
+
+        assert {(r.metric_type, r.value) for r in snapshot.readings} == {
+            ("temperature_celsius", 23.0),
+            ("humidity_percent", 48.0),
+        }
+
+
 class TestPersistedObservationFallback:
     def test_unavailable_live_state_falls_back_to_the_stored_reading(self):
         # Home Assistant reports ``unavailable`` as a non-numeric state, which

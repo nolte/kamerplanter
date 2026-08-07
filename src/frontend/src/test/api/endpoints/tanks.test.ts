@@ -18,6 +18,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 import * as tanks from '@/api/endpoints/tanks';
+import { twoThermometersLiveState } from '../liveStateFixture';
 
 const client = mocks.client;
 
@@ -201,6 +202,16 @@ describe('tanks endpoints — relationships, sensors, HA', () => {
     client.get.mockResolvedValue({ data: {} });
     await tanks.getLiveState('t1');
     expect(client.get).toHaveBeenCalledWith('/tanks/t1/states/live');
+  });
+
+  it('getLiveState carries the per-sensor readings alongside the derived view', async () => {
+    client.get.mockResolvedValue({ data: twoThermometersLiveState() });
+
+    const live = await tanks.getLiveState('t1');
+
+    expect(Object.keys(live.readings).sort()).toEqual(['s-back', 's-front']);
+    expect(live.values.temperature_celsius.sensor_count).toBe(2);
+    expect(live.readings['s-front'].sensor_name).toBe('Zelt vorne');
   });
 
   it('getSensors gets sensors for tank', async () => {
