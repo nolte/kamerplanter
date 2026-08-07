@@ -86,6 +86,8 @@ def build_service(monkeypatch, diary_repo, consent_repo):
     # SEC-003 — the provider resolves the attachment catalogue too now. Left
     # unpatched it opens a real ArangoDB connection, which is not what this
     # module is about (and takes the connection timeout to find out).
+    # Since #978 a forgotten patch fails immediately and names the provider, so
+    # this no longer depends on the author remembering what this comment says.
     monkeypatch.setattr(deps, "get_attachment_repo", lambda: MagicMock())
     return deps.get_plant_diary_service
 

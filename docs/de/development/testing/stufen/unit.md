@@ -44,3 +44,16 @@ Die vollständigen Voraussetzungen und Muster stehen im [Testkonzept → Backend
 - Service-Tests mocken das Repository (`AsyncMock(spec=…)`).
 - Redux-Slice-Tests laufen ganz ohne React — Reducer als reine Funktion aufrufen.
 - Jedes neue Feature braucht mindestens einen Unit-Test für seine Business-Logik.
+- **Kein Datenspeicher-Zugriff.** Ein Backend-Unit-Test, der über einen Provider aus
+  `app/common/dependencies.py` an ArangoDB, TimescaleDB oder Valkey gerät, bricht
+  sofort ab — mit einer Meldung, die die Provider-Kette benennt (Wächter:
+  `tests/support/db_guard.py`). Dasselbe gilt für `tests/api/`.
+
+!!! warning "Warum das ein Wächter ist und keine bloße Konvention"
+    Läuft der Dev-Stack, antwortet `localhost:8529`. Der Test wird dann lokal grün,
+    liest und schreibt dabei die Dev-Datenbank und fällt erst in der CI um, wo
+    nichts lauscht — dort kostet die Diagnose rund 18 Sekunden Verbindungs-Timeout
+    pro betroffenem Aufruf. Ein Test, der wirklich eine Datenbank braucht, gehört
+    nach `tests/integration/`. Notausgang ist der Marker
+    `@pytest.mark.allow_db_connection("<Grund>")` — mit Pflichtbegründung, damit
+    die Ausnahmen zählbar bleiben.

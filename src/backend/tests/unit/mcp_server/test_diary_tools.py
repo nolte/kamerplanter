@@ -737,9 +737,19 @@ async def test_ak07_only_renditions_are_delivered_never_the_original(world: _Wor
 
 
 @pytest.mark.asyncio
-async def test_ak07_a_missing_rendition_never_falls_back_to_the_original(world: _World) -> None:
+async def test_ak07_a_missing_rendition_never_falls_back_to_the_original(
+    world: _World,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # The failure this guards: "rendition missing → serve the original instead"
     # looks like a helpful fallback and ships EXIF/GPS to a third-party model.
+    from app.tasks import storage_tasks
+
+    # The missing rendition also triggers the AK-09 generation dispatch. Left
+    # unstubbed, that `.delay()` publishes to the real Celery broker (#978) — the
+    # AK-09 test below stubs it for the same reason and then asserts on it.
+    monkeypatch.setattr(storage_tasks.generate_thumbnails, "delay", lambda *args, **kwargs: None)
+
     world.repo.create(_entry("e-1", photos=["ph-1"]))
     world.attachments.add("ph-1")  # record exists, no renditions at all
     tool = GetDiaryEntryPhotos()

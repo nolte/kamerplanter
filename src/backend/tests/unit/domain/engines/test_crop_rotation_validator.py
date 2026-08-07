@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -19,6 +20,26 @@ def _make_plant(species_key: str):
     plant = MagicMock()
     plant.species_key = species_key
     return plant
+
+
+@pytest.fixture(autouse=True)
+def family_repo(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Serve the engine's family lookup from a fake instead of the real database.
+
+    ``validate_planting`` reaches into the DI container for the botanical-family
+    repository (``get_family_repo()``) and wraps the call in ``except Exception:
+    pass``. Until #978 that meant every test here opened a real ArangoDB
+    connection: green on a machine with the dev stack up — reading the dev
+    database — and ~18 s of connection retries per test everywhere else, with the
+    swallowed failure leaving ``planned_family`` at ``None`` either way.
+
+    The fake reproduces that ``None`` by default, so the existing expectations
+    still describe what the engine does, and lets a test opt into a real family.
+    """
+    repo = MagicMock()
+    repo.get_by_key.return_value = None
+    monkeypatch.setattr("app.common.dependencies.get_family_repo", lambda: repo)
+    return repo
 
 
 class TestCropRotationValidator:
@@ -140,6 +161,28 @@ class TestCropRotationValidator:
         self.validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
 
         assert self.plant_repo.get_history_by_slot.call_args.kwargs["tenant_key"] == TENANT_KEY
+
+    def test_nitrogen_fixing_family_annotates_every_result(self, family_repo):
+        """A nitrogen-fixing planned family adds the soil-benefit note to each result.
+
+        Never covered before #978: the family lookup died in a swallowed
+        connection error, so ``planned_family`` was always ``None`` here and this
+        branch never executed in a test run.
+        """
+        planned = _make_species("sp1", "fam_a")
+        past = _make_species("sp2", "fam_a")
+
+        family_repo.get_by_key.return_value = SimpleNamespace(nitrogen_fixing=True)
+        self.species_repo.get_by_key = lambda k: {"sp1": planned, "sp2": past}.get(k)
+        self.plant_repo.get_history_by_slot.return_value = [_make_plant("sp2")]
+        self.graph_repo.get_pest_risks.return_value = []
+        self.graph_repo.get_rotation_successors.return_value = []
+
+        results = self.validator.validate_planting("slot1", "sp1", tenant_key=TENANT_KEY)
+
+        assert family_repo.get_by_key.call_args.args == ("fam_a",)
+        assert results
+        assert all(r.nitrogen_benefit == "Nitrogen-fixing species improves soil for subsequent crops" for r in results)
 
     def test_no_graph_repo(self):
         """Validator without graph_repo should still work (no pest/rotation checks)."""

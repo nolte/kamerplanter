@@ -78,6 +78,13 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    # #978 — opt out of the tests/unit/ and tests/api/ datastore guard
+    # (tests/support/db_guard.py). Deliberately the only way out, and it takes a
+    # mandatory reason: `grep -rn allow_db_connection tests/` then counts every
+    # exception, which a per-test patch never did.
+    "allow_db_connection(reason): this test may open a real datastore connection",
+]
 
 [tool.black]
 line-length = 120
