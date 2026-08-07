@@ -240,23 +240,67 @@ http:
 
 ## 4. CI/CD-Integration
 
-### 4.1 PR-Gate (schneller Scan)
+### 4.1 Merge-Scan (schneller Scan)
 
-**MUSS**: Jeder Pull Request gegen `develop` und `main` löst einen Nuclei-PR-Gate-Scan aus:
+**MUSS**: Jeder Commit, der auf `develop` landet und die deployte Fläche berührt,
+löst einen Nuclei-Scan mit dem schnellen Profil aus
+(`.github/workflows/security-nuclei-postmerge.yml`, Trigger `push`).
+
+**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem er das Label
+`security-scan` erhält. Das ist der vorgesehene Weg für Änderungen an genau der
+Oberfläche, die die eigenen Templates aus §3.2 beobachten: Security-Header,
+CORS, Fehlerkörper, Debug-Endpunkte, Frontend-Bundle.
+
+> **Warum kein Scan bei jedem Push auf jedem Pull Request.** Bis zum 2026-08-07
+> forderte dieser Abschnitt genau das, und der Workflow tat es auch — er kam nur
+> nie zu einem Ergebnis. Über die 100 jüngsten Läufe gemessen (Fenster ab
+> 2026-08-05T21:15): **85 abgebrochen, 7 erfolgreich, 6 fehlgeschlagen, 2
+> laufend**; von den 20 jüngsten Läufen wurde **jeder** abgebrochen. Ein
+> vollständiger Scan dauert gemessen 16–19 Minuten. Zwei Ursachen takten kürzer:
+> jeder weitere Push auf den Branch verdrängte den laufenden Scan über
+> `cancel-in-progress: true` — Folge-Commit, Renovate-Update oder der Rebase, den
+> `strict: true` nach jedem fremden Merge erzwingt —, und der Pull Request selbst
+> wurde über das `automerge`-Label gemergt, sobald die beiden *required* Checks
+> meldeten, also lange bevor der Scan fertig war.
+>
+> Weder `cancel-in-progress: false` noch ein engerer `paths:`-Filter behebt das.
+> Der Filter — seit dem 2026-08-01 unverändert und damit im gesamten Messfenster
+> aktiv — bestimmt, wie **oft** die Lane startet, nicht, ob ein gestarteter Lauf
+> sein Urteil erreicht; und ein Lauf, der nie verdrängt wird, scannt jeden
+> Zwischenstand einer Commit-Serie zu je 16–19 Minuten und verliert am Ende
+> trotzdem gegen den Merge seines eigenen Pull Requests. Falsch war die
+> **Platzierung** eines 16-bis-19-Minuten-Jobs an einem Per-Push-Trigger in einem
+> Repository, das unter `strict: true` per `automerge` mergt. Dass die Dauer die
+> Variable ist und nicht das Concurrency-Flag, ist im Repository gemessen:
+> `.github/settings.yml` hält für `e2e-smoke` (~11 min, identische
+> Concurrency-Form) im selben Merge-Train „7 completed, 3 cancelled" fest — 70 %
+> gegen die 15 % dieser Lane.
+>
+> Der Scan läuft deshalb einmal pro gemergtem Commit. Das ist eine bewusste
+> Verringerung der Abdeckung im Sinne von NFR-018 §4 und ausdrücklich keine
+> Reparatur: Ein High/Critical-Befund erscheint jetzt **nach** dem Merge statt
+> daneben. Verloren geht dabei nichts, was tatsächlich geliefert wurde — der
+> Check war nie *required* (`.github/settings.yml`), ein abgebrochener Lauf
+> blockierte nichts und meldete nichts. Was bleibt, ist ein Fenster von einem
+> Merge Breite; §4.2 fängt es spätestens nachts auf, allerdings **ohne** die
+> OpenAPI-Fläche aus §4.3, die die Nightly nicht abdeckt.
 
 ```yaml
-# .github/workflows/security-nuclei-pr.yml
-name: Security — Nuclei PR Gate
+# .github/workflows/security-nuclei-postmerge.yml
+name: Security — Nuclei Post-Merge Scan
 
 on:
+  push:
+    branches: [develop]
   pull_request:
-    branches: [develop, main]
+    types: [labeled]        # on demand, via the `security-scan` label
+  workflow_dispatch:
 
 jobs:
-  nuclei-pr-scan:
-    name: Nuclei PR-Scan (fast)
+  nuclei-scan:
+    name: Nuclei Scan (fast profile)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
@@ -304,7 +348,15 @@ jobs:
             || echo "No High/Critical findings."
 ```
 
-**MUSS**: Der PR-Gate-Job darf maximal 15 Minuten dauern (`timeout-minutes`).
+**MUSS**: Der Merge-Scan-Job trägt ein `timeout-minutes`, das den gemessenen Lauf
+nicht wesentlich überschreitet. Der Wert ist **30**, nicht die früher hier
+geforderten 15: gemessen dauert ein vollständiger Lauf 16–19 Minuten, und der
+Löwenanteil entfällt auf das Bauen der Backend- und Frontend-Images aus der
+Quelle, nicht auf das Scannen (§3.1 budgetiert nur den Scan mit < 5 min). Die 15
+Minuten stammen aus der ursprünglichen Fassung, die gegen eine Staging-Umgebung
+geschrieben war, in der keine Images gebaut werden mussten. Eine Zahl, die der
+Workflow strukturell nicht einhalten kann, ist keine Anforderung, sondern ein
+stiller Dauerverstoß.
 
 ### 4.2 Nightly Full-Scan
 
@@ -402,13 +454,20 @@ nuclei \
 
 **MUSS**: Build-Gate-Verhalten pro Severity-Klasse:
 
-| Severity | PR-Gate | Nightly | Aktion |
+| Severity | Merge-Scan (advisory) | Nightly | Aktion |
 |---|---|---|---|
-| **Critical** | Block | Block + Issue + Page | PR-Merge unmöglich, Hotfix-Branch |
-| **High** | Block | Block + Issue | PR-Merge unmöglich, Triage in 24 h |
-| **Medium** | Warn | Warn + Issue | Merge möglich, Triage in 7 Tagen |
+| **Critical** | Rot + Issue | Rot + Issue + Page | Hotfix-Branch, Triage sofort |
+| **High** | Rot + Issue | Rot + Issue | Triage in 24 h |
+| **Medium** | Warn | Warn + Issue | Triage in 7 Tagen |
 | **Low** | Info | Info | Backlog, kein SLA |
 | **Info** | Sammeln | Sammeln | Reine Inventarisierung |
+
+> **Kein Merge-Block.** Frühere Fassungen dieser Tabelle trugen für Critical und
+> High „Block / PR-Merge unmöglich". Das galt nie: der Nuclei-Kontext ist in
+> `.github/settings.yml` nicht als *required* geführt, und der Scan läuft seit
+> dem 2026-08-07 ohnehin nach dem Merge (§4.1). Eine Promotion zu *required* wird
+> nach NFR-018 §4 an gemessener Historie begründet — nicht durch eine Zeile in
+> dieser Tabelle.
 
 **MUSS**: Critical-Findings auf Staging triggern eine sofortige Benachrichtigung im `#security-alerts`-Channel.
 
@@ -537,11 +596,13 @@ suppressions:
     - [ ] Alle eigenen Templates validieren mit `nuclei -validate`
     - [ ] `NUCLEI_TEMPLATES_SHA` ist in CI auf einen Commit-SHA gepinnt
 - [ ] **CI-Integration**
-    - [ ] `.github/workflows/security-nuclei-pr.yml` läuft auf jedem PR gegen `develop`/`main`
+    - [ ] `.github/workflows/security-nuclei-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1)
+    - [ ] Die Lane erreicht ihr Urteil: über die letzten 20 Läufe ist **kein** Lauf mit `cancelled` beendet (`gh run list --workflow security-nuclei-postmerge.yml --limit 20 --json conclusion`)
+    - [ ] Der `push`-Trigger feuert nachweislich nach automerge-Merges (GITHUB_TOKEN-Loop-Guard, siehe Workflow-Kopf)
     - [ ] `.github/workflows/security-nuclei-nightly.yml` läuft täglich gegen einen selbst gestarteten ephemeren Stack (§4.2)
     - [ ] Ein Nightly-Lauf hat nachweislich einen Scan **ausgeführt** — nicht nur grün oder rot gemeldet: `results.jsonl` liegt als Artefakt vor
-    - [ ] OpenAPI-Scan ist Teil des PR-Workflows
-    - [ ] PR-Gate scheitert bei High/Critical-Findings
+    - [ ] OpenAPI-Scan ist Teil des Merge-Scan-Workflows
+    - [ ] Der Merge-Scan scheitert bei High/Critical-Findings **und** wenn gar keine Ergebnisdatei entstanden ist
 - [ ] **Reporting**
     - [ ] SARIF-Reports werden in GitHub Code Scanning hochgeladen
     - [ ] Nightly-Reports werden in S3 archiviert (365 Tage)

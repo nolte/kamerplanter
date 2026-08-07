@@ -1,13 +1,81 @@
-name: Security — Nuclei PR Gate
+name: Security — Nuclei Post-Merge Scan
 
-# NFR-014 §4.1 — fast template-based DAST scan against an ephemeral
-# Kamerplanter stack. Runs on every PR against develop/main but only when
-# code that could plausibly affect the deployed surface changes; pure
-# documentation or unrelated spec PRs are skipped via the path filter.
+# NFR-014 §4.1/§4.3 — fast template-based DAST scan against an ephemeral
+# Kamerplanter stack.
+#
+# WHY THIS IS NO LONGER A PER-PUSH PULL-REQUEST LANE (2026-08-07, issue #993).
+#
+# It was one until this commit, and it never finished. Measured over the 100
+# most recent runs, window from 2026-08-05T21:15:
+#
+#     cancelled 85 · success 7 · failure 6 · running 2
+#
+# — and of the 20 most recent, every single one cancelled. A complete scan takes
+# 16-19 minutes (e.g. 14:27:18 -> 14:43:31). Two things cancel it, and both tick
+# faster than that:
+#
+#   1. Any further push to the head branch superseded the run in flight, via the
+#      `cancel-in-progress: true` this block used to carry: a follow-up commit, a
+#      Renovate update, or the rebase that `strict: true` forces after any other
+#      pull request merges.
+#   2. The pull request itself is merged by the `automerge` label as soon as the
+#      two REQUIRED contexts report — minutes, not tens of minutes. See
+#      `automerge.yaml`. The scan loses to the merge of its own pull request.
+#
+# Neither `cancel-in-progress: false` nor a narrower `paths:` filter fixes that.
+# The filter (kept below, and in place unchanged since 2026-08-01, i.e. through
+# the entire measured window) decides how OFTEN the lane fires, not whether a
+# firing run reaches its verdict; never superseding would scan every
+# intermediate commit of a push burst at 16-19 minutes each and still lose to
+# cause 2. What was wrong is the PLACEMENT of a 16-to-19-minute job on a
+# per-push trigger in a repository that merges through `automerge` under
+# `strict: true` — not the concurrency setting. The in-repo evidence that
+# duration is the variable: `.github/settings.yml` measured `e2e-smoke`
+# (~11 min, identical concurrency shape) at 7 completed / 3 cancelled in the
+# same kind of merge train. 70% against this lane's 15%.
+#
+# So the scan now runs ONCE PER MERGED COMMIT, where nothing races it and every
+# finding maps to exactly one squash commit. This is a deliberate, recorded
+# REDUCTION IN COVERAGE per NFR-018 §4, not a repair: a High/Critical finding is
+# now reported AFTER the merge rather than beside it. It costs nothing that was
+# actually being delivered — this check has never been required
+# (`.github/settings.yml` requires only `static / Static CI Tests` and
+# `lint-test-build (22)`), and a cancelled run blocks nothing and reports
+# nothing. Promotion to a required check stays out of the question until there
+# is measured history to justify it (NFR-018 §4); making a check that never
+# completes blocking would be strictly worse than today.
+#
+# `main` is deliberately NOT in the push list: it only ever fast-forwards to a
+# commit already scanned on `develop`.
+#
+# PRE-MERGE SCANNING REMAINS AVAILABLE ON DEMAND: label a pull request
+# `security-scan`. Use it for a change that moves the surface the custom
+# templates watch — security headers, CORS, error bodies, debug endpoints, the
+# frontend bundle. That lane carries NO `paths:` filter on purpose: the label IS
+# the selection, and a label that silently did nothing because a path filter did
+# not match would be the same class of trap this comment exists to close.
+#
+# RESIDUAL GAP, written down rather than left to be rediscovered: between a
+# merge and the next `security-nuclei-nightly.yml` run, nothing scans the
+# OpenAPI surface (§4.3) — the nightly has a single nuclei invocation, without
+# `-input-mode openapi`. That window is now one merge wide instead of unbounded.
+#
+# PRECONDITION: this lane depends on a push to `develop` triggering workflows at
+# all. A merge authored by GITHUB_TOKEN does NOT trigger downstream workflows
+# (GitHub's loop guard) — `automerge.yaml` mints a GitHub-App token precisely so
+# that it does, and `release-drafter.yml` carries a manual fallback because it
+# was bitten by this. If `vars.PORTFOLIO_APP_ID` is ever unset, this lane stops
+# firing SILENTLY. Verified before this change landed: the variable is set, and
+# `docker-publish.yml` push runs match recent `develop` commits one for one.
+# Re-verify with:
+#
+#     gh run list --workflow security-nuclei-postmerge.yml --event push --limit 20
+#
+# and compare against `git log origin/develop --oneline -20`.
 
 on:
-  pull_request:
-    branches: [develop, main]
+  push:
+    branches: [develop]
     paths:
       - 'src/backend/**'
       - 'src/frontend/**'
@@ -17,25 +85,51 @@ on:
       - 'tests/security/nuclei-templates/**'
       - 'tests/security/nuclei-suppressions.yaml'
       - 'scripts/security/**'
-      - '.github/workflows/security-nuclei-pr.yml'
+      - '.github/workflows/security-nuclei-postmerge.yml'
       # The shared bring-up action: without this entry a change to the stack's
       # readiness logic would land without the gate that exercises it.
       - '.github/actions/ephemeral-stack/**'
       - '.github/renovate-pins.yaml'
+  # On-demand pre-merge scan. No `paths:` — see the header.
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
 
+# Read-only floor; the job below declares what it actually needs.
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
-  group: security-nuclei-pr-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  # Keyed per merged commit, or per pull request for the label lane. NEVER
+  # cancel-in-progress: superseding is what broke this lane. A push run and a
+  # manual dispatch of the same SHA serialise instead of racing, and
+  # re-labelling to request a fresh scan queues behind the running one rather
+  # than cutting it off.
+  group: security-nuclei-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: false
 
 jobs:
-  nuclei-pr-scan:
-    name: Nuclei PR-Scan (fast)
+  nuclei-scan:
+    # Renamed from "Nuclei PR-Scan (fast)": the lane no longer runs per push on
+    # every pull request, and a check whose name says otherwise is the kind of
+    # small untruth this whole change is about. The SARIF *categories* below
+    # keep their historic names on purpose — see the comment there.
+    name: Nuclei Scan (fast profile)
+    # `labeled` fires for ANY label; the selection has to be made here.
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.label.name == 'security-scan'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      # Only the post-merge lane opens issues; see the last step.
+      issues: write
+    # NFR-014 §4.1 used to budget 15 minutes. The measured run is 16-19,
+    # dominated by building the backend and frontend images from source rather
+    # than by scanning (§3.1 budgets the scan itself at < 5 min). The budget
+    # line is amended in the spec rather than left silently broken; 30 keeps a
+    # hung scan from occupying a runner indefinitely.
     timeout-minutes: 30
 
     steps:
@@ -202,6 +296,12 @@ jobs:
             -sarif-export openapi-results.sarif \
             "${suppress_args[@]}"
 
+      # The two SARIF categories keep their historic names on purpose, even
+      # though the workflow and the job were renamed. A Code Scanning category
+      # is the key under which alerts are resolved: renaming it would orphan
+      # every existing alert from the old category — they would stay open
+      # forever, unmeasured, looking current. Exactly the failure class
+      # NFR-018 §1 catalogues.
       - name: Upload SARIF (HTTP scan) to Code Scanning
         if: always() && hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
@@ -220,7 +320,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: nuclei-pr-results-${{ github.sha }}
+          name: nuclei-scan-results-${{ github.sha }}
           path: |
             results.jsonl
             results.sarif
@@ -242,6 +342,14 @@ jobs:
       - name: Fail on High/Critical findings
         if: always()
         run: |
+          # No results file at all means the scan did not run, which is a
+          # failure and not a clean result (NFR-018 §2: an empty input is not a
+          # passing test). The predecessor of this step skipped every missing
+          # file and exited 0, so a stack that never came up reported green.
+          if [[ ! -f results.jsonl && ! -f openapi-results.jsonl ]]; then
+            echo "::error::Neither results.jsonl nor openapi-results.jsonl exists — the scan produced nothing. Refusing to report a clean result for a scan that did not run."
+            exit 1
+          fi
           fail=0
           for f in results.jsonl openapi-results.jsonl; do
             [[ -f "$f" ]] || continue
@@ -253,3 +361,63 @@ jobs:
             fi
           done
           exit "$fail"
+
+      # The consumer of the signal. Without this the only channel for a
+      # post-merge finding is a red run in the Actions tab — precisely the alarm
+      # that failed unnoticed for the nightly for months (see the header of
+      # `security-nuclei-nightly.yml`). Push lane only: on a labelled pull
+      # request the failing job IS the channel, and an issue would be noise.
+      - name: Open issue for new High/Critical findings
+        if: always() && github.event_name == 'push'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Read through `process.env`, never interpolated into the script body:
+          # a `${{ }}` inside `script:` is textual substitution into JavaScript.
+          COMMIT_SHA: ${{ github.sha }}
+        with:
+          script: |
+            const fs = require('fs');
+            const files = ['results.jsonl', 'openapi-results.jsonl'].filter(f => fs.existsSync(f));
+            if (files.length === 0) {
+              core.setFailed('No results file produced — the scan did not run. This is a failure, not a clean result.');
+              return;
+            }
+            const hits = files.flatMap(f =>
+              fs.readFileSync(f, 'utf8').trim().split('\n').filter(Boolean)
+                .map(l => JSON.parse(l))
+                .filter(r => r.info && (r.info.severity === 'high' || r.info.severity === 'critical'))
+            );
+            if (hits.length === 0) {
+              core.notice('No High/Critical findings — no issue opened.');
+              return;
+            }
+            const summary = hits.slice(0, 20).map(h =>
+              `- \`${h['template-id']}\` (${h.info.severity}) — ${h['matched-at'] || h.host}`
+            ).join('\n');
+            const more = hits.length > 20 ? `\n…and ${hits.length - 20} more.` : '';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[nuclei-postmerge] ${hits.length} High/Critical findings on ${process.env.COMMIT_SHA.slice(0, 8)}`,
+              body: [
+                `Post-merge Nuclei scan of \`${process.env.COMMIT_SHA}\` raised **${hits.length}** High/Critical findings.`,
+                '',
+                `Run: ${process.env.RUN_URL}`,
+                '',
+                'This commit is already on `develop`. The scan runs after the merge by',
+                'design (NFR-014 §4.1) — see the header of',
+                '`.github/workflows/security-nuclei-postmerge.yml` for why.',
+                '',
+                '## Findings (truncated to 20)',
+                '',
+                summary + more,
+                '',
+                '## Triage',
+                '',
+                'Follow `docs/security/nuclei-triage.md`. Confirm reproduction with',
+                '`./scripts/security/nuclei-local.sh --profile pr`, then open either a',
+                'fix-forward PR or a suppression PR.',
+              ].join('\n'),
+              labels: ['security'],
+            });
