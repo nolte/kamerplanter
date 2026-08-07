@@ -1020,6 +1020,7 @@ species:
     root_type: taproot
     harvest_pattern: continuous
     harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Central America
@@ -1336,6 +1337,7 @@ species:
     root_type: fibrous
     harvest_pattern: continuous
     harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Americas
@@ -1373,6 +1375,7 @@ species:
     root_type: fibrous
     harvest_pattern: single
     harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: South America
@@ -1455,6 +1458,7 @@ species:
     root_type: fibrous
     harvest_pattern: continuous
     harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 15.0
     hardiness_zones: ["7a", "11a"]
     native_habitat: South Asia
@@ -1723,6 +1727,7 @@ species:
     root_type: fibrous
     harvest_pattern: single
     harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Central America
