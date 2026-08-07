@@ -273,9 +273,11 @@ tasks:
   check:schema-examples:
     desc: |
       Count the request/response schemas without an OpenAPI example against the
-      recorded baseline (BACKEND.md §5.3, #850). Shrink-only: red when the number
-      grows, informational when it falls. Also runs as a pre-commit hook in the
-      required `static` lane — this target is the local entry point.
+      recorded ceiling (BACKEND.md §5.3, #850). No-growth: red only when the
+      number rises above the ceiling; a drop is green and prints the resulting
+      headroom. The ceiling is not lowered per pull request (#973), so this
+      target — not the constant — is where the current number comes from. Also
+      runs as a pre-commit hook in the required `static` lane.
     cmds:
       - python3 scripts/check_schema_examples.py {{.CLI_ARGS}}
 

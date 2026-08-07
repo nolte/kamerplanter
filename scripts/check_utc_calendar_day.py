@@ -21,8 +21,8 @@ mistake looks correct in review, in local development on a UTC box, and in CI â€
 which runs on UTC. It surfaces only in production on a host whose zone sits on
 the far side of midnight, and only for part of the day.
 
-**Why zero, and not a shrink-only ratchet.** ``check_schema_examples.py`` carries
-a numeric baseline because its debt is real and cannot be paid off in one change.
+**Why zero, and not a numeric ratchet.** ``check_schema_examples.py`` carries a
+recorded ceiling because its debt is real and cannot be paid off in one change.
 (``check_bdd_traceability.py`` carried two until #839 paid its debt off and
 dropped them â€” a baseline is a holding position, not an answer.) This one has no
 debt left: #858 converted

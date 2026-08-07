@@ -22,6 +22,7 @@ Traces to issue #850 (no TC-ID: a source-tree gate is not a user-facing case).
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import textwrap
 from collections.abc import Callable
@@ -525,29 +526,38 @@ class TestRatchetDirections:
         assert "OK — 2 model(s) without an example" in capsys.readouterr().out
 
     def test_growth_fails_and_names_the_carriers(self, tree: Path, capsys: pytest.CaptureFixture[str]) -> None:
-        """One model above the baseline is a defect, and the message says how to fix it."""
+        """One model above the ceiling is a defect, and the message says how to fix it."""
         exit_code = checker.main(["--schema-root", str(tree), "--baseline", "1"])
         assert exit_code == checker.EXIT_DEFECTS
         out = capsys.readouterr().out
-        assert "1 above the baseline" in out
+        assert "1 above the recorded ceiling" in out
         assert "json_schema_extra" in out
         assert "examples=[1.8]" in out
+        # The one remediation that must never be offered: raising the number.
+        assert "Raising MAX_MODELS_WITHOUT_EXAMPLE is not the fix" in out
 
-    def test_a_drop_passes_but_names_the_new_baseline(self, tree: Path, capsys: pytest.CaptureFixture[str]) -> None:
-        """Progress is reported, not punished — matching ``check_bdd_traceability.py``.
+    def test_a_drop_passes_and_names_the_headroom_instead_of_a_hand_edit(
+        self, tree: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Progress is reported, not punished, and no hand edit is demanded.
 
-        Failing on a drop was rejected deliberately: it would block every
-        refactoring that merely deletes or renames a schema module, and two
-        concurrent pull requests each lowering the count would collide in the
-        constant. The price is a baseline that may lag reality until someone
-        records it; the ratchet still holds, because a later climb is measured
-        against the recorded number.
+        Failing on a drop was rejected from the start: it would block every
+        refactoring that merely deletes or renames a schema module. Since #973 the
+        drop does not *ask* for the constant to be lowered either — that request
+        is what put every pull request adding an example on the same line of the
+        same file, and two in flight conflicted on an integer carrying no review
+        value.
+
+        What the drop must still print is the **headroom**, because that is the
+        cost of the trade: every unit of it is one undocumented schema this gate
+        would let through unnoticed.
         """
         exit_code = checker.main(["--schema-root", str(tree), "--baseline", "3"])
         assert exit_code == checker.EXIT_OK
         out = capsys.readouterr().out
-        assert "below the recorded baseline of 3" in out
-        assert "Baseline can be lowered to 2" in out
+        assert "below the recorded ceiling of 3" in out
+        assert "1 more undocumented model(s) would still pass" in out
+        assert "can be lowered to" not in out
 
     def test_list_names_every_counted_model(self, tree: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """``--list`` is how a developer resolves an unexpected delta."""
@@ -574,6 +584,138 @@ class TestRatchetDirections:
         )
         assert exit_code == checker.EXIT_USAGE
         assert "schema root does not exist" in capsys.readouterr().err
+
+
+class TestConcurrentPullRequests:
+    """#973: the recorded number is a ceiling, and no pull request has to move it.
+
+    Before this change the check was *shrink-only*: a drop passed but printed
+    "Baseline can be lowered to N", and authors followed the instruction. Every
+    pull request that documented a schema therefore edited the same integer in
+    the same file, and two of them in flight conflicted — four times in one
+    afternoon while landing #954, #967 and #971. The conflict never signalled a
+    disagreement between the changes; it was two authors independently reporting
+    that the debt had shrunk. Worse, resolving it by taking either side yields a
+    number that is too *high*, which loosens the ratchet silently.
+
+    The property to keep across that change is the whole point of the gate, so it
+    is asserted in both directions here: adding an undocumented model fails,
+    adding an example does not.
+    """
+
+    @staticmethod
+    def _undocumented(write_schema: Callable[[str, str], Path], package: str, name: str) -> None:
+        """Write a package holding exactly one model with no example."""
+        write_schema(
+            package,
+            f"""
+            from pydantic import BaseModel
+
+
+            class {name}(BaseModel):
+                key: str
+            """,
+        )
+
+    def test_adding_an_undocumented_model_still_fails(
+        self, tmp_path: Path, write_schema: Callable[[str, str], Path], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The guarantee the ceiling exists for, walked as a two-commit sequence.
+
+        Green both before and after #973 — that is the point: it is the regression
+        guard on the property the conflict fix must not trade away.
+        """
+        self._undocumented(write_schema, "tanks", "TankResponse")
+        ceiling = "1"
+        assert checker.main(["--schema-root", str(tmp_path), "--baseline", ceiling]) == checker.EXIT_OK
+        capsys.readouterr()
+
+        # The pull request under test: one new response body, no example.
+        self._undocumented(write_schema, "sensors", "SensorResponse")
+
+        assert checker.main(["--schema-root", str(tmp_path), "--baseline", ceiling]) == checker.EXIT_DEFECTS
+        assert "1 above the recorded ceiling" in capsys.readouterr().out
+
+    def test_adding_an_example_passes_without_asking_for_the_constant_to_move(
+        self, tmp_path: Path, write_schema: Callable[[str, str], Path], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The reverse direction, and the conflict's actual source.
+
+        The author documents a schema, the count falls below the ceiling, and the
+        check must be green *and silent about the constant*. Naming a new number
+        to record here is what sent every such pull request to the same line.
+        """
+        self._undocumented(write_schema, "tanks", "TankResponse")
+        write_schema(
+            "species",
+            """
+            from pydantic import BaseModel, ConfigDict
+
+
+            class SpeciesResponse(BaseModel):
+                scientific_name: str
+
+                model_config = ConfigDict(
+                    json_schema_extra={"examples": [{"scientific_name": "Monstera deliciosa"}]}
+                )
+            """,
+        )
+
+        exit_code = checker.main(["--schema-root", str(tmp_path), "--baseline", "2"])
+
+        assert exit_code == checker.EXIT_OK
+        out = capsys.readouterr().out
+        assert "MAX_MODELS_WITHOUT_EXAMPLE" not in out
+        assert "check_schema_examples.py" not in out
+
+    def test_the_headroom_is_printed_so_the_slack_is_not_invisible(
+        self, tmp_path: Path, write_schema: Callable[[str, str], Path], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A ceiling that is never lowered drifts upward, and the drift must be readable.
+
+        This is the price of not demanding a hand edit: the gap between the
+        recorded ceiling and the real count is exactly how many undocumented
+        models could be added before anything turns red. Printing it in the
+        required lane's log keeps that a stated number rather than a discovery.
+        """
+        self._undocumented(write_schema, "tanks", "TankResponse")
+
+        checker.main(["--schema-root", str(tmp_path), "--baseline", "5"])
+
+        out = capsys.readouterr().out
+        assert "4 more undocumented model(s) would still pass" in out
+
+    def test_json_agrees_with_the_human_report_below_the_ceiling(
+        self, tmp_path: Path, write_schema: Callable[[str, str], Path], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Two exit codes for one state is a trap for whoever wires the check up next.
+
+        ``--json`` failed on a drop while the human report passed it, so the same
+        tree was green through the pre-commit hook and red through the documented
+        machine-readable mode.
+        """
+        self._undocumented(write_schema, "tanks", "TankResponse")
+
+        exit_code = checker.main(["--schema-root", str(tmp_path), "--baseline", "5", "--json"])
+
+        assert exit_code == checker.EXIT_OK
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["without_example"] == 1
+        assert payload["baseline"] == 5
+        assert payload["headroom"] == 4
+
+    def test_json_still_fails_above_the_ceiling(
+        self, tmp_path: Path, write_schema: Callable[[str, str], Path], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Agreement in the other direction: growth is a defect in both modes."""
+        self._undocumented(write_schema, "tanks", "TankResponse")
+        self._undocumented(write_schema, "sensors", "SensorResponse")
+
+        exit_code = checker.main(["--schema-root", str(tmp_path), "--baseline", "1", "--json"])
+
+        assert exit_code == checker.EXIT_DEFECTS
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["headroom"] == -1
 
 
 # ── Deliberately absent: an assertion about the real tree ────────────────────
