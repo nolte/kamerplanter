@@ -638,6 +638,19 @@ def get_oauth_state_store():
     return RedisOAuthStateStore(settings.redis_url)
 
 
+def get_unknown_account_store():
+    """SEC-H-010 lockout counter for addresses that have no account.
+
+    Redis-backed so replicas share one counter; degrades to the process-wide
+    in-memory tier when Redis is unreachable (see the store's module docstring —
+    failing open here would reopen the enumeration oracle, not just skip a
+    rate limit).
+    """
+    from app.data_access.external.unknown_account_store import RedisUnknownAccountStore
+
+    return RedisUnknownAccountStore(_get_redis_client())
+
+
 def get_api_key_repo():
     from app.data_access.arango.api_key_repository import ArangoApiKeyRepository
 
@@ -674,6 +687,7 @@ def get_auth_service() -> AuthService:
         api_key_repo=get_api_key_repo(),
         oidc_config_repo=get_oidc_config_repo(),
         encryption_engine=get_encryption_engine(),
+        unknown_account_store=get_unknown_account_store(),
     )
 
 

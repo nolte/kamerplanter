@@ -434,20 +434,30 @@ class TestEmailChange:
         email_change_repo.create.assert_called_once()
         email_service.send_verification_email.assert_called_once()
 
-    def test_email_change_rejects_duplicate_email(
+    def test_email_change_to_a_taken_address_does_not_disclose_it(
         self,
         service,
         user_repo,
+        email_change_repo,
         user,
     ):
+        """This used to assert ``DuplicateError`` — i.e. it pinned the disclosure.
+
+        The 409 it produced said ``User with email='<address>' already exists.``
+        The full property is covered in
+        ``test_privacy_email_change_enumeration.py``; what stays here is the
+        contract this suite already described, corrected.
+        """
         user_repo.get_by_email.return_value = User(
             _key="other",
             email="new@example.com",
             display_name="Other",
         )
 
-        with pytest.raises(DuplicateError):
-            service.request_email_change(USER_KEY, "new@example.com")
+        change = service.request_email_change(USER_KEY, "new@example.com")
+
+        assert change.status == "pending"
+        email_change_repo.create.assert_not_called()
 
     def test_confirm_email_change_swaps_email(
         self,

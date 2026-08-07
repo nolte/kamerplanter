@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from app.common.decoys import decoy_document_key, email_digest
 from app.common.exceptions import (
     DuplicateError,
     InvalidTokenError,
@@ -244,10 +245,8 @@ class PrivacyService:
         if user.email == new_email:
             raise ValidationError("New email must differ from the current address.")
 
-        existing = self._user_repo.get_by_email(new_email)
-        if existing is not None:
-            # Generic error to prevent account enumeration.
-            raise DuplicateError("User", "email", new_email)
+        if self._user_repo.get_by_email(new_email) is not None:
+            return self._suppress_taken_email_change(user_key, user, new_email)
 
         raw_token = secrets.token_urlsafe(32)
         token_hash = self._token_engine.hash_token(raw_token)
@@ -281,6 +280,100 @@ class PrivacyService:
             request_key=created.key,
         )
         return created
+
+    def _suppress_taken_email_change(
+        self,
+        user_key: UserKey,
+        user: User,
+        new_email: str,
+    ) -> EmailChangeRequest:
+        """Answer an email change to an address someone else already owns.
+
+        This branch used to ``raise DuplicateError("User", "email", new_email)``
+        under a comment reading "Generic error to prevent account enumeration".
+        It is not generic: the global handler renders it as **409** with
+        ``User with email='<address>' already exists.`` plus a ``details[].reason``
+        repeating the address — an explicit statement that the address is
+        registered, to any authenticated caller, for any address they care to
+        type in. The comment promising the opposite is what let it survive, the
+        same way it did for registration in #901.
+
+        The honest answer is the one REQ-025 §Art. 16 describes: accept the
+        request as pending, exactly as for a free address, and tell the address
+        that was targeted. So:
+
+        * **Nothing is written.** A persisted request would be confirmable, and
+          confirming it would move this account onto an address another account
+          already holds — a duplicate-identity bug behind an enumeration fix.
+          The returned object is synthesised and never reaches the repository,
+          so ``confirm_email_change`` answers the same
+          ``InvalidTokenError("email-change token")`` a genuine request whose
+          token was never received would answer.
+        * **No verification mail goes to the new address.** It belongs to
+          somebody else; sending them a token they could act on would be worse
+          than the disclosure. They get told what was attempted instead.
+        * The token is still generated and hashed, so the branch does the same
+          work — the response is only indistinguishable if the clock agrees.
+
+        What the caller can still learn: nothing from this endpoint. They learn
+        the address is taken only if they *also* control it and read the notice,
+        which they could have established by logging in.
+        """
+        now = datetime.now(UTC)
+
+        # Generated and discarded — see the docstring. Not doing this work would
+        # leave a measurable gap between the two branches.
+        self._token_engine.hash_token(secrets.token_urlsafe(32))
+
+        self._notify_email_change_target(new_email, user.display_name)
+
+        logger.info(
+            "privacy_email_change_suppressed",
+            user_key=user_key,
+            new_email_sha256=email_digest(new_email),
+        )
+        return EmailChangeRequest(
+            _key=decoy_document_key(),
+            user_key=user_key,
+            new_email=new_email,
+            # No token exists, because no request exists. The field is never
+            # returned to the caller (``EmailChangeResponse`` has no such field).
+            verification_token_hash="",
+            status="pending",
+            requested_at=now,
+            expires_at=now + timedelta(hours=self.EMAIL_CHANGE_TTL_HOURS),
+        )
+
+    def _notify_email_change_target(self, target_email: str, requester_display_name: str) -> None:
+        """Tell an address that another account tried to move onto it.
+
+        The requester's display name is *not* included: they are unauthenticated
+        as far as the recipient is concerned, and echoing an attacker-chosen
+        string into a third party's inbox turns this notice into a message
+        channel.
+        """
+        body = (
+            "<h2>Someone tried to use your email address</h2>"
+            "<p>An account on Kamerplanter requested to change its email address "
+            "to this one. Because the address is already registered here, the "
+            "change was not carried out and nothing about your account has "
+            "changed.</p>"
+            "<p>If that was you, sign in with this address instead. If it was "
+            "not, you do not need to do anything — but consider changing your "
+            "password if you reused it elsewhere.</p>"
+        )
+        try:
+            self._email_service.send_notification_email(
+                to_email=target_email,
+                subject="Kamerplanter — someone tried to use your email address",
+                html_body=body,
+            )
+        except NotImplementedError:
+            # Console adapter / test stubs may not implement every method.
+            # Only NotImplementedError is swallowed, exactly as on the genuine
+            # path below: if a real send failure produced a 500 there and a 201
+            # here, the mail outage itself would become the oracle.
+            logger.warning("email_change_target_notice_skipped")
 
     def confirm_email_change(self, raw_token: str) -> User:
         """Validate token, swap user.email and revoke all sessions."""
