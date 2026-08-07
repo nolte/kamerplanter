@@ -308,17 +308,33 @@ deshalb waechst die Abdeckung mit der normalen Arbeit am jeweiligen Feature.
 > veroeffentlichten Dokument; massgeblich ist die AST-Zaehlung des Skripts.
 
 **Durchsetzung.** `scripts/check_schema_examples.py` zaehlt die Modelle ohne
-Beispiel gegen eine festgehaltene Baseline und laeuft als pre-commit-Hook in der
-required `static`-Lane. Die Pruefung ist **shrink-only**: Sie wird rot, wenn die
-Zahl steigt, und meldet beim Sinken die neue, niedrigere Zahl, damit die Baseline
-von Hand nachgezogen wird. Ein Sinken macht die Pruefung bewusst **nicht** rot —
-sonst blockierte jedes Refactoring, das ein Schema-Modul nur loescht oder
-umbenennt.
+Beispiel gegen eine festgehaltene **Obergrenze** (`MAX_MODELS_WITHOUT_EXAMPLE`)
+und laeuft als pre-commit-Hook in der required `static`-Lane. Die Pruefung wird
+rot, wenn die Zahl ueber die Obergrenze steigt. Ein Sinken ist gruen und macht
+keine Arbeit: Es blockiert kein Refactoring, das ein Schema-Modul nur loescht
+oder umbenennt — und es verlangt seit #973 auch **nicht mehr**, die Konstante von
+Hand nachzuziehen.
+
+> **Warum nicht mehr nachziehen.** Bis 2026-08-07 meldete jedes Sinken die neue
+> Zahl, und die Autoren trugen sie ein. Damit fasste jeder PR, der ein Schema
+> dokumentierte, dieselbe Zeile derselben Datei an; zwei gleichzeitige PRs
+> kollidierten auf einer Ganzzahl ohne Review-Wert — an einem Nachmittag vier
+> Mal. Die Aufloesung hatte zudem eine Falle: Wer eine der beiden Seiten
+> unveraendert uebernimmt, erhaelt eine **zu hohe** Grenze; die Pruefung bleibt
+> gruen und laesst mehr undokumentierte Modelle durch, als sie soll.
+
+Die Obergrenze zu senken bleibt moeglich, aber als **eigene** Aufraeum-Aenderung:
+`task check:schema-examples` ausfuehren, die gedruckte Zahl uebernehmen, allein
+mergen.
 
 !!! warning "Ein gruenes Gate heisst nicht 'die API ist dokumentiert'"
-    Die Baseline **stundet** die Beispiel-Schuld, sie tilgt sie nicht. Sie haelt
-    nur fest, dass sie nicht weiter waechst. Wer wissen will, wie gut die API
-    beschrieben ist, liest die Zahl in der Baseline — nicht die Farbe des Gates.
+    Die Obergrenze **stundet** die Beispiel-Schuld, sie tilgt sie nicht. Sie
+    haelt nur fest, dass sie nicht weiter waechst. Wer wissen will, wie gut die
+    API beschrieben ist, fuehrt `task check:schema-examples` aus und liest die
+    **gedruckte** Zahl — nicht die Farbe des Gates und nicht die Konstante: Die
+    ist eine festgehaltene Obergrenze und nach dem ersten Sinken keine Messung
+    mehr. Der Abstand zwischen beiden (`Headroom`) steht in derselben Ausgabe und
+    sagt, wie viele undokumentierte Modelle die Pruefung noch durchliesse.
 
 ### 5.4 Validierung gehoert an die Grenze, pro Endpunkt
 

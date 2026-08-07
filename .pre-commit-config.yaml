@@ -154,9 +154,16 @@ repos:
 
   # ── API schema examples (#850) ────────────────────────────────────────
   # BACKEND.md §5.3 asks every *new or changed* request/response schema for an
-  # OpenAPI example and explicitly does not retro-fit the existing 711. A rule
+  # OpenAPI example and explicitly does not retro-fit the existing stock. A rule
   # shaped like that cannot be checked as "does every model have an example?" —
-  # it is checked by counting the models that have none and refusing growth.
+  # it is checked by counting the models that have none and refusing growth above
+  # a recorded ceiling. The current count is whatever the hook prints; no number
+  # is repeated here, because a repeated number goes stale silently (this comment
+  # said "the existing 711" for a month after the count had reached 704).
+  #
+  # The ceiling is deliberately NOT lowered per pull request (#973): doing so put
+  # every example-adding change on the same line of the same file and made two
+  # concurrent ones conflict on an integer carrying no review value.
   #
   # Runs here, in the required `static` gate: standard library only, no Pydantic
   # import, no node_modules, no running stack — ~0.2 s over 72 modules.
@@ -168,7 +175,7 @@ repos:
   - repo: local
     hooks:
       - id: schema-example-ratchet
-        name: API schema examples (shrink-only ratchet, #850)
+        name: API schema examples (no-growth ratchet, #850)
         entry: python3 scripts/check_schema_examples.py
         language: system
         always_run: true
@@ -233,7 +240,7 @@ repos:
   # in every CI run. Only a static gate sees it there — which is why this hook
   # exists rather than a test.
   #
-  # Zero allowed, not a shrink-only baseline like the schema-example check above:
+  # Zero allowed, not a recorded ceiling like the schema-example check above:
   # that one carries debt that cannot be paid off in one change, this one has
   # none left. (The traceability check above held baselines too until #839
   # cleared its debt and dropped them — a baseline is a holding position, and

@@ -17,16 +17,38 @@ be checked by asking "does every model have an example?", because the honest
 answer is "no, by design". It is checked by counting the models that have none
 and refusing to let that number grow.
 
-**Shrink-only, like ``scripts/check_bdd_traceability.py``.** Equal to the
-baseline is green, above it is red, and below it is green with a note naming the
-new number so :data:`MAX_MODELS_WITHOUT_EXAMPLE` can be lowered by hand.
+**No-growth, against a recorded ceiling.** At or below
+:data:`MAX_MODELS_WITHOUT_EXAMPLE` is green, above it is red. A drop is reported
+with the resulting *headroom* and nothing else is asked of the author.
 
-Failing on a *drop* was considered and rejected: it would block every refactoring
-that merely deletes or renames a schema module, and two concurrent pull requests
-that each lower the count would collide in the constant. The price is that the
-baseline may lag behind reality until someone records it — the ratchet still
-holds, because a later climb is measured against the recorded number, and that
-is the same trade the sibling check makes.
+**Why the ceiling is not lowered per pull request (#973).** Until 2026-08-07 a
+drop printed "baseline can be lowered to N", and authors did. Every pull request
+that documented a schema therefore edited the same integer in this file, so two
+in flight conflicted on it — four times in one afternoon while landing #954,
+#967 and #971, costing three rebase-and-remeasure cycles on a single branch. The
+conflict carried no review value (it is two authors independently reporting that
+the debt shrank) and it had a trap: taking either side verbatim yields a number
+that is too *high*, which loosens the ratchet with nothing turning red.
+
+Deriving the floor from the merge base instead (option 1 of #973) was rejected on
+the wiring: the enforcing lane is ``static / Static CI Tests``, a reusable
+workflow triggered ``on: push`` for every branch, with no pull-request context
+and a checkout this repository does not control. A check that cannot resolve its
+comparison point would have to choose between failing every push and skipping —
+and a gate that reports green without measuring is the failure class this
+repository keeps paying for. Rewriting the constant from CI (option 3) needs
+write permission in that lane plus a bot commit on every shrinking merge, which
+this repository's automerge train has already deadlocked on once.
+
+**The price, stated rather than hidden.** A ceiling that is never lowered ages
+upward: the gap between it and the real count is exactly how many undocumented
+models could still be added before anything turns red. The check prints that gap
+on every run so it is a readable number instead of a discovery. Lowering the
+ceiling stays possible — as its own housekeeping change, not as a tax on every
+pull request that happens to document a schema.
+
+Failing on a *drop* was rejected from the start for a second reason: it would
+block every refactoring that merely deletes or renames a schema module.
 
 Reference for the underlying rule: ``spec/style-guides/BACKEND.md`` §5.3. The
 *published* document is linted separately by ``.spectral.yaml`` in the
@@ -34,8 +56,10 @@ Reference for the underlying rule: ``spec/style-guides/BACKEND.md`` §5.3. The
 ``spec/project/api-documentation/``; this counter exists because that lane is
 non-required and path-filtered, so it cannot block a merge.
 
-**A green gate does not mean "the API is documented".** The baseline *defers* the
-example debt, it does not settle it. Read the number, not the colour.
+**A green gate does not mean "the API is documented".** The ceiling *defers* the
+example debt, it does not settle it. Read the number, not the colour — and read
+the number this check *prints*, not the constant: the constant is a recorded
+maximum, and after the first drop it is no longer a measurement of anything.
 
 Standard library only, no Pydantic import, no running stack: the ``static`` CI
 job is Python-only, and importing the schema modules would drag in the whole
@@ -114,22 +138,28 @@ DEFAULT_SCHEMA_ROOT = "src/backend/app/api/v1"
 #: and widening the glob would make the counter track file-placement accidents.
 SCHEMA_FILENAME = "schemas.py"
 
-#: Request/response models carrying no example, measured on the #850 baseline
-#: commit. A ratchet, not a target: the check fails if the number grows, so no
-#: new schema can be added without an example, and the recorded debt can only
-#: shrink. Lower it by hand when the check reports a smaller number — see the
-#: module docstring for why sinking is not accepted silently.
+#: The **recorded ceiling** on request/response models carrying no example — a
+#: maximum, not a measurement. The check fails when the real count rises above
+#: it, so no new schema can be added without an example once the two meet; it
+#: does not fail, and does not ask for an edit, when the count falls below.
 #:
-#: 711, not the 708 the #850 audit recorded: that figure came from grepping for
-#: ``class …(BaseModel)``, which misses the three models deriving from another
-#: schema class (``RequirementProfileResponse``, ``NutrientProfileResponse``,
-#: ``StarterKitTenantResponse``). All three are real response bodies in the
-#: published document, so they belong in the count.
+#: **Do not lower this as part of an unrelated change.** That habit is what #973
+#: closed: every pull request that documented a schema edited this line, and
+#: concurrent ones conflicted on it. Lowering it is a deliberate housekeeping
+#: change of its own — run ``task check:schema-examples``, take the number it
+#: prints, and land it alone.
 #:
-#: 711 → 708 with #970: ``WateringLogCreate``, ``WateringLogUpdate`` and
-#: ``WateringConfirmRequest`` changed (enum-typed fields, a typed ``overrides``)
-#: and therefore had to gain an example per BACKEND.md §5.3. The new
-#: ``WateringConfirmOverrides`` is born with one, so it never entered the debt.
+#: Recorded history, for reading the drift:
+#:
+#: * 711 on the #850 baseline commit — not the 708 the audit reported, which came
+#:   from grepping ``class …(BaseModel)`` and missed the three models deriving
+#:   from another schema class (``RequirementProfileResponse``,
+#:   ``NutrientProfileResponse``, ``StarterKitTenantResponse``). All three are
+#:   real response bodies in the published document.
+#: * 711 → 708 with #970 (``WateringLogCreate``, ``WateringLogUpdate``,
+#:   ``WateringConfirmRequest`` changed and therefore had to gain an example;
+#:   ``WateringConfirmOverrides`` was born with one).
+#: * 708 → 704 while landing #954/#967/#971 — the batch that produced #973.
 MAX_MODELS_WITHOUT_EXAMPLE = 704
 
 EXIT_OK = 0
@@ -596,7 +626,7 @@ def _relative(path: Path) -> str:
 def report(
     models: list[SchemaModel],
     modules: list[Path],
-    baseline: int,
+    ceiling: int,
     list_offenders: bool,
 ) -> int:
     """Print the ratchet report and return the process exit code.
@@ -604,19 +634,20 @@ def report(
     Args:
         models: Every model found.
         modules: Every scanned ``schemas.py``.
-        baseline: The recorded maximum number of models without an example.
+        ceiling: The recorded maximum number of models without an example.
         list_offenders: Whether to name every model that has no example.
 
     Returns:
-        ``EXIT_OK`` on equal-to-baseline, ``EXIT_DEFECTS`` on growth or shrink.
+        ``EXIT_OK`` at or below the ceiling, ``EXIT_DEFECTS`` above it.
     """
     without = [model for model in models if not model.has_example]
     documented = len(models) - len(without)
+    headroom = ceiling - len(without)
 
     print("API schema example ratchet (#850, BACKEND.md §5.3)")
     print(f"  modules:  {len(modules)} {SCHEMA_FILENAME} file(s)")
     print(f"  models:   {len(models)} — {documented} carry an example, {len(without)} do not")
-    print(f"  baseline: {baseline} model(s) without an example (shrink-only)")
+    print(f"  ceiling:  {ceiling} model(s) without an example (recorded maximum, no-growth)")
     print()
 
     if list_offenders:
@@ -625,11 +656,10 @@ def report(
         if without:
             print()
 
-    if len(without) > baseline:
-        added = len(without) - baseline
+    if headroom < 0:
         print(
-            f"FAILED — {len(without)} model(s) without an example, {added} above the baseline "
-            f"of {baseline}."
+            f"FAILED — {len(without)} model(s) without an example, {-headroom} above the "
+            f"recorded ceiling of {ceiling}."
         )
         print(
             "  Every new or changed request/response schema carries at least one example "
@@ -639,32 +669,36 @@ def report(
         print("    field: float = Field(ge=0, examples=[1.8])")
         print("  Use a realistic value from the domain — an empty example does not count.")
         print("  Run with --list to see which models are counted.")
+        print("  Raising MAX_MODELS_WITHOUT_EXAMPLE is not the fix — making this fail is what")
+        print("  the number is for. Document the schema instead.")
         return EXIT_DEFECTS
 
-    if len(without) < baseline:
-        # Informational, not a defect — matching ``check_bdd_traceability.py``.
-        # Failing here would block every refactoring that merely deletes or
-        # renames a schema module, and two concurrent PRs that each lower the
-        # count would collide in the constant. The cost of not failing is that
-        # the baseline may lag behind reality until someone records it; the
-        # ratchet still holds, because a later climb is measured against the
-        # recorded number.
+    if headroom > 0:
+        # Green, and deliberately nothing to do. Asking for the constant to be
+        # lowered here is what put every example-adding pull request on the same
+        # line of the same file (#973). The cost of not asking is this headroom,
+        # which is why it is printed rather than left to be discovered.
         print(
-            f"  {len(without)} model(s) without an example, below the recorded baseline of "
-            f"{baseline} (shrink-only — informational)."
+            f"OK — {len(without)} model(s) without an example, {headroom} below the recorded "
+            f"ceiling of {ceiling}."
         )
         print(
-            f"  Baseline can be lowered to {len(without)} in MAX_MODELS_WITHOUT_EXAMPLE "
-            f"({_relative(Path(__file__).resolve())})."
+            f"  Headroom: {headroom} more undocumented model(s) would still pass this gate. "
+            "The ceiling is a recorded maximum, not a measurement."
         )
         print(
-            "  (If the drop was not intentional — a deleted or renamed module, for instance — "
+            "  Nothing to do here — the ceiling is not lowered per pull request (#973). "
+            "Tightening it is its own change."
+        )
+        print(
+            "  (If the drop was unexpected — a deleted or renamed module, for instance — "
             "check that first: --list names every model still counted.)"
         )
         return EXIT_OK
 
     print(
-        f"OK — {len(without)} model(s) without an example, exactly at the recorded baseline. "
+        f"OK — {len(without)} model(s) without an example, exactly at the recorded ceiling. "
+        "No headroom: the next undocumented model fails this gate. "
         "The debt is deferred, not settled."
     )
     return EXIT_OK
@@ -679,15 +713,16 @@ def main(argv: list[str] | None = None) -> int:
     """Run the schema-example ratchet.
 
     Returns:
-        0 when the count matches the baseline, 1 when it moved in either
-        direction, 2 on a usage or environment error.
+        0 when the count is at or below the recorded ceiling, 1 when it is above,
+        2 on a usage or environment error.
     """
     parser = argparse.ArgumentParser(
         prog="check_schema_examples.py",
         description=(
             "Count the API request/response models that publish no OpenAPI example and compare "
-            "the number against a recorded, shrink-only baseline. Growth fails; a drop fails too, "
-            "asking for the baseline to be lowered by hand."
+            "the number against a recorded ceiling. Growth above the ceiling fails; a drop is "
+            "green and reports the resulting headroom — the ceiling is not lowered per pull "
+            "request (#973)."
         ),
     )
     parser.add_argument(
@@ -700,7 +735,7 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline",
         type=int,
         metavar="N",
-        help="override the recorded baseline (for verifying the check itself, not for CI)",
+        help="override the recorded ceiling (for verifying the check itself, not for CI)",
     )
     parser.add_argument(
         "--list",
@@ -716,7 +751,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     roots = _resolve(args.schema_root or [DEFAULT_SCHEMA_ROOT])
-    baseline = MAX_MODELS_WITHOUT_EXAMPLE if args.baseline is None else args.baseline
+    ceiling = MAX_MODELS_WITHOUT_EXAMPLE if args.baseline is None else args.baseline
 
     try:
         modules = iter_schema_modules(roots)
@@ -734,7 +769,10 @@ def main(argv: list[str] | None = None) -> int:
                     "models": len(models),
                     "with_example": len(models) - len(without),
                     "without_example": len(without),
-                    "baseline": baseline,
+                    "baseline": ceiling,
+                    #: Negative above the ceiling — the exit code below is derived
+                    #: from the same number, so the two modes cannot disagree.
+                    "headroom": ceiling - len(without),
                     "offenders": [
                         {
                             "module": _relative(model.module),
@@ -749,9 +787,13 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
-        return EXIT_OK if len(without) == baseline else EXIT_DEFECTS
+        # Same rule as the human report. It used to be ``== baseline``, which made
+        # a drop green through the pre-commit hook and red through the documented
+        # machine-readable mode — one tree, two verdicts, for whoever wired the
+        # check up next.
+        return EXIT_OK if len(without) <= ceiling else EXIT_DEFECTS
 
-    return report(models, modules, baseline, args.list_offenders)
+    return report(models, modules, ceiling, args.list_offenders)
 
 
 if __name__ == "__main__":
