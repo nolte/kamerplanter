@@ -787,9 +787,15 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           CHART: ${{ matrix.chart }}
           TAG: ${{ github.ref_name }}
-        run: gh release upload "$TAG" "$CHART"-*.tgz --clobber
+        # No --clobber: a published asset is never replaced in place. The re-run
+        # path stays idempotent through comparison instead — see the script
+        # header. `tar-content` rather than `bytes` because `helm package` stamps
+        # tar headers with time.Now(), so an identical chart repackaged is never
+        # byte-identical and a byte comparison would fail every legitimate re-run.
+        run: scripts/ci/publish_release_asset.sh "$TAG" tar-content "$CHART"-*.tgz
 
   update-release-assets:
     needs: [build-backend, build-frontend, build-vectordb, build-knowledge, build-embedding-service, build-inference-service, build-reranker-service, build-knowledge-service, publish-helm-charts]
@@ -814,7 +820,12 @@ jobs:
           VERSION_NUM="${VERSION#v}"
           sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > "docker-compose-${VERSION_NUM}.yml"
           cp .env.example ".env.example-${VERSION_NUM}"
-          gh release upload "$VERSION" "docker-compose-${VERSION_NUM}.yml" ".env.example-${VERSION_NUM}" --clobber
+          # Both files are deterministic for a given tag (sed over the tagged
+          # tree, and a plain copy), so a byte comparison is the right test: a
+          # re-run producing different bytes under a published tag is a defect,
+          # not something to overwrite.
+          scripts/ci/publish_release_asset.sh "$VERSION" bytes \
+            "docker-compose-${VERSION_NUM}.yml" ".env.example-${VERSION_NUM}"
 
       - name: Update release body with package links
         env:

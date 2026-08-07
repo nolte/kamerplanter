@@ -140,8 +140,18 @@ jobs:
         run: |
           set -euo pipefail
           # Stable, unversioned asset name: consumers can always fetch
-          # .../releases/latest/download/openapi.json.
-          gh release upload "$TAG" openapi.json --clobber
+          # .../releases/latest/download/openapi.json (docs/<lang>/api/overview.md).
+          # Versioning the name to sidestep the re-run collision would break that
+          # permalink, so idempotence is solved by comparison instead of by
+          # renaming — and never by --clobber, which would let a re-dispatch
+          # rewrite a published document under an unchanged tag.
+          #
+          # This step runs BEFORE the draft is flipped, so an ordinary
+          # re-dispatch replaces a draft asset and stays green. Only a dispatch
+          # against an ALREADY-PUBLISHED tag is refused, and only when the export
+          # differs — which it can, because the checkout above is `ref: develop`
+          # rather than the draft's target commit.
+          "$GITHUB_WORKSPACE/scripts/ci/publish_release_asset.sh" "$TAG" bytes openapi.json
 
       - name: Verify the OpenAPI asset is attached
         if: ${{ !inputs.dry_run }}
