@@ -49,6 +49,11 @@ class OnboardingWizardPage(BasePage):
 
     # ── Step 2: Starter Kit ────────────────────────────────────────────
     STEP_KIT = (By.CSS_SELECTOR, "[data-testid='onboarding-step-kit']")
+    #: `StarterKitStep` has no loading branch of its own (unlike
+    #: `FavoriteSpeciesStep`'s spinner) -- it renders ``kits.map(...)``
+    #: directly. See :meth:`wait_for_kit_step_settled` for why that makes the
+    #: step container's presence alone an unsafe anchor for kit reads.
+    KIT_CARDS = (By.CSS_SELECTOR, "[data-testid^='kit-']")
 
     # ── Step 3: Favorite Species ───────────────────────────────────────
     STEP_FAVORITES = (By.CSS_SELECTOR, "[data-testid='onboarding-step-favorites']")
@@ -408,10 +413,35 @@ class OnboardingWizardPage(BasePage):
     # ── Step 1: Experience Level interactions ──────────────────────────
 
     def select_experience_level(self, level: str) -> None:
-        """Click an experience level card. *level* is 'beginner', 'intermediate', or 'expert'."""
+        """Click an experience level card and verify the selection took effect.
+
+        Verification is mandatory here (`e2e-test-stability` §D), matching
+        ``click_favorite_tile`` below: ``ExperienceLevelStep`` computes its
+        border purely from the ``experienceLevel === level`` prop, with no
+        ``data-selected`` attribute the way the kit cards in `StarterKitStep`
+        have one, so the only DOM signal for "the click landed" is the same
+        border/aria read :meth:`is_experience_selected` makes. Previously that
+        reader carried a fixed ``time.sleep(0.2)`` to paper over the gap
+        between the click returning and React's commit landing -- a guess
+        that could be too short under load and was dead weight when the
+        commit had already happened. Waiting *here*, where the expected
+        polarity is known (the level just clicked must become selected), is
+        the right primitive: :meth:`is_experience_selected` itself stays a
+        plain, immediate, bidirectional read (its other call sites assert
+        both True and False), which a directional wait cannot be.
+        """
         locator = (By.CSS_SELECTOR, f"[data-testid='experience-{level}']")
         card = self.wait_for_element_clickable(locator)
         self.scroll_and_click(card)
+        try:
+            self.poll(3).until(lambda _d: self.is_experience_selected(level))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"Selecting experience level '{level}' had no visible effect: its "
+                "card never showed a primary-coloured border within 3s of the "
+                "click. Either the click missed the card or ExperienceLevelStep "
+                "did not re-render with the new selection."
+            ) from exc
 
     def has_experience_card(self, level: str) -> bool:
         """Return True if the experience-level card for *level* is present."""
@@ -419,17 +449,19 @@ class OnboardingWizardPage(BasePage):
         return len(self.driver.find_elements(*locator)) > 0
 
     def is_experience_selected(self, level: str) -> bool:
-        """Return True if the given experience level card has a primary-coloured border."""
-        import time
+        """Return True if the given experience level card has a primary-coloured border.
 
-        # bounded: the selection border is applied on the next React render and
-        # has no distinct DOM signal to wait on
-        time.sleep(0.2)
+        Deliberately not waiting: the only genuine race here (the interval
+        between clicking a level and its border landing) is closed at the
+        source in :meth:`select_experience_level`, which verifies its own
+        effect before returning. This reader stays a plain, immediate read so
+        it keeps serving both polarities its call sites need -- the default
+        (no-click) beginner check right after ``open()`` and the ``not
+        is_experience_selected(...)`` assertions on the deselected level, both
+        of which a wait targeting one specific outcome would get wrong for
+        the other.
+        """
         locator = (By.CSS_SELECTOR, f"[data-testid='experience-{level}']")
-        elements = self.driver.find_elements(*locator)
-        if not elements:
-            return False
-        el = elements[0]
 
         def _check_border(candidate) -> bool:
             border = candidate.value_of_css_property("border-width") or ""
@@ -443,6 +475,10 @@ class OnboardingWizardPage(BasePage):
                 return True
             return False
 
+        elements = self.driver.find_elements(*locator)
+        if not elements:
+            return False
+        el = elements[0]
         # Check element itself
         if _check_border(el):
             return True
@@ -490,9 +526,42 @@ class OnboardingWizardPage(BasePage):
 
     # ── Step 2: Starter Kit interactions ───────────────────────────────
 
+    def wait_for_kit_step_settled(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the starter-kit step has rendered its catalog.
+
+        ``wait_for_element(STEP_KIT)`` only proves the step *container*
+        mounted -- `StarterKitStep` maps over the ``kits`` prop with no
+        loading branch of its own, so the container can appear before
+        `fetchStarterKits` has resolved. The wizard-level ``loading`` flag
+        does not protect this the way it looks like it should: it is shared
+        between `fetchOnboardingState` and `fetchStarterKits` (both flip it
+        on `.pending`/`.fulfilled`), and both are dispatched together on
+        mount, so ``loading`` can go false as soon as *either* settles --
+        including the state fetch finishing first while the kit catalog is
+        still in flight.
+
+        Kits are static seed data (11 entries in
+        ``app/migrations/seed_data/starter_kits.yaml``), never legitimately
+        empty in this environment, so unlike
+        :meth:`wait_for_favorites_settled` there is no genuine empty-result
+        branch to accept: this waits for *any* kit card and fails loudly if
+        none renders in time, rather than returning silently on an empty
+        catalog that would in fact be a regression, not a valid outcome.
+        """
+        try:
+            self.poll(timeout).until(lambda d: len(d.find_elements(*self.KIT_CARDS)) > 0)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"No starter-kit card rendered within {timeout}s after the kit step "
+                "mounted. The catalog is static seed data that is never legitimately "
+                "empty, so this is either the fetchStarterKits/fetchOnboardingState "
+                "loading-flag race described above still in flight past the timeout, "
+                "or a genuine regression in GET /starter-kits."
+            ) from exc
+
     def get_kit_cards(self) -> list[WebElement]:
         """Return all starter kit card action areas."""
-        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='kit-']")
+        return self.driver.find_elements(*self.KIT_CARDS)
 
     def get_kit_card_count(self) -> int:
         """Return the number of starter kit cards."""
@@ -920,17 +989,22 @@ class OnboardingWizardPage(BasePage):
     # ── Compound helpers ───────────────────────────────────────────────
 
     def advance_to_step_kit(self, experience_level: str | None = None) -> None:
-        """Navigate from Step 1 to Step 2 (Starter Kit).
+        """Navigate from Step 1 to Step 2 (Starter Kit) and wait for its catalog.
 
         Clicks an experience level card before advancing so that the wizard
         registers a user interaction on Step 1.  When *experience_level* is
         ``None`` the already-selected default (beginner) is clicked.
         Deselects any pre-selected kit to ensure a clean state for tests.
+
+        Anchored on :meth:`wait_for_kit_step_settled`, not just on
+        ``STEP_KIT`` mounting -- see that method for why the container alone
+        does not prove the kit catalog has rendered.
         """
         self.wait_for_element(self.STEP_WELCOME)
         self.select_experience_level(experience_level or "beginner")
         self.click_next()
         self.wait_for_element(self.STEP_KIT)
+        self.wait_for_kit_step_settled()
         self._deselect_all_kits()
 
     def _deselect_all_kits(self) -> None:

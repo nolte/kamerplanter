@@ -170,6 +170,9 @@ class TestKitMetadata:
             "Kit list for difficulty badge check",
         )
 
+        # advance_to_step_kit anchors on wait_for_kit_step_settled, so a False
+        # here is a deployment-specific catalog gap (a custom seed without this
+        # kit_id), not the fetchStarterKits race the settle wait closed.
         if not wizard.has_kit("indoor-growzelt"):
             pytest.skip("Kit 'indoor-growzelt' not found in the current kit list")
 
@@ -316,9 +319,17 @@ class TestPlantCounterBoundaries:
         """
         self._navigate_to_plants_with_kit(wizard)
 
+        # No skip-gate here: "fensterbank-kraeuter" was clicked in
+        # _navigate_to_plants_with_kit, which synchronously dispatches its
+        # species_keys as favorites (OnboardingWizard.tsx handleKitSelect), and
+        # advance_to_step_favorites / advance_to_step_site already settled the
+        # intervening steps -- an empty result here is a real product
+        # regression, not a race to skip past.
         rows = wizard.get_plant_config_rows()
-        if len(rows) == 0:
-            pytest.skip("No plant config rows -- cannot test counter boundary")
+        assert len(rows) > 0, (
+            "TC-REQ-020-006 FAIL: Expected plant config rows for the favorited "
+            f"kit species, got: {len(rows)}"
+        )
 
         first_row_testid = rows[0].get_attribute("data-testid") or ""
         species_key = first_row_testid.replace("plant-config-", "")
