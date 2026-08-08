@@ -3,12 +3,22 @@ from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
+from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
 
 
 class SpeciesService:
-    def __init__(self, species_repo: ISpeciesRepository, graph_repo: IGraphRepository) -> None:
+    def __init__(
+        self,
+        species_repo: ISpeciesRepository,
+        graph_repo: IGraphRepository,
+        phase_sequence_binder: PhaseSequenceBinder | None = None,
+    ) -> None:
         self._repo = species_repo
         self._graph = graph_repo
+        # Optional so the many call sites constructing this service for read paths
+        # (and their tests) keep working; when absent, create_species simply does not
+        # bind — the same state as before #1006, not a crash.
+        self._phase_sequence_binder = phase_sequence_binder
 
     def list_species(self, offset: int = 0, limit: int = 50) -> tuple[list[Species], int]:
         return self._repo.get_all(offset, limit)
@@ -26,7 +36,16 @@ class SpeciesService:
         # accumulate normalization duplicates. The dedup is an atomic UPSERT on
         # scientific_name_normalized (SEC-003), so the check-then-insert window is
         # closed server-side.
-        return self._repo.upsert_by_normalized_scientific_name(species)
+        created = self._repo.upsert_by_normalized_scientific_name(species)
+        # Give the species the phase sequence the seed would have given it (#1006).
+        # Without this, every plant created for a runtime-minted species (identify →
+        # create, REQ-048) resolved no initial phase and was stored with
+        # ``current_phase_key: null`` — the lifecycle engine had nothing to run against.
+        # Idempotent: the binder is a no-op when a binding already exists, so the
+        # dedup-upsert path returning an existing record does not rebind it.
+        if self._phase_sequence_binder is not None:
+            self._phase_sequence_binder.bind_default(created)
+        return created
 
     def update_species(self, key: SpeciesKey, species: Species) -> Species:
         existing = self.get_species(key)

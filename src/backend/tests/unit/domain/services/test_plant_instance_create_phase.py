@@ -10,6 +10,13 @@ A caller may capture the plant's *actual current state* by supplying
   an actual-state capture (``transition_reason="initial_actual_state"``);
 * still auto-resolves the species' first phase (``transition_reason="initial"``)
   when no phase is supplied.
+
+``TestCreatePlantWithoutAnyResolvablePhase`` covers the fourth case, which had no test
+at all until #1006: **nothing** resolves. That path used to fall out of an ``elif``
+with no ``else``, so the plant was stored with ``current_phase_key: null`` plus an
+"initial" phase-history entry pointing at an empty key — a record that looks enrolled
+in the lifecycle engine and is not. That is exactly what plant ``DRACA-0616-OWL``
+looked like two months after planting.
 """
 
 from datetime import date
@@ -165,3 +172,64 @@ class TestCreatePlantStartPhase:
         assert created.current_phase_key == "anything"
         # No first phase to compare against → plain initial.
         assert self._written_history().transition_reason == "initial"
+
+
+class TestCreatePlantWithoutAnyResolvablePhase:
+    """The #1006 path: species with no PhaseSequence and no LifecycleConfig phases."""
+
+    def setup_method(self) -> None:
+        self.plant_repo = MagicMock()
+        self.site_repo = MagicMock()
+        self.phase_repo = MagicMock()
+        self.phase_seq_repo = MagicMock()
+        self.plant_repo.create.side_effect = lambda p: p
+
+        # A species the master data knows nothing about — the state a species minted by
+        # the identify flow (REQ-048) was in before create_species started binding.
+        self.phase_seq_repo.get_sequence_by_species.return_value = None
+        self.phase_repo.get_lifecycle_by_species.return_value = None
+        # Name resolution finds nothing in either key-space (not under test here).
+        self.phase_seq_repo.get_entry_by_key.return_value = None
+        self.phase_repo.get_phase_by_key.return_value = None
+
+        self.service = PlantInstanceService(
+            self.plant_repo,
+            self.site_repo,
+            MagicMock(),
+            MagicMock(),
+            phase_repo=self.phase_repo,
+            phase_seq_repo=self.phase_seq_repo,
+        )
+
+    def test_plant_is_still_created(self) -> None:
+        """A master-data gap must not cost the user their plant record."""
+        created = self.service.create_plant(_plant(current_phase_key=None))
+
+        assert created is not None
+        self.plant_repo.create.assert_called_once()
+
+    def test_no_phase_history_entry_is_written(self) -> None:
+        """An 'initial' entry with an empty phase_key would fake enrolment."""
+        self.service.create_plant(_plant(current_phase_key=None))
+
+        self.phase_repo.create_phase_history.assert_not_called()
+
+    def test_the_state_is_logged_rather_than_silent(self) -> None:
+        from unittest.mock import patch
+
+        with patch("app.domain.services.plant_instance_service.logger") as log:
+            self.service.create_plant(_plant(current_phase_key=None))
+
+        assert log.warning.called, "creating a plant with no resolvable phase must not be silent"
+        event, kwargs = log.warning.call_args.args[0], log.warning.call_args.kwargs
+        assert event == "plant_created_without_phase"
+        assert kwargs["species_key"] == "sp-1"
+        assert kwargs["reason"] == "no phase sequence resolvable"
+
+    def test_a_supplied_phase_is_still_honoured_and_recorded(self) -> None:
+        """The unvalidatable-but-supplied case keeps its history entry (unchanged)."""
+        self.service.create_plant(_plant(current_phase_key="caller-supplied"))
+
+        self.phase_repo.create_phase_history.assert_called_once()
+        history = self.phase_repo.create_phase_history.call_args.args[0]
+        assert history.phase_key == "caller-supplied"

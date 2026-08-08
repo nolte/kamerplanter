@@ -16,6 +16,21 @@ Two classifiers live here:
   #616) that additionally routes the CAM-succulent, clonal-monocarp (Kindel),
   photoperiodic-ornamental and palm/fern/geophyte cohorts onto their biologically
   precise sequences (REQ-003 D9–D12). ``indoor_default`` is the last-resort fallback.
+
+Why it lives under ``domain/engines`` (#1006)
+---------------------------------------------
+
+It used to be ``app.migrations.perennial_binding``, which meant only the seed and the
+migrations could reach it: a service may not import a migration module (NFR-001 /
+BACKEND.md §2.1). So ``create_species`` and the CSV import — the two runtime paths
+that also mint species — bound no sequence at all, and every plant created for such a
+species came out with ``current_phase_key: null``. Moving the classifier here is what
+lets the runtime paths apply the *same* rule as the seed instead of a second one.
+``app.migrations.perennial_binding`` re-exports it, so the migrations keep their
+import path and the v0022 contract is untouched.
+
+Pure attribute inputs, no I/O — an engine, per BACKEND.md §2.1. The repository-facing
+half lives in ``app.domain.services.phase_sequence_binder``.
 """
 
 from __future__ import annotations
