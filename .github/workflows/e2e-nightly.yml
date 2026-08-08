@@ -104,6 +104,9 @@ jobs:
 
           # "[$]" matches a literal dollar sign; it keeps the pattern free of
           # anything shellcheck or a shell could read as an expansion.
+          # gate-integrity-ok: grep -c exits 1 on a zero count, and zero is the
+          # case this guard exists to reject. Under `set -e` the swallowed
+          # status is what lets the `!= "1"` test below run and exit 1.
           anchors=$(grep -cE '^case "[$]PROFILE" in$' "$REGISTRY_FILE" || true)
           if [ "$anchors" != "1" ]; then
             echo "::error file=$REGISTRY_FILE::Expected exactly one 'case \"\$PROFILE\" in' block, found $anchors. The nightly matrix is derived from it — adjust this parse before changing that block." >&2
@@ -164,6 +167,9 @@ jobs:
           failed=0
 
           # (1) workflow_dispatch choice list == registry.
+          # gate-integrity-ok: grep -c exits 1 on a zero count, which is exactly
+          # the state the `!= "1"` test below rejects with exit 1. Swallowing
+          # the status is what keeps `set -e` from pre-empting that check.
           option_anchors=$(grep -cE '^[[:space:]]*options:[[:space:]]*$' "$WORKFLOW_FILE" || true)
           if [ "$option_anchors" != "1" ]; then
             echo "::error file=$WORKFLOW_FILE::Expected exactly one 'options:' list, found $option_anchors." >&2
@@ -176,10 +182,14 @@ jobs:
                 sub(/^[[:space:]]*-[[:space:]]+/, ""); sub(/[[:space:]]*$/, ""); print; next
               }
               inlist { exit }
-            ' "$WORKFLOW_FILE" | grep -vxF all | sort || true
+            ' "$WORKFLOW_FILE" | grep -vxF all | sort || true  # gate-integrity-ok: an empty option list must reach the comparison below, which rejects it; grep -vxF exits 1 on no match
           )
           if [ "$options" != "$registry" ]; then
             echo "::error file=$WORKFLOW_FILE::The workflow_dispatch choice list and $REGISTRY_FILE disagree. Left = dispatch options, right = registry:" >&2
+            # gate-integrity-ok: diagnostics for a verdict already taken —
+            # `failed=1` on the next line is what fails the step. diff exits
+            # non-zero precisely because the two sides differ, which is the
+            # branch we are already inside.
             diff -y <(printf '%s\n' "$options") <(printf '%s\n' "$registry") >&2 || true
             failed=1
           fi
@@ -237,6 +247,10 @@ jobs:
             selected="$registry"
             read -ra excluded <<< "$NIGHTLY_EXCLUDE"
             for profile in "${excluded[@]}"; do
+              # gate-integrity-ok: set subtraction, not a check. grep -v exits 1
+              # when it filters everything away, and an empty selection is a
+              # legitimate (if unusual) exclusion list — the matrix guard above
+              # is what decides whether the profile set is sound.
               selected=$(printf '%s\n' "$selected" | grep -vxF "$profile" || true)
             done
           else
@@ -291,6 +305,10 @@ jobs:
       # be traced to the failing profile without opening the logs.
       - name: Render E2E test report
         if: always()
+        # gate-integrity-ok: a reporter, not a measurement. The suite's verdict
+        # is the "Run E2E suite" step above; this one only re-renders the JUnit
+        # XML it already produced. A token that may not create a check run must
+        # not be able to turn a red night green — or a green one red.
         continue-on-error: true
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:

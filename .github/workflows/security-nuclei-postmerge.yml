@@ -353,6 +353,11 @@ jobs:
           fail=0
           for f in results.jsonl openapi-results.jsonl; do
             [[ -f "$f" ]] || continue
+            # gate-integrity-ok: grep -c exits 1 when the count is zero, which is
+            # the clean case. The verdict is the `$hits -gt 0` comparison below
+            # and the `exit "$fail"` at the end of the step; the missing-file
+            # case is refused explicitly a few lines above, so an absent scan
+            # cannot reach this loop and read as clean.
             hits=$(jq -r '.info.severity' "$f" | grep -cE '^(high|critical)$' || true)
             if [[ "$hits" -gt 0 ]]; then
               echo "::error file=$f::$hits High/Critical findings"

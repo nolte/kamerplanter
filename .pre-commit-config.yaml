@@ -344,6 +344,234 @@ repos:
         files: ^(src/backend/app/.*\.py|scripts/check_utc_calendar_day\.py)$
         pass_filenames: false
 
+  # ── Tenant key in a request body (P1.2) ────────────────────────────────
+  # Refuses a `tenant_key` / `tenant_slug` field on a REQUEST schema under
+  # src/backend/app/api. The tenant of a write is decided by the authenticated
+  # context, never by the caller — a body that carries it lets an authenticated
+  # user name somebody else's tenant, which is #1000 exactly, and eighteen of
+  # the last two hundred issues sit in that cluster.
+  #
+  # A gate rather than a review item because the defect is invisible in the diff
+  # that introduces it: the field reads as plumbing, and the damage appears one
+  # layer down in a service that trusts it. Every one of those eighteen issues
+  # was found afterwards, by somebody reading a different file.
+  #
+  # Response schemas are NOT touched — fourteen of them legitimately report the
+  # tenant a record belongs to. The request set is derived from what routers
+  # actually bind as a body (plus the Create/Update/Request naming convention,
+  # so a schema written before its router is covered), not guessed from a name.
+  #
+  # No numeric baseline: the two occurrences in the tree both carry a per-site
+  # `# tenant-body-ok: <reason>` marker naming why, which is strictly more
+  # informative than a count a reviewer cannot argue with. Standard library
+  # only, no application import, ~1 s over the API tree. Also asserted from
+  # tests/unit/test_tenant_body_field_check.py.
+  #
+  # pass_filenames is false so a converted schema cannot hide behind an
+  # unrelated commit's file set.
+  - repo: local
+    hooks:
+      - id: tenant-body-field
+        name: no caller-supplied tenant_key in a request body (#1000)
+        entry: python3 scripts/check_tenant_body_field.py
+        language: system
+        files: ^(src/backend/app/api/.*\.py|scripts/check_tenant_body_field\.py)$
+        pass_filenames: false
+
+  # ── API → data-access layer boundary (P1.3) ────────────────────────────
+  # Refuses a NEW `app.data_access` import under src/backend/app/api. NFR-001's
+  # layer order says a router reaches persistence through a service; when it
+  # reaches around, the tenant predicate that the service anchors on the parent
+  # entity is gone with it. Cluster B of the 2026-08-08 issue-pattern audit is
+  # seven issues of that (#1020, #1019, #1018, #997, #991, #968, #456), and the
+  # audit found no import-linter, no ruff TID rule — nothing measuring it.
+  #
+  # The 22 existing crossings are an ALLOWLIST inside the script, not a count.
+  # A count would let a reviewer clear an easy one while a hard new one lands in
+  # the same pull request; every entry here names the file, the module and what
+  # would remove it. An entry matching no import is an ERROR, the same rule
+  # seed_steckbrief_consistency.ALLOWED_DISCREPANCIES carries: a stale entry
+  # silently re-permits the import the moment somebody adds it back.
+  #
+  # always_run rather than a `files:` filter: DELETING the last import of an
+  # allowlisted module moves the answer exactly as much as adding one, and a
+  # path-filtered hook never sees a deletion.
+  - repo: local
+    hooks:
+      - id: layer-imports
+        name: the API layer does not import data_access (NFR-001)
+        entry: python3 scripts/check_layer_imports.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
+  # ── Workflow gate integrity (P5.4, NFR-018 §2) ─────────────────────────
+  # NFR-018 says a check that cannot report a failure must not exist, and §8
+  # admits the spec has no gate of its own — "die unangenehme Pointe". This is
+  # that gate: `|| true` in a run step, `continue-on-error: true`, and a job
+  # that reads `needs.<x>.outputs` under `always()` without consulting
+  # `needs.<x>.result` (a failed producer then leaves every output empty, every
+  # step skipped, and a job whose steps are all skipped reports SUCCESS — the
+  # trap frontend.yml documents twice).
+  #
+  # Every shape here is legitimate somewhere: `grep -c` exits 1 on a zero count,
+  # and a JUnit reporter must not turn a suite red because a fork's token cannot
+  # create a check run. So it is a per-site `# gate-integrity-ok: <reason>`
+  # marker rather than a ban — the 19 sites in the tree carry one, and eight of
+  # them say "needs follow-up" instead of pretending to be settled.
+  #
+  # `language: python` with PyYAML, like the chart-digest hook below: the
+  # required `static` job runs on a bare runner with none of the project's
+  # dependencies installed. always_run, because deleting a workflow moves the
+  # answer as much as editing one.
+  - repo: local
+    hooks:
+      - id: workflow-gate-integrity
+        name: no CI gate that cannot fail (NFR-018 §2)
+        entry: python3 scripts/check_workflow_gate_integrity.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
+
+  # ── Seed YAML ↔ JSON Schema (P3.3) ─────────────────────────────────────
+  # The seed files carry a `# yaml-language-server: $schema=…` directive and 31
+  # of them declare one, but only ~12 were ever validated: the backend test
+  # (tests/unit/migrations/test_seed_schema_conformance.py) globs
+  # `plant_info*.yaml` + four named files, which is how `adventskalender.yaml`
+  # — a plant_info document by declaration — fell through for its whole life.
+  # And that suite does not run at all on a change that touches only seed data
+  # until backend.yml's `paths:` says so (fixed in the same change as this).
+  #
+  # `--base-uri file://./…/schemas/` is load-bearing, not decoration. Every
+  # schema declares a BARE `$id` (`species.schema.yaml`), so a relative
+  # cross-file `$ref` — `_defs.schema.yaml#/$defs/phase_name`, used by four
+  # schemas — resolves against the process's working directory and dies with
+  # `Unretrievable: '_defs.schema.yaml'`. A relative `--base-uri` without the
+  # `file://` scheme is ignored; with it, resolution happens relative to the
+  # repository root, which is where pre-commit runs every hook.
+  #
+  # ─ WHAT IS DELIBERATELY NOT VALIDATED HERE ─
+  # Measured 2026-08-08: 19 of the 31 declared files validate clean, 12 do not.
+  # They are left out BY NAME rather than by a loose glob (NFR-018: a named
+  # omission, never a silent hole), and they are not repaired here because seed
+  # data corrections are in flight in PR #1034 and fixing them from this lane
+  # would collide. Every one of them is schema-behind-data drift — a property
+  # the loader accepts that the schema never learned — not corrupt data:
+  #
+  #   activities.yaml            22 errors  restricted_sub_phases + 4 enum values
+  #   adventskalender.yaml      523 errors  growth_phases entries lack name/sequence_order
+  #   botanical_families.yaml     2 errors  nitrogen_fixing, rotation_edges
+  #   companion_planting.yaml     1 error   family_compatible / family_incompatible
+  #   fertilizers.yaml          129 errors  shelf_life_days, storage_temp_min/max
+  #   gardol.yaml                71 errors  nutrient-plan method_type/method_params
+  #   harvest_indicators.yaml     1 error   indicator_type 'days_since_sowing'
+  #   nutrient_plans_hydro.yaml 362 errors  product_name vs fertilizer_product_name
+  #   nutrient_plans_outdoor.yaml 267 errors  same rename
+  #   nutrient_plans_ro.yaml     92 errors  same rename
+  #   plagron.yaml              182 errors  same rename
+  #   workflows.yaml             31 errors  task_templates.phase_name
+  #
+  # FOLLOW-UP: each line above is one schema amendment (or one seed correction)
+  # away from being deletable. Move a file out of this list by adding it to the
+  # matching hook's `files:` pattern in the same change that makes it validate.
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.37.4
+    hooks:
+      - id: check-jsonschema
+        name: seed schema — auth.yaml
+        files: ^src/backend/app/migrations/seed_data/auth\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/auth.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — fertilizers_supplement.yaml
+        # fertilizers.yaml, gardol.yaml, plagron.yaml and the three
+        # nutrient_plans_*.yaml declare the same schema and do not validate yet.
+        files: ^src/backend/app/migrations/seed_data/fertilizers_supplement\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/fertilizers.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — ipm.yaml
+        files: ^src/backend/app/migrations/seed_data/ipm\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/ipm.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — lifecycles_outdoor.yaml
+        files: ^src/backend/app/migrations/seed_data/lifecycles_outdoor\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/lifecycles.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — light_mode.yaml
+        files: ^src/backend/app/migrations/seed_data/light_mode\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/light_mode.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — location_types.yaml
+        files: ^src/backend/app/migrations/seed_data/location_types\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/location_types.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — overwintering_profiles.yaml
+        files: ^src/backend/app/migrations/seed_data/overwintering_profiles\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/overwintering_profiles.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — phase_sequences.yaml
+        files: ^src/backend/app/migrations/seed_data/phase_sequences\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/phase_sequences.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — plant_info*.yaml (9 files)
+        # `plant_info.*` covers plant_info.yaml, the four indoor, the three
+        # outdoor and the supplement file. adventskalender.yaml declares the
+        # same schema and is deliberately absent — see the list above.
+        files: ^src/backend/app/migrations/seed_data/plant_info.*\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/plant_info.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — species.yaml
+        files: ^src/backend/app/migrations/seed_data/species\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/species.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — starter_kits.yaml
+        files: ^src/backend/app/migrations/seed_data/starter_kits\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/starter_kits.schema.yaml
+
   # ── Chart image digests (#987) ─────────────────────────────────────────
   # Refuses a `ghcr.io/nolte/kamerplanter-*` image reference in the chart that
   # is not pinned to a digest. The chart shipped `:latest` with an explicit

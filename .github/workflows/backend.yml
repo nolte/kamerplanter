@@ -1,28 +1,49 @@
 name: Backend CI
 
 on:
+  # The scripts are listed beside src/backend/** because their unit tests live
+  # in this suite (tests/unit/test_*_ratchet.py, test_boundary_*.py,
+  # test_layer_imports_check.py, test_tenant_body_field_check.py,
+  # test_workflow_gate_integrity_check.py, test_seed_catalogue_page_size_check.py,
+  # test_seed_harvest_integrity_check.py) — a change to a script alone would
+  # otherwise run neither its own tests nor the tree assertions they carry.
+  #
+  # spec/knowledge/plants/** is listed because the "Steckbrief ↔ seed
+  # consistency" step below reads it: the seed side lives under src/backend and
+  # was covered, the Steckbrief side was not, so a documentation-only edit that
+  # introduced a drift did not reach this job at all. (It was never entirely
+  # unguarded — the same validator runs always_run in the required `static`
+  # lane — but a check whose two inputs hang off different triggers is one
+  # rebase away from being read as covered when it is not.)
+  #
+  # src/backend/app/migrations/seed_data/** needs no entry: it is inside
+  # src/backend/**. Said out loud because the 2026-08-08 audit listed the seed
+  # files as a CI blind spot, and the blind spot was the knowledge side.
   push:
     branches: [develop]
-    # The scripts are listed beside src/backend/** because their unit tests live
-    # in this suite (tests/unit/test_*_ratchet.py, test_boundary_*.py,
-    # test_seed_catalogue_page_size_check.py, test_seed_harvest_integrity_check.py)
-    # — a change to a script alone would
-    # otherwise run neither its own tests nor the tree assertions they carry.
     paths:
       - 'src/backend/**'
+      - 'spec/knowledge/plants/**'
       - 'scripts/check_schema_examples.py'
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
+      - 'scripts/check_layer_imports.py'
+      - 'scripts/check_tenant_body_field.py'
+      - 'scripts/check_workflow_gate_integrity.py'
       - '.github/workflows/backend.yml'
   pull_request:
     branches: [develop]
     paths:
       - 'src/backend/**'
+      - 'spec/knowledge/plants/**'
       - 'scripts/check_schema_examples.py'
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
+      - 'scripts/check_layer_imports.py'
+      - 'scripts/check_tenant_body_field.py'
+      - 'scripts/check_workflow_gate_integrity.py'
       - '.github/workflows/backend.yml'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below

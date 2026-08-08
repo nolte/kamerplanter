@@ -154,6 +154,10 @@ jobs:
       - name: Render E2E test report
         id: report
         if: always()
+        # gate-integrity-ok: a reporter, not a measurement — the reason is the
+        # comment block above. The suite's verdict is the "Run E2E smoke suite"
+        # step, and the "Job summary" step reads `steps.report.outcome`, so a
+        # failure here is observed rather than discarded.
         continue-on-error: true
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:

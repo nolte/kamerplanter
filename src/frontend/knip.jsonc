@@ -1,0 +1,57 @@
+{
+  // Dead-component detection (2026-08-08 issue-pattern audit, measure P4.4).
+  //
+  // WHAT THIS CLOSES. `tsc` is perfectly happy with an exported React component
+  // that nothing imports, and ESLint never looks across files — so a vertical
+  // slice can ship complete and be reachable from no route at all. That is
+  // cluster K of the audit: #818, #786, #606, #578, #438, "implementiert, aber
+  // inert". Nothing in this repository measured it.
+  //
+  // `.jsonc`, not `.json`, purely so this can be written down where it applies.
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // ── What is reported ──────────────────────────────────────────────────
+  //
+  // Only unused FILES and unused EXPORTS. Measured 2026-08-08 with the full
+  // default set: 9 unused files, 38 unused exports, 26 unused exported types
+  // — 73 findings, too many to be a useful signal in one screen, and the third
+  // group is not the defect this is for. `src/api/types.ts` is a hand-kept
+  // mirror of the backend's OpenAPI surface; a response type the UI does not
+  // read yet is the file doing its job, not dead code. Dropping it leaves 47.
+  //
+  // Dependency, binary and unlisted-import checks are off for the same reason:
+  // npm-audit, npm-licenses and the bundle budget already watch that surface,
+  // and a second opinion on it would only add noise to a lane whose one
+  // question is "is this UI reachable?".
+  "include": ["files", "exports"],
+
+  // ── Scope ─────────────────────────────────────────────────────────────
+  //
+  // `public/` is deliberately outside `project`: runtime-config.js and sw.js
+  // are served by nginx and referenced from index.html at runtime, so a static
+  // importer graph cannot see them and would report both as dead every run.
+  "project": ["src/**/*.{ts,tsx}", "scripts/*.mjs"],
+
+  // Entry points beyond what knip's Vite/Vitest plugins already detect. The
+  // detected ones (src/main.tsx via index.html, the vitest setup file, the
+  // config files) are NOT restated here: a restated default drifts silently
+  // when the tool's detection changes, and knip reports it as redundant.
+  "entry": ["src/**/*.test.{ts,tsx}"],
+
+  // An export used only inside its own file is a private helper that happens to
+  // carry the keyword — worth tidying, not worth a CI lane.
+  "ignoreExportsUsedInFile": true
+
+  // ── NO BASELINE, DELIBERATELY ─────────────────────────────────────────
+  //
+  // The 47 findings are NOT suppressed here. An ignore list would make this
+  // lane green on day one and measure only future regressions — while the nine
+  // unreachable files it names are precisely the debt the audit asked for. The
+  // lane is advisory instead (see the `deadcode` job in
+  // .github/workflows/frontend.yml): it is allowed to be red, it blocks
+  // nothing, and the number is visible on every run rather than frozen into a
+  // constant nobody revisits.
+  //
+  // Promotion to a required check happens on measured history (NFR-018 §4),
+  // after the list is worked down — not by editing this comment.
+}

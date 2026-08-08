@@ -91,5 +91,12 @@ class AdminUserMembershipResponse(BaseModel):
 
 
 class AdminAddUserToTenantRequest(BaseModel):
+    # tenant-body-ok: the tenant is the OBJECT of this operation, not the
+    # isolation container of the caller. `POST /admin/platform/users/{key}/
+    # tenants` is a platform-admin endpoint (`Depends(require_platform_admin)`,
+    # router.py) whose whole purpose is to grant a membership in a named
+    # tenant; the handler loads that tenant and 404s when it does not exist.
+    # There is no caller tenant to take it from — a platform admin operates
+    # across all of them — so the body is the only place it can come from.
     tenant_key: str
     role: TenantRole = TenantRole.VIEWER
