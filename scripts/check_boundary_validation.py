@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Refuse a request schema that lets through input its domain model rejects.
+"""Refuse a request schema that lets through input its domain model rejects at a construction site.
+
+**Scope — construction sites only, not the whole codebase.** This gate is a
+property of the request schemas a router **constructs a domain model from** at
+the boundary (``DomainModel(**body.model_dump())``), and only those. It is *not*
+the property "every value this application persists was validated at the
+boundary" — its name once read that way, and #1020 recorded the cost. A router
+that never constructs the domain model — it writes a dict straight to a
+collection, as ``PATCH /admin/platform/tenants/{key}`` did in #997 — has no
+construction site, so it is **invisible here by construction**, and no number of
+extra pairings would find it. That dict-writer / reach-past-the-boundary shape
+is a *different* class (#1020, #1019, #1018, #997), and the gate that owns it is
+``scripts/check_layer_imports.py`` (NFR-001): a persistence write needs the
+``app.data_access`` collection constants, and that import is what the layer gate
+refuses. Read a green result here as "the schemas that build a domain model do
+not widen it", never as "the boundary validates everywhere".
 
 Runs as a repo-local pre-commit hook in the required ``static`` lane, and can be
 invoked directly::
@@ -55,6 +70,13 @@ those would have reported the endpoint #971 had just fixed. A check with false
 positives gets suppressed, and a suppressed check guards nothing — so this one
 covers a narrow, certain subset rather than the whole class. §5.4 carries the
 rule for the part no checker can see; a reviewer enforces that half.
+
+Also deliberately **not** detected, for a structural reason rather than an
+undecidable one: a router that writes a dict straight to a collection instead of
+constructing the domain model (#1020). It has no construction site, so no
+pairing exists to compare, so nothing here can see it. That is a different check
+— ``scripts/check_layer_imports.py`` (NFR-001) — and it owns that class; see the
+scope note at the top of this docstring.
 
 How a request schema is paired with a domain model
 --------------------------------------------------

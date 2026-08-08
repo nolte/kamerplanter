@@ -241,6 +241,13 @@ repos:
   # out of scope: 32 pairings carry one, most of them fine, and a check with
   # false positives gets suppressed within a week.
   #
+  # Scope, structurally: it pairs on *construction sites*
+  # (`DomainModel(**body.model_dump())`), so a router that writes a dict straight
+  # to a collection instead of constructing the model has no site here and is
+  # invisible to it (#1020, the #997 shape). That dict-writer class is owned by
+  # the API→data-access layer gate below (check_layer_imports, NFR-001), which
+  # refuses the `app.data_access` import such a write needs — not by this hook.
+  #
   # Two enforcement modes in one script, matching the two debts. The enum shape
   # has 54 existing occurrences, so it carries a shrink-only ceiling like the
   # schema-example hook above; per #973 a *drop* is informational, never red, so
@@ -263,7 +270,7 @@ repos:
   - repo: local
     hooks:
       - id: boundary-validation
-        name: request schemas reject what the domain rejects (#970)
+        name: request schemas reject what the domain rejects at construction sites (#970)
         entry: python3 scripts/check_boundary_validation.py
         language: system
         always_run: true
