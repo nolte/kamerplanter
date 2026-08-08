@@ -57,7 +57,7 @@ def test_complete_recurring_task_with_naive_due_date_spawns_followup(
 
     repo.create_task.side_effect = _create
 
-    result = service.complete_task("t1")
+    result = service.complete_task("t1", tenant_key="tenant1")
 
     assert result.status == "completed"
     repo.create_task.assert_called_once()

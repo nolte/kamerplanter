@@ -494,8 +494,9 @@ def delete_task(
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a task."""
-    service.get_task(key, tenant_key=ctx.tenant_key)
-    service.delete_task(key)
+    # ``delete_task`` resolves the key through the tenant guard before any read
+    # or delete (GHSA-h5wp-r68x-97g8), so the former separate pre-check is gone.
+    service.delete_task(key, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
 
 
@@ -523,8 +524,7 @@ def start_task(
     service: TaskService = Depends(get_task_service),
 ):
     """Mark a task as started."""
-    service.get_task(key, tenant_key=ctx.tenant_key)
-    return _task_response(service.start_task(key))
+    return _task_response(service.start_task(key, tenant_key=ctx.tenant_key))
 
 
 @router.post("/{key}/complete", response_model=TaskResponse)
@@ -535,7 +535,6 @@ def complete_task(
     service: TaskService = Depends(get_task_service),
 ):
     """Complete a task, propagating care-reminder confirmations where applicable."""
-    service.get_task(key, tenant_key=ctx.tenant_key)
     completed = service.complete_task(
         key,
         body.completion_notes,
@@ -543,6 +542,7 @@ def complete_task(
         body.photo_refs or None,
         body.difficulty_rating,
         body.quality_rating,
+        tenant_key=ctx.tenant_key,
     )
     # The care-state consequences of a completed care-reminder task are domain
     # logic and live in the service (NFR-001): confirmation + edges, the
@@ -563,8 +563,7 @@ def skip_task(
     service: TaskService = Depends(get_task_service),
 ):
     """Skip a task, propagating care-reminder confirmations where applicable."""
-    service.get_task(key, tenant_key=ctx.tenant_key)
-    skipped = service.skip_task(key)
+    skipped = service.skip_task(key, tenant_key=ctx.tenant_key)
     # Mirrors the completion path above: the care-state consequences of a skipped
     # care-reminder task are domain logic and live in the service (NFR-001), which
     # also owns the tenant guard on the *plant* the task points at (SEC-001). The
@@ -585,12 +584,12 @@ def clone_task(
     service: TaskService = Depends(get_task_service),
 ):
     """Clone a task, optionally onto another entity and with a due-date offset."""
-    service.get_task(key, tenant_key=ctx.tenant_key)
     cloned = service.clone_task(
         key,
         due_date_offset_days=body.due_date_offset_days,
         target_entity_key=body.target_entity_key,
         target_entity_type=body.target_entity_type,
+        tenant_key=ctx.tenant_key,
     )
     return _task_response(cloned)
 
@@ -603,8 +602,7 @@ def reopen_task(
     service: TaskService = Depends(get_task_service),
 ):
     """Reopen a completed or skipped task."""
-    service.get_task(key, tenant_key=ctx.tenant_key)
-    return _task_response(service.reopen_task(key))
+    return _task_response(service.reopen_task(key, tenant_key=ctx.tenant_key))
 
 
 @router.get("/{task_key}/comments", response_model=list[TaskCommentResponse])
@@ -630,8 +628,7 @@ def create_task_comment(
     service: TaskService = Depends(get_task_service),
 ):
     """Add a comment to a task."""
-    service.get_task(task_key, tenant_key=ctx.tenant_key)
-    comment = service.create_comment(task_key, body.comment_text, created_by=ctx.user_key)
+    comment = service.create_comment(task_key, body.comment_text, created_by=ctx.user_key, tenant_key=ctx.tenant_key)
     return to_response(comment, TaskCommentResponse)
 
 
@@ -644,8 +641,7 @@ def update_task_comment(
     service: TaskService = Depends(get_task_service),
 ):
     """Update a task comment."""
-    service.get_task(task_key, tenant_key=ctx.tenant_key)
-    comment = service.update_comment(task_key, comment_key, body.comment_text)
+    comment = service.update_comment(task_key, comment_key, body.comment_text, tenant_key=ctx.tenant_key)
     return to_response(comment, TaskCommentResponse)
 
 
@@ -657,8 +653,7 @@ def delete_task_comment(
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a task comment."""
-    service.get_task(task_key, tenant_key=ctx.tenant_key)
-    service.delete_comment(task_key, comment_key)
+    service.delete_comment(task_key, comment_key, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
 
 
@@ -669,8 +664,7 @@ def get_task_history(
     service: TaskService = Depends(get_task_service),
 ):
     """Return a task's audit history."""
-    service.get_task(task_key, tenant_key=ctx.tenant_key)
-    entries = service.get_task_history(task_key)
+    entries = service.get_task_history(task_key, tenant_key=ctx.tenant_key)
     return [to_response(e, TaskAuditEntryResponse) for e in entries]
 
 

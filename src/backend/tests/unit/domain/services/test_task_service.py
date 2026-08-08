@@ -238,6 +238,7 @@ class TestCloneTaskEntityAgnostic:
             "t1",
             target_entity_key="tank2",
             target_entity_type="tank",
+            tenant_key="tenant1",
         )
 
         assert cloned.entity_key == "tank2"
@@ -254,7 +255,7 @@ class TestCloneTaskEntityAgnostic:
         mock_repo.get_task_by_key.return_value = source
         mock_repo.create_task.side_effect = lambda t: t
 
-        cloned = service.clone_task("t1")
+        cloned = service.clone_task("t1", tenant_key="tenant1")
 
         assert cloned.entity_key == "tank1"
         assert cloned.entity_type == "tank"
@@ -342,7 +343,7 @@ class TestRecurrenceComputation:
         mock_repo.update_task.side_effect = lambda _k, t: t
         mock_repo.create_task.side_effect = lambda t: created.append(t) or t
 
-        service.complete_task("t1")
+        service.complete_task("t1", tenant_key="tenant1")
 
         assert len(created) == 1
         assert created[0].recurrence_rule == "FREQ=DAILY"
