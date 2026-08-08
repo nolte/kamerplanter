@@ -178,24 +178,25 @@ describe('OverwinteringOverrideDialog', () => {
     ).toBeNull();
   });
 
-  it('keeps the dialog open and reports the generic error when the save fails (KNOWN BUG: 422 field errors lost)', async () => {
-    // KNOWN BUG — this asserts current (wrong) behaviour, not desired behaviour.
-    // The override runs through a Redux thunk whose rejection RTK serialises to a
-    // SerializedError, so `isApiError()` in useApiError fails and the structured
-    // 422 field error ("Notiz ungültig" on `notes`) is lost; handleError falls
-    // back to the generic `errors.unknown`. The sibling OverwinteringProfileDialog
-    // calls the API directly and maps field errors correctly.
-    // WHEN THE THUNK BUG IS FIXED: this test will break on the errors.unknown
-    // assertion below — that break is expected. Update it to assert the field
-    // error surfaces, e.g. `await screen.findByText('Notiz ungültig')`.
+  it('translates a coded server 422 onto the German field, not the English reason (#1041)', async () => {
+    // #1041: the override thunk now preserves the typed ApiError through
+    // rejectWithValue, so the D5 winter-path violation reaches the dialog with
+    // its `details[]`/`code` intact and lands — translated on the code — on the
+    // winter_action field instead of being swallowed by a generic toast.
     server.use(
       http.patch(PATCH_URL, () =>
         HttpResponse.json(
           {
             error_id: 'e-422',
-            error_code: 'VALIDATION_ERROR',
+            error_code: 'WINTER_PATH_VIOLATION',
             message: 'invalid',
-            details: [{ field: 'body.notes', reason: 'Notiz ungültig' }],
+            details: [
+              {
+                field: 'winter_action',
+                reason: "Path B requires one of move_indoors, dig_store; got 'fleece'.",
+                code: 'WINTER_PATH_VIOLATION',
+              },
+            ],
             timestamp: '',
             path: '',
             method: '',
@@ -209,16 +210,70 @@ describe('OverwinteringOverrideDialog', () => {
 
     await user.click(await screen.findByTestId('form-submit-button'));
 
-    expect(await screen.findByText(i18n.t('errors.unknown'))).toBeTruthy();
-    expect(onClose).not.toHaveBeenCalled();
+    // The German, code-keyed message lands on winter_action; the English reason
+    // never appears in the form (#1015).
+    const field = await screen.findByTestId('form-field-winter_action');
+    await waitFor(() =>
+      expect(
+        within(field).getByText(
+          i18n.t('pages.overwintering.errors.winterPathViolation'),
+        ),
+      ).toBeTruthy(),
+    );
     expect(
-      screen.queryByText(i18n.t('pages.season.override.saved')),
+      screen.queryByText(
+        "Path B requires one of move_indoors, dig_store; got 'fleece'.",
+      ),
     ).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
     // Saving state is released again so the user can retry.
     await waitFor(() =>
       expect(
         screen.getByTestId('form-submit-button').hasAttribute('disabled'),
       ).toBe(false),
     );
+  });
+
+  it('degrades an untranslatable coded 422 to the toast, leaving the field clean (#1041)', async () => {
+    // A code the override dialog has no map entry for must fall back to the
+    // generic validation toast — never render the English `reason` on the form.
+    server.use(
+      http.patch(PATCH_URL, () =>
+        HttpResponse.json(
+          {
+            error_id: 'e-422',
+            error_code: 'VALIDATION_ERROR',
+            message: 'invalid',
+            details: [
+              { field: 'body.notes', reason: 'Value error: notes invalid', code: 'value_error' },
+            ],
+            timestamp: '',
+            path: '',
+            method: '',
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const { onClose } = renderDialog();
+
+    await user.click(await screen.findByTestId('form-submit-button'));
+
+    expect(
+      await screen.findByText(
+        i18n.t('errors.validationWithDetail', { detail: 'invalid' }),
+      ),
+    ).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText(i18n.t('pages.season.override.saved')),
+    ).toBeNull();
+    // The English reason is never rendered on the field.
+    expect(screen.queryByText('Value error: notes invalid')).toBeNull();
+    const notesInput = screen
+      .getByTestId('form-field-notes')
+      .querySelector('textarea');
+    expect(notesInput?.getAttribute('aria-invalid')).not.toBe('true');
   });
 });
