@@ -40,7 +40,7 @@ export default function TreatmentListPage() {
   });
 
   useEffect(() => {
-    dispatch(fetchTreatments({}));
+    dispatch(fetchTreatments());
   }, [dispatch]);
 
   const columns: Column<Treatment>[] = [
@@ -163,7 +163,7 @@ export default function TreatmentListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchTreatments({}));
+          dispatch(fetchTreatments());
         }}
       />
     </Box>

@@ -66,7 +66,7 @@ export default function PestListPage() {
   const columnFilters = useColumnFilters(FILTER_IDS);
 
   useEffect(() => {
-    dispatch(fetchPests({}));
+    dispatch(fetchPests());
   }, [dispatch]);
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export default function PestListPage() {
   }, [t, recognitionEnabled]);
 
   // Client-side filtering: the page loads the full pest list up front
-  // (`fetchPests({})`), so we can apply the multi-select column filters in a
+  // (`fetchPests()`), so we can apply the multi-select column filters in a
   // memo before handing the rows to the (also client-side) DataTable. The
   // free-text search/sort/pagination remain DataTable's responsibility.
   const filteredPests = useMemo(() => {
@@ -299,7 +299,7 @@ export default function PestListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchPests({}));
+          dispatch(fetchPests());
         }}
       />
     </Box>

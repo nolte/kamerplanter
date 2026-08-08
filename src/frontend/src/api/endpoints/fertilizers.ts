@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   Fertilizer,
   FertilizerCreate,
@@ -32,23 +33,22 @@ export async function fetchFertilizers(
  * Loads the complete fertilizer catalogue by paging through the list endpoint
  * until a short page is returned. The single-request wrapper above caps at the
  * backend's ``limit<=200``; a fixed ``limit=500`` both 422'd (over the cap, #614)
- * and would silently truncate a large catalogue. Callers that populate a
- * "pick any fertilizer" selector must see every product, so use this instead.
+ * and would silently truncate a large catalogue.
+ *
+ * Use this wherever the *whole* catalogue is the subject: a "pick any
+ * fertilizer" selector, and the list view itself — whose search, sort and
+ * pagination all run client-side and are therefore only truthful over a complete
+ * set (#995). See `@/api/paginate` for why the answer here is the complete
+ * catalogue rather than pagination controls.
  */
 export async function fetchAllFertilizers(
-  pageSize = 200,
+  pageSize = CATALOGUE_PAGE_SIZE,
   filters?: Record<string, string>,
 ): Promise<Fertilizer[]> {
-  const all: Fertilizer[] = [];
-  let offset = 0;
-  // Guard against an unbounded loop if the backend ever ignores the offset.
-  for (let page = 0; page < 1000; page += 1) {
-    const batch = await fetchFertilizers(offset, pageSize, filters);
-    all.push(...batch);
-    if (batch.length < pageSize) break;
-    offset += pageSize;
-  }
-  return all;
+  return fetchAllPages(
+    (offset, limit) => fetchFertilizers(offset, limit, filters),
+    pageSize,
+  );
 }
 
 export async function fetchFertilizer(key: string): Promise<Fertilizer> {

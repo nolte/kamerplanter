@@ -1,4 +1,5 @@
 import client from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   Substrate,
   SubstrateCreate,
@@ -13,6 +14,18 @@ const BASE = '/substrates';
 export async function listSubstrates(offset = 0, limit = 50): Promise<Substrate[]> {
   const { data } = await client.get<Substrate[]>(BASE, { params: { offset, limit } });
   return data;
+}
+
+/**
+ * Loads the complete substrate catalogue by paging until a short page is
+ * returned. The list view uses this: its search, sort and pagination all run
+ * client-side, so a bounded first page makes the search deny substrates that
+ * exist (#995).
+ */
+export async function listAllSubstrates(
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<Substrate[]> {
+  return fetchAllPages(listSubstrates, pageSize);
 }
 
 export async function getSubstrate(key: string): Promise<Substrate> {

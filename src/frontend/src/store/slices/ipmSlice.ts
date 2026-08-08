@@ -39,18 +39,16 @@ const initialState: IpmState = {
 
 // ── Pests ─────────────────────────────────────────────────────────────
 
-export const fetchPests = createAsyncThunk(
-  'ipm/fetchPests',
-  async ({
-    offset,
-    limit,
-  }: {
-    offset?: number;
-    limit?: number;
-  } = {}) => {
-    return api.listPests(offset, limit);
-  },
-);
+// The three catalogue thunks below load the **complete** catalogue rather than a
+// page of it (#995). Their list views search, sort and paginate client-side, so
+// a bounded first page would not paginate — it would make the search report the
+// rows past the bound as non-existent. `offset`/`limit` are therefore absent
+// from the thunk arguments: there is no page to ask for. 34 pests, 34 diseases
+// and 40 treatments are seeded against a single-page default of 50; all three
+// are under it today, which is why nobody noticed, and none of them is at rest.
+export const fetchPests = createAsyncThunk('ipm/fetchPests', async () => {
+  return api.listAllPests();
+});
 
 export const fetchPest = createAsyncThunk(
   'ipm/fetchPest',
@@ -61,18 +59,9 @@ export const fetchPest = createAsyncThunk(
 
 // ── Diseases ──────────────────────────────────────────────────────────
 
-export const fetchDiseases = createAsyncThunk(
-  'ipm/fetchDiseases',
-  async ({
-    offset,
-    limit,
-  }: {
-    offset?: number;
-    limit?: number;
-  } = {}) => {
-    return api.listDiseases(offset, limit);
-  },
-);
+export const fetchDiseases = createAsyncThunk('ipm/fetchDiseases', async () => {
+  return api.listAllDiseases();
+});
 
 export const fetchDisease = createAsyncThunk(
   'ipm/fetchDisease',
@@ -83,18 +72,9 @@ export const fetchDisease = createAsyncThunk(
 
 // ── Treatments ────────────────────────────────────────────────────────
 
-export const fetchTreatments = createAsyncThunk(
-  'ipm/fetchTreatments',
-  async ({
-    offset,
-    limit,
-  }: {
-    offset?: number;
-    limit?: number;
-  } = {}) => {
-    return api.listTreatments(offset, limit);
-  },
-);
+export const fetchTreatments = createAsyncThunk('ipm/fetchTreatments', async () => {
+  return api.listAllTreatments();
+});
 
 export const fetchTreatment = createAsyncThunk(
   'ipm/fetchTreatment',

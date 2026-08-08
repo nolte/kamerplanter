@@ -42,6 +42,24 @@ describe('nutrient-plans endpoints — plan CRUD', () => {
     });
   });
 
+  it('fetchAllNutrientPlans pages until a short page, keeping the filters (#995)', async () => {
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `p${i}` }));
+    client.get
+      .mockResolvedValueOnce({ data: full })
+      .mockResolvedValueOnce({ data: [{ key: 'tail' }] });
+
+    const all = await plans.fetchAllNutrientPlans(undefined, { is_template: 'true' });
+
+    expect(all).toHaveLength(201);
+    expect(client.get).toHaveBeenCalledTimes(2);
+    expect(client.get).toHaveBeenNthCalledWith(1, '/nutrient-plans', {
+      params: { offset: 0, limit: 200, is_template: 'true' },
+    });
+    expect(client.get).toHaveBeenNthCalledWith(2, '/nutrient-plans', {
+      params: { offset: 200, limit: 200, is_template: 'true' },
+    });
+  });
+
   it('fetchNutrientPlan gets plan by key', async () => {
     client.get.mockResolvedValue({ data: { key: 'p1' } });
     await plans.fetchNutrientPlan('p1');

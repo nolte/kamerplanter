@@ -69,17 +69,23 @@ describe('activitiesSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchActivities calls listActivities and stores the items', async () => {
-    mocked.listActivities.mockResolvedValue([{ key: 'a1' }] as never);
+  // #995: 51 activities are seeded, and `listActivities()` without paging returns
+  // the backend's default page of 50 — so one was permanently absent from the
+  // list view. The slice loads the complete catalogue; the negative assertion is
+  // what makes this a regression test rather than a restatement of the old one,
+  // which asserted only that *an* API call happened and passed on the defect.
+  it('fetchActivities loads the complete catalogue, not a single page', async () => {
+    mocked.listAllActivities.mockResolvedValue([{ key: 'a1' }] as never);
     const store = makeStore();
     const params = { category: 'watering' };
     await store.dispatch(fetchActivities(params));
-    expect(mocked.listActivities).toHaveBeenCalledWith(params);
+    expect(mocked.listAllActivities).toHaveBeenCalledWith(params);
+    expect(mocked.listActivities).not.toHaveBeenCalled();
     expect(store.getState().activities.items).toEqual([{ key: 'a1' }]);
   });
 
   it('fetchActivities surfaces a rejection as the slice error', async () => {
-    mocked.listActivities.mockRejectedValue(new Error('load failed'));
+    mocked.listAllActivities.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchActivities());
     expect(store.getState().activities.error).toBe('load failed');

@@ -1,4 +1,5 @@
 import client from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type { BotanicalFamily, BotanicalFamilyCreate, Species } from '../types';
 
 const BASE = '/botanical-families';
@@ -19,20 +20,15 @@ export async function listBotanicalFamilies(
  * at the backend's `limit<=200`, which would silently truncate a large catalogue
  * (the "Von Familie" dropdown must show every family, #550), so callers that need
  * the whole set use this instead of `listBotanicalFamilies()`.
+ *
+ * The list view is one of those callers, and was not: 57 families are seeded
+ * against a single-page default of 50, so seven of them never reached the
+ * browser and the client-side search reported them as non-existent (#995).
  */
 export async function listAllBotanicalFamilies(
-  pageSize = 200,
+  pageSize = CATALOGUE_PAGE_SIZE,
 ): Promise<BotanicalFamily[]> {
-  const all: BotanicalFamily[] = [];
-  let offset = 0;
-  // Guard against an unbounded loop if the backend ever ignores the offset.
-  for (let page = 0; page < 1000; page += 1) {
-    const batch = await listBotanicalFamilies(offset, pageSize);
-    all.push(...batch);
-    if (batch.length < pageSize) break;
-    offset += pageSize;
-  }
-  return all;
+  return fetchAllPages(listBotanicalFamilies, pageSize);
 }
 
 export async function getBotanicalFamily(key: string): Promise<BotanicalFamily> {
