@@ -405,6 +405,35 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Workflow gate integrity (P5.4, NFR-018 §2) ─────────────────────────
+  # NFR-018 says a check that cannot report a failure must not exist, and §8
+  # admits the spec has no gate of its own — "die unangenehme Pointe". This is
+  # that gate: `|| true` in a run step, `continue-on-error: true`, and a job
+  # that reads `needs.<x>.outputs` under `always()` without consulting
+  # `needs.<x>.result` (a failed producer then leaves every output empty, every
+  # step skipped, and a job whose steps are all skipped reports SUCCESS — the
+  # trap frontend.yml documents twice).
+  #
+  # Every shape here is legitimate somewhere: `grep -c` exits 1 on a zero count,
+  # and a JUnit reporter must not turn a suite red because a fork's token cannot
+  # create a check run. So it is a per-site `# gate-integrity-ok: <reason>`
+  # marker rather than a ban — the 19 sites in the tree carry one, and eight of
+  # them say "needs follow-up" instead of pretending to be settled.
+  #
+  # `language: python` with PyYAML, like the chart-digest hook below: the
+  # required `static` job runs on a bare runner with none of the project's
+  # dependencies installed. always_run, because deleting a workflow moves the
+  # answer as much as editing one.
+  - repo: local
+    hooks:
+      - id: workflow-gate-integrity
+        name: no CI gate that cannot fail (NFR-018 §2)
+        entry: python3 scripts/check_workflow_gate_integrity.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
+
   # ── Seed YAML ↔ JSON Schema (P3.3) ─────────────────────────────────────
   # The seed files carry a `# yaml-language-server: $schema=…` directive and 31
   # of them declare one, but only ~12 were ever validated: the backend test

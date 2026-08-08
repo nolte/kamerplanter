@@ -231,7 +231,18 @@ jobs:
   lighthouse:
     name: Lighthouse CI
     needs: changes
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+    # `needs.changes.result` is load-bearing here for the same reason it is in
+    # `lint-test-build` and `coverage` above, and it was missing: with
+    # `always()` the job runs even when `changes` failed, `outputs.frontend` is
+    # then the empty string, both remaining clauses are false on a pull
+    # request, every step is skipped — and a job whose steps are all skipped
+    # reports Success. Advisory or not, a green check that measured nothing is
+    # the shape NFR-018 §1 catalogues, two dozen lines from the comment saying so.
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.changes.result != 'success'
+          || needs.changes.outputs.frontend == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -272,7 +283,14 @@ jobs:
   npm-audit:
     name: Dependency CVE audit
     needs: changes
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+    # `needs.changes.result` guards the same false green as in `lighthouse`
+    # above — and here the consequence is a CVE audit that reports clean
+    # without auditing.
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.changes.result != 'success'
+          || needs.changes.outputs.frontend == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -329,7 +347,14 @@ jobs:
   npm-licenses:
     name: License allowlist gate
     needs: changes
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+    # `needs.changes.result` guards the same false green as in `lighthouse`
+    # above — here it would be a licence gate reporting clean without reading
+    # a single package's licence.
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.changes.result != 'success'
+          || needs.changes.outputs.frontend == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
