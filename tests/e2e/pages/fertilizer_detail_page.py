@@ -101,6 +101,10 @@ class FertilizerDetailPage(BasePage):
         The FertilizerDetailPage renders DetailRow components as flex Boxes
         (not table rows).  Each DetailRow has a label Typography and a sibling
         value Box.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
         """
         labels = self.driver.find_elements(*self.DETAIL_LABELS)
         for lbl in labels:
@@ -119,6 +123,15 @@ class FertilizerDetailPage(BasePage):
         labels, rendered in flex layout (no ``<table>``).  We also look for
         section headings (h6/subtitle2) and any caption-style text that acts as
         a property label.
+
+        Deliberately instantaneous, not anchored: its one call site reads it
+        right after ``click_tab_details()``, itself preceded by
+        ``wait_for_element(PAGE)`` + ``wait_for_loading_complete()``. The
+        fertilizer entity these labels render from is fetched in the same
+        ``Promise.all`` as stock and plan usage before the page-level loading
+        gate clears (``FertilizerDetailPage.tsx``), so the settled page root
+        means the labels have settled too -- the Details tab click is a
+        same-data re-render, not a fetch.
         """
         # Primary: DetailRow labels
         labels_els = self.driver.find_elements(*self.DETAIL_LABELS)
@@ -135,18 +148,34 @@ class FertilizerDetailPage(BasePage):
     # ── Stock tab (Tab 1) ──────────────────────────────────────────────
 
     def get_stock_row_count(self) -> int:
-        """Return the number of stock rows."""
+        """Return the number of stock rows.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         rows = self.driver.find_elements(*self.STOCK_ROWS)
         return len(rows)
 
     def has_stock_table_or_empty_state(self) -> bool:
-        """Return True if either the stock DataTable or the empty state is present."""
+        """Return True if either the stock DataTable or the empty state is present.
+
+        Deliberately instantaneous, not anchored: its one call site reads it
+        right after ``click_tab_stock()``, itself preceded by
+        ``wait_for_element(PAGE)`` + ``wait_for_loading_complete()`` -- see
+        :meth:`get_all_detail_labels` for why that already anchors this read
+        (stock is fetched in the same pre-render ``Promise.all``).
+        """
         has_table = len(self.driver.find_elements(*self.STOCK_TABLE)) > 0
         has_empty = len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
         return has_table or has_empty
 
     def get_stock_headers(self) -> list[str]:
-        """Return column header texts from the stock table."""
+        """Return column header texts from the stock table.
+
+        No call site in this suite as of #946 wave 5 -- see
+        :meth:`get_stock_row_count`.
+        """
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
@@ -188,6 +217,14 @@ class FertilizerDetailPage(BasePage):
         Global/system catalog entries (UI-NFR-018) show a read-only banner and
         render no editable form actions on the edit tab, so the save-button
         tests have no button to assert against.
+
+        Deliberately instantaneous, not anchored: both call sites gate a
+        ``pytest.skip(...)`` on this right after ``wait_for_element(PAGE)`` +
+        ``wait_for_loading_complete()``. Unlike the #946 wave 1 skip-gate
+        defect, this is safe: ``isReadOnly`` is derived synchronously from the
+        already-fetched fertilizer entity (``useOriginProtection``,
+        ``FertilizerDetailPage.tsx``), not from a second async fetch, so a
+        settled ``PAGE`` means this has settled too.
         """
         return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
 
@@ -205,7 +242,12 @@ class FertilizerDetailPage(BasePage):
         self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
-        """Return the validation error text for the given form field."""
+        """Return the validation error text for the given form field.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         locator = (
             By.CSS_SELECTOR,
             f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
@@ -221,7 +263,12 @@ class FertilizerDetailPage(BasePage):
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
-        """Return True if the confirm dialog is open."""
+        """Return True if the confirm dialog is open.
+
+        No call site in this suite as of #946 wave 5 (``click_delete``,
+        ``confirm_delete`` and ``cancel_delete`` are likewise unused) -- left
+        unanchored rather than speculatively converted.
+        """
         dialogs = self.driver.find_elements(*self.CONFIRM_DIALOG)
         return any(d.is_displayed() for d in dialogs)
 
@@ -236,7 +283,14 @@ class FertilizerDetailPage(BasePage):
     # ── Error state ────────────────────────────────────────────────────
 
     def is_error_displayed(self) -> bool:
-        """Return True if an error or not-found display is visible."""
+        """Return True if an error or not-found display is visible.
+
+        Deliberately instantaneous, not anchored: its one call site
+        (``test_invalid_key_shows_error``) reads it right after
+        ``wait_for_error_or_page()``, which itself waits for
+        ``ERROR_DISPLAY or PAGE`` -- the readiness this method reports has
+        already been bought by the caller.
+        """
         elements = self.driver.find_elements(*self.ERROR_DISPLAY)
         return len(elements) > 0 and elements[0].is_displayed()
 
