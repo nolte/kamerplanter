@@ -17,6 +17,22 @@
       '/^src/backend/requirements-dev\\.txt$/',
     ],
   },
+  // ── Helm dev values also carry a third-party pin (#1027) ─────────────────────
+  // The built-in `helm-values` manager only matches `values.yaml` by default, so
+  // `helm/kamerplanter/values-dev*.yaml` — which pin `timescale/timescaledb` for
+  // the dev TimescaleDB StatefulSet — aged unattended: no version/CVE bumps ever
+  // reached them (the defect #1027 records; found while doing #1024). Renovate
+  // merges a manager's `managerFilePatterns` with its built-in default rather
+  // than replacing it, so this ADDS the dev overrides to scope while `values.yaml`
+  // stays covered by the default pattern (and by the #987/#1024 digest rule in
+  // packageRules below). Widening also exposes the registry-less local Skaffold
+  // image names (`kamerplanter-*`) those files reference, which Renovate cannot
+  // resolve; the packageRule below disables them by pattern.
+  'helm-values': {
+    managerFilePatterns: [
+      '/(^|/)values-dev[^/]*\\.ya?ml$/',
+    ],
+  },
   packageRules: [
     {
       matchCategories: [
@@ -69,6 +85,32 @@
       ],
       commitMessageTopic: 'the Kamerplanter images',
       commitMessageExtra: 'to the digest published from develop',
+    },
+    // ── Registry-less local Skaffold images in the dev values (#1027) ─────────
+    // Widening `helm-values` to `values-dev*.yaml` (manager block above) also
+    // exposes the local build artefacts those files reference —
+    // `kamerplanter-knowledge`, `kamerplanter-knowledge-service`,
+    // `kamerplanter-reranker-service`, `kamerplanter-embedding-service`,
+    // `kamerplanter-vectordb`, `kamerplanter-inference-service`. Skaffold builds
+    // these in-cluster; they have NO registry, so Renovate cannot look them up
+    // and would only emit resolution failures. Disable them by PATTERN, not by
+    // an enumerated list, so a new `kamerplanter-*` dev service is excluded
+    // automatically instead of silently starting to fail on the next scan.
+    //
+    // Anchored on the bare name on purpose: the first-party images live under
+    // `ghcr.io/nolte/kamerplanter-*` (base values.yaml, digest-pinned by the
+    // rule above) and start with the registry host, so they are NOT matched by
+    // `^kamerplanter-` and keep their digest-pinning behaviour. The one genuine
+    // third-party pin in these files, `timescale/timescaledb`, is likewise not
+    // matched and is now tracked for version/CVE bumps.
+    {
+      matchManagers: [
+        'helm-values',
+      ],
+      matchPackageNames: [
+        '/^kamerplanter-/',
+      ],
+      enabled: false,
     },
     {
       groupName: 'github-actions',
