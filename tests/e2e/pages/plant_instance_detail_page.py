@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import re
+from contextlib import suppress
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from .base_page import BasePage
+from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class PlantInstanceDetailPage(BasePage):
@@ -23,8 +24,23 @@ class PlantInstanceDetailPage(BasePage):
     PLANT_INFO_CARD = (By.CSS_SELECTOR, "[data-testid='plant-info-card']")
     PHASE_INFO_CARD = (By.CSS_SELECTOR, "[data-testid='phase-info-card']")
     CURRENT_PHASE = (By.CSS_SELECTOR, "[data-testid='current-phase']")
-    PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phase-history']")
-    PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phase-history'] tbody tr")
+    # The "Phasenverlauf" table no longer has a dedicated data-testid='phase-history'
+    # container -- PhaseHistoryTable now delegates to the shared DataTable, which
+    # renders [data-testid='data-table'] with [data-testid='data-table-row'] rows
+    # (PhaseHistoryTable.tsx). The bare `[data-testid='phase-history']` this used
+    # to be matches nothing in the current frontend, so both readers below always
+    # returned False/0 regardless of the real state -- silent, not just unanchored.
+    # Scoped to the phases-tab-content panel, mirroring the already-fixed
+    # `phase_transition_page.PlantInstanceDetailExt.PHASE_HISTORY[_ROWS]`, so
+    # these two page objects do not drift on the same locator again.
+    PHASE_HISTORY = (
+        By.CSS_SELECTOR,
+        "[data-testid='phases-tab-content'] [data-testid='data-table']",
+    )
+    PHASE_HISTORY_ROWS = (
+        By.CSS_SELECTOR,
+        "[data-testid='phases-tab-content'] [data-testid='data-table-row']",
+    )
     PHASES_TAB = (By.CSS_SELECTOR, "[data-testid='phases-tab']")
     PHASES_TAB_CONTENT = (By.CSS_SELECTOR, "[data-testid='phases-tab-content']")
 
@@ -39,6 +55,12 @@ class PlantInstanceDetailPage(BasePage):
         "[data-testid='create-watering-log-button']",
     )
     TASK_CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='plant-task-create-button']")
+    #: The tasks tab's other settled branch: `showInitialSkeleton` false, no
+    #: error, and `plantTasks.length === 0` (`PlantInstanceDetailPage.tsx`).
+    #: Not exercised by this suite (it always provisions >=1 task), but part of
+    #: :attr:`TASK_HISTORY_BRANCHES` anyway so the anchor does not hang a
+    #: legitimately empty tenant.
+    TASKS_EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state-queue-link']")
 
     # Overdue/Active/Done summary bar above the two task tables. Each chip
     # renders "<translated label>: <count>", so only the trailing integer is
@@ -125,12 +147,65 @@ class PlantInstanceDetailPage(BasePage):
         self.wait_for_element_visible(self.TASK_CREATE_BUTTON)
         return self
 
+    #: The watering-log tab has one populated signal (its create-button is only
+    #: rendered while the tab is active, gated by the SAME per-plant fetch as
+    #: `DATA_TABLE_ROWS`, see :meth:`open_watering_log_tab`); it has no
+    #: documented empty-state testid, so the disjunction is a single branch.
+    WATERING_LOG_BRANCHES = (WATERING_LOG_CREATE_BUTTON,)
+    #: The tasks tab's two settled branches -- populated (`TASK_CREATE_BUTTON`,
+    #: same render pass as `DATA_TABLE_ROWS` within a task section, see
+    #: `PlantInstanceDetailPage.tsx`) or empty (`TASKS_EMPTY_STATE`).
+    TASK_HISTORY_BRANCHES = (TASK_CREATE_BUTTON, TASKS_EMPTY_STATE)
+
+    def wait_for_watering_log_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the watering-log tab has rendered its DataTable.
+
+        Deliberately does not raise -- an *anchor* for the readers below, not
+        an assertion. Both current call sites already reach this state through
+        :meth:`open_watering_log_tab`, which waits on the identical signal;
+        self-anchoring here removes the dependency on that call order for any
+        future caller, the same reasoning as `plant_photo_gallery_page.
+        wait_for_gallery_content`.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                self.WATERING_LOG_BRANCHES, "watering-log tab content", timeout=timeout
+            )
+
+    def wait_for_task_history_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the tasks tab has rendered its content or empty state.
+
+        Deliberately does not raise -- see :meth:`wait_for_watering_log_content`.
+        Both branches live behind `plantTasksLoading`/`plantTasksLoaded`, an
+        async fetch independent of the page's own top-level ``loading`` flag
+        (`PlantInstanceDetailPage.tsx`) -- `PAGE` mounting does not imply this
+        tab's content has settled, only that :meth:`open_tasks_tab` already
+        waited for the branch pair below.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                self.TASK_HISTORY_BRANCHES, "tasks tab content", timeout=timeout
+            )
+
     def get_watering_log_row_count(self) -> int:
-        """Return the number of rows in the (single) watering-log tab DataTable."""
+        """Return the number of rows in the (single) watering-log tab DataTable.
+
+        Anchored on :meth:`wait_for_watering_log_content`: read both before and
+        after a mutation and compared (`test_single_watering_consistent_across_
+        three_views`), the same before/after shape that made #946's
+        `count_care_cards_for_plant` need its own anchor rather than relying on
+        the caller's `open_watering_log_tab()` alone.
+        """
+        self.wait_for_watering_log_content()
         return len(self.driver.find_elements(*self.DATA_TABLE_ROWS))
 
     def get_watering_log_rows(self) -> list[WebElement]:
-        """Return the watering-log tab DataTable rows (newest first by loggedAt)."""
+        """Return the watering-log tab DataTable rows (newest first by loggedAt).
+
+        Anchored on :meth:`wait_for_watering_log_content` -- see
+        :meth:`get_watering_log_row_count`.
+        """
+        self.wait_for_watering_log_content()
         return self.driver.find_elements(*self.DATA_TABLE_ROWS)
 
     def get_watering_log_row_cell(self, index: int, col_id: str) -> str:
@@ -168,10 +243,19 @@ class PlantInstanceDetailPage(BasePage):
         rendered — which is exact rather than silent: the whole section, its
         heading included, is only mounted while it holds ≥1 task.
 
-        Note that ``data-table-section`` is absent from `DataTable`'s early
-        returns (loading skeleton, empty state, no-filter-results), so this is
-        a row reader and never a wait anchor for the loading state.
+        Anchored on :meth:`wait_for_task_history_content` for the *tab-level*
+        settle (populated vs. empty-state -- #946's exact defect class: reading
+        before the tab's own async fetch resolves cannot distinguish "this
+        section has 0 tasks" from "the tasks tab has not fetched yet"). Once
+        that anchor is satisfied, a per-*section* absence is still read
+        directly and unwaited: ``data-table-section`` is absent from
+        `DataTable`'s own early returns (loading skeleton, empty state,
+        no-filter-results), so a section genuinely holding 0 tasks never
+        mounts at all -- waiting *for* it here would burn the full budget on
+        every correctly-empty section, which is why this stays a row reader
+        and not a second wait anchor once the tab itself has settled.
         """
+        self.wait_for_task_history_content()
         return self.driver.find_elements(
             By.CSS_SELECTOR,
             f"{self.SECTION_TABLE_CSS.format(section=section)} [data-testid='data-table-row']",
@@ -200,6 +284,12 @@ class PlantInstanceDetailPage(BasePage):
         section only) ``card-field-priority`` — plus the two slots the renderer
         fills with the task name and the section's date. A column the card
         renders nothing for raises rather than returning a silent ``''``.
+
+        Deliberately not anchored on the tab: *row* is a `WebElement` the
+        caller already obtained from :meth:`get_task_rows`, which is itself
+        anchored on :meth:`wait_for_task_history_content` -- by the time a row
+        exists to pass in here, the readiness this method would otherwise wait
+        for has already been established.
         """
         cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
         if cells:
@@ -311,12 +401,54 @@ class PlantInstanceDetailPage(BasePage):
     def cancel_transition(self) -> None:
         self.wait_and_click(self.TRANSITION_CANCEL)
 
+    def open_phases_tab(self) -> None:
+        """Click the 'Phasen' tab and wait for its content.
+
+        No current caller uses :meth:`get_phase_history_count` /
+        :meth:`has_phase_history` (both were unreachable until the locator fix
+        above), so no existing test establishes this anchor -- added so a
+        future caller has a real way to reach the state those two readers now
+        require, mirroring ``phase_transition_page.PlantInstanceDetailExt.
+        open_phases_tab``.
+        """
+        self.wait_for_element_clickable(self.PHASES_TAB).click()
+        self.wait_for_element_visible(self.PHASES_TAB_CONTENT)
+
+    def wait_for_phases_tab_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the phases tab's content panel has rendered.
+
+        Deliberately does not raise -- an *anchor* for the readers below, not
+        an assertion; a plant genuinely reached before the phases tab was ever
+        opened is a state those readers must still be able to report (``0`` /
+        ``False``), not hang on. Routed through :meth:`wait_for_any_present`
+        (a single-locator disjunction) rather than :meth:`wait_for_element`
+        directly, so the timeout becomes the ``AssertionError`` this
+        ``suppress`` expects instead of a raw ``TimeoutException`` escaping it.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.PHASES_TAB_CONTENT,), "plant instance phases tab content", timeout=timeout
+            )
+
     def get_phase_history_count(self) -> int:
-        """Return the number of rows in the phase history table."""
+        """Return the number of rows in the phase history table.
+
+        Anchored on :meth:`wait_for_phases_tab_content`: `PHASE_HISTORY_ROWS`
+        is scoped inside `PHASES_TAB_CONTENT`, which only renders while the
+        phases tab is active (see :meth:`open_phases_tab`) -- reading before
+        that anchor is satisfied cannot distinguish "no phase history yet"
+        from "the phases tab has not been opened".
+        """
+        self.wait_for_phases_tab_content()
         rows = self.driver.find_elements(*self.PHASE_HISTORY_ROWS)
         return len(rows)
 
     def has_phase_history(self) -> bool:
-        """Check if the phase history section is present."""
+        """Check if the phase history table is present.
+
+        Anchored on :meth:`wait_for_phases_tab_content` -- see
+        :meth:`get_phase_history_count`.
+        """
+        self.wait_for_phases_tab_content()
         elements = self.driver.find_elements(*self.PHASE_HISTORY)
         return len(elements) > 0

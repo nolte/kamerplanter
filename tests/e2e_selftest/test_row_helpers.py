@@ -87,6 +87,8 @@ from tests.e2e.pages.base_page import (
     TableNotSettled,
 )
 from tests.e2e.pages.pflege_dashboard_page import PflegeDashboardPage
+from tests.e2e.pages.plant_instance_detail_page import PlantInstanceDetailPage
+from tests.e2e.pages.plant_photo_gallery_page import PlantPhotoGalleryPage
 from tests.e2e.pages.species_detail_page import SpeciesDetailPage
 from tests.e2e.pages.watering_log_list_page import WateringLogListPage
 from tests.e2e.pages.task_detail_page import TaskDetailPage
@@ -1611,6 +1613,250 @@ class TestTheAnchoredTaskDetailReaders:
         self._settle_page_without_button_now(harness)
 
         assert self._page(harness).has_plant_link() is False
+
+
+# ── 8e. Wave 3: the gallery tab (#946 wave 3) ─────────────────────────────────
+
+
+class TestTheAnchoredGalleryReaders:
+    """`plant_photo_gallery_page.py`, wave 3 of #946.
+
+    Same shape as `TestTheAnchoredSectionReaders` above: `PlantPhotoGallery`
+    gates its entire subtree -- `GALLERY` included -- behind its own async
+    fetch (``if (loading) return <LoadingSkeleton .../>``,
+    `PlantPhotoGallery.tsx`), so a read taken the instant after `open()`
+    returns can land before that fetch has painted. `wait_for_gallery_content`
+    is the anchor; these tests pin that it is a real wait (outlives a render
+    delayed past several probes) and that it still lets a genuine, settled
+    absence through (it must not convert "gone" into "always there").
+    """
+
+    def _page(self, harness: Harness) -> PlantPhotoGalleryPage:
+        return PlantPhotoGalleryPage(harness.driver, "http://stub.invalid")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        """Run *build* once the DOM has been probed `probes` times.
+
+        Hooked on both `find_elements` and the branch-probe script -- the
+        anchor's `wait_for_any_present` sweeps `GALLERY_BRANCHES` through one
+        `execute_script` round-trip, so a hook on `find_elements` alone would
+        never fire while the anchor itself is waiting.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def _settle_gallery_now(self, harness: Harness) -> StubNode:
+        """Render a settled, empty gallery immediately (a genuine absence)."""
+        return harness.dom.render_dialog("plant-photo-gallery")
+
+    def _settle_error_now(self, harness: Harness) -> None:
+        """Render the gallery's error branch immediately (the other settled state)."""
+        harness.dom.render_dialog("error-display")
+
+    # ── is_gallery_loaded: the skip-gate reader, 7 call sites ──
+
+    def test_is_gallery_loaded_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: harness.dom.render_dialog("plant-photo-gallery"))
+
+        assert self._page(harness).is_gallery_loaded() is True
+
+    def test_is_gallery_loaded_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """The fetch settled into its error branch; the gallery never comes."""
+        self._settle_error_now(harness)
+
+        assert self._page(harness).is_gallery_loaded() is False
+
+    # ── get_photo_count: read before/after a mutation, and a skip-gate ──
+
+    def _build_gallery_with_photos(self, harness: Harness, count: int) -> None:
+        gallery = harness.dom.render_dialog("plant-photo-gallery")
+        for _ in range(count):
+            gallery.children.append(harness.dom._new("plant-photo-item"))
+
+    def test_get_photo_count_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_gallery_with_photos(harness, 3))
+
+        assert self._page(harness).get_photo_count() == 3
+
+    def test_get_photo_count_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_gallery_now(harness)
+
+        assert self._page(harness).get_photo_count() == 0
+
+    # ── has_add_button: skip-gated together with is_gallery_loaded ──
+
+    def _build_gallery_with_add_button(self, harness: Harness) -> None:
+        gallery = harness.dom.render_dialog("plant-photo-gallery")
+        gallery.children.append(harness.dom._new("plant-photo-add-button"))
+
+    def test_has_add_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_gallery_with_add_button(harness))
+
+        assert self._page(harness).has_add_button() is True
+
+    def test_has_add_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """A read-only account's gallery settles with no add button at all."""
+        self._settle_gallery_now(harness)
+
+        assert self._page(harness).has_add_button() is False
+
+    # ── has_cover_image: no container gate, only a first-paint placeholder ──
+
+    def test_has_cover_image_outlives_a_late_render(self, harness: Harness) -> None:
+        """A real cover resolves after `PlantCoverPreview`'s own async fetch.
+
+        Unlike the readers above, there is no settled-container branch to
+        anchor on here (`PlantCoverPreview` renders `COVER_PLACEHOLDER` from
+        its very first paint, see `has_cover_image`'s docstring) -- the fix is
+        a bounded wait on `COVER_IMAGE` itself via `is_visible_within`, which
+        this measures directly: the image renders after 3 probes and the
+        reader must still see it within the `IMPLICIT_WAIT_EQUIVALENT` budget.
+
+        Hooked on `FIND_ELEMENT` (singular), not `FIND_ELEMENTS`:
+        `is_visible_within` polls via `EC.visibility_of_element_located`,
+        which Selenium resolves through the singular find -- a different wire
+        command than every other reader in this module, all built on
+        `find_elements`.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == 3:
+                harness.dom.render_dialog("plant-cover-image")
+
+        harness.connection.before[Command.FIND_ELEMENT] = hook
+
+        assert self._page(harness).has_cover_image() is True
+
+    def test_has_cover_image_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """No cover ever resolves; only the first-paint placeholder is there."""
+        harness.dom.render_dialog("plant-cover-placeholder")
+
+        assert self._page(harness).has_cover_image() is False
+
+
+# ── 8f. Wave 3: the watering-log and tasks detail tabs (#946 wave 3) ─────────
+
+
+class TestTheAnchoredDetailTabReaders:
+    """`plant_instance_detail_page.py`, the 6 HIGH-bucket readers of wave 3.
+
+    Two of the three anchors introduced here gate readers whose actual row
+    locator is a compound-plus-descendant CSS selector
+    (``[data-testid='data-table'][data-table-section='...'] [data-testid=
+    'data-table-row']`` for `get_task_rows`; ``[data-testid='phases-tab-
+    content'] [data-testid='data-table-row']`` for `get_phase_history_count`)
+    that this module's stub `_matches` cannot resolve (documented there: it
+    answers exact, prefix and bare-class selectors only). Those two anchors
+    are therefore measured directly (`wait_for_task_history_content`,
+    `wait_for_phases_tab_content`) rather than through the row count they
+    guard -- the **settled-absence** direction of the guarded readers is
+    still measured (a genuine "never opened" state must resolve to ``0``/
+    ``False`` rather than hang), but their **outlives-a-late-render** /
+    positive-count direction is analytic, not measured, exactly the stub gap
+    wave 2 hit on `plant_instance_detail_page` before it.
+
+    `get_watering_log_row_count` has no such gap: `DATA_TABLE_ROWS` is a
+    plain ``[data-testid='data-table-row']`` selector, so both directions are
+    measured end-to-end, same as the gallery readers above.
+    """
+
+    def _page(self, harness: Harness) -> PlantInstanceDetailPage:
+        return PlantInstanceDetailPage(harness.driver, "http://stub.invalid")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    # ── get_watering_log_row_count / get_watering_log_rows: measured end-to-end ──
+
+    def _build_watering_log_with_rows(self, harness: Harness, count: int) -> None:
+        harness.dom.render_dialog("create-watering-log-button")
+        harness.dom.render(["a", "b", "c"][:count])
+
+    def test_get_watering_log_row_count_outlives_a_late_render(self, harness: Harness) -> None:
+        """Read before/after a mutation (TC-004-092); a zero taken too early is invisible."""
+        self._render_after(harness, 3, lambda: self._build_watering_log_with_rows(harness, 2))
+
+        assert self._page(harness).get_watering_log_row_count() == 2
+
+    def test_get_watering_log_row_count_still_reports_a_settled_absence(
+        self, harness: Harness
+    ) -> None:
+        harness.dom.render_dialog("create-watering-log-button")
+
+        assert self._page(harness).get_watering_log_row_count() == 0
+
+    def test_get_watering_log_rows_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_watering_log_with_rows(harness, 3))
+
+        assert len(self._page(harness).get_watering_log_rows()) == 3
+
+    # ── wait_for_task_history_content: the anchor `get_task_rows` relies on ──
+
+    def test_task_history_anchor_outlives_a_late_render(self, harness: Harness) -> None:
+        """Analytic for `get_task_rows`'s own row count (stub cannot model its
+        compound-plus-descendant selector, see the class docstring); measured
+        directly for the anchor that reader depends on.
+        """
+        self._render_after(
+            harness, 3, lambda: harness.dom.render_dialog("plant-task-create-button")
+        )
+        page = self._page(harness)
+
+        page.wait_for_task_history_content(timeout=SETTLE_TIMEOUT)
+
+        assert page.driver.find_elements(*page.TASK_CREATE_BUTTON), (
+            "the anchor returned before the late-rendered branch actually appeared"
+        )
+
+    def test_get_task_rows_reports_a_settled_absence_without_hanging(
+        self, harness: Harness
+    ) -> None:
+        """The tab settled into its empty state; the reader must not hang."""
+        harness.dom.render_dialog("empty-state-queue-link")
+
+        assert self._page(harness).get_task_rows(PlantInstanceDetailPage.TASK_ACTIVE_SECTION) == []
+
+    # ── wait_for_phases_tab_content: the anchor has_phase_history relies on ──
+
+    def test_phases_tab_anchor_outlives_a_late_render(self, harness: Harness) -> None:
+        """Analytic for `get_phase_history_count`'s own row count (same stub
+        gap as `get_task_rows`, see the class docstring); measured directly
+        for the anchor.
+        """
+        self._render_after(harness, 3, lambda: harness.dom.render_dialog("phases-tab-content"))
+        page = self._page(harness)
+
+        page.wait_for_phases_tab_content(timeout=SETTLE_TIMEOUT)
+
+        assert page.driver.find_elements(*page.PHASES_TAB_CONTENT), (
+            "the anchor returned before the late-rendered branch actually appeared"
+        )
+
+    def test_has_phase_history_reports_a_settled_absence_without_hanging(
+        self, harness: Harness
+    ) -> None:
+        """The phases tab is open and settled, genuinely without history rows."""
+        harness.dom.render_dialog("phases-tab-content")
+
+        assert self._page(harness).has_phase_history() is False
+        assert self._page(harness).get_phase_history_count() == 0
 
 
 # ── 9. A submit helper cannot carry the caller's intent (#835) ───────────────
