@@ -2,13 +2,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.common.validators import DisplayName
+
 # ── Request schemas ────────────────────────────────────────────────
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
-    display_name: str = Field(min_length=1, max_length=200)
+    display_name: DisplayName
 
 
 class LoginRequest(BaseModel):

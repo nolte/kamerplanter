@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.common.validators import DisplayName
+
 # REQ-023 v1.10: ``service`` accounts are M2M identities (Home Assistant,
 # Grafana, CI/CD). They have no password, can never log in via the
 # web UI, and authenticate exclusively via API keys with optional IP
@@ -13,7 +15,7 @@ AccountType = Literal["user", "service"]
 class User(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     email: EmailStr
-    display_name: str = Field(min_length=1, max_length=200)
+    display_name: DisplayName
     password_hash: str | None = None
     email_verified: bool = False
     email_verification_token: str | None = None
@@ -49,7 +51,7 @@ class UserProfile(BaseModel):
 
 
 class UserProfileUpdate(BaseModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=200)
+    display_name: DisplayName | None = None
     avatar_url: str | None = None
     locale: str | None = None
     timezone: str | None = None
