@@ -168,7 +168,11 @@ class _RecordingCollection:
 
 
 class _Fixture:
-    def __init__(self) -> None:
+    def __init__(self, role: TenantRole = TenantRole.GROWER) -> None:
+        # Deleting a task template is lead-only (REQ-049 §2.3); tests exercising
+        # a delete pass ``role=TenantRole.LEAD`` so the request reaches the
+        # tenant/system anchoring guard under test rather than the role gate.
+        self._role = role
         self.templates = _RecordingCollection(
             col.TASK_TEMPLATES,
             {k: dict(v) for k, v in TASK_TEMPLATES.items()},
@@ -211,7 +215,7 @@ class _Fixture:
             tenant_key=TENANT_KEY,
             tenant_slug=TENANT_SLUG,
             user_key="user-1",
-            role=TenantRole.GROWER,
+            role=self._role,
         )
         app.dependency_overrides[get_task_service] = lambda: service
         return TestClient(app)
@@ -249,7 +253,7 @@ class TestAForeignTenantsTaskTemplate:
         assert fx.templates.updated == []
 
     def test_deleting_a_foreign_tenants_template_is_not_found(self):
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         resp = fx.client.delete(_url(f"/templates/{FOREIGN_TEMPLATE}"))
 
@@ -282,7 +286,7 @@ class TestASystemWorkflowsTaskTemplate:
 
     def test_deleting_a_system_workflows_template_is_refused(self):
         """A delete here would remove the template for every tenant."""
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         resp = fx.client.delete(_url(f"/templates/{SYSTEM_TEMPLATE}"))
 
@@ -323,7 +327,7 @@ class TestATemplateWithNoParentWorkflowIsRefused:
         assert fx.templates.updated == []
 
     def test_deleting_a_parentless_template_is_not_found(self):
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         resp = fx.client.delete(_url(f"/templates/{ORPHAN_TEMPLATE}"))
 
@@ -345,7 +349,7 @@ class TestTheEditorItselfStillWorks:
         assert [doc["_key"] for doc in fx.templates.updated] == [OWN_TEMPLATE]
 
     def test_the_callers_own_template_is_still_deletable(self):
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         resp = fx.client.delete(_url(f"/templates/{OWN_TEMPLATE}"))
 
@@ -390,7 +394,7 @@ class TestTheEditorItselfStillWorks:
         still succeeds (204, unchanged), but it removes the activity from the
         private copy the write materialised.
         """
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         resp = fx.client.delete(_url(f"/templates/{PLAN_TEMPLATE}"))
 

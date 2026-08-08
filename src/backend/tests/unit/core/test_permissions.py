@@ -9,7 +9,6 @@ from app.core.permissions import (
     assert_permission,
     has_permission,
     list_permissions,
-    require_permission,
 )
 
 
@@ -18,9 +17,14 @@ class TestPlantDomainCRUD:
         for action in (Action.READ, Action.CREATE, Action.UPDATE, Action.DELETE):
             assert has_permission(TenantRole.LEAD, ResourceType.PLANT, action)
 
-    def test_grower_has_full_crud_on_plants(self):
-        for action in (Action.READ, Action.CREATE, Action.UPDATE, Action.DELETE):
+    def test_grower_may_read_create_update_but_not_delete_plants(self):
+        # REQ-024 §1a.1 ("❌D" throughout) / REQ-049 §2.3: delete is the
+        # irreversibility boundary and is lead-only. The matrix used to grant it
+        # to growers too — that drift is now corrected so the descriptive matrix
+        # and MembershipEngine.can_delete_resource agree.
+        for action in (Action.READ, Action.CREATE, Action.UPDATE):
             assert has_permission(TenantRole.GROWER, ResourceType.PLANT, action)
+        assert not has_permission(TenantRole.GROWER, ResourceType.PLANT, Action.DELETE)
 
     def test_viewer_only_reads_plants(self):
         assert has_permission(TenantRole.VIEWER, ResourceType.PLANT, Action.READ)
@@ -69,22 +73,6 @@ class TestAssertPermission:
     def test_raises_with_explanatory_message_when_denied(self):
         with pytest.raises(PermissionError, match="viewer"):
             assert_permission(TenantRole.VIEWER, ResourceType.PLANT, Action.DELETE)
-
-
-class TestRequirePermissionDependency:
-    def test_returns_role_when_permitted(self):
-        dep = require_permission(ResourceType.PLANT, Action.READ)
-        assert dep(current_role=TenantRole.GROWER) == TenantRole.GROWER
-
-    def test_raises_when_role_missing(self):
-        dep = require_permission(ResourceType.PLANT, Action.READ)
-        with pytest.raises(PermissionError, match="get_current_membership"):
-            dep(current_role=None)
-
-    def test_raises_when_role_not_permitted(self):
-        dep = require_permission(ResourceType.PLANT, Action.DELETE)
-        with pytest.raises(PermissionError, match="viewer"):
-            dep(current_role=TenantRole.VIEWER)
 
 
 class TestListPermissions:

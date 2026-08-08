@@ -36,7 +36,7 @@ from app.api.v1.planting_runs.schemas import (
     RunTransitionResponse,
     WateringScheduleCalendarResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import (
     get_nutrient_plan_service,
     get_plant_diary_service,
@@ -48,6 +48,7 @@ from app.common.enums import PlantingRunStatus
 from app.common.exceptions import NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
@@ -95,7 +96,7 @@ def list_runs(
 @router.post("", response_model=PlantingRunResponse, status_code=201)
 def create_run(
     body: PlantingRunCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Create a planting run for the tenant, optionally with initial entries."""
@@ -123,7 +124,7 @@ def get_run(
 def update_run(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     body: PlantingRunUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Update a planting run."""
@@ -136,7 +137,7 @@ def update_run(
 @router.delete("/{key}", status_code=204)
 def delete_run(
     key: Annotated[str, Path(description="Document key of the planting run.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.DELETE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Delete a planting run."""
@@ -160,7 +161,7 @@ def list_entries(
 def add_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     body: EntryCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Add an entry to a planting run."""
@@ -175,7 +176,7 @@ def update_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     entry_key: Annotated[str, Path(description="Document key of the planting-run entry.")],
     body: EntryUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Partially update a planting-run entry."""
@@ -193,7 +194,7 @@ def update_entry(
 def delete_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     entry_key: Annotated[str, Path(description="Document key of the planting-run entry.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.DELETE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Delete a planting-run entry."""
@@ -204,7 +205,7 @@ def delete_entry(
 @router.post("/{key}/create-plants", response_model=BatchCreatePlantsResponse, status_code=201)
 def batch_create_plants(
     key: Annotated[str, Path(description="Document key of the planting run.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Create plant instances in bulk from a planting run's entries."""
@@ -217,7 +218,7 @@ def batch_create_plants(
 def adopt_plants(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     body: AdoptPlantsRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Attach existing plant instances to a planting run."""
@@ -247,7 +248,7 @@ def get_phase_timeline(
 def transition_run(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     body: RunTransitionRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Transition all plants of a planting run to a target phase."""
@@ -260,7 +261,7 @@ def transition_run(
 def batch_update_phase_dates(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     body: BatchUpdatePhaseDatesRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Bulk-update the entered/exited dates for a phase across a planting run."""
@@ -278,7 +279,7 @@ def batch_update_phase_dates(
 def batch_remove(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     body: BatchRemoveRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Bulk-remove the plants of a planting run with a shared reason."""
@@ -346,7 +347,7 @@ def detach_plant(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance to detach.")],
     body: DetachPlantRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Detach a plant instance from a planting run."""
@@ -359,7 +360,7 @@ def detach_plant(
 def assign_nutrient_plan(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     body: NutrientPlanAssignRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Assign a nutrient plan to a planting run."""
@@ -383,7 +384,7 @@ def get_nutrient_plan(
 @router.delete("/{key}/nutrient-plan", status_code=204)
 def remove_nutrient_plan(
     key: Annotated[str, Path(description="Document key of the planting run.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Remove the nutrient plan assigned to a planting run."""
@@ -547,7 +548,7 @@ def create_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: DiaryEntryCreateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -605,7 +606,7 @@ def update_plant_diary_entry(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
     body: DiaryEntryUpdateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -631,7 +632,7 @@ def delete_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("diary-entry", Action.DELETE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):

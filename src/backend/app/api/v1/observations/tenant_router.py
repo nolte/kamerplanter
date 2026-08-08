@@ -11,8 +11,9 @@ from app.api.v1.observations.schemas import (
     SensorReadingCreate,
     SensorReadingResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_observation_service
+from app.core.permissions import Action, ResourceType
 from app.domain.models.observation import AggregatedReading, SensorReading
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.observation_service import ObservationService
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/observations", tags=["observations"])
 def record_sensor_reading(
     sensor_key: Annotated[str, Path(description="Identifier of the sensor the reading belongs to.")],
     body: SensorReadingCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OBSERVATION, Action.CREATE)),
     service: ObservationService = Depends(get_observation_service),
 ) -> SensorReadingResponse:
     """Record a single sensor reading for the tenant."""
@@ -66,7 +67,7 @@ def record_sensor_reading(
 def record_sensor_readings_batch(
     sensor_key: Annotated[str, Path(description="Identifier of the sensor the readings belong to.")],
     body: SensorReadingBatchCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OBSERVATION, Action.CREATE)),
     service: ObservationService = Depends(get_observation_service),
 ) -> BatchInsertResponse:
     """Record a batch of sensor readings for the tenant in one request."""

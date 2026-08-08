@@ -192,7 +192,10 @@ class TestRunDiaryCrossTenantIsolation:
         assert repo.docs["foreign-1"]["text"] == "Fremde Notiz"
 
     def test_delete_of_a_foreign_entry_is_not_found_and_keeps_the_document(self):
-        client, repo = _build()
+        # Deleting a diary entry is lead-only (REQ-049 §2.3); act as lead so the
+        # request reaches the cross-tenant isolation check under test rather than
+        # being stopped at the role gate.
+        client, repo = _build(role=TenantRole.LEAD)
         repo.seed("foreign-1", tenant_key=FOREIGN_TENANT_KEY)
 
         resp = client.delete(_run_entry_url("foreign-1"))
@@ -317,7 +320,9 @@ class TestRunDiaryListingCrossTenantIsolation:
 
 class TestStandaloneDiaryCrud:
     def test_create_list_get_update_delete(self):
-        client, repo = _build()
+        # Full CRUD flow: the delete step is lead-only (REQ-049 §2.3), so run the
+        # whole flow as a lead who can create, update and delete.
+        client, repo = _build(role=TenantRole.LEAD)
 
         created = client.post(
             _plant_url(),

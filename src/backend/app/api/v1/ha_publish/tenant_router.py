@@ -15,8 +15,9 @@ from app.api.v1.ha_publish.schemas import (
     HaPublishSettingResponse,
     HaPublishSettingUpdate,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_ha_publish_service
+from app.core.permissions import Action
 from app.domain.models.ha_publish_setting import HaPublishEntityType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ha_publish_service import HaPublishService
@@ -53,7 +54,7 @@ def list_enabled_keys(
 @router.put("", response_model=list[HaPublishSettingResponse])
 def bulk_set(
     body: HaPublishBulkUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("ha-publish", Action.UPDATE)),
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
     """Set the publish flag for several entities of one type at once."""
@@ -82,7 +83,7 @@ def set_status(
     entity_type: Annotated[HaPublishEntityType, Path(description="Publishable entity type.")],
     entity_key: Annotated[str, Path(description="Document key of the entity.")],
     body: HaPublishSettingUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("ha-publish", Action.UPDATE)),
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
     """Enable or disable publishing a single entity to Home Assistant."""
