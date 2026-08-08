@@ -437,6 +437,24 @@
     "starterKitsLoadFailed": "Failed to load starter kits.",
     "preferencesLoadFailed": "Failed to load preferences."
   },
+  "validation": {
+    "required": "This field is required.",
+    "invalidType": "Invalid value (expected: {{expected}}).",
+    "numberMin": "Must be at least {{minimum}}.",
+    "numberGt": "Must be greater than {{minimum}}.",
+    "numberMax": "Must be at most {{maximum}}.",
+    "numberLt": "Must be less than {{maximum}}.",
+    "stringMin": "Please enter at least {{minimum}} characters.",
+    "stringMax": "Please enter at most {{maximum}} characters.",
+    "arrayMin": "Please select at least {{minimum}} entries.",
+    "arrayMax": "Please select at most {{maximum}} entries.",
+    "multipleOf": "Must be a multiple of {{divisor}}.",
+    "email": "Please enter a valid email address.",
+    "url": "Please enter a valid URL.",
+    "invalidFormat": "Invalid format.",
+    "invalidOption": "Please choose a valid option.",
+    "invalid": "Invalid input."
+  },
   "entities": {
     "botanicalFamily": "Botanical Family",
     "botanicalFamilies": "Botanical Families",

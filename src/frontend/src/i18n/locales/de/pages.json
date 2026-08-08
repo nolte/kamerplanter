@@ -998,6 +998,11 @@
       "plant": "Pflanze",
       "plantHelp": "Die Pflanze, für die dieses Profil gilt.",
       "plantRequired": "Bitte wählen Sie eine Pflanze aus.",
+      "errors": {
+        "winterPathViolation": "Diese Schutzmaßnahme passt nicht zur gewählten Winterhärte. Bitte eine Maßnahme wählen, die zum Winterweg passt.",
+        "siteNotFrostExposed": "Für diese Pflanze lässt sich kein Überwinterungsprofil anlegen: Ihr Standort ist nicht frostexponiert (nur Freiland, Gewächshaus oder Balkon).",
+        "invalidSubject": "Bitte genau eine Pflanze oder einen Pflanzdurchlauf als Bezug angeben."
+      },
       "winterActionRatingNote": "Die Auswahl ist auf Maßnahmen abgestimmt, die zur gewählten Winterhärte passen.",
       "hardinessSection": "Winterhärte & Herbstmaßnahme",
       "hardinessSectionDesc": "Wie winterhart die Pflanze ist und was im Herbst zu ihrem Schutz getan wird.",

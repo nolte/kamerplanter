@@ -998,6 +998,11 @@
       "plant": "Plant",
       "plantHelp": "The plant this profile applies to.",
       "plantRequired": "Please select a plant.",
+      "errors": {
+        "winterPathViolation": "This protection measure does not match the selected hardiness. Please choose a measure that fits the winter path.",
+        "siteNotFrostExposed": "An overwintering profile cannot be created for this plant: its location is not frost-exposed (outdoor, greenhouse or balcony only).",
+        "invalidSubject": "Please reference exactly one plant or one planting run."
+      },
       "winterActionRatingNote": "The options are limited to measures that match the selected hardiness.",
       "hardinessSection": "Hardiness & autumn action",
       "hardinessSectionDesc": "How hardy the plant is and what protective action is taken in autumn.",

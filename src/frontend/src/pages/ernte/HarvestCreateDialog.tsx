@@ -15,13 +15,23 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import { isApiError } from '@/api/errors';
+import { useFieldViolations } from '@/hooks/useFieldViolations';
 import * as harvestApi from '@/api/endpoints/harvest';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
 import { getPlantLabel } from '@/utils/plantDisplay';
 
 const harvestTypes = ['partial', 'final', 'continuous'] as const;
+
+/**
+ * Backend violation `code` → i18n key. The unique `batch_id` index answers a
+ * collision with `DUPLICATE_ENTRY` on the `batch_id` field; translate it here
+ * because the backend `reason` ("Value '…' is already taken.") is English
+ * (#744, #1015). A code absent here stays on the generic toast.
+ */
+const VIOLATION_MESSAGE_KEYS: Record<string, string> = {
+  DUPLICATE_ENTRY: 'pages.harvest.batchIdDuplicate',
+};
 
 const schema = z.object({
   plant_key: z.string().min(1),
@@ -70,6 +80,10 @@ export default function HarvestCreateDialog({
     },
   });
 
+  const applyFieldViolation = useFieldViolations(setError, {
+    messageKeys: VIOLATION_MESSAGE_KEYS,
+  });
+
   useEffect(() => {
     if (open && !plantKey) {
       setLoadingPlants(true);
@@ -111,15 +125,12 @@ export default function HarvestCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      // Surface structured field errors on the form (e.g. a duplicate
-      // batch_id) AND show the code-specific toast (issue #744).
-      handleError(err, (name, message) =>
-        setError(name as keyof FormData, { message }),
-      );
-      if (isApiError(err) && err.errorCode === 'DUPLICATE_ENTRY') {
-        // Localise the field-level hint; the backend reason is English.
-        setError('batch_id', { message: t('pages.harvest.batchIdDuplicate') });
-      }
+      // Surface a duplicate batch_id on the field, translated on the violation
+      // `code`, AND show the code-specific toast (#744). The helper renders only
+      // codes it can translate, so the backend's English `reason` never reaches
+      // the German form (#1015) — the previous raw setter wrote it first and only
+      // then overwrote `batch_id`, leaving any other field showing English.
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }

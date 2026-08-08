@@ -235,16 +235,20 @@ describe('OverwinteringProfileDialog', () => {
     expect(screen.queryByTestId('form-field-tuber_status')).toBeNull();
   });
 
-  it('surfaces a server-side 422 field error on submit (D5)', async () => {
+  it('translates a coded server 422 onto the German field, not the English reason (#1015)', async () => {
     server.use(
       http.put('/api/v1/t/:tenant/overwintering-profiles/:key', () =>
         HttpResponse.json(
           {
             error_id: 'e-422',
-            error_code: 'VALIDATION_ERROR',
+            error_code: 'WINTER_PATH_VIOLATION',
             message: 'invalid',
             details: [
-              { field: 'body.notes', reason: 'Knollenstatus ungültig' },
+              {
+                field: 'winter_action',
+                reason: "Path B requires one of move_indoors, dig_store; got 'fleece'.",
+                code: 'WINTER_PATH_VIOLATION',
+              },
             ],
             timestamp: '',
             path: '',
@@ -260,15 +264,61 @@ describe('OverwinteringProfileDialog', () => {
     await screen.findByText(i18n.t('pages.overwintering.edit'));
     await user.click(screen.getByTestId('form-submit-button'));
 
-    // The field-error branch reports a validation notification and blocks save;
-    // the notes field is flagged invalid (aria-invalid) by the server detail.
-    expect(await screen.findByText(i18n.t('errors.validation'))).toBeTruthy();
+    // The German, code-keyed message lands on winter_action; the English reason
+    // never appears in the form (#1015).
+    const field = await screen.findByTestId('form-field-winter_action');
+    await waitFor(() =>
+      expect(
+        within(field).getByText(
+          i18n.t('pages.overwintering.errors.winterPathViolation'),
+        ),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.queryByText(
+        "Path B requires one of move_indoors, dig_store; got 'fleece'.",
+      ),
+    ).toBeNull();
     expect(onSaved).not.toHaveBeenCalled();
-    await waitFor(() => {
-      const notesInput = screen
-        .getByTestId('form-field-notes')
-        .querySelector('textarea');
-      expect(notesInput?.getAttribute('aria-invalid')).toBe('true');
-    });
+  });
+
+  it('degrades an untranslatable coded 422 to the toast, leaving the field clean (#1015)', async () => {
+    server.use(
+      http.put('/api/v1/t/:tenant/overwintering-profiles/:key', () =>
+        HttpResponse.json(
+          {
+            error_id: 'e-422',
+            error_code: 'VALIDATION_ERROR',
+            message: 'invalid',
+            details: [
+              // A pydantic cross-field code the dialog has no translation for.
+              { field: 'body.notes', reason: 'Value error: tuber status invalid', code: 'value_error' },
+            ],
+            timestamp: '',
+            path: '',
+            method: '',
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const { onSaved } = openEditDialog(digStoreProfile);
+
+    await screen.findByText(i18n.t('pages.overwintering.edit'));
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    // The toast is the floor; the English reason is never rendered on the field.
+    expect(
+      await screen.findByText(
+        i18n.t('errors.validationWithDetail', { detail: 'invalid' }),
+      ),
+    ).toBeTruthy();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(screen.queryByText('Value error: tuber status invalid')).toBeNull();
+    const notesInput = screen
+      .getByTestId('form-field-notes')
+      .querySelector('textarea');
+    expect(notesInput?.getAttribute('aria-invalid')).not.toBe('true');
   });
 });
