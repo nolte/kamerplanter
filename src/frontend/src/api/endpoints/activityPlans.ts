@@ -1,4 +1,4 @@
-import api, { tenantClient } from '../client';
+import { tenantClient } from '../client';
 import type {
   ActivityPlanGenerateRequest,
   ActivityPlanResponse,
@@ -18,8 +18,16 @@ import type {
 export const generatePlan = (req: ActivityPlanGenerateRequest) =>
   tenantClient.post<ActivityPlanResponse>('/activity-plans/generate', req).then((r) => r.data);
 
+/*
+ * Applying a plan moved under /t/{tenant_slug}/ (#1000). It used to be global and
+ * took its tenant from the request body, so any authenticated user could create
+ * tasks in an arbitrary tenant by naming it. The tenant now comes from the path
+ * (`tenantClient` prepends the active slug) and the body no longer carries a
+ * `tenant_key`; the created tasks are stamped with the path tenant, and the
+ * target plant/run is verified against it (404 for a foreign or unknown key).
+ */
 export const applyPlan = (req: ActivityPlanApplyRequest) =>
-  api.post<ActivityPlanApplyResponse>('/activity-plans/apply', req).then((r) => r.data);
+  tenantClient.post<ActivityPlanApplyResponse>('/activity-plans/apply', req).then((r) => r.data);
 
 /*
  * The two template writes moved under /t/{tenant_slug}/ (#992): they had no
