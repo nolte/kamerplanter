@@ -8,6 +8,8 @@ tab set and order vary with experience level.
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -201,7 +203,43 @@ class SpeciesDetailPage(BasePage):
 
     # ── Cultivar tab ("Sorten") ───────────────────────────────────────
 
+    #: The two states `CultivarListSection` settles into once its *own* fetch
+    #: has landed. `TabPanel` unmounts a hidden tab's children entirely (see
+    #: `TabPanel.tsx`), so this section mounts fresh -- and starts its
+    #: `useEffect`-driven `load()` fresh -- every time the "Sorten" tab
+    #: becomes active, independently of `SpeciesDetailPage`'s own top-level
+    #: loading flag. `DataTable`'s `loading` prop then replaces rows *and*
+    #: `EmptyState` alike with a skeleton for the length of that fetch
+    #: (`DataTable.tsx`), so a raw read taken right after `click_tab_by_label`
+    #: -- whose only other wait is the page-level `wait_for_loading_complete`,
+    #: which cannot see a skeleton that has not mounted yet -- can land in
+    #: that window and read 0 for a species that has cultivars.
+    CULTIVAR_BRANCHES = (CULTIVAR_TABLE_ROWS, BasePage.EMPTY_STATE)
+
+    def wait_for_cultivars_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the cultivar table has rendered rows or its empty state.
+
+        Deliberately does not raise: this is an *anchor* for the readers
+        below, not an assertion of its own. A species that legitimately has
+        no cultivars is a state the caller's assertion must still be able to
+        observe, so the budget is spent and the read proceeds regardless.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                self.CULTIVAR_BRANCHES, "species cultivar tab content", timeout=timeout
+            )
+
     def get_cultivar_count(self) -> int:
+        """Return the number of cultivar rows currently listed.
+
+        Anchored on :meth:`wait_for_cultivars_content`, not on the count
+        itself: two call sites gate a ``pytest.skip(...)`` on this reading
+        ``0`` and two more compare it before/after a mutation -- exactly the
+        shape #945/#946 fixed for `has_care_card`. Waiting for the value would
+        make a genuinely-empty species unobservable; waiting for the tab's own
+        settled branch does not.
+        """
+        self.wait_for_cultivars_content()
         return len(self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS))
 
     #: Column id of the cultivar table's identifying column (CultivarListSection).
@@ -415,7 +453,48 @@ class SpeciesDetailPage(BasePage):
             return False
         return True
 
+    #: The two states `GrowthPhaseListSection` settles into once its *own*
+    #: fetch has landed. Unlike `CULTIVAR_BRANCHES`, this section is not
+    #: itself unmounted by a tab switch -- it lives inside
+    #: `LifecycleConfigSection`, whose `<Typography>` heading
+    #: (`PHASE_SECTION_TITLE`) and its `<DataTable loading={loading} …/>` are
+    #: two children of the *same* return statement, so the heading commits in
+    #: the same render as a still-loading table. `has_growth_phase_section`'s
+    #: existing wait on the heading therefore proves the section *mounted*,
+    #: not that its fetch *settled* -- the same "content or empty" branch
+    #: `DataTable.tsx` swaps out for a skeleton for the length of every
+    #: `load()` (initial mount, and every create/edit/delete refetch) is
+    #: needed here too, independently of the heading.
+    PHASE_BRANCHES = (PHASE_TABLE_ROWS, BasePage.EMPTY_STATE)
+
+    def wait_for_phases_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the growth-phase table has rendered rows or its empty state.
+
+        Deliberately does not raise -- see :meth:`wait_for_cultivars_content`
+        for the rationale, identical here: a lifecycle config with no phases
+        yet is a state the caller's assertion must still be able to observe.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                self.PHASE_BRANCHES, "species growth phase tab content", timeout=timeout
+            )
+
     def get_phase_count(self) -> int:
+        """Return the number of growth-phase rows currently listed.
+
+        Anchored on :meth:`wait_for_phases_content`, not on the count itself:
+        one call site gates a ``pytest.skip(...)`` on this reading ``0``, and
+        three more compare it before/after a create or delete
+        (``test_create_growth_phase``, ``test_delete_growth_phase``,
+        ``_provision_species_with_phase``) -- the exact bidirectional-counter
+        shape #946 targets. Every one of those mutations re-triggers
+        `GrowthPhaseListSection`'s own `load()`, which -- like the cultivar
+        tab's -- replaces the table with a skeleton for the length of the
+        refetch, so a raw read right after `wait_for_loading_complete()`
+        (a no-op here: it never touches this section's own `loading` state)
+        can land mid-fetch and silently under-count.
+        """
+        self.wait_for_phases_content()
         return len(self.driver.find_elements(*self.PHASE_TABLE_ROWS))
 
     #: Column id of the growth-phase table's identifying column

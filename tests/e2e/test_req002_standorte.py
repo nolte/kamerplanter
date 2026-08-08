@@ -1079,7 +1079,7 @@ class TestSlotDetailPage:
         slot_detail.cancel_delete()
         capture("TC-REQ-002-035_after-cancel")
 
-        assert not slot_detail.is_confirm_dialog_visible(), (
+        assert slot_detail.wait_for_confirm_dialog_closed(), (
             "TC-REQ-002-035 FAIL: Confirm dialog should close after clicking Abbrechen"
         )
         current_url = slot_detail.driver.current_url
