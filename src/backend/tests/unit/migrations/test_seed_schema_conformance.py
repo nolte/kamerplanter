@@ -71,15 +71,19 @@ NO_SCHEMA_DECLARED: frozenset[str] = frozenset(
 #: file name -> (max tolerated violations, what the debt is).
 #:
 #: Every entry states the *shape* of the mismatch, so a reviewer can tell a known
-#: gap from a new one without re-deriving it. Measured 2026-08-08 on this tree.
+#: gap from a new one without re-deriving it. Measured 2026-08-08 and re-measured
+#: against the merged #1034 tree: every count is unchanged, because that change
+#: corrected harvest/month *values* which were already schema-valid. A ceiling is a
+#: maximum, so none of them can be lowered on this evidence.
 SCHEMA_DEBT_CEILING: dict[str, tuple[int, str]] = {
-    # One stray list item: ``- Lamiaceae`` at adventskalender.yaml:1264 was left
+    # One stray list item: ``- Lamiaceae`` at adventskalender.yaml:1277 was left
     # uncommented when the ``existing_families_needed`` block above it was commented
     # out, so YAML parses it as ``treatment_disease_edges[6]`` — a bare string where
     # the schema (and every sibling entry) has a ``[treatment, disease]`` pair. Inert
-    # today: no Python reads ``treatment_disease_edges`` at all. Not fixed here
-    # because PR #1034 holds this file open for the harvest/month correction and a
-    # one-line data edit would collide; it needs its own change.
+    # today: no Python reads ``treatment_disease_edges`` at all. It survived #1034,
+    # which edited this file without touching the line, so it is not blocked on that
+    # change any more — it needs its own one-line data fix (out of scope here: this
+    # lane authors schemas, tests and backend logic, not seed data).
     "adventskalender.yaml": (1, "stray '- Lamiaceae' parsed as treatment_disease_edges[6]"),
     # The nutrient-plan dialect: phase entries carry ``product_name`` where the
     # schema requires ``fertilizer_product_name``, plus per-plan extras

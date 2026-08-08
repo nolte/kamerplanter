@@ -19,13 +19,14 @@ in the lifecycle engine and is not. That is exactly what plant ``DRACA-0616-OWL`
 looked like two months after planting.
 """
 
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
 import pytest
 
 from app.common.exceptions import ValidationError
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+from app.domain.models.phase import PhaseHistory
 from app.domain.models.phase_sequence import PhaseDefinition, PhaseSequence, PhaseSequenceEntry
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_instance_service import PlantInstanceService
@@ -233,3 +234,39 @@ class TestCreatePlantWithoutAnyResolvablePhase:
         self.phase_repo.create_phase_history.assert_called_once()
         history = self.phase_repo.create_phase_history.call_args.args[0]
         assert history.phase_key == "caller-supplied"
+
+    def test_the_mcp_reader_can_now_report_never_initialised(self) -> None:
+        """Interaction with #1039's ``phase_state`` — verified, not assumed.
+
+        ``_classify_phase_state`` distinguishes "never enrolled in the lifecycle" from
+        "an open phase record that resolves to nothing". Before this fix, no freshly
+        created plant could ever reach the first branch: the empty ``initial`` history
+        entry was an open record (``exited_at is None``), so every unenrolled plant
+        reported ``unresolved`` — a dangling-record diagnosis for a master-data gap,
+        pointing an operator at the wrong repair.
+
+        Writing no entry is what makes the honest classification reachable. Driven with
+        the history ``create_plant`` actually produces (none), so the two changes are
+        pinned together rather than co-existing by luck.
+        """
+        from app.mcp_server.tools.phases import (
+            PHASE_STATE_NEVER_INITIALISED,
+            PHASE_STATE_UNRESOLVED,
+            _classify_phase_state,
+        )
+
+        created = self.service.create_plant(_plant(current_phase_key=None))
+        assert not created.current_phase_key
+        self.phase_repo.create_phase_history.assert_not_called()
+
+        assert _classify_phase_state("", "", history=[]) == PHASE_STATE_NEVER_INITIALISED
+
+        # The old behaviour, for contrast: an "initial" entry with an empty phase_key
+        # is an open record, so it classified as a dangling one.
+        empty_initial = PhaseHistory(
+            plant_instance_key="plant-1",
+            phase_key="",
+            phase_name="",
+            entered_at=datetime(2026, 6, 16, tzinfo=UTC),
+        )
+        assert _classify_phase_state("", "", history=[empty_initial]) == PHASE_STATE_UNRESOLVED

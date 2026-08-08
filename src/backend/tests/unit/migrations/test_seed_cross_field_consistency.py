@@ -56,20 +56,23 @@ Invariants A and B — deliberately not implemented here (named omission)
 
 The brief for this module also listed ``allows_harvest: true`` ⇒ harvest data
 (#1002) and top-level months ⇒ union of ``growing_periods`` (#1008). Both are
-already implemented, red-first, by ``scripts/check_seed_harvest_integrity.py`` in
-**PR #1034**, wired into pre-commit and ``backend.yml``, and that implementation
-evaluates the *effective* ``allows_harvest`` (the model defaults it to ``True``,
-so 44 of the 45 offending records carry no key at all) — a per-file, literal
-reading here would have found one of them and reported green over the rest.
+implemented, red-first, by ``scripts/check_seed_harvest_integrity.py`` (#1034,
+merged 2026-08-08), wired into pre-commit and ``backend.yml``, and that
+implementation evaluates the *effective* ``allows_harvest`` (the model defaults it
+to ``True``, so 44 of the 45 offending records carried no key at all) — a per-file,
+literal reading here would have found one of them and reported green over the rest.
 
 Re-implementing them would be a second source of truth for one rule, which is the
-duplication class the same audit catalogues (M5), and its allowlist would consist
-entirely of records #1034 fixes: it would go fully obsolete on that merge and turn
-this suite red for a reason unrelated to any change.
+duplication class the same audit catalogues (M5), and its allowlist would have
+consisted entirely of records #1034 fixed: it would have gone fully obsolete on that
+merge and turned this suite red for a reason unrelated to any change.
 
-:func:`test_harvest_and_month_invariants_are_enforced_by_the_dedicated_guard`
-holds the omission open instead of assuming it: it **runs** that guard once the
-script exists and skips, visibly, while it does not. Skipped is not passed.
+:func:`test_harvest_and_month_invariants_are_enforced_by_the_dedicated_guard` holds
+the omission open instead of assuming it. It was written while #1034 was still open,
+where it **skipped** with the reason named — skipped is not passed — and it flipped to
+running that guard by itself the moment the script landed. It is enforcing now; no
+edit was needed to make it so, which is the property that makes the delegation
+falsifiable rather than a promise in a docstring.
 """
 
 from __future__ import annotations
@@ -107,9 +110,11 @@ _EDIBLE_CATEGORIES = frozenset({"outdoor_vegetable", "herb", "bulb_tuber"})
 #: only shrink deliberately — adding to it is a visible edit, and an entry that no
 #: longer violates fails the obsolescence test.
 #:
-#: Measured 2026-08-08 across species.yaml + plant_info*.yaml + adventskalender.yaml.
-#: Several of these files are held open by PR #1034 (harvest/month correction), so
-#: the values are not researched here.
+#: Measured 2026-08-08 across species.yaml + plant_info*.yaml + adventskalender.yaml,
+#: and re-measured unchanged (176 of 186 in scope) against the merged #1034 tree:
+#: that change flipped ~19 ornamentals to ``allows_harvest: false``, which does not
+#: narrow the scope here — they are still kept in the living space. Researching the
+#: values is a separate, sourced piece of work, not a side effect of this module.
 TOXICITY_UNRESEARCHED: frozenset[str] = frozenset(
     {
         "Adiantum raddianum",
@@ -351,16 +356,39 @@ def _is_in_living_space_or_eaten(fields: dict[str, Any]) -> bool:
 
 
 def _has_explicit_toxicity(fields: dict[str, Any]) -> bool:
-    """Return whether the record states a toxicity fact rather than omitting one.
+    """Return whether the record *states* something about toxicity rather than omitting it.
 
-    ``is_toxic_cats: false`` and ``severity: none`` count — they are *negations*, and
-    the point of #1005 is that a negation and an omission must not look alike. An
-    empty or all-null block does not count: it says nothing.
+    Three shapes count, and they are not the same claim:
+
+    * a sourced block — ``is_toxic_cats: true``, ``toxic_parts: [...]``, ``severity:
+      moderate``;
+    * an explicit negation — ``is_toxic_cats: false`` / ``severity: none``. The whole
+      point of #1005 is that a negation and an omission must not look alike;
+    * an explicit **unknown** — a block carrying ``severity: null``. This is the form
+      ``.claude/agents/plant-info-to-seed-yaml.md`` made normative alongside #1045:
+      write the block even without a source, leave the booleans out (``false`` is a
+      claim, not a placeholder) and mark it. Rejecting it here would fail the first
+      author who follows that instruction.
+
+    An absent block, a non-dict, or ``toxicity: {}`` do not count: they say nothing,
+    and the domain then reads the ``Toxicity`` model defaults — all ``False``.
+
+    **Named limitation.** The normative unknown-form pairs ``severity: null`` with a
+    ``# TOXICITY-UNKNOWN:`` comment carrying the reason, and ``yaml.safe_load`` drops
+    comments — so the *presence of the block* is what is checked here, not the marker.
+    The marker is grep-anchored for the ``seed-data-validator`` agent, which owns it.
+    The second half of the normative rule — "three unsourced ``false`` booleans is also
+    a finding" — is likewise not machine-checkable from the YAML, because "sourced"
+    lives in the Steckbrief. Neither is silently folded in: a check that cannot see
+    something must not report on it.
     """
     toxicity = fields.get("toxicity")
     if not isinstance(toxicity, dict):
         return False
-    return any(value is not None for value in toxicity.values())
+    if any(value is not None for value in toxicity.values()):
+        return True
+    # An explicitly-null severity is the documented "looked, found nothing" answer.
+    return "severity" in toxicity
 
 
 # --------------------------------------------------------------------------- #
@@ -440,10 +468,14 @@ def test_the_toxicity_rule_fires_on_a_species_that_omits_the_field() -> None:
     assert _is_in_living_space_or_eaten(dracaena_reflexa)
     assert not _has_explicit_toxicity(dracaena_reflexa)
     assert not _has_explicit_toxicity({**dracaena_reflexa, "toxicity": {}})
-    assert not _has_explicit_toxicity({**dracaena_reflexa, "toxicity": {"severity": None}})
     # An explicit negation is an answer, and must clear the rule.
     assert _has_explicit_toxicity({**dracaena_reflexa, "toxicity": {"severity": "none"}})
     assert _has_explicit_toxicity({**dracaena_reflexa, "toxicity": {"is_toxic_cats": False}})
+    # …and so is an explicit unknown, in the exact form plant-info-to-seed-yaml.md
+    # prescribes (#1045). Rejecting this would fail the first author who follows the
+    # normative instruction — "unknown" and "not toxic" are different claims, but both
+    # are claims, and only the omission is the #1005 defect.
+    assert _has_explicit_toxicity({**dracaena_reflexa, "toxicity": {"severity": None}})
     # An outdoor ornamental is out of scope — the rule is bounded, not universal.
     assert not _is_in_living_space_or_eaten(
         {"plant_category": "outdoor_ornamental", "indoor_suitable": "no", "allows_harvest": False}
