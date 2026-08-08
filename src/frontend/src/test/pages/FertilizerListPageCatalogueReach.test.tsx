@@ -25,7 +25,7 @@
  * of 50 — so a test built from *today's* seed count would pass against the
  * defect. It is built from the size the catalogue is one decision away from.
  */
-import { screen, waitFor, within } from '@testing-library/react';
+import { waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
@@ -94,17 +94,46 @@ function serveCatalogue(): { requests: { offset: number; limit: number }[] } {
 }
 
 /**
- * Types a query into the page's own search field.
+ * Renders the page and returns queries scoped to *this* render's container.
  *
- * The input is debounced by 300 ms, so every assertion that follows must be
- * inside a `waitFor` with room for it — a bare assertion here would read the
+ * Scoped rather than the global `screen`: these cases each mount a 53-row page,
+ * and a query against `document.body` sees whatever a previous case left behind
+ * if its cleanup has not settled. That produced a failure whose message —
+ * "unable to find pH Perfect Sensi Grow A" — was indistinguishable from the
+ * defect under test, which is the worst possible way for a regression test to
+ * be flaky: it fails with the symptom it exists to detect.
+ */
+function renderPage() {
+  const { container } = renderWithProviders(<FertilizerListPage />);
+  return within(container);
+}
+
+type ScopedQueries = ReturnType<typeof renderPage>;
+
+/**
+ * Enters a query into the page's own search field.
+ *
+ * Pasted rather than typed: `user.type()` emits one change event per character,
+ * and each one re-renders a 53-row table, so a 24-character product name costs
+ * 24 full renders. That is fast enough on a bare run and blew the timeout under
+ * `--coverage`, whose instrumentation roughly doubles wall-clock (see the note
+ * in `vitest.config.ts`) — a test that only passes without coverage is a test
+ * that fails in the coverage job. A paste exercises the same `onChange` →
+ * debounce → `tableState.setSearch` path in a single event.
+ *
+ * The input is debounced by 300 ms, so every assertion that follows must sit
+ * inside a `waitFor` with room for it; a bare assertion would read the
  * pre-debounce table and pass for the wrong reason.
  */
-async function search(user: ReturnType<typeof userEvent.setup>, query: string): Promise<void> {
-  const field = await screen.findByTestId('table-search-input');
+async function search(
+  page: ScopedQueries,
+  user: ReturnType<typeof userEvent.setup>,
+  query: string,
+): Promise<void> {
+  const field = await page.findByTestId('table-search-input');
   const input = within(field).getByRole('textbox');
-  await user.clear(input);
-  await user.type(input, query);
+  await user.click(input);
+  await user.paste(query);
 }
 
 describe('FertilizerListPage — the whole catalogue is reachable by search (#995)', () => {
@@ -114,66 +143,64 @@ describe('FertilizerListPage — the whole catalogue is reachable by search (#99
 
   it('loads every product, not just the first page', async () => {
     const { requests } = serveCatalogue();
-    renderWithProviders(<FertilizerListPage />);
+    const page = renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Base Nutrient 00')).toBeTruthy();
+      expect(page.getByText('Base Nutrient 00')).toBeTruthy();
     });
 
     // The load must not have stopped at a page boundary. Asking for a page of 50
     // and rendering the answer is precisely the defect; the page asks for the
     // backend's maximum and keeps going until a short page comes back.
-    await waitFor(() => {
-      expect(requests.length).toBeGreaterThan(0);
-    });
-    expect(requests.every((r) => r.limit === 200)).toBe(true);
+    expect(requests.length).toBeGreaterThan(0);
+    expect(requests.every((request) => request.limit === 200)).toBe(true);
   });
 
   it.each(MISSING_IN_956)(
     'finds %s through the search box — the products reported missing in #956',
     async (productName) => {
       serveCatalogue();
-      const user = userEvent.setup();
-      renderWithProviders(<FertilizerListPage />);
+      const user = userEvent.setup({ delay: null });
+      const page = renderPage();
 
       await waitFor(() => {
-        expect(screen.getByText('Base Nutrient 00')).toBeTruthy();
+        expect(page.getByText('Base Nutrient 00')).toBeTruthy();
       });
 
-      await search(user, productName);
+      await search(page, user, productName);
 
       // The assertion that carries the issue: before the fix this row was absent
       // from the store, so the client-side search rendered the "no results"
       // empty state — the UI answering that a shipped product does not exist.
       await waitFor(
         () => {
-          expect(screen.getByText(productName)).toBeTruthy();
+          expect(page.getByText(productName)).toBeTruthy();
         },
-        { timeout: 3000 },
+        { timeout: 5000 },
       );
-      expect(screen.queryByTestId('no-search-results')).toBeNull();
+      expect(page.queryByTestId('no-search-results')).toBeNull();
     },
-    15000,
+    20000,
   );
 
   it('still reports no results for a product that really is not there', async () => {
-    // The counterpart the positive cases need: a search that finds everything
-    // would satisfy the tests above without the catalogue being loaded at all.
+    // The counterpart the positive cases need: a search that matched everything
+    // would satisfy the cases above without the catalogue being loaded at all.
     serveCatalogue();
-    const user = userEvent.setup();
-    renderWithProviders(<FertilizerListPage />);
+    const user = userEvent.setup({ delay: null });
+    const page = renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Base Nutrient 00')).toBeTruthy();
+      expect(page.getByText('Base Nutrient 00')).toBeTruthy();
     });
 
-    await search(user, 'Definitely Not A Seeded Product');
+    await search(page, user, 'Definitely Not A Seeded Product');
 
     await waitFor(
       () => {
-        expect(screen.getByTestId('no-search-results')).toBeTruthy();
+        expect(page.getByTestId('no-search-results')).toBeTruthy();
       },
-      { timeout: 3000 },
+      { timeout: 5000 },
     );
-  }, 15000);
+  }, 20000);
 });
