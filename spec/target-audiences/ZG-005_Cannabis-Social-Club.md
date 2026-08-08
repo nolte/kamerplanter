@@ -50,8 +50,17 @@
 - **Admin:** Voller Zugriff, Mitglieder-Verwaltung, Behoerden-Reporting
 - **Grower:** Pflanzen-Management, Ernte-Dokumentation, nur zugewiesene Raeume
 - **Viewer:** Read-Only (z.B. fuer behoerdliche Pruefer oder Buchhalter)
-- Granulare Rechte pro Ressourcentyp (PlantingRun, HarvestBatch, Treatment, etc.)
-- `require_permission()` FastAPI Dependency fuer alle Endpunkte
+- Durchgesetzt wird heute ueber `get_current_tenant` (aktive Mitgliedschaft),
+  `require_tenant_role(...)` (Mindestrolle) und `require_admin_scope(...)`
+  (administrative Flaechen) — siehe `spec/style-guides/BACKEND.md` §6.3
+- **Offen:** Granulare Rechte pro Ressourcentyp (PlantingRun, HarvestBatch,
+  Treatment, ...). Die Matrix existiert als Modul (`app/core/permissions.py`),
+  ist fuer HTTP-Endpunkte aber nicht verdrahtet; hier stand zuvor eine
+  `require_permission()`-Dependency „fuer alle Endpunkte", die kein Router
+  benutzt (Beleg: `.audits/issue-pattern-analysis/2026-08-08-report.md` §3.1).
+  Fuer den CSC-Fall heisst das: Rollen trennen zuverlaessig, eine
+  ressourcenscharfe Freigabe (z.B. „Pruefer sieht nur Ernte-Chargen") ist noch
+  nicht abbildbar.
 
 ### 3.3 Multi-Raum-Management (REQ-002, REQ-013)
 - Mehrere Anbauraeume als Standorte in der Location-Hierarchie

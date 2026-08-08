@@ -469,22 +469,83 @@ def get_species_service() -> SpeciesService:
 
 ### 6.3 Tenant-Scoped Routing
 
+Der `{tenant_slug}`-Praefix wird **einmal beim Mounten** gesetzt (in
+`app/api/v1/tenant_scoped/router.py`), nicht im Feature-Router. Der
+Feature-Router traegt nur seinen eigenen Praefix und loest den Mandanten pro
+Handler ueber `get_current_tenant` auf.
+
 ```python
 # In api/v1/{feature}/tenant_router.py
-router = APIRouter(
-    prefix="/t/{tenant_slug}/{feature}",
-    tags=["{feature}"],
-    dependencies=[Depends(require_tenant_membership)],
-)
+from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.enums import TenantRole
+from app.domain.models.tenant_context import TenantContext
 
-@router.get("")
-def list_items(
-    tenant_slug: str,
-    tenant_key: str = Depends(resolve_tenant_key),
-    service: Service = Depends(get_service),
-) -> ListResponse:
-    return service.list_items(tenant_key=tenant_key)
+router = APIRouter(prefix="/equipment", tags=["equipment"])
+
+
+@router.get("", response_model=list[EquipmentResponse])
+def list_equipment(
+    ctx: TenantContext = Depends(get_current_tenant),      # Lesen: Mitgliedschaft genuegt
+    service: InvenTreeService = Depends(get_inventree_service),
+):
+    return [to_response(i, EquipmentResponse) for i in service.list_equipment(ctx.tenant_key)]
+
+
+@router.post("", response_model=EquipmentResponse, status_code=201)
+def create_equipment(
+    body: EquipmentCreate,
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),  # Schreiben: Rolle
+    service: InvenTreeService = Depends(get_inventree_service),
+):
+    equipment = Equipment(**body.model_dump(), tenant_key=ctx.tenant_key)  # Stamping aus ctx
+    return to_response(service.create_equipment(ctx.tenant_key, equipment), EquipmentResponse)
 ```
+
+**Die realen Symbole** (`app/common/auth.py`) — es gibt kein
+`require_tenant_membership` und kein `resolve_tenant_key`:
+
+| Symbol | Achse | Wofuer |
+|--------|-------|--------|
+| `get_current_tenant` | — | Loest `tenant_slug` auf, prueft aktive Mitgliedschaft, liefert `TenantContext` |
+| `require_tenant_role(min_role)` | Domaenenrolle (REQ-049 §2.3) | Schreibende Fachaktionen (`GROWER`), Leitungsaktionen (`LEAD`) |
+| `require_admin_scope(scope)` | Admin-Scope (REQ-049 §2.4) | Mitglieder-, Integrations-, Sensorverwaltung — **unabhaengig** vom Rang |
+| `require_platform_admin` | Plattform | KA-Admin-Flaechen ausserhalb eines Mandanten |
+
+`require_permission()` aus `app/core/permissions.py` ist die geplante
+Permission-Matrix (REQ-024 v1.4) und **in keinem Router verdrahtet**. Bis das
+geschieht, ist sie kein Muster, das man abschreibt.
+
+**Drei MUSS-Regeln.** Sie sind die Lehre aus Cluster A der Issue-Muster-Analyse
+(#1000, #1003, #992, #952, #927, #719, #706):
+
+1. **Jede Lese- oder Listenabfrage einer tenant-scoped Collection MUSS ein
+   Tenant-Praedikat am Anker tragen.** Anker heisst: an dem Dokument, das den
+   Mandanten tatsaechlich fuehrt. Bei `BaseRepository.get_all()` erledigt das
+   `builder.filter("tenant_key", "==", tenant_key)`. Bei Traversierungen haengt
+   das Praedikat an der Startvertex bzw. am Elterndokument, nicht am
+   Ergebnisknoten — `Location` und `Slot` haben ein leeres `tenant_key` und sind
+   ueber ihre Site tenant-verifiziert; ein `FILTER v.tenant_key == @tenant_key`
+   auf der Location filtert deshalb nicht Fremde, sondern **alles** weg (stiller
+   Datenverlust, #706). Referenzimplementierung:
+   `ArangoSiteRepository.get_location_tree` und `.get_slot_for_plant`.
+2. **`tenant_key` wird NIEMALS aus dem Request-Body akzeptiert.** Der Mandant
+   kommt ausschliesslich aus dem Pfad (`{tenant_slug}`) ueber den Auth-Kontext.
+   Ein `tenant_key`-Feld in einem Schema unter `api/**/schemas.py` ist ein
+   Defekt — auch mit Default `""` (Bestandsfall:
+   `api/v1/activity_plans/schemas.py`, `ActivityPlanApplyRequest`), weil der
+   Aufrufer damit die Isolation selbst bestimmt.
+3. **Jeder Create-Pfad stempelt `tenant_key` aus `ctx`.** Also
+   `Model(**body.model_dump(), tenant_key=ctx.tenant_key)` bzw. die Uebergabe
+   von `ctx.tenant_key` an den Service — nie aus dem Body uebernehmen, nie
+   weglassen. Ein Dokument ohne `tenant_key` ist fuer jede spaetere gefilterte
+   Abfrage unsichtbar und faellt erst Monate spaeter auf.
+
+!!! note "Statisches Gate in Arbeit"
+    Diese drei Regeln sind heute Prosa und werden von keinem Check erzwungen —
+    genau die Fehlerklasse, die NFR-018 §2 katalogisiert. Ein Gate gegen
+    `tenant_key` in Request-Schemas und ein fail-closed `is_tenant_scoped`
+    entstehen in der Lane `ci/issue-pattern-gates` (Massnahmen P1.1/P1.2 der
+    Issue-Muster-Analyse). Bis sie required sind, traegt der Review die Last.
 
 ---
 

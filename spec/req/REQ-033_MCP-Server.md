@@ -49,7 +49,7 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 | **REQ-030 (Notifications)** | Komplementaer. REQ-030 *pusht* Erinnerungen aus Kamerplanter heraus (HA, E-Mail, Apprise). REQ-033 erlaubt es einem LLM, *aktiv* den Pflege-Stand abzufragen. |
 | **REQ-016 (InvenTree)** | Aehnliches Muster: optionale externe Integration. MCP-Server ist nicht InvenTree-spezifisch, sondern protokoll-getrieben. |
 | **REQ-023 (API-Keys & Service Accounts)** | Hartes Prerequisite. MCP-Server akzeptiert ausschliesslich `kp_`-API-Keys — persoenliche wie Service-Account-Keys —, nie JWT oder interaktive Sessions. |
-| **REQ-024 (Permission-Matrix)** | Jeder Tool-Aufruf wird ueber `require_permission()` geroutet. |
+| **REQ-024 (Permission-Matrix)** | Jeder Tool-Aufruf wird im Dispatcher gegen die Permission-Klasse des Tools geprueft: `assert_mcp_permission(role, tool.permission)` (`app/core/permissions.py`, aufgerufen aus `app/mcp_server/dispatcher.py`). Das ist der einzige aktiv verdrahtete Nutzer des Permission-Moduls — die feinkoernige Ressourcen×Aktion-Matrix `require_permission()` ist in **keinem** HTTP-Router verdrahtet und darf hier nicht als Mechanik vorausgesetzt werden (Beleg: `.audits/issue-pattern-analysis/2026-08-08-report.md` §3.1). |
 
 ### 1.2 Architekturueberblick
 
