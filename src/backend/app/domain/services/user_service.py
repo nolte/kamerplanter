@@ -1,5 +1,6 @@
 import structlog
 
+from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
@@ -33,6 +34,36 @@ class UserService:
 
         updated = self._user_repo.update(user_key, user)
         return self._to_profile(updated)
+
+    def get_user(self, user_key: UserKey) -> User:
+        """Load one full user, raising :class:`NotFoundError` when absent.
+
+        Used by the platform-admin path (#1018), which needs the full ``User``
+        (not the trimmed :class:`UserProfile`) to build its response.
+        """
+        return self._user_repo.get_or_raise(user_key)
+
+    def admin_update_user(self, user_key: UserKey, data: dict) -> User:
+        """Apply a partial platform-admin update to one user (#1018).
+
+        ``data`` is a partial payload passed straight to
+        :meth:`IUserRepository.update_fields`, so the **caller owns the
+        allow-list**: build it from a closed request schema's ``model_dump()``
+        (``AdminUserUpdate``), never from a raw request body. The single endpoint
+        that reaches this — ``PATCH /admin/platform/users/{key}`` — does exactly
+        that, and that closedness is what keeps ``email``, ``password_hash``,
+        ``account_type`` and the token/lock fields out of the payload.
+
+        Routed here by #1018, which ended a router that wrote to the users
+        collection itself (``collection.update``) — Presentation straight onto
+        Persistence (NFR-001), outside the repository's model re-validation
+        (#982/#996), reserved-attribute strip and 1202 → ``NotFoundError``
+        mapping.
+        """
+        user = self._user_repo.update_fields(user_key, data)
+        if not user:
+            raise NotFoundError("User", user_key)
+        return user
 
     def delete_account(self, user_key: UserKey) -> None:
         user = self._user_repo.get_or_raise(user_key)
