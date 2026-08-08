@@ -296,6 +296,21 @@ tasks:
     cmds:
       - python3 scripts/check_seed_catalogue_page_size.py {{.CLI_ARGS}}
 
+  check:seed-harvest-integrity:
+    desc: |
+      Refuse seed species records asserting a harvest or sowing fact no consumer
+      can act on (#1002, #1008): an effective `allows_harvest` without any
+      `harvest_months` (which makes every pre-harvest Karenz undecidable rather
+      than not-applicable), and flat top-level month fields that are not the
+      union of the record's `growing_periods`. Boolean invariants, no baseline —
+      a record either supplies a harvest date or it does not. Reads the merged
+      view the seeders produce, so it sees a disagreement whose two halves live
+      in different seed files. Also runs as a pre-commit hook in the required
+      `static` lane. Pass --list to name every record checked, --json for
+      machine-readable output.
+    cmds:
+      - python3 scripts/check_seed_harvest_integrity.py {{.CLI_ARGS}}
+
   # ── Documentation ───────────────────────────────────────────
 
   docs:catalog:
