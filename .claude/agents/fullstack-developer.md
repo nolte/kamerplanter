@@ -154,7 +154,7 @@ Diese Regeln sind in den Specs detailliert beschrieben. Hier die Kurzfassung als
 
 ### Backend
 
-- **Immer async** — alle FastAPI-Endpoints und DB-Zugriffe
+- **Router-Funktionen synchron** — `def`, nicht `async def` (BACKEND.md §6.1; python-arango ist synchron, FastAPI dispatcht sync-Handler in den Threadpool)
 - **AQL parametrisiert** — IMMER `bind_vars`, NIEMALS f-strings (Injection!)
 - **pgvector SQL parametrisiert** — NIEMALS f-strings
 - **Config via pydantic-settings** — keine hardcodierten URLs/Ports/Credentials
