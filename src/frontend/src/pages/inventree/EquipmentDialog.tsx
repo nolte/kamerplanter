@@ -94,7 +94,6 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
     control,
     handleSubmit,
     reset,
-    setError,
     formState: { isDirty, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
 
@@ -127,9 +126,12 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
       }
       onSaved();
     } catch (error) {
-      handleError(error, (name, message) =>
-        setError(name as keyof FormData, { message }),
-      );
+      // No field-level mapping: this dialog has no coded cross-field violation to
+      // translate, so the generic toast is the correct floor. The widened
+      // useApiError contract (#1015) keeps the backend's English `reason` off the
+      // German form; a coded violation, should one arise, is wired via
+      // `useFieldViolations` with a `code → i18n key` map.
+      handleError(error);
       notification.error(t('errors.generic'));
     }
   };

@@ -311,15 +311,17 @@ class TestWateringLogCreateDialog:
         # the user is told nothing at all, and the one the test claims to
         # observe is only one of them (#970).
         #
-        # The text is asserted non-empty rather than matched: the message is
-        # zod's own default for `.gt(0)`, so its wording belongs to the zod
-        # version in `package.json` and would turn a dependency bump into a
-        # test failure. What the test owns is that the field the user must fix
-        # is the one carrying the message.
-        assert message, (
-            "TC-REQ-004-W005 FAIL: Expected the volume field to show a validation "
-            "message after submitting volume=0, got none. The dialog staying open "
-            "is not enough — a swallowed click looks the same to the user."
+        # The exact German text is asserted now (#1016): the constraint no longer
+        # renders zod's English default, it is routed through the global i18n
+        # error map, so `volume_liters > 0` shows the German `validation.numberGt`
+        # message. Pinning the text is what proves the German string reaches the
+        # user — the previous non-empty check passed even on the English default
+        # this issue removed.
+        assert message == "Muss größer als 0 sein.", (
+            "TC-REQ-004-W005 FAIL: Expected the volume field to show the German "
+            f"validation message 'Muss größer als 0 sein.', got {message!r}. An "
+            "English zod default here is the #1016 defect; an empty string means "
+            "the field carried no message at all (#970)."
         )
 
         watering_list.cancel_create_form()
