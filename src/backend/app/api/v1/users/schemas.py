@@ -1,8 +1,10 @@
 from pydantic import BaseModel, Field
 
+from app.common.validators import DisplayName
+
 
 class ProfileUpdateRequest(BaseModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=200)
+    display_name: DisplayName | None = None
     avatar_url: str | None = None
     locale: str | None = None
     timezone: str | None = None
