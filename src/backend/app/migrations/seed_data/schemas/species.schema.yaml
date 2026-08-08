@@ -102,7 +102,18 @@ $defs:
         type: number
         minimum: -1
         maximum: 1
-      # Outdoor sowing fields
+      # ── Kulturfenster (REQ-015-A) — preferred over the flat fields below ──
+      growing_periods:
+        type: array
+        description: >-
+          Explicit sowing→harvest windows. A species with more than one genuine
+          cultivation window (Sommer-/Winterweizen) MUST carry them here; the flat
+          fields below can express only a single window and collapse the distinction.
+          When this list is non-empty it takes precedence: the sowing-calendar engine
+          synthesises a period from the flat fields ONLY when it is empty.
+        items:
+          $ref: "_defs.schema.yaml#/$defs/growing_period"
+      # Outdoor sowing fields — the single-window shorthand
       sowing_indoor_weeks_before_last_frost:
         type: [integer, "null"]
         minimum: 0

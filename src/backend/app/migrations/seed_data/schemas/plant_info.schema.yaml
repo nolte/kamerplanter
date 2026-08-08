@@ -33,11 +33,17 @@ properties:
         $ref: "#/$defs/cultivar"
   growth_phases:
     type: object
-    description: "Dictionary of species_name -> list of phase objects"
+    description: >-
+      Dictionary of species_name -> list of phase objects. Two dialects are in use
+      and both are real: the flat one read by ``seed_plant_info``/``seed_plant_info_extended``
+      and the compact ``phase``/``requirements``/``nutrients`` one read by
+      ``seed_adventskalender``. See ``$defs.compact_phase_entry``.
     additionalProperties:
       type: array
       items:
-        $ref: "#/$defs/phase_entry"
+        oneOf:
+          - $ref: "#/$defs/phase_entry"
+          - $ref: "#/$defs/compact_phase_entry"
   lifecycle_configs:
     type: object
     description: "Dictionary of species_name -> lifecycle configuration"
@@ -213,6 +219,18 @@ $defs:
         type: [string, "null"]
         enum: [climacteric, non_climacteric, atypical, null]
         description: "Post-harvest ripening behaviour of fruit (third value for genuine borderline cases)."
+      # ── Kulturfenster (REQ-015-A) — preferred over the flat fields below ──
+      growing_periods:
+        type: array
+        description: >-
+          Explicit sowing→harvest windows. A species with more than one genuine
+          cultivation window (summer vs winter leek) MUST carry them here; the flat
+          fields below can express only a single window and collapse the distinction.
+          When this list is non-empty it takes precedence: the sowing-calendar engine
+          synthesises a period from the flat fields ONLY when it is empty.
+        items:
+          $ref: "_defs.schema.yaml#/$defs/growing_period"
+      # ── Legacy flat sowing/harvest fields — the single-window shorthand ──
       sowing_indoor_weeks_before_last_frost:
         type: [integer, "null"]
       sowing_outdoor_after_last_frost_days:
@@ -404,6 +422,13 @@ $defs:
       propagation_notes:
         type: [string, "null"]
         description: "DEPRECATED flat notes — use propagation_configs[].notes."
+      growing_periods:
+        type: array
+        description: >-
+          Explicit sowing→harvest windows (REQ-015-A). Enrichment is fill-if-empty:
+          this only lands when the stored species carries no periods yet.
+        items:
+          $ref: "_defs.schema.yaml#/$defs/growing_period"
       toxicity:
         $ref: "#/$defs/toxicity"
       allergen_info:
@@ -530,6 +555,78 @@ $defs:
         additionalProperties: true
     required: [name, sequence_order,
                stress_tolerance, allows_harvest, is_terminal]
+    additionalProperties: false
+
+  # The compact growth-phase dialect. ``adventskalender.yaml`` declares this schema
+  # but writes its 87 growth phases in a second, abbreviated shape that the flat
+  # ``phase_entry`` above does not model. That file was invisible to the conformance
+  # test until #1030 (the test globbed ``plant_info*.yaml`` only), so 522 violations
+  # accumulated unseen — every one of them this shape mismatch rather than a data
+  # defect (audit 2026-08-08 §3 finding 11).
+  #
+  # The dialect is not "wrong": ``seed_adventskalender.py`` reads exactly these keys,
+  # and it reads every one of them with direct ``[...]`` indexing — a missing key is a
+  # KeyError at seed time, which is why they are all ``required`` here. Modelling the
+  # dialect (rather than exempting the file) is what makes the directive on
+  # ``adventskalender.yaml`` mean something.
+  compact_phase_entry:
+    type: object
+    properties:
+      phase:
+        type: object
+        description: "Phase identity + shape. Maps onto GrowthPhase in seed_adventskalender."
+        properties:
+          name:
+            $ref: "_defs.schema.yaml#/$defs/phase_name"
+          display_name: { type: string }
+          duration:
+            type: integer
+            minimum: 1
+            description: "→ GrowthPhase.typical_duration_days"
+          order:
+            type: integer
+            minimum: 1
+            description: "→ GrowthPhase.sequence_order"
+          terminal:
+            type: boolean
+            description: "→ GrowthPhase.is_terminal"
+          harvest:
+            type: boolean
+            description: "→ GrowthPhase.allows_harvest"
+          stress:
+            $ref: "_defs.schema.yaml#/$defs/stress_tolerance"
+        required: [name, display_name, duration, order, terminal, harvest, stress]
+        additionalProperties: false
+      requirements:
+        type: object
+        description: "→ RequirementProfile. Every key is indexed directly by the seeder."
+        properties:
+          ppfd: { type: integer, minimum: 0 }
+          photoperiod: { type: number, minimum: 0, maximum: 24 }
+          temp_day: { type: number }
+          temp_night: { type: number }
+          hum_day: { type: integer, minimum: 0, maximum: 100 }
+          hum_night: { type: integer, minimum: 0, maximum: 100 }
+          vpd: { type: number, minimum: 0 }
+          co2: { type: integer, minimum: 0 }
+          irrigation_freq: { type: number, minimum: 0 }
+          irrigation_vol: { type: number, minimum: 0 }
+        required: [ppfd, photoperiod, temp_day, temp_night, hum_day, hum_night,
+                   vpd, co2, irrigation_freq, irrigation_vol]
+        additionalProperties: false
+      nutrients:
+        type: object
+        description: "→ NutrientProfile. ca/mg are nullable (not every phase is dosed)."
+        properties:
+          npk:
+            $ref: "_defs.schema.yaml#/$defs/npk_ratio"
+          ec: { type: number, minimum: 0 }
+          ph: { type: number, minimum: 0, maximum: 14 }
+          ca: { type: [number, "null"], minimum: 0 }
+          mg: { type: [number, "null"], minimum: 0 }
+        required: [npk, ec, ph, ca, mg]
+        additionalProperties: false
+    required: [phase, requirements, nutrients]
     additionalProperties: false
 
   companion_planting_data:
