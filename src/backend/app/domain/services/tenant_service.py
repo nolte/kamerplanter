@@ -198,7 +198,26 @@ class TenantService:
         ``data`` through ``model_copy(update=...)``, which does not validate.
         ``slug`` is derived here, from ``name``, and never accepted from a
         caller.
+
+        **The platform tenant cannot be deactivated (#1021).** ``delete_tenant``
+        already refuses the platform tenant (``is_platform`` → 403) from the
+        router; deactivating it via ``{"is_active": False}`` slipped through
+        because this path had no such guard. The check lives here, not on the
+        router, so both entry points are covered — the platform-admin
+        ``PATCH /admin/platform/tenants/{key}`` and the tenant-scoped
+        ``PATCH /t/{slug}`` (which does not carry ``is_active`` today, but would
+        be guarded if it ever did). It refuses with the same
+        :class:`ForbiddenError` (403) shape ``delete_tenant`` uses, and is scoped
+        to deactivation only — renaming or re-describing the platform tenant
+        still works.
         """
+        if data.get("is_active") is False:
+            tenant = self._tenant_repo.get_by_key(tenant_key)
+            if not tenant:
+                raise NotFoundError("tenants", tenant_key)
+            if tenant.is_platform:
+                raise ForbiddenError("The platform tenant cannot be deactivated.")
+
         if "name" in data:
             errors = self._tenant_engine.validate_tenant_name(data["name"])
             if errors:

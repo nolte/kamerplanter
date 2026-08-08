@@ -1774,13 +1774,28 @@ species:
     hardiness_zones: ["3a", "9a"]
     native_habitat: Near East
     allelopathy_score: 0.1
+    # #1008: the two growing periods carried months the Steckbrief does not, and
+    # the flat top-level fields were absent entirely — so `get_species_info`
+    # answered "no sowing or harvest window" for a crop `get_sowing_calendar`
+    # renders two series for. Reconciled against spec/knowledge/plants/
+    # triticum_aestivum.md, which is the source of truth:
+    #   §1.2 "Direktsaat-Monate | 3, 4 (Sommerweizen); 9, 10 (Winterweizen)"
+    #   §1.2 "Erntemonate | 7, 8"
+    #   §1 Hinweis "Sommerweizen (März–April Saat; Juli–August Ernte) und
+    #      Winterweizen (Oktober Saat; Juli Ernte)"
+    #   §4.2 "Sep–Okt | Winterweizen-Saat"
+    # Winter sowing moves 10;11 -> 9;10 and winter harvest 6;7 -> 7: months 11
+    # and 6 appear in no section of the Steckbrief. The flat fields below are the
+    # union of the periods, so both readings now answer the same.
+    direct_sow_months: [3, 4, 9, 10]
+    harvest_months: [7, 8]
     growing_periods:
       - label: Sommerweizen
         direct_sow_months: [3, 4]
         harvest_months: [7, 8]
       - label: Winterweizen
-        direct_sow_months: [10, 11]
-        harvest_months: [6, 7]
+        direct_sow_months: [9, 10]
+        harvest_months: [7]
     frost_sensitivity: very_hardy
     plant_category: outdoor_vegetable
     container_suitable: "no"
@@ -1960,6 +1975,7 @@ species:
 
   # -- Araceae (2) --
   - scientific_name: Monstera deliciosa
+    allows_harvest: false  # #1002: ornamental — Steckbrief: "Entfaellt (Fruchtbildung Indoor extrem selten)"
     common_names: [Monstera, Fensterblatt]
     family: Araceae
     genus: Monstera
@@ -1990,6 +2006,7 @@ species:
       max_ph: 6.5
 
   - scientific_name: Spathiphyllum wallisii
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: [Peace Lily, Einblatt]
     family: Araceae
     genus: Spathiphyllum
@@ -2023,6 +2040,7 @@ species:
 
   # -- Asparagaceae (1) --
   - scientific_name: Chlorophytum comosum
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: [Spider Plant, "Grünlilie"]
     family: Asparagaceae
     genus: Chlorophytum
@@ -2052,6 +2070,7 @@ species:
 
   # -- Bromeliaceae (1) --
   - scientific_name: Guzmania lingulata
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: [Scarlet Star, Guzmania]
     family: Bromeliaceae
     genus: Guzmania
@@ -2123,6 +2142,7 @@ species:
 
   # -- Urticaceae (1) --
   - scientific_name: Pilea peperomioides
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: [Chinese Money Plant, Ufopflanze]
     family: Urticaceae
     genus: Pilea
@@ -2355,6 +2375,7 @@ species:
 
   # -- Geraniaceae (1) --
   - scientific_name: Pelargonium zonale
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: [Zonal Geranium, Geranie]
     family: Geraniaceae
     genus: Pelargonium
@@ -2422,6 +2443,7 @@ species:
 
   # -- Verbenaceae (1) --
   - scientific_name: Verbena x hybrida
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     propagation_configs:
       - method: seed
         months: [2, 3]

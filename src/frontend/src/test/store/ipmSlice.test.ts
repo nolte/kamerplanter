@@ -120,18 +120,24 @@ describe('ipmSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchPests forwards paging and stores pests', async () => {
-    mocked.listPests.mockResolvedValue([{ key: 'p1' }] as never);
+  // #995: all three catalogue thunks load the complete catalogue, never a page
+  // of it — their list views search and sort client-side, so a bounded page does
+  // not paginate, it makes the search deny rows that exist. The negative
+  // assertions carry the regression: the previous tests only checked that the
+  // items landed in the store, which a truncated page satisfies too.
+  it('fetchPests loads the complete catalogue, not a single page', async () => {
+    mocked.listAllPests.mockResolvedValue([{ key: 'p1' }] as never);
     const store = makeIpmStore();
-    await store.dispatch(fetchPests({ offset: 0, limit: 10 }));
-    expect(mocked.listPests).toHaveBeenCalledWith(0, 10);
+    await store.dispatch(fetchPests());
+    expect(mocked.listAllPests).toHaveBeenCalled();
+    expect(mocked.listPests).not.toHaveBeenCalled();
     expect(store.getState().ipm.pests).toEqual([{ key: 'p1' }]);
   });
 
   it('fetchPests surfaces a rejection as the slice error', async () => {
-    mocked.listPests.mockRejectedValue(new Error('load failed'));
+    mocked.listAllPests.mockRejectedValue(new Error('load failed'));
     const store = makeIpmStore();
-    await store.dispatch(fetchPests({}));
+    await store.dispatch(fetchPests());
     expect(store.getState().ipm.error).toBe('load failed');
   });
 
@@ -143,10 +149,12 @@ describe('ipmSlice thunks', () => {
     expect(store.getState().ipm.currentPest).toEqual({ key: 'p9' });
   });
 
-  it('fetchDiseases stores diseases', async () => {
-    mocked.listDiseases.mockResolvedValue([{ key: 'd1' }] as never);
+  it('fetchDiseases loads the complete catalogue, not a single page', async () => {
+    mocked.listAllDiseases.mockResolvedValue([{ key: 'd1' }] as never);
     const store = makeIpmStore();
-    await store.dispatch(fetchDiseases({}));
+    await store.dispatch(fetchDiseases());
+    expect(mocked.listAllDiseases).toHaveBeenCalled();
+    expect(mocked.listDiseases).not.toHaveBeenCalled();
     expect(store.getState().ipm.diseases).toEqual([{ key: 'd1' }]);
   });
 
@@ -158,10 +166,12 @@ describe('ipmSlice thunks', () => {
     expect(store.getState().ipm.currentDisease).toEqual({ key: 'd9' });
   });
 
-  it('fetchTreatments stores treatments', async () => {
-    mocked.listTreatments.mockResolvedValue([{ key: 't1' }] as never);
+  it('fetchTreatments loads the complete catalogue, not a single page', async () => {
+    mocked.listAllTreatments.mockResolvedValue([{ key: 't1' }] as never);
     const store = makeIpmStore();
-    await store.dispatch(fetchTreatments({}));
+    await store.dispatch(fetchTreatments());
+    expect(mocked.listAllTreatments).toHaveBeenCalled();
+    expect(mocked.listTreatments).not.toHaveBeenCalled();
     expect(store.getState().ipm.treatments).toEqual([{ key: 't1' }]);
   });
 

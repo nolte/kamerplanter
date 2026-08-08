@@ -3,14 +3,17 @@ name: Backend CI
 on:
   push:
     branches: [develop]
-    # The two scripts are listed beside src/backend/** because their unit tests
-    # live in this suite (tests/unit/test_*_ratchet.py, test_boundary_*.py) — a
-    # change to a script alone would otherwise run neither its own tests nor the
-    # tree assertions they carry.
+    # The scripts are listed beside src/backend/** because their unit tests live
+    # in this suite (tests/unit/test_*_ratchet.py, test_boundary_*.py,
+    # test_seed_catalogue_page_size_check.py, test_seed_harvest_integrity_check.py)
+    # — a change to a script alone would
+    # otherwise run neither its own tests nor the tree assertions they carry.
     paths:
       - 'src/backend/**'
       - 'scripts/check_schema_examples.py'
       - 'scripts/check_boundary_validation.py'
+      - 'scripts/check_seed_catalogue_page_size.py'
+      - 'scripts/check_seed_harvest_integrity.py'
       - '.github/workflows/backend.yml'
   pull_request:
     branches: [develop]
@@ -18,6 +21,8 @@ on:
       - 'src/backend/**'
       - 'scripts/check_schema_examples.py'
       - 'scripts/check_boundary_validation.py'
+      - 'scripts/check_seed_catalogue_page_size.py'
+      - 'scripts/check_seed_harvest_integrity.py'
       - '.github/workflows/backend.yml'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below

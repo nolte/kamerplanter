@@ -26,17 +26,44 @@ beforeEach(() => {
 });
 
 describe('activities endpoints', () => {
-  it('listActivities gets with undefined params by default', async () => {
+  // #995: sending no paging argument used to send no `offset`/`limit` either,
+  // and the backend then applied its own default of 50 — which is how one of the
+  // 51 seeded activities came to be permanently absent from the list view. The
+  // paging is now explicit, so the bound is visible in the request rather than
+  // inferred from a backend default nobody reads.
+  it('listActivities sends the paging defaults explicitly', async () => {
     client.get.mockResolvedValue({ data: [] });
     await activities.listActivities();
-    expect(client.get).toHaveBeenCalledWith('/activities', { params: undefined });
+    expect(client.get).toHaveBeenCalledWith('/activities', {
+      params: { offset: 0, limit: 50 },
+    });
   });
 
-  it('listActivities forwards filter params', async () => {
+  it('listActivities forwards filter params alongside the paging', async () => {
     client.get.mockResolvedValue({ data: [] });
     const params = { category: 'care', scope: 'universal' as const, species: 'sp1' };
     await activities.listActivities(params);
-    expect(client.get).toHaveBeenCalledWith('/activities', { params });
+    expect(client.get).toHaveBeenCalledWith('/activities', {
+      params: { ...params, offset: 0, limit: 50 },
+    });
+  });
+
+  it('listAllActivities pages until a short page, keeping the filters', async () => {
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `a${i}` }));
+    client.get
+      .mockResolvedValueOnce({ data: full })
+      .mockResolvedValueOnce({ data: [{ key: 'tail' }] });
+
+    const all = await activities.listAllActivities({ category: 'care' });
+
+    expect(all).toHaveLength(201);
+    expect(client.get).toHaveBeenCalledTimes(2);
+    expect(client.get).toHaveBeenNthCalledWith(1, '/activities', {
+      params: { category: 'care', offset: 0, limit: 200 },
+    });
+    expect(client.get).toHaveBeenNthCalledWith(2, '/activities', {
+      params: { category: 'care', offset: 200, limit: 200 },
+    });
   });
 
   it('getActivity gets activity by key', async () => {

@@ -6,6 +6,12 @@
  * factory were uncovered (dropping global function coverage below the gate).
  * These tests dispatch fetchList + fetchOne against a mocked endpoint module,
  * running the fetchers and the itemsField/currentField/paginated branches.
+ *
+ * `listFn` names the endpoint each slice's fetcher is *expected* to reach. For a
+ * global reference catalogue that is the complete-catalogue loader, not the
+ * single-page one (#995): this table is the one place the pairing is written
+ * down for all of them at once, so a slice quietly reverting to a bounded page
+ * fails here.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore, type Reducer, type UnknownAction } from '@reduxjs/toolkit';
@@ -60,14 +66,14 @@ interface SliceCase {
 
 const cases: SliceCase[] = [
   { name: 'wateringLogs', reducer: erase(wateringLogsReducer), list: fetchWateringLogs, one: fetchWateringLog, listFn: wlApi.listWateringLogs, oneFn: wlApi.getWateringLog },
-  { name: 'nutrientPlans', reducer: erase(nutrientPlansReducer), list: fetchNutrientPlans, one: fetchNutrientPlan, listFn: npApi.fetchNutrientPlans, oneFn: npApi.fetchNutrientPlan },
+  { name: 'nutrientPlans', reducer: erase(nutrientPlansReducer), list: fetchNutrientPlans, one: fetchNutrientPlan, listFn: npApi.fetchAllNutrientPlans, oneFn: npApi.fetchNutrientPlan },
   { name: 'feedingEvents', reducer: erase(feedingEventsReducer), list: fetchFeedingEvents, one: fetchFeedingEvent, listFn: feApi.listFeedingEvents, oneFn: feApi.getFeedingEvent },
-  { name: 'substrates', reducer: erase(substratesReducer), list: fetchSubstrates, one: fetchSubstrate, listFn: subApi.listSubstrates, oneFn: subApi.getSubstrate },
+  { name: 'substrates', reducer: erase(substratesReducer), list: fetchSubstrates, one: fetchSubstrate, listFn: subApi.listAllSubstrates, oneFn: subApi.getSubstrate },
   { name: 'plantInstances', reducer: erase(plantInstancesReducer), list: fetchPlantInstances, one: fetchPlantInstance, listFn: piApi.listPlantInstances, oneFn: piApi.getPlantInstance },
   { name: 'tanks', reducer: erase(tanksReducer), list: fetchTanks, one: fetchTank, listFn: tankApi.listTanks, oneFn: tankApi.getTank },
-  { name: 'fertilizers', reducer: erase(fertilizersReducer), list: fetchFertilizers, one: fetchFertilizer, listFn: fertApi.fetchFertilizers, oneFn: fertApi.fetchFertilizer },
+  { name: 'fertilizers', reducer: erase(fertilizersReducer), list: fetchFertilizers, one: fetchFertilizer, listFn: fertApi.fetchAllFertilizers, oneFn: fertApi.fetchFertilizer },
   { name: 'plantingRuns', reducer: erase(plantingRunsReducer), list: fetchPlantingRuns, one: fetchPlantingRun, listFn: prApi.listPlantingRuns, oneFn: prApi.getPlantingRun },
-  { name: 'activities', reducer: erase(activitiesReducer), list: fetchActivities, one: fetchActivity, listFn: actApi.listActivities, oneFn: actApi.getActivity },
+  { name: 'activities', reducer: erase(activitiesReducer), list: fetchActivities, one: fetchActivity, listFn: actApi.listAllActivities, oneFn: actApi.getActivity },
 ];
 
 beforeEach(() => {

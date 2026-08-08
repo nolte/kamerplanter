@@ -43,6 +43,10 @@ TENANT_KEY = "t-1"
 ORIGINAL_NAME = "Community Garden"
 ORIGINAL_SLUG = "community-garden"
 
+PLATFORM_KEY = "platform"
+PLATFORM_NAME = "Platform"
+PLATFORM_SLUG = "platform"
+
 
 def _tenant_doc() -> dict[str, Any]:
     """A valid, complete stored tenant document."""
@@ -56,6 +60,25 @@ def _tenant_doc() -> dict[str, Any]:
         "owner_user_key": "u-owner",
         "is_active": True,
         "is_platform": False,
+        "max_members": 50,
+        "settings": {},
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+
+
+def _platform_tenant_doc() -> dict[str, Any]:
+    """The system ``platform`` tenant — ``is_platform`` is ``True``."""
+    return {
+        "_key": PLATFORM_KEY,
+        "_id": f"tenants/{PLATFORM_KEY}",
+        "name": PLATFORM_NAME,
+        "slug": PLATFORM_SLUG,
+        "tenant_type": "organization",
+        "description": "System platform tenant",
+        "owner_user_key": "u-owner",
+        "is_active": True,
+        "is_platform": True,
         "max_members": 50,
         "settings": {},
         "created_at": "2026-01-01T00:00:00+00:00",
@@ -301,3 +324,50 @@ class TestExistingBehaviourIsPreserved:
 
         assert response.status_code == 422
         assert store[TENANT_KEY]["max_members"] == 50
+
+
+# ── #1021: the platform tenant cannot be deactivated ─────────────────────────
+
+
+class TestPlatformTenantCannotBeDeactivated:
+    """``delete_tenant`` refuses the platform tenant (403); ``update_tenant`` did
+    not, so ``{"is_active": false}`` on it went through.
+
+    The guard lives in :meth:`TenantService.update_tenant`, so both entry points
+    are covered — the platform-admin path here and the tenant-scoped
+    ``PATCH /t/{slug}`` (which never carries ``is_active`` today, but would be
+    guarded if it ever did). It refuses with the same 403 shape ``delete_tenant``
+    already uses.
+    """
+
+    def test_deactivating_the_platform_tenant_is_refused(self, client, store):
+        store[PLATFORM_KEY] = _platform_tenant_doc()
+
+        response = client.patch(
+            f"/api/v1/admin/platform/tenants/{PLATFORM_KEY}",
+            json={"is_active": False},
+        )
+
+        assert response.status_code == 403
+        assert store[PLATFORM_KEY]["is_active"] is True
+
+    def test_an_ordinary_tenant_stays_deactivable(self, client, store):
+        """The half that catches a guard refusing everyone."""
+        response = _patch(client, {"is_active": False})
+
+        assert response.status_code == 200
+        assert response.json()["is_active"] is False
+        assert store[TENANT_KEY]["is_active"] is False
+
+    def test_platform_tenant_non_deactivation_updates_still_pass(self, client, store):
+        """The guard is scoped to deactivation — a rename must still work."""
+        store[PLATFORM_KEY] = _platform_tenant_doc()
+
+        response = client.patch(
+            f"/api/v1/admin/platform/tenants/{PLATFORM_KEY}",
+            json={"description": "Renamed platform description"},
+        )
+
+        assert response.status_code == 200
+        assert store[PLATFORM_KEY]["description"] == "Renamed platform description"
+        assert store[PLATFORM_KEY]["is_active"] is True

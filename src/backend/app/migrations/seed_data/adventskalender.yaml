@@ -75,12 +75,26 @@ new_species:
     harvested_part: stem
     sowing_indoor_weeks_before_last_frost: null
     sowing_outdoor_after_last_frost_days: null
+    # #1008: this record carried the periods while plant_info_outdoor_1.yaml's
+    # enrichment supplied the flat month fields, and the two never agreed —
+    # `get_sowing_calendar` rendered the winter crop, `get_species_info` hid its
+    # whole sowing window. Reconciled against spec/knowledge/plants/
+    # allium_porrum.md, which is the source of truth:
+    #   §1.2 "Direktsaat-Monate | 3; 4; 5 (Pflanzung 5; 6; 7)"
+    #   §1.2 "Erntemonate | 8; 9; 10; 11; 12; 1; 2; 3 (Winterlauch!)"
+    # The harvest split already unioned to §1.2 and is unchanged. The sowing
+    # split did not: month 2 is Vorkultur under glass (§1.3, §4.2 "Jan--Feb |
+    # Voranzucht") and month 6 is Pflanzung (§1.2's own parenthesis, §4.2
+    # "Mai--Jun | Auspflanzen") — neither is Direktsaat, which §1.2 bounds at
+    # 3--5. The flat fields below are the union, so both readings now agree.
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [8, 9, 10, 11, 12, 1, 2, 3]
     growing_periods:
       - label: Sommerporree
-        direct_sow_months: [2, 3]
+        direct_sow_months: [3, 4]
         harvest_months: [8, 9, 10, 11]
       - label: Winterporree
-        direct_sow_months: [5, 6]
+        direct_sow_months: [5]
         harvest_months: [12, 1, 2, 3]
     bloom_months: [6, 7]
     container_suitable: limited

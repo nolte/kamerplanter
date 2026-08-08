@@ -34,6 +34,21 @@ describe('substrates endpoints — substrate CRUD', () => {
     });
   });
 
+  it('listAllSubstrates pages until a short page (#995)', async () => {
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `s${i}` }));
+    client.get
+      .mockResolvedValueOnce({ data: full })
+      .mockResolvedValueOnce({ data: [{ key: 'tail' }] });
+
+    const all = await substrates.listAllSubstrates();
+
+    expect(all).toHaveLength(201);
+    expect(client.get).toHaveBeenCalledTimes(2);
+    expect(client.get).toHaveBeenNthCalledWith(2, '/substrates', {
+      params: { offset: 200, limit: 200 },
+    });
+  });
+
   it('getSubstrate gets substrate by key', async () => {
     client.get.mockResolvedValue({ data: { key: 's1' } });
     await substrates.getSubstrate('s1');

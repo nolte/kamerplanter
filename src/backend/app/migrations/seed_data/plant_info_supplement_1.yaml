@@ -36,6 +36,7 @@ new_species_family_map:
 
 new_species:
   - scientific_name: "Streptocarpus ionanthus"
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
     seed_profile:
       germination_temp_min_c: 20
@@ -95,6 +96,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Syngonium podophyllum"
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: ["Pfeilblatt", "Dreieckspflanze", "Arrowhead Plant", "Arrowhead Vine"]
     genus: Syngonium
     plant_category: tropical_foliage
@@ -142,6 +144,14 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Dahlia x cultorum"
+    # #1002: ornamental. The five Dahlia Steckbriefe are cultivar sheets and none
+    # is species-level; two state the directive verbatim in the cell mapped to
+    # `species.harvest_months` (dahlia_embassy.md, dahlia_x_hybrida_lavender_
+    # perfection.md: "null (Zierpflanze ... allows_harvest: false)"), the other
+    # two list a Schnittblumen-Ernte, i.e. a cut-flower window, not a crop. No
+    # sheet records an edible harvest, and the species record carries no `edible`
+    # trait — so the flag is false rather than a set of invented months.
+    allows_harvest: false
     common_names: ["Dahlie", "Garten-Dahlie", "Dahlia", "Garden Dahlia"]
     genus: Dahlia
     growth_habit: bulb_geophyte

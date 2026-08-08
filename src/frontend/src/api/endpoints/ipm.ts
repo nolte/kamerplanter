@@ -1,4 +1,5 @@
 import globalClient, { tenantClient } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   Disease,
   DiseaseCreate,
@@ -38,21 +39,14 @@ export async function listPests(
  * Loads the complete pest catalogue by paging through the ``/ipm/pests`` list
  * endpoint until a short page is returned. That endpoint uses the shared
  * pagination dependency (``limit<=200``), so a fixed ``limit=500`` both 422'd
- * (over the cap, #614) and would silently truncate a large catalogue. Paging at
- * 100 stays comfortably within the cap; callers that need the whole set (e.g. the
- * admin contributions overview) must use this instead of ``listPests()``.
+ * (over the cap, #614) and would silently truncate a large catalogue.
+ *
+ * Callers that need the whole set — the admin contributions overview, and the
+ * list view, whose search and sort run client-side and are therefore only
+ * truthful over a complete set (#995) — use this instead of ``listPests()``.
  */
-export async function listAllPests(pageSize = 100): Promise<Pest[]> {
-  const all: Pest[] = [];
-  let offset = 0;
-  // Guard against an unbounded loop if the backend ever ignores the offset.
-  for (let page = 0; page < 1000; page += 1) {
-    const batch = await listPests(offset, pageSize);
-    all.push(...batch);
-    if (batch.length < pageSize) break;
-    offset += pageSize;
-  }
-  return all;
+export async function listAllPests(pageSize = CATALOGUE_PAGE_SIZE): Promise<Pest[]> {
+  return fetchAllPages(listPests, pageSize);
 }
 
 export async function getPest(key: string): Promise<Pest> {
@@ -136,6 +130,17 @@ export async function listDiseases(
   return data;
 }
 
+/**
+ * Loads the complete disease catalogue (same contract as {@link listAllPests}).
+ * The list view uses this: its search and sort run client-side, so a bounded
+ * first page would make the search deny rows that exist (#995).
+ */
+export async function listAllDiseases(
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<Disease[]> {
+  return fetchAllPages(listDiseases, pageSize);
+}
+
 export async function getDisease(key: string): Promise<Disease> {
   const { data } = await globalClient.get<Disease>(`${BASE}/diseases/${key}`);
   return data;
@@ -171,6 +176,18 @@ export async function listTreatments(
     params: { offset, limit },
   });
   return data;
+}
+
+/**
+ * Loads the complete treatment catalogue (same contract as {@link listAllPests}).
+ * 40 treatments are seeded against a single-page default of 50 — under it today,
+ * with ten rows of headroom, which is not a resting state: the list view reads
+ * the whole catalogue so the 51st treatment does not vanish (#995).
+ */
+export async function listAllTreatments(
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<Treatment[]> {
+  return fetchAllPages(listTreatments, pageSize);
 }
 
 export async function getTreatment(key: string): Promise<Treatment> {

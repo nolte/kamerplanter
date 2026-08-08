@@ -20,6 +20,17 @@ from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
 from app.mcp_server.tools.catalogs import substrate_display_name
+from app.mcp_server.tools.phases import _classify_phase_state
+
+#: Degraded ``phase_state`` when the phase service cannot be reached at all. Kept
+#: local to this read because it is a *degradation* sentinel, not a member of the
+#: never_initialised / unresolved / between_cycles / in_phase vocabulary
+#: ``_classify_phase_state`` owns — reusing that classifier is deliberate (a
+#: second copy would be a second vocabulary for the same distinction, #1006). A
+#: null ``phase_state`` beside a null ``current_phase_key`` would reintroduce the
+#: very opacity the field exists to remove, so the failure says "unknown" out loud
+#: rather than falling silent.
+PHASE_STATE_UNKNOWN = "unknown"
 
 #: Upper bound on a single page. The palette favours compact, LLM-readable
 #: answers over completeness — a bigger page is a worse answer, not a better one.
@@ -176,6 +187,34 @@ class GetPlant(ToolBase):
             except Exception:  # noqa: BLE001 — a missing catalogue entry must not fail the read
                 data["substrate_name"] = None
         data["substrate_type"] = str(resolved_type) if resolved_type else None
+
+        # A bare ``current_phase_key: null`` conflates three states an agent must
+        # act on differently: "never enrolled in the lifecycle", "resting between
+        # cycles" and "a dangling/empty phase record" (#1006, #949). That
+        # four-way distinction already exists — ``get_plant_phase_status`` computes
+        # it as ``phase_state`` — so this surfaces the *same* value here rather
+        # than minting a second vocabulary for it: it reuses ``_classify_phase_state``
+        # over the same two service calls that tool makes.
+        #
+        # Emitted **only when the key is null**, on purpose. A truthy
+        # ``current_phase_key`` already names a real phase, so ``phase_state`` there
+        # would be a redundant ``in_phase`` while costing two extra phase-service
+        # calls on the common healthy-plant path — no new information for a real
+        # cost. The species and substrate lookups above set the precedent that a
+        # detail view may pay for an extra lookup, but only where it says something
+        # the bare record cannot; here that is exactly, and only, the null case.
+        if not plant.current_phase_key:
+            try:
+                current = ctx.phase_service.get_current_phase(plant.key)
+                history = ctx.phase_service.get_phase_history(plant.key)
+                data["phase_state"] = _classify_phase_state(
+                    current.get("phase_key") or "",
+                    current.get("phase") or "",
+                    history,
+                )
+            except Exception:  # noqa: BLE001 — a phase-service outage must not fail the read
+                # Degrade to an explicit sentinel, never a null: see PHASE_STATE_UNKNOWN.
+                data["phase_state"] = PHASE_STATE_UNKNOWN
 
         name = plant.plant_name or plant.instance_id
         return self._response(
