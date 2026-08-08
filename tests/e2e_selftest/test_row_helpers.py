@@ -1220,6 +1220,157 @@ class TestTheAnchoredCareCardReaders:
         assert page.wait_for_care_card(self.PLANT, "watering", timeout=SETTLE_TIMEOUT) is True
 
 
+# ── 8b. The skip-gate side of the same defect (#946 wave 1) ──────────────────
+
+
+class TestTheAnchoredSectionReaders:
+    """`has_overdue_section` and its two urgency-section siblings, wave 1 of #946.
+
+    Same shape as `TestTheAnchoredCareCardReaders` above, on the skip-gate side:
+    `test_overdue_cards_have_error_color` (and its `due_today`/`upcoming`
+    siblings) reads ``if not pflege.has_overdue_section(): pytest.skip(...)``
+    directly after ``pflege.open()``. Before the fix this was a single
+    `driver.find_elements` call with no wait at all — the CI failure this
+    reproduces is not a slow render racing a bounded wait, it is a skip
+    decision made on the *very first* DOM read after navigation, which the
+    `_render_..._after(harness, 3)` helpers below model by only materialising
+    content on probe 3.
+
+    Each reader gets the same two-part pin as `has_care_card`: it must outlive
+    a late render (the anchor is a real wait, not a renamed sample) and it must
+    still report a genuine, settled absence (the anchor does not silently
+    convert "gone" into "always there").
+    """
+
+    PLANT = "77003"
+    CARD_TESTID = f"care-card-care-{PLANT}-watering"
+
+    def _page(self, harness: Harness) -> PflegeDashboardPage:
+        return PflegeDashboardPage(harness.driver, "http://stub.invalid")
+
+    def _settle_empty_now(self, harness: Harness) -> None:
+        """Render the dashboard's empty-state branch immediately (a genuine, settled absence)."""
+        harness.dom.render_dialog("empty-state")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        """Run *build* once the DOM has been probed `probes` times.
+
+        Hooked on both `find_elements` and the branch-probe script, exactly as
+        `TestTheAnchoredCareCardReaders._render_card_after` does above: the
+        anchor's `wait_for_any_present` sweeps its three branches through one
+        `execute_script` round-trip, so a hook on `find_elements` alone would
+        never fire while the anchor is waiting.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def _build_overdue_section_with_card(self, harness: Harness) -> None:
+        section = harness.dom.render_dialog("task-section-overdue")
+        section.children.append(harness.dom._new(self.CARD_TESTID, css_class="MuiCard-root"))
+
+    # ── has_overdue_section / has_due_today_section / has_upcoming_section ──
+
+    def test_has_overdue_section_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        assert self._page(harness).has_overdue_section() is True
+
+    def test_has_overdue_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """The dashboard has settled (empty-state rendered); overdue never comes."""
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_overdue_section() is False
+
+    def test_has_due_today_section_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-section-today")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).has_due_today_section() is True
+
+    def test_has_due_today_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_due_today_section() is False
+
+    def test_has_upcoming_section_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-section-thisWeek")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).has_upcoming_section() is True
+
+    def test_has_upcoming_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_upcoming_section() is False
+
+    # ── has_task_cards: feeds the empty-state skip decision ──
+
+    def test_has_task_cards_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-card")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).has_task_cards() is True
+
+    def test_has_task_cards_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_task_cards() is False
+
+    # ── get_all_care_cards: drift-fixed to match count_care_cards_for_plant ──
+
+    def test_get_all_care_cards_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog(self.CARD_TESTID)
+
+        self._render_after(harness, 3, build)
+
+        cards = self._page(harness).get_all_care_cards()
+        assert len(cards) == 1
+
+    def test_get_all_care_cards_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_all_care_cards() == []
+
+    # ── get_cards_in_section / get_section_total_card_count ──
+
+    def test_get_cards_in_section_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        cards = self._page(harness).get_cards_in_section("overdue")
+        assert len(cards) == 1
+
+    def test_get_cards_in_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_cards_in_section("overdue") == []
+
+    def test_get_section_total_card_count_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        assert self._page(harness).get_section_total_card_count("overdue") == 1
+
+    def test_get_section_total_card_count_still_reports_a_settled_absence(
+        self, harness: Harness
+    ) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_section_total_card_count("overdue") == 0
+
+
 # ── 9. A submit helper cannot carry the caller's intent (#835) ───────────────
 
 
