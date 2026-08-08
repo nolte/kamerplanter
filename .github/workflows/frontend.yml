@@ -271,6 +271,61 @@ jobs:
           path: src/frontend/.lighthouseci/
           retention-days: 7
 
+  # Dead-component detection (2026-08-08 issue-pattern audit, measure P4.4).
+  #
+  # `tsc` accepts an exported React component that nothing imports and ESLint
+  # never looks across files, so a finished vertical slice can be reachable from
+  # no route at all. Cluster K of the audit is eight issues of exactly that
+  # (#818, #786, #606, #578, #438). This job is the first thing in the
+  # repository that measures it.
+  #
+  # ADVISORY, AND HONESTLY SO. It carries NO `continue-on-error`: the job goes
+  # red when knip finds something, because a job that cannot fail is not a
+  # check (NFR-018 §2). It blocks nothing regardless — branch protection
+  # requires only `static / Static CI Tests` and `lint-test-build (22)`
+  # (`.github/settings.yml`), and this job is deliberately not among them.
+  #
+  # It IS red today: 9 unreachable files and 38 unused exports as of
+  # 2026-08-08, listed in full by the run. That number is not baselined away in
+  # knip.jsonc on purpose — an ignore list would make the lane green while the
+  # debt it exists to name sat inside it.
+  #
+  # PROMOTION CONDITION, so nobody has to guess: this becomes a required check
+  # when (a) the finding list is empty, and (b) it has been empty across a
+  # measured window of develop runs — NFR-018 §4 promotes on history, never on
+  # intent. Until both hold, promoting it would block every pull request in the
+  # repository on pre-existing debt.
+  deadcode:
+    name: Dead code (advisory)
+    needs: changes
+    # `needs.changes.result` for the reason given on `lighthouse` above: without
+    # it a failed `changes` would skip every step and the job would report
+    # Success having scanned nothing.
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.changes.result != 'success'
+          || needs.changes.outputs.frontend == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Detect unused files and exports
+        # Through the Taskfile-equivalent npm script so the pipeline and a
+        # contributor run the identical thing (continuous-integration §E);
+        # `task lint:frontend:deadcode` is the local entry point.
+        run: npm run deadcode
+
   # NFR-009 §4.1 — CVE audit of the SHIPPED dependency tree. The backend has
   # done this on every pull request for a long time (`pip-audit` in backend.yml);
   # the frontend had no equivalent, and Trivy only reaches `package-lock.json` at

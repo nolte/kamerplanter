@@ -214,6 +214,19 @@ tasks:
       # pipeline rejects. Widened to match CI rather than narrowing CI to match it.
       - npx eslint .
 
+  lint:frontend:deadcode:
+    desc: |
+      Report unused files and unused exports in the frontend (knip) — the
+      advisory `deadcode` job's exact invocation. `tsc` accepts an exported
+      component nothing imports and ESLint never looks across files, so a
+      finished vertical slice can be reachable from no route at all (#818,
+      #786, #606). RED TODAY, on purpose: 9 unreachable files and 38 unused
+      exports as of 2026-08-08, none of them baselined away — see the header of
+      src/frontend/knip.jsonc for why there is no ignore list.
+    dir: src/frontend
+    cmds:
+      - npm run deadcode
+
   typecheck:
     desc: Run TypeScript type check (no emit)
     dir: src/frontend
