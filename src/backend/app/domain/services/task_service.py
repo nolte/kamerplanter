@@ -424,7 +424,27 @@ class TaskService:
             return
         _refuse_system_workflow(self.get_workflow_template(workflow_template_key))
 
-    def reorder_workflow_phases(self, phase_orders: list[dict]) -> list[WorkflowPhase]:
+    def reorder_workflow_phases(self, phase_orders: list[dict], *, tenant_key: str) -> list[WorkflowPhase]:
+        """Reorder a workflow's phases, verifying each against ``tenant_key`` (#965 item 1).
+
+        ``reorder_phases`` wrote ``phase_order`` by ``_key`` with no scoping at
+        all, so a caller could re-sequence another tenant's workflow — the one
+        write path in the phase group the #964 sweep left open. Every phase key
+        is now resolved to its parent ``WorkflowTemplate`` (the only tenant anchor
+        a phase has) and verified through :meth:`get_workflow_template`, which
+        answers ``NotFoundError`` for a foreign or unknown parent — the same
+        tenant check the per-key phase routes already perform, and never a
+        cross-tenant oracle. A system workflow's phases are refused too, matching
+        the sibling edit/delete routes: re-sequencing seeded phases would move
+        them for every tenant.
+
+        ``tenant_key`` is keyword-only (#948): a route that forgets to thread it
+        fails loudly rather than compiling away the isolation.
+        """
+        for item in phase_orders:
+            phase = self.get_workflow_phase(item["key"])
+            self.get_workflow_template(phase.workflow_template_key, tenant_key=tenant_key)
+            self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
         return self._repo.reorder_phases(phase_orders)
 
     def get_phase_suggestions(self) -> list[dict]:
