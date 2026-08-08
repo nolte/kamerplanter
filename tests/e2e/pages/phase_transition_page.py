@@ -6,11 +6,13 @@ plus the PhaseTransitionDialog interaction, into one cohesive page object.
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from .base_page import BasePage
+from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class PlantInstanceListExt(BasePage):
@@ -38,7 +40,41 @@ class PlantInstanceListExt(BasePage):
         self.wait_for_loading_complete()
         return self
 
+    #: The three states this list settles into: rows, the terminal "no source
+    #: data" `EmptyState`, or the terminal "search matched nothing" panel
+    #: (`NO_SEARCH_RESULTS`, inherited from `BasePage` -- this page-object's own
+    #: `search()` never anchors its debounce, so nothing here relies on that
+    #: branch, but it costs nothing to include). `PAGE` mounts synchronously in
+    #: `PlantInstanceListPage.tsx` -- before the first fetch resolves -- so a
+    #: read taken right after `open()` can land in a frame where none of the
+    #: three has committed yet. This mirrors the identical, already-fixed
+    #: `PlantInstanceListPage.wait_for_list_content` (#946 wave 8) -- this class
+    #: is a separate, older duplicate of that page object that never got the fix.
+    def wait_for_list_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the table has rows, its empty state, or its no-results panel.
+
+        Deliberately does not raise: this is an *anchor* for the reader below,
+        not an assertion of its own. A tenant with no plant instances is a
+        state the caller's own assertion must still be able to observe.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.TABLE_ROWS, self.EMPTY_STATE, self.NO_SEARCH_RESULTS),
+                "plant instance list content (ext)",
+                timeout=timeout,
+            )
+
     def get_row_count(self) -> int:
+        """Return the number of visible data rows.
+
+        Anchored on :meth:`wait_for_list_content`. `test_req003_phasensteuerung.py`
+        gates `pytest.skip(...)`/self-provisioning and row-index loops on this,
+        immediately after `open()` -- an unanchored `0` read in the pre-fetch
+        window before `open()`'s data has arrived is indistinguishable from a
+        table that genuinely has no rows (the `has_care_card` defect class,
+        #946).
+        """
+        self.wait_for_list_content()
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
@@ -163,6 +199,16 @@ class PlantInstanceDetailExt(BasePage):
         By.CSS_SELECTOR,
         "[data-testid='phases-tab-content'] [data-testid='data-table-row']",
     )
+    #: `PhaseHistoryTable`'s own empty branch (``history.length === 0``),
+    #: scoped inside the phases tab panel for the same reason `PHASE_HISTORY`
+    #: is: an unscoped `[data-testid='empty-state']` could match another
+    #: section's empty state. `PlantPhaseTimeline`, the sibling component in
+    #: the same panel, renders no `data-testid` of its own, so this cannot
+    #: resolve to anything but `PhaseHistoryTable`'s.
+    PHASE_HISTORY_EMPTY_STATE = (
+        By.CSS_SELECTOR,
+        "[data-testid='phases-tab-content'] [data-testid='empty-state']",
+    )
 
     # ── Phase Transition Dialog (PhaseTransitionDialog.tsx) ────────────
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
@@ -255,11 +301,59 @@ class PlantInstanceDetailExt(BasePage):
     def is_plant_info_card_visible(self) -> bool:
         return self.is_visible_within(self.PLANT_INFO_CARD)
 
+    #: `PhaseHistoryTable` fetches its own phase history fresh on every mount
+    #: (a `useEffect` on `plantKey`, independent of this page's own top-level
+    #: loading flag) and renders a bare, untestid'd `CircularProgress` while
+    #: that fetch is in flight -- neither `PHASE_HISTORY` nor
+    #: `PHASE_HISTORY_EMPTY_STATE` exists during that window. `open_phases_tab`
+    #: only waits for the *panel* (`phases-tab-content`) to mount, not for this
+    #: nested fetch to resolve, so a read taken right after it -- or right after
+    #: `open()` without ever switching tabs at all, in which case the panel does
+    #: not exist either -- can land before either branch has committed. This is
+    #: the tab-switch content race `SpeciesDetailPage.get_cultivar_count` was
+    #: fixed for in #946 wave 9, on the same two-branch shape.
+    def wait_for_phase_history_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the phase history table has settled: rows or its own empty state.
+
+        Deliberately does not raise -- an *anchor* for the two readers below,
+        not an assertion; a plant genuinely reached before the phases tab was
+        ever opened, or with no phase history yet, must still be reported as
+        ``False``/``0`` rather than hang.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.PHASE_HISTORY, self.PHASE_HISTORY_EMPTY_STATE),
+                "plant instance phase history content",
+                timeout=timeout,
+            )
+
     def has_phase_history(self) -> bool:
+        """Return True if the phase history table (with >=1 row) is rendered.
+
+        Anchored on :meth:`wait_for_phase_history_content`. Its one caller,
+        `test_plant_detail_phase_history_section`, used to read this right
+        after `open()` -- before the phases tab was ever switched to, so
+        `PHASE_HISTORY` (scoped inside `phases-tab-content`, which only renders
+        while that tab is active) was *always* absent and the test's own
+        ``if has_phase_history(): assert count > 0`` branch never ran on any
+        plant, seeded or not (a T8 unreached-assertion defect, not merely an
+        unanchored read -- see the call site fix in
+        `test_req003_phasensteuerung.py`).
+        """
+        self.wait_for_phase_history_content()
         elements = self.driver.find_elements(*self.PHASE_HISTORY)
         return bool(elements)
 
     def get_phase_history_count(self) -> int:
+        """Return the number of rows in the phase history table.
+
+        Anchored on :meth:`wait_for_phase_history_content`. `test_forward_phase_
+        transition_journey` gates a `>= 1` assertion on this right after
+        `open_phases_tab()` -- an unanchored `0` read while `PhaseHistoryTable`'s
+        own fetch is still in flight is indistinguishable from a plant with no
+        history yet.
+        """
+        self.wait_for_phase_history_content()
         rows = self.driver.find_elements(*self.PHASE_HISTORY_ROWS)
         return len(rows)
 

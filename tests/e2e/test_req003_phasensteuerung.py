@@ -494,6 +494,11 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
+        # `PHASE_HISTORY`/`PHASE_HISTORY_ROWS` are scoped inside the phases-tab
+        # panel, which only renders once that tab is active -- reading either
+        # right after `open()` (the default/info tab) always answered "absent"
+        # regardless of the plant's real history, so the `if` below never ran.
+        plant_detail.open_phases_tab()
         screenshot("TC-REQ-003-016_phase-history", "Plant detail page phase history section")
 
         if plant_detail.has_phase_history():

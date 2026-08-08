@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import BasePage, IMPLICIT_WAIT_EQUIVALENT
 
 
 class CompanionPlantingPage(BasePage):
@@ -82,7 +83,32 @@ class CompanionPlantingPage(BasePage):
         self.poll(5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
         )
-        time.sleep(1)  # Wait for companion data to load
+        self.wait_for_companion_data()
+
+    #: `CompanionPlantingPage.tsx` derives `relationsPending = selectedKey !==
+    #: '' && selectedKey !== loadedKey`, so selecting a species genuinely
+    #: unmounts both cards behind a `LoadingSkeleton` for the length of the
+    #: `getCompatibleSpecies`/`getIncompatibleSpecies` fetch -- the compatible
+    #: and incompatible cards mount together once it resolves, whether or not
+    #: either list is empty (each renders its own `EmptyState` in that case).
+    #: This used to be a fixed `time.sleep(1)`, the forbidden pattern
+    #: `e2e-test-stability` singles out: too short on a loaded CI runner leaves
+    #: callers reading the *previous* species' cards (or a bare skeleton), too
+    #: long wastes the same second on every single selection.
+    def wait_for_companion_data(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the compatible/incompatible cards for the selected species render.
+
+        Deliberately does not raise -- an *anchor*, not an assertion; both
+        cards render even for a species with no relations at all (their own
+        `EmptyState` branch), so this never has to distinguish "no data" from
+        "not loaded yet" itself -- it only has to wait past the skeleton.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.COMPATIBLE_CARD, self.INCOMPATIBLE_CARD),
+                "companion planting relations",
+                timeout=timeout,
+            )
 
     def _find_option(self, name: str):
         """Return the open-listbox option matching *name* (whitespace-normalised)."""
@@ -118,7 +144,13 @@ class CompanionPlantingPage(BasePage):
         return texts
 
     def get_compatible_species(self) -> list[str]:
-        """Return names of compatible species."""
+        """Return names of compatible species.
+
+        Anchored on :meth:`wait_for_companion_data` -- see :meth:`select_species`.
+        Every current call site already reaches this anchored, but the reader
+        carries its own wait too rather than depending on that discipline.
+        """
+        self.wait_for_companion_data()
         try:
             cards = self.driver.find_elements(*self.COMPATIBLE_CARD)
             if not cards:
@@ -129,6 +161,11 @@ class CompanionPlantingPage(BasePage):
             return []
 
     def get_incompatible_species(self) -> list[str]:
+        """Return names of incompatible species.
+
+        Anchored on :meth:`wait_for_companion_data` -- see :meth:`get_compatible_species`.
+        """
+        self.wait_for_companion_data()
         try:
             cards = self.driver.find_elements(*self.INCOMPATIBLE_CARD)
             if not cards:

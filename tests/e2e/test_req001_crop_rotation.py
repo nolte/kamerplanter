@@ -151,8 +151,16 @@ class TestCropRotationView:
 
         count = rotation_page.get_successor_count()
         if count == 0:
-            assert rotation_page.has_empty_state() or True, (
-                "TC-REQ-001-073 FAIL: Empty state or clean render expected"
+            # `get_successor_count` is anchored on `wait_for_successor_content`
+            # (`select_family`'s own post-condition, #946 wave 10), which only
+            # settles once `SUCCESSOR_ITEMS` or `EMPTY_STATE` has rendered -- a
+            # settled `count == 0` can therefore only be reached via the
+            # `EMPTY_STATE` branch, making this a real, falsifiable check
+            # rather than the `or True` tautology it replaces (T2, satisfied
+            # regardless of what `has_empty_state()` answers).
+            assert rotation_page.has_empty_state(), (
+                "TC-REQ-001-073 FAIL: Expected the empty state to be shown for a family "
+                "with zero rotation successors"
             )
 
 
