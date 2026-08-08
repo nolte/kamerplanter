@@ -36,7 +36,7 @@ Was der parent caller bekommt:
 
 - **Format:** Strukturierter Chat-Report (keine Files ausser Test-Edits)
 - **Required sections (Report):**
-  - Statische Analyse (Backend Ruff, Frontend ESLint/TS)
+  - Statische Analyse (Backend Ruff, Frontend ESLint/TS, die drei required Custom-Gates)
   - Unit-Tests (Backend pytest, Frontend vitest) mit Pass/Fail-Counts
   - Durchgefuehrte Fixes (Test-Code-Edits, kurz pro Datei)
   - Offene Findings (`[PROD-FIX]`-Markierungen für `fullstack-developer`)
@@ -117,6 +117,34 @@ Erfasse die Ergebnisse:
 - Anzahl TypeScript-Fehler
 - Anzahl ESLint-Fehler
 - Betroffene Dateien (Tests vs. Produktionscode)
+
+---
+
+## Schritt 2a: Statische Analyse — die drei required Custom-Gates
+
+Ruff und ESLint sind nicht die vollstaendige statische Pruefkette. Drei
+projekteigene Gates sind in `.pre-commit-config.yaml` **required** und pruefen
+Invarianten, die kein Linter kennt. Ohne sie meldet dieser Agent
+`MERGE-BEREIT`, waehrend required Hooks rot sind.
+
+Fuehre sie im **Repository-Root** aus (alle drei nehmen keine Dateinamen
+entgegen und pruefen ihren Geltungsbereich selbst):
+
+```bash
+python scripts/check_utc_calendar_day.py    # bare date.today() unter src/backend/app (#858), Baseline 0
+python scripts/check_boundary_validation.py # Request-Schema lehnt ab, was die Domaene ablehnt (#970)
+python scripts/check_bdd_traceability.py    # E2E-Testfall <-> Test-Rueckverfolgbarkeit (#775)
+```
+
+**Bei Fehlern:**
+- Betrifft der Befund Test-Code (`tests/e2e/`, `src/backend/tests/`): fixe ihn direkt
+- Betrifft er Produktionscode (`src/backend/app/**`): melde ihn als `[PROD-FIX]`-Finding, fixe ihn NICHT
+- Ein roter Custom-Gate ist ein **Merge-Blocker** — er geht mit vollem Befund in
+  die Sektion „Merge-Bereitschaft", nicht in eine Fussnote
+
+Erfasse die Ergebnisse: pro Gate Exit-Status und Befundzahl. Ein Gate, das du
+nicht ausgefuehrt hast, wird als `NICHT AUSGEFUEHRT` berichtet — nie als
+bestanden.
 
 ---
 
@@ -213,6 +241,9 @@ Gib am Ende eine kompakte Zusammenfassung:
 | Ruff (format) | OK/FAIL | n Dateien |
 | TypeScript | OK/FAIL | n Fehler |
 | ESLint | OK/FAIL | n Fehler |
+| check_utc_calendar_day | OK/FAIL/NICHT AUSGEFUEHRT | n Befunde |
+| check_boundary_validation | OK/FAIL/NICHT AUSGEFUEHRT | n Befunde |
+| check_bdd_traceability | OK/FAIL/NICHT AUSGEFUEHRT | n Befunde |
 
 ### Unit-Tests
 | Suite | Passed | Failed | Skipped | Dauer |
