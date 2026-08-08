@@ -47,6 +47,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     ) -> tuple[list[WorkflowTemplate], int]:
         filter_parts: list[str] = []
         bind_vars: dict = {}
+        let_clause = ""
         if species_key:
             filter_parts.append("doc.species_key == @species_key")
             bind_vars["species_key"] = species_key
@@ -59,12 +60,36 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             # here (PR #324) hid every system template from real tenants.
             filter_parts.append('(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)')
             bind_vars["tenant_key"] = tenant_key
+            # Copy-on-write dedup (#1030). Once this tenant has forked a shared
+            # generated plan (#1003/#1029), the union above would surface BOTH
+            # the shared original and the tenant's private copy under the same
+            # name. The fork carries ``source_workflow_key`` pointing at the
+            # shared row it was copied from; suppress exactly that shared row for
+            # this caller so N shared plans yield N rows, not N+1, and the row
+            # the caller keeps is their editable fork.
+            #
+            # The suppression is expressed in AQL (a ``LET`` collecting this
+            # tenant's fork sources, then ``doc._key NOT IN`` it) rather than a
+            # post-fetch Python filter, so it happens BEFORE ``LIMIT`` and the
+            # COLLECT count. Filtering after the fetch would miscount a page (a
+            # 25-row page could silently return 24) and could hide a fork whose
+            # source sits on a different page. A tenant that has not forked has
+            # an empty ``forked_source_keys`` and nothing is suppressed.
+            let_clause = (
+                f"LET forked_source_keys = ("
+                f"FOR fork IN {col.WORKFLOW_TEMPLATES} "
+                f"FILTER fork.tenant_key == @tenant_key AND fork.source_workflow_key != null "
+                f"RETURN fork.source_workflow_key) "
+            )
+            filter_parts.append("doc._key NOT IN forked_source_keys")
         if target_entity_type:
             filter_parts.append("(@target_entity_type IN doc.target_entity_types)")
             bind_vars["target_entity_type"] = target_entity_type
         filt = ("FILTER " + " AND ".join(filter_parts)) if filter_parts else ""
-        query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT @offset, @limit RETURN doc"
-        count_query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} COLLECT WITH COUNT INTO total RETURN total"
+        query = f"{let_clause}FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT @offset, @limit RETURN doc"
+        count_query = (
+            f"{let_clause}FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} COLLECT WITH COUNT INTO total RETURN total"
+        )
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
