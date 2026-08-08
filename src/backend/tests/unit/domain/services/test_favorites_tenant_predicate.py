@@ -156,3 +156,15 @@ def test_favorite_hybrid_entry_missing_row_is_refused() -> None:
         service.add_favorite("user-1", "ghost-plan", tenant_key=CALLER_TENANT)
 
     assert db.inserted_edges == []
+
+
+def test_favorite_unresolvable_key_is_a_404_not_a_500() -> None:
+    # SEC-002: a key that matches no collection at all used to raise ValueError →
+    # 500, distinguishable from a foreign-tenant row's 404 — a cross-tenant
+    # existence oracle. It must now answer the same NotFoundError (404).
+    service, db = _service({})  # no collection carries the key
+
+    with pytest.raises(NotFoundError):
+        service.add_favorite("user-1", "does-not-exist-anywhere", tenant_key=CALLER_TENANT)
+
+    assert db.inserted_edges == []

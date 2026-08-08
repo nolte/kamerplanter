@@ -449,3 +449,79 @@ class TestReorderPhasesIsTenantScoped:
             service.reorder_workflow_phases(self._orders("ph-own", "ph-foreign"), tenant_key=TENANT_KEY)
 
         repo.reorder_phases.assert_not_called()
+
+
+class TestSingleTemplateReadIsTenantScoped:
+    """The single-template GET must anchor on the owner too (SEC-001).
+
+    The #965 write paths grew an entity-level `tenant_key` check, but
+    `GET /tasks/templates/{key}` was left on the unanchored primitive — a member
+    of any tenant could fetch another tenant's private template by (enumerable)
+    key. `get_task_template_for_read` closes it: foreign → 404, global stays
+    readable (#324).
+    """
+
+    def test_the_callers_own_template_is_readable(self) -> None:
+        service, _ = _service(_template(tenant_key=TENANT_KEY))
+
+        assert service.get_task_template_for_read("tt-1", tenant_key=TENANT_KEY).key == "tt-1"
+
+    def test_a_global_template_stays_readable(self) -> None:
+        service, _ = _service(_template(tenant_key=""))
+
+        assert service.get_task_template_for_read("tt-1", tenant_key=TENANT_KEY).key == "tt-1"
+
+    def test_a_foreign_tenants_template_is_a_404(self) -> None:
+        service, _ = _service(_template(tenant_key=FOREIGN_TENANT_KEY))
+
+        with pytest.raises(NotFoundError) as exc:
+            service.get_task_template_for_read("tt-1", tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+
+
+class TestWorkflowPhaseReferenceIsTenantScoped:
+    """`workflow_phase_key` is tenant-checked on create and update too (SEC-003).
+
+    Only `workflow_template_key` was verified; a caller could store a reference to
+    a foreign tenant's phase on their own template. The phase's parent workflow is
+    the anchor: foreign parent → 404; own/global/none → allowed.
+    """
+
+    def test_creating_with_a_foreign_phase_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.create_task_template(
+                _template(workflow_template_key=OWN_WORKFLOW, workflow_phase_key="ph-foreign"),
+                tenant_key=TENANT_KEY,
+            )
+
+        repo.create_task_template.assert_not_called()
+
+    def test_creating_with_an_own_phase_succeeds(self) -> None:
+        service, repo = _service()
+
+        created = service.create_task_template(
+            _template(workflow_template_key=OWN_WORKFLOW, workflow_phase_key="ph-own"),
+            tenant_key=TENANT_KEY,
+        )
+
+        assert created.workflow_phase_key == "ph-own"
+        repo.create_task_template.assert_called_once()
+
+    def test_updating_to_a_foreign_phase_is_refused(self) -> None:
+        service, repo = _service(_template(tenant_key=TENANT_KEY, workflow_template_key=OWN_WORKFLOW))
+
+        with pytest.raises(NotFoundError):
+            service.update_task_template("tt-1", {"workflow_phase_key": "ph-foreign"}, tenant_key=TENANT_KEY)
+
+        repo.update_task_template.assert_not_called()
+
+    def test_updating_to_an_own_phase_succeeds(self) -> None:
+        service, repo = _service(_template(tenant_key=TENANT_KEY, workflow_template_key=OWN_WORKFLOW))
+
+        updated = service.update_task_template("tt-1", {"workflow_phase_key": "ph-own2"}, tenant_key=TENANT_KEY)
+
+        assert updated.workflow_phase_key == "ph-own2"
+        repo.update_task_template.assert_called_once()
