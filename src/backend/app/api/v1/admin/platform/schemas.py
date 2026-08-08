@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.common.enums import TenantRole, TenantType
+from app.common.validators import DisplayName
 
 
 class AdminTenantResponse(BaseModel):
@@ -55,7 +56,7 @@ class AdminTenantUpdate(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=200)
+    display_name: DisplayName | None = None
     is_active: bool | None = None
     email_verified: bool | None = None
 

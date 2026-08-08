@@ -246,3 +246,33 @@ class TestExistingBehaviourIsPreserved:
 
         assert response.status_code == 422
         assert service_store[USER_KEY]["display_name"] == ORIGINAL_NAME
+
+
+# ── #1035: whitespace-only display_name must be refused, not persisted ────────
+
+
+class TestRejectsWhitespaceOnlyDisplayName:
+    """#1035 — ``min_length=1`` is length-based, so ``"   "`` passed the boundary
+    *and* the model and was persisted. The admin path is one of the shared write
+    paths that must now refuse it with 422 and leave the stored value untouched.
+
+    Red-first: against the pre-fix schema this returned 200 and the whitespace
+    landed in ``service_store``; after the shared ``DisplayName`` validator it is
+    422 at the boundary.
+    """
+
+    @pytest.mark.parametrize("value", [" ", "   ", "\t", " \t "])
+    def test_whitespace_only_is_refused_and_not_persisted(self, client, service_store, service_writes, value):
+        response = _patch(client, {"display_name": value})
+
+        assert response.status_code == 422
+        assert service_writes == []
+        assert service_store[USER_KEY]["display_name"] == ORIGINAL_NAME
+
+    def test_name_with_internal_spaces_is_still_accepted(self, client, service_store):
+        """The positive that catches an over-broad validator: internal spaces are
+        legitimate and must be stored verbatim (reject-only, not normalise)."""
+        response = _patch(client, {"display_name": "Bob Smith"})
+
+        assert response.status_code == 200
+        assert service_store[USER_KEY]["display_name"] == "Bob Smith"
