@@ -344,6 +344,40 @@ repos:
         files: ^(src/backend/app/.*\.py|scripts/check_utc_calendar_day\.py)$
         pass_filenames: false
 
+  # ── Tenant key in a request body (P1.2) ────────────────────────────────
+  # Refuses a `tenant_key` / `tenant_slug` field on a REQUEST schema under
+  # src/backend/app/api. The tenant of a write is decided by the authenticated
+  # context, never by the caller — a body that carries it lets an authenticated
+  # user name somebody else's tenant, which is #1000 exactly, and eighteen of
+  # the last two hundred issues sit in that cluster.
+  #
+  # A gate rather than a review item because the defect is invisible in the diff
+  # that introduces it: the field reads as plumbing, and the damage appears one
+  # layer down in a service that trusts it. Every one of those eighteen issues
+  # was found afterwards, by somebody reading a different file.
+  #
+  # Response schemas are NOT touched — fourteen of them legitimately report the
+  # tenant a record belongs to. The request set is derived from what routers
+  # actually bind as a body (plus the Create/Update/Request naming convention,
+  # so a schema written before its router is covered), not guessed from a name.
+  #
+  # No numeric baseline: the two occurrences in the tree both carry a per-site
+  # `# tenant-body-ok: <reason>` marker naming why, which is strictly more
+  # informative than a count a reviewer cannot argue with. Standard library
+  # only, no application import, ~1 s over the API tree. Also asserted from
+  # tests/unit/test_tenant_body_field_check.py.
+  #
+  # pass_filenames is false so a converted schema cannot hide behind an
+  # unrelated commit's file set.
+  - repo: local
+    hooks:
+      - id: tenant-body-field
+        name: no caller-supplied tenant_key in a request body (#1000)
+        entry: python3 scripts/check_tenant_body_field.py
+        language: system
+        files: ^(src/backend/app/api/.*\.py|scripts/check_tenant_body_field\.py)$
+        pass_filenames: false
+
   # ── Chart image digests (#987) ─────────────────────────────────────────
   # Refuses a `ghcr.io/nolte/kamerplanter-*` image reference in the chart that
   # is not pinned to a digest. The chart shipped `:latest` with an explicit
