@@ -405,6 +405,144 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Seed YAML ↔ JSON Schema (P3.3) ─────────────────────────────────────
+  # The seed files carry a `# yaml-language-server: $schema=…` directive and 31
+  # of them declare one, but only ~12 were ever validated: the backend test
+  # (tests/unit/migrations/test_seed_schema_conformance.py) globs
+  # `plant_info*.yaml` + four named files, which is how `adventskalender.yaml`
+  # — a plant_info document by declaration — fell through for its whole life.
+  # And that suite does not run at all on a change that touches only seed data
+  # until backend.yml's `paths:` says so (fixed in the same change as this).
+  #
+  # `--base-uri file://./…/schemas/` is load-bearing, not decoration. Every
+  # schema declares a BARE `$id` (`species.schema.yaml`), so a relative
+  # cross-file `$ref` — `_defs.schema.yaml#/$defs/phase_name`, used by four
+  # schemas — resolves against the process's working directory and dies with
+  # `Unretrievable: '_defs.schema.yaml'`. A relative `--base-uri` without the
+  # `file://` scheme is ignored; with it, resolution happens relative to the
+  # repository root, which is where pre-commit runs every hook.
+  #
+  # ─ WHAT IS DELIBERATELY NOT VALIDATED HERE ─
+  # Measured 2026-08-08: 19 of the 31 declared files validate clean, 12 do not.
+  # They are left out BY NAME rather than by a loose glob (NFR-018: a named
+  # omission, never a silent hole), and they are not repaired here because seed
+  # data corrections are in flight in PR #1034 and fixing them from this lane
+  # would collide. Every one of them is schema-behind-data drift — a property
+  # the loader accepts that the schema never learned — not corrupt data:
+  #
+  #   activities.yaml            22 errors  restricted_sub_phases + 4 enum values
+  #   adventskalender.yaml      523 errors  growth_phases entries lack name/sequence_order
+  #   botanical_families.yaml     2 errors  nitrogen_fixing, rotation_edges
+  #   companion_planting.yaml     1 error   family_compatible / family_incompatible
+  #   fertilizers.yaml          129 errors  shelf_life_days, storage_temp_min/max
+  #   gardol.yaml                71 errors  nutrient-plan method_type/method_params
+  #   harvest_indicators.yaml     1 error   indicator_type 'days_since_sowing'
+  #   nutrient_plans_hydro.yaml 362 errors  product_name vs fertilizer_product_name
+  #   nutrient_plans_outdoor.yaml 267 errors  same rename
+  #   nutrient_plans_ro.yaml     92 errors  same rename
+  #   plagron.yaml              182 errors  same rename
+  #   workflows.yaml             31 errors  task_templates.phase_name
+  #
+  # FOLLOW-UP: each line above is one schema amendment (or one seed correction)
+  # away from being deletable. Move a file out of this list by adding it to the
+  # matching hook's `files:` pattern in the same change that makes it validate.
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.37.4
+    hooks:
+      - id: check-jsonschema
+        name: seed schema — auth.yaml
+        files: ^src/backend/app/migrations/seed_data/auth\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/auth.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — fertilizers_supplement.yaml
+        # fertilizers.yaml, gardol.yaml, plagron.yaml and the three
+        # nutrient_plans_*.yaml declare the same schema and do not validate yet.
+        files: ^src/backend/app/migrations/seed_data/fertilizers_supplement\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/fertilizers.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — ipm.yaml
+        files: ^src/backend/app/migrations/seed_data/ipm\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/ipm.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — lifecycles_outdoor.yaml
+        files: ^src/backend/app/migrations/seed_data/lifecycles_outdoor\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/lifecycles.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — light_mode.yaml
+        files: ^src/backend/app/migrations/seed_data/light_mode\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/light_mode.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — location_types.yaml
+        files: ^src/backend/app/migrations/seed_data/location_types\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/location_types.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — overwintering_profiles.yaml
+        files: ^src/backend/app/migrations/seed_data/overwintering_profiles\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/overwintering_profiles.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — phase_sequences.yaml
+        files: ^src/backend/app/migrations/seed_data/phase_sequences\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/phase_sequences.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — plant_info*.yaml (9 files)
+        # `plant_info.*` covers plant_info.yaml, the four indoor, the three
+        # outdoor and the supplement file. adventskalender.yaml declares the
+        # same schema and is deliberately absent — see the list above.
+        files: ^src/backend/app/migrations/seed_data/plant_info.*\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/plant_info.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — species.yaml
+        files: ^src/backend/app/migrations/seed_data/species\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/species.schema.yaml
+      - id: check-jsonschema
+        name: seed schema — starter_kits.yaml
+        files: ^src/backend/app/migrations/seed_data/starter_kits\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/starter_kits.schema.yaml
+
   # ── Chart image digests (#987) ─────────────────────────────────────────
   # Refuses a `ghcr.io/nolte/kamerplanter-*` image reference in the chart that
   # is not pinned to a digest. The chart shipped `:latest` with an explicit
