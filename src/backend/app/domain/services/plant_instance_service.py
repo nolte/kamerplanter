@@ -170,15 +170,41 @@ class PlantInstanceService:
             is_actual_state_capture = bool(first_key) and plant.current_phase_key != first_key
         elif first_key:
             plant.current_phase_key = first_key
+        else:
+            # No phase could be resolved at all: the species has neither a bound
+            # PhaseSequence nor a LifecycleConfig with growth phases. Until #1006 this
+            # branch did not exist — creation fell through silently and produced a plant
+            # with ``current_phase_key: null``, which is what DRACA-0616-OWL still looked
+            # like two months after planting. Everything the lifecycle carries
+            # (typical_duration_days, stress_tolerance, watering_interval_days) hangs off
+            # the phase, so a null phase makes the plant unreachable for the engine while
+            # looking identical to "between phases".
+            #
+            # Deliberately NOT a hard failure: a species created through the identify flow
+            # (REQ-048) legitimately has no sequence yet, and refusing the plant would cost
+            # the user their record over a master-data gap. It is logged so the state is
+            # discoverable instead of silent, and the history entry below is skipped rather
+            # than written empty.
+            logger.warning(
+                "plant_created_without_phase",
+                species_key=plant.species_key,
+                plant_key=plant.key,
+                instance_id=plant.instance_id,
+                reason="no phase sequence resolvable",
+            )
 
         created = self._repo.create(plant)
 
-        # Create initial phase history entry
-        if created.key and self._phase_repo:
-            phase_name = self.resolve_phase_name(plant.current_phase_key or "")
+        # Create initial phase history entry — only when a phase was actually resolved.
+        # An "initial" entry carrying an empty ``phase_key`` used to be written for the
+        # no-phase case (#1006): it makes the history look enrolled while pointing at
+        # nothing, so a consumer reading the history cannot tell the state apart from a
+        # real one. No phase, no entry — the warning above is the record of it.
+        if created.key and self._phase_repo and plant.current_phase_key:
+            phase_name = self.resolve_phase_name(plant.current_phase_key)
             history = PhaseHistory(
                 plant_instance_key=created.key,
-                phase_key=plant.current_phase_key or "",
+                phase_key=plant.current_phase_key,
                 phase_name=phase_name,
                 entered_at=plant.current_phase_started_at or datetime.now(UTC),
                 transition_reason="initial_actual_state" if is_actual_state_capture else "initial",

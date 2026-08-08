@@ -49,6 +49,7 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import (
     AllergenInfo,
+    GrowingPeriod,
     PropagationConfig,
     SeasonalWateringAdjustment,
     SeedProfile,
@@ -186,6 +187,16 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 harvest_pattern=entry.get("harvest_pattern"),
                 harvested_part=entry.get("harvested_part"),
                 climacteric=entry.get("climacteric"),
+                # ── Kulturfenster (REQ-015-A) ──
+                # A species with two genuine cultivation windows (summer vs winter
+                # leek, spring vs winter wheat) carries them here; the flat fields
+                # below can express only one. Carried explicitly because THIS loader
+                # is whitelist-driven, while ``seed_adventskalender._build_species``
+                # derives its carry set from ``Species.model_fields`` and so never
+                # had the gap — every growing period authored in a ``plant_info*.yaml``
+                # would otherwise have been dropped on import without a word (the same
+                # class of silent loss as the lost ``breeding_year``).
+                growing_periods=entry.get("growing_periods", []),
                 sowing_indoor_weeks_before_last_frost=entry.get("sowing_indoor_weeks_before_last_frost"),
                 sowing_outdoor_after_last_frost_days=entry.get("sowing_outdoor_after_last_frost_days"),
                 direct_sow_months=entry.get("direct_sow_months", []),
@@ -254,6 +265,12 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 converted[field] = AllergenInfo(**value)
             elif field == "seed_profile" and value is not None:
                 converted[field] = SeedProfile(**value)
+            elif field == "growing_periods" and value:
+                # Enrichment is applied with a bare ``setattr`` (fill-if-empty), which
+                # does NOT run Pydantic validation — raw dicts would be stored on the
+                # model and serialised straight into ArangoDB unvalidated. Coerce here,
+                # like toxicity/allergen_info/seed_profile above.
+                converted[field] = [GrowingPeriod(**period) for period in value]
             elif field in enum_field_map and value is not None:
                 converted[field] = enum_field_map[field](value)
             else:
