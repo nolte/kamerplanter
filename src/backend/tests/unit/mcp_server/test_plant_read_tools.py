@@ -16,10 +16,16 @@ import pytest
 
 from app.common.enums import ReminderType, SubstrateType, TenantRole
 from app.common.exceptions import ValidationError
+from app.domain.models.phase import PhaseHistory
 from app.domain.models.substrate import Substrate
 from app.mcp_server.context import ToolContext
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
+from app.mcp_server.tools.phases import (
+    PHASE_STATE_BETWEEN_CYCLES,
+    PHASE_STATE_NEVER_INITIALISED,
+)
 from app.mcp_server.tools.plant_reads import (
+    PHASE_STATE_UNKNOWN,
     GetPlant,
     GetPlantCareLog,
     ListPlants,
@@ -40,6 +46,7 @@ class _Plant:
         removed=None,
         substrate_key=None,
         substrate_type_override=None,
+        current_phase_key="vegetative",
     ):
         self.key = key
         self.instance_id = f"INST-{key}"
@@ -54,7 +61,7 @@ class _Plant:
         self.substrate_type_override = substrate_type_override
         self.planted_on = date(2026, 4, 1)
         self.removed_on = removed
-        self.current_phase_key = "vegetative"
+        self.current_phase_key = current_phase_key
 
 
 def _membership() -> McpTenantMembership:
@@ -316,6 +323,119 @@ async def test_the_list_projection_carries_the_raw_substrate_keys_without_resolv
 
     assert resp.data["items"][0]["substrate_key"] == "sub-coco"
     assert substrates.calls == [], "the list tools resolve nothing — get_plant does"
+
+
+# ══ The phase state behind a null current_phase_key ══════════════════════════
+#
+# ``current_phase_key: null`` on ``get_plant`` conflates "never enrolled in the
+# lifecycle", "resting between cycles" and "dangling phase record" — three states
+# that each call for a different action (#1006, #949). The distinction already
+# exists on ``get_plant_phase_status`` as ``phase_state``; ``get_plant`` surfaces
+# the very same value (via the shared ``_classify_phase_state``) when, and only
+# when, the key is null — so the detail view is self-explaining without a second
+# tool call, and the healthy path pays for no extra service calls.
+
+
+def _completed_history_row() -> PhaseHistory:
+    """A real phase-history row that has been exited — ``_classify_phase_state``
+    reads ``exited_at`` off it, so a bare mock whose value never becomes the shape
+    the classifier reads would certify nothing (#996)."""
+
+    entered = datetime(2026, 4, 1, 8, 0)
+    return PhaseHistory(
+        _key="ph-1",
+        plant_instance_key="p1",
+        phase_key="e-3",
+        phase_name="dormancy",
+        entered_at=entered,
+        exited_at=datetime(2026, 6, 1, 8, 0),
+        cycle_number=1,
+        transition_reason="completed",
+    )
+
+
+class _PhaseService:
+    """Records its call count, so "resolved on null" and "not touched on a healthy
+    plant" are both assertable. Returns realistic ``get_current_phase`` dicts and
+    real ``PhaseHistory`` rows — not a mock whose return never becomes the shape
+    ``_classify_phase_state`` reads (the #996 trap)."""
+
+    def __init__(self, current=None, history=None, *, broken=False):
+        self._current = current if current is not None else {"phase_key": "", "phase": ""}
+        self._history = history if history is not None else []
+        self._broken = broken
+        self.calls = 0
+
+    def get_current_phase(self, plant_key):
+        self.calls += 1
+        if self._broken:
+            raise RuntimeError("phase engine unavailable")
+        return self._current
+
+    def get_phase_history(self, plant_key):
+        if self._broken:
+            raise RuntimeError("phase engine unavailable")
+        return self._history
+
+
+@pytest.mark.asyncio
+async def test_get_plant_surfaces_phase_state_when_the_current_phase_key_is_null():
+    # RED against the pre-fix code: no ``phase_state`` key exists in the response
+    # at all, so a consumer reading get_plant alone cannot tell why the phase is
+    # null. GREEN once get_plant reuses _classify_phase_state: a plant with a null
+    # key and no history reads as never_initialised.
+    svc = _PlantService([_Plant("p1", "Tomate", current_phase_key=None)])
+    phases = _PhaseService()  # empty current, no history
+    ctx = _ctx(plant_instance_service=svc, species_service=_SpeciesStub(), phase_service=phases)
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["phase_state"] == PHASE_STATE_NEVER_INITIALISED
+    assert resp.data["current_phase_key"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_plant_classifies_a_completed_cycle_as_between_cycles():
+    # A null key with an all-exited history is a perennial resting between cycles,
+    # not an uninitialised plant — the classifier reads exited_at off the row.
+    svc = _PlantService([_Plant("p1", "Yucca", current_phase_key=None)])
+    phases = _PhaseService(history=[_completed_history_row()])
+    ctx = _ctx(plant_instance_service=svc, species_service=_SpeciesStub(), phase_service=phases)
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["phase_state"] == PHASE_STATE_BETWEEN_CYCLES
+
+
+@pytest.mark.asyncio
+async def test_get_plant_omits_phase_state_when_the_plant_is_in_a_phase():
+    # only-on-null decision: a truthy current_phase_key already names a real phase,
+    # so phase_state would be a redundant in_phase — and computing it would cost two
+    # phase-service calls on the common healthy path for no new information.
+    svc = _PlantService([_Plant("p1", "Tomate", current_phase_key="vegetative")])
+    phases = _PhaseService()
+    ctx = _ctx(plant_instance_service=svc, species_service=_SpeciesStub(), phase_service=phases)
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert "phase_state" not in resp.data
+    assert resp.data["current_phase_key"] == "vegetative"
+    assert phases.calls == 0, "the healthy path resolves no phase state"
+
+
+@pytest.mark.asyncio
+async def test_get_plant_survives_a_raising_phase_service():
+    # Same rule as the species/substrate lookups: a failing phase read must not turn
+    # a plant read into a 500. It degrades to an explicit "unknown" — never a null
+    # phase_state, which would reintroduce the very opacity the field exists to remove.
+    svc = _PlantService([_Plant("p1", "Tomate", current_phase_key=None)])
+    phases = _PhaseService(broken=True)
+    ctx = _ctx(plant_instance_service=svc, species_service=_SpeciesStub(), phase_service=phases)
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["phase_state"] == PHASE_STATE_UNKNOWN
+    assert resp.data["plant_key"] == "p1"
 
 
 @pytest.mark.asyncio
