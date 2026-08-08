@@ -10,15 +10,23 @@ A caller may capture the plant's *actual current state* by supplying
   an actual-state capture (``transition_reason="initial_actual_state"``);
 * still auto-resolves the species' first phase (``transition_reason="initial"``)
   when no phase is supplied.
+
+``TestCreatePlantWithoutAnyResolvablePhase`` covers the fourth case, which had no test
+at all until #1006: **nothing** resolves. That path used to fall out of an ``elif``
+with no ``else``, so the plant was stored with ``current_phase_key: null`` plus an
+"initial" phase-history entry pointing at an empty key — a record that looks enrolled
+in the lifecycle engine and is not. That is exactly what plant ``DRACA-0616-OWL``
+looked like two months after planting.
 """
 
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
 import pytest
 
 from app.common.exceptions import ValidationError
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+from app.domain.models.phase import PhaseHistory
 from app.domain.models.phase_sequence import PhaseDefinition, PhaseSequence, PhaseSequenceEntry
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_instance_service import PlantInstanceService
@@ -165,3 +173,100 @@ class TestCreatePlantStartPhase:
         assert created.current_phase_key == "anything"
         # No first phase to compare against → plain initial.
         assert self._written_history().transition_reason == "initial"
+
+
+class TestCreatePlantWithoutAnyResolvablePhase:
+    """The #1006 path: species with no PhaseSequence and no LifecycleConfig phases."""
+
+    def setup_method(self) -> None:
+        self.plant_repo = MagicMock()
+        self.site_repo = MagicMock()
+        self.phase_repo = MagicMock()
+        self.phase_seq_repo = MagicMock()
+        self.plant_repo.create.side_effect = lambda p: p
+
+        # A species the master data knows nothing about — the state a species minted by
+        # the identify flow (REQ-048) was in before create_species started binding.
+        self.phase_seq_repo.get_sequence_by_species.return_value = None
+        self.phase_repo.get_lifecycle_by_species.return_value = None
+        # Name resolution finds nothing in either key-space (not under test here).
+        self.phase_seq_repo.get_entry_by_key.return_value = None
+        self.phase_repo.get_phase_by_key.return_value = None
+
+        self.service = PlantInstanceService(
+            self.plant_repo,
+            self.site_repo,
+            MagicMock(),
+            MagicMock(),
+            phase_repo=self.phase_repo,
+            phase_seq_repo=self.phase_seq_repo,
+        )
+
+    def test_plant_is_still_created(self) -> None:
+        """A master-data gap must not cost the user their plant record."""
+        created = self.service.create_plant(_plant(current_phase_key=None))
+
+        assert created is not None
+        self.plant_repo.create.assert_called_once()
+
+    def test_no_phase_history_entry_is_written(self) -> None:
+        """An 'initial' entry with an empty phase_key would fake enrolment."""
+        self.service.create_plant(_plant(current_phase_key=None))
+
+        self.phase_repo.create_phase_history.assert_not_called()
+
+    def test_the_state_is_logged_rather_than_silent(self) -> None:
+        from unittest.mock import patch
+
+        with patch("app.domain.services.plant_instance_service.logger") as log:
+            self.service.create_plant(_plant(current_phase_key=None))
+
+        assert log.warning.called, "creating a plant with no resolvable phase must not be silent"
+        event, kwargs = log.warning.call_args.args[0], log.warning.call_args.kwargs
+        assert event == "plant_created_without_phase"
+        assert kwargs["species_key"] == "sp-1"
+        assert kwargs["reason"] == "no phase sequence resolvable"
+
+    def test_a_supplied_phase_is_still_honoured_and_recorded(self) -> None:
+        """The unvalidatable-but-supplied case keeps its history entry (unchanged)."""
+        self.service.create_plant(_plant(current_phase_key="caller-supplied"))
+
+        self.phase_repo.create_phase_history.assert_called_once()
+        history = self.phase_repo.create_phase_history.call_args.args[0]
+        assert history.phase_key == "caller-supplied"
+
+    def test_the_mcp_reader_can_now_report_never_initialised(self) -> None:
+        """Interaction with #1039's ``phase_state`` — verified, not assumed.
+
+        ``_classify_phase_state`` distinguishes "never enrolled in the lifecycle" from
+        "an open phase record that resolves to nothing". Before this fix, no freshly
+        created plant could ever reach the first branch: the empty ``initial`` history
+        entry was an open record (``exited_at is None``), so every unenrolled plant
+        reported ``unresolved`` — a dangling-record diagnosis for a master-data gap,
+        pointing an operator at the wrong repair.
+
+        Writing no entry is what makes the honest classification reachable. Driven with
+        the history ``create_plant`` actually produces (none), so the two changes are
+        pinned together rather than co-existing by luck.
+        """
+        from app.mcp_server.tools.phases import (
+            PHASE_STATE_NEVER_INITIALISED,
+            PHASE_STATE_UNRESOLVED,
+            _classify_phase_state,
+        )
+
+        created = self.service.create_plant(_plant(current_phase_key=None))
+        assert not created.current_phase_key
+        self.phase_repo.create_phase_history.assert_not_called()
+
+        assert _classify_phase_state("", "", history=[]) == PHASE_STATE_NEVER_INITIALISED
+
+        # The old behaviour, for contrast: an "initial" entry with an empty phase_key
+        # is an open record, so it classified as a dangling one.
+        empty_initial = PhaseHistory(
+            plant_instance_key="plant-1",
+            phase_key="",
+            phase_name="",
+            entered_at=datetime(2026, 6, 16, tzinfo=UTC),
+        )
+        assert _classify_phase_state("", "", history=[empty_initial]) == PHASE_STATE_UNRESOLVED

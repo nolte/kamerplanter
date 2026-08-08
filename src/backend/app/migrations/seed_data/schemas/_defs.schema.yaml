@@ -366,3 +366,57 @@ $defs:
     type: integer
     minimum: 1
     maximum: 12
+
+  # One self-contained sowing→harvest timeline (REQ-015-A). Mirrors
+  # ``app.domain.models.species.GrowingPeriod`` field for field — pinned in both
+  # directions by ``test_seed_schema_conformance.test_growing_period_*``.
+  #
+  # A species may carry SEVERAL of these (summer vs winter leek, spring vs winter
+  # wheat). Until #1030 this shape existed in the data (species.yaml Triticum
+  # aestivum, adventskalender.yaml Allium porrum) and in the domain model, but in
+  # no schema — it survived only through ``additionalProperties: true``, so the
+  # second cultivation window was invisible to every schema-driven tool and could
+  # not be authored deliberately (audit 2026-08-08 §3 finding 9).
+  #
+  # ``sowing_calendar_engine.SpeciesData.auto_create_periods`` synthesises ONE
+  # period from the flat top-level fields when this list is empty; a non-empty
+  # list therefore takes precedence over them entirely.
+  growing_period:
+    type: object
+    properties:
+      label:
+        type: string
+        description: "Human-facing name of the window, e.g. 'Sommerporree' / 'Winterweizen'."
+      sowing_indoor_weeks_before_last_frost:
+        type: [integer, "null"]
+        minimum: 1
+        maximum: 26
+      sowing_outdoor_after_last_frost_days:
+        type: [integer, "null"]
+        minimum: -60
+        maximum: 90
+      direct_sow_months:
+        type: array
+        items:
+          $ref: "#/$defs/month_number"
+      growth_months:
+        type: array
+        items:
+          $ref: "#/$defs/month_number"
+      harvest_months:
+        type: array
+        items:
+          $ref: "#/$defs/month_number"
+      bloom_months:
+        type: array
+        items:
+          $ref: "#/$defs/month_number"
+      harvest_from_year:
+        type: [integer, "null"]
+        minimum: 1
+        maximum: 10
+      bloom_from_year:
+        type: [integer, "null"]
+        minimum: 1
+        maximum: 10
+    additionalProperties: false
