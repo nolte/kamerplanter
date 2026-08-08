@@ -154,7 +154,7 @@ Diese Regeln sind in den Specs detailliert beschrieben. Hier die Kurzfassung als
 
 ### Backend
 
-- **Immer async** — alle FastAPI-Endpoints und DB-Zugriffe
+- **Router-Funktionen synchron** — `def`, nicht `async def` (BACKEND.md §6.1; python-arango ist synchron, FastAPI dispatcht sync-Handler in den Threadpool)
 - **AQL parametrisiert** — IMMER `bind_vars`, NIEMALS f-strings (Injection!)
 - **pgvector SQL parametrisiert** — NIEMALS f-strings
 - **Config via pydantic-settings** — keine hardcodierten URLs/Ports/Credentials
@@ -163,6 +163,11 @@ Diese Regeln sind in den Specs detailliert beschrieben. Hier die Kurzfassung als
 - **Sicherheit** — JWT auf allen nicht-oeffentlichen Endpoints, CORS nur erlaubte Origins
 - **Keine SDK-Abhaengigkeit** fuer LLM-Adapter (nur httpx)
 - **Nur ONNX Runtime** im Embedding Service (kein PyTorch)
+- **Tenant-Praedikat am Anker** — jede Lese-/Listen-Abfrage auf eine tenant-scoped Collection filtert an dem Dokument, das den Mandanten wirklich fuehrt. Bei Traversierungen ist das die Startvertex bzw. das Elterndokument, nicht der Ergebnisknoten: `Location`/`Slot` tragen ein leeres `tenant_key`, ein Filter darauf blendet nicht die fremden, sondern **alle** Treffer aus (#706). `tenant_key` wird NIEMALS aus dem Request-Body genommen, nur aus Pfad/Auth-Kontext; jeder Create-Pfad stempelt `tenant_key=ctx.tenant_key`. Details: BACKEND.md §6.3
+- **Schichtenmatrix** — ein Router unter `app/api/**` importiert NIEMALS `app.data_access`. Der Weg ist Router → Service → Repository-Interface; Engines sind stateless und kennen keine Repos (NFR-001 §2.2, BACKEND.md §2.1)
+- **422 statt 500 bei Domain-Validierung** — ein im Handler gebautes Domain-Modell wirft eine blanke `pydantic.ValidationError`. Die ist **keine** `RequestValidationError`, passt auf keinen Validierungs-Handler und faellt auf den 500er durch. Muster aus BACKEND.md §5.4 anwenden: Das Request-Schema lehnt ab, was das Domain-Modell ablehnen wuerde (gleiches `StrEnum`, gleicher Wertebereich) — nicht `str`, wo die Domaene ein Enum erwartet
+- **Kalendertage aus UTC** — `today_utc()` aus `app/common/datetimes.py`, NIEMALS `date.today()` (BACKEND.md §12a; required Gate `scripts/check_utc_calendar_day.py`, Baseline 0). Ausnahmen nur mit `# local-clock:`-Marker plus Begruendung
+- **Verdrahtungsnachweis (PFLICHT)** — jede neue Komponente, Route, Guard, Dependency, Celery-Task oder Flag MUSS einen nachgewiesenen Aufrufer haben: Router im `include_router`-Baum registriert, Dialog von einer Route erreichbar, Task im Beat-/Dispatch-Pfad verdrahtet, Guard mindestens von einem Test beruehrt. Der **Abschlussbericht MUSS diesen Nachweis benennen** (Datei:Zeile des Aufrufers bzw. Testname). Ohne Nachweis gilt die Arbeit als unfertig: Die Fehlerklasse „implementiert-aber-inert" (#818, #786, #606, #991) entsteht ausschliesslich dort, wo er nicht gefuehrt wurde und `ruff`/`tsc` trotzdem gruen waren
 
 ### Frontend
 

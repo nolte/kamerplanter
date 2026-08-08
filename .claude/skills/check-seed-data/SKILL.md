@@ -107,6 +107,9 @@ klassischen Fehlerquellen.
   `severity` plausibel; bekannte Giftpflanzen (Dieffenbachia, Oleander, Efeu,
   Lilien fuer Katzen) korrekt als toxisch markiert. (Fehler: essbare Kulturpflanze
   als hochgiftig oder Giftpflanze als ungiftig.)
+- **Vorhandensein pruefen, nicht nur Plausibilitaet:** Ein ganz fehlender
+  `toxicity`-Block bei einer essbaren Art oder Zimmerpflanze ist 🔴 (siehe
+  Gotchas) — die Domaene liest sonst „nicht giftig", wo niemand nachgesehen hat.
 - `allergen_info` (Kontakt-/Pollenallergen) plausibel.
 
 ### E — Vermehrung (`propagation_configs`)
@@ -169,6 +172,15 @@ kritische/wichtige Befunde auf Wunsch in den `plant_info_*.yaml` zu korrigieren.
 - **`toxicity` existiert in zwei Repraesentationen** (`toxicity`-Objekt mit
   `severity` none/mild/moderate/severe UND flaches `toxicity_severity` low/moderate/
   high). Beide sind gueltig; nicht als Fehler melden, aber auf Konsistenz achten.
+- **Fehlendes `toxicity` ist 🔴, nicht 🟡.** Anders als beim `seed_profile` ist
+  die Absent-Field-Semantik hier nicht harmlos: Ohne den Block liest die Domaene
+  die Modell-Defaults `is_toxic_cats/dogs/children = False`, und eine nie
+  gefuehrte Recherche wird still zur Entwarnung gegenueber Kindern und
+  Haustieren (#1005). Bei essbaren Arten und Zimmerpflanzen ist ein fehlender
+  Toxizitaetsblock ein **kritischer Befund**. Ebenso 🔴: drei Booleans auf
+  `false` ohne Beleg. Zulaessig ist nur ein belegter Block oder ein explizit als
+  unbekannt markierter (`severity: null` plus `# TOXICITY-UNKNOWN:`-Marker).
+  „Unbekannt" ist nicht „ungiftig".
 - **`WebSearch` ist deferred.** Es wird erst per `ToolSearch` geladen; nutze es
   gezielt bei echter fachlicher Unsicherheit, nicht fuer jeden Eintrag.
 - **Photosynthese-Typ-Default:** `null`/fehlend ist zulaessig; nur einen *gesetzten

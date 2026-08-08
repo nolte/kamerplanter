@@ -331,7 +331,18 @@ Kamerplanter automatically creates the following indexes on startup:
 
 ## Tenant Data Isolation
 
-All tenant-bound resources carry a `tenant_key` field. The FastAPI dependency `require_permission()` automatically checks on each request whether the requesting user is a member of the corresponding tenant.
+All tenant-bound resources carry a `tenant_key` field. On each request the FastAPI dependency `get_current_tenant` resolves the tenant from the `/t/{tenant_slug}/` URL segment and rejects the call if the requesting user holds no active membership there. Writing endpoints additionally require a minimum role (`require_tenant_role`) or an administrative scope (`require_admin_scope`). At the data level the isolation comes from every write path stamping `tenant_key` out of the resolved tenant context, and every query filtering on that field.
+
+!!! note "Fine-grained permission matrix: not yet in force"
+    The planned permission matrix (resource type × action × role) exists as a
+    backend module but is **not** used by the HTTP endpoints — this spot
+    previously described a `require_permission()` dependency that is wired into
+    no endpoint. What is enforced today is membership, minimum role and admin
+    scope. The matrix's only live consumer is the interface for external AI
+    clients. <!-- REQ-024, REQ-033 -->
+    <!-- Source: src/backend/app/common/auth.py, src/backend/app/core/permissions.py -->
+    <!-- Evidence: .audits/issue-pattern-analysis/2026-08-08-report.md §3.1 -->
+
 
 **Global resources** (no tenant binding): `species`, `cultivars`, `botanical_families`, `pests`, `diseases`, `treatments`, `starter_kits`
 

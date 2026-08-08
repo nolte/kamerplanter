@@ -80,13 +80,27 @@ Fehlende oder unklare Rückmeldungen sind eine der häufigsten Ursachen für Nut
 
 ### 2.4 Fehlerzustände
 
+> **Grundsatz (MUSS): Jede fehlgeschlagene Mutation erzeugt sichtbares
+> Nutzer-Feedback.** Kein Schreibvorgang — Anlegen, Ändern, Löschen, Zuweisen —
+> darf ohne wahrnehmbare Reaktion enden. Konkret: der Ladeindikator wird
+> beendet, und es erscheint eine Meldung, die benennt, **was** nicht
+> funktioniert hat und **was der Nutzer jetzt tun kann**. Ein Dialog, der nach
+> einem abgelehnten Speichern einfach stehen bleibt, ist ein Verstoß: der Nutzer
+> sieht einen unveränderten Bildschirm und klickt erneut. Genau das war #744 —
+> ein 409 aus einem Duplikat-Konflikt wurde verschluckt, der Dialog hing im
+> Ladezustand. Ein `catch`-Block ohne Nutzerausgabe ist deshalb nie zulässig,
+> auch nicht „weil der Fehler geloggt wird".
+
 | # | Regel | Stufe |
 |---|-------|-------|
+| R-014a | Jede fehlgeschlagene Mutation MUSS sichtbares Feedback erzeugen (Meldung + beendeter Ladezustand). Ein stiller Fehlschlag ist unzulässig, unabhängig vom Statuscode. | MUSS |
 | R-015 | Netzwerk-Fehler MÜSSEN eine Fehlermeldung mit „Erneut versuchen"-Option anzeigen. | MUSS |
 | R-016 | HTTP 404 (Nicht gefunden) MUSS eine dedizierte Fehlerseite mit Navigation zurück zur Startseite anzeigen. | MUSS |
 | R-017 | HTTP 500 (Serverfehler) MUSS eine Fehlerseite mit Referenz-ID und Support-Kontaktmöglichkeit anzeigen. | MUSS |
 | R-018 | Timeout-Fehler MÜSSEN unterschieden werden von Server-Fehlern und eine Retry-Option anbieten. | MUSS |
 | R-019 | Bei Authentifizierungsfehlern (401/403) MUSS der Nutzer zur Login-Seite weitergeleitet oder eine Zugriffsverweigerung angezeigt werden. | MUSS |
+| R-019a | **HTTP 409 (Konflikt)** MUSS eine konkrete deutsche Meldung anzeigen, die den Konflikt benennt, und eine Handlungsoption anbieten. „Ein Fehler ist aufgetreten" genügt nicht — der Nutzer muss erfahren, *welcher* Wert kollidiert (z.B. „Eine Charge mit der Kennung „B-2024-01" existiert bereits") und was er tun kann (Wert ändern, vorhandenen Datensatz öffnen, überschreiben). Der Dialog bleibt geöffnet und behält die Eingaben, damit die Korrektur ohne Neueingabe möglich ist. Beleg: #744. | MUSS |
+| R-019b | **HTTP 422 (Validierungsfehler)** MUSS am betroffenen Feld angezeigt werden, sofern der Fehler-Envelope einen Feldbezug trägt (`details[].field`), sonst als Meldung am Formular. Der Text wird über `details[].code` aus dem i18n-Katalog aufgelöst; der englische Server-`reason` DARF NICHT roh angezeigt werden (NFR-017 R-118a, UI-NFR-008 R-004). Ein 422 ohne Feldbezug fällt auf die generische, lokalisierte Validierungsmeldung zurück — nie auf Stillschweigen. | MUSS |
 
 ### 2.5 Ladeindikatoren
 

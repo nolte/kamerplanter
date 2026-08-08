@@ -8,9 +8,9 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: GitHub Actions, pre-commit, Docker, Helm, SLSA-Provenance
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: nolte
-Datum: 2026-08-01
+Datum: 2026-08-08
 Tags: [ci, cd, pipeline, gate-integrity, reproducibility, provenance, supply-chain, vacuous-success]
 Abhängigkeiten: [NFR-003, NFR-008, NFR-009, NFR-014, NFR-015]
 Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security, helm]
@@ -20,6 +20,7 @@ Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.1 | 2026-08-08 | §2.1 (Ratchet-Baselines werden berechnet, nicht versioniert — Herleitung #973, bis dahin nur ein `Taskfile.yaml`-Kommentar) und §2.2 (eine überwiegend abgebrochene Lane existiert nicht — Verallgemeinerung der Analyse aus NFR-014 §4.1, #993/#1013) ergänzt. Beide aus der Issue-Muster-Analyse vom 2026-08-08, Maßnahmen P5.6/P5.3. |
 | 1.0 | 2026-08-01 | Erstversion. Entstanden aus dem CI/CD-Audit vom 2026-08-01, das 21 Befunde ergab — von denen die Mehrzahl derselben Fehlerklasse angehörte. Diese NFR hält die Klasse und die daraus abgeleiteten Regeln fest, damit sie nicht bei jedem Audit neu entdeckt werden muss. |
 
 # NFR-018: CI/CD-Pipeline-Integrität
@@ -109,6 +110,66 @@ lässt jeden Vergleich falsch werden und macht das Gate lautlos grün.
 MUSS ein Gate eine Negativkontrolle haben — ein Fall, in dem es nachweislich rot
 wird. Für Skripte heißt das ein Test, für Workflows eine bewusst kaputte
 Eingabe während der Entwicklung.
+
+### 2.1 Ratchet-Baselines werden berechnet, nicht versioniert
+
+**MUSS**: Eine Ratchet-Baseline — die Zahl, gegen die ein „no-growth"-Gate den
+Ist-Zustand vergleicht — MUSS aus dem Ist-Zustand berechnet werden und DARF NICHT
+als versionierte Konstante gepflegt werden.
+
+Der Grund ist mechanisch. Eine eingecheckte Baseline verwandelt jedes
+Aufräumen in einen Merge-Konflikt: Wer einen Verstoß beseitigt, muss die
+Konstante senken, und zwei parallele Pull Requests, die beide aufräumen,
+kollidieren an genau dieser Zeile. Der Effekt ist eine Prämie aufs Nichtstun.
+Schlimmer ist der zweite Effekt — eine gesenkte Konstante macht **fremde**,
+bereits geöffnete Pull Requests rot, ohne dass sich an ihnen etwas geändert
+hätte. Das ist die Fehlerklasse aus §1, eine Ebene höher: Das Gate meldet einen
+Defekt, den es selbst erzeugt hat.
+
+Die geltende Bauform:
+
+- Die Obergrenze wird zur Laufzeit aus dem Repository ermittelt (Zählung über
+  denselben Scan, den das Gate ohnehin ausführt).
+- **Rot nur bei Wachstum.** Ein Rückgang ist grün und wird als gewonnener
+  Spielraum ausgegeben, nie als Fehler.
+- Die Zahl kommt aus dem Prüf-Target selbst, nicht aus einer Datei, die man
+  bearbeiten könnte. `task check:schema-examples` (`scripts/check_schema_examples.py`,
+  #850/#973) ist die Referenzimplementierung; `scripts/check_utc_calendar_day.py`
+  ist der Grenzfall am anderen Ende: eine Fläche ohne Altbestand bekommt gar
+  keine Baseline, sondern die harte Null.
+
+Hergeleitet aus #973. Die Lektion stand bis dahin nur als Kommentar im
+`Taskfile.yaml` — also genau dort, wo sie niemand liest, der ein neues Gate baut.
+
+### 2.2 Eine überwiegend abgebrochene Lane existiert nicht
+
+**MUSS**: Für jede gatende **oder** berichtende Lane MUSS die Abbruchrate
+beobachtet werden. Eine Lane, deren Läufe überwiegend als `cancelled` enden,
+meldet nichts und ist wie eine **nicht existierende Lane** zu behandeln — sie
+darf weder in einer DoD noch in einem Audit als vorhandene Abdeckung gezählt
+werden.
+
+**MUSS**: Das Mittel ist die **Umplatzierung des Triggers**, nicht
+`cancel-in-progress: false`. Ein Lauf, der nie verdrängt wird, scannt jeden
+Zwischenstand einer Commit-Serie in voller Laufzeit und verliert am Ende trotzdem
+gegen den Merge seines eigenen Pull Requests; ein engerer `paths:`-Filter
+bestimmt, wie **oft** die Lane startet, nicht, ob ein gestarteter Lauf sein
+Urteil erreicht. Die Variable ist die Laufzeit im Verhältnis zum Merge-Takt —
+unter `strict: true` plus `automerge` verliert jeder Job, der länger braucht als
+die required Checks.
+
+**Messgröße.** Die Rate wird über ein benanntes Fenster jüngster Läufe erhoben
+(`gh run list --workflow <name> --json conclusion`), zusammen mit einer
+Vergleichs-Lane ähnlicher Laufzeit im selben Merge-Train. Ohne diesen Vergleich
+lässt sich nicht unterscheiden, ob die Concurrency-Form oder die Dauer das
+Problem ist.
+
+Diese Regel ist die Verallgemeinerung der Analyse in **NFR-014 §4.1**, die für
+die Nuclei-Lane 85 % abgebrochene Läufe gemessen und den Trigger auf
+`push`-nach-Merge verschoben hat (#993). #1013 ist dieselbe Form an der
+ZAP-Lane (44 %) — der Beleg dafür, dass die Erkenntnis pro Lane angewandt statt
+als Regel gehoben worden war. Eine bewusste Verringerung der Abdeckung durch
+Umplatzierung ist nach §4 zu benennen, nicht als Reparatur auszugeben.
 
 ---
 

@@ -64,6 +64,35 @@ Bash-Boundary: ausschliesslich YAML-Syntax-Validierung. Existenz-Checks ueber `G
 - Fehlende Phasen hinzufuegen die nicht im Dokument stehen
 - Fehlende Cultivars, Schaedlinge oder Krankheiten ergaenzen
 
+### Ausnahme: sicherheitsrelevante Felder werden explizit als unbekannt geschrieben
+
+Fuer **`toxicity`** gilt die `# MISSING`-Konvention **nicht**. Ein Kommentar ist
+fuer jeden Konsumenten (Backend, UI, Validator) identisch mit „Feld nicht
+gesetzt", und ein nicht gesetztes Toxizitaetsfeld liest sich fuer die Domaene
+als „nicht giftig" — die Default-Werte des `Toxicity`-Modells sind `False`.
+Fehlende Quelle wird damit still zur Sicherheitsfreigabe (#1005).
+
+**Regel:** Der `toxicity`-Block wird IMMER geschrieben, auch ohne Quelle. Ohne
+Beleg wird er als explizites Unbekannt-Objekt geschrieben:
+
+```yaml
+    # TOXICITY-UNKNOWN: no source in the plant-info document — this is NOT a
+    # safety clearance. Do not fill the booleans with false.
+    toxicity:
+      severity: null
+```
+
+- Die drei `is_toxic_*`-Booleans werden ohne Beleg **weggelassen**, nie auf
+  `false` gesetzt. `false` ist eine Behauptung, kein Platzhalter.
+- Ein Teilbeleg wird auch nur teilweise gesetzt: steht im Steckbrief nur etwas
+  zu Katzen, wird nur `is_toxic_cats` geschrieben.
+- Der Marker `# TOXICITY-UNKNOWN:` ist maschinell greppbar und der Anker, an dem
+  der `seed-data-validator` diese Faelle findet.
+- Sobald das Schema den Enum-Wert `unknown` fuer `toxicity.severity` fuehrt
+  (Massnahme P3.2 der Issue-Muster-Analyse), wird stattdessen
+  `severity: unknown` geschrieben. Bis dahin ist `null` + Marker die gueltige
+  Form — `unknown` wuerde heute an der Schema-Validierung scheitern.
+
 ---
 
 ## Phase 0: Schemas einlesen
@@ -232,6 +261,24 @@ new_species:
     direct_sow_months: [<int>]
     harvest_months: [<int>]
     bloom_months: [<int>]
+    # ── Anbauzeitraeume (species.growing_periods[], Domain-Modell: GrowingPeriod) ──
+    # EINE Periode je Kulturfenster. Die Top-Level-Monatsfelder oben sind die
+    # Vereinigungsmenge ueber alle Perioden — beide Ebenen muessen konsistent
+    # sein. Arten mit mehreren Fenstern (Sommer-/Wintersaat, Fruehjahrs-/
+    # Herbstsatz, Sukzession) bekommen je Fenster eine eigene Periode; alles in
+    # eine zu quetschen macht das zweite Fenster fuer die Planung unsichtbar.
+    # Bei einem einzigen Kulturfenster darf growing_periods entfallen.
+    # Nur diese Feldnamen sind gueltig (weitere werden still verworfen):
+    growing_periods:
+      - label: "<Freitext, z.B. Sommerweizen>"
+        sowing_indoor_weeks_before_last_frost: <int|null>   # 1..26
+        sowing_outdoor_after_last_frost_days: <int|null>    # -60..90
+        direct_sow_months: [<int>]                          # 1..12
+        growth_months: [<int>]                              # 1..12
+        harvest_months: [<int>]                             # 1..12
+        bloom_months: [<int>]                               # 1..12
+        harvest_from_year: <int|null>                       # 1..10
+        bloom_from_year: <int|null>                         # 1..10
     container_suitable: <enum>
     recommended_container_volume_l: "<range>"
     min_container_depth_cm: <int>

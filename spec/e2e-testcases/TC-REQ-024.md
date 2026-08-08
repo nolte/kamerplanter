@@ -136,7 +136,8 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Erwartete Ergebnisse**:
 - Das Formular wird nicht abgesendet
-- Das Pflichtfeld "Name" zeigt eine Fehlermeldung (Browser-native Required-Validierung oder Inline-Fehler)
+- Der "Erstellen"-Button ist deaktiviert, solange der Name kürzer als 2 Zeichen ist
+- **Es erscheint KEINE native HTML5-Required-Validierung.** Die Seite rendert `<Form>` und damit `noValidate` (#825) — eine native Blase gilt als **Fehlschlag**. Wird die Absendesperre später durch eine Inline-Validierung ersetzt, ist die erwartete Meldung der übersetzte Inline-Fehler unter dem Feld "Name"
 - Nutzer bleibt auf der Erstellungsseite
 
 **Nachbedingungen**:
@@ -2038,8 +2039,16 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 2. Nutzer klickt "Einladung senden"
 
 **Erwartete Ergebnisse**:
-- Formular wird nicht abgesendet
-- Fehlermeldung erscheint: ungültige E-Mail-Adresse (Browser-native Validierung oder Inline-Fehler)
+- Eine sichtbare, **deutsche** Fehlermeldung erscheint: ungültige E-Mail-Adresse
+- **Es erscheint KEINE native HTML5-Validierungsblase**, obwohl das Feld `type="email"` trägt — native Validierung ist per `noValidate` deaktiviert (#825). Eine native Blase gilt als **Fehlschlag**
+- Die Meldung ist entweder ein Inline-Fehler unter dem Feld oder ein Fehler-Toast aus der Serverantwort; ein **englischer** Rohtext aus `details[].reason` gilt als Fehlschlag (NFR-017 R-118a)
+- Keine Einladung wird angelegt
+
+> **Ist-Zustand (Stand 2026-08-08):** Das Einladungsfeld hat heute keine
+> Client-Validierung — die Anfrage geht raus und der Server lehnt sie ab, die
+> Meldung erscheint als Toast. Der Zielzustand ist die Inline-Meldung am Feld
+> (UI-NFR-008 R-004). Beide Formen erfüllen den Test, solange die Meldung
+> sichtbar und lokalisiert ist.
 
 **Nachbedingungen**:
 - Keine Einladung gesendet

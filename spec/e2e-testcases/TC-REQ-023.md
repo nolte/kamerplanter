@@ -135,7 +135,8 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 2. Nutzer klickt auf "Registrieren"
 
 **Erwartete Ergebnisse**:
-- Der Browser zeigt eine native HTML5-Validierungswarnung am ersten leeren Pflichtfeld
+- Der "Registrieren"-Button ist deaktiviert, solange ein Pflichtfeld leer ist — ein Absenden ist gar nicht erst möglich
+- **Es erscheint KEINE native HTML5-Validierungsblase.** Die Seite rendert `<Form>` und damit `noValidate`; eine native Blase wäre ein Rückfall hinter #825 und gilt als **Fehlschlag**, nicht als bestandenes Ergebnis
 - Es erfolgt kein API-Request (kein Ladeindikator)
 - Kein Seitenwechsel findet statt
 
@@ -975,7 +976,8 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 2. Nutzer klickt "Erstellen"
 
 **Erwartete Ergebnisse**:
-- Browser-native Validierung oder ein Fehler-Hinweis im Dialog erscheint
+- Der "Erstellen"-Button ist deaktiviert, solange die Bezeichnung leer ist — der Klick löst nichts aus
+- **Es erscheint KEINE native HTML5-Validierungsblase** (native Validierung ist per `noValidate` deaktiviert, #825). Erscheint eine, ist der Test **fehlgeschlagen**. Wird die Absendesperre später durch eine Inline-Validierung ersetzt, ist die erwartete Meldung der übersetzte Inline-Fehler unter dem Feld
 - Kein Key wird erstellt, Dialog bleibt geöffnet
 
 **Tags**: [REQ-023, api-schluessel, validierung, pflichtfeld]
