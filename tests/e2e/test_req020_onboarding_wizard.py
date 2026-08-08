@@ -722,12 +722,17 @@ class TestPlantSelectionStep:
         assert wizard.is_step_plants_visible(), (
             "TC-REQ-020-027 FAIL: Expected plant selection step to be visible"
         )
+        # No skip-gate here: "fensterbank-kraeuter" was clicked above, which
+        # synchronously dispatches its species_keys as favorites
+        # (OnboardingWizard.tsx handleKitSelect), and advance_to_step_favorites /
+        # advance_to_step_site already settled the intervening steps -- an empty
+        # result at this point is a real product regression, not a race to skip
+        # past.
         rows = wizard.get_plant_config_rows()
-        if len(rows) == 0:
-            pytest.skip(
-                "No plant config rows visible -- kit species may not have loaded as favorites"
-            )
-        assert len(rows) > 0, f"TC-REQ-020-027 FAIL: Expected plant config rows, got: {len(rows)}"
+        assert len(rows) > 0, (
+            "TC-REQ-020-027 FAIL: Expected plant config rows for the favorited "
+            f"kit species, got: {len(rows)}"
+        )
 
     # Observed once on mobile (run 20260725_144611): the test stopped before its
     # only screenshot, i.e. somewhere in the four-step navigation chain below,
