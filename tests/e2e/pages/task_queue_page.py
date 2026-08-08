@@ -75,7 +75,20 @@ class TaskQueuePage(BasePage):
     # ── Task card interactions ─────────────────────────────────────────
 
     def get_task_cards(self) -> list[WebElement]:
-        """Return all visible task card elements."""
+        """Return all visible task card elements.
+
+        Anchored on :meth:`wait_for_queue_content` (defined below, already used
+        by :meth:`find_task_key_by_name`): ``TaskQueuePage.tsx`` unmounts its
+        whole subtree -- cards included -- back to a ``LoadingSkeleton`` while
+        its combined ``loading`` flag is true (``tasksLoading || careLoading ||
+        plantsLoading``), including on a background refetch that happens after
+        ``open()``'s own ``wait_for_element(PAGE)`` already resolved. Feeds
+        :meth:`get_task_card_count`, which three call sites gate a
+        ``pytest.skip(...)`` on right after ``open()`` -- the same skip-gate
+        vacuity ``PflegeDashboardPage.has_overdue_section`` was fixed for on the
+        shared ``[data-testid='task-queue-page']`` container (#946 wave 1).
+        """
+        self.wait_for_queue_content()
         return self.driver.find_elements(*self.TASK_CARD)
 
     def get_task_card_count(self) -> int:
@@ -97,7 +110,24 @@ class TaskQueuePage(BasePage):
         return cards[0] if cards else None
 
     def get_task_keys(self) -> list[str]:
-        """Return a list of task keys from the visible task-card-{key} elements."""
+        """Return a list of task keys from the visible task-card-{key} elements.
+
+        Anchored on :meth:`wait_for_queue_content`. Three call sites gate a
+        ``pytest.skip(...)`` on an empty result directly after ``open()``
+        (``_get_first_task_key`` in ``test_req006_task_detail.py``,
+        ``test_queue_to_detail_and_back`` and
+        ``test_task_detail_plant_link_navigates`` in
+        ``test_req006_navigation.py``), and several more assert
+        ``key in task_queue.get_task_keys()`` right after self-provisioning a
+        task and navigating there -- a read taken mid-refetch reports the same
+        empty list whether the queue is genuinely empty or has simply not
+        rendered yet, either silently skipping real coverage or flakily
+        failing a task that is actually there. Also load-bearing for
+        ``create_care_task``'s cross-test-interference warning in
+        ``_journey_helpers.py`` (issue #791): this and
+        :meth:`get_first_task_card` are named there as "queue-head consumers".
+        """
+        self.wait_for_queue_content()
         elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='task-card-']")
         keys = []
         for el in elements:
@@ -135,7 +165,16 @@ class TaskQueuePage(BasePage):
     # ── Urgency sections ───────────────────────────────────────────────
 
     def get_visible_sections(self) -> list[str]:
-        """Return a list of visible urgency section testids."""
+        """Return a list of visible urgency section testids.
+
+        Anchored on :meth:`wait_for_queue_content` for consistency with
+        :meth:`get_task_cards`: its one call site (``test_task_queue_shows_
+        urgency_sections``) already reads it after a ``get_task_card_count()``
+        skip-gate, so by the time this runs the queue has settled in practice
+        -- the anchor here is cheap (already satisfied) and makes the method
+        correct independent of that ordering.
+        """
+        self.wait_for_queue_content()
         sections = []
         for name, locator in [
             ("overdue", self.TASK_SECTION_OVERDUE),
@@ -153,7 +192,15 @@ class TaskQueuePage(BasePage):
         Returns one of ``'overdue'``, ``'today'``, ``'thisWeek'``, ``'future'``
         by walking up from the ``task-card-{key}`` element to its enclosing
         ``task-section-*`` ancestor. ``None`` if the card is not on the page.
+
+        Anchored on :meth:`wait_for_queue_content`: ``test_due_date_shift_
+        updates_detail_and_queue`` reads this once before a due-date edit and
+        once after, comparing the two urgency groups. Both reads race the same
+        unmount-during-refetch window as the other queue readers -- a ``None``
+        taken mid-refetch on either side would report a section change (or
+        non-change) that never happened.
         """
+        self.wait_for_queue_content()
         cards = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='task-card-{key}']")
         if not cards:
             return None
@@ -168,7 +215,15 @@ class TaskQueuePage(BasePage):
         return testid.replace("task-section-", "") or None
 
     def get_section_task_count(self, section: str) -> int:
-        """Return the number of task cards inside a section."""
+        """Return the number of task cards inside a section.
+
+        Anchored on :meth:`wait_for_queue_content` for consistency with
+        :meth:`get_task_section` above, its natural pairing (mirrors
+        ``PflegeDashboardPage.get_section_card_count``). No call site in this
+        wave, but a section count read before the queue has settled is the
+        same "no cards yet" vs. "genuinely no cards" ambiguity as its sibling.
+        """
+        self.wait_for_queue_content()
         section_el = self.driver.find_elements(
             By.CSS_SELECTOR, f"[data-testid='task-section-{section}']"
         )
@@ -531,7 +586,15 @@ class TaskQueuePage(BasePage):
     # ── Element visibility helpers ────────────────────────────────────
 
     def is_page_visible(self) -> bool:
-        """Check whether the task queue page container is displayed."""
+        """Check whether the task queue page container is displayed.
+
+        Deliberately instantaneous, not anchored: unlike the readers above it
+        checks the exact ``PAGE`` locator ``open()`` already waited for
+        (``wait_for_element(self.PAGE)``), so its call sites, which read it
+        immediately after ``open()``, have already bought this readiness --
+        matching ``PflegeDashboardPage.is_page_displayed`` (#946 wave 1) on
+        the shared container.
+        """
         els = self.driver.find_elements(*self.PAGE)
         return len(els) > 0 and els[0].is_displayed()
 

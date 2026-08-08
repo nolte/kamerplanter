@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import BasePage, DEFAULT_TIMEOUT, raw_reference
+from .base_page import BasePage, DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, raw_reference
 
 
 class TaskDetailPage(BasePage):
@@ -65,6 +67,35 @@ class TaskDetailPage(BasePage):
         self.wait_for_loading_complete()
         return self
 
+    def wait_for_task_detail_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the task detail page or an error surface has settled; never raises.
+
+        An anchor for the action-button readers below, not an assertion of its
+        own -- same rationale as ``PflegeDashboardPage.wait_for_dashboard_
+        content`` / ``TaskQueuePage.wait_for_queue_content`` (#946 wave 1/2),
+        applied here to a single-entity detail route instead of a list:
+        ``TaskDetailPage.tsx`` unmounts its whole subtree -- ``PAGE`` included
+        -- back to a ``LoadingSkeleton`` while its ``loading`` flag is true
+        (line 580, checked *before* ``ErrorDisplay``/not-found and before the
+        ``[data-testid='task-detail-page']`` root), and ``handleStart``/
+        ``handleSkip``/``handleReopen`` all re-trigger that same fetch cycle
+        via ``load()`` after their mutation. A raw read taken right after
+        ``open()`` -- or after one of those actions -- can land in that window
+        exactly like ``has_care_card`` did on the shared queue container.
+        Delegates to the generic :meth:`BasePage.wait_for_page_settled` (content
+        vs. ``ErrorDisplay`` vs. ``ErrorPage``) rather than a bespoke branch set:
+        this route has no list/empty-state branch, only content-or-error.
+        ``require_no_skeleton=False`` for the same reason
+        :meth:`TaskQueuePage.wait_for_queue_content` passes it through
+        ``wait_for_any_present``: this is an anchor, not the page's own
+        settling assertion, so it must not add a second poll on top of the one
+        it already ran.
+        """
+        with suppress(AssertionError):
+            self.wait_for_page_settled(
+                self.PAGE, "task detail content", timeout=timeout, require_no_skeleton=False
+            )
+
     # ── Page title ─────────────────────────────────────────────────────
 
     def get_task_title(self) -> str:
@@ -113,7 +144,16 @@ class TaskDetailPage(BasePage):
     # ── Action buttons ─────────────────────────────────────────────────
 
     def has_start_button(self) -> bool:
-        """Check if the start button is visible."""
+        """Check if the start button is visible.
+
+        Anchored on :meth:`wait_for_task_detail_content`: asserted both
+        positively (a freshly created pending task must offer it) and
+        negatively (``assert not task_detail.has_start_button()`` right after
+        a fresh ``open()`` following a queue-side start action in
+        ``test_start_task_from_queue``) -- the bidirectional shape
+        ``PflegeDashboardPage.has_care_card`` was fixed for.
+        """
+        self.wait_for_task_detail_content()
         return len(self.driver.find_elements(*self.START_BUTTON)) > 0
 
     def click_start(self) -> None:
@@ -121,7 +161,16 @@ class TaskDetailPage(BasePage):
         self.wait_and_click(self.START_BUTTON)
 
     def has_skip_button(self) -> bool:
-        """Check if the skip button is visible."""
+        """Check if the skip button is visible.
+
+        Anchored on :meth:`wait_for_task_detail_content`, matching
+        :meth:`has_start_button` -- same status-gated locator, same shared
+        disjunction (``has_start_button() or has_skip_button() or
+        has_reopen_button()``) in ``test_start_button_visible_for_pending_
+        task``, where an unanchored read racing all three at once mid-refetch
+        would silently fail that "at least one" assertion.
+        """
+        self.wait_for_task_detail_content()
         return len(self.driver.find_elements(*self.SKIP_BUTTON)) > 0
 
     def click_skip(self) -> None:
@@ -129,7 +178,12 @@ class TaskDetailPage(BasePage):
         self.wait_and_click(self.SKIP_BUTTON)
 
     def has_reopen_button(self) -> bool:
-        """Check if the reopen button is visible."""
+        """Check if the reopen button is visible.
+
+        See :meth:`has_skip_button` for why the anchor is
+        :meth:`wait_for_task_detail_content`.
+        """
+        self.wait_for_task_detail_content()
         return len(self.driver.find_elements(*self.REOPEN_BUTTON)) > 0
 
     def click_reopen(self) -> None:
@@ -137,7 +191,12 @@ class TaskDetailPage(BasePage):
         self.wait_and_click(self.REOPEN_BUTTON)
 
     def has_clone_button(self) -> bool:
-        """Check if the clone button is visible."""
+        """Check if the clone button is visible.
+
+        Anchored on :meth:`wait_for_task_detail_content` for consistency with
+        its siblings above -- same shape, same container.
+        """
+        self.wait_for_task_detail_content()
         return len(self.driver.find_elements(*self.CLONE_BUTTON)) > 0
 
     def click_clone(self) -> None:
@@ -145,7 +204,12 @@ class TaskDetailPage(BasePage):
         self.wait_and_click(self.CLONE_BUTTON)
 
     def has_complete_submit(self) -> bool:
-        """Check if the complete submit button is present."""
+        """Check if the complete submit button is present.
+
+        Anchored on :meth:`wait_for_task_detail_content` for consistency with
+        the other action-button readers above; no call site in this wave.
+        """
+        self.wait_for_task_detail_content()
         return len(self.driver.find_elements(*self.COMPLETE_SUBMIT)) > 0
 
     def click_complete_submit(self) -> None:
@@ -155,7 +219,16 @@ class TaskDetailPage(BasePage):
     # ── Plant link ─────────────────────────────────────────────────────
 
     def has_plant_link(self) -> bool:
-        """Check if a plant link is present on the detail page."""
+        """Check if a plant link is present on the detail page.
+
+        Anchored on :meth:`wait_for_task_detail_content`: its one call site
+        (``test_task_detail_plant_link_navigates``) gates a
+        ``pytest.skip(...)`` on ``not has_plant_link()`` directly after
+        ``open()`` -- the skip-gate vacuity ``PflegeDashboardPage.
+        has_overdue_section`` was fixed for (#946 wave 1), here deciding
+        whether the plant-navigation coverage runs at all.
+        """
+        self.wait_for_task_detail_content()
         return len(self.driver.find_elements(*self.PLANT_LINK)) > 0
 
     def click_plant_link(self) -> None:
