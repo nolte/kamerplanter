@@ -19,6 +19,7 @@ import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useFieldViolations } from '@/hooks/useFieldViolations';
 import { useAppDispatch } from '@/store/hooks';
 import { overrideOverwintering } from '@/store/slices/seasonSlice';
 import type {
@@ -132,6 +133,26 @@ function profileToForm(p: OverwinteringProfile): FormData {
   };
 }
 
+/**
+ * Backend violation `code` (stable) → i18n key, keyed on the `code` and not on
+ * the field so the English backend `reason` never lands on the German form
+ * (#1015). A code absent here degrades to the generic validation toast.
+ *
+ * The override endpoint (`override_plant_profile`) reaches only one field-scoped,
+ * form-renderable domain code:
+ * - `WINTER_PATH_VIOLATION` — D5: `winter_action` contradicts the rating's
+ *   winter path (`validate_d5_invariant`), lands on `winter_action`.
+ *
+ * The sibling create dialog additionally maps `SITE_NOT_FROST_EXPOSED` and
+ * `INVALID_SUBJECT`; neither is reachable here — the frost-exposure check runs
+ * only on the manual create path, and the subject (`plant_key`) is fixed by the
+ * profile and not edited in this dialog — so mapping them would render nothing
+ * and they are intentionally left to the toast.
+ */
+const VIOLATION_MESSAGE_KEYS: Record<string, string> = {
+  WINTER_PATH_VIOLATION: 'pages.overwintering.errors.winterPathViolation',
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -165,10 +186,15 @@ export default function OverwinteringOverrideDialog({
     reset,
     watch,
     setValue,
+    setError,
     formState: { isDirty },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: profileToForm(profile),
+  });
+
+  const applyFieldViolation = useFieldViolations(setError, {
+    messageKeys: VIOLATION_MESSAGE_KEYS,
   });
 
   useEffect(() => {
@@ -226,13 +252,13 @@ export default function OverwinteringOverrideDialog({
       notification.success(t('pages.season.override.saved'));
       onClose();
     } catch (err) {
-      // This dialog dispatches through a thunk whose `.unwrap()` rehydrates a
-      // plain Error, so the ApiError's `details` (and any violation `code`) are
-      // gone by the time they reach here — there is nothing coded to map onto a
-      // field. The generic toast is the floor; the D5 guard above already keeps
-      // `winter_action` valid client-side so the server rule rarely fires. The
-      // widened useApiError contract (#1015) still keeps English off the form.
-      handleError(err);
+      // The thunk now carries the typed ApiError through `rejectWithValue`, so
+      // `.unwrap()` re-throws it intact (#1041) and the D5 winter-path 422 lands
+      // on `winter_action`, translated on the violation `code`. An untranslated
+      // code degrades to the generic toast rather than to the English `reason`
+      // (#1015); the client-side D5 guard above still keeps `winter_action`
+      // valid so the server rule rarely fires in the first place.
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }

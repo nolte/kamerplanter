@@ -6,7 +6,7 @@ import type {
   SeasonState,
 } from '@/api/types';
 import * as api from '@/api/endpoints/season';
-import { isApiError } from '@/api/errors';
+import { isApiError, type ApiError } from '@/api/errors';
 
 /**
  * REQ-047 §4.1–§4.3 — season & overwintering-automation state.
@@ -81,10 +81,30 @@ export const fetchOverwinteringStatus = createAsyncThunk(
     api.getPlantOverwinteringStatus(plantKey),
 );
 
-export const overrideOverwintering = createAsyncThunk(
+export const overrideOverwintering = createAsyncThunk<
+  OverwinteringProfile,
+  { plantKey: string; patch: OverwinteringOverride },
+  { rejectValue: ApiError }
+>(
   'season/overrideOverwintering',
-  async ({ plantKey, patch }: { plantKey: string; patch: OverwinteringOverride }) =>
-    api.overridePlantOverwintering(plantKey, patch),
+  async ({ plantKey, patch }, { rejectWithValue }) => {
+    try {
+      return await api.overridePlantOverwintering(plantKey, patch);
+    } catch (err) {
+      // Preserve the typed ApiError (with its `details[]`/violation `code`s)
+      // across the thunk boundary. RTK's default rejection path runs the thrown
+      // error through `miniSerializeError`, which keeps only name/message/stack/
+      // code and drops `details` — so `.unwrap()` would hand the dialog a plain
+      // Error and the D5 field violation (`WINTER_PATH_VIOLATION`) would be gone
+      // by the time it is caught (#1041). Carrying the ApiError as the rejected
+      // payload lets `.unwrap()` re-throw it intact, so `useFieldViolations` can
+      // map the coded violation onto the offending field. Only an ApiError is
+      // carried this way; a network/timeout error is rethrown so `.unwrap()`
+      // still surfaces it to the axios branch of `useApiError`.
+      if (isApiError(err)) return rejectWithValue(err);
+      throw err;
+    }
+  },
 );
 
 export const resetOverwintering = createAsyncThunk(
