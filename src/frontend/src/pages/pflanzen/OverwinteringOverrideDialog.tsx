@@ -165,7 +165,6 @@ export default function OverwinteringOverrideDialog({
     reset,
     watch,
     setValue,
-    setError,
     formState: { isDirty },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -227,7 +226,13 @@ export default function OverwinteringOverrideDialog({
       notification.success(t('pages.season.override.saved'));
       onClose();
     } catch (err) {
-      handleError(err, setError as (name: string, message: string) => void);
+      // This dialog dispatches through a thunk whose `.unwrap()` rehydrates a
+      // plain Error, so the ApiError's `details` (and any violation `code`) are
+      // gone by the time they reach here — there is nothing coded to map onto a
+      // field. The generic toast is the floor; the D5 guard above already keeps
+      // `winter_action` valid client-side so the server rule rarely fires. The
+      // widened useApiError contract (#1015) still keeps English off the form.
+      handleError(err);
     } finally {
       setSaving(false);
     }

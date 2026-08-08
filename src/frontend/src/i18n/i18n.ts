@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import deCore from './locales/de/core.json';
 import enCore from './locales/en/core.json';
+import { configureZodErrorMap } from '@/validation/zodErrorMap';
 
 /**
  * #612 — lazy-loaded translations (UI-NFR-003 R-013/R-015).
@@ -54,6 +55,12 @@ void i18n
       useSuspense: false,
     },
   });
+
+// #1016 — route every zod built-in constraint message through i18next so a bare
+// constraint can never render an English default in the German UI. Registered
+// here (rather than in main.tsx) so the map is active in the test environment
+// too, which imports `@/i18n` but not `main.tsx`.
+configureZodErrorMap();
 
 type FeatureBundle = { default: Record<string, unknown> };
 

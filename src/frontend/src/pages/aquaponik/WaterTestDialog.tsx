@@ -73,7 +73,6 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
     control,
     handleSubmit,
     reset,
-    setError,
     formState: { isDirty, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
 
@@ -83,9 +82,10 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
       reset(defaults);
       onRecorded();
     } catch (error) {
-      handleError(error, (name, message) =>
-        setError(name as keyof FormData, { message }),
-      );
+      // No coded field violation to render here; the generic toast is the floor.
+      // The widened useApiError contract (#1015) keeps the English `reason` off
+      // the German form — a future code is wired via `useFieldViolations`.
+      handleError(error);
     }
   };
 

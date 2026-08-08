@@ -437,6 +437,24 @@
     "starterKitsLoadFailed": "Die Starter-Sets konnten nicht geladen werden.",
     "preferencesLoadFailed": "Die Einstellungen konnten nicht geladen werden."
   },
+  "validation": {
+    "required": "Pflichtfeld.",
+    "invalidType": "Ungültiger Wert (erwartet: {{expected}}).",
+    "numberMin": "Muss mindestens {{minimum}} sein.",
+    "numberGt": "Muss größer als {{minimum}} sein.",
+    "numberMax": "Darf höchstens {{maximum}} sein.",
+    "numberLt": "Muss kleiner als {{maximum}} sein.",
+    "stringMin": "Bitte mindestens {{minimum}} Zeichen eingeben.",
+    "stringMax": "Bitte höchstens {{maximum}} Zeichen eingeben.",
+    "arrayMin": "Bitte mindestens {{minimum}} Einträge auswählen.",
+    "arrayMax": "Bitte höchstens {{maximum}} Einträge auswählen.",
+    "multipleOf": "Muss ein Vielfaches von {{divisor}} sein.",
+    "email": "Bitte eine gültige E-Mail-Adresse eingeben.",
+    "url": "Bitte eine gültige URL eingeben.",
+    "invalidFormat": "Ungültiges Format.",
+    "invalidOption": "Bitte eine gültige Option wählen.",
+    "invalid": "Ungültige Eingabe."
+  },
   "entities": {
     "botanicalFamily": "Botanische Familie",
     "botanicalFamilies": "Botanische Familien",

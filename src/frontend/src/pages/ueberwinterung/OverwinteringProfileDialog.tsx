@@ -22,6 +22,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useFieldViolations } from '@/hooks/useFieldViolations';
 import * as api from '@/api/endpoints/overwinteringProfiles';
 import type {
   OverwinteringProfile,
@@ -166,6 +167,22 @@ function profileToForm(p: OverwinteringProfile): FormData {
   };
 }
 
+/**
+ * Backend violation `code` (stable) → i18n key. Keyed on `code`, not on the
+ * field, and translated here because the backend `reason` is English (#1015).
+ * A code absent here is left to the generic toast rather than rendered raw.
+ *
+ * - `WINTER_PATH_VIOLATION` — D5: `winter_action` contradicts the rating's
+ *   winter path (`validate_d5_invariant`), lands on `winter_action`.
+ * - `SITE_NOT_FROST_EXPOSED` / `INVALID_SUBJECT` — create-time subject checks,
+ *   land on `plant_key`.
+ */
+const VIOLATION_MESSAGE_KEYS: Record<string, string> = {
+  WINTER_PATH_VIOLATION: 'pages.overwintering.errors.winterPathViolation',
+  SITE_NOT_FROST_EXPOSED: 'pages.overwintering.errors.siteNotFrostExposed',
+  INVALID_SUBJECT: 'pages.overwintering.errors.invalidSubject',
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -225,6 +242,10 @@ export default function OverwinteringProfileDialog({
   } = useForm<FormData>({
     resolver,
     defaultValues: DEFAULTS,
+  });
+
+  const applyFieldViolation = useFieldViolations(setError, {
+    messageKeys: VIOLATION_MESSAGE_KEYS,
   });
 
   useEffect(() => {
@@ -307,8 +328,13 @@ export default function OverwinteringProfileDialog({
       reset(DEFAULTS);
       onSaved();
     } catch (err) {
-      // Surfaces the server-side D5 tuber_status/dig_and_store 422 on the field.
-      handleError(err, setError as (name: string, message: string) => void);
+      // Surfaces the server-side D5 winter-path 422 (and the create-time subject
+      // checks) on the field, translated on the violation `code`; an untranslated
+      // code degrades to the generic toast rather than to the English reason
+      // (#1015). The previous raw `setError` cast also passed the reason string
+      // where react-hook-form expects `{ message }`, so the field went red with
+      // no text at all — the helper sets the correct `{ type, message }` shape.
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }

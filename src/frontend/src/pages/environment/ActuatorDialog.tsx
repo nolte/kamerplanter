@@ -131,7 +131,6 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
     control,
     handleSubmit,
     reset,
-    setError,
     watch,
     setValue,
     formState: { isDirty, isSubmitting },
@@ -199,7 +198,10 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
       reset(DEFAULTS);
       onCreated();
     } catch (error) {
-      handleError(error, (name, message) => setError(name as keyof FormData, { message }));
+      // No coded field violation to render here; the generic toast is the floor.
+      // The widened useApiError contract (#1015) keeps the English `reason` off
+      // the German form — a future code is wired via `useFieldViolations`.
+      handleError(error);
       notification.error(t('errors.generic'));
     }
   };

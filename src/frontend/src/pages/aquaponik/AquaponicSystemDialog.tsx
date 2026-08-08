@@ -92,7 +92,6 @@ export default function AquaponicSystemDialog({ open, onClose, onCreated }: Prop
     control,
     handleSubmit,
     reset,
-    setError,
     formState: { isDirty, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
 
@@ -112,9 +111,10 @@ export default function AquaponicSystemDialog({ open, onClose, onCreated }: Prop
       reset(defaults);
       onCreated();
     } catch (error) {
-      handleError(error, (name, message) =>
-        setError(name as keyof FormData, { message }),
-      );
+      // No coded field violation to render here; the generic toast is the floor.
+      // The widened useApiError contract (#1015) keeps the English `reason` off
+      // the German form — a future code is wired via `useFieldViolations`.
+      handleError(error);
       notification.error(t('errors.generic'));
     }
   };

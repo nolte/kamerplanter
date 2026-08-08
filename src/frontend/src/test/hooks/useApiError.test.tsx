@@ -85,24 +85,47 @@ describe('useApiError', () => {
     expect(mockEnqueue).toHaveBeenCalled();
   });
 
-  it('maps field errors to form', () => {
+  it('forwards each field violation with its code, not the English reason (#1015)', () => {
     const { result } = renderHook(() => useApiError(), { wrapper });
     const error = makeApiError('VALIDATION_ERROR', 'Invalid', [
-      { field: 'body.name', reason: 'Required', code: 'value_error' },
+      { field: 'body.winter_action', reason: "Path B requires …; got 'fleece'.", code: 'WINTER_PATH_VIOLATION' },
     ], 422);
-    const setFieldError = vi.fn();
-    result.current.handleError(error, setFieldError);
-    expect(setFieldError).toHaveBeenCalledWith('name', 'Required');
+    const applyFieldViolation = vi.fn();
+    result.current.handleError(error, applyFieldViolation);
+    // The whole violation is forwarded — `code` above all — so the caller can
+    // translate. The hook never renders the English `reason` itself.
+    expect(applyFieldViolation).toHaveBeenCalledWith({
+      field: 'winter_action',
+      reason: "Path B requires …; got 'fleece'.",
+      code: 'WINTER_PATH_VIOLATION',
+    });
   });
 
-  it('notifies once and returns when field errors are present', () => {
+  it('notifies once whether or not the caller rendered the violation', () => {
     const { result } = renderHook(() => useApiError(), { wrapper });
     const error = makeApiError('VALIDATION_ERROR', 'Invalid', [
       { field: 'body.name', reason: 'Required', code: 'value_error' },
     ], 422);
-    result.current.handleError(error, vi.fn());
-    // Only the validation toast — the errorCode switch must not run after the early return.
+    // Caller renders the field (returns true): still exactly one toast.
+    result.current.handleError(error, () => true);
     expect(mockEnqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('degrades an unrenderable violation to the toast, not to English (#1015)', () => {
+    const { result } = renderHook(() => useApiError(), { wrapper });
+    const error = makeApiError('VALIDATION_ERROR', 'Invalid', [
+      { field: 'body.name', reason: 'Required', code: 'value_error' },
+    ], 422);
+    // Caller cannot translate the code and returns falsy: the hook must still
+    // raise a toast, and the English reason must never be surfaced.
+    const applyFieldViolation = vi.fn(() => false);
+    result.current.handleError(error, applyFieldViolation);
+    expect(applyFieldViolation).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).not.toHaveBeenCalledWith(
+      'Required',
+      expect.anything(),
+    );
   });
 
   it('handles INTERNAL_ERROR', () => {
