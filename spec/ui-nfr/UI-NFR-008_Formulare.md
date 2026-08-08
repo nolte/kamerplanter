@@ -54,8 +54,9 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 | R-001 | Formularfelder MÜSSEN bei Verlust des Fokus (On-Blur) validiert werden. | MUSS |
 | R-002 | Beim Absenden (On-Submit) MUSS das gesamte Formular validiert werden, auch wenn einzelne Felder nicht berührt wurden. | MUSS |
 | R-003 | Die Frontend-Validierung MUSS als Ergänzung zur Backend-Validierung dienen — die Frontend-Validierung allein ist NICHT ausreichend. | MUSS |
-| R-004 | Backend-Validierungsfehler MÜSSEN inline am betroffenen Feld angezeigt werden, sofern ein Feldbezug vorhanden ist. | MUSS |
+| R-004 | Backend-Validierungsfehler MÜSSEN inline am betroffenen Feld angezeigt werden, sofern ein Feldbezug vorhanden ist. Gemappt wird aus dem Fehler-Envelope: `details[].field` (ohne `body.`-Präfix) bestimmt **welches** Feld, `details[].code` bestimmt **welcher Text** — aufgelöst über den i18n-Key `errors.<code>`. Der Server-`reason` ist ein englischer Entwicklertext und DARF NICHT als Feldmeldung gerendert werden (NFR-017 R-118a, Beleg #1015). Trifft eines von beidem nicht (unbekanntes Feld oder fehlender Katalog-Key), bleibt es bei der generischen, lokalisierten Meldung — der Fehler verschwindet nie stillschweigend (UI-NFR-004 R-014a). | MUSS |
 | R-005 | Validierungsregeln SOLLEN zentral definiert werden (z.B. als Schema), nicht in einzelnen Formular-Komponenten dupliziert. | SOLL |
+| R-005a | Meldungstexte der Client-Validierung MÜSSEN i18n-Keys sein, keine fremdsprachigen Literale im Schema (`spec/style-guides/FRONTEND.md` §11.1, NFR-017 R-118b). | MUSS |
 
 ### 2.2 Dirty-State & ungespeicherte Änderungen
 
@@ -119,6 +120,7 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 | R-046 | Für Felder mit Fachbegriffen (VPD, EC, PPFD etc.) MUSS die `HelpTooltip`-Komponente aus UI-NFR-011 verwendet werden, die zusätzlich Glossar-Verlinkung und erfahrungsstufenabhängige Darstellung bietet. Für allgemeine Felder ohne Fachbegriff genügt ein einfacher MUI `Tooltip` mit dem i18n-Hilfetext. | MUSS |
 | R-047 | Das Info-Icon MUSS per Tastatur fokussierbar sein (`tabIndex={0}`) und den Tooltip bei Enter/Space öffnen (WCAG 2.1 Level AA). | MUSS |
 | R-048 | Das Info-Icon SOLL dezent gestaltet sein (Farbe: `text.secondary`, Größe: 18px), um den visuellen Fluss des Formulars nicht zu stören, aber dennoch als interaktives Element erkennbar bleiben. | SOLL |
+| R-048a | Die Erklärungspflicht aus R-042 gilt ausdrücklich **auch für Schalter, Umschalter und Checkboxen** (`Switch`, `Checkbox`, `FormSwitchField`). Ein Schalter ist der erklärungsbedürftigste Feldtyp im Formular: Sein Label benennt eine Option, aber nicht, **was beim Einschalten passiert** und was der ausgeschaltete Zustand bedeutet. Jeder Schalter, dessen Wirkung nicht aus dem Label allein hervorgeht, MUSS einen Hilfetext tragen — als Beschreibungszeile unter dem Label oder über das Info-Icon. Beleg: #633. | MUSS |
 
 #### Wireframe: Feld mit Info-Icon
 
@@ -330,11 +332,12 @@ R-063 erinnert: bei Master-Detail springt der Fokus nach dem letzten Fliesstext-
 | R-028 | Ein „Zurücksetzen"-Button KANN angeboten werden, um das Formular auf die Standardwerte zurückzusetzen. | KANN |
 | R-029 | Der Reset SOLL einen Bestätigungsdialog zeigen, wenn der Dirty-State aktiv ist. | SOLL |
 
-### 2.10 Fremdschlüssel-Felder & Referenzauswahl
+### 2.10 Felder mit geschlossener Wertemenge (Referenzen, Enums, Monate)
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-030 | Felder, die auf eine andere Entität verweisen (Fremdschlüssel), MÜSSEN als Auswahl-Komponente (Dropdown, Autocomplete) dargestellt werden — der Nutzer DARF NICHT gezwungen sein, einen Schlüssel oder Namen manuell einzutippen. | MUSS |
+| R-030 | Felder mit **geschlossener Wertemenge** MÜSSEN als Auswahl-Komponente (Dropdown, Autocomplete, Chip-Auswahl) dargestellt werden — der Nutzer DARF NICHT gezwungen sein, einen Schlüssel, Code oder Namen manuell einzutippen. Das gilt für Verweise auf andere Entitäten (Fremdschlüssel) **und für Enum-Felder gleichermaßen**: dass ein Enum keine Zieltabelle hat, aus der Optionen geladen werden könnten, ändert nichts daran, dass die zulässigen Werte bekannt und endlich sind. Ein Freitextfeld für einen Enum-Wert erzwingt Raten und produziert 422-Antworten für Tippfehler (Beleg: #610). Die Optionen kommen aus dem TypeScript-Union-Typ bzw. dem OpenAPI-Schema, die Beschriftungen aus `enums.<enumName>.<value>` (UI-NFR-007). | MUSS |
+| R-030a | **Monatsfelder MÜSSEN als benannte Monats-Auswahl gerendert werden** — Eingabe und Anzeige über den Monatsnamen („März"), nicht über die Zahl. Eine Zahl DARF höchstens als Zusatzinformation danebenstehen; sie ist nie die primäre Darstellung und nie das Eingabeformat. Das gilt für alle Monatsfelder in Formularen, Listen und Detailansichten (`direct_sow_months`, `harvest_months`, `bloom_months`, `pruning_months`, `propagation_configs[].months`, …), nicht nur für die Anbauzeitachse (verallgemeinert UI-NFR-020 R-043). Ein Formular, das „3, 4, 9" verlangt, ist für Endnutzer nicht bedienbar. Belege: #613, #683. | MUSS |
 | R-031 | Die Auswahl-Komponente MUSS die verfügbaren Optionen dynamisch aus der API laden. | MUSS |
 | R-032 | Bei mehr als 20 Optionen MUSS eine durchsuchbare Auswahl (Autocomplete mit Filterfunktion) verwendet werden. Bei ≤ 20 Optionen KANN ein einfaches Dropdown (Select) verwendet werden. | MUSS |
 | R-033 | Während die Optionen geladen werden, MUSS ein Ladezustand angezeigt werden (z.B. Skeleton oder Spinner im Dropdown). | MUSS |

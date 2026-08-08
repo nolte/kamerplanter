@@ -78,6 +78,7 @@ Internationalisierung von Anfang an einzuplanen ist deutlich günstiger als eine
 | R-007 | Für Domänenwerte SOLL ein einheitlicher Key-Namespace verwendet werden (z.B. `enums.phase.germination`, `enums.substrateType.soil`), damit alle Enum-Übersetzungen zentral auffindbar sind. | SOLL |
 | R-008 | Übersetzungsdateien MÜSSEN in einem strukturierten Format vorliegen (JSON oder YAML). | MUSS |
 | R-009 | Fehlende Übersetzungen MÜSSEN im Entwicklungsmodus eine Warnung erzeugen und den Key als Fallback anzeigen. | MUSS |
+| R-009a | **Botanische Namen MÜSSEN in Endnutzer-Ansichten von einem lokalisierten Trivialnamen begleitet werden, wo einer vorliegt.** *Solanum lycopersicum* allein ist für die Zielgruppe kein Name — sichtbar sein muss „Tomate", der wissenschaftliche Name tritt als Zusatz daneben (Untertitel, Klammerzusatz, Tooltip). Das gilt für Listen, Auswahlfelder, Detail-Kopfzeilen, Suchergebnisse und Druckansichten. Der Trivialname kommt aus `common_names` in der aktiven Locale mit Fallback auf die kanonische Sprache; existiert keiner, steht der botanische Name allein — er wird nie weggelassen, weil er die eindeutige Identität trägt. Belege: #623, #567. | MUSS |
 
 ### 2.3 Datums- und Zeitformate
 

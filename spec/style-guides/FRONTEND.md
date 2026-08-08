@@ -537,41 +537,172 @@ export class ApiError extends Error {
   errorId: string;
   errorCode: string;
   statusCode: number;
+  details: ApiErrorDetail[];   // { field, reason, code } je Verletzung
+}
+```
+
+**Regel: Server-Fehlertexte werden NIE roh angezeigt.** `message` und
+`details[].reason` kommen aus dem Backend und sind **englisch** (NFR-003 haelt
+Source und API-Meldungen englisch, die UI ist uebersetzt). Angezeigt wird
+ausschliesslich ein ueber den **stabilen Code** aufgeloester Text:
+
+- Top-Level: `error_code` → `errors.<error_code>` (NFR-017 R-118)
+- Feldfehler: `details[].code` → `errors.<code>`, gesetzt am Feld, das
+  `details[].field` benennt (`body.`-Praefix abgeschnitten)
+
+```typescript
+export function parseApiError(error: unknown, t: TFunction): string {
+  if (isApiError(error)) {
+    // Der Code ist der Vertrag, `message` ist nur der englische Rohtext.
+    return t(`errors.${error.errorCode}`, { defaultValue: t('errors.generic') });
+  }
+  if (error instanceof Error) return t('errors.network');
+  return t('errors.unknown');
 }
 
-export function parseApiError(error: unknown): string {
-  if (isApiError(error)) return error.message;
-  if (error instanceof Error) return error.message;
-  return 'An unknown error occurred.';
+// Feldfehler: Code -> i18n-Key, nie `reason` durchreichen
+for (const v of getFieldViolations(err)) {
+  const formField = SERVER_TO_FORM_FIELD[v.field];
+  const key = `errors.${v.code}`;
+  if (formField && i18n.exists(key)) {
+    setError(formField, { message: t(key) });   // RICHTIG
+  }
+  // FALSCH: setError(formField, { message: v.reason }) — englischer Satz im deutschen Formular
 }
+```
 
+Der **Fallback ist ein uebersetzter generischer Text**, kein englischer
+Rohstring: Ein Code ohne Uebersetzung faellt auf `errors.generic` zurueck und
+bleibt im generischen Validierungs-Toast sichtbar (der Dialog bleibt offen) —
+sichtbar-degradiert schlaegt falsch-uebersetzt. Belege: #1015, #1016.
+
+```typescript
 // In Komponenten: useApiError Hook
 const { handleError } = useApiError();
 try {
   await updateSpecies(key, data);
 } catch (err) {
-  handleError(err);  // Zeigt Toast + loggt
+  handleError(err);  // loest Code -> i18n auf, zeigt Toast + loggt
 }
 ```
+
+Ein Feld, das eine Servermeldung tragen soll, braucht eine sichtbare
+Fehlerflaeche und den `form-field-<name>`-Hook — Details in §11.2a.
 
 ---
 
 ## 11. Formular-Pattern (react-hook-form + Zod)
 
+### 11.0 `<Form>` statt `<form>` — `noValidate` ist nicht verhandelbar
+
+**Regel:** Jedes Formular rendert `<Form>` aus `@/components/form/Form`. Ein
+rohes `<form>`-Element oder ein `component="form"` ist verboten.
+
+`<Form>` setzt `noValidate` **nach** dem Prop-Spread, damit keine Aufrufstelle es
+abschalten kann. Ohne `noValidate` fuehrt der Browser seine eigene
+Constraint-Validierung aus und bricht das Absenden ab, **bevor** das
+`submit`-Event feuert. Die Folge ist keine Kosmetik:
+
+1. `handleSubmit` laeuft nie → **Zod laeuft nie**, jede Cross-Field- und
+   Domaenenregel im Schema wird still uebersprungen.
+2. Kein `helperText` rendert → die uebersetzten Feldmeldungen erscheinen nicht.
+3. Der Nutzer sieht stattdessen eine native Bubble in der **Browser**-Locale —
+   eine deutsche App zeigt eine englische Meldung.
+
+Unsere `Form*Field`-Wrapper reichen `required` direkt an den MUI-Input durch, wo
+es als natives Attribut auf dem DOM-Knoten landet: **jedes** aus ihnen gebaute
+Formular ist ohne `noValidate` betroffen. Das war #825 — 55 von 84
+formulartragenden Dateien hatten das Richtige nicht opt-in gewaehlt.
+
+**Durchsetzung (normativ, nicht nur Lint-Detail).** `eslint.config.js` fuehrt
+drei `no-restricted-syntax`-Selektoren, die zusammen die Regel schliessen. Sie
+gehoeren zur Spec, nicht nur zur Werkzeugkonfiguration — wer die Lint-Regel
+entfernt, entfernt die Regel:
+
+| Selektor | Was er verbietet |
+|----------|------------------|
+| `JSXOpeningElement[name.name='form']:not(:has(JSXAttribute[name.name='noValidate']))` | rohes `<form>` ohne `noValidate` |
+| `JSXOpeningElement:has(JSXAttribute[name.name='component'][value.value='form']):not(:has(JSXAttribute[name.name='noValidate']))` | `component="form"` ohne `noValidate` |
+| `JSXAttribute[name.name='noValidate'][value.expression.value=false]` | `noValidate={false}` — sieht aus wie Konformitaet, ist der defekte Zustand |
+
+Der dritte Selektor existiert, weil die ersten beiden nur die *Anwesenheit* des
+Attributs pruefen. Ein Guard, dessen Aufgabe es ist, den schlechten Zustand
+unerreichbar zu machen, darf kein Opt-out haben, das sich wie Erfuellung liest.
+
+!!! warning "Kein Unit-Test kann das pruefen"
+    jsdom implementiert die native Constraint-Validierung nicht. Ein
+    Verhaltenstest („leeres Pflichtfeld absenden, Zod-Meldung erwarten") ist
+    **mit und ohne** `noValidate` gruen — er sieht aus, als bewache er die
+    Regel, und tut es nicht (#822 hat einen solchen Test deshalb verworfen).
+    Die wirksamen Verteidigungen sind die drei Lint-Selektoren und E2E in einem
+    echten Browser.
+
+**Migrationsfalle:** `<Form>` *entfernt* die native Validierung. Fuer ein
+RHF+Zod-Formular ist genau das der Zweck. Fuer ein reines `useState`-Formular
+ohne Schema war `required` die einzige Bremse — dort den Submit-Button auf die
+gefuellten Felder gaten (`disabled={isLoading || !email || !password}`). Die
+Lint-Regel sieht hier ein konformes `<Form>` und kann die Klasse nicht fangen.
+
 ### 11.1 Schema-Definition
+
+**Regel: Zod-Meldungen MUESSEN i18n-Keys sein, niemals fertige Prosa.** Ein
+Literal wie `'Required'` ist in einer deutschen App eine englische
+Fehlermeldung — dieselbe Klasse wie die native Browser-Bubble aus §11.0, nur
+selbst verursacht. Das Schema traegt den **stabilen Key**, aufgeloest wird er
+beim Rendern.
 
 ```typescript
 // validation/schemas.ts
 import { z } from 'zod';
 
+// RICHTIG — die Meldung ist ein i18n-Key
 export const speciesSchema = z.object({
-  scientific_name: z.string().min(1, 'Required'),
+  scientific_name: z.string().min(1, 'validation.required'),
   family_key: z.string().nullable(),
-  growth_habit: z.enum(['herb', 'shrub', 'tree']),
+  growth_habit: z.enum(['herb', 'shrub', 'tree'], { error: 'validation.invalidOption' }),
+  allelopathy_score: z.number().min(-1, 'validation.min').max(1, 'validation.max'),
+});
+
+// FALSCH — englische Prosa, die ungefiltert im deutschen Formular landet
+export const speciesSchemaWrong = z.object({
+  scientific_name: z.string().min(1, 'Required'),
 });
 
 export type SpeciesFormData = z.infer<typeof speciesSchema>;
 ```
+
+Damit ein Key nicht roh im Formular erscheint, loest die **Feld-Wrapper-Schicht**
+ihn auf — die Stelle, an der `fieldState.error.message` in `helperText` wandert
+(`FormTextField` und Geschwister). Ein Key ohne Uebersetzung faellt auf einen
+generischen Text zurueck, nie auf den rohen Key.
+
+Fuer Zod-**eigene** Meldungen (Typfehler, `invalid_type`, die kein Aufrufer
+explizit setzt) wird ein globaler Fehler-Adapter einmal beim App-Start
+registriert, statt jede Regel einzeln zu beschriften:
+
+```typescript
+// validation/zodI18n.ts — einmalig in main.tsx importiert
+import { z } from 'zod';
+import i18n from '@/i18n';
+
+// zod 4: z.config({ customError }); in zod 3 hiess dieselbe Stelle z.setErrorMap.
+z.config({
+  customError: (issue) => ({
+    message: i18n.t(`validation.zod.${issue.code}`, {
+      defaultValue: i18n.t('validation.invalid'),
+      ...issue,
+    }),
+  }),
+});
+```
+
+!!! note "Bestand"
+    Die vorhandenen Schemas in `src/frontend/src/validation/` tragen noch
+    englische Literale (`'Name is required'`), und die `Form*Field`-Wrapper
+    reichen `error.message` heute unuebersetzt durch. Die Umstellung laeuft als
+    eigene Massnahme (P4.1 der Issue-Muster-Analyse); fuer **neuen oder
+    angefassten** Code gilt die Regel oben ab sofort — wie bei §5.3 im
+    Backend-Guide waechst die Abdeckung mit der normalen Arbeit am Feature.
 
 ### 11.2 Formular-Komponente
 
@@ -579,6 +710,7 @@ export type SpeciesFormData = z.infer<typeof speciesSchema>;
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { speciesSchema, type SpeciesFormData } from '@/validation/schemas';
+import Form from '@/components/form/Form';
 import { FormTextField, FormSelectField, FormActions } from '@/components/form';
 
 export default function SpeciesForm({ species, onSave }: SpeciesFormProps) {
@@ -598,14 +730,16 @@ export default function SpeciesForm({ species, onSave }: SpeciesFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <Form onSubmit={handleSubmit(onSubmit)}>
       <FormTextField name="scientific_name" control={control} label={t('labels.species.scientificName')} required />
       <FormSelectField name="growth_habit" control={control} label={t('labels.species.growthHabit')} options={[...]} />
       <FormActions isDirty={isDirty} onReset={() => reset()} />
-    </form>
+    </Form>
   );
 }
 ```
+
+`<Form>` statt `<form>` ist Pflicht — siehe §11.0.
 
 ### 11.2a Feldübergreifende Domänenregeln gehören **nicht** ins Zod-Schema
 
