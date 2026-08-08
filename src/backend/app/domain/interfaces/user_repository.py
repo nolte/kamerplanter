@@ -21,6 +21,20 @@ class IUserRepository(ABC):
     def update(self, key: UserKey, user: User) -> User: ...
 
     @abstractmethod
+    def update_fields(self, key: UserKey, fields: dict) -> User | None:
+        """Apply a partial field update to one user (#1018, mirrors #968 §2).
+
+        Named ``update_fields`` rather than ``update`` because that is what it
+        is: ``fields`` is a partial payload, not a full model. Callers MUST build
+        ``fields`` from named fields or a validated schema's ``model_dump()``,
+        never from a raw request body — the payload is applied key-by-key and
+        ``model_copy(update=...)`` does not validate, so the re-validation of the
+        merged model (#968) is what catches an ill-typed declared field.
+
+        Returns ``None`` when no user carries ``key``.
+        """
+
+    @abstractmethod
     def delete(self, key: UserKey) -> bool: ...
 
     @abstractmethod

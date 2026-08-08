@@ -17,13 +17,14 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserUpdate,
 )
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_db, get_privacy_service, get_tenant_service
+from app.common.dependencies import get_db, get_privacy_service, get_tenant_service, get_user_service
 from app.common.exceptions import DuplicateError, ForbiddenError, NotFoundError
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.data_access.arango import collections as col
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
+from app.domain.services.user_service import UserService
 
 router = APIRouter(prefix="/admin/platform", tags=["admin-platform"], responses=AUTH_CRUD_RESPONSES)
 
@@ -208,22 +209,27 @@ def update_user(
     key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminUserUpdate,
     _user: User = Depends(require_platform_admin),
+    user_service: UserService = Depends(get_user_service),
 ):
-    """Update a user. Platform admin only."""
-    db = get_db()
-    collection = db.collection(col.USERS)
+    """Update a user. Platform admin only.
 
-    existing = collection.get(key)
-    if not existing:
-        raise NotFoundError("User", key)
+    Routes the write through ``UserService.admin_update_user`` (#1018). This
+    endpoint used to call ``get_db()`` and write ``db.collection(USERS).update``
+    from here, which put the Presentation layer straight onto Persistence
+    (NFR-001) and outside every guard the repository layer applies: the
+    #982/#996 model re-validation, the reserved-attribute strip, the
+    error-code-1202 → :class:`NotFoundError` mapping and ``updated_at``
+    maintenance — the exact shape #997/#1017 fixed for the tenant twin.
 
+    Unlike the tenant endpoint, the ``roles`` block is still assembled from a
+    direct membership read below; consolidating that duplicated read is #1019 and
+    is out of scope here.
+    """
     update_data = body.model_dump(exclude_none=True)
-    if update_data:
-        update_data["updated_at"] = datetime.now(UTC).isoformat()
-        collection.update({"_key": key, **update_data})
-        existing = collection.get(key)
+    user = user_service.admin_update_user(key, update_data) if update_data else user_service.get_user(key)
 
-    # Fetch memberships
+    # Fetch memberships (read-only; #1019 tracks consolidating this duplicated logic)
+    db = get_db()
     memberships_cursor = db.aql.execute(
         "FOR m IN @@memberships FILTER m.user_key == @key AND m.is_active == true "
         "LET t = DOCUMENT(CONCAT(@tenants_prefix, m.tenant_key)) "
@@ -239,13 +245,13 @@ def update_user(
     roles = [AdminUserTenantRole(**r) for r in memberships_cursor]
 
     return AdminUserResponse(
-        key=existing["_key"],
-        email=existing["email"],
-        display_name=existing["display_name"],
-        is_active=existing.get("is_active", True),
-        email_verified=existing.get("email_verified", False),
-        last_login_at=existing.get("last_login_at"),
-        created_at=existing.get("created_at"),
+        key=user.key or key,
+        email=user.email,
+        display_name=user.display_name,
+        is_active=user.is_active,
+        email_verified=user.email_verified,
+        last_login_at=user.last_login_at,
+        created_at=user.created_at,
         tenant_count=len(roles),
         roles=roles,
     )
