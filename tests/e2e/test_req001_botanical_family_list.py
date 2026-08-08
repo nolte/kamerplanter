@@ -65,7 +65,13 @@ class TestBotanicalFamilyListPage:
         Spec: TC-001-003 -- Suchfunktion in Botanische Familien-Liste.
         """
         family_list.open()
-        family_list.search("Solan")  # debounce handled inside the page object
+        family_list.search("Solan")  # typing only; the 300 ms sleep inside is a bet
+        # …and this is the check that bet needs: the chip is rendered in the
+        # same commit that recomputes the filtered rows, so a read before it
+        # cannot tell "the filter ran" from "the debounce has not fired yet"
+        # (#946) -- the unfiltered list already contains a family named
+        # Solanaceae, so the assertion below is satisfiable by *either* state.
+        family_list.wait_for_search_applied("Solan", what="botanical family list")
 
         screenshot("TC-REQ-001-007_search-results", "Family list after searching for 'Solan'")
 
@@ -86,7 +92,12 @@ class TestBotanicalFamilyListPage:
         Spec: TC-001-003 -- Suchfunktion — Suche nach uebersetztem Enum-Wert.
         """
         family_list.open()
-        family_list.search("Starkzehrer")  # debounce handled inside the page object
+        family_list.search("Starkzehrer")  # typing only; the 300 ms sleep inside is a bet
+        # …and this is the check that bet needs (#946): a row count read
+        # inside the debounce window would still read the *unfiltered* table,
+        # which also satisfies "at least one row" without the filter ever
+        # having run.
+        family_list.wait_for_search_applied("Starkzehrer", what="botanical family list")
 
         screenshot("TC-REQ-001-008_enum-search", "Family list after searching for 'Starkzehrer'")
 
