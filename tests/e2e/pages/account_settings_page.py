@@ -99,8 +99,33 @@ class AccountSettingsPage(BasePage):
 
     # ── Profile tab ─────────────────────────────────────────────────────
 
+    def wait_for_profile_loaded(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the profile fields carry the fetched user, not their blank initial state.
+
+        `ProtectedRoute` unblocks this route once `refreshAccessToken` resolves
+        and flips `auth.initialized` -- **before** the separate `fetchProfile()`
+        dispatch `AuthProvider.initAuth` chains after it has itself settled
+        (`authSlice.ts`: `refreshAccessToken.fulfilled` sets `initialized` on its
+        own, independent of `fetchProfile`). `AccountSettingsPage.tsx` seeds
+        `displayName` from `user` via a `useEffect` and reads `user?.email`
+        directly, and `user` is still `null` in that window -- so
+        `profile-display-name`/`profile-email` can both be present in the DOM
+        and blank. Every `navigate()` in this suite is a full page reload
+        (`driver.get`), so this window reopens on *every* `open()` call, not
+        just the first.
+
+        Anchored on the email field rather than the display name: email is a
+        required field on every authenticated account, so its value going
+        non-empty is a durable "the fetch resolved" signal, whereas a real
+        display name could in principle be blank server-side.
+        """
+        self.poll(timeout).until(
+            lambda d: (d.find_element(*self.EMAIL_INPUT).get_attribute("value") or "") != ""
+        )
+
     def get_display_name(self) -> str:
         """Return the current value of the display-name field."""
+        self.wait_for_profile_loaded()
         el = self.wait_for_element(self.DISPLAY_NAME_INPUT)
         return el.get_attribute("value") or ""
 
@@ -118,6 +143,7 @@ class AccountSettingsPage(BasePage):
 
     def get_email(self) -> str:
         """Return the (read-only) email value."""
+        self.wait_for_profile_loaded()
         el = self.wait_for_element(self.EMAIL_INPUT)
         return el.get_attribute("value") or ""
 
@@ -134,7 +160,18 @@ class AccountSettingsPage(BasePage):
     # ── Security tab ────────────────────────────────────────────────────
 
     def is_current_password_visible(self) -> bool:
-        """Check if the current-password field is visible (only for local accounts)."""
+        """Check if the current-password field is visible (only for local accounts).
+
+        Gated on the same `providers` fetch :meth:`get_linked_providers` is:
+        `AccountSettingsPage.tsx` derives `hasLocalProvider` from `providers`,
+        which starts at `[]` and is populated only once `loadProviders()`'s
+        `listProviders()` call resolves. The field carries no loading
+        indicator of its own, so a bare read right after `open(tab="security")`
+        cannot tell "the fetch is still in flight" from "this account has no
+        local provider" -- anchored on the linked-provider list settling
+        first, the same signal :meth:`get_linked_providers` waits on.
+        """
+        self.await_presence(self.PROVIDER_NAMES)
         elements = self.driver.find_elements(*self.CURRENT_PASSWORD_INPUT)
         return len(elements) > 0 and elements[0].is_displayed()
 
@@ -167,8 +204,18 @@ class AccountSettingsPage(BasePage):
         unscoped read returned the Sidebar's nav labels as well, so
         "at least one provider is listed" held on the navigation alone and the
         ``len(providers) <= 1`` branch of TC-REQ-023-029 could never be taken.
+
+        Anchored on :meth:`await_presence`: `providers` starts at `[]` and is
+        populated only once `loadProviders()`'s `listProviders()` call
+        resolves (a `useEffect` fired on every mount), and this page renders
+        no loading indicator or empty-state testid for that gap -- a bare
+        `find_elements` right after `open(tab="security")` cannot tell "the
+        fetch is still in flight" from "the demo user genuinely has no linked
+        providers", which is exactly what `test_linked_providers_displayed`
+        asserts on. An empty list after the full budget is still a genuine
+        negative.
         """
-        items = self.driver.find_elements(*self.PROVIDER_NAMES)
+        items = self.await_presence(self.PROVIDER_NAMES)
         return [item.text for item in items if item.is_displayed()]
 
     def get_unlink_buttons(self) -> list[WebElement]:

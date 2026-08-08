@@ -5,7 +5,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class EmailVerificationPage(BasePage):
@@ -34,6 +34,33 @@ class EmailVerificationPage(BasePage):
     def get_heading_text(self) -> str:
         """Return the heading text."""
         return self.wait_for_element(self.HEADING).text
+
+    def wait_for_result(self, timeout: int = DEFAULT_TIMEOUT) -> str:
+        """Wait until the token-verification request has settled, success or error.
+
+        Returns ``'success'`` or ``'error'``.
+
+        `EmailVerificationPage.tsx` seeds ``status`` at ``'loading'`` and only
+        flips it to ``'success'``/``'error'`` once its own ``verifyEmail(token)``
+        call resolves; `HEADING` renders unconditionally and in the very same
+        commit as the loading spinner, so ``open()``'s wait for it says nothing
+        about whether that round-trip has finished. Several call sites read
+        :meth:`is_error_alert_visible` as their **primary** assertion right
+        after ``open()`` with a comment claiming to "wait for processing to
+        complete" that was never backed by an actual wait -- this is that wait
+        (mirrors ``InvitationAcceptPage.wait_for_result``, #946).
+        """
+
+        def _check_result(driver):
+            error = driver.find_elements(*self.ERROR_ALERT)
+            success = driver.find_elements(*self.SUCCESS_ALERT)
+            if error and error[0].is_displayed():
+                return "error"
+            if success and success[0].is_displayed():
+                return "success"
+            return False
+
+        return self.poll(timeout).until(_check_result)
 
     def is_loading(self) -> bool:
         """Check if the loading spinner is visible."""
