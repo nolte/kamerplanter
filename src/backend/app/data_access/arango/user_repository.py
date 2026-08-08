@@ -13,6 +13,34 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.USERS)
 
+    def update_fields(self, key: UserKey, fields: dict) -> User | None:
+        """Merge ``fields`` into the stored user and rewrite it (#1018, mirrors #968 §2).
+
+        Read-modify-write, exactly like :meth:`ArangoTenantRepository.update_fields`:
+        the stored ``User`` is loaded, ``fields`` is applied through
+        ``model_copy(update=...)`` and the merged model is written via the
+        inherited full-model :meth:`update`, which re-validates it in ``_to_doc``
+        (#982/#996), strips ArangoDB system attributes and maps a 1202 onto
+        :class:`NotFoundError`. That is the set of guards the platform-admin
+        router bypassed by writing ``collection.update`` itself (#1018).
+
+        **Caller obligation.** ``fields`` is applied key-by-key, so it must be
+        built from named fields or a validated schema's ``model_dump()`` — never
+        from a raw request body.
+
+        Deliberately not the base class's dict-merge :meth:`update_fields`, which
+        writes the dict straight through unchecked; materialising a full ``User``
+        here is what gets the payload validated. The price is that method's
+        lost-update commutativity for disjoint concurrent fields.
+
+        Returns ``None`` when no user carries ``key``.
+        """
+        existing = self.get_by_key(key)
+        if not existing:
+            return None
+        merged = existing.model_copy(update=fields)
+        return super().update(key, merged)
+
     def get_by_email(self, email: str) -> User | None:
         query = "FOR doc IN @@collection FILTER LOWER(doc.email) == LOWER(@email) LIMIT 1 RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars={"@collection": col.USERS, "email": email})
