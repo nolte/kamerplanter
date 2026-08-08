@@ -61,6 +61,8 @@ WORKFLOWS: dict[str, WorkflowTemplate] = {
 
 PHASES: dict[str, WorkflowPhase] = {
     "ph-own": WorkflowPhase(_key="ph-own", workflow_template_key=OWN_WORKFLOW, name="Vegetativ"),
+    "ph-own2": WorkflowPhase(_key="ph-own2", workflow_template_key=OWN_WORKFLOW, name="Blüte"),
+    "ph-foreign": WorkflowPhase(_key="ph-foreign", workflow_template_key=FOREIGN_WORKFLOW, name="Fremd-Phase"),
     "ph-sys": WorkflowPhase(_key="ph-sys", workflow_template_key=SYSTEM_WORKFLOW, name="Vegetativ"),
     "ph-orphan": WorkflowPhase(_key="ph-orphan", workflow_template_key="", name="Ohne Workflow"),
 }
@@ -89,6 +91,7 @@ def _service(template: TaskTemplate | None = None) -> tuple[TaskService, MagicMo
     repo.create_phase.side_effect = lambda phase: phase
     repo.update_phase.side_effect = lambda key, phase: phase
     repo.delete_phase.return_value = True
+    repo.reorder_phases.side_effect = lambda orders: [PHASES[o["key"]] for o in orders]
     return TaskService(repo, MagicMock(), MagicMock()), repo
 
 
@@ -363,3 +366,53 @@ class TestWhatTheUiLegitimatelyDoesWithSystemWorkflowsStillWorks:
 
         assert execution.workflow_template_key == SYSTEM_WORKFLOW
         repo.create_task.assert_called_once()
+
+
+class TestReorderPhasesIsTenantScoped:
+    """``PUT /tasks/phases/reorder`` was the one phase write the #964 sweep left open.
+
+    ``reorder_phases`` wrote ``phase_order`` by ``_key`` with no scoping, so a
+    caller could re-sequence another tenant's workflow. Unlike a standalone task
+    template (item 1, still open because it has no anchor), a phase always has a
+    parent workflow to anchor on, so this half closes: each key is resolved to its
+    parent and verified — foreign/unknown → 404, system → 422 — exactly the per-key
+    phase routes' HTTP behaviour, only for a batch.
+    """
+
+    def _orders(self, *keys: str) -> list[dict]:
+        return [{"key": k, "phase_order": i} for i, k in enumerate(keys)]
+
+    def test_reordering_the_callers_own_phases_succeeds(self) -> None:
+        service, repo = _service()
+
+        result = service.reorder_workflow_phases(self._orders("ph-own2", "ph-own"), tenant_key=TENANT_KEY)
+
+        assert [p.key for p in result] == ["ph-own2", "ph-own"]
+        repo.reorder_phases.assert_called_once()
+
+    def test_reordering_a_foreign_tenants_phase_is_a_404(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError) as exc:
+            service.reorder_workflow_phases(self._orders("ph-foreign"), tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+        repo.reorder_phases.assert_not_called()
+
+    def test_reordering_a_system_workflows_phases_is_a_422(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(ValidationError) as exc:
+            service.reorder_workflow_phases(self._orders("ph-sys"), tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 422
+        repo.reorder_phases.assert_not_called()
+
+    def test_every_phase_in_the_batch_is_checked_not_just_the_first(self) -> None:
+        """A foreign key smuggled behind an owned one is still refused, and nothing is written."""
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.reorder_workflow_phases(self._orders("ph-own", "ph-foreign"), tenant_key=TENANT_KEY)
+
+        repo.reorder_phases.assert_not_called()

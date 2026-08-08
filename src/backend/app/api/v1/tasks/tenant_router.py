@@ -246,7 +246,8 @@ def reorder_phases(
     service: TaskService = Depends(get_task_service),
 ):
     """Reorder a workflow template's phases."""
-    return [_phase_response(p) for p in service.reorder_workflow_phases([item.model_dump() for item in body.phases])]
+    phases = service.reorder_workflow_phases([item.model_dump() for item in body.phases], tenant_key=ctx.tenant_key)
+    return [_phase_response(p) for p in phases]
 
 
 @router.put("/phases/{key}", response_model=WorkflowPhaseResponse)
