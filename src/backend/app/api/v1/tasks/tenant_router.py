@@ -38,10 +38,11 @@ from app.api.v1.tasks.schemas import (
     WorkflowTemplateResponse,
     WorkflowTemplateUpdate,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_task_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.task_service import TaskService
@@ -116,7 +117,7 @@ def list_workflows(
 @router.post("/workflows", response_model=WorkflowTemplateResponse, status_code=201)
 def create_workflow(
     body: WorkflowTemplateCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Create a workflow template for the tenant."""
@@ -139,7 +140,7 @@ def get_workflow(
 def update_workflow(
     key: Annotated[str, Path(description="Document key of the workflow template.")],
     body: WorkflowTemplateUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Update a workflow template."""
@@ -152,7 +153,7 @@ def update_workflow(
 @router.delete("/workflows/{key}", status_code=204)
 def delete_workflow(
     key: Annotated[str, Path(description="Document key of the workflow template.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.DELETE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a workflow template."""
@@ -165,7 +166,7 @@ def delete_workflow(
 def duplicate_workflow(
     key: Annotated[str, Path(description="Document key of the workflow template to duplicate.")],
     name: str = Query(..., min_length=1, max_length=200, description="Name for the duplicated workflow template."),
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Duplicate a workflow template under a new name."""
@@ -189,7 +190,7 @@ def list_workflow_executions(
 def instantiate_workflow(
     key: Annotated[str, Path(description="Document key of the workflow template.")],
     body: WorkflowInstantiateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Instantiate a workflow template for a target entity."""
@@ -220,7 +221,7 @@ def list_workflow_phases(
 def create_workflow_phase(
     wf_key: Annotated[str, Path(description="Document key of the workflow template.")],
     body: WorkflowPhaseCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Create a phase within a workflow template."""
@@ -241,7 +242,7 @@ def list_phase_suggestions(
 @router.put("/phases/reorder", response_model=list[WorkflowPhaseResponse])
 def reorder_phases(
     body: PhaseReorderRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Reorder a workflow template's phases."""
@@ -252,7 +253,7 @@ def reorder_phases(
 def update_workflow_phase(
     key: Annotated[str, Path(description="Document key of the workflow phase.")],
     body: WorkflowPhaseUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Update a workflow phase."""
@@ -264,7 +265,7 @@ def update_workflow_phase(
 @router.delete("/phases/{key}", status_code=204)
 def delete_workflow_phase(
     key: Annotated[str, Path(description="Document key of the workflow phase.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.DELETE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a workflow phase."""
@@ -292,7 +293,7 @@ def list_task_templates(
 @router.post("/templates", response_model=TaskTemplateResponse, status_code=201)
 def create_task_template(
     body: TaskTemplateCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Create a task template."""
@@ -319,7 +320,7 @@ def get_task_template(
 def update_task_template(
     key: Annotated[str, Path(description="Document key of the task template.")],
     body: TaskTemplateUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Update a task template."""
@@ -331,7 +332,7 @@ def update_task_template(
 @router.delete("/templates/{key}", status_code=204)
 def delete_task_template(
     key: Annotated[str, Path(description="Document key of the task template.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.DELETE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a task template."""
@@ -369,7 +370,7 @@ def list_tasks(
 @router.post("", response_model=TaskResponse, status_code=201)
 def create_task(
     body: TaskCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Create a task for the tenant."""
@@ -391,7 +392,7 @@ def get_task_queue(
 
 @router.post("/generate-care-reminders", response_model=CareReminderGenerationResult)
 def generate_care_reminders_now(
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
 ):
     """Manually trigger care reminder task generation (same as daily Celery beat).
 
@@ -445,7 +446,7 @@ def validate_hst(
 @router.post("/batch/status", response_model=BatchResponse)
 def batch_status_change(
     body: BatchStatusRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Apply a status change to a batch of tasks."""
@@ -458,7 +459,7 @@ def batch_status_change(
 @router.post("/batch/delete", response_model=BatchResponse)
 def batch_delete(
     body: BatchDeleteRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.DELETE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a batch of tasks."""
@@ -469,7 +470,7 @@ def batch_delete(
 @router.post("/batch/assign", response_model=BatchResponse)
 def batch_assign(
     body: BatchAssignRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Assign a batch of tasks to a user."""
@@ -490,7 +491,7 @@ def get_task(
 @router.delete("/{key}", status_code=204)
 def delete_task(
     key: Annotated[str, Path(description="Document key of the task.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.DELETE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a task."""
@@ -504,7 +505,7 @@ def delete_task(
 def update_task(
     key: Annotated[str, Path(description="Document key of the task.")],
     body: TaskUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Update a task."""
@@ -580,7 +581,7 @@ def skip_task(
 def clone_task(
     key: Annotated[str, Path(description="Document key of the task to clone.")],
     body: TaskCloneRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Clone a task, optionally onto another entity and with a due-date offset."""
@@ -624,7 +625,7 @@ def list_task_comments(
 def create_task_comment(
     task_key: Annotated[str, Path(description="Document key of the task.")],
     body: TaskCommentCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Add a comment to a task."""
@@ -637,7 +638,7 @@ def update_task_comment(
     task_key: Annotated[str, Path(description="Document key of the task.")],
     comment_key: Annotated[str, Path(description="Document key of the comment.")],
     body: TaskCommentUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Update a task comment."""
@@ -649,7 +650,7 @@ def update_task_comment(
 def delete_task_comment(
     task_key: Annotated[str, Path(description="Document key of the task.")],
     comment_key: Annotated[str, Path(description="Document key of the comment.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.DELETE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a task comment."""
@@ -682,7 +683,7 @@ def get_workflow_execution(
 def add_task_to_workflow(
     key: Annotated[str, Path(description="Document key of the workflow execution.")],
     body: WorkflowAddTaskRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
     """Add an ad-hoc task to a running workflow execution."""

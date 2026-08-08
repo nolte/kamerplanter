@@ -12,7 +12,7 @@ from app.api.v1.overwintering_profiles.schemas import (
     OverwinteringTemplateResponse,
     WinterHardinessOverviewResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import (
     get_overwintering_profile_service,
     get_plant_repo,
@@ -23,6 +23,7 @@ from app.common.enums import GrowthHabit, RootType
 from app.common.exceptions import NotFoundError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
@@ -72,7 +73,7 @@ def get_hardiness_overview(
 @router.post("", response_model=OverwinteringProfileResponse, status_code=201)
 def create_overwintering_profile(
     body: OverwinteringProfileCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.CREATE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
     """Create an overwintering profile for the tenant."""
@@ -84,7 +85,7 @@ def create_overwintering_profile(
 @router.post("/auto-generate", response_model=OverwinteringProfileResponse, status_code=201)
 def auto_generate_overwintering_profile(
     body: OverwinteringProfileAutoGenerate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.CREATE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
     species_repo: ArangoSpeciesRepository = Depends(get_species_repo),
     site_repo: ArangoSiteRepository = Depends(get_site_repo),
@@ -144,7 +145,7 @@ def _template_response(template: OverwinteringProfileTemplate) -> OverwinteringT
 @router.post("/link-template", response_model=OverwinteringTemplateResponse)
 def link_shared_template(
     body: LinkSharedTemplateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.UPDATE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringTemplateResponse:
     """Point a plant / planting run at the reusable species template (N:1)."""
@@ -179,7 +180,7 @@ def get_shared_template(
 def unlink_shared_template(
     plant_key: str | None = Query(default=None, description="Plant instance to unlink from its template."),
     planting_run_key: str | None = Query(default=None, description="Planting run to unlink from its template."),
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.UPDATE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> None:
     """Detach a plant or planting run from its shared species template."""
@@ -201,7 +202,7 @@ def get_overwintering_profile(
 def update_overwintering_profile(
     key: Annotated[str, Path(description="Document key of the overwintering profile.")],
     body: OverwinteringProfileUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.UPDATE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
     """Update an overwintering profile."""
@@ -213,7 +214,7 @@ def update_overwintering_profile(
 @router.delete("/{key}", status_code=204)
 def delete_overwintering_profile(
     key: Annotated[str, Path(description="Document key of the overwintering profile.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.DELETE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> None:
     """Delete an overwintering profile."""

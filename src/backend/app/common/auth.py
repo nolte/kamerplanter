@@ -7,6 +7,8 @@ from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import ForbiddenError, UnauthorizedError
 from app.config.settings import settings
+from app.core.permissions import Action, ResourceType
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
@@ -126,6 +128,61 @@ def require_tenant_role(min_role: TenantRole) -> Callable:
     def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
         if role_order.get(ctx.role, 0) < role_order[min_role]:
             raise ForbiddenError(f"Requires at least {min_role.value} role.")
+        return ctx
+
+    return _check
+
+
+def require_permission(resource: ResourceType | str, action: Action) -> Callable:
+    """Dependency factory: gate a tenant-scoped write on the caller's domain role.
+
+    This is the REQ-024 §1a.6 / REQ-049 §2.3 permission gate finally wired onto
+    the routers. It composes on top of :func:`get_current_tenant`, which has
+    already established that the caller *is* an active member of the path tenant
+    (a non-member is refused there with 403 before this dependency runs), and
+    resolved their domain role into :class:`TenantContext`. The gate therefore
+    never does its own database lookup — it decides purely on ``ctx.role`` — and
+    it fails closed: a role that maps to no rule is refused.
+
+    The authority is the pure :class:`MembershipEngine` predicate matching the
+    action, so the router surface and the engine can never drift on the
+    grower/lead delete boundary:
+
+    * ``CREATE`` / ``UPDATE`` → :meth:`MembershipEngine.can_edit_resource`
+      (lead or grower may write).
+    * ``DELETE`` → :meth:`MembershipEngine.can_delete_resource`
+      (lead only — the irreversibility boundary of REQ-049 §2.3).
+    * ``READ`` → :meth:`MembershipEngine.can_view_resource` (every member),
+      so reads stay open; a GET only needs this gate when a specific read is
+      privileged.
+
+    ``resource`` does not change the decision today — the engine's predicates are
+    role-driven, not yet per-resource-type — but it is required and recorded so
+    that the call sites document *what* they guard and a future per-resource
+    matrix can tighten individual entries without touching every router. It is
+    the axis-1 (domain) counterpart to :func:`require_tenant_role`; use
+    :func:`require_admin_scope` for the disjoint axis-2 administrative actions
+    (member management, integrations), which must not be gated here.
+
+    Refusal is a 403 ``FORBIDDEN`` (via :class:`ForbiddenError`), never a 404:
+    the caller is a legitimate member of this tenant, merely under-privileged, so
+    the honest signal is "forbidden". A 404 is reserved for a *foreign* tenant's
+    resources (ownership hiding) and would be the wrong signal here.
+    """
+
+    def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
+        if action in (Action.CREATE, Action.UPDATE):
+            allowed = MembershipEngine.can_edit_resource(ctx.role)
+        elif action == Action.DELETE:
+            allowed = MembershipEngine.can_delete_resource(ctx.role)
+        elif action == Action.READ:
+            allowed = MembershipEngine.can_view_resource(ctx.role)
+        else:
+            # Unknown / not-yet-mapped verb (e.g. INVITE belongs on axis 2):
+            # fail closed rather than silently allow.
+            allowed = False
+        if not allowed:
+            raise ForbiddenError(f"Your role '{ctx.role.value}' may not '{action.value}' a {resource} in this tenant.")
         return ctx
 
     return _check
