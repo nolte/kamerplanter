@@ -269,6 +269,50 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Seed harvest & month integrity (#1002, #1008) ──────────────────────
+  # Refuses a seed species record that asserts a harvest or sowing fact no
+  # consumer can act on. Two invariants, one family:
+  #
+  #   A  `allows_harvest` effectively true with no `harvest_months` anywhere.
+  #      The flag makes every pre-harvest safety interval (Karenz) a question
+  #      that must be answered, and the record supplies no date to answer it
+  #      with — so the check is not "not applicable", it is undecidable. A
+  #      conservative consumer then refuses the whole biological-spray tier on a
+  #      plant nobody eats; an optimistic one clears a treatment it cannot clear,
+  #      which on a plant that *is* harvested is a food-safety error.
+  #   B  flat top-level month fields that are not the union of the record's
+  #      `growing_periods`. `get_sowing_calendar` reads the periods and
+  #      `get_species_info` the flat fields, so a disagreement means the answer
+  #      depends on which endpoint the caller happened to use. On Allium porrum
+  #      the flat fields omitted the winter crop's entire sowing window.
+  #
+  # Invariant A is evaluated on the *effective* value, because
+  # `Species.allows_harvest` defaults to True: 43 of the 44 records this found
+  # carried no `allows_harvest` key at all, and a literal reading of the YAML
+  # would have found one. That duplicated default is pinned by
+  # tests/unit/test_seed_harvest_integrity_check.py, so flipping the model
+  # without flipping the script goes red in the backend suite.
+  #
+  # No numeric baseline. Both invariants are booleans — a record either supplies
+  # a harvest date or it does not — and #973 recorded what a hand-maintained
+  # count costs besides: every concurrent pull request that moves it edits the
+  # same line of the same file. The debt is paid off in the same change that
+  # armed this, so a ratchet here would be dead machinery.
+  #
+  # always_run rather than a `files:` filter, for the reason the two hooks above
+  # give: the merged view of a species spans several seed files, so a change in
+  # one can break an invariant whose other half lives in a file the commit does
+  # not touch. Standard library plus PyYAML, ~0.3 s over the 207 records.
+  - repo: local
+    hooks:
+      - id: seed-harvest-integrity
+        name: seed harvest & month facts are consumable (#1002, #1008)
+        entry: python scripts/check_seed_harvest_integrity.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
+
   # ── UTC calendar day (#858) ────────────────────────────────────────────
   # Refuses a bare `date.today()` — the *local server* date — anywhere under
   # src/backend/app. BACKEND.md §12a has required UTC there since #812, but

@@ -242,6 +242,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Anemone hupehensis"
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone"]
     genus: Anemone
     plant_category: outdoor_ornamental
@@ -353,6 +354,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Astilbe chinensis"
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard"]
     genus: Astilbe
     plant_category: outdoor_ornamental
@@ -458,6 +460,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Buxus sempervirens"
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: ["Buchsbaum", "Common Boxwood", "European Box"]
     genus: Buxus
     plant_category: outdoor_ornamental
@@ -565,6 +568,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Clematis spp."
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: ["Waldrebe", "Clematis"]
     genus: Clematis
     plant_category: outdoor_ornamental
@@ -676,6 +680,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Delphinium elatum"
+    allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
     seed_profile:
       germination_temp_min_c: 15
@@ -735,6 +740,12 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Echinacea purpurea"
+    # #1002: genuinely harvested (medicinal), not an ornamental — harvest_pattern
+    # perennial / harvested_part root below. The flag defaulted to true with no
+    # month to check a Karenz against; Steckbrief §1.2 "Erntemonate | 6, 7, 8, 9,
+    # 10 (Blüten; Wurzeln erst ab 3. Jahr ernten)" supplies the window.
+    allows_harvest: true
+    harvest_months: [6, 7, 8, 9, 10]
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
     seed_profile:
       germination_temp_min_c: 18
@@ -825,8 +836,14 @@ species_enrichment:
     mature_height_cm: "80"
     mature_width_cm: "20"
     sowing_indoor_weeks_before_last_frost: 8
-    direct_sow_months: [3, 4]
-    harvest_months: [9, 10, 11, 12, 1, 2]
+    # #1008: these flat fields were the ones a consumer of `get_species_info`
+    # read, and they contradicted the growing_periods seeded from
+    # adventskalender.yaml — the winter crop's sowing window was absent and
+    # month 4 appeared in no period at all. Realigned on Steckbrief §1.2
+    # ("Direktsaat-Monate | 3; 4; 5", "Erntemonate | 8; 9; 10; 11; 12; 1; 2; 3"),
+    # which is now also the union of the two periods. Keep the three in step.
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [8, 9, 10, 11, 12, 1, 2, 3]
 
   "Allium schoenoprasum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
