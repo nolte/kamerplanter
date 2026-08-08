@@ -126,7 +126,7 @@ class TestBotanicalFamilyDetailPage:
         detail_page.wait_for_loading_complete()
         screenshot("TC-REQ-001-027_after-cancel", "Detail page after cancelling deletion")
 
-        assert not detail_page.is_confirm_dialog_open(), (
+        assert detail_page.wait_for_confirm_dialog_closed(), (
             "TC-REQ-001-027 FAIL: Dialog should close after cancel"
         )
         assert "/stammdaten/botanical-families/" in detail_page.driver.current_url, (

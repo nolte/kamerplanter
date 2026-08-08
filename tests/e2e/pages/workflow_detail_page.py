@@ -99,7 +99,13 @@ class WorkflowDetailPage(BasePage):
     # ── Confirm dialog ─────────────────────────────────────────────────
 
     def is_confirm_dialog_open(self) -> bool:
-        """Check if a confirm dialog is visible."""
+        """Check if a confirm dialog is visible.
+
+        No call site in this suite as of #946 wave 6 (:meth:`confirm_dialog_accept`
+        is likewise unused) -- left unanchored rather than speculatively
+        converted, since there is no caller whose polarity or timing this
+        reader's fix could be verified against.
+        """
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
 
     def confirm_dialog_accept(self) -> None:
@@ -114,11 +120,25 @@ class WorkflowDetailPage(BasePage):
         return el.text
 
     def has_snackbar(self) -> bool:
-        """Check if a snackbar is currently visible."""
+        """Check if a snackbar is currently visible.
+
+        No call site in this suite as of #946 wave 6 -- see
+        :meth:`is_confirm_dialog_open`. (:meth:`wait_for_snackbar`, its
+        genuinely-waiting sibling, is also unused on this page object; the
+        callers found by name belong to ``WorkflowListPage``, a distinct
+        class/fixture.)
+        """
         return len(self.driver.find_elements(*self.SNACKBAR)) > 0
 
     def is_dialog_open(self) -> bool:
-        """Check whether any MUI dialog is open."""
+        """Check whether any MUI dialog is open.
+
+        No call site on this page object as of #946 wave 6 -- the
+        ``is_dialog_open()`` calls in this suite are all on
+        ``WorkflowListPage`` (a distinct class/fixture with its own method of
+        the same name), not on ``WorkflowDetailPage``. Left unanchored rather
+        than speculatively converted.
+        """
         return len(self.driver.find_elements(*self.DIALOG)) > 0
 
     def is_page_visible(self) -> bool:

@@ -662,7 +662,7 @@ class TestPlantingRunDetailPage:
         run_detail.wait_for_loading_complete()
         screenshot("TC-REQ-013-020_after-cancel", "After cancelling Create Plants dialog")
 
-        assert not run_detail.is_confirm_dialog_open(), (
+        assert run_detail.wait_for_confirm_dialog_closed(), (
             "TC-REQ-013-020 FAIL: Expected ConfirmDialog to close after clicking Cancel"
         )
 
@@ -731,7 +731,7 @@ class TestPlantingRunEditForm:
         run_detail.wait_for_loading_complete()
         screenshot("TC-REQ-013-022_after-cancel", "Detail page after cancelling edit dialog")
 
-        assert not run_detail.is_edit_dialog_open(), (
+        assert run_detail.wait_for_edit_dialog_closed(), (
             "TC-REQ-013-022 FAIL: Expected edit dialog to close after clicking cancel"
         )
 
@@ -776,7 +776,7 @@ class TestPlantingRunDeleteFlow:
         run_detail.wait_for_loading_complete()
         screenshot("TC-REQ-013-023_after-cancel", "After cancelling delete dialog")
 
-        assert not run_detail.is_confirm_dialog_open(), (
+        assert run_detail.wait_for_confirm_dialog_closed(), (
             "TC-REQ-013-023 FAIL: Expected ConfirmDialog to close after clicking Cancel"
         )
         assert "/durchlaeufe/planting-runs/" in run_detail.driver.current_url, (

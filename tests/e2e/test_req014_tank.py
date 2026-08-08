@@ -792,7 +792,7 @@ class TestTankStateRecording:
         tank_detail.wait_for_loading_complete()
         screenshot("TC-REQ-014-025_after-cancel", "States tab after cancelling dialog")
 
-        assert not tank_detail.is_state_dialog_open(), (
+        assert tank_detail.wait_for_state_dialog_closed(), (
             "TC-REQ-014-025 FAIL: Expected TankState dialog to be closed after cancel"
         )
         final_count = tank_detail.get_states_row_count()
@@ -924,7 +924,7 @@ class TestMaintenanceLog:
         tank_detail.wait_for_loading_complete()
         screenshot("TC-REQ-014-028_after-cancel", "Maintenance tab after cancel")
 
-        assert not tank_detail.is_maintenance_dialog_open(), (
+        assert tank_detail.wait_for_maintenance_dialog_closed(), (
             "TC-REQ-014-028 FAIL: Expected MaintenanceLogDialog to close after cancel"
         )
         final_count = tank_detail.get_maintenance_row_count()
@@ -1077,7 +1077,7 @@ class TestTankDeleteFlow:
         tank_detail.wait_for_loading_complete()
         screenshot("TC-REQ-014-032_after-cancel", "Tank detail after cancelling delete")
 
-        assert not tank_detail.is_confirm_dialog_open(), (
+        assert tank_detail.wait_for_confirm_dialog_closed(), (
             "TC-REQ-014-032 FAIL: Expected ConfirmDialog to close after Cancel"
         )
         assert "/standorte/tanks/" in tank_detail.driver.current_url, (

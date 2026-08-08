@@ -5,7 +5,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class BotanicalFamilyDetailPage(BasePage):
@@ -119,7 +119,35 @@ class BotanicalFamilyDetailPage(BasePage):
         self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
+        """Return True if the delete ConfirmDialog is currently visible.
+
+        Deliberately instantaneous, not anchored: its *presence* call sites
+        read it right after ``click_delete()``, which already runs
+        ``wait_for_element_visible(self.CONFIRM_DIALOG)``. For the
+        *dismissal* check, use :meth:`wait_for_confirm_dialog_closed` instead:
+        MUI's Dialog unmounts only after its exit transition finishes, and
+        ``cancel_delete()`` does not itself wait for that, so a raw negated
+        read sampled right after cancelling can still see the dialog
+        mid-fade-out and report it as open.
+        """
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
 
+    def wait_for_confirm_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait for the delete ConfirmDialog to actually leave the DOM.
+
+        Returns ``False`` (rather than raising) once the budget is spent, so a
+        dialog that genuinely never closes still fails the caller's own
+        assertion.
+        """
+        return self.is_absent_within(self.CONFIRM_DIALOG, timeout=timeout)
+
     def has_delete_button(self) -> bool:
+        """Return True if the delete button is rendered.
+
+        Deliberately instantaneous, not anchored: its one call site reads it
+        after ``get_title()`` and ``get_field_value("name")``, both of which
+        run through :meth:`find_present`'s genuine wait -- the delete button
+        renders in the same commit as the title and the form fields, so a
+        settled title means the delete button has settled too.
+        """
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0

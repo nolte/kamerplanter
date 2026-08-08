@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class TankDetailPage(BasePage):
@@ -180,11 +180,20 @@ class TankDetailPage(BasePage):
         return " ".join(c.text for c in cards)
 
     def get_alert_count(self) -> int:
-        """Return the number of alert banners currently visible."""
+        """Return the number of alert banners currently visible.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         return len(self.driver.find_elements(*self.ALERTS))
 
     def get_alert_messages(self) -> list[str]:
-        """Return the text of all visible alert banners."""
+        """Return the text of all visible alert banners.
+
+        No call site in this suite as of #946 wave 5 -- see
+        :meth:`get_alert_count`.
+        """
         alerts = self.driver.find_elements(*self.ALERTS)
         return [a.text for a in alerts if a.is_displayed()]
 
@@ -197,8 +206,25 @@ class TankDetailPage(BasePage):
         self.wait_for_element_visible(self.STATE_DIALOG)
 
     def is_state_dialog_open(self) -> bool:
-        """Return True if the TankStateCreateDialog is open."""
+        """Return True if the TankStateCreateDialog is open.
+
+        Deliberately instantaneous, not anchored: its *presence* call site
+        reads it right after ``click_record_state()``, which already runs
+        ``wait_for_element_visible(self.STATE_DIALOG)``. For the *dismissal*
+        check, use :meth:`wait_for_state_dialog_closed` instead -- see
+        :meth:`is_maintenance_dialog_open` for why a raw negated read of a
+        MUI Dialog's presence is a guarded-dismissal gap, not a genuine
+        "closed" check.
+        """
         return len(self.driver.find_elements(*self.STATE_DIALOG)) > 0
+
+    def wait_for_state_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait for the TankStateCreateDialog to actually leave the DOM.
+
+        See :meth:`wait_for_maintenance_dialog_closed` for the exit-transition
+        rationale; same shape, different dialog.
+        """
+        return self.is_absent_within(self.STATE_DIALOG, timeout=timeout)
 
     def fill_state_ph(self, value: float) -> None:
         el = self.wait_for_element_clickable(self.STATE_FORM_PH)
@@ -238,13 +264,31 @@ class TankDetailPage(BasePage):
         """Cancel the TankState dialog."""
         self.wait_and_click(self.STATE_FORM_CANCEL)
 
+    def wait_for_states_table(self) -> None:
+        """Wait for the states table to be back on screen; never raises.
+
+        The same gap :meth:`wait_for_maintenance_table` closes, on the sibling
+        tab: ``TankStateCreateDialog``'s ``onCreated`` also calls the parent's
+        ``load()`` (``TankDetailPage.tsx``), which re-runs the same
+        ``if (loading) return <LoadingSkeleton variant="form" />`` gate that
+        unmounts the whole page -- tab strip, table and rows -- for the length
+        of the refetch. Neither of the two current call sites reads this right
+        after a `load()`-triggering submit today, but the two readers below are
+        a public, reusable pair with the maintenance ones, so they get the same
+        anchor rather than staying vacuous for whichever call site reaches them
+        next.
+        """
+        self.await_presence(self.STATES_TABLE, IMPLICIT_WAIT_EQUIVALENT)
+
     def get_states_row_count(self) -> int:
         """Return the number of state rows in the States table."""
+        self.wait_for_states_table()
         rows = self.driver.find_elements(*self.STATES_ROWS)
         return len(rows)
 
     def get_states_row_texts(self) -> list[list[str]]:
         """Return the readable text fragments of every visible state row."""
+        self.wait_for_states_table()
         return [
             self.get_row_text_fragments(row) for row in self.driver.find_elements(*self.STATES_ROWS)
         ]
@@ -258,8 +302,28 @@ class TankDetailPage(BasePage):
         self.wait_for_element_visible(self.MAINTENANCE_DIALOG)
 
     def is_maintenance_dialog_open(self) -> bool:
-        """Return True if the MaintenanceLogDialog is open."""
+        """Return True if the MaintenanceLogDialog is open.
+
+        Deliberately instantaneous, not anchored: its *presence* call site
+        reads it right after ``click_log_maintenance()``, which already runs
+        ``wait_for_element_visible(self.MAINTENANCE_DIALOG)``. For the
+        *dismissal* check ("the dialog closed"), use
+        :meth:`wait_for_maintenance_dialog_closed` instead: MUI's Dialog
+        unmounts only after its exit transition finishes, so a raw negated
+        read sampled right after clicking Cancel can still see the dialog
+        mid-fade-out and report it as open -- a guarded-dismissal gap, not a
+        data-fetch one.
+        """
         return len(self.driver.find_elements(*self.MAINTENANCE_DIALOG)) > 0
+
+    def wait_for_maintenance_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait for the MaintenanceLogDialog to actually leave the DOM.
+
+        Returns ``False`` (rather than raising) once the budget is spent, so a
+        dialog that genuinely never closes still fails the caller's own
+        assertion.
+        """
+        return self.is_absent_within(self.MAINTENANCE_DIALOG, timeout=timeout)
 
     def select_maintenance_type(self, label_text: str) -> None:
         """Select a maintenance type by its visible label.
@@ -347,12 +411,26 @@ class TankDetailPage(BasePage):
     # ── Schedules tab (tab=3) ──────────────────────────────────────────
 
     def get_schedules_row_count(self) -> int:
-        """Return the number of rows in the schedules table."""
+        """Return the number of rows in the schedules table.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         rows = self.driver.find_elements(*self.SCHEDULES_ROWS)
         return len(rows)
 
     def has_schedules_table(self) -> bool:
-        """Return True if the Schedules tab rendered a DataTable component."""
+        """Return True if the Schedules tab rendered a DataTable component.
+
+        Deliberately instantaneous, not anchored: its one call site reads it
+        right after ``click_tab(3)``, and ``click_tab`` resolves its tabs
+        through :meth:`_tabs`, which itself waits for the route to have
+        rendered. Schedules data is fetched together with everything else in
+        the same ``load()`` before the page-level loading gate clears
+        (``TankDetailPage.tsx``), so a settled tab strip means the schedules
+        table has settled too.
+        """
         return len(self.driver.find_elements(*self.SCHEDULES_TABLE)) > 0
 
     # ── Edit tab (tab=5) ───────────────────────────────────────────────
@@ -417,23 +495,50 @@ class TankDetailPage(BasePage):
         self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
+        """Return True if the delete ConfirmDialog is currently visible.
+
+        Deliberately instantaneous, not anchored: its *presence* call site
+        reads it right after ``click_delete()``, which already runs
+        ``wait_for_element_visible(self.CONFIRM_DIALOG)``. For the
+        *dismissal* check, use :meth:`wait_for_confirm_dialog_closed` instead
+        -- see :meth:`is_maintenance_dialog_open` for the exit-transition
+        rationale.
+        """
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
+
+    def wait_for_confirm_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait for the delete ConfirmDialog to actually leave the DOM."""
+        return self.is_absent_within(self.CONFIRM_DIALOG, timeout=timeout)
 
     # ── Error display ──────────────────────────────────────────────────
 
     def is_error_displayed(self) -> bool:
-        """Return True if an error display component is visible."""
+        """Return True if an error display component is visible.
+
+        Deliberately instantaneous, not anchored: its one call site
+        (``test_nonexistent_tank_key_shows_error``) reads it right after
+        ``wait_for_any_present((ERROR_DISPLAY, PAGE), ...)`` -- the readiness
+        this method reports has already been bought by the caller.
+        """
         elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-display']")
         return len(elements) > 0 and elements[0].is_displayed()
 
     def is_page_present(self) -> bool:
-        """Return True if the tank detail page container rendered."""
+        """Return True if the tank detail page container rendered.
+
+        See :meth:`is_error_displayed` -- same call site, same anchor.
+        """
         return len(self.driver.find_elements(*self.PAGE)) > 0
 
     # ── Validation errors ──────────────────────────────────────────────
 
     def get_validation_error(self, field_name: str) -> str:
-        """Return the validation error text for a form field."""
+        """Return the validation error text for a form field.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         locator = (
             By.CSS_SELECTOR,
             f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
@@ -442,4 +547,5 @@ class TankDetailPage(BasePage):
         return elements[0].text if elements else ""
 
     def has_validation_error(self, field_name: str) -> bool:
+        """See :meth:`get_validation_error`: no call site in this suite as of #946 wave 5."""
         return bool(self.get_validation_error(field_name))
