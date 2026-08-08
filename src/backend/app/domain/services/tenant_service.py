@@ -14,6 +14,7 @@ from app.common.enums import (
     TenantType,
 )
 from app.common.exceptions import (
+    DuplicateError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -34,7 +35,7 @@ from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
-from app.domain.models.membership import MemberInfo, Membership
+from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 from app.domain.models.tenant import Tenant, TenantWithRole
 
 if TYPE_CHECKING:
@@ -354,10 +355,148 @@ class TenantService:
                 )
         return result
 
+    # --- Platform-admin catalogue reads (#1019) ---
+
+    def list_all_tenants(self) -> list[Tenant]:
+        """Every tenant, newest first — the platform-admin cross-tenant listing.
+
+        Distinct from :meth:`list_my_tenants`, which is scoped to one user's
+        memberships. This is a system-context read the platform-admin panel used
+        to hand-write as raw AQL in the router (#1019); the per-tenant member
+        count is derived by the caller from :meth:`list_members`.
+        """
+        return self._tenant_repo.list_all()
+
+    def count_tenants(self, *, active_only: bool = False) -> int:
+        """Number of tenants; ``active_only`` counts only ``is_active`` ones (#1019)."""
+        return self._tenant_repo.count(active_only=active_only)
+
+    def count_memberships(self) -> int:
+        """Total number of membership documents (platform-admin statistics, #1019)."""
+        return self._membership_repo.count()
+
+    def list_user_memberships(self, user_key: str) -> list[UserMembershipInfo]:
+        """A user's memberships, each enriched with its tenant's name and slug.
+
+        The user-perspective read the platform-admin panel needs (#1019). Routed
+        through the single :meth:`IMembershipRepository.list_by_user_with_tenant`
+        join so ``list_user_memberships``, ``list_all_users`` and the
+        ``update_user`` roles block stop each re-deriving it as raw AQL.
+        """
+        return self._membership_repo.list_by_user_with_tenant(user_key)
+
     # --- Member Management ---
 
     def list_members(self, tenant_key: str) -> list[MemberInfo]:
         return self._membership_repo.list_by_tenant(tenant_key)
+
+    # --- Platform-admin membership writes (#1019) ---
+    #
+    # These are the convergence point for the two admin perspectives — the
+    # tenant view (``/admin/platform/tenants/{tk}/members``) and the user view
+    # (``/admin/platform/users/{uk}/memberships``) — which previously each
+    # hand-wrote the same membership insert / role update / delete with their own
+    # edge management, so a fix to one copy missed the other. Authorization is
+    # the platform-admin gate on the router (``require_platform_admin``), a
+    # different axis from the tenant-scoped ``admin_scopes`` check the
+    # tenant-scoped ``change_member_role`` / ``remove_member`` enforce — so these
+    # deliberately do not take ``actor_scopes``.
+
+    def admin_add_membership(self, tenant_key: str, user_key: str, role: TenantRole) -> Membership:
+        """Add a user to a tenant on the platform-admin path.
+
+        Single implementation behind both ``POST .../tenants/{tk}/members`` and
+        ``POST .../users/{uk}/memberships``. The membership row and its two graph
+        edges are created by :meth:`IMembershipRepository.create`, so the edge
+        management the two router copies duplicated now lives in one place.
+
+        Raises :class:`NotFoundError` when the tenant is unknown and
+        :class:`DuplicateError` when the user is already a member. The *user's*
+        existence is verified by the router (it needs the user for the response
+        anyway), which keeps this method free of a user-repository dependency.
+        """
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if not tenant:
+            raise NotFoundError("tenants", tenant_key)
+
+        existing = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
+        if existing:
+            raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
+
+        membership = Membership(
+            user_key=user_key,
+            tenant_key=tenant_key,
+            role=role,
+            is_active=True,
+            joined_at=datetime.now(UTC).isoformat(),
+        )
+        return self._membership_repo.create(membership)
+
+    def admin_change_membership_role(
+        self,
+        membership_key: str,
+        new_role: TenantRole,
+        *,
+        tenant_key: str | None = None,
+        user_key: str | None = None,
+    ) -> Membership:
+        """Change a membership's domain role on the platform-admin path.
+
+        Single implementation behind both perspectives' role-change endpoints.
+        ``tenant_key`` / ``user_key`` are the caller's ownership constraint (the
+        path segment the membership must belong to); either or both may be given,
+        and a mismatch is a :class:`NotFoundError`, matching the pre-#1019 router
+        behaviour of 404-ing when the membership does not belong to the addressed
+        parent. The write goes through
+        :meth:`IMembershipRepository.update_fields`, which re-validates the merged
+        model (#968).
+        """
+        self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        result = self._membership_repo.update_fields(membership_key, {"role": new_role})
+        if not result:
+            raise NotFoundError("memberships", membership_key)
+        return result
+
+    def admin_remove_membership(
+        self,
+        membership_key: str,
+        *,
+        tenant_key: str | None = None,
+        user_key: str | None = None,
+    ) -> bool:
+        """Remove a membership on the platform-admin path.
+
+        Single implementation behind both perspectives' delete endpoints. The
+        removal goes through :meth:`IMembershipRepository.delete`, which also
+        drops the ``has_membership`` / ``membership_in`` edges **and** any
+        location assignments for the membership — the latter was orphaned by the
+        pre-#1019 router, which deleted only the two edges.
+        """
+        self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        return self._membership_repo.delete(membership_key)
+
+    def _resolve_admin_membership(
+        self,
+        membership_key: str,
+        *,
+        tenant_key: str | None,
+        user_key: str | None,
+    ) -> Membership:
+        """Load a membership for a platform-admin op, enforcing the ownership constraint.
+
+        Fails with :class:`NotFoundError` when the membership is unknown or does
+        not belong to the addressed tenant (tenant perspective) / user (user
+        perspective). Returning the same 404 for "unknown" and "belongs to a
+        different parent" avoids a cross-parent existence oracle.
+        """
+        membership = self._membership_repo.get_by_key(membership_key)
+        if not membership:
+            raise NotFoundError("memberships", membership_key)
+        if tenant_key is not None and membership.tenant_key != tenant_key:
+            raise NotFoundError("memberships", membership_key)
+        if user_key is not None and membership.user_key != user_key:
+            raise NotFoundError("memberships", membership_key)
+        return membership
 
     def change_member_role(
         self,

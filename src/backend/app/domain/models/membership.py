@@ -74,3 +74,23 @@ class MemberInfo(BaseModel):
     @classmethod
     def _dedupe_scopes(cls, value: list[AdminScope]) -> list[AdminScope]:
         return _normalize_scopes(value)
+
+
+class UserMembershipInfo(BaseModel):
+    """One of a user's memberships, enriched with its tenant's name and slug.
+
+    The user-perspective twin of :class:`MemberInfo` (which enriches a tenant's
+    membership with the *member's* name/email). Both are read projections built
+    by a single repository join, so the platform-admin panel no longer hand-rolls
+    the same ``FOR m … LET t = DOCUMENT(tenants/…)`` AQL in three separate router
+    handlers (``list_user_memberships``, ``list_all_users`` and the ``update_user``
+    roles block — #1019).
+    """
+
+    membership_key: str
+    tenant_key: str
+    tenant_name: str
+    tenant_slug: str
+    role: TenantRole
+    is_active: bool
+    joined_at: datetime | None

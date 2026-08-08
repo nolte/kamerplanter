@@ -162,24 +162,11 @@ def store() -> dict[str, dict[str, Any]]:
 
 
 @pytest.fixture
-def db_calls() -> list[str]:
-    return []
-
-
-@pytest.fixture
 def client(
     store: dict[str, dict[str, Any]],
-    db_calls: list[str],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> TestClient:
     member_count = 2
     db = _FakeDb(store, member_count)
-
-    def _get_db() -> _FakeDb:
-        db_calls.append("get_db")
-        return db
-
-    monkeypatch.setattr(mod, "get_db", _get_db)
 
     membership_repo = MagicMock()
     membership_repo.list_by_tenant.return_value = _members(member_count)
@@ -247,11 +234,14 @@ class TestInvalidValuesAreRejected:
 class TestRoutesThroughTheServiceLayer:
     """NFR-001 — the router must not reach Persistence itself."""
 
-    def test_endpoint_never_opens_a_database_handle(self, client, store, db_calls):
+    def test_router_module_holds_no_database_handle(self, client, store):
+        """With every path routed through a service (#1019), the router module has
+        no ``get_db`` symbol to reach Persistence through — the structural
+        counterpart to the ``check_layer_imports`` gate, which refuses the import."""
         response = _patch(client, {"description": "A new description"})
 
         assert response.status_code == 200
-        assert db_calls == []
+        assert not hasattr(mod, "get_db")
 
     def test_rename_rederives_the_slug_like_the_tenant_scoped_path(self, client, store):
         """``PATCH /t/{slug}`` re-derives the slug on rename; this path did not.

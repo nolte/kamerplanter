@@ -55,6 +55,24 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
     def list_by_owner(self, owner_user_key: str) -> list[Tenant]:
         return self.find_by_field("owner_user_key", owner_user_key, sort="created_at")
 
+    def list_all(self) -> list[Tenant]:
+        """Every tenant, newest first (platform-admin listing, #1019)."""
+        docs = self._find_docs([], sort="created_at", sort_direction="DESC")
+        return self._wrap_many(docs)
+
+    def count(self, *, active_only: bool = False) -> int:
+        """Number of tenant documents; ``active_only`` counts ``is_active`` ones (#1019)."""
+        if not active_only:
+            return self.collection.count()
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.is_active == true
+          COLLECT WITH COUNT INTO cnt
+          RETURN cnt
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.TENANTS})
+        return next(cursor, 0)
+
     def count_organizations_by_owner(self, owner_user_key: str) -> int:
         query = """
         FOR doc IN @@collection

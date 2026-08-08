@@ -97,7 +97,8 @@ class AllowedImport:
 # The recorded baseline
 # --------------------------------------------------------------------------- #
 #
-# Measured on 2026-08-08: 22 imports across 18 modules. Every entry is debt, not
+# Measured on 2026-08-08: 22 imports across 18 modules; #1019 removed the
+# admin/platform/router.py crossing (family 2), leaving 21 across 17. Every entry is debt, not
 # an exemption on the merits — the fix in each case is a service method that
 # does not exist yet. Adding an entry needs a reviewer to agree in this file;
 # removing the import means deleting its entry in the same change, because an
@@ -210,15 +211,15 @@ ALLOWED_IMPORTS: tuple[AllowedImport, ...] = (
         ),
     ),
     # -- family 2: raw collection names for AQL written in the router --------- #
-    AllowedImport(
-        path="src/backend/app/api/v1/admin/platform/router.py",
-        module="app.data_access.arango",
-        reason=(
-            "Imports `collections` and executes AQL in the router — the platform "
-            "admin panel has no service layer at all. The widest single crossing "
-            "in this list, and the one whose repair is a whole service."
-        ),
-    ),
+    #
+    # Emptied by #1019: ``admin/platform/router.py`` was the sole member. Its
+    # writes (membership add/remove/role, the ``delete_user`` cascade) now route
+    # through ``TenantService.admin_*_membership`` / ``UserService`` and its reads
+    # (stats, tenant/user/member listings) through the service+repository layer,
+    # so the router no longer imports ``app.data_access.arango.collections`` at
+    # all. The family header stays as a placeholder for the shape; add a new
+    # member only if a router starts writing raw AQL again (which is what this
+    # gate exists to refuse).
     # -- family 3: external adapters called from a router --------------------- #
     AllowedImport(
         path="src/backend/app/api/v1/admin/pests/router.py",
