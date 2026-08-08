@@ -416,29 +416,33 @@ class TestTheEditorItselfStillWorks:
 class TestTheUnguardedGlobalRoutesAreGone:
     """The old paths must not survive alongside the guarded ones."""
 
-    def test_the_global_router_no_longer_exposes_the_template_writes(self):
-        from app.api.v1.activity_plans.router import router as global_router
+    def test_the_global_activity_plans_router_module_is_removed(self):
+        """Nothing was left on it once ``/apply`` moved for #1000, so it is gone.
 
-        paths = {(route.path, method) for route in global_router.routes for method in route.methods}
-
-        assert ("/activity-plans/templates/{key}", "PATCH") not in paths
-        assert ("/activity-plans/templates/{key}", "DELETE") not in paths
-        assert ("/activity-plans/apply", "POST") in paths
-
-    def test_generation_followed_the_writes_off_the_global_router(self):
-        """Changed for #1003: ``/generate`` used to be asserted *present* here.
-
-        It was, for #992, because that change deliberately did not touch it. It
-        had to move for #1003: which plan a caller is shown depends on whether
-        that caller's tenant has forked it, and a route with no tenant context
-        cannot ask. ``/apply`` above stays — its tenant comes from the request
-        body, which is #1000's separate defect.
+        Every write on this feature is tenant-scoped now: the template writes
+        (#992), generation (#1003) and finally ``/apply`` (#1000).
         """
-        from app.api.v1.activity_plans.router import router as global_router
+        import importlib
+
+        try:
+            importlib.import_module("app.api.v1.activity_plans.router")
+        except ModuleNotFoundError:
+            return
+        raise AssertionError("app.api.v1.activity_plans.router should have been removed")
+
+    def test_all_write_routes_live_on_the_tenant_scoped_router(self):
+        """``/generate`` (#1003) and ``/apply`` (#1000) both need the caller's tenant.
+
+        ``/generate`` because which plan a caller is shown depends on whether
+        their tenant has forked it, and ``/apply`` because the created tasks are
+        stamped with the caller's tenant — which used to come from the request
+        body, #1000's defect.
+        """
         from app.api.v1.activity_plans.tenant_router import router as tenant_router
 
-        global_paths = {(route.path, method) for route in global_router.routes for method in route.methods}
         tenant_paths = {(route.path, method) for route in tenant_router.routes for method in route.methods}
 
-        assert ("/activity-plans/generate", "POST") not in global_paths
         assert ("/activity-plans/generate", "POST") in tenant_paths
+        assert ("/activity-plans/apply", "POST") in tenant_paths
+        assert ("/activity-plans/templates/{key}", "PATCH") in tenant_paths
+        assert ("/activity-plans/templates/{key}", "DELETE") in tenant_paths

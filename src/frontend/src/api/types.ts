@@ -4709,7 +4709,6 @@ export interface ActivityPlanApplyRequest {
   workflow_template_key: string;
   plant_key?: string | null;
   run_key?: string | null;
-  tenant_key?: string;
 }
 
 export interface ActivityPlanApplyResponse {

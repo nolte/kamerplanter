@@ -1,4 +1,5 @@
 from app.common.exceptions import ValidationError
+from app.common.tenant_guard import verify_tenant_read_access
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -235,8 +236,23 @@ class ActivityPlanService:
         plant_key: str,
         tenant_key: str = "",
     ) -> dict:
-        """Create tasks from a workflow template's task templates for a single plant."""
-        self._task_repo.get_workflow_template_or_raise(workflow_template_key)
+        """Create tasks from a workflow template's task templates for a single plant.
+
+        ``tenant_key`` comes from the verified path context (#1000), never the
+        request body, and is what every created ``Task`` is stamped with — so the
+        stamping below is correct by construction rather than by the caller's word.
+
+        The plan itself is resolved for that same tenant: a caller may apply the
+        globally generated **shared template** (``tenant_key == ""``) or their own
+        forked copy (#1003), but not another tenant's private copy.
+        :func:`verify_tenant_read_access` spells that union out — a foreign
+        tenant's workflow raises ``NotFoundError`` (404), the same answer an
+        unknown key gets, so the route is no cross-tenant existence oracle. A
+        strict ``== tenant_key`` here would instead reject the shared template
+        every reader depends on, which is the #324 trap.
+        """
+        workflow = self._task_repo.get_workflow_template_or_raise(workflow_template_key)
+        verify_tenant_read_access(workflow, tenant_key, "WorkflowTemplate")
 
         templates = self._task_repo.get_task_templates_for_workflow(workflow_template_key)
         created_keys: list[str] = []

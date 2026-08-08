@@ -18,9 +18,14 @@ only available anchor and what each refusal status means.
 longer the same object for everybody: the generated plan stays a shared
 template, and a tenant's first write materialises a private copy they work on
 from then on. The lookup behind this route therefore has to know *whose* plan to
-answer with, which a global route cannot tell it. ``POST /apply`` stays on the
-global router — it takes its tenant from the request body, which is #1000's
-defect and a separate change.
+answer with, which a global route cannot tell it.
+
+``POST /apply`` joined them for #1000 — the last global write on this router. It
+used to take its tenant from the request body and stamp it onto every task it
+created, so any authenticated user could write into any tenant by naming it.
+It now takes the tenant from the path like every route here, the body field is
+gone, and the target plant/run is verified against the tenant before anything is
+created — see ``apply_plan`` below.
 """
 
 from typing import Annotated
@@ -29,16 +34,27 @@ from fastapi import APIRouter, Depends, Path, Response
 
 from app.api.v1.activity_plans.mapping import activity_plan_response, task_template_response
 from app.api.v1.activity_plans.schemas import (
+    ActivityPlanApplyRequest,
+    ActivityPlanApplyResponse,
     ActivityPlanGenerateRequest,
     ActivityPlanResponse,
     TaskTemplateResponse,
     TaskTemplateUpdateRequest,
 )
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_activity_plan_service, get_task_repo, get_task_service
+from app.common.dependencies import (
+    get_activity_plan_service,
+    get_plant_instance_service,
+    get_planting_run_service,
+    get_task_repo,
+    get_task_service,
+)
+from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.activity_plan_service import ActivityPlanService
+from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.task_service import TaskService
 
 router = APIRouter(
@@ -82,6 +98,57 @@ def generate_plan(
             tenant_key=ctx.tenant_key,
         )
     return activity_plan_response(workflow, task_repo=task_repo)
+
+
+@router.post("/apply", response_model=ActivityPlanApplyResponse)
+def apply_plan(
+    body: ActivityPlanApplyRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: ActivityPlanService = Depends(get_activity_plan_service),
+    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
+    run_service: PlantingRunService = Depends(get_planting_run_service),
+) -> ActivityPlanApplyResponse:
+    """Apply an activity plan to a planting run or a single plant.
+
+    The tenant comes from the path, not the request body (#1000): the created
+    tasks are stamped with ``ctx.tenant_key``, so a caller can no longer write
+    into a tenant they are not a member of by naming it. The target plant or run
+    is verified to belong to that same tenant *before* anything is created — a
+    foreign or unknown ``plant_key``/``run_key`` both answer 404
+    (``verify_tenant_ownership`` behind ``get_plant``/``get_run``), so the route
+    is no cross-tenant existence oracle. The plan being applied is resolved for
+    the caller's tenant in the service (shared template or their own fork, never
+    another tenant's copy).
+    """
+    if body.run_key:
+        # Refuses a run of another tenant with 404 before any task is created.
+        run_service.get_run(body.run_key, tenant_key=ctx.tenant_key)
+        result = service.apply_plan_to_run(
+            body.workflow_template_key,
+            body.run_key,
+            ctx.tenant_key,
+        )
+        return ActivityPlanApplyResponse(
+            created_count=result["total_tasks"],
+            task_keys=result["task_keys"],
+            plant_count=result["plant_count"],
+            total_tasks=result["total_tasks"],
+        )
+
+    if body.plant_key:
+        # Refuses a plant of another tenant with 404 before any task is created.
+        plant_service.get_plant(body.plant_key, tenant_key=ctx.tenant_key)
+        result = service.apply_plan_to_plant(
+            body.workflow_template_key,
+            body.plant_key,
+            ctx.tenant_key,
+        )
+        return ActivityPlanApplyResponse(
+            created_count=result["created_count"],
+            task_keys=result["task_keys"],
+        )
+
+    raise ValidationError("Either plant_key or run_key must be provided.")
 
 
 @router.patch("/templates/{key}", response_model=TaskTemplateResponse)
