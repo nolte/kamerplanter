@@ -21,12 +21,12 @@ from app.api.v1.ipm.schemas import (
     TreatmentApplicationCreate,
     TreatmentApplicationResponse,
 )
-from app.common.auth import get_current_tenant, is_platform_admin
+from app.common.auth import get_current_tenant, is_platform_admin, require_permission
 from app.common.dependencies import get_ipm_service, get_pest_image_service, get_tenant_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
-from app.core.permissions import Action
+from app.core.permissions import Action, ResourceType
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ipm_service import IpmService
@@ -166,7 +166,7 @@ def _recognition_image_response(view: PestRecognitionImageView, pest_key: str) -
 def create_inspection(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: InspectionCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)),
     service: IpmService = Depends(get_ipm_service),
 ):
     """Record an IPM inspection for a plant."""
@@ -195,7 +195,7 @@ def list_inspections(
 def create_treatment_application(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: TreatmentApplicationCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)),
     service: IpmService = Depends(get_ipm_service),
 ):
     """Record a treatment application for a plant."""

@@ -10,12 +10,13 @@ from app.api.v1.overwintering_profiles.schemas import (
     OverwinteringProfileResponse,
 )
 from app.api.v1.season.schemas import SeasonOverviewResponse, SeasonStateResponse
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import (
     get_overwintering_profile_service,
     get_season_state_service,
 )
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.core.permissions import Action, ResourceType
 from app.domain.models.overwintering_profile import (
     OverwinteringProfile,
     PlantOverwinteringStatus,
@@ -92,7 +93,7 @@ def get_plant_overwintering_status(
 def override_plant_overwintering(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: OverwinteringOverrideRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.UPDATE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
     """Override individual fields (sets ``user_overridden=True``). 422 on D5 conflict."""
@@ -104,7 +105,7 @@ def override_plant_overwintering(
 @router.post("/plants/{plant_key}/overwintering/reset", response_model=OverwinteringProfileResponse)
 def reset_plant_overwintering(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.OVERWINTERING_PROFILE, Action.UPDATE)),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
     """Reset to the automatic derivation (``user_overridden=False``) and re-materialise.

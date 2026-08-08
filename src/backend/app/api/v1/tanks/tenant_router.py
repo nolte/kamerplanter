@@ -31,10 +31,11 @@ from app.api.v1.tanks.schemas import (
     TankStateResponse,
     TankUpdate,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_sensor_service, get_tank_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.models.sensor import Sensor
 from app.domain.models.tank import (
@@ -88,7 +89,7 @@ def list_tanks(
 @router.post("", response_model=TankResponse, status_code=201)
 def create_tank(
     body: TankCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.CREATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Create a tank for the tenant."""
@@ -121,7 +122,7 @@ def get_tank(
 def update_tank(
     key: Annotated[str, Path(description="Document key of the tank.")],
     body: TankUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.UPDATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's configuration."""
@@ -134,7 +135,7 @@ def update_tank(
 @router.delete("/{key}", status_code=204)
 def delete_tank(
     key: Annotated[str, Path(description="Document key of the tank.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.DELETE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Delete a tank."""
@@ -146,7 +147,7 @@ def delete_tank(
 def record_state(
     key: Annotated[str, Path(description="Document key of the tank.")],
     body: TankStateCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.CREATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Record a measured state snapshot for a tank."""
@@ -199,7 +200,7 @@ def get_alerts(
 def log_maintenance(
     key: Annotated[str, Path(description="Document key of the tank.")],
     body: MaintenanceLogCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.CREATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Log a completed maintenance action for a tank."""
@@ -238,7 +239,7 @@ def get_due_maintenances(
 def create_schedule(
     key: Annotated[str, Path(description="Document key of the tank.")],
     body: MaintenanceScheduleCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.CREATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Create a maintenance schedule for a tank."""
@@ -265,7 +266,7 @@ def update_schedule(
     key: Annotated[str, Path(description="Document key of the tank.")],
     skey: Annotated[str, Path(description="Document key of the maintenance schedule.")],
     body: MaintenanceScheduleUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.UPDATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's maintenance schedule."""
@@ -279,7 +280,7 @@ def update_schedule(
 def delete_schedule(
     key: Annotated[str, Path(description="Document key of the tank.")],
     skey: Annotated[str, Path(description="Document key of the maintenance schedule.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.DELETE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Delete a tank's maintenance schedule."""
@@ -291,7 +292,7 @@ def delete_schedule(
 def record_fill_event(
     key: Annotated[str, Path(description="Document key of the tank.")],
     body: TankFillEventCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.CREATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Record a tank fill event and return the resulting state and warnings."""
@@ -380,7 +381,7 @@ def get_active_nutrient_plans(
 def link_feeds_from(
     key: Annotated[str, Path(description="Document key of the tank being fed.")],
     body: FeedsFromRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TANK, Action.UPDATE)),
     service: TankService = Depends(get_tank_service),
 ):
     """Link a tank to the source tank it is fed from."""
@@ -419,7 +420,7 @@ def get_sensors(
 def create_sensor(
     key: Annotated[str, Path(description="Document key of the tank.")],
     body: SensorCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SENSOR, Action.CREATE)),
     tank_service: TankService = Depends(get_tank_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):

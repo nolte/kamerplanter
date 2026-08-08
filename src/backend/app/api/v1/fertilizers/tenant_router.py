@@ -14,11 +14,12 @@ from app.api.v1.fertilizers.schemas import (
     StockResponse,
     StockUpdate,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import DataOrigin
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
@@ -62,7 +63,7 @@ def list_fertilizers(
 @router.post("", response_model=FertilizerResponse, status_code=201)
 def create_fertilizer(
     body: FertilizerCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.CREATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Create a tenant-owned fertilizer product."""
@@ -86,7 +87,7 @@ def get_fertilizer(
 def update_fertilizer(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     body: FertilizerUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Update a tenant-owned fertilizer product."""
@@ -99,7 +100,7 @@ def update_fertilizer(
 @router.delete("/{key}", status_code=204)
 def delete_fertilizer(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.DELETE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Delete a tenant-owned fertilizer product."""
@@ -123,7 +124,7 @@ def list_stocks(
 def create_stock(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     body: StockCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.CREATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Add a stock entry to a fertilizer."""
@@ -138,7 +139,7 @@ def update_stock(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     sk: Annotated[str, Path(description="Document key of the stock entry.")],
     body: StockUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Update a fertilizer stock entry."""
@@ -152,7 +153,7 @@ def update_stock(
 def delete_stock(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     sk: Annotated[str, Path(description="Document key of the stock entry.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.DELETE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Delete a fertilizer stock entry."""
@@ -175,7 +176,7 @@ def list_incompatibilities(
 def add_incompatibility(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     body: IncompatibilityCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Declare an incompatibility between this fertilizer and another."""
@@ -190,7 +191,7 @@ def add_incompatibility(
 def remove_incompatibility(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     other_key: Annotated[str, Path(description="Document key of the incompatible fertilizer.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Remove a declared incompatibility between two fertilizers."""

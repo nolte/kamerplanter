@@ -18,11 +18,12 @@ from app.api.v1.nutrient_plans.schemas import (
     WaterMixBatchRecommendationResponse,
     WaterMixRecommendationResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_nutrient_plan_service
 from app.common.enums import DataOrigin
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -62,7 +63,7 @@ def list_plans(
 @router.post("", response_model=NutrientPlanResponse, status_code=201)
 def create_plan(
     body: NutrientPlanCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.CREATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Create a nutrient plan for the tenant."""
@@ -92,7 +93,7 @@ def get_plan(
 def update_plan(
     key: Annotated[str, Path(description="Document key of the nutrient plan.")],
     body: NutrientPlanUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.UPDATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Update a nutrient plan."""
@@ -105,7 +106,7 @@ def update_plan(
 @router.delete("/{key}", status_code=204)
 def delete_plan(
     key: Annotated[str, Path(description="Document key of the nutrient plan.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.DELETE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Delete a nutrient plan."""
@@ -117,7 +118,7 @@ def delete_plan(
 def clone_plan(
     key: Annotated[str, Path(description="Document key of the nutrient plan to clone.")],
     body: CloneRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.CREATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Clone a nutrient plan into a new tenant-owned plan."""
@@ -153,7 +154,7 @@ def list_entries(
 def create_entry(
     key: Annotated[str, Path(description="Document key of the nutrient plan.")],
     body: PhaseEntryCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.CREATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Add a phase entry to a nutrient plan."""
@@ -168,7 +169,7 @@ def update_entry(
     key: Annotated[str, Path(description="Document key of the nutrient plan.")],
     ek: Annotated[str, Path(description="Document key of the phase entry.")],
     body: PhaseEntryUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.UPDATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Update a nutrient plan's phase entry."""
@@ -182,7 +183,7 @@ def update_entry(
 def delete_entry(
     key: Annotated[str, Path(description="Document key of the nutrient plan.")],
     ek: Annotated[str, Path(description="Document key of the phase entry.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.DELETE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Delete a nutrient plan's phase entry."""
@@ -268,7 +269,7 @@ def assign_channel_fertilizer(
     ek: Annotated[str, Path(description="Document key of the phase entry.")],
     cid: Annotated[str, Path(description="Identifier of the delivery channel.")],
     body: ChannelFertilizerAssignRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.UPDATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Assign a fertilizer to a phase entry's delivery channel."""
@@ -283,7 +284,7 @@ def remove_channel_fertilizer(
     ek: Annotated[str, Path(description="Document key of the phase entry.")],
     cid: Annotated[str, Path(description="Identifier of the delivery channel.")],
     fk: Annotated[str, Path(description="Document key of the fertilizer to remove.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.UPDATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Remove a fertilizer from a phase entry's delivery channel."""

@@ -221,7 +221,7 @@ class _Fixture:
 
     # ── HTTP ──
 
-    def client(self, tenant_key: str) -> TestClient:
+    def client(self, tenant_key: str, role: TenantRole = TenantRole.GROWER) -> TestClient:
         app = FastAPI()
         app.include_router(activity_plans_tenant_router, prefix="/api/v1/t/{tenant_slug}")
         app.add_exception_handler(KamerplanterError, _error_handler)
@@ -229,7 +229,7 @@ class _Fixture:
             tenant_key=tenant_key,
             tenant_slug=SLUG[tenant_key],
             user_key=f"user-{tenant_key}",
-            role=TenantRole.GROWER,
+            role=role,
         )
         app.dependency_overrides[get_task_service] = lambda: self.task_service
         app.dependency_overrides[get_activity_plan_service] = lambda: self.plan_service
@@ -251,7 +251,10 @@ class _Fixture:
         return self.client(tenant_key).patch(self._url(tenant_key, f"/templates/{template_key}"), json=body)
 
     def delete_template(self, tenant_key: str, template_key: str) -> Any:
-        return self.client(tenant_key).delete(self._url(tenant_key, f"/templates/{template_key}"))
+        # Deleting an activity-plan template is lead-only (REQ-049 §2.3); the
+        # copy-on-write behaviour under test is independent of the role, so drive
+        # the delete as a lead who is permitted to perform it.
+        return self.client(tenant_key, role=TenantRole.LEAD).delete(self._url(tenant_key, f"/templates/{template_key}"))
 
     @staticmethod
     def _url(tenant_key: str, path: str) -> str:

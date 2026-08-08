@@ -1,25 +1,28 @@
 """REQ-024 v1.4 RBAC Permission Matrix.
 
 Granular CRUD permissions per resource type and per ``TenantRole``,
-exposed via a ``require_permission(...)`` FastAPI dependency factory
-that the routers can drop in front of any tenant-scoped handler.
+declared as an explicit table (resource × action × role → allow) plus
+the ``has_permission`` / ``assert_permission`` predicates that read it.
+Adding a new resource forces the implementer to make a conscious call
+on every role's access; the default for unknown combinations is *deny*.
 
-The matrix is intentionally explicit (resource × action × role → allow)
-so that adding a new resource forces the implementer to make a
-conscious call on every role's access. The default for unknown
-combinations is *deny*.
+The tenant-scoped write gate that the routers actually depend on lives
+in :func:`app.common.auth.require_permission` (the FastAPI layer, next
+to ``get_current_tenant``). It gates on the domain role via the pure
+:class:`app.domain.engines.membership_engine.MembershipEngine`
+predicates rather than on this table, because the engine is the single
+source of truth for the grower/lead delete boundary (REQ-049 §2.3).
+This module keeps the descriptive matrix and the MCP permission binding
+(REQ-033 §4.4) below.
 
 Spec: ``spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md``
-v1.4. The ``require_permission`` dependency is also referenced from
-REQ-023 (Service Accounts) and REQ-027 (Light-Modus) — both follow up
-on the same primitive once their respective surfaces land.
+v1.4. The permission model is also referenced from REQ-023 (Service
+Accounts) and REQ-027 (Light-Modus).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from enum import StrEnum
-from typing import Any
 
 from app.common.enums import McpPermission, TenantRole
 
@@ -120,11 +123,13 @@ _PLANT_DOMAIN: list[ResourceType] = [
 ]
 for _resource in _PLANT_DOMAIN:
     _grant(_resource, [Action.READ], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
-    _grant(
-        _resource,
-        [Action.CREATE, Action.UPDATE, Action.DELETE],
-        [TenantRole.LEAD, TenantRole.GROWER],
-    )
+    _grant(_resource, [Action.CREATE, Action.UPDATE], [TenantRole.LEAD, TenantRole.GROWER])
+    # DELETE is the irreversibility boundary: lead only (REQ-024 §1a.1 "❌D"
+    # throughout, REQ-049 §2.3). This matches MembershipEngine.can_delete_resource
+    # so the two enforcement paths — the descriptive matrix used by the attachment
+    # guard, and the require_permission dependency used by every other router —
+    # can never drift on who may destroy a domain record.
+    _grant(_resource, [Action.DELETE], [TenantRole.LEAD])
 
 # Domain-specific verbs.
 _grant(ResourceType.HARVEST, [Action.CONFIRM], [TenantRole.LEAD, TenantRole.GROWER])
@@ -176,38 +181,6 @@ def assert_permission(role: TenantRole, resource: ResourceType, action: Action) 
 
     if not has_permission(role, resource, action):
         raise PermissionError(f"Tenant role '{role.value}' may not '{action.value}' on '{resource.value}'.")
-
-
-def require_permission(
-    resource: ResourceType,
-    action: Action,
-) -> Callable[..., Any]:
-    """FastAPI dependency factory.
-
-    Routers use it like::
-
-        router = APIRouter(
-            prefix="/plants",
-            dependencies=[Depends(require_permission(ResourceType.PLANT, Action.READ))],
-        )
-
-    The dependency expects ``current_role`` to be resolved upstream by
-    ``get_current_membership`` (provided by the tenant_scoped router).
-    Until that dependency lands as a hard requirement on every route,
-    the factory returns a callable that simply asserts the permission
-    when given a role; if no role is supplied (e.g. unauthenticated
-    contexts that should already have been filtered out) it raises.
-    """
-
-    def _dependency(current_role: TenantRole | None = None) -> TenantRole:
-        if current_role is None:
-            raise PermissionError(
-                "require_permission needs a TenantRole — wire the dependency tree so get_current_membership runs first."
-            )
-        assert_permission(current_role, resource, action)
-        return current_role
-
-    return _dependency
 
 
 def list_permissions(role: TenantRole) -> list[tuple[ResourceType, Action]]:

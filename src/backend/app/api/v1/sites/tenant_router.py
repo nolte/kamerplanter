@@ -7,7 +7,7 @@ from app.api.v1.hardiness_zones.schemas import HardinessZoneResponse, SiteHardin
 from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.auth import get_current_tenant, require_permission, require_tenant_role
 from app.common.dependencies import (
     get_hardiness_zone_service,
     get_plant_instance_service,
@@ -18,6 +18,7 @@ from app.common.dependencies import (
 from app.common.enums import TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.hardiness_zone import HardinessZone
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site
@@ -112,7 +113,7 @@ def get_site(
 @router.post("", response_model=SiteResponse, status_code=201)
 def create_site(
     body: SiteCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.CREATE)),
     service: SiteService = Depends(get_site_service),
 ):
     """Create a site for the tenant."""
@@ -125,7 +126,7 @@ def create_site(
 def update_site(
     key: Annotated[str, Path(description="Document key of the site.")],
     body: SiteCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.UPDATE)),
     service: SiteService = Depends(get_site_service),
 ):
     """Update a site, preserving its resolved hardiness zone unless overridden."""
@@ -149,7 +150,7 @@ def update_site(
 @router.delete("/{key}", status_code=204)
 def delete_site(
     key: Annotated[str, Path(description="Document key of the site.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.DELETE)),
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a site."""
@@ -250,7 +251,7 @@ def get_site_sensors(
 def create_site_sensor(
     key: Annotated[str, Path(description="Document key of the site.")],
     body: SensorCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SENSOR, Action.CREATE)),
     site_service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):

@@ -11,10 +11,11 @@ from app.api.v1.succession_plans.schemas import (
     SuccessionPlanResponse,
     SuccessionPlanUpdate,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_succession_plan_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.planting_run import PlantingRun
 from app.domain.models.succession_plan import SuccessionPlan
 from app.domain.models.tenant_context import TenantContext
@@ -51,7 +52,7 @@ def list_succession_plans(
 @router.post("", response_model=SuccessionPlanResponse, status_code=201)
 def create_succession_plan(
     body: SuccessionPlanCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SUCCESSION_PLAN, Action.CREATE)),
     service: SuccessionPlanService = Depends(get_succession_plan_service),
 ):
     """Create a succession plan for the tenant."""
@@ -75,7 +76,7 @@ def get_succession_plan(
 def update_succession_plan(
     key: Annotated[str, Path(description="Document key of the succession plan.")],
     body: SuccessionPlanUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SUCCESSION_PLAN, Action.UPDATE)),
     service: SuccessionPlanService = Depends(get_succession_plan_service),
 ):
     """Update a succession plan."""
@@ -87,7 +88,7 @@ def update_succession_plan(
 @router.delete("/{key}", status_code=204)
 def delete_succession_plan(
     key: Annotated[str, Path(description="Document key of the succession plan.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SUCCESSION_PLAN, Action.DELETE)),
     service: SuccessionPlanService = Depends(get_succession_plan_service),
 ):
     """Delete a succession plan."""
@@ -97,7 +98,7 @@ def delete_succession_plan(
 @router.post("/{key}/generate", response_model=GenerateRunsResponse, status_code=201)
 def generate_runs(
     key: Annotated[str, Path(description="Document key of the succession plan.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SUCCESSION_PLAN, Action.UPDATE)),
     service: SuccessionPlanService = Depends(get_succession_plan_service),
 ):
     """Generate all planting runs for a succession plan."""
@@ -112,7 +113,7 @@ def generate_runs(
 @router.post("/{key}/generate-next", response_model=GenerateNextRunResponse, status_code=201)
 def generate_next_run(
     key: Annotated[str, Path(description="Document key of the succession plan.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SUCCESSION_PLAN, Action.UPDATE)),
     service: SuccessionPlanService = Depends(get_succession_plan_service),
 ):
     """Generate the next due planting run for a succession plan."""

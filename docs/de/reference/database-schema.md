@@ -331,17 +331,21 @@ Kamerplanter legt beim Start automatisch folgende Indizes an:
 
 ## Datenisolierung durch Mandanten
 
-Alle mandantengebundenen Ressourcen tragen ein `tenant_key`-Feld. Beim Zugriff löst die FastAPI-Dependency `get_current_tenant` den Mandanten aus dem URL-Segment `/t/{tenant_slug}/` auf und lehnt ab, wenn der anfragende Nutzer dort keine aktive Mitgliedschaft hat. Schreibende Endpunkte fordern zusätzlich eine Mindestrolle (`require_tenant_role`) oder einen administrativen Scope (`require_admin_scope`). Auf Datenebene entsteht die Isolierung dadurch, dass jeder Schreibpfad `tenant_key` aus dem aufgelösten Mandantenkontext stempelt und jede Abfrage nach diesem Feld filtert.
+Alle mandantengebundenen Ressourcen tragen ein `tenant_key`-Feld. Beim Zugriff löst die FastAPI-Dependency `get_current_tenant` den Mandanten aus dem URL-Segment `/t/{tenant_slug}/` auf und lehnt ab, wenn der anfragende Nutzer dort keine aktive Mitgliedschaft hat. Schreibende Endpunkte fordern zusätzlich eine Berechtigung: `require_permission(resource, action)` für Anlegen/Ändern/Löschen mandantengebundener Ressourcen, `require_tenant_role` für eine reine Mindestrolle und `require_admin_scope` für administrative Flächen (Mitgliederverwaltung, Integrationen). Auf Datenebene entsteht die Isolierung zusätzlich dadurch, dass jeder Schreibpfad `tenant_key` aus dem aufgelösten Mandantenkontext stempelt und jede Abfrage nach diesem Feld filtert.
 
-!!! note "Feinkörnige Rechtematrix: noch nicht in Kraft"
-    Die geplante Rechtematrix (Ressourcentyp × Aktion × Rolle) liegt als Modul im
-    Backend, wird von den HTTP-Endpunkten aber **nicht** verwendet — an dieser
-    Stelle war zuvor eine Dependency `require_permission()` beschrieben, die in
-    keinem Endpunkt verdrahtet ist. Durchgesetzt werden heute Mitgliedschaft,
-    Mindestrolle und Admin-Scope. Einziger aktiver Nutzer der Matrix ist die
-    Schnittstelle für externe KI-Clients. <!-- REQ-024, REQ-033 -->
+!!! note "Rechtedurchsetzung: `require_permission` ist verdrahtet"
+    `require_permission(resource, action)` entscheidet allein anhand der
+    Mandantenrolle über die reinen `MembershipEngine`-Prädikate: `can_edit_resource`
+    (lead/grower) für `create`/`update`, `can_delete_resource` (**nur lead**, die
+    Unumkehrbarkeitsgrenze aus REQ-049 §2.3) für `delete`. Lesen bleibt für jedes
+    Mitglied offen. Die feinkörnige Rechtematrix (Ressourcentyp × Aktion × Rolle)
+    im Backend trägt heute den Anhang-Guard und die Schnittstelle für externe
+    KI-Clients; ihr `delete`-Recht auf Domänenressourcen wurde auf lead-only
+    korrigiert, damit beide Durchsetzungswege übereinstimmen. Ein pro
+    Ressourcentyp differenzierendes Matrix-Backend hinter `require_permission`
+    (das `resource`-Argument wird bereits mitgeführt) ist die verbleibende
+    künftige Verfeinerung. <!-- REQ-024, REQ-033, REQ-049 -->
     <!-- Quelle: src/backend/app/common/auth.py, src/backend/app/core/permissions.py -->
-    <!-- Beleg: .audits/issue-pattern-analysis/2026-08-08-report.md §3.1 -->
 
 
 **Globale Ressourcen** (ohne Mandantenbindung): `species`, `cultivars`, `botanical_families`, `pests`, `diseases`, `treatments`, `starter_kits`

@@ -17,11 +17,12 @@ from app.api.v1.calendar.schemas import (
     SowingCalendarEntrySchema,
     SowingCalendarResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.datetimes import today_utc
 from app.common.dependencies import get_calendar_service
 from app.common.enums import CalendarEventCategory
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.core.permissions import Action, ResourceType
 from app.domain.models.calendar import (
     CalendarEventsQuery,
     CalendarFeed,
@@ -200,7 +201,7 @@ def get_season_overview(
 def create_feed(
     body: CalendarFeedCreateRequest,
     request: Request,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.CREATE)),
 ) -> CalendarFeedResponse:
     """Create a subscribable iCal feed for the tenant's calendar."""
     svc: CalendarService = get_calendar_service()
@@ -243,7 +244,7 @@ def update_feed(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
     body: CalendarFeedUpdateRequest,
     request: Request,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.UPDATE)),
 ) -> CalendarFeedResponse:
     """Update a calendar feed's name, filters or active state."""
     svc: CalendarService = get_calendar_service()
@@ -261,7 +262,7 @@ def update_feed(
 @router.delete("/feeds/{key}", status_code=204)
 def delete_feed(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.DELETE)),
 ) -> None:
     """Delete a calendar feed."""
     svc: CalendarService = get_calendar_service()
@@ -273,7 +274,7 @@ def delete_feed(
 def regenerate_token(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
     request: Request,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.UPDATE)),
 ) -> CalendarFeedResponse:
     """Rotate a calendar feed's access token, invalidating the old iCal URL."""
     svc: CalendarService = get_calendar_service()

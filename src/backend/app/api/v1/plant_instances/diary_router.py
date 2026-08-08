@@ -29,11 +29,12 @@ from app.api.v1.planting_runs.diary_schemas import (
     DiaryEntryUpdateRequest,
     diary_entry_response_for_caller,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_plant_diary_service, get_plant_instance_service
 from app.common.exceptions import NotFoundError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.plant_diary_service import PlantDiaryService
@@ -93,7 +94,7 @@ def list_plant_diary_entries(
 def create_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: DiaryEntryCreateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -144,7 +145,7 @@ def update_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
     body: DiaryEntryUpdateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -171,7 +172,7 @@ def update_plant_diary_entry(
 def delete_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("diary-entry", Action.DELETE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
