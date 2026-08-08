@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class FertilizerListPage(BasePage):
@@ -59,8 +61,51 @@ class FertilizerListPage(BasePage):
 
     # ── Table interactions ─────────────────────────────────────────────
 
+    #: The three states this list settles into: rows, the terminal "no source
+    #: data" `EmptyState`, or the terminal "search matched nothing" panel
+    #: `DataTable` renders while the source rows are still there. `PAGE`
+    #: mounts synchronously in `FertilizerListPage.tsx` -- before the first
+    #: fetch resolves -- so a read taken right after `open()` can land in a
+    #: frame where none of the three has committed yet, the same
+    #: just-navigated window `wait_for_dashboard_content` was built for
+    #: (`pflege_dashboard_page.py`). `wait_for_loading_complete()` cannot
+    #: close that window: it is satisfied whenever no skeleton has mounted
+    #: *yet*, which is exactly true in that same frame.
+    #:
+    #: What this does **not** cover: a read taken while a specific search
+    #: term's ~300 ms debounce is still in flight. The *previous*, unfiltered
+    #: rows keep `TABLE_ROWS` satisfied throughout that window -- there is no
+    #: frame in which none of the three branches is present -- so this anchor
+    #: is a no-op there. A caller reading after `search()` needs
+    #: `wait_for_search_applied`/`wait_for_no_search_results` first, which
+    #: wait for a *new* thing (the chip, the results panel) rather than for
+    #: "something, anything" to be present.
+    def wait_for_list_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the table has rows, its empty state, or its no-results panel.
+
+        Deliberately does not raise: this is an *anchor* for the readers below,
+        not an assertion of its own. A tenant with an empty fertilizer
+        catalogue is a state the caller's own assertion must still be able to
+        observe.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.TABLE_ROWS, self.EMPTY_STATE, self.NO_SEARCH_RESULTS),
+                "fertilizer list content",
+                timeout=timeout,
+            )
+
     def get_row_count(self) -> int:
-        """Return the number of visible data rows."""
+        """Return the number of visible data rows.
+
+        Anchored on :meth:`wait_for_list_content`. Several call sites gate a
+        `pytest.skip(...)` or a bidirectional count comparison on this,
+        immediately after `open()` -- an unanchored `0` read in the pre-fetch
+        window before `open()`'s data has arrived is indistinguishable from a
+        table that genuinely has no rows, which is the `has_care_card` defect
+        class this mirrors (#946).
+        """
+        self.wait_for_list_content()
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 

@@ -122,7 +122,13 @@ class TestDiseaseListPage:
 
         screenshot("TC-REQ-010-017_before-search", "Disease list before search")
         disease_list.search(search_term)
-        disease_list.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: the `DataTable` search is
+        # client-side behind a 300 ms debounce and fetches nothing, so the
+        # skeleton it polls for never mounts and it returns while the
+        # unfiltered rows are still up -- which also satisfies "at least one
+        # result" below, since `search_term` is a prefix of a row already in
+        # the unfiltered list (#946).
+        disease_list.wait_for_search_applied(search_term, what="disease list")
         screenshot("TC-REQ-010-017_after-search", "Disease list after search")
 
         filtered_names = disease_list.get_first_column_texts()
@@ -141,8 +147,16 @@ class TestDiseaseListPage:
         Spec: TC-010-013 -- Krankheits-Liste — Suche ohne Treffer.
         """
         disease_list.open()
-        disease_list.search("XYZUnbekannt99")
-        disease_list.wait_for_loading_complete()
+        term = "XYZUnbekannt99"
+        disease_list.search(term)
+        # `get_row_count() == 0` was satisfied just as well by a search that
+        # never ran (nothing filtered yet, #946's debounce trap) as by a
+        # database seeded with zero diseases in the first place (nothing to
+        # filter, #956's class) -- neither of those is evidence the *search*
+        # excluded anything. `wait_for_no_search_results` can only become true
+        # in a render where the filter ran *and* the source rows were there
+        # to exclude.
+        disease_list.wait_for_no_search_results(term, what="disease list")
         screenshot("TC-REQ-010-018_disease-no-results", "Disease search with no results")
 
         assert disease_list.get_row_count() == 0, (
