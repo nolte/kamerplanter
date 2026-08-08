@@ -159,6 +159,31 @@ class TestCreateTaskTemplateVerifiesItsParentWorkflow:
         assert created.workflow_template_key is None
         repo.create_task_template.assert_called_once()
 
+    def test_create_stamps_the_callers_tenant_on_a_standalone_template(self) -> None:
+        """#965 item 1: a standalone template is now owned, not un-owned.
+
+        The caller's tenant is stamped on the entity, so a template created with no
+        parent workflow records who owns it rather than landing in the globally
+        editable catalogue — which is exactly what left item 1 open.
+        """
+        service, repo = _service()
+
+        created = service.create_task_template(_template(), tenant_key=TENANT_KEY)
+
+        assert created.tenant_key == TENANT_KEY
+        assert repo.create_task_template.call_args.args[0].tenant_key == TENANT_KEY
+
+    def test_create_stamps_the_callers_tenant_over_any_body_supplied_value(self) -> None:
+        """The owner comes from the auth/path context, never the request body."""
+        service, _ = _service()
+
+        created = service.create_task_template(
+            _template(workflow_template_key=OWN_WORKFLOW, tenant_key=FOREIGN_TENANT_KEY),
+            tenant_key=TENANT_KEY,
+        )
+
+        assert created.tenant_key == TENANT_KEY
+
 
 class TestUpdateTaskTemplateVerifiesItsParentWorkflow:
     def test_the_update_path_cannot_re_point_a_template_into_a_foreign_workflow(self) -> None:
