@@ -331,7 +331,7 @@ interface Props {
 
 export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentPhaseName }: Props) {
   const { t, i18n } = useTranslation();
-  const { success } = useNotification();
+  const { success, info } = useNotification();
   const { handleError } = useApiError();
 
   // Assigned tasks state
@@ -393,14 +393,35 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
     }
   }, [speciesKey, handleError]);
 
+  /**
+   * #1003 — a generated plan is shared by every tenant growing that species
+   * until one of them edits it; the first edit forks it into a private copy
+   * server-side. The copy has its own document keys, so the plan held here is
+   * stale from that moment: patching a row by key would not match, and worse,
+   * "Anwenden" would post the *shared* workflow key and materialise tasks from
+   * the plan the user just stopped editing. So a write on a shared plan is
+   * followed by a reload rather than a local merge, and the user is told what
+   * happened — silently swapping the object under them is what #1003 §3 calls
+   * out as the thing a user cannot currently tell.
+   */
+  const reloadAfterFork = useCallback(async () => {
+    info(t('pages.activityPlan.privateCopyCreated'));
+    await handleGenerate();
+  }, [info, t, handleGenerate]);
+
   const handleToggle = useCallback(async (templateKey: string) => {
     if (!plan) return;
     const tt = plan.templates.find((tmpl) => tmpl.key === templateKey);
     if (!tt) return;
+    const wasShared = plan.is_shared_template;
     try {
       const updated = await activityPlanApi.updateTaskTemplate(templateKey, {
         enabled: !tt.enabled,
       });
+      if (wasShared) {
+        await reloadAfterFork();
+        return;
+      }
       setPlan((prev) => {
         if (!prev) return prev;
         return {
@@ -411,11 +432,16 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
     } catch (err) {
       handleError(err);
     }
-  }, [plan, handleError]);
+  }, [plan, handleError, reloadAfterFork]);
 
   const handleRemoveTemplate = useCallback(async (templateKey: string) => {
+    const wasShared = plan?.is_shared_template ?? false;
     try {
       await activityPlanApi.deleteTaskTemplate(templateKey);
+      if (wasShared) {
+        await reloadAfterFork();
+        return;
+      }
       setPlan((prev) => {
         if (!prev) return prev;
         return {
@@ -427,13 +453,18 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
     } catch (err) {
       handleError(err);
     }
-  }, [handleError]);
+  }, [plan, handleError, reloadAfterFork]);
 
   const handleDayOffsetChange = useCallback(async (templateKey: string, newOffset: number) => {
+    const wasShared = plan?.is_shared_template ?? false;
     try {
       const updated = await activityPlanApi.updateTaskTemplate(templateKey, {
         days_offset: Math.max(0, newOffset),
       });
+      if (wasShared) {
+        await reloadAfterFork();
+        return;
+      }
       setPlan((prev) => {
         if (!prev) return prev;
         return {
@@ -444,7 +475,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
     } catch (err) {
       handleError(err);
     }
-  }, [handleError]);
+  }, [plan, handleError, reloadAfterFork]);
 
   const handleApply = useCallback(async () => {
     if (!plan) return;
@@ -641,6 +672,20 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
 
       {plan && (
         <>
+          {/*
+            #1003 — while the plan is the shared generated template, say so
+            *before* the first edit rather than forking silently. Without this
+            nothing distinguishes a shared plan from a private one, so a user
+            could neither know that their change is about to fork it nor, when
+            the row keys changed underneath them, why.
+          */}
+          {plan.is_shared_template && (
+            <Alert severity="info" sx={{ mb: 2 }} data-testid="shared-plan-notice">
+              <AlertTitle>{t('pages.activityPlan.sharedPlanTitle')}</AlertTitle>
+              {t('pages.activityPlan.sharedPlanText')}
+            </Alert>
+          )}
+
           {/* Workflow hint banner */}
           <Alert severity="info" sx={{ mb: 2 }}>
             <AlertTitle>{t('pages.activityPlan.workflowHintTitle')}</AlertTitle>

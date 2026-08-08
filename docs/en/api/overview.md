@@ -145,7 +145,7 @@ The following table lists all available router groups. In full mode, `auth`, `oi
 | Starter Kits | `/starter-kits` | Preconfigured packages | REQ-020 |
 | Import | `/import` | CSV import for master data | REQ-012 |
 | Activities | `/activities` | Activity definitions (watering, fertilizing, etc.) | REQ-006 |
-| Activity Plans | `/activity-plans` | Activity plan generation (`/generate`) and application (`/apply`) | REQ-006 |
+| Activity Plans | `/activity-plans` | Applying (`/apply`) an activity plan to runs and plants | REQ-006 |
 | Knowledge Base | `/knowledge` | RAG-based search and AI answers (optional) | — |
 | MCP Server | `/mcp` | Tool interface for external LLM clients (service-account auth, opt-in) | REQ-033 |
 | Observations | `/observations` | TimescaleDB status | REQ-005 |
@@ -170,7 +170,7 @@ The following table lists all available router groups. In full mode, `auth`, `oi
 | IPM (tenant) | `/ipm` | Tenant-specific inspections and treatments | REQ-010 |
 | Harvest | `/harvest` | Harvest documentation and pre-harvest interval gate | REQ-007 |
 | Tasks | `/tasks` | Task planning, workflows, queue | REQ-006 |
-| Activity Plan Templates | `/activity-plans/templates` | Edit and delete individual task templates of an activity plan | REQ-006 |
+| Activity Plans (tenant) | `/activity-plans` | Plan generation (`/generate`) plus editing and deleting individual task templates (`/templates/{key}`) | REQ-006 |
 | Calendar | `/calendar` | iCal feeds, sowing calendar, season overview | REQ-015 |
 | Onboarding | `/onboarding` | Setup wizard | REQ-020 |
 | Starter Kits | `/starter-kits` | Kit application for tenants | REQ-020 |

@@ -3976,7 +3976,10 @@
       "workflowHintText": "This plan is based on a workflow template that can also be used for other plants of this species.",
       "openWorkflow": "Edit workflow",
       "basedOnWorkflow": "Based on workflow",
-      "viewWorkflows": "View workflows"
+      "viewWorkflows": "View workflows",
+      "sharedPlanTitle": "Shared template",
+      "sharedPlanText": "This plan is still shared with everyone else growing this species. As soon as you change something we create your own copy automatically \u2013 your plan is then yours alone, and the template stays unchanged for everyone else.",
+      "privateCopyCreated": "Your own copy of this plan has been created. From now on your changes only affect you."
     },
     "gantt": {
       "title": "Phase Timeline",

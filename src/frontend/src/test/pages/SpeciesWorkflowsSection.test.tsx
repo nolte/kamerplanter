@@ -168,7 +168,7 @@ describe('SpeciesWorkflowsSection — auto-generate', () => {
     let generated: unknown = null;
     server.use(
       listHandler([]),
-      http.post('/api/v1/activity-plans/generate', async ({ request }) => {
+      http.post('/api/v1/t/test-tenant/activity-plans/generate', async ({ request }) => {
         generated = await request.json();
         return HttpResponse.json({
           workflow_template_key: 'wf-gen',
@@ -180,6 +180,7 @@ describe('SpeciesWorkflowsSection — auto-generate', () => {
           skill_level_filter: null,
           total_activities: 0,
           total_duration_days: 0,
+          is_shared_template: true,
           templates: [],
         });
       }),
@@ -197,7 +198,7 @@ describe('SpeciesWorkflowsSection — auto-generate', () => {
   it('surfaces a generation error through the error handler', async () => {
     server.use(
       listHandler([]),
-      http.post('/api/v1/activity-plans/generate', () =>
+      http.post('/api/v1/t/test-tenant/activity-plans/generate', () =>
         HttpResponse.json({ message: 'nope' }, { status: 500 }),
       ),
     );

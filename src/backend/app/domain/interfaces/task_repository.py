@@ -214,7 +214,17 @@ class ITaskRepository(ABC):
 
     # ── Auto-generated workflow lookup ──
     @abstractmethod
-    def get_auto_generated_workflow_for_species(self, species_key: str) -> WorkflowTemplate | None: ...
+    def get_auto_generated_workflow_for_species(
+        self,
+        species_key: str,
+        tenant_key: str = "",
+    ) -> WorkflowTemplate | None:
+        """Return ``tenant_key``'s private copy of the generated plan, else the shared template.
+
+        A union, not an equality — see the implementation's docstring for why a
+        strict tenant predicate matches nothing here (#1003, #324).
+        """
+        ...
 
     @abstractmethod
     def delete_task_templates_for_workflow(self, wf_key: str) -> int: ...

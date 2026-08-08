@@ -8,8 +8,15 @@ import type {
   TaskTemplateUpdateRequest,
 } from '../types';
 
+/*
+ * Generation moved under /t/{tenant_slug}/ (#1003). Which plan comes back now
+ * depends on who asks: the shared generated template until this tenant has
+ * edited it, their own private copy afterwards. A global request cannot express
+ * that distinction, so it always got the shared one — and every edit the tenant
+ * made would have vanished from their view on the next reload.
+ */
 export const generatePlan = (req: ActivityPlanGenerateRequest) =>
-  api.post<ActivityPlanResponse>('/activity-plans/generate', req).then((r) => r.data);
+  tenantClient.post<ActivityPlanResponse>('/activity-plans/generate', req).then((r) => r.data);
 
 export const applyPlan = (req: ActivityPlanApplyRequest) =>
   api.post<ActivityPlanApplyResponse>('/activity-plans/apply', req).then((r) => r.data);

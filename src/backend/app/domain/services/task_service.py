@@ -275,10 +275,53 @@ class TaskService:
         but the copy must be a private, tenant-scoped template — leaving it with
         the source's empty tenant_key would make it globally visible to every
         tenant now that the catalog list unions global rows.
+
+        The copy itself is :meth:`_copy_workflow_template`'s, shared with the
+        copy-on-write fork of #1003. This method's own contribution is the two
+        decisions that differ there: the user-chosen name, and ``auto_generated``
+        cleared — an explicit duplicate is an authored workflow from that point
+        on, and must not answer the generated-plan lookup.
         """
         source = self.get_workflow_template(key, tenant_key=tenant_key)
-        clone = WorkflowTemplate(
+        clone, _ = self._copy_workflow_template(
+            source,
             name=new_name,
+            tenant_key=tenant_key,
+            auto_generated=False,
+        )
+        return clone
+
+    def _copy_workflow_template(
+        self,
+        source: WorkflowTemplate,
+        *,
+        name: str,
+        tenant_key: str,
+        auto_generated: bool,
+    ) -> tuple[WorkflowTemplate, dict[str, str]]:
+        """Copy a workflow with its phases and task templates, for ``tenant_key``.
+
+        The one copier in the service, used by both flows that produce a copy of
+        a shared workflow: the explicit "duplicate first" the system-workflow
+        refusal points at (#984), and the automatic copy-on-write fork a tenant's
+        first edit of a generated activity plan produces (#1003). They differ
+        only in the two arguments above, which is why this is one function rather
+        than two that drift.
+
+        Returns the created workflow **and the source-to-copy key map of its task
+        templates**. The map is what the copy-on-write caller needs and the
+        duplicate caller ignores: a client that still holds the shared plan's
+        keys keeps addressing the originals after the fork, and the map is how
+        such a key is redirected onto the row in the copy that it stands for. It
+        is also persisted per row as ``TaskTemplate.source_template_key``, so the
+        redirect survives beyond this call.
+
+        ``is_system`` is deliberately not carried over: a copy of system data is
+        the caller's own editable workflow, which is the entire point of
+        offering the copy.
+        """
+        clone = WorkflowTemplate(
+            name=name,
             tenant_key=tenant_key,
             description=source.description,
             species_compatible=list(source.species_compatible),
@@ -288,15 +331,16 @@ class TaskService:
             difficulty_level=source.difficulty_level,
             category=source.category,
             tags=list(source.tags),
-            auto_generated=False,
+            auto_generated=auto_generated,
             total_duration_days=source.total_duration_days,
             skill_level_filter=source.skill_level_filter,
             target_entity_types=list(source.target_entity_types),
+            source_workflow_key=source.key,
         )
         created_wf = self._repo.create_workflow_template(clone)
 
         # Clone phases and build key mapping
-        source_phases = self._repo.get_phases_for_workflow(key)
+        source_phases = self._repo.get_phases_for_workflow(source.key or "")
         phase_key_map: dict[str, str] = {}
         for sp in source_phases:
             old_key = sp.key
@@ -307,17 +351,22 @@ class TaskService:
             new_phase = self._repo.create_phase(sp)
             phase_key_map[old_key or ""] = new_phase.key or ""
 
-        templates = self._repo.get_task_templates_for_workflow(key)
+        template_key_map: dict[str, str] = {}
+        templates = self._repo.get_task_templates_for_workflow(source.key or "")
         for tt in templates:
+            source_key = tt.key
             tt.key = None
+            tt.source_template_key = source_key
             tt.workflow_template_key = created_wf.key or ""
             if tt.workflow_phase_key and tt.workflow_phase_key in phase_key_map:
                 tt.workflow_phase_key = phase_key_map[tt.workflow_phase_key]
             tt.created_at = None
             tt.updated_at = None
-            self._repo.create_task_template(tt)
+            created_tt = self._repo.create_task_template(tt)
+            if source_key:
+                template_key_map[source_key] = created_tt.key or ""
 
-        return created_wf
+        return created_wf, template_key_map
 
     # ── Workflow Phases ──
 
@@ -505,9 +554,15 @@ class TaskService:
           is logged so it fails loudly where loudness helps — in the operator's
           log, not in an attacker's response body.
 
-        The caller's *own* tenant and the global auto-generated activity plans
-        (``tenant_key == ""``, ``is_system == False`` — what
-        ``ActivityPlanService`` produces, see :meth:`generate_plan`) both pass.
+        * **A shared generated plan → the caller's private copy of it (#1003).**
+          What ``ActivityPlanService`` persists is global (``tenant_key == ""``,
+          ``is_system == False``), so #992 let every tenant write it — and every
+          tenant write the *same* one. The write is not refused, because a
+          generated plan is the user's working surface and they have no reason
+          to expect it to be shared; it is redirected. See
+          :meth:`_private_copy_for_a_shared_plan`.
+
+        The caller's *own* templates pass through untouched.
         """
         template = self.get_task_template(key)
         parent_key = template.workflow_template_key
@@ -521,7 +576,97 @@ class TaskService:
         parent = self.get_workflow_template(parent_key, tenant_key=tenant_key)
         if parent.is_system:
             raise ValidationError(SYSTEM_WORKFLOW_CHILD_REFUSAL)
+        if tenant_key and not parent.tenant_key:
+            return self._private_copy_for_a_shared_plan(parent, template, tenant_key)
         return template
+
+    def _private_copy_for_a_shared_plan(
+        self,
+        shared_plan: WorkflowTemplate,
+        template: TaskTemplate,
+        tenant_key: str,
+    ) -> TaskTemplate:
+        """Redirect a write on a shared generated plan onto the caller's own copy (#1003).
+
+        The plan ``ActivityPlanService`` generates is one global object that
+        every tenant growing that species reads. #992 anchored the *route* on the
+        parent workflow but left that object writable by all of them, so tenant
+        A switching an activity off switched it off for tenant B, silently. The
+        answer taken is **copy-on-write**: the generated plan stays a shared
+        template, and a tenant's first write materialises a private copy which
+        that tenant works on from then on.
+
+        Three properties this has to hold, in order of how easily they break:
+
+        1. **Idempotence.** The copy is materialised once. Every later write
+           resolves the existing copy through the same lookup the *read* path
+           uses (:meth:`ITaskRepository.get_auto_generated_workflow_for_species`),
+           so the plan the caller edits and the plan the caller is shown can
+           never be two different objects.
+        2. **Stale keys keep working.** After the fork a client still holds the
+           shared plan's task-template keys, and the SPA sends them on the next
+           toggle. Such a key is mapped onto the copy through
+           ``source_template_key`` rather than refused, so an open tab does not
+           start writing the shared object again — which would be the original
+           defect, reintroduced through the back door.
+        3. **The source is never written.** Nothing here touches
+           ``shared_plan``; the copy is built from it and only the copy is
+           returned.
+
+        A shared workflow that is *not* a generated plan cannot be forked — the
+        copy would be unreachable, because the lookup that finds it keys on
+        ``auto_generated`` and ``species_key``. That state is unreachable in
+        practice (``auto_generated`` is set only by ``ActivityPlanEngine``, and
+        ``generate_plan`` always stamps the species), so it is refused loudly
+        with the same 404 an unowned template gets rather than written through,
+        which would leave the shared object mutable exactly as before.
+        """
+        if not (shared_plan.auto_generated and shared_plan.species_key):
+            logger.warning(
+                "shared_workflow_is_not_a_generated_plan",
+                workflow_template_key=shared_plan.key,
+                task_template_key=template.key,
+                tenant_key=tenant_key,
+            )
+            raise NotFoundError("TaskTemplate", template.key or "")
+
+        copy = self._repo.get_auto_generated_workflow_for_species(
+            shared_plan.species_key,
+            tenant_key=tenant_key,
+        )
+        if copy is None or copy.tenant_key != tenant_key:
+            copy, template_key_map = self._copy_workflow_template(
+                shared_plan,
+                name=shared_plan.name,
+                tenant_key=tenant_key,
+                auto_generated=True,
+            )
+            logger.info(
+                "activity_plan_forked_on_write",
+                source_workflow_key=shared_plan.key,
+                workflow_template_key=copy.key,
+                tenant_key=tenant_key,
+            )
+            copied_key = template_key_map.get(template.key or "")
+            if copied_key:
+                return self._repo.get_task_template_or_raise(copied_key)
+            raise NotFoundError("TaskTemplate", template.key or "")
+
+        for candidate in self._repo.get_task_templates_for_workflow(copy.key or ""):
+            if candidate.source_template_key == template.key:
+                return candidate
+
+        # The caller's copy exists but no longer carries this activity — they
+        # deleted it from their own plan while a client still showed it. The key
+        # is genuinely gone *for this tenant*, so it answers like any other key
+        # they may not reach, and the shared template stays untouched.
+        logger.info(
+            "activity_plan_template_absent_from_private_copy",
+            source_template_key=template.key,
+            workflow_template_key=copy.key,
+            tenant_key=tenant_key,
+        )
+        raise NotFoundError("TaskTemplate", template.key or "")
 
     def update_activity_plan_task_template(self, key: str, data: dict, *, tenant_key: str) -> TaskTemplate:
         """Apply the activity-plan editor's partial edit, anchored on the parent workflow (#992).
@@ -531,16 +676,31 @@ class TaskService:
         everyone — which is precisely how the previous version of this edit, made
         in the API layer straight against the repository, let any authenticated
         user retime any tenant's task template.
+
+        The write lands on the template the resolution **returned**, not on the
+        key the caller sent (#1003). The two differ whenever the caller addressed
+        a shared generated plan: the resolution then hands back the equivalent
+        row in that tenant's private copy, and writing ``key`` here would put the
+        edit straight back onto the shared object the copy exists to protect.
         """
         template = self._resolve_task_template_for_tenant_write(key, tenant_key)
         for field, value in _allowed(data, ACTIVITY_PLAN_TASK_TEMPLATE_UPDATABLE_FIELDS).items():
             setattr(template, field, value)
-        return self._repo.update_task_template(key, template)
+        return self._repo.update_task_template(template.key or key, template)
 
     def delete_activity_plan_task_template(self, key: str, *, tenant_key: str) -> bool:
-        """Remove a task template of an activity plan, anchored on the parent workflow (#992)."""
-        self._resolve_task_template_for_tenant_write(key, tenant_key)
-        return self._repo.delete_task_template(key)
+        """Remove a task template of an activity plan, anchored on the parent workflow (#992).
+
+        A delete on a shared generated plan is a write like any other and forks
+        the same way (#1003): the caller's private copy is materialised and the
+        activity is removed **from the copy**, leaving the shared template whole
+        for every other tenant. Refusing instead was the alternative considered —
+        it would have been the only editor action a tenant could not perform on
+        their own plan, and "remove this activity" is what an activity plan is
+        for.
+        """
+        template = self._resolve_task_template_for_tenant_write(key, tenant_key)
+        return self._repo.delete_task_template(template.key or key)
 
     # ── Workflow Instantiation ──
 

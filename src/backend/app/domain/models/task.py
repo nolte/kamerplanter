@@ -39,6 +39,12 @@ class WorkflowTemplate(BaseModel):
     skill_level_filter: str | None = None
     total_duration_days: int = 0
     target_entity_types: list[str] = Field(default_factory=lambda: ["plant_instance"])
+    #: The workflow this one was copied from, when it is a copy (#984, #1003).
+    #: Written both by the explicit "duplicate first" flow and by the
+    #: copy-on-write fork a tenant's first edit of a shared generated plan
+    #: produces. Pure provenance — nothing resolves it to reach the source, so a
+    #: deleted source leaves a dangling value rather than a broken copy.
+    source_workflow_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -95,6 +101,14 @@ class TaskTemplate(BaseModel):
     phase_display_name: str = ""
     phase_duration_days: int = 0
     phase_stress_tolerance: str = ""
+    #: The task template this one was copied from, when it is a copy (#1003).
+    #: Unlike :attr:`WorkflowTemplate.source_workflow_key` this one is *load
+    #: bearing*, and it is the reason the field exists at all: after a tenant's
+    #: first edit forks a shared generated plan, a client that still holds the
+    #: shared plan's keys keeps addressing the originals, and this is what maps
+    #: such a key onto the row in the caller's copy that it stands for. Without
+    #: it the redirect would have to guess from name and phase.
+    source_template_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

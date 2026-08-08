@@ -5,8 +5,8 @@ generated plan, the tenant-scoped one after an edit (#992). The mapping lives
 here so moving the write routes under ``/t/{tenant_slug}/`` did not fork it.
 """
 
-from app.api.v1.activity_plans.schemas import TaskTemplateResponse
-from app.domain.models.task import TaskTemplate
+from app.api.v1.activity_plans.schemas import ActivityPlanResponse, TaskTemplateResponse
+from app.domain.models.task import TaskTemplate, WorkflowTemplate
 
 
 def _enum_value(value: object) -> str:
@@ -40,4 +40,38 @@ def task_template_response(template: TaskTemplate) -> TaskTemplateResponse:
         activity_key=template.activity_key,
         description=template.description,
         description_de=template.description_de,
+    )
+
+
+def activity_plan_response(
+    workflow: WorkflowTemplate,
+    templates: list[TaskTemplate] | None = None,
+    task_repo: object = None,
+) -> ActivityPlanResponse:
+    """Map a generated plan's workflow plus its task templates onto the plan schema.
+
+    ``is_shared_template`` is derived from the workflow's ``tenant_key`` rather
+    than stored: a plan the generator persisted globally (``tenant_key == ""``)
+    is the shared template every tenant reads, and the caller's first write
+    materialises a private copy of it (#1003). The flag is what lets the SPA say
+    so before the user edits, instead of leaving them unable to tell which of the
+    two they are looking at.
+    """
+    if templates is None and task_repo is not None and workflow.key:
+        templates = task_repo.get_task_templates_for_workflow(workflow.key)  # type: ignore[attr-defined]
+
+    template_responses = [task_template_response(tt) for tt in (templates or [])]
+
+    return ActivityPlanResponse(
+        workflow_template_key=workflow.key or "",
+        name=workflow.name,
+        species_name=workflow.name,
+        species_key=workflow.species_key,
+        auto_generated=workflow.auto_generated,
+        growth_system=workflow.growth_system,
+        skill_level_filter=workflow.skill_level_filter,
+        total_activities=len(template_responses),
+        total_duration_days=workflow.total_duration_days,
+        is_shared_template=not workflow.tenant_key,
+        templates=template_responses,
     )

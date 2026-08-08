@@ -145,7 +145,7 @@ Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind
 | Starter-Kits | `/starter-kits` | Vorkonfigurierte Pakete | REQ-020 |
 | Import | `/import` | CSV-Import für Stammdaten | REQ-012 |
 | Aktivitäten | `/activities` | Aktivitätsdefinitionen (Gießen, Düngen, etc.) | REQ-006 |
-| Aktivitätspläne | `/activity-plans` | Generierung (`/generate`) und Anwendung (`/apply`) von Aktivitätsplänen | REQ-006 |
+| Aktivitätspläne | `/activity-plans` | Anwendung (`/apply`) von Aktivitätsplänen auf Durchläufe und Pflanzen | REQ-006 |
 | Wissensdatenbank | `/knowledge` | RAG-basierte Suche und KI-Antworten (optional) | — |
 | MCP-Server | `/mcp` | Werkzeug-Schnittstelle für externe LLM-Clients (Service-Account-Auth, opt-in) | REQ-033 |
 | Beobachtungen | `/observations` | TimescaleDB-Status | REQ-005 |
@@ -170,7 +170,7 @@ Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind
 | IPM (Mandant) | `/ipm` | Mandantenspezifische Inspektionen und Behandlungen | REQ-010 |
 | Ernte | `/harvest` | Erntedokumentation und Karenz-Gate | REQ-007 |
 | Aufgaben | `/tasks` | Aufgabenplanung, Workflows, Queue | REQ-006 |
-| Aktivitätsplan-Vorlagen | `/activity-plans/templates` | Bearbeiten und Löschen einzelner Aufgabenvorlagen eines Aktivitätsplans | REQ-006 |
+| Aktivitätspläne (Mandant) | `/activity-plans` | Generierung (`/generate`) sowie Bearbeiten und Löschen einzelner Aufgabenvorlagen (`/templates/{key}`) | REQ-006 |
 | Kalender | `/calendar` | iCal-Feeds, Aussaatkalender, Saisonübersicht | REQ-015 |
 | Onboarding | `/onboarding` | Einrichtungsassistent | REQ-020 |
 | Starter-Kits | `/starter-kits` | Kit-Anwendung für Mandanten | REQ-020 |

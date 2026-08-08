@@ -769,15 +769,50 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     # ── Auto-generated workflow lookup ──
 
-    def get_auto_generated_workflow_for_species(self, species_key: str) -> WorkflowTemplate | None:
+    def get_auto_generated_workflow_for_species(
+        self,
+        species_key: str,
+        tenant_key: str = "",
+    ) -> WorkflowTemplate | None:
+        """Return the caller's generated activity plan for a species (#1003).
+
+        A generated plan is a **hybrid** row, and both halves have to be served
+        or the feature breaks in one direction or the other:
+
+        * The plan the generator persists is **global** — ``tenant_key == ""``,
+          ``is_system == False`` — and is the shared template every tenant reads
+          until they have edited it.
+        * A tenant that *has* edited it owns a private copy carrying their own
+          ``tenant_key``, and from then on that copy is their plan.
+
+        So the predicate is a union, never an equality. ``doc.tenant_key ==
+        @tenant_key`` on its own would match **nothing at all** for every tenant
+        that has not forked yet — every generated plan in an existing
+        installation is global — and would pass every cross-tenant negative test
+        by killing the feature outright. That is PR #324's regression class, and
+        PR #999 records that it was live on exactly this query.
+
+        The ``SORT`` is what makes the union unambiguous: the caller's own row
+        sorts ahead of the shared one, so a tenant with a copy gets the copy and
+        everybody else gets the template. ``created_at DESC`` then breaks ties
+        within a tier, as before.
+
+        ``tenant_key == ""`` (no tenant in play — an internal caller rather than
+        a route) collapses the union onto the global rows and reproduces the
+        pre-#1003 answer exactly.
+        """
         query = (
             f"FOR doc IN {col.WORKFLOW_TEMPLATES} "
             f"FILTER doc.auto_generated == true AND doc.species_key == @species_key "
-            f"SORT doc.created_at DESC "
+            f'FILTER (doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null) '
+            f"SORT (doc.tenant_key == @tenant_key ? 0 : 1) ASC, doc.created_at DESC "
             f"LIMIT 1 "
             f"RETURN doc"
         )
-        cursor = self._db.aql.execute(query, bind_vars={"species_key": species_key})
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"species_key": species_key, "tenant_key": tenant_key},
+        )
         doc = next(cursor, None)
         return WorkflowTemplate(**self._from_doc(doc)) if doc else None
 

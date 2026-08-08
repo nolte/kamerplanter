@@ -78,8 +78,21 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
+        tenant_key: str = "",
     ) -> WorkflowTemplate:
-        """Generate an activity plan and persist as WorkflowTemplate + TaskTemplates."""
+        """Generate an activity plan and persist as WorkflowTemplate + TaskTemplates.
+
+        ``tenant_key`` decides who owns the result. The default — empty, the
+        globally **shared template** every tenant reads — is what
+        :meth:`get_or_generate_for_species` uses: a generated plan is derived
+        from the species and its phases, nothing tenant-specific goes into it,
+        and generating one per tenant would multiply identical documents. A
+        tenant only ever owns a plan once they have changed it, which is
+        copy-on-write's whole premise (#1003).
+
+        :meth:`regenerate_for_species` passes the caller's tenant instead,
+        because rebuilding is a write.
+        """
         species, species_name, family_name = self._resolve_species_info(species_key)
 
         lc_key = self._resolve_lifecycle_key(species_key, lifecycle_key)
@@ -136,6 +149,7 @@ class ActivityPlanService:
         # Persist WorkflowTemplate
         wt.species_key = species_key
         wt.lifecycle_key = lifecycle_key or lc_key
+        wt.tenant_key = tenant_key
         wt = self._task_repo.create_workflow_template(wt)
 
         # Persist TaskTemplates
@@ -151,9 +165,20 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
+        tenant_key: str = "",
     ) -> WorkflowTemplate:
-        """Return existing auto-generated workflow or generate a new one."""
-        existing = self._task_repo.get_auto_generated_workflow_for_species(species_key)
+        """Return the caller's activity plan for a species, generating it if absent.
+
+        The lookup answers ``tenant_key``'s private copy when they have one and
+        the shared template otherwise (#1003) — a union, not an equality; see
+        :meth:`ITaskRepository.get_auto_generated_workflow_for_species`. What is
+        generated when neither exists is the **shared** template, not a private
+        plan: reading a plan is not a write, and it is the write that forks.
+        """
+        existing = self._task_repo.get_auto_generated_workflow_for_species(
+            species_key,
+            tenant_key=tenant_key,
+        )
         if existing:
             return existing
         return self.generate_plan(
@@ -169,10 +194,31 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
+        tenant_key: str = "",
     ) -> WorkflowTemplate:
-        """Delete existing auto-generated workflow and generate a new one."""
-        existing = self._task_repo.get_auto_generated_workflow_for_species(species_key)
-        if existing and existing.key:
+        """Rebuild the caller's activity plan from scratch.
+
+        Regenerating is a **write**, and the loudest one the plan editor has: it
+        drops a plan and builds a new one. Applied to the shared template it
+        would therefore discard every tenant's plan at once — the same defect as
+        an edit (#1003), only total. So it forks like every other write: the
+        result is owned by ``tenant_key``, and the shared template is left for
+        the tenants still reading it.
+
+        Only the caller's *own* previous copy is deleted. Where the lookup
+        answers the shared template — the caller has never forked — there is
+        nothing of theirs to delete, and the new private plan simply supersedes
+        it for them.
+
+        With no tenant in play (``tenant_key == ""``, an internal caller rather
+        than a route) this is the pre-#1003 behaviour unchanged: the shared plan
+        is replaced in place.
+        """
+        existing = self._task_repo.get_auto_generated_workflow_for_species(
+            species_key,
+            tenant_key=tenant_key,
+        )
+        if existing and existing.key and existing.tenant_key == tenant_key:
             self._task_repo.delete_task_templates_for_workflow(existing.key)
             self._task_repo.delete_workflow_template(existing.key)
         return self.generate_plan(
@@ -180,6 +226,7 @@ class ActivityPlanService:
             lifecycle_key=lifecycle_key,
             growth_system=growth_system,
             skill_level=skill_level,
+            tenant_key=tenant_key,
         )
 
     def apply_plan_to_plant(
