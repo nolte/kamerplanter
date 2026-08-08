@@ -1,14 +1,50 @@
-name: Security — ZAP PR Scans
+name: Security — ZAP Post-Merge Scans
 
 ##
-## NFR-015 §4.1 + §4.2 — Baseline (passive + AjaxSpider) and API scan
-## (OpenAPI-driven) against an ephemeral stack, on every pull request.
+## NFR-015 §4.1 + §4.2 — Baseline (passive + AjaxSpider) and OpenAPI-driven API
+## scan against an ephemeral stack. As of 2026-08-08 (issue #1013) this runs
+## ONCE PER MERGED COMMIT on `develop`, not per push on every pull request.
 ##
-## This file previously contained a scaffold: three `test -f` checks and an
-## `echo "ZAP scaffold OK"`. It reported green on every pull request while
-## running no scan at all, and CLAUDE.md described NFR-015 as operating. That is
-## the failure class NFR-018 §1 catalogues — a check indistinguishable from one
-## that is not running.
+## WHY THIS IS NO LONGER A PER-PUSH PULL-REQUEST LANE.
+##
+## Measured over the 100 most recent runs of the old per-pull-request lane:
+## cancelled 42 · success 53 · failure 3 · running 2. Unlike the Nuclei lane that
+## moved in #1010 (0 of its last 20 completed) this lane completes a MAJORITY of
+## its runs, so the move is a different trade, argued on ZAP's own terms:
+##
+##   1. The 42% that cancel are the NFR-018 §1 vacuous-signal class: on nearly
+##      every second code pull request a security check sits green-adjacent,
+##      indistinguishable from one that did not need to run.
+##   2. Two causes cancel it, neither fixable by the concurrency setting: a
+##      follow-up push / the `strict: true` rebase superseded the run (the
+##      `cancel-in-progress: true` this file used to carry), AND the pull request
+##      is merged by the `automerge` label as soon as the two REQUIRED contexts
+##      report (`static / Static CI Tests`, `lint-test-build (22)`), which closing
+##      the pull request cancels. `cancel-in-progress: false` alone removes the
+##      first but NOT the second: the scan still loses to the merge of its own PR.
+##   3. This lane runs ONLY pre-merge and never re-runs, so a cancelled commit
+##      has its OpenAPI API surface (§4.2) scanned NEVER — the nightly does not
+##      cover it (it spiders the frontend rather than reading the OpenAPI doc).
+##      `push: [develop]` scans every merged commit exactly once and closes it.
+##
+## Both scans here are UNAUTHENTICATED. The authenticated depth that is the whole
+## point of NFR-015 — cross-tenant negative tests (§3.3), the auth-bypass
+## two-pass (§4.2) for REQ-024 — lives ENTIRELY in `security-zap-nightly.yml`.
+## So the move sacrifices only the PRE-MERGE ATTRIBUTION of anonymous findings:
+## they now surface AFTER the merge (one squash commit each, plus an auto-opened
+## issue on the push lane). A deliberate, recorded reduction in pull-request
+## coverage per NFR-018 §4 — see NFR-015 §4.1 — not a repair; the check was never
+## required and a cancelled run blocked nothing. Pre-merge scanning stays on
+## demand: label a pull request `security-scan` (that lane carries no `paths:`
+## filter — the label is the selection).
+##
+## PRECONDITION (as for the Nuclei lane): a push to `develop` must trigger
+## workflows. A GITHUB_TOKEN-authored squash-merge does NOT; `automerge.yaml`
+## mints a GitHub-App token so it does. If `vars.PORTFOLIO_APP_ID` is ever unset,
+## this lane stops firing SILENTLY.
+##
+## No "no results -> fail" guard is added: `scripts/security/zap_gate.py` already
+## exits non-zero on a missing or unparseable report, so an empty scan fails loud.
 ##
 ## Why ZAP runs through `docker run` rather than `zaproxy/action-baseline`,
 ## which §4.1 names:
@@ -39,8 +75,8 @@ name: Security — ZAP PR Scans
 ##
 
 on:
-  pull_request:
-    branches: [develop, main]
+  push:
+    branches: [develop]
     paths:
       - "src/backend/**"
       - "src/frontend/**"
@@ -50,22 +86,37 @@ on:
       - "tests/security/zap-**"
       - "scripts/security/zap_gate.py"
       - ".github/actions/ephemeral-stack/**"
-      - ".github/workflows/security-zap-baseline.yml"
+      - ".github/workflows/security-zap-postmerge.yml"
+  # On-demand pre-merge scan. No `paths:` — see the header.
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
 
+# Read-only floor; the job declares what it actually needs.
 permissions:
   contents: read
 
 concurrency:
-  group: security-zap-pr-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  # Keyed per merged commit, or per pull request for the label lane. NEVER
+  # cancel-in-progress: superseding is one of the two causes this move fixes.
+  group: security-zap-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: false
 
 jobs:
-  zap-pr-scan:
-    name: ZAP PR Scans (baseline + API)
+  zap-scan:
+    name: ZAP Scan (baseline + API)
+    # `labeled` fires for ANY label; the selection has to be made here.
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.label.name == 'security-scan'
     runs-on: ubuntu-latest
-    # §5.3 budgets Baseline < 20 min and API < 15 min. 45 leaves room for the
-    # stack build without letting a hung scan occupy a runner indefinitely.
+    permissions:
+      contents: read
+      # Only the post-merge (push) lane opens issues; see the last step.
+      issues: write
+    # §5.3 budgets Baseline < 20 min and API < 15 min PER SCAN. This 45 is a JOB
+    # timeout wrapping the ephemeral-stack build + BOTH scans — a distinct ceiling
+    # that protects the runner, not the per-scan budget.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -182,7 +233,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: zap-pr-reports-${{ github.sha }}
+          name: zap-scan-reports-${{ github.sha }}
           path: |
             zapwork/*-report.json
             zapwork/*-report.html
@@ -199,3 +250,66 @@ jobs:
             -f docker-compose.e2e.yml \
             -f docker-compose.security.override.yml \
             down -v --remove-orphans
+
+      # The consumer of the post-merge signal. Without this, the only channel for
+      # a post-merge finding is a red run in the Actions tab — the alarm that went
+      # unnoticed for the nightly for months. Push lane only: on a labelled pull
+      # request the failing job IS the channel, and an issue would be noise.
+      - name: Open issue for new blocking findings
+        if: always() && github.event_name == 'push'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Read through process.env, never interpolated into the script body: a
+          # ${{ }} inside script: is textual substitution into JavaScript.
+          COMMIT_SHA: ${{ github.sha }}
+        with:
+          script: |
+            const fs = require('fs');
+            // Mirror zap_gate.py's verdict: High risk (riskcode 3) at confidence
+            // >= Medium (2). Both are strings in the ZAP JSON report.
+            const reports = ['zapwork/baseline-report.json', 'zapwork/api-report.json']
+              .filter(f => fs.existsSync(f));
+            if (reports.length === 0) {
+              core.setFailed('No ZAP report produced — the scan did not run. This is a failure, not a clean result.');
+              return;
+            }
+            const blocking = [];
+            for (const f of reports) {
+              let data;
+              try { data = JSON.parse(fs.readFileSync(f, 'utf8')); }
+              catch (e) { core.setFailed(`ZAP report ${f} is not valid JSON: ${e}`); return; }
+              for (const site of (data.site || [])) {
+                for (const a of (site.alerts || [])) {
+                  if (parseInt(a.riskcode, 10) >= 3 && parseInt(a.confidence, 10) >= 2) {
+                    blocking.push({ name: a.alert, plugin: a.pluginid, site: site['@name'], count: (a.instances || []).length });
+                  }
+                }
+              }
+            }
+            if (blocking.length === 0) {
+              core.notice('No blocking ZAP findings — no issue opened.');
+              return;
+            }
+            const summary = blocking.slice(0, 20).map(h =>
+              `- \`${h.plugin}\` — ${h.name} (${h.count} instance(s)) on ${h.site}`
+            ).join('\n');
+            const more = blocking.length > 20 ? `\n…and ${blocking.length - 20} more.` : '';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[zap-postmerge] ${blocking.length} blocking findings on ${process.env.COMMIT_SHA.slice(0, 8)}`,
+              body: [
+                `Post-merge ZAP scan of \`${process.env.COMMIT_SHA}\` raised **${blocking.length}** blocking findings (High risk, confidence >= Medium — NFR-015 §5.1/§5.2).`,
+                '',
+                `Run: ${process.env.RUN_URL}`,
+                '',
+                'This commit is already on `develop`. The scan runs after the merge by design',
+                '(NFR-015 §4.1) — see the header of `security-zap-postmerge.yml` for why.',
+                '',
+                '## Findings (truncated to 20)',
+                '',
+                summary + more,
+              ].join('\n'),
+              labels: ['security', 'zap'],
+            });

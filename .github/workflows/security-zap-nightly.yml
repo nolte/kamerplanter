@@ -8,7 +8,7 @@ name: Security — ZAP Nightly Full Scan
 ## faster template sweep reports first and the two do not compete for runners.
 ##
 ## Three things this profile adds over the per-pull-request scans in
-## security-zap-baseline.yml:
+## security-zap-postmerge.yml:
 ##
 ##   * **Authentication** (§3.2) — a JWT HttpSender script attaches the Bearer
 ##     token to every request ZAP generates, including the ones the spider and

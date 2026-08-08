@@ -107,8 +107,8 @@ Praktisches Beispiel:
 
 | Profil | Wann | Dauer | Ziel | Action |
 |---|---|---|---|---|
-| **Baseline** | Pro PR | < 20 min | Passive-only Scan + AjaxSpider (`-j`) gegen Frontend + Backend | `zaproxy/action-baseline` |
-| **API-Scan** | Pro PR | < 15 min | OpenAPI-getriebener Scan gegen Backend | `zaproxy/action-api-scan` |
+| **Baseline** | Pro Merge | < 20 min | Passive-only Scan + AjaxSpider (`-j`) gegen Frontend + Backend | `zaproxy/action-baseline` |
+| **API-Scan** | Pro Merge | < 15 min | OpenAPI-getriebener Scan gegen Backend | `zaproxy/action-api-scan` |
 | **Full-Scan** | Nightly + Pre-Release | 1–6 h | Active + Passive + AjaxSpider, authentifiziert | `zaproxy/action-full-scan` |
 
 **MUSS**: Alle drei Profile sind verpflichtend in CI eingebunden.
@@ -337,13 +337,39 @@ Konfiguration via `-c` (Context-File) und `-z "-config api.disablekey=false"`.
 
 ## 4. Scan-Profile im Detail
 
-### 4.1 Baseline-Scan (PR-Gate, passiv)
+### 4.1 Baseline-Scan (Merge-Scan, passiv)
 
-**MUSS**: Pro PR läuft ein Baseline-Scan (passiv + AjaxSpider) gegen die Frontend-URL des ephemeren Stacks.
+**MUSS**: Jeder Commit, der auf `develop` landet und die deployte Fläche berührt,
+löst einen Baseline-Scan (passiv + AjaxSpider) gegen die Frontend-URL des
+ephemeren Stacks aus (`.github/workflows/security-zap-postmerge.yml`, Trigger
+`push`); zusammen mit dem API-Scan aus §4.2 im selben Job.
+
+**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem er das Label
+`security-scan` erhält.
+
+> **Warum nicht mehr pro Push auf jedem Pull Request (2026-08-08, Issue #1013).**
+> Bis dahin lief diese Lane per `pull_request`. Über die 100 jüngsten Läufe
+> gemessen: **42 abgebrochen, 53 erfolgreich, 3 fehlgeschlagen, 2 laufend**.
+> Anders als die Nuclei-Lane aus #1010 (0 von 20) kommt sie mehrheitlich zu einem
+> Ergebnis — der Umzug ist deshalb auf ZAP-eigenen Gründen begründet: (1) die
+> 42 % Abbrüche sind die NFR-018-§1-Leersignal-Klasse auf fast jedem zweiten
+> Code-PR; (2) den Abbruch verursachen Verdrängung *und* der `automerge`-Merge des
+> eigenen PR, sobald die beiden *required* Checks melden — Letzteres ist durch
+> kein Concurrency-Flag heilbar; (3) die Lane läuft nur vor dem Merge und
+> wiederholt sich nie, sodass ein abgebrochener Lauf die OpenAPI-API-Fläche aus
+> §4.2 **dauerhaft** ungescannt lässt (die Nightly spidert das Frontend und deckt
+> sie nicht ab). `push: [develop]` scannt jeden gemergten Commit genau einmal.
+> Beide Scans sind unauthentifiziert; die authentifizierte Tiefe (Cross-Tenant
+> §3.3, Auth-Bypass §4.2) liegt ausschließlich in der Nightly (§4.3). Der Umzug
+> opfert nur die *Vor-Merge-Zuordnung* anonymer Befunde — bewusste
+> Abdeckungsverringerung nach NFR-018 §4, keine Reparatur; der Check war nie
+> *required*. Ein „no results → fail"-Guard ist nicht nötig:
+> `scripts/security/zap_gate.py` behandelt einen fehlenden/unlesbaren Report
+> bereits als Fehlschlag.
 
 !!! note "Umsetzung weicht bewusst von `zaproxy/action-baseline` ab"
 
-    Die Implementierung in `.github/workflows/security-zap-baseline.yml` ruft
+    Die Implementierung in `.github/workflows/security-zap-postmerge.yml` ruft
     ZAP über `docker run` auf, nicht über die Wrapper-Action. Zwei Gründe, beide
     nicht umgehbar:
 
@@ -371,7 +397,7 @@ nicht als „keine Findings".
 Ursprünglicher Entwurf (Referenz, nicht die Implementierung):
 
 ```yaml
-# .github/workflows/security-zap-baseline.yml
+# .github/workflows/security-zap-postmerge.yml
 name: Security — ZAP Baseline
 
 on:
@@ -412,11 +438,11 @@ jobs:
           category: zap-baseline
 ```
 
-**MUSS**: Der Baseline-Scan darf den PR-Gate maximal 20 Minuten verzögern.
+**MUSS**: Die Scan-Phase des Baseline-Profils bleibt unter 20 Minuten (§5.3). Das Job-Timeout (45 min) in `security-zap-postmerge.yml` umschließt zusätzlich den Stack-Build und den API-Scan aus §4.2 und ist ein Runner-Schutz-Ceiling, nicht das Per-Scan-Budget.
 
-### 4.2 API-Scan (PR-Gate, OpenAPI-getrieben)
+### 4.2 API-Scan (Merge-Scan, OpenAPI-getrieben)
 
-**MUSS**: Pro PR läuft `zaproxy/action-api-scan` gegen die OpenAPI-Spec:
+**MUSS**: Im selben Merge-Scan-Job wie §4.1 (Trigger `push` auf `develop`; per Label `security-scan` on demand auch vor dem Merge) läuft ein OpenAPI-getriebener API-Scan gegen die laufende Backend-Spec. Er ist die **einzige** systematische Abdeckung jeder in OpenAPI deklarierten Route — die Nightly (§4.3) spidert das Frontend und deckt ihn nicht ab; das Restfenster ist einen Merge breit. Referenz-Entwurf:
 
 ```yaml
 - name: Generate OpenAPI from running API
@@ -661,7 +687,7 @@ jobs:
 ### Definition of Done
 
 - [ ] **Profile**
-    - [ ] `.github/workflows/security-zap-baseline.yml` läuft auf jedem PR
+    - [ ] `.github/workflows/security-zap-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1), und on demand per Label `security-scan`
     - [ ] `.github/workflows/security-zap-api.yml` läuft auf jedem PR
     - [ ] `.github/workflows/security-zap-nightly.yml` läuft täglich gegen Staging
     - [ ] Pre-Release-Workflow startet Full-Scan zusätzlich on-demand
