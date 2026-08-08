@@ -30,18 +30,25 @@ beforeEach(() => {
 });
 
 describe('activityPlans endpoints', () => {
-  it('generatePlan posts request and returns data', async () => {
-    client.post.mockResolvedValue({ data: { tasks: [] } });
+  // #1003 — generation moved to the tenant-scoped client with the two writes.
+  // Which plan comes back depends on whether the calling tenant has forked it,
+  // and an unprefixed request cannot express that.
+  it('generatePlan posts through the tenant-scoped client and returns data', async () => {
+    tenantClient.post.mockResolvedValue({ data: { tasks: [] } });
     const req = { plant_key: 'p1' } as never;
     await expect(activityPlans.generatePlan(req)).resolves.toEqual({ tasks: [] });
-    expect(client.post).toHaveBeenCalledWith('/activity-plans/generate', req);
+    expect(tenantClient.post).toHaveBeenCalledWith('/activity-plans/generate', req);
+    expect(client.post).not.toHaveBeenCalled();
   });
 
+  // Still global on purpose: /apply takes its tenant from the request body,
+  // which is #1000's separate defect.
   it('applyPlan posts request and returns data', async () => {
     client.post.mockResolvedValue({ data: { created: 2 } });
     const req = { plan_key: 'pl1' } as never;
     await expect(activityPlans.applyPlan(req)).resolves.toEqual({ created: 2 });
     expect(client.post).toHaveBeenCalledWith('/activity-plans/apply', req);
+    expect(tenantClient.post).not.toHaveBeenCalled();
   });
 
   it('updateTaskTemplate patches template by key through the tenant-scoped client', async () => {

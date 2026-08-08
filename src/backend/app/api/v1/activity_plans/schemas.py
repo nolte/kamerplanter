@@ -45,6 +45,12 @@ class ActivityPlanResponse(BaseModel):
     skill_level_filter: str | None = None
     total_activities: int = 0
     total_duration_days: int = 0
+    #: True while this plan is still the globally generated **shared template**
+    #: (#1003). Every tenant reads the same one; the first write materialises a
+    #: private copy owned by the writing tenant, after which this is False. The
+    #: SPA needs it because nothing else distinguishes the two, and a user who
+    #: cannot tell them apart cannot know that their edit is about to fork.
+    is_shared_template: bool = False
     templates: list[TaskTemplateResponse] = Field(default_factory=list)
 
 

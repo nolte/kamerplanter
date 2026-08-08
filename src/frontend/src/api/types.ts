@@ -4688,6 +4688,12 @@ export interface ActivityPlanResponse {
   skill_level_filter: string | null;
   total_activities: number;
   total_duration_days: number;
+  /**
+   * True while this plan is still the globally generated shared template every
+   * tenant reads (#1003). The first edit materialises a private copy owned by
+   * this tenant, after which it is false. Nothing else distinguishes the two.
+   */
+  is_shared_template: boolean;
   templates: TaskTemplateResponse[];
 }
 
