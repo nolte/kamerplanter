@@ -378,6 +378,33 @@ repos:
         files: ^(src/backend/app/api/.*\.py|scripts/check_tenant_body_field\.py)$
         pass_filenames: false
 
+  # ── API → data-access layer boundary (P1.3) ────────────────────────────
+  # Refuses a NEW `app.data_access` import under src/backend/app/api. NFR-001's
+  # layer order says a router reaches persistence through a service; when it
+  # reaches around, the tenant predicate that the service anchors on the parent
+  # entity is gone with it. Cluster B of the 2026-08-08 issue-pattern audit is
+  # seven issues of that (#1020, #1019, #1018, #997, #991, #968, #456), and the
+  # audit found no import-linter, no ruff TID rule — nothing measuring it.
+  #
+  # The 22 existing crossings are an ALLOWLIST inside the script, not a count.
+  # A count would let a reviewer clear an easy one while a hard new one lands in
+  # the same pull request; every entry here names the file, the module and what
+  # would remove it. An entry matching no import is an ERROR, the same rule
+  # seed_steckbrief_consistency.ALLOWED_DISCREPANCIES carries: a stale entry
+  # silently re-permits the import the moment somebody adds it back.
+  #
+  # always_run rather than a `files:` filter: DELETING the last import of an
+  # allowlisted module moves the answer exactly as much as adding one, and a
+  # path-filtered hook never sees a deletion.
+  - repo: local
+    hooks:
+      - id: layer-imports
+        name: the API layer does not import data_access (NFR-001)
+        entry: python3 scripts/check_layer_imports.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── Chart image digests (#987) ─────────────────────────────────────────
   # Refuses a `ghcr.io/nolte/kamerplanter-*` image reference in the chart that
   # is not pinned to a digest. The chart shipped `:latest` with an explicit
