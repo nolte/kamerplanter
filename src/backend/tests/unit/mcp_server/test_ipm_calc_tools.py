@@ -76,10 +76,10 @@ class _Treatment:
 
 
 class _Beneficial:
-    def __init__(self, common, sci):
+    def __init__(self, common, sci, preys_on=("tetranychus",)):
         self.common_name = common
         self.scientific_name = sci
-        self.preys_on = ["tetranychus"]
+        self.preys_on = list(preys_on)
         self.description = None
 
 
@@ -176,6 +176,67 @@ async def test_get_pest_returns_treatments_and_natural_enemies():
     assert resp.data["detection_symptom_hint"]
     # The Karenz has to travel with the treatment — advice without it is unsafe.
     assert resp.data["treatments"][1]["safety_interval_days"] == 3
+
+
+# ── The specialist has to lead the list (#1007) ───────────────────────────────
+#
+# Nothing in the stored order is factually wrong — every one of these does prey
+# on spider mites. But a consumer that reads top-down, or truncates to the first
+# entry, would release ladybirds against a spider-mite infestation: the wrong
+# advice out of a record that holds the right answer.
+
+
+def _spider_mite_detail(pest):
+    """The seeded order from #1007: the two generalists ahead of the specialist."""
+
+    return {
+        "pest": pest,
+        "treatments": [],
+        "beneficials": [
+            _Beneficial("Ladybird", "Coccinellidae", ["aphid", "spider_mite", "mealybug"]),
+            _Beneficial("Green lacewing", "Chrysopidae", ["aphid", "spider_mite", "thrips_frankliniella"]),
+            _Beneficial("Predatory mite", "Phytoseiidae", ["spider_mite", "thrips_frankliniella"]),
+        ],
+        "detection_symptom_hint": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_beneficials_lead_with_the_specialist_not_the_generalist():
+    pest = _Pest("8974", "Tetranychus urticae", "Two-spotted spider mite", de="Spinnmilbe")
+    resp = await GetPest().run(
+        _ctx(ipm_service=_IpmService(detail=_spider_mite_detail(pest))),
+        GetPest.Input(pest_key="8974"),
+    )
+
+    assert [b["scientific_name"] for b in resp.data["beneficials"]] == [
+        "Phytoseiidae",
+        "Chrysopidae",
+        "Coccinellidae",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_equally_specific_beneficials_keep_a_stable_order():
+    # Ties are broken by scientific_name, so two identically specific enemies do
+    # not swap places between two reads of the same record.
+    pest = _Pest("8974", "Tetranychus urticae", "Two-spotted spider mite")
+    detail = {
+        "pest": pest,
+        "treatments": [],
+        "beneficials": [
+            _Beneficial("Predatory midge", "Feltiella acarisuga", ["spider_mite"]),
+            _Beneficial("Predatory mite", "Amblyseius andersoni", ["spider_mite"]),
+        ],
+        "detection_symptom_hint": None,
+    }
+
+    resp = await GetPest().run(_ctx(ipm_service=_IpmService(detail=detail)), GetPest.Input(pest_key="8974"))
+
+    assert [b["scientific_name"] for b in resp.data["beneficials"]] == [
+        "Amblyseius andersoni",
+        "Feltiella acarisuga",
+    ]
 
 
 @pytest.mark.asyncio

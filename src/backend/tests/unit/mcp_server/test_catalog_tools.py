@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.common.enums import TenantRole
+from app.common.enums import TenantRole, ToxicitySeverity
+from app.domain.models.species import Species, Toxicity
+from app.domain.models.substrate import Substrate
 from app.mcp_server.context import ToolContext
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.tools.catalogs import (
@@ -59,7 +61,11 @@ class _Species:
         self.base_temp = 10.0
         self.nutrient_demand_level = "high"
         self.green_manure_suitable = False
-        self.toxicity = "mild"
+        # The real shape: ``Species.toxicity`` is a ``Toxicity`` object, while
+        # ``toxicity_severity`` is the flat legacy passthrough on a *different*
+        # scale. A string here would be a shape the model cannot hold, and the
+        # assertions built on it would certify nothing.
+        self.toxicity = Toxicity(is_toxic_cats=True, toxic_compounds=["solanine"], severity=ToxicitySeverity.MODERATE)
         self.toxicity_severity = "low"
         self.allergen_info = None
         self.allows_harvest = True
@@ -166,6 +172,75 @@ async def test_cultivar_tools_round_trip():
     assert detail.data["seed_type"] == "open_pollinated"
 
 
+# ── An omitted safety field must not read as a clearance (#1005) ──────────────
+#
+# ``_drop_empty`` makes a sparse record read as sparse, which is the right answer
+# for almost every field. For toxicity it is the wrong one: a consumer cannot
+# tell "no toxicity data" from "not toxic", so the absence reads as a safety
+# clearance nobody gave. The tests below pin the carve-out *and* the philosophy
+# it is carved out of.
+
+
+class _UnresearchedSpeciesService:
+    """Serves the record shape #1005 was filed against: identified, unresearched.
+
+    Built from the real :class:`Species` model rather than a hand-rolled stub, so
+    the assertions cannot pass against a field shape the model does not have.
+    """
+
+    def get_species(self, key):
+        return Species(_key="11441306", scientific_name="Dracaena reflexa", genus="Dracaena")
+
+    def get_compatible_species(self, key):
+        return []
+
+    def list_cultivars(self, species_key):
+        return []
+
+
+@pytest.mark.asyncio
+async def test_an_unresearched_toxicity_is_reported_as_null_rather_than_omitted():
+    resp = await GetSpeciesInfo().run(
+        _ctx(species_service=_UnresearchedSpeciesService()),
+        GetSpeciesInfo.Input(species_key="11441306"),
+    )
+
+    for field in ("toxicity", "toxicity_severity", "allergen_info", "allows_harvest"):
+        assert field in resp.data, f"{field} was omitted — its absence would read as a negative answer"
+    assert resp.data["toxicity"] is None
+    assert resp.data["toxicity_severity"] is None
+    assert resp.data["allergen_info"] is None
+
+
+@pytest.mark.asyncio
+async def test_the_safety_carve_out_leaves_the_rest_of_the_record_sparse():
+    # The #949 property: a sparse record reads as sparse, and that is itself the
+    # answer to "is this record complete?". Turning every field into an explicit
+    # null would destroy it, so the carve-out must stay a carve-out.
+    resp = await GetSpeciesInfo().run(
+        _ctx(species_service=_UnresearchedSpeciesService()),
+        GetSpeciesInfo.Input(species_key="11441306"),
+    )
+
+    for field in ("plant_category", "bloom_months", "harvest_months", "hardiness_zones", "frost_sensitivity"):
+        assert field not in resp.data, f"{field} is not safety-critical and must stay omitted when unpopulated"
+
+
+@pytest.mark.asyncio
+async def test_the_populated_field_count_does_not_count_the_safety_nulls():
+    # The summary is the part an LLM may read alone. Counting the explicit nulls
+    # as "populated" would make the response claim more than the record says —
+    # the same failure class the carve-out is meant to end.
+    resp = await GetSpeciesInfo().run(
+        _ctx(species_service=_UnresearchedSpeciesService()),
+        GetSpeciesInfo.Input(species_key="11441306"),
+    )
+
+    populated = sum(1 for value in resp.data.values() if value is not None)
+    assert f"{populated} populated fields" in resp.summary
+    assert populated < len(resp.data), "the safety nulls are present but must not be counted"
+
+
 # ── Stage 2: the remaining catalogues ─────────────────────────────────────────
 class _Named:
     """Minimal stand-in for a seeded entity with a name."""
@@ -179,12 +254,23 @@ class _Named:
 
 @pytest.mark.asyncio
 async def test_list_substrates_filters_by_name():
+    # Real ``Substrate`` records, not name-carrying stubs: the model has
+    # ``name_de``/``name_en`` and no ``name`` at all, so a filter written against
+    # ``name`` matches nothing while a stub with a ``name`` attribute would let
+    # that pass (#1006, same root cause as the get_plant join).
     class _Svc:
         def list_substrates(self, offset=0, limit=50):
-            return [_Named("Kokos"), _Named("Perlite")], 2
+            return [
+                Substrate(_key="s1", name_de="Kokos", name_en="Coco coir"),
+                Substrate(_key="s2", name_de="Perlite", name_en="Perlite"),
+            ], 2
 
     resp = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="koko"))
-    assert [i["name"] for i in resp.data["items"]] == ["Kokos"]
+    assert [i["name_de"] for i in resp.data["items"]] == ["Kokos"]
+
+    # The English name is part of the haystack too — the palette answers in both.
+    english = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="coco"))
+    assert [i["name_de"] for i in english.data["items"]] == ["Kokos"]
 
 
 @pytest.mark.asyncio

@@ -16,6 +16,7 @@ import pytest
 
 from app.common.enums import ReminderType, SubstrateType, TenantRole
 from app.common.exceptions import ValidationError
+from app.domain.models.substrate import Substrate
 from app.mcp_server.context import ToolContext
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.tools.plant_reads import (
@@ -180,7 +181,15 @@ class _SubstrateService:
 
 
 def _substrate(name="Coco 70/30", type_=SubstrateType.COCO):
-    return type("Sub", (), {"name": name, "type": type_})()
+    """A real ``Substrate``, not a stub carrying whatever attribute the tool reads.
+
+    The catalogue model has ``name_de``/``name_en`` and **no** ``name`` field. A
+    stub that invents one lets a reader of ``substrate.name`` pass here while
+    returning ``substrate_name: null`` against the real catalogue — which is
+    exactly what #1006 observed in production.
+    """
+
+    return Substrate(_key="sub-coco", name_de=name, name_en=name, type=type_)
 
 
 @pytest.mark.asyncio
@@ -199,6 +208,47 @@ async def test_get_plant_resolves_the_substrate_so_the_catalogue_becomes_reachab
     # `== "coco"` above would pass either way; this is the assertion that would
     # actually notice if the enum stopped deriving from str.
     assert type(resp.data["substrate_type"]) is str
+
+
+@pytest.mark.asyncio
+async def test_the_substrate_name_falls_back_to_the_english_one():
+    """#1006: the join resolved, the *name* did not — the tool read a field that
+    does not exist on the model. A record carrying only the English name must
+    still produce a name rather than a null next to a populated key."""
+
+    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="sub-perlite")])
+    substrate = Substrate(_key="sub-perlite", name_en="Perlite", type=SubstrateType.PERLITE)
+    ctx = _ctx(
+        plant_instance_service=svc,
+        species_service=_SpeciesStub(),
+        substrate_service=_SubstrateService(substrate),
+    )
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["substrate_name"] == "Perlite"
+
+
+@pytest.mark.asyncio
+async def test_a_nameless_substrate_record_still_reports_its_key_and_type():
+    """The only remaining null: the catalogue record itself carries no name.
+
+    Then ``substrate_name: null`` is the honest answer — the gap is in the
+    catalogue, not in the join — and the key plus the type still travel.
+    """
+
+    svc = _PlantService([_Plant("p1", "Tomate", substrate_key="sub-anon")])
+    ctx = _ctx(
+        plant_instance_service=svc,
+        species_service=_SpeciesStub(),
+        substrate_service=_SubstrateService(Substrate(_key="sub-anon", type=SubstrateType.SOIL)),
+    )
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="p1"))
+
+    assert resp.data["substrate_name"] is None
+    assert resp.data["substrate_key"] == "sub-anon"
+    assert resp.data["substrate_type"] == "soil"
 
 
 @pytest.mark.asyncio

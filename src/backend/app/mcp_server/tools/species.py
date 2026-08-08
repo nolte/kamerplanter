@@ -18,15 +18,42 @@ from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import ToolBase, ToolInput, mcp_tool
 from app.mcp_server.context import ToolContext
 
+#: Fields that survive :func:`_drop_empty` as an explicit ``null`` (issue #1005).
+#:
+#: These are the fields whose *omission* a consumer reads as a negative answer
+#: rather than as "no data". Dropping ``toxicity`` from an unresearched record
+#: makes the response indistinguishable from one that says "not toxic" — a
+#: safety clearance nobody gave, and the dangerous direction to be wrong in.
+#: The same holds for ``allows_harvest``: an agent reasoning about a harvest gate
+#: must be able to tell "no harvest data" from "this species must not be
+#: harvested" (see #1002 for the value side of that field).
+#:
+#: This is a deliberate *carve-out*, not a new default. Every other field keeps
+#: the sparse-reads-as-sparse behaviour documented on ``_drop_empty`` — turning
+#: the whole record into explicit nulls would destroy the property that a sparse
+#: response is itself the answer to "is this record complete?" (#949).
+SAFETY_CRITICAL_FIELDS = frozenset(
+    {
+        "toxicity",
+        "toxicity_severity",
+        "allergen_info",
+        "allows_harvest",
+    }
+)
 
-def _drop_empty(data: dict[str, Any]) -> dict[str, Any]:
+
+def _drop_empty(data: dict[str, Any], *, keep: frozenset[str] = frozenset()) -> dict[str, Any]:
     """Strip null/empty values so an unpopulated record reads as sparse, not noisy.
 
     Deliberately keeps ``False`` and ``0``: on this catalogue both are meaningful
     answers (``allows_harvest=False``, ``base_temp=0``), not missing data.
+
+    ``keep`` names the fields that are emitted even when empty — see
+    :data:`SAFETY_CRITICAL_FIELDS` for why that exception exists and why it is
+    kept small.
     """
 
-    return {k: v for k, v in data.items() if v is not None and v != [] and v != ""}
+    return {k: v for k, v in data.items() if k in keep or (v is not None and v != [] and v != "")}
 
 
 def _cultivar_summary(cultivar: Any) -> dict[str, Any]:
@@ -133,11 +160,15 @@ class GetSpeciesInfo(ToolBase):
                 "base_temp_gdd": get("base_temp"),
                 "nutrient_demand_level": get("nutrient_demand_level"),
                 "green_manure_suitable": get("green_manure_suitable"),
-                # ── Safety: never omitted when present, an LLM must be able to warn
+                # ── Safety: never omitted *at all*, an LLM must be able to warn.
+                # These three and ``allows_harvest`` below are the
+                # SAFETY_CRITICAL_FIELDS carve-out: they stay in the payload as
+                # explicit nulls when unpopulated, so "we have no toxicity data"
+                # cannot be mistaken for "this species is not toxic" (#1005).
                 "toxicity": get("toxicity"),
                 "toxicity_severity": get("toxicity_severity"),
                 "allergen_info": get("allergen_info"),
-                # ── Cultivation
+                # ── Cultivation ("allows_harvest" is safety-critical, see above)
                 "allows_harvest": get("allows_harvest"),
                 "harvest_pattern": get("harvest_pattern"),
                 "traits": get("traits"),
@@ -149,7 +180,8 @@ class GetSpeciesInfo(ToolBase):
                     species.seed_profile.model_dump() if getattr(species, "seed_profile", None) is not None else None
                 ),
                 "compatible_companions": companions,
-            }
+            },
+            keep=SAFETY_CRITICAL_FIELDS,
         )
 
         if args.include_cultivars:
@@ -162,8 +194,13 @@ class GetSpeciesInfo(ToolBase):
 
         common = (species.common_names or [None])[0]
         label = f"{species.scientific_name}" + (f" ({common})" if common else "")
+        # Count the values that actually carry something. ``len(data)`` used to be
+        # the same number, but the safety carve-out puts unpopulated fields into
+        # the payload — counting those would make the summary an LLM may read on
+        # its own claim more than the record says.
+        populated = sum(1 for value in data.values() if value is not None)
         return self._response(
-            summary=f"Species {label}: {len(data)} populated fields, "
+            summary=f"Species {label}: {populated} populated fields, "
             f"{len(data.get('cultivars', []))} cultivars, {len(companions)} companions.",
             data=data,
             links=[{"type": "api", "url": f"/api/v1/species/{species.key}"}],

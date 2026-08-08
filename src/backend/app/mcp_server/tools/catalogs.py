@@ -35,6 +35,28 @@ def _drop_empty(data: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in data.items() if v is not None and v != [] and v != ""}
 
 
+def substrate_display_name(substrate: Any) -> str | None:
+    """The catalogue name of a substrate — German first, English as the fallback.
+
+    ``Substrate`` carries ``name_de`` and ``name_en`` and **no** ``name`` field.
+    Reading ``substrate.name`` therefore always yields nothing, which is what made
+    ``get_plant`` report ``substrate_name: null`` next to a key that had resolved
+    perfectly well, and what made this module's ``list_substrates`` filter match
+    no record at all (#1006).
+
+    DE-first mirrors the rest of the palette (``name_de or name``,
+    ``common_name_de or common_name``). ``None`` is returned only when the
+    catalogue record genuinely carries no name in either language — a gap in the
+    data rather than in the join, and one the caller should be able to see.
+    """
+
+    for field in ("name_de", "name_en"):
+        value = getattr(substrate, field, None)
+        if value:
+            return str(value)
+    return None
+
+
 def _dump(obj: Any) -> dict[str, Any]:
     """Model-dump an entity, keeping the ``_key`` alias readable as ``key``."""
 
@@ -51,7 +73,10 @@ class ListSubstrates(ToolBase):
     """List the substrate catalogue (REQ-019): media, their type and properties."""
 
     class Input(ToolInput):
-        query: str | None = Field(default=None, description="Case-insensitive filter over the substrate name.")
+        query: str | None = Field(
+            default=None,
+            description="Case-insensitive filter over the substrate name, German and English.",
+        )
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
@@ -59,7 +84,14 @@ class ListSubstrates(ToolBase):
         selected = list(substrates)
         if args.query:
             needle = args.query.strip().lower()
-            selected = [s for s in selected if needle in str(getattr(s, "name", "")).lower()]
+            # Both names are the haystack. Filtering on a non-existent ``name``
+            # attribute matched nothing at all, so every query answered "no such
+            # substrate" — a wrong answer, not an empty one (#1006).
+            selected = [
+                s
+                for s in selected
+                if needle in f"{getattr(s, 'name_de', '') or ''} {getattr(s, 'name_en', '') or ''}".lower()
+            ]
         page = selected[: args.limit]
         return self._response(
             summary=f"{len(page)} substrates (of {total} in the catalogue).",
