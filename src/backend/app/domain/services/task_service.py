@@ -458,6 +458,29 @@ class TaskService:
     def get_task_template(self, key: str) -> TaskTemplate:
         return self._repo.get_task_template_or_raise(key)
 
+    def get_task_template_for_read(self, key: str, *, tenant_key: str) -> TaskTemplate:
+        """Load a task template the caller is allowed to read (SEC-001, #965).
+
+        The write paths (:meth:`update_task_template`/:meth:`delete_task_template`)
+        grew an entity-level tenant check when ``TaskTemplate`` gained its own
+        ``tenant_key``, but the single-template ``GET`` was left on the unanchored
+        :meth:`get_task_template` primitive — a member of *any* tenant could fetch
+        another tenant's private template by key, and the keys are ArangoDB
+        auto-generated and enumerable. This mirrors the write guard exactly: the
+        entity's own ``tenant_key`` is verified against the caller through
+        :func:`verify_tenant_read_access`, so a foreign template answers
+        ``NotFoundError`` (404, never a cross-tenant oracle) while the global
+        catalogue (``tenant_key == ""``) stays readable so #324 is not re-broken.
+
+        The bare :meth:`get_task_template` stays as the internal primitive the
+        three write/enrichment methods compose with their own parent-based checks;
+        this is the anchored read for the HTTP ``GET``. ``tenant_key`` is
+        keyword-only (#948) so a route that forgets to thread it fails loudly.
+        """
+        tt = self.get_task_template(key)
+        verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
+        return tt
+
     def _verify_workflow_template_reference(self, workflow_template_key: str | None, tenant_key: str) -> None:
         """Resolve a caller-supplied ``workflow_template_key`` before it is written (#965).
 
@@ -488,6 +511,30 @@ class TaskService:
             return
         _refuse_system_workflow(self.get_workflow_template(workflow_template_key, tenant_key=tenant_key))
 
+    def _verify_workflow_phase_reference(self, workflow_phase_key: str | None, tenant_key: str) -> None:
+        """Resolve a caller-supplied ``workflow_phase_key`` before it is written (SEC-003).
+
+        A task template may name the phase it belongs to. ``workflow_phase_key`` is
+        in :data:`TASK_TEMPLATE_UPDATABLE_FIELDS` and settable on create, but was
+        never checked — only ``workflow_template_key`` was — so a caller could store
+        a reference to a **foreign** tenant's phase on their own template. It is not
+        a cross-tenant write (the template stays the caller's) and leaks nothing on
+        the paths traced today, but it stores an unvalidated cross-boundary
+        reference a future join could dereference, exactly the class the update
+        allow-list excludes ``phase_definition_key``/``activity_key`` to avoid.
+
+        The phase's only tenant anchor is its parent ``WorkflowTemplate``, so the
+        check hangs there through :meth:`get_workflow_template` — a foreign or
+        unknown phase/parent answers ``NotFoundError`` (404, no cross-tenant
+        oracle); a phase with no parent, or none supplied, is left alone.
+        """
+        if not workflow_phase_key:
+            return
+        phase = self.get_workflow_phase(workflow_phase_key)
+        if not phase.workflow_template_key:
+            return
+        self.get_workflow_template(phase.workflow_template_key, tenant_key=tenant_key)
+
     def create_task_template(self, template: TaskTemplate, *, tenant_key: str) -> TaskTemplate:
         """Create a task template for ``tenant_key``, verifying its parent workflow (#965).
 
@@ -503,6 +550,7 @@ class TaskService:
         sites. ``update``/``delete`` verify this field back against the caller.
         """
         self._verify_workflow_template_reference(template.workflow_template_key, tenant_key)
+        self._verify_workflow_phase_reference(template.workflow_phase_key, tenant_key)
         template.tenant_key = tenant_key
         return self._repo.create_task_template(template)
 
@@ -539,6 +587,8 @@ class TaskService:
         fields = _allowed(data, TASK_TEMPLATE_UPDATABLE_FIELDS)
         if "workflow_template_key" in fields:
             self._verify_workflow_template_reference(fields["workflow_template_key"], tenant_key)
+        if "workflow_phase_key" in fields:
+            self._verify_workflow_phase_reference(fields["workflow_phase_key"], tenant_key)
         for field, value in fields.items():
             setattr(tt, field, value)
         return self._repo.update_task_template(key, tt)

@@ -64,7 +64,12 @@ class FavoritesService:
         """
         target_collection = self._resolve_collection(target_key)
         if not target_collection:
-            raise ValueError(f"Cannot resolve collection for key: {target_key}")
+            # SEC-002: answer the same 404 a foreign-tenant row does, not a 500.
+            # A ValueError here routed through the unhandled-error handler, so an
+            # unresolvable key was distinguishable from a foreign-but-real one
+            # (404) — a cross-tenant existence oracle on catalogue keys. Collapsing
+            # unknown/unresolvable/foreign to one NotFoundError removes the signal.
+            raise NotFoundError("favorite target", target_key)
 
         self._verify_target_tenant_access(
             target_collection=target_collection,

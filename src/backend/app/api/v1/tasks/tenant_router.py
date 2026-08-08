@@ -314,7 +314,7 @@ def get_task_template(
     service: TaskService = Depends(get_task_service),
 ):
     """Return a single task template by key."""
-    return _tt_response(service.get_task_template(key))
+    return _tt_response(service.get_task_template_for_read(key, tenant_key=ctx.tenant_key))
 
 
 @router.put("/templates/{key}", response_model=TaskTemplateResponse)
