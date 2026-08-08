@@ -105,3 +105,13 @@ class TestDeriveFromClimateNormals:
         normal = _normal()  # neither coldest_month_min_c nor monthly_temp_min_c
         assert mean_annual_minimum_from_normals(normal) is None
         assert derive_from_climate_normals(normal) is None
+
+    def test_rounds_returned_mean_to_one_decimal(self) -> None:
+        # A raw climate-normal float with a long fractional tail must be rounded to
+        # 0.1 °C in the returned/persisted mean (#1065): the un-rounded 12-digit tail
+        # tripped ZAP's PII/credit-card heuristic on the resolve-hardiness response.
+        # Classification still runs on full precision, so the zone label is unaffected.
+        normal = _normal(coldest_month_min_c=-5.80557689172)
+        zone, mean = derive_from_climate_normals(normal)  # type: ignore[misc]
+        assert mean == -5.8
+        assert zone == classify_from_minimum(-5.80557689172)
