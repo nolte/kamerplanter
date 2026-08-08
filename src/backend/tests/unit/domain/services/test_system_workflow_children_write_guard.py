@@ -27,12 +27,19 @@ The rule covers a child that is *already* inside a system workflow, not only one
 being attached: editing a seeded task template in place, or deleting it, is the
 same modification arriving by a different verb. That half needs no anchor
 decision — the parent is read off the child's own ``workflow_template_key`` and
-only its ``is_system`` flag is consulted, never the caller's tenant. What stays
-deliberately open is #965 item 1, the *foreign-tenant* half of the same two
-routes: a template belonging to another tenant's workflow is still reachable,
-because closing that needs the orphan-ownership field and backfill rather than a
-guard bolted onto the delete path. Two tests below pin that boundary so this file
-cannot be misread as having closed item 1.
+only its ``is_system`` flag is consulted, never the caller's tenant.
+
+**#965 item 1 is now closed.** ``TaskTemplate`` grew its own ``tenant_key`` field
+(backfilled by migration ``v0035``), so a template's write is tenant-verified on
+the entity itself — no longer only through its parent. ``update_task_template``
+and ``delete_task_template`` now answer **404 for a foreign tenant's template**
+(``verify_tenant_read_access``, no cross-tenant oracle) *before* the tenant-blind
+``is_system`` refusal, keeping the three answers layered: foreign → 404, system →
+422, own → proceed. ``TestForeignTenantTaskTemplatesAreRefused`` below pins the
+closed boundary — it is the inverse of the two tests this file used to carry to
+mark item 1 open, replaced rather than silently satisfied. The global catalogue
+(``tenant_key == ""``) stays writable/readable through the same helper so #324 is
+not re-broken.
 """
 
 from __future__ import annotations
@@ -210,7 +217,7 @@ class TestASystemWorkflowsExistingTaskTemplatesAreAlsoOffLimits:
         service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
 
         with pytest.raises(ValidationError):
-            service.delete_task_template("tt-1")
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
 
         repo.delete_task_template.assert_not_called()
 
@@ -220,34 +227,56 @@ class TestASystemWorkflowsExistingTaskTemplatesAreAlsoOffLimits:
         with pytest.raises(ValidationError) as edit:
             service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
         with pytest.raises(ValidationError) as removal:
-            service.delete_task_template("tt-1")
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
 
         assert edit.value.status_code == removal.value.status_code == 422
         assert edit.value.error_code == removal.value.error_code == "VALIDATION_ERROR"
 
 
-class TestItem1StaysOpen:
-    """The foreign-tenant half of the same two routes is deliberately untouched.
+class TestForeignTenantTaskTemplatesAreRefused:
+    """#965 item 1, now closed: a foreign tenant's task template is refused, 404.
 
-    Guarding it means anchoring on the parent's *tenant*, which is exactly the
-    step that needs the orphan-ownership field and its backfill. These two tests
-    exist so a later reader cannot mistake the ``is_system`` guard for that fix —
-    if someone closes item 1, they should be replaced, not silently satisfied.
+    This is the inverse of the two tests this file used to carry to mark item 1
+    *open*. Closing it needed exactly what those tests said was missing — the
+    entity's own ``tenant_key`` (and its ``v0035`` backfill), which lets the write
+    be verified on the template itself instead of only through its parent. The
+    answer is the read-guard's 404, so the route is not a cross-tenant existence
+    oracle, and the answer arrives *before* the ``is_system`` 422 so a foreign
+    template is never even classified by system-ness. Nothing is written.
     """
 
-    def test_a_foreign_tenants_task_template_is_still_editable(self) -> None:
-        service, repo = _service(_template(workflow_template_key=FOREIGN_WORKFLOW))
+    def test_a_foreign_tenants_task_template_is_refused_on_update(self) -> None:
+        service, repo = _service(
+            _template(workflow_template_key=FOREIGN_WORKFLOW, tenant_key=FOREIGN_TENANT_KEY),
+        )
+
+        with pytest.raises(NotFoundError) as exc:
+            service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+        repo.update_task_template.assert_not_called()
+
+    def test_a_foreign_tenants_task_template_is_refused_on_delete(self) -> None:
+        service, repo = _service(
+            _template(workflow_template_key=FOREIGN_WORKFLOW, tenant_key=FOREIGN_TENANT_KEY),
+        )
+
+        with pytest.raises(NotFoundError) as exc:
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+        repo.delete_task_template.assert_not_called()
+
+    def test_the_callers_own_task_template_is_still_editable_and_deletable(self) -> None:
+        service, repo = _service(
+            _template(workflow_template_key=OWN_WORKFLOW, tenant_key=TENANT_KEY),
+        )
 
         updated = service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
 
         assert updated.name == "Umbenannt"
         repo.update_task_template.assert_called_once()
-
-    def test_a_foreign_tenants_task_template_is_still_deletable(self) -> None:
-        service, repo = _service(_template(workflow_template_key=FOREIGN_WORKFLOW))
-
-        service.delete_task_template("tt-1")
-
         repo.delete_task_template.assert_called_once()
 
 
@@ -292,25 +321,29 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
         repo.delete_phase.assert_called_once()
 
     def test_the_callers_own_task_template_is_still_editable_and_deletable(self) -> None:
-        service, repo = _service(_template(workflow_template_key=OWN_WORKFLOW))
+        service, repo = _service(_template(workflow_template_key=OWN_WORKFLOW, tenant_key=TENANT_KEY))
 
         assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
-        service.delete_task_template("tt-1")
+        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
         repo.update_task_template.assert_called_once()
         repo.delete_task_template.assert_called_once()
 
-    def test_a_task_template_with_no_parent_workflow_is_left_alone(self) -> None:
-        """A standalone template has no anchor — this guard must not become an
-        orphan-ownership decision by the back door.
+    def test_a_global_standalone_template_is_left_editable(self) -> None:
+        """A standalone template backfilled to the global catalogue (``tenant_key
+        == ""``) stays writable by every tenant — #324's positive direction.
 
-        Orphans do have an owner now (global, decided on #965), but that belongs
-        to items 1/2/4 with their own field and backfill; refusing one here would
-        settle it in the wrong place and break a template that is editable today.
+        This is the documented limitation of item 1's backfill: a template that
+        predates the ownership field and was never attached to a workflow has no
+        stored owner to recover, so ``v0035`` lands it in the global catalogue.
+        Refusing it here would hide a row that was editable before and break the
+        #324 guarantee. Newly created standalone templates are stamped with the
+        caller's tenant and are therefore *not* global — they are covered by
+        ``TestForeignTenantTaskTemplatesAreRefused``.
         """
-        service, repo = _service(_template())
+        service, repo = _service(_template())  # tenant_key defaults to "" (global)
 
         assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
-        service.delete_task_template("tt-1")
+        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
         repo.update_task_template.assert_called_once()
         repo.delete_task_template.assert_called_once()
 

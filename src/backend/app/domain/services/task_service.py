@@ -493,8 +493,17 @@ class TaskService:
 
         ``tenant_key`` is required and keyword-only, following #948: a route that
         forgets to thread it does not compile away silently, it fails loudly.
+
+        The caller's tenant is **stamped onto the entity** (#965 item 1). Since
+        ``TaskTemplate`` grew its own ``tenant_key`` field, a template created here
+        records its owner rather than being un-owned — a standalone template (no
+        parent workflow) is now the caller's, not a globally editable orphan. The
+        value comes from the auth/path context, never the request body, mirroring
+        how ``Task`` and ``WorkflowTemplate`` are stamped at their construction
+        sites. ``update``/``delete`` verify this field back against the caller.
         """
         self._verify_workflow_template_reference(template.workflow_template_key, tenant_key)
+        template.tenant_key = tenant_key
         return self._repo.create_task_template(template)
 
     def update_task_template(self, key: str, data: dict, *, tenant_key: str) -> TaskTemplate:
@@ -508,15 +517,24 @@ class TaskService:
         written, the reference check bounds *which values* the parent field may
         take.
 
-        Both parents are checked, and in this order (#965 item 3). The template's
-        **current** parent decides whether this edit may happen at all: a seeded
-        template of "Tomato Standard" is system data, so renaming or re-timing it
-        is the same refusal as attaching a new one, only arriving by a different
-        verb — and it was previously unguarded, because this route never looked
-        at the parent. The **target** parent is then checked as before, so a move
-        can neither leave a system workflow's contents editable nor land in one.
+        Three answers, layered so the earlier one wins (#965 items 1 and 3):
+
+        * **Foreign → 404.** The entity's own ``tenant_key`` (added for item 1) is
+          verified against the caller through :func:`verify_tenant_read_access`,
+          which raises ``NotFoundError`` for a template owned by another tenant —
+          no cross-tenant oracle. It admits the global catalogue (``tenant_key ==
+          ""``) so #324 is not re-broken. This runs *first*, so a foreign template
+          is refused before it is ever classified by system-ness.
+        * **System → 422.** The template's **current** parent decides whether the
+          edit may happen at all: a seeded template of "Tomato Standard" is system
+          data, so renaming or re-timing it is the same refusal as attaching a new
+          one, only arriving by a different verb.
+        * **Own → proceed.** The **target** parent is then checked as before, so a
+          move can neither leave a system workflow's contents editable nor land in
+          one.
         """
         tt = self.get_task_template(key)
+        verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
         fields = _allowed(data, TASK_TEMPLATE_UPDATABLE_FIELDS)
         if "workflow_template_key" in fields:
@@ -525,16 +543,26 @@ class TaskService:
             setattr(tt, field, value)
         return self._repo.update_task_template(key, tt)
 
-    def delete_task_template(self, key: str) -> bool:
-        """Remove a task template unless it belongs to a system workflow (#965 item 3).
+    def delete_task_template(self, key: str, *, tenant_key: str) -> bool:
+        """Remove a task template the caller owns, unless it is system data (#965 items 1, 3).
 
-        Deleting a seeded template of a system workflow removes it for every
-        tenant, which is the same modification the two parent-level guards
-        already refuse — so it is refused here too, with the same 422. No
-        ``tenant_key`` is taken: this route never had one, and adding the tenant
-        anchor is item 1's change, not this one.
+        The same three layered answers as :meth:`update_task_template`, and in the
+        same order — foreign → 404, system → 422, own → proceed:
+
+        * **Foreign → 404.** The entity's own ``tenant_key`` is verified against
+          the caller (:func:`verify_tenant_read_access`); another tenant's template
+          answers ``NotFoundError``, never a cross-tenant oracle. The global
+          catalogue (``tenant_key == ""``) is admitted so #324 stands.
+        * **System → 422.** Deleting a seeded template of a system workflow removes
+          it for every tenant, the same modification the two parent-level guards
+          already refuse.
+
+        ``tenant_key`` is required and keyword-only (#948): the anchor item 1 was
+        missing, so a route that forgets to thread it fails loudly rather than
+        deleting across the isolation boundary.
         """
         tt = self.get_task_template(key)
+        verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
         return self._repo.delete_task_template(key)
 

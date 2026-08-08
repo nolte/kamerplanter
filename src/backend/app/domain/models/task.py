@@ -68,6 +68,15 @@ class WorkflowPhase(BaseModel):
 
 class TaskTemplate(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    #: Owning tenant, or ``""`` for a globally seeded / system template (#965 item 1).
+    #: Added so a task template's write can be tenant-verified on the entity itself
+    #: rather than only through its parent ``WorkflowTemplate`` — a standalone
+    #: template (``workflow_template_key is None``) previously had no anchor at all.
+    #: ``""`` follows the hybrid-catalogue convention (``WorkflowTemplate.tenant_key``,
+    #: the substrate/fertilizer catalogues): an empty owner is the global row every
+    #: tenant may read, instantiate and duplicate (#324). Backfilled by migration
+    #: ``v0035`` for rows created before the field existed.
+    tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
     name_de: str = ""
     instruction: str = ""

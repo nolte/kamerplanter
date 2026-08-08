@@ -337,7 +337,7 @@ def delete_task_template(
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a task template."""
-    service.delete_task_template(key)
+    service.delete_task_template(key, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
 
 
