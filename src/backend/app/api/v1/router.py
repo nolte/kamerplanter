@@ -2,7 +2,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.api.v1.activities.router import router as activities_router
-from app.api.v1.activity_plans.router import router as activity_plans_router
 from app.api.v1.admin.pests.router import router as pests_admin_router
 from app.api.v1.admin.recognition.router import router as recognition_admin_router
 from app.api.v1.admin.reference_images.router import router as reference_images_router
@@ -165,7 +164,9 @@ api_router.include_router(dashboard_router)
 api_router.include_router(starter_kits_router)
 api_router.include_router(imports_router)
 api_router.include_router(activities_router)
-api_router.include_router(activity_plans_router)
+# ``/activity-plans/apply`` moved under the tenant-scoped router (#1000); the
+# global activity-plans router had nothing left on it and was removed. Generation
+# and the template writes already live on ``activity_plans.tenant_router``.
 api_router.include_router(observations_router)
 api_router.include_router(phase_sequences_router)
 api_router.include_router(recognition_router)

@@ -55,10 +55,14 @@ class ActivityPlanResponse(BaseModel):
 
 
 class ActivityPlanApplyRequest(BaseModel):
+    #: No ``tenant_key`` here on purpose (#1000). The tenant is taken from the
+    #: URL path via ``get_current_tenant`` like every other tenant-scoped route,
+    #: so it cannot be asserted by the caller. A body field that must equal
+    #: something the server already knows is a trap for the next caller — the one
+    #: this endpoint was moved off the global router to remove.
     workflow_template_key: str
     plant_key: str | None = None
     run_key: str | None = None
-    tenant_key: str = ""
 
 
 class ActivityPlanApplyResponse(BaseModel):

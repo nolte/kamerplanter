@@ -41,14 +41,15 @@ describe('activityPlans endpoints', () => {
     expect(client.post).not.toHaveBeenCalled();
   });
 
-  // Still global on purpose: /apply takes its tenant from the request body,
-  // which is #1000's separate defect.
-  it('applyPlan posts request and returns data', async () => {
-    client.post.mockResolvedValue({ data: { created: 2 } });
-    const req = { plan_key: 'pl1' } as never;
+  // Moved under /t/{slug}/ for #1000: /apply used to be global and took its
+  // tenant from the request body, so any user could create tasks in an arbitrary
+  // tenant. It now goes through the tenant-scoped client, which prepends the slug.
+  it('applyPlan posts request through the tenant-scoped client and returns data', async () => {
+    tenantClient.post.mockResolvedValue({ data: { created: 2 } });
+    const req = { workflow_template_key: 'wf1', plant_key: 'pl1' } as never;
     await expect(activityPlans.applyPlan(req)).resolves.toEqual({ created: 2 });
-    expect(client.post).toHaveBeenCalledWith('/activity-plans/apply', req);
-    expect(tenantClient.post).not.toHaveBeenCalled();
+    expect(tenantClient.post).toHaveBeenCalledWith('/activity-plans/apply', req);
+    expect(client.post).not.toHaveBeenCalled();
   });
 
   it('updateTaskTemplate patches template by key through the tenant-scoped client', async () => {
