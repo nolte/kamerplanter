@@ -177,7 +177,10 @@ export default function SpeciesListPage() {
   const plantInstances = useAppSelector((s) => s.plantInstances.items);
 
   useEffect(() => {
-    dispatch(fetchSpeciesList({ offset: 0, limit: 1000 }));
+    // No paging argument: `fetchSpeciesList` loads the complete catalogue. This
+    // page filters, searches and sorts the result client-side, so anything less
+    // than the whole set makes those three lie rather than paginate (#995).
+    dispatch(fetchSpeciesList());
     dispatch(fetchPlantInstances({ offset: 0, limit: 200 }));
     dispatch(fetchIdentificationStatus());
   }, [dispatch]);
@@ -639,7 +642,7 @@ export default function SpeciesListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchSpeciesList({ offset: 0, limit: 1000 }));
+          dispatch(fetchSpeciesList());
         }}
       />
 
@@ -648,7 +651,7 @@ export default function SpeciesListPage() {
         open={identifyOpen}
         onClose={() => setIdentifyOpen(false)}
         onSpeciesResolved={(result) => {
-          dispatch(fetchSpeciesList({ offset: 0, limit: 1000 }));
+          dispatch(fetchSpeciesList());
           setResolvedSpecies(result);
         }}
         onManualSearch={() => setIdentifyOpen(false)}

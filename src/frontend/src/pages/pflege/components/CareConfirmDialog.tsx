@@ -100,7 +100,10 @@ export default function CareConfirmDialog({
   // Fetch fertilizers from store if not provided via prop
   useEffect(() => {
     if (open && showFeedingSection && !availableFertilizers?.length && storeFertilizers.length === 0) {
-      dispatch(fetchFertilizers({ offset: 0, limit: 200 }));
+      // No paging argument: the slice loads the complete catalogue. This is a
+      // "pick any fertilizer" selector, and a bounded page makes every product
+      // past it unpickable without saying so (#995).
+      dispatch(fetchFertilizers({}));
     }
   }, [open, showFeedingSection, availableFertilizers, storeFertilizers.length, dispatch]);
 

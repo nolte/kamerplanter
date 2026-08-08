@@ -36,7 +36,7 @@ export default function DiseaseListPage() {
   });
 
   useEffect(() => {
-    dispatch(fetchDiseases({}));
+    dispatch(fetchDiseases());
   }, [dispatch]);
 
   const columns: Column<Disease>[] = [
@@ -144,7 +144,7 @@ export default function DiseaseListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchDiseases({}));
+          dispatch(fetchDiseases());
         }}
       />
     </Box>

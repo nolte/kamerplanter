@@ -40,9 +40,9 @@ describe('ipm endpoints — pests (global client)', () => {
   });
 
   it('listAllPests pages through the catalogue until a short page (#614)', async () => {
-    // A fixed limit=500 formerly 422'd against the endpoint cap; paging at 100
-    // stays within it and never silently truncates the catalogue.
-    const full = Array.from({ length: 100 }, (_v, i) => ({ key: `pe${i}` }));
+    // A fixed limit=500 formerly 422'd against the endpoint cap; paging at the
+    // cap itself stays within it and never silently truncates the catalogue.
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `pe${i}` }));
     const tail = [{ key: 'tail-1' }, { key: 'tail-2' }];
     globalClient.get
       .mockResolvedValueOnce({ data: full })
@@ -50,15 +50,46 @@ describe('ipm endpoints — pests (global client)', () => {
 
     const all = await ipm.listAllPests();
 
-    expect(all).toHaveLength(102);
+    expect(all).toHaveLength(202);
     expect(globalClient.get).toHaveBeenCalledTimes(2);
     expect(globalClient.get).toHaveBeenNthCalledWith(1, '/ipm/pests', {
-      params: { offset: 0, limit: 100 },
+      params: { offset: 0, limit: 200 },
     });
     expect(globalClient.get).toHaveBeenNthCalledWith(2, '/ipm/pests', {
-      params: { offset: 100, limit: 100 },
+      params: { offset: 200, limit: 200 },
     });
     expect(tenantClient.get).not.toHaveBeenCalled();
+  });
+
+  // #995: the disease and treatment catalogues gained the same loader, because
+  // their list views search client-side and a bounded page makes that search
+  // deny rows that exist.
+  it('listAllDiseases pages through the catalogue until a short page', async () => {
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `d${i}` }));
+    globalClient.get
+      .mockResolvedValueOnce({ data: full })
+      .mockResolvedValueOnce({ data: [{ key: 'tail' }] });
+
+    const all = await ipm.listAllDiseases();
+
+    expect(all).toHaveLength(201);
+    expect(globalClient.get).toHaveBeenNthCalledWith(2, '/ipm/diseases', {
+      params: { offset: 200, limit: 200 },
+    });
+  });
+
+  it('listAllTreatments pages through the catalogue until a short page', async () => {
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `t${i}` }));
+    globalClient.get
+      .mockResolvedValueOnce({ data: full })
+      .mockResolvedValueOnce({ data: [{ key: 'tail' }] });
+
+    const all = await ipm.listAllTreatments();
+
+    expect(all).toHaveLength(201);
+    expect(globalClient.get).toHaveBeenNthCalledWith(2, '/ipm/treatments', {
+      params: { offset: 200, limit: 200 },
+    });
   });
 
   it('getPest gets pest by key via global client', async () => {
