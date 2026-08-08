@@ -13,11 +13,13 @@ Covers:
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from .base_page import BasePage, DEFAULT_TIMEOUT
+from .base_page import BasePage, DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT
 
 
 class CalendarPage(BasePage):
@@ -108,12 +110,59 @@ class CalendarPage(BasePage):
         self.wait_for_element_clickable(self.VIEW_TAB_PHASES).click()
 
     def switch_to_sowing_view(self) -> None:
-        """Click the Sowing Calendar tab."""
+        """Click the Sowing Calendar tab and wait for its content to settle."""
         self.wait_for_element_clickable(self.VIEW_TAB_SOWING).click()
+        self.wait_for_sowing_content()
 
     def switch_to_season_view(self) -> None:
-        """Click the Season Overview tab."""
+        """Click the Season Overview tab and wait for its content to settle."""
         self.wait_for_element_clickable(self.VIEW_TAB_SEASON).click()
+        self.wait_for_season_content()
+
+    #: `CalendarPage.tsx` fetches `sowingEntries` fresh on every switch into
+    #: this view (`sowingLoading` gates a `LoadingSkeleton` that replaces the
+    #: whole view, including its own `EmptyState` branch) -- a read taken right
+    #: after the tab click, before that async fetch resolves, is indistinguishable
+    #: from a tenant with nothing to show. `SowingCalendarView` renders either its
+    #: outer `Card` (`SOWING_CARDS`) or `EmptyState`, never both, so those are the
+    #: two settled branches. Mirrors `FertilizerListPage.wait_for_list_content`.
+    def wait_for_sowing_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the sowing calendar view has settled: its card or empty state.
+
+        Deliberately does not raise -- an *anchor*, not an assertion; a tenant
+        with nothing to sow must still be observable as `EMPTY_STATE` rather
+        than turned into a timeout. `TestSowingCalendarLoad` and
+        `TestSowingCategoryFilter` (`test_req015_sowing_calendar.py`) gate
+        `pytest.skip(...)` and count comparisons on readers scoped to this view
+        immediately after a tab switch.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.SOWING_CARDS, self.EMPTY_STATE),
+                "sowing calendar content",
+                timeout=timeout,
+            )
+
+    #: Same race, the season overview's own async fetch (`seasonLoading` gates a
+    #: `LoadingSkeleton`; `SeasonOverviewView` renders either its 12 month cards
+    #: or its own `EmptyState`, never both).
+    def wait_for_season_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the season overview has settled: month cards or its empty state.
+
+        Deliberately does not raise -- see :meth:`wait_for_sowing_content`.
+        `TestSeasonOverviewLoad`/`TestSeasonOverviewCardContent`/
+        `TestSeasonOverviewInteraction` (`test_req015_season_overview.py`) all
+        gate a `pytest.skip(...)` on `get_season_month_cards()` immediately
+        after a tab switch -- an unanchored `[]` read in the pre-fetch window
+        is indistinguishable from a tenant with no season data at all (the
+        `has_care_card` defect class, #946).
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.SEASON_MONTH_CARDS, self.EMPTY_STATE),
+                "season overview content",
+                timeout=timeout,
+            )
 
     def get_active_tab_value(self) -> str:
         """Return the ``aria-selected='true'`` tab's data-testid suffix (e.g. 'month')."""

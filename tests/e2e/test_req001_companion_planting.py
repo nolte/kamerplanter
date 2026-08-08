@@ -151,11 +151,21 @@ class TestCompanionPlantingView:
         incompatible = companion_page.get_incompatible_species()
 
         if len(compatible) == 0 and len(incompatible) == 0:
-            # Should show empty state or at least render cleanly
+            # `get_compatible_species`/`get_incompatible_species` are anchored
+            # on `wait_for_companion_data` (#946 wave 10), which only settles
+            # once both cards have rendered -- and each renders its own
+            # `EmptyState` independently when its own list is empty
+            # (`CompanionPlantingPage.tsx`). Both readers being empty here can
+            # therefore only be reached with both empty states showing, making
+            # `and` the falsifiable statement -- the `or ... or True` this
+            # replaces was satisfied unconditionally (T2), regardless of what
+            # either helper answered.
             assert (
                 companion_page.has_compatible_empty_state()
-                or companion_page.has_incompatible_empty_state()
-                or True  # Page renders without error
+                and companion_page.has_incompatible_empty_state()
+            ), (
+                "TC-REQ-001-068 FAIL: Expected both the compatible and incompatible "
+                "cards to show their empty state when neither list has entries"
             )
 
 

@@ -114,8 +114,17 @@ class NotificationCenterPage(BasePage):
     ACTION_DONE_BUTTONS = (By.CSS_SELECTOR, "[data-testid^='notification-action-done-']")
 
     def get_notification_cards(self) -> list[WebElement]:
-        """Return all rendered ``notification-card-{key}`` elements."""
-        return self.driver.find_elements(*self.NOTIFICATION_CARDS)
+        """Return all rendered ``notification-card-{key}`` elements, once the drawer has loaded.
+
+        Same race :meth:`get_action_done_buttons` documents in full:
+        ``NotificationDrawer`` refetches on every ``open_drawer()``, so a bare
+        ``find_elements`` right after the drawer becomes visible cannot tell
+        "the fetch is still in flight" from "there are genuinely no
+        notifications" -- this page renders no dedicated empty-state testid
+        either, so there is no faster branch to key on than presence itself.
+        An empty list after the full budget is still a genuine negative.
+        """
+        return self.await_presence(self.NOTIFICATION_CARDS)
 
     def get_action_done_buttons(self) -> list[WebElement]:
         """Return every actionable 'Erledigt' button, once the drawer has loaded.
@@ -151,15 +160,21 @@ class NotificationCenterPage(BasePage):
         return keys
 
     def has_notification(self, key: str) -> bool:
-        """Return True if a notification card for *key* is rendered."""
-        return (
-            len(
-                self.driver.find_elements(
-                    By.CSS_SELECTOR, f"[data-testid='notification-card-{key}']"
-                )
-            )
-            > 0
-        )
+        """Return True if a notification card for *key* is rendered.
+
+        Routed through :meth:`get_notification_keys` (anchored on
+        :meth:`get_notification_cards`) rather than a bare ``find_elements`` on
+        this one key's own testid: a read taken right after ``open_drawer()``
+        can land before the drawer's per-open refetch resolves, and a bare
+        presence check for a single key cannot tell "not fetched yet" from
+        "genuinely gone" the way a wait over the whole list can.
+        ``test_reminder_confirmation_marks_notification_read`` depends on this
+        distinguishing a confirmed-and-still-listed reminder from one this read
+        too early: a premature ``False`` here fed ``now_unread = False``
+        downstream too, which made ``was_unread and not now_unread`` pass
+        whether or not the reminder had actually been marked read.
+        """
+        return key in self.get_notification_keys()
 
     def get_notification_card(self, key: str) -> WebElement:
         """Return the notification card element for a specific key."""
