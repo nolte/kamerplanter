@@ -90,6 +90,7 @@ from tests.e2e.pages.pflege_dashboard_page import PflegeDashboardPage
 from tests.e2e.pages.species_detail_page import SpeciesDetailPage
 from tests.e2e.pages.watering_log_list_page import WateringLogListPage
 from tests.e2e.pages.task_detail_page import TaskDetailPage
+from tests.e2e.pages.task_queue_page import TaskQueuePage
 
 #: The W3C element identifier key — see `test_element_proxy.py` for why it is
 #: restated rather than imported.
@@ -363,6 +364,12 @@ class StubConnection:
                 # `None` for a class-less node, as a real driver answers for an
                 # absent attribute — `_chip_elements` relies on the `or ""`.
                 return {"value": node.css_class or None}
+            if attribute == "data-testid":
+                # `get_task_keys` / `find_task_key_by_name` parse the key out of
+                # this attribute rather than out of a locator, so it has to
+                # answer with the node's own testid, not `None`, to make those
+                # readers reachable in this tier at all.
+                return {"value": node.testid or None}
             return {"value": None}
         if "scrollIntoView" in script:
             return {"value": None}
@@ -1369,6 +1376,241 @@ class TestTheAnchoredSectionReaders:
         self._settle_empty_now(harness)
 
         assert self._page(harness).get_section_total_card_count("overdue") == 0
+
+
+# ── 8c. The same defect on the queue's own container (#946 wave 2) ───────────
+
+
+class TestTheAnchoredQueueReaders:
+    """``task_queue_page.py`` readers gated on the queue's own loading branch.
+
+    Same shape and the same shared container
+    (``[data-testid='task-queue-page']``) as ``TestTheAnchoredSectionReaders``
+    above: ``TaskQueuePage.tsx`` unmounts its whole subtree -- cards included --
+    back to a ``LoadingSkeleton`` while its combined ``loading`` flag
+    (``tasksLoading || careLoading || plantsLoading``) is true, so a raw
+    ``find_elements`` taken right after ``.open()`` can land in the same
+    just-navigated, not-yet-rendered window CI caught for the dashboard.
+    ``get_task_keys`` is the reader ``create_care_task``'s #791 warning in
+    ``_journey_helpers.py`` names as a "queue-head consumer"; three call sites
+    (``_get_first_task_key`` in ``test_req006_task_detail.py``,
+    ``test_queue_to_detail_and_back``/``test_task_detail_plant_link_navigates``
+    in ``test_req006_navigation.py``) gate a ``pytest.skip(...)`` on it.
+
+    ``get_task_section`` walks an ancestor XPath this stub does not model
+    (the same unmodelled shape as the untested ``get_card_urgency_indicator``
+    in ``pflege_dashboard_page.py``): only its settled-absence direction is
+    measured here, which needs no ancestor lookup (the card list is empty, so
+    the walk is never reached). Its "outlives a late render" direction is
+    analytic -- verified by inspection that it shares
+    :meth:`TaskQueuePage.wait_for_queue_content` with every reader measured
+    below, not by a browser-free test -- and open pending a real-browser run.
+    """
+
+    def _page(self, harness: Harness) -> TaskQueuePage:
+        return TaskQueuePage(harness.driver, "http://stub.invalid")
+
+    def _settle_empty_now(self, harness: Harness) -> None:
+        harness.dom.render_dialog("empty-state")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        """See ``TestTheAnchoredSectionReaders._render_after`` -- identical shape."""
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def _build_overdue_section_with_card(self, harness: Harness) -> None:
+        section = harness.dom.render_dialog("task-section-overdue")
+        section.children.append(harness.dom._new("task-card"))
+
+    # ── get_task_cards / get_task_card_count / get_first_task_card ──
+
+    def test_get_task_cards_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: harness.dom.render_dialog("task-card"))
+
+        cards = self._page(harness).get_task_cards()
+        assert len(cards) == 1
+
+    def test_get_task_cards_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_task_cards() == []
+
+    # ── get_task_keys ──
+
+    def test_get_task_keys_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-card-tq946key")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).get_task_keys() == ["tq946key"]
+
+    def test_get_task_keys_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_task_keys() == []
+
+    # ── get_visible_sections ──
+
+    def test_get_visible_sections_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-section-overdue")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).get_visible_sections() == ["overdue"]
+
+    def test_get_visible_sections_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_visible_sections() == []
+
+    # ── get_section_task_count ──
+
+    def test_get_section_task_count_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        assert self._page(harness).get_section_task_count("overdue") == 1
+
+    def test_get_section_task_count_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_section_task_count("overdue") == 0
+
+    # ── get_task_section: settled-absence direction only (see class docstring) ──
+
+    def test_get_task_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_task_section("tq946sec") is None
+
+
+# ── 8d. The single-entity variant of the same anchor (#946 wave 2) ───────────
+
+
+class TestTheAnchoredTaskDetailReaders:
+    """``task_detail_page.py`` action-button readers, the detail-route variant.
+
+    ``TaskDetailPage.tsx`` unmounts its whole subtree -- the
+    ``[data-testid='task-detail-page']`` root included -- back to a
+    ``LoadingSkeleton`` while its own ``loading`` flag is true (checked before
+    ``ErrorDisplay``/not-found and before the page root), and ``handleStart``/
+    ``handleSkip``/``handleReopen`` all re-trigger that same fetch cycle via
+    ``load()`` after their mutation. ``has_start_button`` is asserted both
+    positively and negatively (``test_start_task_from_queue`` in
+    ``test_req006_task_queue.py``); ``has_plant_link`` gates a
+    ``pytest.skip(...)`` (``test_task_detail_plant_link_navigates`` in
+    ``test_req006_navigation.py``). ``has_skip_button``/``has_reopen_button``
+    are read as a shared disjunction (``has_start_button() or
+    has_skip_button() or has_reopen_button()``) in
+    ``test_start_button_visible_for_pending_task``; ``has_clone_button`` and
+    ``has_complete_submit`` are fixed for the same shape's consistency.
+
+    Unlike the queue's list branches, this route's anchor
+    (:meth:`TaskDetailPage.wait_for_task_detail_content`) is the generic
+    content-or-error settle (:meth:`BasePage.wait_for_page_settled`) -- so the
+    "content" branch here is the ``PAGE`` root itself, which every build below
+    renders before adding the button node the read is actually after.
+    """
+
+    def _page(self, harness: Harness) -> TaskDetailPage:
+        return TaskDetailPage(harness.driver, "http://stub.invalid")
+
+    def _settle_page_without_button_now(self, harness: Harness) -> None:
+        """A settled detail page whose current status offers none of these actions."""
+        harness.dom.render_dialog("task-detail-page")
+
+    def _render_after(self, harness: Harness, probes: int, button_testid: str) -> None:
+        """See ``TestTheAnchoredSectionReaders._render_after`` -- identical shape."""
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                page = harness.dom.render_dialog("task-detail-page")
+                page.children.append(harness.dom._new(button_testid))
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    # ── has_start_button ──
+
+    def test_has_start_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "start-task-button")
+
+        assert self._page(harness).has_start_button() is True
+
+    def test_has_start_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_start_button() is False
+
+    # ── has_skip_button ──
+
+    def test_has_skip_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "skip-task-button")
+
+        assert self._page(harness).has_skip_button() is True
+
+    def test_has_skip_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_skip_button() is False
+
+    # ── has_reopen_button ──
+
+    def test_has_reopen_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "reopen-task-button")
+
+        assert self._page(harness).has_reopen_button() is True
+
+    def test_has_reopen_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_reopen_button() is False
+
+    # ── has_clone_button ──
+
+    def test_has_clone_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "clone-task-button")
+
+        assert self._page(harness).has_clone_button() is True
+
+    def test_has_clone_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_clone_button() is False
+
+    # ── has_complete_submit ──
+
+    def test_has_complete_submit_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "complete-task-submit")
+
+        assert self._page(harness).has_complete_submit() is True
+
+    def test_has_complete_submit_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_complete_submit() is False
+
+    # ── has_plant_link ──
+
+    def test_has_plant_link_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "plant-link")
+
+        assert self._page(harness).has_plant_link() is True
+
+    def test_has_plant_link_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_plant_link() is False
 
 
 # ── 9. A submit helper cannot carry the caller's intent (#835) ───────────────
