@@ -391,10 +391,22 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 - [ ] `growth_habit`, `root_type`
 - [ ] `plant_category` (UI-Gruppierung); Lebenszyklus via `lifecycle_configs.cycle_type`
 
+> **🔴 Fehlendes `toxicity` ist ein Blocker, keine Luecke.** Bei essbaren Arten
+> und bei Zimmerpflanzen ist die Toxizitaetsangabe eine Sicherheitsaussage
+> gegenueber Kindern und Haustieren. Fehlt der Block ganz, liest die Domaene die
+> Defaults des `Toxicity`-Modells — `is_toxic_cats/dogs/children = False` — und
+> die fehlende Recherche wird still zur Entwarnung (#1005). Das ist die
+> Absent-Field-Semantik, die diese Pruefliste frueher auf „harmlos" gepolt hat.
+> Gefordert ist entweder ein belegter Block **oder** ein explizit als unbekannt
+> markierter (`severity: null` plus `# TOXICITY-UNKNOWN:`-Marker, siehe
+> `plant-info-to-seed-yaml`). Ein Block, in dem die drei Booleans ohne Beleg auf
+> `false` stehen, ist ebenfalls 🔴 — `false` ist eine Behauptung, kein
+> Platzhalter. „Unbekannt" und „ungiftig" sind nicht dasselbe.
+
 **Indoor-relevante Felder (sollen vorhanden sein fuer Indoor-Pflanzen):**
 - [ ] Licht/Temperatur/Luftfeuchte/VPD je Phase in `growth_phases[].requirement_profile` (`light_ppfd_target`, `temperature_day_c`/`_night_c`, `humidity_day_percent`/`_night_percent`, `vpd_target_kpa`) — NICHT auf Species-Ebene
 - [ ] Physiologie: `photosynthesis_type`, `shade_tolerance`, `light_compensation_point_ppfd_min/max`
-- [ ] `toxicity` (Objekt: `is_toxic_cats/dogs/children`, `severity`) + `allergen_info`
+- [ ] 🔴 `toxicity` (Objekt: `is_toxic_cats/dogs/children`, `severity`) + `allergen_info` — fehlend ist Fehler, nicht Warnung (siehe Kasten oben)
 - [ ] `frost_sensitivity`
 
 **Outdoor-relevante Felder (sollen vorhanden sein fuer Outdoor-Pflanzen):**
@@ -511,6 +523,10 @@ Pruefe Wertebereiche auf biologische Plausibilitaet. **Bei jedem Verdachtsfall**
 - `seed_profile.light_germination = light` (Lichtkeimer) ⇒ `sowing_depth_cm` ≈ 0 (nicht bedecken) — Widerspruch bei tiefer Saat
 - `climacteric` gesetzt ⇒ `harvested_part = fruit` (Nachreife-Verhalten nur bei Frucht sinnvoll)
 - `harvest_pattern`/`harvested_part`/`allows_harvest` konsistent (z.B. `allows_harvest = false` ⇒ kein `harvested_part`)
+- **Gegenrichtung (🔴):** `allows_harvest = true` ⇒ es MUSS `harvest_months` geben **oder** mindestens eine Periode in `growing_periods` mit nicht-leerem `harvest_months`. Die Regel eine Zeile darueber prueft nur, dass eine Zierpflanze keine Erntedaten traegt; der haeufigere Fall ist der umgekehrte — eine als erntbar deklarierte Art ohne jedes Erntefenster ist fuer die Kulturplanung stumm
+- **Top-Level ↔ `growing_periods` (🔴):** Sind `growing_periods` gesetzt, MUESSEN die Top-Level-Felder `direct_sow_months`, `harvest_months` und `bloom_months` die **Vereinigungsmenge** der gleichnamigen Felder aller Perioden sein. Jeder Monat, der nur auf einer der beiden Ebenen steht, ist ein Finding — in beide Richtungen. Eine Art mit erkennbar zwei Kulturfenstern (Sommer-/Wintersaat, Fruehjahrs-/Herbstsatz) und nur einer Periode ist ebenfalls ein Finding (#1008)
+- **`common_names`-Plausibilitaet (🟠):** Jeder Trivialname MUSS zur Gattung passen. Deutsche Namen sind gattungsgebunden („Grünlilie" ⇒ *Chlorophytum*, „Einblatt" ⇒ *Spathiphyllum*, „Bogenhanf" ⇒ *Dracaena*/*Sansevieria*): Traegt ein Datensatz einen Namen, der auf eine **andere** Gattung oder Familie zeigt als sein `genus`, ist das ein Finding — auch wenn der Name fuer sich genommen existiert (#1001)
+- **`growth_habit`-Plausibilitaet (🟠):** verholzend ⇒ `shrub`/`subshrub`/`tree`, **nie** `herb`; rankend ⇒ `vine`; Zwiebel-/Knollengeophyt ⇒ `bulb_geophyte`; sporenbildend ⇒ `fern`; aufsitzend ⇒ `epiphyte` (#1004)
 - `seed_profile` befuellt ⇒ `propagation_configs` enthaelt Methode `seed` (Saatgutdaten ohne Saat-Vermehrung ist widerspruechlich)
 - `salt_tolerance_class` ↔ `salt_tolerance_ece_threshold_ds_m` konsistent (Maas-Hoffman: `sensitive` ≈ <2, `moderately_sensitive` ≈ 2–4, `moderately_tolerant` ≈ 4–6, `tolerant` ≈ >6 dS/m)
 - `light_compensation_point_ppfd_min` ≤ `light_compensation_point_ppfd_max`

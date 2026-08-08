@@ -218,6 +218,19 @@ Jedes Pflanzendokument MUSS exakt diese Struktur haben. Alle Felder orientieren 
 | Geerntetes Pflanzenteil | {fruit/seed/leaf/root/tuber/bulb/flower_bud/flower/stem/whole_plant} | `species.harvested_part` |
 | Nachreife-Verhalten | {climacteric/non_climacteric/atypical} | `species.climacteric` |
 
+**Anbauzeitraeume (`species.growing_periods[]`) — eine Zeile je Kulturfenster.**
+Die Felder oben sind die *Zusammenfassung ueber alle Fenster*; hat eine Art
+mehrere Kulturfenster (Sommer-/Wintersaat wie beim Lauch, Fruehjahrs- und
+Herbstsatz bei Spinat/Feldsalat/Radieschen, Sukzessionsanbau), bekommt **jedes
+Fenster eine eigene Zeile**. Die Top-Level-Monate sind dann die
+Vereinigungsmenge der Zeilen. Bei einem einzigen Kulturfenster genuegt eine
+Zeile.
+
+| Label | Direktsaat-Monate | Wachstumsmonate | Erntemonate | Blütemonate | Vorkultur (Wo. vor Frost) | Auspflanzen (Tage nach Frost) | Ab Jahr (Ernte/Blüte) | KA-Feld |
+|-------|-------------------|-----------------|-------------|-------------|---------------------------|-------------------------------|-----------------------|---------|
+| {z.B. Sommerlauch} | {3, 4} | {5, 6, 7} | {8, 9, 10} | {–} | {8} | {–} | {–/–} | `species.growing_periods[]` |
+| {z.B. Winterlauch} | {5, 6} | {7–11} | {12, 1, 2, 3} | {–} | {–} | {–} | {–/–} | `species.growing_periods[]` |
+
 ### 1.3 Vermehrung (REQ-017 — strukturiert je Methode)
 
 Erzeuge **eine Zeile pro Vermehrungsmethode** (`species.propagation_configs[]`). Timing/Notizen hängen an der Methode, nicht an der Art. Verwende AUSSCHLIESSLICH diese Methoden-Enums: `seed`, `cutting`, `leaf_cutting`, `division`, `rhizome_division`, `bulb`, `bulbil`, `tuber`, `offset`, `runner`, `grafting`, `layering`, `air_layering`, `water_propagation`, `tissue_culture`, `spore`, `self_seeding`.
@@ -624,6 +637,9 @@ name,species_name,breeder,traits,seed_type,cycle_type,days_to_maturity,typical_y
 8. **Regional-Hinweise** — Aussaat-/Erntedaten für Mitteleuropa (USDA Zone 7–8), Abweichungen erwähnen
 9. **Sprache** — Dokument komplett auf Deutsch (Fachbegriffe mit englischer Entsprechung in Klammern)
 10. **Keine Halluzinationen** — Lieber eine Lücke lassen als einen erfundenen Wert eintragen
+11. **Trivialnamen gegen Gattung/Art verifizieren** — Ein Volksname wird NICHT aus der Erinnerung übernommen, sondern gegen den wissenschaftlichen Namen der *konkreten* Art belegt. Deutsche Namen wandern zwischen Gattungen: „Grünlilie" gehört zu *Chlorophytum*, nicht zu jeder Art, die grün und liliennah aussieht — genau dieser Fehler stand am falschen Genus im Bestand. Prüfe insbesondere Namen, die eine andere Gattung, Familie oder Nutzungsart nahelegen als die vorliegende Art, und nenne bei jedem Volksnamen die Quelle, die ihn dieser Art zuordnet.
+12. **`growth_habit`-Plausibilitätsanker** — Die Wuchsform muss zur Beschreibung der Art passen: verholzende Arten sind `shrub`, `subshrub` oder `tree`, **nie** `herb`. Weitere Anker: rankend/kletternd ⇒ `vine`; Zwiebel-/Knollengeophyt ⇒ `bulb_geophyte` (nicht `herb`); sukkulent ⇒ `succulent`; sporenbildend ⇒ `fern`; aufsitzend wachsend ⇒ `epiphyte`. Widerspricht die gewählte Wuchsform dem Fließtext des Steckbriefs, ist der Fließtext oder der Enum falsch — beides klären, nicht stehen lassen.
+13. **Toxizität: unbekannt ≠ ungiftig** — Ein fehlender Toxizitätsbeleg ist **keine** Entwarnung. Lass die Toxizitäts-Zeilen niemals einfach weg und trage niemals ersatzweise `false`/`none` ein. Ist die Datenlage unklar, wird das ausdrücklich als **unbekannt** erfasst (`unknown` in der Wertspalte, plus `<!-- DATEN FEHLEN -->`), damit die nachgelagerte YAML-Erzeugung daraus ein explizites `unknown` schreiben kann statt einer stillen Freigabe. Das gilt besonders für Zimmer- und Nutzpflanzen, bei denen die Angabe eine Sicherheitsaussage gegenüber Kindern und Haustieren ist.
 
 # Kommunikationsstil
 

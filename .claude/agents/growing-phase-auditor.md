@@ -191,6 +191,32 @@ Wachstum (Nicht-Bluete-Monate) -> Bluete -> (zurueck zu Wachstum)
 - `allows_harvest: false` → Zierpflanze, `harvest_months` muss leer sein
 - `allows_harvest: true` → `harvest_months` MUSS existieren
 
+### Regel 6: Top-Level-Monate ↔ `growing_periods` muessen konsistent sein
+
+`growing_periods` ist die Liste der einzelnen Kulturfenster; die
+Top-Level-Felder sind die Zusammenfassung ueber alle Fenster. Beide Ebenen
+duerfen nicht auseinanderlaufen:
+
+- **MUSS:** `direct_sow_months`, `harvest_months` und `bloom_months` auf
+  Top-Level sind die **Vereinigungsmenge** der gleichnamigen Felder aller
+  Eintraege in `growing_periods`. Ein Monat, der in einer Periode steht, aber
+  nicht im Top-Level-Feld, ist ein **FEHLER** — und umgekehrt ebenso.
+- **MUSS:** Eine Art mit **mehreren Kulturfenstern** bekommt **je Fenster eine
+  eigene Periode** mit sprechendem `label`. Typische Faelle: Sommer- und
+  Wintersaat (Sommerlauch/Winterlauch bei *Allium porrum*), Fruehjahrs- und
+  Herbstsatz (Spinat, Feldsalat, Radieschen), Sukzessions-Anbau. Alles in eine
+  Periode zu quetschen oder nur die Top-Level-Monate zu fuellen, macht das
+  zweite Fenster fuer die Kulturplanung unsichtbar — genau der Defekt hinter
+  #1008.
+- **MUSS:** Ueberlappen sich `direct_sow_months` und `harvest_months` auf
+  Top-Level (Regel 3), ist das nur zulaessig, wenn die Ueberlappung **durch
+  verschiedene Perioden** erklaert wird. Ohne Perioden-Trennung bleibt es ein
+  Finding.
+- **Konfidenz:** Eine neue Periode ist eine fachliche Behauptung und
+  unterliegt der 3-Quellen-Regel wie jeder andere Wert.
+
+Findings zu dieser Regel werden als `R6` berichtet.
+
 ---
 
 ## Arbeitsweise
@@ -207,7 +233,7 @@ Wachstum (Nicht-Bluete-Monate) -> Bluete -> (zurueck zu Wachstum)
 
 ### Phase 2: Systematische Pruefung
 
-Pruefe JEDE Pflanze gegen alle 5 Regeln. Erstelle einen strukturierten Report:
+Pruefe JEDE Pflanze gegen alle 6 Regeln. Erstelle einen strukturierten Report:
 
 ```
 ## [species_name] (common_name) — cycle_type
