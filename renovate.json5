@@ -24,6 +24,52 @@
       ],
       pinDigests: true,
     },
+    // ── Kamerplanter's own images in the Helm chart (#987) ───────────────────
+    // This rule IS the deploy mechanism, not a maintenance nicety. The chart
+    // used to reference `ghcr.io/nolte/kamerplanter-*:latest`, and a deploy was
+    // "publish, then restart the pods" — it worked only because the tag moved.
+    // Rollback had nothing to name for the same reason, which is the defect
+    // #987 records. The values now carry `latest@sha256:…`, so the reference no
+    // longer moves and something has to move it: this rule. Publish -> Renovate
+    // digest PR -> merge -> ArgoCD syncs. Rollback is `git revert` of that
+    // commit.
+    //
+    // The rule above does NOT cover these, which is why this one exists and why
+    // `arangodb` in the same file sits on an unpinned tag today: it matches
+    // `matchCategories: ['docker']`, and Renovate's `helm-values` manager
+    // declares `categories: ['helm','kubernetes']` with `pinDigests: false` in
+    // its own defaultConfig. Matching by manager is the only thing that reaches
+    // it. (Verified against the manager source, not inferred from behaviour.)
+    //
+    // Scoped to our own images on purpose. Third-party images in this chart
+    // (arangodb, timescale/timescaledb) are upstream releases on immutable-by-
+    // convention version tags that Renovate already ages; pinning their digests
+    // too is a defensible separate decision, but it is not this one, and doing
+    // it here would have hidden that behind a delivery change.
+    //
+    // grouped + automerge: one commit per deploy is what makes `git revert` a
+    // rollback. Eight separate digest PRs would mean eight commits to revert
+    // and a window where the components disagree about which build they are.
+    {
+      groupName: 'kamerplanter images',
+      matchManagers: [
+        'helm-values',
+      ],
+      matchPackageNames: [
+        '/^ghcr\\.io/nolte/kamerplanter-/',
+      ],
+      pinDigests: true,
+      automerge: true,
+      // Ahead of the maintenance stream: config:base allows 2 PRs per hour, and
+      // this one carries a deploy, not a dependency bump.
+      prPriority: 10,
+      labels: [
+        'dependencies',
+        'deployment',
+      ],
+      commitMessageTopic: 'the Kamerplanter images',
+      commitMessageExtra: 'to the digest published from develop',
+    },
     {
       groupName: 'github-actions',
       matchManagers: [

@@ -244,10 +244,18 @@ Docker metadata is automatically generated via `docker/metadata-action`:
 
     `latest` is overwritten on every push to `develop` and points at different
     bytes afterwards. For anything that has to be reproducible — deployments,
-    rollbacks, incident analysis — use the semantic-version tag or the commit
-    SHA. The ArgoCD Application in the `argo-charts` repository pins every image
-    tag explicitly for exactly this reason; a `latest` combined with
-    `pullPolicy: IfNotPresent` once left a node serving a stale image for months.
+    rollbacks, incident analysis — you need a reference that stays put. Since
+    #987 the Helm chart therefore no longer uses a moving tag but an immutable
+    digest: [Deployment and rollback](#deployment-and-rollback).
+
+    How expensive the alternative is has been measured, not asserted: with
+    `pullPolicy: IfNotPresent` — exactly what the chart sets — a node keeps
+    serving **the old image** after a `rollout restart`, even though the
+    registry has long been serving different bytes under the same tag.
+    Kubernetes only forces `Always` for a `:latest` reference while
+    `imagePullPolicy` is *unset*; an explicitly set `IfNotPresent` wins. That is
+    how the `inference-service` served an image without the `/pest/*` routes for
+    weeks.
 
 ### What secures each artifact
 
@@ -295,7 +303,16 @@ The Helm chart for Kamerplanter lives under `helm/kamerplanter/` and is pushed a
 oci://ghcr.io/nolte/charts/kamerplanter
 ```
 
-On a release tag, `version` and `appVersion` in `Chart.yaml` are automatically set to the release version before the chart is packaged. At the same time every Kamerplanter image tag in `values.yaml` is pinned to that same version — addressed by YAML path rather than by text-replacing the literal `tag: latest`. A following verification step aborts the release if any Kamerplanter image survived the substitution: a shipped chart still pointing at a moving reference is precisely the defect the pinning exists to prevent, and the previous text replacement had no way to notice.
+On a release tag, `version` and `appVersion` in `Chart.yaml` are automatically set to the release version before the chart is packaged. At the same time `scripts/ci/pin_chart_image_digests.sh` pins every Kamerplanter image in `values.yaml` to `<version>@sha256:<digest>` — addressed by YAML path rather than by text-replacing the literal `tag: latest`. The same run then re-reads the file and aborts the release if any Kamerplanter image survived the substitution.
+
+The digest is resolved from the registry rather than handed over from the build jobs. That also proves `<image>:<version>` exists at all — which is why `publish-helm-charts` has been ordered behind the image builds via `needs:` since #987. And it is the difference between "immutable" and "immutable by convention": a version tag can be re-pushed, a digest cannot.
+
+!!! info "Why not just the version?"
+
+    Until #987 this step pinned the bare version tag. That was better than the
+    `:latest` the develop tree carried, but a tag remains a reference to a
+    *name*: re-run the publish workflow for an existing tag and the same name
+    points at different bytes, with no way for a consumer to notice.
 
 ```bash
 # Pull the chart directly
@@ -377,6 +394,79 @@ sequenceDiagram
     GH->>GH: deploy MkDocs docs
     GH->>GH: update main branch
 ```
+
+---
+
+## Deployment and rollback
+
+A cluster does **not** learn about a new version because a tag was moved. The chart references every Kamerplanter image by an immutable digest:
+
+```yaml
+image:
+  repository: ghcr.io/nolte/kamerplanter-backend
+  tag: latest@sha256:af9bec…   # (1)!
+  pullPolicy: IfNotPresent      # (2)!
+```
+
+1. What matters is the part **after** the `@`. The digest is content-addressed and cannot move. The `latest` in front of it is not a moving reference here but a label recording which channel the digest came from — nothing resolves it. It sits on the same line because that is the notation Renovate maintains (see below).
+2. Deliberately stays `IfNotPresent`. A digest is content-addressed: an image already on the node **is** the requested one, so a re-pull could only confirm it. `Always` would make every pod start depend on GHCR being reachable and would gain nothing.
+
+### How a new version reaches the cluster
+
+```mermaid
+graph LR
+    A[Merge to develop] --> B[docker-publish<br/>pushes the image, :latest moves]
+    B --> C[Renovate PR<br/>group kamerplanter images]
+    C --> D[Automerge<br/>= one commit carrying the new digest]
+    D --> E[ArgoCD syncs<br/>pods roll]
+```
+
+A deploy is therefore a **commit**, not an operation on the cluster. Renovate keeps the digests current (`renovate.json5`, rule `kamerplanter images`); that they are present at all is enforced by `scripts/check_chart_image_digests.py` in the required `static` check.
+
+### Rollback
+
+```bash
+# 1. Find the commit that set the digest
+git log --oneline -- helm/kamerplanter/values.yaml
+
+# 2. Revert it — that is the entire rollback
+git revert <commit>
+```
+
+ArgoCD syncs the previous digest and the pods roll back. Verify the result **in the running pod**, not in the values file and not from a controller status:
+
+```bash
+kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"  "}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+```
+
+`imageID` names the digest the kubelet actually started. It has to match the one that is in `values.yaml` after the revert.
+
+!!! danger "Do not edit the running cluster"
+
+    `syncPolicy.automated.selfHeal: true` undoes any `kubectl edit` or
+    `kubectl set image` within minutes. A rollback that is not in Git is not a
+    rollback, it is a delay.
+
+!!! warning "What now makes a deploy slower"
+
+    A publish is live only once the Renovate PR has merged. Renovate runs on a
+    schedule, not on demand — for a hotfix, tick the refresh checkbox in the
+    Dependency Dashboard issue instead of waiting. The previous route
+    (`workflow_dispatch` + `kubectl rollout restart`) is no route at all: as
+    measured above, it never reliably pulled a new image in the first place.
+
+### Production: the pin also lives in the GitOps repository
+
+The ArgoCD `Application` for the Talos cluster is **not** in this repository but in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). It pulls the chart at a release tag (`targetRevision: vX.Y.Z`) and overrides `image.tag` per controller.
+
+!!! warning "A `tag` override in the Application manifest erases the digest"
+
+    The override beats the chart default. If it says `tag: "0.1.0"`, production
+    runs on a moving reference regardless. Now that the chart brings its own
+    digests, those overrides are redundant: `targetRevision` selects the
+    version, the chart selects the bytes. A rollback is then the revert of the
+    GitOps commit that raised `targetRevision`.
 
 ---
 

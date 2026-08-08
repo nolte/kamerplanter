@@ -72,7 +72,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest              # In Produktion: feste Version verwenden
+          tag: latest@sha256:af9bec…   # unveränderlicher Digest — siehe "Bestimmte Image-Version pinnen"
         envFrom:
           - secret: kamerplanter-secrets    # ARANGODB_PASSWORD, JWT_SECRET_KEY, FERNET_KEY, ERASURE_TOMBSTONE_SALT
         env:
@@ -107,7 +107,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest
+          tag: latest@sha256:fea5a3…
         resources:
           requests:
             cpu: 100m
@@ -303,22 +303,36 @@ controllers:
 
 ### Bestimmte Image-Version pinnen
 
+Das Chart bringt bereits gepinnte Digests mit — du überschreibst sie nur, wenn du eine andere Version willst als die, die das Chart mitliefert. Dann aber vollständig, also mit Digest:
+
 ```yaml
 controllers:
   backend:
     containers:
       main:
         image:
-          tag: "1.2.3"    # Statt "latest"
+          tag: "1.2.3@sha256:c6689b…"    # (1)!
   frontend:
     containers:
       main:
         image:
-          tag: "1.2.3"
+          tag: "1.2.3@sha256:6727d2…"
 ```
 
-!!! tip "Image-Tags"
-    Verwende in Produktion immer feste Versions-Tags statt `latest`. So stellst du sicher, dass ein `helm upgrade` die erwartete Version deployt.
+1. Digest ermitteln:
+   `docker buildx imagetools inspect ghcr.io/nolte/kamerplanter-backend:1.2.3`
+
+!!! danger "Ein Override ohne Digest macht das Pinning des Charts rückgängig"
+    Der Override gewinnt gegen den Chart-Default. `tag: "1.2.3"` — ohne den Teil
+    hinter dem `@` — ersetzt eine unveränderliche Referenz durch einen Namen, der
+    neu gepusht werden kann. Zusammen mit `pullPolicy: IfNotPresent` liefert ein
+    Node dann unter Umständen weiter alte Bytes aus, ohne dass es irgendwo
+    auffällt. Genau daran hing der `inference-service`-Vorfall.
+
+!!! tip "Und `latest` gar nicht"
+    `latest` bewegt sich bei jedem Push auf `develop`. Eine Referenz, die sich
+    bewegt, kann nicht zurückgerollt werden: „das vorherige Image" löst sich auf
+    das aktuelle auf. Siehe [Deployment und Rollback](ci-cd.md#deployment-und-rollback).
 
 ---
 
