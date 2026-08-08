@@ -40,10 +40,19 @@ properties:
       ``seed_adventskalender``. See ``$defs.compact_phase_entry``.
     additionalProperties:
       type: array
+      # Dispatched on the presence of ``phase`` rather than wrapped in a ``oneOf``:
+      # a oneOf collapses every nested failure into one "not valid under any of the
+      # given schemas" at the item level, which costs the precise
+      # ``growth_phases/<species>/<i>/name`` path a reviewer needs (and which
+      # test_phase_enum_consolidation asserts on). if/then/else keeps it.
       items:
-        oneOf:
-          - $ref: "#/$defs/phase_entry"
-          - $ref: "#/$defs/compact_phase_entry"
+        if:
+          type: object
+          required: [phase]
+        then:
+          $ref: "#/$defs/compact_phase_entry"
+        else:
+          $ref: "#/$defs/phase_entry"
   lifecycle_configs:
     type: object
     description: "Dictionary of species_name -> lifecycle configuration"
