@@ -4,7 +4,7 @@ from app.common.enums import AdminScope
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
-from app.domain.models.membership import MemberInfo, Membership
+from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 
 
 class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRepository):
@@ -121,6 +121,42 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
     def list_by_user(self, user_key: str) -> list[Membership]:
         return self.find_by_field("user_key", user_key, sort="created_at")
 
+    def list_by_user_with_tenant(self, user_key: str) -> list[UserMembershipInfo]:
+        """A user's memberships joined to each tenant's name and slug (#1019).
+
+        The user-perspective twin of :meth:`list_by_tenant`. A membership whose
+        tenant document no longer exists is skipped (``FILTER t != null``),
+        matching the router AQL this consolidates.
+        """
+        query = """
+        FOR m IN @@memberships
+          FILTER m.user_key == @user_key
+          LET t = DOCUMENT(CONCAT(@tenants_col, "/", m.tenant_key))
+          FILTER t != null
+          RETURN {
+            membership_key: m._key,
+            tenant_key: m.tenant_key,
+            tenant_name: t.name,
+            tenant_slug: t.slug,
+            role: m.role,
+            is_active: m.is_active,
+            joined_at: m.joined_at
+          }
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@memberships": col.MEMBERSHIPS,
+                "user_key": user_key,
+                "tenants_col": col.TENANTS,
+            },
+        )
+        return [UserMembershipInfo(**doc) for doc in cursor]
+
+    def count(self) -> int:
+        """Total number of membership documents (platform-admin statistics, #1019)."""
+        return self.collection.count()
+
     def count_managers(self, tenant_key: str) -> int:
         """Active memberships in the tenant holding the ``management`` scope (INV-1).
 
@@ -162,4 +198,28 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
           RETURN 1
         """
         cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
+        return sum(1 for _ in cursor)
+
+    def delete_all_for_user(self, user_key: str) -> int:
+        """Delete every membership of one user, with its graph edges (#1019).
+
+        The user-perspective twin of :meth:`delete_all_for_tenant`: same
+        ``has_membership`` (inbound) + ``membership_in`` (outbound) edge cleanup,
+        filtered on ``user_key`` instead of ``tenant_key``. Returns the number of
+        memberships removed.
+        """
+        query = f"""
+        FOR m IN {col.MEMBERSHIPS}
+          FILTER m.user_key == @user_key
+          LET mid = CONCAT("{col.MEMBERSHIPS}/", m._key)
+          LET del_has = (
+            FOR e IN {col.HAS_MEMBERSHIP} FILTER e._to == mid REMOVE e IN {col.HAS_MEMBERSHIP}
+          )
+          LET del_in = (
+            FOR e IN {col.MEMBERSHIP_IN} FILTER e._from == mid REMOVE e IN {col.MEMBERSHIP_IN}
+          )
+          REMOVE m IN {col.MEMBERSHIPS}
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"user_key": user_key})
         return sum(1 for _ in cursor)

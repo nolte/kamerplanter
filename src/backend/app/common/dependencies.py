@@ -753,7 +753,7 @@ def get_auth_service() -> AuthService:
 
 
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo())
+    return UserService(get_user_repo(), get_refresh_token_repo(), get_membership_repo())
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────

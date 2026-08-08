@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
@@ -17,10 +16,9 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserUpdate,
 )
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_db, get_privacy_service, get_tenant_service, get_user_service
-from app.common.exceptions import DuplicateError, ForbiddenError, NotFoundError
+from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
+from app.common.exceptions import ForbiddenError
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
-from app.data_access.arango import collections as col
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
@@ -32,65 +30,55 @@ router = APIRouter(prefix="/admin/platform", tags=["admin-platform"], responses=
 @router.get("/stats", response_model=AdminStatsResponse)
 def get_platform_stats(
     _user: User = Depends(require_platform_admin),
+    user_service: UserService = Depends(get_user_service),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Get platform-wide statistics."""
-    db = get_db()
-    total_users = db.collection(col.USERS).count()
-    active_users_cursor = db.aql.execute(
-        f"FOR u IN {col.USERS} FILTER u.is_active == true COLLECT WITH COUNT INTO c RETURN c"
-    )
-    active_users = next(active_users_cursor, 0)
+    """Get platform-wide statistics. Platform admin only.
 
-    total_tenants = db.collection(col.TENANTS).count()
-    active_tenants_cursor = db.aql.execute(
-        f"FOR t IN {col.TENANTS} FILTER t.is_active == true COLLECT WITH COUNT INTO c RETURN c"
-    )
-    active_tenants = next(active_tenants_cursor, 0)
-
-    total_memberships = db.collection(col.MEMBERSHIPS).count()
-
+    Routes the five counts through the service layer (#1019). This endpoint used
+    to call ``get_db()`` and run ``collection.count()`` + ``COLLECT WITH COUNT``
+    AQL from the router itself — Presentation straight onto Persistence
+    (NFR-001).
+    """
     return AdminStatsResponse(
-        total_users=total_users,
-        active_users=active_users,
-        total_tenants=total_tenants,
-        active_tenants=active_tenants,
-        total_memberships=total_memberships,
+        total_users=user_service.count_users(),
+        active_users=user_service.count_users(active_only=True),
+        total_tenants=tenant_service.count_tenants(),
+        active_tenants=tenant_service.count_tenants(active_only=True),
+        total_memberships=tenant_service.count_memberships(),
     )
 
 
 @router.get("/tenants", response_model=list[AdminTenantResponse])
 def list_all_tenants(
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all tenants with member counts. Platform admin only."""
-    db = get_db()
-    query = f"""
-    FOR t IN {col.TENANTS}
-      LET member_count = LENGTH(
-        FOR m IN {col.MEMBERSHIPS}
-          FILTER m.tenant_key == t._key AND m.is_active == true
-          RETURN 1
-      )
-      SORT t.created_at DESC
-      RETURN MERGE(t, {{member_count: member_count}})
+    """List all tenants with member counts. Platform admin only.
+
+    Routes through ``TenantService.list_all_tenants`` (#1019). The per-tenant
+    active-member count is derived from ``list_members``, the same way
+    ``update_tenant`` already does it — the router no longer hand-writes the
+    tenant/member-count AQL.
     """
-    cursor = db.aql.execute(query)
-    results = []
-    for doc in cursor:
+    results: list[AdminTenantResponse] = []
+    for tenant in tenant_service.list_all_tenants():
+        tenant_key = tenant.key or ""
+        member_count = sum(1 for member in tenant_service.list_members(tenant_key) if member.is_active)
         results.append(
             AdminTenantResponse(
-                key=doc["_key"],
-                name=doc["name"],
-                slug=doc["slug"],
-                tenant_type=doc.get("tenant_type", "personal"),
-                description=doc.get("description"),
-                owner_user_key=doc.get("owner_user_key", ""),
-                is_active=doc.get("is_active", True),
-                is_platform=doc.get("is_platform", False),
-                max_members=doc.get("max_members", 1),
-                member_count=doc["member_count"],
-                created_at=doc.get("created_at"),
-                updated_at=doc.get("updated_at"),
+                key=tenant_key,
+                name=tenant.name,
+                slug=tenant.slug,
+                tenant_type=tenant.tenant_type,
+                description=tenant.description,
+                owner_user_key=tenant.owner_user_key,
+                is_active=tenant.is_active,
+                is_platform=tenant.is_platform,
+                max_members=tenant.max_members,
+                member_count=member_count,
+                created_at=tenant.created_at,
+                updated_at=tenant.updated_at,
             )
         )
     return results
@@ -99,50 +87,40 @@ def list_all_tenants(
 @router.get("/users", response_model=list[AdminUserResponse])
 def list_all_users(
     _user: User = Depends(require_platform_admin),
+    user_service: UserService = Depends(get_user_service),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all users with their tenant memberships. Platform admin only."""
-    db = get_db()
-    query = f"""
-    FOR u IN {col.USERS}
-      LET memberships = (
-        FOR m IN {col.MEMBERSHIPS}
-          FILTER m.user_key == u._key AND m.is_active == true
-          LET t = DOCUMENT(CONCAT("{col.TENANTS}/", m.tenant_key))
-          FILTER t != null
-          RETURN {{
-            tenant_key: m.tenant_key,
-            tenant_name: t.name,
-            tenant_slug: t.slug,
-            role: m.role
-          }}
-      )
-      SORT u.created_at DESC
-      RETURN {{
-        key: u._key,
-        email: u.email,
-        display_name: u.display_name,
-        is_active: u.is_active,
-        email_verified: u.email_verified,
-        last_login_at: u.last_login_at,
-        created_at: u.created_at,
-        tenant_count: LENGTH(memberships),
-        roles: memberships
-      }}
+    """List all users with their tenant memberships. Platform admin only.
+
+    Routes through ``UserService.list_all_users`` for the user read and
+    ``TenantService.list_user_memberships`` for each user's tenant roles (#1019).
+    Both replace raw AQL the router used to run itself; the membership join now
+    lives once in the data-access layer.
     """
-    cursor = db.aql.execute(query)
-    results = []
-    for doc in cursor:
+    results: list[AdminUserResponse] = []
+    for user in user_service.list_all_users():
+        user_key = user.key or ""
+        active = [m for m in tenant_service.list_user_memberships(user_key) if m.is_active]
+        roles = [
+            AdminUserTenantRole(
+                tenant_key=m.tenant_key,
+                tenant_name=m.tenant_name,
+                tenant_slug=m.tenant_slug,
+                role=m.role,
+            )
+            for m in active
+        ]
         results.append(
             AdminUserResponse(
-                key=doc["key"],
-                email=doc["email"],
-                display_name=doc["display_name"],
-                is_active=doc.get("is_active", True),
-                email_verified=doc.get("email_verified", False),
-                last_login_at=doc.get("last_login_at"),
-                created_at=doc.get("created_at"),
-                tenant_count=doc["tenant_count"],
-                roles=[AdminUserTenantRole(**r) for r in doc["roles"]],
+                key=user_key,
+                email=user.email,
+                display_name=user.display_name,
+                is_active=user.is_active,
+                email_verified=user.email_verified,
+                last_login_at=user.last_login_at,
+                created_at=user.created_at,
+                tenant_count=len(roles),
+                roles=roles,
             )
         )
     return results
@@ -210,39 +188,31 @@ def update_user(
     body: AdminUserUpdate,
     _user: User = Depends(require_platform_admin),
     user_service: UserService = Depends(get_user_service),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Update a user. Platform admin only.
 
-    Routes the write through ``UserService.admin_update_user`` (#1018). This
-    endpoint used to call ``get_db()`` and write ``db.collection(USERS).update``
-    from here, which put the Presentation layer straight onto Persistence
-    (NFR-001) and outside every guard the repository layer applies: the
-    #982/#996 model re-validation, the reserved-attribute strip, the
-    error-code-1202 → :class:`NotFoundError` mapping and ``updated_at``
-    maintenance — the exact shape #997/#1017 fixed for the tenant twin.
-
-    Unlike the tenant endpoint, the ``roles`` block is still assembled from a
-    direct membership read below; consolidating that duplicated read is #1019 and
-    is out of scope here.
+    Routes the write through ``UserService.admin_update_user`` (#1018) and the
+    ``roles`` block through ``TenantService.list_user_memberships`` (#1019). This
+    endpoint used to call ``get_db()`` for both — ``collection.update`` for the
+    write (past the #982/#996 model re-validation, the reserved-attribute strip
+    and the 1202 → :class:`NotFoundError` mapping) and raw AQL for the membership
+    read. Both now go through the service layer (NFR-001), and the membership
+    join is the same one ``list_user_memberships`` / ``list_all_users`` use.
     """
     update_data = body.model_dump(exclude_none=True)
     user = user_service.admin_update_user(key, update_data) if update_data else user_service.get_user(key)
 
-    # Fetch memberships (read-only; #1019 tracks consolidating this duplicated logic)
-    db = get_db()
-    memberships_cursor = db.aql.execute(
-        "FOR m IN @@memberships FILTER m.user_key == @key AND m.is_active == true "
-        "LET t = DOCUMENT(CONCAT(@tenants_prefix, m.tenant_key)) "
-        "FILTER t != null "
-        "RETURN { tenant_key: m.tenant_key, tenant_name: t.name, "
-        "tenant_slug: t.slug, role: m.role }",
-        bind_vars={
-            "@memberships": col.MEMBERSHIPS,
-            "key": key,
-            "tenants_prefix": f"{col.TENANTS}/",
-        },
-    )
-    roles = [AdminUserTenantRole(**r) for r in memberships_cursor]
+    roles = [
+        AdminUserTenantRole(
+            tenant_key=m.tenant_key,
+            tenant_name=m.tenant_name,
+            tenant_slug=m.tenant_slug,
+            role=m.role,
+        )
+        for m in tenant_service.list_user_memberships(user.key or key)
+        if m.is_active
+    ]
 
     return AdminUserResponse(
         key=user.key or key,
@@ -271,13 +241,13 @@ def delete_tenant(
     object-storage prefix (``t/{key}/``) + contributed reference-index vectors
     are removed alongside memberships, invitations and assignments (SEC-002 —
     previously this raw-AQL path orphaned the tenant's binary data).
-    """
-    db = get_db()
-    existing = db.collection(col.TENANTS).get(key)
-    if not existing:
-        raise NotFoundError("Tenant", key)
 
-    if existing.get("is_platform"):
+    The existence check and the ``is_platform`` guard read the tenant through
+    ``TenantService.get_tenant`` (#1019) instead of ``get_db()``, so the router
+    no longer touches Persistence directly (NFR-001).
+    """
+    tenant = tenant_service.get_tenant(key)
+    if tenant.is_platform:
         raise ForbiddenError("The platform tenant cannot be deleted.")
 
     tenant_service.delete_tenant(key)
@@ -288,96 +258,49 @@ def delete_user(
     key: Annotated[str, Path(description="Document key of the user.")],
     current_user: User = Depends(require_platform_admin),
     privacy_service: PrivacyService = Depends(get_privacy_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Delete a user and all associated data. Platform admin only.
 
     Cannot delete yourself.
 
     SEC-003: runs the REQ-025 Phase 0 / 0.5 storage cleanup
-    (``delete_for_user`` / EXIF-strip + contributed reference-index vectors)
-    **before** removing the user's memberships. The cleanup resolves the user's
-    tenants via those memberships, so it must run while they still exist —
-    otherwise the user's binary data (object storage) and contributed
-    embeddings would be orphaned, the same gap the scheduled erasure closes.
+    (``run_user_storage_erasure`` — object storage + contributed reference-index
+    vectors) **before** the account hard-delete. That cleanup resolves the user's
+    tenants via their memberships, so it must run while they still exist —
+    otherwise the user's binary data and contributed embeddings would be
+    orphaned, the same gap the scheduled erasure closes.
+
+    The ArangoDB cascade routes through ``UserService.delete_account_permanently``
+    (#1019): eight raw-AQL ``REMOVE``s used to run from this router past the
+    service layer (NFR-001). It now removes the user's memberships (+ edges) via
+    the membership repository, then the user document and its remaining
+    single-user artefacts (auth providers, tokens, sessions, API keys,
+    preferences, onboarding state) via the user repository. Membership removal
+    stays after the storage cleanup, preserving the SEC-003 ordering.
     """
     from app.common.async_bridge import run_async
 
-    db = get_db()
-    users = db.collection(col.USERS)
-
-    existing = users.get(key)
-    if not existing:
-        raise NotFoundError("User", key)
+    user_service.get_user(key)
 
     if current_user.key == key:
         raise ForbiddenError("You cannot delete your own account from the admin panel.")
 
-    user_id = f"{col.USERS}/{key}"
-
     # ── REQ-025 Phase 0 / 0.5 (SEC-003) — must precede membership removal ──
     run_async(privacy_service.run_user_storage_erasure(key))
 
-    # Delete memberships + edges
-    db.aql.execute(
-        "FOR m IN @@memberships FILTER m.user_key == @key "
-        "LET mid = CONCAT(@memberships_prefix, m._key) "
-        "LET del_has = (FOR e IN @@has_membership FILTER e._to == mid REMOVE e IN @@has_membership) "
-        "LET del_in = (FOR e IN @@membership_in FILTER e._from == mid REMOVE e IN @@membership_in) "
-        "REMOVE m IN @@memberships",
-        bind_vars={
-            "@memberships": col.MEMBERSHIPS,
-            "@has_membership": col.HAS_MEMBERSHIP,
-            "@membership_in": col.MEMBERSHIP_IN,
-            "key": key,
-            "memberships_prefix": f"{col.MEMBERSHIPS}/",
-        },
-    )
-
-    # Delete auth providers + edges
-    db.aql.execute(
-        "FOR e IN @@edges FILTER e._from == @uid REMOVE e IN @@edges",
-        bind_vars={"@edges": col.HAS_AUTH_PROVIDER, "uid": user_id},
-    )
-    db.aql.execute(
-        "FOR doc IN @@col FILTER doc.user_key == @key REMOVE doc IN @@col",
-        bind_vars={"@col": col.AUTH_PROVIDERS, "key": key},
-    )
-
-    # Delete refresh tokens
-    db.aql.execute(
-        "FOR doc IN @@col FILTER doc.user_key == @key REMOVE doc IN @@col",
-        bind_vars={"@col": col.REFRESH_TOKENS, "key": key},
-    )
-
-    # Delete session edges
-    db.aql.execute(
-        "FOR e IN @@edges FILTER e._from == @uid REMOVE e IN @@edges",
-        bind_vars={"@edges": col.HAS_SESSION, "uid": user_id},
-    )
-
-    # Delete API keys
-    db.aql.execute(
-        "FOR doc IN @@col FILTER doc.user_key == @key REMOVE doc IN @@col",
-        bind_vars={"@col": col.API_KEYS, "key": key},
-    )
-
-    # Delete user preferences
-    db.aql.execute(
-        "FOR doc IN @@col FILTER doc.user_key == @key REMOVE doc IN @@col",
-        bind_vars={"@col": col.USER_PREFERENCES, "key": key},
-    )
-
-    # Delete onboarding states
-    db.aql.execute(
-        "FOR doc IN @@col FILTER doc.user_key == @key REMOVE doc IN @@col",
-        bind_vars={"@col": col.ONBOARDING_STATES, "key": key},
-    )
-
-    # Delete the user document
-    users.delete(key)
+    user_service.delete_account_permanently(key)
 
 
 # ── Tenant membership management ──────────────────────────────────────
+#
+# The tenant perspective (below) and the user perspective (further down) are two
+# views of the *same* membership operations. Before #1019 each view hand-wrote
+# the insert / role update / delete with its own edge management, so a fix to one
+# copy silently missed the other. Both now converge on the shared
+# ``TenantService.admin_*_membership`` methods; the only per-view code left is
+# the response shape (member-centric vs. tenant-centric) and the parent-entity
+# ownership constraint passed to the service.
 
 
 @router.get(
@@ -387,29 +310,27 @@ def delete_user(
 def list_tenant_members(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all members of a tenant. Platform admin only."""
-    db = get_db()
+    """List all members of a tenant. Platform admin only.
 
-    if not db.collection(col.TENANTS).has(tenant_key):
-        raise NotFoundError("Tenant", tenant_key)
-
-    cursor = db.aql.execute(
-        "FOR m IN @@memberships FILTER m.tenant_key == @key "
-        "LET u = DOCUMENT(CONCAT(@users_prefix, m.user_key)) "
-        "FILTER u != null "
-        "RETURN { "
-        "  membership_key: m._key, user_key: m.user_key, "
-        "  display_name: u.display_name, email: u.email, "
-        "  role: m.role, is_active: m.is_active, joined_at: m.joined_at "
-        "}",
-        bind_vars={
-            "@memberships": col.MEMBERSHIPS,
-            "key": tenant_key,
-            "users_prefix": f"{col.USERS}/",
-        },
-    )
-    return [AdminTenantMemberResponse(**doc) for doc in cursor]
+    Routes through ``TenantService.get_tenant`` (existence, 404) and
+    ``list_members`` (#1019) — the member/user join now lives in the membership
+    repository, not in raw AQL here.
+    """
+    tenant_service.get_tenant(tenant_key)
+    return [
+        AdminTenantMemberResponse(
+            membership_key=member.key,
+            user_key=member.user_key,
+            display_name=member.display_name,
+            email=member.email,
+            role=member.role,
+            is_active=member.is_active,
+            joined_at=member.joined_at,
+        )
+        for member in tenant_service.list_members(tenant_key)
+    ]
 
 
 @router.post(
@@ -421,69 +342,27 @@ def add_tenant_member(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminAddMemberRequest,
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
+    user_service: UserService = Depends(get_user_service),
 ):
-    """Add a user to a tenant. Platform admin only."""
-    db = get_db()
+    """Add a user to a tenant (tenant perspective). Platform admin only.
 
-    if not db.collection(col.TENANTS).has(tenant_key):
-        raise NotFoundError("Tenant", tenant_key)
-
-    user_doc = db.collection(col.USERS).get(body.user_key)
-    if not user_doc:
-        raise NotFoundError("User", body.user_key)
-
-    # Check for existing membership
-    existing_cursor = db.aql.execute(
-        "FOR m IN @@memberships FILTER m.user_key == @uk AND m.tenant_key == @tk LIMIT 1 RETURN m",
-        bind_vars={
-            "@memberships": col.MEMBERSHIPS,
-            "uk": body.user_key,
-            "tk": tenant_key,
-        },
-    )
-    existing = next(existing_cursor, None)
-    if existing:
-        raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
-
-    now = datetime.now(UTC).isoformat()
-    result = db.collection(col.MEMBERSHIPS).insert(
-        {
-            "user_key": body.user_key,
-            "tenant_key": tenant_key,
-            "role": body.role.value,
-            "is_active": True,
-            "joined_at": now,
-            "created_at": now,
-            "updated_at": now,
-        },
-        return_new=True,
-    )
-    m_key = result["new"]["_key"]
-
-    # Create graph edges
-    db.collection(col.HAS_MEMBERSHIP).insert(
-        {
-            "_from": f"{col.USERS}/{body.user_key}",
-            "_to": f"{col.MEMBERSHIPS}/{m_key}",
-            "created_at": now,
-        }
-    )
-    db.collection(col.MEMBERSHIP_IN).insert(
-        {
-            "_from": f"{col.MEMBERSHIPS}/{m_key}",
-            "_to": f"{col.TENANTS}/{tenant_key}",
-            "created_at": now,
-        }
-    )
-
+    Converges on ``TenantService.admin_add_membership`` (#1019), the single
+    implementation shared with the user-perspective ``add_user_to_tenant`` — the
+    membership row and its two graph edges are created once, in the service. The
+    user is loaded here (404 when unknown) because the member-centric response
+    needs its name and email.
+    """
+    user = user_service.get_user(body.user_key)
+    membership = tenant_service.admin_add_membership(tenant_key, body.user_key, body.role)
     return AdminTenantMemberResponse(
-        membership_key=m_key,
+        membership_key=membership.key or "",
         user_key=body.user_key,
-        display_name=user_doc["display_name"],
-        email=user_doc["email"],
-        role=body.role,
-        is_active=True,
-        joined_at=now,
+        display_name=user.display_name,
+        email=user.email,
+        role=membership.role,
+        is_active=membership.is_active,
+        joined_at=membership.joined_at,
     )
 
 
@@ -495,28 +374,16 @@ def remove_tenant_member(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Remove a member from a tenant. Platform admin only."""
-    db = get_db()
-    memberships = db.collection(col.MEMBERSHIPS)
+    """Remove a member from a tenant (tenant perspective). Platform admin only.
 
-    existing = memberships.get(membership_key)
-    if not existing or existing["tenant_key"] != tenant_key:
-        raise NotFoundError("Membership", membership_key)
-
-    mid = f"{col.MEMBERSHIPS}/{membership_key}"
-
-    # Delete graph edges
-    db.aql.execute(
-        "FOR e IN @@col FILTER e._to == @mid REMOVE e IN @@col",
-        bind_vars={"@col": col.HAS_MEMBERSHIP, "mid": mid},
-    )
-    db.aql.execute(
-        "FOR e IN @@col FILTER e._from == @mid REMOVE e IN @@col",
-        bind_vars={"@col": col.MEMBERSHIP_IN, "mid": mid},
-    )
-
-    memberships.delete(membership_key)
+    Converges on ``TenantService.admin_remove_membership`` (#1019), which also
+    drops the membership's location assignments — the raw-AQL router copy removed
+    only the two graph edges and orphaned them. The ``tenant_key`` constraint
+    404s a membership addressed under the wrong tenant.
+    """
+    tenant_service.admin_remove_membership(membership_key, tenant_key=tenant_key)
 
 
 @router.patch(
@@ -528,33 +395,25 @@ def change_member_role(
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: AdminUpdateMemberRoleRequest,
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
+    user_service: UserService = Depends(get_user_service),
 ):
-    """Change a member's role in a tenant. Platform admin only."""
-    db = get_db()
-    memberships = db.collection(col.MEMBERSHIPS)
+    """Change a member's role in a tenant (tenant perspective). Platform admin only.
 
-    existing = memberships.get(membership_key)
-    if not existing or existing["tenant_key"] != tenant_key:
-        raise NotFoundError("Membership", membership_key)
-
-    memberships.update(
-        {
-            "_key": membership_key,
-            "role": body.role.value,
-            "updated_at": datetime.now(UTC).isoformat(),
-        }
-    )
-    updated = memberships.get(membership_key)
-
-    user_doc = db.collection(col.USERS).get(updated["user_key"])
+    Converges on ``TenantService.admin_change_membership_role`` (#1019), shared
+    with the user-perspective ``change_user_membership_role``; the write goes
+    through the membership repository's re-validated ``update_fields``.
+    """
+    membership = tenant_service.admin_change_membership_role(membership_key, body.role, tenant_key=tenant_key)
+    user = user_service.get_user(membership.user_key)
     return AdminTenantMemberResponse(
-        membership_key=updated["_key"],
-        user_key=updated["user_key"],
-        display_name=user_doc["display_name"] if user_doc else "",
-        email=user_doc["email"] if user_doc else "",
-        role=updated["role"],
-        is_active=updated.get("is_active", True),
-        joined_at=updated.get("joined_at"),
+        membership_key=membership.key or membership_key,
+        user_key=membership.user_key,
+        display_name=user.display_name,
+        email=user.email,
+        role=membership.role,
+        is_active=membership.is_active,
+        joined_at=membership.joined_at,
     )
 
 
@@ -568,29 +427,28 @@ def change_member_role(
 def list_user_memberships(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     _user: User = Depends(require_platform_admin),
+    user_service: UserService = Depends(get_user_service),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all tenant memberships of a user. Platform admin only."""
-    db = get_db()
+    """List all tenant memberships of a user. Platform admin only.
 
-    if not db.collection(col.USERS).has(user_key):
-        raise NotFoundError("User", user_key)
-
-    cursor = db.aql.execute(
-        "FOR m IN @@memberships FILTER m.user_key == @key "
-        "LET t = DOCUMENT(CONCAT(@tenants_prefix, m.tenant_key)) "
-        "FILTER t != null "
-        "RETURN { "
-        "  membership_key: m._key, tenant_key: m.tenant_key, "
-        "  tenant_name: t.name, tenant_slug: t.slug, "
-        "  role: m.role, is_active: m.is_active, joined_at: m.joined_at "
-        "}",
-        bind_vars={
-            "@memberships": col.MEMBERSHIPS,
-            "key": user_key,
-            "tenants_prefix": f"{col.TENANTS}/",
-        },
-    )
-    return [AdminUserMembershipResponse(**doc) for doc in cursor]
+    Routes through ``UserService.get_user`` (existence, 404) and
+    ``TenantService.list_user_memberships`` (#1019) — the same membership/tenant
+    join ``list_all_users`` and ``update_user`` use.
+    """
+    user_service.get_user(user_key)
+    return [
+        AdminUserMembershipResponse(
+            membership_key=membership.membership_key,
+            tenant_key=membership.tenant_key,
+            tenant_name=membership.tenant_name,
+            tenant_slug=membership.tenant_slug,
+            role=membership.role,
+            is_active=membership.is_active,
+            joined_at=membership.joined_at,
+        )
+        for membership in tenant_service.list_user_memberships(user_key)
+    ]
 
 
 @router.post(
@@ -602,67 +460,27 @@ def add_user_to_tenant(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminAddUserToTenantRequest,
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
+    user_service: UserService = Depends(get_user_service),
 ):
-    """Add a user to a tenant. Platform admin only."""
-    db = get_db()
+    """Add a user to a tenant (user perspective). Platform admin only.
 
-    if not db.collection(col.USERS).has(user_key):
-        raise NotFoundError("User", user_key)
-
-    tenant_doc = db.collection(col.TENANTS).get(body.tenant_key)
-    if not tenant_doc:
-        raise NotFoundError("Tenant", body.tenant_key)
-
-    # Check for existing membership
-    existing_cursor = db.aql.execute(
-        "FOR m IN @@memberships FILTER m.user_key == @uk AND m.tenant_key == @tk LIMIT 1 RETURN m",
-        bind_vars={
-            "@memberships": col.MEMBERSHIPS,
-            "uk": user_key,
-            "tk": body.tenant_key,
-        },
-    )
-    if next(existing_cursor, None):
-        raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
-
-    now = datetime.now(UTC).isoformat()
-    result = db.collection(col.MEMBERSHIPS).insert(
-        {
-            "user_key": user_key,
-            "tenant_key": body.tenant_key,
-            "role": body.role.value,
-            "is_active": True,
-            "joined_at": now,
-            "created_at": now,
-            "updated_at": now,
-        },
-        return_new=True,
-    )
-    m_key = result["new"]["_key"]
-
-    db.collection(col.HAS_MEMBERSHIP).insert(
-        {
-            "_from": f"{col.USERS}/{user_key}",
-            "_to": f"{col.MEMBERSHIPS}/{m_key}",
-            "created_at": now,
-        }
-    )
-    db.collection(col.MEMBERSHIP_IN).insert(
-        {
-            "_from": f"{col.MEMBERSHIPS}/{m_key}",
-            "_to": f"{col.TENANTS}/{body.tenant_key}",
-            "created_at": now,
-        }
-    )
-
+    Converges on ``TenantService.admin_add_membership`` (#1019), the single
+    implementation shared with the tenant-perspective ``add_tenant_member``. The
+    user (path entity, 404) and the tenant (response name/slug, 404) are loaded
+    here; the membership and its edges are created once, in the service.
+    """
+    user_service.get_user(user_key)
+    tenant = tenant_service.get_tenant(body.tenant_key)
+    membership = tenant_service.admin_add_membership(body.tenant_key, user_key, body.role)
     return AdminUserMembershipResponse(
-        membership_key=m_key,
+        membership_key=membership.key or "",
         tenant_key=body.tenant_key,
-        tenant_name=tenant_doc["name"],
-        tenant_slug=tenant_doc["slug"],
-        role=body.role,
-        is_active=True,
-        joined_at=now,
+        tenant_name=tenant.name,
+        tenant_slug=tenant.slug,
+        role=membership.role,
+        is_active=membership.is_active,
+        joined_at=membership.joined_at,
     )
 
 
@@ -674,27 +492,15 @@ def remove_user_from_tenant(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Remove a user from a tenant. Platform admin only."""
-    db = get_db()
-    memberships = db.collection(col.MEMBERSHIPS)
+    """Remove a user from a tenant (user perspective). Platform admin only.
 
-    existing = memberships.get(membership_key)
-    if not existing or existing["user_key"] != user_key:
-        raise NotFoundError("Membership", membership_key)
-
-    mid = f"{col.MEMBERSHIPS}/{membership_key}"
-
-    db.aql.execute(
-        "FOR e IN @@col FILTER e._to == @mid REMOVE e IN @@col",
-        bind_vars={"@col": col.HAS_MEMBERSHIP, "mid": mid},
-    )
-    db.aql.execute(
-        "FOR e IN @@col FILTER e._from == @mid REMOVE e IN @@col",
-        bind_vars={"@col": col.MEMBERSHIP_IN, "mid": mid},
-    )
-
-    memberships.delete(membership_key)
+    Converges on ``TenantService.admin_remove_membership`` (#1019), shared with
+    the tenant-perspective ``remove_tenant_member``. The ``user_key`` constraint
+    404s a membership addressed under the wrong user.
+    """
+    tenant_service.admin_remove_membership(membership_key, user_key=user_key)
 
 
 @router.patch(
@@ -706,31 +512,22 @@ def change_user_membership_role(
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: AdminUpdateMemberRoleRequest,
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Change a user's role in a tenant. Platform admin only."""
-    db = get_db()
-    memberships = db.collection(col.MEMBERSHIPS)
+    """Change a user's role in a tenant (user perspective). Platform admin only.
 
-    existing = memberships.get(membership_key)
-    if not existing or existing["user_key"] != user_key:
-        raise NotFoundError("Membership", membership_key)
-
-    memberships.update(
-        {
-            "_key": membership_key,
-            "role": body.role.value,
-            "updated_at": datetime.now(UTC).isoformat(),
-        }
-    )
-    updated = memberships.get(membership_key)
-
-    tenant_doc = db.collection(col.TENANTS).get(updated["tenant_key"])
+    Converges on ``TenantService.admin_change_membership_role`` (#1019), shared
+    with the tenant-perspective ``change_member_role``; the tenant is loaded for
+    the tenant-centric response.
+    """
+    membership = tenant_service.admin_change_membership_role(membership_key, body.role, user_key=user_key)
+    tenant = tenant_service.get_tenant(membership.tenant_key)
     return AdminUserMembershipResponse(
-        membership_key=updated["_key"],
-        tenant_key=updated["tenant_key"],
-        tenant_name=tenant_doc["name"] if tenant_doc else "",
-        tenant_slug=tenant_doc["slug"] if tenant_doc else "",
-        role=updated["role"],
-        is_active=updated.get("is_active", True),
-        joined_at=updated.get("joined_at"),
+        membership_key=membership.key or membership_key,
+        tenant_key=membership.tenant_key,
+        tenant_name=tenant.name,
+        tenant_slug=tenant.slug,
+        role=membership.role,
+        is_active=membership.is_active,
+        joined_at=membership.joined_at,
     )
