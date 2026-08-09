@@ -99,6 +99,7 @@ jobs:
               - '!.gitignore'
               - '!CODEOWNERS'
               - '!Taskfile.yaml'
+              - '!.taskfiles/**'
               - '!.pre-commit-config.yaml'
             e2e_infra:
               - '.github/workflows/e2e-*.yml'

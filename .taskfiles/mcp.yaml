@@ -1,0 +1,158 @@
+# ── MCP Tooling (Claude Code) ────────────────────────────────────────────────
+# See docs/de/development/mcp-tools.md and spec/dev-tooling/MCP-SERVERS.md
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+tasks:
+  mcp:status:
+    desc: Show status of all MCP-related prerequisites (Chrome debug port, kubectl, Playwright cache)
+    silent: true
+    cmds:
+      - |
+        echo "── node / npx (required by all MCP servers) ──"
+        if command -v npx >/dev/null 2>&1; then
+          echo "  ✓ npx: $(npx --version) (node: $(node --version))"
+        else
+          echo "  ✗ npx not found — install Node.js (asdf install nodejs 25.9.0 or apt install nodejs npm)"
+        fi
+        echo "── chrome-devtools-mcp ──"
+        if curl -sf --max-time 1 http://localhost:9222/json/version >/dev/null 2>&1; then
+          BROWSER=$(curl -s http://localhost:9222/json/version | python3 -c "import sys,json;print(json.load(sys.stdin).get('Browser','?'))")
+          echo "  ✓ Chrome listening on :9222 ($BROWSER)"
+        else
+          echo "  ✗ Chrome not running on :9222 — run 'task mcp:chrome'"
+        fi
+        echo "── kubernetes-mcp-server ──"
+        if ctx=$(kubectl config current-context 2>/dev/null); then
+          echo "  ✓ kubectl context: $ctx"
+          if kubectl get ns default >/dev/null 2>&1; then
+            echo "  ✓ cluster reachable"
+          else
+            echo "  ⚠ cluster context set but unreachable"
+          fi
+        else
+          echo "  ✗ no kubectl context — run 'task setup'"
+        fi
+        echo "── playwright ──"
+        if [ -d "$HOME/.cache/ms-playwright" ] && ls "$HOME/.cache/ms-playwright"/chromium-* >/dev/null 2>&1; then
+          echo "  ✓ Chromium binary cached"
+        else
+          echo "  ⚠ Chromium not cached — downloads on first use (~200MB) or run 'task mcp:setup'"
+        fi
+        echo "── context7 ──"
+        if curl -sf --max-time 2 https://context7.com >/dev/null 2>&1; then
+          echo "  ✓ context7.com reachable"
+        else
+          echo "  ⚠ context7.com unreachable — check internet connection"
+        fi
+
+  mcp:chrome:
+    desc: Start Chrome with remote debugging port :9222 in isolated profile (for chrome-devtools-mcp)
+    silent: true
+    vars:
+      MCP_CHROME_URL: '{{.MCP_CHROME_URL | default "http://localhost:5173"}}'
+      MCP_CHROME_PROFILE: '{{.MCP_CHROME_PROFILE | default "/tmp/chrome-debug"}}'
+    cmds:
+      - |
+        if curl -sf --max-time 1 http://localhost:9222/json/version >/dev/null 2>&1; then
+          echo "✓ Chrome already listening on :9222"
+          exit 0
+        fi
+        if command -v google-chrome >/dev/null; then BROWSER=google-chrome
+        elif command -v chromium >/dev/null; then BROWSER=chromium
+        elif command -v chromium-browser >/dev/null; then BROWSER=chromium-browser
+        elif [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then
+          BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        else
+          echo "✗ No Chrome/Chromium found in PATH" >&2
+          echo "  Install Chrome or set BROWSER manually" >&2
+          exit 1
+        fi
+        mkdir -p "{{.MCP_CHROME_PROFILE}}"
+        nohup "$BROWSER" \
+          --remote-debugging-port=9222 \
+          --user-data-dir="{{.MCP_CHROME_PROFILE}}" \
+          --no-first-run \
+          --no-default-browser-check \
+          "{{.MCP_CHROME_URL}}" \
+          >"{{.MCP_CHROME_PROFILE}}/chrome.log" 2>&1 &
+        CHROME_PID=$!
+        echo "Started Chrome (pid $CHROME_PID), waiting for :9222 …"
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if curl -sf --max-time 1 http://localhost:9222/json/version >/dev/null 2>&1; then
+            echo "✓ Chrome ready at http://localhost:9222"
+            echo "  → opened {{.MCP_CHROME_URL}}"
+            echo "  → profile: {{.MCP_CHROME_PROFILE}}"
+            echo "  → stop with: task mcp:chrome:stop"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "✗ Chrome did not become reachable within 10s" >&2
+        echo "  Check log: {{.MCP_CHROME_PROFILE}}/chrome.log" >&2
+        exit 1
+
+  mcp:chrome:stop:
+    desc: Stop the debug Chrome instance running on :9222
+    silent: true
+    cmds:
+      - |
+        if ! curl -sf --max-time 1 http://localhost:9222/json/version >/dev/null 2>&1; then
+          echo "Chrome not running on :9222"
+          exit 0
+        fi
+        pkill -f "remote-debugging-port=9222" 2>/dev/null || true
+        sleep 1
+        if curl -sf --max-time 1 http://localhost:9222/json/version >/dev/null 2>&1; then
+          echo "⚠ Chrome still responding — try 'pkill -9 -f remote-debugging-port=9222'" >&2
+          exit 1
+        fi
+        echo "✓ Stopped debug Chrome"
+
+  mcp:setup:
+    desc: One-time MCP setup — pre-fetch Playwright Chromium and warm npx caches
+    silent: true
+    cmds:
+      - |
+        if ! command -v npx >/dev/null 2>&1; then
+          echo "✗ npx not found in PATH" >&2
+          echo >&2
+          echo "  All MCP servers (chrome-devtools, playwright, context7, kubernetes)" >&2
+          echo "  are launched via 'npx' and require Node.js." >&2
+          echo >&2
+          echo "  Install via asdf (matches ~/.tool-versions):" >&2
+          echo "    asdf plugin add nodejs" >&2
+          echo "    asdf install nodejs 25.9.0" >&2
+          echo >&2
+          echo "  Or system package:" >&2
+          echo "    sudo apt install nodejs npm" >&2
+          exit 1
+        fi
+        echo "── Pre-fetching Playwright Chromium (~200MB) ──"
+        npx -y playwright install chromium
+        echo
+        echo "── Warming npx caches for MCP servers ──"
+        echo "  · chrome-devtools-mcp"
+        npx -y chrome-devtools-mcp@latest --help >/dev/null 2>&1 || true
+        echo "  · @playwright/mcp"
+        npx -y @playwright/mcp@latest --help >/dev/null 2>&1 || true
+        echo "  · @upstash/context7-mcp"
+        npx -y @upstash/context7-mcp@latest --help >/dev/null 2>&1 || true
+        echo "  · kubernetes-mcp-server"
+        npx -y kubernetes-mcp-server@latest --help >/dev/null 2>&1 || true
+        echo
+        task mcp:status
+
+  mcp:e2e:debug:
+    desc: Start docker-compose.e2e.yml frontend with published port :8080 for live MCP debugging
+    cmds:
+      - |
+        echo "Frontend will be available at http://localhost:8080"
+        echo "Selenium tests in the same network are unaffected."
+        echo "Stop with Ctrl+C — no changes are written to docker-compose.e2e.yml."
+        echo
+        docker compose -f docker-compose.e2e.yml \
+          run --rm --service-ports --publish 8080:80 frontend

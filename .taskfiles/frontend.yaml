@@ -1,0 +1,82 @@
+# ── Frontend ─────────────────────────────────────────────────────────────────
+# ESLint, knip, tsc, vitest, the production build and the frontend.yml jobs'
+# local pendants (coverage, bundle budget, Lighthouse). The lint/test/build
+# targets are the exact invocations Frontend CI (frontend.yml) runs.
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+tasks:
+  lint:frontend:
+    desc: Run ESLint on the frontend — the CI gate's exact invocation
+    dir: src/frontend
+    cmds:
+      # `.`, not `src/`. This target used to lint only `src/` while CI linted the
+      # whole project, so a contributor could get a green local run on files the
+      # pipeline rejects. Widened to match CI rather than narrowing CI to match it.
+      - npx eslint .
+
+  lint:frontend:deadcode:
+    desc: |
+      Report unused files and unused exports in the frontend (knip) — the
+      advisory `deadcode` job's exact invocation. `tsc` accepts an exported
+      component nothing imports and ESLint never looks across files, so a
+      finished vertical slice can be reachable from no route at all (#818,
+      #786, #606). RED TODAY, on purpose: 9 unreachable files and 38 unused
+      exports as of 2026-08-08, none of them baselined away — see the header of
+      src/frontend/knip.jsonc for why there is no ignore list.
+    dir: src/frontend
+    cmds:
+      - npm run deadcode
+
+  typecheck:
+    desc: Run TypeScript type check (no emit)
+    dir: src/frontend
+    cmds:
+      - npx tsc --noEmit
+
+  test:frontend:
+    desc: Run the frontend vitest suite — the CI gate's exact invocation
+    dir: src/frontend
+    cmds:
+      - npx vitest run {{.CLI_ARGS}}
+
+  build:frontend:
+    desc: Production build — the CI gate's exact invocation
+    dir: src/frontend
+    cmds:
+      - npm run build
+
+  coverage:frontend:
+    desc: |
+      Frontend coverage run with enforced thresholds — what the advisory CI
+      Coverage job executes (frontend.yml → gh-plumbing reusable, fail-under
+      80). The thresholds themselves live in vite.config.ts, so this local run
+      fails on the same numbers CI fails on.
+    dir: src/frontend
+    cmds:
+      - npm run test:coverage
+
+  bundle:check:
+    desc: |
+      Bundle-budget gate — the CI job's exact sequence (frontend.yml
+      bundle-budget): production build, then check the initial payload against
+      the recorded budget (UI-NFR-003). This job is a hard gate in CI and
+      blocks automerge on breach, so run it locally before touching heavy
+      imports or route-level code splitting.
+    deps: [build:frontend]
+    dir: src/frontend
+    cmds:
+      - npm run bundle:check
+
+  lighthouse:
+    desc: |
+      Lighthouse CI run — the advisory CI job's exact sequence (frontend.yml
+      lighthouse): production build, then `lhci autorun` against the built
+      bundle.
+    deps: [build:frontend]
+    dir: src/frontend
+    cmds:
+      - npm run lhci
