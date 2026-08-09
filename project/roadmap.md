@@ -32,7 +32,7 @@ detail: fine
 outcomes: [O-4]
 target_sprint: 2
 mvp: true
-status: active
+status: done
 ```
 
 **MVP-Flip (Operator-Entscheid 2026-08-09):** `mvp: false → true`. Erlaubt, weil

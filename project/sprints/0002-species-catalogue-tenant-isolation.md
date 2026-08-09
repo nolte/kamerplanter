@@ -1,11 +1,11 @@
 ---
 number: 2
-status: active
+status: closed
 started: 2026-08-09
-ended: null
+ended: 2026-08-09
 value_statement: Gemeinschaftsgarten-Mitglieder sehen im Arten-Katalog nur die gemeinsamen und ihre eigenen Arten — privat angelegte Arten anderer Mandanten bleiben verborgen.
-artifact_ref: null
-last_commit: 85960e9c5
+artifact_ref: develop@1ed06471 (PR #1087)
+last_commit: 1ed06471dbac55f5d02aa5834654c6f107beb36e
 roadmap_items: [R-14]
 features: [F-3, F-4, F-5]
 ---
@@ -60,4 +60,37 @@ Readiness-Gate aufgerufen.
 
 ## Review notes
 
-_Populated by `sprint-review` at closure._
+**Abschluss (sprint-review, 2026-08-09): `closed`.**
+
+**Artefakt-Validierung (Schritt 3).** Projekt ist eine self-hosted Anwendung
+(Backend/Frontend/Helm), die kontinuierlich aus `develop` deployt — kein
+Per-Sprint-Release-Cut; Artefakt-Konvention wie Sprint 1 (`develop@<sha> (PR #N)`).
+- `artifact_ref: develop@1ed06471 (PR #1087)` — der Squash-Merge des
+  Sprint-2-Codes (F-3/F-4/F-5 + Security-Härtung) auf `develop`.
+- `git rev-parse 1ed06471…` → aufgelöst; `git merge-base --is-ancestor … develop`
+  → **REACHABLE** (Exit 0). `last_commit` auf den Merge-Commit korrigiert (der
+  vorherige `85960e9c5` wurde vom Squash-Merge verworfen).
+
+**Mehrwert-Verifizierer (Schritt 4).** Genau ein `verifies_sprint_value` über die
+Features: **F-5 (`features/species-tenant-aware-read.md`) `acceptance-2`** — „Eine
+Art eines fremden Mandanten erscheint NICHT in der Species-Liste eines anderen
+Mandanten." Bullet ist `[x]` (abgehakt), beidseitiger Isolationstest grün. Der
+Verifizierer beweist das `value_statement` direkt.
+
+**Release-Verkettung (Schritt 5): übersprungen.** Grund: self-hosted Anwendung,
+kontinuierlicher Deploy aus `develop`, kein eigener Release-Cut (kein
+PyPI/npm/Plugin/Container-Tag pro Sprint). `release-notes-curate` /
+`release-publish-trigger` nicht angestoßen — Deployment erfolgt out-of-band über
+die bestehende docker-publish/ArgoCD-Pipeline. (Wie Sprint 1.)
+
+**Security.** Die Tenant-Isolation wurde vor dem Merge vom `code-security-reviewer`
+geprüft; drei Critical-Cross-Tenant-Lecks (Einzel-Read, Update/Delete-Ownership,
+MCP) wurden vor dem Merge behoben und Rot-zuerst verifiziert.
+
+**Roadmap.** R-14 → `done` (alle Features F-3/F-4/F-5 `done`, Sprint `closed`).
+Gelieferter Schnitt ist **species-only**; **Cultivar** und die
+**`tenant_has_access`-Edge** bleiben Folge-Requirements (eigenes Roadmap-Item),
+ebenso die Org-Kontext-Tenant-Auflösung (#808 A1 / REQ-049) und die tenant-aware
+MCP-Species-Tools.
+
+**Blog-Trigger-Deferrals.** Keine offenen (`project/blog-triggers/` nicht vorhanden).
