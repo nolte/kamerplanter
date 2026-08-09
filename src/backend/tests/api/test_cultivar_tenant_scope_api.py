@@ -63,9 +63,17 @@ class _FakeUnionService:
             return rows
         return [c for c in rows if c.tenant_key in (tenant_key, "", None)]
 
-    def get_cultivar(self, key: str, *, tenant_key: str | None = None) -> Cultivar:
+    def get_cultivar(self, key: str, *, species_key: str | None = None, tenant_key: str | None = None) -> Cultivar:
+        # ``species_key`` is modelled, not merely accepted (SEC-007, C-10): a fake
+        # that swallowed the new argument would keep this module green while the
+        # route silently stopped binding the cultivar to its species. The species
+        # binding's own behaviour is pinned in
+        # ``test_cultivar_species_path_binding_api.py``; here it only has to be
+        # faithful enough not to lie about the tenant assertions below.
         for cultivar in _CULTIVARS:
             if cultivar.key == key:
+                if species_key is not None and cultivar.species_key != species_key:
+                    raise NotFoundError("Cultivar", key)
                 if tenant_key is not None and cultivar.tenant_key not in (tenant_key, ""):
                     raise NotFoundError("Cultivar", key)
                 return cultivar

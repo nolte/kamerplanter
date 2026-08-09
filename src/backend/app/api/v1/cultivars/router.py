@@ -100,8 +100,14 @@ def get_cultivar(
     :meth:`SpeciesService.get_cultivar`, so the global catalogue and the caller's
     own cultivars resolve, but a *foreign* tenant's cultivar answers 404 — never a
     403, so the by-key endpoint is not an enumerable cross-tenant oracle.
+
+    Species-bound (SEC-007, C-10, #1090): the ``species_key`` path segment is
+    threaded in as well. A cultivar addressed under a species that is not its own
+    answers 404 — the same signal the list route gives for a foreign species (Q3).
+    Before C-10 the segment was accepted and ignored, so every cultivar resolved
+    under every species key.
     """
-    c = service.get_cultivar(cultivar_key, tenant_key=tenant_key)
+    c = service.get_cultivar(cultivar_key, species_key=species_key, tenant_key=tenant_key)
     return to_response(c, CultivarResponse)
 
 
@@ -120,15 +126,23 @@ def update_cultivar(
     tenant's cultivar answers 404, the *global* seed catalogue is editable only by
     a platform admin, and the caller's *own* cultivar requires a writing domain
     role (a viewer is refused).
+
+    Species-bound (SEC-007, C-10, #1090): updating a cultivar under a species that
+    is not its own answers 404 and writes nothing. Previously the path value was
+    written straight into the model, so a PUT to the wrong URL silently re-parented
+    the document while its ``has_cultivar`` edge stayed on the original species.
     """
     # The model built here carries the *default* ``tenant_key == ""`` — the edit form
     # never submits ownership (#1090). The service restores the stored owner before
     # writing, so this full-replace update cannot move a tenant-owned cultivar into
-    # the shared global catalogue.
+    # the shared global catalogue. It restores the stored ``species_key`` the same
+    # way (C-10), so neither the path segment below nor the body's ignored
+    # ``species_key`` can move the row between species.
     cultivar = Cultivar(species_key=species_key, **body.model_dump(exclude={"species_key"}))
     updated = service.update_cultivar(
         cultivar_key,
         cultivar,
+        species_key=species_key,
         tenant_key=ctx.tenant_key,
         caller_role=ctx.role,
         is_platform_admin=is_platform_admin,
@@ -150,9 +164,13 @@ def delete_cultivar(
     boundary: a *foreign* cultivar answers 404, a *global* seed row is deletable
     only by a platform admin, and deleting an *own* cultivar requires a lead
     (the irreversibility boundary, REQ-049 §2.3).
+
+    Species-bound (SEC-007, C-10, #1090): deleting a cultivar under a species that
+    is not its own answers 404 and removes nothing.
     """
     service.delete_cultivar(
         cultivar_key,
+        species_key=species_key,
         tenant_key=ctx.tenant_key,
         caller_role=ctx.role,
         is_platform_admin=is_platform_admin,

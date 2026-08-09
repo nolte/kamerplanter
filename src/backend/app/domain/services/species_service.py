@@ -501,24 +501,48 @@ class SpeciesService:
         self.get_species(cultivar.species_key, tenant_key=tenant_key)
         return self._repo.create_cultivar(cultivar)
 
-    def get_cultivar(self, key: CultivarKey, *, tenant_key: str | None = None) -> Cultivar:
-        """Return one cultivar by key, tenant-scoped when ``tenant_key`` is given (C-3, #1090).
+    def get_cultivar(
+        self,
+        key: CultivarKey,
+        *,
+        species_key: SpeciesKey | None = None,
+        tenant_key: str | None = None,
+    ) -> Cultivar:
+        """Return one cultivar by key, scoped to its species and the caller's tenant.
 
-        The Cultivar pendant of :meth:`get_species`, with the same two modes:
+        Two independent narrowings, each optional so the internal callers keep
+        working, and each answering with the very same :class:`NotFoundError`:
 
-        * ``None`` (the default) — the unscoped **system-context** load internal
-          callers use (the update/delete ownership check below, the dereference
-          paths, the seed loaders). Never reachable from a raw HTTP read.
-        * a string (including ``""``) — the hybrid-catalogue read check: the
-          caller's own cultivars plus the global catalogue (``tenant_key == ""``,
-          which after migration ``v0038`` still holds every pre-#1090 row) resolve,
-          but a *foreign* tenant's cultivar raises :class:`NotFoundError`.
+        * ``species_key`` (SEC-007, C-10, #1090) — the cultivar routes are nested
+          under ``/species/{species_key}/cultivars/…`` but nothing used to compare
+          the two segments, so every cultivar resolved under *any* species. Passing
+          the path value here binds the row to the species it is addressed under.
+          ``None`` (the default) is the by-key-only load the dereference paths, the
+          seed loaders and this service's own gate loads use.
+        * ``tenant_key`` (C-3, #1090) — the Cultivar pendant of :meth:`get_species`:
+          ``None`` is the unscoped **system-context** load; a string (including
+          ``""``) admits the caller's own cultivars plus the global catalogue
+          (``tenant_key == ""``, which after migration ``v0038`` still holds every
+          pre-#1090 row) and hides a *foreign* tenant's row.
 
-        The check runs **after** an unscoped load, so a foreign row and an absent
-        key are indistinguishable to the caller: both are a 404, never a 403 — the
-        by-key endpoint must not become a cross-tenant existence oracle.
+        Both checks run **after** an unscoped load, so a mis-addressed row, a
+        foreign row and an absent key are indistinguishable to the caller: all three
+        are a 404, never a 403 — the by-key endpoint must not become a cross-tenant
+        existence oracle.
+
+        Order matters for exactly one case, and the species check deliberately comes
+        first. For a *foreign* row the two arms agree (404 either way), so the order
+        is unobservable. For a *global* row it is not: with ownership first, a
+        non-admin PUT to the wrong species would fall through to the caller's
+        role gate and answer 403 ("only a platform admin may modify the global
+        catalogue") — confirming that the key exists and is global, for a URL that
+        addresses no resource at all. Deciding the species first answers 404 there,
+        which is both the honest answer and strictly less information. It is also
+        role-independent, so it cannot be probed by varying privileges.
         """
         cultivar = self._repo.get_cultivar_or_raise(key)
+        if species_key is not None and cultivar.species_key != species_key:
+            raise NotFoundError("Cultivar", key)
         if tenant_key is not None and cultivar.tenant_key not in (tenant_key, ""):
             raise NotFoundError("Cultivar", key)
         return cultivar
@@ -528,15 +552,21 @@ class SpeciesService:
         key: CultivarKey,
         cultivar: Cultivar,
         *,
+        species_key: SpeciesKey | None = None,
         tenant_key: str | None = None,
         caller_role: TenantRole | None = None,
         is_platform_admin: bool = False,
     ) -> Cultivar:
-        # Unscoped load (no ``tenant_key=``) on purpose: the ownership gate below
-        # needs the *stored* owner to answer a foreign row with 404 and a global one
-        # with 403. A scoped load would collapse both into the same 404 and silently
-        # drop the platform-admin arm for the global catalogue.
-        existing = self.get_cultivar(key)
+        # Tenant-unscoped load (no ``tenant_key=``) on purpose: the ownership gate
+        # below needs the *stored* owner to answer a foreign row with 404 and a
+        # global one with 403. A scoped load would collapse both into the same 404
+        # and silently drop the platform-admin arm for the global catalogue.
+        #
+        # ``species_key`` *is* passed through (SEC-007, C-10): a cultivar addressed
+        # under a species that is not its own must 404 before any role decision, so
+        # the refusal never depends on — or reveals — the caller's privileges. See
+        # get_cultivar for the full order rationale.
+        existing = self.get_cultivar(key, species_key=species_key)
         self._authorize_cultivar_write(
             existing,
             key,
@@ -555,19 +585,31 @@ class SpeciesService:
         # the origin preservation above and ``update_species``. The repository repeats
         # this guard for the callers that bypass the service (seed upsert, #1090 P2).
         cultivar.tenant_key = existing.tenant_key
+        # The parent species is structural, not payload (SEC-007, C-10). The route
+        # builds the model from the *path* segment and the edit form submits no
+        # species, so a full-replace update must carry the stored parent over
+        # whatever arrives — otherwise a PUT re-parents the document while the
+        # ``has_cultivar`` edge, written once by ``create_cultivar``, stays on the
+        # old species and catalogue and graph disagree. The 404 above already blocks
+        # the HTTP path; this covers the system-context writers (the seeders, the
+        # CSV import) that pass no ``species_key`` and are gated by nothing.
+        cultivar.species_key = existing.species_key
         return self._repo.update_cultivar(key, cultivar)
 
     def delete_cultivar(
         self,
         key: CultivarKey,
         *,
+        species_key: SpeciesKey | None = None,
         tenant_key: str | None = None,
         caller_role: TenantRole | None = None,
         is_platform_admin: bool = False,
     ) -> bool:
-        # Unscoped load, same reasoning as update_cultivar: the gate needs the real
-        # stored owner to separate foreign→404 from global→403.
-        existing = self.get_cultivar(key)
+        # Tenant-unscoped but species-scoped load, same reasoning as update_cultivar:
+        # the gate needs the real stored owner to separate foreign→404 from
+        # global→403, while a cultivar addressed under the wrong species is simply
+        # not there (SEC-007, C-10).
+        existing = self.get_cultivar(key, species_key=species_key)
         self._authorize_cultivar_write(
             existing,
             key,

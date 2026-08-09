@@ -30,7 +30,7 @@ from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import Species
-from app.migrations.cultivar_seed import build_cultivar
+from app.migrations.cultivar_seed import build_cultivar, global_cultivars
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -495,8 +495,10 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
             logger.info("cultivar_species_not_found", species=sci_name)
             continue
 
-        existing_cultivars = species_repo.get_cultivars(sp_key)
-        existing_names = {c.name for c in existing_cultivars}
+        # Only *global* rows are seed-match candidates (SEC-002, #1090): a
+        # tenant-owned cultivar of the same name must not suppress the shared
+        # catalogue entry for everyone else.
+        existing_names = {c.name for c in global_cultivars(species_repo, sp_key)}
 
         for cv_entry in cultivar_list:
             cv_name = cv_entry["name"]
