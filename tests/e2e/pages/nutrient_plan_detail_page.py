@@ -5,7 +5,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class NutrientPlanDetailPage(BasePage):
@@ -267,9 +267,29 @@ class NutrientPlanDetailPage(BasePage):
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
-        """Return True if the confirm dialog is visible."""
+        """Return True if the confirm dialog is visible.
+
+        Deliberately instantaneous, not anchored: its *presence* call site
+        reads it right after ``click_delete()``, which already runs
+        ``wait_for_element_visible(self.CONFIRM_DIALOG)``. For the
+        *dismissal* check, use :meth:`wait_for_confirm_dialog_closed` instead:
+        MUI's Dialog unmounts only after its exit transition finishes, and
+        ``cancel_delete()`` does not itself wait for that, so a raw negated
+        read sampled right after cancelling can still see the dialog
+        mid-fade-out and report it as open (#946 wave 9 -- the same
+        guarded-dismissal gap waves 4-6 fixed on the other detail pages).
+        """
         dialogs = self.driver.find_elements(*self.CONFIRM_DIALOG)
         return any(d.is_displayed() for d in dialogs)
+
+    def wait_for_confirm_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait for the delete ConfirmDialog to actually leave the DOM.
+
+        Returns ``False`` (rather than raising) once the budget is spent, so a
+        dialog that genuinely never closes still fails the caller's own
+        assertion.
+        """
+        return self.is_absent_within(self.CONFIRM_DIALOG, timeout=timeout)
 
     def confirm_delete(self) -> None:
         """Click the confirm button in the delete dialog."""

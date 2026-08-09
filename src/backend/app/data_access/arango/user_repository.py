@@ -50,17 +50,56 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         return User(**self._from_doc(docs[0]))
 
     def delete(self, key: UserKey) -> bool:
+        """Delete a user and cascade every account-owned artefact (#1019).
+
+        Auth-provider docs + edges, refresh tokens and session edges were already
+        removed here; #1019 folded in the API keys, user preferences and
+        onboarding state that the platform-admin ``delete_user`` router used to
+        remove with its own raw AQL, so the full single-user purge now lives in
+        one place. Memberships stay out of this method — they belong to the
+        membership repository and are removed by the account-deletion cascade
+        *before* this call (their per-tenant storage walk needs them alive).
+        """
         user_id = f"{col.USERS}/{key}"
         # Delete auth provider edges + docs
         self.delete_edges(col.HAS_AUTH_PROVIDER, user_id)
-        query = f"FOR doc IN {col.AUTH_PROVIDERS} FILTER doc.user_key == @key REMOVE doc IN {col.AUTH_PROVIDERS}"
-        self._db.aql.execute(query, bind_vars={"key": key})
+        self._remove_docs_for_user(col.AUTH_PROVIDERS, key)
         # Delete refresh tokens
-        query = f"FOR doc IN {col.REFRESH_TOKENS} FILTER doc.user_key == @key REMOVE doc IN {col.REFRESH_TOKENS}"
-        self._db.aql.execute(query, bind_vars={"key": key})
+        self._remove_docs_for_user(col.REFRESH_TOKENS, key)
         # Delete session edges
         self.delete_edges(col.HAS_SESSION, user_id)
+        # Delete API keys, preferences and onboarding state (#1019)
+        self._remove_docs_for_user(col.API_KEYS, key)
+        self._remove_docs_for_user(col.USER_PREFERENCES, key)
+        self._remove_docs_for_user(col.ONBOARDING_STATES, key)
         return super().delete(key)
+
+    def _remove_docs_for_user(self, collection: str, key: UserKey) -> None:
+        """Remove every document in ``collection`` carrying ``user_key == key``.
+
+        The collection name is always a ``collections.py`` code constant, so it
+        is interpolated (never a caller value); ``key`` is bound.
+        """
+        query = f"FOR doc IN {collection} FILTER doc.user_key == @key REMOVE doc IN {collection}"
+        self._db.aql.execute(query, bind_vars={"key": key})
+
+    def list_all(self) -> list[User]:
+        """Every user, newest first (platform-admin listing, #1019)."""
+        docs = self._find_docs([], sort="created_at", sort_direction="DESC")
+        return self._wrap_many(docs)
+
+    def count(self, *, active_only: bool = False) -> int:
+        """Number of user documents; ``active_only`` counts ``is_active`` ones (#1019)."""
+        if not active_only:
+            return self.collection.count()
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.is_active == true
+          COLLECT WITH COUNT INTO cnt
+          RETURN cnt
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.USERS})
+        return next(cursor, 0)
 
     def get_unverified_before(self, cutoff_iso: str) -> list[User]:
         query = """

@@ -391,8 +391,8 @@ Konstruktionsstelle eine Entscheidung — und wer sie vergisst, ist wieder bei 5
 
 **Durchsetzung.** `scripts/check_boundary_validation.py` laeuft als
 pre-commit-Hook in der required `static`-Lane und zusaetzlich als Unit-Test
-(`tests/unit/test_boundary_validation_check.py`). Es paart jedes Request-Schema
-mit dem Domain-Modell, in das der Router es schuettet
+(`tests/unit/test_boundary_validation_check.py`). Es paart ein Request-Schema mit
+dem Domain-Modell **nur dort, wo der Router das Modell an der Grenze baut**
 (`DomainModel(**body.model_dump())`), und meldet zwei Formen — beide allein aus
 den Annotationen entscheidbar:
 
@@ -417,6 +417,18 @@ meisten davon zu Recht, und ob die Regel bei den Feldtypen des Request-Schemas
 ueberhaupt erreichbar ist, steht in ihrer Semantik. Eine Pruefung mit
 Fehlalarmen wird binnen einer Woche stillgelegt und schuetzt danach gar nichts.
 Diesen Teil der Regel setzt das Review durch, nicht das Gate.
+
+**Der zweite blinde Fleck ist strukturell, nicht unentscheidbar.** Das Gate
+paart auf **Konstruktionsstellen**. Ein Router, der das Domain-Modell nie baut,
+sondern ein Dict direkt in eine Collection schreibt (`PATCH
+/admin/platform/tenants/{key}` in #997), hat keine Konstruktionsstelle — er ist
+hier **per Konstruktion unsichtbar**, und keine Zahl zusaetzlicher Paarungen
+findet ihn. Ein gruenes Ergebnis heisst deshalb „die Schemas, die ein
+Domain-Modell bauen, verbreitern es nicht", niemals „ueberall wird an der Grenze
+validiert". Diese Dict-Writer-Klasse (#1020, #1019, #1018, #997) gehoert dem
+Layer-Gate `scripts/check_layer_imports.py` (NFR-001): Ein Persistenz-Schreiben
+braucht die `app.data_access`-Collection-Konstanten, und genau diesen Import
+verweigert das Layer-Gate.
 
 !!! warning "Ein gruenes Gate heisst nicht 'die Grenze validiert'"
     Der Deckel **stundet** die 54 verbreiterten Enum-Felder, er tilgt sie nicht.

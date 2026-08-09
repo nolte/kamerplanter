@@ -274,6 +274,56 @@ describe('seasonSlice thunks', () => {
     expect(store.getState().season.currentProfile?.user_overridden).toBe(true);
   });
 
+  it('overrideOverwintering preserves the typed ApiError (with details) through unwrap (#1041)', async () => {
+    const apiError = new ApiError(
+      {
+        error_id: 'err-42',
+        error_code: 'WINTER_PATH_VIOLATION',
+        message: 'invalid',
+        details: [
+          {
+            field: 'winter_action',
+            reason: "Path B requires one of move_indoors, dig_store; got 'fleece'.",
+            code: 'WINTER_PATH_VIOLATION',
+          },
+        ],
+        timestamp: '2026-01-01T00:00:00Z',
+        path: '/plants/plant-1/overwintering',
+        method: 'PATCH',
+      },
+      422,
+    );
+    mocked.overridePlantOverwintering.mockRejectedValue(apiError);
+    const store = makeStore();
+
+    // `.unwrap()` must re-throw the very same ApiError instance — not RTK's
+    // serialised copy — so the dialog can read `details[].code` off it.
+    await expect(
+      store
+        .dispatch(
+          overrideOverwintering({ plantKey: 'plant-1', patch: { winter_action: 'fleece' } }),
+        )
+        .unwrap(),
+    ).rejects.toBe(apiError);
+  });
+
+  it('overrideOverwintering rethrows a non-ApiError so the axios branch still handles it (#1041)', async () => {
+    // A network/timeout failure is not an ApiError and carries no field
+    // violations — it must not be wrapped as a rejected payload but rethrown, so
+    // `.unwrap()` still surfaces it (RTK serialises it) for useApiError's axios/
+    // network branch rather than the coded-violation path.
+    mocked.overridePlantOverwintering.mockRejectedValue(new Error('Network Error'));
+    const store = makeStore();
+
+    await expect(
+      store
+        .dispatch(
+          overrideOverwintering({ plantKey: 'plant-1', patch: { winter_action: 'fleece' } }),
+        )
+        .unwrap(),
+    ).rejects.toThrow('Network Error');
+  });
+
   it('resetOverwintering calls the reset endpoint', async () => {
     mocked.getPlantOverwintering.mockResolvedValue(profile as never);
     mocked.resetPlantOverwintering.mockResolvedValue(profile as never);

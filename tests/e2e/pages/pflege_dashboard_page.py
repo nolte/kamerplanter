@@ -123,7 +123,15 @@ class PflegeDashboardPage(BasePage):
     # ── Page state queries ─────────────────────────────────────────────
 
     def is_page_displayed(self) -> bool:
-        """Return True if the dashboard page container is visible."""
+        """Return True if the dashboard page container is visible.
+
+        Deliberately instantaneous, not anchored: its one call site
+        (``test_dashboard_page_renders``) reads it immediately after
+        ``open()``, which already runs ``wait_for_element(self.PAGE)`` -- the
+        readiness this method reports has already been bought by the caller.
+        Adding a second wait here would just re-check what ``open()`` already
+        established.
+        """
         elements = self.driver.find_elements(*self.PAGE)
         return len(elements) > 0 and elements[0].is_displayed()
 
@@ -148,24 +156,56 @@ class PflegeDashboardPage(BasePage):
         cards (``[data-testid='task-card']``) sharing the page indicate the
         page is populated by REQ-006 seed data even when no care reminders
         exist for the tenant.
+
+        Anchored on :meth:`wait_for_dashboard_content` for the same reason as
+        `has_care_card`: this reader feeds the empty-state skip decision in
+        ``test_dashboard_empty_state_shows_success_message``, which reads a
+        legitimate absence ("no task cards") to decide whether the empty-state
+        assertion even applies. A read taken mid-refetch, right after
+        ``open()``, would report that absence whether or not it were true.
         """
+        self.wait_for_dashboard_content()
         elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='task-card']")
         return any(el.is_displayed() for el in elements)
 
     # ── Urgency sections ──────────────────────────────────────────────
 
     def has_overdue_section(self) -> bool:
-        """Return True if the overdue urgency section is visible."""
+        """Return True if the overdue urgency section is visible.
+
+        Anchored on :meth:`wait_for_dashboard_content`, not on
+        ``SECTION_OVERDUE`` itself: three call sites gate a ``pytest.skip(...)``
+        on ``not has_overdue_section()`` directly after ``open()`` -- a skip
+        decision made on an unanchored read is the same vacuity as an
+        unanchored ``assert``, just silent instead of loud. Anchoring on the
+        section locator itself would still be wrong here: a tenant that
+        legitimately has no overdue reminders never renders that section, so
+        waiting *for it* would burn the full budget on every correctly-skipped
+        run. Anchoring on the shared cards/empty-state region lets a genuine
+        absence resolve as soon as the dashboard has settled, without waiting
+        on the value under test.
+        """
+        self.wait_for_dashboard_content()
         elements = self.driver.find_elements(*self.SECTION_OVERDUE)
         return len(elements) > 0 and elements[0].is_displayed()
 
     def has_due_today_section(self) -> bool:
-        """Return True if the due-today urgency section is visible."""
+        """Return True if the due-today urgency section is visible.
+
+        See :meth:`has_overdue_section` for why the anchor is
+        :meth:`wait_for_dashboard_content` and not the section locator itself.
+        """
+        self.wait_for_dashboard_content()
         elements = self.driver.find_elements(*self.SECTION_DUE_TODAY)
         return len(elements) > 0 and elements[0].is_displayed()
 
     def has_upcoming_section(self) -> bool:
-        """Return True if the upcoming urgency section is visible."""
+        """Return True if the upcoming urgency section is visible.
+
+        See :meth:`has_overdue_section` for why the anchor is
+        :meth:`wait_for_dashboard_content` and not the section locator itself.
+        """
+        self.wait_for_dashboard_content()
         elements = self.driver.find_elements(*self.SECTION_UPCOMING)
         return len(elements) > 0 and elements[0].is_displayed()
 
@@ -182,7 +222,13 @@ class PflegeDashboardPage(BasePage):
         return mapping.get(urgency, f"task-section-{urgency}")
 
     def get_section_card_count(self, urgency: str) -> int:
-        """Return the number of care cards in a given urgency section."""
+        """Return the number of care cards in a given urgency section.
+
+        Anchored on :meth:`wait_for_dashboard_content` like its siblings below:
+        a section read before the dashboard has settled cannot distinguish "no
+        cards in this section" from "nothing has rendered yet".
+        """
+        self.wait_for_dashboard_content()
         testid = self._urgency_section_testid(urgency)
         section_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
         sections = self.driver.find_elements(*section_locator)
@@ -192,7 +238,14 @@ class PflegeDashboardPage(BasePage):
         return len(cards)
 
     def get_cards_in_section(self, urgency: str) -> list[WebElement]:
-        """Return the care-card elements nested inside a given urgency section."""
+        """Return the care-card elements nested inside a given urgency section.
+
+        Anchored on :meth:`wait_for_dashboard_content`: its call sites follow
+        a ``has_*_section()`` skip-gate, so the dashboard has settled by the
+        time this runs in practice -- the anchor here is cheap (already
+        satisfied) and makes the method independent of that ordering.
+        """
+        self.wait_for_dashboard_content()
         testid = self._urgency_section_testid(urgency)
         section_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
         sections = self.driver.find_elements(*section_locator)
@@ -201,7 +254,16 @@ class PflegeDashboardPage(BasePage):
         return sections[0].find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
 
     def get_section_total_card_count(self, urgency: str) -> int:
-        """Return the total number of MUI Card elements (task + care) in a section."""
+        """Return the total number of MUI Card elements (task + care) in a section.
+
+        Anchored on :meth:`wait_for_dashboard_content`. Its only call site
+        (``test_section_count_chip_matches_card_count``) reads this
+        unconditionally right after ``open()`` with no skip-gate: an
+        unanchored zero here does not fail the test, it just silently drops
+        that section's chip-count assertion (``if total_cards: ...``), which
+        is the same silent-loss-of-coverage failure mode as a bad skip-gate.
+        """
+        self.wait_for_dashboard_content()
         testid = self._urgency_section_testid(urgency)
         section_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
         sections = self.driver.find_elements(*section_locator)
@@ -220,7 +282,17 @@ class PflegeDashboardPage(BasePage):
     # ── Care cards ────────────────────────────────────────────────────
 
     def get_all_care_cards(self) -> list[WebElement]:
-        """Return all visible care card elements."""
+        """Return all visible care card elements.
+
+        Anchored on :meth:`wait_for_dashboard_content`, matching
+        :meth:`count_care_cards_for_plant` below -- the two read the same
+        ``CARE_CARDS`` locator and had drifted to different anchoring before
+        this fix. Several call sites gate a ``pytest.skip(...)`` on ``not
+        cards`` right after ``open()`` (e.g. ``_get_first_card_ids`` in both
+        ``TestCareConfirmAction`` and ``TestCareSnoozeAction``); an unanchored
+        empty list there skips real coverage whenever the read lands mid-fetch.
+        """
+        self.wait_for_dashboard_content()
         return self.driver.find_elements(*self.CARE_CARDS)
 
     def get_care_card_count(self) -> int:

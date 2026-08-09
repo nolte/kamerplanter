@@ -17,10 +17,11 @@ from app.api.v1.pest_detection.schemas import (
     PestDetectionResponse,
     PestDetectionStatusResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_pest_detection_service
 from app.common.exceptions import UnsupportedMediaTypeError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.core.permissions import Action, ResourceType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.pest_detection_service import PestDetectionService
 
@@ -134,7 +135,7 @@ def submit_feedback(
 def create_inspection(
     detection_key: Annotated[str, Path(description="Document key of the pest detection.")],
     plant_key: str = Query(..., description="Plant instance the inspection belongs to"),
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> CreateInspectionResponse:
     """Create a REQ-010 inspection from a detection. Never a treatment (§0)."""

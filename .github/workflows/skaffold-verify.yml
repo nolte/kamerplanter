@@ -53,6 +53,10 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
             /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          # gate-integrity-ok: housekeeping, not a verdict. This job's verdict is
+          # the render assertion below; a prune that finds nothing to remove
+          # exits non-zero, and failing the build for a clean disk would be
+          # noise, not a finding.
           sudo docker image prune --all --force || true
           df -h /
 
@@ -114,6 +118,10 @@ jobs:
         # exists to remove.
         run: |
           set -euo pipefail
+          # gate-integrity-ok: the guard IS this count, and grep -c exits 1 when
+          # it counts zero. Under `set -e` that would abort before the threshold
+          # is compared — the swallowed status is what lets the assertion below
+          # fail loudly on an empty render instead of never running.
           kinds=$(grep -c '^kind:' rendered-manifests.yaml || true)
           if [[ "$kinds" -lt 10 ]]; then
             echo "::error::Render produced only $kinds resources — expected the full chart." >&2

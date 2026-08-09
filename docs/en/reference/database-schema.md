@@ -331,17 +331,20 @@ Kamerplanter automatically creates the following indexes on startup:
 
 ## Tenant Data Isolation
 
-All tenant-bound resources carry a `tenant_key` field. On each request the FastAPI dependency `get_current_tenant` resolves the tenant from the `/t/{tenant_slug}/` URL segment and rejects the call if the requesting user holds no active membership there. Writing endpoints additionally require a minimum role (`require_tenant_role`) or an administrative scope (`require_admin_scope`). At the data level the isolation comes from every write path stamping `tenant_key` out of the resolved tenant context, and every query filtering on that field.
+All tenant-bound resources carry a `tenant_key` field. On each request the FastAPI dependency `get_current_tenant` resolves the tenant from the `/t/{tenant_slug}/` URL segment and rejects the call if the requesting user holds no active membership there. Writing endpoints additionally require a permission: `require_permission(resource, action)` for creating/updating/deleting tenant-bound resources, `require_tenant_role` for a plain minimum role, and `require_admin_scope` for administrative surfaces (member management, integrations). At the data level the isolation additionally comes from every write path stamping `tenant_key` out of the resolved tenant context, and every query filtering on that field.
 
-!!! note "Fine-grained permission matrix: not yet in force"
-    The planned permission matrix (resource type × action × role) exists as a
-    backend module but is **not** used by the HTTP endpoints — this spot
-    previously described a `require_permission()` dependency that is wired into
-    no endpoint. What is enforced today is membership, minimum role and admin
-    scope. The matrix's only live consumer is the interface for external AI
-    clients. <!-- REQ-024, REQ-033 -->
+!!! note "Permission enforcement: `require_permission` is wired"
+    `require_permission(resource, action)` decides purely on the tenant role via
+    the pure `MembershipEngine` predicates: `can_edit_resource` (lead/grower) for
+    `create`/`update`, `can_delete_resource` (**lead only**, the REQ-049 §2.3
+    irreversibility boundary) for `delete`. Reads stay open to every member. The
+    fine-grained permission matrix (resource type × action × role) in the backend
+    today backs the attachment guard and the interface for external AI clients;
+    its `delete` grant on domain resources was corrected to lead-only so both
+    enforcement paths agree. A per-resource-type matrix behind `require_permission`
+    (the `resource` argument is already carried) is the remaining future
+    refinement. <!-- REQ-024, REQ-033, REQ-049 -->
     <!-- Source: src/backend/app/common/auth.py, src/backend/app/core/permissions.py -->
-    <!-- Evidence: .audits/issue-pattern-analysis/2026-08-08-report.md §3.1 -->
 
 
 **Global resources** (no tenant binding): `species`, `cultivars`, `botanical_families`, `pests`, `diseases`, `treatments`, `starter_kits`

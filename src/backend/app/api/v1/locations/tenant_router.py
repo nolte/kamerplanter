@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends, Path, Query
 from app.api.mapping import to_response
 from app.api.v1.locations.schemas import FrostWarningResponse, LocationCreate, LocationResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_sensor_service, get_site_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.core.permissions import Action, ResourceType
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
@@ -68,7 +69,7 @@ def list_location_children(
 @router.post("", response_model=LocationResponse, status_code=201)
 def create_location(
     body: LocationCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.CREATE)),
     service: SiteService = Depends(get_site_service),
 ):
     """Create a location within a site."""
@@ -82,7 +83,7 @@ def create_location(
 def update_location(
     key: Annotated[str, Path(description="Document key of the location.")],
     body: LocationCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
     service: SiteService = Depends(get_site_service),
 ):
     """Update a location."""
@@ -96,7 +97,7 @@ def update_location(
 @router.delete("/{key}", status_code=204)
 def delete_location(
     key: Annotated[str, Path(description="Document key of the location.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a location."""
@@ -124,7 +125,7 @@ def get_location_sensors(
 def create_location_sensor(
     key: Annotated[str, Path(description="Document key of the location.")],
     body: SensorCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.SENSOR, Action.CREATE)),
     service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import BasePage, IMPLICIT_WAIT_EQUIVALENT
 
 
 class CropRotationPage(BasePage):
@@ -79,7 +80,30 @@ class CropRotationPage(BasePage):
         self.poll(5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
         )
-        time.sleep(1)  # Wait for successors to load
+        self.wait_for_successor_content()
+
+    #: `CropRotationPage.tsx` derives `successorsPending = selectedKey !== '' &&
+    #: selectedKey !== loadedKey`, so selecting a family genuinely unmounts the
+    #: successor list behind a `LoadingSkeleton` for the length of the fetch --
+    #: it re-mounts as either `SUCCESSOR_ITEMS` (>=1 row) or `EMPTY_STATE`
+    #: (`successors.length === 0`), never neither. This used to be a fixed
+    #: `time.sleep(1)`, the forbidden pattern `e2e-test-stability` singles out:
+    #: too short on a loaded CI runner leaves callers reading the *previous*
+    #: family's successors (or a bare skeleton), too long wastes the same
+    #: second on every single selection.
+    def wait_for_successor_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the successor list for the selected family has settled.
+
+        Deliberately does not raise -- an *anchor*, not an assertion; a family
+        with no rotation successors at all must still be observable through
+        `EMPTY_STATE` rather than turned into a timeout.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.SUCCESSOR_ITEMS, self.EMPTY_STATE),
+                "crop rotation successor list",
+                timeout=timeout,
+            )
 
     def _find_option(self, name: str):
         """Return the open-listbox option matching *name* (whitespace-normalised)."""
@@ -114,6 +138,15 @@ class CropRotationPage(BasePage):
         return texts
 
     def get_successor_count(self) -> int:
+        """Return the number of rows in the successor list.
+
+        Anchored on :meth:`wait_for_successor_content` -- every current call
+        site already reaches it anchored, via :meth:`select_family`, but the
+        reader carries its own wait too rather than depending on that
+        discipline: :meth:`wait_for_any_present` returns at once when the
+        content has already settled, so this costs nothing on the happy path.
+        """
+        self.wait_for_successor_content()
         return len(self.driver.find_elements(*self.SUCCESSOR_LIST))
 
     def get_successor_names(self) -> list[str]:

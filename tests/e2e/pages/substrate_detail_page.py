@@ -74,7 +74,14 @@ class SubstrateDetailPage(BasePage):
         return self.get_text_stable(self.PAGE_TITLE)
 
     def get_section_card_count(self) -> int:
-        """Return the number of section cards on the detail page."""
+        """Return the number of section cards on the detail page.
+
+        Deliberately instantaneous, not anchored: its one call site reads it
+        right after ``wait_for_element(PAGE)`` + ``wait_for_loading_complete()``.
+        ``SubstrateDetailPage.tsx`` gates its whole tree (including these
+        cards) behind a single ``if (loading) return <LoadingSkeleton ...>``,
+        so a settled page root means the section cards have settled too.
+        """
         return len(self.driver.find_elements(*self.SECTION_CARDS))
 
     # ── Edit form values ───────────────────────────────────────────────
@@ -143,7 +150,14 @@ class SubstrateDetailPage(BasePage):
         return self.get_select_value("buffer_capacity")
 
     def is_reusable_checked(self) -> bool:
-        """Return True if the reusable switch is checked."""
+        """Return True if the reusable switch is checked.
+
+        No call site in this suite as of #946 wave 5 -- the create-dialog
+        toggle test reads ``SubstrateListPage.is_reusable_checked`` (a
+        different page object, LOWER bucket) instead. Left unanchored rather
+        than speculatively converted, since there is no caller whose polarity
+        or timing this reader's fix could be verified against.
+        """
         el = self.find_present(
             (By.CSS_SELECTOR, "[data-testid='form-field-reusable'] input[type='checkbox']")
         )
@@ -233,19 +247,37 @@ class SubstrateDetailPage(BasePage):
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
-        """Return True if the confirm dialog is open."""
+        """Return True if the confirm dialog is open.
+
+        Deliberately instantaneous, not anchored: the *presence* call site
+        reads it right after ``click_delete()``, which already runs
+        ``wait_for_element_visible(self.CONFIRM_DIALOG)``. The *dismissal*
+        call site reads it right after ``cancel_delete()``, which -- unlike
+        the equivalent helpers on the tank and planting-run detail pages --
+        already runs ``wait_for_element_hidden(self.CONFIRM_DIALOG)`` itself,
+        so both polarities are caller-anchored already.
+        """
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
 
     # ── Batches ────────────────────────────────────────────────────────
 
     def get_batch_row_count(self) -> int:
-        """Return the number of batch rows."""
+        """Return the number of batch rows.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         return len(self.driver.find_elements(*self.BATCH_ROWS))
 
     # ── Error display ──────────────────────────────────────────────────
 
     def get_alert_messages(self) -> list[str]:
-        """Return the text of all visible alert banners."""
+        """Return the text of all visible alert banners.
+
+        No call site in this suite as of #946 wave 5 -- see
+        :meth:`get_batch_row_count`.
+        """
         alerts = self.driver.find_elements(*self.ALERTS)
         return [a.text for a in alerts if a.is_displayed()]
 
@@ -262,7 +294,12 @@ class SubstrateDetailPage(BasePage):
     # ── Validation errors ──────────────────────────────────────────────
 
     def get_validation_error(self, field_name: str) -> str:
-        """Return the validation error text for a form field."""
+        """Return the validation error text for a form field.
+
+        No call site in this suite as of #946 wave 5 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         locator = (
             By.CSS_SELECTOR,
             f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
@@ -271,7 +308,7 @@ class SubstrateDetailPage(BasePage):
         return elements[0].text if elements else ""
 
     def has_validation_error(self, field_name: str) -> bool:
-        """Return True if a validation error is visible for *field_name*."""
+        """See :meth:`get_validation_error`: no call site in this suite as of #946 wave 5."""
         return bool(self.get_validation_error(field_name))
 
     # ── Private helpers ────────────────────────────────────────────────

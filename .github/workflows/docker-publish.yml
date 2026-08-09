@@ -27,6 +27,22 @@ permissions:
 # in flight can leave a tag pushed and its attestation missing. Two quick merges
 # to develop used to race each other's `latest` push with nothing serialising
 # them.
+#
+# KNOWN GAP — the `changes` fan-out (2026-08-08, `scripts/check_workflow_gate_
+# integrity.py`). All eight build jobs below combine `always()` with
+# `needs.changes.outputs.<x> == 'true'` and never consult
+# `needs.changes.result`. When `changes` itself fails or is cancelled on a
+# branch push, every output is the empty string, no clause matches, the job is
+# skipped — and a skipped job reports Success. Nothing is published and nothing
+# is red. The two publishing jobs at the bottom are already guarded
+# (`!contains(needs.*.result, 'failure')`); these eight are not.
+#
+# NOT repaired here, deliberately. The fail-safe repair is
+# `needs.changes.result != 'success' ||`, which on any hiccup of the paths
+# filter rebuilds and republishes all eight images — a delivery decision with a
+# real cost, taken on a delivery lane, and not one to fold into the commit that
+# introduces the linter that found it. Each job carries the marker so the
+# omission is named rather than silent (NFR-018 §2). Needs follow-up.
 concurrency:
   group: docker-publish-${{ github.ref }}
   cancel-in-progress: false
@@ -72,6 +88,8 @@ jobs:
             helm:
               - 'helm/**'
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-backend:
     needs: changes
     if: |
@@ -145,6 +163,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-frontend:
     needs: changes
     if: |
@@ -218,6 +238,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-vectordb:
     needs: changes
     if: |
@@ -291,6 +313,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-knowledge:
     needs: changes
     if: |
@@ -364,6 +388,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-embedding-service:
     needs: changes
     if: |
@@ -437,6 +463,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-inference-service:
     needs: changes
     if: |
@@ -510,6 +538,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-reranker-service:
     needs: changes
     if: |
@@ -584,6 +614,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
+  # silently and it reports Success; see the "KNOWN GAP" note in the header.
   build-knowledge-service:
     needs: changes
     if: |

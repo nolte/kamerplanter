@@ -132,11 +132,11 @@ class OnboardingService:
             fav_service = FavoritesService(self._db)
             for species_key in fav_species:
                 with contextlib.suppress(ValueError, Exception):
-                    fav_service.add_favorite(user_key, species_key, source="onboarding")
+                    fav_service.add_favorite(user_key, species_key, tenant_key=tenant_key, source="onboarding")
             for plan_key in fav_plans:
                 with contextlib.suppress(ValueError, Exception):
-                    fav_service.add_favorite(user_key, plan_key, source="onboarding")
-                    fav_service.cascade_fertilizers(user_key, plan_key)
+                    fav_service.add_favorite(user_key, plan_key, tenant_key=tenant_key, source="onboarding")
+                    fav_service.cascade_fertilizers(user_key, plan_key, tenant_key=tenant_key)
 
         state_data = state.model_dump()
         state_data.update(

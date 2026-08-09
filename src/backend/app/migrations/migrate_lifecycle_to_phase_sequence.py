@@ -97,6 +97,13 @@ def run_migrate_lifecycle_to_phase_sequence() -> None:
     # Post-seed reconcile (registry-final step): every species and phase sequence now
     # exists, so bind any species still without an edge to its attribute-resolved
     # sequence (REQ-003 D9–D12 fine-typing, #616). Idempotent — skips edged species.
-    from app.migrations.seed_data import link_indoor_species_to_phase_sequence
+    from app.migrations.seed_data import link_indoor_species_to_phase_sequence, verify_all_species_bound
 
     link_indoor_species_to_phase_sequence()
+
+    # Then check that it worked (#1006). This is the last data job in the registry, so
+    # a species still unbound here is not an ordering artefact — it is a species whose
+    # plants will be created with ``current_phase_key: null``. Reported at error level
+    # with names; deliberately not fatal, because refusing to finish the seed over a
+    # master-data gap would cost the whole install.
+    verify_all_species_bound()

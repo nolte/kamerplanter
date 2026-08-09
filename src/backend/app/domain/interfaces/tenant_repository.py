@@ -36,4 +36,16 @@ class ITenantRepository(ABC):
     def list_by_owner(self, owner_user_key: str) -> list[Tenant]: ...
 
     @abstractmethod
+    def list_all(self) -> list[Tenant]:
+        """Every tenant, newest first (platform-admin listing, #1019).
+
+        Not tenant-scoped by design: this is the platform-admin cross-tenant
+        catalogue, the same system-context read the router hand-wrote as raw AQL.
+        """
+
+    @abstractmethod
+    def count(self, *, active_only: bool = False) -> int:
+        """Number of tenant documents; ``active_only`` counts ``is_active`` ones (#1019)."""
+
+    @abstractmethod
     def count_organizations_by_owner(self, owner_user_key: str) -> int: ...

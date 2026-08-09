@@ -132,8 +132,15 @@ class TestFeedingEventListPage:
             "Feeding event list before applying search filter",
         )
 
-        feeding_list.search("xxxx_nonexistent_feeding_yyyy")
-        feeding_list.wait_for_loading_complete()
+        term = "xxxx_nonexistent_feeding_yyyy"
+        feeding_list.search(term)
+        # Not `wait_for_loading_complete()`: the DataTable filter is client-side
+        # behind a 300ms debounce, so no loading-skeleton ever mounts for it --
+        # that wait is satisfied at once and a `get_row_count()` read right
+        # after it can still land on the *previous*, unfiltered rows (#946's
+        # debounce trap). `wait_for_no_search_results` can only become true
+        # once the filter has actually run and found nothing to show.
+        feeding_list.wait_for_no_search_results(term, what="feeding event list")
 
         screenshot(
             "TC-REQ-004-043_after-search-no-match",
@@ -141,9 +148,12 @@ class TestFeedingEventListPage:
         )
 
         filtered_count = feeding_list.get_row_count()
-        assert filtered_count < initial_count, (
-            f"TC-REQ-004-043 FAIL: Search for non-existent term should reduce row count: "
-            f"before={initial_count}, after={filtered_count}"
+        assert filtered_count == 0, (
+            f"TC-REQ-004-043 FAIL: Searching for {term!r} must leave the feeding event list "
+            f"empty, but {filtered_count} of the {initial_count} rows are still listed. The "
+            f"no-search-results panel is already showing, so the filter has run -- a "
+            f"surviving row count therefore means some column's `searchValue` still matches "
+            f"the term, not that the filter has not applied yet."
         )
 
     @pytest.mark.requires_desktop

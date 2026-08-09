@@ -27,12 +27,19 @@ The rule covers a child that is *already* inside a system workflow, not only one
 being attached: editing a seeded task template in place, or deleting it, is the
 same modification arriving by a different verb. That half needs no anchor
 decision — the parent is read off the child's own ``workflow_template_key`` and
-only its ``is_system`` flag is consulted, never the caller's tenant. What stays
-deliberately open is #965 item 1, the *foreign-tenant* half of the same two
-routes: a template belonging to another tenant's workflow is still reachable,
-because closing that needs the orphan-ownership field and backfill rather than a
-guard bolted onto the delete path. Two tests below pin that boundary so this file
-cannot be misread as having closed item 1.
+only its ``is_system`` flag is consulted, never the caller's tenant.
+
+**#965 item 1 is now closed.** ``TaskTemplate`` grew its own ``tenant_key`` field
+(backfilled by migration ``v0035``), so a template's write is tenant-verified on
+the entity itself — no longer only through its parent. ``update_task_template``
+and ``delete_task_template`` now answer **404 for a foreign tenant's template**
+(``verify_tenant_read_access``, no cross-tenant oracle) *before* the tenant-blind
+``is_system`` refusal, keeping the three answers layered: foreign → 404, system →
+422, own → proceed. ``TestForeignTenantTaskTemplatesAreRefused`` below pins the
+closed boundary — it is the inverse of the two tests this file used to carry to
+mark item 1 open, replaced rather than silently satisfied. The global catalogue
+(``tenant_key == ""``) stays writable/readable through the same helper so #324 is
+not re-broken.
 """
 
 from __future__ import annotations
@@ -61,6 +68,8 @@ WORKFLOWS: dict[str, WorkflowTemplate] = {
 
 PHASES: dict[str, WorkflowPhase] = {
     "ph-own": WorkflowPhase(_key="ph-own", workflow_template_key=OWN_WORKFLOW, name="Vegetativ"),
+    "ph-own2": WorkflowPhase(_key="ph-own2", workflow_template_key=OWN_WORKFLOW, name="Blüte"),
+    "ph-foreign": WorkflowPhase(_key="ph-foreign", workflow_template_key=FOREIGN_WORKFLOW, name="Fremd-Phase"),
     "ph-sys": WorkflowPhase(_key="ph-sys", workflow_template_key=SYSTEM_WORKFLOW, name="Vegetativ"),
     "ph-orphan": WorkflowPhase(_key="ph-orphan", workflow_template_key="", name="Ohne Workflow"),
 }
@@ -89,6 +98,7 @@ def _service(template: TaskTemplate | None = None) -> tuple[TaskService, MagicMo
     repo.create_phase.side_effect = lambda phase: phase
     repo.update_phase.side_effect = lambda key, phase: phase
     repo.delete_phase.return_value = True
+    repo.reorder_phases.side_effect = lambda orders: [PHASES[o["key"]] for o in orders]
     return TaskService(repo, MagicMock(), MagicMock()), repo
 
 
@@ -207,7 +217,7 @@ class TestASystemWorkflowsExistingTaskTemplatesAreAlsoOffLimits:
         service, repo = _service(_template(workflow_template_key=SYSTEM_WORKFLOW))
 
         with pytest.raises(ValidationError):
-            service.delete_task_template("tt-1")
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
 
         repo.delete_task_template.assert_not_called()
 
@@ -217,34 +227,56 @@ class TestASystemWorkflowsExistingTaskTemplatesAreAlsoOffLimits:
         with pytest.raises(ValidationError) as edit:
             service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
         with pytest.raises(ValidationError) as removal:
-            service.delete_task_template("tt-1")
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
 
         assert edit.value.status_code == removal.value.status_code == 422
         assert edit.value.error_code == removal.value.error_code == "VALIDATION_ERROR"
 
 
-class TestItem1StaysOpen:
-    """The foreign-tenant half of the same two routes is deliberately untouched.
+class TestForeignTenantTaskTemplatesAreRefused:
+    """#965 item 1, now closed: a foreign tenant's task template is refused, 404.
 
-    Guarding it means anchoring on the parent's *tenant*, which is exactly the
-    step that needs the orphan-ownership field and its backfill. These two tests
-    exist so a later reader cannot mistake the ``is_system`` guard for that fix —
-    if someone closes item 1, they should be replaced, not silently satisfied.
+    This is the inverse of the two tests this file used to carry to mark item 1
+    *open*. Closing it needed exactly what those tests said was missing — the
+    entity's own ``tenant_key`` (and its ``v0035`` backfill), which lets the write
+    be verified on the template itself instead of only through its parent. The
+    answer is the read-guard's 404, so the route is not a cross-tenant existence
+    oracle, and the answer arrives *before* the ``is_system`` 422 so a foreign
+    template is never even classified by system-ness. Nothing is written.
     """
 
-    def test_a_foreign_tenants_task_template_is_still_editable(self) -> None:
-        service, repo = _service(_template(workflow_template_key=FOREIGN_WORKFLOW))
+    def test_a_foreign_tenants_task_template_is_refused_on_update(self) -> None:
+        service, repo = _service(
+            _template(workflow_template_key=FOREIGN_WORKFLOW, tenant_key=FOREIGN_TENANT_KEY),
+        )
+
+        with pytest.raises(NotFoundError) as exc:
+            service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+        repo.update_task_template.assert_not_called()
+
+    def test_a_foreign_tenants_task_template_is_refused_on_delete(self) -> None:
+        service, repo = _service(
+            _template(workflow_template_key=FOREIGN_WORKFLOW, tenant_key=FOREIGN_TENANT_KEY),
+        )
+
+        with pytest.raises(NotFoundError) as exc:
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+        repo.delete_task_template.assert_not_called()
+
+    def test_the_callers_own_task_template_is_still_editable_and_deletable(self) -> None:
+        service, repo = _service(
+            _template(workflow_template_key=OWN_WORKFLOW, tenant_key=TENANT_KEY),
+        )
 
         updated = service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
 
         assert updated.name == "Umbenannt"
         repo.update_task_template.assert_called_once()
-
-    def test_a_foreign_tenants_task_template_is_still_deletable(self) -> None:
-        service, repo = _service(_template(workflow_template_key=FOREIGN_WORKFLOW))
-
-        service.delete_task_template("tt-1")
-
         repo.delete_task_template.assert_called_once()
 
 
@@ -289,25 +321,29 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
         repo.delete_phase.assert_called_once()
 
     def test_the_callers_own_task_template_is_still_editable_and_deletable(self) -> None:
-        service, repo = _service(_template(workflow_template_key=OWN_WORKFLOW))
+        service, repo = _service(_template(workflow_template_key=OWN_WORKFLOW, tenant_key=TENANT_KEY))
 
         assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
-        service.delete_task_template("tt-1")
+        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
         repo.update_task_template.assert_called_once()
         repo.delete_task_template.assert_called_once()
 
-    def test_a_task_template_with_no_parent_workflow_is_left_alone(self) -> None:
-        """A standalone template has no anchor — this guard must not become an
-        orphan-ownership decision by the back door.
+    def test_a_global_standalone_template_is_left_editable(self) -> None:
+        """A standalone template backfilled to the global catalogue (``tenant_key
+        == ""``) stays writable by every tenant — #324's positive direction.
 
-        Orphans do have an owner now (global, decided on #965), but that belongs
-        to items 1/2/4 with their own field and backfill; refusing one here would
-        settle it in the wrong place and break a template that is editable today.
+        This is the documented limitation of item 1's backfill: a template that
+        predates the ownership field and was never attached to a workflow has no
+        stored owner to recover, so ``v0035`` lands it in the global catalogue.
+        Refusing it here would hide a row that was editable before and break the
+        #324 guarantee. Newly created standalone templates are stamped with the
+        caller's tenant and are therefore *not* global — they are covered by
+        ``TestForeignTenantTaskTemplatesAreRefused``.
         """
-        service, repo = _service(_template())
+        service, repo = _service(_template())  # tenant_key defaults to "" (global)
 
         assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
-        service.delete_task_template("tt-1")
+        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
         repo.update_task_template.assert_called_once()
         repo.delete_task_template.assert_called_once()
 
@@ -363,3 +399,129 @@ class TestWhatTheUiLegitimatelyDoesWithSystemWorkflowsStillWorks:
 
         assert execution.workflow_template_key == SYSTEM_WORKFLOW
         repo.create_task.assert_called_once()
+
+
+class TestReorderPhasesIsTenantScoped:
+    """``PUT /tasks/phases/reorder`` was the one phase write the #964 sweep left open.
+
+    ``reorder_phases`` wrote ``phase_order`` by ``_key`` with no scoping, so a
+    caller could re-sequence another tenant's workflow. Unlike a standalone task
+    template (item 1, still open because it has no anchor), a phase always has a
+    parent workflow to anchor on, so this half closes: each key is resolved to its
+    parent and verified — foreign/unknown → 404, system → 422 — exactly the per-key
+    phase routes' HTTP behaviour, only for a batch.
+    """
+
+    def _orders(self, *keys: str) -> list[dict]:
+        return [{"key": k, "phase_order": i} for i, k in enumerate(keys)]
+
+    def test_reordering_the_callers_own_phases_succeeds(self) -> None:
+        service, repo = _service()
+
+        result = service.reorder_workflow_phases(self._orders("ph-own2", "ph-own"), tenant_key=TENANT_KEY)
+
+        assert [p.key for p in result] == ["ph-own2", "ph-own"]
+        repo.reorder_phases.assert_called_once()
+
+    def test_reordering_a_foreign_tenants_phase_is_a_404(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError) as exc:
+            service.reorder_workflow_phases(self._orders("ph-foreign"), tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+        repo.reorder_phases.assert_not_called()
+
+    def test_reordering_a_system_workflows_phases_is_a_422(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(ValidationError) as exc:
+            service.reorder_workflow_phases(self._orders("ph-sys"), tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 422
+        repo.reorder_phases.assert_not_called()
+
+    def test_every_phase_in_the_batch_is_checked_not_just_the_first(self) -> None:
+        """A foreign key smuggled behind an owned one is still refused, and nothing is written."""
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.reorder_workflow_phases(self._orders("ph-own", "ph-foreign"), tenant_key=TENANT_KEY)
+
+        repo.reorder_phases.assert_not_called()
+
+
+class TestSingleTemplateReadIsTenantScoped:
+    """The single-template GET must anchor on the owner too (SEC-001).
+
+    The #965 write paths grew an entity-level `tenant_key` check, but
+    `GET /tasks/templates/{key}` was left on the unanchored primitive — a member
+    of any tenant could fetch another tenant's private template by (enumerable)
+    key. `get_task_template_for_read` closes it: foreign → 404, global stays
+    readable (#324).
+    """
+
+    def test_the_callers_own_template_is_readable(self) -> None:
+        service, _ = _service(_template(tenant_key=TENANT_KEY))
+
+        assert service.get_task_template_for_read("tt-1", tenant_key=TENANT_KEY).key == "tt-1"
+
+    def test_a_global_template_stays_readable(self) -> None:
+        service, _ = _service(_template(tenant_key=""))
+
+        assert service.get_task_template_for_read("tt-1", tenant_key=TENANT_KEY).key == "tt-1"
+
+    def test_a_foreign_tenants_template_is_a_404(self) -> None:
+        service, _ = _service(_template(tenant_key=FOREIGN_TENANT_KEY))
+
+        with pytest.raises(NotFoundError) as exc:
+            service.get_task_template_for_read("tt-1", tenant_key=TENANT_KEY)
+
+        assert exc.value.status_code == 404
+
+
+class TestWorkflowPhaseReferenceIsTenantScoped:
+    """`workflow_phase_key` is tenant-checked on create and update too (SEC-003).
+
+    Only `workflow_template_key` was verified; a caller could store a reference to
+    a foreign tenant's phase on their own template. The phase's parent workflow is
+    the anchor: foreign parent → 404; own/global/none → allowed.
+    """
+
+    def test_creating_with_a_foreign_phase_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.create_task_template(
+                _template(workflow_template_key=OWN_WORKFLOW, workflow_phase_key="ph-foreign"),
+                tenant_key=TENANT_KEY,
+            )
+
+        repo.create_task_template.assert_not_called()
+
+    def test_creating_with_an_own_phase_succeeds(self) -> None:
+        service, repo = _service()
+
+        created = service.create_task_template(
+            _template(workflow_template_key=OWN_WORKFLOW, workflow_phase_key="ph-own"),
+            tenant_key=TENANT_KEY,
+        )
+
+        assert created.workflow_phase_key == "ph-own"
+        repo.create_task_template.assert_called_once()
+
+    def test_updating_to_a_foreign_phase_is_refused(self) -> None:
+        service, repo = _service(_template(tenant_key=TENANT_KEY, workflow_template_key=OWN_WORKFLOW))
+
+        with pytest.raises(NotFoundError):
+            service.update_task_template("tt-1", {"workflow_phase_key": "ph-foreign"}, tenant_key=TENANT_KEY)
+
+        repo.update_task_template.assert_not_called()
+
+    def test_updating_to_an_own_phase_succeeds(self) -> None:
+        service, repo = _service(_template(tenant_key=TENANT_KEY, workflow_template_key=OWN_WORKFLOW))
+
+        updated = service.update_task_template("tt-1", {"workflow_phase_key": "ph-own2"}, tenant_key=TENANT_KEY)
+
+        assert updated.workflow_phase_key == "ph-own2"
+        repo.update_task_template.assert_called_once()

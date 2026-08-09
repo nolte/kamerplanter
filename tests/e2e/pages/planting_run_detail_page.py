@@ -5,7 +5,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class PlantingRunDetailPage(BasePage):
@@ -125,30 +125,51 @@ class PlantingRunDetailPage(BasePage):
     # ── Details tab (tab=0) ────────────────────────────────────────────
 
     def get_detail_card_text(self) -> str:
-        """Return the combined text content of all detail cards."""
+        """Return the combined text content of all detail cards.
+
+        No call site in this suite as of #946 wave 4 -- left unanchored
+        rather than speculatively converted (dead code has no caller whose
+        polarity or timing a fix could be verified against).
+        """
         cards = self.driver.find_elements(*self.DETAILS_CARD)
         return " ".join(c.text for c in cards)
 
     def get_entries_row_count(self) -> int:
-        """Return the number of entry rows in the Details tab entries table."""
+        """Return the number of entry rows in the Details tab entries table.
+
+        No call site in this suite as of #946 wave 4 -- see
+        :meth:`get_detail_card_text`.
+        """
         rows = self.driver.find_elements(*self.ENTRIES_ROWS)
         return len(rows)
 
     # ── Plants tab (tab=1) ─────────────────────────────────────────────
 
     def get_plants_row_count(self) -> int:
-        """Return the number of plant rows in the Plants tab."""
+        """Return the number of plant rows in the Plants tab.
+
+        No call site in this suite as of #946 wave 4 -- see
+        :meth:`get_detail_card_text`.
+        """
         rows = self.driver.find_elements(*self.PLANTS_ROWS)
         return len(rows)
 
     def get_plant_rows_text(self) -> list[list[str]]:
-        """Return the readable text fragments of every visible plant row."""
+        """Return the readable text fragments of every visible plant row.
+
+        No call site in this suite as of #946 wave 4 -- see
+        :meth:`get_detail_card_text`.
+        """
         return [
             self.get_row_text_fragments(row) for row in self.driver.find_elements(*self.PLANTS_ROWS)
         ]
 
     def is_no_plants_message_visible(self) -> bool:
-        """Return True if the 'no plants yet' message is displayed (tab=1, before batch create)."""
+        """Return True if the 'no plants yet' message is displayed (tab=1, before batch create).
+
+        No call site in this suite as of #946 wave 4 -- see
+        :meth:`get_detail_card_text`.
+        """
         elements = self.driver.find_elements(
             By.XPATH, "//*[contains(@class, 'MuiTypography-root')]"
         )
@@ -167,15 +188,35 @@ class PlantingRunDetailPage(BasePage):
     # ── State-machine action buttons ───────────────────────────────────
 
     def is_create_plants_button_visible(self) -> bool:
-        """True when status is 'planned' — creates plant instances."""
+        """True when status is 'planned' — creates plant instances.
+
+        Deliberately instantaneous, not anchored: every call site reads this
+        right after :meth:`get_status`, which itself runs
+        ``wait_for_element(self.STATUS_CHIP)`` -- a real wait. The status chip
+        and this action-button set are keyed on the same fetched run and
+        rendered in the same commit, after the same page-level loading gate
+        (``PlantingRunDetailPage.tsx:507``), so a settled status chip means
+        the button set has settled too.
+        """
         return len(self.driver.find_elements(*self.CREATE_PLANTS_BUTTON)) > 0
 
     def is_delete_button_visible(self) -> bool:
-        """True when status is 'planned' — allows deletion."""
+        """True when status is 'planned' — allows deletion.
+
+        See :meth:`is_create_plants_button_visible` for why this stays
+        instantaneous.
+        """
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0
 
     def is_batch_remove_button_visible(self) -> bool:
-        """True when status is 'active' or 'harvesting'."""
+        """True when status is 'active' or 'harvesting'.
+
+        Its one call site reads it negated (``assert not
+        is_batch_remove_button_visible()``) alongside its two siblings above,
+        at the same point in the same test -- see
+        :meth:`is_create_plants_button_visible` for why the caller's prior
+        :meth:`get_status` already anchors all three.
+        """
         return len(self.driver.find_elements(*self.BATCH_REMOVE_BUTTON)) > 0
 
     def click_create_plants(self) -> None:
@@ -202,8 +243,29 @@ class PlantingRunDetailPage(BasePage):
         self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
-        """Return True if the ConfirmDialog is currently visible."""
+        """Return True if the ConfirmDialog is currently visible.
+
+        Deliberately instantaneous, not anchored: its *presence* call sites
+        read it right after ``click_create_plants()``/``click_delete()``,
+        which already run ``wait_for_element_visible(self.CONFIRM_DIALOG)`` --
+        the readiness has already been bought by the caller. For the
+        *dismissal* check ("the dialog closed"), do not use this method --
+        use :meth:`wait_for_confirm_dialog_closed`, which waits out the MUI
+        exit transition instead of sampling once.
+        """
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
+
+    def wait_for_confirm_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait for the ConfirmDialog to actually leave the DOM.
+
+        MUI's Dialog unmounts only after its exit transition finishes, so a
+        raw ``not is_confirm_dialog_open()`` sampled right after clicking
+        Confirm/Cancel can still see the dialog mid-fade-out and report it as
+        open -- a guarded-dismissal gap, not a data-fetch one. Returns
+        ``False`` (rather than raising) once the budget is spent, so a dialog
+        that genuinely never closes still fails the caller's own assertion.
+        """
+        return self.is_absent_within(self.CONFIRM_DIALOG, timeout=timeout)
 
     # ── Edit dialog ───────────────────────────────────────────────────
 
@@ -213,8 +275,23 @@ class PlantingRunDetailPage(BasePage):
         self.wait_for_element_visible(self.EDIT_DIALOG)
 
     def is_edit_dialog_open(self) -> bool:
-        """Return True if the edit dialog is currently visible."""
+        """Return True if the edit dialog is currently visible.
+
+        Kept for symmetry/future presence reads; the one existing call site
+        checks dismissal and now uses :meth:`wait_for_edit_dialog_closed`
+        instead -- see :meth:`is_confirm_dialog_open` for why a raw negated
+        read of a MUI Dialog's presence is a guarded-dismissal gap, not a
+        genuine "closed" check.
+        """
         return len(self.driver.find_elements(*self.EDIT_DIALOG)) > 0
+
+    def wait_for_edit_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait for the edit dialog to actually leave the DOM.
+
+        See :meth:`wait_for_confirm_dialog_closed` for the exit-transition
+        rationale; same shape, different dialog.
+        """
+        return self.is_absent_within(self.EDIT_DIALOG, timeout=timeout)
 
     def get_name_field_value(self) -> str:
         """Return the current value of the Name input in the edit form."""
@@ -249,10 +326,19 @@ class PlantingRunDetailPage(BasePage):
     # ── Error display ──────────────────────────────────────────────────
 
     def is_error_displayed(self) -> bool:
-        """Return True if an error display component is visible."""
+        """Return True if an error display component is visible.
+
+        Deliberately instantaneous, not anchored: its one call site
+        (``test_nonexistent_run_key_shows_error``) reads it right after
+        ``wait_for_any_present((ERROR_DISPLAY, PAGE), ...)`` -- the readiness
+        this method reports has already been bought by the caller.
+        """
         elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-display']")
         return len(elements) > 0 and elements[0].is_displayed()
 
     def is_page_rendered(self) -> bool:
-        """Return True if the detail page container is present in the DOM."""
+        """Return True if the detail page container is present in the DOM.
+
+        See :meth:`is_error_displayed` -- same call site, same anchor.
+        """
         return len(self.driver.find_elements(*self.PAGE)) > 0

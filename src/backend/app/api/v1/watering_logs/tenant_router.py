@@ -16,10 +16,11 @@ from app.api.v1.watering_logs.schemas import (
     WateringQuickConfirmRequest,
     WateringStatsResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_watering_log_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_log import WateringLog
 from app.domain.services.watering_log_service import WateringLogService
@@ -53,7 +54,7 @@ def _log_response(
 @router.post("/watering-logs", response_model=WateringLogWithWarnings, status_code=201)
 def create_log(
     body: WateringLogCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("watering-log", Action.CREATE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Create a watering log and return it with resolved names and warnings."""
@@ -103,7 +104,7 @@ def get_log(
 def update_log(
     key: Annotated[str, Path(description="Document key of the watering log.")],
     body: WateringLogUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("watering-log", Action.UPDATE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Update a watering log."""
@@ -118,7 +119,7 @@ def update_log(
 @router.delete("/watering-logs/{key}", status_code=204)
 def delete_log(
     key: Annotated[str, Path(description="Document key of the watering log.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("watering-log", Action.DELETE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Delete a watering log."""

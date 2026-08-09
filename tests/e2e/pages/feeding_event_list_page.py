@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class FeedingEventListPage(BasePage):
@@ -61,8 +63,38 @@ class FeedingEventListPage(BasePage):
 
     # -- Table interactions ------------------------------------------------
 
+    #: The three states this list settles into: rows, the terminal "no source
+    #: data" `EmptyState`, or the terminal "search matched nothing" panel
+    #: `NO_SEARCH_RESULTS` (inherited from `BasePage`). `PAGE` mounts
+    #: synchronously -- before the first fetch resolves -- so a read taken
+    #: right after `open()` can land in a frame where none of the three has
+    #: committed yet, the same window `FertilizerListPage.wait_for_list_content`
+    #: was built for.
+    def wait_for_list_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the table has rows, its empty state, or its no-results panel.
+
+        Deliberately does not raise: this is an *anchor* for the reader below,
+        not an assertion of its own. A tenant with no feeding events is a
+        state the caller's own assertion must still be able to observe.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.TABLE_ROWS, self.EMPTY_STATE, self.NO_SEARCH_RESULTS),
+                "feeding event list content",
+                timeout=timeout,
+            )
+
     def get_row_count(self) -> int:
-        """Return the number of visible data rows."""
+        """Return the number of visible data rows.
+
+        Anchored on :meth:`wait_for_list_content`. `test_req004_feeding_events.py`
+        gates `pytest.skip(...)` and a bidirectional row-count comparison on
+        this, immediately after `open()` -- an unanchored `0` read in the
+        pre-fetch window before `open()`'s data has arrived is indistinguishable
+        from a table that genuinely has no rows (the `has_care_card` defect
+        class, #946).
+        """
+        self.wait_for_list_content()
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 

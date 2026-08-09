@@ -2,6 +2,7 @@ import structlog
 
 from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
+from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User, UserProfile, UserProfileUpdate
@@ -14,9 +15,15 @@ class UserService:
         self,
         user_repo: IUserRepository,
         refresh_token_repo: IRefreshTokenRepository,
+        membership_repo: IMembershipRepository | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
+        # Optional so the profile-only call sites (and their tests) need no
+        # membership repository. Required for the platform-admin account
+        # hard-delete (#1019): the cascade removes the user's memberships before
+        # the user document.
+        self._membership_repo = membership_repo
 
     def get_profile(self, user_key: UserKey) -> UserProfile:
         user = self._user_repo.get_or_raise(user_key)
@@ -64,6 +71,49 @@ class UserService:
         if not user:
             raise NotFoundError("User", user_key)
         return user
+
+    def list_all_users(self) -> list[User]:
+        """Every user, newest first — the platform-admin cross-tenant listing (#1019).
+
+        The router enriches each user with its tenant memberships via
+        ``TenantService.list_user_memberships``; this method only owns the user
+        read, which the platform-admin panel used to hand-write as raw AQL.
+        """
+        return self._user_repo.list_all()
+
+    def count_users(self, *, active_only: bool = False) -> int:
+        """Number of users; ``active_only`` counts only ``is_active`` ones (#1019)."""
+        return self._user_repo.count(active_only=active_only)
+
+    def delete_account_permanently(self, user_key: UserKey) -> None:
+        """Hard-delete a user account and everything it owns (#1019).
+
+        The platform-admin ``DELETE /admin/platform/users/{key}`` cascade, moved
+        out of the router (which hand-wrote eight raw-AQL ``REMOVE``s past the
+        service layer, NFR-001). Order matters:
+
+        1. the user's **memberships** (+ their graph edges) are removed via
+           :meth:`IMembershipRepository.delete_all_for_user`;
+        2. the user document and its remaining single-user artefacts
+           (auth-provider docs + edges, refresh tokens, session edges, API keys,
+           preferences, onboarding state) are removed by
+           :meth:`IUserRepository.delete`.
+
+        **SEC-003 caller contract:** the REQ-025 Phase 0 / 0.5 object-storage and
+        reference-index erasure must have run *before* this call — that walk
+        resolves the user's tenants through the very memberships step 1 deletes.
+        The router sequences the two; this method assumes storage is already
+        detached.
+        """
+        if self._membership_repo is None:  # pragma: no cover - guarded by wiring
+            raise RuntimeError(
+                "UserService.delete_account_permanently requires a membership_repo; "
+                "construct the service with one (see app.common.dependencies)."
+            )
+        self._user_repo.get_or_raise(user_key)
+        self._membership_repo.delete_all_for_user(user_key)
+        self._user_repo.delete(user_key)
+        logger.info("account_hard_deleted", user_key=user_key)
 
     def delete_account(self, user_key: UserKey) -> None:
         user = self._user_repo.get_or_raise(user_key)

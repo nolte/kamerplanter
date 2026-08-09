@@ -89,7 +89,7 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     )
 
 
-def _client(router, dependency, service) -> TestClient:
+def _client(router, dependency, service, role: TenantRole = TenantRole.GROWER) -> TestClient:
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/t/{tenant_slug}")
     app.add_exception_handler(KamerplanterError, _error_handler)
@@ -97,7 +97,7 @@ def _client(router, dependency, service) -> TestClient:
         tenant_key=TENANT_KEY,
         tenant_slug=TENANT_SLUG,
         user_key="user-1",
-        role=TenantRole.GROWER,
+        role=role,
     )
     app.dependency_overrides[dependency] = lambda: service
     return TestClient(app)
@@ -405,7 +405,7 @@ def _tasks() -> dict[str, dict[str, Any]]:
     }
 
 
-def _task_client() -> tuple[TestClient, _RecordingCollection]:
+def _task_client(role: TenantRole = TenantRole.GROWER) -> tuple[TestClient, _RecordingCollection]:
     tasks = _RecordingCollection(col.TASKS, _tasks())
     aql = ReplayingAql()
     aql.route("FOR e IN task_blocks", lambda q, b: [])
@@ -413,7 +413,7 @@ def _task_client() -> tuple[TestClient, _RecordingCollection]:
     aql.route("FOR doc IN", lambda q, b: [])
     repo = ArangoTaskRepository(ReplayingDatabase(aql, {col.TASKS: tasks}))
     service = TaskService(repo, MagicMock(), DependencyResolver())
-    return _client(tasks_router, get_task_service, service), tasks
+    return _client(tasks_router, get_task_service, service, role=role), tasks
 
 
 class TestBatchTaskWrites:
@@ -450,7 +450,9 @@ class TestBatchTaskWrites:
         assert resp.json()["succeeded"] == []
 
     def test_a_foreign_task_cannot_be_deleted(self):
-        client, _ = _task_client()
+        # Batch delete is lead-only (REQ-049 §2.3); act as lead so the request
+        # reaches the cross-tenant filtering under test, not the role gate.
+        client, _ = _task_client(role=TenantRole.LEAD)
 
         resp = client.post(_url("/tasks/batch/delete"), json={"task_keys": ["task-b"]})
 

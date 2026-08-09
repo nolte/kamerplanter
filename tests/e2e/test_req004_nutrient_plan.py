@@ -863,6 +863,6 @@ class TestNutrientPlanDetailPage:
             "TC-REQ-004-060_plan-delete-cancelled", "Nutrient plan detail after cancelling delete"
         )
 
-        assert not detail.is_confirm_dialog_open(), (
+        assert detail.wait_for_confirm_dialog_closed(), (
             "TC-REQ-004-060 FAIL: Confirm dialog should be closed after clicking cancel"
         )

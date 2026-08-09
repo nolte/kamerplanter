@@ -19,10 +19,11 @@ from app.api.v1.plant_instances.schemas import (
     ValidatePlantingRequest,
     ValidatePlantingResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service, get_planting_run_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -111,7 +112,7 @@ def get_plant(
 @router.post("", response_model=PlantResponse, status_code=201)
 def create_plant(
     body: PlantCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
     """Create a plant instance for the tenant."""
@@ -124,7 +125,7 @@ def create_plant(
 def update_plant(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: PlantCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
     """Update the user-editable fields of a plant instance."""
@@ -153,7 +154,7 @@ def update_plant(
 def remove_plant(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: RemovePlantRequest | None = None,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
     """Mark a plant instance as removed, recording the termination reason."""
@@ -186,7 +187,7 @@ def validate_planting(
 def assign_nutrient_plan(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: AssignNutrientPlanRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ) -> AssignNutrientPlanStatusResponse:
@@ -214,7 +215,7 @@ def get_nutrient_plan(
 @router.delete("/{key}/nutrient-plan", status_code=204)
 def remove_nutrient_plan(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):

@@ -41,7 +41,7 @@ from app.api.v1.activity_plans.schemas import (
     TaskTemplateResponse,
     TaskTemplateUpdateRequest,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import require_permission
 from app.common.dependencies import (
     get_activity_plan_service,
     get_plant_instance_service,
@@ -51,6 +51,7 @@ from app.common.dependencies import (
 )
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.core.permissions import Action, ResourceType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.activity_plan_service import ActivityPlanService
 from app.domain.services.plant_instance_service import PlantInstanceService
@@ -67,7 +68,7 @@ router = APIRouter(
 @router.post("/generate", response_model=ActivityPlanResponse)
 def generate_plan(
     body: ActivityPlanGenerateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: ActivityPlanService = Depends(get_activity_plan_service),
     task_repo=Depends(get_task_repo),
 ) -> ActivityPlanResponse:
@@ -103,7 +104,7 @@ def generate_plan(
 @router.post("/apply", response_model=ActivityPlanApplyResponse)
 def apply_plan(
     body: ActivityPlanApplyRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: ActivityPlanService = Depends(get_activity_plan_service),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     run_service: PlantingRunService = Depends(get_planting_run_service),
@@ -155,7 +156,7 @@ def apply_plan(
 def update_task_template(
     key: Annotated[str, Path(description="Document key of the task template.")],
     body: TaskTemplateUpdateRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ) -> TaskTemplateResponse:
     """Update a single task template of a generated activity plan.
@@ -174,7 +175,7 @@ def update_task_template(
 @router.delete("/templates/{key}", status_code=204)
 def delete_task_template(
     key: Annotated[str, Path(description="Document key of the task template.")],
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.DELETE)),
     service: TaskService = Depends(get_task_service),
 ) -> Response:
     """Delete a single task template of a generated activity plan.

@@ -488,16 +488,32 @@ class TestWateringLogSearch:
         if row_count == 0:
             pytest.skip("No watering log rows to search/filter")
 
-        # Search for a term unlikely to match all rows
-        watering_list.search("zzz-no-match-expected")  # debounce handled inside the page object
+        # Search for a term no watering log can carry.
+        term = "zzz-no-match-expected"
+        watering_list.search(term)
+        # Not the stale "debounce handled inside the page object" claim that
+        # stood here: `WateringLogListPage.search()` only nudges past *most*
+        # of the 300 ms debounce with a fixed sleep, it does not settle the
+        # table (see its docstring). A `get_row_count()` read taken right
+        # after it can still land on the *previous*, unfiltered rows, which
+        # also satisfied the disjunction this replaces via `has_search_chip()`
+        # alone -- the chip renders as soon as a non-empty term is typed,
+        # independent of whether the filter has actually run (#946's debounce
+        # trap). `wait_for_no_search_results` can only become true once the
+        # filter has run *and* found nothing to show.
+        watering_list.wait_for_no_search_results(term, what="watering log list")
         screenshot(
             "TC-REQ-004-W007_after-search",
             "Watering log list after search with non-matching term",
         )
 
         filtered_count = watering_list.get_row_count()
-        assert filtered_count < row_count or watering_list.has_search_chip(), (
-            "TC-REQ-004-W007 FAIL: Expected search to filter rows or show search chip"
+        assert filtered_count == 0, (
+            f"TC-REQ-004-W007 FAIL: Searching for {term!r} must leave the watering "
+            f"log list empty, but {filtered_count} of the {row_count} rows are "
+            f"still listed. The no-search-results panel is already showing, so the "
+            f"filter has run -- a surviving row count therefore means some column's "
+            f"`searchValue` matches this term, not that the search never arrived."
         )
 
         # Clear search to restore

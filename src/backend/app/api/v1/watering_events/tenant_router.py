@@ -14,10 +14,11 @@ from app.api.v1.watering_events.schemas import (
     WateringQuickConfirmRequest,
     WateringStatsResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_watering_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_event import WateringEvent
 from app.domain.services.watering_service import WateringService
@@ -32,7 +33,7 @@ def _event_response(e: WateringEvent) -> WateringEventResponse:
 @router.post("/watering-events", response_model=WateringEventWithWarnings, status_code=201)
 def create_event(
     body: WateringEventCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission("watering-event", Action.CREATE)),
     service: WateringService = Depends(get_watering_service),
 ):
     """Record a watering event and return it with any warnings."""

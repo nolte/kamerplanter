@@ -7,6 +7,7 @@ from app.domain.engines.import_engine import ImportEngine
 from app.domain.engines.row_validator import RowValidator
 from app.domain.interfaces.import_job_repository import IImportJobRepository
 from app.domain.models.import_job import ImportJob
+from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
 
 
 class ImportService:
@@ -15,10 +16,15 @@ class ImportService:
         import_repo: IImportJobRepository,
         species_repo=None,
         family_repo=None,
+        phase_sequence_binder: PhaseSequenceBinder | None = None,
     ) -> None:
         self._repo = import_repo
         self._species_repo = species_repo
         self._family_repo = family_repo
+        # A CSV import mints species exactly like create_species does, so it owes them
+        # the same phase-sequence binding (#1006). Optional, so existing constructions
+        # keep working and simply do not bind.
+        self._phase_sequence_binder = phase_sequence_binder
         self._parser = CsvParser()
         self._validator = RowValidator()
         self._engine = ImportEngine(self._parser, self._validator)
@@ -70,6 +76,16 @@ class ImportService:
     def get_template(self, entity_type: EntityType) -> str:
         return self._parser.get_template(entity_type)
 
+    def _bind_phase_sequence(self, species) -> None:
+        """Bind an imported species to its default phase sequence (#1006).
+
+        Best-effort by construction: the binder swallows its own failures, and a
+        missing binder (older construction, tests) simply skips. An import must not
+        fail a row over master data the row never carried.
+        """
+        if self._phase_sequence_binder is not None and species is not None:
+            self._phase_sequence_binder.bind_default(species)
+
     def _get_existing_keys(self, entity_type: EntityType) -> set[str]:
         if entity_type == EntityType.SPECIES and self._species_repo:
             docs, _ = self._species_repo.get_all(0, 10000)
@@ -98,7 +114,8 @@ class ImportService:
                 # name unique index, so a normalized-duplicate (differing only by
                 # the hybrid marker × vs x, casing or whitespace) would be inserted
                 # as a second row. The UPSERT resolves onto the existing record.
-                self._species_repo.upsert_by_normalized_scientific_name(species)
+                created = self._species_repo.upsert_by_normalized_scientific_name(species)
+                self._bind_phase_sequence(created)
 
             return create_species
 
@@ -152,12 +169,13 @@ class ImportService:
 
                     # SEC-003: still route the fallback create through the atomic
                     # dedup UPSERT so a normalized-duplicate never slips in here.
-                    self._species_repo.upsert_by_normalized_scientific_name(
+                    created = self._species_repo.upsert_by_normalized_scientific_name(
                         Species(
                             scientific_name=data["scientific_name"],
                             **_species_fields_from_row(data, self._family_repo),
                         )
                     )
+                    self._bind_phase_sequence(created)
                     return
                 for field, value in _species_fields_from_row(data, self._family_repo).items():
                     setattr(existing, field, value)

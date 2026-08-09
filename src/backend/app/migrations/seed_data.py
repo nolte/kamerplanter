@@ -118,18 +118,23 @@ def link_indoor_species_to_phase_sequence() -> None:
     Attribute-driven fine-typing (REQ-003 D9–D12, audit #576 / #616): the CAM-succulent,
     clonal-monocarp (Kindel), photoperiodic-ornamental and palm/fern/geophyte cohorts are
     routed onto their biologically precise sequence via
-    :func:`~app.migrations.perennial_binding.resolve_phase_sequence_name`; every remaining
-    perennial lands on ``evergreen_foliage_perennial``; and ``indoor_default`` is only the
-    last-resort blanket for annual/biennial species without a better pattern.
+    :func:`~app.domain.engines.phase_sequence_resolver.resolve_phase_sequence_name`; every
+    remaining perennial lands on ``evergreen_foliage_perennial``; and ``indoor_default`` is
+    only the last-resort blanket for annual/biennial species without a better pattern.
 
     Iterates **all** species (species.yaml base species *and* plant-info species) so the
     resolver — not the blanket — decides. Idempotent: species that already carry a
     HAS_PHASE_SEQUENCE edge (e.g. the explicitly-seeded outdoor lifecycles) are skipped, so
     the resolver never overrides a more-precise binding and a re-run is a no-op.
+
+    The same classifier now also runs at *runtime* — ``SpeciesService.create_species`` and
+    the CSV import bind through ``app.domain.services.phase_sequence_binder`` (#1006) — so
+    a species minted after seeding is not left unbound the way the identify flow used to
+    leave it.
     """
     from app.data_access.arango import collections as col
     from app.domain.engines.cycle_resolver import resolve_effective_cycle
-    from app.migrations.perennial_binding import (
+    from app.domain.engines.phase_sequence_resolver import (
         INDOOR_DEFAULT_SEQUENCE,
         resolve_phase_sequence_name,
     )
@@ -140,13 +145,23 @@ def link_indoor_species_to_phase_sequence() -> None:
     db = get_db()
 
     # Resolve the sequence keys once (name -> _key). If the phase sequences have not been
-    # seeded yet (fresh install, this seed runs before the phase_sequences seed on the very
-    # first boot), skip — the reconcile step and the next boot pick it up.
+    # seeded yet, nothing can be bound — during the ``core_data`` job on a fresh install
+    # that is the normal case, because ``phase_sequences`` is seeded later in the registry.
+    #
+    # The recovery is the ``lifecycle_to_phase_sequence_reconcile`` job, which is the LAST
+    # data job in ``seeds/registry.py`` and calls this function again once every species and
+    # every sequence exists — the binding is completed within the same seed run, not on a
+    # later boot. ``verify_all_species_bound`` runs at the end of that job and reports at
+    # error level if it was not, so this early return can no longer be silent-by-default.
     all_seqs, _ = ps_repo.get_all_sequences(0, 500)
     seq_key_by_name: dict[str, str] = {s.name: (s.key or "") for s in all_seqs}
     indoor_key = seq_key_by_name.get(INDOOR_DEFAULT_SEQUENCE, "")
     if not indoor_key:
-        logger.warning("indoor_default_sequence_not_found")
+        logger.warning(
+            "indoor_default_sequence_not_found",
+            reason="phase sequences not seeded yet; deferred to the post-seed reconcile job",
+            sequences_present=len(seq_key_by_name),
+        )
         return
 
     # Load every species (paginated). ~210 rows — a 1000 page covers it with headroom.
@@ -214,6 +229,62 @@ def link_indoor_species_to_phase_sequence() -> None:
 
     if linked:
         logger.info("indoor_species_linked_to_phase_sequence", count=linked, fine_typed=fine_typed)
+
+
+def verify_all_species_bound(*, limit: int = 25) -> list[str]:
+    """Report species left without a phase sequence after seeding (#1006).
+
+    Called at the end of the ``lifecycle_to_phase_sequence_reconcile`` job — the point
+    at which every species and every sequence exists, so "unbound" is a defect rather
+    than an ordering artefact.
+
+    Reported at **error** level, not warning: an unbound species produces plants with
+    ``current_phase_key: null``, and everything the lifecycle carries hangs off the
+    phase. The condition previously had no report at all — the linker's early return
+    on a missing ``indoor_default`` was one warning line naming no species, so a run
+    that bound nothing looked like a run that had nothing to bind.
+
+    Names the offenders (capped at ``limit``) rather than only counting them, so the
+    log answers "which" and not just "how many". Returns the full list of unbound
+    scientific names for callers/tests; never raises — a report is not a gate, and
+    failing the seed here would take the whole install down for a data gap.
+    """
+    from app.data_access.arango import collections as col
+
+    db = get_db()
+    unbound: list[str] = list(
+        db.aql.execute(
+            """
+            FOR s IN @@species_col
+                LET bound = LENGTH(
+                    FOR e IN @@edge_col
+                        FILTER e._from == CONCAT(@species_prefix, s._key)
+                        LIMIT 1
+                        RETURN 1
+                )
+                FILTER bound == 0
+                SORT s.scientific_name
+                RETURN s.scientific_name
+            """,
+            bind_vars={
+                "@species_col": col.SPECIES,
+                "@edge_col": col.HAS_PHASE_SEQUENCE,
+                "species_prefix": f"{col.SPECIES}/",
+            },
+        )
+    )
+
+    if unbound:
+        logger.error(
+            "species_without_phase_sequence_after_seed",
+            count=len(unbound),
+            species=unbound[:limit],
+            truncated=max(0, len(unbound) - limit),
+            impact="plants created for these species get current_phase_key=null",
+        )
+    else:
+        logger.info("all_species_bound_to_phase_sequence")
+    return unbound
 
 
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915

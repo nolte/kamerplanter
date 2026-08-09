@@ -893,7 +893,9 @@ class BasePage:
     #: Overflow trigger rendered by ``PageHeaderActions`` on ``xs``.
     PAGE_HEADER_OVERFLOW = (By.CSS_SELECTOR, "[data-testid='page-header-overflow']")
 
-    def _header_action_element(self, testid: str) -> WebElement | None:
+    def _header_action_element(
+        self, testid: str, timeout: int = IMPLICIT_WAIT_EQUIVALENT
+    ) -> WebElement | None:
         """Return the element behind a header action, opening the overflow if needed.
 
         Returns ``None`` when the action does not exist at this viewport at all —
@@ -901,10 +903,46 @@ class BasePage:
         (UI-NFR-018 R-012 omits a delete action for system data instead of
         disabling it).
 
+        **Waits for the header to exist before deciding an action is absent
+        (#946 wave 13).** Both probes used to be raw ``find_elements`` taken in
+        the same millisecond as the caller's ``open()``/navigation, so on a
+        `PageHeaderActions` header that had not rendered yet *neither* matched
+        and this returned ``None`` -- a vacuous "the action is absent" that is
+        the unfalsifiable-absence shape `e2e-test-stability` §D forbids. Its two
+        read-only callers turned that into false verdicts: ``assert not
+        is_header_action_enabled(...)`` (TC-REQ-003-027) passed however early it
+        ran, and the ``if not is_..._enabled()`` gates that *select* which plant
+        a test operates on picked the wrong candidate. This is the same instant
+        :meth:`click_header_action` was fixed for once #835 removed the implicit
+        wait that had been granting both probes 3 s.
+
+        The anchor is the disjunction :meth:`click_header_action` already waits
+        on -- the direct control (``sm``+) **or** the overflow trigger (``xs``)
+        -- so a raw read is only taken once the header is present. ``None`` then
+        means "the header rendered and this action is genuinely not on it",
+        never "the header has not rendered yet". A genuinely absent action with
+        no overflow at all still resolves to ``None``: the anchor spends its
+        (bounded) budget, the read misses, and the falsifiable negative is
+        preserved without a hang.
+
         Leaves the menu open when it had to be opened; callers that only inspect
         state can close it with ``close_mui_dropdown``.
         """
-        direct = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        direct_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        try:
+            self.wait_for_any_present(
+                (direct_locator, self.PAGE_HEADER_OVERFLOW),
+                f"header action {testid!r}",
+                timeout=timeout,
+            )
+        except AssertionError:
+            # Neither the direct control nor an overflow trigger appeared within
+            # the budget: the action is genuinely absent (or the header renders
+            # neither shape). Fall through to the raw reads, which then return
+            # None -- the same falsifiable negative, now taken after a real look.
+            pass
+
+        direct = self.driver.find_elements(*direct_locator)
         if direct:
             return direct[0]
         trigger = self.driver.find_elements(*self.PAGE_HEADER_OVERFLOW)

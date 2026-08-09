@@ -35,7 +35,25 @@ class IUserRepository(ABC):
         """
 
     @abstractmethod
-    def delete(self, key: UserKey) -> bool: ...
+    def delete(self, key: UserKey) -> bool:
+        """Delete a user and cascade every artefact the account solely owns.
+
+        Removes the user's auth-provider docs + edges, refresh tokens, session
+        edges, API keys, preferences and onboarding state, then the user
+        document itself (#1019 folded the api-key/preference/onboarding removals
+        in from the platform-admin router, which had hand-written them as raw
+        AQL). Memberships are *not* removed here — they are a user↔tenant
+        relationship owned by the membership repository; the account-deletion
+        cascade removes them first, via ``delete_all_for_user``.
+        """
+
+    @abstractmethod
+    def list_all(self) -> list[User]:
+        """Every user, newest first (platform-admin listing, #1019)."""
+
+    @abstractmethod
+    def count(self, *, active_only: bool = False) -> int:
+        """Number of user documents; ``active_only`` counts ``is_active`` ones (#1019)."""
 
     @abstractmethod
     def get_unverified_before(self, cutoff_iso: str) -> list[User]: ...

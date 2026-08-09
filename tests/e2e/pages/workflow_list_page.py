@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base_page import BasePage, DEFAULT_TIMEOUT
+from .base_page import BasePage, DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT
 
 
 class WorkflowListPage(BasePage):
@@ -62,12 +63,50 @@ class WorkflowListPage(BasePage):
 
     # ── Card interactions ──────────────────────────────────────────────
 
+    #: Unlike the `DataTable` list pages (`FertilizerListPage` et al.), this
+    #: card grid renders **no** `data-testid='empty-state'` and **no**
+    #: `data-testid='no-search-results'` panel -- both its "no workflows yet"
+    #: and its "search matched nothing" branches are a bare, untagged `Box`
+    #: (`WorkflowTemplateListPage.tsx`), and its `LoadingSkeletonCards` carries
+    #: no `data-testid='loading-skeleton'` either, so `open()`'s
+    #: `wait_for_loading_complete()` finds nothing to wait on and returns at
+    #: once. `PAGE` still mounts synchronously, before `fetchWorkflows`
+    #: resolves, so the same just-navigated pre-fetch window
+    #: `wait_for_dashboard_content` was built for
+    #: (`pflege_dashboard_page.py`) exists here too -- with only one settled
+    #: branch to disjoin over rather than three. `suppress(AssertionError)`
+    #: still bounds the truly-empty case to this wait's own budget instead of
+    #: hanging, it just always takes that path here (no fast branch to reach
+    #: it early), unlike the DataTable pages' empty-state/no-results shortcut.
+    def wait_for_list_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the card grid has rendered at least one workflow card.
+
+        Deliberately does not raise: this is an *anchor* for the readers below,
+        not an assertion of its own. A tenant with no workflow templates is a
+        state the caller's own assertion must still be able to observe -- it
+        just costs this wait's full budget to reach, since this page renders
+        no dedicated empty-state hook to short-circuit on.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                (self.WORKFLOW_CARDS,), "workflow card grid content", timeout=timeout
+            )
+
     def get_workflow_cards(self) -> list[WebElement]:
         """Return all visible workflow card elements."""
         return self.driver.find_elements(*self.WORKFLOW_CARDS)
 
     def get_card_count(self) -> int:
-        """Return the number of visible workflow cards."""
+        """Return the number of visible workflow cards.
+
+        Anchored on :meth:`wait_for_list_content`. Several call sites gate a
+        `pytest.skip(...)` or a bidirectional count comparison on this,
+        immediately after `open()` -- an unanchored `0` read in the pre-fetch
+        window before `open()`'s data has arrived is indistinguishable from a
+        tenant that genuinely has no workflow templates, which is the
+        `has_care_card` defect class this mirrors (#946).
+        """
+        self.wait_for_list_content()
         return len(self.get_workflow_cards())
 
     #: The navigating region of a workflow card. The `Card` root carries the
@@ -125,7 +164,17 @@ class WorkflowListPage(BasePage):
     # ── Search ─────────────────────────────────────────────────────────
 
     def search(self, term: str) -> None:
-        """Type *term* into the search field."""
+        """Type *term* into the search field.
+
+        Unlike the `DataTable` list pages, this page's filter is a plain
+        `useMemo` over `searchQuery` React state -- no artificial debounce and
+        no `search-chip`/`no-search-results` hook to gate on, so
+        `BasePage.wait_for_search_applied`/`wait_for_no_search_results` cannot
+        be used here at all (both poll for a testid this page never renders).
+        The fixed sleep below is this page's only settling signal; it is far
+        larger than the render it is covering for, but it remains a bet
+        rather than a read-back (#946 wave 8).
+        """
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)

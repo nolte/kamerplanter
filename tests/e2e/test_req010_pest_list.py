@@ -125,7 +125,13 @@ class TestPestListPage:
 
         screenshot("TC-REQ-010-004_before-search", "Pest list before search")
         pest_list.search(search_term)
-        pest_list.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: the `DataTable` search is
+        # client-side behind a 300 ms debounce and fetches nothing, so the
+        # skeleton it polls for never mounts and it returns while the
+        # unfiltered rows are still up -- which also satisfies both assertions
+        # below, since `search_term` is a prefix of a row already in the
+        # unfiltered list (#946).
+        pest_list.wait_for_search_applied(search_term, what="pest list")
         screenshot("TC-REQ-010-004_after-search", "Pest list after search filter applied")
 
         filtered_names = pest_list.get_first_column_texts()
@@ -147,8 +153,16 @@ class TestPestListPage:
         Spec: TC-010-004 -- Schaedlings-Liste — Suche findet keinen Treffer.
         """
         pest_list.open()
-        pest_list.search("XYZUnbekannt99")
-        pest_list.wait_for_loading_complete()
+        term = "XYZUnbekannt99"
+        pest_list.search(term)
+        # `get_row_count() == 0` was satisfied just as well by a search that
+        # never ran (nothing filtered yet, #946's debounce trap) as by a
+        # database seeded with zero pests in the first place (nothing to
+        # filter, #956's class) -- neither of those is evidence the *search*
+        # excluded anything. `wait_for_no_search_results` can only become true
+        # in a render where the filter ran *and* the source rows were there
+        # to exclude.
+        pest_list.wait_for_no_search_results(term, what="pest list")
         screenshot("TC-REQ-010-005_search-no-results", "Pest list search with no results")
 
         assert pest_list.get_row_count() == 0, (

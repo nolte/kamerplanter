@@ -78,7 +78,24 @@ class LoginPage(BasePage):
         return len(elements) > 0 and elements[0].is_displayed()
 
     def get_oauth_buttons(self) -> list[WebElement]:
-        """Return all SSO/OAuth provider buttons."""
+        """Return all SSO/OAuth provider buttons.
+
+        **Known gap, not fixable from this page object (#946):** `LoginPage.tsx`
+        loads its provider list via `useAsyncOptions(loadOAuthProviders)` and
+        renders the divider/button row only once `options.length > 0` -- the
+        hook's own `loading` flag is never read by the component, so there is
+        no DOM signal (no `data-testid`, no `[data-testid='loading-skeleton']`)
+        distinguishing "the fetch has not resolved yet" from "it resolved to
+        zero providers". `test_login_page_without_sso_providers` asserts
+        ``len(oauth_buttons) == 0`` right after `open()`, which both a genuine
+        "no providers configured" environment *and* a read taken mid-fetch
+        satisfy identically -- the assertion cannot tell the two apart and
+        would not notice the feature being deleted either. Anchoring this
+        properly needs a frontend change (e.g. rendering the shared
+        `LoadingSkeleton`/`data-testid='loading-skeleton'` convention, or a
+        `data-testid` on the OAuth section that mounts once `!loading`) --
+        out of this reviewer's remit (no app-code edits).
+        """
         return self.driver.find_elements(*self.OAUTH_BUTTONS)
 
     def is_remember_me_checked(self) -> bool:

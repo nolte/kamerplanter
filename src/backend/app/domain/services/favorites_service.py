@@ -3,7 +3,27 @@ from datetime import UTC, datetime
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError
 
+from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
+
+# Catalogue collections whose rows carry a ``tenant_key`` ownership marker: some
+# rows are global (``tenant_key == ""``, e.g. seeded system catalogues), others
+# are owned by a single tenant. Favouriting one of these must respect tenant
+# isolation (#965 item 2). ``species`` and ``botanical_families`` carry no
+# ``tenant_key`` and are purely global, so they are intentionally absent here.
+#
+# ``activities`` is included beyond the two catalogues named in the #965 report:
+# ``Activity.tenant_key`` (app/domain/models/activity.py) is a real ownership
+# marker (system rows carry ``is_system == true``, tenant rows an owning
+# ``tenant_key``), so the same cross-tenant leak applied to it and is closed the
+# same way.
+_TENANT_OWNED_CATALOG_COLLECTIONS = frozenset(
+    {
+        col.NUTRIENT_PLANS,
+        col.FERTILIZERS,
+        col.ACTIVITIES,
+    }
+)
 
 
 class FavoritesService:
@@ -14,13 +34,48 @@ class FavoritesService:
         self,
         user_key: str,
         target_key: str,
+        *,
+        tenant_key: str,
         source: str = "manual",
         cascade_from_key: str | None = None,
     ) -> dict:
-        """Add a favorite edge from user to target entity. Upserts — upgrades cascade→manual."""
+        """Add a favorite edge from user to target entity. Upserts — upgrades cascade→manual.
+
+        Favourites are personal and span tenants (product decision, #965): a user
+        may favourite a **global** catalogue entry (``tenant_key == ""``) or one
+        owned by their **own** tenant, but never a **foreign** tenant's entry.
+
+        ``tenant_key`` is anchored on the caller's **active** tenant
+        (``ctx.tenant_key`` of the request), not the full set of the user's
+        memberships. Resolving every membership tenant on each write would be
+        heavyweight and there is no cheap membership lookup on this path; every
+        other tenant-scoped route already anchors on the active tenant, so this
+        stays consistent. The practical effect: favouriting an own-tenant
+        catalogue entry works while acting *inside that tenant* — which is the
+        only context the tenant-scoped router (``/t/{slug}/favorites``) runs in.
+        It is keyword-only so a route that forgets to thread it fails loudly
+        (#948) rather than silently defaulting to a global-only view.
+
+        The tenant predicate is enforced only for tenant-owned catalogues
+        (:data:`_TENANT_OWNED_CATALOG_COLLECTIONS`). Purely global targets
+        (species, botanical families) carry no ``tenant_key`` and are unaffected.
+        A foreign-tenant target raises :class:`NotFoundError` (404) — matching
+        ``verify_tenant_read_access`` — to avoid a cross-tenant existence oracle.
+        """
         target_collection = self._resolve_collection(target_key)
         if not target_collection:
-            raise ValueError(f"Cannot resolve collection for key: {target_key}")
+            # SEC-002: answer the same 404 a foreign-tenant row does, not a 500.
+            # A ValueError here routed through the unhandled-error handler, so an
+            # unresolvable key was distinguishable from a foreign-but-real one
+            # (404) — a cross-tenant existence oracle on catalogue keys. Collapsing
+            # unknown/unresolvable/foreign to one NotFoundError removes the signal.
+            raise NotFoundError("favorite target", target_key)
+
+        self._verify_target_tenant_access(
+            target_collection=target_collection,
+            target_key=target_key,
+            tenant_key=tenant_key,
+        )
 
         from_id = f"{col.USERS}/{user_key}"
         to_id = f"{target_collection}/{target_key}"
@@ -77,7 +132,14 @@ class FavoritesService:
         target_key: str,
         cascade_cleanup: bool = True,
     ) -> bool:
-        """Remove a favorite edge. Optionally clean up cascade edges."""
+        """Remove a favorite edge. Optionally clean up cascade edges.
+
+        No tenant predicate is applied on removal: the edge is anchored on the
+        caller's ``user_key`` and only their **own** edges are ever removed, so
+        removal cannot leak across tenants. Enforcing the add-path predicate here
+        would instead *trap* any edge that leaked before the #965 fix, blocking
+        the user from cleaning it up. Removal therefore stays permissive.
+        """
         target_collection = self._resolve_collection(target_key)
         if not target_collection:
             return False
@@ -181,8 +243,13 @@ class FavoritesService:
         )
         return list(cursor)
 
-    def cascade_fertilizers(self, user_key: str, nutrient_plan_key: str) -> list[dict]:
-        """Traverse plan → entries → fertilizers and create cascade favorite edges."""
+    def cascade_fertilizers(self, user_key: str, nutrient_plan_key: str, *, tenant_key: str) -> list[dict]:
+        """Traverse plan → entries → fertilizers and create cascade favorite edges.
+
+        ``tenant_key`` is keyword-only (#948) and threaded into each cascaded
+        :meth:`add_favorite`, so cascaded fertilizer favourites obey the same
+        tenant predicate as an explicit favourite.
+        """
         cursor = self._db.aql.execute(
             """
             FOR pe IN nutrient_plan_phase_entries
@@ -198,7 +265,13 @@ class FavoritesService:
 
         created = []
         for fert_key in fertilizer_keys:
-            edge = self.add_favorite(user_key, fert_key, source="cascade", cascade_from_key=nutrient_plan_key)
+            edge = self.add_favorite(
+                user_key,
+                fert_key,
+                tenant_key=tenant_key,
+                source="cascade",
+                cascade_from_key=nutrient_plan_key,
+            )
             created.append(edge)
         return created
 
@@ -217,6 +290,33 @@ class FavoritesService:
             bind_vars={"from_id": from_id, "plan_key": nutrient_plan_key},
         )
         return len(list(cursor))
+
+    def _verify_target_tenant_access(
+        self,
+        *,
+        target_collection: str,
+        target_key: str,
+        tenant_key: str,
+    ) -> None:
+        """Enforce the personal-favourite tenant predicate for tenant-owned catalogues.
+
+        Allows a **global** row (``tenant_key == ""``) or one owned by the
+        caller's **active** tenant; refuses a **foreign** tenant's row with
+        :class:`NotFoundError` (404, not 403) so cross-tenant existence cannot be
+        probed — mirroring ``app/common/tenant_guard.py:verify_tenant_read_access``.
+        Purely global catalogues (species, botanical families) carry no
+        ``tenant_key`` and are skipped entirely, so this never hides them (#324).
+        """
+        if target_collection not in _TENANT_OWNED_CATALOG_COLLECTIONS:
+            return
+
+        doc = self._db.collection(target_collection).get(target_key)
+        if doc is None:
+            raise NotFoundError(target_collection, target_key)
+
+        row_tenant = doc.get("tenant_key") or ""
+        if row_tenant not in ("", tenant_key):
+            raise NotFoundError(target_collection, target_key)
 
     def _resolve_collection(self, key: str) -> str | None:
         """Resolve which document collection a key belongs to."""

@@ -111,4 +111,9 @@ def derive_from_climate_normals(normal: ClimateNormal) -> tuple[str, float] | No
     minimum = mean_annual_minimum_from_normals(normal)
     if minimum is None:
         return None
-    return classify_from_minimum(minimum), minimum
+    # Classify on full precision, but persist/return the mean rounded to 0.1 °C.
+    # Climate-normal sources hand us raw floats like -5.80557689172; 0.1 °C is
+    # already finer than the underlying data justifies, and the spurious 12-digit
+    # tail otherwise trips ZAP's credit-card PII heuristic on the resolve-hardiness
+    # response (#1065 — a false positive fixed at the source, not suppressed).
+    return classify_from_minimum(minimum), round(minimum, 1)

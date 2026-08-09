@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class HarvestBatchDetailPage(BasePage):
@@ -159,7 +161,12 @@ class HarvestBatchDetailPage(BasePage):
         return chips[0].text if chips else None
 
     def is_page_loaded(self) -> bool:
-        """Return True if the detail page testid is visible."""
+        """Return True if the detail page testid is visible.
+
+        No call site in this suite as of #946 wave 4 -- left unanchored
+        rather than speculatively converted, since there is no caller whose
+        polarity or timing this reader's fix could be verified against.
+        """
         return len(self.driver.find_elements(*self.PAGE)) > 0
 
     # -- Tab navigation -----------------------------------------------------
@@ -204,13 +211,56 @@ class HarvestBatchDetailPage(BasePage):
 
     # -- Tab 1: Quality -----------------------------------------------------
 
+    #: The Quality and Yield tabs each render one of these two shapes once
+    #: their tab panel has committed -- a create form when no assessment/
+    #: metric exists yet, a display table once one does. `quality` and
+    #: `yieldMetric` are resolved together with `batch` inside the same
+    #: `load()` before the page-level `LoadingSkeleton` clears
+    #: (`HarvestBatchDetailPage.tsx:267`), so the gap this closes is not that
+    #: initial fetch -- it is the render commit after `click_tab()` (a plain
+    #: `setTab` state flip, no wait of its own) and, on the create-happy-path
+    #: tests, the window between `submit_form()` and the POST response that
+    #: swaps the form for the table. `wait_for_loading_complete()`, which
+    #: every call site here already runs, is a no-op for both: neither
+    #: touches the page-level `loading` flag this page's skeleton is keyed
+    #: on.
+    TAB_CONTENT_BRANCHES = (QUALITY_FORM, QUALITY_TABLE)
+
+    def wait_for_tab_content(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until the active tab has rendered its form or its display table.
+
+        Deliberately does not raise: an anchor for the readers below, not an
+        assertion of its own -- see :meth:`PflegeDashboardPage.wait_for_dashboard_content`
+        for the same shape and rationale.
+        """
+        with suppress(AssertionError):
+            self.wait_for_any_present(
+                self.TAB_CONTENT_BRANCHES, "quality/yield tab content", timeout=timeout
+            )
+
     def is_quality_form_visible(self) -> bool:
-        """Return True if the quality create form is visible."""
+        """Return True if the quality create form is visible.
+
+        Anchored on :meth:`wait_for_tab_content`: its only call site
+        (``test_quality_tab_shows_form_or_table``) asserts ``has_form or
+        has_table`` unconditionally, and three more gate a ``pytest.skip(...)``
+        on ``not is_quality_form_visible()`` right after ``click_tab(1)`` --
+        the skip-gate vacuity from #946 wave 1, here on a tab-content read
+        instead of a dashboard-section one.
+        """
+        self.wait_for_tab_content()
         forms = self.driver.find_elements(*self.QUALITY_FORM)
         return len(forms) > 0
 
     def is_quality_table_visible(self) -> bool:
-        """Return True if a quality assessment display table is visible."""
+        """Return True if a quality assessment display table is visible.
+
+        See :meth:`is_quality_form_visible` for why the anchor is
+        :meth:`wait_for_tab_content`. Also feeds the create-happy-path
+        assertion straight after ``submit_form()``, which has no other
+        post-condition wait for the form-to-table swap.
+        """
+        self.wait_for_tab_content()
         tables = self.driver.find_elements(*self.QUALITY_TABLE)
         return len(tables) > 0
 
@@ -283,12 +333,24 @@ class HarvestBatchDetailPage(BasePage):
     # -- Tab 2: Yield -------------------------------------------------------
 
     def is_yield_form_visible(self) -> bool:
-        """Return True if the yield create form is visible."""
+        """Return True if the yield create form is visible.
+
+        Same shape, same locators and the same anchor as
+        :meth:`is_quality_form_visible` -- the Yield tab reuses the generic
+        ``form``/``table[aria-label]`` locators rather than tab-specific
+        testids, so it shares :meth:`wait_for_tab_content`. Two call sites
+        gate a ``pytest.skip(...)`` right after ``click_tab(2)``.
+        """
+        self.wait_for_tab_content()
         forms = self.driver.find_elements(*self.QUALITY_FORM)
         return len(forms) > 0
 
     def is_yield_table_visible(self) -> bool:
-        """Return True if a yield metrics display table is visible."""
+        """Return True if a yield metrics display table is visible.
+
+        See :meth:`is_quality_form_visible` for the anchor rationale.
+        """
+        self.wait_for_tab_content()
         tables = self.driver.find_elements(*self.QUALITY_TABLE)
         return len(tables) > 0
 
@@ -391,11 +453,29 @@ class HarvestBatchDetailPage(BasePage):
     # -- Validation errors --------------------------------------------------
 
     def get_validation_error(self, field_name: str) -> str:
-        """Return the validation error text for a form field."""
+        """Return the validation error text for a form field, waiting for it to render.
+
+        All three call sites read this (or :meth:`has_validation_error`) as the
+        sole assertion straight after ``submit_form()`` +
+        ``wait_for_loading_complete()`` -- which is a no-op here, since a
+        client-side zod validation error never touches the page-level loading
+        skeleton this method used to be silently unguarded against. Genuinely
+        waits rather than anchoring on a page container, because there is no
+        broader "settled" region to anchor on: the error surface itself, or
+        its absence once the wait is spent, is the only signal.
+
+        Bounded on the short `IMPLICIT_WAIT_EQUIVALENT` budget, not the full
+        default: one call site reads this as one arm of ``has_validation_error(
+        ...) or is_submit_disabled()``, where the field going the other way is
+        a legitimate, expected outcome -- a full-length wait there would be
+        charged on every run that takes that branch.
+        """
         locator = (
             By.CSS_SELECTOR,
             f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
         )
+        if not self.is_visible_within(locator, timeout=IMPLICIT_WAIT_EQUIVALENT):
+            return ""
         elements = self.driver.find_elements(*locator)
         return elements[0].text if elements else ""
 
@@ -406,7 +486,15 @@ class HarvestBatchDetailPage(BasePage):
     # -- Error display ------------------------------------------------------
 
     def is_error_displayed(self) -> bool:
-        """Return True if an error display component is visible."""
+        """Return True if an error display component is visible.
+
+        Deliberately instantaneous, not anchored: its one call site
+        (``test_detail_page_404_for_unknown_key``) reads it right after
+        ``open()``, which itself waits for ``self.PAGE or self.ERROR_DISPLAY``
+        -- for a 404 key, `batch` never resolves, so ``open()`` can only have
+        returned via the ``ERROR_DISPLAY`` branch. The readiness this method
+        reports has already been bought by the caller.
+        """
         elements = self.driver.find_elements(*self.ERROR_DISPLAY)
         return len(elements) > 0 and elements[0].is_displayed()
 
@@ -417,7 +505,12 @@ class HarvestBatchDetailPage(BasePage):
         els = self.driver.find_elements(*self.SNACKBAR)
         return any(el.is_displayed() for el in els) if els else False
 
-    def is_form_submit_visible(self) -> bool:
-        """Return True if the form submit button is present."""
-        els = self.driver.find_elements(*self.FORM_SUBMIT)
-        return len(els) > 0
+    def is_form_submit_visible(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Return True if the form submit button is present, waiting for it to render.
+
+        Its one call site (``test_edit_tab_shows_prefilled_form``) reads this
+        right after ``click_tab(3)`` -- a plain ``setTab`` flip with no fetch
+        of its own, so ``wait_for_loading_complete()`` does not cover the
+        render commit. Genuinely waits rather than sampling once.
+        """
+        return self.is_visible_within(self.FORM_SUBMIT, timeout=timeout)

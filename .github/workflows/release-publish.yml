@@ -124,8 +124,11 @@ jobs:
           set -euo pipefail
           if ! gh release view "$TAG" --json tagName >/dev/null; then
             echo "::error::No release with tag '$TAG'. Open drafts:"
+            # Diagnostics printed on the way to the `exit 1` below. The marker
+            # sits on the `|| true` line itself because the line above it is a
+            # backslash continuation, not a comment.
             gh release list --limit 50 --json tagName,isDraft \
-              --jq '.[] | select(.isDraft) | "  - " + .tagName' || true
+              --jq '.[] | select(.isDraft) | "  - " + .tagName' || true  # gate-integrity-ok: the verdict is the exit 1 on the next line; a failed listing costs the operator a hint, not the failure
             exit 1
           fi
           echo "Resolved release $TAG."

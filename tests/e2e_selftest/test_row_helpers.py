@@ -62,6 +62,7 @@ This is a browser-free unit test and belongs in this tier, never under
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -87,9 +88,16 @@ from tests.e2e.pages.base_page import (
     TableNotSettled,
 )
 from tests.e2e.pages.pflege_dashboard_page import PflegeDashboardPage
+from tests.e2e.pages.plant_instance_detail_page import PlantInstanceDetailPage
+from tests.e2e.pages.plant_photo_gallery_page import PlantPhotoGalleryPage
 from tests.e2e.pages.species_detail_page import SpeciesDetailPage
 from tests.e2e.pages.watering_log_list_page import WateringLogListPage
 from tests.e2e.pages.task_detail_page import TaskDetailPage
+from tests.e2e.pages.task_queue_page import TaskQueuePage
+from tests.e2e.pages.harvest_batch_detail_page import HarvestBatchDetailPage
+from tests.e2e.pages.planting_run_detail_page import PlantingRunDetailPage
+from tests.e2e.pages.tank_detail_page import TankDetailPage
+from tests.e2e.pages.botanical_family_detail_page import BotanicalFamilyDetailPage
 
 #: The W3C element identifier key — see `test_element_proxy.py` for why it is
 #: restated rather than imported.
@@ -111,7 +119,15 @@ BUDGET_SLACK = 1.5
 class StubNode:
     """One element in the stub DOM."""
 
-    def __init__(self, node_id: str, testid: str, text: str = "", css_class: str = "") -> None:
+    def __init__(
+        self,
+        node_id: str,
+        testid: str,
+        text: str = "",
+        css_class: str = "",
+        tag: str = "div",
+        attrs: tuple[str, ...] = (),
+    ) -> None:
         self.id = node_id
         self.testid = testid
         self.text = text
@@ -119,6 +135,21 @@ class StubNode:
         #: `BasePage._chip_colors` therefore has to read one. Nothing here is
         #: *located* by class — see `_matches`.
         self.css_class = css_class
+        #: Modelled only for the #946 wave 4 tab-content anchor
+        #: (`HarvestBatchDetailPage.QUALITY_FORM`/`QUALITY_TABLE`), which
+        #: addresses its two branches by bare tag name (``form``) and by a
+        #: tag-plus-attribute selector (``table[aria-label]``) rather than by
+        #: testid -- see `_matches`.
+        self.tag = tag
+        self.attrs = frozenset(attrs)
+        #: Modelled only for the #946 wave 4/5 guarded-dismissal readers that
+        #: address a MUI Dialog structurally (``.MuiDialog-root [role='dialog']``)
+        #: rather than by testid -- `TankDetailPage.STATE_DIALOG`/
+        #: `MAINTENANCE_DIALOG`, `PlantingRunDetailPage.EDIT_DIALOG`. A single
+        #: flag rather than two nested nodes with a real class/attribute,
+        #: because the production reader only ever asks for that selector's
+        #: presence as a whole -- see `_matches`.
+        self.is_mui_dialog = False
         self.children: list[StubNode] = []
         #: False once a re-render replaced this node. Every command against it
         #: then answers with a W3C `stale element reference`, exactly as a real
@@ -206,6 +237,31 @@ class TableDom:
         self.root.children.append(node)
         return node
 
+    def render_tag(self, tag: str, attrs: tuple[str, ...] = ()) -> StubNode:
+        """Render a single node addressed by tag (optionally tag+attribute), not testid.
+
+        Models `HarvestBatchDetailPage`'s Quality/Yield tab shapes: a create
+        ``<form>`` when no assessment/metric exists yet, a
+        ``<table aria-label=...>`` once one does.
+        """
+        self._counter += 1
+        node = StubNode(f"element-{self._counter}", testid="", tag=tag, attrs=attrs)
+        self.root.children.append(node)
+        return node
+
+    def render_mui_dialog(self) -> StubNode:
+        """Render a single node matching the structural ``.MuiDialog-root [role='dialog']``.
+
+        Models `TankDetailPage.STATE_DIALOG`/`MAINTENANCE_DIALOG` and
+        `PlantingRunDetailPage.EDIT_DIALOG` -- dialogs addressed structurally
+        rather than by testid, unlike every ``CONFIRM_DIALOG`` in this suite.
+        """
+        self._counter += 1
+        node = StubNode(f"element-{self._counter}", testid="")
+        node.is_mui_dialog = True
+        self.root.children.append(node)
+        return node
+
     SEARCH_CHIP_TESTID = "search-chip"
 
     def render_search_chip(self, term: str) -> StubNode:
@@ -225,14 +281,25 @@ class TableDom:
         return [n for n in scope.descendants() if n.attached and _matches(n, selector)]
 
 
+#: `HarvestBatchDetailPage.QUALITY_FORM` (``"form"``) and `.QUALITY_TABLE`
+#: (``"table[aria-label]"``) -- a bare tag name, optionally with one
+#: bracketed attribute name whose *value* this DOM does not model (the
+#: production reader never inspects the attribute's value, only the
+#: element's presence).
+_TAG_SELECTOR = re.compile(r"^([a-zA-Z][a-zA-Z0-9]*)(\[([a-zA-Z-]+)\])?$")
+
+
 def _matches(node: StubNode, selector: str) -> bool:
-    """Answer the three selector shapes the helpers under test actually issue.
+    """Answer the selector shapes the helpers under test actually issue.
 
     Exact testid (`cell-<col>`, the row locator), testid *prefix*
-    (`CARD_ANY_CHIP`), and a bare class (`CHIP_ROOT_CSS`) — which the production
+    (`CARD_ANY_CHIP`), a bare class (`CHIP_ROOT_CSS`) — which the production
     code uses only to separate chips inside an already hook-addressed scope,
     never to locate a column, so modelling it does not smuggle class-based
-    location into the stub.
+    location into the stub — a bare tag / tag-plus-attribute selector
+    (`_TAG_SELECTOR`), modelled only for the #946 wave 4 tab-content anchor,
+    and the one fixed structural MUI Dialog selector three #946 wave 4/5
+    guarded-dismissal readers address (`node.is_mui_dialog`).
 
     Anything else is deliberately unmatchable rather than an error: helpers
     legitimately probe for hooks this DOM does not model (`card-field-*`,
@@ -244,8 +311,16 @@ def _matches(node: StubNode, selector: str) -> bool:
         return node.testid.startswith(selector[len(prefix) : -2])
     if selector.startswith(exact) and selector.endswith("']"):
         return node.testid == selector[len(exact) : -2]
+    if selector == ".MuiDialog-root [role='dialog']":
+        return node.is_mui_dialog
     if selector.startswith(".") and " " not in selector:
         return selector[1:] in node.css_class.split()
+    tag_match = _TAG_SELECTOR.match(selector)
+    if tag_match:
+        tag, _, attr = tag_match.groups()
+        if node.tag != tag:
+            return False
+        return attr is None or attr in node.attrs
     return False
 
 
@@ -363,6 +438,12 @@ class StubConnection:
                 # `None` for a class-less node, as a real driver answers for an
                 # absent attribute — `_chip_elements` relies on the `or ""`.
                 return {"value": node.css_class or None}
+            if attribute == "data-testid":
+                # `get_task_keys` / `find_task_key_by_name` parse the key out of
+                # this attribute rather than out of a locator, so it has to
+                # answer with the node's own testid, not `None`, to make those
+                # readers reachable in this tier at all.
+                return {"value": node.testid or None}
             return {"value": None}
         if "scrollIntoView" in script:
             return {"value": None}
@@ -1220,6 +1301,636 @@ class TestTheAnchoredCareCardReaders:
         assert page.wait_for_care_card(self.PLANT, "watering", timeout=SETTLE_TIMEOUT) is True
 
 
+# ── 8b. The skip-gate side of the same defect (#946 wave 1) ──────────────────
+
+
+class TestTheAnchoredSectionReaders:
+    """`has_overdue_section` and its two urgency-section siblings, wave 1 of #946.
+
+    Same shape as `TestTheAnchoredCareCardReaders` above, on the skip-gate side:
+    `test_overdue_cards_have_error_color` (and its `due_today`/`upcoming`
+    siblings) reads ``if not pflege.has_overdue_section(): pytest.skip(...)``
+    directly after ``pflege.open()``. Before the fix this was a single
+    `driver.find_elements` call with no wait at all — the CI failure this
+    reproduces is not a slow render racing a bounded wait, it is a skip
+    decision made on the *very first* DOM read after navigation, which the
+    `_render_..._after(harness, 3)` helpers below model by only materialising
+    content on probe 3.
+
+    Each reader gets the same two-part pin as `has_care_card`: it must outlive
+    a late render (the anchor is a real wait, not a renamed sample) and it must
+    still report a genuine, settled absence (the anchor does not silently
+    convert "gone" into "always there").
+    """
+
+    PLANT = "77003"
+    CARD_TESTID = f"care-card-care-{PLANT}-watering"
+
+    def _page(self, harness: Harness) -> PflegeDashboardPage:
+        return PflegeDashboardPage(harness.driver, "http://stub.invalid")
+
+    def _settle_empty_now(self, harness: Harness) -> None:
+        """Render the dashboard's empty-state branch immediately (a genuine, settled absence)."""
+        harness.dom.render_dialog("empty-state")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        """Run *build* once the DOM has been probed `probes` times.
+
+        Hooked on both `find_elements` and the branch-probe script, exactly as
+        `TestTheAnchoredCareCardReaders._render_card_after` does above: the
+        anchor's `wait_for_any_present` sweeps its three branches through one
+        `execute_script` round-trip, so a hook on `find_elements` alone would
+        never fire while the anchor is waiting.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def _build_overdue_section_with_card(self, harness: Harness) -> None:
+        section = harness.dom.render_dialog("task-section-overdue")
+        section.children.append(harness.dom._new(self.CARD_TESTID, css_class="MuiCard-root"))
+
+    # ── has_overdue_section / has_due_today_section / has_upcoming_section ──
+
+    def test_has_overdue_section_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        assert self._page(harness).has_overdue_section() is True
+
+    def test_has_overdue_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """The dashboard has settled (empty-state rendered); overdue never comes."""
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_overdue_section() is False
+
+    def test_has_due_today_section_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-section-today")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).has_due_today_section() is True
+
+    def test_has_due_today_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_due_today_section() is False
+
+    def test_has_upcoming_section_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-section-thisWeek")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).has_upcoming_section() is True
+
+    def test_has_upcoming_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_upcoming_section() is False
+
+    # ── has_task_cards: feeds the empty-state skip decision ──
+
+    def test_has_task_cards_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-card")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).has_task_cards() is True
+
+    def test_has_task_cards_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).has_task_cards() is False
+
+    # ── get_all_care_cards: drift-fixed to match count_care_cards_for_plant ──
+
+    def test_get_all_care_cards_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog(self.CARD_TESTID)
+
+        self._render_after(harness, 3, build)
+
+        cards = self._page(harness).get_all_care_cards()
+        assert len(cards) == 1
+
+    def test_get_all_care_cards_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_all_care_cards() == []
+
+    # ── get_cards_in_section / get_section_total_card_count ──
+
+    def test_get_cards_in_section_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        cards = self._page(harness).get_cards_in_section("overdue")
+        assert len(cards) == 1
+
+    def test_get_cards_in_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_cards_in_section("overdue") == []
+
+    def test_get_section_total_card_count_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        assert self._page(harness).get_section_total_card_count("overdue") == 1
+
+    def test_get_section_total_card_count_still_reports_a_settled_absence(
+        self, harness: Harness
+    ) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_section_total_card_count("overdue") == 0
+
+
+# ── 8c. The same defect on the queue's own container (#946 wave 2) ───────────
+
+
+class TestTheAnchoredQueueReaders:
+    """``task_queue_page.py`` readers gated on the queue's own loading branch.
+
+    Same shape and the same shared container
+    (``[data-testid='task-queue-page']``) as ``TestTheAnchoredSectionReaders``
+    above: ``TaskQueuePage.tsx`` unmounts its whole subtree -- cards included --
+    back to a ``LoadingSkeleton`` while its combined ``loading`` flag
+    (``tasksLoading || careLoading || plantsLoading``) is true, so a raw
+    ``find_elements`` taken right after ``.open()`` can land in the same
+    just-navigated, not-yet-rendered window CI caught for the dashboard.
+    ``get_task_keys`` is the reader ``create_care_task``'s #791 warning in
+    ``_journey_helpers.py`` names as a "queue-head consumer"; three call sites
+    (``_get_first_task_key`` in ``test_req006_task_detail.py``,
+    ``test_queue_to_detail_and_back``/``test_task_detail_plant_link_navigates``
+    in ``test_req006_navigation.py``) gate a ``pytest.skip(...)`` on it.
+
+    ``get_task_section`` walks an ancestor XPath this stub does not model
+    (the same unmodelled shape as the untested ``get_card_urgency_indicator``
+    in ``pflege_dashboard_page.py``): only its settled-absence direction is
+    measured here, which needs no ancestor lookup (the card list is empty, so
+    the walk is never reached). Its "outlives a late render" direction is
+    analytic -- verified by inspection that it shares
+    :meth:`TaskQueuePage.wait_for_queue_content` with every reader measured
+    below, not by a browser-free test -- and open pending a real-browser run.
+    """
+
+    def _page(self, harness: Harness) -> TaskQueuePage:
+        return TaskQueuePage(harness.driver, "http://stub.invalid")
+
+    def _settle_empty_now(self, harness: Harness) -> None:
+        harness.dom.render_dialog("empty-state")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        """See ``TestTheAnchoredSectionReaders._render_after`` -- identical shape."""
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def _build_overdue_section_with_card(self, harness: Harness) -> None:
+        section = harness.dom.render_dialog("task-section-overdue")
+        section.children.append(harness.dom._new("task-card"))
+
+    # ── get_task_cards / get_task_card_count / get_first_task_card ──
+
+    def test_get_task_cards_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: harness.dom.render_dialog("task-card"))
+
+        cards = self._page(harness).get_task_cards()
+        assert len(cards) == 1
+
+    def test_get_task_cards_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_task_cards() == []
+
+    # ── get_task_keys ──
+
+    def test_get_task_keys_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-card-tq946key")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).get_task_keys() == ["tq946key"]
+
+    def test_get_task_keys_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_task_keys() == []
+
+    # ── get_visible_sections ──
+
+    def test_get_visible_sections_outlives_a_late_render(self, harness: Harness) -> None:
+        def build() -> None:
+            harness.dom.render_dialog("task-section-overdue")
+
+        self._render_after(harness, 3, build)
+
+        assert self._page(harness).get_visible_sections() == ["overdue"]
+
+    def test_get_visible_sections_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_visible_sections() == []
+
+    # ── get_section_task_count ──
+
+    def test_get_section_task_count_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_overdue_section_with_card(harness))
+
+        assert self._page(harness).get_section_task_count("overdue") == 1
+
+    def test_get_section_task_count_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_section_task_count("overdue") == 0
+
+    # ── get_task_section: settled-absence direction only (see class docstring) ──
+
+    def test_get_task_section_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_empty_now(harness)
+
+        assert self._page(harness).get_task_section("tq946sec") is None
+
+
+# ── 8d. The single-entity variant of the same anchor (#946 wave 2) ───────────
+
+
+class TestTheAnchoredTaskDetailReaders:
+    """``task_detail_page.py`` action-button readers, the detail-route variant.
+
+    ``TaskDetailPage.tsx`` unmounts its whole subtree -- the
+    ``[data-testid='task-detail-page']`` root included -- back to a
+    ``LoadingSkeleton`` while its own ``loading`` flag is true (checked before
+    ``ErrorDisplay``/not-found and before the page root), and ``handleStart``/
+    ``handleSkip``/``handleReopen`` all re-trigger that same fetch cycle via
+    ``load()`` after their mutation. ``has_start_button`` is asserted both
+    positively and negatively (``test_start_task_from_queue`` in
+    ``test_req006_task_queue.py``); ``has_plant_link`` gates a
+    ``pytest.skip(...)`` (``test_task_detail_plant_link_navigates`` in
+    ``test_req006_navigation.py``). ``has_skip_button``/``has_reopen_button``
+    are read as a shared disjunction (``has_start_button() or
+    has_skip_button() or has_reopen_button()``) in
+    ``test_start_button_visible_for_pending_task``; ``has_clone_button`` and
+    ``has_complete_submit`` are fixed for the same shape's consistency.
+
+    Unlike the queue's list branches, this route's anchor
+    (:meth:`TaskDetailPage.wait_for_task_detail_content`) is the generic
+    content-or-error settle (:meth:`BasePage.wait_for_page_settled`) -- so the
+    "content" branch here is the ``PAGE`` root itself, which every build below
+    renders before adding the button node the read is actually after.
+    """
+
+    def _page(self, harness: Harness) -> TaskDetailPage:
+        return TaskDetailPage(harness.driver, "http://stub.invalid")
+
+    def _settle_page_without_button_now(self, harness: Harness) -> None:
+        """A settled detail page whose current status offers none of these actions."""
+        harness.dom.render_dialog("task-detail-page")
+
+    def _render_after(self, harness: Harness, probes: int, button_testid: str) -> None:
+        """See ``TestTheAnchoredSectionReaders._render_after`` -- identical shape."""
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                page = harness.dom.render_dialog("task-detail-page")
+                page.children.append(harness.dom._new(button_testid))
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    # ── has_start_button ──
+
+    def test_has_start_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "start-task-button")
+
+        assert self._page(harness).has_start_button() is True
+
+    def test_has_start_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_start_button() is False
+
+    # ── has_skip_button ──
+
+    def test_has_skip_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "skip-task-button")
+
+        assert self._page(harness).has_skip_button() is True
+
+    def test_has_skip_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_skip_button() is False
+
+    # ── has_reopen_button ──
+
+    def test_has_reopen_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "reopen-task-button")
+
+        assert self._page(harness).has_reopen_button() is True
+
+    def test_has_reopen_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_reopen_button() is False
+
+    # ── has_clone_button ──
+
+    def test_has_clone_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "clone-task-button")
+
+        assert self._page(harness).has_clone_button() is True
+
+    def test_has_clone_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_clone_button() is False
+
+    # ── has_complete_submit ──
+
+    def test_has_complete_submit_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "complete-task-submit")
+
+        assert self._page(harness).has_complete_submit() is True
+
+    def test_has_complete_submit_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_complete_submit() is False
+
+    # ── has_plant_link ──
+
+    def test_has_plant_link_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, "plant-link")
+
+        assert self._page(harness).has_plant_link() is True
+
+    def test_has_plant_link_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_page_without_button_now(harness)
+
+        assert self._page(harness).has_plant_link() is False
+
+
+# ── 8e. Wave 3: the gallery tab (#946 wave 3) ─────────────────────────────────
+
+
+class TestTheAnchoredGalleryReaders:
+    """`plant_photo_gallery_page.py`, wave 3 of #946.
+
+    Same shape as `TestTheAnchoredSectionReaders` above: `PlantPhotoGallery`
+    gates its entire subtree -- `GALLERY` included -- behind its own async
+    fetch (``if (loading) return <LoadingSkeleton .../>``,
+    `PlantPhotoGallery.tsx`), so a read taken the instant after `open()`
+    returns can land before that fetch has painted. `wait_for_gallery_content`
+    is the anchor; these tests pin that it is a real wait (outlives a render
+    delayed past several probes) and that it still lets a genuine, settled
+    absence through (it must not convert "gone" into "always there").
+    """
+
+    def _page(self, harness: Harness) -> PlantPhotoGalleryPage:
+        return PlantPhotoGalleryPage(harness.driver, "http://stub.invalid")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        """Run *build* once the DOM has been probed `probes` times.
+
+        Hooked on both `find_elements` and the branch-probe script -- the
+        anchor's `wait_for_any_present` sweeps `GALLERY_BRANCHES` through one
+        `execute_script` round-trip, so a hook on `find_elements` alone would
+        never fire while the anchor itself is waiting.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def _settle_gallery_now(self, harness: Harness) -> StubNode:
+        """Render a settled, empty gallery immediately (a genuine absence)."""
+        return harness.dom.render_dialog("plant-photo-gallery")
+
+    def _settle_error_now(self, harness: Harness) -> None:
+        """Render the gallery's error branch immediately (the other settled state)."""
+        harness.dom.render_dialog("error-display")
+
+    # ── is_gallery_loaded: the skip-gate reader, 7 call sites ──
+
+    def test_is_gallery_loaded_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: harness.dom.render_dialog("plant-photo-gallery"))
+
+        assert self._page(harness).is_gallery_loaded() is True
+
+    def test_is_gallery_loaded_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """The fetch settled into its error branch; the gallery never comes."""
+        self._settle_error_now(harness)
+
+        assert self._page(harness).is_gallery_loaded() is False
+
+    # ── get_photo_count: read before/after a mutation, and a skip-gate ──
+
+    def _build_gallery_with_photos(self, harness: Harness, count: int) -> None:
+        gallery = harness.dom.render_dialog("plant-photo-gallery")
+        for _ in range(count):
+            gallery.children.append(harness.dom._new("plant-photo-item"))
+
+    def test_get_photo_count_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_gallery_with_photos(harness, 3))
+
+        assert self._page(harness).get_photo_count() == 3
+
+    def test_get_photo_count_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        self._settle_gallery_now(harness)
+
+        assert self._page(harness).get_photo_count() == 0
+
+    # ── has_add_button: skip-gated together with is_gallery_loaded ──
+
+    def _build_gallery_with_add_button(self, harness: Harness) -> None:
+        gallery = harness.dom.render_dialog("plant-photo-gallery")
+        gallery.children.append(harness.dom._new("plant-photo-add-button"))
+
+    def test_has_add_button_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_gallery_with_add_button(harness))
+
+        assert self._page(harness).has_add_button() is True
+
+    def test_has_add_button_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """A read-only account's gallery settles with no add button at all."""
+        self._settle_gallery_now(harness)
+
+        assert self._page(harness).has_add_button() is False
+
+    # ── has_cover_image: no container gate, only a first-paint placeholder ──
+
+    def test_has_cover_image_outlives_a_late_render(self, harness: Harness) -> None:
+        """A real cover resolves after `PlantCoverPreview`'s own async fetch.
+
+        Unlike the readers above, there is no settled-container branch to
+        anchor on here (`PlantCoverPreview` renders `COVER_PLACEHOLDER` from
+        its very first paint, see `has_cover_image`'s docstring) -- the fix is
+        a bounded wait on `COVER_IMAGE` itself via `is_visible_within`, which
+        this measures directly: the image renders after 3 probes and the
+        reader must still see it within the `IMPLICIT_WAIT_EQUIVALENT` budget.
+
+        Hooked on `FIND_ELEMENT` (singular), not `FIND_ELEMENTS`:
+        `is_visible_within` polls via `EC.visibility_of_element_located`,
+        which Selenium resolves through the singular find -- a different wire
+        command than every other reader in this module, all built on
+        `find_elements`.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == 3:
+                harness.dom.render_dialog("plant-cover-image")
+
+        harness.connection.before[Command.FIND_ELEMENT] = hook
+
+        assert self._page(harness).has_cover_image() is True
+
+    def test_has_cover_image_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """No cover ever resolves; only the first-paint placeholder is there."""
+        harness.dom.render_dialog("plant-cover-placeholder")
+
+        assert self._page(harness).has_cover_image() is False
+
+
+# ── 8f. Wave 3: the watering-log and tasks detail tabs (#946 wave 3) ─────────
+
+
+class TestTheAnchoredDetailTabReaders:
+    """`plant_instance_detail_page.py`, the 6 HIGH-bucket readers of wave 3.
+
+    Two of the three anchors introduced here gate readers whose actual row
+    locator is a compound-plus-descendant CSS selector
+    (``[data-testid='data-table'][data-table-section='...'] [data-testid=
+    'data-table-row']`` for `get_task_rows`; ``[data-testid='phases-tab-
+    content'] [data-testid='data-table-row']`` for `get_phase_history_count`)
+    that this module's stub `_matches` cannot resolve (documented there: it
+    answers exact, prefix and bare-class selectors only). Those two anchors
+    are therefore measured directly (`wait_for_task_history_content`,
+    `wait_for_phases_tab_content`) rather than through the row count they
+    guard -- the **settled-absence** direction of the guarded readers is
+    still measured (a genuine "never opened" state must resolve to ``0``/
+    ``False`` rather than hang), but their **outlives-a-late-render** /
+    positive-count direction is analytic, not measured, exactly the stub gap
+    wave 2 hit on `plant_instance_detail_page` before it.
+
+    `get_watering_log_row_count` has no such gap: `DATA_TABLE_ROWS` is a
+    plain ``[data-testid='data-table-row']`` selector, so both directions are
+    measured end-to-end, same as the gallery readers above.
+    """
+
+    def _page(self, harness: Harness) -> PlantInstanceDetailPage:
+        return PlantInstanceDetailPage(harness.driver, "http://stub.invalid")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    # ── get_watering_log_row_count / get_watering_log_rows: measured end-to-end ──
+
+    def _build_watering_log_with_rows(self, harness: Harness, count: int) -> None:
+        harness.dom.render_dialog("create-watering-log-button")
+        harness.dom.render(["a", "b", "c"][:count])
+
+    def test_get_watering_log_row_count_outlives_a_late_render(self, harness: Harness) -> None:
+        """Read before/after a mutation (TC-004-092); a zero taken too early is invisible."""
+        self._render_after(harness, 3, lambda: self._build_watering_log_with_rows(harness, 2))
+
+        assert self._page(harness).get_watering_log_row_count() == 2
+
+    def test_get_watering_log_row_count_still_reports_a_settled_absence(
+        self, harness: Harness
+    ) -> None:
+        harness.dom.render_dialog("create-watering-log-button")
+
+        assert self._page(harness).get_watering_log_row_count() == 0
+
+    def test_get_watering_log_rows_outlives_a_late_render(self, harness: Harness) -> None:
+        self._render_after(harness, 3, lambda: self._build_watering_log_with_rows(harness, 3))
+
+        assert len(self._page(harness).get_watering_log_rows()) == 3
+
+    # ── wait_for_task_history_content: the anchor `get_task_rows` relies on ──
+
+    def test_task_history_anchor_outlives_a_late_render(self, harness: Harness) -> None:
+        """Analytic for `get_task_rows`'s own row count (stub cannot model its
+        compound-plus-descendant selector, see the class docstring); measured
+        directly for the anchor that reader depends on.
+        """
+        self._render_after(
+            harness, 3, lambda: harness.dom.render_dialog("plant-task-create-button")
+        )
+        page = self._page(harness)
+
+        page.wait_for_task_history_content(timeout=SETTLE_TIMEOUT)
+
+        assert page.driver.find_elements(*page.TASK_CREATE_BUTTON), (
+            "the anchor returned before the late-rendered branch actually appeared"
+        )
+
+    def test_get_task_rows_reports_a_settled_absence_without_hanging(
+        self, harness: Harness
+    ) -> None:
+        """The tab settled into its empty state; the reader must not hang."""
+        harness.dom.render_dialog("empty-state-queue-link")
+
+        assert self._page(harness).get_task_rows(PlantInstanceDetailPage.TASK_ACTIVE_SECTION) == []
+
+    # ── wait_for_phases_tab_content: the anchor has_phase_history relies on ──
+
+    def test_phases_tab_anchor_outlives_a_late_render(self, harness: Harness) -> None:
+        """Analytic for `get_phase_history_count`'s own row count (same stub
+        gap as `get_task_rows`, see the class docstring); measured directly
+        for the anchor.
+        """
+        self._render_after(harness, 3, lambda: harness.dom.render_dialog("phases-tab-content"))
+        page = self._page(harness)
+
+        page.wait_for_phases_tab_content(timeout=SETTLE_TIMEOUT)
+
+        assert page.driver.find_elements(*page.PHASES_TAB_CONTENT), (
+            "the anchor returned before the late-rendered branch actually appeared"
+        )
+
+    def test_has_phase_history_reports_a_settled_absence_without_hanging(
+        self, harness: Harness
+    ) -> None:
+        """The phases tab is open and settled, genuinely without history rows."""
+        harness.dom.render_dialog("phases-tab-content")
+
+        assert self._page(harness).has_phase_history() is False
+        assert self._page(harness).get_phase_history_count() == 0
+
+
 # ── 9. A submit helper cannot carry the caller's intent (#835) ───────────────
 
 
@@ -1340,3 +2051,275 @@ class TestTheCoordinateFreeAddFertilizer:
         page.click_add_fertilizer()
 
         assert dispatched, "no click was dispatched at all — the helper is now a no-op"
+
+
+# ── 11. Harvest batch Quality/Yield tab content anchor (#946 wave 4) ─────────
+
+
+class TestTheAnchoredHarvestBatchTabReaders:
+    """`wait_for_tab_content` and its four readers, wave 4 of #946.
+
+    `is_quality_form_visible` / `is_quality_table_visible` (and their Yield
+    siblings, which share the same locators) used to sample `form` /
+    `table[aria-label]` with no wait at all, right after `click_tab()` -- a
+    plain `setTab` state flip with no fetch of its own -- and right after
+    `submit_form()`, whose only post-condition wait
+    (`wait_for_loading_complete()`) is a no-op here (neither touches the
+    page-level `loading` flag). Same shape as `TestTheAnchoredCareCardReaders`
+    above: the anchor has to outlive a late render *and* still be able to
+    report a genuine, settled absence for whichever of the two branches did
+    not render.
+    """
+
+    def _page(self, harness: Harness) -> HarvestBatchDetailPage:
+        return HarvestBatchDetailPage(harness.driver, "http://stub.invalid")
+
+    def _render_after(self, harness: Harness, probes: int, build: Callable[[], None]) -> None:
+        """Run *build* once the DOM has been probed `probes` times.
+
+        Hooked on both `find_elements` and the branch-probe script, exactly as
+        `TestTheAnchoredCareCardReaders._render_card_after` does: the anchor's
+        `wait_for_any_present` sweeps its branches through one
+        `execute_script` round-trip, so a hook on `find_elements` alone would
+        never fire while the anchor is waiting.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == probes:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def test_is_quality_table_visible_outlives_a_late_render(self, harness: Harness) -> None:
+        """A single anchored read beats a raw sample taken right after `click_tab(1)`."""
+        self._render_after(harness, 3, lambda: harness.dom.render_tag("table", ("aria-label",)))
+
+        assert self._page(harness).is_quality_table_visible() is True
+
+    def test_is_quality_table_visible_still_reports_a_settled_absence(
+        self, harness: Harness
+    ) -> None:
+        """The dashboard has settled on the *form* branch; the table never comes.
+
+        `TC-REQ-007-009` asserts `has_form or has_table` -- a reader that
+        cannot land on `False` for the branch that lost is a mute, not a
+        check. The anchor is satisfied by the `form` branch alone (the two
+        are a disjunction), so this does not spend the wait budget.
+        """
+        harness.dom.render_tag("form")
+
+        assert self._page(harness).is_quality_table_visible() is False
+
+    def test_is_quality_form_visible_still_reports_a_settled_absence(
+        self, harness: Harness
+    ) -> None:
+        """The mirror image: settled on *table*, the create form never comes.
+
+        `TC-REQ-007-011` asserts `is_quality_table_visible()` after a
+        successful create -- this pins that the sibling reader for the branch
+        that lost (the form, now replaced) stays honestly `False` rather than
+        both readers agreeing "yes" once anything has rendered.
+        """
+        harness.dom.render_tag("table", ("aria-label",))
+
+        assert self._page(harness).is_quality_form_visible() is False
+
+    def test_is_yield_form_visible_shares_the_same_anchor(self, harness: Harness) -> None:
+        """The Yield tab reuses the same locators/anchor -- pinned once, directly."""
+        self._render_after(harness, 3, lambda: harness.dom.render_tag("form"))
+
+        assert self._page(harness).is_yield_form_visible() is True
+
+    def test_is_form_submit_visible_outlives_the_tab_switch(self, harness: Harness) -> None:
+        """`is_form_submit_visible` now waits instead of sampling once.
+
+        `click_tab(3)` is a plain `setTab` flip with no fetch of its own, so
+        `wait_for_loading_complete()` (the caller's only other wait) is a
+        no-op for it -- the read has to be the thing that waits.
+
+        `is_visible_within` polls through `EC.visibility_of_element_located`,
+        which issues the *singular* `Command.FIND_ELEMENT` -- unlike the
+        branch-probe anchors above, this one is hooked there, not on
+        `FIND_ELEMENTS`.
+        """
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == 3:
+                harness.dom.render_dialog("form-submit-button")
+
+        harness.connection.before[Command.FIND_ELEMENT] = hook
+
+        assert self._page(harness).is_form_submit_visible() is True
+
+    def test_is_form_submit_visible_still_reports_a_settled_absence(self, harness: Harness) -> None:
+        """A tab with no submit button must still read as no submit button."""
+        assert self._page(harness).is_form_submit_visible(timeout=SETTLE_TIMEOUT) is False
+
+
+# ── 12. Tank states table anchor (#946 wave 5) ───────────────────────────────
+
+
+class TestTheAnchoredTankStatesReader:
+    """`wait_for_states_table` / `get_states_row_count`, wave 5 of #946.
+
+    The States tab's counterpart to the already-fixed `wait_for_maintenance_table`:
+    `TankStateCreateDialog`'s `onCreated` also calls the parent's `load()`,
+    which re-runs the same `if (loading) return <LoadingSkeleton .../>` gate
+    that unmounts the whole page for the length of the refetch. `STATES_TABLE`
+    is an exact testid (`[data-testid='data-table']`), so this is directly
+    modellable against the stub without the tag-selector extension #11 needed.
+    """
+
+    def _page(self, harness: Harness) -> TankDetailPage:
+        return TankDetailPage(harness.driver, "http://stub.invalid")
+
+    def test_get_states_row_count_outlives_a_late_render(self, harness: Harness) -> None:
+        """A read taken mid-refetch must not report 0 for a table that is merely late."""
+        seen: list[int] = []
+
+        # `TableDom.render()` populates *rows* under a synthetic root, not the
+        # `[data-testid='data-table']` container itself -- build the table
+        # node directly and attach a row under it, mirroring what
+        # `STATES_TABLE` / `STATES_ROWS` actually address in production.
+        def build() -> None:
+            table = harness.dom.render_dialog("data-table")
+            table.children.append(harness.dom._new("data-table-row", "7.2"))
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == 3:
+                build()
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+        assert self._page(harness).get_states_row_count() == 1
+
+    def test_get_states_row_count_still_reports_a_settled_zero(self, harness: Harness) -> None:
+        """A tank with no recorded states renders the table and no rows -- that stays 0."""
+        harness.dom.render_dialog("data-table")
+
+        assert self._page(harness).get_states_row_count() == 0
+
+
+# ── 13. Guarded dialog dismissals (#946 waves 4–6) ───────────────────────────
+
+
+class TestTheGuardedDialogDismissals:
+    """`wait_for_*_dialog_closed`, replacing a raw negated presence read.
+
+    MUI's Dialog unmounts only after its exit transition finishes, so
+    `assert not page.is_..._dialog_open()` sampled right after clicking
+    Confirm/Cancel could still see the dialog mid-fade-out and report it as
+    open -- a guarded-dismissal gap (`spec/project/e2e-test-stability`), not a
+    data-fetch one. Each new method is a thin, named wrapper over
+    `BasePage.is_absent_within` (already measured in
+    `TestTheConsolidatedReaders`), so what these pin is that the wiring is
+    correct on each of the four page objects it now touches: the same locator
+    the page's own presence reader uses, exposed as a genuinely-waiting
+    absence check.
+    """
+
+    def _detach_after(self, harness: Harness, lookups: int, node: StubNode) -> None:
+        seen: list[int] = []
+
+        def hook(_params: dict[str, Any]) -> None:
+            seen.append(1)
+            if len(seen) == lookups:
+                node.attached = False
+
+        harness.connection.before[Command.FIND_ELEMENTS] = hook
+
+    def test_planting_run_confirm_dialog_outlives_the_fade_out(self, harness: Harness) -> None:
+        node = harness.dom.render_dialog("confirm-dialog")
+        self._detach_after(harness, 3, node)
+        page = PlantingRunDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_confirm_dialog_closed(timeout=SETTLE_TIMEOUT) is True
+
+    def test_planting_run_confirm_dialog_still_reports_a_dialog_that_stays(
+        self, harness: Harness
+    ) -> None:
+        harness.dom.render_dialog("confirm-dialog")
+        page = PlantingRunDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_confirm_dialog_closed(timeout=SETTLE_TIMEOUT) is False
+
+    def test_planting_run_edit_dialog_outlives_the_fade_out(self, harness: Harness) -> None:
+        """`EDIT_DIALOG` is structural (`.MuiDialog-root [role='dialog']`), not a
+        testid -- modelled via `render_mui_dialog`/`node.is_mui_dialog`, see
+        `_matches`.
+        """
+        node = harness.dom.render_mui_dialog()
+        self._detach_after(harness, 3, node)
+        page = PlantingRunDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_edit_dialog_closed(timeout=SETTLE_TIMEOUT) is True
+
+    def test_planting_run_edit_dialog_still_reports_a_dialog_that_stays(
+        self, harness: Harness
+    ) -> None:
+        harness.dom.render_mui_dialog()
+        page = PlantingRunDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_edit_dialog_closed(timeout=SETTLE_TIMEOUT) is False
+
+    def test_tank_state_dialog_outlives_the_fade_out(self, harness: Harness) -> None:
+        node = harness.dom.render_mui_dialog()
+        self._detach_after(harness, 3, node)
+        page = TankDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_state_dialog_closed(timeout=SETTLE_TIMEOUT) is True
+
+    def test_tank_state_dialog_still_reports_a_dialog_that_stays(self, harness: Harness) -> None:
+        harness.dom.render_mui_dialog()
+        page = TankDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_state_dialog_closed(timeout=SETTLE_TIMEOUT) is False
+
+    def test_tank_maintenance_dialog_outlives_the_fade_out(self, harness: Harness) -> None:
+        node = harness.dom.render_mui_dialog()
+        self._detach_after(harness, 3, node)
+        page = TankDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_maintenance_dialog_closed(timeout=SETTLE_TIMEOUT) is True
+
+    def test_tank_maintenance_dialog_still_reports_a_dialog_that_stays(
+        self, harness: Harness
+    ) -> None:
+        harness.dom.render_mui_dialog()
+        page = TankDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_maintenance_dialog_closed(timeout=SETTLE_TIMEOUT) is False
+
+    def test_tank_confirm_dialog_outlives_the_fade_out(self, harness: Harness) -> None:
+        node = harness.dom.render_dialog("confirm-dialog")
+        self._detach_after(harness, 3, node)
+        page = TankDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_confirm_dialog_closed(timeout=SETTLE_TIMEOUT) is True
+
+    def test_tank_confirm_dialog_still_reports_a_dialog_that_stays(self, harness: Harness) -> None:
+        harness.dom.render_dialog("confirm-dialog")
+        page = TankDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_confirm_dialog_closed(timeout=SETTLE_TIMEOUT) is False
+
+    def test_botanical_family_confirm_dialog_outlives_the_fade_out(self, harness: Harness) -> None:
+        node = harness.dom.render_dialog("confirm-dialog")
+        self._detach_after(harness, 3, node)
+        page = BotanicalFamilyDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_confirm_dialog_closed(timeout=SETTLE_TIMEOUT) is True
+
+    def test_botanical_family_confirm_dialog_still_reports_a_dialog_that_stays(
+        self, harness: Harness
+    ) -> None:
+        harness.dom.render_dialog("confirm-dialog")
+        page = BotanicalFamilyDetailPage(harness.driver, "http://stub.invalid")
+
+        assert page.wait_for_confirm_dialog_closed(timeout=SETTLE_TIMEOUT) is False

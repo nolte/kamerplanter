@@ -19,10 +19,11 @@ from app.api.v1.harvest.schemas import (
     YieldMetricCreate,
     YieldMetricResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_harvest_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.harvest import (
     HarvestBatch,
     HarvestIndicator,
@@ -70,7 +71,7 @@ def list_indicators(
 @router.post("/indicators", response_model=HarvestIndicatorResponse, status_code=201)
 def create_indicator(
     body: HarvestIndicatorCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Create a harvest-readiness indicator."""
@@ -94,7 +95,7 @@ def get_indicators_for_species(
 def create_observation(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: ObservationCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Record a harvest-readiness observation for a plant.
@@ -156,7 +157,7 @@ def list_batches(
 def create_batch(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: HarvestBatchCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Create a harvest batch for a plant."""
@@ -169,7 +170,7 @@ def create_batch(
 def complete_harvest(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: HarvestCompleteRequest | None = None,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.UPDATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """REQ-007 — explicit 'Ernte abschließen': end the plant's lifecycle as harvested."""
@@ -186,7 +187,7 @@ def complete_harvest(
 def complete_run_harvest(
     run_key: Annotated[str, Path(description="Document key of the planting run.")],
     body: HarvestCompleteRequest | None = None,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.UPDATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """REQ-007 — explicit 'Ernte abschließen' for a whole run: terminate all active instances."""
@@ -209,7 +210,7 @@ def get_batch(
 def update_batch(
     key: Annotated[str, Path(description="Document key of the harvest batch.")],
     body: HarvestBatchUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.UPDATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Update a harvest batch."""
@@ -223,7 +224,7 @@ def update_batch(
 def create_quality_assessment(
     batch_key: Annotated[str, Path(description="Document key of the harvest batch.")],
     body: QualityAssessmentCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Record a quality assessment for a harvest batch."""
@@ -249,7 +250,7 @@ def get_quality(
 def create_yield_metric(
     batch_key: Annotated[str, Path(description="Document key of the harvest batch.")],
     body: YieldMetricCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Record a yield metric for a harvest batch."""

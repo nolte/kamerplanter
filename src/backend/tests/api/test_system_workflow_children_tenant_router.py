@@ -143,7 +143,11 @@ class _RecordingCollection:
 
 
 class _Fixture:
-    def __init__(self) -> None:
+    def __init__(self, role: TenantRole = TenantRole.GROWER) -> None:
+        # Delete of a task template / phase is lead-only (REQ-049 §2.3); tests
+        # that exercise a delete pass ``role=TenantRole.LEAD`` so the request
+        # reaches the system-ownership guard under test instead of the role gate.
+        self._role = role
         self.templates = _RecordingCollection(
             col.TASK_TEMPLATES,
             {k: dict(v) for k, v in TASK_TEMPLATES.items()},
@@ -181,7 +185,7 @@ class _Fixture:
             tenant_key=TENANT_KEY,
             tenant_slug=TENANT_SLUG,
             user_key="user-1",
-            role=TenantRole.GROWER,
+            role=self._role,
         )
         app.dependency_overrides[get_task_service] = lambda: service
         return TestClient(app)
@@ -242,7 +246,7 @@ class TestTheExistingTaskTemplatesOfASystemWorkflow:
         assert fx.templates.updated == []
 
     def test_deleting_a_system_workflows_task_template_is_refused(self):
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         resp = fx.client.delete(_url(f"/tasks/templates/{SYSTEM_TEMPLATE}"))
 
@@ -251,7 +255,7 @@ class TestTheExistingTaskTemplatesOfASystemWorkflow:
         assert fx.templates.deleted == []
 
     def test_the_callers_own_task_template_is_still_editable_and_deletable(self):
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         updated = fx.client.put(_url(f"/tasks/templates/{OWN_TEMPLATE}"), json={"name": "Umbenannt"})
         deleted = fx.client.delete(_url(f"/tasks/templates/{OWN_TEMPLATE}"))
@@ -263,7 +267,7 @@ class TestTheExistingTaskTemplatesOfASystemWorkflow:
 
     def test_a_task_template_with_no_parent_workflow_is_left_alone(self):
         """No anchor, so no refusal — the orphan question is not settled here."""
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         updated = fx.client.put(_url(f"/tasks/templates/{ORPHAN_TEMPLATE}"), json={"name": "Umbenannt"})
         deleted = fx.client.delete(_url(f"/tasks/templates/{ORPHAN_TEMPLATE}"))
@@ -305,7 +309,7 @@ class TestPhaseChildrenOfASystemWorkflow:
         assert fx.phases.updated == []
 
     def test_deleting_a_system_workflows_phase_is_refused(self):
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         resp = fx.client.delete(_url(f"/tasks/phases/{SYSTEM_PHASE}"))
 
@@ -325,7 +329,7 @@ class TestPhaseChildrenOfASystemWorkflow:
         assert [p["workflow_template_key"] for p in fx.phases.inserted] == [OWN_WORKFLOW]
 
     def test_the_callers_own_phase_is_still_editable_and_deletable(self):
-        fx = _Fixture()
+        fx = _Fixture(role=TenantRole.LEAD)
 
         updated = fx.client.put(_url(f"/tasks/phases/{OWN_PHASE}"), json={"name": "Umbenannt"})
         deleted = fx.client.delete(_url(f"/tasks/phases/{OWN_PHASE}"))

@@ -87,6 +87,7 @@ class TestEmailVerificationInvalidToken:
             "EmailVerificationPage loading with invalid token",
         )
 
+        verification_page.wait_for_result()
         assert verification_page.is_error_alert_visible(), (
             "TC-REQ-023-041 FAIL: Expected error alert for invalid verification token"
         )
@@ -113,6 +114,7 @@ class TestEmailVerificationInvalidToken:
         verification_page.open("falschertoken456")
 
         # Wait for error to appear (confirms page has finished processing)
+        verification_page.wait_for_result()
         assert verification_page.is_error_alert_visible(), (
             "TC-REQ-023-042 FAIL: Expected error alert to confirm page finished processing"
         )
@@ -148,6 +150,7 @@ class TestEmailVerificationLoginLink:
         verification_page.open("token-fuer-link-test")
 
         # Wait for error state to confirm processing is done
+        verification_page.wait_for_result()
         assert verification_page.is_error_alert_visible(), (
             "TC-REQ-023-043 FAIL: Expected error alert (precondition for login link check)"
         )
@@ -175,6 +178,7 @@ class TestEmailVerificationLoginLink:
         verification_page.open("token-fuer-nav-test")
 
         # Wait for processing to complete
+        verification_page.wait_for_result()
         assert verification_page.is_error_alert_visible(), (
             "TC-REQ-023-044 FAIL: Expected error alert (precondition for navigation test)"
         )

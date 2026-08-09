@@ -1,28 +1,18 @@
-"""API tests for #1018 — ``PATCH /admin/platform/users/{key}`` must reach the
-database through the service layer, not from the router.
+"""API tests for #1018 / #1019 — ``PATCH /admin/platform/users/{key}`` reaches
+the database only through the service layer.
 
-Same shape as #997/#1017 (the tenant twin): the router took ``get_db()`` and did
-``collection.update({"_key": key, **update_data})`` itself, so Presentation wrote
-straight to Persistence (NFR-001), outside the repository guards.
+#1018 moved the *write* off ``get_db()`` and onto ``UserService.admin_update_user``.
+#1019 moved the *roles block* too: ``update_user`` used to read the user's
+memberships with raw AQL through ``get_db()``; it now routes through
+``TenantService.list_user_memberships``. As a result the router no longer opens a
+database handle at all — there is no ``get_db`` attribute on the module to
+monkeypatch — so the test no longer needs the two-store split it once used to
+tell a router write from a service write.
 
-**Why two database handles.** Unlike the tenant endpoint, ``update_user`` still
-reads the user's memberships through ``get_db()`` to build the ``roles`` block of
-the response (that duplicated read is #1019, out of scope here). So the tenant
-test's "the router never opens a database handle" assertion cannot apply. Instead
-this test wires the router's ``get_db`` and the ``UserService`` to **separate**
-stores:
-
-* ``router_store`` — reached only through the router's ``get_db``. A direct
-  ``collection.update`` from the router lands here.
-* ``service_store`` — reached only through the real :class:`ArangoUserRepository`
-  the :class:`UserService` wraps.
-
-The write is expected in ``service_store``; a write recorded against
-``router_store`` is the router talking to Persistence itself. The user document is
-driven through the **real** ``ArangoUserRepository`` / ``UserService`` and a real
-``User`` model, so a persisted value observed in ``service_store`` is the
-production path firing — not a ``MagicMock`` that never became a model (the #996
-red-for-nothing trap).
+The user document is driven through the **real** ``ArangoUserRepository`` /
+``UserService`` and a real ``User`` model over an in-memory ``StandardDatabase``
+double, so a persisted value observed in ``store`` is the production path firing —
+not a ``MagicMock`` that never became a model (the #996 red-for-nothing trap).
 """
 
 from types import SimpleNamespace
@@ -36,7 +26,7 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.admin.platform import router as mod
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_user_service
+from app.common.dependencies import get_tenant_service, get_user_service
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError
 from app.data_access.arango.user_repository import ArangoUserRepository
@@ -97,14 +87,9 @@ class _FakeCollection:
 
 
 class _FakeAql:
-    """Answers the membership-roles query and the repository's list lookups."""
-
-    def __init__(self, store: dict[str, dict[str, Any]]) -> None:
-        self._store = store
+    """The repository's user lookups emit no AQL on this flow; answer empty."""
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
-        # The only AQL this flow emits is the router's membership-roles probe.
-        # No memberships are needed to exercise the write path.
         return iter([])
 
 
@@ -112,49 +97,38 @@ class _FakeDb:
     def __init__(self, store: dict[str, dict[str, Any]], writes: list[str]) -> None:
         self._store = store
         self._writes = writes
-        self.aql = _FakeAql(store)
+        self.aql = _FakeAql()
 
     def collection(self, _name: str) -> _FakeCollection:
         return _FakeCollection(self._store, self._writes)
 
 
 @pytest.fixture
-def router_store() -> dict[str, dict[str, Any]]:
+def store() -> dict[str, dict[str, Any]]:
     return {USER_KEY: _user_doc()}
 
 
 @pytest.fixture
-def service_store() -> dict[str, dict[str, Any]]:
-    return {USER_KEY: _user_doc()}
-
-
-@pytest.fixture
-def router_writes() -> list[str]:
-    return []
-
-
-@pytest.fixture
-def service_writes() -> list[str]:
+def writes() -> list[str]:
     return []
 
 
 @pytest.fixture
 def client(
-    router_store: dict[str, dict[str, Any]],
-    service_store: dict[str, dict[str, Any]],
-    router_writes: list[str],
-    service_writes: list[str],
-    monkeypatch: pytest.MonkeyPatch,
+    store: dict[str, dict[str, Any]],
+    writes: list[str],
 ) -> TestClient:
-    router_db = _FakeDb(router_store, router_writes)
-    service_db = _FakeDb(service_store, service_writes)
-
-    monkeypatch.setattr(mod, "get_db", lambda: router_db)
+    service_db = _FakeDb(store, writes)
 
     service = UserService(
         ArangoUserRepository(service_db),  # type: ignore[arg-type]
         MagicMock(),
     )
+
+    # #1019: the roles block now routes through TenantService; no memberships are
+    # needed to exercise the write path, so the double returns an empty list.
+    tenant_service = MagicMock()
+    tenant_service.list_user_memberships.return_value = []
 
     app = FastAPI()
     app.include_router(mod.router, prefix="/api/v1")
@@ -162,6 +136,7 @@ def client(
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.dependency_overrides[require_platform_admin] = lambda: SimpleNamespace(key="admin-1")
     app.dependency_overrides[get_user_service] = lambda: service
+    app.dependency_overrides[get_tenant_service] = lambda: tenant_service
     return TestClient(app)
 
 
@@ -169,29 +144,24 @@ def _patch(client: TestClient, payload: dict[str, Any]):
     return client.patch(f"/api/v1/admin/platform/users/{USER_KEY}", json=payload)
 
 
-# ── #1018: the write must reach the database through the service ──────────────
+# ── #1019: the router no longer reaches Persistence itself ────────────────────
 
 
 class TestRoutesThroughTheServiceLayer:
-    """NFR-001 — the router must not write to Persistence itself.
+    """NFR-001 — the router talks to services, never to ``get_db``."""
 
-    The router writing ``collection.update`` lands in ``router_store``; the
-    service writing through :class:`ArangoUserRepository` lands in
-    ``service_store``. The write belongs in the latter.
-    """
+    def test_router_module_holds_no_database_handle(self):
+        """The structural guarantee: with every path routed, the router module has
+        no ``get_db`` to reach Persistence through (enforced by
+        ``check_layer_imports`` for the import, asserted here for the symbol)."""
+        assert not hasattr(mod, "get_db")
 
-    def test_write_lands_in_the_service_store_not_the_router_store(
-        self, client, router_store, service_store, router_writes, service_writes
-    ):
+    def test_write_lands_in_the_service_store(self, client, store, writes):
         response = _patch(client, {"display_name": "Alice Renamed"})
 
         assert response.status_code == 200
-        # The service's repository performed the write …
-        assert service_writes == [USER_KEY]
-        assert service_store[USER_KEY]["display_name"] == "Alice Renamed"
-        # … and the router did not reach Persistence itself.
-        assert router_writes == []
-        assert router_store[USER_KEY]["display_name"] == ORIGINAL_NAME
+        assert writes == [USER_KEY]
+        assert store[USER_KEY]["display_name"] == "Alice Renamed"
 
     def test_response_reflects_the_persisted_value(self, client):
         response = _patch(client, {"display_name": "Alice Renamed"})
@@ -204,7 +174,7 @@ class TestRoutesThroughTheServiceLayer:
 
 
 class TestExistingBehaviourIsPreserved:
-    def test_updates_display_name_and_flags(self, client, service_store):
+    def test_updates_display_name_and_flags(self, client, store):
         response = _patch(
             client,
             {"display_name": "Alice Renamed", "is_active": False, "email_verified": False},
@@ -215,27 +185,27 @@ class TestExistingBehaviourIsPreserved:
         assert body["display_name"] == "Alice Renamed"
         assert body["is_active"] is False
         assert body["email_verified"] is False
-        assert service_store[USER_KEY]["display_name"] == "Alice Renamed"
-        assert service_store[USER_KEY]["is_active"] is False
+        assert store[USER_KEY]["display_name"] == "Alice Renamed"
+        assert store[USER_KEY]["is_active"] is False
 
-    def test_empty_payload_leaves_the_user_untouched(self, client, service_store, service_writes):
+    def test_empty_payload_leaves_the_user_untouched(self, client, store, writes):
         response = _patch(client, {})
 
         assert response.status_code == 200
         assert response.json()["display_name"] == ORIGINAL_NAME
-        assert service_writes == []
-        assert service_store[USER_KEY] == _user_doc()
+        assert writes == []
+        assert store[USER_KEY] == _user_doc()
 
-    def test_unknown_user_returns_404(self, client, service_store):
+    def test_unknown_user_returns_404(self, client, store):
         response = client.patch(
             "/api/v1/admin/platform/users/ghost",
             json={"display_name": "Nobody"},
         )
 
         assert response.status_code == 404
-        assert service_store[USER_KEY] == _user_doc()
+        assert store[USER_KEY] == _user_doc()
 
-    def test_schema_rejects_an_empty_display_name(self, client, service_store):
+    def test_schema_rejects_an_empty_display_name(self, client, store):
         """``AdminUserUpdate.display_name`` carries ``min_length=1``.
 
         Empty and over-length values are refused at the FastAPI boundary (422),
@@ -245,4 +215,34 @@ class TestExistingBehaviourIsPreserved:
         response = _patch(client, {"display_name": ""})
 
         assert response.status_code == 422
-        assert service_store[USER_KEY]["display_name"] == ORIGINAL_NAME
+        assert store[USER_KEY]["display_name"] == ORIGINAL_NAME
+
+
+# ── #1035: whitespace-only display_name must be refused, not persisted ────────
+
+
+class TestRejectsWhitespaceOnlyDisplayName:
+    """#1035 — ``min_length=1`` is length-based, so ``"   "`` passed the boundary
+    *and* the model and was persisted. The admin path is one of the shared write
+    paths that must now refuse it with 422 and leave the stored value untouched.
+
+    Red-first: against the pre-fix schema this returned 200 and the whitespace
+    landed in ``store``; after the shared ``DisplayName`` validator it is 422 at
+    the boundary.
+    """
+
+    @pytest.mark.parametrize("value", [" ", "   ", "\t", " \t "])
+    def test_whitespace_only_is_refused_and_not_persisted(self, client, store, writes, value):
+        response = _patch(client, {"display_name": value})
+
+        assert response.status_code == 422
+        assert writes == []
+        assert store[USER_KEY]["display_name"] == ORIGINAL_NAME
+
+    def test_name_with_internal_spaces_is_still_accepted(self, client, store):
+        """The positive that catches an over-broad validator: internal spaces are
+        legitimate and must be stored verbatim (reject-only, not normalise)."""
+        response = _patch(client, {"display_name": "Bob Smith"})
+
+        assert response.status_code == 200
+        assert store[USER_KEY]["display_name"] == "Bob Smith"

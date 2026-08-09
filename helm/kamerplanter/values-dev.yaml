@@ -345,7 +345,7 @@ controllers:
       main:
         image:
           repository: timescale/timescaledb
-          tag: "2.26.0-pg16"
+          tag: "2.29.1-pg16"
           pullPolicy: IfNotPresent
         securityContext:
           readOnlyRootFilesystem: false

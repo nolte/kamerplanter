@@ -80,11 +80,22 @@ class WateringLogDetailPage(BasePage):
     # -- Details tab --------------------------------------------------------
 
     def get_detail_card_count(self) -> int:
-        """Return the number of MUI Cards on the details tab."""
+        """Return the number of MUI Cards on the details tab.
+
+        Deliberately instantaneous, not anchored: every call site reads this
+        right after ``wait_for_element(self.PAGE)`` -- a genuine wait. `PAGE`
+        renders only once ``load()`` resolves (``WateringLogDetailPage.tsx``
+        gates its whole tree behind ``if (loading) return <LoadingSkeleton
+        .../>``), so a settled page root means the detail cards have settled
+        too.
+        """
         return len(self.driver.find_elements(*self.DETAIL_CARDS))
 
     def has_analyze_runoff_button(self) -> bool:
-        """Return True if the analyze-runoff button is visible."""
+        """Return True if the analyze-runoff button is visible.
+
+        See :meth:`get_detail_card_count` -- same anchor.
+        """
         elements = self.driver.find_elements(*self.ANALYZE_RUNOFF_BUTTON)
         return len(elements) > 0 and elements[0].is_displayed()
 
@@ -93,7 +104,13 @@ class WateringLogDetailPage(BasePage):
         self.wait_and_click(self.ANALYZE_RUNOFF_BUTTON)
 
     def has_runoff_analysis_result(self) -> bool:
-        """Return True if the runoff analysis result alert is visible."""
+        """Return True if the runoff analysis result alert is visible.
+
+        No call site in this suite as of #946 wave 6 (:meth:`click_analyze_runoff`
+        is likewise unused) -- left unanchored rather than speculatively
+        converted, since there is no caller whose polarity or timing this
+        reader's fix could be verified against.
+        """
         return len(self.driver.find_elements(*self.RUNOFF_ANALYSIS_RESULT)) > 0
 
     # -- Delete dialog ------------------------------------------------------
@@ -112,14 +129,26 @@ class WateringLogDetailPage(BasePage):
         self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_visible(self) -> bool:
-        """Return True if the delete ConfirmDialog is visible."""
+        """Return True if the delete ConfirmDialog is visible.
+
+        Deliberately instantaneous, not anchored: its one call site (a
+        presence-only read, no negated call site in this suite) reads it
+        right after ``click_delete()``, which already runs
+        ``wait_for_element_visible(self.CONFIRM_DIALOG)``.
+        """
         elements = self.driver.find_elements(*self.CONFIRM_DIALOG)
         return len(elements) > 0 and elements[0].is_displayed()
 
     # -- Edit tab -----------------------------------------------------------
 
     def is_edit_form_visible(self) -> bool:
-        """Return True if the edit form is visible (volume field present)."""
+        """Return True if the edit form is visible (volume field present).
+
+        Deliberately instantaneous, not anchored: its one call site reads it
+        right after ``click_edit_tab()``, which already runs
+        ``wait_for_element_visible(self.FORM_VOLUME)`` -- the same locator
+        this reader checks.
+        """
         return len(self.driver.find_elements(*self.FORM_VOLUME)) > 0
 
     def get_volume_value(self) -> str:

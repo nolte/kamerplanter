@@ -53,8 +53,13 @@ def add_favorite(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FavoritesService = Depends(get_favorites_service),
 ):
-    """Add an entity to the calling user's favorites."""
-    edge = service.add_favorite(ctx.user_key, body.target_key, source=body.source)
+    """Add an entity to the calling user's favorites.
+
+    Favourites are personal and span tenants: a global catalogue entry or one
+    owned by the caller's active tenant may be favourited, a foreign tenant's
+    entry is refused (#965). The active ``ctx.tenant_key`` is the tenant anchor.
+    """
+    edge = service.add_favorite(ctx.user_key, body.target_key, tenant_key=ctx.tenant_key, source=body.source)
     return _edge_to_response(edge)
 
 

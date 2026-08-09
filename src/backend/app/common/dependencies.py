@@ -194,8 +194,19 @@ def get_graph_repo() -> ArangoGraphRepository:
     return ArangoGraphRepository(get_db())
 
 
+def get_phase_sequence_binder():
+    """Construct the species → phase-sequence binder (#1006).
+
+    Imported lazily for the same reason ``get_phase_sequence_repo`` is defined lazily
+    below: the repository module is not loaded at import time of this module.
+    """
+    from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
+
+    return PhaseSequenceBinder(get_phase_sequence_repo(), get_lifecycle_repo())
+
+
 def get_species_service() -> SpeciesService:
-    return SpeciesService(get_species_repo(), get_graph_repo())
+    return SpeciesService(get_species_repo(), get_graph_repo(), get_phase_sequence_binder())
 
 
 def get_site_service() -> SiteService:
@@ -742,7 +753,7 @@ def get_auth_service() -> AuthService:
 
 
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo())
+    return UserService(get_user_repo(), get_refresh_token_repo(), get_membership_repo())
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────
@@ -1007,7 +1018,12 @@ def get_import_job_repo():
 def get_import_service():
     from app.domain.services.import_service import ImportService
 
-    return ImportService(get_import_job_repo(), get_species_repo(), get_family_repo())
+    return ImportService(
+        get_import_job_repo(),
+        get_species_repo(),
+        get_family_repo(),
+        get_phase_sequence_binder(),
+    )
 
 
 # ── REQ-015 Calendar dependencies ───────────────────────────────────

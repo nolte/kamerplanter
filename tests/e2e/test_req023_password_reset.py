@@ -220,6 +220,13 @@ class TestPasswordResetConfirm:
             password="neues-passwort-2024",
             confirm_password="anderes-passwort",
         )
+        # Client-side check (`PasswordResetConfirmPage.tsx`'s `handleSubmit`
+        # compares the two fields before any network call), but the resulting
+        # `setError()` still lands one React render after the submit-click
+        # event returns -- an unwaited read right after `reset_password()` can
+        # land in that gap. Anchored the same way the sibling invalid-token
+        # case below already is.
+        reset_confirm_page.wait_for_element(PasswordResetConfirmPage.ERROR_ALERT)
         screenshot(
             "TC-REQ-023-022_reset-confirm-mismatch",
             "Password mismatch on reset confirm page",
