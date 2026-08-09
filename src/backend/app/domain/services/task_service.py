@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.enums import TaskOrigin
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -930,6 +931,63 @@ class TaskService:
         if created.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(created, previous_user_key=None))
         return created
+
+    def create_task_idempotent(self, task: Task, *, actor_user_key: str = "") -> tuple[Task, bool]:
+        """Create a task, or upsert the existing one for an idempotent producer re-post.
+
+        The FreeStyle producer contract (#1082 AC-3). A machine producer
+        (``origin != user``) that supplies an ``external_ref`` gets *upsert*
+        semantics scoped to ``(tenant_key, source, external_ref)``: re-posting the
+        same reference refreshes and returns the existing task instead of
+        duplicating it. Because the lookup is anchored on the caller's own
+        ``tenant_key`` and ``source`` (see
+        :meth:`ITaskRepository.find_task_by_external_ref`), it is never a
+        cross-tenant existence oracle and two producers cannot collide.
+
+        Interactive tasks (``origin == user``) and producer tasks without an
+        ``external_ref`` fall straight through to :meth:`create_task`, so this is a
+        safe superset of the plain create path and the single POST endpoint can
+        route both through it.
+
+        Returns ``(task, created)`` where ``created`` is ``False`` for an
+        idempotent hit — the endpoint maps that onto HTTP 200 (vs 201 on create).
+        """
+        if task.origin != TaskOrigin.USER and task.source and task.external_ref:
+            existing = self._repo.find_task_by_external_ref(
+                tenant_key=task.tenant_key,
+                source=task.source,
+                external_ref=task.external_ref,
+            )
+            if existing is not None and existing.key:
+                refreshed = self._apply_freestyle_refresh(existing, task)
+                updated = self._repo.update_task(existing.key, refreshed)
+                self._propagate(lambda p: p.sync_task_due_notification(updated, recipient_user_key=actor_user_key))
+                return updated, False
+        return self.create_task(task, actor_user_key=actor_user_key), True
+
+    @staticmethod
+    def _apply_freestyle_refresh(existing: Task, incoming: Task) -> Task:
+        """Refresh a re-posted FreeStyle task's presentation fields in place.
+
+        A producer re-post updates what the producer authored — the free text, the
+        due date, the category, the run reference — while preserving everything the
+        *system* owns on the existing task: its key, its lifecycle ``status`` and
+        the user's own progress (started/completed timestamps, notes, ratings), its
+        ``created_at`` and its ``(source, external_ref)`` identity. That way a
+        re-post never resurrects a task the user already completed or silently
+        re-homes it onto another entity.
+        """
+        existing.name = incoming.name
+        existing.name_de = incoming.name_de
+        existing.instruction = incoming.instruction
+        existing.instruction_de = incoming.instruction_de
+        existing.category = incoming.category
+        existing.priority = incoming.priority
+        existing.due_date = incoming.due_date
+        existing.scheduled_time = incoming.scheduled_time
+        existing.tags = incoming.tags
+        existing.source_run_ref = incoming.source_run_ref
+        return existing
 
     def update_task(self, key: str, task: Task, *, previous: Task | None = None, actor_user_key: str = "") -> Task:
         """Persist a task edit and propagate it into the notification centre (#742).

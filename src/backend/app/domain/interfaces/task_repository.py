@@ -102,6 +102,17 @@ class ITaskRepository(ABC):
     def create_task(self, task: Task) -> Task: ...
 
     @abstractmethod
+    def find_task_by_external_ref(self, *, tenant_key: str, source: str, external_ref: str) -> Task | None:
+        """Tenant+source-scoped FreeStyle idempotency lookup (#1082 AC-3).
+
+        Returns the newest task matching ``(tenant_key, source, external_ref)`` or
+        ``None``. Anchored on ``tenant_key`` AND ``source`` so it is never a
+        cross-tenant existence oracle and two producers cannot collide on the same
+        ``external_ref``. All three are keyword-only.
+        """
+        ...
+
+    @abstractmethod
     def update_task(self, key: TaskKey, task: Task) -> Task: ...
 
     @abstractmethod

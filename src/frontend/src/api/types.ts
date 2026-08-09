@@ -3766,6 +3766,9 @@ export interface TaskTemplateUpdate {
   require_all_checklist_items?: boolean;
 }
 
+/** REQ-006 FreeStyle task origin (#1082). Orthogonal to `TaskCategory`. */
+export type TaskOrigin = 'user' | 'system' | 'pipeline';
+
 export interface TaskItem {
   key: string;
   name: string;
@@ -3773,6 +3776,16 @@ export interface TaskItem {
   instruction: string;
   instruction_de: string;
   category: string;
+  /** REQ-006 FreeStyle provenance (#1082) — who produced the task, orthogonal to
+   *  `category`. `'user'` for interactive tasks; `'system'`/`'pipeline'` mark a
+   *  machine producer. Drives the machine-generated badge and filter. */
+  origin: TaskOrigin;
+  /** Free-form producer id, e.g. `'goose/leaf-analysis'` (empty for user tasks). */
+  source: string;
+  /** Optional producer run reference, shown on the task detail page. */
+  source_run_ref: string | null;
+  /** Optional producer dedupe key (idempotent machine creation). */
+  external_ref: string | null;
   entity_key: string | null;
   entity_type: string | null;
   due_date: string | null;

@@ -6,6 +6,7 @@ from app.common.enums import (
     SkillLevel,
     StressLevel,
     TaskCategory,
+    TaskOrigin,
     TaskPriority,
     TaskStatus,
     TaskTriggerType,
@@ -132,6 +133,25 @@ class Task(BaseModel):
     instruction: str = ""
     instruction_de: str = ""
     category: TaskCategory = TaskCategory.MAINTENANCE
+    # ── REQ-006 FreeStyle provenance (#1082) — orthogonal to ``category`` ──
+    #: Who produced the task. ``USER`` by default, so existing rows and every
+    #: interactive create read back as user-authored (additive). Machine
+    #: producers (system schedulers, external Goose pipelines via service
+    #: accounts) stamp ``SYSTEM``/``PIPELINE``. Server-decided from the
+    #: authenticated principal, never from the request body (#1000).
+    origin: TaskOrigin = TaskOrigin.USER
+    #: Free-form producer id, e.g. ``"goose/leaf-analysis"``. One half of the
+    #: idempotency namespace: the FreeStyle dedup lookup is scoped to
+    #: ``(tenant_key, source, external_ref)`` so two producers never collide and
+    #: it is never a cross-tenant existence oracle.
+    source: str = ""
+    #: Optional reference to the producer run that emitted the task (a pipeline
+    #: run id), surfaced on the task detail page for traceability.
+    source_run_ref: str | None = None
+    #: Optional producer-supplied dedupe key. Re-posting the same value for the
+    #: same ``(tenant_key, source)`` updates the existing task instead of
+    #: creating a duplicate (idempotent machine creation, #1082 AC-3).
+    external_ref: str | None = None
     entity_key: str | None = None
     entity_type: str | None = None
     # Watering/feeding tasks are scoped to a planting run rather than a single

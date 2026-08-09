@@ -904,6 +904,29 @@ class TaskPriority(StrEnum):
     CRITICAL = "critical"
 
 
+class TaskOrigin(StrEnum):
+    """Who produced a task — orthogonal to :class:`TaskCategory` (REQ-006, #1082).
+
+    Provenance, not semantics: a machine producer that already knows a task's
+    domain category (e.g. IPM) keeps that category and additionally records that a
+    machine created it. ``USER`` is the additive default, so every task that
+    predates this field and every interactive create reads back as user-authored.
+
+    * ``USER`` — created by an interactive user through the UI/API.
+    * ``SYSTEM`` — created by an internal scheduler/beat producer.
+    * ``PIPELINE`` — created by an external machine producer (a Goose analysis
+      pipeline surfacing derived work through a service account, REQ-023 M2M).
+
+    ``origin`` is server-decided from the authenticated principal, never trusted
+    from the request body (#1000-class spoofing): interactive callers are forced
+    to ``USER``, service accounts may set a machine origin.
+    """
+
+    USER = "user"
+    SYSTEM = "system"
+    PIPELINE = "pipeline"
+
+
 class TaskCategory(StrEnum):
     TRAINING = "training"
     PRUNING = "pruning"

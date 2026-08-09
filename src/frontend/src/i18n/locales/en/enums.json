@@ -791,6 +791,11 @@
       "high": "High",
       "critical": "Critical"
     },
+    "taskOrigin": {
+      "user": "Manual",
+      "system": "System",
+      "pipeline": "Analysis pipeline"
+    },
     "taskCategory": {
       "maintenance": "Maintenance",
       "watering": "Watering",

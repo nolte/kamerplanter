@@ -48,6 +48,10 @@ function makeTask(overrides: Partial<TaskItem> = {}): TaskItem {
     assigned_to_user_key: null,
     recurrence_rule: null,
     recurrence_end_date: null,
+    origin: 'user',
+    source: '',
+    source_run_ref: null,
+    external_ref: null,
     parent_recurring_task_key: null,
     trigger_phase: null,
     trigger_phase_override: null,
@@ -730,5 +734,42 @@ describe('TaskDetailPage — header action group', () => {
 
     await user.click(deleteButton);
     expect(await screen.findByTestId('confirm-dialog-confirm')).toBeInTheDocument();
+  });
+});
+
+describe('TaskDetailPage — FreeStyle provenance (#1082)', () => {
+  let spy: TaskSpy;
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    spy = {};
+  });
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  it('marks a machine-generated task and shows its producer + run reference', async () => {
+    useTaskHandlers(spy, {
+      task: makeTask({
+        origin: 'pipeline',
+        source: 'goose/leaf-analysis',
+        source_run_ref: 'run-2026-08-09',
+      }),
+    });
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    expect(screen.getByTestId('task-detail-origin-badge')).toBeInTheDocument();
+    expect(screen.getByTestId('task-detail-source')).toHaveTextContent('goose/leaf-analysis');
+    expect(screen.getByTestId('task-detail-source-run')).toHaveTextContent('run-2026-08-09');
+  });
+
+  it('shows no machine badge for a user-authored task', async () => {
+    useTaskHandlers(spy, { task: makeTask({ origin: 'user' }) });
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    expect(screen.queryByTestId('task-detail-origin-badge')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('task-detail-source-run')).not.toBeInTheDocument();
   });
 });

@@ -151,6 +151,41 @@ Das System bietet dem Nutzer vollständige Kontrolle über einzelne Aufgaben —
 - Entry: `{ changed_at: datetime, changed_by: str, field: str, old_value: any, new_value: any }`
 - Ermöglicht Nachvollziehbarkeit: "Wer hat wann was geändert?"
 
+### FreeStyle-Aufgaben (maschinell erzeugte Einzelaufgaben)
+
+<!-- Quelle: Issue #1082 -->
+
+Eine **FreeStyle-Aufgabe** ist eine einmalige, frei formulierte, instanzgebundene Einzelaufgabe, die überwiegend von **maschinellen Produzenten** (z.B. Goose-Analyse-Pipelines) erzeugt wird, um abgeleitete Arbeit dem Nutzer sichtbar zu machen. Das bestehende `Task`-Modell trägt die Mechanik bereits: Instanzbindung über `entity_key`/`entity_type`, `due_date`, freier Text in `name`/`instruction`, standardmäßig einmalig. FreeStyle ergänzt ausschließlich die **Provenienz**, die **idempotente maschinelle Erstellung** und die Producer-/UI-Oberfläche.
+
+**Orthogonales Herkunftsfeld (keine neue `TaskCategory`):**
+Die maschinelle Herkunft wird als **orthogonales Feld** modelliert, nicht als weiterer `TaskCategory`-Wert. Eine Pipeline, die die fachliche Kategorie kennt (z.B. IPM), behält diese und markiert zusätzlich, dass eine Maschine sie erzeugt hat. Vier additive Felder am `Task`:
+
+- `origin: TaskOrigin` (`user` | `system` | `pipeline`, Default `user`) — wer die Aufgabe erzeugt hat.
+- `source: str` (Default `""`) — frei wählbare Producer-Kennung, z.B. `"goose/leaf-analysis"`.
+- `source_run_ref: str | None` — optionale Referenz auf den Producer-Lauf (Pipeline-Run-ID), auf der Detailseite sichtbar.
+- `external_ref: str | None` — optionaler Producer-Dedupe-Schlüssel.
+
+**Herkunfts-Vertrauensregel (server-entschieden, #1000):**
+`origin` wird **niemals** aus dem Request-Body übernommen, sondern aus dem authentifizierten Prinzipal abgeleitet (`account_type`, REQ-023):
+
+- **Interaktiver Nutzer** (`account_type == "user"`): `origin` wird auf `user` erzwungen und die Provenienzfelder (`source`/`source_run_ref`/`external_ref`) werden verworfen. Ein Mensch kann so weder eine Pipeline-Herkunft vortäuschen noch in den Idempotenz-Namensraum `(tenant, source, external_ref)` schreiben.
+- **Service Account** (`account_type == "service"`, M2M): maschineller Produzent. Die Body-`origin` wird übernommen, aber auf eine Maschinen-Herkunft (`system`/`pipeline`) eingeschränkt, Default `pipeline`; die Provenienzfelder stammen aus dem Body.
+
+**Idempotente maschinelle Erstellung (HTTP 200 statt Duplikat):**
+Ein Producer, der einen bereits existierenden `external_ref` **für denselben Tenant und dieselbe `source`** postet, aktualisiert die bestehende Aufgabe und erhält sie mit **HTTP 200** zurück (statt 201 mit Duplikat). Die Suche ist strikt auf `(tenant_key, source, external_ref)` beschränkt — niemals ein tenant-übergreifendes Existenz-Orakel, und zwei Producer mit gleichem `external_ref`-String bleiben durch ihre unterschiedliche `source` in getrennten Namensräumen. Ein leerer `source` oder `external_ref` löst keine Deduplizierung aus.
+
+**Einmaligkeit (One-Off) auf dem Producer-Pfad:**
+Eine von einem Producer erzeugte Aufgabe (`origin != user`) darf keine Wiederholung erzeugen. Eine `recurrence_rule`, die die einzige Recurrence-Autorität (`RecurrenceEngine`) als echte Wiederholung erkennt, wird mit **422** abgelehnt; die Recurrence-Felder werden zusätzlich geleert, sodass ein Producer-Task strukturell keinen Folgetask erzeugen kann. Es wird **keine** zweite, parallele Recurrence-Prüfung eingeführt (die Konsolidierung R-15/ADR-008 vereinheitlicht diese später).
+
+**Service-Account-Erstellpfad (REQ-023 M2M):**
+Der Erstell-Endpunkt funktioniert für einen Service Account mit API-Key unter dem bestehenden `/api/v1/t/{tenant_slug}/`-Routing und `require_permission(TASK, CREATE)` (grower/lead). Ein Service Account authentifiziert sich über seinen `kp_`-Key, wird zum `User` mit `account_type == "service"` aufgelöst und muss — wie jeder Nutzer — eine aktive Mitgliedschaft mit ausreichender Rolle im Ziel-Tenant besitzen.
+
+**Tenant-Isolation:**
+Ein auf Tenant A beschränkter Producer kann in Tenant B weder Aufgaben erstellen noch lesen. Die Erstellung stempelt immer `tenant_key = ctx.tenant_key` (aus Pfad/Auth, nie aus dem Body); die Idempotenz-Suche ist tenant+source-scoped und blendet fremde Tenant-Zeilen aus.
+
+**UI-Oberfläche:**
+FreeStyle-Aufgaben erscheinen in Aufgabenliste, Dashboard und Kalender wie jede andere Aufgabe, sind aber sichtbar als **maschinell erstellt** markiert (Badge + Filter in Liste und Detail). Die Detailseite zeigt `source` + `source_run_ref`; die Pflanzen-Detailseite listet die offenen FreeStyle-Aufgaben der Instanz.
+
 ### Phasengebundene Workflow-Gestaltung
 
 Der Nutzer kann Workflows so gestalten, dass einzelne Tätigkeiten an bestimmte Wachstumsphasen gebunden sind und bei Phasenwechsel automatisch fällig werden. Jede Aufgabe innerhalb eines Workflows kann individuell konfiguriert werden.
@@ -3005,6 +3040,28 @@ THEN:
   - has_task-Edge: Plant → neuer Task
   - Workflow-Progress aktualisiert: completion_percentage neu berechnet (z.B. 4/8 statt 4/7)
   - Neuer Task erscheint in der Phase-Timeline an korrekter Position
+```
+
+**Szenario 32: FreeStyle-Aufgabe von einer Analyse-Pipeline (#1082)**
+```
+GIVEN: Service Account "goose-analysis" mit grower-Mitgliedschaft in Tenant A
+       Pflanzeninstanz "plant-1" in Tenant A
+WHEN: Service Account POST /api/v1/t/{A}/tasks mit:
+       { name: "Blattschaden prüfen", instruction: "Analyse meldet mögliche Chlorose",
+         category: "ipm", origin: "pipeline", source: "goose/leaf-analysis",
+         source_run_ref: "run-42", external_ref: "leaf/2026-08-09/42",
+         entity_key: "plant-1", entity_type: "plant_instance",
+         due_date: "2026-08-12" }
+THEN:
+  - HTTP 201; Task mit origin=pipeline, source="goose/leaf-analysis", category=ipm
+  - Erscheint in Aufgabenliste, Dashboard und Kalender wie jede Aufgabe
+  - Sichtbar als maschinell erstellt markiert (Badge); Detailseite zeigt source + source_run_ref
+AND WHEN: derselbe external_ref erneut gepostet wird (gleicher Tenant + source)
+THEN: HTTP 200, bestehende Aufgabe aktualisiert/zurückgegeben — kein Duplikat
+AND WHEN: der Producer-Pfad eine recurrence_rule mitschickt
+THEN: HTTP 422 — FreeStyle-Aufgaben sind einmalig
+AND WHEN: ein auf Tenant B beschränkter Producer denselben external_ref postet
+THEN: HTTP 201 mit eigener Aufgabe in B — keine Kollision mit A (Tenant-Isolation)
 ```
 
 ---

@@ -65,6 +65,7 @@ import SpringReturnAssistant from '@/pages/pflege/components/SpringReturnAssista
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import PrintButton from '@/components/common/PrintButton';
+import TaskOriginBadge from '@/components/common/TaskOriginBadge';
 import { downloadCareChecklistPdf } from '@/api/endpoints/print';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTaskQueue, fetchOverdueTasks, fetchCompletedTasks } from '@/store/slices/tasksSlice';
@@ -93,6 +94,10 @@ const taskCategories = [
 type UrgencyGroup = 'overdue' | 'today' | 'thisWeek' | 'future';
 
 type SourceFilter = 'all' | 'tasks' | 'care';
+
+// REQ-006 FreeStyle (#1082): filter tasks by who produced them. `machine` keeps
+// only producer-created tasks (origin != user), `user` keeps only user-authored.
+type OriginFilter = 'all' | 'machine' | 'user';
 
 // A unified item that wraps either a task or a care reminder
 interface UnifiedItem {
@@ -223,6 +228,7 @@ export default function TaskQueuePage() {
   // layout shift under the user's finger.
   const [plantsLoading, setPlantsLoading] = useState(true);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
   const [showCompleted, setShowCompleted] = useState(false);
 
   // Care state
@@ -506,6 +512,8 @@ export default function TaskQueuePage() {
     // Add tasks
     for (const task of taskQueue) {
       if (filterCategory && task.category !== filterCategory) continue;
+      if (originFilter === 'machine' && task.origin === 'user') continue;
+      if (originFilter === 'user' && task.origin !== 'user') continue;
       const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
       if (filterPlantKey && taskPlantKey !== filterPlantKey) continue;
       items.push({
@@ -541,6 +549,9 @@ export default function TaskQueuePage() {
 
     for (const entry of careDashboard) {
       if (entry.urgency === 'not_due') continue;
+      // The origin filter selects on *task* provenance; care reminders are a
+      // distinct source, so any non-"all" origin selection hides them.
+      if (originFilter !== 'all') continue;
       if (filterPlantKey && entry.plant_key !== filterPlantKey) continue;
 
       // Skip if there's already a care_reminder task for this plant + type
@@ -561,7 +572,7 @@ export default function TaskQueuePage() {
     }
 
     return items;
-  }, [taskQueue, careDashboard, filterCategory, filterPlantKey]);
+  }, [taskQueue, careDashboard, filterCategory, filterPlantKey, originFilter]);
 
   // Apply source filter
   const filtered = useMemo(() => {
@@ -599,6 +610,8 @@ export default function TaskQueuePage() {
     return completedTasks
       .filter((task) => {
         if (filterCategory && task.category !== filterCategory) return false;
+        if (originFilter === 'machine' && task.origin === 'user') return false;
+        if (originFilter === 'user' && task.origin !== 'user') return false;
         const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
         if (filterPlantKey && taskPlantKey !== filterPlantKey) return false;
         return true;
@@ -612,7 +625,7 @@ export default function TaskQueuePage() {
         if (!db) return -1;
         return new Date(db).getTime() - new Date(da).getTime();
       });
-  }, [showCompleted, sourceFilter, completedTasks, filterCategory, filterPlantKey]);
+  }, [showCompleted, sourceFilter, completedTasks, filterCategory, filterPlantKey, originFilter]);
 
   const allTaskKeys = useMemo(
     () => filtered.filter((i) => i.source === 'task').map((i) => i.task!.key),
@@ -627,7 +640,7 @@ export default function TaskQueuePage() {
     });
   }, [allTaskKeys]);
 
-  const hasActiveFilters = filterCategory !== '' || filterPlantKey !== null;
+  const hasActiveFilters = filterCategory !== '' || filterPlantKey !== null || originFilter !== 'all';
 
   // ── Render helpers ───────────────────────────────────────────────────
 
@@ -780,6 +793,9 @@ export default function TaskQueuePage() {
                           sx={{ height: 20, fontSize: '0.7rem' }}
                         />
                       )}
+                      {/* REQ-006 FreeStyle machine-generated badge (#1082) —
+                          renders only for producer-created tasks. */}
+                      <TaskOriginBadge origin={task.origin} testId={`task-origin-badge-${task.key}`} />
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                       <Typography variant="caption" color="text.disabled">
@@ -1372,6 +1388,28 @@ export default function TaskQueuePage() {
             </FormControl>
           )}
 
+          {/* REQ-006 FreeStyle origin filter (#1082) — machine vs. manually
+              created tasks. Hidden in the care-only source, which has no tasks. */}
+          {sourceFilter !== 'care' && (
+            <ToggleButtonGroup
+              value={originFilter}
+              exclusive
+              onChange={(_, val) => val && setOriginFilter(val as OriginFilter)}
+              size="small"
+              aria-label={t('pages.tasks.filterOrigin')}
+            >
+              <ToggleButton value="all" data-testid="filter-origin-all" sx={{ minHeight: 36, px: { xs: 1, sm: 1.5 } }}>
+                {t('pages.tasks.filterOriginAll')}
+              </ToggleButton>
+              <ToggleButton value="machine" data-testid="filter-origin-machine" sx={{ minHeight: 36, px: { xs: 1, sm: 1.5 } }}>
+                {t('pages.tasks.filterOriginMachine')}
+              </ToggleButton>
+              <ToggleButton value="user" data-testid="filter-origin-user" sx={{ minHeight: 36, px: { xs: 1, sm: 1.5 } }}>
+                {t('pages.tasks.filterOriginUser')}
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+
           <Autocomplete
             size="small"
             sx={{ minWidth: 200, flex: '1 1 200px', maxWidth: 320 }}
@@ -1388,7 +1426,7 @@ export default function TaskQueuePage() {
             <Button
               size="small"
               startIcon={<ClearIcon />}
-              onClick={() => { setFilterCategory(''); setFilterPlantKey(null); }}
+              onClick={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
               data-testid="clear-filters-button"
               sx={{ minHeight: 36, whiteSpace: 'nowrap' }}
             >
@@ -1433,6 +1471,18 @@ export default function TaskQueuePage() {
                 data-testid="active-filter-category"
               />
             )}
+            {originFilter !== 'all' && (
+              <Chip
+                label={originFilter === 'machine'
+                  ? t('pages.tasks.filterOriginMachine')
+                  : t('pages.tasks.filterOriginUser')}
+                size="small"
+                onDelete={() => setOriginFilter('all')}
+                color="primary"
+                variant="outlined"
+                data-testid="active-filter-origin"
+              />
+            )}
             {filterPlantKey && (
               <Chip
                 label={plantNameMap.get(filterPlantKey) ?? filterPlantKey}
@@ -1457,7 +1507,7 @@ export default function TaskQueuePage() {
             message={t('pages.tasks.noTasksFiltered')}
             description={t('pages.tasks.noTasksFilteredDesc')}
             actionLabel={t('common.clearFilters')}
-            onAction={() => { setFilterCategory(''); setFilterPlantKey(null); }}
+            onAction={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
           />
         ) : (
           <EmptyState
