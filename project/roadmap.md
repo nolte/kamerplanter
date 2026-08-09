@@ -67,6 +67,36 @@ erfolgt beim `promote`→`fine` / Sprint-Pull, nicht jetzt (Item ist `coarse` un
 ungeplant). Die Backfill-Cutover-Policy ist ein Kandidat, final in der
 Feature-Zerlegung zu bestätigen. -->
 
+### R-15 — ADR-008: Tasks/Care/Notifications auf eine Recurrence-Engine & einen Propagationspfad konsolidieren
+
+```yaml
+id: R-15
+title: ADR-008 — Tasks/Care/Notifications auf eine Recurrence-Engine & einen Propagationspfad konsolidieren
+detail: coarse
+outcomes: [O-8]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Drei Subsysteme (Tasks/REQ-006, Care-Reminders/REQ-022, Notifications/REQ-030)
+implementieren dieselbe Fälligkeit-/Sichtbarkeit-/Wiederholung-/Propagation-Logik
+dreifach — zwölf Issues im letzten Monat waren Symptome dieser einen Duplikation
+(Cluster I / Meta-Pattern M5). Dieses Outcome führt **ADR-008** aus: jede
+Next-Occurrence-Berechnung geht durch die einzige `RecurrenceEngine`, jeder
+Notification-Write durch den einzigen `NotificationPropagationService`,
+done/skipped/rescheduled wird eine geteilte Transition, und die Grenzen werden in
+`BACKEND.md` plus einem mechanischen Gate (nach #1046-Muster) eingefroren. Fünf
+shippbare Phasen (0 Inventar-Baseline → 1 Recurrence → 2 Propagation → 3
+Completion-Transition → 4 Freeze); ADR-008 wird dabei von `Proposed` auf
+`Accepted` gehoben.
+
+<!-- Herkunft: Issue #1061 (issue-orchestrate → roadmap-plan, 2026-08-09).
+Requirements-Override (Operator): die τ_high-Erhebung via `requirements-elicit`
+erfolgt beim `promote`→`fine` / Sprint-Pull (Item ist `coarse` und ungeplant).
+Phase-0-Baseline ist computed (NFR-018 §2.1). ADR-008-Acceptance ist die
+Go/No-Go-Entscheidung dieses Outcomes. -->
+
 ## Phase 3 — Erweiterung & Intelligenz
 
 ### R-1 — Pflanzenfoto-Galerie
