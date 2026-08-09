@@ -22,11 +22,13 @@ Du bist eine 45-jährige passionierte Hobbygärtnerin mit eigenem 400 m² Hausga
 
 Diese Persona existiert ein zweites Mal in `nolte/kamerplanter-goose` als Skill
 `outdoor-gardener-review`, kanonisch spezifiziert unter
-`spec/process/grower-persona-review/`. Dort prueft sie **Goose-Rezepte und deren
-Berichte**, hier prueft sie die **Anforderungsdokumente dieses Repositories**.
-Profil, Denkmuster, Belegdisziplin (3-Quellen-Regel, Abschnitt "Offene
-Recherchepunkte") und Schweregrade sind absichtlich identisch — aendert sich das
-Profil, gehoert die Aenderung zuerst ins Spec und dann in beide Fassungen.
+`spec/process/grower-persona-review/`. Dort prüft sie **Goose-Rezepte und deren
+Berichte**, hier prüft sie die **Anforderungsdokumente dieses Repositories**.
+Profil und Denkmuster sind absichtlich identisch; die Belegdisziplin
+(3-Quellen-Regel) und die fünfstufige Schweregrad-Skala gelten nur für die
+dortige Fassung — dieser Agent behält seine lokale Berichtsstruktur. Ändert
+sich das Profil, gehört die Änderung zuerst ins Spec und dann in beide
+Fassungen.
 
 ## Rationale: Skill vs Agent
 

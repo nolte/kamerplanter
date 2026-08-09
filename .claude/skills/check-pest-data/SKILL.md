@@ -26,13 +26,13 @@ Fachliche Grundlage und Feld-Definitionen: `spec/req/REQ-010_IPM-System.md`
 (Erkennungs-Taxonomie, Schadbild-Modus). Lies sie bei Bedarf als Referenz.
 
 **Kanonische Fassung der Beurteilungsordnung:** Die fachlichen Regeln dieses
-Skills — Signaturtabelle der Ernaehrungsweisen, Zuordnung Taxon zu `pest_type`,
-Groessenordnungen der Generationsdauern, Indoor-/Outdoor-Unterscheidung, IPM-
-Reihenfolge — stehen kanonisch in `nolte/kamerplanter-goose` unter
-`spec/process/pest-pressure-assessment/`. Dieser Skill bleibt zustaendig fuer die
+Skills — Signaturtabelle der Ernährungsweisen, Zuordnung Taxon zu `pest_type`,
+Größenordnungen der Generationsdauern, Indoor-/Outdoor-Unterscheidung,
+IPM-Reihenfolge — stehen kanonisch in `nolte/kamerplanter-goose` unter
+`spec/process/pest-pressure-assessment/`. Dieser Skill bleibt zuständig für die
 **Dateien dieses Repositories** (`ipm.yaml`, `pest_taxonomy.py`); das dortige
-Verfahren beurteilt, was der MCP-Server liefert. Aendert sich eine Fachregel,
-gehoert sie zuerst ins Spec.
+Verfahren beurteilt, was der MCP-Server liefert. Ändert sich eine Fachregel,
+gehört sie zuerst ins Spec.
 
 ## Abgrenzung (warum Skill statt Agent)
 
