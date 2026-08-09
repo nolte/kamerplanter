@@ -28,9 +28,9 @@ ihnen über `roadmap-plan` zugeordnet.
 ```yaml
 id: R-14
 title: Stammdaten-Mandanten-Scoping (Species & Cultivar)
-detail: coarse
+detail: fine
 outcomes: [O-4]
-target_sprint: null
+target_sprint: 2
 mvp: false
 status: proposed
 ```
@@ -45,6 +45,15 @@ tenant-bewusste Routen (heute ist `get_current_tenant` an `/t/{slug}/` gebunden)
 und eine Migration, die die zu bestätigende **Cutover-Backfill-Policy** trägt
 (Bestands-`origin:tenant`-Species bleiben per Policy global). Entblockt durch
 #780 / REQ-049.
+
+Sprint 2 liefert den **species-only**-Schnitt (Cultivar und die
+`tenant_has_access`-Edge sind bewusst als Folge-Requirement zurückgestellt,
+Operator-Entscheid „Species-only zuerst"). Backfill = **Cutover-Regel** (final,
+teach-back-bestätigt). Requirement: `project/requirements/species-tenant-ownership.md`.
+
+- [ ] F-3 — Species-Mandanten-Ownership: Feld, Write-Stamping & Cutover-Migration (`species-tenant-key-and-cutover`)
+- [ ] F-4 — Geteiltes Mandanten-Union-Leseprädikat (Extraktion) (`tenant-scope-union-predicate`)
+- [ ] F-5 — Tenant-bewusstes Species-Lesen auf der globalen Route (`species-tenant-aware-read`)
 
 <!-- Herkunft: Issue #808 (issue-orchestrate → roadmap-plan, 2026-08-09).
 Requirements-Override (Operator): die τ_high-Erhebung via `requirements-elicit`
