@@ -3,6 +3,7 @@ from arango.database import StandardDatabase
 from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import escape_aql_like
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import Substrate, SubstrateBatch
 
@@ -16,8 +17,39 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
 
     # ── Substrate CRUD ────────────────────────────────────────────────
 
-    def get_all_substrates(self, offset: int = 0, limit: int = 50) -> tuple[list[Substrate], int]:
-        return super().get_all(offset, limit)
+    def get_all_substrates(
+        self, offset: int = 0, limit: int = 50, query: str | None = None
+    ) -> tuple[list[Substrate], int]:
+        if query is None or not query.strip():
+            return super().get_all(offset, limit)
+
+        # Case-insensitive substring match over the two catalogue names and the
+        # brand, so the natural pre-create duplicate check ("does a BioBizz
+        # Light-Mix already exist?") actually finds it. Before this the endpoint
+        # took only offset/limit, so every ``query`` was dropped and the check
+        # always said "no such substrate" — a wrong answer that lets agents seed
+        # duplicates (#1099 defect 5). The term is wrapped in a LIKE pattern with
+        # its wildcards escaped and bound as a parameter (never interpolated), and
+        # the third LIKE argument makes the match case-insensitive.
+        pattern = f"%{escape_aql_like(query.strip())}%"
+        filter_clause = (
+            "FILTER LIKE(doc.name_de, @pattern, true) "
+            "OR LIKE(doc.name_en, @pattern, true) "
+            "OR LIKE(doc.brand, @pattern, true)"
+        )
+        list_query = (
+            f"FOR doc IN {self._collection_name} {filter_clause} SORT doc._key LIMIT @offset, @limit RETURN doc"
+        )
+        cursor = self._db.aql.execute(
+            list_query,
+            bind_vars={"pattern": pattern, "offset": offset, "limit": limit},
+        )
+        items = self._wrap_many([self._from_doc(doc) for doc in cursor])
+
+        count_query = f"FOR doc IN {self._collection_name} {filter_clause} COLLECT WITH COUNT INTO total RETURN total"
+        count_cursor = self._db.aql.execute(count_query, bind_vars={"pattern": pattern})
+        total = int(next(count_cursor, 0))
+        return items, total
 
     def get_substrate_by_key(self, key: SubstrateKey) -> Substrate | None:
         return super().get_by_key(key)

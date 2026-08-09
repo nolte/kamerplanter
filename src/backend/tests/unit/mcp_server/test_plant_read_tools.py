@@ -280,6 +280,32 @@ async def test_an_explicit_substrate_override_wins_over_the_referenced_record():
 
 
 @pytest.mark.asyncio
+async def test_get_plant_resolves_substrate_name_beside_a_resolved_type():
+    """#1099 defect 7, exact reproduction: get_plant(19206777) returned
+    substrate_type='clay_pebbles' but substrate_name=null, because the type was
+    resolved from the record while the name was not. The name must come from the
+    same record the type does."""
+
+    svc = _PlantService([_Plant("19206777", "Monstera", substrate_key="16547889")])
+    substrate = Substrate(
+        _key="16547889",
+        name_de="Blähton",
+        name_en="Clay pebbles",
+        type=SubstrateType.CLAY_PEBBLES,
+    )
+    ctx = _ctx(
+        plant_instance_service=svc,
+        species_service=_SpeciesStub(),
+        substrate_service=_SubstrateService(substrate),
+    )
+
+    resp = await GetPlant().run(ctx, GetPlant.Input(plant_key="19206777"))
+
+    assert resp.data["substrate_type"] == "clay_pebbles"
+    assert resp.data["substrate_name"] == "Blähton", "the name must resolve from the same record as the type"
+
+
+@pytest.mark.asyncio
 async def test_a_plant_without_a_substrate_reference_is_not_looked_up():
     svc = _PlantService([_Plant("p1", "Tomate")])
     substrates = _SubstrateService(_substrate())

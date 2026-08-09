@@ -14,8 +14,10 @@ class SubstrateService:
         self._repo = substrate_repo
         self._lifecycle_mgr = SubstrateLifecycleManager(substrate_repo)
 
-    def list_substrates(self, offset: int = 0, limit: int = 50) -> tuple[list[Substrate], int]:
-        return self._repo.get_all_substrates(offset, limit)
+    def list_substrates(
+        self, offset: int = 0, limit: int = 50, query: str | None = None
+    ) -> tuple[list[Substrate], int]:
+        return self._repo.get_all_substrates(offset, limit, query)
 
     def get_substrate(self, key: SubstrateKey) -> Substrate:
         return self._repo.get_substrate_or_raise(key)

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.common.enums import TenantRole, ToxicitySeverity
+from app.common.enums import Suitability, TenantRole, ToxicitySeverity
 from app.domain.models.species import Species, Toxicity
 from app.domain.models.substrate import Substrate
 from app.mcp_server.context import ToolContext
@@ -151,6 +151,45 @@ async def test_species_info_embeds_cultivars_and_can_omit_them():
     assert "cultivars" not in without.data
 
 
+# ── #1099 defect 6: indoor_suitable / mature_height_cm must not be omitted ─────
+#
+# The REST view of species 11507159 returns indoor_suitable="yes" and
+# mature_height_cm="100-300"; the MCP projection reported "15 populated fields"
+# yet dropped exactly these two. ``indoor_suitable`` decides whether a plant
+# belongs indoors — a question agents ask constantly — so its omission is not
+# cosmetic. This guards that both are projected when populated.
+
+
+class _IndoorSpeciesService:
+    """Serves a real ``Species`` with indoor_suitable and mature_height_cm set."""
+
+    def get_species(self, key, *, tenant_key=None):
+        return Species(
+            _key="11507159",
+            scientific_name="Ficus benjamina",
+            genus="Ficus",
+            indoor_suitable=Suitability.YES,
+            mature_height_cm="100-300",
+        )
+
+    def get_compatible_species(self, key):
+        return []
+
+    def list_cultivars(self, species_key):
+        return []
+
+
+@pytest.mark.asyncio
+async def test_species_info_projects_indoor_suitable_and_mature_height_when_populated():
+    resp = await GetSpeciesInfo().run(
+        _ctx(species_service=_IndoorSpeciesService()),
+        GetSpeciesInfo.Input(species_key="11507159"),
+    )
+
+    assert resp.data["indoor_suitable"] == "yes", "indoor_suitable was dropped from the projection (#1099 defect 6)"
+    assert resp.data["mature_height_cm"] == "100-300", "mature_height_cm was dropped from the projection"
+
+
 @pytest.mark.asyncio
 async def test_species_info_survives_a_missing_companion_graph():
     class _Broken(_SpeciesService):
@@ -271,6 +310,38 @@ async def test_list_substrates_filters_by_name():
     # The English name is part of the haystack too — the palette answers in both.
     english = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="coco"))
     assert [i["name_de"] for i in english.data["items"]] == ["Kokos"]
+
+
+@pytest.mark.asyncio
+async def test_list_substrates_matches_the_brand_and_catalogue_names():
+    # #1099 defect 5, acceptance mirror: the seeded catalogue records carry the
+    # brand both in ``brand`` and inside the name, and the natural pre-create
+    # duplicate check searches by brand ("does a BioBizz Light-Mix exist?"). A
+    # filter over the names only would still miss a record whose name omitted the
+    # manufacturer, so the brand is part of the haystack.
+    class _Svc:
+        def list_substrates(self, offset=0, limit=50):
+            return [
+                Substrate(_key="s1", brand="BioBizz", name_de="BioBizz Light·Mix", name_en="BioBizz Light Mix"),
+                Substrate(_key="s2", brand="BioBizz", name_de="BioBizz All·Mix", name_en="BioBizz All-Mix"),
+                Substrate(_key="s3", brand="Plagron", name_de="Plagron Lightmix", name_en="Plagron Light Mix"),
+                Substrate(_key="s4", brand="Generic", name_de="Perlite", name_en="Perlite"),
+            ], 4
+
+    # "biobizz" matches the two BioBizz media (brand + name both carry it).
+    by_brand = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="biobizz"))
+    assert {i["name_de"] for i in by_brand.data["items"]} == {"BioBizz Light·Mix", "BioBizz All·Mix"}
+
+    # "Light" matches Light·Mix and Lightmix across brands, case-insensitively.
+    by_name = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="Light"))
+    assert {i["name_de"] for i in by_name.data["items"]} == {
+        "BioBizz Light·Mix",
+        "Plagron Lightmix",
+    }
+
+    # A brand that appears in no name at all is still findable via the brand field.
+    by_brand_only = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="plagron"))
+    assert [i["name_de"] for i in by_brand_only.data["items"]] == ["Plagron Lightmix"]
 
 
 @pytest.mark.asyncio
