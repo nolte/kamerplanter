@@ -25,9 +25,10 @@
       }
     },
     "assert": {
+      "_baselineNote": "categories:accessibility uses a computed baseline-and-ratchet floor (NFR-018 §2.1 — computed, not versioned). Measured 2026-08-09 over the static ./dist SPA, 3 mobile runs: accessibility = 0.98 on all three runs (only the heading-order audit is imperfect; the audit is deterministic, not timing-flaky). Floor set to 0.98 at error so the app passes today and any real a11y regression turns the assertion red. Ratchet the floor up as the score improves; lower it only with a recorded reason. performance stays warn (report-only). LHCI ignores unknown keys under assert, so this note is auditable in-file; JSONC // comments are NOT tolerated by the LHCI JSON parser.",
       "assertions": {
         "categories:performance": ["warn", { "minScore": 0.9 }],
-        "categories:accessibility": ["warn", { "minScore": 0.9 }],
+        "categories:accessibility": ["error", { "minScore": 0.98 }],
         "first-contentful-paint": ["warn", { "maxNumericValue": 1500 }],
         "largest-contentful-paint": ["warn", { "maxNumericValue": 2500 }],
         "interactive": ["warn", { "maxNumericValue": 3500 }],

@@ -225,9 +225,19 @@ jobs:
           retention-days: 7
 
   # UI-NFR-003 R-001..005 — Core Web Vitals measurement (mobile, 4G emulation).
-  # Report-only job: assertions are warn-level in lighthouserc.json so the job
-  # surfaces regressions without blocking merges (repo practice: only `static`
-  # is required). Tighten to error-level once the baseline is stable.
+  #
+  # The `categories:accessibility` assertion in lighthouserc.json is ERROR-level
+  # at a measured, computed baseline-and-ratchet floor (0.98, measured 2026-08-09
+  # over the static dist; NFR-018 §2.1). `lhci assert` returns nonzero and this
+  # job goes RED on an accessibility regression below the floor — it is no longer
+  # a gate that cannot fail (#1060). There is deliberately NO job-level
+  # `continue-on-error`, so the red is real. The performance assertions remain
+  # warn-level (report-only) until their own baseline is stable.
+  #
+  # ADVISORY regardless: branch protection requires only `static / Static CI
+  # Tests` and `lint-test-build (22)` (`.github/settings.yml`), and this job is
+  # deliberately not among them. It is promoted to a required check on measured
+  # history per NFR-018 §4, never by editing this comment.
   lighthouse:
     name: Lighthouse CI
     needs: changes
