@@ -46,6 +46,14 @@ OWNERSHIP_VERIFIABLE_COLLECTIONS: frozenset[str] = frozenset(
         col.FERTILIZERS,
         col.TANKS,
         col.EQUIPMENT,
+        # #1090: ``Cultivar`` became tenant-ownable, so ``plant_instance.cultivar_key``
+        # is a caller-supplied foreign reference like the others. The bulk of the
+        # collection is global (``v0038`` left the whole legacy population at
+        # ``tenant_key == ""``) and stays referenceable by every tenant — the empty
+        # -tenant arm below is what makes that so, exactly as for the fertilizer
+        # catalog. Without this entry the guard would fail *closed* on every
+        # cultivar, global ones included, before it ever reads the document.
+        col.CULTIVARS,
     }
 )
 

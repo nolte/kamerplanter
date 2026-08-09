@@ -21,6 +21,23 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
     #: :attr:`BaseArangoRepository._update_is_full_replace`.
     _update_is_full_replace = True
 
+    #: ``cultivar_key`` is caller-supplied — it arrives in the ``POST``/``PUT
+    #: /t/{slug}/plant-instances`` body — and since #1090 a ``Cultivar`` can belong
+    #: to a tenant. Declaring it here, rather than checking it by hand in
+    #: ``create_plant``, makes the #948 mechanism verify it before every write:
+    #: another tenant's cultivar answers 404, a global one — which is what the whole
+    #: legacy catalogue still is after ``v0038`` — stays bindable. This is the last
+    #: route by which a foreign cultivar key can enter a tenant's data, and it
+    #: matters because the key is dereferenced in *system* context downstream (print
+    #: labels, care reminders, watering, the calendar's ``DOCUMENT()`` join), which
+    #: would carry the foreign cultivar's name and traits back out through the
+    #: referencing tenant's own views.
+    _owned_reference_fields = {"cultivar_key": col.CULTIVARS}
+
+    #: …and a ``PUT`` re-points that reference, which ``create``'s guard never sees.
+    #: See :meth:`BaseArangoRepository._verify_changed_owned_references`.
+    _verify_references_on_update = True
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PLANT_INSTANCES)
 
