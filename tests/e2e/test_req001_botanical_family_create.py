@@ -66,14 +66,18 @@ class TestBotanicalFamilyCreateDialog:
 
         family_list.click_create()
         unique = uuid.uuid4().hex[:6]
-        family_name = f"E2eTestaceae{unique}"
+        # Family names must end in "-aceae" and order names in "-ales" (botanical
+        # nomenclature, enforced by BotanicalFamily and mirrored on FamilyCreate),
+        # so the uniqueness suffix goes BEFORE the suffix — otherwise the create is
+        # a legitimate 422 and this happy-path never provisions a family.
+        family_name = f"E2eTest{unique}aceae"
         common_name_de = f"Testfamilie {unique}"
         common_name_en = f"Test family {unique}"
         family_list.fill_create_form(
             family_name,
             common_name_de=common_name_de,
             common_name_en=common_name_en,
-            order=f"Testales{unique}",
+            order=f"Test{unique}ales",
             description="E2E-Test botanische Familie",
             ph_min="5.5",
             ph_max="7.0",
@@ -186,9 +190,9 @@ class TestBotanicalFamilyCreateDialog:
         family_list.click_create()
 
         unique = uuid.uuid4().hex[:6]
-        family_list.fill_name_only(f"Minimalaceae{unique}")
+        family_list.fill_name_only(f"Minimal{unique}aceae")
         screenshot(
-            "TC-REQ-001-020_minimal-filled", f"Create dialog with only name Minimalaceae{unique}"
+            "TC-REQ-001-020_minimal-filled", f"Create dialog with only name Minimal{unique}aceae"
         )
 
         family_list.submit_create_form()
@@ -248,13 +252,13 @@ class TestBotanicalFamilyCreateDialog:
 
         unique = uuid.uuid4().hex[:6]
         family_list.fill_create_form(
-            f"Boundaryaceae{unique}",
+            f"Boundary{unique}aceae",
             ph_min="3.0",
             ph_max="9.0",
         )
         screenshot(
             "TC-REQ-001-022_ph-boundary-filled",
-            f"Create dialog with pH 3.0-9.0 for Boundaryaceae{unique}",
+            f"Create dialog with pH 3.0-9.0 for Boundary{unique}aceae",
         )
 
         family_list.submit_create_form()
@@ -280,7 +284,7 @@ class TestBotanicalFamilyBackendValidation:
         family_list.click_create()
 
         unique = uuid.uuid4().hex[:6]
-        family_list.fill_name_only(f"Conflictaceae{unique}")
+        family_list.fill_name_only(f"Conflict{unique}aceae")
         try:
             family_list.select_option("typical_nutrient_demand", "Starkzehrer")
         except Exception:

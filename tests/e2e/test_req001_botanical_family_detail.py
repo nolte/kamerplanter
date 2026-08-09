@@ -150,7 +150,7 @@ class TestBotanicalFamilyDetailPage:
         family_list.open()
         family_list.click_create()
         unique = uuid.uuid4().hex[:6]
-        delete_name = f"Deleteaceae{unique}"
+        delete_name = f"Delete{unique}aceae"
         family_list.fill_create_form(delete_name)
         family_list.submit_create_form()
         family_list.wait_for_loading_complete()
