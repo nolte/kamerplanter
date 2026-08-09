@@ -10,7 +10,7 @@ from app.api.v1.species.schemas import (
     SpeciesReferenceImagesResponse,
     SpeciesResponse,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_creating_tenant_key, get_current_user
 from app.common.dependencies import get_family_repo, get_species_service
 from app.common.enums import DataOrigin
 from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
@@ -105,11 +105,19 @@ def create_species(
     body: SpeciesCreate,
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
+    tenant_key: str = Depends(get_creating_tenant_key),
 ):
     """Create a tenant-owned species master record."""
     # User-created master data is tenant-owned (editable); seeded species default
     # to 'system' (read-only). Provenance is server-set, never from the form body.
-    species = Species(**body.model_dump(), origin=DataOrigin.TENANT)
+    #
+    # tenant_key is resolved from the authenticated caller (their personal tenant),
+    # never from the request body (#1000, F-3/#808) — ``SpeciesCreate`` carries no
+    # tenant field, so ``body.model_dump()`` cannot smuggle one in. This binds a
+    # newly created species to its owner so F-5's read predicate can keep it out of
+    # foreign tenants while the global seed catalogue (tenant_key == "") stays
+    # visible to all.
+    species = Species(**body.model_dump(), origin=DataOrigin.TENANT, tenant_key=tenant_key)
     created = service.create_species(species)
     return _species_response(created, family_repo)
 

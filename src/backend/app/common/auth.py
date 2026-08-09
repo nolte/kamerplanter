@@ -78,6 +78,34 @@ def get_current_tenant(
     )
 
 
+def get_creating_tenant_key(
+    user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> str:
+    """Resolve the tenant a *global-route* interactive create should belong to (F-3, #808).
+
+    :func:`get_current_tenant` cannot serve here: it binds to the
+    ``/api/v1/t/{slug}/`` path segment, and the species catalogue lives on the
+    global ``/api/v1/species`` route which has no such segment. Until F-5 builds
+    the general active-tenant resolution for global-but-tenant-aware routes, an
+    interactive create is stamped with the caller's **personal** tenant — the
+    auto-created ``PERSONAL`` tenant every user owns since registration (REQ-024).
+
+    Returns the personal tenant's ``_key``, or ``""`` when the caller has no
+    resolvable personal tenant. Falling back to ``""`` keeps the record in the
+    shared/global catalogue rather than failing the request or leaking it into a
+    foreign tenant — the fail-safe direction for a not-yet-general mechanism.
+
+    **Assumption for F-5 to build on:** a caller acting inside an *organization*
+    tenant still stamps their personal tenant here, because the global route
+    carries no signal of which tenant they are acting in. When F-5 lands (an
+    explicit active-tenant claim/header), replace this dependency with it so an
+    org-context create binds to that org (#808 A1).
+    """
+    personal = tenant_service.get_personal_tenant(user.key or "")
+    return personal.key if personal and personal.key else ""
+
+
 def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
     """True when ``user_key`` is a platform admin (a ``lead`` membership in ``platform``).
 

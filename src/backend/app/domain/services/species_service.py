@@ -247,6 +247,12 @@ class SpeciesService:
         # submitted by the edit form — preserve it so a full-replace update never
         # resets an enriched/tenant record back to the 'system' default.
         species.origin = existing.origin
+        # tenant ownership (REQ-001 v4.0, #808) is server-managed and never
+        # submitted by the edit form — preserve it so a full-replace update never
+        # resets a tenant-owned species back to the global default (tenant_key ""),
+        # which would silently move it out of its owner's catalogue into the shared
+        # one. Mirrors the origin preservation above.
+        species.tenant_key = existing.tenant_key
         # cultivation_flexible is master data (seed lifecycle_overrides, ADR-006 E6),
         # not an edit-form field — preserve it so a full-replace update never resets
         # the facultative-cultivation capability flag to its default.

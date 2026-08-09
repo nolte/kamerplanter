@@ -170,6 +170,31 @@ class TenantService:
             raise NotFoundError("tenants", tenant_key)
         return tenant
 
+    def get_personal_tenant(self, user_key: str) -> Tenant | None:
+        """The active user's own personal tenant, or ``None`` if they have none.
+
+        Every registered user gets exactly one auto-created ``PERSONAL`` tenant
+        they own (:meth:`create_personal_tenant`, REQ-024), and in light mode the
+        single anonymous system user carries one too (``seed_light_mode``). This
+        resolves it by owner + type — the newest wins on the (unexpected) chance a
+        user owns several — and returns ``None`` rather than raising, so a caller
+        on a global route can fall back to the shared catalogue instead of failing
+        the request.
+
+        This is the F-3 write-stamping anchor for the *global* species route,
+        which has no ``/t/{slug}/`` segment for :func:`get_current_tenant` to bind
+        to. F-5 introduces the general active-tenant resolution for global-but-
+        tenant-aware routes; when it lands, an interactive create can bind to the
+        tenant the caller is actually acting in rather than always their personal
+        one (see #808 A1).
+        """
+        owned = self._tenant_repo.list_by_owner(user_key)
+        personal = [t for t in owned if t.tenant_type == TenantType.PERSONAL]
+        if not personal:
+            return None
+        personal.sort(key=lambda t: t.created_at or datetime.min.replace(tzinfo=UTC), reverse=True)
+        return personal[0]
+
     def get_tenant_by_slug(self, slug: str) -> Tenant:
         tenant = self._tenant_repo.get_by_slug(slug)
         if not tenant:

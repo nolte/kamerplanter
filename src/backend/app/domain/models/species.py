@@ -440,6 +440,21 @@ class Species(BaseModel):
     representative_image_license: str | None = Field(
         default=None, description="License of the representative image (CC0/CC-BY)"
     )
+    # ── Tenant ownership (REQ-001 v4.0, #808) ──
+    # Which tenant owns this species. An empty string ``""`` means the record is
+    # part of the global/system catalogue that every tenant may read — exactly the
+    # convention the hybrid Fertilizer/NutrientPlan catalogues use. Server-managed:
+    # the interactive create path stamps the caller's tenant; every global write
+    # path (seed, import, enrichment, the normalization UPSERT) leaves it empty.
+    # It is NEVER accepted from a request body (#1000). The tenant-aware read
+    # predicate that consumes this field is F-5; F-3 only establishes the field and
+    # the write-side stamping. ``origin`` (below) is provenance, a different axis:
+    # ``origin`` says *where the data came from*, ``tenant_key`` says *who owns it*.
+    tenant_key: str = Field(
+        default="",
+        description="Owning tenant (REQ-001 v4.0). Empty '' = global/system catalogue visible to all "
+        "tenants. Server-managed; never accepted from a request body.",
+    )
     # ── Data provenance / ownership (REQ-001/REQ-011, UI-NFR-018) ──
     # Server-managed: seeded master data defaults to 'system', the external
     # enrichment engine promotes a record to 'enrichment' when it writes accepted
