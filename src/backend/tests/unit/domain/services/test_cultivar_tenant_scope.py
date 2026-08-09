@@ -184,6 +184,42 @@ def test_get_cultivar_without_a_tenant_stays_the_system_read(service):
     assert service.get_cultivar("cv_foreign").name == "Foreign Basil"
 
 
+def test_the_list_read_and_the_by_key_read_agree_on_visibility(service):
+    """A cultivar is listed if and only if it also resolves by key (C-6, #816 spirit).
+
+    The two cultivar reads express the *same* visibility rule in two languages: the
+    list read as the three-arm AQL union inside the repository, the by-key read as
+    the Python post-load check ``cultivar.tenant_key not in (tenant_key, "")`` in
+    :meth:`SpeciesService.get_cultivar`. Two encodings of one rule is exactly the
+    drift #816 was raised about, and nothing else pins them against each other:
+    the tests above grade each read on its own.
+
+    A divergence in either direction is a defect, which is why this is an
+    equivalence and not two one-sided checks. Narrowing the by-key check to
+    ``!= tenant_key`` would drop the global arm: ``cv_global`` would still be
+    listed but 404 by key — a user follows the list into a detail page that says
+    the row does not exist. Widening it would do the reverse and hand out a
+    foreign row the list correctly hides.
+    """
+    for tenant in ("tenant_self", "tenant_other", ""):
+        listed = {c.key for c in service.list_cultivars("sp_global", tenant_key=tenant)}
+        assert listed, f"fixture broken: no cultivar is visible to {tenant!r} at all"
+
+        for cultivar in _CULTIVARS:
+            try:
+                service.get_cultivar(cultivar.key, tenant_key=tenant)
+            except NotFoundError:
+                resolves_by_key = False
+            else:
+                resolves_by_key = True
+
+            assert resolves_by_key is (cultivar.key in listed), (
+                f"{cultivar.key} is {'listed' if cultivar.key in listed else 'hidden'} for {tenant!r} but "
+                f"{'resolves' if resolves_by_key else 'does not resolve'} by key — the AQL union and the "
+                "post-load ownership check disagree about who may see this row (#816)."
+            )
+
+
 def test_a_missing_key_is_the_same_404_as_a_foreign_one(service):
     # No existence oracle: the caller cannot distinguish "not yours" from "not
     # there" — both raise NotFoundError for the same entity name.
