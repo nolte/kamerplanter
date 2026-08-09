@@ -16,6 +16,7 @@ Abhängigkeit: REQ-029 (KI-Bilderkennung — §1.2 Matching-Workflow, wird hier 
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 1.0 | 2026-07-10 | Initialer Entwurf aus Issue #436. Formalisiert die Spezies-Identitätsauflösung entlang des Foto-Identifikations-Pfades als vierstufiges Reifegrad-Modell (Ausbaustufen 1–4, ausgehend vom Ist-Problem Stufe 0). Präzisiert den in REQ-029 §1.2 nur grob beschriebenen Match-/Kein-Match-Schritt. Grundlage: Elicitation-Artefakt `project/requirements/species-scientific-name-normalization.md` (R1–R12). |
+| 1.1 | 2026-08-09 | Ergänzt Stufe 1b (Synonym-Schatten: Vererbung ungesetzter Felder beim Anlegen) aus Issue #975. Behebt den Synonym-Fall der Beschattung, den die reine Exakt-nach-Normalisierung-Deduplizierung der Stufe 1 offenlässt. |
 
 ## 1. Business Case
 
@@ -79,6 +80,28 @@ Eine einzige kanonische Normalisierung des `scientific_name` wird eingeführt un
 
 **Trigger-Definition „100 % sicher":** Exakt-nach-Normalisierung ist der **einzige** Auto-Accept-Pfad (`species_in_database=true` ohne Rückfrage). Alles andere ist „nicht sicher" und Gegenstand von Stufe 2.
 
+### Stufe 1b — Synonym-Schatten: Vererbung ungesetzter Felder (Bugfix, #975, umgesetzt)
+
+Stufe 1 kollabiert nur den **Exakt-nach-Normalisierung**-Fall (`Yucca elephantipes` vs. `Yucca ELEPHANTIPES`). Der **Synonym-Fall** bleibt: Zwei Datensätze beschreiben dieselbe Art, ihre Namen unterscheiden sich aber (`Yucca gigantea` vs. `Yucca elephantipes`), und der eine führt den anderen unter seinen `synonyms`. Ihre normalisierten Schlüssel sind verschieden, also greift die Stufe-1-Deduplizierung nicht — es entsteht kein Duplikat, sondern ein **Schatten**: ein voller `system`-Datensatz (alle auflöser-relevanten Felder befüllt) und ein spärlicher `tenant`-Datensatz (die meisten Felder leer). Hängt eine Pflanze am spärlichen Datensatz, sieht der Phasensequenz-Resolver leere Eingaben — leerer `photosynthesis_type`, fehlende Lifecycle-Felder — und routet z. B. eine immergrüne Staude auf einen 126-Tage-Jahres-Erntezyklus (#949).
+
+**Verhalten:** Beim Anlegen (`create_species`) wird — nachdem die Exakt-nach-Normalisierung-Deduplizierung der Stufe 1 keinen Treffer geliefert hat — ein **stärker befüllter, synonym-verknüpfter** Bestandsdatensatz gesucht. Ein Datensatz gilt als synonym-verknüpft, wenn (nach kanonischer Normalisierung, dieselbe Utility) der normalisierte Name des neuen Datensatzes in den `synonyms` eines Bestandsdatensatzes vorkommt **oder** der normalisierte Name eines Bestandsdatensatzes in den `synonyms` des neuen Datensatzes. Bevorzugt wird ein Treffer aus dem maßgeblichen Katalog (`origin` = `system`/`enrichment`), danach der am stärksten befüllte. Aus diesem Treffer erbt der neue Datensatz **jedes Feld, das er selbst genuin leer lässt** — und ausschließlich diese.
+
+**„Genuin leer" (unset)** ist exakt: `None`, `""` (leerer String), `[]` (leere Liste), `{}` (leeres Dict). Alles andere gilt als gesetzt und wird **nie** überschrieben — insbesondere `0`, `0.0`, `False` und jeder **nicht-leere Enum-Default**. Ein an einem nicht-leeren Default belassenes Feld (`growth_habit` defaultet auf `HERB`, `base_temp` auf `10.0`) wird bewusst **nicht** korrigiert: „explizit als HERB gesetzt" ist von „am Default belassen" nicht unterscheidbar, also bleibt jeder nicht-leere Wert unangetastet. Es werden nur echte Lücken gefüllt — genau die auflöser-relevanten Felder (`photosynthesis_type`, Lifecycle-/Anbau-Felder, `plant_category` …), an denen #949 scheiterte.
+
+**Invarianten:**
+- **Additiv, nicht identitätsverändernd:** Identitäts- und Provenienz-Felder werden nie berührt oder kopiert — `key`/`_key`, `scientific_name`, `scientific_name_normalized`, `origin`, `synonyms` (dazu die server-verwalteten `created_at`/`updated_at`). Der angezeigte Name und die Herkunft des neuen Datensatzes bleiben, was der Aufrufer gesetzt hat.
+- **Nie überschreibend:** Ein vom Aufrufer gesetzter Wert wird durch den Treffer nie ersetzt.
+- **#324-sicher:** Die Vererbung ist rein füllend. Der volle/globale Datensatz wird dabei **nur gelesen**, nie verändert, nie gefiltert, nie versteckt oder abgelehnt — er bleibt für jeden Tenant voll sichtbar und nutzbar (Species trägt keinen `tenant_key`, #808). Ein verpflichtender Test sichert das ab.
+
+**Findable-Report (Akzeptanzkriterium):** Eine reine Lese-Methode (`SpeciesService.list_shadow_pairs`) listet Schatten-Paare — Datensätze mit gleichem normalisiertem Namen **oder** Synonym-Verknüpfung — nach Befüllungsgrad rangiert, damit die Größe des Bestandsproblems messbar ist.
+
+**Warum Vererbung beim Anlegen (und nicht Verhindern / Zusammenführen / Verlinken)?** Die Alternativen wurden verworfen:
+- **Verhindern** (das Anlegen des spärlichen Datensatzes ablehnen) bricht legitime, vom Nutzer gewollte Anlagen und ändert Identität/Verhalten sichtbar.
+- **Zusammenführen** (Merge zweier Datensätze zu einem) ist identitätsverändernd, verwaist Pflanzen-Kanten und ist nicht reversibel — genau das, was Stufe 1 beim Backfill sorgsam vermeidet.
+- **Verlinken** (eine Kante ziehen und den Resolver beide Datensätze konsultieren lassen) verteilt die Auflösungslogik über den Lesepfad, verkompliziert jede Resolver-Eingabe und löst das Problem nicht dort, wo es entsteht.
+
+Die Vererbung beim Anlegen ist die **billigste** Lösung, stellt **Resolver-Eingabe-Parität** her (gleiche Eingaben, egal an welchem Datensatz eine Pflanze hängt) und hätte **#949 verhindert** — ohne Identität, Provenienz oder Sichtbarkeit anzutasten.
+
 ### Stufe 2 — User-in-the-Loop-Disambiguierung (Feature, geplant → Pipeline)
 
 Wenn ein Vorschlag **nicht** exakt-nach-Normalisierung zugeordnet werden kann, legt das System **nicht** still eine neue Spezies an. Stattdessen:
@@ -108,6 +131,7 @@ Automatische taxonomische Auflösung über reine String-Normalisierung hinaus: A
 |-------|------|--------------------|-----------|
 | 0 | Strikter `==` → Duplikate | — | Ist/Problem |
 | 1 | Normalisierung + persistenter Key + idempotentes Create + Backfill | Exakt-nach-Normalisierung | **jetzt (dieser PR)** |
+| 1b | Synonym-Schatten: Vererbung ungesetzter Felder beim Anlegen (additiv, #324-sicher) | Synonym-verknüpft, stärker befüllt | **umgesetzt (#975)** |
 | 2 | Disambiguierungs-Dialog + Kandidaten-Ranking | wie Stufe 1 | geplant (Pipeline) |
 | 3 | Tenant-lokaler Merk-Store (Re-Apply, „keep new") | Merk-Store vor Prompt | geplant (Pipeline) |
 | 4 | Fuzzy-Taxonomie | — | Zukunft (out of scope) |

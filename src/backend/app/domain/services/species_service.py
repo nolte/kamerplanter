@@ -1,9 +1,56 @@
+from app.common.enums import DataOrigin
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
+from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
+
+#: Identity / provenance fields the synonym-inheritance (#975) must NEVER copy or
+#: overwrite. ``scientific_name``/``scientific_name_normalized`` are the record's
+#: identity (and the dedup key), ``origin`` is server-managed provenance,
+#: ``synonyms`` is the very field the match is derived from, ``key`` is the
+#: document key, and ``created_at``/``updated_at`` are set by the repository.
+_INHERIT_PROTECTED_FIELDS: frozenset[str] = frozenset(
+    {
+        "key",
+        "scientific_name",
+        "scientific_name_normalized",
+        "origin",
+        "synonyms",
+        "created_at",
+        "updated_at",
+    }
+)
+
+#: Provenance markers that identify the authoritative catalogue — a synonym match
+#: against one of these is preferred over a tenant/import record when several
+#: fuller candidates exist (REQ-048, #975).
+_AUTHORITATIVE_ORIGINS: frozenset[DataOrigin] = frozenset({DataOrigin.SYSTEM, DataOrigin.ENRICHMENT})
+
+
+def _is_unset(value: object) -> bool:
+    """Whether ``value`` is genuinely unset for inheritance purposes (#975).
+
+    "Unset" is exactly ``None``, an empty string, an empty list or an empty dict.
+    Everything else — crucially ``0``, ``0.0``, ``False`` and any non-empty enum
+    (e.g. ``growth_habit=HERB``) — counts as *set* and is never touched. This is
+    why a field left at a non-empty default (``growth_habit`` defaults to ``HERB``,
+    ``base_temp`` to ``10.0``) is NOT corrected: the value carries no signal about
+    whether it was chosen or defaulted, so the safe rule is to leave every
+    non-empty value alone and only fill true blanks.
+    """
+    return value is None or value == "" or value == [] or value == {}
+
+
+def _populated_field_count(species: Species) -> int:
+    """Count the genuinely-populated fields on a species (fuller-record ranking).
+
+    Used both to pick the *more-populated* synonym match and to rank shadow pairs
+    in the report. A field is populated when it is not :func:`_is_unset`.
+    """
+    return sum(1 for value in species.model_dump().values() if not _is_unset(value))
 
 
 class SpeciesService:
@@ -36,6 +83,22 @@ class SpeciesService:
         # accumulate normalization duplicates. The dedup is an atomic UPSERT on
         # scientific_name_normalized (SEC-003), so the check-then-insert window is
         # closed server-side.
+        #
+        # REQ-048 / #975 — synonym-shadow field inheritance. When no exact
+        # normalized duplicate exists, a *new* record may still be a sparse shadow
+        # of a fuller one that only differs by name but is linked through synonyms
+        # (the sparse `Yucca gigantea` listing the full `Yucca elephantipes` among
+        # its synonyms). Before inserting, fill the new record's genuinely-empty
+        # fields from that fuller record so the phase-sequence resolver sees the
+        # same inputs regardless of which record a plant hangs off — this is what
+        # #949 (evergreen perennial routed onto a 126-day annual cycle) tripped on.
+        # Additive only: it never overwrites a caller-set value, never touches
+        # identity/provenance, and never hides the fuller/global record (#324).
+        # Gated on "no exact match" so an idempotent re-create of an existing
+        # taxon stays a plain no-op resolve; the UPSERT below still closes the
+        # insert race.
+        if self._repo.get_by_normalized_scientific_name(species.scientific_name) is None:
+            species = self._inherit_unset_from_synonym_match(species)
         created = self._repo.upsert_by_normalized_scientific_name(species)
         # Give the species the phase sequence the seed would have given it (#1006).
         # Without this, every plant created for a runtime-minted species (identify →
@@ -46,6 +109,132 @@ class SpeciesService:
         if self._phase_sequence_binder is not None:
             self._phase_sequence_binder.bind_default(created)
         return created
+
+    # ── REQ-048 / #975 — synonym-shadow field inheritance ────────────────────
+
+    def _inherit_unset_from_synonym_match(self, species: Species) -> Species:
+        """Return ``species`` with its unset fields filled from a fuller synonym match.
+
+        Returns the input unchanged when no more-populated synonym-linked record
+        exists. Never mutates the matched record (it is read-only here), so the
+        global/system catalogue is untouched (#324).
+        """
+        match = self._find_fuller_synonym_match(species)
+        if match is None:
+            return species
+        return self._inherit_unset_fields(species, match)
+
+    def _find_fuller_synonym_match(self, species: Species) -> Species | None:
+        """Pick the best more-populated record synonym-linked to ``species``.
+
+        The repository AQL prefilter is re-confirmed here with the canonical
+        normalization utility (``_is_synonym_linked``) so the match is never
+        decided by the looser inline AQL. Only records with strictly more
+        populated fields than the new one qualify (a match that is itself empty
+        has nothing to give). Among those, an authoritative-origin
+        (``system``/``enrichment``) record wins, then the most-populated one.
+        """
+        candidates = [
+            c for c in self._repo.find_synonym_match_candidates(species) if self._is_synonym_linked(species, c)
+        ]
+        new_count = _populated_field_count(species)
+        fuller = [c for c in candidates if _populated_field_count(c) > new_count]
+        if not fuller:
+            return None
+        fuller.sort(
+            key=lambda c: (c.origin in _AUTHORITATIVE_ORIGINS, _populated_field_count(c)),
+            reverse=True,
+        )
+        return fuller[0]
+
+    @staticmethod
+    def _is_synonym_linked(new: Species, existing: Species) -> bool:
+        """Whether two records are synonym-linked under canonical normalization.
+
+        True when the records have *different* canonical names (an exact match is
+        the already-handled dedup case, not a shadow) and either lists the other's
+        canonical name among its normalized synonyms.
+        """
+        new_norm = new.scientific_name_normalized
+        existing_norm = existing.scientific_name_normalized
+        if new_norm == existing_norm:
+            return False
+        new_syn_norms = {normalize_scientific_name(s) for s in new.synonyms}
+        existing_syn_norms = {normalize_scientific_name(s) for s in existing.synonyms}
+        return existing_norm in new_syn_norms or new_norm in existing_syn_norms
+
+    @staticmethod
+    def _inherit_unset_fields(target: Species, source: Species) -> Species:
+        """Copy every genuinely-unset field of ``target`` from ``source``.
+
+        Only fields :func:`_is_unset` on ``target`` and *set* on ``source`` are
+        copied; identity/provenance fields (:data:`_INHERIT_PROTECTED_FIELDS`) are
+        never touched. A non-empty-but-default value on ``target`` (e.g.
+        ``growth_habit=HERB``) is *not* corrected — see :func:`_is_unset`.
+        """
+        updates: dict[str, object] = {}
+        for field_name in type(target).model_fields:
+            if field_name in _INHERIT_PROTECTED_FIELDS:
+                continue
+            if not _is_unset(getattr(target, field_name)):
+                continue
+            source_value = getattr(source, field_name)
+            if _is_unset(source_value):
+                continue
+            updates[field_name] = source_value
+        if not updates:
+            return target
+        return target.model_copy(update=updates)
+
+    def list_shadow_pairs(self) -> list[dict]:
+        """List species shadow pairs, richest-first — the findable report (#975).
+
+        A shadow pair is two records that describe the same taxon: they share a
+        normalized name (a legacy exact duplicate) OR are synonym-linked. Each
+        entry names the richer and the sparser record with its populated-field
+        count and the link type, so the size of the shadowing problem is
+        measurable. Read-only and additive: it hides nothing (#324).
+        """
+        species = self._repo.list_all_species()
+        counts = {id(sp): _populated_field_count(sp) for sp in species}
+        pairs: list[dict] = []
+        for index, first in enumerate(species):
+            for second in species[index + 1 :]:
+                link = self._shadow_link(first, second)
+                if link is None:
+                    continue
+                richer, sparser = (first, second) if counts[id(first)] >= counts[id(second)] else (second, first)
+                pairs.append(
+                    {
+                        "link": link,
+                        "richer": {
+                            "key": richer.key,
+                            "scientific_name": richer.scientific_name,
+                            "populated_field_count": counts[id(richer)],
+                        },
+                        "sparser": {
+                            "key": sparser.key,
+                            "scientific_name": sparser.scientific_name,
+                            "populated_field_count": counts[id(sparser)],
+                        },
+                    }
+                )
+        pairs.sort(key=lambda pair: pair["richer"]["populated_field_count"], reverse=True)
+        return pairs
+
+    @classmethod
+    def _shadow_link(cls, first: Species, second: Species) -> str | None:
+        """Classify how two records shadow each other, or ``None`` if they do not.
+
+        ``"normalized_name"`` when they share the canonical dedup key (a legacy
+        exact duplicate the create-time UPSERT would now collapse), otherwise
+        ``"synonym"`` when synonym-linked, otherwise ``None``.
+        """
+        if first.scientific_name_normalized == second.scientific_name_normalized:
+            return "normalized_name"
+        if cls._is_synonym_linked(first, second):
+            return "synonym"
+        return None
 
     def update_species(self, key: SpeciesKey, species: Species) -> Species:
         existing = self.get_species(key)

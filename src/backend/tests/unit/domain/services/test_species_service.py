@@ -37,6 +37,10 @@ class _FakeSpeciesRepo:
         self._by_norm[species.scientific_name_normalized] = stored
         return stored
 
+    def find_synonym_match_candidates(self, species: Species) -> list[Species]:  # noqa: ARG002
+        # No synonym shadows in these idempotent-dedup fixtures.
+        return []
+
 
 def _service(repo: _FakeSpeciesRepo) -> SpeciesService:
     return SpeciesService(repo, graph_repo=None)  # type: ignore[arg-type]
