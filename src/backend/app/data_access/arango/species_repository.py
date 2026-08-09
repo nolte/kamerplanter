@@ -177,20 +177,43 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
             }
         )
 
-    def search(self, name: str | None = None, family_key: FamilyKey | None = None) -> list[Species]:
+    def search(
+        self, name: str | None = None, family_key: FamilyKey | None = None, *, tenant_key: str | None = None
+    ) -> list[Species]:
         # Both predicates filter on scalar document fields and compose with AND.
         # ``family_key`` is the scalar assignment written on every create/import/
         # seed path; the ``belongs_to_family`` graph edge is not maintained on the
         # normal path, so an edge traversal here would spuriously return nothing.
-        builder = AQLBuilder(col.SPECIES)
+        if tenant_key is None:
+            # Unscoped system-context search — the AQLBuilder path, unchanged.
+            builder = AQLBuilder(col.SPECIES)
+            if name:
+                # Escape LIKE wildcards so user-typed %, _ or \ match literally
+                # instead of acting as pattern metacharacters (SCR-007).
+                builder.filter("scientific_name", "LIKE", f"%{escape_aql_like(name)}%")
+            if family_key:
+                builder.filter("family_key", "==", family_key)
+            query, bind_vars = builder.build_list()
+            cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+            return [Species(**self._from_doc(doc)) for doc in cursor]
+
+        # Tenant-scoped search (SEC-005, #808): the same hybrid-catalogue union as
+        # get_all — the caller's own rows plus the global seeds, never a foreign
+        # tenant's — AND-composed with the optional name/family filters. The union
+        # bind var is ``tenant_key``; the name/family filters bind under distinct
+        # names, so there is no collision. Every value is bound, never interpolated.
+        predicate, bind_vars = tenant_union_predicate(tenant_key)
+        filters: list[str] = [predicate]
+        query_vars: dict[str, Any] = dict(bind_vars)
         if name:
-            # Escape LIKE wildcards so user-typed %, _ or \ match literally
-            # instead of acting as pattern metacharacters (SCR-007).
-            builder.filter("scientific_name", "LIKE", f"%{escape_aql_like(name)}%")
+            filters.append("doc.scientific_name LIKE @name")
+            query_vars["name"] = f"%{escape_aql_like(name)}%"
         if family_key:
-            builder.filter("family_key", "==", family_key)
-        query, bind_vars = builder.build_list()
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+            filters.append("doc.family_key == @family_key")
+            query_vars["family_key"] = family_key
+        filter_clause = " AND ".join(filters)
+        query = f"FOR doc IN {col.SPECIES} FILTER {filter_clause} SORT doc._key RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=query_vars)
         return [Species(**self._from_doc(doc)) for doc in cursor]
 
     def get_cultivars(self, species_key: SpeciesKey) -> list[Cultivar]:

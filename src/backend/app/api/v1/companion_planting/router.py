@@ -11,7 +11,7 @@ from app.api.v1.companion_planting.schemas import (
     IncompatibleSpeciesResponse,
     SpeciesCompanionCounts,
 )
-from app.common.auth import get_current_user, require_platform_admin
+from app.common.auth import get_active_tenant_key, get_current_user, require_platform_admin
 from app.common.dependencies import get_species_service
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.domain.services.species_service import SpeciesService
@@ -37,8 +37,14 @@ def get_counts(service: SpeciesService = Depends(get_species_service)) -> dict[s
 def get_compatible(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     service: SpeciesService = Depends(get_species_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ):
     """List the species that are compatible companions of the given species."""
+    # SEC-005 (#808): resolve the anchor species through the now tenant-aware
+    # existence check so a *foreign* tenant's key answers 404 here too — the same
+    # ownership-hiding scoping the by-key read uses. Companion *edges* are global
+    # reference data; only the anchor lookup needs scoping.
+    service.get_species(species_key, tenant_key=tenant_key)
     return service.get_compatible_species(species_key)
 
 
@@ -46,8 +52,10 @@ def get_compatible(
 def get_incompatible(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     service: SpeciesService = Depends(get_species_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ):
     """List the species that are incompatible companions of the given species."""
+    service.get_species(species_key, tenant_key=tenant_key)  # SEC-005: foreign anchor → 404
     return service.get_incompatible_species(species_key)
 
 
@@ -93,6 +101,8 @@ def set_incompatible(body: IncompatibilitySet, service: SpeciesService = Depends
 def get_companion_recommendations(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     service: SpeciesService = Depends(get_species_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ):
     """Return companion recommendations for a species, with family-level fallback."""
+    service.get_species(species_key, tenant_key=tenant_key)  # SEC-005: foreign anchor → 404
     return service.get_companion_recommendations(species_key)

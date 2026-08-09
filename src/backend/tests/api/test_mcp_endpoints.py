@@ -83,7 +83,7 @@ def _build_app(role: TenantRole = TenantRole.GROWER) -> tuple[FastAPI, dict]:
 
     # Read tools delegate to injected fakes so no DB is needed.
     species = [SimpleNamespace(key="sp-1", scientific_name="Tomato", common_names=["Tomato"], genus="Solanum")]
-    fake_species = SimpleNamespace(list_species=lambda offset, limit: (species, 1))
+    fake_species = SimpleNamespace(list_species=lambda offset, limit, tenant_key=None: (species, 1))
     fake_care = SimpleNamespace(
         confirm_reminder=lambda plant_key, reminder_type, notes, tenant_key="": SimpleNamespace(key="cc-1")
     )

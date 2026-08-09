@@ -58,6 +58,45 @@ class TestSearchByFamily:
         assert set(_last_bind_vars(mock_db).values()) == {"%Rosa%", "Rosaceae"}
 
 
+class TestSearchTenantScope:
+    """SEC-005 (#808): a tenant-scoped search unions the hybrid catalogue.
+
+    ``search`` has no HTTP caller today, but once given a ``tenant_key`` it must
+    narrow exactly like ``get_all`` — own rows plus the global seeds, never a
+    foreign tenant's — so a future search endpoint cannot re-open the leak F-5
+    closed. Values stay bound, never interpolated.
+    """
+
+    def test_scoped_search_applies_the_three_arm_hybrid_union(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.search(name="Rosa", tenant_key="tenant_x")
+
+        query = _last_query(mock_db)
+        assert 'doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null' in query
+        assert "doc.scientific_name LIKE @name" in query
+        bind_vars = _last_bind_vars(mock_db)
+        assert bind_vars["tenant_key"] == "tenant_x"
+        assert bind_vars["name"] == "%Rosa%"
+
+    def test_scoped_search_composes_family_with_the_union(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.search(family_key="Rosaceae", tenant_key="tenant_x")
+
+        query = _last_query(mock_db)
+        assert "doc.family_key == @family_key" in query
+        assert "doc.tenant_key == @tenant_key" in query
+        assert _last_bind_vars(mock_db)["family_key"] == "Rosaceae"
+
+    def test_none_tenant_key_is_the_unscoped_search(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.search(name="Rosa", tenant_key=None)
+
+        assert "tenant_key" not in _last_query(mock_db)
+
+
 class TestSearchNameEscaping:
     """SCR-007: user-typed LIKE metacharacters must be escaped, not honoured.
 

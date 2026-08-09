@@ -135,6 +135,57 @@ def get_active_tenant_key(
     return personal.key if personal and personal.key else ""
 
 
+def get_active_tenant_context(
+    user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> TenantContext:
+    """Resolve the caller's active (personal) tenant into a role-bearing context (SEC-002, #808).
+
+    The *write* sibling of :func:`get_active_tenant_key`. A global-but-tenant-aware
+    *read* only needs the tenant *key* to scope the hybrid-catalogue union; a
+    *mutation* additionally needs the caller's domain *role* — a viewer must not
+    write (REQ-049 §2.3) — and their admin scopes. This mirrors
+    :func:`get_current_tenant`, but binds the tenant from the caller's **personal**
+    tenant because the global route (``/api/v1/species``) carries no ``/t/{slug}/``
+    segment to bind to. It reuses the very resolution :func:`get_active_tenant_key`
+    uses (personal tenant, ``""`` fallback), so a mutation's ownership stamp can
+    never drift from the read scope.
+
+    A caller with no resolvable personal tenant / no active membership resolves to
+    an empty tenant at the lowest role (:attr:`TenantRole.VIEWER`) — fail-safe:
+    absence of context yields the least privilege, never more. The light-mode
+    operator (REQ-027) is admitted via the separate platform-admin bypass
+    (:func:`get_is_platform_admin`), not by widening the role here.
+    """
+    personal = tenant_service.get_personal_tenant(user.key or "")
+    tenant_key = personal.key if personal and personal.key else ""
+    membership = tenant_service.get_membership(user.key or "", tenant_key) if (user.key and tenant_key) else None
+    active = membership if (membership and membership.is_active) else None
+    return TenantContext(
+        tenant_key=tenant_key,
+        tenant_slug=personal.slug if personal else "",
+        user_key=user.key or "",
+        role=active.role if active else TenantRole.VIEWER,
+        admin_scopes=active.admin_scopes if active else [],
+    )
+
+
+def get_is_platform_admin(
+    user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> bool:
+    """Whether the caller is a platform admin, as a resolvable dependency (SEC-002, #808).
+
+    Dependency wrapper over :func:`is_platform_admin` so a global-catalogue
+    mutation route can thread the boolean into :class:`SpeciesService`, which
+    decides conditionally: only a platform admin may mutate a *global* seed row
+    (``tenant_key == ""``). In light mode (REQ-027) the sole anonymous operator is
+    treated as platform admin, so light-mode curation of the shared catalogue
+    keeps working.
+    """
+    return is_platform_admin(tenant_service, user.key or "")
+
+
 #: F-3 back-compat alias. The write-stamping dependency the species create route
 #: depends on (``Depends(get_creating_tenant_key)``) is the *same* "caller's
 #: active tenant on a global route" resolver the F-5 read path uses. Keeping it as

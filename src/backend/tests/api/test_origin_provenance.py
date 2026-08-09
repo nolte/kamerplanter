@@ -23,13 +23,21 @@ from fastapi.testclient import TestClient
 from app.api.v1.cultivars.schemas import CultivarResponse
 from app.api.v1.ipm.router import router as ipm_router
 from app.api.v1.species.router import router as species_router
-from app.common.auth import get_creating_tenant_key, get_current_user
+from app.common.auth import (
+    get_active_tenant_context,
+    get_active_tenant_key,
+    get_creating_tenant_key,
+    get_current_user,
+    get_is_platform_admin,
+)
 from app.common.dependencies import get_family_repo, get_ipm_service, get_species_service
-from app.common.enums import DataOrigin
+from app.common.enums import DataOrigin, TenantRole
+from app.config.settings import settings
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.ipm import Disease, Treatment
 from app.domain.models.nutrient_plan import NutrientPlan
 from app.domain.models.species import Cultivar, Species
+from app.domain.models.tenant_context import TenantContext
 
 
 def _user() -> SimpleNamespace:
@@ -86,6 +94,14 @@ def _species_app(service: MagicMock, *, creating_tenant_key: str = "") -> FastAP
     # (F-3/#808), not the /t/{slug}/ path; override the resolver so the route does
     # not reach the real tenant service (and thus a datastore) in these fakes.
     app.dependency_overrides[get_creating_tenant_key] = lambda: creating_tenant_key
+    # SEC-001/SEC-002 (#808): the by-key read scopes on the active tenant and the
+    # write routes resolve a role-bearing context + platform-admin flag. Override
+    # them so these origin fakes never reach the real tenant service / a datastore.
+    app.dependency_overrides[get_active_tenant_key] = lambda: creating_tenant_key
+    app.dependency_overrides[get_active_tenant_context] = lambda: TenantContext(
+        tenant_key=creating_tenant_key, tenant_slug="t", user_key="user_1", role=TenantRole.LEAD
+    )
+    app.dependency_overrides[get_is_platform_admin] = lambda: True
     return app
 
 
@@ -103,7 +119,9 @@ def test_species_get_serves_origin():
 def test_species_create_marks_tenant_origin():
     service = MagicMock()
     service.create_species.side_effect = lambda s: s
-    client = TestClient(_species_app(service))
+    # A resolvable active tenant so the SEC-004 full-mode "no active tenant" guard
+    # does not fire — this test is about the origin marker, not the guard.
+    client = TestClient(_species_app(service, creating_tenant_key="tenant_personal_1"))
 
     resp = client.post("/api/v1/species", json={"scientific_name": "Ocimum basilicum"})
 
@@ -134,9 +152,15 @@ def test_species_create_stamps_caller_tenant_key():
     assert created.tenant_key == "tenant_personal_1"
 
 
-def test_species_create_defaults_global_when_no_personal_tenant():
-    # Fail-safe direction: an unresolvable personal tenant yields "" (global), not
-    # a foreign tenant and not a failed request.
+def test_species_create_defaults_global_when_no_personal_tenant(monkeypatch):
+    # Fail-safe direction in LIGHT mode: an unresolvable personal tenant yields ""
+    # (global), not a foreign tenant and not a failed request. SEC-004 (#808)
+    # narrowed this fail-safe to light mode — in full mode an empty active tenant
+    # is refused (see test_full_mode_create_without_active_tenant_is_rejected),
+    # because there stamping origin=TENANT as global injects into the shared
+    # catalogue. Light mode is single-tenant, so the empty key is the legitimate
+    # operator context.
+    monkeypatch.setattr(settings, "kamerplanter_mode", "light")
     service = MagicMock()
     service.create_species.side_effect = lambda s: s
     client = TestClient(_species_app(service, creating_tenant_key=""))
