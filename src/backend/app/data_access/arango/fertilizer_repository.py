@@ -5,6 +5,7 @@ from arango.database import StandardDatabase
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 
@@ -38,8 +39,11 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         bind_vars: dict[str, Any] = {}
         filter_clauses = []
         if tenant_key:
-            bind_vars["tenant_key"] = tenant_key
-            filter_clauses.append('(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)')
+            # Hybrid catalog: union the tenant's own rows with the global rows
+            # (shared helper, SEC-B4 / #324) — see tenant_scope.tenant_union_predicate.
+            predicate, predicate_vars = tenant_union_predicate(tenant_key)
+            bind_vars.update(predicate_vars)
+            filter_clauses.append(predicate)
         if filters:
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
