@@ -402,6 +402,13 @@ class SpeciesService:
         # Preserve the server-managed provenance marker across a full-replace
         # update (the edit form never submits it).
         cultivar.origin = existing.origin
+        # tenant ownership (REQ-001 v4.0, #1090) is server-managed and never submitted
+        # by the edit form — preserve it so a full-replace update never resets a
+        # tenant-owned cultivar back to the global default (tenant_key ""), which would
+        # silently move it out of its owner's catalogue into the shared one. Mirrors
+        # the origin preservation above and ``update_species``. The repository repeats
+        # this guard for the callers that bypass the service (seed upsert, #1090 P2).
+        cultivar.tenant_key = existing.tenant_key
         return self._repo.update_cultivar(key, cultivar)
 
     def delete_cultivar(self, key: CultivarKey) -> bool:

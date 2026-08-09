@@ -3,6 +3,8 @@
 All data is loaded from YAML files in the seed_data/ directory.
 """
 
+from typing import Any
+
 import structlog
 
 from app.common.dependencies import (
@@ -24,6 +26,7 @@ from app.common.enums import (
     StressTolerance,
 )
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.harvest import HarvestIndicator
 from app.domain.models.ipm import Disease, Pest, Treatment
@@ -287,6 +290,48 @@ def verify_all_species_bound(*, limit: int = 25) -> list[str]:
     return unbound
 
 
+def seed_cultivars(
+    species_repo: ISpeciesRepository,
+    cultivar_data: dict[str, list[dict[str, Any]]],
+    species_key_map: dict[str, str],
+) -> None:
+    """Upsert the YAML cultivar catalogue as *global* rows, name-matched per species.
+
+    The seed writes the shared catalogue every tenant reads, so it matches only
+    against the **global** rows (``tenant_key == ""``) — never a tenant-owned one
+    (#1090). A cultivar's seed identity is its name under its species, and since
+    #1090 that name is no longer unique across the collection: a tenant may create
+    their own ``Genovese``. Matching it would rewrite the tenant's record from the
+    YAML entry — replacing their field values and, without the repository's
+    ownership guard, reassigning the row to the global catalogue. Restricting the
+    match keeps the tenant's row untouched *and* still materialises the global seed
+    entry it was shadowing, instead of silently skipping it.
+
+    Legacy rows written before #1090 carry no ``tenant_key`` attribute at all; the
+    model default makes them global, so the idempotent re-seed keeps finding them
+    and the first boot after the cutover does not duplicate the catalogue.
+
+    Extracted from :func:`run_seed` so the upsert rule is reachable by a test
+    without standing up the whole seed run.
+    """
+    for sci_name, cv_list in cultivar_data.items():
+        sp_key = species_key_map.get(sci_name, "")
+        if not sp_key:
+            logger.info("cultivar_species_not_found", species=sci_name)
+            continue
+        existing_cultivars = species_repo.get_cultivars(sp_key)
+        existing_cv_map = {c.name: c for c in existing_cultivars if not c.tenant_key}
+        for cv_data in cv_list:
+            cultivar = build_cultivar(cv_data, sp_key)
+            found_cv = existing_cv_map.get(cv_data["name"])
+            if found_cv:
+                species_repo.update_cultivar(found_cv.key or "", cultivar)
+                logger.info("cultivar_upserted", species=sci_name, cultivar=cv_data["name"])
+            else:
+                species_repo.create_cultivar(cultivar)
+                logger.info("cultivar_created", species=sci_name, cultivar=cv_data["name"])
+
+
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     """Seed all reference data into the database. Idempotent (upsert behavior)."""
     # ── Seed location types (REQ-002) — delegated to startup module ──
@@ -500,22 +545,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     link_indoor_species_to_phase_sequence()
 
     # ── Seed cultivars ───────────────────────────────────────────────
-    for sci_name, cv_list in cultivar_data.items():
-        sp_key = species_key_map.get(sci_name, "")
-        if not sp_key:
-            logger.info("cultivar_species_not_found", species=sci_name)
-            continue
-        existing_cultivars = species_repo.get_cultivars(sp_key)
-        existing_cv_map = {c.name: c for c in existing_cultivars}
-        for cv_data in cv_list:
-            cultivar = build_cultivar(cv_data, sp_key)
-            found_cv = existing_cv_map.get(cv_data["name"])
-            if found_cv:
-                species_repo.update_cultivar(found_cv.key or "", cultivar)
-                logger.info("cultivar_upserted", species=sci_name, cultivar=cv_data["name"])
-            else:
-                species_repo.create_cultivar(cultivar)
-                logger.info("cultivar_created", species=sci_name, cultivar=cv_data["name"])
+    seed_cultivars(species_repo, cultivar_data, species_key_map)
 
     # ── Seed companion planting edges (species-level) ────────────────
     for entry in companion_data.get("compatible", []):

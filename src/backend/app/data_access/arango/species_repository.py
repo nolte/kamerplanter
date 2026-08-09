@@ -233,6 +233,33 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         return self._cultivars.get_or_raise(key)
 
     def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
+        """Replace a cultivar, keeping the *stored* owning tenant (#1090).
+
+        Tenant ownership is not part of the payload of an update: it is assigned
+        once at create time and afterwards only ever changed by an explicit
+        migration. This method therefore reads the stored owner and writes it back
+        over whatever ``cultivar.tenant_key`` carries — in both directions, so an
+        update can neither erase an owner nor grant one.
+
+        The guard lives here rather than only in :class:`SpeciesService` because the
+        service is not the only writer. The plant-info seed run calls this method
+        **repository-direct** and matches rows by *name*
+        (``migrations/seed_data.py``): it hands over a YAML-built ``Cultivar`` whose
+        ``tenant_key`` is the model default ``""``. Since the base update is a full
+        model dump and an empty string is not ``None``, that value would be written
+        — silently moving a tenant-owned cultivar that shares a seeded name into the
+        global catalogue every tenant can read and edit. Putting the invariant at
+        the last layer before the write covers today's two callers and any future
+        repository-direct one alike.
+
+        A key with no stored document falls through untouched, so the base
+        repository keeps raising its own :class:`NotFoundError`; a legacy row
+        predating the field resolves to the model default ``""`` (global), which is
+        exactly the cutover rule.
+        """
+        stored = self._cultivars.get_by_key(key)
+        if stored is not None:
+            cultivar.tenant_key = stored.tenant_key
         return self._cultivars.update(key, cultivar)
 
     def delete_cultivar(self, key: CultivarKey) -> bool:
