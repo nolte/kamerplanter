@@ -185,4 +185,4 @@ Plan approval (route `direct`, packages C-1..C-9) given by the operator on 2026-
 
 ## Dispatch log
 
-<!-- Appended during operation 5; one line per package once its specialist reports. -->
+- 2026-08-09 C-1 dispatched to nolte-engineering:fullstack-developer — DONE. Field + stamping + 422 gate + ownership preservation at service AND repository level (justified deviation: both layers — repository guards field, seed_data guards content); extra defect found & fixed: seed name-match would have replaced a tenant row's field content and shadowed the global seed entry (`seed_cultivars()` extracted, matches global rows only). Red-first proven (P1 + P2 both levels). Suites: 6613 unit + 836 api + 27 contracts passed; all repo gates green. Pre-existing failure reported (boundary-validation ceiling 54 vs 46 — repo-wide gate maintenance, outside scope; proven unchanged vs HEAD via git archive). Note for C-3: `seed_data.seed_cultivars()` needs the unscoped read (`tenant_key=None`).
