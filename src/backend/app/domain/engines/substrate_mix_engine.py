@@ -1,6 +1,18 @@
 """Engine for calculating blended substrate properties from mix components.
 
-Computes weighted averages for pH, EC, porosity, water retention, etc.
+Weighting is per-property physics, not one-size-fits-all:
+
+* Per-volume properties (porosity, water retention, WHC, EAW, bulk density,
+  EC) are volume-weighted by the component fractions, which are volume shares.
+* Per-mass properties (CEC, defined in meq per 100 g) are mass-weighted: the
+  volume fractions are converted to mass fractions via each component's bulk
+  density, because a 50/50 volume blend of media with different densities is
+  not a 50/50 mass blend.
+* pH is buffering-weighted: a blend's pH is set by the fraction that actually
+  buffers, not by volume. An inert diluent (near-zero CEC) dilutes the medium
+  toward the buffered component's set point rather than shifting it linearly.
+
+See issue #1099 (defects 2 and 3).
 """
 
 from app.common.enums import BufferCapacity, IrrigationStrategy, WaterRetention
@@ -15,6 +27,12 @@ _IRRIGATION_PRIORITY = {
     IrrigationStrategy.MODERATE: 2,
     IrrigationStrategy.INFREQUENT: 1,
 }
+
+# Representative CEC (meq/100 g) used only as a buffering-weight fallback when a
+# component does not declare cec_meq_per_100g. Ordinal buffer_capacity is the
+# coarse stand-in the model offers; these magnitudes keep an inert (low) tier
+# well below a limed (medium/high) tier.
+_BUFFER_NOMINAL_CEC = {BufferCapacity.LOW: 1.0, BufferCapacity.MEDIUM: 8.0, BufferCapacity.HIGH: 20.0}
 
 
 def _weighted_avg(values: list[tuple[float, float]]) -> float:
@@ -31,6 +49,51 @@ def _weighted_optional(values: list[tuple[float | None, float]]) -> float | None
     if total_fraction == 0:
         return None
     return sum(v * f for v, f in filtered) / total_fraction
+
+
+def _mass_fractions(pairs: list[tuple[Substrate, float]]) -> list[float] | None:
+    """Convert volume fractions to mass fractions via bulk density.
+
+    Returns None when any component lacks a bulk density (mass conversion
+    impossible) or the total mass is zero, so callers can fall back to
+    volume-weighting.
+    """
+    masses: list[float] = []
+    for sub, fraction in pairs:
+        if sub.bulk_density_g_per_l is None:
+            return None
+        masses.append(sub.bulk_density_g_per_l * fraction)
+    total = sum(masses)
+    if total == 0:
+        return None
+    return [m / total for m in masses]
+
+
+def _effective_cec(sub: Substrate) -> float:
+    """Buffering magnitude of a component: declared CEC, else a buffer-tier proxy."""
+    if sub.cec_meq_per_100g is not None:
+        return sub.cec_meq_per_100g
+    return _BUFFER_NOMINAL_CEC[sub.buffer_capacity]
+
+
+def _buffering_weighted_ph(pairs: list[tuple[Substrate, float]]) -> float:
+    """Blend pH weighted by buffering capacity rather than by volume.
+
+    Each component's pH weight is its volume fraction scaled by the cube root of
+    its (effective) CEC. The cube-root damping credits an inert diluent with the
+    partial pore-water participation it really has — a raw CEC weight would pin
+    the pH almost entirely to the strongest buffer, a volume weight ignores
+    buffering altogether. When buffering is equal across components the weights
+    reduce to the volume fractions, so the blend is the plain volume-weighted
+    mean (see the control case in the tests).
+    """
+    weights = [(sub.ph_base, fraction * (_effective_cec(sub) ** (1.0 / 3.0))) for sub, fraction in pairs]
+    total_weight = sum(w for _, w in weights)
+    if total_weight == 0:
+        # Every component is fully inert (CEC 0): nothing buffers, fall back to
+        # the volume-weighted mean.
+        return _weighted_avg([(sub.ph_base, fraction) for sub, fraction in pairs])
+    return sum(ph * w for ph, w in weights) / total_weight
 
 
 def _resolve_retention(weighted: float) -> WaterRetention:
@@ -81,7 +144,10 @@ def calculate_mix_properties(
         sub = substrates[comp.substrate_key]
         pairs.append((sub, comp.fraction))
 
-    ph = _weighted_avg([(s.ph_base, f) for s, f in pairs])
+    # pH is buffering-weighted (per-mass buffering, not volume) — issue #1099 #2.
+    ph = _buffering_weighted_ph(pairs)
+
+    # Per-volume properties: volume-weighted by the component fractions.
     ec = _weighted_avg([(s.ec_base_ms, f) for s, f in pairs])
     porosity = _weighted_avg([(s.air_porosity_percent, f) for s, f in pairs])
 
@@ -90,8 +156,16 @@ def calculate_mix_properties(
 
     whc = _weighted_optional([(s.water_holding_capacity_percent, f) for s, f in pairs])
     eaw = _weighted_optional([(s.easily_available_water_percent, f) for s, f in pairs])
-    cec = _weighted_optional([(s.cec_meq_per_100g, f) for s, f in pairs])
     bulk = _weighted_optional([(s.bulk_density_g_per_l, f) for s, f in pairs])
+
+    # CEC is defined per 100 g of MASS, so mass-weight it: convert the volume
+    # fractions to mass fractions via bulk density — issue #1099 #3. Fall back to
+    # volume-weighting only when densities are unavailable.
+    mass_fracs = _mass_fractions(pairs)
+    if mass_fracs is not None:
+        cec = _weighted_optional([(s.cec_meq_per_100g, mf) for (s, _f), mf in zip(pairs, mass_fracs, strict=True)])
+    else:
+        cec = _weighted_optional([(s.cec_meq_per_100g, f) for s, f in pairs])
 
     # Merged composition: combine raw-material compositions weighted by fraction
     merged_composition: dict[str, float] = {}
