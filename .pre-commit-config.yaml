@@ -345,10 +345,15 @@ repos:
   - repo: local
     hooks:
       - id: utc-calendar-day
-        name: no bare date.today() in the backend app code (#858)
+        name: no bare date.today() in the backend + side-service app code (#858, #1058)
         entry: python3 scripts/check_utc_calendar_day.py
+        # pass_filenames is false, so the entry scans its own DEFAULT_SCAN_ROOTS
+        # (backend + the three side-service app dirs) regardless of what changed.
+        # This `files:` set only decides WHEN the hook fires — widened in #1058 so
+        # an edit to a side-service app file triggers the now-in-scope scan, not
+        # only a backend or script edit.
         language: system
-        files: ^(src/backend/app/.*\.py|scripts/check_utc_calendar_day\.py)$
+        files: ^(src/backend/app/.*\.py|src/knowledge-service/app/.*\.py|src/inference-service/app/.*\.py|src/libs/kp_vectordb/kp_vectordb/.*\.py|scripts/check_utc_calendar_day\.py)$
         pass_filenames: false
 
   # ── Tenant key in a request body (P1.2) ────────────────────────────────
@@ -676,11 +681,16 @@ repos:
   # build contexts. The copies carry the PII-scrubbing rules, so a drifted copy
   # scrubs less than its siblings while looking identical from the outside.
   #
-  # This runs here, in the required `static` gate, rather than only as a pytest
-  # guard inside the two microservices: those suites are not executed by any CI
-  # workflow, so a guard living only there would never have run. (The
-  # pre-existing kp_vectordb guards have exactly that gap; closing it is a
-  # separate change.)
+  # This runs here, in the required `static` gate, in addition to the pytest
+  # guards inside the two microservices. Since #1058 those service suites DO run
+  # in CI — the advisory `side-services.yml` workflow executes
+  # knowledge-service/tests, inference-service/tests and kp_vectordb/tests, and
+  # `task test:side-services` runs them locally (also folded into `task check`).
+  # This hook stays because side-services.yml is advisory (not a required
+  # branch-protection check per NFR-018 §4) while the `static` gate is required:
+  # the drift class this catches must fail a REQUIRED lane, and it also fires on a
+  # copy edit that changes no service's own test tree. The vectordb_sync_guard
+  # tests (test_vectordb_sync_guard.py in both services) now have a CI home too.
   - repo: local
     hooks:
       - id: errortracking-sync

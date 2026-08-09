@@ -1,0 +1,160 @@
+# Side-service test suites (#1058)
+#
+# Three Python components ship their own pytest suites but ran in NO workflow
+# until this file — only the image-build lanes touched their paths, and a build
+# does not execute a test. The suites are:
+#
+#   * src/knowledge-service/tests/  (5 files) — RAG assistant, all fakes
+#   * src/inference-service/tests/  (10 files) — DINOv2/pgvector, all fakes:
+#     the embedder is a deterministic FakeEmbedder, the repository is in-memory
+#     and the FastAPI singletons are patched, so NO ONNX model, GPU, network or
+#     PostgreSQL is touched. onnxruntime/numpy install from PyPI; the ML `cv`
+#     extra (plantcv/OpenCV) stays OUT and is exercised only through its
+#     graceful-degradation path (test_missing_plantcv_degrades_gracefully).
+#   * src/libs/kp_vectordb/tests/   (3 files) — shared pgvector pool, fakes.
+#
+# ADVISORY START (NFR-018 §4). These three jobs begin as ADVISORY lanes: they
+# are NOT in the branch-protection required set and MUST NOT be added to it here.
+# `develop` requires only `static / Static CI Tests` and `lint-test-build (22)`.
+# Promotion to required is a decision made on measured stability per NFR-018 §4,
+# not by editing this comment. This workflow does not touch branch protection.
+#
+# One job per service, each with its own `paths:` filter, mirroring backend.yml's
+# shape: a change under a service's tree runs only that service's suite. The
+# suites are invoked through Taskfile targets (task test:knowledge-service /
+# test:inference-service / test:kp-vectordb) so the pipeline and a contributor
+# run the identical command (continuous-integration §E). Each of those targets
+# carries the fail-on-empty-collection guard (NFR-018 §2): pytest exit code 5
+# (no tests collected) is turned into a hard failure, so a mis-pathed or emptied
+# suite goes RED here instead of passing green having measured nothing.
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/knowledge-service/**'
+      - 'src/inference-service/**'
+      - 'src/libs/kp_vectordb/**'
+      - '.github/workflows/side-services.yml'
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'src/knowledge-service/**'
+      - 'src/inference-service/**'
+      - 'src/libs/kp_vectordb/**'
+      - '.github/workflows/side-services.yml'
+
+# Least privilege: these jobs only read the checkout. No packages, no PRs, no
+# checks are written (github-actions-best-practices).
+permissions:
+  contents: read
+
+# One cancel-in-progress group per ref: a new push to the same branch/PR
+# supersedes an in-flight run. Pre-merge workflow, so cancelling stale work is
+# correct — nothing here publishes.
+concurrency:
+  group: side-services-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # GitHub Actions has no native per-job `paths:` (paths lives at workflow level,
+  # like backend.yml). The workflow triggers when any of the three service trees
+  # change; all three jobs then run. That is deliberate and matches backend.yml's
+  # shape: every suite here is fake-only and finishes in ~1s of pytest, so a job
+  # for an unchanged service costs a checkout + a fast install, not a real run.
+  knowledge-service:
+    name: knowledge-service tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Set up Task
+        uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install knowledge-service (with dev extra)
+        # The service declares no hash-locked dev requirements file (unlike the
+        # backend); its pyproject [project.optional-dependencies].dev is the
+        # source of the test toolchain, so install the editable package with that
+        # extra. httpx is a runtime dependency here, so the TestClient tier works
+        # out of the box.
+        working-directory: src/knowledge-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Run knowledge-service suite
+        # task target carries the fail-on-empty-collection guard (NFR-018 §2) and
+        # is the exact command a contributor runs locally.
+        run: task test:knowledge-service
+
+  inference-service:
+    name: inference-service tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Set up Task
+        uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install inference-service (with dev extra)
+        # Installs onnxruntime + numpy + pillow from PyPI (the base runtime) plus
+        # the dev extra. The optional `cv` extra (plantcv/OpenCV, REQ-038) is
+        # deliberately NOT installed: the whole suite runs on fakes and exercises
+        # PlantCV only through its absence path. httpx is in the dev extra (added
+        # for this suite — the tests drive the FastAPI app through Starlette's
+        # TestClient, which needs an httpx transport; it is not a runtime dep of
+        # the service itself).
+        working-directory: src/inference-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Run inference-service suite
+        run: task test:inference-service
+
+  libs:
+    name: kp_vectordb tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Set up Task
+        uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kp_vectordb (with dev extra)
+        # Light package: psycopg + psycopg-pool + structlog. The suite uses fakes,
+        # so no real PostgreSQL is required.
+        working-directory: src/libs/kp_vectordb
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Run kp_vectordb suite
+        run: task test:kp-vectordb
