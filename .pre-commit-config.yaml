@@ -483,7 +483,7 @@ repos:
   # away from being deletable. Move a file out of this list by adding it to the
   # matching hook's `files:` pattern in the same change that makes it validate.
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.37.4
+    rev: 0.38.0
     hooks:
       - id: check-jsonschema
         name: seed schema — auth.yaml
