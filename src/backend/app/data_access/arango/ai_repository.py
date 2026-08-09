@@ -13,6 +13,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.models.ai_assistant import (
     AiAuditLogEntry,
     AiConversation,
@@ -30,17 +31,24 @@ class ArangoAiProviderRepository(BaseArangoRepository[AiProviderConfig]):
         super().__init__(db, col.AI_PROVIDER_CONFIGS)
 
     def list_for_tenant(self, tenant_key: str) -> list[AiProviderConfig]:
-        """Tenant providers plus system defaults (``tenant_key == null``)."""
-        query = """
+        """Tenant providers plus system defaults (``tenant_key == null``).
+
+        Uses the shared union helper with the empty-string arm **off**: system
+        defaults here are seeded with a *null* ``tenant_key`` (never ``""``), so
+        this repository stays deliberately two-arm — admitting the ``== ""`` arm
+        would widen its read scope (see :func:`tenant_union_predicate`).
+        """
+        predicate, predicate_vars = tenant_union_predicate(tenant_key, include_empty_string=False)
+        query = f"""
         FOR doc IN @@collection
           FILTER doc.is_active == true
-          FILTER doc.tenant_key == @tenant_key OR doc.tenant_key == null
+          FILTER {predicate}
           SORT doc.is_default DESC, doc.display_name ASC
           RETURN doc
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": self._collection_name, "tenant_key": tenant_key},
+            bind_vars={"@collection": self._collection_name, **predicate_vars},
         )
         return [AiProviderConfig(**doc) for doc in cursor]
 

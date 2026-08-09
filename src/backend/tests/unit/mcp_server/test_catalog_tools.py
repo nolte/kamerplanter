@@ -93,7 +93,7 @@ class _SpeciesService:
         self._cultivars = cultivars or []
         self._companions = companions or []
 
-    def get_species(self, key):
+    def get_species(self, key, *, tenant_key=None):
         return _Species()
 
     def get_compatible_species(self, key):
@@ -188,7 +188,7 @@ class _UnresearchedSpeciesService:
     the assertions cannot pass against a field shape the model does not have.
     """
 
-    def get_species(self, key):
+    def get_species(self, key, *, tenant_key=None):
         return Species(_key="11441306", scientific_name="Dracaena reflexa", genus="Dracaena")
 
     def get_compatible_species(self, key):

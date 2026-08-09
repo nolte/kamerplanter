@@ -180,3 +180,67 @@ class TestSpeciesScopeConsistency:
             f"{offenders} fell back to the belongs_to_family edge, which only the dedup "
             "migration ever writes — it resolves to nothing for almost every species (#806)."
         )
+
+
+class TestSpeciesScopeConsistencyWhenTenantScoped:
+    """The same three reads stay scope-consistent once a tenant_key is applied (F-5, #808).
+
+    ``TestSpeciesScopeConsistency`` proves the *unscoped* reads agree; this proves
+    they still agree once F-5 threads the caller's active tenant in. All three must
+    apply the identical hybrid-catalogue union predicate on ``s.tenant_key`` — own
+    rows plus the global seeds — so a count can never contradict the list it links
+    to (#816) and no read leaks a foreign tenant's species (#808 acceptance-2).
+    """
+
+    _TENANT = "tenant_x"
+
+    @staticmethod
+    def _capture(repo, mock_db, call) -> tuple[str, dict]:
+        mock_db.aql.execute.reset_mock()
+        mock_db.aql.execute.return_value = iter([])
+        call(repo)
+        first_call = mock_db.aql.execute.call_args_list[0]
+        return first_call.args[0], first_call.kwargs["bind_vars"]
+
+    @pytest.fixture
+    def scoped(self, repo, mock_db) -> dict[str, tuple[str, dict]]:
+        t = self._TENANT
+        return {
+            "listing": self._capture(repo, mock_db, lambda r: r.get_species_by_family("Rosaceae", tenant_key=t)),
+            "single_count": self._capture(
+                repo, mock_db, lambda r: r.get_species_count_by_family("Rosaceae", tenant_key=t)
+            ),
+            "bulk_counts": self._capture(repo, mock_db, lambda r: r.get_species_counts_by_family(tenant_key=t)),
+        }
+
+    def test_all_three_apply_the_identical_tenant_scope(self, scoped):
+        scopes = {name: _scope_predicate_fields(query) for name, (query, _vars) in scoped.items()}
+
+        assert set().union(*scopes.values()) == {"tenant_key"}, (
+            f"Scoped reads must narrow on s.tenant_key, got {scopes}."
+        )
+        assert len(set(scopes.values())) == 1, (
+            f"The three scoped reads must narrow the species collection identically, got {scopes} (#816)."
+        )
+
+    def test_all_three_apply_the_three_arm_hybrid_union(self, scoped):
+        # Own rows OR the global seeds ("") OR legacy null — never a foreign tenant.
+        for name, (query, bind_vars) in scoped.items():
+            assert 's.tenant_key == @tenant_key OR s.tenant_key == "" OR s.tenant_key == null' in query, (
+                f"{name} does not apply the three-arm hybrid-catalogue union (#324 both directions)."
+            )
+            assert bind_vars["tenant_key"] == self._TENANT, f"{name} did not bind the caller's tenant."
+
+    def test_empty_tenant_key_still_scopes_to_global_only(self, repo, mock_db):
+        # An anonymous / light-mode caller resolves to "" — the union collapses to
+        # global-only, never all-tenants. The predicate must still be present.
+        query, bind_vars = self._capture(repo, mock_db, lambda r: r.get_species_by_family("Rosaceae", tenant_key=""))
+
+        assert "s.tenant_key ==" in query
+        assert bind_vars["tenant_key"] == ""
+
+    def test_unscoped_read_applies_no_tenant_predicate(self, repo, mock_db):
+        # tenant_key=None is the internal/system whole-catalogue read — no scope.
+        query, _vars = self._capture(repo, mock_db, lambda r: r.get_species_by_family("Rosaceae"))
+
+        assert "tenant_key" not in query

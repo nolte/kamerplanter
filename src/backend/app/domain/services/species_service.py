@@ -1,7 +1,11 @@
-from app.common.enums import DataOrigin
+from collections.abc import Callable
+
+from app.common.enums import DataOrigin, TenantRole
+from app.common.exceptions import ForbiddenError, NotFoundError
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
@@ -67,11 +71,40 @@ class SpeciesService:
         # bind — the same state as before #1006, not a crash.
         self._phase_sequence_binder = phase_sequence_binder
 
-    def list_species(self, offset: int = 0, limit: int = 50) -> tuple[list[Species], int]:
-        return self._repo.get_all(offset, limit)
+    def list_species(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[Species], int]:
+        """List the species catalogue, tenant-scoped when a ``tenant_key`` is given (F-5, #808).
 
-    def get_species(self, key: SpeciesKey) -> Species:
+        ``tenant_key`` is threaded straight to the repository's hybrid-catalogue
+        union: the caller's own rows plus the global seeds, never a foreign
+        tenant's (#324 both directions). ``None`` (the default) is the unscoped
+        system-context read for internal callers; the global HTTP list route
+        always supplies the caller's resolved active tenant (``""`` for an
+        anonymous/light-mode caller → global-only).
+        """
+        return self._repo.get_all(offset, limit, tenant_key=tenant_key)
+
+    def get_species(self, key: SpeciesKey, *, tenant_key: str | None = None) -> Species:
+        """Return one species by key, tenant-scoped when ``tenant_key`` is given (SEC-001, #808).
+
+        ``tenant_key`` mirrors :meth:`list_species`:
+
+        * ``None`` (the default) — the unscoped **system-context** load internal
+          callers use (the update/delete ownership check below, the cultivar and
+          companion existence checks, migrations/enrichment): they must resolve a
+          species regardless of owner. Never reachable from a raw HTTP read.
+        * a string (including ``""``) — the hybrid-catalogue read check: the
+          caller's own rows plus the global seeds (``tenant_key == ""``) are
+          visible, but a *foreign* tenant's species raises
+          :class:`NotFoundError`. It is a 404, never a 403 — ownership hiding, so
+          the by-key endpoint cannot be used as a cross-tenant existence oracle.
+          An empty ``""`` (anonymous / light-mode / no personal tenant) collapses
+          the check to global-only.
+        """
         species = self._repo.get_or_raise(key)
+        if tenant_key is not None and species.tenant_key not in (tenant_key, ""):
+            raise NotFoundError("Species", key)
         return species
 
     def create_species(self, species: Species) -> Species:
@@ -236,8 +269,65 @@ class SpeciesService:
             return "synonym"
         return None
 
-    def update_species(self, key: SpeciesKey, species: Species) -> Species:
+    def _authorize_species_write(
+        self,
+        existing: Species,
+        key: SpeciesKey,
+        *,
+        tenant_key: str | None,
+        caller_role: TenantRole | None,
+        is_platform_admin: bool,
+        can_role_write: Callable[[TenantRole], bool],
+    ) -> None:
+        """Gate a species mutation on ownership, platform-admin and domain role (SEC-002, #808).
+
+        Three-way decision, mirroring the task-template tenant checks in
+        :class:`TaskService` (foreign→404, global→refuse-mutation, own→proceed):
+
+        * ``tenant_key is None`` — the unscoped **system-context** write (a
+          migration/enrichment path with no HTTP caller). No ownership/role gate,
+          same as the pre-SEC-002 behaviour, so those callers keep working.
+        * a *foreign* tenant's row (``existing.tenant_key`` is neither the caller's
+          nor global) — :class:`NotFoundError` (404). Ownership hiding: the caller
+          must not learn a foreign species exists, so this is never a 403.
+        * the *global* seed catalogue (``existing.tenant_key == ""``) — only a
+          platform admin may mutate it. The row is visible to everyone, so an
+          under-privileged refusal is the honest 403, not a 404.
+        * the caller's *own* row — the domain role gate (``can_role_write``): a
+          viewer must not write (REQ-049 §2.3). A platform admin (the light-mode
+          operator, REQ-027, or a ``platform`` lead) bypasses the domain rank.
+        """
+        if tenant_key is None:
+            return
+        if existing.tenant_key not in (tenant_key, ""):
+            raise NotFoundError("Species", key)
+        if existing.tenant_key == "":
+            if not is_platform_admin:
+                raise ForbiddenError("Only a platform admin may modify the global species catalogue.")
+            return
+        if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
+            raise ForbiddenError("Your role may not modify species in this tenant.")
+
+    def update_species(
+        self,
+        key: SpeciesKey,
+        species: Species,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> Species:
+        # Unscoped load so a foreign key resolves and is answered with the
+        # ownership-hiding 404 below, not a leaky "exists but forbidden".
         existing = self.get_species(key)
+        self._authorize_species_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
         # The representative reference image is owned by the acquisition
         # pipeline (REQ-029-A §4), not the edit form — preserve it on update.
         species.representative_image_url = existing.representative_image_url
@@ -247,18 +337,54 @@ class SpeciesService:
         # submitted by the edit form — preserve it so a full-replace update never
         # resets an enriched/tenant record back to the 'system' default.
         species.origin = existing.origin
+        # tenant ownership (REQ-001 v4.0, #808) is server-managed and never
+        # submitted by the edit form — preserve it so a full-replace update never
+        # resets a tenant-owned species back to the global default (tenant_key ""),
+        # which would silently move it out of its owner's catalogue into the shared
+        # one. Mirrors the origin preservation above.
+        species.tenant_key = existing.tenant_key
         # cultivation_flexible is master data (seed lifecycle_overrides, ADR-006 E6),
         # not an edit-form field — preserve it so a full-replace update never resets
         # the facultative-cultivation capability flag to its default.
         species.cultivation_flexible = existing.cultivation_flexible
         return self._repo.update(key, species)
 
-    def delete_species(self, key: SpeciesKey) -> bool:
-        self.get_species(key)
+    def delete_species(
+        self,
+        key: SpeciesKey,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> bool:
+        existing = self.get_species(key)
+        self._authorize_species_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            # Delete is the irreversibility boundary (REQ-049 §2.3): only a lead.
+            can_role_write=MembershipEngine.can_delete_resource,
+        )
         return self._repo.delete(key)
 
-    def search_species(self, name: str | None = None, family_key: FamilyKey | None = None) -> list[Species]:
-        return self._repo.search(name=name, family_key=family_key)
+    def search_species(
+        self,
+        name: str | None = None,
+        family_key: FamilyKey | None = None,
+        *,
+        tenant_key: str | None = None,
+    ) -> list[Species]:
+        """Search the species catalogue, tenant-scoped when ``tenant_key`` is given (SEC-005, #808).
+
+        No HTTP caller reaches this today, but the scoping closes the regression
+        trap: ``tenant_key`` threads straight into the repository's hybrid-catalogue
+        union (own rows + global seeds, never a foreign tenant's), so a future
+        search endpoint cannot re-open the leak F-5 closed for the list read.
+        ``None`` (the default) stays the unscoped system-context search.
+        """
+        return self._repo.search(name=name, family_key=family_key, tenant_key=tenant_key)
 
     def list_cultivars(self, species_key: SpeciesKey) -> list[Cultivar]:
         self.get_species(species_key)

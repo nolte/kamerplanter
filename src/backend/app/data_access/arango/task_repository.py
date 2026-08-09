@@ -6,6 +6,7 @@ from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import (
     Task,
@@ -58,8 +59,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             # union the caller's own rows with the global rows; a foreign
             # tenant's rows stay excluded (SEC-B4). A strict equality filter
             # here (PR #324) hid every system template from real tenants.
-            filter_parts.append('(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)')
-            bind_vars["tenant_key"] = tenant_key
+            predicate, predicate_vars = tenant_union_predicate(tenant_key)
+            filter_parts.append(predicate)
+            bind_vars.update(predicate_vars)
             # Copy-on-write dedup (#1030). Once this tenant has forked a shared
             # generated plan (#1003/#1029), the union above would surface BOTH
             # the shared original and the tenant's private copy under the same
@@ -826,17 +828,21 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         a route) collapses the union onto the global rows and reproduces the
         pre-#1003 answer exactly.
         """
+        # Shared hybrid-catalog union (SEC-B4 / #324). The SORT tie-break below
+        # is what disambiguates the union — the caller's own row sorts ahead of
+        # the shared one — and MUST be preserved.
+        predicate, predicate_vars = tenant_union_predicate(tenant_key)
         query = (
             f"FOR doc IN {col.WORKFLOW_TEMPLATES} "
             f"FILTER doc.auto_generated == true AND doc.species_key == @species_key "
-            f'FILTER (doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null) '
+            f"FILTER {predicate} "
             f"SORT (doc.tenant_key == @tenant_key ? 0 : 1) ASC, doc.created_at DESC "
             f"LIMIT 1 "
             f"RETURN doc"
         )
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"species_key": species_key, "tenant_key": tenant_key},
+            bind_vars={"species_key": species_key, **predicate_vars},
         )
         doc = next(cursor, None)
         return WorkflowTemplate(**self._from_doc(doc)) if doc else None

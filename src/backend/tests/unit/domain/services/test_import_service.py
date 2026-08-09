@@ -62,6 +62,34 @@ def _family(key: str) -> MagicMock:
     return fam
 
 
+# ── F-3/#808 acceptance-3: import is a global write path (tenant_key == "") ──
+
+
+def test_import_create_species_is_global_tenant_key_empty():
+    svc, species_repo, _family_repo = _service()
+    create_fn = svc._get_create_fn(EntityType.SPECIES)
+
+    create_fn(_FULL_SPECIES_DATA)
+
+    species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
+    # The import path never binds a species to a tenant — it inherits the model
+    # default "" (global). It must not smuggle in an owner.
+    assert species.tenant_key == ""
+
+
+def test_import_update_fallback_create_species_is_global():
+    # The "update" strategy's fallback-create (duplicate vanished at apply time)
+    # is a global write path too — it must not stamp a tenant.
+    svc, species_repo, _family_repo = _service()
+    species_repo.get_by_scientific_name.return_value = None
+    update_fn = svc._get_update_fn(EntityType.SPECIES)
+
+    update_fn(_FULL_SPECIES_DATA)
+
+    species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
+    assert species.tenant_key == ""
+
+
 # ── #2 species full-column mapping ──────────────────────────────────────
 
 

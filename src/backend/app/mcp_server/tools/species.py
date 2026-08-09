@@ -81,7 +81,15 @@ class ListSpecies(ToolBase):
         limit: int = Field(default=25, ge=1, le=100)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        species, total = ctx.species_service.list_species(offset=args.offset, limit=args.limit)
+        # SEC-003 (#808): scope to the GLOBAL seed catalogue only (tenant_key="").
+        # These species tools are registered as *tenant-agnostic* global tools
+        # (their Input is ToolInput, not TenantToolInput), so the dispatcher binds
+        # no membership and ``ctx.tenant_key`` would raise — there is no single
+        # acting tenant to union against. The safe, honest scope is therefore the
+        # shared catalogue every principal may see: ``tenant_key=""`` collapses the
+        # hybrid union to global-only, so a foreign (and any tenant-owned) species
+        # is excluded, closing the previous whole-catalogue leak (tenant_key=None).
+        species, total = ctx.species_service.list_species(offset=args.offset, limit=args.limit, tenant_key="")
         data = {
             "total": total,
             "items": [
@@ -113,7 +121,11 @@ class GetSpeciesInfo(ToolBase):
         )
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        species = ctx.species_service.get_species(args.species_key)
+        # SEC-003 (#808): global-only scope, for the same reason as list_species
+        # above — this is a tenant-agnostic global tool with no membership bound,
+        # so it resolves species against the shared catalogue (tenant_key="").
+        # A foreign (or tenant-owned) key answers not_found rather than leaking.
+        species = ctx.species_service.get_species(args.species_key, tenant_key="")
         try:
             companions = ctx.species_service.get_compatible_species(args.species_key)
         except Exception:  # noqa: BLE001 — companion graph is optional context

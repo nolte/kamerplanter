@@ -31,9 +31,15 @@ title: Stammdaten-Mandanten-Scoping (Species & Cultivar)
 detail: fine
 outcomes: [O-4]
 target_sprint: 2
-mvp: false
-status: proposed
+mvp: true
+status: active
 ```
+
+**MVP-Flip (Operator-Entscheid 2026-08-09):** `mvp: false → true`. Erlaubt, weil
+`mvp_status` (mission.md) noch nicht `stabilised` ist (`in_progress`) — der
+Mission-Spec erlaubt den Flip jederzeit vor der Stabilisierung. Der Operator hat
+Species-Mandanten-Isolation (O-4) bewusst in den MVP-Scope gezogen, um Sprint 2
+jetzt umzusetzen (überschreibt die frühere Zurückstellung).
 
 Species und Cultivar erhalten echte Mandanten-Ownership (REQ-001 v4.0): ein
 `tenant_key` auf beiden Modellen, auf jedem Write-Pfad gesetzt, plus ein
@@ -51,9 +57,9 @@ Sprint 2 liefert den **species-only**-Schnitt (Cultivar und die
 Operator-Entscheid „Species-only zuerst"). Backfill = **Cutover-Regel** (final,
 teach-back-bestätigt). Requirement: `project/requirements/species-tenant-ownership.md`.
 
-- [ ] F-3 — Species-Mandanten-Ownership: Feld, Write-Stamping & Cutover-Migration (`species-tenant-key-and-cutover`)
-- [ ] F-4 — Geteiltes Mandanten-Union-Leseprädikat (Extraktion) (`tenant-scope-union-predicate`)
-- [ ] F-5 — Tenant-bewusstes Species-Lesen auf der globalen Route (`species-tenant-aware-read`)
+- [x] F-3 — Species-Mandanten-Ownership: Feld, Write-Stamping & Cutover-Migration (`species-tenant-key-and-cutover`)
+- [x] F-4 — Geteiltes Mandanten-Union-Leseprädikat (Extraktion) (`tenant-scope-union-predicate`)
+- [x] F-5 — Tenant-bewusstes Species-Lesen auf der globalen Route (`species-tenant-aware-read`)
 
 <!-- Herkunft: Issue #808 (issue-orchestrate → roadmap-plan, 2026-08-09).
 Requirements-Override (Operator): die τ_high-Erhebung via `requirements-elicit`

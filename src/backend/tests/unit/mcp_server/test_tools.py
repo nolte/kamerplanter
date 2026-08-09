@@ -46,7 +46,8 @@ async def test_list_species_delegates_and_wraps():
     species = [
         SimpleNamespace(key="sp-1", scientific_name="Solanum lycopersicum", common_names=["Tomato"], genus="Solanum")
     ]
-    svc = SimpleNamespace(list_species=lambda offset, limit: (species, 1))
+    # tenant_key kwarg accepted for SEC-003 (the tool scopes the global tool to "").
+    svc = SimpleNamespace(list_species=lambda offset, limit, tenant_key=None: (species, 1))
     resp = await ListSpecies().run(_ctx(species_service=svc), ListSpecies.Input())
     assert resp.data["total"] == 1
     assert resp.data["items"][0]["species_key"] == "sp-1"
@@ -59,7 +60,7 @@ async def test_get_species_info_includes_companions():
         key="sp-1", scientific_name="Basil", common_names=["Basil"], genus="Ocimum", growth_habit="herb"
     )
     svc = SimpleNamespace(
-        get_species=lambda key: species,
+        get_species=lambda key, tenant_key=None: species,
         get_compatible_species=lambda key: [{"species_key": "sp-2"}],
     )
     resp = await GetSpeciesInfo().run(_ctx(species_service=svc), GetSpeciesInfo.Input(species_key="sp-1"))

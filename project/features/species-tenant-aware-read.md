@@ -1,11 +1,11 @@
 ---
 id: F-5
 title: Tenant-bewusstes Species-Lesen auf der globalen Route
-status: ready
+status: done
 roadmap_item: R-14
 sprint: 2
 created: 2026-08-09
-ended: null
+ended: 2026-08-09
 verifies_sprint_value: acceptance-2
 consistency_check:
   performed_at: 2026-08-09
@@ -42,17 +42,17 @@ nutzt den F-4-Helfer; Reihenfolge im Sprint daher F-3 → F-4 → F-5.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Die Species-Liste liefert globale (`tenant_key == ""`) UND eigen-Tenant-Arten des Aufrufers (die #324-Sichtbarkeit — globaler Seed-Katalog bleibt für alle sichtbar).
-- [ ] **acceptance-2** Eine Art eines fremden Mandanten erscheint NICHT in der Species-Liste eines anderen Mandanten.
-- [ ] **acceptance-3** Ein Tenant-Auflösungs-Mechanismus für globale-aber-tenant-bewusste Routen ist implementiert, und sein Entwurf ist dokumentiert.
-- [ ] **acceptance-4** Species-Count und -Listing schränken die Collection identisch ein (beide Lesesurfaces gescoped); `TestSpeciesScopeConsistency` (#816) bleibt grün.
+- [x] **acceptance-1** Die Species-Liste liefert globale (`tenant_key == ""`) UND eigen-Tenant-Arten des Aufrufers (die #324-Sichtbarkeit — globaler Seed-Katalog bleibt für alle sichtbar).
+- [x] **acceptance-2** Eine Art eines fremden Mandanten erscheint NICHT in der Species-Liste eines anderen Mandanten.
+- [x] **acceptance-3** Ein Tenant-Auflösungs-Mechanismus für globale-aber-tenant-bewusste Routen ist implementiert, und sein Entwurf ist dokumentiert.
+- [x] **acceptance-4** Species-Count und -Listing schränken die Collection identisch ein (beide Lesesurfaces gescoped); `TestSpeciesScopeConsistency` (#816) bleibt grün.
 
 ## Test hooks
 
-- **acceptance-1** — API/Repo-Test: Liste enthält globale + eigen-Tenant-Arten — pending
-- **acceptance-2** — beidseitiger Isolationstest (fremd-Tenant-Art fehlt in fremder Liste) — pending
-- **acceptance-3** — Test des Tenant-Auflösungs-Mechanismus auf der globalen Route + ADR/Doku-Verweis — pending
-- **acceptance-4** — `TestSpeciesScopeConsistency` (#816) grün; Count==Listing-Scope über beide Surfaces — pending
+- **acceptance-1** — API/Repo-Test: Liste enthält globale + eigen-Tenant-Arten — passing
+- **acceptance-2** — beidseitiger Isolationstest (fremd-Tenant-Art fehlt in fremder Liste) — passing
+- **acceptance-3** — Test des Tenant-Auflösungs-Mechanismus auf der globalen Route + ADR/Doku-Verweis — passing
+- **acceptance-4** — `TestSpeciesScopeConsistency` (#816) grün; Count==Listing-Scope über beide Surfaces — passing
 
 ## Consistency notes
 

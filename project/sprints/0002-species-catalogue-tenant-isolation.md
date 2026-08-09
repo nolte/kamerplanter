@@ -1,11 +1,11 @@
 ---
 number: 2
-status: planned
-started: null
+status: active
+started: 2026-08-09
 ended: null
 value_statement: Gemeinschaftsgarten-Mitglieder sehen im Arten-Katalog nur die gemeinsamen und ihre eigenen Arten — privat angelegte Arten anderer Mandanten bleiben verborgen.
 artifact_ref: null
-last_commit: null
+last_commit: 85960e9c5
 roadmap_items: [R-14]
 features: [F-3, F-4, F-5]
 ---
@@ -44,9 +44,9 @@ Readiness-Gate aufgerufen.
 
 ## Features
 
-- [F-3](../features/species-tenant-key-and-cutover.md) — status: ready
-- [F-4](../features/tenant-scope-union-predicate.md) — status: ready
-- [F-5](../features/species-tenant-aware-read.md) — status: ready
+- [F-3](../features/species-tenant-key-and-cutover.md) — status: done
+- [F-4](../features/tenant-scope-union-predicate.md) — status: done
+- [F-5](../features/species-tenant-aware-read.md) — status: done
 
 ## Out of scope
 

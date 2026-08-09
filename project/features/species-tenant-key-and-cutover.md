@@ -1,11 +1,11 @@
 ---
 id: F-3
 title: Species-Mandanten-Ownership — Feld, Write-Stamping & Cutover-Migration
-status: ready
+status: done
 roadmap_item: R-14
 sprint: 2
 created: 2026-08-09
-ended: null
+ended: 2026-08-09
 verifies_sprint_value: null
 consistency_check:
   performed_at: 2026-08-09
@@ -46,17 +46,17 @@ das tenant-bewusste Lesen darauf ist F-5.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Das `Species`-Modell trägt ein `tenant_key`-Feld; ein leerer Wert `""` bedeutet global/System.
-- [ ] **acceptance-2** Eine über den interaktiven Create-Pfad (`species/router.py`) angelegte Art wird mit dem `tenant_key` des erstellenden Mandanten gestempelt.
-- [ ] **acceptance-3** Die globalen Schreibpfade (Import, Seed, Enrichment, `upsert_by_normalized_scientific_name`) legen Arten mit leerem `tenant_key` (`""`) an.
-- [ ] **acceptance-4** Eine neue, idempotente Cutover-Migration lässt Bestands-`origin:tenant`-Arten ohne `tenant_key` (global) und stempelt keinen Default-Tenant; `SPECIES` wird NICHT zu `backfill_tenant_key.py`'s `TOP_LEVEL_COLLECTIONS` hinzugefügt.
+- [x] **acceptance-1** Das `Species`-Modell trägt ein `tenant_key`-Feld; ein leerer Wert `""` bedeutet global/System.
+- [x] **acceptance-2** Eine über den interaktiven Create-Pfad (`species/router.py`) angelegte Art wird mit dem `tenant_key` des erstellenden Mandanten gestempelt.
+- [x] **acceptance-3** Die globalen Schreibpfade (Import, Seed, Enrichment, `upsert_by_normalized_scientific_name`) legen Arten mit leerem `tenant_key` (`""`) an.
+- [x] **acceptance-4** Eine neue, idempotente Cutover-Migration lässt Bestands-`origin:tenant`-Arten ohne `tenant_key` (global) und stempelt keinen Default-Tenant; `SPECIES` wird NICHT zu `backfill_tenant_key.py`'s `TOP_LEVEL_COLLECTIONS` hinzugefügt.
 
 ## Test hooks
 
-- **acceptance-1** — Unit-Test `Species`-Modell (Feld vorhanden, Default `""`) — pending
-- **acceptance-2** — API/Service-Test create_species stempelt Caller-Tenant — pending
-- **acceptance-3** — Unit-Tests der globalen Schreibpfade (import/seed/enrichment/upsert) → `tenant_key == ""` — pending
-- **acceptance-4** — Migrationstest der Cutover-Migration (Bestands-`origin:tenant` bleibt un-gestempelt; Idempotenz) — pending
+- **acceptance-1** — Unit-Test `Species`-Modell (Feld vorhanden, Default `""`) — passing
+- **acceptance-2** — API/Service-Test create_species stempelt Caller-Tenant — passing
+- **acceptance-3** — Unit-Tests der globalen Schreibpfade (import/seed/enrichment/upsert) → `tenant_key == ""` — passing
+- **acceptance-4** — Migrationstest der Cutover-Migration (Bestands-`origin:tenant` bleibt un-gestempelt; Idempotenz) — passing
 
 ## Consistency notes
 

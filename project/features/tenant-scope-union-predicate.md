@@ -1,11 +1,11 @@
 ---
 id: F-4
 title: Geteiltes Mandanten-Union-Leseprädikat (Extraktion)
-status: ready
+status: done
 roadmap_item: R-14
 sprint: 2
 created: 2026-08-09
-ended: null
+ended: 2026-08-09
 verifies_sprint_value: null
 consistency_check:
   performed_at: 2026-08-09
@@ -44,15 +44,15 @@ aufruft.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Ein einziger geteilter Helfer erzeugt das Union-Prädikat; der `== ""`-Arm ist über einen Parameter (Default: an/3-armig) schaltbar.
-- [ ] **acceptance-2** `fertilizer_repository.py`, `nutrient_plan_repository.py`, `task_repository.py` (BEIDE Kopien: Z.61 und Z.832) und `ai_repository.py` rufen den Helfer auf; keine wortgleiche Inline-Kopie des Prädikats verbleibt. Der SORT-Tie-Break in `task_repository.py:832` bleibt erhalten.
-- [ ] **acceptance-3** Kein Verhaltenswechsel für bestehende Konsumenten: die 3-armigen Konsumenten bleiben 3-armig, `ai_repository` bleibt 2-armig (Helfer mit ausgeschaltetem Leerstring-Arm); die bestehenden Tenant-Filter-Tests dieser Repos bleiben unverändert grün.
+- [x] **acceptance-1** Ein einziger geteilter Helfer erzeugt das Union-Prädikat; der `== ""`-Arm ist über einen Parameter (Default: an/3-armig) schaltbar.
+- [x] **acceptance-2** `fertilizer_repository.py`, `nutrient_plan_repository.py`, `task_repository.py` (BEIDE Kopien: Z.61 und Z.832) und `ai_repository.py` rufen den Helfer auf; keine wortgleiche Inline-Kopie des Prädikats verbleibt. Der SORT-Tie-Break in `task_repository.py:832` bleibt erhalten.
+- [x] **acceptance-3** Kein Verhaltenswechsel für bestehende Konsumenten: die 3-armigen Konsumenten bleiben 3-armig, `ai_repository` bleibt 2-armig (Helfer mit ausgeschaltetem Leerstring-Arm); die bestehenden Tenant-Filter-Tests dieser Repos bleiben unverändert grün.
 
 ## Test hooks
 
-- **acceptance-1** — Unit-Test des Helfers (3-armig default; 2-armig bei ausgeschaltetem Parameter) — pending
-- **acceptance-2** — Grep-/Struktur-Test: keine Inline-Kopie mehr; alle fünf Aufrufstellen nutzen den Helfer; task:832-SORT erhalten — pending
-- **acceptance-3** — bestehende Tenant-Filter-Tests von fertilizer/nutrient_plan/task/ai bleiben grün (Regressionslauf) — pending
+- **acceptance-1** — Unit-Test des Helfers (3-armig default; 2-armig bei ausgeschaltetem Parameter) — passing
+- **acceptance-2** — Grep-/Struktur-Test: keine Inline-Kopie mehr; alle fünf Aufrufstellen nutzen den Helfer; task:832-SORT erhalten — passing
+- **acceptance-3** — bestehende Tenant-Filter-Tests von fertilizer/nutrient_plan/task/ai bleiben grün (Regressionslauf) — passing
 
 ## Consistency notes
 

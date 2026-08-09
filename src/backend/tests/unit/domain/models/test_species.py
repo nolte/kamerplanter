@@ -17,6 +17,21 @@ from app.common.enums import (
 from app.domain.models.species import Cultivar, PropagationConfig, Species
 
 
+class TestSpeciesTenantKey:
+    """F-3/#808 acceptance-1: Species carries a tenant_key, empty '' = global."""
+
+    def test_tenant_key_field_exists(self):
+        assert "tenant_key" in Species.model_fields
+
+    def test_tenant_key_defaults_to_empty_global(self):
+        s = Species(scientific_name="Rosa canina")
+        assert s.tenant_key == ""
+
+    def test_tenant_key_is_accepted_when_set(self):
+        s = Species(scientific_name="Rosa canina", tenant_key="tenant_42")
+        assert s.tenant_key == "tenant_42"
+
+
 class TestSpeciesValidation:
     def test_valid_species(self):
         s = Species(scientific_name="Solanum lycopersicum", genus="Solanum")

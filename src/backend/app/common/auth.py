@@ -78,6 +78,124 @@ def get_current_tenant(
     )
 
 
+def get_active_tenant_key(
+    user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> str:
+    """Resolve the caller's active tenant on a *global-but-tenant-aware* route (F-5, #808).
+
+    Design note — tenant resolution for global routes (R5 / #808 A1)
+    ---------------------------------------------------------------
+    Most tenant-scoped surfaces live under ``/api/v1/t/{slug}/`` and resolve
+    their tenant with :func:`get_current_tenant`, which reads the ``tenant_slug``
+    *path parameter* and verifies membership. A handful of catalogues, however,
+    are mounted **globally** — ``/api/v1/species`` and ``/api/v1/botanical-
+    families`` are the first — because their rows are a *hybrid catalogue*: global
+    seed data (``tenant_key == ""``) shared by everyone, plus a tenant's own
+    additions. Those routes carry no ``{slug}`` segment, so ``get_current_tenant``
+    structurally cannot bind there. Before this resolver they therefore had **no**
+    tenant context at all, and the reads returned every tenant's rows to every
+    caller — the leak F-5 closes.
+
+    This dependency is that missing mechanism. It answers a single question —
+    *"which tenant is this caller acting in, on a route that names none?"* — and
+    is deliberately the **one** resolver shared by both the read path (species /
+    botanical-family listing) and the write path (species create, via the
+    :data:`get_creating_tenant_key` alias below), so read scope and write stamping
+    can never drift onto different notions of "the caller's tenant".
+
+    Resolved form (today):
+        The caller's auto-created **personal** tenant — the single ``PERSONAL``
+        tenant every user owns since registration (REQ-024), resolved by
+        :meth:`TenantService.get_personal_tenant`.
+
+    Behaviour when there is no resolvable tenant (anonymous / light-mode /
+    a user without a personal tenant):
+        Returns ``""``. Because the read predicate is the three-arm hybrid union
+        (:func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`), an
+        empty key collapses the union to *global-only* (``tenant_key == "" OR
+        null``). So a caller with no tenant sees exactly the shared seed catalogue
+        and nothing tenant-owned — never an error, never a foreign tenant's rows.
+        This is the fail-safe direction: absence of context narrows visibility, it
+        never widens it.
+
+    Known limitation (#808 A1, on the #780 / REQ-049 axis):
+        A global route carries no signal of *which* tenant an organisation member
+        is currently acting in, so this resolver always returns their **personal**
+        tenant, even when they are working inside an organisation. The behaviour
+        F-5 fixes (personal + global visible, foreign hidden) is correct for the
+        common single-tenant caller; an org-context member simply does not yet see
+        their org's private species on the global route. Generalising this — an
+        explicit active-tenant claim in the JWT, a context header, or promoting
+        these catalogues to ``/t/{slug}/`` variants — is the open REQ-049 design
+        decision. When it lands, replace *only this function*: every read and the
+        write stamping move with it, because they all depend on it.
+    """
+    personal = tenant_service.get_personal_tenant(user.key or "")
+    return personal.key if personal and personal.key else ""
+
+
+def get_active_tenant_context(
+    user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> TenantContext:
+    """Resolve the caller's active (personal) tenant into a role-bearing context (SEC-002, #808).
+
+    The *write* sibling of :func:`get_active_tenant_key`. A global-but-tenant-aware
+    *read* only needs the tenant *key* to scope the hybrid-catalogue union; a
+    *mutation* additionally needs the caller's domain *role* — a viewer must not
+    write (REQ-049 §2.3) — and their admin scopes. This mirrors
+    :func:`get_current_tenant`, but binds the tenant from the caller's **personal**
+    tenant because the global route (``/api/v1/species``) carries no ``/t/{slug}/``
+    segment to bind to. It reuses the very resolution :func:`get_active_tenant_key`
+    uses (personal tenant, ``""`` fallback), so a mutation's ownership stamp can
+    never drift from the read scope.
+
+    A caller with no resolvable personal tenant / no active membership resolves to
+    an empty tenant at the lowest role (:attr:`TenantRole.VIEWER`) — fail-safe:
+    absence of context yields the least privilege, never more. The light-mode
+    operator (REQ-027) is admitted via the separate platform-admin bypass
+    (:func:`get_is_platform_admin`), not by widening the role here.
+    """
+    personal = tenant_service.get_personal_tenant(user.key or "")
+    tenant_key = personal.key if personal and personal.key else ""
+    membership = tenant_service.get_membership(user.key or "", tenant_key) if (user.key and tenant_key) else None
+    active = membership if (membership and membership.is_active) else None
+    return TenantContext(
+        tenant_key=tenant_key,
+        tenant_slug=personal.slug if personal else "",
+        user_key=user.key or "",
+        role=active.role if active else TenantRole.VIEWER,
+        admin_scopes=active.admin_scopes if active else [],
+    )
+
+
+def get_is_platform_admin(
+    user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> bool:
+    """Whether the caller is a platform admin, as a resolvable dependency (SEC-002, #808).
+
+    Dependency wrapper over :func:`is_platform_admin` so a global-catalogue
+    mutation route can thread the boolean into :class:`SpeciesService`, which
+    decides conditionally: only a platform admin may mutate a *global* seed row
+    (``tenant_key == ""``). In light mode (REQ-027) the sole anonymous operator is
+    treated as platform admin, so light-mode curation of the shared catalogue
+    keeps working.
+    """
+    return is_platform_admin(tenant_service, user.key or "")
+
+
+#: F-3 back-compat alias. The write-stamping dependency the species create route
+#: depends on (``Depends(get_creating_tenant_key)``) is the *same* "caller's
+#: active tenant on a global route" resolver the F-5 read path uses. Keeping it as
+#: an alias (identical function object) means a test overriding
+#: ``get_creating_tenant_key`` still reaches the resolver, and read scope can
+#: never diverge from write stamping. The name is retained because F-3 and its
+#: tests reference it and it reads well at the create call site.
+get_creating_tenant_key = get_active_tenant_key
+
+
 def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
     """True when ``user_key`` is a platform admin (a ``lead`` membership in ``platform``).
 
