@@ -159,7 +159,16 @@ class PhaseSequenceService:
         seq = self.get_sequence(key)
         for field, value in data.items():
             setattr(seq, field, value)
-        return self._repo.update_sequence(key, seq)
+        updated = self._repo.update_sequence(key, seq)
+        # ``species_key`` is not just document metadata: the lifecycle engine resolves
+        # a species to its sequence through the ``HAS_PHASE_SEQUENCE`` edge, which
+        # ``create_sequence`` builds from this same field. Writing the field without
+        # re-pointing the edge was the #1099 silent drop — a 200 that bound nothing.
+        # Re-point the edge whenever the caller supplies a non-empty species_key so
+        # the binding is genuinely applied end-to-end (partially resolves #949).
+        if data.get("species_key"):
+            self._repo.set_species_sequence(data["species_key"], key)
+        return updated
 
     def clone_sequence(self, source_key: str, new_name: str) -> PhaseSequence:
         """Clone a phase sequence (metadata + ordered entries) into an editable copy.

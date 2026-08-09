@@ -275,24 +275,14 @@ def get_phase_sequence(
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
     """Return a single phase sequence by key, with its resolved entries."""
+    # Map the whole persisted model (via ``to_response``) rather than hand-copying a
+    # subset of fields: the hand-built response used to silently drop ``species_key``
+    # (and every perennial/photoperiod field), so a PUT that stored the species
+    # binding answered 200 while this GET reported ``species_key: ""`` (#1099).
     full = service.get_full_sequence(key)
     entries = [_entry_response(e) for e in full.get("entries", [])]
-    return PhaseSequenceResponse(
-        key=full.get("key") or full.get("_key") or key,
-        name=full["name"],
-        display_name=full.get("display_name", ""),
-        display_name_de=full.get("display_name_de", ""),
-        description=full.get("description", ""),
-        description_de=full.get("description_de", ""),
-        cycle_type=full.get("cycle_type", "annual"),
-        is_repeating=full.get("is_repeating", False),
-        cycle_restart_entry_order=full.get("cycle_restart_entry_order"),
-        is_system=full.get("is_system", False),
-        tags=full.get("tags", []),
-        entries=entries,
-        created_at=full.get("created_at"),
-        updated_at=full.get("updated_at"),
-    )
+    seq = service.get_sequence(key)
+    return to_response(seq, PhaseSequenceResponse, entries=entries)
 
 
 @router.put(
