@@ -20,6 +20,15 @@ spaeter generiert wird.
 `plant_info_*.yaml`. Der Steckbrief ist die Single Source of Truth (#308 D1); die
 YAML-Generierung uebernimmt `plant-info-to-seed-yaml`.
 
+**Kanonische Fassung der Rechercheordnung:** Die 3-Quellen-Regel, die
+Quellenhierarchie, die Konfidenzstufen und die Unterscheidung von botanischem und
+kultiviertem Zyklus stehen kanonisch in `nolte/kamerplanter-goose` unter
+`spec/process/species-baseline-verification/`. Dieser Skill bleibt zustaendig fuer
+den **Steckbrief dieses Repositories**; das dortige Verfahren loest denselben
+Lebenszyklus gegen die MCP-Tools auf (`list_phase_definitions`,
+`get_sowing_calendar`, `list_overwintering_profiles`). Aendert sich eine
+Fachregel, gehoert sie zuerst ins Spec.
+
 ## Abgrenzung (warum Skill statt Agent, und Rolle im Flow)
 
 Bewusst per `/plant-lifecycle` aufgerufener Recherche-/Autoren-Skill: die

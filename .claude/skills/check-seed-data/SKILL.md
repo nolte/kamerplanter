@@ -26,6 +26,17 @@ Fachliche Grundlage: `spec/req/REQ-001_Stammdatenverwaltung.md`,
 `spec/req/REQ-006_Aufgabenplanung.md`, `spec/req/REQ-017_Vermehrungsmanagement.md`
 und die Feld-Definitionen in `src/backend/app/domain/models/species.py`.
 
+**Kanonische Fassung der Beurteilungsordnung:** Die fachlichen Regeln dieses
+Skills — Saatgut- und Keimpruefungen, Klima-/Herkunftskonsistenz,
+felduebergreifende Widersprueche, Quellenhierarchie und Konfidenzstufen — stehen
+kanonisch in `nolte/kamerplanter-goose` unter
+`spec/process/species-baseline-verification/`.
+Dieser Skill bleibt zustaendig fuer die **Dateien dieses Repositories**
+(`plant_info_*.yaml`, `species.yaml`); das dortige Verfahren beurteilt, was der
+MCP-Server liefert — und dokumentiert dabei gemessen, welche der hier geprueften
+Felder ueber MCP gar nicht ausgespielt werden. Aendert sich eine Fachregel,
+gehoert sie zuerst ins Spec.
+
 ## Abgrenzung (warum Skill statt Agent)
 
 Dies ist ein **bewusst per `/check-seed-data` aufgerufener** Pruef-Skill: Die
