@@ -75,7 +75,7 @@ class ListSubstrates(ToolBase):
     class Input(ToolInput):
         query: str | None = Field(
             default=None,
-            description="Case-insensitive filter over the substrate name, German and English.",
+            description="Case-insensitive filter over the substrate name (German/English) and the brand.",
         )
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
@@ -84,13 +84,20 @@ class ListSubstrates(ToolBase):
         selected = list(substrates)
         if args.query:
             needle = args.query.strip().lower()
-            # Both names are the haystack. Filtering on a non-existent ``name``
-            # attribute matched nothing at all, so every query answered "no such
-            # substrate" — a wrong answer, not an empty one (#1006).
+            # Both names and the brand are the haystack. Filtering on a non-existent
+            # ``name`` attribute matched nothing at all, so every query answered "no
+            # such substrate" — a wrong answer, not an empty one (#1006). The brand
+            # is part of the match so a query like "biobizz" finds a product whose
+            # name field does not repeat the manufacturer (#1099 defect 5).
             selected = [
                 s
                 for s in selected
-                if needle in f"{getattr(s, 'name_de', '') or ''} {getattr(s, 'name_en', '') or ''}".lower()
+                if needle
+                in (
+                    f"{getattr(s, 'name_de', '') or ''} "
+                    f"{getattr(s, 'name_en', '') or ''} "
+                    f"{getattr(s, 'brand', '') or ''}"
+                ).lower()
             ]
         page = selected[: args.limit]
         return self._response(

@@ -18,6 +18,7 @@ from typing import Any
 from pydantic import Field
 
 from app.common.enums import McpPermission, PhaseName, SubstrateType
+from app.domain.engines.phase_role_map import ec_phase
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
@@ -97,7 +98,16 @@ class CalculateMixingProtocol(ToolBase):
             description="Carbonate hardness of the base water; drives the pH reserve.",
         )
         substrate_type: SubstrateType = SubstrateType.COCO
-        phase: PhaseName = PhaseName.VEGETATIVE
+        phase: str = Field(
+            default="vegetative",
+            description=(
+                "Growth phase driving the EC target. Accepts a phase-definition key from the "
+                "v0027 catalogue (e.g. 'active_growth', 'establishment', 'bract_coloring') OR a "
+                "coarse nutrient phase ('seedling', 'vegetative', 'flowering', 'ripening', "
+                "'flushing', 'dormancy'). A plant on a fine-typed sequence has no coarse phase, so "
+                "pass its current_phase_key directly — it is resolved to the matching feeding band."
+            ),
+        )
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         from app.domain.engines.ec_budget_engine import (
@@ -125,13 +135,20 @@ class CalculateMixingProtocol(ToolBase):
                 )
             )
 
+        # Resolve the (possibly fine-typed) phase key to the coarse EC vocabulary
+        # the budget engine keys its EC_MAX table on. Before this, the tool only
+        # accepted the pre-#576 PhaseName enum, so a plant on a v0027 fine-typed
+        # sequence (e.g. 'active_growth') had no valid phase to pass and the feed
+        # calc silently fell to a wrong band (#1099 defect 4).
+        resolved_phase = PhaseName(ec_phase(args.phase))
+
         result = EcBudgetCalculator().calculate(
             EcBudgetInput(
                 base_water_ec=args.base_water_ec,
                 target_ec=args.target_ec_ms,
                 alkalinity_ppm=args.alkalinity_ppm,
                 substrate=args.substrate_type,
-                phase=args.phase,
+                phase=resolved_phase,
                 volume_liters=args.target_volume_liters,
                 fertilizers=inputs,
                 recipe_ml_per_liter={},
@@ -154,6 +171,10 @@ class CalculateMixingProtocol(ToolBase):
             "target_volume_liters": args.target_volume_liters,
             "target_ec_ms": args.target_ec_ms,
             "base_water_ec": args.base_water_ec,
+            # The phase as given and the coarse EC band it resolved to — so a
+            # fine-typed phase key is visibly mapped, not silently reinterpreted.
+            "phase": args.phase,
+            "resolved_ec_phase": resolved_phase.value,
             # EC-net is the budget the fertilisers actually have to fill.
             "ec_net": result.ec_net,
             "ec_ph_reserve": result.ec_ph_reserve,

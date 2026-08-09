@@ -368,3 +368,75 @@ async def test_mixing_protocol_refuses_a_foreign_fertilizer():
                 target_ec_ms=1.5,
             ),
         )
+
+
+# ── #1099 defect 4: fine-typed phases from the v0027 catalogue must resolve ────
+#
+# ``calculate_mixing_protocol`` used the pre-#576 ``PhaseName`` enum, whose only
+# values are germination/seedling/vegetative/flowering/ripening/flushing/dormancy.
+# A plant on a fine-typed sequence (evergreen_foliage_perennial, geophytes, …)
+# has a current_phase_key like ``active_growth`` or ``establishment`` that the
+# enum cannot hold, so the tool had NO valid phase to pass and the feed calc was
+# keyed to a wrong band. The tool now accepts the phase-definition catalogue and
+# resolves it to the coarse EC band the engine understands.
+
+
+@pytest.mark.asyncio
+async def test_mixing_protocol_accepts_a_fine_typed_phase_key():
+    # ``active_growth`` is a v0027 phase-definition key, not a PhaseName value.
+    # Before the fix this raised a pydantic ValidationError at Input construction;
+    # now it is accepted and resolves to the vegetative feeding band.
+    svc = _FertService([_Fert("f1", "Grow A")])
+    resp = await CalculateMixingProtocol().run(
+        _ctx(fertilizer_service=svc),
+        CalculateMixingProtocol.Input(
+            fertilizer_keys=["f1"],
+            target_volume_liters=10,
+            target_ec_ms=1.6,
+            phase="active_growth",
+        ),
+    )
+    assert resp.data["phase"] == "active_growth", "the phase as given is echoed back"
+    assert resp.data["resolved_ec_phase"] == "vegetative", "active_growth feeds like vegetative"
+    assert resp.data["dosages"], "the calc must actually run for a fine-typed phase"
+
+
+@pytest.mark.asyncio
+async def test_mixing_protocol_maps_fine_phases_to_the_right_feeding_band():
+    # A spread across the catalogue: an establishment phase feeds like seedling,
+    # a bract-colouring phase like flowering, a rest phase like dormancy.
+    svc = _FertService([_Fert("f1", "Grow A")])
+    cases = {
+        "establishment": "seedling",
+        "bract_coloring": "flowering",
+        "winter_rest": "dormancy",
+        "tuber_formation": "flowering",
+    }
+    for phase_key, expected_band in cases.items():
+        resp = await CalculateMixingProtocol().run(
+            _ctx(fertilizer_service=svc),
+            CalculateMixingProtocol.Input(
+                fertilizer_keys=["f1"],
+                target_volume_liters=10,
+                target_ec_ms=1.5,
+                phase=phase_key,
+            ),
+        )
+        assert resp.data["resolved_ec_phase"] == expected_band, f"{phase_key} should feed like {expected_band}"
+
+
+@pytest.mark.asyncio
+async def test_mixing_protocol_still_accepts_the_coarse_phase_names():
+    # The coarse nutrient vocabulary keeps working unchanged — it passes straight
+    # through the resolver.
+    svc = _FertService([_Fert("f1", "Grow A")])
+    resp = await CalculateMixingProtocol().run(
+        _ctx(fertilizer_service=svc),
+        CalculateMixingProtocol.Input(
+            fertilizer_keys=["f1"],
+            target_volume_liters=10,
+            target_ec_ms=1.6,
+            phase="flowering",
+        ),
+    )
+    assert resp.data["resolved_ec_phase"] == "flowering"

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.substrates.schemas import (
@@ -33,10 +33,14 @@ router = APIRouter(
 @router.get("", response_model=list[SubstrateResponse])
 def list_substrates(
     pagination: PaginationParams = Depends(get_pagination),
+    query: Annotated[
+        str | None,
+        Query(description="Case-insensitive filter over the German/English name and the brand."),
+    ] = None,
     service: SubstrateService = Depends(get_substrate_service),
 ):
-    """List the substrate catalogue (paginated)."""
-    items, total = service.list_substrates(pagination.offset, pagination.limit)
+    """List the substrate catalogue (paginated), optionally filtered by name or brand."""
+    items, total = service.list_substrates(pagination.offset, pagination.limit, query)
     return [to_response(s, SubstrateResponse) for s in items]
 
 
