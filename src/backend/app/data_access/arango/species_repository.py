@@ -68,6 +68,63 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         )
         return Species(**self._from_doc(next(cursor)))
 
+    def find_synonym_match_candidates(self, species: Species) -> list[Species]:
+        """Find existing records synonym-linked to ``species`` (REQ-048, #975).
+
+        Returns every stored species that is a *synonym shadow* of the incoming
+        one — the exact case (same normalized name) is deliberately excluded, as
+        that is already collapsed by :meth:`upsert_by_normalized_scientific_name`.
+        A record is a candidate when, after normalization
+        (:func:`normalize_scientific_name`), either:
+
+        * its canonical name equals one of the new record's synonyms
+          (``s.scientific_name_normalized IN @new_syn_norms`` — a fast, indexed
+          equality against the persistent ``scientific_name_normalized`` index), or
+        * one of its synonyms equals the new record's canonical name (the reverse
+          direction).
+
+        Direction 1 is precise and index-backed. Direction 2 cannot use the index
+        (the stored ``synonyms`` are the human spellings, not normalized), so the
+        AQL mirrors :func:`normalize_scientific_name` inline — casefold≈``LOWER``,
+        the ``×`` hybrid marker → ``" x "``, whitespace collapsed and trimmed — as
+        a *prefilter*. The service re-confirms every returned candidate with the
+        real utility (``_is_synonym_linked``), so the AQL is never the authority on
+        a match; it only narrows the set the service inspects. The ``synonyms``
+        field is coalesced to ``[]`` so a legacy document missing it never errors.
+        """
+        new_norm = species.scientific_name_normalized
+        new_syn_norms = sorted({n for raw in species.synonyms if (n := normalize_scientific_name(raw))})
+        query = f"""
+        FOR s IN {col.SPECIES}
+          FILTER s.scientific_name_normalized != @new_norm
+          FILTER (
+            s.scientific_name_normalized IN @new_syn_norms
+            OR @new_norm IN (
+              FOR syn IN (s.synonyms == null ? [] : s.synonyms)
+                RETURN TRIM(REGEX_REPLACE(LOWER(SUBSTITUTE(TO_STRING(syn), "×", " x ")), "\\\\s+", " "))
+            )
+          )
+          RETURN s
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"new_norm": new_norm, "new_syn_norms": new_syn_norms},
+        )
+        return [Species(**self._from_doc(doc)) for doc in cursor]
+
+    def list_all_species(self) -> list[Species]:
+        """Return every species document — diagnostic read for the shadow report (#975).
+
+        Backs :meth:`SpeciesService.list_shadow_pairs`, an operator-facing report
+        that measures how many normalized-name / synonym shadow pairs the catalogue
+        still carries. It is a deliberate full read (the report is inherently a
+        cross-comparison of every record); species is a small reference collection
+        and carries no ``tenant_key`` (#808), so no scoping applies.
+        """
+        query = f"FOR s IN {col.SPECIES} RETURN s"
+        cursor = self._db.aql.execute(query)
+        return [Species(**self._from_doc(doc)) for doc in cursor]
+
     def set_representative_image(
         self,
         key: SpeciesKey,

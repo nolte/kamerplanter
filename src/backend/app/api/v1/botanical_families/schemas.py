@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import (
     FrostTolerance,
@@ -28,6 +29,38 @@ class FamilyCreate(BaseModel):
     common_diseases: list[str] = Field(default_factory=list)
     pollination_type: list[PollinationType] = Field(default_factory=lambda: [PollinationType.INSECT])
     rotation_category: str = ""
+
+    # The request schema mirrors the ``BotanicalFamily`` domain rules (#970): the
+    # router builds the domain model from this body, and a domain ValidationError
+    # raised there escapes the handler as a 500 rather than the 422 an invalid
+    # input deserves. Rejecting the same shapes at the boundary keeps a bad family
+    # name from ever reaching that construction site — the create/update routes
+    # answer 422 with a field-anchored error, not INTERNAL_ERROR.
+    @field_validator("name")
+    @classmethod
+    def name_must_end_with_aceae(cls, v: str) -> str:
+        if not v.endswith("aceae"):
+            msg = f"Familienname '{v}' muss auf '-aceae' enden"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("order")
+    @classmethod
+    def order_must_end_with_ales(cls, v: str | None) -> str | None:
+        if v is not None and not v.endswith("ales"):
+            msg = f"Ordnungsname '{v}' muss auf '-ales' enden"
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode="after")
+    def nitrogen_fixing_not_heavy(self) -> Self:
+        if self.nitrogen_fixing and self.typical_nutrient_demand == NutrientDemand.HEAVY:
+            msg = (
+                "nitrogen_fixing=true ist inkompatibel mit typical_nutrient_demand='heavy'. "
+                "Stickstofffixierende Familien sind Schwach- oder Mittelzehrer."
+            )
+            raise ValueError(msg)
+        return self
 
 
 class FamilyResponse(BaseModel):
