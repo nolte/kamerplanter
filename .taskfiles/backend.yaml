@@ -1,0 +1,135 @@
+# ── Backend ──────────────────────────────────────────────────────────────────
+# Lint, format, the pytest tiers, the OpenAPI export/lint lane and the
+# dependency-lock targets. The lint/test/format targets are the exact
+# invocations Backend CI (backend.yml) runs.
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+tasks:
+  lint:backend:
+    desc: Run ruff linter on backend code
+    dir: src/backend
+    cmds:
+      - ruff check .
+
+  format:backend:
+    desc: Check backend formatting with ruff (no rewrite) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - ruff format --check .
+
+  test:backend:
+    desc: Run the full backend pytest suite — the three CI tiers plus tests/integration/, which needs a local ArangoDB
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/ {{.CLI_ARGS}}
+
+  # The tiers CI runs, as their own targets. `test:backend` above stays the full
+  # local suite; these are what the pipeline invokes, so the pipeline and a
+  # contributor can run the identical thing.
+  #
+  # CI runs unit, contracts and api — every tier that needs no service. Until
+  # 2026-08-05 the api tier ran in no gate at all, on the stated grounds that
+  # "the remaining tiers need services no runner provides", which was never true
+  # of this one. Measured with no ArangoDB, no Valkey and no S3 listening: 480
+  # passed, 0 skipped, ~60 s, against the ~5 min the unit tier already costs.
+  # Among the tests it left unprotected were the cross-tenant negative tests on
+  # the diary endpoints. A test that never runs protects nothing.
+  #
+  # Ten modules used to sit loose directly under `tests/`, in no tier directory
+  # and therefore in no target and no gate either — 169 tests, ~1.5 s, no
+  # services, among them the CSRF and OAuth-engine ones. On 2026-08-05 they were
+  # moved into the matching `tests/unit/` subtrees instead of getting a target of
+  # their own: they are plain unit tests (no TestClient, no fixture of their own)
+  # and the tier they belong to was already gated. `tests/` root now holds only
+  # conftest.py and __init__.py, so a new module cannot silently fall out of CI
+  # by being dropped in the wrong place — every test file lives in a tier.
+  #
+  # `tests/integration/` stays out and therefore runs LOCALLY ONLY — say that
+  # out loud, or it looks covered. It needs a real ArangoDB on localhost:8529,
+  # which no runner provides. It would not go red without one: every module is
+  # `skipif(not ARANGO_AVAILABLE)`, so on a runner it would report green having
+  # skipped 29 of 36 cases. A green gate that measured nothing is worse than an
+  # absent one. Run it against a dev stack (`task dev:core`, then
+  # `python -m pytest tests/integration/`) before changing repositories or AQL.
+  #
+  # `tests/unit/` and `tests/api/` carry a datastore guard (#978,
+  # src/backend/tests/support/db_guard.py): any ArangoDB, TimescaleDB or Valkey
+  # connection raises on the spot, naming the provider chain that asked for it.
+  # Without it such a test passes on a machine with the dev stack up — against
+  # the dev database — and fails in CI after ~18 s of connection retries.
+  # `tests/contracts/` has no guard: it compares enums and JSON, builds no
+  # service, and measured zero connection attempts. `tests/integration/` must
+  # connect and is deliberately untouched.
+  test:backend:unit:
+    desc: Backend unit tests — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/unit/ -v --tb=short {{.CLI_ARGS}}
+
+  test:backend:contracts:
+    desc: Backend contract tests (enum sync, i18n completeness) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
+
+  test:backend:api:
+    desc: Backend API tests (routers via TestClient against fakes, no services) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/api/ -v --tb=short {{.CLI_ARGS}}
+
+  openapi:export:
+    desc: |
+      Export the OpenAPI document (src/backend/openapi.json, gitignored) from
+      the FastAPI app — no running stack required. The document is a build
+      artifact, never checked in: the api-docs CI lane re-exports and lints it
+      per backend change, and the release build attaches it as a release
+      asset (spec/project/api-documentation/).
+    dir: src/backend
+    cmds:
+      - python -m scripts.export_openapi --out openapi.json {{.CLI_ARGS}}
+
+  openapi:lint:
+    desc: |
+      Export the OpenAPI document and lint it with Spectral — the api-docs CI
+      lane's exact invocation (same pinned spectral-cli version, same ruleset,
+      same --fail-severity error).
+    deps: [openapi:export]
+    dir: src/backend
+    cmds:
+      - npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
+
+  deps:compile:
+    desc: |
+      Recompile the backend dependency locks (requirements.txt +
+      requirements-dev.txt) from src/backend/pyproject.toml — the single source of
+      truth (NFR-009 §6.1). Run this after editing [project].dependencies or the
+      dev extra, then commit the regenerated locks. Uses the exact same flags AND
+      the exact same pinned pip/pip-tools pair as the CI lock-staleness gate
+      (backend.yml), so a fresh run leaves no diff. Both pins matter: pip 26.2
+      removed an internal module pip-tools imports, so an unpinned pip breaks the
+      pinned pip-tools. Install the verified pair on a Python 3.14 interpreter:
+      `pip install 'pip==26.1.2' 'pip-tools==7.6.0'`.
+    dir: src/backend
+    cmds:
+      - pip-compile --generate-hashes --output-file=requirements.txt --no-strip-extras pyproject.toml
+      - pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --no-strip-extras pyproject.toml
+
+  deps:check:
+    desc: |
+      Lock-staleness gate, exactly as CI runs it (backend.yml "Lock staleness"):
+      recompile both locks in place, then fail if the committed files differ.
+      Catches a pyproject.toml bump that was not re-compiled, or a hand-edited
+      lock (NFR-009 §2.3). On failure the regenerated locks are left in the
+      working tree — that diff is precisely what `task deps:compile` would have
+      produced, so commit it if the bump was intentional. Needs the same pinned
+      pair as deps:compile: `pip install 'pip==26.1.2' 'pip-tools==7.6.0'`.
+    dir: src/backend
+    cmds:
+      - pip-compile --generate-hashes --output-file=requirements.txt --no-strip-extras pyproject.toml
+      - pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --no-strip-extras pyproject.toml
+      - git diff --exit-code -- requirements.txt requirements-dev.txt

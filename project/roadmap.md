@@ -23,7 +23,43 @@ ihnen über `roadmap-plan` zugeordnet.
 
 ## Phase 2 — Stabilisierung & Betrieb
 
-<!-- Einträge werden ausschließlich über `roadmap-plan` hinzugefügt. -->
+### R-14 — Stammdaten-Mandanten-Scoping (Species & Cultivar)
+
+```yaml
+id: R-14
+title: Stammdaten-Mandanten-Scoping (Species & Cultivar)
+detail: fine
+outcomes: [O-4]
+target_sprint: 2
+mvp: false
+status: proposed
+```
+
+Species und Cultivar erhalten echte Mandanten-Ownership (REQ-001 v4.0): ein
+`tenant_key` auf beiden Modellen, auf jedem Write-Pfad gesetzt, plus ein
+geteiltes #324-Union-Leseprädikat statt der heute 3–4-fach duplizierten
+Inline-AQL — so bleiben globale Seed-Stammdaten für alle sichtbar, während
+tenant-eigene Records nicht mehr an fremde Mandanten leaken. Umfasst als
+Architektur-Teil die bislang fehlende Tenant-Auflösung für globale-aber-
+tenant-bewusste Routen (heute ist `get_current_tenant` an `/t/{slug}/` gebunden)
+und eine Migration, die die zu bestätigende **Cutover-Backfill-Policy** trägt
+(Bestands-`origin:tenant`-Species bleiben per Policy global). Entblockt durch
+#780 / REQ-049.
+
+Sprint 2 liefert den **species-only**-Schnitt (Cultivar und die
+`tenant_has_access`-Edge sind bewusst als Folge-Requirement zurückgestellt,
+Operator-Entscheid „Species-only zuerst"). Backfill = **Cutover-Regel** (final,
+teach-back-bestätigt). Requirement: `project/requirements/species-tenant-ownership.md`.
+
+- [ ] F-3 — Species-Mandanten-Ownership: Feld, Write-Stamping & Cutover-Migration (`species-tenant-key-and-cutover`)
+- [ ] F-4 — Geteiltes Mandanten-Union-Leseprädikat (Extraktion) (`tenant-scope-union-predicate`)
+- [ ] F-5 — Tenant-bewusstes Species-Lesen auf der globalen Route (`species-tenant-aware-read`)
+
+<!-- Herkunft: Issue #808 (issue-orchestrate → roadmap-plan, 2026-08-09).
+Requirements-Override (Operator): die τ_high-Erhebung via `requirements-elicit`
+erfolgt beim `promote`→`fine` / Sprint-Pull, nicht jetzt (Item ist `coarse` und
+ungeplant). Die Backfill-Cutover-Policy ist ein Kandidat, final in der
+Feature-Zerlegung zu bestätigen. -->
 
 ## Phase 3 — Erweiterung & Intelligenz
 
