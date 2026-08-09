@@ -161,19 +161,46 @@ tasks:
     cmds:
       - python -m scripts.export_openapi --out openapi.json {{.CLI_ARGS}}
 
+  openapi:lint:
+    desc: |
+      Export the OpenAPI document and lint it with Spectral — the api-docs CI
+      lane's exact invocation (same pinned spectral-cli version, same ruleset,
+      same --fail-severity error).
+    deps: [openapi:export]
+    dir: src/backend
+    cmds:
+      - npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
+
   deps:compile:
     desc: |
       Recompile the backend dependency locks (requirements.txt +
       requirements-dev.txt) from src/backend/pyproject.toml — the single source of
       truth (NFR-009 §6.1). Run this after editing [project].dependencies or the
       dev extra, then commit the regenerated locks. Uses the exact same flags AND
-      the exact same pinned pip-tools version (7.5.3) as the CI lock-staleness
-      gate, so a fresh run leaves no diff. Requires that pinned pip-tools on a
-      Python 3.14 interpreter: `pip install 'pip-tools==7.5.3'`.
+      the exact same pinned pip/pip-tools pair as the CI lock-staleness gate
+      (backend.yml), so a fresh run leaves no diff. Both pins matter: pip 26.2
+      removed an internal module pip-tools imports, so an unpinned pip breaks the
+      pinned pip-tools. Install the verified pair on a Python 3.14 interpreter:
+      `pip install 'pip==26.1.2' 'pip-tools==7.6.0'`.
     dir: src/backend
     cmds:
       - pip-compile --generate-hashes --output-file=requirements.txt --no-strip-extras pyproject.toml
       - pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --no-strip-extras pyproject.toml
+
+  deps:check:
+    desc: |
+      Lock-staleness gate, exactly as CI runs it (backend.yml "Lock staleness"):
+      recompile both locks in place, then fail if the committed files differ.
+      Catches a pyproject.toml bump that was not re-compiled, or a hand-edited
+      lock (NFR-009 §2.3). On failure the regenerated locks are left in the
+      working tree — that diff is precisely what `task deps:compile` would have
+      produced, so commit it if the bump was intentional. Needs the same pinned
+      pair as deps:compile: `pip install 'pip==26.1.2' 'pip-tools==7.6.0'`.
+    dir: src/backend
+    cmds:
+      - pip-compile --generate-hashes --output-file=requirements.txt --no-strip-extras pyproject.toml
+      - pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --no-strip-extras pyproject.toml
+      - git diff --exit-code -- requirements.txt requirements-dev.txt
 
   # ── Shared libs ─────────────────────────────────────────────
 
@@ -244,6 +271,38 @@ tasks:
     dir: src/frontend
     cmds:
       - npm run build
+
+  coverage:frontend:
+    desc: |
+      Frontend coverage run with enforced thresholds — what the advisory CI
+      Coverage job executes (frontend.yml → gh-plumbing reusable, fail-under
+      80). The thresholds themselves live in vite.config.ts, so this local run
+      fails on the same numbers CI fails on.
+    dir: src/frontend
+    cmds:
+      - npm run test:coverage
+
+  bundle:check:
+    desc: |
+      Bundle-budget gate — the CI job's exact sequence (frontend.yml
+      bundle-budget): production build, then check the initial payload against
+      the recorded budget (UI-NFR-003). This job is a hard gate in CI and
+      blocks automerge on breach, so run it locally before touching heavy
+      imports or route-level code splitting.
+    deps: [build:frontend]
+    dir: src/frontend
+    cmds:
+      - npm run bundle:check
+
+  lighthouse:
+    desc: |
+      Lighthouse CI run — the advisory CI job's exact sequence (frontend.yml
+      lighthouse): production build, then `lhci autorun` against the built
+      bundle.
+    deps: [build:frontend]
+    dir: src/frontend
+    cmds:
+      - npm run lhci
 
   # ── E2E Tests ───────────────────────────────────────────────
 
@@ -323,6 +382,27 @@ tasks:
       machine-readable output.
     cmds:
       - python3 scripts/check_seed_harvest_integrity.py {{.CLI_ARGS}}
+
+  check:seed-steckbrief:
+    desc: |
+      Verify the seeded species data is consistent with the Steckbrief documents
+      (spec/knowledge/plants/) — the exact step Backend CI runs before the test
+      tiers (backend.yml "lint-test"). No services needed.
+    dir: src/backend
+    cmds:
+      - python app/migrations/seed_steckbrief_consistency.py --verbose
+
+  precommit:
+    desc: |
+      Run the full pre-commit hook suite over the whole tree — the local
+      equivalent of the required `static / Static CI Tests` gate
+      (build-static-tests.yaml → gh-plumbing reusable-pre-commit). Individual
+      hooks also exist as their own check:* / test:e2e:selftest targets; this is
+      the aggregate the PR gate actually enforces. Requires pre-commit
+      (`pip install pre-commit` or pipx).
+    cmds:
+      - pre-commit run --all-files {{.CLI_ARGS}}
+
   # ── Aggregate quality gate ──────────────────────────────────
   #
   # One command, four categories, one table. The point is the table: until this
@@ -427,6 +507,72 @@ tasks:
           exit 1
         fi
         printf 'task check: every category passed.\n\n'
+
+  # ── Docker images & deployment verify ───────────────────────
+
+  lint:docker:
+    desc: |
+      Lint every Dockerfile with hadolint — the docker-lint-build CI job's
+      exact set (all eight images, including inference-service, which is built
+      elsewhere but linted here). Uses the same pinned image as CI; when
+      bumping, keep HADOLINT_IMAGE in .github/workflows/docker-lint-build.yml
+      and here in sync.
+    vars:
+      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+    cmds:
+      - for:
+          - src/backend/Dockerfile
+          - src/frontend/Dockerfile
+          - docker/vectordb/Dockerfile
+          - docker/knowledge/Dockerfile
+          - docker/embedding-service/Dockerfile
+          - docker/reranker-service/Dockerfile
+          - src/knowledge-service/Dockerfile
+          - src/inference-service/Dockerfile
+        cmd: docker run --rm -v "$PWD":/w -w /w "{{.HADOLINT_IMAGE}}" hadolint {{.ITEM}}
+
+  verify:skaffold:
+    desc: |
+      Verify the Helm chart and the Skaffold deploy configuration wire together
+      — the skaffold-verify CI job's check sequence: chart dependency build,
+      helm lint, template render, skaffold diagnose, and an offline skaffold
+      render that must produce the full chart (>= 10 resources; an empty render
+      passing silently is the vacuous green that job exists to prevent). Needs
+      helm and skaffold, no cluster and no registry (--offline,
+      --digest-source=none).
+    cmds:
+      - helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/ --force-update
+      - helm repo add ollama https://otwld.github.io/ollama-helm/ --force-update
+      - helm dependency build helm/kamerplanter
+      - helm lint helm/kamerplanter -f helm/kamerplanter/values-dev.yaml
+      - helm template kamerplanter helm/kamerplanter/ -f helm/kamerplanter/values-dev.yaml > /dev/null
+      - skaffold diagnose > /dev/null
+      - |
+        set -euo pipefail
+        out=$(mktemp)
+        trap 'rm -f "$out"' EXIT
+        skaffold render --offline=true --digest-source=none --output "$out"
+        kinds=$(grep -c '^kind:' "$out" || true)
+        if [ "$kinds" -lt 10 ]; then
+          echo "verify:skaffold: render produced only $kinds resources — expected the full chart." >&2
+          exit 1
+        fi
+        echo "verify:skaffold: render produced $kinds resources."
+
+  # ── Security scans ──────────────────────────────────────────
+
+  security:nuclei:validate:
+    desc: |
+      Validate the project-specific Nuclei templates — the
+      security-nuclei-templates CI job's exact invocation. Requires the nuclei
+      binary (https://github.com/projectdiscovery/nuclei); the full scans
+      themselves stay CI-only because they need the ephemeral stack.
+    preconditions:
+      - sh: command -v nuclei
+        msg: "nuclei not found — install it from https://github.com/projectdiscovery/nuclei/releases"
+    cmds:
+      - nuclei -validate -t tests/security/nuclei-templates/
 
   # ── Documentation ───────────────────────────────────────────
 
