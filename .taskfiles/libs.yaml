@@ -1,9 +1,18 @@
-# ── Shared libs ──────────────────────────────────────────────────────────────
+# ── Shared libs & side-service test suites ──────────────────────────────────
 # The vendored shared packages (kp_errortracking, kp_vectordb): sync their
-# service copies, verify the copies are in sync, run their test suites.
+# service copies, verify the copies are in sync, run their test suites. Also the
+# per-suite pytest targets for the two Python side services (knowledge-service,
+# inference-service) and the `test:side-services` aggregate, which the
+# side-services.yml workflow and `task check` both drive (#1058).
 #
 # Included from the root Taskfile.yaml with `flatten: true` — task names here
 # are global and MUST NOT collide with other .taskfiles/*.yaml.
+#
+# Every pytest target below carries the same fail-on-empty-collection guard
+# (NFR-018 §2): pytest exits 5 when it collects zero tests, and each target turns
+# that into a hard failure with a named message. A suite that was emptied, moved
+# or mis-pathed therefore goes RED instead of reporting green having measured
+# nothing — the exact vacuous-green the aggregate `task check` exists to refuse.
 
 version: "3"
 
@@ -29,7 +38,52 @@ tasks:
       - python src/libs/kp_vectordb/sync.py --check
 
   test:kp-vectordb:
-    desc: Run the shared kp_vectordb package test suite
+    desc: Run the shared kp_vectordb package test suite (fails on zero collection, NFR-018 §2)
     dir: src/libs/kp_vectordb
     cmds:
-      - python -m pytest {{.CLI_ARGS}}
+      - |
+        python -m pytest tests/ -p no:cacheprovider {{.CLI_ARGS}}
+        rc=$?
+        if [ "$rc" -eq 5 ]; then
+          echo "::error::kp_vectordb collected zero tests — an empty suite is a failure (NFR-018 §2)." >&2
+          exit 1
+        fi
+        exit "$rc"
+
+  test:knowledge-service:
+    desc: Run the knowledge-service pytest suite (fails on zero collection, NFR-018 §2)
+    dir: src/knowledge-service
+    cmds:
+      - |
+        python -m pytest tests/ -p no:cacheprovider {{.CLI_ARGS}}
+        rc=$?
+        if [ "$rc" -eq 5 ]; then
+          echo "::error::knowledge-service collected zero tests — an empty suite is a failure (NFR-018 §2)." >&2
+          exit 1
+        fi
+        exit "$rc"
+
+  test:inference-service:
+    desc: Run the inference-service pytest suite — fakes only, no model/GPU/DB (fails on zero collection, NFR-018 §2)
+    dir: src/inference-service
+    cmds:
+      - |
+        python -m pytest tests/ -p no:cacheprovider {{.CLI_ARGS}}
+        rc=$?
+        if [ "$rc" -eq 5 ]; then
+          echo "::error::inference-service collected zero tests — an empty suite is a failure (NFR-018 §2)." >&2
+          exit 1
+        fi
+        exit "$rc"
+
+  test:side-services:
+    desc: |
+      Run all three side-service suites (knowledge-service, inference-service,
+      kp_vectordb) — the suites the side-services.yml workflow runs and that
+      `task check` folds into its table. Aborts on the first failing suite; each
+      sub-target fails on zero collection (NFR-018 §2). Requires each package
+      installed in the active environment (`pip install -e '.[dev]'` per service).
+    cmds:
+      - task: test:knowledge-service
+      - task: test:inference-service
+      - task: test:kp-vectordb

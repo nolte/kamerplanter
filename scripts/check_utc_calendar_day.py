@@ -64,9 +64,16 @@ but nothing that is *not* ``datetime.date.today()`` is ever reported. A checker
 that cried wolf would be switched off within a week, and then it would guard
 nothing at all.
 
-Scope is ``src/backend/app/`` only. Tests are excluded on purpose: they must be
-able to read the local clock — ``tests/support/timezones.py`` compares it against
-UTC, which is the entire mechanism that makes the divergence testable.
+Scope is the application/package source of the backend and the three Python side
+services — ``src/backend/app/``, ``src/knowledge-service/app/``,
+``src/inference-service/app/`` and ``src/libs/kp_vectordb/kp_vectordb/`` (see
+``DEFAULT_SCAN_ROOTS``). The side services were added in #1058, once their pytest
+suites ran in CI (``side-services.yml``); before that a gate over them would have
+guarded code no test exercised. Every ``tests/`` tree is excluded on purpose:
+tests must be able to read the local clock — ``tests/support/timezones.py``
+compares it against UTC, which is the entire mechanism that makes the divergence
+testable — which is why the scan roots are the app/package dirs, never their
+parents.
 
 Standard library only, no application import, no running stack: the ``static`` CI
 job is Python-only, and importing the application to answer a question that is
@@ -86,9 +93,21 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-#: Where the backend application code lives, relative to the repository root.
-#: Deliberately excludes ``src/backend/tests`` — see the module docstring.
-DEFAULT_SCAN_ROOT = "src/backend/app"
+#: Where the application code that persists timestamps lives, relative to the
+#: repository root. Each entry is an app/package directory, NOT its parent: the
+#: parent also holds a ``tests/`` tree, and tests are excluded on purpose (they
+#: read the local clock to make the divergence testable — see the module
+#: docstring). The backend was the original and only scope; the three Python
+#: side services joined in #1058, once their pytest suites began running in CI
+#: (``side-services.yml``), so a calendar-day regression in them is now caught by
+#: a running test rather than only asserted by this gate. The order does matter —
+#: the gate was extended *after* the suites run, not before.
+DEFAULT_SCAN_ROOTS = (
+    "src/backend/app",
+    "src/knowledge-service/app",
+    "src/inference-service/app",
+    "src/libs/kp_vectordb/kp_vectordb",
+)
 
 #: The marker that exempts a call site, plus the minimum length of the reason
 #: that must follow it. A bare marker is not an exemption: the point of the
@@ -296,7 +315,7 @@ def report(sites: list[CallSite], *, list_all: bool, as_json: bool) -> int:
         return EXIT_DEFECTS if unjustified else EXIT_OK
 
     if unjustified:
-        print(f"check_utc_calendar_day: {len(unjustified)} local-clock call site(s) in the backend app code\n")
+        print(f"check_utc_calendar_day: {len(unjustified)} local-clock call site(s) in the scanned app code\n")
         for site in unjustified:
             print(f"  {site.relative_to(REPO_ROOT)}:{site.line}: {site.expression}")
         print(
@@ -322,7 +341,7 @@ def report(sites: list[CallSite], *, list_all: bool, as_json: bool) -> int:
     if list_all:
         print("check_utc_calendar_day: OK — no date.today() call site at all.")
     else:
-        print("check_utc_calendar_day: OK — every calendar day in the backend app code comes from UTC.")
+        print("check_utc_calendar_day: OK — every calendar day in the scanned app code comes from UTC.")
     return EXIT_OK
 
 
@@ -345,7 +364,7 @@ def main(argv: list[str] | None = None) -> int:
         "--scan-root",
         action="append",
         metavar="PATH",
-        help=f"directory or .py file to scan (repeatable; default: {DEFAULT_SCAN_ROOT})",
+        help=f"directory or .py file to scan (repeatable; default: {', '.join(DEFAULT_SCAN_ROOTS)})",
     )
     parser.add_argument(
         "--list",
@@ -361,7 +380,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        sites = collect(_resolve(args.scan_root or [DEFAULT_SCAN_ROOT]))
+        sites = collect(_resolve(args.scan_root or list(DEFAULT_SCAN_ROOTS)))
     except CalendarDayCheckError as exc:
         print(f"check_utc_calendar_day: {exc}", file=sys.stderr)
         return EXIT_USAGE

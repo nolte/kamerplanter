@@ -98,10 +98,19 @@ tasks:
   #   * `lint:frontend:deadcode` — advisory and red today (47 findings); adding
   #     it would make this table red for a reason unrelated to the change under
   #     test.
+  #
+  # The side-service suites (knowledge-service, inference-service, kp_vectordb)
+  # ARE in here as of #1058, via `task test:side-services`. They are fake-only and
+  # finish in ~2s combined, so they fit the fast local loop. Like every other
+  # category they obey SKIPPED IS FAIL: if a service package is not installed in
+  # the active environment, its pytest cannot import and the category reports
+  # FAIL (install with `pip install -e '.[dev]'` in each service dir), never a
+  # silent green. Their CI home is the advisory side-services.yml workflow.
   check:
     desc: |
       Run every locally runnable quality gate and print a pass/fail table:
-      lint (ruff + ESLint), typecheck (tsc), unit tests (pytest + vitest) and
+      lint (ruff + ESLint), typecheck (tsc), unit tests (pytest + vitest), the
+      side-service suites (knowledge-service, inference-service, kp_vectordb) and
       the seven custom source-tree gates (UTC, boundary validation, layer
       imports, tenant body field, workflow gate integrity, seed harvest
       integrity, seed catalogue page size).
@@ -147,6 +156,10 @@ tasks:
           tests=1
         fi
 
+        printf '\n=== side-service tests (pytest) ===\n'
+        sideservices=0
+        task test:side-services || sideservices=1
+
         printf '\n=== custom gates ===\n'
         gates=0
         python3 scripts/check_utc_calendar_day.py || gates=1
@@ -164,10 +177,11 @@ tasks:
         printf '  %-34s %s\n' 'lint (ruff + ESLint)' "$(verdict $lint)"
         printf '  %-34s %s\n' 'typecheck (tsc)' "$(verdict $typecheck)"
         printf '  %-34s %s\n' 'test:unit (pytest + vitest)' "$(verdict $tests)"
-        printf '  %-34s %s\n' 'custom gates (5)' "$(verdict $gates)"
+        printf '  %-34s %s\n' 'side-service tests (pytest)' "$(verdict $sideservices)"
+        printf '  %-34s %s\n' 'custom gates (7)' "$(verdict $gates)"
         printf '\n'
 
-        overall=$(( lint + typecheck + tests + gates ))
+        overall=$(( lint + typecheck + tests + sideservices + gates ))
         if [ "$overall" -ne 0 ]; then
           printf 'task check: not every category passed. A category that could not run\n'
           printf 'counts as FAIL, not as skipped — see the comment above this target.\n\n'

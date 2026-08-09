@@ -34,6 +34,11 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    # Test-only: the API tests drive the FastAPI app through Starlette's
+    # TestClient, which needs an httpx transport. httpx is NOT a runtime
+    # dependency of this service (unlike knowledge-service), so it lives here in
+    # the dev extra rather than in [project].dependencies (#1058).
+    "httpx>=0.28.0",
 ]
 
 [tool.ruff]
