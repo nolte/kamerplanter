@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Response
@@ -38,13 +39,17 @@ from app.api.v1.tasks.schemas import (
     WorkflowTemplateResponse,
     WorkflowTemplateUpdate,
 )
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_current_tenant, get_current_user, require_permission
 from app.common.dependencies import get_task_service
+from app.common.enums import TaskOrigin
+from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
+from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
+from app.domain.models.user import User
 from app.domain.services.task_service import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"], responses=NOT_FOUND_RESPONSE)
@@ -368,15 +373,83 @@ def list_tasks(
     return [_task_response(t) for t in tasks]
 
 
+def _resolve_task_provenance(body: TaskCreate, user: User) -> tuple[TaskOrigin, str, str | None, str | None]:
+    """Server-decide a task's FreeStyle provenance from the authenticated principal.
+
+    ``origin`` is NEVER trusted from the request body (#1000-class spoofing); it is
+    derived from the caller's ``account_type`` (REQ-023 M2M):
+
+    * **Interactive user** (``account_type == "user"``) → ``origin`` forced to
+      ``USER`` and the machine-provenance fields (``source`` / ``source_run_ref`` /
+      ``external_ref``) cleared. A human's task carries no producer identity, and a
+      human must not be able to write into the ``(tenant, source, external_ref)``
+      idempotency namespace or masquerade as a pipeline.
+    * **Service account** (``account_type == "service"``) → a machine producer. The
+      body's ``origin`` is honoured but constrained to a *machine* origin
+      (``SYSTEM`` / ``PIPELINE``), defaulting to ``PIPELINE``; the provenance fields
+      are taken from the body. A service account that omits ``origin`` therefore
+      still produces a properly-marked pipeline task.
+
+    Returns the trusted ``(origin, source, source_run_ref, external_ref)`` tuple.
+    """
+    if user.account_type != "service":
+        return TaskOrigin.USER, "", None, None
+    machine_origins = {TaskOrigin.SYSTEM.value, TaskOrigin.PIPELINE.value}
+    origin = TaskOrigin(body.origin) if body.origin in machine_origins else TaskOrigin.PIPELINE
+    return origin, body.source or "", body.source_run_ref, body.external_ref
+
+
 @router.post("", response_model=TaskResponse, status_code=201)
 def create_task(
     body: TaskCreate,
+    response: Response,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
+    user: User = Depends(get_current_user),
     service: TaskService = Depends(get_task_service),
 ):
-    """Create a task for the tenant."""
-    task = Task(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_task(task, actor_user_key=ctx.user_key)
+    """Create a task for the tenant, or upsert an idempotent FreeStyle re-post.
+
+    This single endpoint serves both interactive users and machine producers
+    (REQ-006 FreeStyle tasks, #1082):
+
+    * ``origin`` is server-decided from the principal (see
+      :func:`_resolve_task_provenance`) — an interactive caller can never spoof a
+      machine origin or the ``(source, external_ref)`` dedup key.
+    * A producer path (``origin != user``) is one-off: a ``recurrence_rule`` that
+      the shared :class:`RecurrenceEngine` recognises as an actual recurrence is
+      rejected with 422, and the recurrence fields are cleared so no producer task
+      can ever spawn a follow-up. Recurrence is decided by the one recurrence
+      authority, not a second parallel check (R-15 / ADR-008 will consolidate).
+    * A producer supplying an ``external_ref`` gets idempotent upsert semantics
+      scoped to ``(tenant_key, source, external_ref)``: a re-post updates and
+      returns the existing task with **200** instead of creating a duplicate
+      (201).
+    """
+    origin, source, source_run_ref, external_ref = _resolve_task_provenance(body, user)
+
+    data = body.model_dump(exclude={"origin", "source", "source_run_ref", "external_ref"})
+    if origin != TaskOrigin.USER:
+        rule = data.get("recurrence_rule")
+        if rule and RecurrenceEngine.next_occurrence(rule, datetime.now(UTC)) is not None:
+            raise ValidationError(
+                "A producer-created (FreeStyle) task is one-off; a recurrence_rule is not allowed on this path."
+            )
+        # Belt-and-braces: clear any recurrence residue so a producer task can
+        # never spawn a follow-up, even if the rule did not parse as a recurrence.
+        data["recurrence_rule"] = None
+        data["recurrence_end_date"] = None
+
+    task = Task(
+        **data,
+        tenant_key=ctx.tenant_key,
+        origin=origin,
+        source=source,
+        source_run_ref=source_run_ref,
+        external_ref=external_ref,
+    )
+    created, was_created = service.create_task_idempotent(task, actor_user_key=ctx.user_key)
+    if not was_created:
+        response.status_code = 200
     return _task_response(created)
 
 

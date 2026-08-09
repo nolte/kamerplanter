@@ -208,6 +208,16 @@ class TaskCreate(BaseModel):
     instruction: str = ""
     instruction_de: str = ""
     category: str = "maintenance"
+    # REQ-006 FreeStyle provenance (#1082). ``origin`` is accepted here but is NOT
+    # trusted: the router derives the effective origin from the authenticated
+    # principal (interactive user -> forced ``user``; service account -> may set a
+    # machine origin), and it clears ``source``/``source_run_ref``/``external_ref``
+    # for interactive callers so a human cannot spoof pipeline provenance or write
+    # into the (tenant, source) dedup namespace (#1000).
+    origin: str = "user"
+    source: str = ""
+    source_run_ref: str | None = None
+    external_ref: str | None = None
     entity_key: str | None = None
     entity_type: str | None = None
     due_date: datetime | None = None
@@ -263,6 +273,12 @@ class TaskResponse(BaseModel):
     instruction: str
     instruction_de: str = ""
     category: str
+    # REQ-006 FreeStyle provenance (#1082). ``origin`` drives the machine-generated
+    # badge/filter; ``source``/``source_run_ref`` are shown on the detail page.
+    origin: str = "user"
+    source: str = ""
+    source_run_ref: str | None = None
+    external_ref: str | None = None
     entity_key: str | None = None
     entity_type: str | None = None
     due_date: datetime | None = None

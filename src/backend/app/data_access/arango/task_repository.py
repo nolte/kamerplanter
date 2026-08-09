@@ -381,6 +381,44 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
         return t
 
+    def find_task_by_external_ref(self, *, tenant_key: str, source: str, external_ref: str) -> Task | None:
+        """Tenant+source-scoped FreeStyle idempotency lookup (#1082 AC-3).
+
+        Returns the newest task whose ``(tenant_key, source, external_ref)`` match
+        the arguments, or ``None`` when none exists. This is THE single FreeStyle
+        dedup predicate, mirroring :meth:`find_open_care_task`'s discipline:
+
+        * The predicate is anchored on ``tenant_key`` **and** ``source`` in the DB,
+          so a producer scoped to tenant A can never discover, read or collide with
+          a task in tenant B (the negative test in ``test_freestyle_idempotency``),
+          and two producers sharing an ``external_ref`` string stay in separate
+          dedup namespaces by their distinct ``source`` ids — it is never a
+          cross-tenant existence oracle (#1082 AC-6).
+        * ``tenant_key`` is required and rejected when empty (GHSA-h5wp-r68x-97g8):
+          an empty key would match only legacy tenantless rows rather than scan
+          across tenants, but the guard keeps the intent explicit and fails closed.
+        * A missing ``source`` or ``external_ref`` yields ``None`` — dedup is opt-in
+          and only ever within a fully-qualified ``(tenant, source, external_ref)``
+          triple, never on a partial key.
+
+        Newest is ``created_at`` descending, so a re-post resolves to the most
+        recent task under the reference.
+        """
+        self._require_tenant_key(tenant_key, "find_task_by_external_ref")
+        if not source or not external_ref:
+            return None
+        query = (
+            f"FOR doc IN {col.TASKS} "
+            f"FILTER doc.tenant_key == @tenant_key "
+            f"FILTER doc.source == @source "
+            f"FILTER doc.external_ref == @external_ref "
+            f"SORT doc.created_at DESC LIMIT 1 RETURN doc"
+        )
+        bind_vars = {"tenant_key": tenant_key, "source": source, "external_ref": external_ref}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        doc = next(cursor, None)
+        return Task(**self._from_doc(doc)) if doc else None
+
     def update_task(self, key: TaskKey, task: Task) -> Task:
         return super().update(key, task)
 

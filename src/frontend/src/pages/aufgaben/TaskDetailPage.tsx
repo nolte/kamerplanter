@@ -47,6 +47,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import TaskOriginBadge from '@/components/common/TaskOriginBadge';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -637,6 +638,8 @@ export default function TaskDetailPage() {
               color={priorityColorMap[task.priority] ?? 'default'}
               variant="outlined"
             />
+            {/* REQ-006 FreeStyle machine-generated badge (#1082) */}
+            <TaskOriginBadge origin={task.origin} testId="task-detail-origin-badge" />
           </Stack>
         </Box>
 
@@ -857,7 +860,21 @@ export default function TaskDetailPage() {
 
                 {/* Task source */}
                 <MetaItem label={t('pages.tasks.source')}>
-                  {task.activity_key ? (
+                  {task.origin !== 'user' ? (
+                    // REQ-006 FreeStyle (#1082): a machine producer carries its own
+                    // producer id (and optional run reference), preferred over the
+                    // internal-source heuristics below.
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }} data-testid="task-detail-source">
+                        {task.source || t('pages.tasks.machineGenerated')}
+                      </Typography>
+                      {task.source_run_ref && (
+                        <Typography variant="caption" color="text.secondary" data-testid="task-detail-source-run">
+                          {t('pages.tasks.producerRun')}: {task.source_run_ref}
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : task.activity_key ? (
                     <Link
                       component={RouterLink}
                       to={`/stammdaten/activities/${task.activity_key}`}

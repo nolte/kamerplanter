@@ -3,6 +3,7 @@ import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
@@ -32,6 +33,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
@@ -49,6 +51,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable from '@/components/common/DataTable';
 import MobileCard from '@/components/common/MobileCard';
+import TaskOriginBadge from '@/components/common/TaskOriginBadge';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -964,6 +967,13 @@ export default function PlantInstanceDetailPage() {
   const archivedTasks = useMemo(
     () => plantTasks.filter((t) => !['pending', 'in_progress'].includes(t.status)),
     [plantTasks],
+  );
+  // REQ-006 FreeStyle (#1082): the open machine-generated tasks bound to this
+  // instance — derived work a producer (e.g. a Goose analysis pipeline) surfaced
+  // for this plant. Highlighted separately so it is not lost among manual tasks.
+  const openFreestyleTasks = useMemo(
+    () => activeTasks.filter((t) => t.origin && t.origin !== 'user'),
+    [activeTasks],
   );
 
   // Midnight boundary for overdue comparisons, stable within a render pass.
@@ -2355,6 +2365,61 @@ export default function PlantInstanceDetailPage() {
                   {t('pages.plantInstances.noTasksCreateCta')}
                 </Button>
               </Box>
+
+              {/* REQ-006 FreeStyle (#1082): open machine-generated tasks for this
+                  instance, surfaced above the manual work so derived tasks from an
+                  analysis pipeline are not overlooked. */}
+              {openFreestyleTasks.length > 0 && (
+                <Card
+                  variant="outlined"
+                  sx={{ mb: 3, borderColor: 'secondary.main' }}
+                  data-testid="plant-freestyle-tasks-section"
+                >
+                  <CardContent>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.75 }}
+                    >
+                      <SmartToyIcon fontSize="small" color="secondary" />
+                      {t('pages.tasks.openFreestyleTasks')}
+                    </Typography>
+                    <Stack spacing={1}>
+                      {openFreestyleTasks.map((task) => (
+                        <Box
+                          key={task.key}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                            justifyContent: 'space-between',
+                          }}
+                          data-testid={`freestyle-task-${task.key}`}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                            <TaskStatusIcon status={task.status} />
+                            <Link
+                              component={RouterLink}
+                              to={`/aufgaben/tasks/${task.key}`}
+                              underline="hover"
+                              variant="body2"
+                              sx={{ fontWeight: 500, minWidth: 0 }}
+                            >
+                              {(i18n.language === 'de' && task.name_de) ? task.name_de : task.name}
+                            </Link>
+                            <TaskOriginBadge origin={task.origin} testId={`freestyle-badge-${task.key}`} />
+                          </Box>
+                          {task.due_date && (
+                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                              {new Date(task.due_date).toLocaleDateString()}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Active tasks section */}
               {activeTasks.length > 0 && (
