@@ -67,8 +67,19 @@ class SpeciesService:
         # bind — the same state as before #1006, not a crash.
         self._phase_sequence_binder = phase_sequence_binder
 
-    def list_species(self, offset: int = 0, limit: int = 50) -> tuple[list[Species], int]:
-        return self._repo.get_all(offset, limit)
+    def list_species(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[Species], int]:
+        """List the species catalogue, tenant-scoped when a ``tenant_key`` is given (F-5, #808).
+
+        ``tenant_key`` is threaded straight to the repository's hybrid-catalogue
+        union: the caller's own rows plus the global seeds, never a foreign
+        tenant's (#324 both directions). ``None`` (the default) is the unscoped
+        system-context read for internal callers; the global HTTP list route
+        always supplies the caller's resolved active tenant (``""`` for an
+        anonymous/light-mode caller → global-only).
+        """
+        return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
     def get_species(self, key: SpeciesKey) -> Species:
         species = self._repo.get_or_raise(key)

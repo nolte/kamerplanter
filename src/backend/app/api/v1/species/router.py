@@ -10,7 +10,7 @@ from app.api.v1.species.schemas import (
     SpeciesReferenceImagesResponse,
     SpeciesResponse,
 )
-from app.common.auth import get_creating_tenant_key, get_current_user
+from app.common.auth import get_active_tenant_key, get_creating_tenant_key, get_current_user
 from app.common.dependencies import get_family_repo, get_species_service
 from app.common.enums import DataOrigin
 from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
@@ -43,9 +43,17 @@ def list_species(
     limit: int = Query(50, ge=1, le=1000, description="Maximum number of species to return."),
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
+    tenant_key: str = Depends(get_active_tenant_key),
 ):
-    """List the species catalogue (paginated)."""
-    items, total = service.list_species(offset, limit)
+    """List the species catalogue (paginated).
+
+    Tenant-aware on this global route (F-5, #808): returns the global seed
+    catalogue (``tenant_key == ""``) plus the caller's own-tenant species, and
+    never a foreign tenant's. The active tenant is resolved by
+    :func:`~app.common.auth.get_active_tenant_key`; an anonymous/light-mode caller
+    resolves to ``""`` and sees only the global catalogue.
+    """
+    items, total = service.list_species(offset, limit, tenant_key=tenant_key)
     # Build family name cache to avoid N+1 queries
     family_keys = {s.family_key for s in items if s.family_key}
     family_map: dict[str, str] = {}

@@ -6,6 +6,7 @@ from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import AQLBuilder, escape_aql_like
+from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
@@ -18,8 +19,38 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         super().__init__(db, col.SPECIES)
         self._cultivars = BaseArangoRepository[Cultivar](db, col.CULTIVARS, Cultivar)
 
-    def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[Species], int]:
-        return super().get_all(offset, limit)
+    def get_all(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None) -> tuple[list[Species], int]:
+        """List the species catalogue, optionally scoped to a caller's tenant (F-5, #808).
+
+        Species is a **hybrid catalogue**: globally seeded rows (``tenant_key ==
+        ""``) shared by everyone, plus a tenant's own additions. ``tenant_key``
+        selects the visibility:
+
+        * ``None`` — no scoping: the whole catalogue. This is the *system-context*
+          read used by seed/import/enrichment/reference-image/calendar paths that
+          must see every species regardless of owner; it is never reachable from
+          the global HTTP list route, which always passes a resolved key.
+        * a string (including ``""``) — the three-arm hybrid-catalogue union
+          (:func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`):
+          the caller's own rows **plus** the global seeds, never a *foreign*
+          tenant's rows (#324 both directions). An empty ``""`` (anonymous /
+          light-mode / no personal tenant) collapses the union to global-only.
+
+        The union is the F-4 shared helper, not a fifth inline copy, so this read
+        narrows the collection identically to the botanical-family species reads
+        (``TestSpeciesScopeConsistency``, #816).
+        """
+        if tenant_key is None:
+            return super().get_all(offset, limit)
+        predicate, bind_vars = tenant_union_predicate(tenant_key)
+        list_vars: dict[str, Any] = {**bind_vars, "offset": offset, "limit": limit}
+        list_query = f"FOR doc IN {col.SPECIES} FILTER {predicate} SORT doc._key LIMIT @offset, @limit RETURN doc"
+        cursor = self._db.aql.execute(list_query, bind_vars=list_vars)
+        items = [Species(**self._from_doc(doc)) for doc in cursor]
+        count_query = f"FOR doc IN {col.SPECIES} FILTER {predicate} COLLECT WITH COUNT INTO total RETURN total"
+        count_cursor = self._db.aql.execute(count_query, bind_vars=dict(bind_vars))
+        total = next(count_cursor, 0)
+        return items, total
 
     def get_by_scientific_name(self, name: str) -> Species | None:
         return self.find_one_by_field("scientific_name", name)

@@ -78,32 +78,71 @@ def get_current_tenant(
     )
 
 
-def get_creating_tenant_key(
+def get_active_tenant_key(
     user: User = Depends(get_current_user),
     tenant_service: TenantService = Depends(get_tenant_service),
 ) -> str:
-    """Resolve the tenant a *global-route* interactive create should belong to (F-3, #808).
+    """Resolve the caller's active tenant on a *global-but-tenant-aware* route (F-5, #808).
 
-    :func:`get_current_tenant` cannot serve here: it binds to the
-    ``/api/v1/t/{slug}/`` path segment, and the species catalogue lives on the
-    global ``/api/v1/species`` route which has no such segment. Until F-5 builds
-    the general active-tenant resolution for global-but-tenant-aware routes, an
-    interactive create is stamped with the caller's **personal** tenant — the
-    auto-created ``PERSONAL`` tenant every user owns since registration (REQ-024).
+    Design note — tenant resolution for global routes (R5 / #808 A1)
+    ---------------------------------------------------------------
+    Most tenant-scoped surfaces live under ``/api/v1/t/{slug}/`` and resolve
+    their tenant with :func:`get_current_tenant`, which reads the ``tenant_slug``
+    *path parameter* and verifies membership. A handful of catalogues, however,
+    are mounted **globally** — ``/api/v1/species`` and ``/api/v1/botanical-
+    families`` are the first — because their rows are a *hybrid catalogue*: global
+    seed data (``tenant_key == ""``) shared by everyone, plus a tenant's own
+    additions. Those routes carry no ``{slug}`` segment, so ``get_current_tenant``
+    structurally cannot bind there. Before this resolver they therefore had **no**
+    tenant context at all, and the reads returned every tenant's rows to every
+    caller — the leak F-5 closes.
 
-    Returns the personal tenant's ``_key``, or ``""`` when the caller has no
-    resolvable personal tenant. Falling back to ``""`` keeps the record in the
-    shared/global catalogue rather than failing the request or leaking it into a
-    foreign tenant — the fail-safe direction for a not-yet-general mechanism.
+    This dependency is that missing mechanism. It answers a single question —
+    *"which tenant is this caller acting in, on a route that names none?"* — and
+    is deliberately the **one** resolver shared by both the read path (species /
+    botanical-family listing) and the write path (species create, via the
+    :data:`get_creating_tenant_key` alias below), so read scope and write stamping
+    can never drift onto different notions of "the caller's tenant".
 
-    **Assumption for F-5 to build on:** a caller acting inside an *organization*
-    tenant still stamps their personal tenant here, because the global route
-    carries no signal of which tenant they are acting in. When F-5 lands (an
-    explicit active-tenant claim/header), replace this dependency with it so an
-    org-context create binds to that org (#808 A1).
+    Resolved form (today):
+        The caller's auto-created **personal** tenant — the single ``PERSONAL``
+        tenant every user owns since registration (REQ-024), resolved by
+        :meth:`TenantService.get_personal_tenant`.
+
+    Behaviour when there is no resolvable tenant (anonymous / light-mode /
+    a user without a personal tenant):
+        Returns ``""``. Because the read predicate is the three-arm hybrid union
+        (:func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`), an
+        empty key collapses the union to *global-only* (``tenant_key == "" OR
+        null``). So a caller with no tenant sees exactly the shared seed catalogue
+        and nothing tenant-owned — never an error, never a foreign tenant's rows.
+        This is the fail-safe direction: absence of context narrows visibility, it
+        never widens it.
+
+    Known limitation (#808 A1, on the #780 / REQ-049 axis):
+        A global route carries no signal of *which* tenant an organisation member
+        is currently acting in, so this resolver always returns their **personal**
+        tenant, even when they are working inside an organisation. The behaviour
+        F-5 fixes (personal + global visible, foreign hidden) is correct for the
+        common single-tenant caller; an org-context member simply does not yet see
+        their org's private species on the global route. Generalising this — an
+        explicit active-tenant claim in the JWT, a context header, or promoting
+        these catalogues to ``/t/{slug}/`` variants — is the open REQ-049 design
+        decision. When it lands, replace *only this function*: every read and the
+        write stamping move with it, because they all depend on it.
     """
     personal = tenant_service.get_personal_tenant(user.key or "")
     return personal.key if personal and personal.key else ""
+
+
+#: F-3 back-compat alias. The write-stamping dependency the species create route
+#: depends on (``Depends(get_creating_tenant_key)``) is the *same* "caller's
+#: active tenant on a global route" resolver the F-5 read path uses. Keeping it as
+#: an alias (identical function object) means a test overriding
+#: ``get_creating_tenant_key`` still reaches the resolver, and read scope can
+#: never diverge from write stamping. The name is retained because F-3 and its
+#: tests reference it and it reads well at the create call site.
+get_creating_tenant_key = get_active_tenant_key
 
 
 def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:

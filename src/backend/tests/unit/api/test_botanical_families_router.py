@@ -56,25 +56,34 @@ class _FakeFamilyRepo:
         self.bulk_count_calls = 0
         self.per_family_count_calls: list[str] = []
         self.species_by_family_calls: list[str] = []
+        # F-5/#808: record the tenant_key each species read was scoped with, so a
+        # test can prove the router threads the resolved active tenant through (a
+        # count/listing that dropped the key would silently leak foreign species).
+        self.bulk_count_tenant_keys: list[str | None] = []
+        self.per_family_count_tenant_keys: list[str | None] = []
+        self.species_by_family_tenant_keys: list[str | None] = []
 
     def get_all_families(self, offset: int = 0, limit: int = 50) -> tuple[list[BotanicalFamily], int]:
         return self._families[offset : offset + limit], len(self._families)
 
-    def get_species_counts_by_family(self) -> dict[str, int]:
+    def get_species_counts_by_family(self, *, tenant_key: str | None = None) -> dict[str, int]:
         self.bulk_count_calls += 1
+        self.bulk_count_tenant_keys.append(tenant_key)
         # Families without species are absent from the map, exactly like the AQL
         # aggregate — this is what makes the router's ``.get(key, 0)`` load-bearing.
         return dict(self._counts)
 
-    def get_species_count_by_family(self, family_key: str) -> int:
+    def get_species_count_by_family(self, family_key: str, *, tenant_key: str | None = None) -> int:
         self.per_family_count_calls.append(family_key)
+        self.per_family_count_tenant_keys.append(tenant_key)
         return self._counts.get(family_key, 0)
 
     def get_by_key(self, key: str) -> BotanicalFamily | None:
         return next((f for f in self._families if f.key == key), None)
 
-    def get_species_by_family(self, family_key: str) -> list[Species]:
+    def get_species_by_family(self, family_key: str, *, tenant_key: str | None = None) -> list[Species]:
         self.species_by_family_calls.append(family_key)
+        self.species_by_family_tenant_keys.append(tenant_key)
         return list(self._species)
 
     def create_family(self, family: BotanicalFamily) -> BotanicalFamily:
@@ -91,7 +100,7 @@ class TestListFamiliesUsesBulkCounts:
             counts={"rosaceae": 7, "fabaceae": 3},
         )
 
-        result = list_families(pagination=PaginationParams(), repo=repo)
+        result = list_families(pagination=PaginationParams(), repo=repo, tenant_key="")
 
         assert [r.species_count for r in result] == [7, 3]
         assert repo.bulk_count_calls == 1
@@ -102,7 +111,7 @@ class TestListFamiliesUsesBulkCounts:
         families = [_family(f"famil{i}aceae", f"Famil{i}aceae") for i in range(10)]
         repo = _FakeFamilyRepo(families=families, counts={f.key or "": 1 for f in families})
 
-        result = list_families(pagination=PaginationParams(), repo=repo)
+        result = list_families(pagination=PaginationParams(), repo=repo, tenant_key="")
 
         assert len(result) == 10
         # One round-trip regardless of page size — the whole point of the rewire.
@@ -115,7 +124,7 @@ class TestListFamiliesUsesBulkCounts:
             counts={"rosaceae": 7},
         )
 
-        result = list_families(pagination=PaginationParams(), repo=repo)
+        result = list_families(pagination=PaginationParams(), repo=repo, tenant_key="")
 
         assert [(r.key, r.species_count) for r in result] == [("rosaceae", 7), ("lamiaceae", 0)]
 
@@ -125,7 +134,7 @@ class TestListFamiliesUsesBulkCounts:
             counts={"rosaceae": 7, "fabaceae": 3},
         )
 
-        result = list_families(pagination=PaginationParams(offset=1, limit=1), repo=repo)
+        result = list_families(pagination=PaginationParams(offset=1, limit=1), repo=repo, tenant_key="")
 
         assert [r.key for r in result] == ["fabaceae"]
         assert repo.bulk_count_calls == 1
@@ -135,7 +144,7 @@ class TestSingleRowEndpointsKeepPerFamilyCount:
     def test_get_family_uses_the_per_family_count(self):
         repo = _FakeFamilyRepo(families=[_family("rosaceae", "Rosaceae")], counts={"rosaceae": 7})
 
-        result = get_family(key="rosaceae", repo=repo)
+        result = get_family(key="rosaceae", repo=repo, tenant_key="")
 
         assert result.species_count == 7
         assert repo.per_family_count_calls == ["rosaceae"]
@@ -145,7 +154,7 @@ class TestSingleRowEndpointsKeepPerFamilyCount:
     def test_create_family_uses_the_per_family_count(self):
         repo = _FakeFamilyRepo(counts={})
 
-        result = create_family(body=FamilyCreate(name="Rosaceae"), repo=repo)
+        result = create_family(body=FamilyCreate(name="Rosaceae"), repo=repo, tenant_key="")
 
         assert result.species_count == 0
         assert repo.per_family_count_calls == [""]
@@ -154,7 +163,7 @@ class TestSingleRowEndpointsKeepPerFamilyCount:
     def test_update_family_uses_the_per_family_count(self):
         repo = _FakeFamilyRepo(counts={"rosaceae": 7})
 
-        result = update_family(key="rosaceae", body=FamilyCreate(name="Rosaceae"), repo=repo)
+        result = update_family(key="rosaceae", body=FamilyCreate(name="Rosaceae"), repo=repo, tenant_key="")
 
         assert result.species_count == 7
         assert repo.per_family_count_calls == ["rosaceae"]
@@ -168,11 +177,47 @@ class TestFamilySpeciesEndpoint:
             species=[Species(_key="sp1", scientific_name="Rosa canina", family_key="rosaceae")],
         )
 
-        result = get_family_species(key="rosaceae", repo=repo)
+        result = get_family_species(key="rosaceae", repo=repo, tenant_key="")
 
         assert [s.scientific_name for s in result] == ["Rosa canina"]
         # The assignment is resolved by family key, not by walking an edge.
         assert repo.species_by_family_calls == ["rosaceae"]
+
+
+class TestFamilyEndpointsThreadTheActiveTenant:
+    """Every family species read must be scoped by the caller's active tenant (F-5, #808).
+
+    The router resolves the tenant with :func:`get_active_tenant_key` and must
+    hand it to *each* species read. Dropping it on any one of them re-opens the
+    #808 leak on the family-scoped surface (a foreign tenant's species reappearing
+    in a count or listing), and diverges the count from the list (#816). These
+    pin the wiring so an inert (resolved-but-unused) tenant_key cannot slip
+    through green like the guards in MEMORY.md's "implementiert-aber-inert" class.
+    """
+
+    def test_list_families_scopes_the_bulk_count(self):
+        repo = _FakeFamilyRepo(families=[_family("rosaceae", "Rosaceae")], counts={"rosaceae": 7})
+
+        list_families(pagination=PaginationParams(), repo=repo, tenant_key="tenant_x")
+
+        assert repo.bulk_count_tenant_keys == ["tenant_x"]
+
+    def test_get_family_scopes_the_per_family_count(self):
+        repo = _FakeFamilyRepo(families=[_family("rosaceae", "Rosaceae")], counts={"rosaceae": 7})
+
+        get_family(key="rosaceae", repo=repo, tenant_key="tenant_x")
+
+        assert repo.per_family_count_tenant_keys == ["tenant_x"]
+
+    def test_get_family_species_scopes_the_listing(self):
+        repo = _FakeFamilyRepo(
+            families=[_family("rosaceae", "Rosaceae")],
+            species=[Species(_key="sp1", scientific_name="Rosa canina", family_key="rosaceae")],
+        )
+
+        get_family_species(key="rosaceae", repo=repo, tenant_key="tenant_x")
+
+        assert repo.species_by_family_tenant_keys == ["tenant_x"]
 
 
 class TestFamilyCreateRejectsAtTheBoundary:
@@ -211,7 +256,7 @@ class TestFamilyCreateRejectsAtTheBoundary:
 
     def test_the_handler_creates_a_valid_family(self):
         repo = _FakeFamilyRepo(counts={})
-        result = create_family(body=FamilyCreate(name="Rosaceae", order="Rosales"), repo=repo)
+        result = create_family(body=FamilyCreate(name="Rosaceae", order="Rosales"), repo=repo, tenant_key="")
         assert result.name == "Rosaceae"
 
 
@@ -226,10 +271,10 @@ class TestUnknownFamilyIsNotFound:
         repo = _FakeFamilyRepo(families=[])
 
         with pytest.raises(NotFoundError):
-            get_family(key="missing", repo=repo)
+            get_family(key="missing", repo=repo, tenant_key="")
 
     def test_get_family_species_raises_not_found(self):
         repo = _FakeFamilyRepo(families=[])
 
         with pytest.raises(NotFoundError):
-            get_family_species(key="missing", repo=repo)
+            get_family_species(key="missing", repo=repo, tenant_key="")

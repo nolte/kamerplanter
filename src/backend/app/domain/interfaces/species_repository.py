@@ -7,7 +7,9 @@ from app.domain.models.species import Cultivar, Species
 
 class ISpeciesRepository(ABC):
     @abstractmethod
-    def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[Species], int]: ...
+    def get_all(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[Species], int]: ...
 
     @abstractmethod
     def get_by_key(self, key: SpeciesKey) -> Species | None: ...
