@@ -47,6 +47,7 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._journey_helpers import provision_plant
 from .pages import PlantInstanceListPage, PlantPhotoGalleryPage
 
 pytestmark = pytest.mark.requires_auth
@@ -189,28 +190,71 @@ class TestPlantGalleryListPlaceholder:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-003: Plants without a photo render a neutral placeholder.
+        """TC-REQ-034-003: A plant without a photo renders the neutral placeholder.
 
         Spec: TC-REQ-034-003 — Pflanze ohne Foto zeigt Platzhalter in der
         Listenansicht (kein gebrochenes Bild).
-        """
-        plant_list.open()
-        if plant_list.get_row_count() == 0:
-            pytest.skip("No plant instances — cannot check list placeholders")
 
+        Self-provisions a fresh plant instance through the real create dialog
+        (``provision_plant``, #589) instead of trusting an ambient seed row to
+        be photo-less: a freshly created instance is guaranteed to hold zero
+        photos, so ``PlantCoverPreview`` (``PlantCoverPreview.tsx``) is
+        guaranteed to settle on its placeholder branch and never its
+        cover-image branch. That guarantee is what makes this falsifiable —
+        unlike the previous ``has_cover_placeholder() or has_cover_image()``,
+        which every implementation of the widget satisfies by construction (it
+        always renders *exactly one* of the two testids), this version fails
+        for a regression that shows an image — broken or not — for a
+        photo-less plant, because it pins both branches independently against
+        one plant instance whose photo count this test itself controls.
+        """
+        _key, instance_id = provision_plant(plant_list, id_prefix="TC034-003")
+
+        # Filter the list down to exactly this plant's row. The cover-preview
+        # readers below (`has_cover_previews`/`has_cover_image`/
+        # `has_cover_placeholder`/`has_broken_cover_image`) query the whole
+        # page rather than a single row element, so scoping happens here, at
+        # the table level, instead of inside the page object.
+        plant_list.open()
+        plant_list.search(instance_id)
+        plant_list.wait_for_search_applied(instance_id, what="plant instance list")
+        plant_list.wait_for_row_identity(
+            0,
+            PlantInstanceListPage.INSTANCE_ID_COLUMN_ID,
+            instance_id,
+            rows_locator=PlantInstanceListPage.TABLE_ROWS,
+            what=f"self-provisioned plant instance '{instance_id}'",
+        )
         screenshot(
             "TC-REQ-034-003_list-cover-previews",
-            "Plant list with per-row cover previews",
+            f"Plant list filtered to the self-provisioned photo-less plant '{instance_id}'",
         )
 
-        # Every row renders a PlantCoverPreview — for plants without a cover it
-        # shows the botanical placeholder icon, never a broken <img>.
         assert gallery.has_cover_previews(), (
-            "TC-REQ-034-003 FAIL: Expected at least one cover-preview widget in the list"
+            "TC-REQ-034-003 FAIL: Expected the cover-preview widget for "
+            f"self-provisioned plant '{instance_id}' in the filtered list"
         )
-        assert gallery.has_cover_placeholder() or gallery.has_cover_image(), (
-            "TC-REQ-034-003 FAIL: Cover previews rendered neither a placeholder "
-            "nor an image — possible broken-image state"
+        # Bounded-wait negative first: gives `PlantCoverPreview`'s own async
+        # `listPlantPhotos` fetch the full timeout to settle before this test
+        # declares "no cover image ever appeared". A plant with zero photos can
+        # never resolve to the image branch, so this must hold once the wait is
+        # exhausted, not merely at the unsettled first paint (see
+        # `has_cover_image`'s own docstring for why an unwaited read here would
+        # prove nothing).
+        assert not gallery.has_cover_image(), (
+            f"TC-REQ-034-003 FAIL: Self-provisioned plant '{instance_id}' has "
+            "zero photos, yet its list cover preview resolved to a cover image "
+            "— PlantCoverPreview must never show an image for a photo-less plant"
+        )
+        assert gallery.has_cover_placeholder(), (
+            f"TC-REQ-034-003 FAIL: Self-provisioned plant '{instance_id}' has "
+            "zero photos, yet no botanical placeholder icon is rendered in its "
+            "list cover preview"
+        )
+        assert not gallery.has_broken_cover_image(), (
+            f"TC-REQ-034-003 FAIL: Self-provisioned plant '{instance_id}' shows "
+            "a broken cover-image element (failed fetch or undecodable image) "
+            "instead of the placeholder — AC-06 forbids a broken-image state"
         )
 
 

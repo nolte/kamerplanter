@@ -45,6 +45,12 @@ class PlantPhotoGalleryPage(BasePage):
     COVER_PREVIEW = (By.CSS_SELECTOR, "[data-testid='plant-cover-preview']")
     COVER_IMAGE = (By.CSS_SELECTOR, "[data-testid='plant-cover-image']")
     COVER_PLACEHOLDER = (By.CSS_SELECTOR, "[data-testid='plant-cover-placeholder']")
+    #: `AuthImage`'s own broken-image box, rendered when its authenticated blob
+    #: *fetch* fails (`useAuthImage` status ``'error'``) -- suffixed `-error` on
+    #: whatever test id it was given (`AuthImage.tsx`). Distinct from the
+    #: `naturalWidth === 0` case :meth:`has_broken_cover_image` also checks,
+    #: which is a `<img>` whose blob fetched fine but did not *decode*.
+    COVER_IMAGE_ERROR = (By.CSS_SELECTOR, "[data-testid='plant-cover-image-error']")
 
     # ── Upload dialog (REQ-034 §2.2) ────────────────────────────────────
     UPLOAD_DIALOG = (By.CSS_SELECTOR, "[data-testid='plant-photo-upload-dialog']")
@@ -492,6 +498,39 @@ class PlantPhotoGalleryPage(BasePage):
 
     def wait_for_cover_image(self, timeout: int = 15) -> None:
         self.poll(timeout).until(EC.presence_of_element_located(self.COVER_IMAGE))
+
+    def has_broken_cover_image(self) -> bool:
+        """Return True if a cover image is rendered but never a valid photo (AC-06).
+
+        Two independent failure shapes, checked together because either one is
+        the "broken image" state AC-06 forbids:
+
+        1. `AuthImage`'s own error box (`COVER_IMAGE_ERROR`) -- its authenticated
+           blob *fetch* failed (401/403/network). `PlantCoverPreview` normally
+           intercepts this via ``onError`` and swaps to the botanical
+           placeholder on the next render, so seeing this box at all means that
+           interception did not happen (or has not happened yet).
+        2. A `[data-testid='plant-cover-image']` `<img>` whose blob fetched fine
+           (`AuthImage` only mounts the real `<img>` once ``status ===
+           'loaded'``) but did not *decode* -- `naturalWidth === 0` on a
+           `complete` image is the standard DOM signal for that, and it is
+           invisible to `useAuthImage`'s network-level status, so nothing else
+           in this page object catches it.
+
+        Deliberately instantaneous like :meth:`has_cover_placeholder`: its
+        caller in ``test_req034_plant_gallery.py`` always reads it *after*
+        :meth:`has_cover_image` has already spent the bounded wait letting the
+        row's fetch settle -- by the time control reaches here, whatever cover
+        state exists has already resolved.
+        """
+        if self.driver.find_elements(*self.COVER_IMAGE_ERROR):
+            return True
+        return bool(
+            self.driver.execute_script(
+                "var el = document.querySelector(\"[data-testid='plant-cover-image']\");"
+                "return !!(el && el.tagName === 'IMG' && el.complete && el.naturalWidth === 0);"
+            )
+        )
 
     # ── Delete flow ─────────────────────────────────────────────────────
 
