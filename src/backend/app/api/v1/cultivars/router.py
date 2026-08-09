@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.cultivars.schemas import CultivarCreate, CultivarResponse
-from app.common.auth import get_creating_tenant_key, get_current_user
+from app.common.auth import get_active_tenant_key, get_creating_tenant_key, get_current_user
 from app.common.dependencies import get_species_service
 from app.common.enums import DataOrigin
 from app.common.exceptions import ValidationError
@@ -25,9 +25,18 @@ router = APIRouter(
 def list_cultivars(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     service: SpeciesService = Depends(get_species_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ):
-    """List the cultivars registered for a species."""
-    cultivars = service.list_cultivars(species_key)
+    """List the cultivars registered for a species.
+
+    Tenant-aware (C-3, #1090): returns the global cultivar catalogue
+    (``tenant_key == ""``) plus the caller's own cultivars, and never a foreign
+    tenant's. The active tenant is resolved by
+    :func:`~app.common.auth.get_active_tenant_key`; an anonymous/light-mode caller
+    resolves to ``""`` and sees exactly the global catalogue. A *foreign* tenant's
+    species answers 404 rather than an empty list (operator decision Q3).
+    """
+    cultivars = service.list_cultivars(species_key, tenant_key=tenant_key)
     return [to_response(c, CultivarResponse) for c in cultivars]
 
 
@@ -70,9 +79,16 @@ def get_cultivar(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     cultivar_key: Annotated[str, Path(description="Document key of the cultivar.")],
     service: SpeciesService = Depends(get_species_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ):
-    """Return a single cultivar of a species by key."""
-    c = service.get_cultivar(cultivar_key)
+    """Return a single cultivar of a species by key.
+
+    Tenant-aware (C-3, #1090): the caller's active tenant is threaded into
+    :meth:`SpeciesService.get_cultivar`, so the global catalogue and the caller's
+    own cultivars resolve, but a *foreign* tenant's cultivar answers 404 — never a
+    403, so the by-key endpoint is not an enumerable cross-tenant oracle.
+    """
+    c = service.get_cultivar(cultivar_key, tenant_key=tenant_key)
     return to_response(c, CultivarResponse)
 
 

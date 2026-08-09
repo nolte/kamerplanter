@@ -148,9 +148,18 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
 
         Backs :meth:`SpeciesService.list_shadow_pairs`, an operator-facing report
         that measures how many normalized-name / synonym shadow pairs the catalogue
-        still carries. It is a deliberate full read (the report is inherently a
-        cross-comparison of every record); species is a small reference collection
-        and carries no ``tenant_key`` (#808), so no scoping applies.
+        still carries. It is a deliberate **unscoped** full read: the report is
+        inherently a cross-comparison of every record, and a shadow pair that spans
+        the global catalogue and a tenant's own row is exactly the kind the operator
+        must see.
+
+        Species *does* carry a ``tenant_key`` since #808 / PR #1087 — an earlier
+        version of this docstring claimed it did not, which was already false when
+        written (E2, #1090). The absence of scoping here is therefore a deliberate
+        system-context choice, not an "the entity has no owner" consequence: this
+        method is reachable only from the operator report, never from a tenant-facing
+        route. Any future caller that *is* tenant-facing must not reuse it — use
+        :meth:`get_all` with a ``tenant_key`` instead.
         """
         query = f"FOR s IN {col.SPECIES} RETURN s"
         cursor = self._db.aql.execute(query)
@@ -216,8 +225,46 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         cursor = self._db.aql.execute(query, bind_vars=query_vars)
         return [Species(**self._from_doc(doc)) for doc in cursor]
 
-    def get_cultivars(self, species_key: SpeciesKey) -> list[Cultivar]:
-        return self._cultivars.find_by_field("species_key", species_key)
+    def get_cultivars(self, species_key: SpeciesKey, *, tenant_key: str | None = None) -> list[Cultivar]:
+        """List a species' cultivars, optionally scoped to a caller's tenant (C-3, #1090).
+
+        Cultivars are a **hybrid catalogue** exactly like species: globally seeded
+        rows (``tenant_key == ""``) shared by everyone, plus a tenant's own
+        additions. ``tenant_key`` selects the visibility:
+
+        * ``None`` (the default) — no scoping: every cultivar of the species. This
+          is the *system-context* read the seed loaders
+          (:func:`~app.migrations.seed_data.seed_cultivars` and its siblings) and
+          the dereference paths depend on; the seeders in particular must see
+          tenant-owned rows, because their name matching is ownership-aware and
+          would otherwise re-create a shadow of a tenant's cultivar.
+        * a string (including ``""``) — the three-arm hybrid-catalogue union
+          (:func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`):
+          the caller's own rows **plus** the global seeds, never a *foreign*
+          tenant's (#324 both directions). Keeping the ``== ""`` arm is
+          load-bearing: migration ``v0038`` deliberately left every pre-#1090
+          cultivar global, so a strict ``== @tenant_key`` filter would blank the
+          whole catalogue for every real tenant.
+          An empty ``""`` (anonymous / light-mode / no personal tenant) collapses
+          the union to global-only — never an error, never all tenants.
+
+        The scoped branch is hand-written AQL because the union is an ``OR`` over
+        three arms and :meth:`~app.data_access.arango.base_repository.BaseArangoRepository.find_by_field`
+        AND-joins its ``extra_filters`` (P3). It calls the F-4 shared helper rather
+        than inlining a fifth copy of the predicate, so this read narrows the
+        collection identically to the species reads (#816).
+        """
+        if tenant_key is None:
+            return self._cultivars.find_by_field("species_key", species_key)
+        predicate, bind_vars = tenant_union_predicate(tenant_key)
+        query_vars: dict[str, Any] = {**bind_vars, "species_key": species_key}
+        query = (
+            f"FOR doc IN {col.CULTIVARS} "
+            f"FILTER doc.species_key == @species_key AND {predicate} "
+            "SORT doc._key RETURN doc"
+        )
+        cursor = self._db.aql.execute(query, bind_vars=query_vars)
+        return [Cultivar(**self._from_doc(doc)) for doc in cursor]
 
     def create_cultivar(self, cultivar: Cultivar) -> Cultivar:
         created = self._cultivars.create(cultivar)

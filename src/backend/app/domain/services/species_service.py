@@ -386,16 +386,51 @@ class SpeciesService:
         """
         return self._repo.search(name=name, family_key=family_key, tenant_key=tenant_key)
 
-    def list_cultivars(self, species_key: SpeciesKey) -> list[Cultivar]:
-        self.get_species(species_key)
-        return self._repo.get_cultivars(species_key)
+    def list_cultivars(self, species_key: SpeciesKey, *, tenant_key: str | None = None) -> list[Cultivar]:
+        """List a species' cultivars, tenant-scoped when ``tenant_key`` is given (C-3, #1090).
+
+        ``tenant_key`` mirrors :meth:`list_species` and is threaded straight into
+        the repository's hybrid-catalogue union — the caller's own cultivars plus
+        the global seeds, never a foreign tenant's (#324 both directions).
+        ``None`` (the default) is the unscoped system-context read internal callers
+        rely on (P5); the HTTP route always supplies the caller's resolved active
+        tenant (``""`` for an anonymous/light-mode caller → global-only).
+
+        The species-existence check is **co-scoped** (operator decision Q3): the same
+        ``tenant_key`` is passed to :meth:`get_species`, so asking for the cultivars
+        of a *foreign* tenant's species raises :class:`NotFoundError` instead of
+        answering an empty list — an empty list would confirm the species key exists
+        and turn this route into the cross-tenant oracle SEC-001 closed on the
+        species read itself.
+        """
+        self.get_species(species_key, tenant_key=tenant_key)
+        return self._repo.get_cultivars(species_key, tenant_key=tenant_key)
 
     def create_cultivar(self, cultivar: Cultivar) -> Cultivar:
         self.get_species(cultivar.species_key)
         return self._repo.create_cultivar(cultivar)
 
-    def get_cultivar(self, key: CultivarKey) -> Cultivar:
-        return self._repo.get_cultivar_or_raise(key)
+    def get_cultivar(self, key: CultivarKey, *, tenant_key: str | None = None) -> Cultivar:
+        """Return one cultivar by key, tenant-scoped when ``tenant_key`` is given (C-3, #1090).
+
+        The Cultivar pendant of :meth:`get_species`, with the same two modes:
+
+        * ``None`` (the default) — the unscoped **system-context** load internal
+          callers use (the update/delete ownership check below, the dereference
+          paths, the seed loaders). Never reachable from a raw HTTP read.
+        * a string (including ``""``) — the hybrid-catalogue read check: the
+          caller's own cultivars plus the global catalogue (``tenant_key == ""``,
+          which after migration ``v0038`` still holds every pre-#1090 row) resolve,
+          but a *foreign* tenant's cultivar raises :class:`NotFoundError`.
+
+        The check runs **after** an unscoped load, so a foreign row and an absent
+        key are indistinguishable to the caller: both are a 404, never a 403 — the
+        by-key endpoint must not become a cross-tenant existence oracle.
+        """
+        cultivar = self._repo.get_cultivar_or_raise(key)
+        if tenant_key is not None and cultivar.tenant_key not in (tenant_key, ""):
+            raise NotFoundError("Cultivar", key)
+        return cultivar
 
     def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
         existing = self.get_cultivar(key)
