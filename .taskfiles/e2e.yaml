@@ -1,0 +1,46 @@
+# ── E2E Tests ────────────────────────────────────────────────────────────────
+# The Selenium E2E suite (full, smoke, per-profile via CLI_ARGS), the
+# browser-free harness self-tests and the spec-to-test traceability check.
+# e2e-smoke.yml and e2e-nightly.yml run the same scripts/run-e2e.sh.
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+tasks:
+  test:e2e:
+    desc: Run Selenium E2E tests
+    cmds:
+      - ./scripts/run-e2e.sh {{.CLI_ARGS}}
+
+  test:e2e:smoke:
+    desc: Run Selenium E2E smoke tests (core functionality, ~2min)
+    cmds:
+      - ./scripts/run-e2e.sh --smoke {{.CLI_ARGS}}
+
+  test:e2e:selftest:
+    desc: |
+      Run the browser-free unit tests for the E2E harness itself
+      (tests/e2e_selftest/): branch resolution in BasePage's settling helpers,
+      the sidebar-navigation fallback contract, the shrink-only ratchet on bare
+      `navigate()` calls, and the re-resolving element reference in
+      pages/_element_proxy.py — what it heals, what it must not, and the budget
+      that bounds it. No stack, no browser, no Grid — only `selenium` needs to
+      be importable. The same tier runs in the required `static` gate through
+      the `e2e-selftest` pre-commit hook, so this task is the local preview of
+      a check that also blocks the PR.
+    cmds:
+      - python3 -m pytest tests/e2e_selftest {{.CLI_ARGS}}
+
+  test:e2e:traceability:
+    desc: |
+      Verify spec-to-test traceability on both ID channels: every Gherkin scenario
+      under tests/e2e/features/ must carry a @TC-<id> tag, and every classic test
+      must declare a docstring TC-ID, each resolving to a test case declared in
+      spec/e2e-testcases/. Fails on an unresolvable ID or a missing one in either
+      channel; declared cases without a test are informational only.
+      No stack and no dependencies needed (stdlib Python).
+      Pass --list-unimplemented to also list the not-yet-automated cases.
+    cmds:
+      - python3 scripts/check_bdd_traceability.py {{.CLI_ARGS}}

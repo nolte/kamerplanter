@@ -1,0 +1,35 @@
+# ── Shared libs ──────────────────────────────────────────────────────────────
+# The vendored shared packages (kp_errortracking, kp_vectordb): sync their
+# service copies, verify the copies are in sync, run their test suites.
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+tasks:
+  errortracking:sync:
+    desc: Sync the shared kp_errortracking module into the backend and both services
+    cmds:
+      - python src/libs/kp_errortracking/sync.py
+
+  errortracking:check:
+    desc: Verify the kp_errortracking service copies are in sync (also a pre-commit gate)
+    cmds:
+      - python src/libs/kp_errortracking/sync.py --check
+
+  vectordb:sync:
+    desc: Sync the shared kp_vectordb infra (connection/schema/config) into both services
+    cmds:
+      - python src/libs/kp_vectordb/sync.py
+
+  vectordb:check:
+    desc: Verify the kp_vectordb service copies are in sync (CI guard, non-zero exit on drift)
+    cmds:
+      - python src/libs/kp_vectordb/sync.py --check
+
+  test:kp-vectordb:
+    desc: Run the shared kp_vectordb package test suite
+    dir: src/libs/kp_vectordb
+    cmds:
+      - python -m pytest {{.CLI_ARGS}}

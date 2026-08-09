@@ -1,0 +1,51 @@
+# ── Documentation ────────────────────────────────────────────────────────────
+# MkDocs build/serve from the isolated .venv-docs, plus the generators for the
+# Claude catalog pages and the fact-table snippets.
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+tasks:
+  docs:catalog:
+    desc: Regenerate the Claude skill & agent catalog pages (docs/<locale>/skills/, agents/, tags.md)
+    cmds:
+      - python scripts/docs/gen_catalog.py
+
+  docs:fact-tables:
+    desc: Regenerate the fact-table snippets (docs/_generated/) from backend code & seed data
+    cmds:
+      - python scripts/docs/gen_fact_tables.py
+
+  docs:venv:
+    desc: |
+      Create the isolated MkDocs venv (.venv-docs) and install docs/requirements.txt.
+      Idempotent. The system Pythons cannot run MkDocs here (PEP-668 / mixed
+      user-site packages), so docs:serve/build run from this venv. Override the
+      base interpreter with DOCS_PYTHON=<path> if `python3` is not usable.
+    vars:
+      DOCS_PYTHON: '{{.DOCS_PYTHON | default "python3"}}'
+    cmds:
+      - '{{.DOCS_PYTHON}} -m venv .venv-docs'
+      - .venv-docs/bin/pip install -q --upgrade pip
+      - .venv-docs/bin/pip install -q -r docs/requirements.txt
+    status:
+      - test -x .venv-docs/bin/mkdocs
+
+  docs:serve:
+    desc: |
+      Serve MkDocs documentation locally (regenerates the Claude catalog and
+      fact tables first). Runs on port DOCS_PORT (default 8001; 8000 is taken by
+      the backend port-forward). Override with: task docs:serve DOCS_PORT=8123
+    deps: [docs:catalog, docs:fact-tables, docs:venv]
+    vars:
+      DOCS_PORT: '{{.DOCS_PORT | default "8001"}}'
+    cmds:
+      - .venv-docs/bin/mkdocs serve --dev-addr 127.0.0.1:{{.DOCS_PORT}}
+
+  docs:build:
+    desc: Build MkDocs documentation (regenerates the Claude catalog & fact tables first)
+    deps: [docs:catalog, docs:fact-tables, docs:venv]
+    cmds:
+      - .venv-docs/bin/mkdocs build

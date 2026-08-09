@@ -1,0 +1,78 @@
+# ── Development Environment ──────────────────────────────────────────────────
+# Kind cluster lifecycle, the Skaffold dev loops (per module), the image-
+# recognition helpers (REQ-029-A) and local system tuning.
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+tasks:
+  setup:
+    desc: Create Kind cluster and install prerequisites
+    cmds:
+      - ./scripts/dev-setup.sh
+
+  teardown:
+    desc: Tear down Kind cluster
+    cmds:
+      - ./scripts/dev-teardown.sh
+
+  dev:
+    desc: Start full Skaffold dev loop (file sync stays automatic, rebuild/redeploy on Enter)
+    cmds:
+      - skaffold dev --auto-build=false --auto-deploy=false --auto-sync=true
+
+  dev:backend:
+    desc: Start Skaffold dev loop (backend only, file sync automatic, rebuild/redeploy on Enter)
+    cmds:
+      - skaffold dev -p backend-only --auto-build=false --auto-deploy=false --auto-sync=true
+
+  dev:core:
+    desc: Start Skaffold dev loop for the KP Core module only (backend, frontend, celery, arangodb, timescaledb) — excludes the KI/AI (ki) module. File sync stays automatic; rebuild/redeploy on Enter.
+    cmds:
+      - skaffold dev -m kp --auto-build=false --auto-deploy=false --auto-sync=true
+
+  dev:ki:
+    desc: Start Skaffold dev loop for the KI/AI module (knowledge-service, embedding-service, reranker, pgvector) — RAG stack without image recognition. File sync stays automatic; rebuild/redeploy on Enter.
+    cmds:
+      - skaffold dev -m ki --auto-build=false --auto-deploy=false --auto-sync=true
+
+  dev:recognition:
+    desc: Start Skaffold dev loop for image recognition (inference-service) plus the ki module that provides the shared pgvector store. Optional feature (REQ-029-A). File sync stays automatic; rebuild/redeploy on Enter.
+    cmds:
+      - skaffold dev -m ki -m recognition --auto-build=false --auto-deploy=false --auto-sync=true
+
+  dev:recognition:only:
+    desc: Start only the recognition inference-service (no RAG stack). Requires the kamerplanter-ki pgvector DB to be running already (e.g. from 'task dev:ki'). File sync stays automatic; rebuild/redeploy on Enter.
+    cmds:
+      - skaffold dev -m recognition --auto-build=false --auto-deploy=false --auto-sync=true
+
+  dev:all:
+    desc: Start Skaffold dev loop for all modules (KP Core + KI/AI + recognition). File sync stays automatic; rebuild/redeploy on Enter.
+    cmds:
+      - skaffold dev -m kp -m ki -m recognition --auto-build=false --auto-deploy=false --auto-sync=true
+
+  # ── Image Recognition (REQ-029-A) ───────────────────────────
+
+  recognition:acquire:
+    desc: Trigger reference-image acquisition for ALL species — populates the DINOv2 pgvector index and the species thumbnails/gallery. Requires the recognition + ki + backend stack running.
+    cmds:
+      - kubectl exec deploy/kamerplanter-celery-worker -n default -- celery -A app.tasks call app.tasks.reference_image_tasks.acquire_all_reference_images_task
+
+  recognition:coverage:
+    desc: Print the reference-image coverage report (how many species are recognizable). Port-forward the backend first (task dev:core) or run inside the cluster.
+    cmds:
+      - 'curl -s http://localhost:8000/api/v1/admin/reference-images/coverage -H "Authorization: Bearer ${ADMIN_TOKEN}"'
+
+  # ── System Tuning ───────────────────────────────────────────
+
+  fix:inotify:
+    desc: Increase inotify limits (fixes 'too many open files' in Skaffold)
+    cmds:
+      - sudo sysctl fs.inotify.max_user_watches=524288
+      - sudo sysctl fs.inotify.max_user_instances=512
+      - echo -e "fs.inotify.max_user_watches=524288\nfs.inotify.max_user_instances=512" | sudo tee /etc/sysctl.d/90-inotify.conf
+    status:
+      - test $(cat /proc/sys/fs/inotify/max_user_watches) -ge 524288
+      - test $(cat /proc/sys/fs/inotify/max_user_instances) -ge 512
