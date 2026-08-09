@@ -16,6 +16,7 @@ collection to serve one row would be strictly worse).
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from app.api.v1.botanical_families.router import (
     create_family,
@@ -25,6 +26,7 @@ from app.api.v1.botanical_families.router import (
     update_family,
 )
 from app.api.v1.botanical_families.schemas import FamilyCreate
+from app.common.enums import NutrientDemand
 from app.common.exceptions import NotFoundError
 from app.common.pagination import PaginationParams
 from app.domain.models.botanical_family import BotanicalFamily
@@ -171,6 +173,46 @@ class TestFamilySpeciesEndpoint:
         assert [s.scientific_name for s in result] == ["Rosa canina"]
         # The assignment is resolved by family key, not by walking an edge.
         assert repo.species_by_family_calls == ["rosaceae"]
+
+
+class TestFamilyCreateRejectsAtTheBoundary:
+    """Invalid taxonomic input is a 422, not a 500 (mirrors BotanicalFamily, #970).
+
+    ``create_family``/``update_family`` build the ``BotanicalFamily`` domain model
+    from the request body. The domain model enforces botanical nomenclature
+    (name → ``-aceae``, order → ``-ales``, nitrogen-fixing not heavy); a
+    ``ValidationError`` raised at that construction site escaped the handler as a
+    500 ``INTERNAL_ERROR`` rather than the 422 the input deserves — the failure
+    the e2e create tests surfaced once their vacuous assertions were removed.
+    Mirroring the rules onto ``FamilyCreate`` rejects the input while it is still
+    request-body parsing, where FastAPI answers 422 with a field-anchored detail.
+    """
+
+    def test_name_not_ending_in_aceae_is_rejected(self):
+        with pytest.raises(ValidationError):
+            FamilyCreate(name="Solanidae")
+
+    def test_order_not_ending_in_ales_is_rejected(self):
+        with pytest.raises(ValidationError):
+            FamilyCreate(name="Rosaceae", order="Rosidae")
+
+    def test_nitrogen_fixing_heavy_combo_is_rejected(self):
+        with pytest.raises(ValidationError):
+            FamilyCreate(
+                name="Fabaceae",
+                nitrogen_fixing=True,
+                typical_nutrient_demand=NutrientDemand.HEAVY,
+            )
+
+    def test_a_valid_family_still_constructs(self):
+        body = FamilyCreate(name="Rosaceae", order="Rosales")
+        assert body.name == "Rosaceae"
+        assert body.order == "Rosales"
+
+    def test_the_handler_creates_a_valid_family(self):
+        repo = _FakeFamilyRepo(counts={})
+        result = create_family(body=FamilyCreate(name="Rosaceae", order="Rosales"), repo=repo)
+        assert result.name == "Rosaceae"
 
 
 class TestUnknownFamilyIsNotFound:
