@@ -1,7 +1,7 @@
 ---
 id: F-3
 title: Species-Mandanten-Ownership — Feld, Write-Stamping & Cutover-Migration
-status: ready
+status: in_progress
 roadmap_item: R-14
 sprint: 2
 created: 2026-08-09

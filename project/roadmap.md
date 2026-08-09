@@ -31,9 +31,15 @@ title: Stammdaten-Mandanten-Scoping (Species & Cultivar)
 detail: fine
 outcomes: [O-4]
 target_sprint: 2
-mvp: false
-status: proposed
+mvp: true
+status: active
 ```
+
+**MVP-Flip (Operator-Entscheid 2026-08-09):** `mvp: false → true`. Erlaubt, weil
+`mvp_status` (mission.md) noch nicht `stabilised` ist (`in_progress`) — der
+Mission-Spec erlaubt den Flip jederzeit vor der Stabilisierung. Der Operator hat
+Species-Mandanten-Isolation (O-4) bewusst in den MVP-Scope gezogen, um Sprint 2
+jetzt umzusetzen (überschreibt die frühere Zurückstellung).
 
 Species und Cultivar erhalten echte Mandanten-Ownership (REQ-001 v4.0): ein
 `tenant_key` auf beiden Modellen, auf jedem Write-Pfad gesetzt, plus ein

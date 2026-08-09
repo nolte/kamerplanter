@@ -1,7 +1,7 @@
 ---
 number: 2
-status: planned
-started: null
+status: active
+started: 2026-08-09
 ended: null
 value_statement: Gemeinschaftsgarten-Mitglieder sehen im Arten-Katalog nur die gemeinsamen und ihre eigenen Arten — privat angelegte Arten anderer Mandanten bleiben verborgen.
 artifact_ref: null
