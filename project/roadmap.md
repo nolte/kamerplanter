@@ -57,9 +57,9 @@ Sprint 2 liefert den **species-only**-Schnitt (Cultivar und die
 Operator-Entscheid „Species-only zuerst"). Backfill = **Cutover-Regel** (final,
 teach-back-bestätigt). Requirement: `project/requirements/species-tenant-ownership.md`.
 
-- [ ] F-3 — Species-Mandanten-Ownership: Feld, Write-Stamping & Cutover-Migration (`species-tenant-key-and-cutover`)
-- [ ] F-4 — Geteiltes Mandanten-Union-Leseprädikat (Extraktion) (`tenant-scope-union-predicate`)
-- [ ] F-5 — Tenant-bewusstes Species-Lesen auf der globalen Route (`species-tenant-aware-read`)
+- [x] F-3 — Species-Mandanten-Ownership: Feld, Write-Stamping & Cutover-Migration (`species-tenant-key-and-cutover`)
+- [x] F-4 — Geteiltes Mandanten-Union-Leseprädikat (Extraktion) (`tenant-scope-union-predicate`)
+- [x] F-5 — Tenant-bewusstes Species-Lesen auf der globalen Route (`species-tenant-aware-read`)
 
 <!-- Herkunft: Issue #808 (issue-orchestrate → roadmap-plan, 2026-08-09).
 Requirements-Override (Operator): die τ_high-Erhebung via `requirements-elicit`
