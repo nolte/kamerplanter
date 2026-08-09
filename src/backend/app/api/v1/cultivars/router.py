@@ -4,13 +4,20 @@ from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.cultivars.schemas import CultivarCreate, CultivarResponse
-from app.common.auth import get_active_tenant_key, get_creating_tenant_key, get_current_user
+from app.common.auth import (
+    get_active_tenant_context,
+    get_active_tenant_key,
+    get_creating_tenant_key,
+    get_current_user,
+    get_is_platform_admin,
+)
 from app.common.dependencies import get_species_service
 from app.common.enums import DataOrigin
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
 from app.config.settings import settings
 from app.domain.models.species import Cultivar
+from app.domain.models.tenant_context import TenantContext
 from app.domain.services.species_service import SpeciesService
 
 router = APIRouter(
@@ -47,7 +54,13 @@ def create_cultivar(
     service: SpeciesService = Depends(get_species_service),
     tenant_key: str = Depends(get_creating_tenant_key),
 ):
-    """Create a tenant-owned cultivar for a species."""
+    """Create a tenant-owned cultivar for a species.
+
+    The parent species is resolved **tenant-scoped** (C-4, #1090): a cultivar may
+    only be attached to the caller's own or a global species. Attaching one to a
+    *foreign* tenant's species answers 404 — it would otherwise confirm that
+    species key exists and write a ``has_cultivar`` edge into a foreign graph.
+    """
     # SEC-004 pendant (#1090): in full mode a tenant-owned create with no resolvable
     # active tenant must NOT be stamped global. Without this guard an authenticated
     # caller who has no personal tenant would resolve ``tenant_key == ""`` and inject
@@ -70,7 +83,7 @@ def create_cultivar(
         tenant_key=tenant_key,
         **body.model_dump(exclude={"species_key"}),
     )
-    created = service.create_cultivar(cultivar)
+    created = service.create_cultivar(cultivar, tenant_key=tenant_key)
     return to_response(created, CultivarResponse)
 
 
@@ -98,14 +111,28 @@ def update_cultivar(
     cultivar_key: Annotated[str, Path(description="Document key of the cultivar.")],
     body: CultivarCreate,
     service: SpeciesService = Depends(get_species_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Update an existing cultivar of a species."""
+    """Update an existing cultivar of a species.
+
+    Ownership and role are enforced in the service (C-4, #1090): a *foreign*
+    tenant's cultivar answers 404, the *global* seed catalogue is editable only by
+    a platform admin, and the caller's *own* cultivar requires a writing domain
+    role (a viewer is refused).
+    """
     # The model built here carries the *default* ``tenant_key == ""`` — the edit form
     # never submits ownership (#1090). The service restores the stored owner before
     # writing, so this full-replace update cannot move a tenant-owned cultivar into
     # the shared global catalogue.
     cultivar = Cultivar(species_key=species_key, **body.model_dump(exclude={"species_key"}))
-    updated = service.update_cultivar(cultivar_key, cultivar)
+    updated = service.update_cultivar(
+        cultivar_key,
+        cultivar,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
     return to_response(updated, CultivarResponse)
 
 
@@ -114,6 +141,19 @@ def delete_cultivar(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     cultivar_key: Annotated[str, Path(description="Document key of the cultivar.")],
     service: SpeciesService = Depends(get_species_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Delete a cultivar of a species."""
-    service.delete_cultivar(cultivar_key)
+    """Delete a cultivar of a species.
+
+    Same three-way gate as update (C-4, #1090), with the stricter delete role
+    boundary: a *foreign* cultivar answers 404, a *global* seed row is deletable
+    only by a platform admin, and deleting an *own* cultivar requires a lead
+    (the irreversibility boundary, REQ-049 §2.3).
+    """
+    service.delete_cultivar(
+        cultivar_key,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )

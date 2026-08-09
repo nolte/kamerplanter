@@ -57,6 +57,60 @@ def _populated_field_count(species: Species) -> int:
     return sum(1 for value in species.model_dump().values() if not _is_unset(value))
 
 
+def _authorize_tenant_owned_write(
+    existing: Species | Cultivar,
+    key: str,
+    *,
+    entity: str,
+    plural_noun: str,
+    tenant_key: str | None,
+    caller_role: TenantRole | None,
+    is_platform_admin: bool,
+    can_role_write: Callable[[TenantRole], bool],
+) -> None:
+    """Gate a hybrid-catalogue mutation on ownership, platform-admin and domain role.
+
+    The single decision shared by the two hybrid-catalogue entities of this
+    service — Species (SEC-002, #808) and Cultivar (C-4, #1090). It is deliberately
+    **one** function rather than a per-entity copy: both gates must answer the same
+    four questions the same way, and a second copy is exactly how the delete
+    boundary drifted apart between the router surface and :class:`MembershipEngine`
+    before REQ-049 §2.3 was re-pinned. The caller supplies only the two
+    entity-dependent strings (the 404 entity name and the noun in the refusal
+    message) and the role predicate.
+
+    Four-way decision, mirroring the task-template tenant checks in
+    :class:`TaskService` (foreign→404, global→refuse-mutation, own→proceed):
+
+    * ``tenant_key is None`` — the unscoped **system-context** write (a
+      migration/seed/enrichment path with no HTTP caller). No ownership/role gate,
+      same as the pre-gate behaviour, so those callers keep working.
+    * a *foreign* tenant's row (``existing.tenant_key`` is neither the caller's
+      nor global) — :class:`NotFoundError` (404). Ownership hiding: the caller
+      must not learn a foreign row exists, so this is never a 403.
+    * the *global* seed catalogue (``existing.tenant_key == ""``) — only a
+      platform admin may mutate it. The row is visible to everyone, so an
+      under-privileged refusal is the honest 403, not a 404.
+    * the caller's *own* row — the domain role gate (``can_role_write``): a
+      viewer must not write (REQ-049 §2.3). A platform admin (the light-mode
+      operator, REQ-027, or a ``platform`` lead) bypasses the domain rank.
+
+    The row must be loaded **unscoped** by the caller: the foreign→404 arm needs
+    the real stored owner to tell it apart from the global→403 one, which a scoped
+    load would have collapsed into a plain 404 before the gate ever ran.
+    """
+    if tenant_key is None:
+        return
+    if existing.tenant_key not in (tenant_key, ""):
+        raise NotFoundError(entity, key)
+    if existing.tenant_key == "":
+        if not is_platform_admin:
+            raise ForbiddenError(f"Only a platform admin may modify the global {entity.lower()} catalogue.")
+        return
+    if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
+        raise ForbiddenError(f"Your role may not modify {plural_noun} in this tenant.")
+
+
 class SpeciesService:
     def __init__(
         self,
@@ -279,34 +333,52 @@ class SpeciesService:
         is_platform_admin: bool,
         can_role_write: Callable[[TenantRole], bool],
     ) -> None:
-        """Gate a species mutation on ownership, platform-admin and domain role (SEC-002, #808).
+        """Gate a species mutation (SEC-002, #808) — the species binding of the shared gate.
 
-        Three-way decision, mirroring the task-template tenant checks in
-        :class:`TaskService` (foreign→404, global→refuse-mutation, own→proceed):
-
-        * ``tenant_key is None`` — the unscoped **system-context** write (a
-          migration/enrichment path with no HTTP caller). No ownership/role gate,
-          same as the pre-SEC-002 behaviour, so those callers keep working.
-        * a *foreign* tenant's row (``existing.tenant_key`` is neither the caller's
-          nor global) — :class:`NotFoundError` (404). Ownership hiding: the caller
-          must not learn a foreign species exists, so this is never a 403.
-        * the *global* seed catalogue (``existing.tenant_key == ""``) — only a
-          platform admin may mutate it. The row is visible to everyone, so an
-          under-privileged refusal is the honest 403, not a 404.
-        * the caller's *own* row — the domain role gate (``can_role_write``): a
-          viewer must not write (REQ-049 §2.3). A platform admin (the light-mode
-          operator, REQ-027, or a ``platform`` lead) bypasses the domain rank.
+        Thin binding of :func:`_authorize_tenant_owned_write`, which documents the
+        four-way decision and is shared with the cultivar mutations (C-4, #1090) so
+        the two catalogues can never drift on who may edit or delete what.
         """
-        if tenant_key is None:
-            return
-        if existing.tenant_key not in (tenant_key, ""):
-            raise NotFoundError("Species", key)
-        if existing.tenant_key == "":
-            if not is_platform_admin:
-                raise ForbiddenError("Only a platform admin may modify the global species catalogue.")
-            return
-        if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
-            raise ForbiddenError("Your role may not modify species in this tenant.")
+        _authorize_tenant_owned_write(
+            existing,
+            key,
+            entity="Species",
+            plural_noun="species",
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=can_role_write,
+        )
+
+    def _authorize_cultivar_write(
+        self,
+        existing: Cultivar,
+        key: CultivarKey,
+        *,
+        tenant_key: str | None,
+        caller_role: TenantRole | None,
+        is_platform_admin: bool,
+        can_role_write: Callable[[TenantRole], bool],
+    ) -> None:
+        """Gate a cultivar mutation (C-4, #1090) — the cultivar binding of the shared gate.
+
+        The Cultivar pendant of :meth:`_authorize_species_write`: same four-way
+        decision, same shared implementation in
+        :func:`_authorize_tenant_owned_write`, only the entity name in the 404 and
+        the noun in the 403 message differ. Before C-4 the cultivar mutations had
+        no gate whatsoever — any authenticated caller could edit or delete any
+        tenant's cultivar, and the global seed catalogue too.
+        """
+        _authorize_tenant_owned_write(
+            existing,
+            key,
+            entity="Cultivar",
+            plural_noun="cultivars",
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=can_role_write,
+        )
 
     def update_species(
         self,
@@ -406,8 +478,27 @@ class SpeciesService:
         self.get_species(species_key, tenant_key=tenant_key)
         return self._repo.get_cultivars(species_key, tenant_key=tenant_key)
 
-    def create_cultivar(self, cultivar: Cultivar) -> Cultivar:
-        self.get_species(cultivar.species_key)
+    def create_cultivar(self, cultivar: Cultivar, *, tenant_key: str | None = None) -> Cultivar:
+        """Create a cultivar under a species, co-scoping the parent lookup (C-4, #1090).
+
+        ``tenant_key`` scopes the **parent species** existence check, not the new
+        row's ownership (that is stamped on the model by the route, #1000). Two
+        modes, mirroring :meth:`list_cultivars`:
+
+        * ``None`` (the default) — the unscoped **system-context** create the seed
+          loaders and the CSV import use: they populate cultivars for every species
+          in the catalogue and must not start 404-ing (P5).
+        * a string (including ``""``) — the interactive create: the parent species
+          must be the caller's own or global, otherwise :class:`NotFoundError`.
+
+        Without the co-scoping (the state C-4 inherited) a POST under a *foreign*
+        tenant's species answered 201: it confirmed that species key exists — a
+        cross-tenant existence oracle the by-key read had already closed — and it
+        attached a ``has_cultivar`` edge to a foreign tenant's species, a write into
+        a graph the caller may not even read. Same rule and same reasoning as the
+        co-scoped list read (operator decision Q3).
+        """
+        self.get_species(cultivar.species_key, tenant_key=tenant_key)
         return self._repo.create_cultivar(cultivar)
 
     def get_cultivar(self, key: CultivarKey, *, tenant_key: str | None = None) -> Cultivar:
@@ -432,8 +523,28 @@ class SpeciesService:
             raise NotFoundError("Cultivar", key)
         return cultivar
 
-    def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
+    def update_cultivar(
+        self,
+        key: CultivarKey,
+        cultivar: Cultivar,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> Cultivar:
+        # Unscoped load (no ``tenant_key=``) on purpose: the ownership gate below
+        # needs the *stored* owner to answer a foreign row with 404 and a global one
+        # with 403. A scoped load would collapse both into the same 404 and silently
+        # drop the platform-admin arm for the global catalogue.
         existing = self.get_cultivar(key)
+        self._authorize_cultivar_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
         # Preserve the server-managed provenance marker across a full-replace
         # update (the edit form never submits it).
         cultivar.origin = existing.origin
@@ -446,8 +557,26 @@ class SpeciesService:
         cultivar.tenant_key = existing.tenant_key
         return self._repo.update_cultivar(key, cultivar)
 
-    def delete_cultivar(self, key: CultivarKey) -> bool:
-        self.get_cultivar(key)
+    def delete_cultivar(
+        self,
+        key: CultivarKey,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> bool:
+        # Unscoped load, same reasoning as update_cultivar: the gate needs the real
+        # stored owner to separate foreign→404 from global→403.
+        existing = self.get_cultivar(key)
+        self._authorize_cultivar_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            # Delete is the irreversibility boundary (REQ-049 §2.3): only a lead.
+            can_role_write=MembershipEngine.can_delete_resource,
+        )
         return self._repo.delete_cultivar(key)
 
     def get_compatible_species(self, species_key: SpeciesKey) -> list[dict]:

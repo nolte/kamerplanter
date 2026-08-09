@@ -52,7 +52,12 @@ def _app(service: MagicMock, *, creating_tenant_key: str) -> FastAPI:
 
 def _service() -> MagicMock:
     service = MagicMock()
-    service.create_cultivar.side_effect = lambda c: c.model_copy(update={"key": "cv_1"})
+    # ``tenant_key`` is the C-4 co-scoping argument for the *parent species* lookup
+    # (a foreign species must 404 rather than gain a has_cultivar edge); this file
+    # is about the *stamping* on the new row, so the stub just accepts it. That the
+    # route actually threads it is asserted below and proven against the real
+    # service in ``test_cultivar_authorization_api.py``.
+    service.create_cultivar.side_effect = lambda c, *, tenant_key=None: c.model_copy(update={"key": "cv_1"})
     return service
 
 
@@ -70,6 +75,9 @@ def test_create_stamps_the_callers_tenant_key(monkeypatch):
     created = service.create_cultivar.call_args.args[0]
     assert created.tenant_key == "tenant_personal_1"
     assert created.origin is DataOrigin.TENANT
+    # C-4: the very same resolved tenant scopes the parent-species lookup, so the
+    # ownership stamp and the species scope can never drift apart at this route.
+    assert service.create_cultivar.call_args.kwargs["tenant_key"] == "tenant_personal_1"
 
 
 def test_a_body_supplied_tenant_key_is_never_stamped(monkeypatch):
