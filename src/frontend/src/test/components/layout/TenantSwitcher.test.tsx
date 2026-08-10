@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
 
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
+import { getActiveTenantSlug } from '@/api/client';
 import { createTestStore, renderWithProviders } from '../../helpers';
 
 const personalTenant = {
@@ -96,6 +97,10 @@ describe('TenantSwitcher', () => {
       expect(store.getState().tenants.activeTenant?.slug).toBe('gemeinschaft'),
     );
     expect(reloadMock).toHaveBeenCalledTimes(1);
+    // #1091 A-4 AC 5: the switch also moves the value the global client sends as
+    // `X-Active-Tenant`, so the catalogues re-fetched after the reload are the
+    // new tenant's. Redux state alone would leave the API layer on the old slug.
+    expect(getActiveTenantSlug()).toBe('gemeinschaft');
   });
 
   it('does not reload when selecting the already-active tenant', async () => {

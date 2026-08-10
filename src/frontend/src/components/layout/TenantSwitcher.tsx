@@ -42,7 +42,16 @@ export default function TenantSwitcher() {
     }
     dispatch(switchTenant(slug));
     handleClose();
-    // Reload to fetch all data for the new tenant
+    // Reload to fetch all data for the new tenant.
+    //
+    // Explicit non-goal (#1091 A-4 AC 5): cache invalidation per slice. The
+    // switch changes what *every* tenant-aware request means — the `/t/{slug}/`
+    // path of `tenantClient` and, since #1091, the `X-Active-Tenant` header the
+    // global client attaches to the species / cultivar / botanical-family /
+    // companion-planting catalogues. `switchTenant` has already moved both
+    // sources (Redux and `setActiveTenantSlug`), so a full reload re-issues every
+    // request under the new tenant with no invalidation list to keep in sync — a
+    // list that would silently rot each time a new tenant-aware slice is added.
     window.location.reload();
   };
 
