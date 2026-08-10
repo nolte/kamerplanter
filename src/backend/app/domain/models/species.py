@@ -110,6 +110,23 @@ class Cultivar(BaseModel):
         default=None,
         description="Per-phase watering interval overrides (phase_name → interval_days)",
     )
+    # ── Tenant ownership (REQ-001 v4.0, #1090) ──
+    # Which tenant owns this cultivar. An empty string ``""`` means the record is
+    # part of the global/system catalogue that every tenant may read — the same
+    # convention ``Species.tenant_key`` (and the hybrid Fertilizer/NutrientPlan
+    # catalogues) use. Server-managed: the interactive create path stamps the
+    # caller's tenant; every global write path (seed loaders via
+    # ``cultivar_seed.build_cultivar``, the CSV import) leaves it empty. It is
+    # NEVER accepted from a request body (#1000) — ``CultivarCreate`` carries no
+    # such field — and never sourced from the seed YAML (the cultivar seed schema
+    # has no ``tenant_key`` property, so a data file cannot claim ownership).
+    # ``origin`` (below) is provenance, a different axis: ``origin`` says *where
+    # the data came from*, ``tenant_key`` says *who owns it*.
+    tenant_key: str = Field(
+        default="",
+        description="Owning tenant (REQ-001 v4.0). Empty '' = global/system catalogue visible to all "
+        "tenants. Server-managed; never accepted from a request body.",
+    )
     origin: DataOrigin = Field(
         default=DataOrigin.SYSTEM,
         description="Data provenance marker (REQ-001/REQ-011). Server-managed: seeded records default "

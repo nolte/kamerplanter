@@ -1,16 +1,23 @@
-"""Unit tests for the shared cultivar seed builder.
+"""Unit tests for the shared cultivar seed builder and seed-match universe.
 
 ``build_cultivar`` is the single source of truth for turning a seed YAML cultivar
 entry into a ``Cultivar`` model, used by every plant seeder. These tests pin the
 field mapping — most importantly that fields which used to be silently dropped by
 individual loaders (``breeding_year``, ``disease_resistances``,
 ``phase_watering_overrides``, …) now survive the round trip (issue #302, B5.6).
+
+``global_cultivars`` is the second thing those seeders share since #1090: which
+existing rows a seed write may match at all. Its rule is pinned here once
+(SEC-002); that each seeder actually routes through it is pinned behaviourally in
+``test_sibling_seeder_cultivar_ownership.py`` and
+``test_seed_data_cultivar_ownership.py``.
 """
 
 from __future__ import annotations
 
 from app.common.enums import DtmReference, PlantTrait
-from app.migrations.cultivar_seed import build_cultivar
+from app.domain.models.species import Cultivar
+from app.migrations.cultivar_seed import build_cultivar, global_cultivars
 
 
 def test_full_entry_maps_every_field() -> None:
@@ -89,3 +96,59 @@ def test_nonpositive_days_to_maturity_coerced_to_none() -> None:
     assert build_cultivar({"name": "Zero", "days_to_maturity": 0}, species_key="sp-1").days_to_maturity is None
     assert build_cultivar({"name": "Neg", "days_to_maturity": -5}, species_key="sp-1").days_to_maturity is None
     assert build_cultivar({"name": "Ok", "days_to_maturity": 60}, species_key="sp-1").days_to_maturity == 60
+
+
+# ── the shared seed-match universe (SEC-002, #1090) ──────────────────────────
+
+
+class _RecordingRepo:
+    """Returns a fixed cultivar list and records how the read was called."""
+
+    def __init__(self, cultivars: list[Cultivar]) -> None:
+        self._cultivars = cultivars
+        self.calls: list[tuple[tuple, dict]] = []
+
+    def get_cultivars(self, species_key: str, **kwargs) -> list[Cultivar]:
+        self.calls.append(((species_key,), kwargs))
+        return [c for c in self._cultivars if c.species_key == species_key]
+
+
+def _rows() -> list[Cultivar]:
+    return [
+        Cultivar(_key="cv_global", name="Genovese", species_key="sp-1", tenant_key=""),
+        Cultivar(_key="cv_legacy", name="Napoletano", species_key="sp-1"),
+        Cultivar(_key="cv_tenant", name="Genovese", species_key="sp-1", tenant_key="tenant_42"),
+        Cultivar(_key="cv_other_species", name="Genovese", species_key="sp-2", tenant_key=""),
+    ]
+
+
+def test_global_cultivars_excludes_tenant_owned_rows() -> None:
+    # The SEC-002 rule: a tenant-owned row is never a seed-match candidate, even when
+    # its name collides with a YAML entry.
+    names = {c.key for c in global_cultivars(_RecordingRepo(_rows()), "sp-1")}
+
+    assert names == {"cv_global", "cv_legacy"}
+
+
+def test_global_cultivars_keeps_pre_1090_rows_without_the_attribute() -> None:
+    # v0038 left every legacy row global; dropping them would duplicate the whole
+    # catalogue on the first boot after the cutover.
+    legacy = Cultivar(_key="cv_legacy", name="Napoletano", species_key="sp-1")
+
+    assert global_cultivars(_RecordingRepo([legacy]), "sp-1") == [legacy]
+
+
+def test_global_cultivars_reads_unscoped_so_the_filter_is_the_only_narrowing() -> None:
+    # Pins *how* the rows are fetched: a scoped repository read (tenant_key="") would
+    # look equivalent while hiding the tenant rows from the caller entirely.
+    repo = _RecordingRepo(_rows())
+
+    global_cultivars(repo, "sp-1")
+
+    assert repo.calls == [(("sp-1",), {})]
+
+
+def test_global_cultivars_is_empty_when_only_tenant_rows_exist() -> None:
+    tenant_only = [Cultivar(_key="cv_tenant", name="Genovese", species_key="sp-1", tenant_key="tenant_42")]
+
+    assert global_cultivars(_RecordingRepo(tenant_only), "sp-1") == []

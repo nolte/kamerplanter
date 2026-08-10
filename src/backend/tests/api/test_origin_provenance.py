@@ -259,3 +259,24 @@ def test_update_cultivar_preserves_origin():
     updated = service.update_cultivar("c1", incoming)
 
     assert updated.origin is DataOrigin.TENANT
+
+
+def test_update_cultivar_preserves_tenant_key():
+    # #1090 (the Cultivar pendant of #808): tenant ownership is server-managed and the
+    # edit form never submits it (CultivarCreate has no tenant_key), so a full-replace
+    # update must keep the existing owner rather than reset a tenant-owned cultivar to
+    # the global "" — which would move it out of its owner's catalogue into the shared
+    # one every tenant reads.
+    from app.domain.services.species_service import SpeciesService
+
+    repo = MagicMock()
+    repo.get_cultivar_or_raise.return_value = Cultivar(
+        _key="c1", name="Nina", species_key="sp_1", tenant_key="tenant_42"
+    )
+    repo.update_cultivar.side_effect = lambda key, c: c
+    service = SpeciesService(repo, MagicMock())
+
+    incoming = Cultivar(_key="c1", name="Nina", species_key="sp_1")  # default tenant_key ""
+    updated = service.update_cultivar("c1", incoming)
+
+    assert updated.tenant_key == "tenant_42"

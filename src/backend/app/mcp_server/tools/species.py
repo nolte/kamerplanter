@@ -198,7 +198,13 @@ class GetSpeciesInfo(ToolBase):
 
         if args.include_cultivars:
             try:
-                cultivars = ctx.species_service.list_cultivars(args.species_key)
+                # SEC-003 pendant (#1090): global-only, same reasoning as the species
+                # read above — a tenant-owned cultivar of a global species must not
+                # appear in this block. The species itself was already resolved with
+                # ``tenant_key=""``, so the co-scoped parent check inside
+                # ``list_cultivars`` can only agree; the ``except`` below therefore
+                # still means "no cultivars", not "scope refused".
+                cultivars = ctx.species_service.list_cultivars(args.species_key, tenant_key="")
             except Exception:  # noqa: BLE001 — a species without cultivars is normal
                 cultivars = []
             if cultivars:
@@ -227,7 +233,21 @@ class ListCultivars(ToolBase):
         species_key: str
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        cultivars = ctx.species_service.list_cultivars(args.species_key)
+        # SEC-003 pendant (#1090): scope to the GLOBAL seed catalogue only
+        # (tenant_key=""), for the same reason as list_species above — this is a
+        # tenant-agnostic global tool, the dispatcher binds no membership and
+        # ``ctx.tenant_key`` would raise, so there is no acting tenant to union
+        # against. ``""`` collapses the hybrid union to global-only, excluding
+        # every tenant-owned cultivar; the previous tenant-less call was the
+        # unscoped system read and showed an LLM client the whole catalogue.
+        #
+        # The argument also co-scopes the *parent species* check (C-3, operator
+        # decision Q3): asking for the cultivars of a tenant-owned species raises
+        # NotFoundError, which the transport publishes as the contract's
+        # ``not_found``. That is deliberately not caught here — swallowing it into
+        # an empty list would confirm the species key exists and re-open the
+        # cross-tenant existence oracle the scoping closes.
+        cultivars = ctx.species_service.list_cultivars(args.species_key, tenant_key="")
         return self._response(
             summary=f"{len(cultivars)} cultivars for species '{args.species_key}'.",
             data={
@@ -247,10 +267,19 @@ class GetCultivar(ToolBase):
         cultivar_key: str
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        cultivar = ctx.species_service.get_cultivar(args.cultivar_key)
+        # SEC-003 pendant (#1090): global-only, for the same reason as the tools
+        # above — a tenant-agnostic global tool has no membership bound, so it
+        # resolves against the shared catalogue (tenant_key=""). A tenant-owned
+        # key answers not_found rather than leaking, and it answers it exactly
+        # like an absent key does (C-3 checks ownership *after* the load), so this
+        # tool cannot be walked to enumerate foreign cultivars.
+        cultivar = ctx.species_service.get_cultivar(args.cultivar_key, tenant_key="")
         data = _cultivar_summary(cultivar)
         return self._response(
             summary=f"Cultivar '{cultivar.name}' of species '{cultivar.species_key}'.",
             data=data,
-            links=[{"type": "api", "url": f"/api/v1/cultivars/{cultivar.key}"}],
+            # Cultivars are addressed *under their species* — ``/api/v1/cultivars/{key}``
+            # never existed as a route, so this link used to hand an agent a 404
+            # (K3, #1090). See ``api/v1/cultivars/router.py``'s prefix.
+            links=[{"type": "api", "url": f"/api/v1/species/{cultivar.species_key}/cultivars/{cultivar.key}"}],
         )

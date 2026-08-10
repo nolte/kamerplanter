@@ -62,7 +62,9 @@ class _UnionSpeciesService:
     def get_compatible_species(self, key):  # noqa: ARG002
         return []
 
-    def list_cultivars(self, species_key):  # noqa: ARG002
+    # Keyword-only ``tenant_key``, mirroring the real service (#1090 C-3). The
+    # cultivar pendant of this scoping lives in test_cultivar_tools_tenant_scope.
+    def list_cultivars(self, species_key, *, tenant_key=None):  # noqa: ARG002
         return []
 
 

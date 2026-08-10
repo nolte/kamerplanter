@@ -98,6 +98,17 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: single key, any other iterable as a batch.
     _owned_reference_fields: ClassVar[dict[str, str]] = {}
 
+    #: Also ownership-verify a declared reference when :meth:`update` **changes**
+    #: it (#1090 C-9). Off by default: the #948 declaration was written for
+    #: create-only paths, and turning the update half on everywhere at once would
+    #: put a stored-document read in front of every full-model update in the
+    #: system — a change of blast radius that belongs to its own issue, not to the
+    #: one closing a single leak. A repository whose declared reference is
+    #: reachable from a ``PUT`` body opts in; see
+    #: :meth:`_verify_changed_owned_references` for the changed-only semantics and
+    #: why they, not an unconditional re-check, are the correct behaviour.
+    _verify_references_on_update: ClassVar[bool] = False
+
     #: Full-replace semantics for :meth:`update` (Issue #714).
     #:
     #: ``False`` (default) — the model is dumped with ``exclude_none=True`` and
@@ -394,7 +405,7 @@ class BaseArangoRepository[TModel: BaseModel]:
                 details=details,
             ) from exc
 
-    def _verify_owned_references(self, model: BaseModel) -> None:
+    def _verify_owned_references(self, model: BaseModel, *, fields: dict[str, str] | None = None) -> None:
         """Ownership-verify every declared foreign reference before a write (#948).
 
         The tenant compared against is the **row's own** ``tenant_key``, which the
@@ -414,18 +425,26 @@ class BaseArangoRepository[TModel: BaseModel]:
         Such a row is in any case invisible to every tenant-scoped read, so it is
         not a disclosure route; it is a defect in whichever write path failed to
         stamp it (see #951 for two of those).
+
+        Args:
+            model: The row about to be written.
+            fields: Subset of :attr:`_owned_reference_fields` to check, as the
+                same ``{field: collection}`` mapping. Defaults to all of them;
+                :meth:`_verify_changed_owned_references` passes the ones an update
+                actually re-points.
         """
-        if not self._owned_reference_fields:
+        checked = self._owned_reference_fields if fields is None else fields
+        if not checked:
             return
         tenant_key = getattr(model, "tenant_key", "") or ""
         if not tenant_key:
             logger.warning(
                 "owned_reference_check_skipped_tenantless_row",
                 collection=self._collection_name,
-                fields=sorted(self._owned_reference_fields),
+                fields=sorted(checked),
             )
             return
-        for field, collection in self._owned_reference_fields.items():
+        for field, collection in checked.items():
             value = getattr(model, field, None)
             if value is None:
                 continue
@@ -434,6 +453,62 @@ class BaseArangoRepository[TModel: BaseModel]:
                     self.verify_entity_ownership(collection, value, tenant_key)
             else:
                 self.verify_entities_ownership(collection, value, tenant_key)
+
+    @staticmethod
+    def _reference_identity(value: Any) -> Any:
+        """Normalise a reference value for the "did this update re-point it?" test.
+
+        ``None``, a missing attribute and ``""`` all mean *no reference*, and a
+        sequence is compared by its members, so a re-ordered list of keys is not
+        mistaken for a new one.
+        """
+        if value is None or value == "":
+            return None
+        if isinstance(value, str):
+            return value
+        return sorted(str(item) for item in value)
+
+    def _verify_changed_owned_references(self, key: str, model: BaseModel) -> None:
+        """Ownership-verify the declared references an **update** re-points (#1090).
+
+        :meth:`_verify_owned_references` hangs off :meth:`create`, which leaves the
+        guard bypassable in two requests — create the row with a global reference,
+        then ``PUT`` the foreign key onto it. #1090 C-9 hit exactly that on
+        ``plant_instance.cultivar_key``.
+
+        Only a **changed** reference is verified, and that restriction is
+        load-bearing rather than an optimisation:
+
+        * A reference the caller did not touch must not become a reason to refuse
+          the write. The referenced document may have been deleted since — a
+          dangling key is an integrity defect, not a disclosure route — and
+          re-verifying it would make the whole row uneditable, including through
+          the internal paths (phase transitions, planting-run materialisation,
+          removal) that rewrite the full model without caring about the reference.
+        * It keeps the "no oracle" property intact. For a changed value, *absent*
+          and *foreign* answer identically (404, via
+          :func:`tenant_ownership.verify_entity_ownership`); for an unchanged one
+          nothing is dialled, so the answer carries no information the caller did
+          not already supply.
+
+        Opt-in per repository via :attr:`_verify_references_on_update` — see there
+        for why it is not (yet) on for every repository.
+        """
+        if not self._owned_reference_fields:
+            return
+        stored = self.collection.get(key)
+        if stored is None:
+            # The document is gone; :meth:`_update_doc` raises ``NotFoundError``
+            # for it a moment later. There is no stored state to compare against
+            # and nothing is written, so there is nothing to verify.
+            return
+        changed = {
+            field: collection
+            for field, collection in self._owned_reference_fields.items()
+            if self._reference_identity(getattr(model, field, None)) != self._reference_identity(stored.get(field))
+        }
+        if changed:
+            self._verify_owned_references(model, fields=changed)
 
     def _enforce_tenant_scope(self, tenant_key: str | None, all_tenants: bool) -> None:
         """Fail loudly when a tenant-scoped list query is not tenant-bound.
@@ -688,7 +763,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         same way is covered too. See :meth:`_validate_model_before_write` for why
         the check exists at all and for the :meth:`update_fields` hole it does
         not close, and :attr:`_update_is_full_replace` for the null semantics.
+
+        When the repository sets :attr:`_verify_references_on_update`, a declared
+        foreign reference this update *re-points* is ownership-verified first
+        (#1090 C-9), so the #948 guard cannot be walked around with a ``PUT``.
         """
+        if self._verify_references_on_update:
+            self._verify_changed_owned_references(key, model)
         return self._wrap(self._update_doc(key, model))
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> TModel:

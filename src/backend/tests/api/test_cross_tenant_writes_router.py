@@ -49,6 +49,7 @@ from app.common.exceptions import KamerplanterError, NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.feeding_repository import ArangoFeedingRepository
 from app.data_access.arango.harvest_repository import ArangoHarvestRepository
+from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
@@ -493,6 +494,10 @@ class TestTheOwnershipCheckIsDeclaredNotRemembered:
             (ArangoWateringLogRepository, "plant_keys", col.PLANT_INSTANCES),
             (ArangoWateringRepository, "plant_keys", col.PLANT_INSTANCES),
             (ArangoHarvestRepository, "plant_key", col.PLANT_INSTANCES),
+            # #1090 C-9: the same declaration for the reference in the other
+            # direction — a plant instance pointing at a tenant-owned cultivar.
+            # Behaviour is pinned in ``test_plant_cultivar_reference_router.py``.
+            (ArangoPlantInstanceRepository, "cultivar_key", col.CULTIVARS),
         ],
     )
     def test_each_write_repository_declares_its_foreign_references(self, repo_cls, field, collection):

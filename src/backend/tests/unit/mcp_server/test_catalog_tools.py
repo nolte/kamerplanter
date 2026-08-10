@@ -99,10 +99,15 @@ class _SpeciesService:
     def get_compatible_species(self, key):
         return self._companions
 
-    def list_cultivars(self, species_key):
+    # ``tenant_key`` keyword-only with default None, exactly like the real
+    # ``SpeciesService`` since #1090 C-3 — a fake that omitted it would make the
+    # tools' global-only scoping (#1090 C-5) raise TypeError, which
+    # ``GetSpeciesInfo``'s broad ``except`` would silently turn into "no
+    # cultivars". The scoping itself is pinned in test_cultivar_tools_tenant_scope.
+    def list_cultivars(self, species_key, *, tenant_key=None):
         return self._cultivars
 
-    def get_cultivar(self, key):
+    def get_cultivar(self, key, *, tenant_key=None):
         return _Cultivar(key=key)
 
 
@@ -175,7 +180,7 @@ class _IndoorSpeciesService:
     def get_compatible_species(self, key):
         return []
 
-    def list_cultivars(self, species_key):
+    def list_cultivars(self, species_key, *, tenant_key=None):
         return []
 
 
@@ -233,7 +238,7 @@ class _UnresearchedSpeciesService:
     def get_compatible_species(self, key):
         return []
 
-    def list_cultivars(self, species_key):
+    def list_cultivars(self, species_key, *, tenant_key=None):
         return []
 
 
