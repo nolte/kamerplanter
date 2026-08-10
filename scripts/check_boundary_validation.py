@@ -130,7 +130,7 @@ certainly a 500 is ever reported.
 The ratchet, and why only one of the two shapes has one
 -------------------------------------------------------
 
-The enum shape has **54 existing occurrences** across 10 schema modules — real
+The enum shape has **46 existing occurrences** across 9 schema modules — real
 debt that cannot be paid off in one change, so it carries a shrink-only ceiling
 like ``scripts/check_schema_examples.py``. The nullable shape has **none** left
 (#967 converted the only site), so it is a plain defect with no baseline —
@@ -174,12 +174,13 @@ DEFAULT_APP_ROOT = "src/backend/app"
 #: service from data the service itself assembled is not a boundary question.
 API_SUBPATH = "api"
 
-#: Enum-widened request fields, measured on the #970 baseline commit. A ceiling,
-#: not a target: the check fails when the number grows, so no new endpoint can
-#: widen an enum to ``str``, and the recorded debt can only shrink. Lower it by
-#: hand when the check reports a smaller number — a drop is deliberately not a
-#: failure, see the module docstring and #973.
-MAX_ENUM_WIDENED_FIELDS = 54
+#: Enum-widened request fields, last re-measured against the tree in #1115
+#: (introduced on the #970 baseline commit). A ceiling, not a target: the check
+#: fails when the number grows, so no new endpoint can widen an enum to ``str``,
+#: and the recorded debt can only shrink. Lower it by hand when the check reports
+#: a smaller number — a drop is deliberately not a failure, see the module
+#: docstring and #973.
+MAX_ENUM_WIDENED_FIELDS = 46
 
 #: The marker that exempts one field, plus the minimum length of the reason that
 #: must follow it. A bare marker is not an exemption: the point of the hatch is
