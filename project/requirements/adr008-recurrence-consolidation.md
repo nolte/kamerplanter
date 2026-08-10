@@ -88,17 +88,28 @@ Ein Test MUSS fehlschlagen, wenn eine der beiden Hälften fehlt
 (#622 + #742-Regressionspaar, AC des Issues).
 *(Q2, Teach-back)*
 
-### R5 — Fortschreibungs-Anker `confirmed`
+### R5 — Fortschreibungs-Anker `confirmed` *(rev. 2026-08-10)*
 
-- Care-Reminders sind **abschluss-verankert**: WHEN eine Pflegeaufgabe erledigt
-  wird, THE SYSTEM SHALL die nächste Fälligkeit aus dem **Abschlussdatum**
-  berechnen (Beispiel: fällig Mo, erledigt Mi, Intervall 6 Tage → nächste
-  Fälligkeit Di). Die RRULE wird dafür je Zyklus mit `DTSTART=Abschlussdatum`
-  neu aufgesetzt.
-- Generische Tasks und Kalender-Serien bleiben **raster-verankert** (reines
-  RRULE-Raster, exportkonsistent mit REQ-015).
-- Beide Semantiken rechnet **ausschließlich** die `RecurrenceEngine`.
-*(Q3, Teach-back; adressiert die Drift-Klasse #508–#511)*
+- Die Fortschreibung ist **einheitlich abschluss-verankert** — für
+  Care-Reminders UND generische Tasks: WHEN eine wiederkehrende
+  Aufgabe/Pflegeaufgabe erledigt wird, THE SYSTEM SHALL die nächste Fälligkeit
+  aus dem **Abschlussdatum** berechnen (Beispiel: fällig Mo, erledigt Mi,
+  Intervall 6 Tage → nächste Fälligkeit Di). Die RRULE wird je Zyklus mit
+  `DTSTART=Abschlussdatum` neu aufgesetzt.
+- Der **Kalender-Export** (REQ-015) bleibt rasterbasiert-exportkonsistent in
+  seiner bestehenden Form; nur die Fortschreibungs-Semantik ist geregelt.
+- Beide rechnet **ausschließlich** die `RecurrenceEngine`.
+*(Q3, Teach-back; adressiert die Drift-Klasse #508–#511.)*
+
+> **Revision 2026-08-10** (requirements-revisit im feature-decompose-Gate):
+> Die ursprüngliche Fassung sah generische Tasks **raster-verankert** vor. Der
+> `feature-consistency-reviewer` wies nach, dass generische Tasks heute faktisch
+> abschluss-verankert fortgeschrieben werden (Engine seedet `dtstart=jetzt`,
+> kein DTSTART persistiert) — Raster-Verankerung wäre eine Verhaltens- und
+> Datenmodell-Änderung (Anker-Feld, Migration, Terminsprung für Bestandsserien).
+> Operator-Entscheidung: an das Ist-Verhalten angleichen; einheitlich
+> abschluss-verankert, keine Migration. Teach-back der revidierten Form im
+> selben Zug bestätigt.
 
 ### R6 — Zwei mechanische Grenz-Gates, required, vakuumfest `confirmed`
 

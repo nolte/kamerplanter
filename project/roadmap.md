@@ -72,7 +72,7 @@ Feature-Zerlegung zu bestätigen. -->
 ```yaml
 id: R-15
 title: ADR-008 — Tasks/Care/Notifications auf eine Recurrence-Engine & einen Propagationspfad konsolidieren
-detail: coarse
+detail: fine
 outcomes: [O-8]
 target_sprint: null
 mvp: false
@@ -92,8 +92,9 @@ Completion-Transition → 4 Freeze); ADR-008 wird dabei von `Proposed` auf
 `Accepted` gehoben.
 
 <!-- Herkunft: Issue #1061 (issue-orchestrate → roadmap-plan, 2026-08-09).
-Requirements-Override (Operator): die τ_high-Erhebung via `requirements-elicit`
-erfolgt beim `promote`→`fine` / Sprint-Pull (Item ist `coarse` und ungeplant).
+Promotion coarse→fine am 2026-08-10: requirements-elicit abgeschlossen
+(project/requirements/adr008-recurrence-consolidation.md, U_gate 0.8 = τ_high)
+und in F-6..F-10 dekomponiert (feature-decompose, consistency-checked).
 Phase-0-Baseline ist computed (NFR-018 §2.1). ADR-008-Acceptance ist die
 Go/No-Go-Entscheidung dieses Outcomes. -->
 
