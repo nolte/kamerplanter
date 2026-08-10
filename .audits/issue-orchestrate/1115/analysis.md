@@ -73,3 +73,5 @@ B-1 only.
 None.
 
 ## Dispatch log
+
+- 2026-08-10 B-1 dispatched to nolte-engineering:fullstack-developer — DONE. Hypothesis confirmed by independent checker measurement (46, across 9 schema modules not 10 — docstring corrected accordingly). Red-first re-proven in worktree; gate PASS ("exactly at the recorded ceiling"), pre-commit hook PASS, full test file 38 passed, ruff check clean; exactly one file modified. Pre-existing ruff-format findings in untouched regions (line 541+, E501:694) deliberately left — scripts/ hangs on no ruff hook (possible follow-up). Verify: no security-sensitive path → security chain not required; gate = boundary hook + test file, both green.
