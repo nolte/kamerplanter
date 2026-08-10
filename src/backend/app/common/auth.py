@@ -62,21 +62,85 @@ def get_refresh_token_from_cookie(
     return kp_refresh
 
 
+#: The single refusal message for *every* case in which a caller-supplied tenant
+#: slug is not honoured — unknown slug and no active membership, on both surfaces
+#: that take a slug from the caller (the ``/t/{slug}/`` path parameter and the
+#: :data:`ACTIVE_TENANT_HEADER`). Deliberately says nothing about whether the slug
+#: exists: answering "unknown tenant" for one case and "not a member" for the
+#: other would turn any authenticated request into a tenant-existence oracle
+#: (R2 / REQ-025 minimisation). Kept as one constant so the raise sites cannot
+#: drift into distinguishable answers.
+_ACTIVE_TENANT_DENIED = "You do not have access to the requested tenant."
+
+
+def _membership_for_slug(
+    tenant_service: TenantService,
+    user_key: str,
+    slug: str,
+) -> tuple[Tenant, Membership]:
+    """Resolve a caller-supplied tenant *slug* and prove their active membership in it.
+
+    The **one** place where an untrusted slug becomes a tenant (#1091, ADR-009).
+    Both surfaces that accept a slug from the caller go through here:
+
+    * :func:`get_current_tenant` — the ``/t/{slug}/`` **path** parameter, on the
+      ~54 tenant-scoped routers;
+    * :func:`_resolve_active_tenant` — the :data:`ACTIVE_TENANT_HEADER` on the
+      global-but-tenant-aware catalogues.
+
+    One helper rather than two, and one message constant rather than two literals,
+    because the property that matters is a *comparison between* the surfaces: as
+    long as they refuse identically, a caller learns nothing from probing either.
+    Two copies of "raise 403 here" pass their own tests individually and drift the
+    first time one of them is edited (A-11 exists because exactly that drift was
+    already shipped: the path surface answered 404, the header surface 403).
+
+    Raises:
+        ForbiddenError: The slug names a tenant that does not exist, or one the
+            caller holds no *active* membership in — refused with the same
+            :data:`_ACTIVE_TENANT_DENIED` message, so the two cases are one
+            answer. Notably **not** the 404 ``get_tenant_by_slug`` raises: that
+            body named the entity type *and* echoed the probed slug, so it
+            answered "does this tenant exist?" for any authenticated caller.
+    """
+    try:
+        tenant = tenant_service.get_tenant_by_slug(slug)
+    except NotFoundError as exc:
+        raise ForbiddenError(_ACTIVE_TENANT_DENIED) from exc
+
+    membership = tenant_service.get_membership(user_key, tenant.key or "") if user_key else None
+    if not membership or not membership.is_active:
+        raise ForbiddenError(_ACTIVE_TENANT_DENIED)
+    return tenant, membership
+
+
 def get_current_tenant(
     tenant_slug: str = Path(description="URL slug of the tenant the request is scoped to (REQ-024)."),
     user: User = Depends(get_current_user),
     tenant_service: TenantService = Depends(get_tenant_service),
 ) -> TenantContext:
-    """Resolve tenant from URL slug and verify user membership."""
-    tenant = tenant_service.get_tenant_by_slug(tenant_slug)
-    membership = tenant_service.get_membership(user.key, tenant.key)
-    if not membership or not membership.is_active:
-        raise ForbiddenError("You are not a member of this tenant.")
+    """Resolve the tenant from the ``/t/{slug}/`` path segment and verify membership.
+
+    The path-bound counterpart of :func:`get_active_tenant_context`: same
+    question ("which tenant is this request acting in, and with what standing?"),
+    different carrier for the slug. Both delegate the slug→tenant→membership step
+    to :func:`_membership_for_slug`, which is what keeps their refusals identical.
+
+    Refusal is a 403 for **both** invalid cases — an unknown slug and a tenant the
+    caller is not an active member of (#1091 A-11, ADR-009). Before that alignment
+    this dependency forwarded the 404 from
+    :meth:`TenantService.get_tenant_by_slug` for the first case, which made every
+    ``/t/{slug}/`` route a tenant-existence oracle: a caller could distinguish "no
+    such tenant" from "it exists, you are just not in it" by the status code
+    alone, and the 404 body spelled out the probed slug in both its ``message``
+    and its ``details``.
+    """
+    tenant, membership = _membership_for_slug(tenant_service, user.key or "", tenant_slug)
 
     return TenantContext(
-        tenant_key=tenant.key,
+        tenant_key=tenant.key or "",
         tenant_slug=tenant.slug,
-        user_key=user.key,
+        user_key=user.key or "",
         role=membership.role,
         admin_scopes=membership.admin_scopes,
     )
@@ -108,13 +172,6 @@ ActiveTenantHeader = Annotated[
         ),
     ),
 ]
-
-#: The single refusal message for *both* invalid-header cases. Deliberately says
-#: nothing about whether the slug exists: answering "unknown tenant" for one case
-#: and "not a member" for the other would turn any authenticated request into a
-#: tenant-existence oracle (R2 / REQ-025 minimisation). Kept as one constant so
-#: the two raise sites cannot drift into two distinguishable answers.
-_ACTIVE_TENANT_DENIED = "You do not have access to the requested tenant."
 
 
 @dataclass(frozen=True)
@@ -164,10 +221,11 @@ def _resolve_active_tenant(
     Raises:
         ForbiddenError: The header names a tenant that does not exist, or one the
             caller holds no active membership in. Both raise the same message —
-            see :data:`_ACTIVE_TENANT_DENIED`. Never a silent fallback to the
-            personal tenant or to global scope: acting in the wrong tenant is the
-            confusion this mechanism removes, so an unhonourable header fails the
-            request instead of quietly changing its meaning.
+            see :func:`_membership_for_slug` and :data:`_ACTIVE_TENANT_DENIED`.
+            Never a silent fallback to the personal tenant or to global scope:
+            acting in the wrong tenant is the confusion this mechanism removes, so
+            an unhonourable header fails the request instead of quietly changing
+            its meaning.
     """
     user_key = user.key or ""
     slug = (active_tenant_slug or "").strip()
@@ -181,20 +239,10 @@ def _resolve_active_tenant(
             membership=(lambda: tenant_service.get_membership(user_key, key)) if (user_key and key) else (lambda: None),
         )
 
-    try:
-        tenant = tenant_service.get_tenant_by_slug(slug)
-    except NotFoundError as exc:
-        # NOT a 404. ``get_tenant_by_slug`` raises NotFoundError, and forwarding it
-        # would make this resolver a tenant-existence oracle: any authenticated
-        # caller could probe slugs and read "404 = no such tenant" versus
-        # "403 = it exists but you are not in it". Both invalid cases must be one
-        # indistinguishable answer, so the 404 is converted here — at the only
-        # place that knows the lookup was driven by an untrusted header value.
-        raise ForbiddenError(_ACTIVE_TENANT_DENIED) from exc
-
-    membership = tenant_service.get_membership(user_key, tenant.key or "") if user_key else None
-    if not membership or not membership.is_active:
-        raise ForbiddenError(_ACTIVE_TENANT_DENIED)
+    # The slug came from an untrusted header, so it takes the same validated route
+    # a ``/t/{slug}/`` path segment takes — including the 404→403 conversion that
+    # keeps both surfaces free of a tenant-existence oracle.
+    tenant, membership = _membership_for_slug(tenant_service, user_key, slug)
     return _ActiveTenant(key=tenant.key or "", tenant=tenant, membership=lambda: membership)
 
 
