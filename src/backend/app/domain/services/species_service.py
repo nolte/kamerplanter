@@ -111,6 +111,58 @@ def _authorize_tenant_owned_write(
         raise ForbiddenError(f"Your role may not modify {plural_noun} in this tenant.")
 
 
+def _authorize_tenant_owned_create(
+    *,
+    plural_noun: str,
+    caller_role: TenantRole | None,
+    is_platform_admin: bool,
+) -> None:
+    """Gate a hybrid-catalogue **create** on the caller's domain role — SEC-005 (#1113).
+
+    The create sibling of :func:`_authorize_tenant_owned_write`, and deliberately
+    the same kind of object: **one** function shared by Species and Cultivar rather
+    than a check per router. A router-only copy is precisely the drift that pulled
+    the delete boundary apart from :class:`MembershipEngine` before REQ-049 §2.3 was
+    re-pinned — and the reason the create hole existed at all is that the two POST
+    routes stamped ownership without ever asking who the caller was, while their
+    PUT/DELETE neighbours did.
+
+    Qualified as **SEC-005 (#1113)** throughout: ``SEC-005`` names two unrelated
+    findings (R-7) — the #808 companion-anchor/search scoping and this create gate.
+
+    Only one of the write gate's four arms survives, because there is no existing
+    row to own:
+
+    * ``caller_role is None`` — the unscoped **system-context** create (seeders,
+      CSV import, migrations, enrichment; no HTTP caller). No gate at all, mirroring
+      the ``tenant_key is None`` escape of :func:`_authorize_tenant_owned_write`, so
+      those callers keep working unchanged. Every HTTP route passes a real role
+      (:func:`~app.common.auth.get_active_tenant_context` falls back to
+      :attr:`TenantRole.VIEWER`, never ``None``), so the escape is not reachable
+      from the wire.
+    * platform admin — bypasses the domain rank, as it does for update/delete. This
+      is what keeps light-mode curation (REQ-027) of the shared catalogue working:
+      the sole operator holds no membership, so their context role is the fail-safe
+      viewer.
+    * otherwise the domain role gate: ``can_edit_resource`` — lead or grower may
+      create, a viewer may not (REQ-049 §2.3). There is no ``can_delete_resource``
+      arm and no ownership arm to choose between, so unlike the write gate this
+      takes no predicate argument: passing one would be a parameter that never
+      varies, and an argument that can only hold one value is the kind of hook that
+      silently stops meaning anything.
+
+    Refusal is a 403, never a 404: the caller is a legitimate member of the tenant
+    they are creating in — they are merely under-privileged — and there is no
+    existing row whose existence a 404 could hide.
+    """
+    if caller_role is None:
+        return
+    if is_platform_admin:
+        return
+    if not MembershipEngine.can_edit_resource(caller_role):
+        raise ForbiddenError(f"Your role may not create {plural_noun} in this tenant.")
+
+
 class SpeciesService:
     def __init__(
         self,
@@ -161,7 +213,32 @@ class SpeciesService:
             raise NotFoundError("Species", key)
         return species
 
-    def create_species(self, species: Species) -> Species:
+    def create_species(
+        self,
+        species: Species,
+        *,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> Species:
+        """Create (or idempotently resolve) a species, role-gated — SEC-005 (#1113).
+
+        ``caller_role`` / ``is_platform_admin`` are the create pendant of the pair
+        :meth:`update_species` already takes; both default to the **system context**
+        (no role → no gate), which is what keeps the seeders, the CSV import and the
+        enrichment paths creating master data without an HTTP caller. The
+        interactive route always passes the role of the caller's *active* tenant, so
+        a viewer is refused (see :func:`_authorize_tenant_owned_create`).
+
+        Deliberately no ``tenant_key`` argument: ownership is stamped on the model
+        by the route from :func:`~app.common.auth.get_creating_tenant_key`, and
+        adding a second tenant input here would create exactly the two-sources
+        problem the shared resolver was built to remove.
+        """
+        _authorize_tenant_owned_create(
+            plural_noun="species",
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+        )
         # Idempotent create (REQ-048 Stufe 1 / R5): when a species with the same
         # canonical dedup key already exists — even if it only differs by the
         # hybrid marker (× vs x), casing or whitespace — return that existing
@@ -478,7 +555,14 @@ class SpeciesService:
         self.get_species(species_key, tenant_key=tenant_key)
         return self._repo.get_cultivars(species_key, tenant_key=tenant_key)
 
-    def create_cultivar(self, cultivar: Cultivar, *, tenant_key: str | None = None) -> Cultivar:
+    def create_cultivar(
+        self,
+        cultivar: Cultivar,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> Cultivar:
         """Create a cultivar under a species, co-scoping the parent lookup (C-4, #1090).
 
         ``tenant_key`` scopes the **parent species** existence check, not the new
@@ -497,8 +581,25 @@ class SpeciesService:
         attached a ``has_cultivar`` edge to a foreign tenant's species, a write into
         a graph the caller may not even read. Same rule and same reasoning as the
         co-scoped list read (operator decision Q3).
+
+        ``caller_role`` / ``is_platform_admin`` are the SEC-005 (#1113) role gate,
+        the create pendant of the pair :meth:`update_cultivar` takes; both default
+        to the system context (no role → no gate), so the seeders and the import
+        stay unaffected. See :func:`_authorize_tenant_owned_create`.
+
+        Order: the parent-species scope is decided **first**, so a cultivar
+        addressed under a species the caller cannot see answers 404 regardless of
+        their role — the same structural-before-privilege order
+        :meth:`update_cultivar` and :meth:`delete_cultivar` use, and for the same
+        reason (:meth:`get_cultivar` spells it out): a refusal that varies with
+        privilege can be probed by varying privilege.
         """
         self.get_species(cultivar.species_key, tenant_key=tenant_key)
+        _authorize_tenant_owned_create(
+            plural_noun="cultivars",
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+        )
         return self._repo.create_cultivar(cultivar)
 
     def get_cultivar(
