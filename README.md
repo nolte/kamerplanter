@@ -108,6 +108,14 @@ with `NOLTE_CLAUDE_SHARED`). See [CLAUDE.md](CLAUDE.md) §"Claude Code plugin ad
 
 Full documentation (architecture, API reference, guides) is available at **[nolte.github.io/kamerplanter](https://nolte.github.io/kamerplanter/)**.
 
+## Related Repositories
+
+Kamerplanter is complemented by companion projects, each with its own focus:
+
+- **[kamerplanter-ha](https://github.com/nolte/kamerplanter-ha)** — Home Assistant custom integration (HACS). Surfaces plant phases, nutrient dosages, tank levels, and care tasks as native HA entities, services, and Lovelace cards, so dashboards and automations can build on your grow without leaving Home Assistant.
+- **[kamerplanter-android](https://github.com/nolte/kamerplanter-android)** — Native Android (Kotlin) companion app. Connects a USB (UVC) microscope for sharp pest macro shots and feeds them into Kamerplanter's upload and pest-identification flow — external UVC cameras aren't reachable from web or cross-platform camera APIs.
+- **[kamerplanter-goose](https://github.com/nolte/kamerplanter-goose)** — Shareable [Goose](https://github.com/block/goose) recipes that wire the Kamerplanter and Home Assistant MCP servers into repeatable, parameterized plant-care agent runs ("what needs watering today") invoked by name.
+
 ## Contributing
 
 Feature branches from `develop`, PRs against `develop`. Prefixes: `feature/`, `fix/`, `chore/`, `docs/`.
