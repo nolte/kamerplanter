@@ -4,8 +4,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import SpeciesListPage from '@/pages/stammdaten/SpeciesListPage';
-import { renderWithProviders } from '../helpers';
+import { createTestStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+import type { TenantRole } from '@/api/types';
 
 const thisMonth = new Date().getMonth() + 1;
 
@@ -235,6 +236,79 @@ describe('SpeciesListPage', () => {
           expect(screen.getAllByText('Ocimum basilicum').length).toBeGreaterThan(0);
         });
       });
+    });
+  });
+
+  // #1091 A-7 — role gating of the create affordance. The authority is the backend
+  // gate (SEC-005/#1113); these cases only pin that the page stops advertising a
+  // create that would answer 403, and — the easier regression — that it keeps
+  // advertising the ones that would not.
+  describe('create-action role gating', () => {
+    function storeWithRole(role: TenantRole | null) {
+      return createTestStore({
+        tenants: {
+          activeTenant:
+            role === null ? null : { key: 't1', slug: 'garten', name: 'Garten', role },
+          myTenants: [],
+          isLoading: false,
+          error: null,
+        },
+      });
+    }
+
+    it('hides the create button from a viewer of the active tenant', async () => {
+      renderWithProviders(<SpeciesListPage />, { store: storeWithRole('viewer') });
+
+      await screen.findByText('Solanum lycopersicum');
+      expect(screen.queryByTestId('create-button')).toBeNull();
+    });
+
+    it('shows the create button to a grower', async () => {
+      renderWithProviders(<SpeciesListPage />, { store: storeWithRole('grower') });
+
+      await screen.findByText('Solanum lycopersicum');
+      expect(screen.getByTestId('create-button')).toBeTruthy();
+    });
+
+    it('shows the create button while there is no active tenant', async () => {
+      // The regression this guards: an absent tenant is not a refusal. Full mode
+      // answers 422 and light mode 201, and `activeTenant` is briefly null while the
+      // stale-slug recovery (#1091 A-4) reloads the tenant list — the button must
+      // not flicker away in that window.
+      renderWithProviders(<SpeciesListPage />, { store: storeWithRole(null) });
+
+      await screen.findByText('Solanum lycopersicum');
+      expect(screen.getByTestId('create-button')).toBeTruthy();
+    });
+
+    it('replaces the empty-state call to action with the reason for a viewer', async () => {
+      server.use(
+        http.get('/api/v1/species', () =>
+          HttpResponse.json({ items: [], total: 0, offset: 0, limit: 1000 }),
+        ),
+      );
+      renderWithProviders(<SpeciesListPage />, { store: storeWithRole('viewer') });
+
+      const empty = await screen.findByTestId('empty-state');
+      expect(within(empty).getByText(i18n.t('pages.species.createDenied'))).toBeTruthy();
+      expect(screen.queryByTestId('empty-state-action')).toBeNull();
+    });
+
+    it('keeps the empty-state call to action wired for a grower', async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.get('/api/v1/species', () =>
+          HttpResponse.json({ items: [], total: 0, offset: 0, limit: 1000 }),
+        ),
+      );
+      renderWithProviders(<SpeciesListPage />, { store: storeWithRole('grower') });
+
+      expect(screen.queryByText(i18n.t('pages.species.createDenied'))).toBeNull();
+      // Clicked, not merely present: the gate hands `onEmptyAction` a conditional,
+      // and a conditional that renders a label but no working handler would look
+      // identical to a passing "is visible" assertion.
+      await user.click(await screen.findByTestId('empty-state-action'));
+      expect(await screen.findByTestId('species-create-dialog')).toBeTruthy();
     });
   });
 

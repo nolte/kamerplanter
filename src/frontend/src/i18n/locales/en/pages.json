@@ -1136,6 +1136,7 @@
       },
       "sectionTaxonomyDesc": "Scientific name, common names, genus and botanical family of this species.",
       "create": "Create Species",
+      "createDenied": "You only have read access in this tenant. Creating a species requires the grower or lead role — ask someone who holds it, or switch tenants above.",
       "scientificName": "Scientific Name",
       "scientificNameHelper": "Binomial nomenclature: Genus + specific epithet (e.g. 'Solanum lycopersicum')",
       "commonNames": "Common Names",
@@ -1373,6 +1374,7 @@
     "cultivars": {
       "title": "Cultivars",
       "create": "Create Cultivar",
+      "createDenied": "You only have read access in this tenant. Creating a cultivar requires the grower or lead role — ask someone who holds it, or switch tenants above.",
       "editIntro": "Edit the properties of this cultivar. Changes affect associated plant instances.",
       "name": "Name",
       "nameHelper": "Cultivar name (e.g. 'San Marzano', 'Cherry Belle')",
