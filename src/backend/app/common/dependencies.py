@@ -699,6 +699,36 @@ def get_unknown_account_store():
     return RedisUnknownAccountStore(_get_redis_client())
 
 
+def get_device_pairing_code_store():
+    """REQ-023 / #1118 one-time custody of QR pairing codes.
+
+    Redis-only, with **no** in-process fallback: this store hands out
+    credentials rather than counting against a caller, and a per-replica
+    fallback would make a code redeemable only on the replica that minted it.
+    See the store's module docstring for the asymmetry between ``issue``
+    (fails loud) and ``consume`` (fails closed).
+    """
+    from app.data_access.external.redis_device_pairing import RedisDevicePairingCodeStore
+
+    return RedisDevicePairingCodeStore(
+        _get_redis_client(),
+        ttl_seconds=settings.device_pairing_ttl_seconds,
+    )
+
+
+def get_device_pairing_throttle_store():
+    """#1118 lockout counter for failed pairing redemptions, per source IP.
+
+    Redis-backed so replicas share one counter; degrades to the process-wide
+    in-memory tier when Redis is unreachable. Failing open here would reopen
+    unbounded guessing against an unauthenticated endpoint that mints sessions,
+    which the route's per-minute rate limit bounds but never stops.
+    """
+    from app.data_access.external.device_pairing_throttle import RedisDevicePairingThrottleStore
+
+    return RedisDevicePairingThrottleStore(_get_redis_client())
+
+
 def get_registration_notice_store():
     """REQ-023 §3.2 suppression window of the duplicate-registration notice.
 

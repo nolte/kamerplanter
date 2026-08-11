@@ -187,6 +187,21 @@ class Settings(BaseSettings):
     require_email_verification: bool = False  # Set True in production
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
+    #: REQ-023 / #1118 — lifetime of a QR device-pairing code, in seconds.
+    #:
+    #: The bounds are the guard, not the default. A pairing code is a bearer
+    #: credential displayed on a screen: whoever reads it first gets a session.
+    #: Below 60 s a user who has to unlock their phone and open the app cannot
+    #: finish in time and re-requests codes until one lands, which turns the
+    #: feature into a code generator. Above 120 s the code outlives the moment
+    #: the user was looking at the screen — a QR left on an unattended monitor,
+    #: in a screen share or in a shoulder-surfer's camera roll stays redeemable.
+    #:
+    #: Enforced by the settings model rather than by a comment or a service-side
+    #: clamp: an out-of-range ``DEVICE_PAIRING_TTL_SECONDS`` refuses startup,
+    #: where an operator sees it, instead of being silently reinterpreted.
+    device_pairing_ttl_seconds: int = Field(default=90, ge=60, le=120)
+
     # REQ-016 InvenTree integration (optional). Disabled by default — a missing
     # or switched-off configuration must never crash the app (graceful
     # degradation). ``inventree_allow_private_endpoint`` opts a LAN / in-cluster
