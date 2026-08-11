@@ -66,6 +66,8 @@ from app.domain.engines.tank_engine import TankEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
+from app.domain.interfaces.device_pairing_store import IDevicePairingCodeStore
+from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottleStore
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.services.auth_service import AuthService
@@ -699,7 +701,7 @@ def get_unknown_account_store():
     return RedisUnknownAccountStore(_get_redis_client())
 
 
-def get_device_pairing_code_store():
+def get_device_pairing_code_store() -> IDevicePairingCodeStore:
     """REQ-023 / #1118 one-time custody of QR pairing codes.
 
     Redis-only, with **no** in-process fallback: this store hands out
@@ -716,7 +718,7 @@ def get_device_pairing_code_store():
     )
 
 
-def get_device_pairing_throttle_store():
+def get_device_pairing_throttle_store() -> IDevicePairingThrottleStore:
     """#1118 lockout counter for failed pairing redemptions, per source IP.
 
     Redis-backed so replicas share one counter; degrades to the process-wide
@@ -779,6 +781,11 @@ def get_auth_service() -> AuthService:
         oidc_config_repo=get_oidc_config_repo(),
         encryption_engine=get_encryption_engine(),
         unknown_account_store=get_unknown_account_store(),
+        # #1118 — wired here rather than left to the router, so the capability
+        # and its guard travel together: an ``AuthService`` built without the
+        # throttle store would still redeem codes, only without a lockout.
+        device_pairing_code_store=get_device_pairing_code_store(),
+        device_pairing_throttle_store=get_device_pairing_throttle_store(),
     )
 
 

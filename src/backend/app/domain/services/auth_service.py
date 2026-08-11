@@ -18,6 +18,7 @@ from app.common.exceptions import (
 )
 from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
+from app.data_access.external.device_pairing_throttle import DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
 from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
 from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOUNT_STORE
 from app.domain.engines.encryption_engine import EncryptionEngine
@@ -27,6 +28,8 @@ from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
+from app.domain.interfaces.device_pairing_store import IDevicePairingCodeStore
+from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottleStore
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.unknown_account_store import IUnknownAccountStore
@@ -56,6 +59,27 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
 
 _API_KEY_PREFIX = "kp_"
 
+#: Entropy of one QR pairing code, in bytes handed to ``secrets.token_urlsafe``
+#: (#1118). 32 bytes = 256 bit, the same budget as an API key and a refresh
+#: token, which is what makes the 60–120 s guessing window a non-event.
+_PAIRING_CODE_BYTES = 32
+
+#: Cap on the client-supplied device label carried by a redemption.
+#:
+#: The label is an unauthenticated caller's free text, so it is bounded here as
+#: well as at the HTTP boundary: P4's request schema will reject an over-long
+#: value with 422, but a service reachable from a task or a test must not
+#: depend on that having happened.
+_DEVICE_NAME_MAX_LENGTH = 64
+
+#: Throttle bucket for a redemption that arrives without a source address.
+#:
+#: The HTTP path always supplies one (``slowapi``'s ``get_remote_address``), so
+#: this is reached only by non-HTTP callers. Sharing one bucket over-counts
+#: those; skipping the throttle instead would make the guard opt-out-able by
+#: simply not passing an address, which is the direction that costs something.
+_UNKNOWN_IP_BUCKET = "unknown"
+
 #: Cache for the throw-away hash the SEC-H-010 login guard verifies against.
 #: Computed once per process on first use rather than at import time, so a
 #: bcrypt round is not charged to every worker start.
@@ -75,6 +99,21 @@ def _decoy_password_hash(password_engine: PasswordEngine) -> str:
     if _DECOY_PASSWORD_HASH is None:
         _DECOY_PASSWORD_HASH = password_engine.hash_password(secrets.token_urlsafe(32))
     return _DECOY_PASSWORD_HASH
+
+
+def _code_fingerprint(code: str) -> str:
+    """Return a short sha256 prefix of a pairing code, for audit lines.
+
+    A prefix **of the code itself** would be the obvious thing to log and is the
+    wrong thing: it shrinks the search space of the very credential the line is
+    about, and the line outlives the 90-second code in whatever log sink
+    collects it. The digest identifies one issuance across the
+    ``device_pairing_created`` / ``device_pairing_redeemed`` pair without being
+    reversible, and matches what
+    :mod:`app.data_access.external.redis_device_pairing` already emits, so the
+    two layers' lines correlate on the same value.
+    """
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()[:16]
 
 
 class AuthService:
@@ -99,6 +138,8 @@ class AuthService:
         oidc_config_repo: ArangoOidcConfigRepository | None = None,
         encryption_engine: EncryptionEngine | None = None,
         unknown_account_store: IUnknownAccountStore | None = None,
+        device_pairing_code_store: IDevicePairingCodeStore | None = None,
+        device_pairing_throttle_store: IDevicePairingThrottleStore | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -123,6 +164,22 @@ class AuthService:
         # ``data_access.external.unknown_account_store``.
         self._unknown_account_store: IUnknownAccountStore = (
             unknown_account_store if unknown_account_store is not None else DEFAULT_UNKNOWN_ACCOUNT_STORE
+        )
+        # #1118 device pairing. The two collaborators are wired asymmetrically,
+        # for the same reason their stores are built differently:
+        #
+        # * the code store may be ``None`` — it is the *capability*, and an
+        #   instance without it must refuse to mint codes (like ``api_key_repo``)
+        #   rather than invent an in-process one, since a per-replica code store
+        #   would hand out codes redeemable on one replica only;
+        # * the throttle store is never ``None`` — it is the *guard*, and a
+        #   missing one would not disable the feature, it would silently unbound
+        #   guessing against it. Same reasoning as ``_unknown_account_store``.
+        self._device_pairing_code_store = device_pairing_code_store
+        self._device_pairing_throttle_store: IDevicePairingThrottleStore = (
+            device_pairing_throttle_store
+            if device_pairing_throttle_store is not None
+            else DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
         )
 
     # ── Registration ────────────────────────────────────────────────────
@@ -924,6 +981,191 @@ class AuthService:
         if user is None or not user.is_active:
             return None
         return user
+
+    # ── Device pairing (REQ-023 / #1118) ────────────────────────────────
+
+    def create_device_pairing(
+        self,
+        user_key: UserKey,
+        ip_address: str | None = None,
+    ) -> tuple[str, datetime]:
+        """Mint a one-time pairing code for ``user_key``.
+
+        The code is a bearer credential for the seconds it lives: whoever
+        presents it first gets a session on this account. It is therefore drawn
+        from ``secrets`` with the same 256-bit budget as an API key — never from
+        ``random``, never with a counter or a timestamp mixed in, because any
+        predictable component would let a code be derived rather than guessed.
+
+        Args:
+            user_key: Account the code is bound to. Binding happens **here**, in
+                the store, so redemption never has to trust a caller-supplied
+                identity.
+            ip_address: Source address of the issuing request, for the audit
+                event. Optional so non-HTTP callers can omit it.
+
+        Returns:
+            ``(code, expires_at)`` — the raw code, which the caller shows once
+            and never stores, and its expiry in UTC.
+
+        Raises:
+            ValidationError: If no pairing store is configured.
+            Exception: Whatever the store raises when it cannot persist the
+                code. Deliberately not swallowed: a caught error would hand the
+                user a QR code that can never be redeemed.
+        """
+        store = self._require_device_pairing_store()
+        code = secrets.token_urlsafe(_PAIRING_CODE_BYTES)
+        expires_at = store.issue(code, user_key)
+        logger.info(
+            "device_pairing_created",
+            user_key=user_key,
+            ip_address=ip_address,
+            # Never the code, not even a prefix of it — see ``_code_fingerprint``.
+            code_sha256=_code_fingerprint(code),
+            expires_at=expires_at.isoformat(),
+        )
+        return code, expires_at
+
+    def redeem_device_pairing(
+        self,
+        code: str,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+        device_name: str | None = None,
+    ) -> tuple[TokenPair, str, bool]:
+        """Exchange a pairing code for the standard REQ-023 token pair.
+
+        Returns exactly what ``login_local`` returns, from exactly the same
+        factory (``_create_tokens``): no new token type, no extra claim, and a
+        ``RefreshToken`` document that ``list_sessions`` shows and
+        ``revoke_session`` kills like any browser session. A separate token
+        class for paired devices would have needed its own revocation, its own
+        expiry sweep and its own place in the session list — three things that
+        already exist and would then exist twice.
+
+        The order below is load-bearing and mirrors ``_reject_unknown_account``:
+
+        1. read the lockout state for the source address and refuse **before**
+           the code store is touched — a locked-out caller must not be able to
+           test a code at all, otherwise the lockout costs an attacker a status
+           code and nothing else;
+        2. only then consume the code (single-use, atomically, in the store);
+        3. on a miss, count the failure and answer with the *same* generic
+           error an unknown code gets, so "used", "expired" and "never existed"
+           stay indistinguishable;
+        4. on a hit, clear the counter — a valid code is proof of possession,
+           and without the reset a household behind one NAT address would
+           accumulate failures from mistyped codes until a legitimate pairing is
+           refused.
+
+        Args:
+            code: The raw pairing code as scanned.
+            user_agent: Client user agent, recorded on the session.
+            ip_address: Source address; the throttle subject and the audit
+                field. ``None`` falls back to a shared bucket rather than
+                skipping the guard.
+            device_name: Client-supplied label (operator decision, plan §Open
+                questions 2). Validated here and **not yet persisted** —
+                ``_create_tokens`` takes no device metadata; P5 adds the field
+                to ``RefreshToken`` and wires it through.
+
+        Returns:
+            ``(token_pair, raw_refresh_token, is_persistent)``.
+
+        Raises:
+            AccountLockedError: 423, once this address has failed too often.
+            InvalidTokenError: 401 for a code that is unknown, already used,
+                expired, or unreadable because the store is unreachable.
+            UnauthorizedError: 401 if the bound account is gone or deactivated.
+            ValidationError: 422 for an over-long ``device_name``, or if no
+                pairing store is configured.
+        """
+        store = self._require_device_pairing_store()
+        throttle = self._device_pairing_throttle_store
+        bucket = ip_address or _UNKNOWN_IP_BUCKET
+        device_name = self._validate_device_name(device_name)
+
+        # Step 1 — lockout first. Nothing below this block may run for a locked
+        # address, and in particular not ``store.consume``: consuming would burn
+        # a code the attacker guessed correctly while the lockout was active.
+        failed_attempts, locked_until = throttle.get_failure_state(bucket)
+        if not self._throttle_engine.check_allowed(failed_attempts, locked_until):
+            minutes = self._throttle_engine.get_lockout_minutes(locked_until)
+            logger.info(
+                "device_pairing_redeem_failed",
+                reason="locked_out",
+                ip_address=ip_address,
+                failed_attempts=failed_attempts,
+                retry_after_minutes=minutes,
+            )
+            raise AccountLockedError(minutes)
+
+        # Step 2 — single use lives in the store (pipelined GET+DEL), so two
+        # redemptions racing on one code resolve to one winner.
+        record = store.consume(code)
+        if record is None:
+            failed_attempts += 1
+            throttle.record_failure(
+                bucket,
+                failed_attempts,
+                self._throttle_engine.calculate_lockout(failed_attempts),
+            )
+            logger.info(
+                "device_pairing_redeem_failed",
+                reason="not_redeemable",
+                ip_address=ip_address,
+                code_sha256=_code_fingerprint(code),
+                failed_attempts=failed_attempts,
+            )
+            # One error for every miss. A distinct "already used" would confirm
+            # to whoever sent it that the code they guessed was real.
+            raise InvalidTokenError("pairing code")
+
+        throttle.clear(bucket)
+
+        # The account comes from the record, never from the request: the code
+        # *is* the identity assertion, and there is no caller-supplied user to
+        # cross-check it against.
+        user = self._user_repo.get_by_key(record.user_key)
+        if user is None or not user.is_active:
+            raise UnauthorizedError("User account is inactive.")
+
+        logger.info(
+            "device_pairing_redeemed",
+            user_key=record.user_key,
+            ip_address=ip_address,
+            code_sha256=_code_fingerprint(code),
+            issued_at=record.issued_at.isoformat(),
+            device_name_supplied=device_name is not None,
+        )
+        # Persistent by construction: a paired phone that had to be re-paired
+        # every 24 hours would defeat the point of pairing it. Same choice
+        # ``complete_oauth`` makes, and the session stays revocable from the
+        # session list either way.
+        return self._create_tokens(user, user_agent, ip_address, is_persistent=True)
+
+    def _require_device_pairing_store(self) -> IDevicePairingCodeStore:
+        """Return the configured code store, or refuse like ``create_api_key``."""
+        if self._device_pairing_code_store is None:
+            raise ValidationError("Device pairing is not configured.")
+        return self._device_pairing_code_store
+
+    @staticmethod
+    def _validate_device_name(device_name: str | None) -> str | None:
+        """Normalise and bound the client-supplied device label.
+
+        Blank-after-strip becomes ``None`` rather than an empty string, so a
+        session list never has to distinguish "" from "not given".
+        """
+        if device_name is None:
+            return None
+        cleaned = device_name.strip()
+        if not cleaned:
+            return None
+        if len(cleaned) > _DEVICE_NAME_MAX_LENGTH:
+            raise ValidationError(f"device_name must be at most {_DEVICE_NAME_MAX_LENGTH} characters.")
+        return cleaned
 
     # ── Helpers ─────────────────────────────────────────────────────────
 
