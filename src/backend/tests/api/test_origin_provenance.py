@@ -118,7 +118,11 @@ def test_species_get_serves_origin():
 
 def test_species_create_marks_tenant_origin():
     service = MagicMock()
-    service.create_species.side_effect = lambda s: s
+    # ``**_kwargs`` accepts the SEC-005 (#1113) role gate arguments the route now
+    # threads to the service (``caller_role`` / ``is_platform_admin``). This stub
+    # pins the service *call signature*, so it has to widen with it; the file's
+    # subject — the provenance marker and the ownership stamp — is unchanged.
+    service.create_species.side_effect = lambda s, **_kwargs: s
     # A resolvable active tenant so the SEC-004 full-mode "no active tenant" guard
     # does not fire — this test is about the origin marker, not the guard.
     client = TestClient(_species_app(service, creating_tenant_key="tenant_personal_1"))
@@ -137,7 +141,11 @@ def test_species_create_stamps_caller_tenant_key():
     # tenant resolved from the authenticated caller — here the (overridden)
     # personal tenant — and never to a value from the request body.
     service = MagicMock()
-    service.create_species.side_effect = lambda s: s
+    # ``**_kwargs`` accepts the SEC-005 (#1113) role gate arguments the route now
+    # threads to the service (``caller_role`` / ``is_platform_admin``). This stub
+    # pins the service *call signature*, so it has to widen with it; the file's
+    # subject — the provenance marker and the ownership stamp — is unchanged.
+    service.create_species.side_effect = lambda s, **_kwargs: s
     client = TestClient(_species_app(service, creating_tenant_key="tenant_personal_1"))
 
     resp = client.post(
@@ -162,7 +170,11 @@ def test_species_create_defaults_global_when_no_personal_tenant(monkeypatch):
     # operator context.
     monkeypatch.setattr(settings, "kamerplanter_mode", "light")
     service = MagicMock()
-    service.create_species.side_effect = lambda s: s
+    # ``**_kwargs`` accepts the SEC-005 (#1113) role gate arguments the route now
+    # threads to the service (``caller_role`` / ``is_platform_admin``). This stub
+    # pins the service *call signature*, so it has to widen with it; the file's
+    # subject — the provenance marker and the ownership stamp — is unchanged.
+    service.create_species.side_effect = lambda s, **_kwargs: s
     client = TestClient(_species_app(service, creating_tenant_key=""))
 
     resp = client.post("/api/v1/species", json={"scientific_name": "Ocimum basilicum"})

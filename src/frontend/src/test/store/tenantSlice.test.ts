@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
   switchTenant,
+  clearActiveTenant,
   clearTenants,
   loadMyTenants,
   createOrganization,
@@ -61,6 +62,42 @@ describe('tenantSlice', () => {
     const populated = { ...baseState, myTenants: [tenantA] as never, activeTenant: tenantA as never };
     const state = reducer(populated, switchTenant('does-not-exist'));
     expect(state.activeTenant).toEqual(tenantA);
+  });
+
+  it('clearActiveTenant drops the active tenant and its persisted slug but keeps the list', () => {
+    // #1091 A-4: stale-slug recovery. The list is about to be reloaded, so it
+    // must survive — wiping it would make the tenant switcher disappear.
+    const store = stubLocalStorage({ [ACTIVE_TENANT_KEY]: 'garten-a' });
+    const populated = {
+      ...baseState,
+      myTenants: [tenantA, tenantB] as never,
+      activeTenant: tenantA as never,
+    };
+    const state = reducer(populated, clearActiveTenant());
+    expect(state.activeTenant).toBeNull();
+    expect(state.myTenants).toEqual([tenantA, tenantB]);
+    expect(store.has(ACTIVE_TENANT_KEY)).toBe(false);
+    expect(getActiveTenantSlug()).toBeNull();
+  });
+
+  it('heals the persisted slug after recovery: a revoked tenant is replaced by a surviving one', () => {
+    // #1091 A-4 AC 4, second half. Clearing alone would leave the user without a
+    // tenant; the reload that follows must re-persist a slug that still resolves,
+    // otherwise the next session starts on the same dead one.
+    const store = stubLocalStorage({ [ACTIVE_TENANT_KEY]: 'garten-a' });
+    const cleared = reducer(
+      { ...baseState, myTenants: [tenantA, tenantB] as never, activeTenant: tenantA as never },
+      clearActiveTenant(),
+    );
+    expect(store.has(ACTIVE_TENANT_KEY)).toBe(false);
+
+    const reloaded = reducer(cleared, {
+      type: loadMyTenants.fulfilled.type,
+      payload: [tenantB], // membership in garten-a was revoked
+    });
+    expect(reloaded.activeTenant).toEqual(tenantB);
+    expect(store.get(ACTIVE_TENANT_KEY)).toBe('garten-b');
+    expect(getActiveTenantSlug()).toBe('garten-b');
   });
 
   it('clearTenants wipes the tenant state and persisted slug', () => {

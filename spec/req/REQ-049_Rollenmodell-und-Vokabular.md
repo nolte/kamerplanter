@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 5.9
 Status: Entwurf
-Version: 1.3
+Version: 1.4
 Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hier im Vokabular abgelöst und im Rollenumfang erweitert), REQ-023 (Authentifizierung — Kontoart, Dienstkonten), REQ-027 (Light-Modus — Einzelkonto), REQ-030 (Benachrichtigungssystem — übernimmt die Empfängerregel §2.8), REQ-022 (Pflegeerinnerungen — dieselbe Empfängerregel), REQ-046 (Wetterdienste — wandern auf die globale Ebene §2.9), REQ-005 + REQ-018 (Home Assistant — wandert auf die Mandantenebene §2.9), NFR-001 (Schichtenarchitektur), NFR-015 (OWASP-ZAP — Permission-Matrix-Tests), NFR-016 (Versioniertes Migrations-Framework — Datenmigration der Mitgliedschaften)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.4 | 2026-08-11 | **ADR-009:** Neue §2.11 (Aktiver Mandant auf globalen Routen): Ein `X-Active-Tenant`-Header trägt auf globalen, mandantenbewussten Routen den Mandanten-Slug, in dem der Aufrufer handelt; ein Resolver löst Read, Write-Stamping und Rolle identisch auf, die Rolle stammt aus dem Membership im *aktiven* Mandanten (§2.7). Fail-safe: abwesender Header → persönlich/global wie bisher, ungültiger Header → orakelfreies `403`, nie ein stiller Rückfall. Schließt damit die offene Designfrage **A1** aus #808 (Auflösung des Mandanten auf global-aber-mandantenbewussten Routen). **AK-09** von `404` auf `403` korrigiert: Nach der Angleichung der `/t/{slug}/`-Pfadroute (Package A-11) verweigert `get_current_tenant` einem Nicht-Member — auch einem Plattform-Admin ohne Mitgliedschaft — orakelfrei mit `403` **vor** jedem Datenzugriff; beide Mandantengrenzen (Pfad und Header) sind damit orakelfrei. |
 | 1.3 | 2026-07-25 | Offenen Punkt aus §2.9 entschieden und als §2.10 ausgeführt: Trennung von **Angebot** (global, Plattform-Admin), **Anbindung** (pro Mandant, Technik) und **Auswahl** (pro Standort, Leitung). Ein global eingerichteter Dienst ist auswählbar, wirkt aber nur, wo er ausgewählt wurde. Das globale Angebot darf leer sein — Home-Assistant-Sensoren sind eine vollwertige Wetterquelle ohne jeden externen Dienst, und umgekehrt. AK-23 korrigiert (Angebot ≠ automatische Wirkung), AK-25 bis AK-29 ergänzt. |
 | 1.2 | 2026-07-25 | Leitprinzip P5 ergänzt: Die Konfigurationsebene eines externen Dienstes folgt seiner Zugehörigkeit (Betreiberdienst → global/Plattform-Admin, Mandantendienst → pro Mandant/Technik). Neue §2.9 mit der Einordnung je Dienst und der normativen Festlegung, dass eine Installation **mehrere unabhängige Home-Assistant-Instanzen** gleichzeitig anbindet (zentrale Vereinsinstallation und private Installation nebeneinander). Wetterdienste wandern damit auf die globale Ebene, Home Assistant auf die Mandantenebene — beide verletzen P5 heute, in entgegengesetzter Richtung. AK-20 bis AK-24 ergänzt. Offener Punkt: Auswahl und Priorität der Wetterquellen je Standort. |
 | 1.1 | 2026-07-25 | Leitprinzipien P1–P4 als Soll-Zustand ergänzt (§2.1): Der Mandant ist die gemeinsame Arbeitsmenge, Trennung nur an der Mandantengrenze, kein Sonderfall persönlicher Mandant. Daraus abgeleitet: normative Empfängerregel für Benachrichtigungen (§2.8, bisher in REQ-030 undefiniert) und Auflösung der zuweisungsbasierten Schreibkontrolle (§3.5, ersetzt REQ-024 §1a.5). „Zugewiesene" von erlaubtem zu verbotenem Vokabular verschoben, „Eigene" auf verfasste Beiträge eingegrenzt. AK-13 bis AK-19 ergänzt. |
@@ -229,6 +230,21 @@ Daraus folgt normativ:
 
 Diese Dreiteilung ist auf jeden weiteren Dienst übertragbar, der sowohl betreiberseitig angeboten als auch mandantenseitig ersetzt werden kann — beim KI-Provider gilt sie bereits (§2.9, Zeile „Hybrid").
 
+### 2.11 Aktiver Mandant auf globalen Routen
+
+Die **globalen** Katalog-Routen — Arten, Sorten, botanische Familien, Companion-/Fruchtfolge-Anker — liegen **nicht** unter `/api/v1/t/{tenant_slug}/…`, sind aber trotzdem mandantenbewusst: Sie liefern je Mandant eine andere Sicht (globaler Seed-Katalog **plus** die mandanteneigenen Einträge) und stempeln beim Anlegen einen Eigentümer-Mandanten. Ihnen fehlte die eine Angabe, in welchem Mandanten der Aufrufer gerade handelt; sie lösten hart den persönlichen Mandanten auf. Für ein Org-Mitglied eines Gemeinschaftsgartens war die org-eigene Sicht damit unerreichbar, und ein Create landete im falschen Mandanten — eine **stille Kontext-Verwechslung**. Diese offene Designfrage war in #808 als **A1** vermerkt; sie ist mit **ADR-009** entschieden und hier normativ festgehalten.
+
+**Mechanismus.** Ein Request-Header **`X-Active-Tenant`** trägt auf diesen Routen den Mandanten-**Slug**, in dem der Aufrufer handelt (menschenlesbar, symmetrisch zur `/t/{slug}/`-Pfadkonvention aus REQ-024). Ein einziger Resolver bildet Slug→Key ab und wertet den Header für **Lesesichtbarkeit, Write-Stamping und Rollen-/Admin-Scope-Ableitung identisch** aus; Read-Scope und Eigentümer-Stempel können deshalb nie auf verschiedene Mandanten zeigen.
+
+**Rollenquelle.** Die fachliche Rolle des Aufrufers stammt aus seinem Membership im **aktiven** Mandanten (§2.7), nicht aus dem persönlichen. Ein Org-Beobachter erhält die `viewer`-Rolle der Organisation — nie die `lead`-Rolle seines persönlichen Mandanten. Das ist die Bedingung dafür, dass das Rollen-Gate im Org-Kontext dasselbe misst wie auf den `/t/{slug}/`-Routen.
+
+**Fail-safe — Abwesenheit oder Ungültigkeit verengt, erweitert nie:**
+
+- **Kein Header:** unverändertes heutiges Verhalten — persönlicher Mandant; anonym/Light-Modus → globaler Scope `""`. Ein leerer oder nur aus Leerraum bestehender Wert zählt bewusst als abwesend.
+- **Ungültiger Header** (unbekannter Slug **oder** ein Mandant ohne aktives Membership des Aufrufers): `403`, mit **byte-identischer** Antwort für beide Fälle (kein Slug-Existenz-Orakel). Der Slug wird **nicht** case-gefoldet; jede Abweichung führt zur fail-safe-Ablehnung. Das System fällt **niemals** still auf den persönlichen Mandanten oder auf globalen Scope zurück — genau diese stille Kontext-Verwechslung ist der Fehler, den diese Regel behebt, und ein Rückfall würde ihn wieder öffnen.
+
+**Abgrenzung.** Die `/t/{slug}/`-Routen binden den Mandanten weiterhin über den Pfad; für sie gilt der Header nicht. Favoriten bleiben persönlich-über-Mandanten und werden vom Header nicht umgebunden. Der Header ist nicht safelisted und wird über die bestehende CORS-Freigabe zugelassen.
+
 ## 3. Verbindliches Vokabular
 
 Dieser Abschnitt ist die normative Grundlage für **jede** Rechte-Tabelle im Repositorium — in REQ-Dokumenten, ADRs, Code-Kommentaren und der Endnutzer-Dokumentation.
@@ -436,7 +452,7 @@ Die Migration läuft über das versionierte Migrations-Framework (NFR-016) und i
 | AK-06 | Das Entfernen der letzten Mitgliedschaft mit `management` wird abgelehnt (INV-1) | Unit + Integration |
 | AK-07 | Die Migration überführt jedes bestehende `admin` nach `lead` + beide Zusatzberechtigungen, ohne Mitgliedschaften zu verlieren | Migration |
 | AK-08 | Ein Dienstkonto mit Rolle Gärtner hat exakt die Rechte eines menschlichen Gärtners | Integration |
-| AK-09 | Ein Plattform-Admin ohne Mitgliedschaft erhält auf Fachdaten eines fremden Mandanten `404` | Integration |
+| AK-09 | Ein Plattform-Admin ohne Mitgliedschaft erhält auf Fachdaten eines fremden Mandanten `403` (orakelfreie Ablehnung an der Mandantengrenze vor jedem Datenzugriff, ADR-009 / Package A-11) | Integration |
 | AK-10 | Kein REQ-Dokument enthält in einer Rechte-Tabelle einen der in §3.2 verbotenen Begriffe | CI-Prüfung |
 | AK-11 | Jede in einem REQ definierte mandantenbezogene Ressource kommt in REQ-024 §1a.1 vor | CI-Prüfung |
 | AK-12 | Die Oberfläche blendet Aktionen aus, die die aktuelle Rolle nicht ausführen darf — für beide Achsen | Komponente |

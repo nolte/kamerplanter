@@ -1136,6 +1136,7 @@
       },
       "sectionTaxonomyDesc": "Wissenschaftliche Bezeichnung, Trivialnamen, Gattung und botanische Familie dieser Art.",
       "create": "Art erstellen",
+      "createDenied": "In diesem Mandanten hast du nur Leserechte. Zum Anlegen einer Art brauchst du die Rolle Gärtner oder Leitung — frag jemanden mit dieser Rolle oder wechsle oben den Mandanten.",
       "scientificName": "Wissenschaftlicher Name",
       "scientificNameHelper": "Binomiale Nomenklatur: Gattung + Artepitheton (z. B. 'Solanum lycopersicum')",
       "commonNames": "Gebräuchliche Namen",
@@ -1373,6 +1374,7 @@
     "cultivars": {
       "title": "Sorten",
       "create": "Sorte erstellen",
+      "createDenied": "In diesem Mandanten hast du nur Leserechte. Zum Anlegen einer Sorte brauchst du die Rolle Gärtner oder Leitung — frag jemanden mit dieser Rolle oder wechsle oben den Mandanten.",
       "editIntro": "Bearbeiten Sie die Eigenschaften dieser Sorte. Änderungen wirken sich auf zugeordnete Pflanzeninstanzen aus.",
       "name": "Name",
       "nameHelper": "Sortenname (z. B. 'San Marzano', 'Cherry Belle')",

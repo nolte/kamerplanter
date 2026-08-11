@@ -80,3 +80,4 @@ So ist die Verknüpfung Entscheidung ↔ Spec-Änderung dauerhaft nachvollziehba
 | ADR-006 | Modell des mehrjährigen Outdoor-Lebenszyklus (E1–E7) | Proposed | 2026-07-12 |
 | ADR-007 | Eigene Frontend-Breakpoints vs. MUI-Defaults (UI-NFR-001 R-001) | Proposed | 2026-07-26 |
 | ADR-008 | Tasks, Care-Reminders und Notifications auf eine Recurrence-Engine und einen Propagationspfad | Proposed | 2026-08-08 |
+| ADR-009 | Aktiver Mandant über den X-Active-Tenant-Header auf globalen Routen | Accepted | 2026-08-11 |

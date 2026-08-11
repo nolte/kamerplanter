@@ -60,6 +60,29 @@ const tenantSlice = createSlice({
         }
       }
     },
+    /**
+     * Drop the active tenant while keeping the tenant list — stale-slug recovery.
+     *
+     * Dispatched by the recovery handler the composition root registers on the
+     * API client (#1091 A-4): the backend refused the persisted slug, so it names
+     * a tenant the user was removed from (or one that no longer exists) and every
+     * global catalogue request would keep failing until it is gone.
+     *
+     * Distinct from {@link clearTenants}, which belongs to logout and wipes
+     * `myTenants` too: here the list is about to be *reloaded*, and emptying it
+     * meanwhile would make the tenant switcher vanish from the toolbar for the
+     * duration. `loadMyTenants.fulfilled` then picks a tenant that still exists
+     * and re-persists it, so `kp_active_tenant_slug` heals on its own.
+     */
+    clearActiveTenant(state) {
+      state.activeTenant = null;
+      setActiveTenantSlug(null);
+      try {
+        localStorage.removeItem(ACTIVE_TENANT_KEY);
+      } catch {
+        // ignore storage errors
+      }
+    },
     clearTenants(state) {
       state.activeTenant = null;
       state.myTenants = [];
@@ -108,5 +131,5 @@ const tenantSlice = createSlice({
   },
 });
 
-export const { switchTenant, clearTenants } = tenantSlice.actions;
+export const { switchTenant, clearActiveTenant, clearTenants } = tenantSlice.actions;
 export default tenantSlice.reducer;

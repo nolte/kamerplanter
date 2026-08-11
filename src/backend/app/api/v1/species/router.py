@@ -132,14 +132,36 @@ def create_species(
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
     tenant_key: str = Depends(get_creating_tenant_key),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Create a tenant-owned species master record."""
+    """Create a tenant-owned species master record.
+
+    Role-gated in the service since SEC-005 (#1113), mirroring the update/delete
+    wiring: a viewer of the active tenant is refused with 403, a grower or lead may
+    create, and a platform admin may curate regardless of domain rank.
+
+    Two tenant-bearing dependencies on purpose, and they answer different
+    questions. ``tenant_key`` (:func:`~app.common.auth.get_creating_tenant_key`) is
+    the **ownership stamp**; ``ctx`` supplies only the caller's **role** in that same
+    tenant. They cannot disagree — both come from the one
+    ``_resolve_active_tenant`` — and keeping the stamp on the alias is what stops
+    the F-3 back-compat dependency (and the tests overriding it) from quietly
+    becoming inert.
+    """
     # SEC-004 (#808): in full mode a tenant-owned create with no resolvable active
     # tenant must NOT be stamped global. Without this guard an authenticated caller
     # who has no personal tenant would resolve ``tenant_key == ""`` and inject an
     # ``origin=TENANT`` species straight into the shared seed catalogue every tenant
     # sees. Reject it as 422 instead. Light mode (REQ-027) is single-tenant, so the
     # empty key there is the legitimate global operator context — never blocked.
+    #
+    # Ordering vs the SEC-005 (#1113) role gate below: this 422 wins. It is a
+    # request-precondition failure — the request names no tenant to create in — and
+    # with no resolvable tenant ``ctx.role`` is the fail-safe VIEWER default rather
+    # than a standing the caller actually holds, so answering 403 would report a
+    # role nobody assigned them. It is also the order the wiring produces (route
+    # body before service call), so SEC-004's shipped answer is unchanged.
     if settings.kamerplanter_mode == "full" and not tenant_key:
         raise ValidationError("Cannot create a tenant-owned species without an active tenant.")
     # User-created master data is tenant-owned (editable); seeded species default
@@ -152,7 +174,7 @@ def create_species(
     # foreign tenants while the global seed catalogue (tenant_key == "") stays
     # visible to all.
     species = Species(**body.model_dump(), origin=DataOrigin.TENANT, tenant_key=tenant_key)
-    created = service.create_species(species)
+    created = service.create_species(species, caller_role=ctx.role, is_platform_admin=is_platform_admin)
     return _species_response(created, family_repo)
 
 

@@ -53,6 +53,8 @@ def create_cultivar(
     body: CultivarCreate,
     service: SpeciesService = Depends(get_species_service),
     tenant_key: str = Depends(get_creating_tenant_key),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
     """Create a tenant-owned cultivar for a species.
 
@@ -60,6 +62,18 @@ def create_cultivar(
     only be attached to the caller's own or a global species. Attaching one to a
     *foreign* tenant's species answers 404 — it would otherwise confirm that
     species key exists and write a ``has_cultivar`` edge into a foreign graph.
+
+    Role-gated in the service since SEC-005 (#1113), mirroring the update/delete
+    wiring and the species create: a viewer of the active tenant is refused with
+    403, a grower or lead may create, a platform admin may curate regardless of
+    domain rank. The parent-species 404 is decided first, so the refusal for an
+    unreachable species does not vary with the caller's role.
+
+    ``tenant_key`` stays the **ownership stamp** (and the C-4 co-scoping input);
+    ``ctx`` supplies only the **role**. Both resolve through the one
+    ``_resolve_active_tenant``, so they cannot disagree — and the stamp keeps
+    reading the F-3 back-compat alias rather than ``ctx.tenant_key``, so that
+    dependency does not silently become inert.
     """
     # SEC-004 pendant (#1090): in full mode a tenant-owned create with no resolvable
     # active tenant must NOT be stamped global. Without this guard an authenticated
@@ -67,6 +81,10 @@ def create_cultivar(
     # an ``origin=TENANT`` cultivar straight into the shared seed catalogue every
     # tenant sees. Reject it as 422 instead. Light mode (REQ-027) is single-tenant, so
     # the empty key there is the legitimate global operator context — never blocked.
+    #
+    # Ordering vs the SEC-005 (#1113) role gate: this 422 wins, for the reason the
+    # species create route records — a request that names no tenant fails on its
+    # precondition, before a role that is only a fail-safe default is judged.
     if settings.kamerplanter_mode == "full" and not tenant_key:
         raise ValidationError("Cannot create a tenant-owned cultivar without an active tenant.")
     # User-created cultivars are tenant-owned (editable); seeded ones stay 'system'.
@@ -83,7 +101,12 @@ def create_cultivar(
         tenant_key=tenant_key,
         **body.model_dump(exclude={"species_key"}),
     )
-    created = service.create_cultivar(cultivar, tenant_key=tenant_key)
+    created = service.create_cultivar(
+        cultivar,
+        tenant_key=tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
     return to_response(created, CultivarResponse)
 
 

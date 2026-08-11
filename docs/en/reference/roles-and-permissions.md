@@ -77,6 +77,7 @@ The practical gain: rights are granted **individually** rather than as a package
 | Read all of the garden's data | Yes | Yes | Yes | — | — |
 | Create and edit plants | No | Yes | Yes | — | — |
 | Remove plants | No | **No** | Yes | — | — |
+| Create a species or cultivar in the global catalog† | No | Yes | Yes | — | — |
 | Create and rebuild the location structure | No | No | Yes | — | — |
 | Create and advance planting runs | No | Yes | Yes | — | — |
 | Create and complete tasks | No | Yes | Yes | — | — |
@@ -101,6 +102,8 @@ The practical gain: rights are granted **individually** rather than as a package
 *As the only member holding **Management**, you cannot leave without handing that scope on first — otherwise the garden would be left with nobody who could invite anyone.
 
 ‡Unlike the other rows in this table, marking an entry for AI analysis is additionally tied to **authorship**: a Grower may only mark entries they authored themselves. Only the Lead role may also mark entries from other members. See [Diary](../user-guide/plant-diary.md) for details.
+
+†This refers to the role in whichever tenant is currently **active**, not necessarily your personal garden — see [Active Tenant: Catalog View and New Entries](../user-guide/tenants.md#active-tenant-catalog-view-and-new-entries). A Viewer is refused when creating; this is consistent with REQ-049 §2.3 (Grower or above for writing actions) and the active-tenant resolution on the global, tenant-aware catalog routes recorded in ADR-009.
 
 !!! warning "Changed rights for growers"
     Until this model was introduced, the implementation let a grower delete domain data although the specification never allowed it. Since the change they can no longer do so. This is the intended correction, not a defect — whoever should be able to delete needs the **Lead** role.
@@ -200,6 +203,8 @@ The master-data catalog is deliberately not split by garden but global. Every ga
 - Climate zones and agroclimatic reference data
 
 If you create your own cultivar or your own fertilizer inside your garden, it initially stays your garden's record. Only the platform administrator can promote such an entry into the global catalog, where it then becomes visible to everyone.
+
+**Which garden's record a new species or cultivar becomes is decided by the active tenant** — not necessarily your personal garden. If you create a cultivar while a community garden is active, for example, it belongs to that garden; visibility for other members of that garden follows the same rule. This requires at least the Grower role in the active tenant — a Viewer is refused (REQ-049 §2.3, ADR-009). A platform administrator retains their curation ability for the global catalog regardless. Details on switching the active tenant are under [Tenants & Gardens](../user-guide/tenants.md#active-tenant-catalog-view-and-new-entries).
 
 ### What Is Never Visible Across Garden Boundaries
 

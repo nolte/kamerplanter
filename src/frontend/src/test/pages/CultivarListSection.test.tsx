@@ -4,9 +4,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import CultivarListSection from '@/pages/stammdaten/CultivarListSection';
-import { renderWithProviders } from '../helpers';
+import { createTestStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
-import type { Cultivar } from '@/api/types';
+import type { Cultivar, TenantRole } from '@/api/types';
 
 const CULTIVARS_URL = '/api/v1/species/sp-1/cultivars';
 
@@ -106,6 +106,75 @@ describe('CultivarListSection', () => {
 
     await waitFor(() => expect(deleted).toBe(true));
     await waitFor(() => expect(screen.queryByText('Sungold')).toBeNull());
+  });
+
+  // #1091 A-7 — role gating of the create affordance. `POST /species/{k}/cultivars`
+  // refuses a tenant viewer with 403 (SEC-005/#1113); the section stops offering
+  // the button, but only when a viewer role is actually established.
+  describe('create-action role gating', () => {
+    function storeWithRole(role: TenantRole | null) {
+      return createTestStore({
+        tenants: {
+          activeTenant:
+            role === null ? null : { key: 't1', slug: 'garten', name: 'Garten', role },
+          myTenants: [],
+          isLoading: false,
+          error: null,
+        },
+      });
+    }
+
+    it('hides the create button from a viewer of the active tenant', async () => {
+      server.use(http.get(CULTIVARS_URL, () => HttpResponse.json([makeCultivar()])));
+      renderWithProviders(<CultivarListSection speciesKey="sp-1" />, {
+        store: storeWithRole('viewer'),
+      });
+
+      expect(await screen.findByText('Sungold')).toBeInTheDocument();
+      expect(screen.queryByTestId('create-button')).toBeNull();
+    });
+
+    it('shows the create button to a grower', async () => {
+      server.use(http.get(CULTIVARS_URL, () => HttpResponse.json([makeCultivar()])));
+      renderWithProviders(<CultivarListSection speciesKey="sp-1" />, {
+        store: storeWithRole('grower'),
+      });
+
+      expect(await screen.findByText('Sungold')).toBeInTheDocument();
+      expect(screen.getByTestId('create-button')).toBeInTheDocument();
+    });
+
+    it('shows the create button while there is no active tenant', async () => {
+      // An absent tenant is not a refusal (422 in full mode, 201 in light mode), and
+      // it is also the transient state of the stale-slug recovery (#1091 A-4).
+      server.use(http.get(CULTIVARS_URL, () => HttpResponse.json([makeCultivar()])));
+      renderWithProviders(<CultivarListSection speciesKey="sp-1" />, {
+        store: storeWithRole(null),
+      });
+
+      expect(await screen.findByText('Sungold')).toBeInTheDocument();
+      expect(screen.getByTestId('create-button')).toBeInTheDocument();
+    });
+
+    it('explains the missing permission in the empty state', async () => {
+      server.use(http.get(CULTIVARS_URL, () => HttpResponse.json([])));
+      renderWithProviders(<CultivarListSection speciesKey="sp-1" />, {
+        store: storeWithRole('viewer'),
+      });
+
+      const empty = await screen.findByTestId('empty-state');
+      expect(within(empty).getByText(i18n.t('pages.cultivars.createDenied'))).toBeInTheDocument();
+    });
+
+    it('leaves the empty state unexplained for a grower (nothing to explain)', async () => {
+      server.use(http.get(CULTIVARS_URL, () => HttpResponse.json([])));
+      renderWithProviders(<CultivarListSection speciesKey="sp-1" />, {
+        store: storeWithRole('grower'),
+      });
+
+      await screen.findByTestId('empty-state');
+      expect(screen.queryByText(i18n.t('pages.cultivars.createDenied'))).toBeNull();
+    });
   });
 
   it('cancels the delete confirmation without deleting', async () => {

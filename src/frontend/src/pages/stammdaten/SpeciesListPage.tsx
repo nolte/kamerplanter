@@ -28,6 +28,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import OriginChip from '@/components/common/OriginChip';
 import { resolveOrigin } from '@/hooks/useOriginProtection';
+import { useCanCreateCatalogEntry } from '@/hooks/useCanCreateCatalogEntry';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSpeciesList } from '@/store/slices/speciesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -161,6 +162,15 @@ export default function SpeciesListPage() {
   const [activeFilters, setActiveFilters] = useState<Set<ToggleFilter>>(new Set());
   const [growthHabitFilter, setGrowthHabitFilter] = useState<GrowthHabit | ''>('');
   const { favorites, toggleFavorite, isFavorite } = useSowingFavorites();
+  // #1091 A-7 — UX consequence of the backend create gate (SEC-005/#1113, A-3),
+  // not a security control: `POST /species` refuses a tenant viewer with 403
+  // regardless of what is rendered here. See `useCanCreateCatalogEntry` for why the
+  // predicate is "active tenant that cannot edit" rather than "cannot prove edit".
+  // Following the established `useTenantPermissions().canEdit` precedent
+  // (HardinessZoneDetectButton, PlantDiaryTab, PlantPhotoGallery) the affordance is
+  // hidden rather than disabled — a hover tooltip is unreachable on touch and in
+  // kiosk mode (UI-NFR-019) — and the empty state carries the explanation instead.
+  const canCreate = useCanCreateCatalogEntry();
 
   // REQ-029 §4.2 — "add plant via photo" entry point on the species overview.
   const [identifyOpen, setIdentifyOpen] = useState(false);
@@ -456,14 +466,16 @@ export default function SpeciesListPage() {
           </Button>
         )}
 
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.species.create')}
-        </Button>
+        {canCreate && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.species.create')}
+          </Button>
+        )}
       </Box>
 
       {/* Family filter banner from URL param */}
@@ -572,8 +584,13 @@ export default function SpeciesListPage() {
         loading={loading}
         onRowClick={(r) => navigate(`/stammdaten/species/${r.key}`)}
         getRowKey={(r) => r.key}
-        emptyActionLabel={t('pages.species.create')}
-        onEmptyAction={() => setCreateOpen(true)}
+        emptyActionLabel={canCreate ? t('pages.species.create') : undefined}
+        onEmptyAction={canCreate ? () => setCreateOpen(true) : undefined}
+        // A read-only member gets the reason in prose instead of a call to action
+        // — the same treatment PlantDiaryTab/PlantPhotoGallery give their
+        // read-only empty state, and the only place on this page where an
+        // explanation has somewhere to live once the button is gone.
+        emptyDescription={canCreate ? undefined : t('pages.species.createDenied')}
         emptyIllustration={kamiMasterdata}
         tableState={tableState}
         ariaLabel={t('pages.species.title')}

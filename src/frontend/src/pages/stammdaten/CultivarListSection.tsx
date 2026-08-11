@@ -12,6 +12,7 @@ import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useTableLocalState } from '@/hooks/useTableState';
+import { useCanCreateCatalogEntry } from '@/hooks/useCanCreateCatalogEntry';
 import CultivarCreateDialog from './CultivarCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -33,6 +34,11 @@ export default function CultivarListSection({ speciesKey }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Cultivar | null>(null);
   const [deleting, setDeleting] = useState(false);
   const tableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
+  // #1091 A-7 — UX consequence of the backend create gate (SEC-005/#1113, A-3), not
+  // a security control: `POST /species/{key}/cultivars` refuses a tenant viewer with
+  // 403 whatever this section renders. Same hook, and therefore the same predicate,
+  // as the species list: "active tenant that cannot edit", never "cannot prove edit".
+  const canCreate = useCanCreateCatalogEntry();
 
   const load = async () => {
     setLoading(true);
@@ -121,9 +127,11 @@ export default function CultivarListSection({ speciesKey }: Props) {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">{t('pages.cultivars.title')}</Typography>
-        <Button startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} data-testid="create-button">
-          {t('pages.cultivars.create')}
-        </Button>
+        {canCreate && (
+          <Button startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} data-testid="create-button">
+            {t('pages.cultivars.create')}
+          </Button>
+        )}
       </Box>
 
       <DataTable
@@ -134,6 +142,9 @@ export default function CultivarListSection({ speciesKey }: Props) {
         onRowClick={(r) => navigate(`/stammdaten/species/${speciesKey}/cultivars/${r.key}`)}
         tableState={tableState}
         ariaLabel={t('pages.cultivars.title')}
+        // With the create button gone, the empty state is the only place left to
+        // say *why* — a read-only member would otherwise face a bare "no data".
+        emptyDescription={canCreate ? undefined : t('pages.cultivars.createDenied')}
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}

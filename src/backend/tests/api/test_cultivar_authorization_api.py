@@ -16,10 +16,13 @@ router module moved in #1090, the HTTP route did not, K2):
   global by platform admin → 200/204, own viewer → 403, own grower update → 200
   but delete → 403 (REQ-049 §2.3), own lead delete → 204;
 * POST ``""`` — under a *foreign* tenant's species → 404 instead of the 201 plus
-  foreign-graph ``has_cultivar`` edge the unscoped lookup produced.
+  foreign-graph ``has_cultivar`` edge the unscoped lookup produced;
+* POST ``""`` — SEC-005 (#1113), qualified because ``SEC-005`` names two unrelated
+  findings (R-7): viewer → 403, grower/lead → 201, platform admin → 201.
 
 Red-first: against the pre-C-4 router (PUT/DELETE with no tenant dependencies at
-all) every mutation answered 200/204 regardless of owner or role.
+all) every mutation answered 200/204 regardless of owner or role; against the
+pre-#1113 router the create carried no role dependency, so a viewer answered 201.
 """
 
 from __future__ import annotations
@@ -267,3 +270,65 @@ def test_create_under_the_callers_own_species_returns_201():
     )
 
     assert resp.status_code == 201
+
+
+# ── POST: the create role gate (SEC-005, #1113) ──────────────────────────────
+
+
+_CREATE_BODY = {"name": "My Genovese", "species_key": "sp_global"}
+
+
+def test_create_cultivar_by_viewer_returns_403():
+    # verifies_sprint_value: red-first. Before #1113 the POST route carried no role
+    # dependency, so an org viewer acting through a valid ``X-Active-Tenant`` header
+    # got 201 and wrote a cultivar into the shared org catalogue.
+    repo = _catalogue()
+    client = TestClient(_app(repo=repo, role=TenantRole.VIEWER))
+
+    resp = client.post("/api/v1/species/sp_global/cultivars", json=_CREATE_BODY)
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "FORBIDDEN"
+    assert repo.created == []
+
+
+def test_create_cultivar_by_grower_returns_201():
+    repo = _catalogue()
+    client = TestClient(_app(repo=repo, role=TenantRole.GROWER))
+
+    assert client.post("/api/v1/species/sp_global/cultivars", json=_CREATE_BODY).status_code == 201
+    assert [c.tenant_key for c in repo.created] == ["t1"]
+
+
+def test_create_cultivar_by_lead_returns_201():
+    repo = _catalogue()
+    client = TestClient(_app(repo=repo, role=TenantRole.LEAD))
+
+    assert client.post("/api/v1/species/sp_global/cultivars", json=_CREATE_BODY).status_code == 201
+    assert [c.tenant_key for c in repo.created] == ["t1"]
+
+
+def test_create_cultivar_by_platform_admin_is_allowed_despite_the_viewer_role():
+    # Light-mode curation (REQ-027), mirroring the update/delete platform-admin arm.
+    repo = _catalogue()
+    client = TestClient(_app(repo=repo, role=TenantRole.VIEWER, is_platform_admin=True))
+
+    assert client.post("/api/v1/species/sp_global/cultivars", json=_CREATE_BODY).status_code == 201
+    assert len(repo.created) == 1
+
+
+def test_create_under_a_foreign_species_by_viewer_is_still_the_404():
+    # Order pinned: the parent-species scope (structural) is decided before the role
+    # (privilege), exactly as in update_cultivar/delete_cultivar. A URL addressing a
+    # species the caller cannot see answers 404 whatever their role, so the refusal
+    # never varies with privilege — see SpeciesService.get_cultivar's order note.
+    repo = _catalogue()
+    client = TestClient(_app(repo=repo, role=TenantRole.VIEWER))
+
+    resp = client.post(
+        "/api/v1/species/sp_foreign/cultivars",
+        json={"name": "Sneaky", "species_key": "sp_foreign"},
+    )
+
+    assert resp.status_code == 404
+    assert repo.created == []
