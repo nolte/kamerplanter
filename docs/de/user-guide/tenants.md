@@ -34,6 +34,20 @@ Der aktuell aktive Tenant ist in der Navigationsleiste hervorgehoben. Die URL en
 
 ---
 
+## Aktiver Tenant: Katalog-Sicht und neue Einträge
+
+Bist du Mitglied in einem Gemeinschaftsgarten, wirkt sich der aktiv gewählte Tenant auch auf den **Pflanzenkatalog** aus — also auf Pflanzenarten, Sorten und botanische Familien.
+
+- **Die Katalog-Sicht folgt dem aktiven Tenant.** Ist ein Gemeinschaftsgarten aktiv, siehst du den globalen Basis-Katalog **plus** die Arten und Sorten, die genau dieser Garten selbst angelegt hat. Arten und Sorten eines *anderen* deiner Gärten bleiben ausgeblendet, solange dieser andere Garten nicht aktiv ist.
+- **Neue Einträge gehören dem aktiven Tenant.** Legst du eine neue Pflanzenart oder Sorte an, während ein Gemeinschaftsgarten aktiv ist, gehört der neue Eintrag diesem Garten — nicht deinem persönlichen Garten. Wechsle deshalb erst bewusst den aktiven Tenant, bevor du eine Sorte für den Verein anlegst.
+
+!!! warning "Häufiger Irrtum: Vereinigung statt Kontextwechsel"
+    Der aktive Tenant zeigt **nicht** „alles, was ich in irgendeinem meiner Gärten je angelegt habe". Er zeigt genau die Sicht des gerade gewählten Gartens. Bist du in drei Gärten Mitglied, siehst du je nach aktivem Tenant drei verschiedene Ausschnitte des Katalogs — nie alle drei gleichzeitig kombiniert. Wechsle den Tenant-Selektor, um die Katalog-Einträge eines anderen Gartens zu sehen.
+
+Zum Anlegen einer neuen Pflanzenart oder Sorte brauchst du mindestens die Rolle Gärtner im aktiven Tenant; als Beobachter kannst du den Katalog nur lesen. Details dazu stehen unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md).
+
+---
+
 ## Gemeinschaftsgarten erstellen
 
 ### Neuen Tenant anlegen

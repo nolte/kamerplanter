@@ -77,6 +77,7 @@ Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vo
 | Alle Daten des Gartens lesen | Ja | Ja | Ja | — | — |
 | Pflanzen anlegen und bearbeiten | Nein | Ja | Ja | — | — |
 | Pflanzen entfernen | Nein | **Nein** | Ja | — | — |
+| Pflanzenart oder Sorte im globalen Katalog anlegen† | Nein | Ja | Ja | — | — |
 | Standortstruktur anlegen und umbauen | Nein | Nein | Ja | — | — |
 | Pflanzdurchläufe anlegen und weiterschalten | Nein | Ja | Ja | — | — |
 | Aufgaben erstellen und erledigen | Nein | Ja | Ja | — | — |
@@ -101,6 +102,8 @@ Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vo
 *Als einziges Mitglied mit **Verwaltung** kannst du den Garten nicht verlassen, ohne die Berechtigung vorher weiterzugeben — sonst bliebe der Garten ohne jemanden zurück, der noch jemanden einladen könnte.
 
 ‡Anders als die übrigen Zeilen dieser Tabelle ist das Markieren zur KI-Analyse zusätzlich an die **Autorschaft** gebunden: Ein Gärtner darf ausschließlich Einträge markieren, die er selbst verfasst hat. Nur die Rolle Leitung darf auch Einträge anderer Mitglieder markieren. Details unter [Tagebuch](../user-guide/plant-diary.md).
+
+†Gemeint ist die Rolle im gerade **aktiven** Tenant, nicht zwingend dein persönlicher Garten — siehe [Aktiver Tenant: Katalog-Sicht und neue Einträge](../user-guide/tenants.md#aktiver-tenant-katalog-sicht-und-neue-eintrage). Ein Beobachter wird beim Anlegen abgewiesen; das gilt konsistent mit REQ-049 §2.3 (Ab Gärtner für schreibende Aktionen) und der in ADR-009 festgehaltenen Auflösung des aktiven Mandanten auf den globalen, mandantenbewussten Katalog-Routen.
 
 !!! warning "Geänderte Rechte für Gärtner"
     Bis zur Einführung dieses Modells konnte ein Gärtner in der Umsetzung Fachdaten löschen, obwohl die Spezifikation das nie vorsah. Seit der Umstellung kann er es nicht mehr. Das ist die beabsichtigte Korrektur, kein Fehler — wer löschen können soll, braucht die Rolle **Leitung**.
@@ -200,6 +203,8 @@ Der Stammdaten-Katalog ist bewusst nicht in Gärten aufgeteilt, sondern global. 
 - Klimazonen und agroklimatische Referenzdaten
 
 Legst du in deinem Garten eine eigene Sorte oder ein eigenes Düngemittel an, bleibt das zunächst dein Garten-Datensatz. Nur der Plattform-Administrator kann so etwas in den globalen Katalog übernehmen, wo es dann für alle sichtbar wird.
+
+**Wessen Garten-Datensatz eine neue Art oder Sorte wird, entscheidet der aktive Tenant** — nicht zwangsläufig dein persönlicher Garten. Legst du z. B. eine Sorte an, während ein Gemeinschaftsgarten aktiv ist, gehört sie diesem Garten; die Sichtbarkeit für andere Mitglieder dieses Gartens folgt derselben Regel. Dafür braucht es mindestens die Rolle Gärtner im aktiven Tenant — ein Beobachter wird abgewiesen (REQ-049 §2.3, ADR-009). Ein Plattform-Administrator behält seine Kuratierungsfähigkeit für den globalen Katalog davon unabhängig. Details zum Wechsel des aktiven Tenants stehen unter [Mandanten & Gärten](../user-guide/tenants.md#aktiver-tenant-katalog-sicht-und-neue-eintrage).
 
 ### Was niemals über Gartengrenzen hinweg sichtbar ist
 

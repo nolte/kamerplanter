@@ -34,6 +34,20 @@ The currently active tenant is highlighted in the navigation bar. The URL contai
 
 ---
 
+## Active Tenant: Catalog View and New Entries
+
+If you are a member of a community garden, the actively selected tenant also affects the **plant catalog** — species, cultivars and botanical families.
+
+- **The catalog view follows the active tenant.** With a community garden active, you see the global base catalog **plus** the species and cultivars that exact garden created itself. Species and cultivars belonging to a *different* one of your gardens stay hidden as long as that other garden is not active.
+- **New entries belong to the active tenant.** If you create a new species or cultivar while a community garden is active, the new entry belongs to that garden — not to your personal garden. So switch the active tenant deliberately before creating a cultivar for the association.
+
+!!! warning "Common misconception: union, not context switch"
+    The active tenant does **not** show "everything I have ever created in any of my gardens". It shows exactly the view of the currently selected garden. If you are a member of three gardens, you see three different slices of the catalog depending on the active tenant — never all three combined at once. Use the tenant selector to see another garden's catalog entries.
+
+Creating a new species or cultivar requires at least the Grower role in the active tenant; as a Viewer, you can only read the catalog. Details are available under [Roles, Tenants & Visibility](../reference/roles-and-permissions.md).
+
+---
+
 ## Creating a Community Garden
 
 ### Create a New Tenant
