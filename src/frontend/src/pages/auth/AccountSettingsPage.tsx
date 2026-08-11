@@ -771,7 +771,7 @@ export default function AccountSettingsPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>{t('pages.auth.unknownDevice')}</TableCell>
+                    <TableCell>{t('pages.auth.sessionDevice')}</TableCell>
                     <TableCell>{t('pages.auth.adminTenantType')}</TableCell>
                     <TableCell>IP</TableCell>
                     <TableCell>{t('pages.auth.expires')}</TableCell>
@@ -779,39 +779,70 @@ export default function AccountSettingsPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {sessions.map((s) => (
-                    <TableRow key={s.key}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {s.user_agent?.substring(0, 60) || t('pages.auth.unknownDevice')}
-                          </Typography>
-                          {s.is_current && <Chip label={t('pages.auth.currentSession')} size="small" color="primary" />}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={s.is_persistent ? t('pages.auth.sessionPersistent') : t('pages.auth.sessionTemporary')}
-                          size="small"
-                          variant="outlined"
-                          color={s.is_persistent ? 'success' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '—'}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{new Date(s.expires_at).toLocaleDateString()}</Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        {!s.is_current && (
-                          <IconButton size="small" onClick={() => handleRevokeSession(s.key)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sessions.map((s) => {
+                    // A device paired by QR code names itself (#1118); a browser
+                    // session has no label, so the user agent stays the fallback
+                    // and the row renders exactly as it did before that feature.
+                    const userAgentLabel = s.user_agent?.substring(0, 60);
+                    return (
+                      <TableRow key={s.key} data-testid={`session-row-${s.key}`}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography
+                                variant="body2"
+                                data-testid={`session-device-${s.key}`}
+                                sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              >
+                                {s.device_name || userAgentLabel || t('pages.auth.unknownDevice')}
+                              </Typography>
+                              {s.device_name && userAgentLabel && (
+                                // Keep the technical identity visible next to the
+                                // self-chosen label: the label is what the owner
+                                // recognises, the user agent is what tells them
+                                // it is the app rather than a browser.
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  data-testid={`session-user-agent-${s.key}`}
+                                  sx={{ display: 'block', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                >
+                                  {userAgentLabel}
+                                </Typography>
+                              )}
+                            </Box>
+                            {s.is_current && <Chip label={t('pages.auth.currentSession')} size="small" color="primary" />}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={s.is_persistent ? t('pages.auth.sessionPersistent') : t('pages.auth.sessionTemporary')}
+                            size="small"
+                            variant="outlined"
+                            color={s.is_persistent ? 'success' : 'default'}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '—'}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{new Date(s.expires_at).toLocaleDateString()}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          {!s.is_current && (
+                            <IconButton
+                              size="small"
+                              data-testid={`session-revoke-${s.key}`}
+                              aria-label={t('pages.auth.revokeSession')}
+                              onClick={() => handleRevokeSession(s.key)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

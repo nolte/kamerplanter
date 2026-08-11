@@ -4,12 +4,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.common.validators import DisplayName
 
-#: Cap on the client-supplied device label carried by a pairing redemption
-#: (#1118). Mirrors ``AuthService._DEVICE_NAME_MAX_LENGTH``: the service bounds
-#: it too, because a non-HTTP caller must not depend on this boundary having
-#: run — but the boundary is where an over-long value becomes a 422 instead of
-#: a 500 (BACKEND.md §5.4).
-DEVICE_NAME_MAX_LENGTH = 64
+# The cap on the client-supplied device label (#1118) is defined **once**, on
+# the domain model that persists the field, and imported here: ``AuthService``
+# enforces the same bound for non-HTTP callers and a domain service may not
+# import an API schema (NFR-001). This boundary is where an over-long value
+# becomes a 422 instead of a 500 (BACKEND.md §5.4).
+from app.domain.models.auth import DEVICE_NAME_MAX_LENGTH
 
 # ── Request schemas ────────────────────────────────────────────────
 
@@ -202,13 +202,44 @@ class AuthProviderResponse(BaseModel):
 
 
 class SessionResponse(BaseModel):
+    """One revocable session in ``GET /users/me/sessions``.
+
+    The example below shows a **paired device** (#1118): ``device_name`` is the
+    label that device supplied for itself, and it is ``null`` for every session
+    a browser login or an OAuth callback created — the list falls back to
+    ``user_agent`` there. Sessions stored before the field existed simply carry
+    no key in the document and read as ``null`` too, which is why the field is
+    optional rather than required.
+    """
+
     key: str
     user_agent: str | None
+    #: Self-chosen label of a paired device, capped at
+    #: :data:`DEVICE_NAME_MAX_LENGTH` characters on the way in; ``null`` for
+    #: browser and OAuth sessions.
+    device_name: str | None = None
     ip_address: str | None
     created_at: datetime | None
     expires_at: datetime
     is_current: bool
     is_persistent: bool
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "4711829",
+                    "user_agent": "Kamerplanter/1.0 (Android 15)",
+                    "device_name": "Pixel 8 (Gewächshaus)",
+                    "ip_address": "203.0.113.7",
+                    "created_at": "2026-08-11T14:31:11Z",
+                    "expires_at": "2026-09-10T14:31:11Z",
+                    "is_current": False,
+                    "is_persistent": True,
+                }
+            ]
+        }
+    )
 
 
 class OAuthProviderListItem(BaseModel):

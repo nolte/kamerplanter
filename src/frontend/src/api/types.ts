@@ -4021,6 +4021,13 @@ export interface AuthProviderInfo {
 export interface SessionInfo {
   key: string;
   user_agent: string | null;
+  /**
+   * Self-chosen label of a device paired via QR code (#1118), capped at 64
+   * characters by the backend. `null` for browser and OAuth sessions — and for
+   * sessions stored before the field existed — in which case the session list
+   * falls back to `user_agent`.
+   */
+  device_name: string | null;
   ip_address: string | null;
   created_at: string | null;
   expires_at: string;

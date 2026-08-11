@@ -663,7 +663,7 @@ class TestAuditEvents:
         assert raw_refresh not in str(logs)
 
 
-# ── Client-supplied device label (P5 wires persistence) ─────────────────
+# ── Client-supplied device label (persisted on the session, P5) ─────────
 
 
 class TestDeviceName:
@@ -698,15 +698,103 @@ class TestDeviceName:
         # Refused before the code was spent, so a typo does not cost the code.
         assert harness.code_store.consume(code) is not None
 
-    def test_the_label_is_not_persisted_yet(self) -> None:
-        """P5 adds ``RefreshToken.device_name`` and wires it through
-        ``_create_tokens``. Until then the parameter is accepted and validated
-        but stored nowhere — asserted, so "P5 is done" is a fact this test
-        reports rather than an assumption."""
+    def test_the_label_is_persisted_on_the_session(self) -> None:
+        """P5 (#1118) wired ``RefreshToken.device_name`` through
+        ``_create_tokens``. This test was the inverse until then — it asserted
+        that the parameter was accepted and stored nowhere — so the flip is what
+        makes "the label reaches the session document" a reported fact rather
+        than an assumption. What is stored is the *normalised* value."""
         harness = _make_harness()
         code, _ = harness.service.create_device_pairing(USER_KEY)
 
-        harness.service.redeem_device_pairing(code, ip_address=IP, device_name="Pixel 9")
+        harness.service.redeem_device_pairing(code, ip_address=IP, device_name="  Pixel 9  ")
 
         (token,) = harness.created_tokens
-        assert "device_name" not in token.model_dump()
+        assert token.device_name == "Pixel 9"
+
+    def test_a_blank_label_is_stored_as_none_not_as_an_empty_string(self) -> None:
+        """So the session list has one "no label" case to render, not two."""
+        harness = _make_harness()
+        code, _ = harness.service.create_device_pairing(USER_KEY)
+
+        harness.service.redeem_device_pairing(code, ip_address=IP, device_name="   ")
+
+        (token,) = harness.created_tokens
+        assert token.device_name is None
+
+    def test_the_label_survives_a_refresh_rotation(self) -> None:
+        """Rotation writes a *new* session document. A label that is not carried
+        over survives exactly one refresh — 15 minutes later the paired phone
+        would silently become an anonymous user-agent row, and the session list
+        would look healthy the whole time it was going wrong."""
+        harness = _make_harness()
+        code, _ = harness.service.create_device_pairing(USER_KEY)
+        _, raw_refresh, _ = harness.service.redeem_device_pairing(
+            code,
+            user_agent=USER_AGENT,
+            ip_address=IP,
+            device_name="Pixel 9",
+        )
+        # Rotation reads the stored token back, so the repo has to answer with
+        # what redemption wrote rather than with a bare MagicMock.
+        harness.refresh_token_repo.get_by_hash.return_value = harness.created_tokens[0]
+
+        harness.service.refresh_tokens(raw_refresh, USER_AGENT, IP)
+
+        assert len(harness.created_tokens) == 2
+        assert harness.created_tokens[-1].device_name == "Pixel 9"
+
+    def test_a_browser_login_stores_no_label(self) -> None:
+        """The web and OAuth paths pass no device metadata and must keep
+        producing sessions that carry none — the field is additive, not a
+        behaviour change for the flows that predate it."""
+        harness = _make_harness()
+
+        harness.service.login_local(USER_EMAIL, PASSWORD, USER_AGENT, IP)
+
+        (token,) = harness.created_tokens
+        assert token.device_name is None
+
+    def test_the_session_list_surfaces_the_label(self) -> None:
+        """``list_sessions`` is what the account page reads; a field stored but
+        not mapped into ``SessionInfo`` is a field the UI can never show."""
+        harness = _make_harness()
+        code, _ = harness.service.create_device_pairing(USER_KEY)
+        harness.service.redeem_device_pairing(
+            code,
+            user_agent=USER_AGENT,
+            ip_address=IP,
+            device_name="Pixel 9",
+        )
+        stored = harness.created_tokens[0].model_copy(update={"key": "sess-paired"})
+        harness.refresh_token_repo.list_active_for_user.return_value = [stored]
+
+        (session,) = harness.service.list_sessions(USER_KEY)
+
+        assert session.device_name == "Pixel 9"
+        assert session.user_agent == USER_AGENT
+
+    def test_a_session_document_written_before_this_field_existed_still_lists(self) -> None:
+        """ArangoDB is schemaless: a document stored before #1118 has no
+        ``device_name`` key at all. Deserialising one must default the field
+        rather than raise — otherwise this change would break the session list
+        of every account that had a session open when it shipped."""
+        harness = _make_harness()
+        legacy_document = {
+            "_key": "sess-legacy",
+            "user_key": USER_KEY,
+            "token_hash": "hash-of-a-pre-existing-session",
+            "user_agent": "Mozilla/5.0 (X11; Linux x86_64)",
+            "ip_address": "198.51.100.4",
+            "expires_at": "2099-01-01T00:00:00+00:00",
+            "is_persistent": True,
+            "revoked": False,
+        }
+        legacy = RefreshToken(**legacy_document)
+        harness.refresh_token_repo.list_active_for_user.return_value = [legacy]
+
+        (session,) = harness.service.list_sessions(USER_KEY)
+
+        assert legacy.device_name is None
+        assert session.device_name is None
+        assert session.user_agent == "Mozilla/5.0 (X11; Linux x86_64)"

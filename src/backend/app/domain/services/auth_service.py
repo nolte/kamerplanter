@@ -35,6 +35,7 @@ from app.domain.interfaces.refresh_token_repository import IRefreshTokenReposito
 from app.domain.interfaces.unknown_account_store import IUnknownAccountStore
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import (
+    DEVICE_NAME_MAX_LENGTH,
     ApiKey,
     ApiKeyCreated,
     ApiKeySummary,
@@ -63,14 +64,6 @@ _API_KEY_PREFIX = "kp_"
 #: (#1118). 32 bytes = 256 bit, the same budget as an API key and a refresh
 #: token, which is what makes the 60–120 s guessing window a non-event.
 _PAIRING_CODE_BYTES = 32
-
-#: Cap on the client-supplied device label carried by a redemption.
-#:
-#: The label is an unauthenticated caller's free text, so it is bounded here as
-#: well as at the HTTP boundary: P4's request schema will reject an over-long
-#: value with 422, but a service reachable from a task or a test must not
-#: depend on that having happened.
-_DEVICE_NAME_MAX_LENGTH = 64
 
 #: Throttle bucket for a redemption that arrives without a source address.
 #:
@@ -443,6 +436,12 @@ class AuthService:
 
         # Preserve persistence flag from old token
         is_persistent = stored.is_persistent
+        # …and the device label with it (#1118). Rotation replaces the session
+        # document, so a label that is not carried over survives exactly one
+        # refresh: the paired phone would silently turn back into an anonymous
+        # user-agent row in the session list, which is the visibility this
+        # feature exists to provide.
+        device_name = stored.device_name
 
         # Revoke old token (rotation)
         if stored.key:
@@ -453,7 +452,13 @@ class AuthService:
         if user is None or not user.is_active:
             raise UnauthorizedError("User account is inactive.")
 
-        return self._create_tokens(user, user_agent, ip_address, is_persistent=is_persistent)
+        return self._create_tokens(
+            user,
+            user_agent,
+            ip_address,
+            is_persistent=is_persistent,
+            device_name=device_name,
+        )
 
     # ── Email verification ──────────────────────────────────────────────
 
@@ -618,6 +623,7 @@ class AuthService:
             SessionInfo(
                 key=t.key or "",
                 user_agent=t.user_agent,
+                device_name=t.device_name,
                 ip_address=t.ip_address,
                 created_at=t.created_at,
                 expires_at=t.expires_at,
@@ -1066,9 +1072,9 @@ class AuthService:
                 field. ``None`` falls back to a shared bucket rather than
                 skipping the guard.
             device_name: Client-supplied label (operator decision, plan §Open
-                questions 2). Validated here and **not yet persisted** —
-                ``_create_tokens`` takes no device metadata; P5 adds the field
-                to ``RefreshToken`` and wires it through.
+                questions 2). Normalised and length-capped here, then stored on
+                the session document so the paired phone is distinguishable
+                from a browser in the session list — and revocable there.
 
         Returns:
             ``(token_pair, raw_refresh_token, is_persistent)``.
@@ -1143,7 +1149,13 @@ class AuthService:
         # every 24 hours would defeat the point of pairing it. Same choice
         # ``complete_oauth`` makes, and the session stays revocable from the
         # session list either way.
-        return self._create_tokens(user, user_agent, ip_address, is_persistent=True)
+        return self._create_tokens(
+            user,
+            user_agent,
+            ip_address,
+            is_persistent=True,
+            device_name=device_name,
+        )
 
     def _require_device_pairing_store(self) -> IDevicePairingCodeStore:
         """Return the configured code store, or refuse like ``create_api_key``."""
@@ -1157,14 +1169,20 @@ class AuthService:
 
         Blank-after-strip becomes ``None`` rather than an empty string, so a
         session list never has to distinguish "" from "not given".
+
+        The label is an unauthenticated caller's free text, so it is bounded
+        here as well as at the HTTP boundary: the request schema rejects an
+        over-long value with 422, but a service reachable from a task or a test
+        must not depend on that having happened. Both read the same
+        :data:`DEVICE_NAME_MAX_LENGTH`.
         """
         if device_name is None:
             return None
         cleaned = device_name.strip()
         if not cleaned:
             return None
-        if len(cleaned) > _DEVICE_NAME_MAX_LENGTH:
-            raise ValidationError(f"device_name must be at most {_DEVICE_NAME_MAX_LENGTH} characters.")
+        if len(cleaned) > DEVICE_NAME_MAX_LENGTH:
+            raise ValidationError(f"device_name must be at most {DEVICE_NAME_MAX_LENGTH} characters.")
         return cleaned
 
     # ── Helpers ─────────────────────────────────────────────────────────
@@ -1175,7 +1193,16 @@ class AuthService:
         user_agent: str | None,
         ip_address: str | None,
         is_persistent: bool = False,
+        device_name: str | None = None,
     ) -> tuple[TokenPair, str, bool]:
+        """Mint the REQ-023 token pair and persist its session document.
+
+        ``device_name`` defaults to ``None`` so the browser login and OAuth
+        paths keep calling this unchanged and keep producing sessions that carry
+        no label — the paired-device flow is the only caller that supplies one,
+        and rotation (``refresh_tokens``) carries it over rather than dropping
+        it (#1118).
+        """
         # Determine platform admin status from membership in "platform" tenant
         is_platform_admin = False
         if self._tenant_service and user.key:
@@ -1198,6 +1225,7 @@ class AuthService:
             user_key=user.key or "",
             token_hash=refresh_hash,
             user_agent=user_agent,
+            device_name=device_name,
             ip_address=ip_address,
             expires_at=expires_at,
             is_persistent=is_persistent,
