@@ -1,8 +1,15 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.common.validators import DisplayName
+
+#: Cap on the client-supplied device label carried by a pairing redemption
+#: (#1118). Mirrors ``AuthService._DEVICE_NAME_MAX_LENGTH``: the service bounds
+#: it too, because a non-HTTP caller must not depend on this boundary having
+#: run — but the boundary is where an over-long value becomes a 422 instead of
+#: a 500 (BACKEND.md §5.4).
+DEVICE_NAME_MAX_LENGTH = 64
 
 # ── Request schemas ────────────────────────────────────────────────
 
@@ -47,6 +54,43 @@ class SetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=10, max_length=128)
 
 
+class DevicePairingRedeemRequest(BaseModel):
+    """Exchange a scanned QR pairing code for a token pair (#1118).
+
+    **The absent field is the contract.** There is no ``user_key``, ``email`` or
+    any other identity here, and there must never be one: the code *is* the
+    identity assertion — it was bound to its issuing account when it was minted
+    — and the endpoint is unauthenticated. An identity field would be a
+    caller-supplied claim on an unauthenticated route, i.e. exactly the input a
+    handler must not be tempted to trust. ``AuthService.redeem_device_pairing``
+    carries an absence test for the same property one layer down.
+    """
+
+    code: str = Field(
+        min_length=1,
+        max_length=512,
+        description="The raw one-time pairing code read from the QR payload.",
+    )
+    #: Free text from an unauthenticated caller, hence bounded here rather than
+    #: only in the service: over-long input answers 422, never 500 (§5.4).
+    device_name: str | None = Field(
+        default=None,
+        max_length=DEVICE_NAME_MAX_LENGTH,
+        description="Optional client-supplied label shown in the session list.",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3",
+                    "device_name": "Pixel 8 (Gewächshaus)",
+                }
+            ]
+        }
+    )
+
+
 # ── Response schemas ───────────────────────────────────────────────
 
 
@@ -71,6 +115,81 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+
+
+class TokenPairResponse(BaseModel):
+    """The REQ-023 token pair with the refresh token **in the body** (#1118).
+
+    ``TokenResponse`` is the browser shape: the refresh token never appears in
+    the JSON, it leaves as an HttpOnly ``kp_refresh`` cookie (AP-7 / FE-S1), and
+    that is the stronger transport wherever a cookie jar exists.
+
+    A native client has none. It stores the refresh token in the platform
+    keystore, so it has to *receive* it — and if it cannot, the pair it was
+    handed dies 15 minutes later with no way to rotate, which is the whole
+    feature being inert. The deviation is therefore deliberate, operator-approved
+    and confined to the routes that serve non-browser clients; the browser flow
+    keeps its cookie unchanged. Responses using this model MUST NOT also set the
+    refresh cookie: two transports for one credential doubles its exposure and
+    leaves no single place that revokes it.
+    """
+
+    access_token: str
+    token_type: str = "bearer"
+    #: Lifetime of ``access_token`` in seconds — not of the refresh token.
+    expires_in: int
+    refresh_token: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjcxNjM0In0.sIgn4tur3",
+                    "token_type": "bearer",
+                    "expires_in": 900,
+                    "refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl",
+                }
+            ]
+        }
+    )
+
+
+class DevicePairingCreateResponse(BaseModel):
+    """Everything the browser needs to render one QR pairing code (#1118).
+
+    The three payload fields (``payload_version``, ``server_url``, ``code``) are
+    what the scanner reads; ``expires_at`` and ``expires_in`` drive the countdown
+    and are two views of one instant, so a client with a skewed clock can use the
+    relative one and a client that stores the code can use the absolute one.
+    """
+
+    #: Version of the QR payload contract ``{"v": …, "url": …, "code": …}``.
+    #: Present from v1 so a future scanner can refuse a payload it predates,
+    #: rather than mis-parsing it.
+    payload_version: int
+    #: Base URL the paired client must call — ``settings.app_base_url``, the
+    #: REQ-032 QR-code SSOT, and never ``request.base_url``: behind Traefik the
+    #: latter is an in-cluster address the phone cannot reach.
+    server_url: str
+    code: str
+    expires_at: datetime
+    #: Seconds remaining at the moment of the response, derived from
+    #: ``expires_at`` so the two can never disagree.
+    expires_in: int
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "payload_version": 1,
+                    "server_url": "https://garten.example.org",
+                    "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3",
+                    "expires_at": "2026-08-11T14:32:41Z",
+                    "expires_in": 90,
+                }
+            ]
+        }
+    )
 
 
 class AuthProviderResponse(BaseModel):
