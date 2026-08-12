@@ -2,7 +2,7 @@
 req_id: REQ-023
 title: Benutzerverwaltung & Authentifizierung
 category: Plattform & Sicherheit
-test_count: 72
+test_count: 76
 coverage_areas:
   - Registrierungsseite (/register)
   - Login-Seite (/login)
@@ -12,6 +12,7 @@ coverage_areas:
   - Kontoeinstellungen — Tab Profil (/settings/account?tab=profile)
   - Kontoeinstellungen — Tab Sicherheit (/settings/account?tab=security)
   - Kontoeinstellungen — Tab Sitzungen (/settings/account?tab=sessions)
+  - Kontoeinstellungen — Gerätekopplung QR-Dialog (/settings/account?tab=sessions, #1118)
   - Kontoeinstellungen — Tab API-Schlüssel (/settings/account?tab=apikeys)
   - Kontoeinstellungen — Tab Integrationen (/settings/account?tab=ha)
   - Kontoeinstellungen — Tab Plattform-Modus (/settings/account?tab=platform)
@@ -1770,6 +1771,101 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 ---
 
+## Abschnitt 16: Kontoeinstellungen — Gerätekopplung (QR-Code)
+
+Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, #1118). Der Dialog liegt im Tab "Sitzungen" der Kontoeinstellungen und existiert ausschließlich im Full-Modus. Jeder Testfall erzeugt seine Daten selbst: das Öffnen des Dialogs fordert über `POST /api/v1/auth/device-pairing` einen frischen Einmal-Code für den *gerade angemeldeten* Nutzer an — keine Kopplung an Seed-Daten oder eine erste Listenzeile.
+
+### TC-023-073: Kopplungsdialog aus dem Sitzungen-Tab öffnen
+
+**Requirement**: REQ-023 §4.6 ConnectDeviceDialog (#1118)
+**Priority**: High
+**Category**: Happy Path / Dialog
+
+**Vorbedingungen**:
+- Nutzer ist im Full-Modus als Demo-Nutzer eingeloggt
+- Nutzer befindet sich auf `/settings/account` im Tab "Sitzungen"
+
+**Testschritte**:
+1. Nutzer klickt im Tab "Sitzungen" oben rechts auf den Button "Mobilgerät verbinden"
+
+**Erwartete Ergebnisse**:
+- Ein Dialog "Mobilgerät verbinden" öffnet sich
+- Der Dialog zeigt eine kurze Anleitung sowie einen "Schließen"-Button
+
+**Tags**: [REQ-023, geraetekopplung, qr-code, dialog, happy-path]
+
+---
+
+### TC-023-074: QR-Code wird angezeigt und ist nicht leer
+
+**Requirement**: REQ-023 §4.6 ConnectDeviceDialog, §3.8 device-pairing issuance (#1118)
+**Priority**: Critical
+**Category**: Detailansicht
+
+**Vorbedingungen**:
+- Der Kopplungsdialog aus TC-023-073 ist geöffnet
+
+**Testschritte**:
+1. Nutzer wartet, bis der Dialog den QR-Code geladen und gerendert hat
+2. Nutzer betrachtet das QR-Bild
+
+**Erwartete Ergebnisse**:
+- Im Dialog erscheint ein tatsächliches `<svg>`-QR-Bild mit sichtbarer (nicht-null) Kantenlänge
+- Das QR-Bild ist **nicht leer**: es enthält neben dem konstanten Hintergrund-Quadrat einen datentragenden Pfad (der eigentliche Code)
+- Ein leeres QR-Feld (kein `<svg>` oder nur der Hintergrund) gilt als **Fehlschlag**, nicht als bestandenes Ergebnis
+
+**Nachbedingungen**:
+- Serverseitig wurde ein Einmal-Kopplungscode mit kurzer TTL erzeugt
+
+**Tags**: [REQ-023, geraetekopplung, qr-code, detailansicht, nicht-leer]
+
+---
+
+### TC-023-075: Ablauf-Countdown ist sichtbar und zählt herunter
+
+**Requirement**: REQ-023 §4.6 ConnectDeviceDialog (Ablauf-Countdown, #1118)
+**Priority**: High
+**Category**: Zustandswechsel
+
+**Vorbedingungen**:
+- Der Kopplungsdialog ist geöffnet und der QR-Code ist gerendert
+
+**Testschritte**:
+1. Nutzer liest den Countdown-Text unterhalb des QR-Codes (z.B. "Noch 88 Sekunden gültig")
+2. Nutzer beobachtet, dass der Wert weiterläuft
+
+**Erwartete Ergebnisse**:
+- Unterhalb des QR-Codes ist ein Countdown mit einer Sekundenzahl sichtbar
+- Der Countdown ist kein statisches Label: der angezeigte Wert verringert sich (er zählt herunter)
+
+**Tags**: [REQ-023, geraetekopplung, qr-code, countdown, ablauf]
+
+---
+
+### TC-023-076: Neu angeforderter Code erzeugt einen anderen QR-Code
+
+**Requirement**: REQ-023 §4.6 ConnectDeviceDialog (Refresh, #1118)
+**Priority**: High
+**Category**: Zustandswechsel
+
+**Vorbedingungen**:
+- Nutzer ist im Full-Modus eingeloggt, Tab "Sitzungen"
+
+**Testschritte**:
+1. Nutzer öffnet den Kopplungsdialog und merkt sich den angezeigten QR-Code
+2. Nutzer fordert einen neuen Code an (derselbe `requestCode()`-Pfad, den auch der "Aktualisieren"-Button im abgelaufenen Zustand auslöst; hier über Dialog schließen + erneut öffnen, um ohne 60–120 s Wartezeit auf den natürlichen Ablauf zu prüfen)
+3. Nutzer betrachtet den neu gerenderten QR-Code
+
+**Erwartete Ergebnisse**:
+- Nach der Neuanforderung wird ein QR-Code gerendert, dessen datentragender Pfad sich vom vorherigen unterscheidet
+- Der Vergleich erfolgt bewusst über den Datenpfad, nicht über das konstante Hintergrund-Quadrat (das bei gleich langen Codes identisch ist)
+
+**Hinweis zur Prüfbarkeit**: Der dedizierte "Aktualisieren"-Button ist konstruktionsbedingt erst im abgelaufenen Zustand erreichbar (nach Ablauf der TTL von 60–120 s). Um den Testfall schnell und ohne feste Wartezeit zu halten, wird derselbe Code-Neuanforderungspfad über das erneute Öffnen des Dialogs ausgelöst; der beobachtbare Effekt (ein neuer, anderer QR-Code) ist identisch.
+
+**Tags**: [REQ-023, geraetekopplung, qr-code, refresh, neuer-code]
+
+---
+
 ## Coverage-Matrix
 
 | Spec-Abschnitt | Beschreibung | Testfall-IDs |
@@ -1786,6 +1882,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 | §4.2 AccountSettings Profil | Profil anzeigen, bearbeiten | TC-023-026 bis TC-023-028 |
 | §4.2 AccountSettings Sicherheit | Passwort, Provider-Verwaltung | TC-023-029 bis TC-023-034 |
 | §4.2 AccountSettings Sitzungen | Session-Verwaltung | TC-023-035 bis TC-023-036 |
+| §3.8/§4.6 Gerätekopplung (QR) | QR-Dialog: öffnen, QR anzeigen, Countdown, neuer Code (#1118) | TC-023-073 bis TC-023-076 |
 | §4.2 AccountSettings API-Keys | API-Key Lifecycle | TC-023-037 bis TC-023-042 |
 | §4.2 AccountSettings Integrationen | Home Assistant | TC-023-043 bis TC-023-045 |
 | §4.2 AccountSettings Konto | Account-Löschung | TC-023-046 bis TC-023-048 |

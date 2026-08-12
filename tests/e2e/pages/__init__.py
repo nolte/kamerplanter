@@ -4,6 +4,7 @@ from .botanical_family_detail_page import BotanicalFamilyDetailPage
 from .botanical_family_list_page import BotanicalFamilyListPage
 from .calendar_page import CalendarPage
 from .companion_planting_page import CompanionPlantingPage
+from .connect_device_dialog_page import ConnectDeviceDialogPage
 from .crop_rotation_page import CropRotationPage
 from .cultivar_detail_page import CultivarDetailPage
 from .dashboard_page import DashboardPage
@@ -63,6 +64,7 @@ __all__ = [
     "BotanicalFamilyListPage",
     "CalendarPage",
     "CompanionPlantingPage",
+    "ConnectDeviceDialogPage",
     "CropRotationPage",
     "CultivarDetailPage",
     "DashboardPage",
