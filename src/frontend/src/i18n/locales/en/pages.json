@@ -677,6 +677,7 @@
       "tabSessions": "Sessions",
       "tabExperience": "Experience",
       "tabKiosk": "Kiosk mode",
+      "tabConnect": "Connect app",
       "tabModules": "Modules & Features",
       "tabPlatform": "Platform Mode",
       "tabAdmin": "Administration",
@@ -795,7 +796,18 @@
         "expiresIn": "Valid for another {{seconds}} seconds",
         "expired": "The code has expired. For security reasons every code is short-lived.",
         "refresh": "Generate new code",
-        "securityHint": "Never show the code to anyone and only scan it with your own device: whoever reads it gains access to your account."
+        "securityHint": "Never show the code to anyone and only scan it with your own device: whoever reads it gains access to your account.",
+        "discovery": {
+          "tabTitle": "Connect the app to this instance",
+          "tabBlurb": "Show this QR code so the Kamerplanter app knows where to find this instance. The code contains only this instance's address - no sign-in and no access to any account.",
+          "dialogTitle": "Connect the app to this instance",
+          "intro": "The QR code points the Kamerplanter app at this instance. It contains only its address and signs you in nowhere.",
+          "stepInstall": "Open the Kamerplanter app on your phone.",
+          "stepScan": "Choose \"Connect instance\" there and scan this QR code.",
+          "stepDone": "Done: the app then shows the contents of this instance.",
+          "qrTitle": "QR code with this instance's address",
+          "securityNote": "This code only points the app at this instance. It does not sign you in and grants no access to any account - you can show it safely."
+        }
       },
       "dangerZone": "Danger Zone",
       "deleteAccountWarning": "Deleting your account cannot be undone. All data will be permanently removed.",

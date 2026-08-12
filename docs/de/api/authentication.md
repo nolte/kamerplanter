@@ -343,6 +343,18 @@ Der QR-Code, den die App scannt, kodiert genau diese drei Felder als JSON:
 
 Das Feld `v` (entspricht `payload_version`) existiert für Vorwärtskompatibilität: Eine künftige App-Version kann eine ihr unbekannte Payload-Version ablehnen, statt sie fehlzuinterpretieren.
 
+!!! note "Light-Modus: reine Instanz-Erkennung (nur URL)"
+    Im Light-Modus (`KAMERPLANTER_MODE=light`) gibt es keine Konten, und die Kopplungs-Endpunkte antworten mit `404`. Das Web-Frontend zeigt dort trotzdem einen QR-Code an — allerdings eine **reine URL-Variante ohne Kopplungscode**, die nur die Adresse der Instanz trägt:
+
+    ```json
+    {
+      "v": 1,
+      "url": "https://garten.example.org"
+    }
+    ```
+
+    Das Feld `code` fehlt hier bewusst; die Payload teilt sich denselben `v`-Versionsraum, sodass eine App beide Fälle allein an der An- bzw. Abwesenheit von `code` unterscheidet: „diese App auf diese Instanz ausrichten" (kein `code`) gegenüber „dieses Gerät anmelden" (`code` vorhanden). Die URL-Variante entsteht rein im Frontend (aus der aufgerufenen Instanz-Adresse), enthält kein Credential, ruft keinen Endpunkt auf und meldet niemanden an — sie dient ausschließlich der Instanz-Erkennung.
+
 ### Kopplungscode einlösen
 
 ```http

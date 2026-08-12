@@ -343,6 +343,18 @@ The QR code the app scans encodes exactly these three fields as JSON:
 
 The `v` field (equal to `payload_version`) exists for forward compatibility: a future app version can refuse a payload version it does not recognize instead of misinterpreting it.
 
+!!! note "Light mode: instance discovery only (URL only)"
+    In light mode (`KAMERPLANTER_MODE=light`) there are no accounts and the pairing endpoints answer `404`. The web frontend still shows a QR code there — but a **URL-only variant without a pairing code**, carrying only the instance's address:
+
+    ```json
+    {
+      "v": 1,
+      "url": "https://garten.example.org"
+    }
+    ```
+
+    The `code` field is deliberately absent here; the payload shares the same `v` version space, so an app tells the two cases apart purely by the presence or absence of `code`: "point this app at this instance" (no `code`) versus "sign this device in" (`code` present). The URL variant is produced entirely in the frontend (from the instance address the browser reached), carries no credential, calls no endpoint and signs nobody in — it is pure instance discovery.
+
 ### Redeeming a pairing code
 
 ```http

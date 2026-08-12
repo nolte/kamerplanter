@@ -55,6 +55,27 @@ vi.mock('@/api/endpoints/auth', async (importOriginal) => {
 
 const mockCreatePairing = vi.mocked(createDevicePairing);
 
+/**
+ * #1118 P12 — the same dialog serves two modes. `@/config/mode` is mocked with
+ * getters over a mutable holder so a single test can flip the instance into
+ * light mode (URL-only discovery) or full mode (account pairing) without a
+ * rebuild. The default is full mode, so every pre-existing test below keeps
+ * exercising the real code-fetch path unchanged.
+ */
+const { modeState } = vi.hoisted(() => ({ modeState: { light: false } }));
+
+vi.mock('@/config/mode', () => ({
+  get isLightMode() {
+    return modeState.light;
+  },
+  get isFullMode() {
+    return !modeState.light;
+  },
+  get KAMERPLANTER_MODE() {
+    return modeState.light ? 'light' : 'full';
+  },
+}));
+
 const CODE = 'first-code-Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWc';
 const SECOND_CODE = 'second-code-WkdWMmFXTmxJSEJoYVhKcGJtY2c';
 const SERVER_URL = 'https://garten.example.org';
@@ -206,6 +227,8 @@ beforeEach(() => {
   qrValues.length = 0;
   mockCreatePairing.mockReset();
   localStorage.clear();
+  // Default every test to full mode; the light-mode suite opts in explicitly.
+  modeState.light = false;
 });
 
 afterEach(() => {
@@ -546,5 +569,120 @@ describe('ConnectDeviceDialog — failure and loading states', () => {
 
     expect(screen.getByTestId('device-pairing-qr')).toBeInTheDocument();
     expect(screen.queryByTestId('loading-skeleton')).toBeNull();
+  });
+});
+
+/**
+ * #1118 P12 — the light-mode (REQ-027 anonymous) instance-discovery variant.
+ *
+ * A light-mode instance has no accounts and the pairing endpoints answer 404, so
+ * there is nothing to log in to. The dialog must instead render a *credential-free*
+ * QR carrying only `{"v":1,"url":<origin>}`: no backend call, no `code`, no
+ * countdown, no expiry. These are the properties an app relies on to tell
+ * "point at this instance" apart from "log this device in", so each is an
+ * assertion here rather than a comment in the component.
+ */
+describe('ConnectDeviceDialog — light-mode instance discovery', () => {
+  beforeEach(() => {
+    modeState.light = true;
+  });
+
+  it('renders a URL-only QR and makes no createDevicePairing call', async () => {
+    renderDialog();
+
+    // Positive half first: a QR really is rendered — so the negatives below
+    // cannot pass merely because nothing was drawn at all.
+    await screen.findByTestId('device-discovery-qr');
+    const payload: unknown = JSON.parse(lastQrValue());
+
+    expect(payload).toEqual({ v: 1, url: window.location.origin });
+    // `code` is the field a scanner keys on: it must be absent, not empty.
+    expect(payload).not.toHaveProperty('code');
+    expect(Object.keys(payload as Record<string, unknown>)).toEqual(['v', 'url']);
+    // The load-bearing guarantee: instance discovery hits no endpoint. The
+    // instance already knows its own URL.
+    expect(mockCreatePairing).not.toHaveBeenCalled();
+  });
+
+  it('renders no full-mode pairing affordances at all', async () => {
+    renderDialog();
+    await screen.findByTestId('device-discovery-qr');
+
+    // None of the pairing-flow surfaces exist in this variant: no countdown, no
+    // expiry, no refresh, and no loading/error frame for a fetch that never runs.
+    expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
+    expect(screen.queryByTestId('device-pairing-countdown')).toBeNull();
+    expect(screen.queryByTestId('device-pairing-expired')).toBeNull();
+    expect(screen.queryByTestId('device-pairing-refresh')).toBeNull();
+    expect(screen.queryByTestId('device-pairing-error')).toBeNull();
+    expect(screen.queryByTestId('loading-skeleton')).toBeNull();
+    // The security note is present and says what the code is NOT for.
+    expect(screen.getByTestId('device-discovery-note')).toBeInTheDocument();
+  });
+
+  it('never issues a code even as time advances', async () => {
+    vi.useFakeTimers();
+    renderDialog();
+    await act(async () => {});
+
+    // Well past the full-mode TTL: no timer fires, no countdown appears, no
+    // request is ever made.
+    act(() => {
+      vi.advanceTimersByTime(120_000);
+    });
+
+    expect(mockCreatePairing).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('device-pairing-countdown')).toBeNull();
+    expect(screen.getByTestId('device-discovery-qr')).toBeInTheDocument();
+  });
+});
+
+describe('AccountSettingsPage — light-mode connect entry (#1118 P12)', () => {
+  /** The account settings page in light mode, opened on the new connect tab. */
+  function renderConnectTab() {
+    const prefs = {
+      experience_level: 'expert',
+      locale: 'de',
+      theme: 'light',
+      smart_home_enabled: false,
+    };
+    server.use(
+      http.get('/api/v1/auth/api-keys', () => HttpResponse.json([])),
+      http.get('/api/v1/t/:tenant/user-preferences', () => HttpResponse.json(prefs)),
+      http.get('/api/v1/user-preferences', () => HttpResponse.json(prefs)),
+    );
+    return renderWithProviders(<AccountSettingsPage />, {
+      store: createTestStore({
+        auth: {
+          user: AUTH_USER,
+          accessToken: 'tok',
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        },
+      }),
+      route: '/account#connect',
+    });
+  }
+
+  beforeEach(() => {
+    modeState.light = true;
+  });
+
+  it('exposes a connect entry that opens the URL-only discovery dialog', async () => {
+    const user = userEvent.setup();
+    renderConnectTab();
+
+    // The light-mode entry point exists and is reachable without an account.
+    await user.click(await screen.findByTestId('connect-device-button'));
+
+    expect(await screen.findByTestId('connect-device-dialog')).toBeInTheDocument();
+    // It is the discovery variant, not the pairing one — and it made no call.
+    expect(await screen.findByTestId('device-discovery-qr')).toBeInTheDocument();
+    expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
+    expect(mockCreatePairing).not.toHaveBeenCalled();
+
+    const payload: unknown = JSON.parse(lastQrValue());
+    expect(payload).toEqual({ v: 1, url: window.location.origin });
   });
 });

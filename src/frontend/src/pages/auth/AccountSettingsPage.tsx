@@ -184,6 +184,12 @@ export default function AccountSettingsPage() {
         { key: 'kiosk', label: t('pages.auth.tabKiosk') },
         { key: 'modules', label: t('pages.auth.tabModules') },
         { key: 'dashboard', label: t('pages.auth.tabDashboard') },
+        // #1118 P12 — light mode has no accounts and the pairing endpoints answer
+        // 404, so the full-mode "connect device" entry (which lives in the
+        // sessions tab) is unreachable here. This tab replaces it with the
+        // credential-free instance-discovery QR: it only points a mobile app at
+        // this instance, it does not log anyone in.
+        { key: 'connect', label: t('pages.auth.tabConnect') },
         // Light mode has no accounts, so it has no security or session tabs —
         // but it does keep API keys (REQ-033 §4.3): they are the only credential
         // the MCP interface accepts, so without this tab the MCP server could be
@@ -1128,6 +1134,41 @@ export default function AccountSettingsPage() {
 
       {/* ── Dashboard Tab (REQ-045) ── */}
       {activeTab === 'dashboard' && <DashboardSettingsTab />}
+
+      {/* ── Connect App Tab (#1118 P12, light mode / REQ-027) ── */}
+      {activeTab === 'connect' && (
+        <Box sx={{ maxWidth: 600 }} data-testid="connect-app-tab">
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <QrCode2Icon color="primary" />
+                <Typography variant="h6">
+                  {t('pages.auth.devicePairing.discovery.tabTitle')}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.auth.devicePairing.discovery.tabBlurb')}
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<QrCode2Icon />}
+                onClick={() => setConnectDeviceOpen(true)}
+                data-testid="connect-device-button"
+              >
+                {t('pages.auth.devicePairing.connectDevice')}
+              </Button>
+            </CardContent>
+          </Card>
+          {/* The dialog reads `isLightMode` itself and renders its URL-only
+              instance-discovery variant here; no code, no backend call, so no
+              cleanup reload is needed on close (there are no sessions to refresh
+              in light mode). */}
+          <ConnectDeviceDialog
+            open={connectDeviceOpen}
+            onClose={() => setConnectDeviceOpen(false)}
+          />
+        </Box>
+      )}
 
       {/* ── HA Publish-Selection Tab ── */}
       {activeTab === 'ha-publish' && <HaPublishSettingsTab />}

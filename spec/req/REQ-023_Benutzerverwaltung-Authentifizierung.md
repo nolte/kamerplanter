@@ -1232,6 +1232,8 @@ Im Tab „Sessions" der `AccountSettingsPage` (der ohnehin nur im Full-Modus exi
 - Der Code erscheint **nirgends** als sichtbarer Text im Dialog (Schutz gegen Shoulder-Surfing) — nur im `value`-Prop des QR-Codes.
 - Der Code wird nicht in Redux oder `localStorage` gehalten; Schließen des Dialogs verwirft ihn aus dem Komponenten-State. Nach dem Schließen wird die Sessions-Liste neu geladen, sodass ein frisch gekoppeltes Gerät dort erscheint.
 - Alle Nutzertexte liegen als i18n-Keys unter `pages.auth.*` in DE und EN vor.
+
+Im **Light-Modus** (REQ-027) existiert weder der Sessions-Tab noch ein Konto, und die Kopplungs-Endpunkte antworten mit `404`. Damit ein anonymer Nutzer eine Mobil-App dennoch auf die Instanz ausrichten kann, ist `ConnectDeviceDialog` modus-abhängig: Über einen eigenen Tab „App verbinden" (`connect`) im Light-Modus-Tab-Set öffnet er dort eine **reine URL-Variante**. Diese rendert die Nutzlast `{"v":1,"url":<window.location.origin>}` (Feld `code` fehlt), führt **keinen** Backend-Aufruf durch und hat weder Countdown noch Ablauf/Neu-Erzeugen. Sie dient ausschließlich der Instanz-Erkennung und meldet niemanden an; der Full-Modus-Pfad (Sessions-Tab, `{"v","url","code"}`) bleibt unverändert.
 <!-- /Quelle: Issue #1118 -->
 
 ## 5. Seed-Daten
