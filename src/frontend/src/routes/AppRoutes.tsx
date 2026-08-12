@@ -17,6 +17,10 @@ const PasswordResetConfirmPage = lazy(() => import('@/pages/auth/PasswordResetCo
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
 const PrivacySettingsPage = lazy(() => import('@/pages/auth/PrivacySettingsPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
+// #1118 P13 — browser landing for the light-mode instance-discovery deep link
+// (https://<instance>/connect?v=1). Public and mode-agnostic: a system-camera
+// visitor without the app must not hit a 404 or a login bounce.
+const ConnectLandingPage = lazy(() => import('@/pages/auth/ConnectLandingPage'));
 
 // Tenant pages
 const TenantCreatePage = lazy(() => import('@/pages/tenants/TenantCreatePage'));
@@ -127,6 +131,21 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 export const router = createBrowserRouter(
   createRoutesFromElements(
     <Route errorElement={<RouterErrorPage />}>
+      {/* #1118 P13 — instance-discovery deep-link landing. Public and
+          mode-agnostic (outside ProtectedRoute and the light/full gating): the
+          light-mode "Connect app" QR encodes https://<instance>/connect?v=1, and
+          a phone camera opening it without the installed app must land here, not
+          on a 404 or a login redirect. The future Android app catches the same
+          URL via a wildcard-host intent-filter before the browser is involved. */}
+      <Route
+        path="connect"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <ConnectLandingPage />
+          </Suspense>
+        }
+      />
+
       {/* OAuth callback — full mode only */}
       {!isLightMode && (
         <Route

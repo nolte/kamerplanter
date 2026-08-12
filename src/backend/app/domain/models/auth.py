@@ -4,6 +4,15 @@ from pydantic import BaseModel, Field
 
 from app.common.enums import AuthProviderType
 
+#: Cap on the client-supplied device label a paired device may attach to its
+#: session (#1118). It lives here, next to the model that carries the field,
+#: because both enforcing boundaries need it and neither may import the other:
+#: ``app.api.v1.auth.schemas`` bounds the HTTP request (over-long input becomes
+#: a 422, never a 500 — BACKEND.md §5.4) and ``AuthService`` bounds every
+#: non-HTTP caller, but a domain service importing an API schema would invert
+#: the NFR-001 layer order. One constant, two boundaries, no second literal.
+DEVICE_NAME_MAX_LENGTH = 64
+
 
 class AuthProvider(BaseModel):
     key: str | None = Field(default=None, alias="_key")
@@ -38,6 +47,18 @@ class RefreshToken(BaseModel):
     user_key: str
     token_hash: str
     user_agent: str | None = None
+    #: Label a paired device supplied for itself (#1118), so a phone is
+    #: distinguishable from a browser in the session list. ``None`` for every
+    #: session minted by the browser login and OAuth paths, and for every
+    #: document written before this field existed — ArangoDB is schemaless, so
+    #: those documents simply arrive without the key and default here.
+    #:
+    #: Deliberately **unconstrained on the model**: the length cap is enforced
+    #: on the two write boundaries (see :data:`DEVICE_NAME_MAX_LENGTH`), because
+    #: a ``max_length`` here would turn a single over-long stored value into a
+    #: 500 on ``GET /users/me/sessions`` — a read path failing on data it did
+    #: not create is how "422 at the boundary" becomes "500 in the list".
+    device_name: str | None = None
     ip_address: str | None = None
     ip_anonymized_at: datetime | None = None
     expires_at: datetime
@@ -82,6 +103,9 @@ class OAuthUserInfo(BaseModel):
 class SessionInfo(BaseModel):
     key: str
     user_agent: str | None
+    #: ``None`` unless the session was created by a device pairing that supplied
+    #: a label; the session list falls back to ``user_agent`` then.
+    device_name: str | None = None
     ip_address: str | None
     created_at: datetime | None
     expires_at: datetime

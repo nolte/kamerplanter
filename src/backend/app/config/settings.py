@@ -187,6 +187,21 @@ class Settings(BaseSettings):
     require_email_verification: bool = False  # Set True in production
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
+    #: REQ-023 / #1118 — lifetime of a QR device-pairing code, in seconds.
+    #:
+    #: The bounds are the guard, not the default. A pairing code is a bearer
+    #: credential displayed on a screen: whoever reads it first gets a session.
+    #: Below 60 s a user who has to unlock their phone and open the app cannot
+    #: finish in time and re-requests codes until one lands, which turns the
+    #: feature into a code generator. Above 120 s the code outlives the moment
+    #: the user was looking at the screen — a QR left on an unattended monitor,
+    #: in a screen share or in a shoulder-surfer's camera roll stays redeemable.
+    #:
+    #: Enforced by the settings model rather than by a comment or a service-side
+    #: clamp: an out-of-range ``DEVICE_PAIRING_TTL_SECONDS`` refuses startup,
+    #: where an operator sees it, instead of being silently reinterpreted.
+    device_pairing_ttl_seconds: int = Field(default=90, ge=60, le=120)
+
     # REQ-016 InvenTree integration (optional). Disabled by default — a missing
     # or switched-off configuration must never crash the app (graceful
     # degradation). ``inventree_allow_private_endpoint`` opts a LAN / in-cluster
@@ -441,6 +456,27 @@ class Settings(BaseSettings):
     #: JSON body, so a prefetcher cannot spend the budget. A sandbox that renders
     #: the landing page and executes its JavaScript could — ten absorbs that too.
     rate_limit_email_change_confirm: str = "10/minute"
+    #: ``POST /api/v1/auth/device-pairing/redeem`` (#1118), per client IP.
+    #:
+    #: **Why its own setting and not ``rate_limit_auth``.** The ``/auth/*`` budget
+    #: is sized for an interactive retry surface — a user who mistypes a password
+    #: legitimately submits several times a minute. Redemption is not that: the
+    #: code is scanned from a QR image, so the legitimate client submits it
+    #: **once**, and a second attempt only happens after re-scanning a fresh code.
+    #: There is no typo to retry, hence no reason to fund twenty attempts a minute.
+    #:
+    #: **What it does and does not bound.** It bounds a burst from one source
+    #: address; it is not what makes the 256-bit code unguessable (nothing per-IP
+    #: is, against an attacker with many addresses — that is the code's entropy
+    #: plus the 60–120 s TTL). The behavioural guard is the per-IP lockout in
+    #: ``AuthService.redeem_device_pairing``; this limit sits in front of it so a
+    #: flood never reaches the code store at all.
+    #:
+    #: **Where 10 comes from — the legitimate side.** One scan is one request.
+    #: Ten leaves room for several people pairing devices in the same minute
+    #: behind one NAT address, and stays deliberately below ``rate_limit_auth`` so
+    #: the two surfaces cannot be confused for one budget.
+    rate_limit_device_pairing_redeem: str = "10/minute"
 
     # REQ-025 Privacy / GDPR
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production

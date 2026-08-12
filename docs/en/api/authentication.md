@@ -302,6 +302,162 @@ Authorization: Bearer <access-token>
 
 ---
 
+## Device Pairing (QR Code)
+
+For native mobile apps (e.g. the upcoming Flutter app), Kamerplanter offers QR-code pairing: an already signed-in user displays a QR code in the web frontend, scans it with the app, and receives its own token pair — without ever typing a password on the mobile device. <!-- REQ-023 -->
+
+The flow has three steps: a signed-in client requests a pairing code (1), the app reads the QR code and exchanges it for a token pair (2), and because native clients have no cookie jar, the app renews its access token through a dedicated, cookie-less transport (3).
+
+### Requesting a pairing code
+
+```http
+POST /api/v1/auth/device-pairing
+Authorization: Bearer <access-token>
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "payload_version": 1,
+  "server_url": "https://garten.example.org",
+  "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3",
+  "expires_at": "2026-08-11T14:32:41Z",
+  "expires_in": 90
+}
+```
+
+`server_url` comes from the instance's configured base URL — not from the incoming request's URL, which would be unreachable from outside behind a reverse proxy. `expires_in` is already the remaining validity in seconds and stays consistent with `expires_at`.
+
+### QR payload
+
+The QR code the app scans encodes exactly these three fields as JSON:
+
+```json
+{
+  "v": 1,
+  "url": "https://garten.example.org",
+  "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3"
+}
+```
+
+The `v` field (equal to `payload_version`) exists for forward compatibility: a future app version can refuse a payload version it does not recognize instead of misinterpreting it.
+
+!!! note "Light mode: instance discovery as an app-link URL"
+    In light mode (`KAMERPLANTER_MODE=light`) there are no accounts and the pairing endpoints answer `404`. The web frontend still shows a QR code there — but **not** a JSON payload: a **plain app-link URL** without a pairing code, pointing at a fixed deep-link path on the instance the browser reached:
+
+    ```text
+    https://garten.example.org/connect?v=1
+    ```
+
+    The value is a **plain URL string**, not a JSON blob. That is the decisive change over #1118 P12: a phone's system camera does not recognize a JSON string as something openable, whereas it does recognize an `https` URL as a link. The URL is produced entirely in the frontend from `window.location.origin` (the address the user actually reaches the instance through), carries no credential, calls no endpoint and signs nobody in — it is pure instance discovery. The `v=1` query field shares the same version space as the pairing payload's `v`, so the app can refuse a version it does not recognize.
+
+#### App-recognition contract for the discovery link
+
+The discovery link is deliberately an **unverified deep link**. The future Kamerplanter Android app declares an `intent-filter` with a **wildcard host** (`android:host="*"`) on the fixed path `/connect`, so it catches `https://<any-instance>/connect`:
+
+```xml
+<intent-filter>
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="https" android:host="*" android:pathPrefix="/connect" />
+</intent-filter>
+```
+
+- **Why not verified App Links?** Auto-verified Android App Links bind, via `assetlinks.json`, to **fixed domains declared in the manifest**. Kamerplanter is self-hosted, though — every instance has its own domain, unknown in advance. Auto-verification across arbitrary self-hosted domains is therefore **not feasible**. The contract is consequently an **unverified** deep link with a wildcard host: Android shows an app-chooser when the link is opened (or opens the app directly once the user has set it as the default).
+- **Browser fallback:** if the app is not installed, the system camera opens the URL in the browser. The `/connect` path renders a minimal landing page there ("Open in the Kamerplanter app" / "Continue in the browser"), so the link never dead-ends in a 404. The page lives outside the auth guard and the mode switch, so it works in **both** light and full mode.
+- **The pairing QR stays deliberately opaque:** the login/pairing QR (`{"v","url","code"}`, above) remains **opaque JSON and in-app-scan-only**. It is deliberately **not** turned into a deep link, because its `code` is a one-time credential: as a system-camera-openable link it could be intercepted and routed to a foreign app. Only the credential-free discovery link may be a publicly recognizable URL.
+
+### Redeeming a pairing code
+
+```http
+POST /api/v1/auth/device-pairing/redeem
+Content-Type: application/json
+
+{
+  "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3",
+  "device_name": "Pixel 8 (Greenhouse)"
+}
+```
+
+This endpoint is **public** — the app has no credential of its own yet at this point; the scanned code is the proof.
+
+**Response (200 OK):**
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 900,
+  "refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl"
+}
+```
+
+!!! note "Refresh token in the JSON body"
+    Unlike the browser login flow (see [Token Model](#token-model)), pairing redemption returns the refresh token in the JSON response body and sets **no** cookie. This is deliberate: native clients have no cookie jar and must receive the token themselves in order to store it securely (e.g. in the Android Keystore).
+
+`device_name` is optional, up to 64 characters, and — when supplied — appears as a label in the [session list](../user-guide/account.md#viewing-and-ending-active-sessions).
+
+### Renewing the access token (native clients)
+
+Because a paired device has no cookie jar, `POST /api/v1/auth/refresh` accepts an optional JSON body in addition to the cookie-based flow:
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl"
+}
+```
+
+**Response (200 OK):** identical in shape to the `/device-pairing/redeem` response — `{access_token, token_type, expires_in, refresh_token}` with the rotated refresh token in the body.
+
+When the body is present and carries a refresh token:
+
+- The `X-CSRF-Token` header is **not** required (no cookie is being spent, so there is nothing for CSRF protection to guard).
+- **No** cookie is set.
+- The rotated refresh token comes back in the JSON body.
+
+If the `refresh_token` field is absent, `null`, or the whole body is empty, the classic cookie path — including the CSRF check — applies instead. If both a body token and a cookie are present, the body wins; the cookie is ignored in that case rather than used as a fallback.
+
+!!! warning "`Content-Type: application/json` is required"
+    A non-empty body that is not valid JSON is rejected with `422 Unprocessable Entity`. Native clients must set the `Content-Type: application/json` header.
+
+Rotation is cross-transport: a refresh token rotated via either the body or the cookie invalidates the previous token on **both** transports — there is one rotation, not separate bookkeeping per transport.
+
+### Ending a paired device's session
+
+!!! warning "Native clients cannot use `/auth/logout`"
+    `POST /api/v1/auth/logout` checks for the CSRF cookie and answers `403 Forbidden` without it. A paired device never had that cookie in the first place and therefore cannot sign out through it.
+
+A paired device ends its session through the regular session management instead:
+
+```http
+DELETE /api/v1/users/me/sessions/{key}
+Authorization: Bearer <access-token>
+```
+
+Alternatively, it is enough to discard the stored refresh token on the device — the session then simply expires after 30 days without ever having been actively revoked.
+
+### Error responses
+
+| Status | Meaning |
+|--------|---------|
+| `401 Unauthorized` | "Invalid or expired pairing code." — applies equally to an unknown, an already-redeemed, and an expired code. There is deliberately **no** distinguishable response, so a request cannot be used as an oracle for a code's state. |
+| `423 Locked` | The source address is locked out after too many failed redemption attempts; the response states the remaining lockout duration in minutes. The most recently used code is **not** consumed by this — the same QR code can be redeemed again once the lockout ends, as long as its own (short) validity period has not yet expired. |
+| `429 Too Many Requests` | The rate limit for the redemption endpoint has been exceeded. |
+
+### Security notes
+
+!!! danger "Never show the pairing code as plain text next to the QR code"
+    Display the pairing code only as a QR code, never additionally as readable text on the same screen — otherwise a single glance over your shoulder is enough to impersonate the paired device. Also, only ever scan a QR code you just generated yourself — a QR code from someone else, or an older one, may already be redeemed, expired, or tampered with.
+
+    The pairing code is short-lived (60–120 seconds, configurable) and redeemable only once. It is **not** a password and not a long-lived token — its only purpose is to issue a regular token pair a single time.
+
+---
+
 ## Roles and Permissions
 
 Users can be members of multiple tenants and hold a different role in each tenant.

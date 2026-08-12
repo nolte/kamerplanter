@@ -302,6 +302,162 @@ Authorization: Bearer <access-token>
 
 ---
 
+## Gerätekopplung (QR-Code)
+
+Für native Mobil-Apps (z. B. die künftige Flutter-App) bietet Kamerplanter eine QR-Code-Kopplung: Ein bereits angemeldeter Nutzer lässt sich im Web-Frontend einen QR-Code anzeigen, scannt ihn mit der App und erhält so ein eigenständiges Token-Paar — ohne Passworteingabe auf dem Mobilgerät. <!-- REQ-023 -->
+
+Der Ablauf hat drei Schritte: Ein angemeldeter Client fordert einen Kopplungscode an (1), die App liest den QR-Code und tauscht den Code gegen ein Token-Paar ein (2), und weil native Clients keinen Cookie-Speicher haben, erneuert die App ihr Zugriffstoken über einen eigenen, cookie-losen Transport (3).
+
+### Kopplungscode anfordern
+
+```http
+POST /api/v1/auth/device-pairing
+Authorization: Bearer <access-token>
+```
+
+**Antwort (201 Created):**
+
+```json
+{
+  "payload_version": 1,
+  "server_url": "https://garten.example.org",
+  "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3",
+  "expires_at": "2026-08-11T14:32:41Z",
+  "expires_in": 90
+}
+```
+
+`server_url` stammt aus der auf dem Server konfigurierten Basis-URL der Instanz — nicht aus der URL der eingehenden Anfrage, die hinter einem Reverse Proxy von außen gar nicht erreichbar wäre. `expires_in` ist bereits die verbleibende Gültigkeitsdauer in Sekunden und steht im Einklang mit `expires_at`.
+
+### QR-Payload
+
+Der QR-Code, den die App scannt, kodiert genau diese drei Felder als JSON:
+
+```json
+{
+  "v": 1,
+  "url": "https://garten.example.org",
+  "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3"
+}
+```
+
+Das Feld `v` (entspricht `payload_version`) existiert für Vorwärtskompatibilität: Eine künftige App-Version kann eine ihr unbekannte Payload-Version ablehnen, statt sie fehlzuinterpretieren.
+
+!!! note "Light-Modus: Instanz-Erkennung als App-Link-URL"
+    Im Light-Modus (`KAMERPLANTER_MODE=light`) gibt es keine Konten, und die Kopplungs-Endpunkte antworten mit `404`. Das Web-Frontend zeigt dort trotzdem einen QR-Code an — allerdings **keine** JSON-Nutzlast, sondern eine **reine App-Link-URL** ohne Kopplungscode, die auf einen festen Deep-Link-Pfad der aufgerufenen Instanz zeigt:
+
+    ```text
+    https://garten.example.org/connect?v=1
+    ```
+
+    Der Wert ist ein **einfacher URL-String**, kein JSON-Blob. Das ist der entscheidende Unterschied zu #1118 P12: Die System-Kamera eines Smartphones erkennt eine JSON-Zeichenkette nicht als etwas Öffenbares, eine `https`-URL dagegen als Link. Die URL entsteht rein im Frontend aus `window.location.origin` (der Adresse, über die der Nutzer die Instanz tatsächlich erreicht), enthält kein Credential, ruft keinen Endpunkt auf und meldet niemanden an — sie dient ausschließlich der Instanz-Erkennung. Das Query-Feld `v=1` teilt sich denselben Versionsraum wie das `v` der Kopplungs-Payload, sodass die App eine ihr unbekannte Version ablehnen kann.
+
+#### App-Erkennungs-Kontrakt für den Discovery-Link
+
+Der Discovery-Link ist bewusst als **unverifizierter Deep Link** ausgelegt. Die künftige Kamerplanter-Android-App deklariert dazu einen `intent-filter` mit **Wildcard-Host** (`android:host="*"`) auf dem festen Pfad `/connect`, sodass sie `https://<beliebige-instanz>/connect` abfängt:
+
+```xml
+<intent-filter>
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="https" android:host="*" android:pathPrefix="/connect" />
+</intent-filter>
+```
+
+- **Warum keine verifizierten App Links?** Automatisch verifizierte Android App Links binden über `assetlinks.json` an **feste, im Manifest deklarierte Domains**. Kamerplanter wird jedoch selbst gehostet — jede Instanz hat ihre eigene, im Voraus unbekannte Domain. Über beliebige selbstgehostete Domains hinweg ist eine Auto-Verifizierung daher **nicht möglich**. Der Kontrakt ist deshalb ein **unverifizierter** Deep Link mit Wildcard-Host: Android zeigt beim Öffnen einen App-Auswahldialog (bzw. öffnet direkt, sobald der Nutzer die App als Standard gesetzt hat).
+- **Browser-Fallback:** Ist die App nicht installiert, öffnet die System-Kamera die URL im Browser. Der Pfad `/connect` rendert dort eine schlanke Landing-Seite („In der Kamerplanter-App öffnen" bzw. „Im Browser fortfahren"), damit der Link nie ins Leere (404) läuft. Die Seite liegt außerhalb des Auth-Guards und der Modus-Weiche, funktioniert also in Light- **und** Full-Modus.
+- **Der Kopplungs-QR bleibt bewusst undurchsichtig:** Der Login-/Kopplungs-QR (`{"v","url","code"}`, siehe oben) bleibt **opakes JSON und ausschließlich in-App scanbar**. Er wird bewusst **nicht** zu einem Deep Link, weil sein `code` ein Einmal-Credential ist: Als System-Kamera-öffenbarer Link könnte er abgefangen und an eine fremde App geroutet werden. Nur der credential-freie Discovery-Link darf eine öffentlich erkennbare URL sein.
+
+### Kopplungscode einlösen
+
+```http
+POST /api/v1/auth/device-pairing/redeem
+Content-Type: application/json
+
+{
+  "code": "Qm5kR2xoY0dWeUlHTnZaR1VnWm05eUlHRWdjR0ZwY21sdVp3",
+  "device_name": "Pixel 8 (Gewächshaus)"
+}
+```
+
+Dieser Endpunkt ist **öffentlich** — die App hat zu diesem Zeitpunkt noch kein eigenes Credential, der gescannte Code ist der Nachweis.
+
+**Antwort (200 OK):**
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 900,
+  "refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl"
+}
+```
+
+!!! note "Refresh Token im JSON-Body"
+    Anders als beim Browser-Login (siehe [Token-Modell](#token-modell)) liefert die Kopplung das Refresh Token im JSON-Antwortkörper aus und setzt **keinen** Cookie. Das ist bewusst so gebaut: Native Clients besitzen keinen Cookie-Speicher und müssen das Token selbst entgegennehmen, um es sicher (z. B. im Android Keystore) abzulegen.
+
+`device_name` ist optional, maximal 64 Zeichen lang und wird — falls angegeben — als Bezeichnung in der [Sitzungsliste](../user-guide/account.md#aktive-sitzungen-einsehen-und-beenden) angezeigt.
+
+### Zugriffstoken erneuern (native Clients)
+
+Weil ein gekoppeltes Gerät keinen Cookie-Speicher hat, akzeptiert `POST /api/v1/auth/refresh` zusätzlich zum Cookie-Ablauf einen optionalen JSON-Body:
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl"
+}
+```
+
+**Antwort (200 OK):** identisch zur Antwort von `/device-pairing/redeem` — `{access_token, token_type, expires_in, refresh_token}` mit dem rotierten Refresh Token im Body.
+
+Ist der Body vorhanden und trägt ein Refresh Token, gilt:
+
+- Der `X-CSRF-Token`-Header wird **nicht** benötigt (kein Cookie wird verbraucht, also gibt es nichts, wovor der CSRF-Schutz schützen müsste).
+- Es wird **kein** Cookie gesetzt.
+- Das rotierte Refresh Token kommt im JSON-Body zurück.
+
+Fehlt das Feld `refresh_token` im Body, ist es `null`, oder ist der gesamte Body leer, greift stattdessen der klassische Cookie-Pfad inklusive CSRF-Prüfung. Sind Body-Token **und** Cookie gleichzeitig vorhanden, gewinnt der Body — der Cookie wird in diesem Fall ignoriert, nicht als Fallback verbraucht.
+
+!!! warning "`Content-Type: application/json` ist Pflicht"
+    Ein nicht leerer Body, der kein gültiges JSON ist, wird mit `422 Unprocessable Entity` abgelehnt. Native Clients müssen den Header `Content-Type: application/json` setzen.
+
+Die Rotation ist transportübergreifend: Ein per Body oder per Cookie erneuertes Refresh Token macht das jeweils vorherige Token auf **beiden** Transportwegen ungültig — es gibt nur eine Rotation, keine getrennte Buchführung je Transportweg.
+
+### Sitzung eines gekoppelten Geräts beenden
+
+!!! warning "Native Clients können `/auth/logout` nicht verwenden"
+    `POST /api/v1/auth/logout` prüft den CSRF-Cookie und antwortet ohne ihn mit `403 Forbidden`. Ein gekoppeltes Gerät hat diesen Cookie nie besessen und kann sich darüber folglich nicht abmelden.
+
+Ein gekoppeltes Gerät beendet seine Sitzung stattdessen über die reguläre Sitzungsverwaltung:
+
+```http
+DELETE /api/v1/users/me/sessions/{key}
+Authorization: Bearer <access-token>
+```
+
+Alternativ genügt es, das gespeicherte Refresh Token auf dem Gerät zu verwerfen — die Sitzung läuft dann regulär nach 30 Tagen ab, ohne dass sie aktiv widerrufen wurde.
+
+### Fehlerantworten
+
+| Status | Bedeutung |
+|--------|-----------|
+| `401 Unauthorized` | „Invalid or expired pairing code." — gilt gleichermaßen für einen unbekannten, bereits eingelösten und einen abgelaufenen Code. Es gibt bewusst **keine** unterscheidbare Antwort, damit eine Anfrage nicht als Orakel für den Zustand eines Codes missbraucht werden kann. |
+| `423 Locked` | Die Quelladresse ist wegen zu vieler fehlgeschlagener Einlöseversuche gesperrt; die Antwort nennt die verbleibende Sperrdauer in Minuten. Der zuletzt verwendete Code wird dabei **nicht** verbraucht — derselbe QR-Code kann nach Ablauf der Sperre erneut eingelöst werden, solange seine eigene (kurze) Gültigkeitsdauer noch nicht abgelaufen ist. |
+| `429 Too Many Requests` | Das Rate Limit für den Einlöse-Endpunkt ist überschritten. |
+
+### Sicherheitshinweise
+
+!!! danger "Kopplungscode niemals im Klartext neben dem QR-Code anzeigen"
+    Zeige den Kopplungscode ausschließlich als QR-Code an, niemals zusätzlich als lesbaren Text auf demselben Bildschirm — sonst genügt ein Blick über die Schulter, um sich als das gekoppelte Gerät auszugeben. Scanne außerdem **nur** einen QR-Code, den du selbst gerade erst erzeugt hast — ein fremder oder älterer QR-Code kann bereits verbraucht, abgelaufen oder manipuliert sein.
+
+    Der Kopplungscode ist kurzlebig (60–120 Sekunden, konfigurierbar) und nur einmal einlösbar. Er ist **kein** Passwort und kein langlebiges Token — er dient ausschließlich dazu, einmalig ein reguläres Token-Paar auszustellen.
+
+---
+
 ## Rollen und Berechtigungen
 
 Nutzer können Mitglied mehrerer Mandanten sein und in jedem Mandanten eine eigene Rolle haben.

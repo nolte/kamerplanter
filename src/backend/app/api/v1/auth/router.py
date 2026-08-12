@@ -1,3 +1,5 @@
+import math
+from datetime import UTC, datetime
 from typing import Annotated
 
 import structlog
@@ -12,12 +14,16 @@ from app.api.v1.auth.schemas import (
     ApiKeyCreatedResponse,
     ApiKeyCreateRequest,
     ApiKeySummaryResponse,
+    DevicePairingCreateResponse,
+    DevicePairingRedeemRequest,
     LoginRequest,
     MessageResponse,
     OAuthProviderListItem,
     PasswordResetConfirm,
     PasswordResetRequest,
+    RefreshRequest,
     RegisterRequest,
+    TokenPairResponse,
     TokenResponse,
     UserProfileResponse,
     VerifyEmailRequest,
@@ -58,6 +64,13 @@ router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESP
 #: external client. The trust boundary of a light instance is its network, which
 #: is why REQ-027 keeps such a deployment off the public internet.
 api_keys_router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
+
+#: Version of the QR device-pairing payload ``{"v": …, "url": …, "code": …}``
+#: (#1118). Bumped only when the payload's *shape* changes, so a scanner built
+#: against v1 can refuse a payload it does not understand instead of guessing.
+#: The frontend composes the payload from the issuance response; this constant is
+#: what it stamps into ``v``.
+_QR_PAYLOAD_VERSION = 1
 
 # AP-7 (FE-S3): the frontend maps these codes to localised messages. The backend
 # NEVER forwards a raw provider error string — only one of these fixed codes.
@@ -175,18 +188,75 @@ def login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenPairResponse | TokenResponse)
 def refresh(
     response: Response,
     request: Request,
-    kp_refresh: str = Depends(get_refresh_token_from_cookie),
+    body: RefreshRequest | None = None,
+    kp_refresh: Annotated[
+        str | None,
+        Cookie(description="HttpOnly refresh-token cookie set by the login flow."),
+    ] = None,
     service: AuthService = Depends(get_auth_service),
 ):
-    """Rotate the refresh cookie and issue a fresh access token."""
-    verify_csrf(request)
+    """Rotate a refresh token and issue a fresh access token — two transports (#1118).
+
+    **Cookie transport (browsers, unchanged).** No body, or a body without a
+    token: the refresh token comes from the HttpOnly ``kp_refresh`` cookie, the
+    CSRF double-submit is verified, the rotated token leaves as a cookie again
+    and never appears in the JSON (AP-7 / FE-S1). The refusal order is the one
+    this endpoint always had — a missing cookie answers 401 *before* CSRF is
+    looked at, so nothing about the change is observable from the browser side.
+
+    **Body transport (paired devices).** A device paired by QR code holds the raw
+    refresh token in its platform keystore and has neither a cookie jar nor any
+    way to obtain the ``csrf_token`` cookie. It presents the token as
+    ``{"refresh_token": "…"}``; the response carries the rotated token in the
+    body (``TokenPairResponse``) and sets **no** cookie — one credential on two
+    transports would double its exposure and leave no single place that revokes
+    it. Without this transport the pair minted by ``/device-pairing/redeem``
+    would die 15 minutes later, unrotatable.
+
+    **Why the body path needs no CSRF.** The double-submit defends *ambient*
+    credentials: the browser attaches ``kp_refresh`` to a cross-site request on
+    its own, so possession of the cookie proves nothing about who composed the
+    request. A token in the body is not ambient — it must be read and typed in by
+    the caller, and an attacker who can read this user's refresh token has the
+    credential itself and needs no request forgery. (A cross-site page cannot
+    even reach here: a JSON content type is not a CORS-simple request, so it is
+    preflighted.)
+
+    **Precedence, when both are present: the body wins and the cookie is ignored
+    entirely.** Not "try the body, fall back to the cookie" — that fallback is
+    the actual vulnerability, because a forged cross-site request carrying a
+    junk body token would then spend the victim's ambient cookie with no CSRF
+    header in sight. Here a request that names a body token is answered purely
+    from that token: if it is invalid the answer is 401 and the cookie is left
+    untouched and still valid. Nothing spends the ambient credential except the
+    CSRF-verified branch below.
+    """
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
-    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(kp_refresh, user_agent, ip_address)
+
+    body_token = body.refresh_token if body is not None else None
+    if body_token:
+        token_pair, new_raw_refresh, _is_persistent = service.refresh_tokens(body_token, user_agent, ip_address)
+        return TokenPairResponse(
+            access_token=token_pair.access_token,
+            token_type=token_pair.token_type,
+            expires_in=token_pair.expires_in,
+            refresh_token=new_raw_refresh,
+        )
+
+    # The cookie is read through the same helper the dependency used, so the
+    # "missing refresh token cookie" refusal keeps exactly one definition. It is
+    # called *here* rather than declared as `Depends(...)` because a dependency
+    # raises before the handler ever sees the body, which would make the body
+    # transport above unreachable for a client that has no cookie — i.e. for
+    # every client this package exists for.
+    raw_refresh = get_refresh_token_from_cookie(kp_refresh)
+    verify_csrf(request)
+    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(raw_refresh, user_agent, ip_address)
     _set_refresh_cookie(response, new_raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(response)
     return TokenResponse(
@@ -203,7 +273,19 @@ def logout(
     kp_refresh: str | None = Cookie(default=None),
     service: AuthService = Depends(get_auth_service),
 ):
-    """Revoke the current refresh token and clear the refresh cookie."""
+    """Revoke the current refresh token and clear the refresh cookie.
+
+    Cookie-only by design, and deliberately **not** extended with the body-borne
+    transport ``/refresh`` gained in #1118: this route is CSRF-verified first, so
+    a caller without the ``csrf_token`` cookie is refused with 403 before the
+    body would be read. A paired device therefore does not log out here — it
+    revokes its own session through ``DELETE /users/me/sessions/{key}``
+    (authenticated with its access token, no ambient credential involved) or
+    simply discards the token, which becomes worthless at its expiry. Documented
+    for the API reference rather than papered over here: adding a second,
+    unauthenticated revocation path would widen the surface for a capability the
+    session API already covers.
+    """
     verify_csrf(request)
     if kp_refresh:
         service.logout(kp_refresh)
@@ -339,6 +421,114 @@ def oauth_callback(
     _set_refresh_cookie(redirect, raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(redirect)
     return redirect
+
+
+# ── Device pairing / QR login (REQ-023, #1118) ─────────────────────
+#
+# Both routes hang on ``router``, not on ``api_keys_router``, so they exist in
+# full mode only. That is not a preference: redemption mints a session **for a
+# specific account**, and a light-mode instance has no accounts — every request
+# there already resolves to the system user without authenticating. Mounted in
+# light mode the pair would be an unauthenticated route handing out tokens for
+# the one privileged identity that instance has.
+
+
+def _remaining_seconds(expires_at: datetime) -> int:
+    """Seconds from now until ``expires_at``, never negative.
+
+    Derived rather than read off the TTL setting: the store owns the expiry, and
+    a second source for the same number is a second thing that can drift. Rounded
+    **up**, so a request that spends a few hundred microseconds between the
+    store's write and this line still reports the full TTL instead of one second
+    less — a countdown that starts at 89 for a 90-second code looks like a bug,
+    and overstating by well under a second costs nothing (the store, not this
+    number, is what refuses an expired code).
+    """
+    return max(0, math.ceil((expires_at - datetime.now(UTC)).total_seconds()))
+
+
+@router.post("/device-pairing", response_model=DevicePairingCreateResponse, status_code=201)
+@limiter.limit(settings.rate_limit_auth)
+def create_device_pairing(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    service: AuthService = Depends(get_auth_service),
+):
+    """Mint a one-time QR pairing code for the authenticated user (#1118).
+
+    Bearer-authenticated, like ``create_api_key`` and for the same reason: the
+    credential is presented in the ``Authorization`` header, not ambiently by the
+    browser, so there is nothing for a cross-site request to ride on and no CSRF
+    double-submit to verify. (``verify_csrf`` guards the routes that spend the
+    ``kp_refresh`` cookie — refresh, logout, logout-all — which is the ambient
+    credential this one does not use.)
+
+    ``server_url`` comes from ``settings.app_base_url``, the base URL REQ-032
+    already established as the SSOT for QR codes, and never from
+    ``request.base_url``: behind the Traefik ingress the latter resolves to a
+    cluster-internal address, so the QR would encode a URL the scanning phone
+    cannot reach — and it would do so only in production, where nobody is
+    running the test that would have caught it.
+    """
+    code, expires_at = service.create_device_pairing(
+        current_user.key or "",
+        # The proxy-aware helper, not ``request.client.host``: see the module
+        # docstring of ``app.common.request_ip``. The address recorded here is
+        # also the one the redemption throttle buckets on, and behind an ingress
+        # the direct peer is the proxy for *every* caller — which would collapse
+        # a per-IP guard into a single shared bucket.
+        resolve_client_ip(request),
+    )
+    return DevicePairingCreateResponse(
+        payload_version=_QR_PAYLOAD_VERSION,
+        server_url=settings.app_base_url,
+        code=code,
+        expires_at=expires_at,
+        expires_in=_remaining_seconds(expires_at),
+    )
+
+
+@router.post("/device-pairing/redeem", response_model=TokenPairResponse)
+@limiter.limit(settings.rate_limit_device_pairing_redeem)
+def redeem_device_pairing(
+    request: Request,
+    body: DevicePairingRedeemRequest,
+    service: AuthService = Depends(get_auth_service),
+):
+    """Exchange a scanned pairing code for the standard REQ-023 token pair (#1118).
+
+    **Public by design.** The caller is a freshly installed app that holds no
+    credential yet; the code it just scanned is the credential. The generated
+    OpenAPI therefore carries ``security: []`` for this operation (stamped by
+    ``main.py::_openapi_postprocessed`` for every operation with no security
+    dependency), which is what keeps ``scripts/security/zap_auth_bypass.py`` from
+    reporting it as an auth bypass — and what makes the property visible to a
+    reviewer instead of implicit in the absence of a ``Depends``.
+
+    **No cookie is set, deliberately.** The refresh token leaves in the JSON
+    body (see ``TokenPairResponse``) because the client has no cookie jar. Adding
+    the ``kp_refresh`` cookie *as well* would put one credential on two
+    transports for no gain. No CSRF header is required either: there is no
+    ambient credential here to protect — the request carries its own.
+
+    The error surface is the service's, unchanged and answered by the global
+    ``KamerplanterError`` handler: 423 while the source address is locked out,
+    401 for a code that is unknown, used, expired or unreadable — one answer for
+    all four, so nothing here works as an oracle — 401 for a deactivated account,
+    422 for input the boundary let through but the service rejects.
+    """
+    token_pair, raw_refresh, _is_persistent = service.redeem_device_pairing(
+        body.code,
+        request.headers.get("user-agent"),
+        resolve_client_ip(request),
+        body.device_name,
+    )
+    return TokenPairResponse(
+        access_token=token_pair.access_token,
+        token_type=token_pair.token_type,
+        expires_in=token_pair.expires_in,
+        refresh_token=raw_refresh,
+    )
 
 
 # ── M2M API Keys ───────────────────────────────────────────────────
