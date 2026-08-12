@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.11 (SEC-H-009 Info-Mail asynchron + Sperrfenster je Empfänger)
+Version: 1.12 (QR-Gerätekopplung für native Clients — Redis-Einmalcode, Body-Refresh)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.12 | 2026-08-12 | **QR-Gerätekopplung für native Clients (#1118):** Neuer §3.8 — eine per QR-Code gekoppelte App tauscht einen Einmalcode gegen das **bestehende** REQ-023-Token-Paar (keine neue Token-Klasse, kein neuer Claim). Der Code liegt ausschließlich in Redis (kein neuer ArangoDB-Node, keine neue Collection); die Prüfspur sind structlog-Events, kein persistiertes Protokoll (§9). Einlösung ist rate-limitiert (`rate_limit_device_pairing_redeem`, Default 10/min) und zusätzlich per Quell-IP über den `LoginThrottleEngine` gesperrt — dieselbe Engine wie `login_local` —, wobei die Sperre **vor** dem Code-Store greift. `POST /auth/refresh` erhält einen Body-Transport (`{"refresh_token": …}`) für Clients ohne Cookie-Jar: Body schlägt Cookie, CSRF entfällt auf dem Body-Pfad (die Double-Submit-Tabelle in §1 ist entsprechend präzisiert). Neuer Frontend-Dialog „Gerät verbinden" im Sessions-Tab (§4.6). TTL `device_pairing_ttl_seconds` (Default 90, validiert 60–120). |
 | 1.11 | 2026-08-07 | **SEC-H-009 Info-Mail gebaut (#958):** Die in §3.2 seit v1.8 geforderte Info-Mail an die bereits registrierte Adresse ist implementiert — aber unter zwei Bedingungen, die §3.2 jetzt ausformuliert, weil die naive Variante genau das Enumeration-Orakel wieder öffnet, das #957 geschlossen hat: (1) **asynchrone Zustellung** über den Celery-Task `app.tasks.auth_tasks.send_duplicate_registration_notice`, eingereiht in einem FastAPI-Background-Task, also erst nachdem die Antwort geschrieben ist; (2) **Sperrfenster je Empfängeradresse** (24 h, `IRegistrationNoticeStore`) statt je Absender-IP. Zusätzlich: `POST /api/v1/privacy/email-change` erhält ein eigenes Rate-Limit (`rate_limit_email_change`, Default 5/hour). |
 | 1.10 | 2026-04-27 | **W-015:** §3.7 M2M-Auth um Light-Modus-Hinweis ergänzt — Service Accounts und API-Keys sind im Light-Modus deaktiviert (REQ-027 §2.1). Bei Mode-Switch Light→Full müssen externe Integrationen neue Keys generieren. |
 | 1.9 | 2026-04-27 | **W-004 Fix (Refresh-Token Family + Offline-Grace-Window):** RefreshToken-Modell um `family_key`, `device_id`, `rotated_at`, `successor_key` erweitert. Token-Rotation idempotent innerhalb 60s Grace-Window bei Device-Match (für PWA-Reconnect-Race UI-NFR-012 R-049). Echter Replay (außerhalb Grace-Window oder Device-Mismatch) sprengt die ganze Token-Family. **Hard Cutover bei Deployment** — alle bestehenden Refresh-Tokens werden invalidiert, alle User müssen neu einloggen. Telemetrie: structlog `auth.refresh_replay_detected` + Prometheus `kp_auth_refresh_replay_total`. |
@@ -155,12 +156,14 @@ Da Refresh Tokens als HttpOnly Cookie übertragen werden, sind zustandsändernde
    - Betroffene Endpunkte: `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`
    - Der CSRF-Token wird bei jedem Token-Refresh erneuert (analog zur Refresh-Token-Rotation)
    - **Nicht** betroffen: `POST /auth/login`, `POST /auth/register` (verwenden keinen Cookie, sondern Request-Body-Credentials)
+   - **Nur der Cookie-Pfad** von `POST /auth/refresh` ist Double-Submit-geschützt (#1118): Seit v1.12 akzeptiert dieser Endpunkt zusätzlich einen optionalen Refresh-Token im JSON-Body (§3.8). Ein Body-Token ist kein *ambient* übertragenes Credential — der Browser hängt ihn nicht selbsttätig an —, deshalb entfällt die Double-Submit-Prüfung auf dem Body-Pfad. Der Cookie-Pfad bleibt unverändert CSRF-pflichtig.
 
 | Endpunkt | Cookie-basiert | CSRF-Schutz |
 |----------|---------------|-------------|
 | `POST /auth/login` | Nein (Body) | Nicht nötig |
 | `POST /auth/register` | Nein (Body) | Nicht nötig |
-| `POST /auth/refresh` | Ja (Refresh Cookie) | Double-Submit Cookie |
+| `POST /auth/refresh` (Cookie-Pfad) | Ja (Refresh Cookie) | Double-Submit Cookie |
+| `POST /auth/refresh` (Body-Pfad, #1118) | Nein (Refresh-Token im Body) | Nicht nötig (kein ambient Credential) |
 | `POST /auth/logout` | Ja (Refresh Cookie) | Double-Submit Cookie |
 | `POST /auth/logout-all` | Ja (Refresh Cookie) | Double-Submit Cookie |
 | `GET /auth/oauth/{slug}/callback` | Nein (OAuth State) | OAuth State-Parameter |
@@ -991,7 +994,9 @@ class UserService:
 | POST | `/auth/login` | Lokaler Login (Body: `email`, `password`, `remember_me: bool = false`) | Nein |
 | POST | `/auth/logout` | Logout (aktuelles Gerät) | Ja |
 | POST | `/auth/logout-all` | Logout (alle Geräte) | Ja |
-| POST | `/auth/refresh` | Token-Refresh | Nein (Cookie) |
+| POST | `/auth/refresh` | Token-Refresh (Cookie-Pfad **oder** optionaler Body-Token `{"refresh_token"}` für native Clients, #1118 — siehe §3.8) | Nein (Cookie oder Body) |
+| POST | `/auth/device-pairing` | Einmaligen QR-Kopplungscode erzeugen (#1118, §3.8) | Ja (Bearer) |
+| POST | `/auth/device-pairing/redeem` | QR-Kopplungscode gegen Token-Paar einlösen (#1118, §3.8) | Nein (öffentlich) |
 | POST | `/auth/verify-email` | E-Mail bestätigen | Nein |
 | POST | `/auth/password-reset/request` | Passwort-Reset anfordern | Nein |
 | POST | `/auth/password-reset/confirm` | Passwort-Reset durchführen | Nein |
@@ -1024,7 +1029,7 @@ class UserService:
 | DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Admin |
 | POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Admin |
 
-**Gesamtanzahl API-Endpunkte:** ~23
+**Gesamtanzahl API-Endpunkte:** ~25
 
 ### 3.4 Middleware
 
@@ -1060,6 +1065,41 @@ def require_role(role: str):
 | `cleanup_expired_tokens` | Stündlich | Entfernt abgelaufene/revoked Refresh Tokens |
 | `cleanup_unverified_accounts` | Täglich 03:00 | Löscht unbestätigte Accounts älter als 7 Tage |
 | `rotate_oidc_discovery` | Alle 6 Stunden | Aktualisiert OIDC-Discovery-Dokumente (JWKS, Endpoints) |
+
+<!-- Quelle: Issue #1118 -->
+### 3.8 Gerätekopplung per QR-Code (#1118)
+
+Eine native App (aktuell nur der Kontrakt, die Flutter-App selbst ist ausgeklammert — siehe §9) meldet sich ohne Passwort-Eingabe an, indem sie einen im Browser erzeugten QR-Code scannt. Der Flow ist vollständig aus der bestehenden REQ-023-Maschinerie zusammengesetzt: er stellt **keine** neue Token-Klasse und **keinen** neuen Claim aus.
+
+**Einmalcode nur in Redis — kein neuer Node, keine neue Collection.**
+Der Kopplungscode wird ausschließlich in Redis abgelegt (Store `IDevicePairingCodeStore` / `RedisDevicePairingCodeStore`, TTL-`SET` + pipelined `GET`+`DEL` für atomaren Einmalgebrauch, analog zum OAuth-State-Store). Es gibt **bewusst** keinen ArangoDB-Node und keine neue Collection dafür — die Einlösung ist ein flüchtiger Vorgang, kein zu persistierender Datensatz. Der Rohcode ist nie Redis-Key oder -Value; gespeichert wird `sha256(code)`. Die **Prüfspur** sind strukturierte structlog-Events (`device_pairing_created`, `device_pairing_redeemed`, `device_pairing_redeem_failed`) — genau wie jedes andere Auth-Ereignis in diesem Code, **nicht** ein persistiertes Protokoll (siehe §9 und die Abgrenzung des allgemeinen Audit-Logs).
+
+**TTL-Grenzen.**
+Die Lebensdauer des Codes steuert `settings.device_pairing_ttl_seconds` (Default `90`, im Settings-Modell validiert `ge=60, le=120`). Ein Wert außerhalb 60–120 s verweigert den Start, statt still geklemmt zu werden. Unter 60 s läuft der Code ab, bevor der Nutzer scannen kann; über 120 s überlebt er den Moment, in dem der Nutzer auf den Bildschirm sah.
+
+**Rate-Limit und Sperre bei Einlösung.**
+Die Einlösung ist rate-limitiert (`settings.rate_limit_device_pairing_redeem`, Default `10/minute`, bewusst unter `rate_limit_auth`). Der slowapi-Limiter arbeitet dabei — wie an allen Auth-Routen — **global** (nicht pro IP). Der eigentliche verhaltensbasierte Schutz ist eine **Sperre pro Quell-IP**: `AuthService.redeem_device_pairing` zählt Fehlversuche je Adresse (`resolve_client_ip`, proxy-bewusst) und entscheidet die Sperre über **denselben** `LoginThrottleEngine`, den auch `login_local` nutzt (kein zweiter Schwellwert). **Reihenfolge:** Die Sperre wird geprüft, **bevor** der Code-Store konsultiert wird — ein gesperrter Versuch verbraucht den Code also nicht. Ein erfolgreicher Versuch leert den Zähler der IP.
+
+**Einlösung liefert das bestehende Token-Paar.**
+`redeem_device_pairing` ruft dieselbe Fabrik `_create_tokens` wie `login_local` und `complete_oauth` — dasselbe Access-/Refresh-Paar, dieselbe `RefreshToken`-Session (in der Sessions-Liste sichtbar und dort widerrufbar), keine neue Token-Art. Das Konto stammt aus dem gespeicherten Code-Record, nie aus einer vom Aufrufer gelieferten Identität. Unbekannter, benutzter, abgelaufener und unlesbarer Code liefern **eine** generische 401 (kein Orakel); ein deaktiviertes Konto 401; eine gesperrte IP 423 mit Restminuten.
+
+**Autorisierung pro Request, nicht im Token eingefroren.**
+Das Access Token trägt — wie bei jedem Login — nur die zum Ausstellungszeitpunkt aufgelösten Tenant-Rollen; die tatsächliche Zugriffsentscheidung fällt pro Request aus der Mitgliedschaft (`get_current_tenant`, REQ-024). Ein gekoppeltes Gerät verliert den Zugriff auf einen Tenant daher **sofort**, sobald die Mitgliedschaft entzogen wird — die Kopplung schafft keinen von der Mitgliedschaft entkoppelten Dauerzugriff.
+
+**Body-getragener Refresh für native Clients.**
+Ein per QR gekoppeltes Gerät hält den Rohwert des Refresh-Tokens im Plattform-Keystore und hat weder Cookie-Jar noch `csrf_token`-Cookie. Damit das ausgestellte Paar überhaupt rotierbar ist, akzeptiert `POST /auth/refresh` seit v1.12 einen **optionalen** JSON-Body `{"refresh_token": "…"}`:
+
+- Ist ein Body-Token vorhanden, **schlägt der Body den Cookie** (kein „erst Body, dann Cookie"-Fallback — der wäre die eigentliche Lücke). Der Cookie wird vollständig ignoriert, es wird **kein** `kp_refresh`-Cookie gesetzt, und der rotierte Token kommt im Body zurück (`TokenPairResponse`).
+- Auf dem Body-Pfad wird `verify_csrf` **nicht** aufgerufen: Ein Body-Token ist kein ambient übertragenes Credential, daher greift die Double-Submit-Abwehr nicht (siehe präzisierte CSRF-Tabelle in §1). Ein ungültiger Body-Token liefert 401, **ohne** den Cookie zu verbrauchen.
+- Der **Cookie-Pfad bleibt byte-identisch**: fehlender Cookie → 401 vor jeder CSRF-Prüfung; vorhandener Cookie → `verify_csrf` wie bisher, Rotation als Cookie.
+
+Die Ausgabe-Endpunkte:
+
+- `POST /auth/device-pairing` — **Bearer-authentifiziert** (`get_current_user`, kein CSRF, wie `create_api_key`), liefert `{payload_version, server_url, code, expires_at, expires_in}`. `server_url` stammt aus `settings.app_base_url` (der QR-SSOT aus REQ-032), nie aus `request.base_url` (hinter Traefik cluster-intern und für das scannende Telefon unerreichbar). QR-Nutzlast: `{"v": payload_version, "url": server_url, "code": code}`.
+- `POST /auth/device-pairing/redeem` — **öffentlich** (`security: []` in der generierten OpenAPI, damit der ZAP-Auth-Bypass-Check korrekt einordnet), liefert `{access_token, token_type, expires_in, refresh_token}` und setzt **keinen** Cookie.
+
+Beide Endpunkte hängen am `auth_router` (nicht am `api_keys_router`) und sind daher im Light-Modus (REQ-027) nicht gemountet — eine Light-Instanz antwortet auf beide mit **404**.
+<!-- /Quelle: Issue #1118 -->
 
 ## 4. Frontend
 
@@ -1182,6 +1222,17 @@ interface AuthState {
 // ProtectedRoute: Erfordert authentifizierten User, Redirect zu /login
 // PublicOnlyRoute: Nur für nicht-authentifizierte User (Login/Register), Redirect zu /dashboard
 ```
+
+<!-- Quelle: Issue #1118 -->
+### 4.6 Gerät-verbinden-Dialog (Sessions-Tab, #1118)
+
+Im Tab „Sessions" der `AccountSettingsPage` (der ohnehin nur im Full-Modus existiert, sodass der Light-Modus baulich ausgeschlossen ist) öffnet eine Aktion „Gerät verbinden" den Dialog `ConnectDeviceDialog`. Er fordert über `POST /auth/device-pairing` einen Einmalcode an und rendert die QR-Nutzlast `{"v":…,"url":…,"code":…}` als `<QRCodeSVG>`.
+
+- Ein Countdown zeigt die Restsekunden (`expires_in`); bei Null wird der QR durch einen Ablauf-Zustand mit „Neu erzeugen"-Aktion ersetzt, die einen frischen Code holt.
+- Der Code erscheint **nirgends** als sichtbarer Text im Dialog (Schutz gegen Shoulder-Surfing) — nur im `value`-Prop des QR-Codes.
+- Der Code wird nicht in Redux oder `localStorage` gehalten; Schließen des Dialogs verwirft ihn aus dem Komponenten-State. Nach dem Schließen wird die Sessions-Liste neu geladen, sodass ein frisch gekoppeltes Gerät dort erscheint.
+- Alle Nutzertexte liegen als i18n-Keys unter `pages.auth.*` in DE und EN vor.
+<!-- /Quelle: Issue #1118 -->
 
 ## 5. Seed-Daten
 
@@ -2129,3 +2180,6 @@ Die Wahl der konkreten Implementierung erfolgt per Konfiguration (`EMAIL_ADAPTER
 - Automatische Service Account Erstellung bei Third-Party-Integration → immer manuell durch Admin
 - Service Account Audit-Log (detailliertes Zugriffsprotokoll) → zukünftig, nach allgemeinem Audit-Log
 <!-- /Quelle: Service Accounts v1.7 -->
+<!-- Quelle: Issue #1118 -->
+- Persistiertes Audit-Log der QR-Gerätekopplung (§3.8) → **bewusst nicht** eingeführt: die Prüfspur sind structlog-Events (`device_pairing_created` / `device_pairing_redeemed` / `device_pairing_redeem_failed`), kein ArangoDB-Datensatz und keine neue Collection. Ein persistiertes Zugriffsprotokoll bleibt an das allgemeine Audit-Log gebunden (siehe Service-Account-Audit-Log oben), damit dessen Zurückstellung kohärent bleibt.
+<!-- /Quelle: Issue #1118 -->
