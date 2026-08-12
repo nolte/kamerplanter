@@ -21,6 +21,7 @@ from app.api.v1.auth.schemas import (
     OAuthProviderListItem,
     PasswordResetConfirm,
     PasswordResetRequest,
+    RefreshRequest,
     RegisterRequest,
     TokenPairResponse,
     TokenResponse,
@@ -187,18 +188,75 @@ def login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenPairResponse | TokenResponse)
 def refresh(
     response: Response,
     request: Request,
-    kp_refresh: str = Depends(get_refresh_token_from_cookie),
+    body: RefreshRequest | None = None,
+    kp_refresh: Annotated[
+        str | None,
+        Cookie(description="HttpOnly refresh-token cookie set by the login flow."),
+    ] = None,
     service: AuthService = Depends(get_auth_service),
 ):
-    """Rotate the refresh cookie and issue a fresh access token."""
-    verify_csrf(request)
+    """Rotate a refresh token and issue a fresh access token — two transports (#1118).
+
+    **Cookie transport (browsers, unchanged).** No body, or a body without a
+    token: the refresh token comes from the HttpOnly ``kp_refresh`` cookie, the
+    CSRF double-submit is verified, the rotated token leaves as a cookie again
+    and never appears in the JSON (AP-7 / FE-S1). The refusal order is the one
+    this endpoint always had — a missing cookie answers 401 *before* CSRF is
+    looked at, so nothing about the change is observable from the browser side.
+
+    **Body transport (paired devices).** A device paired by QR code holds the raw
+    refresh token in its platform keystore and has neither a cookie jar nor any
+    way to obtain the ``csrf_token`` cookie. It presents the token as
+    ``{"refresh_token": "…"}``; the response carries the rotated token in the
+    body (``TokenPairResponse``) and sets **no** cookie — one credential on two
+    transports would double its exposure and leave no single place that revokes
+    it. Without this transport the pair minted by ``/device-pairing/redeem``
+    would die 15 minutes later, unrotatable.
+
+    **Why the body path needs no CSRF.** The double-submit defends *ambient*
+    credentials: the browser attaches ``kp_refresh`` to a cross-site request on
+    its own, so possession of the cookie proves nothing about who composed the
+    request. A token in the body is not ambient — it must be read and typed in by
+    the caller, and an attacker who can read this user's refresh token has the
+    credential itself and needs no request forgery. (A cross-site page cannot
+    even reach here: a JSON content type is not a CORS-simple request, so it is
+    preflighted.)
+
+    **Precedence, when both are present: the body wins and the cookie is ignored
+    entirely.** Not "try the body, fall back to the cookie" — that fallback is
+    the actual vulnerability, because a forged cross-site request carrying a
+    junk body token would then spend the victim's ambient cookie with no CSRF
+    header in sight. Here a request that names a body token is answered purely
+    from that token: if it is invalid the answer is 401 and the cookie is left
+    untouched and still valid. Nothing spends the ambient credential except the
+    CSRF-verified branch below.
+    """
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
-    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(kp_refresh, user_agent, ip_address)
+
+    body_token = body.refresh_token if body is not None else None
+    if body_token:
+        token_pair, new_raw_refresh, _is_persistent = service.refresh_tokens(body_token, user_agent, ip_address)
+        return TokenPairResponse(
+            access_token=token_pair.access_token,
+            token_type=token_pair.token_type,
+            expires_in=token_pair.expires_in,
+            refresh_token=new_raw_refresh,
+        )
+
+    # The cookie is read through the same helper the dependency used, so the
+    # "missing refresh token cookie" refusal keeps exactly one definition. It is
+    # called *here* rather than declared as `Depends(...)` because a dependency
+    # raises before the handler ever sees the body, which would make the body
+    # transport above unreachable for a client that has no cookie — i.e. for
+    # every client this package exists for.
+    raw_refresh = get_refresh_token_from_cookie(kp_refresh)
+    verify_csrf(request)
+    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(raw_refresh, user_agent, ip_address)
     _set_refresh_cookie(response, new_raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(response)
     return TokenResponse(
@@ -215,7 +273,19 @@ def logout(
     kp_refresh: str | None = Cookie(default=None),
     service: AuthService = Depends(get_auth_service),
 ):
-    """Revoke the current refresh token and clear the refresh cookie."""
+    """Revoke the current refresh token and clear the refresh cookie.
+
+    Cookie-only by design, and deliberately **not** extended with the body-borne
+    transport ``/refresh`` gained in #1118: this route is CSRF-verified first, so
+    a caller without the ``csrf_token`` cookie is refused with 403 before the
+    body would be read. A paired device therefore does not log out here — it
+    revokes its own session through ``DELETE /users/me/sessions/{key}``
+    (authenticated with its access token, no ambient credential involved) or
+    simply discards the token, which becomes worthless at its expiry. Documented
+    for the API reference rather than papered over here: adding a second,
+    unauthenticated revocation path would widen the surface for a capability the
+    session API already covers.
+    """
     verify_csrf(request)
     if kp_refresh:
         service.logout(kp_refresh)

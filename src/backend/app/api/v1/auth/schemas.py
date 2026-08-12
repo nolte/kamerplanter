@@ -39,10 +39,51 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(min_length=10, max_length=128)
 
 
-class RefreshRequest(BaseModel):
-    """Body-based refresh as fallback (primary is HttpOnly cookie)."""
+#: Upper bound on the raw refresh token accepted in a request body (#1118).
+#: The tokens this service mints are ``secrets.token_urlsafe(64)`` → 86
+#: characters; the cap is deliberately far above that so a future widening of the
+#: token does not silently start answering 422, while still keeping an
+#: unauthenticated caller from posting an unbounded string that would be hashed
+#: before anything could reject it.
+REFRESH_TOKEN_MAX_LENGTH = 512
 
-    refresh_token: str | None = None
+
+class RefreshRequest(BaseModel):
+    """Body-borne refresh transport for clients without a cookie jar (#1118).
+
+    Optional on ``POST /auth/refresh``. A browser sends **no body at all** and
+    keeps the HttpOnly ``kp_refresh`` cookie plus the CSRF double-submit — that
+    path is untouched and remains the stronger transport wherever a cookie jar
+    exists. A device paired by QR code (REQ-023 §device pairing) has neither a
+    cookie jar nor a way to obtain the ``csrf_token`` cookie, so it presents the
+    raw refresh token it received from the redemption response here instead.
+
+    Without this, the pair handed to a paired device would expire 15 minutes
+    later with no way to rotate — the feature would be inert on arrival.
+
+    ``refresh_token`` is nullable so an explicit ``null`` reads exactly like an
+    omitted body (fall through to the cookie), while ``min_length=1`` refuses an
+    empty string outright rather than letting it degrade quietly into spending
+    the ambient cookie credential.
+    """
+
+    refresh_token: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=REFRESH_TOKEN_MAX_LENGTH,
+        description=(
+            "Raw refresh token of a paired device. Omit the field (or the whole body) "
+            "to rotate the HttpOnly `kp_refresh` cookie instead."
+        ),
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl"},
+            ]
+        }
+    )
 
 
 class ApiKeyCreateRequest(BaseModel):
