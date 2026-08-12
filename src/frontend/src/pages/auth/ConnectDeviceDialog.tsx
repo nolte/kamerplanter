@@ -29,6 +29,27 @@ const QR_SIZE_DESKTOP = 240;
 const QR_SIZE_MOBILE = 200;
 
 /**
+ * Shared visual shell for the QR's footprint — the loaded QR (either variant)
+ * and its loading placeholder alike. The fixed white background is
+ * intentional and MUST stay: it is what keeps the QR's own black/white
+ * modules scannable on a dark theme, independent of the app palette. The
+ * `divider` border is what this shell adds on top of that: in light mode the
+ * dialog surface (`background.paper`) is the same white as this box, so
+ * without a border the QR card has no perceivable boundary at all (UI-NFR-002
+ * R-017 / WCAG 1.4.11 non-text contrast). Reusing the identical shell for the
+ * loading placeholder also means the skeleton occupies exactly the footprint
+ * the real QR will take, so nothing visibly jumps once the fetch resolves.
+ */
+const QR_CONTAINER_SX = {
+  p: 2,
+  bgcolor: 'common.white',
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 1,
+  lineHeight: 0,
+} as const;
+
+/**
  * Version carried by the light-mode instance-discovery deep link (#1118 P13). It
  * shares the `v` version space with the full-mode pairing payload on purpose: a
  * future app branches on it, and it lets the app refuse a shape it does not
@@ -229,10 +250,7 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
           {discovery ? (
             // Instance discovery: a static, credential-free QR. No loading, no
             // error, no countdown, no expiry — the instance already knows its URL.
-            <Box
-              data-testid="device-discovery-qr"
-              sx={{ p: 2, bgcolor: 'common.white', borderRadius: 1, lineHeight: 0 }}
-            >
+            <Box data-testid="device-discovery-qr" sx={QR_CONTAINER_SX}>
               <QRCodeSVG
                 value={discoveryUrl}
                 size={qrSize}
@@ -245,7 +263,12 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
               {loading && (
                 // A distinct loading state, not an empty frame: an absent QR and a
                 // pending QR look identical otherwise (UI-NFR-004 R-020).
-                <Box data-testid="loading-skeleton" aria-busy="true" aria-label={t('common.loading')}>
+                <Box
+                  data-testid="loading-skeleton"
+                  aria-busy="true"
+                  aria-label={t('common.loading')}
+                  sx={QR_CONTAINER_SX}
+                >
                   <Skeleton variant="rectangular" width={qrSize} height={qrSize} />
                 </Box>
               )}
@@ -258,10 +281,7 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
 
               {!loading && error === null && pairing !== null && !expired && (
                 <>
-                  <Box
-                    data-testid="device-pairing-qr"
-                    sx={{ p: 2, bgcolor: 'common.white', borderRadius: 1, lineHeight: 0 }}
-                  >
+                  <Box data-testid="device-pairing-qr" sx={QR_CONTAINER_SX}>
                     <QRCodeSVG
                       value={qrPayload}
                       size={qrSize}
@@ -290,6 +310,8 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
                     startIcon={<RefreshIcon />}
                     onClick={requestCode}
                     data-testid="device-pairing-refresh"
+                    // UI-NFR-001 R-011 — 48px minimum touch target on mobile.
+                    sx={{ minHeight: 48 }}
                   >
                     {t('pages.auth.devicePairing.refresh')}
                   </Button>
@@ -311,7 +333,8 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} data-testid="connect-device-close">
+        {/* UI-NFR-001 R-011 — 48px minimum touch target on mobile. */}
+        <Button onClick={onClose} data-testid="connect-device-close" sx={{ minHeight: 48 }}>
           {t('common.close')}
         </Button>
       </DialogActions>

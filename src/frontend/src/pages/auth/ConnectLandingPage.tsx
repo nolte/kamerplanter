@@ -57,6 +57,8 @@ export default function ConnectLandingPage() {
             onClick={handleContinue}
             data-testid="connect-landing-continue"
             fullWidth
+            // UI-NFR-001 R-011 — 48px minimum touch target on mobile.
+            sx={{ minHeight: 48 }}
           >
             {t('pages.auth.connectLanding.continueInBrowser')}
           </Button>

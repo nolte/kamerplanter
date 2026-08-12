@@ -799,6 +799,9 @@ export default function AccountSettingsPage() {
                   startIcon={<QrCode2Icon />}
                   onClick={() => setConnectDeviceOpen(true)}
                   data-testid="connect-device-button"
+                  // UI-NFR-001 R-011 — 48px minimum touch target on mobile,
+                  // even though the label stays "small"-sized.
+                  sx={{ minHeight: 48 }}
                 >
                   {t('pages.auth.devicePairing.connectDevice')}
                 </Button>
@@ -1154,6 +1157,8 @@ export default function AccountSettingsPage() {
                 startIcon={<QrCode2Icon />}
                 onClick={() => setConnectDeviceOpen(true)}
                 data-testid="connect-device-button"
+                // UI-NFR-001 R-011 — 48px minimum touch target on mobile.
+                sx={{ minHeight: 48 }}
               >
                 {t('pages.auth.devicePairing.connectDevice')}
               </Button>
