@@ -803,11 +803,17 @@
           "dialogTitle": "Connect the app to this instance",
           "intro": "The QR code points the Kamerplanter app at this instance. It contains only its address and signs you in nowhere.",
           "stepInstall": "Open the Kamerplanter app on your phone.",
-          "stepScan": "Choose \"Connect instance\" there and scan this QR code.",
+          "stepScan": "Scan this QR code with the Kamerplanter app - or with your phone's camera, which recognizes the link directly.",
           "stepDone": "Done: the app then shows the contents of this instance.",
           "qrTitle": "QR code with this instance's address",
           "securityNote": "This code only points the app at this instance. It does not sign you in and grants no access to any account - you can show it safely."
         }
+      },
+      "connectLanding": {
+        "title": "Open in the Kamerplanter app",
+        "intro": "You opened a Kamerplanter connect link. If the Kamerplanter app is installed, it uses this link to point itself at this instance. Otherwise you can continue here in the browser.",
+        "appHint": "This link is best opened with the Kamerplanter app installed. Pick the app when prompted - Android can remember your choice.",
+        "continueInBrowser": "Continue in the browser"
       },
       "dangerZone": "Danger Zone",
       "deleteAccountWarning": "Deleting your account cannot be undone. All data will be permanently removed.",

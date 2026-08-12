@@ -343,17 +343,31 @@ The QR code the app scans encodes exactly these three fields as JSON:
 
 The `v` field (equal to `payload_version`) exists for forward compatibility: a future app version can refuse a payload version it does not recognize instead of misinterpreting it.
 
-!!! note "Light mode: instance discovery only (URL only)"
-    In light mode (`KAMERPLANTER_MODE=light`) there are no accounts and the pairing endpoints answer `404`. The web frontend still shows a QR code there — but a **URL-only variant without a pairing code**, carrying only the instance's address:
+!!! note "Light mode: instance discovery as an app-link URL"
+    In light mode (`KAMERPLANTER_MODE=light`) there are no accounts and the pairing endpoints answer `404`. The web frontend still shows a QR code there — but **not** a JSON payload: a **plain app-link URL** without a pairing code, pointing at a fixed deep-link path on the instance the browser reached:
 
-    ```json
-    {
-      "v": 1,
-      "url": "https://garten.example.org"
-    }
+    ```text
+    https://garten.example.org/connect?v=1
     ```
 
-    The `code` field is deliberately absent here; the payload shares the same `v` version space, so an app tells the two cases apart purely by the presence or absence of `code`: "point this app at this instance" (no `code`) versus "sign this device in" (`code` present). The URL variant is produced entirely in the frontend (from the instance address the browser reached), carries no credential, calls no endpoint and signs nobody in — it is pure instance discovery.
+    The value is a **plain URL string**, not a JSON blob. That is the decisive change over #1118 P12: a phone's system camera does not recognize a JSON string as something openable, whereas it does recognize an `https` URL as a link. The URL is produced entirely in the frontend from `window.location.origin` (the address the user actually reaches the instance through), carries no credential, calls no endpoint and signs nobody in — it is pure instance discovery. The `v=1` query field shares the same version space as the pairing payload's `v`, so the app can refuse a version it does not recognize.
+
+#### App-recognition contract for the discovery link
+
+The discovery link is deliberately an **unverified deep link**. The future Kamerplanter Android app declares an `intent-filter` with a **wildcard host** (`android:host="*"`) on the fixed path `/connect`, so it catches `https://<any-instance>/connect`:
+
+```xml
+<intent-filter>
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="https" android:host="*" android:pathPrefix="/connect" />
+</intent-filter>
+```
+
+- **Why not verified App Links?** Auto-verified Android App Links bind, via `assetlinks.json`, to **fixed domains declared in the manifest**. Kamerplanter is self-hosted, though — every instance has its own domain, unknown in advance. Auto-verification across arbitrary self-hosted domains is therefore **not feasible**. The contract is consequently an **unverified** deep link with a wildcard host: Android shows an app-chooser when the link is opened (or opens the app directly once the user has set it as the default).
+- **Browser fallback:** if the app is not installed, the system camera opens the URL in the browser. The `/connect` path renders a minimal landing page there ("Open in the Kamerplanter app" / "Continue in the browser"), so the link never dead-ends in a 404. The page lives outside the auth guard and the mode switch, so it works in **both** light and full mode.
+- **The pairing QR stays deliberately opaque:** the login/pairing QR (`{"v","url","code"}`, above) remains **opaque JSON and in-app-scan-only**. It is deliberately **not** turned into a deep link, because its `code` is a one-time credential: as a system-camera-openable link it could be intercepted and routed to a foreign app. Only the credential-free discovery link may be a publicly recognizable URL.
 
 ### Redeeming a pairing code
 

@@ -343,17 +343,31 @@ Der QR-Code, den die App scannt, kodiert genau diese drei Felder als JSON:
 
 Das Feld `v` (entspricht `payload_version`) existiert für Vorwärtskompatibilität: Eine künftige App-Version kann eine ihr unbekannte Payload-Version ablehnen, statt sie fehlzuinterpretieren.
 
-!!! note "Light-Modus: reine Instanz-Erkennung (nur URL)"
-    Im Light-Modus (`KAMERPLANTER_MODE=light`) gibt es keine Konten, und die Kopplungs-Endpunkte antworten mit `404`. Das Web-Frontend zeigt dort trotzdem einen QR-Code an — allerdings eine **reine URL-Variante ohne Kopplungscode**, die nur die Adresse der Instanz trägt:
+!!! note "Light-Modus: Instanz-Erkennung als App-Link-URL"
+    Im Light-Modus (`KAMERPLANTER_MODE=light`) gibt es keine Konten, und die Kopplungs-Endpunkte antworten mit `404`. Das Web-Frontend zeigt dort trotzdem einen QR-Code an — allerdings **keine** JSON-Nutzlast, sondern eine **reine App-Link-URL** ohne Kopplungscode, die auf einen festen Deep-Link-Pfad der aufgerufenen Instanz zeigt:
 
-    ```json
-    {
-      "v": 1,
-      "url": "https://garten.example.org"
-    }
+    ```text
+    https://garten.example.org/connect?v=1
     ```
 
-    Das Feld `code` fehlt hier bewusst; die Payload teilt sich denselben `v`-Versionsraum, sodass eine App beide Fälle allein an der An- bzw. Abwesenheit von `code` unterscheidet: „diese App auf diese Instanz ausrichten" (kein `code`) gegenüber „dieses Gerät anmelden" (`code` vorhanden). Die URL-Variante entsteht rein im Frontend (aus der aufgerufenen Instanz-Adresse), enthält kein Credential, ruft keinen Endpunkt auf und meldet niemanden an — sie dient ausschließlich der Instanz-Erkennung.
+    Der Wert ist ein **einfacher URL-String**, kein JSON-Blob. Das ist der entscheidende Unterschied zu #1118 P12: Die System-Kamera eines Smartphones erkennt eine JSON-Zeichenkette nicht als etwas Öffenbares, eine `https`-URL dagegen als Link. Die URL entsteht rein im Frontend aus `window.location.origin` (der Adresse, über die der Nutzer die Instanz tatsächlich erreicht), enthält kein Credential, ruft keinen Endpunkt auf und meldet niemanden an — sie dient ausschließlich der Instanz-Erkennung. Das Query-Feld `v=1` teilt sich denselben Versionsraum wie das `v` der Kopplungs-Payload, sodass die App eine ihr unbekannte Version ablehnen kann.
+
+#### App-Erkennungs-Kontrakt für den Discovery-Link
+
+Der Discovery-Link ist bewusst als **unverifizierter Deep Link** ausgelegt. Die künftige Kamerplanter-Android-App deklariert dazu einen `intent-filter` mit **Wildcard-Host** (`android:host="*"`) auf dem festen Pfad `/connect`, sodass sie `https://<beliebige-instanz>/connect` abfängt:
+
+```xml
+<intent-filter>
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="https" android:host="*" android:pathPrefix="/connect" />
+</intent-filter>
+```
+
+- **Warum keine verifizierten App Links?** Automatisch verifizierte Android App Links binden über `assetlinks.json` an **feste, im Manifest deklarierte Domains**. Kamerplanter wird jedoch selbst gehostet — jede Instanz hat ihre eigene, im Voraus unbekannte Domain. Über beliebige selbstgehostete Domains hinweg ist eine Auto-Verifizierung daher **nicht möglich**. Der Kontrakt ist deshalb ein **unverifizierter** Deep Link mit Wildcard-Host: Android zeigt beim Öffnen einen App-Auswahldialog (bzw. öffnet direkt, sobald der Nutzer die App als Standard gesetzt hat).
+- **Browser-Fallback:** Ist die App nicht installiert, öffnet die System-Kamera die URL im Browser. Der Pfad `/connect` rendert dort eine schlanke Landing-Seite („In der Kamerplanter-App öffnen" bzw. „Im Browser fortfahren"), damit der Link nie ins Leere (404) läuft. Die Seite liegt außerhalb des Auth-Guards und der Modus-Weiche, funktioniert also in Light- **und** Full-Modus.
+- **Der Kopplungs-QR bleibt bewusst undurchsichtig:** Der Login-/Kopplungs-QR (`{"v","url","code"}`, siehe oben) bleibt **opakes JSON und ausschließlich in-App scanbar**. Er wird bewusst **nicht** zu einem Deep Link, weil sein `code` ein Einmal-Credential ist: Als System-Kamera-öffenbarer Link könnte er abgefangen und an eine fremde App geroutet werden. Nur der credential-freie Discovery-Link darf eine öffentlich erkennbare URL sein.
 
 ### Kopplungscode einlösen
 

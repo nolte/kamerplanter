@@ -305,6 +305,25 @@ describe('ConnectDeviceDialog — QR payload', () => {
     expect(Object.keys(payload as Record<string, unknown>)).toEqual(['v', 'url', 'code']);
   });
 
+  it('keeps the full-mode pairing QR opaque JSON, unchanged by the P13 discovery rework', async () => {
+    // AC #1118 P13.3: the light-mode discovery QR became a plain /connect URL, but
+    // the pairing (login) QR must stay exactly as it was — opaque JSON carrying
+    // the one-time credential, in-app-scan-only, never an interceptable deep link.
+    mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
+    renderDialog();
+
+    await screen.findByTestId('device-pairing-qr');
+    const value = lastQrValue();
+
+    // It parses as the documented JSON object — not a URL string.
+    const payload: unknown = JSON.parse(value);
+    expect(payload).toEqual({ v: 1, url: SERVER_URL, code: CODE });
+    // It is emphatically NOT the /connect app-link shape the discovery QR uses:
+    // a credential must not ride on a system-camera-openable deep link.
+    expect(value.startsWith('http')).toBe(false);
+    expect(value).not.toContain('/connect');
+  });
+
   it('never renders the code as readable text', async () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
     renderDialog();
@@ -572,33 +591,44 @@ describe('ConnectDeviceDialog — failure and loading states', () => {
   });
 });
 
+/** The instance-discovery deep link the light-mode QR must now encode (#1118 P13). */
+const DISCOVERY_URL = `${window.location.origin}/connect?v=1`;
+
 /**
- * #1118 P12 — the light-mode (REQ-027 anonymous) instance-discovery variant.
+ * #1118 P13 — the light-mode (REQ-027 anonymous) instance-discovery variant.
  *
  * A light-mode instance has no accounts and the pairing endpoints answer 404, so
  * there is nothing to log in to. The dialog must instead render a *credential-free*
- * QR carrying only `{"v":1,"url":<origin>}`: no backend call, no `code`, no
- * countdown, no expiry. These are the properties an app relies on to tell
- * "point at this instance" apart from "log this device in", so each is an
- * assertion here rather than a comment in the component.
+ * **app-link-style URL** — `https://<origin>/connect?v=1` — as a plain string,
+ * NOT JSON: a JSON blob is opaque to a phone's system camera, an https URL is
+ * recognized as a link. No backend call, no `code`, no countdown, no expiry.
+ * These are the properties the system camera and the future app rely on, so each
+ * is an assertion here rather than a comment in the component.
  */
 describe('ConnectDeviceDialog — light-mode instance discovery', () => {
   beforeEach(() => {
     modeState.light = true;
   });
 
-  it('renders a URL-only QR and makes no createDevicePairing call', async () => {
+  it('renders a URL-only deep-link QR and makes no createDevicePairing call', async () => {
     renderDialog();
 
     // Positive half first: a QR really is rendered — so the negatives below
     // cannot pass merely because nothing was drawn at all.
     await screen.findByTestId('device-discovery-qr');
-    const payload: unknown = JSON.parse(lastQrValue());
+    const value = lastQrValue();
 
-    expect(payload).toEqual({ v: 1, url: window.location.origin });
-    // `code` is the field a scanner keys on: it must be absent, not empty.
-    expect(payload).not.toHaveProperty('code');
-    expect(Object.keys(payload as Record<string, unknown>)).toEqual(['v', 'url']);
+    // A plain URL string, not JSON — a system camera must see a link, so parsing
+    // it as JSON has to fail rather than yield an object.
+    expect(value).toBe(DISCOVERY_URL);
+    expect(() => JSON.parse(value) as unknown).toThrow();
+    // It is an absolute https/http URL on this instance's own origin, pointing at
+    // the fixed /connect deep-link path and carrying the version the app branches on.
+    expect(value.startsWith(`${window.location.origin}/connect`)).toBe(true);
+    expect(value).toContain('v=1');
+    // `code` is the field a scanner keys on: a discovery link must never carry a
+    // credential, so the substring must be absent entirely.
+    expect(value).not.toContain('code');
     // The load-bearing guarantee: instance discovery hits no endpoint. The
     // instance already knows its own URL.
     expect(mockCreatePairing).not.toHaveBeenCalled();
@@ -682,7 +712,7 @@ describe('AccountSettingsPage — light-mode connect entry (#1118 P12)', () => {
     expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
     expect(mockCreatePairing).not.toHaveBeenCalled();
 
-    const payload: unknown = JSON.parse(lastQrValue());
-    expect(payload).toEqual({ v: 1, url: window.location.origin });
+    // The discovery QR now encodes the plain app-link URL, not JSON.
+    expect(lastQrValue()).toBe(DISCOVERY_URL);
   });
 });

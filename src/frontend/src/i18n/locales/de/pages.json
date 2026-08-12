@@ -804,11 +804,17 @@
           "dialogTitle": "App mit dieser Instanz verbinden",
           "intro": "Der QR-Code richtet die Kamerplanter-App auf diese Instanz aus. Er enthält nur ihre Adresse und meldet dich nirgends an.",
           "stepInstall": "Öffne die Kamerplanter-App auf deinem Smartphone.",
-          "stepScan": "Wähle dort „Instanz verbinden“ und scanne diesen QR-Code.",
+          "stepScan": "Scanne diesen QR-Code mit der Kamerplanter-App – oder mit der Kamera deines Smartphones, die den Link direkt erkennt.",
           "stepDone": "Fertig: Die App zeigt danach die Inhalte dieser Instanz an.",
           "qrTitle": "QR-Code mit der Adresse dieser Instanz",
           "securityNote": "Dieser Code richtet die App nur auf diese Instanz aus. Er meldet dich nicht an und gibt keinen Zugriff auf ein Konto – du kannst ihn gefahrlos zeigen."
         }
+      },
+      "connectLanding": {
+        "title": "In der Kamerplanter-App öffnen",
+        "intro": "Du hast einen Kamerplanter-Verbindungslink geöffnet. Ist die Kamerplanter-App installiert, richtet sie sich damit auf diese Instanz aus. Andernfalls kannst du hier im Browser weitermachen.",
+        "appHint": "Öffne den Link am besten mit installierter Kamerplanter-App. Wähle dazu beim Öffnen die App aus – Android merkt sich deine Auswahl auf Wunsch.",
+        "continueInBrowser": "Im Browser fortfahren"
       },
       "dangerZone": "Gefahrenzone",
       "deleteAccountWarning": "Das Löschen Ihres Kontos kann nicht rückgängig gemacht werden. Alle Daten werden unwiderruflich entfernt.",

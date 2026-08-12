@@ -29,12 +29,22 @@ const QR_SIZE_DESKTOP = 240;
 const QR_SIZE_MOBILE = 200;
 
 /**
- * Payload version of the light-mode instance-discovery QR (#1118 P12). It shares
- * the `v` version space with the full-mode pairing payload on purpose: a scanner
- * tells "point at this instance" (`code` absent) apart from "log this device in"
- * (`code` present) by the presence of the field, not by a different version.
+ * Version carried by the light-mode instance-discovery deep link (#1118 P13). It
+ * shares the `v` version space with the full-mode pairing payload on purpose: a
+ * future app branches on it, and it lets the app refuse a shape it does not
+ * recognize instead of misinterpreting it.
  */
 const DISCOVERY_PAYLOAD_VERSION = 1;
+
+/**
+ * Fixed deep-link path the discovery URL points at (#1118 P13). The future
+ * Android app declares an `intent-filter` on this path with a **wildcard host**
+ * (`android:host="*"`), so scanning `https://<any-instance>/connect?v=1` with the
+ * phone's system camera offers to open the app (or, without it, this instance's
+ * `/connect` browser landing). It is a fixed literal, not a route import, because
+ * the string is a wire contract the app is built against.
+ */
+const DISCOVERY_DEEP_LINK_PATH = '/connect';
 
 /**
  * "Connect mobile device" — a QR dialog with two mode-dependent variants (#1118).
@@ -59,12 +69,20 @@ const DISCOVERY_PAYLOAD_VERSION = 1;
  *
  * **Light mode (`isLightMode === true`, REQ-027 anonymous) — instance discovery.**
  * A light-mode instance has no accounts and the pairing endpoints answer 404, so
- * there is nothing to log in to. This variant instead renders a **URL-only** QR
- * that carries just `{"v":1,"url":<this instance's origin>}` — no credential, no
- * `code`, no backend call, no countdown, no expiry. Scanning it only points a
- * mobile app at this instance; it never grants account access. The URL is taken
- * from `window.location.origin` (the address the user actually reaches the
+ * there is nothing to log in to. This variant instead renders a **plain-URL** QR
+ * — an app-link-style deep link `https://<this instance's origin>/connect?v=1`,
+ * not a JSON blob. A JSON payload is opaque to a phone's system camera; an https
+ * URL is recognized as a link, so the camera can offer to open the Kamerplanter
+ * app (which declares a wildcard-host `intent-filter` on `/connect`) or fall back
+ * to the browser landing at the same path. It carries no credential, no `code`,
+ * makes no backend call, has no countdown and no expiry: scanning it only points
+ * a mobile app at this instance and never grants account access. The origin is
+ * taken from `window.location.origin` (the address the user actually reaches the
  * instance through) because the runtime config exposes no base URL.
+ *
+ * The full-mode pairing QR above stays deliberately **opaque JSON, in-app-scan
+ * only** — a one-time bearer credential must not become an interceptable deep
+ * link a system camera would route anywhere.
  */
 export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDialogProps) {
   const { t } = useTranslation();
@@ -157,12 +175,16 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
   );
 
   /**
-   * The light-mode instance-discovery payload — `{"v":1,"url":<origin>}`, `code`
-   * deliberately absent. It carries no credential, so it is derived synchronously
-   * from the address the browser reached this instance through.
+   * The light-mode instance-discovery deep link —
+   * `https://<origin>/connect?v=1`, a plain URL string (never JSON) so a phone's
+   * system camera recognizes it as a link. It carries no credential (`code` has
+   * no place in it), so it is derived synchronously from the address the browser
+   * reached this instance through. `window.location.origin` already includes the
+   * scheme and host, so the value is an absolute https URL on production hosts.
    */
-  const discoveryPayload = useMemo(
-    () => JSON.stringify({ v: DISCOVERY_PAYLOAD_VERSION, url: window.location.origin }),
+  const discoveryUrl = useMemo(
+    () =>
+      `${window.location.origin}${DISCOVERY_DEEP_LINK_PATH}?v=${DISCOVERY_PAYLOAD_VERSION}`,
     [],
   );
 
@@ -212,7 +234,7 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
               sx={{ p: 2, bgcolor: 'common.white', borderRadius: 1, lineHeight: 0 }}
             >
               <QRCodeSVG
-                value={discoveryPayload}
+                value={discoveryUrl}
                 size={qrSize}
                 level="M"
                 title={t('pages.auth.devicePairing.discovery.qrTitle')}
