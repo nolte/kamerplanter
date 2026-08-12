@@ -1,9 +1,23 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'vitest-axe';
 import { renderWithProviders } from '@/test/helpers';
 import ConnectLandingPage from '@/pages/auth/ConnectLandingPage';
+
+// Spy on the navigation so "continue in the browser" is asserted by the effect
+// it actually causes, not by the button still being on screen (which is true
+// regardless of what the handler does). Keep the rest of react-router-dom real
+// so the helper's createMemoryRouter/RouterProvider still work.
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+beforeEach(() => {
+  mockNavigate.mockClear();
+});
 
 /**
  * #1118 P13 — the browser landing for the instance-discovery deep link
@@ -32,10 +46,11 @@ describe('ConnectLandingPage — instance-discovery deep-link fallback', () => {
     const user = userEvent.setup();
     renderWithProviders(<ConnectLandingPage />, { route: '/connect?v=1' });
 
-    // The action does not throw and stays a plain in-app navigation (no reload,
-    // no credential handling): clicking it is safe for an anonymous visitor.
+    // The action stays a plain in-app navigation (no reload, no credential
+    // handling): clicking it routes the anonymous visitor to the app root.
+    // Asserting the navigation itself means emptying handleContinue fails here.
     await user.click(await screen.findByTestId('connect-landing-continue'));
-    expect(screen.getByTestId('connect-landing-continue')).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
   });
 
   it('has no critical accessibility violations', async () => {
