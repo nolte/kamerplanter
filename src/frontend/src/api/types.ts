@@ -4065,6 +4065,39 @@ export interface ApiKeySummary {
   created_at: string | null;
 }
 
+/**
+ * One freshly minted QR pairing code (#1118) — the response of
+ * `POST /auth/device-pairing` (201).
+ *
+ * `payload_version`, `server_url` and `code` are exactly the three fields the
+ * scanner reads, encoded as `{"v": …, "url": …, "code": …}`; nothing else from
+ * this object belongs in the QR.
+ *
+ * The code is a one-time credential with a lifetime of well under two minutes.
+ * It must never be persisted (Redux, `localStorage`, a URL) and never rendered
+ * as readable text — a bystander who reads it off the screen can pair their own
+ * device. It lives in the dialog's component state and dies with it.
+ */
+export interface DevicePairingCreated {
+  /** Version of the QR payload contract; stamped into the payload as `v`. */
+  payload_version: number;
+  /**
+   * Base URL the paired app must call. Comes from the server's configured
+   * `app_base_url` (REQ-032 QR SSOT), *not* from `window.location`: the browser
+   * generating the code and the phone scanning it are not necessarily on the
+   * same network path.
+   */
+  server_url: string;
+  code: string;
+  expires_at: string;
+  /**
+   * Seconds left at the moment the response was produced — already relative, so
+   * the countdown seeds from this directly. Recomputing it from `expires_at`
+   * would make the display depend on the browser's clock being correct.
+   */
+  expires_in: number;
+}
+
 // ── REQ-024 Tenant types ────────────────────────────────────────────
 
 export interface Tenant {

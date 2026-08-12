@@ -4,6 +4,7 @@ import type {
   ApiKeyCreated,
   ApiKeySummary,
   AuthProviderInfo,
+  DevicePairingCreated,
   LoginRequest,
   LoginResponse,
   OAuthProviderListItem,
@@ -129,4 +130,18 @@ export async function listApiKeys(): Promise<ApiKeySummary[]> {
 
 export async function revokeApiKey(keyId: string): Promise<void> {
   await client.delete(`${BASE}/api-keys/${keyId}`);
+}
+
+// ── Device pairing (QR) ───────────────────────────────────────────
+
+/**
+ * Mint a one-time QR pairing code for the signed-in user (#1118).
+ *
+ * Bearer-authenticated like {@link createApiKey}, so no CSRF header is sent —
+ * the endpoint spends no ambient cookie credential. The backend answers **201**;
+ * the raw code is returned exactly once and is never retrievable afterwards.
+ */
+export async function createDevicePairing(): Promise<DevicePairingCreated> {
+  const res = await client.post<DevicePairingCreated>(`${BASE}/device-pairing`, null);
+  return res.data;
 }

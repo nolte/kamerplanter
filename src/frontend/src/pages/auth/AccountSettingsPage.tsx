@@ -52,6 +52,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import HomeIcon from '@mui/icons-material/Home';
 import GroupIcon from '@mui/icons-material/Group';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -97,6 +98,7 @@ import type {
 } from '@/api/endpoints/adminSettings';
 import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
+import ConnectDeviceDialog from './ConnectDeviceDialog';
 import NotificationSettingsTab from './NotificationSettingsTab';
 import KioskSettingsTab from './KioskSettingsTab';
 import ModulesSettingsTab from './ModulesSettingsTab';
@@ -226,6 +228,10 @@ export default function AccountSettingsPage() {
   const [apiKeysError, setApiKeysError] = useState(false);
   const [newKeyLabel, setNewKeyLabel] = useState('');
   const [newKeyDialogOpen, setNewKeyDialogOpen] = useState(false);
+  // #1118 — the QR pairing dialog. Deliberately *not* a Redux flag: the dialog
+  // holds a live one-time credential, so everything about it dies with the
+  // sessions tab.
+  const [connectDeviceOpen, setConnectDeviceOpen] = useState(false);
   const [createdKeyRaw, setCreatedKeyRaw] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -762,92 +768,133 @@ export default function AccountSettingsPage() {
 
       {/* ── Sessions Tab ── */}
       {activeTab === 'sessions' && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              {t('pages.auth.activeSessions')}
-            </Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('pages.auth.sessionDevice')}</TableCell>
-                    <TableCell>{t('pages.auth.adminTenantType')}</TableCell>
-                    <TableCell>IP</TableCell>
-                    <TableCell>{t('pages.auth.expires')}</TableCell>
-                    <TableCell align="right" />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sessions.map((s) => {
-                    // A device paired by QR code names itself (#1118); a browser
-                    // session has no label, so the user agent stays the fallback
-                    // and the row renders exactly as it did before that feature.
-                    const userAgentLabel = s.user_agent?.substring(0, 60);
-                    return (
-                      <TableRow key={s.key} data-testid={`session-row-${s.key}`}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography
-                                variant="body2"
-                                data-testid={`session-device-${s.key}`}
-                                sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              >
-                                {s.device_name || userAgentLabel || t('pages.auth.unknownDevice')}
-                              </Typography>
-                              {s.device_name && userAgentLabel && (
-                                // Keep the technical identity visible next to the
-                                // self-chosen label: the label is what the owner
-                                // recognises, the user agent is what tells them
-                                // it is the app rather than a browser.
+        <>
+          <Card>
+            <CardContent>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: { xs: 'stretch', sm: 'center' },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: 1,
+                  mb: 1,
+                }}
+              >
+                <Typography variant="h6">
+                  {t('pages.auth.activeSessions')}
+                </Typography>
+                {/* #1118 — pairing exists only where accounts do, and this tab is
+                    full-mode-only, so light mode is gated by construction rather
+                    than by a second check that could drift from the first. */}
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<QrCode2Icon />}
+                  onClick={() => setConnectDeviceOpen(true)}
+                  data-testid="connect-device-button"
+                >
+                  {t('pages.auth.devicePairing.connectDevice')}
+                </Button>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.auth.devicePairing.sessionsHint')}
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t('pages.auth.sessionDevice')}</TableCell>
+                      <TableCell>{t('pages.auth.adminTenantType')}</TableCell>
+                      <TableCell>IP</TableCell>
+                      <TableCell>{t('pages.auth.expires')}</TableCell>
+                      <TableCell align="right" />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sessions.map((s) => {
+                      // A device paired by QR code names itself (#1118); a browser
+                      // session has no label, so the user agent stays the fallback
+                      // and the row renders exactly as it did before that feature.
+                      const userAgentLabel = s.user_agent?.substring(0, 60);
+                      return (
+                        <TableRow key={s.key} data-testid={`session-row-${s.key}`}>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ minWidth: 0 }}>
                                 <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  data-testid={`session-user-agent-${s.key}`}
-                                  sx={{ display: 'block', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                  variant="body2"
+                                  data-testid={`session-device-${s.key}`}
+                                  sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                 >
-                                  {userAgentLabel}
+                                  {s.device_name || userAgentLabel || t('pages.auth.unknownDevice')}
                                 </Typography>
-                              )}
+                                {s.device_name && userAgentLabel && (
+                                  // Keep the technical identity visible next to the
+                                  // self-chosen label: the label is what the owner
+                                  // recognises, the user agent is what tells them
+                                  // it is the app rather than a browser.
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    data-testid={`session-user-agent-${s.key}`}
+                                    sx={{ display: 'block', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                  >
+                                    {userAgentLabel}
+                                  </Typography>
+                                )}
+                              </Box>
+                              {s.is_current && <Chip label={t('pages.auth.currentSession')} size="small" color="primary" />}
                             </Box>
-                            {s.is_current && <Chip label={t('pages.auth.currentSession')} size="small" color="primary" />}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={s.is_persistent ? t('pages.auth.sessionPersistent') : t('pages.auth.sessionTemporary')}
-                            size="small"
-                            variant="outlined"
-                            color={s.is_persistent ? 'success' : 'default'}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '—'}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{new Date(s.expires_at).toLocaleDateString()}</Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          {!s.is_current && (
-                            <IconButton
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={s.is_persistent ? t('pages.auth.sessionPersistent') : t('pages.auth.sessionTemporary')}
                               size="small"
-                              data-testid={`session-revoke-${s.key}`}
-                              aria-label={t('pages.auth.revokeSession')}
-                              onClick={() => handleRevokeSession(s.key)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
+                              variant="outlined"
+                              color={s.is_persistent ? 'success' : 'default'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '—'}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{new Date(s.expires_at).toLocaleDateString()}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            {!s.is_current && (
+                              <IconButton
+                                size="small"
+                                data-testid={`session-revoke-${s.key}`}
+                                aria-label={t('pages.auth.revokeSession')}
+                                onClick={() => handleRevokeSession(s.key)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
+          {/* Mounted inside the sessions tab, not next to the page's other
+              dialogs: leaving the tab unmounts it, which is the cheapest possible
+              guarantee that a pairing code cannot linger behind a view the user
+              has walked away from. */}
+          <ConnectDeviceDialog
+            open={connectDeviceOpen}
+            onClose={() => {
+              setConnectDeviceOpen(false);
+              // A device that paired while the dialog was open shows up as a new
+              // session; without this the list would keep claiming it isn't there.
+              loadSessions();
+            }}
+          />
+        </>
       )}
 
       {/* ── API Keys Tab ── */}
