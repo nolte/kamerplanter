@@ -129,10 +129,18 @@ class SpeciesDetailPage(BasePage):
         ``aria-hidden`` shadow one for auto-sizing), so an ``input``-only reader
         could not read back what ``set_field`` had just written to
         ``description`` -- it timed out on a field that was there.
+
+        The ``input`` branch is probed with a *wait*, not with a bare
+        ``find_elements``: an instantaneous probe decides against whatever is in
+        the DOM at that microsecond, so a call made before the edit form has
+        rendered falls through to the ``textarea`` locator and then times out on
+        a selector a single-line field never matches -- reporting the wrong
+        element for the wrong reason.
         """
         base = f"[data-testid='form-field-{field_name}']"
-        if self.driver.find_elements(By.CSS_SELECTOR, f"{base} input"):
-            el = self.find_present((By.CSS_SELECTOR, f"{base} input"))
+        single_line = (By.CSS_SELECTOR, f"{base} input")
+        if self.await_presence(single_line, IMPLICIT_WAIT_EQUIVALENT):
+            el = self.find_present(single_line)
         else:
             el = self.find_present((By.CSS_SELECTOR, f"{base} textarea:not([aria-hidden])"))
         return el.get_attribute("value") or ""
@@ -179,6 +187,18 @@ class SpeciesDetailPage(BasePage):
     def click_save(self) -> None:
         self.wait_and_click(self.FORM_SUBMIT)
 
+    def wait_for_no_success_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until no success snackbar is on screen.
+
+        The precondition :meth:`wait_for_save_confirmed` needs and cannot check
+        for itself. notistack auto-hides after 5 s (``App.tsx``), and a test that
+        creates a species and edits it moments later can still have the *create*
+        snackbar up when it saves -- at which point a wait for "a success
+        snackbar" is satisfied by the wrong one, instantly, with the PUT still in
+        flight. Call this before the action whose success is to be observed.
+        """
+        self.wait_for_element_hidden(self.SNACKBAR_SUCCESS, timeout)
+
     def wait_for_save_confirmed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the edit tab's save reported success.
 
@@ -192,6 +212,13 @@ class SpeciesDetailPage(BasePage):
         It matters for what comes *after* a save: navigating away while the
         request is still in flight leaves `UnsavedChangesGuard` armed and turns a
         read-back into a race between the PUT and the next route.
+
+        **Only sound with no success snackbar already on screen** -- this waits
+        for the variant, not for the message, so any earlier success satisfies it
+        (see :meth:`wait_for_no_success_snackbar`, which the caller runs first).
+        Matching on the message text instead was the alternative and was not
+        taken: it would tie the wait to a translated string, and the same string
+        is enqueued by several actions anyway.
         """
         self.wait_for_element_visible(self.SNACKBAR_SUCCESS, timeout)
 

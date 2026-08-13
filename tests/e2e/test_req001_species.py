@@ -277,6 +277,11 @@ class TestSpeciesDetailPage:
         species_detail.set_field("description", description)
         screenshot("TC-REQ-001-039_field-modified", f"Description field changed to '{description}'")
 
+        # The create a few seconds ago enqueued a success snackbar of its own,
+        # and notistack holds those for 5 s. Without this the save's own wait
+        # would be satisfied by that one, instantly, with the PUT still in
+        # flight -- exactly the race the wait exists to close.
+        species_detail.wait_for_no_success_snackbar()
         species_detail.click_save()
         species_detail.wait_for_save_confirmed()
         screenshot(

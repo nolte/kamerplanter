@@ -1317,8 +1317,29 @@ _CAPTURE_RESTORE_TIMEOUT = 5.0
 #: height**, so a capture that failed to put it back leaves a viewport as tall
 #: as the whole document (#778 H1 measured a dialog paper at 1991px against an
 #: 852px viewport). That is the signature this probes, and nothing else.
+#:
+#: Probed on the **layout** viewport, because that is the one the flag stretches
+#: and therefore the only one a stretch is guaranteed to show up in. (Whether it
+#: also shows up in the visual viewport could not be measured: Chromium 150
+#: restores on every capture, so the defect state is not reachable to observe.
+#: Probing only the visual one would be a bet that, if wrong, leaves this guard
+#: permanently unable to fire while still looking like a check.)
+#:
+#: **Third number: the scale regime, and it is load-bearing.** Under mobile
+#: emulation the layout viewport and ``scrollHeight`` are both expressed in
+#: *layout* pixels, and Chrome rescales that space by widening the ICB when the
+#: page overflows horizontally -- so both numbers jump together by the same
+#: factor and their comparison degenerates. Measured on the login route: 852px
+#: tall before, ``(viewport, document) = (1136, 1136)`` after, i.e. 852 x 4/3
+#: against a document that now exactly fits, which reads as "stretched to the
+#: document height" and is nothing of the kind. The ratio of the layout width to
+#: the visual width names that regime (100 unscaled, 133 in the sample above);
+#: when it changes between the two reads the heights are in different spaces and
+#: no verdict can be drawn from them.
 _STRETCH_PROBE_JS = (
-    "return [Math.round(window.visualViewport.height), document.documentElement.scrollHeight];"
+    "const visualWidth = Math.max(1, Math.round(window.visualViewport.width));"
+    " return [window.innerHeight, document.documentElement.scrollHeight,"
+    " Math.round((window.innerWidth / visualWidth) * 100)];"
 )
 
 #: One full frame, bounded. Two nested ``requestAnimationFrame`` callbacks span
@@ -1336,13 +1357,14 @@ window.requestAnimationFrame(() => window.requestAnimationFrame(() => finish('fr
 """
 
 
-def _viewport_metrics(driver: webdriver.Remote) -> tuple[int, int] | None:
-    """Return ``(visual viewport height, document height)``, or ``None`` if unaskable.
+def _viewport_metrics(driver: webdriver.Remote) -> tuple[int, int, int] | None:
+    """Return ``(viewport height, document height, scale regime)``, or ``None``.
 
-    See :data:`_STRETCH_PROBE_JS` for why these two numbers and not a viewport
-    size: no viewport size is comparable across a capture on a live page.
+    See :data:`_STRETCH_PROBE_JS` for why these three numbers and not a viewport
+    size: no viewport size is comparable across a capture on a live page, and
+    the two heights are only comparable *within* one scale regime.
 
-    ``None`` means "could not look" and is kept distinct from any pair of
+    ``None`` means "could not look" and is kept distinct from any triple of
     numbers on purpose: a dead session, a page mid-navigation or an open JS
     alert must not be reported as a viewport that stayed stretched. The only
     thing that follows from ``None`` is that this capture cannot be checked --
@@ -1352,20 +1374,25 @@ def _viewport_metrics(driver: webdriver.Remote) -> tuple[int, int] | None:
         metrics = driver.execute_script(_STRETCH_PROBE_JS)
     except WebDriverException:
         return None
-    if not isinstance(metrics, list) or len(metrics) != 2:
+    if not isinstance(metrics, list) or len(metrics) != 3:
         return None
     try:
-        return int(metrics[0]), int(metrics[1])
+        return int(metrics[0]), int(metrics[1]), int(metrics[2])
     except TypeError, ValueError:
         return None
 
 
-def _viewport_is_stretched(driver: webdriver.Remote, before_height: int) -> bool:
+def _viewport_is_stretched(driver: webdriver.Remote, before: tuple[int, int, int]) -> bool:
     """Whether the viewport is *still* as tall as the whole document.
 
     The `captureBeyondViewport` signature, and the only shape of "the capture
     was not passive" this can tell apart from the page's own re-rendering:
 
+    * the page is in the same **scale regime** it was in before the capture --
+      otherwise the layout viewport and the document height have both been
+      rescaled and neither is comparable to what was read before (measured:
+      852px becomes 1136px against a 1136px document, purely because the page
+      started overflowing horizontally) -- **and**
     * the viewport is at least the document's own height -- the state the flag
       puts the page into -- **and**
     * it is taller than it was before the capture, so a page that simply fits
@@ -1379,13 +1406,16 @@ def _viewport_is_stretched(driver: webdriver.Remote, before_height: int) -> bool
     probe = _viewport_metrics(driver)
     if probe is None:
         return False
-    height, document_height = probe
+    before_height, _before_document, before_scale = before
+    height, document_height, scale = probe
+    if scale != before_scale:
+        return False
     return height >= document_height and height > before_height
 
 
 def _settle_after_capture(
     driver: webdriver.Remote,
-    before: tuple[int, int] | None,
+    before: tuple[int, int, int] | None,
     timeout: float = _CAPTURE_RESTORE_TIMEOUT,
 ) -> None:
     """Wait out any leftover stretch from the capture, then out one frame.
@@ -1410,17 +1440,16 @@ def _settle_after_capture(
     if before is None:
         return
 
-    before_height = before[0]
     deadline = time.monotonic() + timeout
-    while _viewport_is_stretched(driver, before_height) and time.monotonic() < deadline:
+    while _viewport_is_stretched(driver, before) and time.monotonic() < deadline:
         time.sleep(0.02)
 
-    if _viewport_is_stretched(driver, before_height):
+    if _viewport_is_stretched(driver, before):
         seen = _viewport_metrics(driver)
         raise AssertionError(
             f"The screenshot checkpoint left the viewport stretched to the "
-            f"document height: it was {before_height}px tall before the capture "
-            f"and reads (viewport, document) = {seen} {timeout}s after it. "
+            f"document height: it read (viewport, document, scale) = {before} "
+            f"before the capture and reads {seen} {timeout}s after it. "
             f"`captureBeyondViewport` stretches the layout viewport to the "
             f"document height and is expected to put it back before "
             f"`Page.captureScreenshot` returns; it did not. Every read after "

@@ -78,13 +78,17 @@ class FakePage:
         *,
         viewport: int = VIEWPORT_H,
         document: int = DOCUMENT_H,
+        scale: int = 100,
         stretches: bool = False,
         reflow_to: tuple[int, int] | None = None,
+        rescale_to: tuple[int, int, int] | None = None,
     ) -> None:
         self.viewport = viewport
         self.document = document
+        self.scale = scale
         self.stretches = stretches
         self.reflow_to = reflow_to
+        self.rescale_to = rescale_to
         self.probes = 0
 
     def execute_cdp_cmd(self, cmd: str, _params: dict[str, Any]) -> dict[str, Any]:
@@ -94,12 +98,14 @@ class FakePage:
             self.viewport = self.document
         if self.reflow_to is not None:
             self.viewport, self.document = self.reflow_to
+        if self.rescale_to is not None:
+            self.viewport, self.document, self.scale = self.rescale_to
         return {"data": PNG_B64}
 
     def execute_script(self, script: str, *_args: Any) -> Any:
         if "visualViewport" in script:
             self.probes += 1
-            return [self.viewport, self.document]
+            return [self.viewport, self.document, self.scale]
         raise WebDriverException(f"unmodelled script: {script[:40]!r}")
 
     def execute_async_script(self, _script: str, *_args: Any) -> Any:
@@ -142,6 +148,24 @@ class TestThePageIsAllowedToMove:
 
         _cdp_full_page_screenshot(page, png)  # must not raise
 
+    def test_a_page_that_starts_overflowing_horizontally_is_not_a_failure(self, png: Path) -> None:
+        """The measured regress, reduced (login route, `full-mobile`, 2026-08-13).
+
+        Chrome rescales the whole layout space when a page begins to overflow
+        horizontally, so the viewport *and* the document jump by the same factor:
+        852px tall becomes 1136 against a 1136px document. Read without the scale
+        regime that is indistinguishable from "stretched to the document height"
+        -- it satisfies both height conditions exactly -- and it fired on a real
+        run while this module's other cases stayed green.
+        """
+        page = FakePage(
+            viewport=VIEWPORT_H,
+            document=DOCUMENT_H,
+            rescale_to=(1136, 1136, 133),
+        )
+
+        _cdp_full_page_screenshot(page, png)  # must not raise
+
 
 class TestTheCaptureIsNotAllowedToStretch:
     """The defect the guard exists for, which must survive the fix."""
@@ -179,5 +203,5 @@ class TestTheCaptureIsNotAllowedToStretch:
             def execute_script(self, script: str, *_args: Any) -> Any:
                 raise WebDriverException("session is gone")
 
-        _settle_after_capture(Dead(), (VIEWPORT_H, DOCUMENT_H))  # must not raise
+        _settle_after_capture(Dead(), (VIEWPORT_H, DOCUMENT_H, 100))  # must not raise
         _settle_after_capture(Dead(), None)  # must not raise

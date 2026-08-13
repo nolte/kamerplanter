@@ -2947,8 +2947,14 @@ class BasePage:
         ``species_list.search()`` on TC-REQ-001-060 and TC-REQ-001-063 in the
         2026-08-13 nightly (full-tablet and full-mobile).
         """
+        # The retry budget is the *acquisition's*, not `retry_on_stale`'s 3 s
+        # default: that deadline is only checked between attempts, so a toolbar
+        # that stays unmounted longer than 3 s -- the slow refetch this helper
+        # exists for -- would spend the whole budget inside attempt one and
+        # re-raise with zero retries, i.e. silently do nothing.
         self.retry_on_stale(
-            lambda: self.clear_and_fill(self.wait_for_element_clickable(locator, timeout), term)
+            lambda: self.clear_and_fill(self.wait_for_element_clickable(locator, timeout), term),
+            timeout=timeout,
         )
 
     # ── Sidebar navigation ─────────────────────────────────────────────────

@@ -162,12 +162,26 @@ class TestIsReadOnly:
         the branch probe would also be satisfied by a `page-title` left over
         from a route that is still being replaced -- the "read from the page you
         just left" shape. `require_no_skeleton` is what rules that frame out.
+
+        The skeleton is *unmounted* by the late render, so this runs through the
+        anchor's success path. Leaving it up would prove the same assertion
+        through the suppressed timeout instead -- and cost the full budget in a
+        tier that gates every PR.
         """
         harness.dom.render_dialog("page-title")
-        harness.dom.render_dialog("loading-skeleton")
-        _render_after(harness, PROBES, lambda: self._render_protected_species(harness))
+        skeleton = harness.dom.render_dialog("loading-skeleton")
 
-        assert self._page(harness).is_read_only() is True
+        def settle() -> None:
+            skeleton.attached = False
+            self._render_protected_species(harness)
+
+        _render_after(harness, PROBES, settle)
+
+        started = time.monotonic()
+        assert self._page(harness).is_read_only(timeout=SETTLE_TIMEOUT) is True
+        assert time.monotonic() - started <= SETTLE_TIMEOUT + 1.5, (
+            "the anchor must return once the skeleton is gone, not spend its budget"
+        )
 
 
 class TestWaitForDetailContent:
