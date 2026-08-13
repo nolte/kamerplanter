@@ -42,7 +42,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-from selenium.common.exceptions import ElementNotInteractableException
+from selenium.common.exceptions import (
+    ElementNotInteractableException,
+    StaleElementReferenceException,
+    TimeoutException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.options import ArgOptions
 from selenium.webdriver.remote.command import Command
@@ -322,6 +326,34 @@ class TestRequireInteractable:
         with pytest.raises(AssertionError, match="no longer attached to the DOM"):
             harness.page.require_interactable(element, "clear_and_fill (before send_keys)")
 
+    def test_the_detached_failure_is_both_an_assertion_and_a_staleness(
+        self, harness: Harness
+    ) -> None:
+        """The "gone" branch must be re-acquirable, not merely loud.
+
+        `require_interactable`'s own message tells the caller what to do -- "the
+        caller must re-capture the field once it has settled again" -- but a
+        plain `AssertionError` gives it no way to: `BasePage.retry_on_stale`,
+        the one helper that re-runs an acquisition, catches
+        `StaleElementReferenceException` and nothing else. The same reasoning
+        `TableNotSettled` was created under; the same fix.
+
+        Both halves are asserted because both are load-bearing: the many
+        existing `except AssertionError` sites (and the tests above) must keep
+        matching, *and* the retry must see it.
+        """
+        harness.dom.render()
+        element = harness.capture(re_resolve_timeout=1)
+        harness.dom.remove()
+
+        with pytest.raises(AssertionError) as caught:
+            harness.page.require_interactable(element, "clear_and_fill (before send_keys)")
+
+        assert isinstance(caught.value, StaleElementReferenceException), (
+            "a detached field must be catchable by `retry_on_stale`, or the "
+            "caller cannot act on the instruction the message gives it"
+        )
+
 
 # ── `clear_and_fill`: the guard wired into the write it protects ────────────
 
@@ -397,3 +429,82 @@ class TestClearAndFill:
         assert harness.connection.count(Command.SEND_KEYS_TO_ELEMENT) == 0, (
             "send_keys must never have been dispatched once the pre-check caught the gap"
         )
+
+
+# ── `fill_table_search`: the caller-side half of the same race ──────────────
+
+
+class TestFillTableSearch:
+    """The toolbar can die between the capture and the write; the caller re-captures.
+
+    `require_interactable` closes the "write through the gap" half: it refuses
+    to enter a value into a field the user could not have typed into. What it
+    cannot do is *make the write happen* -- by design, since a retry inside
+    `clear_and_fill` would re-enter the window it just failed in.
+
+    The 2026-08-13 nightly showed the other half is missing. `search()` on the
+    `DataTable` list pages captures the search box and writes to it, and every
+    caller that searches right after a mutation hands it the one moment the box
+    is guaranteed to move: `DataTable`'s `LoadingSkeleton` unmounts the whole
+    toolbar around the refetch. `test_view_profiles_for_growth_phase` and
+    `test_delete_growth_phase` both failed there, in
+    `_provision_species_with_phase` -> `click_row_by_name` -> `search` ->
+    `clear_and_fill`.
+
+    The race is modelled exactly as it happens, and it is *not* one a
+    `ReResolvingElement` can heal: the liveness probe in the proxy's `id`
+    property answers for a node that is still attached, and the node dies
+    between that probe and the script it was marshalled into. Healing happens
+    inside `_execute`; this exception comes out of `driver.execute_script`.
+    """
+
+    def _kill_the_toolbar_on_first_read(self, harness: Harness) -> None:
+        """Replace the live node the first time an `isDisplayed` probe is dispatched.
+
+        Fires *inside* the command, i.e. after the element argument has already
+        been marshalled -- which is what makes this the un-healable window
+        rather than a re-render the proxy absorbs.
+        """
+        fired: list[int] = []
+
+        def hook(params: dict[str, Any]) -> None:
+            if fired or "/* isDisplayed */" not in params.get("script", ""):
+                return
+            fired.append(1)
+            harness.dom.render()  # detaches the captured node, mounts a fresh one
+
+        harness.connection.before[Command.W3C_EXECUTE_SCRIPT] = hook
+
+    def test_happy_path_writes_the_term(self, harness: Harness) -> None:
+        harness.dom.render(value="old")
+
+        harness.page.fill_table_search(SEARCH_INPUT, "tomato")
+
+        live = harness.dom.match()
+        assert live is not None
+        assert harness.dom.node(live).value == "tomato"
+
+    def test_a_toolbar_remount_mid_write_is_re_captured(self, harness: Harness) -> None:
+        """The term lands in the *replacement*, not in the node that left."""
+        first = harness.dom.render(value="old")
+        self._kill_the_toolbar_on_first_read(harness)
+
+        harness.page.fill_table_search(SEARCH_INPUT, "tomato")
+
+        live = harness.dom.match()
+        assert live is not None and live != first, (
+            "the DOM must genuinely have moved underneath, or this test proves nothing"
+        )
+        assert harness.dom.node(live).value == "tomato"
+
+    def test_a_search_box_that_never_comes_back_still_fails(self, harness: Harness) -> None:
+        """The retry re-acquires; it does not paper over an absent toolbar.
+
+        The negative half of the contract. Without it a helper that swallowed
+        the failure and returned would satisfy every assertion above.
+        """
+        harness.dom.render()
+        harness.dom.remove()
+
+        with pytest.raises(TimeoutException):
+            harness.page.fill_table_search(SEARCH_INPUT, "tomato", timeout=1)

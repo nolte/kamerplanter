@@ -175,8 +175,13 @@ class TreatmentListPage(BasePage):
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
-        elements = self.driver.find_elements(*self.CREATE_DIALOG)
-        return any(el.is_displayed() for el in elements)
+        """Whether the create dialog is visible; a dialog mid-unmount is not.
+
+        `BasePage.is_any_displayed` owns the staleness verdict -- see
+        `FertilizerListPage.is_create_dialog_open` for the failure this shape
+        produced when each page kept its own copy of the loop.
+        """
+        return self.is_any_displayed(self.CREATE_DIALOG)
 
     def fill_name(self, name: str) -> None:
         el = self.wait_for_element_clickable(self.FORM_NAME)

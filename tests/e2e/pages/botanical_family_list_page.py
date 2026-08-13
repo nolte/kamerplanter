@@ -175,16 +175,14 @@ class BotanicalFamilyListPage(BasePage):
         """Type a search term into the search field."""
         import time
 
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, term)
+        self.fill_table_search(self.SEARCH_INPUT, term)
         # debounce: bounded, justified (table-search-input has a 300ms
         # debounce before it re-filters, so callers can rely on the result
         # being settled once this method returns)
         time.sleep(0.3)
 
     def clear_search(self) -> None:
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, "")
+        self.fill_table_search(self.SEARCH_INPUT, "")
 
     def click_reset_filters(self) -> None:
         self.wait_for_element_clickable(self.RESET_FILTERS).click()
