@@ -10,7 +10,7 @@
 # REQ-029-A 2.3 / 5). Never ship PlantCLEF fine-tuned weights (CC-BY-NC).
 
 # -- Export stage: produce model.onnx + modelinfo.json (torch only here) -----
-FROM python:3.14-slim@sha256:a7fb1e634c4a578f9e0bd6327f11a3cde11b7a9395f48e24360c0988bcc5c2bc AS model-export
+FROM python:3.14-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4 AS model-export
 
 WORKDIR /export
 # CPU-only torch: the GPU build pulls multi-GB nvidia/CUDA wheels that are
@@ -25,7 +25,7 @@ COPY scripts/export_dinov2_onnx.py ./export_dinov2_onnx.py
 RUN python export_dinov2_onnx.py --arch dinov2_vits14 --input-size 224 --output /model
 
 # -- Shared runtime base (onnxruntime + exported model + app code) -----------
-FROM python:3.14-slim@sha256:a7fb1e634c4a578f9e0bd6327f11a3cde11b7a9395f48e24360c0988bcc5c2bc AS base
+FROM python:3.14-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-inference-service" \
       org.opencontainers.image.description="Plant/pest image-recognition service (DINOv2 ONNX embeddings + pgvector matching) for Kamerplanter health assessment" \
