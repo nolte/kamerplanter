@@ -267,10 +267,12 @@ class FertilizerDetailPage(BasePage):
 
         No call site in this suite as of #946 wave 5 (``click_delete``,
         ``confirm_delete`` and ``cancel_delete`` are likewise unused) -- left
-        unanchored rather than speculatively converted.
+        unanchored rather than speculatively converted. The staleness *verdict*
+        is a different question from anchoring and is delegated to
+        `BasePage.is_any_displayed` regardless, so a future call site cannot
+        inherit the raising shape.
         """
-        dialogs = self.driver.find_elements(*self.CONFIRM_DIALOG)
-        return any(d.is_displayed() for d in dialogs)
+        return self.is_any_displayed(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
         """Click the confirm button in the delete dialog."""

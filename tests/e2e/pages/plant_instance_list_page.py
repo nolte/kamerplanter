@@ -145,8 +145,7 @@ class PlantInstanceListPage(BasePage):
         for a term that must match *nothing*, and a wait for a filtered row would
         be wrong there.
         """
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, term)
+        self.fill_table_search(self.SEARCH_INPUT, term)
 
     def clear_search(self) -> None:
         """Clear the search field."""

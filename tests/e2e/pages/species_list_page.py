@@ -5,7 +5,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import BasePage
+from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class SpeciesListPage(BasePage):
@@ -78,11 +78,18 @@ class SpeciesListPage(BasePage):
         self.click_data_table_row(index, self.NAME_COLUMN_ID, self.TABLE_ROWS, "species row")
 
     def search(self, query: str) -> None:
-        """Filter the table via the DataTable search box (debounced 300ms)."""
+        """Filter the table via the DataTable search box (debounced 300ms).
+
+        Routed through :meth:`BasePage.fill_table_search`, which re-captures the
+        box if the toolbar re-renders between the capture and the write. The
+        callers that matter here search right after creating a species
+        (``_provision_species_with_phase``), i.e. across the list's own
+        refetch -- the one moment ``DataTable``'s `LoadingSkeleton` is
+        guaranteed to unmount the toolbar underneath a captured reference.
+        """
         import time
 
-        el = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(el, query)
+        self.fill_table_search(self.SEARCH_INPUT, query)
         time.sleep(0.5)  # DataTable debounces the search input by 300ms
         self.wait_for_loading_complete()
 
@@ -178,6 +185,20 @@ class SpeciesListPage(BasePage):
 
     def is_create_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
+
+    def wait_for_create_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the create dialog is gone, i.e. the species really was created.
+
+        The read-back :meth:`submit_form` does not have. ``SpeciesCreateDialog``
+        clears its open state only after the POST resolves, so the dialog being
+        gone means the create landed -- and, unlike
+        ``wait_for_loading_complete()``, that is a claim this wait can actually
+        fail on. The weak wait it replaces at the provisioning call sites is
+        satisfied by a skeleton that has not mounted *yet*, which is precisely
+        the frame in which the list is about to swap its toolbar out from under
+        the next ``search()``.
+        """
+        self.wait_for_element_hidden(self.CREATE_DIALOG, timeout)
 
     def has_validation_error(self, field_name: str) -> bool:
         locator = (

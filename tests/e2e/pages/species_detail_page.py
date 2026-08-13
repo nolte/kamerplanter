@@ -15,7 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class SpeciesDetailPage(BasePage):
@@ -122,7 +122,19 @@ class SpeciesDetailPage(BasePage):
     # ── Edit tab (tab 0) ──────────────────────────────────────────────
 
     def get_field_value(self, field_name: str) -> str:
-        el = self.find_present((By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input"))
+        """Read a form field's current value, ``input`` or ``textarea``.
+
+        Symmetric with :meth:`set_field`, which has always covered both: MUI
+        renders a multiline `TextField` as a ``textarea`` (plus a hidden,
+        ``aria-hidden`` shadow one for auto-sizing), so an ``input``-only reader
+        could not read back what ``set_field`` had just written to
+        ``description`` -- it timed out on a field that was there.
+        """
+        base = f"[data-testid='form-field-{field_name}']"
+        if self.driver.find_elements(By.CSS_SELECTOR, f"{base} input"):
+            el = self.find_present((By.CSS_SELECTOR, f"{base} input"))
+        else:
+            el = self.find_present((By.CSS_SELECTOR, f"{base} textarea:not([aria-hidden])"))
         return el.get_attribute("value") or ""
 
     def set_field(self, field_name: str, value: str) -> None:
@@ -156,8 +168,32 @@ class SpeciesDetailPage(BasePage):
         self.open_select(field_name)
         self.select_option_by_label(value_text)
 
+    #: notistack's success variant. Both spellings, because the class name moved
+    #: between notistack majors and several page objects here carry each -- see
+    #: `expertise_level_page.py`, which pairs them for the same reason.
+    SNACKBAR_SUCCESS = (
+        By.CSS_SELECTOR,
+        ".SnackbarItem-variantSuccess, [class*='notistack-MuiContent-success']",
+    )
+
     def click_save(self) -> None:
         self.wait_and_click(self.FORM_SUBMIT)
+
+    def wait_for_save_confirmed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the edit tab's save reported success.
+
+        The read-back :meth:`click_save` does not have.
+        ``SpeciesDetailPage.tsx``'s ``onSubmit`` enqueues the *success* variant
+        only after ``await api.updateSpecies(...)`` resolves; a rejected update
+        runs ``handleError`` and enqueues the error variant instead. So this
+        waiting means the PUT returned 2xx, and neither
+        ``wait_for_loading_complete()`` nor the button going idle does.
+
+        It matters for what comes *after* a save: navigating away while the
+        request is still in flight leaves `UnsavedChangesGuard` armed and turns a
+        read-back into a race between the PUT and the next route.
+        """
+        self.wait_for_element_visible(self.SNACKBAR_SUCCESS, timeout)
 
     def click_delete(self) -> None:
         # Routed through the shared helper so the action is reachable whether it
@@ -192,13 +228,52 @@ class SpeciesDetailPage(BasePage):
         self.close_mui_dropdown()
         return found
 
-    def is_read_only(self) -> bool:
+    def wait_for_detail_content(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the detail route has settled into a branch, skeleton gone.
+
+        The anchor the readers below need, and an anchor is all it is: it
+        suppresses its own failure, because a species that renders no banner is
+        a legitimate observation the caller must still be able to make. What it
+        removes is the *third* state -- nothing rendered yet -- being reported
+        as the second.
+
+        ``SpeciesDetailPage.tsx`` returns ``LoadingSkeleton`` **instead of** the
+        page while its fetch is in flight (``if (loading) return
+        <LoadingSkeleton variant="form" />``) and ``ErrorDisplay`` instead of it
+        on failure, so before one of those branches is on screen *none* of this
+        page's elements exist -- neither the banner nor the tab strip nor the
+        edit form.
+
+        Keyed on ``page-title`` because it is the first thing the settled tree
+        renders, with ``require_no_skeleton`` (the `wait_for_page_settled`
+        default) doing the second half of the work: a ``page-title`` is also
+        what the route being *left* renders, and the skeleton is what tells the
+        two apart.
+        """
+        with suppress(AssertionError):
+            self.wait_for_page_settled(self.PAGE_TITLE, "species detail content", timeout=timeout)
+
+    def is_read_only(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
         """Return True if this species is origin-protected (read-only).
 
         Global/system species (UI-NFR-018) show a read-only banner, render no
         editable form actions on the edit tab, and — being deletion-protected —
         no delete button.
+
+        Anchored on :meth:`wait_for_detail_content`. Both call sites gate a
+        ``pytest.skip(...)`` on this immediately after ``click_row(0)`` +
+        ``wait_for_url_contains(...)`` -- and the URL changes on navigation,
+        long before the species is fetched. Read in that window the answer was
+        ``False`` for every species, protected or not: TC-001-031 skipped its
+        own skip gate in the 2026-08-13 nightly and then spent 15 s waiting for
+        a description field an origin-protected species renders on no code path.
+        The checkpoint screenshot from one line earlier is a bare skeleton.
+
+        Deliberately unlike `FertilizerDetailPage.is_read_only`, which documents
+        why it needs no anchor: its callers wait for that page's own root first.
+        This one's do not, so the wait belongs here rather than at each site.
         """
+        self.wait_for_detail_content(timeout=timeout)
         return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
 
     # ── Cultivar tab ("Sorten") ───────────────────────────────────────

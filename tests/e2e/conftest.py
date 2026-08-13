@@ -1245,6 +1245,14 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
 #     matched the pre-capture ``innerWidth``/``innerHeight`` and the measured
 #     height of both a ``height: 100vh`` and a ``height: 60vh`` element.
 #
+# That measurement was taken against a *synthetic* page, and what it could not
+# show is that the numbers it compared are not the capture's to keep still: on a
+# live route the application changes them itself, in both directions, several
+# times per test. Thirteen nightly/local failures later the equality check is
+# gone and the *stretch signature* is checked instead -- see
+# `_STRETCH_PROBE_JS` for the measurements and `_settle_after_capture` for what
+# it now asserts.
+#
 # So the metrics do come back -- but nothing ever *checked* that they had, and
 # the media-query flips leave React work scheduled that lands after the response
 # (React re-renders asynchronously; the synthetic listener used for the
@@ -1278,7 +1286,40 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
 #: restore at all, not to trade against a timing.
 _CAPTURE_RESTORE_TIMEOUT = 5.0
 
-_VIEWPORT_METRICS_JS = "return [window.innerWidth, window.innerHeight];"
+#: The visual viewport's height next to the document's own height -- the two
+#: numbers the *stretch* signature is read from, and deliberately not a
+#: before/after equality of "the viewport".
+#:
+#: **What was measured, 2026-08-13, against the running stack.** No viewport
+#: quantity is stable across a capture on a live page, because the page moves
+#: them itself:
+#:
+#:   * ``innerWidth`` is the *layout* viewport, which Chrome widens to the
+#:     document's minimum width whenever the page overflows horizontally. The
+#:     login route needs 524 CSS px on the 393 px `mobile` profile, so
+#:     ``innerWidth`` read 524 while ``visualViewport.width`` read 393 with
+#:     ``scale == 1`` at the same instant. It flips whenever an error alert
+#:     mounts or a spinner unmounts.
+#:   * ``visualViewport.width`` excludes the classic scrollbar, so on `desktop`
+#:     it reads 1905 with one and 1920 without -- and the scrollbar comes and
+#:     goes with the content height.
+#:
+#: Both were observed as nightly failures: 393<->524 on `full-mobile` (two login
+#: tests, 2026-08-13) and 1905<->1920 on `full` (eleven tests, reproduced
+#: locally while fixing the first). Both were the *application* re-rendering
+#: between the two reads, reported as a browser that had failed to restore.
+#:
+#: Against a settled page the capture is passive on both profiles -- six
+#: captures each, every quantity identical before and after -- which is what
+#: makes "any difference is a defect" the wrong test. What the defect this guard
+#: exists for actually looks like is unmistakable and content-independent:
+#: ``captureBeyondViewport`` stretches the layout viewport **to the document
+#: height**, so a capture that failed to put it back leaves a viewport as tall
+#: as the whole document (#778 H1 measured a dialog paper at 1991px against an
+#: 852px viewport). That is the signature this probes, and nothing else.
+_STRETCH_PROBE_JS = (
+    "return [Math.round(window.visualViewport.height), document.documentElement.scrollHeight];"
+)
 
 #: One full frame, bounded. Two nested ``requestAnimationFrame`` callbacks span
 #: a whole frame, which is enough for work React's scheduler posted from the
@@ -1296,16 +1337,19 @@ window.requestAnimationFrame(() => window.requestAnimationFrame(() => finish('fr
 
 
 def _viewport_metrics(driver: webdriver.Remote) -> tuple[int, int] | None:
-    """Return ``(innerWidth, innerHeight)``, or ``None`` if the page cannot be asked.
+    """Return ``(visual viewport height, document height)``, or ``None`` if unaskable.
+
+    See :data:`_STRETCH_PROBE_JS` for why these two numbers and not a viewport
+    size: no viewport size is comparable across a capture on a live page.
 
     ``None`` means "could not look" and is kept distinct from any pair of
     numbers on purpose: a dead session, a page mid-navigation or an open JS
-    alert must not be reported as a viewport that changed size. The only thing
-    that follows from ``None`` is that this capture cannot be checked -- never
-    that it was fine.
+    alert must not be reported as a viewport that stayed stretched. The only
+    thing that follows from ``None`` is that this capture cannot be checked --
+    never that it was fine.
     """
     try:
-        metrics = driver.execute_script(_VIEWPORT_METRICS_JS)
+        metrics = driver.execute_script(_STRETCH_PROBE_JS)
     except WebDriverException:
         return None
     if not isinstance(metrics, list) or len(metrics) != 2:
@@ -1316,18 +1360,48 @@ def _viewport_metrics(driver: webdriver.Remote) -> tuple[int, int] | None:
         return None
 
 
+def _viewport_is_stretched(driver: webdriver.Remote, before_height: int) -> bool:
+    """Whether the viewport is *still* as tall as the whole document.
+
+    The `captureBeyondViewport` signature, and the only shape of "the capture
+    was not passive" this can tell apart from the page's own re-rendering:
+
+    * the viewport is at least the document's own height -- the state the flag
+      puts the page into -- **and**
+    * it is taller than it was before the capture, so a page that simply fits
+      in its viewport (where the two are equal all the time, e.g. a short login
+      form) is never flagged, and neither is a page that got *shorter*.
+
+    ``None`` from the probe answers ``False``: "could not look" is not evidence
+    of a defect, and the caller's own next read will fail on its own if the
+    session is really gone.
+    """
+    probe = _viewport_metrics(driver)
+    if probe is None:
+        return False
+    height, document_height = probe
+    return height >= document_height and height > before_height
+
+
 def _settle_after_capture(
     driver: webdriver.Remote,
     before: tuple[int, int] | None,
     timeout: float = _CAPTURE_RESTORE_TIMEOUT,
 ) -> None:
-    """Wait until the page is back at *before*'s viewport, then out one frame.
+    """Wait out any leftover stretch from the capture, then out one frame.
 
-    Called with the metrics read *before* the capture. Raises when they never
-    come back: a checkpoint that leaves the page at a different size has
-    silently re-laid-out everything the test is about to read, and there is no
-    honest way to continue from that -- every subsequent assertion would be
-    about a layout the test never asked for.
+    Called with the probe read *before* the capture. Raises when the viewport is
+    still stretched to the document height after *timeout*: the capture would
+    then have silently re-laid-out everything the test is about to read, and
+    there is no honest way to continue from that.
+
+    **It does not compare viewport sizes**, which is what it used to do. Every
+    viewport quantity moves with the page's own content -- see
+    :data:`_STRETCH_PROBE_JS` for the two measured shapes that produced thirteen
+    false failures between them -- so an equality check on one of them reports
+    the application re-rendering between two reads as a browser defect. The
+    stretch signature is content-independent, and it is the actual failure this
+    guard was built for.
 
     A ``before`` of ``None`` means the baseline could not be established (see
     :func:`_viewport_metrics`), so there is nothing to compare against and the
@@ -1336,23 +1410,22 @@ def _settle_after_capture(
     if before is None:
         return
 
+    before_height = before[0]
     deadline = time.monotonic() + timeout
-    seen = _viewport_metrics(driver)
-    while seen != before and time.monotonic() < deadline:
+    while _viewport_is_stretched(driver, before_height) and time.monotonic() < deadline:
         time.sleep(0.02)
-        seen = _viewport_metrics(driver)
 
-    if seen != before:
+    if _viewport_is_stretched(driver, before_height):
+        seen = _viewport_metrics(driver)
         raise AssertionError(
-            f"The screenshot checkpoint left the page at a different size: the "
-            f"viewport was {before[0]}x{before[1]} before the capture and reads "
-            f"{seen} {timeout}s after it. `captureBeyondViewport` stretches the "
-            f"layout viewport to the document height and is expected to put it "
-            f"back before `Page.captureScreenshot` returns; it did not. Every "
-            f"read after this checkpoint would be against a re-laid-out page — "
-            f"`None` here means the page could not be asked at all (dead "
-            f"session, open alert), any other pair means the restore is broken "
-            f"in this browser and the capture must stop using that flag."
+            f"The screenshot checkpoint left the viewport stretched to the "
+            f"document height: it was {before_height}px tall before the capture "
+            f"and reads (viewport, document) = {seen} {timeout}s after it. "
+            f"`captureBeyondViewport` stretches the layout viewport to the "
+            f"document height and is expected to put it back before "
+            f"`Page.captureScreenshot` returns; it did not. Every read after "
+            f"this checkpoint would be against a re-laid-out page, so the "
+            f"capture must stop using that flag in this browser."
         )
 
     # The metrics are back; the re-render the two media-query flips scheduled

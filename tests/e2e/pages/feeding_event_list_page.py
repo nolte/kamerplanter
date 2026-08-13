@@ -132,13 +132,11 @@ class FeedingEventListPage(BasePage):
 
     def search(self, term: str) -> None:
         """Type a search term into the table search field."""
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, term)
+        self.fill_table_search(self.SEARCH_INPUT, term)
 
     def clear_search(self) -> None:
         """Clear the search field."""
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, "")
+        self.fill_table_search(self.SEARCH_INPUT, "")
 
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""

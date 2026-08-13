@@ -140,13 +140,11 @@ class NutrientPlanListPage(BasePage):
 
     def search(self, term: str) -> None:
         """Type a search term into the table search field."""
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, term)
+        self.fill_table_search(self.SEARCH_INPUT, term)
 
     def clear_search(self) -> None:
         """Clear the search field."""
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, "")
+        self.fill_table_search(self.SEARCH_INPUT, "")
 
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
@@ -165,9 +163,13 @@ class NutrientPlanListPage(BasePage):
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
-        """Return True if a MUI dialog is currently visible."""
-        dialogs = self.driver.find_elements(*self.CREATE_DIALOG)
-        return any(d.is_displayed() for d in dialogs)
+        """Whether the create dialog is visible; a dialog mid-unmount is not.
+
+        `BasePage.is_any_displayed` owns the staleness verdict -- see
+        `FertilizerListPage.is_create_dialog_open` for the failure this shape
+        produced when each page kept its own copy of the loop.
+        """
+        return self.is_any_displayed(self.CREATE_DIALOG)
 
     def fill_name(self, name: str) -> None:
         """Fill the plan name field."""

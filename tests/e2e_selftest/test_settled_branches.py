@@ -248,15 +248,28 @@ class TestWaitForAnyPresent:
 # There is no browser here, so what these pin is the *decision*: the restore is
 # verified rather than assumed, an unrestored viewport fails loudly and in
 # budget, and the frame barrier is actually awaited.
+#
+# What "unrestored" means changed on 2026-08-13. It used to be "the viewport is
+# not the size it was before the capture", and that turned out to be a property
+# of the *page*, not of the capture: thirteen nightly and local tests failed
+# because the application re-rendered between the two reads. It is now the
+# `captureBeyondViewport` signature -- a viewport left as tall as the whole
+# document -- which no page re-render produces. `test_capture_viewport_check.py`
+# carries the measurements and the false-failure shapes; these tests keep their
+# original subject, the wiring and the budget, on the new predicate.
 
 
 class ViewportDriver:
-    """A driver whose viewport metrics are a scripted sequence.
+    """A driver whose ``(viewport height, document height)`` probe is a scripted sequence.
 
     Each ``execute_script`` for the metrics consumes one entry; the last one
     repeats forever, so "comes back on the third poll" and "never comes back"
     are both expressible. ``execute_async_script`` records that the frame
     barrier ran instead of running one.
+
+    A ``viewport height`` equal to the ``document height`` **and** taller than
+    the pre-capture one is the stretched state; anything else is a page that
+    merely moved.
     """
 
     def __init__(
@@ -297,8 +310,8 @@ class TestCheckpointSettling:
     """`_settle_after_capture`: the checkpoint's post-condition on the page."""
 
     def test_it_returns_once_the_viewport_is_back_and_holds_one_frame(self) -> None:
-        driver = ViewportDriver((800, 600))
-        _settle_after_capture(driver, (800, 600))  # type: ignore[arg-type]
+        driver = ViewportDriver((600, 4000))
+        _settle_after_capture(driver, (600, 4000))  # type: ignore[arg-type]
         assert driver.async_calls == 1, (
             "The frame barrier is the half that covers React's *asynchronous* "
             "re-render; without it the checkpoint only proves the metrics came "
@@ -307,20 +320,32 @@ class TestCheckpointSettling:
 
     def test_it_polls_rather_than_sampling_once(self) -> None:
         """A single comparison would fail a page that is one poll from restored."""
-        driver = ViewportDriver((800, 4000), (800, 4000), (800, 600))
-        _settle_after_capture(driver, (800, 600), timeout=2)  # type: ignore[arg-type]
+        driver = ViewportDriver((4000, 4000), (4000, 4000), (600, 4000))
+        _settle_after_capture(driver, (600, 4000), timeout=2)  # type: ignore[arg-type]
         assert driver.reads >= 3
         assert driver.async_calls == 1
 
     def test_a_viewport_that_never_comes_back_fails_loudly_and_in_budget(self) -> None:
-        driver = ViewportDriver((800, 4000))
+        driver = ViewportDriver((4000, 4000))
         with pytest.raises(AssertionError) as exc:
-            _settle_after_capture(driver, (800, 600), timeout=0.3)  # type: ignore[arg-type]
+            _settle_after_capture(driver, (600, 4000), timeout=0.3)  # type: ignore[arg-type]
         message = str(exc.value)
-        assert "800x600" in message, "the message must name what was expected"
-        assert "(800, 4000)" in message, "…and what the page actually reads now"
+        assert "600px" in message, "the message must name the viewport it started from"
+        assert "(4000, 4000)" in message, "…and what the page actually reads now"
         assert "captureBeyondViewport" in message, "…and the mechanism that did it"
         assert driver.async_calls == 0, "a page that never settled must not be declared settled"
+
+    def test_a_page_that_merely_re_rendered_is_not_a_failure(self) -> None:
+        """The 2026-08-13 false-failure shape, at this level too.
+
+        The document grew because the application rendered more into it. The
+        viewport did not, so nothing about the capture was non-passive -- and
+        the frame barrier must still run, since the caller reads on the next
+        line either way.
+        """
+        driver = ViewportDriver((600, 4900))
+        _settle_after_capture(driver, (600, 4000))  # type: ignore[arg-type]
+        assert driver.async_calls == 1
 
     def test_a_page_that_cannot_be_asked_is_not_reported_as_a_changed_viewport(self) -> None:
         """No baseline, no verdict.
@@ -339,7 +364,7 @@ class TestFullPageCaptureIsPassive:
     """The wiring: the capture itself has to run the settle, not merely own it."""
 
     def test_the_capture_verifies_the_restore(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        driver = ViewportDriver((800, 600), (800, 4000))
+        driver = ViewportDriver((600, 4000), (4000, 4000))
         with pytest.raises(AssertionError) as exc:
             _cdp_full_page_screenshot(driver, tmp_path / "shot.png")  # type: ignore[arg-type]
         assert "screenshot checkpoint" in str(exc.value)
@@ -349,7 +374,7 @@ class TestFullPageCaptureIsPassive:
         )
 
     def test_a_restored_page_captures_without_complaint(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        driver = ViewportDriver((800, 600))
+        driver = ViewportDriver((600, 4000))
         _cdp_full_page_screenshot(driver, tmp_path / "shot.png")  # type: ignore[arg-type]
         assert (tmp_path / "shot.png").read_bytes() == b"hi"
         assert driver.async_calls == 1
@@ -362,7 +387,7 @@ class TestFullPageCaptureIsPassive:
         would be a pure cost — and, on a browser whose metrics read differently,
         a false failure.
         """
-        driver = ViewportDriver((800, 600), (800, 4000), cdp_fails=True)
+        driver = ViewportDriver((600, 4000), (4000, 4000), cdp_fails=True)
         _cdp_full_page_screenshot(driver, tmp_path / "shot.png")  # type: ignore[arg-type]
         assert driver.saved == [str(tmp_path / "shot.png")]
         assert driver.async_calls == 0

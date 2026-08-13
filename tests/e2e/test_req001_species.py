@@ -236,34 +236,64 @@ class TestSpeciesDetailPage:
         """TC-001-031: Edit species data on the 'Bearbeiten' tab.
 
         Spec: TC-001-031 — Species bearbeiten und speichern — Beschreibung ändern.
+
+        Provisions the species it edits. Row 0 -- what this used to open -- is
+        the alphabetically first species of the seed, i.e. a *system* one
+        (``Adiantum raddianum`` in the 2026-08-13 nightly, screenshot
+        ``FAILURE_test_edit_species_data``): origin-protected, no editable form
+        on any tab. So this test could only ever take its own skip, and did, on
+        every profile -- which is also why it never noticed that it stayed on
+        the "Übersicht" tab and asked for a field the *edit* tab renders. On the
+        one night the skip gate misfired -- it read the banner off a page that
+        was still a `LoadingSkeleton` -- the test spent 15 s waiting for that
+        field instead of skipping, and both defects surfaced together.
+
+        The read-back at the end is the point of the case: "speichern" is a
+        claim about what the next reader sees, so the assertion re-navigates and
+        reads the field again rather than reading the value it just typed out of
+        the same, un-reloaded form.
         """
-        species_list.open()
-        if species_list.get_row_count() == 0:
-            pytest.skip("No species in database")
-
-        species_list.click_row(0)
-        species_list.wait_for_url_contains("/stammdaten/species/")
-        screenshot("TC-REQ-001-039_before-edit", "Species detail edit tab before modification")
-
-        if species_detail.is_read_only():
-            pytest.skip(
-                "First species is origin-protected (read-only); "
-                "no editable save on the edit tab in light mode"
-            )
-
         unique = uuid.uuid4().hex[:6]
-        species_detail.set_field("description", f"E2E-Updated {unique}")
-        screenshot(
-            "TC-REQ-001-039_field-modified", f"Description field changed to 'E2E-Updated {unique}'"
+        scientific_name = f"Editus e2e{unique}"
+        description = f"E2E-Updated {unique}"
+
+        species_list.open()
+        species_list.click_create()
+        species_list.fill_scientific_name(scientific_name)
+        species_list.set_field("genus", "Editus")
+        species_list.submit_form()
+        species_list.wait_for_create_dialog_closed()
+
+        species_list.click_row_by_name(scientific_name)
+        species_list.wait_for_url_contains("/stammdaten/species/")
+        species_detail.wait_for_detail_content()
+        screenshot("TC-REQ-001-039_before-edit", "Species detail before modification")
+
+        assert not species_detail.is_read_only(), (
+            "TC-REQ-001-039 FAIL: a species this test created itself must be editable"
         )
 
+        species_detail.click_tab_by_label("Bearbeiten")
+        species_detail.set_field("description", description)
+        screenshot("TC-REQ-001-039_field-modified", f"Description field changed to '{description}'")
+
         species_detail.click_save()
-        species_detail.wait_for_loading_complete()
+        species_detail.wait_for_save_confirmed()
         screenshot(
             "TC-REQ-001-039_after-save", "Species detail after saving — success feedback expected"
         )
 
-        assert "/stammdaten/species/" in species_detail.driver.current_url
+        # Re-navigate rather than re-read: the form still holds the typed value
+        # whether or not the PUT ever landed.
+        species_list.open()
+        species_list.click_row_by_name(scientific_name)
+        species_detail.wait_for_detail_content()
+        species_detail.click_tab_by_label("Bearbeiten")
+
+        assert species_detail.get_field_value("description") == description, (
+            f"TC-REQ-001-039 FAIL: the edited description must survive a reload, but "
+            f"'{species_detail.get_field_value('description')}' came back"
+        )
 
     @pytest.mark.core_crud
     def test_delete_species_with_confirmation(

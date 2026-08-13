@@ -102,6 +102,30 @@ class TableNotSettled(StaleElementReferenceException):
     """
 
 
+class ElementDetached(AssertionError, StaleElementReferenceException):
+    """The field a caller captured is no longer in the DOM at the moment of the write.
+
+    What :meth:`BasePage.require_interactable` raises for its "gone" branch, and
+    the third exception in this module to be a ``StaleElementReferenceException``
+    subclass for the same reason as the other two: the mechanisms already built
+    around that class are exactly the ones this needs. ``retry_on_stale`` re-runs
+    a whole acquisition; a bare ``AssertionError`` -- which is what this branch
+    raised before -- is invisible to it, so the one instruction the message gives
+    the caller ("re-capture the field once it has settled again") was the one
+    thing the caller had no way to act on.
+
+    Also an ``AssertionError``, and that half is load-bearing too: this is a loud
+    diagnosis first and a retry signal second. Every existing ``except
+    AssertionError`` site and every message assertion keeps matching, so
+    promoting the class changes nothing for a caller that does not retry.
+
+    The pairing is deliberate and bounded: it makes the *detached* branch
+    re-acquirable and leaves the hidden/disabled branches as plain assertions.
+    A field that is present but hidden is not a reference problem, and
+    re-capturing it would loop against a page state that is not moving.
+    """
+
+
 # ── Why the *plural* path is not wrapped ──────────────────────────────────
 # The three element-returning waits hand back a `ReResolvingElement` (#835 P3).
 # `driver.find_elements(...)` -- 804 call sites -- deliberately does **not**, and
@@ -174,8 +198,8 @@ class TableNotSettled(StaleElementReferenceException):
 # asked about the node that left.
 #
 # Re-run after P4 against the code as it now stands. The six verdict *sites* P3
-# counted are four verdict *implementations* now -- three page objects had
-# written the same dialog probe out for themselves and now share
+# counted are four verdict *implementations* now -- the page objects that had
+# written the same dialog probe out for themselves now share
 # `is_any_displayed` -- and all four still read their element from
 # `driver.find_elements(...)`, which is still not wrapped, so, as in P3, **no
 # verdict is reachable by a proxy today**. That
@@ -188,12 +212,25 @@ class TableNotSettled(StaleElementReferenceException):
 #     * `BasePage.is_displayed_in_scroll_container`  (False)  `raw_reference`
 #     * `BasePage._read_select_value`                (None -> loud) `raw_reference`
 #     * `BasePage.is_any_displayed`                  (False)  `raw_reference`,
-#       and the three page-object dialog probes that each used to write this
+#       and the page-object dialog probes that each used to write this
 #       loop out for themselves now route through it:
 #       `phase_transition_page.PlantInstanceDetailExt.is_transition_dialog_open`
 #       and `.is_confirm_dialog_visible` (the class name P3 recorded here as
 #       `PhaseTransitionPage` was wrong -- there is no such class in that
-#       module), plus `FeedingEventListPage.is_create_dialog_open`
+#       module), plus `FeedingEventListPage.is_create_dialog_open`.
+#       Seven more joined them after the 2026-08-13 nightly triage, where the
+#       un-migrated copy of the loop was the single most frequent E2E failure
+#       in the suite (TC-004-006, every profile, four nights running):
+#       `is_create_dialog_open` on `FertilizerListPage`, `DiseaseListPage`,
+#       `PestListPage`, `TreatmentListPage` and `NutrientPlanListPage`, plus
+#       `is_confirm_dialog_open` on `NutrientPlanDetailPage` and
+#       `FertilizerDetailPage`. They are pinned at both polarities by
+#       `tests/e2e_selftest/test_transient_dialog_readers.py`.
+#       Still carrying a private copy, and *not* migrated here because this
+#       triage saw no failure from them: the snackbar probes
+#       (`harvest_batch_{list,detail}_page`, `pflege_dashboard_page`,
+#       `calendar_page`, `import_page`), whose comma-separated selectors the
+#       selftest stub cannot express either.
 #     * `TaskDetailPage._submit_registered`          (**True**) `raw_reference`
 #       -- the one whose verdict is a *success* signal ("the submit went
 #       through"), so a healed reference would not merely change an answer, it
@@ -2794,7 +2831,7 @@ class BasePage:
             displayed = element.is_displayed()
             enabled = element.is_enabled()
         except StaleElementReferenceException as exc:
-            raise AssertionError(
+            raise ElementDetached(
                 f"{what}: the target element is no longer attached to the DOM. "
                 "Most likely its container re-rendered (e.g. a DataTable's "
                 "LoadingSkeleton swap unmounting the whole toolbar around a "
@@ -2878,6 +2915,41 @@ class BasePage:
 
         self.require_interactable(element, "clear_and_fill (before send_keys)")
         element.send_keys(value)
+
+    def fill_table_search(
+        self, locator: Locator, term: str, *, timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Type *term* into a `DataTable`'s search box, re-capturing if the toolbar moved.
+
+        The caller-side half of the race :meth:`clear_and_fill` documents and
+        deliberately refuses to handle itself. ``DataTable``'s
+        ``LoadingSkeleton`` (``DataTable.tsx:230``) unmounts the whole toolbar --
+        search box included -- around every refetch, and the callers that search
+        immediately after a mutation hand that window to the write: create a
+        species, then search for it to click its row, and the capture and the
+        write sit on either side of the list's refetch.
+
+        Both halves of the answer are needed and only one existed. #986 gave
+        `clear_and_fill` a guard that refuses to write into a field the user
+        could no longer type into; it explicitly does **not** retry, because a
+        retry *of the write* re-enters the window it just failed in. This
+        re-runs the *acquisition* instead: each attempt waits on
+        ``element_to_be_clickable`` again, so it does not start until a new
+        toolbar is interactable, and `retry_on_stale`'s budget bounds how long
+        that may go on. That is the difference between waiting for a real signal
+        and re-rolling the dice, and it is why the retry belongs here rather
+        than inside `clear_and_fill`.
+
+        A search box that never comes back fails loudly out of the capture's own
+        wait, as it did before -- the retry re-acquires, it does not paper over.
+
+        Observed as `StaleElementReferenceException` out of
+        ``species_list.search()`` on TC-REQ-001-060 and TC-REQ-001-063 in the
+        2026-08-13 nightly (full-tablet and full-mobile).
+        """
+        self.retry_on_stale(
+            lambda: self.clear_and_fill(self.wait_for_element_clickable(locator, timeout), term)
+        )
 
     # ── Sidebar navigation ─────────────────────────────────────────────────
 

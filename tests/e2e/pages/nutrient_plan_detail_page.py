@@ -278,9 +278,13 @@ class NutrientPlanDetailPage(BasePage):
         read sampled right after cancelling can still see the dialog
         mid-fade-out and report it as open (#946 wave 9 -- the same
         guarded-dismissal gap waves 4-6 fixed on the other detail pages).
+
+        Instantaneous, but no longer *fragile*: `BasePage.is_any_displayed`
+        answers ``False`` for a reference that dies mid-read instead of raising
+        `StaleElementReferenceException` at the caller, which is the same
+        unmount window this docstring already describes.
         """
-        dialogs = self.driver.find_elements(*self.CONFIRM_DIALOG)
-        return any(d.is_displayed() for d in dialogs)
+        return self.is_any_displayed(self.CONFIRM_DIALOG)
 
     def wait_for_confirm_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
         """Wait for the delete ConfirmDialog to actually leave the DOM.
