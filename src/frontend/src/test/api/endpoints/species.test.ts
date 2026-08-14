@@ -89,13 +89,13 @@ describe('species endpoints — cultivars', () => {
     expect(client.get).toHaveBeenCalledWith('/species/sp1/cultivars');
   });
 
-  it('createCultivar posts payload with injected species_key', async () => {
+  // #1114: the parent species is the path segment. These two used to assert the
+  // opposite — that the client *injects* `species_key` into the body — which it
+  // only did to satisfy a required schema field the server then discarded.
+  it('createCultivar posts the payload unchanged, with the species in the path', async () => {
     client.post.mockResolvedValue({ data: { key: 'cv1' } });
     await species.createCultivar('sp1', { name: 'OG' } as never);
-    expect(client.post).toHaveBeenCalledWith('/species/sp1/cultivars', {
-      name: 'OG',
-      species_key: 'sp1',
-    });
+    expect(client.post).toHaveBeenCalledWith('/species/sp1/cultivars', { name: 'OG' });
   });
 
   it('getCultivar gets cultivar by composite key', async () => {
@@ -104,13 +104,10 @@ describe('species endpoints — cultivars', () => {
     expect(client.get).toHaveBeenCalledWith('/species/sp1/cultivars/cv1');
   });
 
-  it('updateCultivar puts payload with injected species_key', async () => {
+  it('updateCultivar puts the payload unchanged, with the species in the path', async () => {
     client.put.mockResolvedValue({ data: { key: 'cv1' } });
     await species.updateCultivar('sp1', 'cv1', { name: 'X' } as never);
-    expect(client.put).toHaveBeenCalledWith('/species/sp1/cultivars/cv1', {
-      name: 'X',
-      species_key: 'sp1',
-    });
+    expect(client.put).toHaveBeenCalledWith('/species/sp1/cultivars/cv1', { name: 'X' });
   });
 
   it('deleteCultivar deletes by composite key', async () => {
