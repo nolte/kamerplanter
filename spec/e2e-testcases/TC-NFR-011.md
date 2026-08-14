@@ -127,7 +127,7 @@ Admin-Panel.
 2. Admin sucht den Testnutzer in der Nutzerliste und klickt auf seinen Namen oder den Bearbeiten-Button
 3. Auf der Nutzer-Detailseite scrollt Admin nach unten bis zur "Danger Zone"
 4. Admin klickt auf den Button "Benutzer loeschen" (`data-testid="delete-user-btn"`)
-5. Ein roter Bestaetigungsbereich erscheint mit dem Text: "Sind Sie sicher, dass Sie den Benutzer 'Testnutzer' (test-delete@kamerplanter.local) und alle zugehoerigen Daten unwiderruflich loeschen moechten?"
+5. Ein roter Bestaetigungsbereich erscheint mit dem Text: "Möchtest du den Benutzer 'Testnutzer' (test-delete@kamerplanter.local) und alle zugehoerigen Daten unwiderruflich loeschen moechten?"
 6. Admin klickt auf den roten Button "Endgueltig loeschen" (`data-testid="confirm-delete-user-btn"`)
 
 **Erwartete Ergebnisse**:

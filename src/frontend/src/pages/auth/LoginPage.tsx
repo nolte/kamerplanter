@@ -82,7 +82,34 @@ export default function LoginPage() {
               sx={{ mb: 1 }}
               autoComplete="current-password"
             />
-            <Tooltip title={t('pages.auth.rememberMeTooltip')} placement="right">
+            {/* `top`, not `right`: measured on the 393px mobile profile, the
+                right-placed popper started at x=208 and is ~316px wide, so it
+                ended at 524 — 131px past the screen. It is portalled, so it
+                widened the *document* (`documentElement.scrollWidth` 524 while
+                `body` stayed 393) and Chrome answered by widening the layout
+                viewport, i.e. the whole page laid out for a screen no phone
+                has. A vertical placement has the full width to shift within.
+
+                `disableInteractive` pairs with that choice and is not cosmetic:
+                the checkbox sits directly below the password field (REQ-023), so
+                a popper above it covers that field — and MUI tooltips are
+                interactive by default (`pointerEvents: 'auto'` while open), which
+                would let the tooltip swallow a click meant for the input.
+
+                Measured on the same 393px profile, with the tooltip open: the
+                popper's box (276–333) *does* still overlap the password field's
+                (285–325), and a click at that field's centre nevertheless lands
+                on `INPUT.MuiInputBase-input`. The overlap is visual only, which
+                is what `disableInteractive` buys — so do not "fix" the overlap
+                by moving the popper somewhere it overflows again.
+
+                `top-start` anchors it to the label's left edge instead of
+                centring it over the form. (#1139) */}
+            <Tooltip
+              title={t('pages.auth.rememberMeTooltip')}
+              placement="top-start"
+              disableInteractive
+            >
               <FormControlLabel
                 control={
                   <Checkbox

@@ -1118,7 +1118,7 @@ Beide Endpunkte hängen am `auth_router` (nicht am `api_keys_router`) und sind d
 
 **`LoginPage`:**
 - E-Mail + Passwort-Formular
-- **Checkbox „Angemeldet bleiben"** (`remember_me`) — unterhalb des Passwort-Felds, vor dem Login-Button. Standard: nicht aktiviert. Tooltip: „Aktivieren Sie diese Option nur auf privaten Geräten. Ihre Sitzung bleibt bis zu 30 Tage aktiv."
+- **Checkbox „Angemeldet bleiben"** (`remember_me`) — unterhalb des Passwort-Felds, vor dem Login-Button. Standard: nicht aktiviert. Tooltip: „Aktiviere diese Option nur auf privaten Geräten. Deine Sitzung bleibt bis zu 30 Tage aktiv."
 - Divider "oder"
 - SSO-Buttons (dynamisch aus `/api/v1/auth/oauth/providers`):
   - Google: Offizielles Google-Sign-In-Branding

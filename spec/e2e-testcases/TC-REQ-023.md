@@ -59,7 +59,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 **Erwartete Ergebnisse**:
 - Der "Registrieren"-Button zeigt während der Verarbeitung einen Ladeindikator (CircularProgress)
-- Nach erfolgreicher Verarbeitung erscheint ein grünes Snackbar mit dem Text "Registrierung erfolgreich! Bitte prüfen Sie Ihre E-Mails."
+- Nach erfolgreicher Verarbeitung erscheint ein grünes Snackbar mit dem Text "Registrierung erfolgreich! Bitte prüfe deine E-Mails."
 - Nutzer wird automatisch zur Seite `/login` weitergeleitet
 - Auf `/login` ist kein Fehler-Alert sichtbar
 
@@ -163,7 +163,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 5. Nutzer klickt "Registrieren"
 
 **Erwartete Ergebnisse**:
-- Das System zeigt dieselbe Erfolgsmeldung wie bei einer echten Neuregistrierung: Snackbar "Registrierung erfolgreich! Bitte prüfen Sie Ihre E-Mails."
+- Das System zeigt dieselbe Erfolgsmeldung wie bei einer echten Neuregistrierung: Snackbar "Registrierung erfolgreich! Bitte prüfe deine E-Mails."
 - Nutzer wird zu `/login` weitergeleitet
 - Es erscheint KEIN Fehler-Alert mit "E-Mail bereits vorhanden" oder ähnlichem (Enumeration-Schutz)
 
@@ -213,7 +213,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 3. Die Seite verarbeitet automatisch den Token aus der URL
 
 **Erwartete Ergebnisse**:
-- Ein grüner Erfolgs-Alert erscheint: "E-Mail erfolgreich verifiziert! Sie können sich jetzt anmelden."
+- Ein grüner Erfolgs-Alert erscheint: "E-Mail erfolgreich verifiziert! Du kannst dich jetzt anmelden."
 - Ein Link "Zurück zur Anmeldung" ist sichtbar
 - Nutzer kann auf den Link klicken und wird zu `/login` weitergeleitet
 
@@ -298,7 +298,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 **Erwartete Ergebnisse**:
 - Die Checkbox "Angemeldet bleiben" ist unterhalb des Passwort-Felds und oberhalb des Anmelden-Buttons sichtbar
-- Der Tooltip lautet: "Aktivieren Sie diese Option nur auf privaten Geräten. Ihre Sitzung bleibt bis zu 30 Tage aktiv."
+- Der Tooltip lautet: "Aktiviere diese Option nur auf privaten Geräten. Deine Sitzung bleibt bis zu 30 Tage aktiv."
 - Login ist erfolgreich, Nutzer wird zu `/dashboard` weitergeleitet
 - Serverseitig wird ein persistentes Refresh Token mit 30-Tage-TTL erstellt (nicht direkt im Browser prüfbar, aber Session überlebt Browser-Neustart)
 
@@ -954,7 +954,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 **Erwartete Ergebnisse**:
 - Ein neuer Dialog erscheint und zeigt den vollständigen API-Key im Klartext (beginnt mit `kp_`)
-- Der Warnhinweis "Kopieren Sie diesen Schlüssel jetzt — er wird nicht erneut angezeigt!" ist deutlich sichtbar
+- Der Warnhinweis "Kopiere diesen Schlüssel jetzt — er wird nicht erneut angezeigt!" ist deutlich sichtbar
 - Ein "Kopieren"-Button (Zwischenablage-Icon) ist neben dem Key vorhanden
 - Nach dem Schließen dieses Dialogs ist der Klartext-Key nicht mehr abrufbar
 - In der API-Schlüssel-Liste erscheint ein neuer Eintrag "Home Assistant Growzelt" mit Key-Prefix (z.B. `kp_a3f8...`), Erstelldatum und "Nie verwendet"
@@ -1136,12 +1136,12 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 **Testschritte**:
 1. Nutzer klickt auf den Tab "Konto"
-2. Nutzer sieht den Warnhinweis "Das Löschen Ihres Kontos kann nicht rückgängig gemacht werden. Alle Daten werden unwiderruflich entfernt."
+2. Nutzer sieht den Warnhinweis "Das Löschen deines Kontos kann nicht rückgängig gemacht werden. Alle Daten werden unwiderruflich entfernt."
 3. Nutzer klickt auf "Konto löschen"
 4. Ein Bestätigungs-Dialog erscheint
 
 **Erwartete Ergebnisse**:
-- Der Bestätigungs-Dialog enthält eine deutliche Warnung: "Sind Sie sicher, dass Sie Ihr Konto löschen möchten? Dies kann nicht rückgängig gemacht werden."
+- Der Bestätigungs-Dialog enthält eine deutliche Warnung: "Möchtest du dein Konto wirklich löschen? Dies kann nicht rückgängig gemacht werden."
 - Dialog hat "Endgültig löschen" und "Abbrechen" Buttons (FK-05 impliziert Passwort-Bestätigung — je nach Implementierung auch Passwort-Eingabe im Dialog)
 
 **Tags**: [REQ-023, konto, loeschen, dialog, FK-05]
@@ -1507,7 +1507,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 **Erwartete Ergebnisse**:
 - Ein Ergebnis-Dialog erscheint mit dem API-Key im Klartext (`kp_...`)
-- Der Warnhinweis ist deutlich sichtbar: "Kopieren Sie diesen Schlüssel jetzt — er wird nicht erneut angezeigt!"
+- Der Warnhinweis ist deutlich sichtbar: "Kopiere diesen Schlüssel jetzt — er wird nicht erneut angezeigt!"
 - Ein "Kopieren"-Button ist vorhanden
 - Nach dem Schließen des Dialogs erscheint der neue Service Account in der Liste mit Status "Aktiv"
 - Die Rolle "Gärtner" (grower) ist als Chip in der Zeile sichtbar
@@ -1577,7 +1577,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 **Erwartete Ergebnisse**:
 - Ein neuer Dialog mit dem neuen API-Key im Klartext erscheint (einmalig)
-- Der Warnhinweis "Kopieren Sie diesen Schlüssel jetzt — er wird nicht erneut angezeigt!" ist sichtbar
+- Der Warnhinweis "Kopiere diesen Schlüssel jetzt — er wird nicht erneut angezeigt!" ist sichtbar
 - In der Key-Liste zeigt sich ein neuer Key-Eintrag, der alte ist verschwunden oder als "Widerrufen" markiert (AK-36)
 
 **Tags**: [REQ-023, service-accounts, key-rotation, AK-36]
