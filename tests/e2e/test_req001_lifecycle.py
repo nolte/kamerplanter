@@ -94,7 +94,13 @@ def _provision_species_with_phase(
     species_list.fill_scientific_name(scientific_name)
     species_list.set_field("genus", "Deletus")
     species_list.submit_form()
-    species_list.wait_for_loading_complete()
+    # Not `wait_for_loading_complete()`: that is satisfied by a skeleton which
+    # has not mounted yet, i.e. exactly the frame the list is about to re-render
+    # in -- and the `search()` below then captured its box out of a toolbar that
+    # was seconds from being swapped (TC-REQ-001-060/063, nightly 2026-08-13).
+    # The dialog being gone is a signal that can actually fail: it clears only
+    # once the create POST resolved.
+    species_list.wait_for_create_dialog_closed()
 
     species_list.click_row_by_name(scientific_name)
     species_list.wait_for_url_contains("/stammdaten/species/")

@@ -531,11 +531,12 @@ class TestFertilizerCreateDialog:
         )
 
         fertilizer_list.cancel_create_form()
-        # Wait for MUI dialog close animation
-        for _ in range(20):
-            if not fertilizer_list.is_create_dialog_open():
-                break
-            fertilizer_list.wait_for_loading_complete()
+        # Wait for the unmount itself, not for a reader to happen to sample the
+        # frame after it. The loop this replaces re-entered the exact window it
+        # was trying to leave: `is_create_dialog_open()` was called *during* the
+        # ~195 ms MUI exit transition, so every iteration re-created the moment
+        # in which the dialog node dies between the lookup and the read.
+        fertilizer_list.wait_for_create_dialog_closed()
         screenshot("TC-REQ-004-017_after-cancel", "Fertilizer list after cancelling create dialog")
 
         assert not fertilizer_list.is_create_dialog_open(), (

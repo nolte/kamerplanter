@@ -143,13 +143,11 @@ class FertilizerListPage(BasePage):
 
     def search(self, term: str) -> None:
         """Type a search term into the table search field."""
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, term)
+        self.fill_table_search(self.SEARCH_INPUT, term)
 
     def clear_search(self) -> None:
         """Clear the search field."""
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, "")
+        self.fill_table_search(self.SEARCH_INPUT, "")
 
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
@@ -193,9 +191,17 @@ class FertilizerListPage(BasePage):
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
-        """Return True if the create dialog is visible."""
-        dialogs = self.driver.find_elements(*self.CREATE_DIALOG)
-        return any(d.is_displayed() for d in dialogs)
+        """Return True if the create dialog is visible.
+
+        Routed through `BasePage.is_any_displayed` -- see the "Staleness as a
+        *verdict*" block in `base_page.py`. The private copy of that loop this
+        replaces raised `StaleElementReferenceException` out of every caller
+        that asked *while* the dialog was closing: MUI unmounts a `Dialog` only
+        after its ~195 ms exit transition, which is precisely the window
+        `cancel_create_form()` hands this reader. TC-004-006 failed on it in
+        every nightly run from 2026-08-10 on, across all four profiles.
+        """
+        return self.is_any_displayed(self.CREATE_DIALOG)
 
     def fill_product_name(self, name: str) -> None:
         """Fill the product name field."""

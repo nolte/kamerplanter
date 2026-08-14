@@ -134,8 +134,7 @@ class SubstrateListPage(BasePage):
         ``E2E-TestsubstratE2E-Testsubstrat`` and therefore zero matches, which
         looked exactly like the created row never appearing (#802).
         """
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, term)
+        self.fill_table_search(self.SEARCH_INPUT, term)
         # debounce: bounded, justified (table-search-input has a 300ms
         # debounce before it re-filters, so callers can rely on the result
         # being settled once this method returns)
@@ -143,8 +142,7 @@ class SubstrateListPage(BasePage):
 
     def clear_search(self) -> None:
         """Empty the search field, React state included (see ``search``)."""
-        search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        self.clear_and_fill(search_input, "")
+        self.fill_table_search(self.SEARCH_INPUT, "")
 
     def click_reset_filters(self) -> None:
         """Click the reset filters button."""
