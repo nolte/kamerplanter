@@ -192,6 +192,7 @@ version: "4.1"
 **Category**: Happy Path
 **Preconditions**:
 - Nutzer ist auf `/stammdaten/botanical-families`
+- Nutzer ist **Plattform-Admin** — `BotanicalFamily` ist globale Referenzdaten, Schreiben ist seit #1120 Kuratierung (REQ-001 §4). Im `light`-Modus gilt der einzige anonyme Operator per REQ-027 als Plattform-Admin; im `full`-Modus prüft TC-001-099 die Verweigerung für gewöhnliche Mitglieder.
 
 **Test Steps**:
 1. Nutzer klickt auf "Familie erstellen"
@@ -305,6 +306,7 @@ version: "4.1"
 **Category**: Happy Path
 **Preconditions**:
 - Nutzer ist auf der Detailseite einer bestehenden Botanischen Familie (z.B. "Solanaceae")
+- Nutzer ist **Plattform-Admin** (globale Referenzdaten, REQ-001 §4 / #1120); im `light`-Modus erfüllt der anonyme Operator das per REQ-027
 
 **Test Steps**:
 1. Nutzer ändert das Feld "Beschreibung" auf "Aktualisierte Beschreibung"
@@ -330,6 +332,7 @@ version: "4.1"
 **Preconditions**:
 - Nutzer ist auf der Detailseite einer Botanischen Familie ohne zugeordnete Arten
   (z.B. einer Testfamilie aus TC-001-006)
+- Nutzer ist **Plattform-Admin** (globale Referenzdaten, REQ-001 §4 / #1120); im `light`-Modus erfüllt der anonyme Operator das per REQ-027
 
 **Test Steps**:
 1. Nutzer klickt auf den roten "Löschen"-Button

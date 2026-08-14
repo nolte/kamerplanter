@@ -337,12 +337,25 @@ class TestBotanicalFamilyBackendValidation:
 
     @pytest.mark.core_crud
     def test_duplicate_family_name_rejected(
-        self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
+        self,
+        family_list: BotanicalFamilyListPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
     ) -> None:
         """TC-001-078: Duplicate family name shows backend validation error.
 
         Spec: TC-001-078 -- Duplikat-Schutz — Familie mit identischem Namen wird abgelehnt.
+
+        **Light mode only, since #1120.** The assertion is "the dialog stays
+        open", and in full mode the platform-admin gate now refuses the create
+        *before* the unique index can reject the duplicate — so the test would
+        keep passing while the duplicate protection it exists for went untested.
         """
+        if app_mode != "light":
+            pytest.skip(
+                "in full mode the #1120 role gate refuses the create before the unique "
+                "index sees the duplicate, so this case cannot observe its own subject"
+            )
         family_list.open()
         family_list.click_create()
         family_list.fill_name_only("Solanaceae")  # Exists in seed data
@@ -404,6 +417,12 @@ class TestGlobalCatalogueRoleGate:
         assert family_list.is_create_dialog_open(), (
             "TC-REQ-001-099 FAIL: the dialog must stay open — a closed dialog is how this "
             "app reports that the create was accepted"
+        )
+        # The spec asks for a visible reason, not just a non-event: a frontend
+        # that swallowed the 403 silently would leave the user staring at a
+        # dialog that does nothing, and would pass a dialog-only assertion.
+        assert family_list.has_error_snackbar(), (
+            "TC-REQ-001-099 FAIL: the refusal must be surfaced to the user, not swallowed"
         )
 
         # And nothing was written: the name carries a per-run uuid, so an empty
