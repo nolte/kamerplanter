@@ -17,11 +17,15 @@ from __future__ import annotations
 import pytest
 
 from app.migrations.perennial_binding import (
+    GEOPHYTE_FINE_SEQUENCE,
     PHOTOPERIODIC_ORNAMENTAL_SEQUENCE,
     resolve_phase_sequence_name,
 )
 from app.migrations.versions.v0027_finetype_cam_monocarp_photoperiodic_sequences import (
     _TARGET_SEQUENCE,
+)
+from app.migrations.versions.v0039_rebind_short_day_geophytes import (
+    _AFFECTED_SPECIES as _V0039_AFFECTED,
 )
 from app.migrations.yaml_loader import load_yaml
 
@@ -35,10 +39,21 @@ _PLANT_INFO_FILES = (
     "plant_info_supplement_1.yaml",
 )
 
-#: The cohort is the SSOT slice of ``v0027`` that targets the photoperiodic sequence —
-#: derived (not hard-coded) so the test tracks the migration if membership ever changes.
+#: Species ``v0027`` sent to ``photoperiodic_ornamental`` that ``v0039`` has since
+#: moved to ``geophyte_fine`` (#1149). Rule 1 fired on them before rule 4 could see
+#: ``bulb_geophyte``, so they were never really members of this cohort — a dahlia
+#: has no bracts to colour. Subtracted rather than removed from ``v0027``'s map: a
+#: shipped migration records what it did, and editing it would rewrite history
+#: instead of correcting it.
+_REBOUND_BY_V0039 = frozenset(_V0039_AFFECTED)
+
+#: The cohort is the SSOT slice of ``v0027`` that targets the photoperiodic sequence,
+#: minus what a later migration moved off it — derived (not hard-coded) so the test
+#: tracks both migrations if membership ever changes.
 _SHORT_DAY_ORNAMENTALS = tuple(
-    name for name, seq in _TARGET_SEQUENCE.items() if seq == PHOTOPERIODIC_ORNAMENTAL_SEQUENCE
+    name
+    for name, seq in _TARGET_SEQUENCE.items()
+    if seq == PHOTOPERIODIC_ORNAMENTAL_SEQUENCE and name not in _REBOUND_BY_V0039
 )
 
 #: CAM cohort members — the audit's "residual Seed↔Migration divergence": Rule 1 (short-day)
@@ -68,9 +83,44 @@ def seeded() -> tuple[dict[str, dict], dict[str, dict]]:
     return _load_seeded_attributes()
 
 
-def test_cohort_has_exactly_eleven_members() -> None:
-    """Guard the ``11`` in the issue against silent v0027 edits."""
-    assert len(_SHORT_DAY_ORNAMENTALS) == 11
+def test_cohort_has_exactly_nine_members() -> None:
+    """Guard the count against silent edits to either migration.
+
+    Was 11 (the number in #676). ``v0039`` moved the two dahlias to ``geophyte_fine``
+    (#1149), so the photoperiodic cohort is 9. Asserting the arithmetic as well
+    keeps a later reader from reading the drop as an accidental deletion.
+    """
+    assert len(_SHORT_DAY_ORNAMENTALS) == 9
+    assert len(_REBOUND_BY_V0039) == 2
+    assert len(_SHORT_DAY_ORNAMENTALS) + len(_REBOUND_BY_V0039) == 11
+
+
+@pytest.mark.parametrize("scientific_name", sorted(_REBOUND_BY_V0039))
+def test_a_rebound_geophyte_now_converges_on_geophyte_fine(
+    scientific_name: str, seeded: tuple[dict[str, dict], dict[str, dict]]
+) -> None:
+    """The other half of convergence: fresh install and ``v0039`` must agree too.
+
+    Without this the subtraction above would merely *exclude* the dahlias from the
+    proof, which is how a convergence test quietly stops covering the species it
+    was failing on.
+    """
+    species_attr, lifecycles = seeded
+    lifecycle = lifecycles.get(scientific_name) or {}
+    species = species_attr.get(scientific_name) or {}
+
+    resolved = resolve_phase_sequence_name(
+        scientific_name,
+        cycle_type=lifecycle.get("cycle_type"),
+        flowering_strategy=lifecycle.get("flowering_strategy"),
+        photosynthesis_type=species.get("photosynthesis_type"),
+        photoperiod_type=lifecycle.get("photoperiod_type"),
+        growth_habit=species.get("growth_habit"),
+    )
+
+    assert resolved == GEOPHYTE_FINE_SEQUENCE, (
+        f"{scientific_name} is what v0039 rebinds; a fresh install must reach the same target"
+    )
 
 
 @pytest.mark.parametrize("scientific_name", _SHORT_DAY_ORNAMENTALS)

@@ -35,6 +35,8 @@ half lives in ``app.domain.services.phase_sequence_binder``.
 
 from __future__ import annotations
 
+from app.domain.calculators.scientific_name import normalize_scientific_name
+
 #: The annual blanket sequence perennials are being moved off of.
 INDOOR_DEFAULT_SEQUENCE = "indoor_default"
 #: Generic repeating perennial cycle for evergreen/foliage & other polycarpic perennials.
@@ -53,14 +55,25 @@ GEOPHYTE_FINE_SEQUENCE = "geophyte_fine"
 
 #: Species that are runner/division propagated and use the E4 establishment/sprouting
 #: split. Strawberry is the flagship (#541); kept explicit rather than attribute-guessed.
-_RUNNER_SPECIES = frozenset({"Fragaria x ananassa"})
+#:
+#: Stored **normalized** and compared normalized (#1148). The live catalogue holds
+#: ``Fragaria × ananassa`` with U+00D7, every seed source writes ASCII ``x``, and a
+#: raw-string membership test therefore silently dropped the flagship species out of
+#: its own cohort — landing it on ``evergreen_foliage_perennial``, the one sequence
+#: without the establishment→sprouting restart a strawberry needs. Identity by raw
+#: string over a field whose accepted spelling legitimately varies is the defect;
+#: ``normalize_scientific_name`` is the project's existing answer to it and is
+#: already what the dedup key is built from.
+_RUNNER_SPECIES = frozenset({normalize_scientific_name("Fragaria x ananassa")})
 
 #: Palm genera that get the ``palm_evergreen`` D12 cycle. ``growth_habit`` is ``tree``
 #: for these (indistinguishable from Ficus/Dracaena), so palms are named by genus.
-_PALM_GENERA = frozenset({"Chamaedorea", "Dypsis", "Howea", "Livistona"})
+#: Normalized like :data:`_RUNNER_SPECIES`, so casing or a nothogenus prefix cannot
+#: drop a genus out of its cohort (#1148).
+_PALM_GENERA = frozenset(normalize_scientific_name(g) for g in ("Chamaedorea", "Dypsis", "Howea", "Livistona"))
 
 #: Genus whose winter hull-change adds a second (summer) rest → ``cam_double_rest``.
-_DOUBLE_REST_GENERA = frozenset({"Lithops"})
+_DOUBLE_REST_GENERA = frozenset({normalize_scientific_name("Lithops")})
 
 _PERENNIAL = "perennial"
 _MONOCARPIC = "monocarpic"
@@ -101,14 +114,23 @@ def resolve_perennial_sequence_name(
         return None
     if flowering_strategy == _MONOCARPIC:
         return None
-    if scientific_name in _RUNNER_SPECIES:
+    # Normalized like its sibling below (#1148). This widens the v0022 contract
+    # strictly — every name that matched before still matches, and the U+00D7
+    # spelling the live catalogue actually holds now matches too.
+    if normalize_scientific_name(scientific_name) in _RUNNER_SPECIES:
         return RUNNER_PERENNIAL_SEQUENCE
     return EVERGREEN_PERENNIAL_SEQUENCE
 
 
 def _genus_of(scientific_name: str) -> str:
-    """Return the genus (first whitespace-delimited token) of a scientific name."""
-    return scientific_name.split(" ", 1)[0] if scientific_name else ""
+    """Return the **normalized** genus (first whitespace-delimited token) of a name.
+
+    Normalized so the genus tests below compare like against like (#1148): the
+    cohort sets are normalized at definition, and a caller's spelling — casing, a
+    U+00D7 hybrid marker, stray whitespace — must not decide membership.
+    """
+    normalized = normalize_scientific_name(scientific_name)
+    return normalized.split(" ", 1)[0] if normalized else ""
 
 
 def resolve_phase_sequence_name(
@@ -184,11 +206,25 @@ def resolve_phase_sequence_name(
     """
     genus = _genus_of(scientific_name)
 
-    if scientific_name in _RUNNER_SPECIES:
+    if normalize_scientific_name(scientific_name) in _RUNNER_SPECIES:
         return RUNNER_PERENNIAL_SEQUENCE
 
     # 1. Short-day photoperiodic *perennial* ornamentals (poinsettia, Kalanchoe, …).
-    if photoperiod_type == _SHORT_DAY and cycle_type == _PERENNIAL:
+    #
+    # Geophytes are excluded (#1149). A short-day *bulb or tuber* is not a
+    # photoperiodic ornamental in the sense this sequence models: the cycle it
+    # assigns runs active_growth → short_day_induction → **bract_coloring** →
+    # rest_phase, and a dahlia has no bracts. What its year actually turns on —
+    # tuber_formation and dry_storage — does not exist in that sequence, so nothing
+    # in the lifecycle ever prompts lifting the tubers before frost on a species
+    # marked frost-sensitive.
+    #
+    # Written as a narrower rule 1 rather than by moving rule 4 above it: the
+    # documented precedence (photoperiod before growth_habit, REQ-003) is right for
+    # every other short-day perennial, and inverting it to fix one cohort would
+    # change the answer for cohorts nobody measured. A geophyte's dormancy is
+    # organ-driven, so it was never rule 1's subject in the first place.
+    if photoperiod_type == _SHORT_DAY and cycle_type == _PERENNIAL and growth_habit != _BULB_GEOPHYTE:
         return PHOTOPERIODIC_ORNAMENTAL_SEQUENCE
 
     # 2. Monocarpic perennial rosette epiphytes (bromeliads) → clonal continuation.
