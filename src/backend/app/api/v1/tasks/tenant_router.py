@@ -40,7 +40,7 @@ from app.api.v1.tasks.schemas import (
     WorkflowTemplateUpdate,
 )
 from app.common.auth import get_current_tenant, get_current_user, require_permission
-from app.common.dependencies import get_task_service
+from app.common.dependencies import get_task_entity_guard, get_task_service
 from app.common.enums import TaskOrigin
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
@@ -50,6 +50,7 @@ from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
+from app.domain.services.task_entity_guard import TaskEntityGuard
 from app.domain.services.task_service import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"], responses=NOT_FOUND_RESPONSE)
@@ -406,6 +407,7 @@ def create_task(
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     user: User = Depends(get_current_user),
     service: TaskService = Depends(get_task_service),
+    entity_guard: TaskEntityGuard = Depends(get_task_entity_guard),
 ):
     """Create a task for the tenant, or upsert an idempotent FreeStyle re-post.
 
@@ -425,6 +427,13 @@ def create_task(
       returns the existing task with **200** instead of creating a duplicate
       (201).
     """
+    # SEC-I01 (#1102): the binding is caller-supplied and was never checked, so a
+    # task could be bound — and a `has_task` edge written — to a *foreign*
+    # tenant's plant, run, location or tank. Verified before the task is built, so
+    # a refusal writes neither the task nor the edge. Foreign → 404, never 403:
+    # a 403 would confirm the key names a real entity somewhere.
+    entity_guard.verify(body.entity_type, body.entity_key, tenant_key=ctx.tenant_key)
+
     origin, source, source_run_ref, external_ref = _resolve_task_provenance(body, user)
 
     data = body.model_dump(exclude={"origin", "source", "source_run_ref", "external_ref"})
