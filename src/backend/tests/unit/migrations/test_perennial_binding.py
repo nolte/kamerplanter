@@ -63,8 +63,18 @@ _RUNNER = RUNNER_PERENNIAL_SEQUENCE
         ("Euphorbia pulcherrima", "perennial", "polycarpic", None, "short_day", "shrub", _PHOTO),
         ("Kalanchoe blossfeldiana", "perennial", "polycarpic", "cam", "short_day", "succulent", _PHOTO),
         ("Kalanchoe daigremontiana", "perennial", "monocarpic", "cam", "short_day", "succulent", _PHOTO),
-        # short-day beats the bulb_geophyte habit (Dahlia).
-        ("Dahlia pinnata", "perennial", "polycarpic", None, "short_day", "bulb_geophyte", _PHOTO),
+        # A short-day GEOPHYTE is not a photoperiodic ornamental (#1149). This case
+        # previously asserted `_PHOTO` — "short-day beats the bulb_geophyte habit" —
+        # and that was the defect, not the contract: `photoperiodic_ornamental` runs
+        # active_growth → short_day_induction → bract_coloring → rest_phase, and a
+        # dahlia has no bracts. The two phases its year turns on, tuber_formation and
+        # dry_storage, exist only in `geophyte_fine`, so on the old binding nothing
+        # ever prompted lifting the tubers of a frost-sensitive species.
+        ("Dahlia pinnata", "perennial", "polycarpic", None, "short_day", "bulb_geophyte", _GEO),
+        # The rest of D11 is untouched: a short-day perennial that is *not* a geophyte
+        # still takes the ornamental cycle. Pinned next to the change so a later reader
+        # can see the rule was narrowed, not inverted.
+        ("Schlumbergera truncata", "perennial", "polycarpic", None, "short_day", "epiphyte", _PHOTO),
         # Annual short-day CROP (cannabis) stays on the blanket — no ornamental cycle.
         ("Cannabis sativa", "annual", None, None, "short_day", "herb", None),
         # -- D12: growth-habit fine typing --
