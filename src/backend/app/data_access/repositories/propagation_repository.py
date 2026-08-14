@@ -28,13 +28,37 @@ from app.domain.models.propagation import (
 )
 
 
+class _PropagationEventRepository(BaseArangoRepository[PropagationEvent]):
+    """The events collection, as a class rather than a configured instance.
+
+    The sibling collections in :class:`PropagationRepository` are plain
+    ``BaseArangoRepository`` instances with ``is_tenant_scoped`` set afterwards.
+    Events need more than a public flag: :attr:`_owned_reference_fields` and
+    :attr:`_verify_references_on_update` are private class variables, and setting
+    those from the outside would put the security-relevant part of this
+    repository's contract in a caller's constructor, where the next reader of
+    ``base_repository`` would not find it.
+
+    SEC-006 (#1112): ``cultivar_key`` arrives from the request body and was
+    written unverified, so an event could reference a foreign tenant's cultivar.
+    ``PropagationEvent`` carries its own ``tenant_key``, so the declared guard is
+    live — unlike ``PlantingRunEntry``, which has none and would get an inert one.
+    """
+
+    is_tenant_scoped = True
+    _model_cls = PropagationEvent
+    _owned_reference_fields = {"cultivar_key": col.CULTIVARS}
+    #: The key is reachable from the ``PUT`` body, so the update half is opted in
+    #: (#1090 C-9); create-only verification would leave the edit path open.
+    _verify_references_on_update = True
+
+
 class PropagationRepository:
     """Multi-collection repository for the REQ-017 propagation domain."""
 
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
-        self._events = BaseArangoRepository(db, col.PROPAGATION_EVENTS, PropagationEvent)
-        self._events.is_tenant_scoped = True
+        self._events = _PropagationEventRepository(db, col.PROPAGATION_EVENTS, PropagationEvent)
         self._batches = BaseArangoRepository(db, col.PROPAGATION_BATCHES, PropagationBatch)
         self._batches.is_tenant_scoped = True
         self._protocols = BaseArangoRepository(db, col.ROOTING_PROTOCOLS, RootingProtocol)

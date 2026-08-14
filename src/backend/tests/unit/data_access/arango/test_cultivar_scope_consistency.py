@@ -182,6 +182,17 @@ _MODULES_TOUCHING_CULTIVARS: dict[str, str] = {
         "``cultivar_key`` to render its name. System context by analysis decision — "
         "the anchor row carries the tenant, the cultivar is only resolved."
     ),
+    "data_access/arango/succession_plan_repository.py": (
+        "Write-path reference guard (SEC-006, #1112): declares ``cultivar_key`` as an "
+        "owned reference so a plan cannot point at a foreign tenant's cultivar. "
+        "``SuccessionPlan`` carries its own ``tenant_key``, so the guard is live "
+        "rather than the inert declaration ``PlantingRunEntry`` would get. It "
+        "verifies one supplied key; it does not list."
+    ),
+    "data_access/repositories/propagation_repository.py": (
+        "Same write-path reference guard on ``PropagationEvent.cultivar_key`` "
+        "(SEC-006, #1112), for the same reason and with the same single-key shape."
+    ),
     "domain/engines/calendar_aggregation_engine.py": (
         "Same ``DOCUMENT()`` dereference of an already-anchored ``cultivar_key``, system context by the same decision."
     ),
