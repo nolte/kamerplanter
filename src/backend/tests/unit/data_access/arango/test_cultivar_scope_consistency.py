@@ -43,6 +43,23 @@ caught by the same inventory: a new cultivar-touching method or module is a
 failure regardless of whether it scopes, because "scoped or deliberately
 system-context" is a decision that must be recorded, not inferred.
 
+Two detection signals, and the second was missing (#1111)
+---------------------------------------------------------
+Everything described so far detects collection contact by **name**. That is
+blind to a module that reads cultivar documents through the repository or
+service *API*: ``print_service.get_cultivar_by_key(...)`` names no collection and
+sailed past every assertion here while being a genuine new route to the data.
+Six such readers already existed, recorded nowhere — and this module's own
+docstring claimed "every route to a cultivar document must be recorded", which
+was a larger promise than the scan behind it. The guard had the defect it exists
+to catch.
+
+:class:`TestNoUndeclaredModuleReadsCultivarsThroughTheApi` adds the missing
+signal: an AST scan for calls to the reader API, against a second inventory whose
+entries must classify themselves as *scoped*, *anchored dereference*, or *known
+gap*. The claim above is now backed by both scans together; neither alone
+supports it.
+
 Delimitation: the *behaviour* of the one narrowing path (both #324 directions,
 the anonymous ``""`` caller, the bound-not-interpolated tenant value) is pinned in
 ``test_species_repository_cultivar_tenant_scope.py`` (AQL text) and
@@ -389,8 +406,9 @@ class TestNoOtherModuleReachesTheCultivarCollection:
     def test_only_the_declared_modules_name_the_cultivar_collection(self, reaching):
         assert set(reaching) == set(_MODULES_TOUCHING_CULTIVARS), (
             f"Modules naming the cultivars collection changed: detected {sorted(reaching)}, "
-            f"declared {sorted(_MODULES_TOUCHING_CULTIVARS)}. Every route to a cultivar document "
-            "must be recorded as scoped or deliberately system-context — an unrecorded one is the "
+            f"declared {sorted(_MODULES_TOUCHING_CULTIVARS)}. Every route that *names* the collection "
+            "must be recorded as scoped or deliberately system-context (readers that name no "
+            "collection are the sibling inventory's job, #1111) — an unrecorded one is the "
             "second read path this guard exists to catch (#816 / Q6). Rationales for the current "
             "entries: " + "; ".join(f"{path}: {why}" for path, why in _MODULES_TOUCHING_CULTIVARS.items())
         )
@@ -489,3 +507,173 @@ class TestTheScopeScannerItselfDetectsDrift:
     def test_a_class_without_cultivars_yields_an_empty_surface_not_an_error(self):
         # The honest empty case, kept distinct from "could not look" above.
         assert cultivar_surface("class ArangoSpeciesRepository:\n    def get_all(self):\n        return []\n") == {}
+
+
+# ── second detection signal: readers that never name the collection (#1111) ──
+#
+# Everything above detects collection contact by *name* — ``self._cultivars``,
+# ``col.CULTIVARS``, the raw string in AQL. A module reading cultivar documents
+# through the repository or service **API** is structurally invisible to it:
+# `print_service.get_cultivar_by_key(...)` names no collection and would have
+# passed every assertion above while opening a brand-new route to the data.
+#
+# The module docstring above claimed "every route to a cultivar document must be
+# recorded". Before this section that claim was larger than the scan behind it —
+# the failure class this whole package exists to rule out, and #1111 caught it in
+# the guard itself rather than in the code it guards.
+#
+# So: a second inventory, over the *callers* of the reading API, each entry
+# classified. A new tenant-facing endpoint calling `get_cultivar_by_key` without
+# a tenant is now a failure here even though it names no collection — which is
+# exactly the shape that would re-open #324.
+
+#: Reader methods on the repository / service cultivar API. A call to any of these
+#: is a route to cultivar documents regardless of whether a collection is named.
+_CULTIVAR_READER_METHODS: frozenset[str] = frozenset(
+    {
+        "get_cultivar",
+        "get_cultivar_by_key",
+        "get_cultivar_or_raise",
+        "get_cultivars",
+        "list_cultivars",
+    }
+)
+
+#: ``{relative module path: why this caller is allowed to read cultivars}``.
+#:
+#: Three classifications appear, and the distinction is the point of the
+#: inventory — an entry that cannot say which one it is has not been reviewed:
+#:
+#: * **scoped** — passes a real ``tenant_key`` through to the narrowing path;
+#: * **anchored dereference** — resolves a key that a row *already* filtered by
+#:   tenant handed it, so the anchor carries the tenancy and the cultivar is only
+#:   being named;
+#: * **known gap** — neither, and tracked.
+_DECLARED_CULTIVAR_READERS: dict[str, str] = {
+    "api/v1/cultivars/router.py": (
+        "scoped — the tenant-facing catalogue; both reads pass the resolved ``tenant_key`` into the narrowing path."
+    ),
+    "domain/services/species_service.py": "Owns the reader API these entries call; the surface itself is pinned above.",
+    "api/v1/planting_runs/tenant_router.py": (
+        "anchored dereference — ``_cultivar_summary`` resolves the ``cultivar_key`` "
+        "of a run entry the tenant-scoped run query already returned, to render its name."
+    ),
+    "domain/services/care_reminder_service.py": (
+        "anchored dereference — resolves the ``cultivar_key`` of an already tenant-scoped plant."
+    ),
+    "domain/services/plant_instance_service.py": (
+        "anchored dereference — same shape: the plant row carries the tenant, the cultivar is only resolved."
+    ),
+    "domain/services/print_service.py": (
+        "anchored dereference — renders the cultivar name of a plant already selected under the caller's tenant."
+    ),
+    "domain/services/watering_service.py": (
+        "anchored dereference — resolves ``plant.cultivar_key`` while building a watering plan for that plant."
+    ),
+    "mcp_server/tools/diary.py": (
+        "anchored dereference — ``_cultivar_name`` names the cultivar of a diary "
+        "entry's plant, which the tool resolved under the acting tenant."
+    ),
+    "mcp_server/tools/species.py": (
+        '**known gap (#1121)** — passes ``tenant_key=""`` explicitly, so the MCP '
+        "catalogue tools read every tenant's cultivars. Recorded rather than "
+        "silently tolerated: this inventory is what makes it visible, and #1121 "
+        "closes it by making the MCP catalogue tools honour the active tenant."
+    ),
+}
+
+
+def _modules_calling_the_cultivar_readers(
+    modules: list[Path] | None = None, root: Path | None = None
+) -> dict[str, set[str]]:
+    """``{relative module path: reader methods called}`` across ``app/``.
+
+    AST rather than a text search on purpose: ``get_cultivar_by_key`` appears in
+    docstrings, comments and — above — in this very inventory's prose. Only an
+    actual call node counts, so a mention can never register a caller and, more
+    importantly, removing a call can never leave a phantom entry behind.
+
+    ``modules``/``root`` exist so the drift tests below can feed the *real*
+    function synthetic source instead of monkeypatching module globals. Patching
+    would have tested a rewired copy of the scanner rather than the scanner.
+    """
+    found: dict[str, set[str]] = {}
+    for path in modules if modules is not None else _app_modules():
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:  # pragma: no cover - a syntax error fails the build anyway
+            raise AssertionError(f"{path} does not parse — the reader scan cannot run.") from exc
+        called = {
+            name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and (name := node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None))
+            in _CULTIVAR_READER_METHODS
+        }
+        if called:
+            found[path.relative_to(root if root is not None else _APP_ROOT).as_posix()] = called
+    return found
+
+
+class TestNoUndeclaredModuleReadsCultivarsThroughTheApi:
+    """The signal the name-level scan structurally cannot produce (#1111)."""
+
+    @pytest.fixture
+    def callers(self) -> dict[str, set[str]]:
+        return _modules_calling_the_cultivar_readers()
+
+    def test_the_scan_finds_something(self, callers):
+        """T3: an empty scan would make the comparison below fail for the wrong reason.
+
+        Kept separate from the inventory assertion so a broken AST walk reports
+        itself as "the detector stopped working", not as "the inventory drifted".
+        """
+        assert callers, "the reader scan found no callers at all — the detector is broken, not the code"
+
+    def test_only_declared_modules_call_the_cultivar_readers(self, callers):
+        assert set(callers) == set(_DECLARED_CULTIVAR_READERS), (
+            f"Callers of the cultivar reader API changed: detected {sorted(callers)}, "
+            f"declared {sorted(_DECLARED_CULTIVAR_READERS)}. A module reading cultivars through "
+            "the service/repository API names no collection and is invisible to the scan above "
+            "(#1111) — so it must be recorded here as scoped, as an anchored dereference, or as a "
+            "tracked gap. A new *tenant-facing* reader that passes no tenant is the #324 shape. "
+            "Rationales: " + "; ".join(f"{path}: {why}" for path, why in _DECLARED_CULTIVAR_READERS.items())
+        )
+
+
+class TestTheReaderScannerItselfDetectsDrift:
+    """Non-vacuity of the reader scan: it must react to the thing it claims to catch."""
+
+    def test_a_call_is_detected(self, tmp_path: Path):
+        module = tmp_path / "new_reader.py"
+        module.write_text("def f(repo):\n    return repo.get_cultivar_by_key('c1')\n", encoding="utf-8")
+
+        found = _modules_calling_the_cultivar_readers([module], tmp_path)
+
+        assert found == {"new_reader.py": {"get_cultivar_by_key"}}
+
+    def test_a_mention_is_not_a_call(self, tmp_path: Path):
+        """Prose must never register a caller — the mirror of the docstring case above.
+
+        This inventory's own rationales name the reader methods in text. A text
+        search would have matched them and declared this test file a caller of
+        itself.
+        """
+        module = tmp_path / "just_prose.py"
+        module.write_text(
+            '"""Mentions get_cultivar_by_key and list_cultivars."""\nX = "get_cultivars"\n', encoding="utf-8"
+        )
+
+        assert _modules_calling_the_cultivar_readers([module], tmp_path) == {}
+
+    def test_a_reader_that_names_no_collection_is_invisible_to_the_older_scan(self):
+        """Why this section exists at all, stated as an executable fact.
+
+        Four of the declared callers never name the cultivar collection, so the
+        name-level inventory above does not contain them. If that ever stopped
+        being true the two scans would have collapsed into one, and this section's
+        premise would be worth re-reading.
+        """
+        api_only = set(_DECLARED_CULTIVAR_READERS) - set(_MODULES_TOUCHING_CULTIVARS)
+
+        assert api_only, "no caller reaches cultivars by API alone — has the reader surface moved?"
