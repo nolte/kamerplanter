@@ -69,7 +69,22 @@ export default function TenantSwitcher() {
         sx={{ textTransform: 'none', mr: 1 }}
         size="small"
       >
-        <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
+        {/* `data-tenant-selected` distinguishes the two things this label can
+            say. Without it "the switcher has rendered a tenant name" and "the
+            switcher is asking you to pick one" are the same observation from
+            the outside — a reader waiting for non-empty text accepts the
+            placeholder, and an assertion on the active tenant passes on
+            "Garten wählen". The placeholder branch is reachable:
+            `clearActiveTenant` (store.ts, stale-slug recovery) nulls the active
+            tenant while deliberately keeping `myTenants`, so the button stays
+            in the toolbar with nothing selected. */}
+        <Typography
+          variant="body2"
+          noWrap
+          sx={{ maxWidth: 150 }}
+          data-testid="tenant-switcher-active-name"
+          data-tenant-selected={activeTenant ? 'true' : 'false'}
+        >
           {activeTenant?.name ?? t('pages.tenants.selectTenant')}
         </Typography>
       </Button>
