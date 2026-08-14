@@ -205,7 +205,7 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 1. Nutzer klickt auf den ToggleButton "Anfänger" (`data-testid="experience-toggle-beginner"`)
 
 **Erwartete Ergebnisse**:
-- Ein browser-nativer Bestätigungs-Dialog (window.confirm) erscheint mit dem Text: "Beim Herunterstufen werden einige Felder und Navigationseinträge ausgeblendet. Ihre Daten bleiben erhalten. Fortfahren?"
+- Ein browser-nativer Bestätigungs-Dialog (window.confirm) erscheint mit dem Text: "Beim Herunterstufen werden einige Felder und Navigationseinträge ausgeblendet. Deine Daten bleiben erhalten. Fortfahren?"
 - Die Erfahrungsstufe ändert sich noch **nicht** (Dialog wartet auf Bestätigung)
 
 **Nachbedingungen**:
