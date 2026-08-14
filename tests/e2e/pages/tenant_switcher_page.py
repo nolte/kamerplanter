@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -78,12 +81,57 @@ class TenantSwitcherPage(BasePage):
 
     # -- Queries -----------------------------------------------------------
 
+    #: Budget for :meth:`wait_for_active_tenant_label`. A constant rather than a
+    #: parameter because no caller has a reason to shorten it -- it is only ever
+    #: spent when the switcher does not render at all, which fails the caller's
+    #: own assertion anyway.
+    ACTIVE_LABEL_TIMEOUT = DEFAULT_TIMEOUT
+
+    def _active_tenant_text(self, driver: WebDriver) -> str:
+        """The trigger's label right now, or ``""`` if it cannot be read.
+
+        A reference that dies mid-read answers ``""`` rather than raising:
+        `MainLayout` re-renders the header on every tenant change, and "the node
+        I was holding is gone" is not something a caller can act on -- it is the
+        same staleness *verdict* `BasePage.is_any_displayed` records for dialogs.
+        """
+        for element in driver.find_elements(*self.TRIGGER_BUTTON_ALT):
+            try:
+                if element.is_displayed():
+                    return element.text.strip()
+            except StaleElementReferenceException:
+                continue
+        return ""
+
+    def wait_for_active_tenant_label(self) -> None:
+        """Wait until the switcher has rendered a *named* active tenant.
+
+        Keyed on the label's **text**, not on the button's presence, because
+        those are two different "not yet" states and both answer ``""``:
+        `TenantSwitcher` mounts the trigger before its tenant query resolves, so
+        a wait on `TRIGGER_BUTTON_ALT` alone is satisfied by a button that has
+        nothing in it yet.
+
+        An anchor, not an assertion -- it suppresses its own timeout so the
+        reader still answers. That is safe here in a way it would not be for a
+        generic reader: every call site wants a *name* (``assert name``, or a
+        comparison against a tenant it switched to), so ``""`` is never a
+        legitimate observation, only an un-rendered one.
+
+        TC-024-010 read the unanchored value right after login, compared it
+        across a reload, and reported "expected tenant '' to persist, got 'Mein
+        Garten'" -- the application working correctly, called a defect
+        (2026-08-14 nightly, `full` profile).
+        """
+        with suppress(TimeoutException):
+            self.poll(self.ACTIVE_LABEL_TIMEOUT).until(
+                lambda driver: bool(self._active_tenant_text(driver))
+            )
+
     def get_active_tenant_name(self) -> str:
         """Return the name displayed on the trigger button (active tenant)."""
-        elements = self.driver.find_elements(*self.TRIGGER_BUTTON_ALT)
-        if elements and elements[0].is_displayed():
-            return elements[0].text
-        return ""
+        self.wait_for_active_tenant_label()
+        return self._active_tenant_text(self.driver)
 
     def get_tenant_names(self) -> list[str]:
         """Return the names of all tenants in the open dropdown.
