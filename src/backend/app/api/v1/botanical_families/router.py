@@ -7,11 +7,12 @@ from app.api.v1.botanical_families.schemas import FamilyCreate, FamilyResponse
 from app.api.v1.species.schemas import SpeciesResponse
 from app.common.auth import get_active_tenant_key, get_current_user, get_is_platform_admin
 from app.common.dependencies import get_family_repo
-from app.common.exceptions import ForbiddenError, NotFoundError
+from app.common.exceptions import NotFoundError
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.models.botanical_family import BotanicalFamily
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 
 router = APIRouter(
     prefix="/botanical-families",
@@ -106,9 +107,14 @@ def _require_platform_admin(is_platform_admin: bool) -> None:
     Stated as a plain call rather than a route dependency because the routes are
     repository-direct: there is no service between them to carry the decision
     the way `SpeciesService` carries it for the hybrid catalogue.
+
+    The refusal itself is no longer spelled out here: it moved to
+    :func:`~app.domain.services.catalogue_authorization.require_platform_admin_for_global_catalogue`
+    once #1110 found a *third* surface writing these same rows — the CSV import,
+    which reached the repository without passing any of the gates this router
+    grew. Three copies of one rule is how the permissive copy survives.
     """
-    if not is_platform_admin:
-        raise ForbiddenError("Only a platform admin may modify the global botanical family catalogue.")
+    require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity="botanical family")
 
 
 @router.post("", response_model=FamilyResponse, status_code=201)

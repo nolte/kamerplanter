@@ -9,6 +9,7 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
 
 #: Identity / provenance fields the synonym-inheritance (#975) must NEVER copy or
@@ -104,8 +105,7 @@ def _authorize_tenant_owned_write(
     if existing.tenant_key not in (tenant_key, ""):
         raise NotFoundError(entity, key)
     if existing.tenant_key == "":
-        if not is_platform_admin:
-            raise ForbiddenError(f"Only a platform admin may modify the global {entity.lower()} catalogue.")
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=entity)
         return
     if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
         raise ForbiddenError(f"Your role may not modify {plural_noun} in this tenant.")

@@ -62,24 +62,30 @@ def _family(key: str) -> MagicMock:
     return fam
 
 
-# ── F-3/#808 acceptance-3: import is a global write path (tenant_key == "") ──
+# ── The *system-context* import is global (F-3/#808, re-scoped by #1110) ─────
+#
+# These two read as "the import is a global write path" before #1110, and that is
+# how they were written. They are not that any more: an import carrying a tenant
+# stamps it (see ``test_import_tenant_scoping.py``), and it was precisely the
+# absence of that stamp which let any authenticated caller write the shared
+# catalogue. What survives — and what these now pin — is the narrower claim that
+# a call with *no* tenant argument is the seeder/migration path and stays global.
 
 
-def test_import_create_species_is_global_tenant_key_empty():
+def test_import_create_species_without_a_tenant_stays_global():
     svc, species_repo, _family_repo = _service()
+    # No ``tenant_key`` argument: the system context (seeders, migrations).
     create_fn = svc._get_create_fn(EntityType.SPECIES)
 
     create_fn(_FULL_SPECIES_DATA)
 
     species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
-    # The import path never binds a species to a tenant — it inherits the model
-    # default "" (global). It must not smuggle in an owner.
     assert species.tenant_key == ""
 
 
-def test_import_update_fallback_create_species_is_global():
+def test_import_update_fallback_create_without_a_tenant_stays_global():
     # The "update" strategy's fallback-create (duplicate vanished at apply time)
-    # is a global write path too — it must not stamp a tenant.
+    # follows the same rule as the create path — global only without a tenant.
     svc, species_repo, _family_repo = _service()
     species_repo.get_by_scientific_name.return_value = None
     update_fn = svc._get_update_fn(EntityType.SPECIES)
