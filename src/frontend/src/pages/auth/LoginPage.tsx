@@ -82,7 +82,15 @@ export default function LoginPage() {
               sx={{ mb: 1 }}
               autoComplete="current-password"
             />
-            <Tooltip title={t('pages.auth.rememberMeTooltip')} placement="right">
+            {/* `top`, not `right`: measured on the 393px mobile profile, the
+                right-placed popper started at x=208 and is ~316px wide, so it
+                ended at 524 — 131px past the screen. It is portalled, so it
+                widened the *document* (`documentElement.scrollWidth` 524 while
+                `body` stayed 393) and Chrome answered by widening the layout
+                viewport, i.e. the whole page laid out for a screen no phone
+                has. A vertical placement has the full width to shift within.
+                (#1139) */}
+            <Tooltip title={t('pages.auth.rememberMeTooltip')} placement="top">
               <FormControlLabel
                 control={
                   <Checkbox
