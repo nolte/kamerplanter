@@ -202,7 +202,12 @@ class AssignNutrientPlan(WriteToolBase):
 
     async def execute(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         plant, plan, current = self._resolve(ctx, args)
-        ctx.nutrient_plan_service.assign_to_plant(plant.key, plan.key, f"mcp:{ctx.principal.account_key}")
+        ctx.nutrient_plan_service.assign_to_plant(
+            plant.key,
+            plan.key,
+            f"mcp:{ctx.principal.account_key}",
+            tenant_key=ctx.tenant_key,
+        )
 
         name = plant.plant_name or plant.instance_id
         replaced = getattr(current, "key", None) if current is not None else None
@@ -234,8 +239,16 @@ class AssignNutrientPlan(WriteToolBase):
         ``get_plan`` spans the hybrid catalogue — the tenant's own plans plus the
         global templates — and raises the project's cross-tenant 404 for anything
         else, so a foreign tenant's private plan cannot be bound to this tenant's
-        plant. ``assign_to_plant`` itself takes no tenant, which is exactly why
-        both keys are resolved here first (SEC-001, the fetch-then-use guard).
+        plant. Resolving both keys here first is the SEC-001 fetch-then-use guard,
+        and it stays load-bearing even though ``assign_to_plant`` now takes a
+        tenant of its own (#950): that argument scopes the *write*, while these
+        lookups are what refuse a foreign key before the write is ever reached.
+
+        This paragraph used to end "``assign_to_plant`` itself takes no tenant".
+        That was true until #950 made the argument required and keyword-only, and
+        the sentence then survived as the reason nobody noticed the MCP call site
+        had not been updated — the tool answered 500 on every non-dry-run call
+        (#1145).
         """
 
         plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
