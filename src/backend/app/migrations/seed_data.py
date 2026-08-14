@@ -3,6 +3,7 @@
 All data is loaded from YAML files in the seed_data/ directory.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -25,6 +26,7 @@ from app.common.enums import (
     PhotoperiodType,
     StressTolerance,
 )
+from app.data_access.arango.phase_sequence_repository import BOUND_BY_SEED
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.botanical_family import BotanicalFamily
@@ -227,7 +229,16 @@ def link_indoor_species_to_phase_sequence() -> None:
                 )
             target_key = indoor_key  # last-resort blanket
 
-        edge_col.insert({"_from": species_id, "_to": f"{col.PHASE_SEQUENCES}/{target_key}"})
+        # Provenance (#1146): the reconciler must be able to tell a machine binding
+        # it may correct from a human override it must not touch.
+        edge_col.insert(
+            {
+                "_from": species_id,
+                "_to": f"{col.PHASE_SEQUENCES}/{target_key}",
+                "bound_by": BOUND_BY_SEED,
+                "bound_at": datetime.now(UTC).isoformat(),
+            }
+        )
         linked += 1
 
     if linked:
@@ -288,6 +299,116 @@ def verify_all_species_bound(*, limit: int = 25) -> list[str]:
     else:
         logger.info("all_species_bound_to_phase_sequence")
     return unbound
+
+
+def report_binding_divergence(*, limit: int = 25) -> list[dict[str, str]]:
+    """Report species whose stored binding disagrees with the resolver (#1146).
+
+    ``verify_all_species_bound`` above checks **presence**. A species bound to the
+    *wrong* sequence passes it — ``Yucca gigantea`` did, while sitting on the
+    126-day annual ``indoor_default`` cycle that ``phase_sequence_resolver``'s own
+    docstring names as the thing #949 fixed. Fixed in the classifier, not in the
+    data.
+
+    **Why the gap exists and cannot close itself.** Both binding paths are
+    skip-if-bound — the seed linker (``if existing: continue``) and
+    :meth:`PhaseSequenceBinder.bind_default` (``if get_sequence_by_species(...) is
+    not None: return None``). Idempotency is the right property for both. The
+    problem is that nothing else exists: the only re-homing mechanism is a
+    hand-enumerated migration (v0024, v0028, v0029 — and v0039, which this session
+    added for exactly one more cohort). So every resolver improvement changes what
+    a *newly bound* species gets and leaves every *already bound* species where it
+    was, and the two drift apart monotonically with nothing reporting it.
+
+    This is the report half of closing that ratchet. It is deliberately **not** a
+    repair: re-homing a species changes plant-visible lifecycle state, so it
+    belongs in a versioned migration with a dry-run and a report, not in a job that
+    runs on every deployment. What this gives the repair is its work-list — and
+    gives an operator the divergence the following boot, instead of at the next
+    time someone measures the instance by hand.
+
+    A ``manual`` binding is an override and is excluded, never reported as drift.
+    No such edge can exist yet (#1099), which is why the exclusion is written now
+    rather than discovered later by a pass that reverts a user's choice.
+
+    Returns ``[{scientific_name, bound_to, resolver_says}]``; never raises.
+    """
+    from app.data_access.arango import collections as col
+    from app.data_access.arango.phase_sequence_repository import BOUND_BY_MANUAL
+    from app.domain.engines.cycle_resolver import resolve_effective_cycle
+    from app.domain.engines.phase_sequence_resolver import (
+        INDOOR_DEFAULT_SEQUENCE,
+        resolve_phase_sequence_name,
+    )
+
+    db = get_db()
+    lifecycle_repo = get_lifecycle_repo()
+
+    rows = list(
+        db.aql.execute(
+            """
+            FOR s IN @@species_col
+                FOR e IN @@edge_col
+                    FILTER e._from == CONCAT(@species_prefix, s._key)
+                    FOR seq IN @@seq_col
+                        FILTER seq._id == e._to
+                        RETURN {
+                            species_key: s._key,
+                            scientific_name: s.scientific_name,
+                            photosynthesis_type: s.photosynthesis_type,
+                            growth_habit: s.growth_habit,
+                            bound_to: seq.name,
+                            bound_by: e.bound_by
+                        }
+            """,
+            bind_vars={
+                "@species_col": col.SPECIES,
+                "@edge_col": col.HAS_PHASE_SEQUENCE,
+                "@seq_col": col.PHASE_SEQUENCES,
+                "species_prefix": f"{col.SPECIES}/",
+            },
+        )
+    )
+
+    diverging: list[dict[str, str]] = []
+    for row in rows:
+        if row.get("bound_by") == BOUND_BY_MANUAL:
+            continue
+        lifecycle = lifecycle_repo.get_lifecycle_by_species(row["species_key"])
+        effective_cycle = resolve_effective_cycle(None, lifecycle) if lifecycle is not None else None
+        target = resolve_phase_sequence_name(
+            row.get("scientific_name") or "",
+            cycle_type=_enum_value(effective_cycle),
+            flowering_strategy=_enum_value(lifecycle.flowering_strategy) if lifecycle is not None else None,
+            photosynthesis_type=_enum_value(row.get("photosynthesis_type")),
+            photoperiod_type=_enum_value(lifecycle.photoperiod_type) if lifecycle is not None else None,
+            growth_habit=_enum_value(row.get("growth_habit")),
+        )
+        # ``None`` means "the resolver deliberately chose the blanket", which is what
+        # both binding paths translate to `indoor_default`. Comparing the raw None
+        # against a stored name would report every annual as diverging.
+        expected = target or INDOOR_DEFAULT_SEQUENCE
+        if row.get("bound_to") != expected:
+            diverging.append(
+                {
+                    "scientific_name": row.get("scientific_name") or "",
+                    "bound_to": row.get("bound_to") or "",
+                    "resolver_says": expected,
+                }
+            )
+
+    diverging.sort(key=lambda d: d["scientific_name"])
+    if diverging:
+        logger.error(
+            "phase_sequence_binding_diverges_from_resolver",
+            count=len(diverging),
+            species=diverging[:limit],
+            truncated=max(0, len(diverging) - limit),
+            impact="these species are scheduled on a lifecycle the resolver would not give them today",
+        )
+    else:
+        logger.info("all_phase_sequence_bindings_match_the_resolver")
+    return diverging
 
 
 def seed_cultivars(

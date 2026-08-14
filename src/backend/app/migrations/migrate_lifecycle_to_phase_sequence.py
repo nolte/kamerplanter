@@ -97,7 +97,11 @@ def run_migrate_lifecycle_to_phase_sequence() -> None:
     # Post-seed reconcile (registry-final step): every species and phase sequence now
     # exists, so bind any species still without an edge to its attribute-resolved
     # sequence (REQ-003 D9–D12 fine-typing, #616). Idempotent — skips edged species.
-    from app.migrations.seed_data import link_indoor_species_to_phase_sequence, verify_all_species_bound
+    from app.migrations.seed_data import (
+        link_indoor_species_to_phase_sequence,
+        report_binding_divergence,
+        verify_all_species_bound,
+    )
 
     link_indoor_species_to_phase_sequence()
 
@@ -107,3 +111,14 @@ def run_migrate_lifecycle_to_phase_sequence() -> None:
     # with names; deliberately not fatal, because refusing to finish the seed over a
     # master-data gap would cost the whole install.
     verify_all_species_bound()
+
+    # And that it bound them to the *right* sequence (#1146). The check above sees
+    # presence only, so a species on the wrong cycle passes it — `Yucca gigantea`
+    # did, from an annual harvest cycle. Both binding paths are skip-if-bound and
+    # rightly so, which means every resolver improvement lands on new species and
+    # silently leaves the existing ones behind; this is the line that makes that
+    # drift visible the following boot instead of at the next hand measurement.
+    # Reports only: re-homing a species changes plant-visible lifecycle state and
+    # belongs in a versioned migration with a dry-run, not in a job that runs on
+    # every deployment.
+    report_binding_divergence()
