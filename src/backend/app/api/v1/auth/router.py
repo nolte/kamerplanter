@@ -48,7 +48,38 @@ from app.mcp_server.auth import McpAuthenticator
 
 logger = structlog.get_logger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
+
+def _rate_limit_key(request: Request) -> str:
+    """Bucket a rate limit on the *caller's* address, not on the proxy's.
+
+    ``get_remote_address`` reads ``request.client.host``, which behind the
+    Traefik ingress is the ingress for every caller alive — so every
+    ``@limiter.limit`` in this module shared **one** bucket across the whole
+    deployment. Ten failed pairing redemptions from any single source answered
+    429 to everybody else for the rest of the minute (#1130, measured); the same
+    held for login, registration and password reset, which is why the key is
+    fixed here rather than on the one route the issue was filed against.
+
+    ``resolve_client_ip`` is the same resolution the pairing **lockout** and the
+    service-account ``ip_allowlist`` already use, so the three IP-based controls
+    now agree on who the caller is instead of two of them disagreeing with the
+    third.
+
+    **The deployment invariant this rests on**: the ingress must not pass a
+    client-supplied ``X-Forwarded-For`` through. Traefik's default does not —
+    with an empty ``forwardedHeaders.trustedIPs`` it strips inbound
+    ``X-Forwarded-*`` from untrusted sources and writes its own — so the
+    left-most entry is the address Traefik observed. If that ever changes, a
+    caller could pick its own bucket and this limit becomes decorative; the same
+    would already be true of the lockout and the allowlist.
+
+    Falls back to the socket peer when no header is present, which is what a
+    direct call (and every ``TestClient`` caller that sets no header) gets.
+    """
+    return resolve_client_ip(request) or get_remote_address(request)
+
+
+limiter = Limiter(key_func=_rate_limit_key)
 router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
 #: API-key management, mounted in **both** deployment modes (REQ-027, REQ-033 §4.3).
@@ -189,6 +220,7 @@ def login(
 
 
 @router.post("/refresh", response_model=TokenPairResponse | TokenResponse)
+@limiter.limit(settings.rate_limit_auth)
 def refresh(
     response: Response,
     request: Request,

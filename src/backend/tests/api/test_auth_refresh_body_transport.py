@@ -52,6 +52,7 @@ from app.api.v1.auth.schemas import REFRESH_TOKEN_MAX_LENGTH
 from app.common.auth import get_current_user
 from app.common.dependencies import get_auth_service
 from app.common.types import UserKey
+from app.config.settings import settings
 from app.data_access.external.device_pairing_throttle import MemoryDevicePairingThrottleStore
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.password_engine import PasswordEngine
@@ -67,6 +68,12 @@ _LOGIN_PATH = "/api/v1/auth/login"
 _ISSUE_PATH = "/api/v1/auth/device-pairing"
 _REDEEM_PATH = "/api/v1/auth/device-pairing/redeem"
 _SESSIONS_PATH = "/api/v1/users/me/sessions"
+
+#: Two callers, told apart only by the proxy header the ingress sets. The rate
+#: limit is a per-address budget, so a test that used one address for both could
+#: not tell "the budget is shared" from "the budget works".
+_CALLER_IP = "203.0.113.41"
+_OTHER_IP = "198.51.100.23"
 
 _USER_KEY = "8271634"
 _EMAIL = "owner@example.org"
@@ -197,6 +204,7 @@ class _Harness:
         cookie_token: str | None = None,
         csrf: bool = False,
         body: dict[str, Any] | None = None,
+        ip: str = _CALLER_IP,
     ) -> httpx.Response:
         """Rotate the way a paired device does: token in the JSON body.
 
@@ -204,7 +212,7 @@ class _Harness:
         point is that adding an ambient credential changes nothing.
         """
         self.client.cookies.clear()
-        headers = {"user-agent": _PHONE_USER_AGENT}
+        headers = {"user-agent": _PHONE_USER_AGENT, "x-forwarded-for": ip}
         if cookie_token is not None:
             self.client.cookies.set("kp_refresh", cookie_token)
         if csrf:
@@ -553,3 +561,50 @@ class TestRotationSemanticsAreIdentical:
             token = response.json()["refresh_token"]
 
         assert len(harness.list_sessions()) == 1
+
+
+# ── 6. Rate limit (#1131) ──────────────────────────────────────────
+
+
+class TestRateLimit:
+    """`/auth/refresh` accepts an unauthenticated body-borne credential.
+
+    #1118 turned this route into one that will read a refresh token straight out
+    of the request body, with no ambient credential and no CSRF gate in that
+    transport. Guessing the token is infeasible (512-bit class, sha256 hash
+    lookup), so this is defence in depth rather than an exploitable hole — but
+    it was the only public token-accepting endpoint in `/auth/*` with no budget
+    at all, while login, registration and password reset all carry one.
+    """
+
+    def test_refresh_is_rate_limited_per_address(self, harness: _Harness) -> None:
+        """The budget exists, and a refused request answers 429.
+
+        Driven with a *wrong* token on purpose: the limiter runs before the
+        handler, so the 429 has to arrive regardless of whether the credential
+        would have been honoured — which is exactly what makes it a shield
+        against guessing rather than a consequence of succeeding.
+        """
+        limit = int(settings.rate_limit_auth.split("/")[0])
+
+        spent = [harness.refresh_via_body("not-a-real-token", ip=_CALLER_IP).status_code for _ in range(limit)]
+        refused = harness.refresh_via_body("not-a-real-token", ip=_CALLER_IP)
+
+        assert 429 not in spent, spent
+        assert refused.status_code == 429, refused.text
+
+    def test_one_floods_address_does_not_spend_another_callers_budget(self, harness: _Harness) -> None:
+        """Per address, not per endpoint (#1130).
+
+        A shared bucket would make this route a one-caller denial of service for
+        every other client of the deployment — the same defect the pairing
+        redeem carried, and the reason the limiter's key is resolved through the
+        proxy header rather than from the socket peer.
+        """
+        limit = int(settings.rate_limit_auth.split("/")[0])
+        for _ in range(limit + 1):
+            harness.refresh_via_body("not-a-real-token", ip=_CALLER_IP)
+
+        from_elsewhere = harness.refresh_via_body("not-a-real-token", ip=_OTHER_IP)
+
+        assert from_elsewhere.status_code != 429, from_elsewhere.text
