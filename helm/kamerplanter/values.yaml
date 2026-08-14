@@ -139,6 +139,30 @@ controllers:
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # How many proxy addresses this deployment's own infrastructure appends
+          # to X-Forwarded-For, counted from the right (#1151). Only the backend
+          # needs it — the Celery controllers serve no requests.
+          #
+          # `1` because the chain is client -> ingress -> nginx -> backend, and
+          # each of those appends: the ingress records the caller, nginx then
+          # appends the ingress's own address, so the caller is the
+          # second-to-last entry. Verified against the reference deployment
+          # (k8s-home-lab), where the ingress is Contour/Envoy and *both* routes
+          # — `/` and `/api` — point at `kamerplanter-frontend:80`, i.e. `/api`
+          # is proxied by nginx rather than reaching the backend service直接.
+          #
+          # A deployment that routes /api straight to the backend Service has one
+          # proxy fewer and must set this to 0 — the value follows the request
+          # path, not the product name.
+          #
+          # Not optional decoration. The application default is 0 — the shallow,
+          # dev-shaped chain — and leaving it at 0 here would resolve every
+          # caller to Traefik's pod IP. The device-pairing lockout buckets on
+          # that value (MAX_ATTEMPTS = 5, up to MAX_LOCKOUT_MINUTES = 240), so
+          # five wrong codes from one attacker would lock *every* user out of
+          # pairing for four hours, and every service account with an
+          # `ip_allowlist` would fail closed with 401.
+          TRUSTED_PROXY_HOPS: "1"
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
           # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
