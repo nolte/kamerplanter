@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, Path
 from app.api.mapping import to_response
 from app.api.v1.botanical_families.schemas import FamilyCreate, FamilyResponse
 from app.api.v1.species.schemas import SpeciesResponse
-from app.common.auth import get_active_tenant_key, get_current_user
+from app.common.auth import get_active_tenant_key, get_current_user, get_is_platform_admin
 from app.common.dependencies import get_family_repo
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import ForbiddenError, NotFoundError
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
@@ -93,13 +93,33 @@ def get_family_species(
     return [to_response(s, SpeciesResponse) for s in species_list]
 
 
+def _require_platform_admin(is_platform_admin: bool) -> None:
+    """Refuse a non-admin caller before any write reaches the repository (#1120).
+
+    `BotanicalFamily` is global reference data — the model carries no
+    ``tenant_key``, so unlike species and cultivars there is not even an
+    ownership boundary to fall back on: every row here is read by every tenant.
+    The rule is therefore the one #1109 established for the global cultivar
+    catalogue, and it is worded identically on purpose so the two surfaces
+    cannot drift into answering differently.
+
+    Stated as a plain call rather than a route dependency because the routes are
+    repository-direct: there is no service between them to carry the decision
+    the way `SpeciesService` carries it for the hybrid catalogue.
+    """
+    if not is_platform_admin:
+        raise ForbiddenError("Only a platform admin may modify the global botanical family catalogue.")
+
+
 @router.post("", response_model=FamilyResponse, status_code=201)
 def create_family(
     body: FamilyCreate,
     repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
     tenant_key: str = Depends(get_active_tenant_key),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Create a new botanical family."""
+    """Create a new botanical family. Platform admins only — see :func:`_require_platform_admin`."""
+    _require_platform_admin(is_platform_admin)
     family = BotanicalFamily(**body.model_dump())
     created = repo.create_family(family)
     return _family_response(created, repo, tenant_key)
@@ -111,8 +131,10 @@ def update_family(
     body: FamilyCreate,
     repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
     tenant_key: str = Depends(get_active_tenant_key),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Update an existing botanical family."""
+    """Update an existing botanical family. Platform admins only."""
+    _require_platform_admin(is_platform_admin)
     family = BotanicalFamily(**body.model_dump())
     updated = repo.update_family(key, family)
     return _family_response(updated, repo, tenant_key)
@@ -122,6 +144,8 @@ def update_family(
 def delete_family(
     key: Annotated[str, Path(description="Document key of the botanical family.")],
     repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Delete a botanical family."""
+    """Delete a botanical family. Platform admins only."""
+    _require_platform_admin(is_platform_admin)
     repo.delete_family(key)

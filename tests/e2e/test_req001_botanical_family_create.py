@@ -10,6 +10,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-001.md):
   TC-REQ-001-022  ->  TC-001-013  pH-Bereich-Validierung — Grenzwerte
   TC-REQ-001-019  ->  TC-001-017  Nitrogen-Fixing + Heavy Demand Kombination abgelehnt
   TC-REQ-001-078  ->  TC-001-078  Duplikat-Schutz — Species mit identischem Namen abgelehnt
+  TC-REQ-001-099  ->  TC-001-099  Nur ein Plattform-Admin darf globale Familien anlegen (full mode)
 """
 
 from __future__ import annotations
@@ -56,12 +57,27 @@ class TestBotanicalFamilyCreateDialog:
 
     @pytest.mark.core_crud
     def test_create_family_with_all_fields(
-        self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
+        self,
+        family_list: BotanicalFamilyListPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
     ) -> None:
         """TC-001-006: Successfully create a botanical family with all fields.
 
         Spec: TC-001-006 -- Neue Botanische Familie erfolgreich erstellen (Happy Path).
+
+        **Light mode only, since #1120.** `BotanicalFamily` is global reference
+        data with no `tenant_key`, so creating one is curation and requires a
+        platform admin. In light mode the sole anonymous operator *is* that
+        admin (REQ-027), so the happy path is reachable. In full mode the demo
+        user is deliberately an ordinary member and the create is refused --
+        which is its own case, TC-001-099, rather than a weaker assertion here.
         """
+        if app_mode != "light":
+            pytest.skip(
+                "TC-001-006 is the platform-admin happy path; in full mode the demo "
+                "user is an ordinary member and the refusal is TC-001-099's subject"
+            )
         family_list.open()
 
         family_list.click_create()
@@ -321,12 +337,25 @@ class TestBotanicalFamilyBackendValidation:
 
     @pytest.mark.core_crud
     def test_duplicate_family_name_rejected(
-        self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
+        self,
+        family_list: BotanicalFamilyListPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
     ) -> None:
         """TC-001-078: Duplicate family name shows backend validation error.
 
         Spec: TC-001-078 -- Duplikat-Schutz — Familie mit identischem Namen wird abgelehnt.
+
+        **Light mode only, since #1120.** The assertion is "the dialog stays
+        open", and in full mode the platform-admin gate now refuses the create
+        *before* the unique index can reject the duplicate — so the test would
+        keep passing while the duplicate protection it exists for went untested.
         """
+        if app_mode != "light":
+            pytest.skip(
+                "in full mode the #1120 role gate refuses the create before the unique "
+                "index sees the duplicate, so this case cannot observe its own subject"
+            )
         family_list.open()
         family_list.click_create()
         family_list.fill_name_only("Solanaceae")  # Exists in seed data
@@ -341,3 +370,66 @@ class TestBotanicalFamilyBackendValidation:
         assert family_list.is_create_dialog_open(), (
             "TC-REQ-001-078 FAIL: Dialog should remain open after duplicate name error"
         )
+
+
+class TestGlobalCatalogueRoleGate:
+    """Who may curate the global family catalogue (Spec: TC-001-099)."""
+
+    @pytest.mark.core_crud
+    def test_a_non_admin_cannot_create_a_global_family(
+        self,
+        family_list: BotanicalFamilyListPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
+    ) -> None:
+        """TC-001-099: An ordinary member may not curate the global family catalogue.
+
+        Spec: TC-001-099 -- Nur ein Plattform-Admin darf globale Botanische Familien anlegen.
+
+        The other half of the split TC-001-006 describes. `BotanicalFamily` is
+        global reference data with no `tenant_key`, so #1120 gated its mutations
+        on the platform admin — the same rule #1109 set for the global cultivar
+        catalogue. Full mode only: in light mode the sole operator *is* that
+        admin (REQ-027), so there is no non-admin caller to refuse.
+
+        Asserted as a refusal the *user* can observe, not as a status code: the
+        dialog stays open (the create did not go through) and the name never
+        reaches the list. A test that only checked the dialog would pass on a
+        create that succeeded and left the dialog up for an unrelated reason.
+        """
+        if app_mode == "light":
+            pytest.skip(
+                "light mode's sole anonymous operator is treated as platform admin "
+                "(REQ-027), so there is no non-admin caller here — TC-001-006 covers it"
+            )
+
+        family_list.open()
+        family_list.click_create()
+        unique = uuid.uuid4().hex[:6]
+        family_name = f"Refused{unique}aceae"
+        family_list.fill_name_only(family_name)
+        screenshot("TC-REQ-001-099_form-filled", f"Create dialog filled with {family_name}")
+
+        family_list.submit_create_form()
+        family_list.wait_for_loading_complete()
+        screenshot("TC-REQ-001-099_after-submit", "Result after a non-admin submitted the create")
+
+        assert family_list.is_create_dialog_open(), (
+            "TC-REQ-001-099 FAIL: the dialog must stay open — a closed dialog is how this "
+            "app reports that the create was accepted"
+        )
+        # The spec asks for a visible reason, not just a non-event: a frontend
+        # that swallowed the 403 silently would leave the user staring at a
+        # dialog that does nothing, and would pass a dialog-only assertion.
+        assert family_list.has_error_snackbar(), (
+            "TC-REQ-001-099 FAIL: the refusal must be surfaced to the user, not swallowed"
+        )
+
+        # And nothing was written: the name carries a per-run uuid, so an empty
+        # search result is proof about this create and not about the seed.
+        family_list.open()
+        family_list.search(family_name)
+        family_list.wait_for_no_search_results(
+            family_name, what="botanical family list after a refused create"
+        )
+        screenshot("TC-REQ-001-099_not-in-list", f"{family_name} is absent from the catalogue")

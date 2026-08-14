@@ -74,6 +74,7 @@ class TestBotanicalFamilyDetailPage:
     @pytest.mark.core_crud
     def test_edit_family_and_save(
         self,
+        app_mode: str,
         family_list: BotanicalFamilyListPage,
         detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
@@ -81,7 +82,20 @@ class TestBotanicalFamilyDetailPage:
         """TC-001-010: Edit a botanical family and save changes.
 
         Spec: TC-001-010 -- Botanische Familie bearbeiten und speichern.
+
+        **Light mode only, since #1120.** The PUT is platform-admin-only now, and
+        the demo user in full mode is deliberately an ordinary member. Left
+        running there it would not fail — its only assertion is that the URL is
+        still the detail route, which a refused save satisfies too — so it would
+        have gone on reporting green while testing nothing. The refusal itself is
+        pinned at the API tier (`test_botanical_family_role_gate.py`), which is
+        where a 403 is observable without a browser.
         """
+        if app_mode != "light":
+            pytest.skip(
+                "editing a global family requires a platform admin since #1120; "
+                "the refusal is pinned in tests/api/test_botanical_family_role_gate.py"
+            )
         _navigate_to_first_family_detail(family_list)
         screenshot("TC-REQ-001-024_before-edit", "Family detail page before editing")
 
@@ -136,6 +150,7 @@ class TestBotanicalFamilyDetailPage:
     @pytest.mark.core_crud
     def test_delete_family_with_confirmation(
         self,
+        app_mode: str,
         family_list: BotanicalFamilyListPage,
         detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
@@ -145,7 +160,20 @@ class TestBotanicalFamilyDetailPage:
         """TC-001-011: Delete a botanical family via confirmation dialog.
 
         Spec: TC-001-011 -- Botanische Familie loeschen mit Bestaetigungsdialog.
+
+        **Light mode only, since #1120.** The case provisions the family it
+        deletes, and that create is platform-admin-only now. In full mode the
+        create was refused, the row lookup below then raised `ValueError`, and
+        the `except` turned it into "Family not found after creation" — a skip
+        that blames the search for an authorization refusal and quietly removed
+        the delete happy path from three nightly profiles. The refusal is pinned
+        at the API tier (`test_botanical_family_role_gate.py`).
         """
+        if app_mode != "light":
+            pytest.skip(
+                "deleting a global family requires a platform admin since #1120; "
+                "the refusal is pinned in tests/api/test_botanical_family_role_gate.py"
+            )
         # First create a family to delete
         family_list.open()
         family_list.click_create()
