@@ -6,8 +6,19 @@ from app.common.enums import DataOrigin, DtmReference, PlantTrait, SeedType
 
 
 class CultivarCreate(BaseModel):
+    """Create/update payload for a cultivar.
+
+    Deliberately carries **no** ``species_key`` (#1114). The parent species is
+    the ``{species_key}`` path segment, and the router has always built the model
+    from it while discarding any body value — since #1109 the service additionally
+    restores the *stored* parent on update. Requiring clients to send a value that
+    three layers then ignore made the contract describe a coupling that does not
+    exist. Pydantic's default ``extra="ignore"`` keeps a client that still sends
+    it working unchanged, so removing the field is not a breaking change; the
+    ignoring is pinned by ``test_a_body_claiming_another_species_cannot_re_parent_either``.
+    """
+
     name: str
-    species_key: str
     breeder: str | None = None
     breeding_year: int | None = None
     traits: list[PlantTrait] = Field(default_factory=list)

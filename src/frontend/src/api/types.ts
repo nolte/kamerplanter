@@ -454,9 +454,10 @@ export interface Cultivar {
   updated_at: string | null;
 }
 
+// Mirrors the backend `CultivarCreate`, which carries no `species_key` (#1114):
+// the parent species is the URL path segment on every cultivar route.
 export interface CultivarCreate {
   name: string;
-  species_key: string;
   breeder?: string | null;
   breeding_year?: number | null;
   traits?: PlantTrait[];

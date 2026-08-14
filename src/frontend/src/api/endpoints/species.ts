@@ -71,14 +71,15 @@ export async function listCultivars(speciesKey: string): Promise<Cultivar[]> {
   return data;
 }
 
+// The parent species is the path segment, never the body (#1114). These two used
+// to splice `species_key: speciesKey` into the payload purely to satisfy a field
+// the schema required and the server discarded — the callers already pass
+// `Omit<CultivarCreate, 'species_key'>`, so nobody ever supplied it themselves.
 export async function createCultivar(
   speciesKey: string,
-  payload: Omit<CultivarCreate, 'species_key'>,
+  payload: CultivarCreate,
 ): Promise<Cultivar> {
-  const { data } = await client.post<Cultivar>(`${BASE}/${speciesKey}/cultivars`, {
-    ...payload,
-    species_key: speciesKey,
-  });
+  const { data } = await client.post<Cultivar>(`${BASE}/${speciesKey}/cultivars`, payload);
   return data;
 }
 
@@ -90,12 +91,9 @@ export async function getCultivar(speciesKey: string, cultivarKey: string): Prom
 export async function updateCultivar(
   speciesKey: string,
   cultivarKey: string,
-  payload: Omit<CultivarCreate, 'species_key'>,
+  payload: CultivarCreate,
 ): Promise<Cultivar> {
-  const { data } = await client.put<Cultivar>(`${BASE}/${speciesKey}/cultivars/${cultivarKey}`, {
-    ...payload,
-    species_key: speciesKey,
-  });
+  const { data } = await client.put<Cultivar>(`${BASE}/${speciesKey}/cultivars/${cultivarKey}`, payload);
   return data;
 }
 

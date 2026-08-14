@@ -62,6 +62,8 @@ class _FakeRepo:
         }
         self.updated: list[str] = []
         self.deleted: list[str] = []
+        self.created: list[Cultivar] = []
+        self._next_key = 0
 
     def get_or_raise(self, key: str) -> Species:
         species = self._species.get(key)
@@ -74,6 +76,16 @@ class _FakeRepo:
         if cultivar is None:
             raise NotFoundError("Cultivar", key)
         return cultivar
+
+    def create_cultivar(self, cultivar: Cultivar) -> Cultivar:
+        # Added for the #1114 contract tests: this file was PUT/DELETE/GET-only,
+        # and the create path is where "the body must carry a parent" actually bit.
+        self._next_key += 1
+        key = f"cv_new_{self._next_key}"
+        stored = cultivar.model_copy(update={"key": key})
+        self.created.append(stored)
+        self._cultivars[key] = stored
+        return stored
 
     def update_cultivar(self, key: str, cultivar: Cultivar) -> Cultivar:
         self.updated.append(key)
@@ -112,9 +124,14 @@ def client(repo: _FakeRepo) -> TestClient:
 
 
 def _payload(species_key: str = "sp_rose") -> dict[str, str]:
-    """A PUT body. ``species_key`` is required by the schema but excluded by the
-    router, which builds the model from the *path* — so the value here is only ever
-    the client's own claim, never the one that decides anything."""
+    """A PUT body that *still* claims a parent species.
+
+    Since #1114 the schema no longer declares ``species_key`` — the parent is the
+    path segment on every cultivar route. The field is kept in this helper on
+    purpose: Pydantic's default ``extra="ignore"`` means an older client sending it
+    must keep working, and these tests are where that stays true. The value is only
+    ever the client's own claim, never the one that decides anything.
+    """
     return {"name": "Edited name", "species_key": species_key}
 
 
@@ -193,3 +210,43 @@ def test_delete_under_a_wrong_species_is_404_and_keeps_the_row(client, repo):
 def test_delete_under_the_owning_species_is_unchanged(client, repo):
     assert client.delete("/api/v1/species/sp_basil/cultivars/cv_own").status_code == 204
     assert repo.deleted == ["cv_own"]
+
+
+# ── The body no longer has to carry a parent (#1114) ─────────────────────────
+
+
+def test_a_create_without_a_species_key_is_accepted(client, repo):
+    """The point of #1114: the field was required and then discarded.
+
+    Clients had to send a value that the router excluded from the model and the
+    service overrode — a contract describing a coupling that does not exist. This
+    request is the one that previously answered 422 for no reason a caller could
+    act on.
+    """
+    resp = client.post("/api/v1/species/sp_basil/cultivars", json={"name": "Genovese"})
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["species_key"] == "sp_basil"
+
+
+def test_an_update_without_a_species_key_is_accepted(client, repo):
+    resp = client.put("/api/v1/species/sp_basil/cultivars/cv_own", json={"name": "Edited name"})
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["species_key"] == "sp_basil"
+
+
+def test_an_older_client_still_sending_one_is_unaffected(client, repo):
+    """Back-compat, and the reason dropping the field is not a breaking change.
+
+    ``extra="ignore"`` is a default rather than a decision written down anywhere,
+    so it is pinned here: the day someone sets ``extra="forbid"`` on this schema,
+    every client that predates #1114 starts failing, and this test says so first.
+    """
+    resp = client.post(
+        "/api/v1/species/sp_basil/cultivars",
+        json={"name": "Genovese", "species_key": "sp_rose"},
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["species_key"] == "sp_basil", "the path wins, the body is ignored"
