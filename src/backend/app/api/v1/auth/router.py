@@ -220,7 +220,7 @@ def login(
 
 
 @router.post("/refresh", response_model=TokenPairResponse | TokenResponse)
-@limiter.limit(settings.rate_limit_auth)
+@limiter.limit(settings.rate_limit_token_refresh)
 def refresh(
     response: Response,
     request: Request,

@@ -192,6 +192,55 @@ describe('authSlice', () => {
     expect(state.initialized).toBe(true);
   });
 
+  it('refreshAccessToken.rejected keeps the session when the refusal was a rate limit', () => {
+    // #1131: `/auth/refresh` carries a per-IP budget and `AuthProvider` calls it
+    // on every bootstrap and every 401 retry, so behind a shared address a burst
+    // of tabs can spend it between them. That 429 says "not now", not "you are
+    // signed out" — the refresh token behind it is still valid, and dropping the
+    // session would sign the user out over a limit that expires within a minute.
+    const authed = {
+      user: { key: 'u1' } as never,
+      accessToken: 'jwt',
+      isAuthenticated: true,
+      isLoading: true,
+      error: null,
+      initialized: false,
+    };
+
+    const state = reducer(authed, {
+      type: refreshAccessToken.rejected.type,
+      payload: 'rate-limited',
+    });
+
+    expect(state.accessToken).toBe('jwt');
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.user).not.toBeNull();
+    // Still a completed bootstrap: the UI must leave its loading state either way.
+    expect(state.isLoading).toBe(false);
+    expect(state.initialized).toBe(true);
+  });
+
+  it('refreshAccessToken.rejected still clears the session for any other refusal', () => {
+    // The half that keeps the exception from swallowing a real 401: without it,
+    // "keep the session on a rate limit" would drift into "keep the session".
+    const authed = {
+      user: { key: 'u1' } as never,
+      accessToken: 'jwt',
+      isAuthenticated: true,
+      isLoading: true,
+      error: null,
+      initialized: false,
+    };
+
+    const state = reducer(authed, {
+      type: refreshAccessToken.rejected.type,
+      payload: undefined,
+    });
+
+    expect(state.accessToken).toBeNull();
+    expect(state.isAuthenticated).toBe(false);
+  });
+
   it('never resets initialized back to false once the bootstrap has completed', () => {
     // Simulate a completed bootstrap followed by a full login-fail-retry cycle.
     let state = reducer(undefined, { type: refreshAccessToken.rejected.type });

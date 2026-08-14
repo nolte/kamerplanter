@@ -159,6 +159,22 @@ function requestCarriedActiveTenantHeader(config?: InternalAxiosRequestConfig): 
  * user-visible. A machine-readable marker in the envelope's `details` would be
  * strictly better and is the recommended backend follow-up.
  */
+/**
+ * Whether a failure is a rate limit rather than a rejected credential (#1131).
+ *
+ * `/auth/refresh` carries a per-IP budget, and the 401 interceptor reaches it on
+ * every expired access token — behind a shared address (corporate NAT, CGNAT) a
+ * burst of tabs can spend that budget between them. Treating the resulting 429
+ * like a 401 would sign the user out over a limit that expires within the
+ * minute, holding a refresh token that is still perfectly valid.
+ *
+ * Narrow on purpose: only the status, and only where the caller asks. A broad
+ * "retryable error" predicate would sooner or later swallow a real 401.
+ */
+export function isRateLimited(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 429;
+}
+
 function isStaleActiveTenantRejection(error: unknown): boolean {
   if (!axios.isAxiosError(error) || error.response?.status !== 403) return false;
   if (!requestCarriedActiveTenantHeader(error.config)) return false;

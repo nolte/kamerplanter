@@ -12,7 +12,7 @@ import {
   migrateLocalModuleVisibility,
 } from '@/store/slices/userPreferencesSlice';
 import { isLightMode } from '@/config/mode';
-import client, { tenantClient } from '@/api/client';
+import client, { tenantClient, isRateLimited } from '@/api/client';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 interface QueueItem {
@@ -112,7 +112,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         return retryClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        dispatch(clearAuth());
+        // 429 is not "your session is over" (#1131). `/auth/refresh` carries a
+        // per-IP budget, and this interceptor fires on every 401 — behind a
+        // shared address a burst of tabs can reach it. Clearing auth there would
+        // sign the user out over a limit that expires within the minute, and
+        // from a *still-valid* refresh token. Anything else — 401 above all —
+        // means the credential really is gone, and that does end the session.
+        if (!isRateLimited(refreshError)) {
+          dispatch(clearAuth());
+        }
         throw refreshError;
       } finally {
         isRefreshing = false;

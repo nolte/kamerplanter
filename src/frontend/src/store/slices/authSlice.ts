@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { isRateLimited } from '@/api/client';
 import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
 import { parseApiError } from '@/api/errors';
@@ -53,9 +54,17 @@ export const logoutUser = createAsyncThunk('auth/logout', async () => {
 
 export const refreshAccessToken = createAsyncThunk(
   'auth/refresh',
-  async () => {
-    const response = await authApi.refresh();
-    return response;
+  async (_: void, { rejectWithValue }) => {
+    try {
+      return await authApi.refresh();
+    } catch (error) {
+      // Carry *why* it failed, because the reducer's answer differs (#1131): a
+      // 429 is a limit that expires within the minute and leaves the refresh
+      // token valid, while a 401 means the credential is gone. Without this the
+      // rejection is opaque and every failure looks like a dead session.
+      if (isRateLimited(error)) return rejectWithValue('rate-limited');
+      throw error;
+    }
   },
 );
 
@@ -142,12 +151,19 @@ const authSlice = createSlice({
       // JWT-mode bootstrap (AuthProvider.initAuth) begins with a token refresh.
       state.initialized = true;
     });
-    builder.addCase(refreshAccessToken.rejected, (state) => {
+    builder.addCase(refreshAccessToken.rejected, (state, action) => {
       state.isLoading = false;
+      state.initialized = true;
+      // A rate limit is not a signed-out user (#1131). `/auth/refresh` has a
+      // per-IP budget and `AuthProvider` calls it on every bootstrap and on
+      // every 401 retry, so behind a shared address a burst of tabs can reach
+      // it — dropping the session there would sign someone out over a limit
+      // that expires within the minute, while their refresh token is still
+      // valid. Every other rejection does mean the credential is gone.
+      if (action.payload === 'rate-limited') return;
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
-      state.initialized = true;
     });
   },
 });

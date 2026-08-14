@@ -585,7 +585,7 @@ class TestRateLimit:
         would have been honoured — which is exactly what makes it a shield
         against guessing rather than a consequence of succeeding.
         """
-        limit = int(settings.rate_limit_auth.split("/")[0])
+        limit = int(settings.rate_limit_token_refresh.split("/")[0])
 
         spent = [harness.refresh_via_body("not-a-real-token", ip=_CALLER_IP).status_code for _ in range(limit)]
         refused = harness.refresh_via_body("not-a-real-token", ip=_CALLER_IP)
@@ -601,7 +601,7 @@ class TestRateLimit:
         redeem carried, and the reason the limiter's key is resolved through the
         proxy header rather than from the socket peer.
         """
-        limit = int(settings.rate_limit_auth.split("/")[0])
+        limit = int(settings.rate_limit_token_refresh.split("/")[0])
         for _ in range(limit + 1):
             harness.refresh_via_body("not-a-real-token", ip=_CALLER_IP)
 
