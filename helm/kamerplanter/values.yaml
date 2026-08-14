@@ -1295,16 +1295,37 @@ networkpolicies:
       - Egress
     rules:
       ingress:
-        # From frontend (nginx proxy)
+        # From the frontend's nginx, and from nothing else (#1159).
+        #
+        # This used to be followed by a second rule carrying no `from` selector
+        # at all. In NetworkPolicy semantics that is not "from the ingress
+        # controller" as its comment claimed — it is *from anything*, and because
+        # rules are a union it made this restriction inert: any pod in the
+        # namespace could reach the API.
+        #
+        # It is deleted rather than narrowed because nothing needs it: the
+        # reference deployment's HTTPProxy routes **both** `/` and `/api` to
+        # `kamerplanter-frontend:80`, and the only in-chart references to the
+        # backend Service are the frontend's `proxy_pass` and its
+        # `VITE_BACKEND_URL`. There is no scrape target and no second consumer.
+        #
+        # Load-bearing beyond least privilege: a request that reaches the backend
+        # without traversing nginx carries whatever `X-Forwarded-For` its sender
+        # wrote, with no proxy entry appended after it. `resolve_client_ip`
+        # (#1151) counts in from the trusted end, which makes the *proxied* path
+        # unforgeable — this rule is what makes that the only path. The rate
+        # limiter, the device-pairing lockout and the service-account
+        # `ip_allowlist` all rest on it.
+        #
+        # A deployment that deliberately routes /api straight to the backend
+        # Service must re-add an ingress rule naming its ingress controller
+        # explicitly (namespaceSelector + podSelector), and set
+        # TRUSTED_PROXY_HOPS to match that shorter chain.
         - from:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: frontend
           ports:
-            - protocol: TCP
-              port: 8000
-        # From Ingress controller (direct API access via ingress)
-        - ports:
             - protocol: TCP
               port: 8000
       egress:

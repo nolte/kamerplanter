@@ -65,13 +65,19 @@ def _rate_limit_key(request: Request) -> str:
     now agree on who the caller is instead of two of them disagreeing with the
     third.
 
-    **The deployment invariant this rests on**: the ingress must not pass a
-    client-supplied ``X-Forwarded-For`` through. Traefik's default does not —
-    with an empty ``forwardedHeaders.trustedIPs`` it strips inbound
-    ``X-Forwarded-*`` from untrusted sources and writes its own — so the
-    left-most entry is the address Traefik observed. If that ever changes, a
-    caller could pick its own bucket and this limit becomes decorative; the same
-    would already be true of the lockout and the allowlist.
+    **What makes the key trustworthy** is `resolve_client_ip` itself, not an
+    assumption about the ingress. An earlier version of this docstring claimed
+    the ingress strips inbound ``X-Forwarded-*`` so the left-most entry could be
+    trusted; that was refuted from this repository (``nginx.conf`` appends via
+    ``$proxy_add_x_forwarded_for``, and no ``forwardedHeaders`` is pinned in
+    ``helm/``), and #1151 replaced the reading with one that counts in from the
+    trusted end. A caller who prepends entries only pushes their claim further
+    out of reach.
+
+    The one path that reading cannot cover is a request that never traverses our
+    proxies — the backend NetworkPolicy currently admits port 8000 without a
+    ``from`` selector (#1159). There the header is whatever its sender wrote, for
+    this limiter as for the lockout and the allowlist.
 
     Falls back to the socket peer when no header is present, which is what a
     direct call (and every ``TestClient`` caller that sets no header) gets.

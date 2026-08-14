@@ -5,6 +5,7 @@ import {
   refreshAccessToken,
   clearAuth,
   setAccessToken,
+  RATE_LIMITED_REJECTION,
 } from '@/store/slices/authSlice';
 import { loadMyTenants } from '@/store/slices/tenantSlice';
 import {
@@ -12,7 +13,7 @@ import {
   migrateLocalModuleVisibility,
 } from '@/store/slices/userPreferencesSlice';
 import { isLightMode } from '@/config/mode';
-import client, { tenantClient, isRateLimited } from '@/api/client';
+import client, { tenantClient } from '@/api/client';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 interface QueueItem {
@@ -118,7 +119,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         // sign the user out over a limit that expires within the minute, and
         // from a *still-valid* refresh token. Anything else — 401 above all —
         // means the credential really is gone, and that does end the session.
-        if (!isRateLimited(refreshError)) {
+        //
+        // Compared against the rejection **payload**, not with `isRateLimited`:
+        // `unwrap()` re-throws what `rejectWithValue` was given, so no
+        // `AxiosError` ever reaches this catch. The first version of this fix
+        // checked the error type here and was inert — the reducer kept the
+        // session and this line signed the user out on the way past.
+        if (refreshError !== RATE_LIMITED_REJECTION) {
           dispatch(clearAuth());
         }
         throw refreshError;

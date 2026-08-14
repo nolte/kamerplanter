@@ -52,6 +52,18 @@ export const logoutUser = createAsyncThunk('auth/logout', async () => {
   await authApi.logout();
 });
 
+/**
+ * What a rate-limited refresh rejects *with* (#1131).
+ *
+ * A constant, not a literal at three call sites, because the three cannot be
+ * allowed to drift: the thunk sets it, the reducer keeps the session on it, and
+ * the 401 interceptor decides on it whether to sign the user out. `unwrap()`
+ * throws the **payload** of a `rejectWithValue` rejection rather than the
+ * original error, so the interceptor never sees an `AxiosError` here — the
+ * first version of this fix checked for one and was therefore inert.
+ */
+export const RATE_LIMITED_REJECTION = 'rate-limited';
+
 export const refreshAccessToken = createAsyncThunk(
   'auth/refresh',
   async (_: void, { rejectWithValue }) => {
@@ -62,7 +74,7 @@ export const refreshAccessToken = createAsyncThunk(
       // 429 is a limit that expires within the minute and leaves the refresh
       // token valid, while a 401 means the credential is gone. Without this the
       // rejection is opaque and every failure looks like a dead session.
-      if (isRateLimited(error)) return rejectWithValue('rate-limited');
+      if (isRateLimited(error)) return rejectWithValue(RATE_LIMITED_REJECTION);
       throw error;
     }
   },
@@ -160,7 +172,7 @@ const authSlice = createSlice({
       // it — dropping the session there would sign someone out over a limit
       // that expires within the minute, while their refresh token is still
       // valid. Every other rejection does mean the credential is gone.
-      if (action.payload === 'rate-limited') return;
+      if (action.payload === RATE_LIMITED_REJECTION) return;
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
