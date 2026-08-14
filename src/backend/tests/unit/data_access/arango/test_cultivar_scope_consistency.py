@@ -548,7 +548,12 @@ _CULTIVAR_READER_METHODS: frozenset[str] = frozenset(
 #: * **anchored dereference** — resolves a key that a row *already* filtered by
 #:   tenant handed it, so the anchor carries the tenancy and the cultivar is only
 #:   being named;
-#: * **known gap** — neither, and tracked.
+#: * **known gap** — neither, and tracked. No entry is in this state today. The
+#:   category stays because the inventory's whole value is forcing the question,
+#:   and an entry that cannot answer it must be able to say so rather than reach
+#:   for the nearest comfortable label. (It was used once, wrongly: ``tenant_key=""``
+#:   in the MCP tools was read as "sees everything" when it means the opposite.
+#:   Global-*only* is narrower than the HTTP catalogue, not wider.)
 _DECLARED_CULTIVAR_READERS: dict[str, str] = {
     "api/v1/cultivars/router.py": (
         "scoped — the tenant-facing catalogue; both reads pass the resolved ``tenant_key`` into the narrowing path."
@@ -575,10 +580,15 @@ _DECLARED_CULTIVAR_READERS: dict[str, str] = {
         "entry's plant, which the tool resolved under the acting tenant."
     ),
     "mcp_server/tools/species.py": (
-        '**known gap (#1121)** — passes ``tenant_key=""`` explicitly, so the MCP '
-        "catalogue tools read every tenant's cultivars. Recorded rather than "
-        "silently tolerated: this inventory is what makes it visible, and #1121 "
-        "closes it by making the MCP catalogue tools honour the active tenant."
+        'scoped, deliberately to global-only — passes ``tenant_key=""``, which '
+        "collapses the hybrid union to the shared seed catalogue. These tools take "
+        "``ToolInput``, not ``TenantToolInput``, so the dispatcher binds no membership "
+        "and ``ctx.tenant_key`` would raise: there is no acting tenant to union "
+        'against, and ``""`` is the honest scope rather than a gap. It is *narrower* '
+        "than the HTTP catalogue, never wider — the whole-catalogue leak was "
+        "``tenant_key=None`` and is already closed (SEC-003, #808). #1121 widens it "
+        "to global + acting tenant, which moves the input type and is therefore a "
+        "public MCP contract change, not a scope fix."
     ),
 }
 
