@@ -472,11 +472,13 @@ def get_task_entity_guard():
     """
     from app.domain.services.task_entity_guard import TaskEntityGuard
 
+    # Factories, not instances: the guard calls one only when a binding actually
+    # needs resolving, so an unbound create opens no database handle at all.
     return TaskEntityGuard(
-        get_plant_instance_service(),
-        get_planting_run_service(),
-        get_tank_service(),
-        get_site_service(),
+        get_plant_instance_service,
+        get_planting_run_service,
+        get_tank_service,
+        get_site_service,
     )
 
 

@@ -39,6 +39,7 @@ exist.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from app.common.exceptions import NotFoundError
@@ -46,14 +47,22 @@ from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
 
 
 class TaskEntityGuard:
-    """Resolves a task's entity binding under the caller's tenant, or raises 404."""
+    """Resolves a task's entity binding under the caller's tenant, or raises 404.
+
+    Collaborators arrive as **factories**, called only when a binding actually
+    needs resolving. Most task creates are unbound or name a type that writes no
+    edge, and eagerly constructing four services (each opening a database handle)
+    to then do nothing is both wasteful and, in the API test tier, fatal: those
+    tests must not reach a datastore (#978), and an unbound create would have
+    tripped that guard for a lookup it never performs.
+    """
 
     def __init__(
         self,
-        plant_service: Any,
-        planting_run_service: Any,
-        tank_service: Any,
-        site_service: Any,
+        plant_service: Callable[[], Any],
+        planting_run_service: Callable[[], Any],
+        tank_service: Callable[[], Any],
+        site_service: Callable[[], Any],
     ) -> None:
         self._plants = plant_service
         self._runs = planting_run_service
@@ -79,16 +88,17 @@ class TaskEntityGuard:
             return
 
         if entity_type == "plant_instance":
-            self._plants.get_plant(entity_key, tenant_key=tenant_key)
+            self._plants().get_plant(entity_key, tenant_key=tenant_key)
         elif entity_type == "planting_run":
-            self._runs.get_run(entity_key, tenant_key=tenant_key)
+            self._runs().get_run(entity_key, tenant_key=tenant_key)
         elif entity_type == "tank":
-            self._tanks.get_tank(entity_key, tenant_key=tenant_key)
+            self._tanks().get_tank(entity_key, tenant_key=tenant_key)
         elif entity_type == "location":
             # Two hops on purpose — see the module docstring: the location's own
             # tenant_key is never written, so the site is the only real anchor.
-            location = self._sites.get_location(entity_key)
-            self._sites.get_site(location.site_key, tenant_key=tenant_key)
+            sites = self._sites()
+            location = sites.get_location(entity_key)
+            sites.get_site(location.site_key, tenant_key=tenant_key)
         else:
             # A type was added to ENTITY_TYPE_TO_COLLECTION without an anchor here.
             # Fail closed: the repository *will* write an edge for it, and nobody

@@ -80,6 +80,7 @@ def _build(account_type: str, tenant_key: str = TENANT_A) -> tuple[TestClient, _
     aql = ReplayingAql().route(_LOOKUP_MARKER, _lookup)
     db = ReplayingDatabase(aql, {col.TASKS: tasks, col.HAS_TASK: has_task})
     service = TaskService(ArangoTaskRepository(db), MagicMock(), MagicMock())
+    entity_guard = _RecordingEntityGuard()
 
     app = FastAPI()
     app.include_router(tasks_router, prefix="/api/v1/t/{tenant_slug}")
@@ -90,10 +91,29 @@ def _build(account_type: str, tenant_key: str = TENANT_A) -> tuple[TestClient, _
     app.dependency_overrides[get_current_user] = lambda: User(
         key="user-1", email="prod@example.com", display_name="Producer", account_type=account_type
     )
-    from app.common.dependencies import get_task_service
+    from app.common.dependencies import get_task_entity_guard, get_task_service
 
     app.dependency_overrides[get_task_service] = lambda: service
+    # SEC-I01 (#1102): the create route anchors the caller-supplied
+    # entity_key/entity_type in the caller's tenant. Its real dependency builds the
+    # plant / run / location / tank services, i.e. a live ArangoDB — which this
+    # tier must not touch (#978). The double below stands in for that lookup and,
+    # rather than merely silencing it, *records* what the route asked about, so the
+    # producer path is shown to run the same anchor the interactive one does.
+    app.dependency_overrides[get_task_entity_guard] = lambda: entity_guard
     return TestClient(app), tasks
+
+
+class _RecordingEntityGuard:
+    """Accepts every binding and remembers it — the anchor's own rules live in
+    ``tests/unit/domain/services/test_task_entity_guard.py``; here only *that it was
+    consulted* is in scope."""
+
+    def __init__(self) -> None:
+        self.verified: list[tuple[str | None, str | None, str]] = []
+
+    def verify(self, entity_type: str | None, entity_key: str | None, *, tenant_key: str) -> None:
+        self.verified.append((entity_type, entity_key, tenant_key))
 
 
 def _url(slug: str = TENANT_A_SLUG) -> str:

@@ -80,11 +80,13 @@ class _SiteService:
 
 
 def _guard(*, owner: str = _MINE, site_owner: str = _MINE) -> TaskEntityGuard:
+    # Factories, matching the production wiring: the guard resolves a collaborator
+    # only when a binding needs it (#1102 follow-up).
     return TaskEntityGuard(
-        _TenantScopedService(owner),
-        _TenantScopedService(owner),
-        _TenantScopedService(owner),
-        _SiteService(site_owner),
+        lambda: _TenantScopedService(owner),
+        lambda: _TenantScopedService(owner),
+        lambda: _TenantScopedService(owner),
+        lambda: _SiteService(site_owner),
     )
 
 
@@ -124,7 +126,9 @@ def test_a_location_is_anchored_on_its_site() -> None:
     passed.
     """
     sites = _SiteService()
-    guard = TaskEntityGuard(_TenantScopedService(), _TenantScopedService(), _TenantScopedService(), sites)
+    guard = TaskEntityGuard(
+        lambda: _TenantScopedService(), lambda: _TenantScopedService(), lambda: _TenantScopedService(), lambda: sites
+    )
 
     guard.verify("location", "loc_1", tenant_key=_MINE)
 
@@ -140,6 +144,31 @@ def test_a_location_is_anchored_on_its_site() -> None:
 )
 def test_an_unbound_task_is_untouched(entity_type, entity_key) -> None:
     _guard(owner=_THEIRS).verify(entity_type, entity_key, tenant_key=_MINE)
+
+
+def test_an_unbound_create_constructs_no_collaborator() -> None:
+    """Laziness is load-bearing, not an optimisation.
+
+    Each factory opens a database handle. The API test tier forbids reaching a
+    datastore (#978), so an unbound create that eagerly built four services would
+    fail there for a lookup it never performs — which is exactly how this surfaced.
+    """
+    built: list[str] = []
+
+    def _factory(name: str):
+        def make():
+            built.append(name)
+            return _TenantScopedService()
+
+        return make
+
+    guard = TaskEntityGuard(_factory("plants"), _factory("runs"), _factory("tanks"), _factory("sites"))
+
+    guard.verify(None, None, tenant_key=_MINE)
+    guard.verify("generic", "e1", tenant_key=_MINE)
+    guard.verify("plant_instance", None, tenant_key=_MINE)
+
+    assert built == [], "no binding needed resolving, so nothing may have been constructed"
 
 
 @pytest.mark.parametrize("entity_type", ["generic", "plant", "actuator", "species"])
