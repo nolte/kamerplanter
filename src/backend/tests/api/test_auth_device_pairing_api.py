@@ -265,14 +265,41 @@ class TestIssuance:
 
         assert harness.service.create_calls[0][0] == _USER_KEY
 
-    def test_the_forwarded_client_address_reaches_the_audit_event(self, harness: _Harness) -> None:
+    def test_the_forwarded_client_address_reaches_the_audit_event(
+        self, harness: _Harness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Not ``request.client.host``: behind the ingress that is the proxy.
 
         The same value buckets the redemption throttle, so recording the peer
         address would put every caller in the world into one bucket — turning a
         per-IP lockout into a global one.
+
+        The two-entry header is the **production** chain (client → Traefik →
+        nginx → backend: nginx appends Traefik's address), so the depth is stated
+        rather than assumed. Before #1151 this test passed by reading the
+        left-most entry, which is the one a caller can write — with
+        ``trusted_proxy_hops`` unset it would now read ``10.42.0.1``, and that is
+        correct for the shallower default rather than a defect.
         """
+        monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
         harness.issue(headers={"X-Forwarded-For": "203.0.113.9, 10.42.0.1"})
+
+        assert harness.service.create_calls[0][1] == "203.0.113.9"
+
+    def test_a_caller_supplied_address_does_not_reach_the_audit_event(
+        self, harness: _Harness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The other half of #1151, at the surface that records it.
+
+        A caller prepending their own value is what ``$proxy_add_x_forwarded_for``
+        preserves; counting in from the right leaves the claim out of reach. An
+        audit event naming an address the caller chose is worse than one naming
+        the proxy — it reads as evidence.
+        """
+        monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
+        harness.issue(headers={"X-Forwarded-For": "1.2.3.4, 203.0.113.9, 10.42.0.1"})
 
         assert harness.service.create_calls[0][1] == "203.0.113.9"
 
