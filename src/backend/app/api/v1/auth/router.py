@@ -48,7 +48,44 @@ from app.mcp_server.auth import McpAuthenticator
 
 logger = structlog.get_logger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
+
+def _rate_limit_key(request: Request) -> str:
+    """Bucket a rate limit on the *caller's* address, not on the proxy's.
+
+    ``get_remote_address`` reads ``request.client.host``, which behind the
+    Traefik ingress is the ingress for every caller alive — so every
+    ``@limiter.limit`` in this module shared **one** bucket across the whole
+    deployment. Ten failed pairing redemptions from any single source answered
+    429 to everybody else for the rest of the minute (#1130, measured); the same
+    held for login, registration and password reset, which is why the key is
+    fixed here rather than on the one route the issue was filed against.
+
+    ``resolve_client_ip`` is the same resolution the pairing **lockout** and the
+    service-account ``ip_allowlist`` already use, so the three IP-based controls
+    now agree on who the caller is instead of two of them disagreeing with the
+    third.
+
+    **What makes the key trustworthy** is `resolve_client_ip` itself, not an
+    assumption about the ingress. An earlier version of this docstring claimed
+    the ingress strips inbound ``X-Forwarded-*`` so the left-most entry could be
+    trusted; that was refuted from this repository (``nginx.conf`` appends via
+    ``$proxy_add_x_forwarded_for``, and no ``forwardedHeaders`` is pinned in
+    ``helm/``), and #1151 replaced the reading with one that counts in from the
+    trusted end. A caller who prepends entries only pushes their claim further
+    out of reach.
+
+    The one path that reading cannot cover is a request that never traverses our
+    proxies — the backend NetworkPolicy currently admits port 8000 without a
+    ``from`` selector (#1159). There the header is whatever its sender wrote, for
+    this limiter as for the lockout and the allowlist.
+
+    Falls back to the socket peer when no header is present, which is what a
+    direct call (and every ``TestClient`` caller that sets no header) gets.
+    """
+    return resolve_client_ip(request) or get_remote_address(request)
+
+
+limiter = Limiter(key_func=_rate_limit_key)
 router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
 #: API-key management, mounted in **both** deployment modes (REQ-027, REQ-033 §4.3).
@@ -189,6 +226,7 @@ def login(
 
 
 @router.post("/refresh", response_model=TokenPairResponse | TokenResponse)
+@limiter.limit(settings.rate_limit_token_refresh)
 def refresh(
     response: Response,
     request: Request,

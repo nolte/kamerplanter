@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
+  RATE_LIMITED_REJECTION,
   clearError,
   setAccessToken,
   clearAuth,
@@ -10,6 +11,7 @@ import reducer, {
   logoutUser,
   refreshAccessToken,
 } from '@/store/slices/authSlice';
+import * as authApi from '@/api/endpoints/auth';
 
 function createStore() {
   return configureStore({ reducer: { auth: reducer } });
@@ -190,6 +192,82 @@ describe('authSlice', () => {
     expect(state.isAuthenticated).toBe(false);
     expect(state.isLoading).toBe(false);
     expect(state.initialized).toBe(true);
+  });
+
+  it('a rate-limited refresh rejects with the sentinel the interceptor compares against', async () => {
+    // The half the first version of this fix missed, and the reason it was inert
+    // (#1131). `unwrap()` re-throws the *payload* of a `rejectWithValue`
+    // rejection, never the original error — so `AuthProvider`'s catch cannot
+    // recognise a 429 by its type, and a check like `isRateLimited(refreshError)`
+    // is always false there. This pins what the catch actually receives.
+    const axiosError = Object.assign(new Error('Too Many Requests'), {
+      isAxiosError: true,
+      response: { status: 429 },
+      config: {},
+      toJSON: () => ({}),
+    });
+    vi.spyOn(authApi, 'refresh').mockRejectedValueOnce(axiosError);
+    const store = configureStore({ reducer: { auth: reducer } });
+
+    let thrown: unknown;
+    try {
+      await store.dispatch(refreshAccessToken()).unwrap();
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBe(RATE_LIMITED_REJECTION);
+    // And the store kept the bootstrap contract either way.
+    expect(store.getState().auth.initialized).toBe(true);
+  });
+
+  it('refreshAccessToken.rejected keeps the session when the refusal was a rate limit', () => {
+    // #1131: `/auth/refresh` carries a per-IP budget and `AuthProvider` calls it
+    // on every bootstrap and every 401 retry, so behind a shared address a burst
+    // of tabs can spend it between them. That 429 says "not now", not "you are
+    // signed out" — the refresh token behind it is still valid, and dropping the
+    // session would sign the user out over a limit that expires within a minute.
+    const authed = {
+      user: { key: 'u1' } as never,
+      accessToken: 'jwt',
+      isAuthenticated: true,
+      isLoading: true,
+      error: null,
+      initialized: false,
+    };
+
+    const state = reducer(authed, {
+      type: refreshAccessToken.rejected.type,
+      payload: 'rate-limited',
+    });
+
+    expect(state.accessToken).toBe('jwt');
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.user).not.toBeNull();
+    // Still a completed bootstrap: the UI must leave its loading state either way.
+    expect(state.isLoading).toBe(false);
+    expect(state.initialized).toBe(true);
+  });
+
+  it('refreshAccessToken.rejected still clears the session for any other refusal', () => {
+    // The half that keeps the exception from swallowing a real 401: without it,
+    // "keep the session on a rate limit" would drift into "keep the session".
+    const authed = {
+      user: { key: 'u1' } as never,
+      accessToken: 'jwt',
+      isAuthenticated: true,
+      isLoading: true,
+      error: null,
+      initialized: false,
+    };
+
+    const state = reducer(authed, {
+      type: refreshAccessToken.rejected.type,
+      payload: undefined,
+    });
+
+    expect(state.accessToken).toBeNull();
+    expect(state.isAuthenticated).toBe(false);
   });
 
   it('never resets initialized back to false once the bootstrap has completed', () => {

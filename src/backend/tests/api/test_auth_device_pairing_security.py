@@ -607,6 +607,30 @@ class TestRateLimit:
         survivor = world.redeem(code, ip=_CLEAN_IP)
         assert survivor.status_code == 200, survivor.text
 
+    def test_a_flood_from_one_address_leaves_every_other_callers_budget_intact(self, world: _World) -> None:
+        """The budget is per address, and the address is the *caller's* (#1130).
+
+        `Limiter(key_func=get_remote_address)` reads `request.client.host`, which
+        behind the Traefik ingress is the proxy for every caller alive — so one
+        attacker spending the ten-per-minute budget answered 429 to everybody
+        else, a denial of service costing ten requests. The lockout next to it
+        was already per address (`resolve_client_ip`); only the limiter was not.
+
+        Note what this test does **not** do: `limiter.reset()`. The sibling above
+        needs it, and that is the tell — with a shared bucket, a clean address
+        cannot proceed until the counter is cleared by hand.
+        """
+        limit = int(settings.rate_limit_device_pairing_redeem.split("/")[0])
+        code, _ = world.issue_code()
+
+        spent = [world.redeem("wrong-code", ip=_ATTACKER_IP).status_code for _ in range(limit)]
+        attacker_refused = world.redeem("wrong-code", ip=_ATTACKER_IP)
+        victim = world.redeem(code, ip=_CLEAN_IP)
+
+        assert 429 not in spent, spent
+        assert attacker_refused.status_code == 429, attacker_refused.text
+        assert victim.status_code == 200, victim.text
+
 
 # ── 5. Tenant integrity (REQ-024) ──────────────────────────────────
 

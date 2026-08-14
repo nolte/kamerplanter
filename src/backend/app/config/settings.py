@@ -456,6 +456,22 @@ class Settings(BaseSettings):
     #: JSON body, so a prefetcher cannot spend the budget. A sandbox that renders
     #: the landing page and executes its JavaScript could — ten absorbs that too.
     rate_limit_email_change_confirm: str = "10/minute"
+    #: ``POST /api/v1/auth/refresh``, per client IP (#1131).
+    #:
+    #: **Why its own setting and not ``rate_limit_auth``.** That budget's own
+    #: docstring sizes it for "an interactive retry surface — a user who mistypes
+    #: a password". Refresh is the opposite of interactive: ``AuthProvider``
+    #: dispatches one on **every** app bootstrap — every tab, every reload, and
+    #: anonymous visitors too (they get 401, but the limiter runs first and the
+    #: attempt is spent) — plus one per 401 the interceptor retries. Behind a
+    #: corporate NAT or CGNAT, twenty page loads a minute from one address is
+    #: ordinary traffic, and the twenty-first would be refused.
+    #:
+    #: **Why a limit at all**, given that the token is a 512-bit-class secret
+    #: looked up by hash: this is the only public token-*accepting* endpoint in
+    #: ``/auth/*`` with a body transport (#1118), and every other one carries a
+    #: budget. Defence in depth, sized so it cannot fire on legitimate use.
+    rate_limit_token_refresh: str = "60/minute"
     #: ``POST /api/v1/auth/device-pairing/redeem`` (#1118), per client IP.
     #:
     #: **Why its own setting and not ``rate_limit_auth``.** The ``/auth/*`` budget
