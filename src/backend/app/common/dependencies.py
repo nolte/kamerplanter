@@ -463,6 +463,23 @@ def get_tank_service() -> TankService:
     return TankService(get_tank_repo(), TankEngine())
 
 
+def get_task_entity_guard():
+    """Guard that anchors a task's entity binding in the caller's tenant (#1102).
+
+    Bundles the four services behind one dependency rather than putting four more
+    ``Depends`` on the task-create route: they are needed together or not at all,
+    and the route already carries five parameters.
+    """
+    from app.domain.services.task_entity_guard import TaskEntityGuard
+
+    return TaskEntityGuard(
+        get_plant_instance_service(),
+        get_planting_run_service(),
+        get_tank_service(),
+        get_site_service(),
+    )
+
+
 def get_fertilizer_repo() -> ArangoFertilizerRepository:
     return ArangoFertilizerRepository(get_db())
 
