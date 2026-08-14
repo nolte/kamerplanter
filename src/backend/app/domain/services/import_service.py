@@ -1,13 +1,27 @@
 import re
 
-from app.common.enums import DuplicateStrategy, EntityType, ImportJobStatus
+from app.common.enums import DataOrigin, DuplicateStrategy, EntityType, ImportJobStatus, TenantRole
 from app.common.exceptions import ValidationError
+from app.config.settings import settings
 from app.domain.engines.csv_parser import CsvParser
 from app.domain.engines.import_engine import ImportEngine
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.row_validator import RowValidator
 from app.domain.interfaces.import_job_repository import IImportJobRepository
 from app.domain.models.import_job import ImportJob
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
+
+# Imported by their private names on purpose: these are the *same* two decisions
+# `SpeciesService` runs for the interactive routes, and #1110 exists because the
+# import had its own (absent) answer. A public re-export or a local copy would
+# reintroduce exactly the second opinion the issue is about — the underscore is
+# the honest marker that this module is reaching into a sibling's rule rather
+# than owning one.
+from app.domain.services.species_service import (  # noqa: PLC2701
+    _authorize_tenant_owned_create,
+    _authorize_tenant_owned_write,
+)
 
 
 class ImportService:
@@ -55,19 +69,113 @@ class ImportService:
     def list_jobs(self, offset: int = 0, limit: int = 50) -> tuple[list[ImportJob], int]:
         return self._repo.list_all(offset, limit)
 
-    def confirm(self, key: str) -> ImportJob:
+    def confirm(
+        self,
+        key: str,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> ImportJob:
+        """Apply a staged import job's rows, ownership-stamped and role-gated (#1110).
+
+        This is the write half of the import; :meth:`upload` only stages rows for
+        preview and touches no master data. The three keyword arguments are the
+        same triple the interactive catalogue routes carry, and they arrive from
+        the same resolver — :func:`~app.common.auth.get_active_tenant_context` —
+        so an imported row and a hand-created one land in the same tenant with the
+        same permission answer. They default to the **system context**
+        (``caller_role is None``, no gate, global stamp), which is what keeps the
+        seeders, migrations and existing tests importing without an HTTP caller;
+        every HTTP call passes a real role.
+
+        Before #1110 there was no such context at all: ``ImportService`` built
+        entities with the model default ``tenant_key = ''`` — *global* — and wrote
+        them repository-direct. So any authenticated user, a viewer of a shared
+        tenant included, could inject rows into the catalogue every tenant reads,
+        via ``POST /api/v1/import/upload`` + confirm. Worse, they could not undo
+        it: deleting a global row has required a platform admin since #1109. The
+        import was the unlocked back door of the gates #1109/#1113/#1120 fitted to
+        the front.
+        """
         job = self.get_job(key)
         if job.status != ImportJobStatus.PREVIEW_READY:
             raise ValidationError(f"Job must be in PREVIEW_READY status, got {job.status}")
 
-        create_fn = self._get_create_fn(job.entity_type)
+        self._authorize_confirm(
+            job.entity_type,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+        )
+
+        create_fn = self._get_create_fn(job.entity_type, tenant_key=tenant_key)
         # The "update" duplicate strategy only takes effect when an update_fn is
         # supplied; otherwise the engine can only create/skip/fail duplicates.
         update_fn = None
         if job.duplicate_strategy == DuplicateStrategy.UPDATE:
-            update_fn = self._get_update_fn(job.entity_type)
+            update_fn = self._get_update_fn(
+                job.entity_type,
+                tenant_key=tenant_key,
+                caller_role=caller_role,
+                is_platform_admin=is_platform_admin,
+            )
         job = self._engine.confirm_import(job, create_fn, update_fn=update_fn)
         return self._repo.update(key, job)
+
+    def _authorize_confirm(
+        self,
+        entity_type: EntityType,
+        *,
+        tenant_key: str | None,
+        caller_role: TenantRole | None,
+        is_platform_admin: bool,
+    ) -> None:
+        """Decide whether this caller may apply an import of ``entity_type``.
+
+        Two different answers, because the two catalogues have different shapes:
+
+        * **Species and cultivars** are a *hybrid* catalogue — a row can be
+          tenant-owned — so the rule is the ordinary tenant-owned create gate, and
+          this calls the very function ``SpeciesService.create_species`` calls
+          rather than restating it. A viewer is refused; a grower or lead may
+          import into their own tenant.
+        * **Botanical families** are global-*only*: the model carries no
+          ``tenant_key``, so there is no tenant to import them into and no
+          ownership arm to fall back on. The only honest answer is the one the
+          interactive route already gives — platform admin, or 403.
+
+        Ordering mirrors ``create_species`` in the species router: the "no active
+        tenant" refusal wins over the role refusal, because with no resolvable
+        tenant ``caller_role`` is the fail-safe VIEWER *default* rather than a
+        standing anyone assigned, and answering 403 would report a role nobody
+        holds.
+        """
+        if entity_type == EntityType.BOTANICAL_FAMILY:
+            # System context (seeders, migrations) passes no role and stays ungated,
+            # exactly as `_authorize_tenant_owned_create` leaves it ungated.
+            if caller_role is not None:
+                require_platform_admin_for_global_catalogue(
+                    is_platform_admin=is_platform_admin, entity="botanical family"
+                )
+            return
+
+        if entity_type not in (EntityType.SPECIES, EntityType.CULTIVAR):
+            return
+
+        # SEC-004 (#808), transplanted from the species router: in full mode a
+        # tenant-owned create with no resolvable active tenant must not be stamped
+        # global. `caller_role is not None` narrows this to HTTP callers — the
+        # router's own guard needs no such condition because nothing but HTTP
+        # reaches it, whereas this service is also the seeders' entry point.
+        if caller_role is not None and settings.kamerplanter_mode == "full" and not tenant_key:
+            raise ValidationError("Cannot import tenant-owned master data without an active tenant.")
+
+        _authorize_tenant_owned_create(
+            plural_noun="species" if entity_type == EntityType.SPECIES else "cultivars",
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+        )
 
     def delete_job(self, key: str) -> bool:
         self.get_job(key)
@@ -100,13 +208,35 @@ class ImportService:
             return {d.get("name", d.get("_key", "")) if isinstance(d, dict) else getattr(d, "name", "") for d in docs}
         return set()
 
-    def _get_create_fn(self, entity_type: EntityType):
+    @staticmethod
+    def _owner_stamp(tenant_key: str | None) -> tuple[str, DataOrigin]:
+        """Return the ``(tenant_key, origin)`` an imported row is created with (#1110).
+
+        ``tenant_key is None`` is the system context (seeders, migrations): those
+        rows really are global reference data, and ``""`` is the model default they
+        already carried. An HTTP caller always brings a resolved key — or was
+        refused by :meth:`_authorize_confirm` before reaching here.
+
+        The provenance travels with the ownership rather than being decided
+        separately, because the two must agree: a tenant-owned row marked
+        ``origin=SYSTEM`` is rendered read-only by the UI, so the importing tenant
+        could not edit or delete what it had just created. One function, so the
+        create path and the update path's create-fallback cannot drift apart on it.
+        """
+        owner_key = tenant_key or ""
+        return owner_key, DataOrigin.TENANT if owner_key else DataOrigin.SYSTEM
+
+    def _get_create_fn(self, entity_type: EntityType, *, tenant_key: str | None = None):
+        owner_key, origin = self._owner_stamp(tenant_key)
+
         if entity_type == EntityType.SPECIES and self._species_repo:
             from app.domain.models.species import Species
 
             def create_species(data: dict):
                 species = Species(
                     scientific_name=data["scientific_name"],
+                    tenant_key=owner_key,
+                    origin=origin,
                     **_species_fields_from_row(data, self._family_repo),
                 )
                 # REQ-048 Stufe 1 / SEC-003: route through the atomic dedup UPSERT
@@ -126,6 +256,8 @@ class ImportService:
                 cultivar = Cultivar(
                     species_key=data["species_key"],
                     name=data["cultivar_name"],
+                    tenant_key=owner_key,
+                    origin=origin,
                     **_cultivar_fields_from_row(data),
                 )
                 self._species_repo.create_cultivar(cultivar)
@@ -151,14 +283,34 @@ class ImportService:
 
         return noop
 
-    def _get_update_fn(self, entity_type: EntityType):
+    def _get_update_fn(
+        self,
+        entity_type: EntityType,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ):
         """Return an update function for the "update" duplicate strategy.
 
         The engine only invokes ``update_fn(row)`` for DUPLICATE rows, so each
         function looks up the existing record by its natural key and mutates only
         the columns present in the CSV row (empty cells never clobber existing
         data). Returns ``None`` when the entity has no repository wired.
+
+        Ownership-gated per row since #1110, and this arm was the sharper hole of
+        the two: ``_authorize_confirm`` decides whether the caller may *create*
+        master data, but ``duplicate_strategy=UPDATE`` writes rows that already
+        exist — including the **global seed catalogue** every tenant reads. Any
+        authenticated user could therefore upload a CSV naming a seeded species
+        and overwrite its fields wholesale. The gate here is the same
+        :func:`~app.domain.services.species_service._authorize_tenant_owned_write`
+        the interactive ``PUT /species/{key}`` runs, so an import and an edit form
+        answer identically: foreign row → 404, global row → platform admin only,
+        own row → writing role required.
         """
+        owner_key, origin = self._owner_stamp(tenant_key)
+
         if entity_type == EntityType.SPECIES and self._species_repo:
 
             def update_species(data: dict):
@@ -169,14 +321,29 @@ class ImportService:
 
                     # SEC-003: still route the fallback create through the atomic
                     # dedup UPSERT so a normalized-duplicate never slips in here.
+                    # Stamped exactly like the create path (#1110): this branch mints
+                    # a row, so an unstamped one here would reopen the global-write
+                    # hole through the back of the *update* strategy.
                     created = self._species_repo.upsert_by_normalized_scientific_name(
                         Species(
                             scientific_name=data["scientific_name"],
+                            tenant_key=owner_key,
+                            origin=origin,
                             **_species_fields_from_row(data, self._family_repo),
                         )
                     )
                     self._bind_phase_sequence(created)
                     return
+                _authorize_tenant_owned_write(
+                    existing,
+                    existing.key or "",
+                    entity="Species",
+                    plural_noun="species",
+                    tenant_key=tenant_key,
+                    caller_role=caller_role,
+                    is_platform_admin=is_platform_admin,
+                    can_role_write=MembershipEngine.can_edit_resource,
+                )
                 for field, value in _species_fields_from_row(data, self._family_repo).items():
                     setattr(existing, field, value)
                 self._species_repo.update(existing.key, existing)

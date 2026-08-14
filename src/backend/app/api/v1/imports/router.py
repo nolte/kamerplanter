@@ -3,13 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, Path, Response, UploadFile
 
 from app.api.v1.imports.schemas import ImportJobResponse
-from app.common.auth import get_current_user
+from app.common.auth import get_active_tenant_context, get_current_user, get_is_platform_admin
 from app.common.dependencies import get_import_service
 from app.common.enums import DuplicateStrategy, EntityType
 from app.common.exceptions import PayloadTooLargeError, UnsupportedMediaTypeError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.import_job import ImportJob
+from app.domain.models.tenant_context import TenantContext
 from app.domain.services.import_service import ImportService
 
 router = APIRouter(
@@ -87,9 +88,32 @@ async def upload_csv(
 def confirm_import(
     key: Annotated[str, Path(description="Document key of the import job.")],
     service: ImportService = Depends(get_import_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Confirm a staged import job and apply its rows."""
-    job = service.confirm(key)
+    """Confirm a staged import job and apply its rows into the caller's tenant.
+
+    This is the only write in this router — ``/upload`` merely stages rows for
+    preview — and until #1110 it was ungated and un-scoped: rows were built with
+    the model default ``tenant_key = ''`` and written repository-direct, so any
+    authenticated user could inject master data into the *global* catalogue every
+    tenant reads, and could not remove it afterwards (deleting a global row has
+    required a platform admin since #1109).
+
+    The tenant comes from :func:`~app.common.auth.get_active_tenant_context` — the
+    same resolver ``POST /api/v1/species`` uses — because this router is mounted
+    globally and carries no ``/t/{slug}/`` segment to bind to. Passing the whole
+    context rather than a separate key and role is what keeps the ownership stamp
+    and the permission answer from drifting onto different notions of "the
+    caller's tenant"; the service decides per entity type, since botanical
+    families have no tenant to be imported into at all.
+    """
+    job = service.confirm(
+        key,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
     return _job_response(job)
 
 
