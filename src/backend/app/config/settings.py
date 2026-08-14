@@ -492,8 +492,8 @@ class Settings(BaseSettings):
     #:
     #:   * ``0`` — client → nginx → backend (the e2e and dev stacks): the caller
     #:     is the last entry, the one nginx wrote.
-    #:   * ``1`` — client → Traefik → nginx → backend (production): nginx
-    #:     appended Traefik's address, so the caller is second to last.
+    #:   * ``1`` — client → ingress → nginx → backend (production): nginx
+    #:     appended the ingress's address, so the caller is second to last.
     #:
     #: **The default is the shallow one deliberately.** Set too low, the resolved
     #: address drifts towards the nearest proxy and the controls bind more
@@ -501,7 +501,13 @@ class Settings(BaseSettings):
     #: #1130 describes). Set too high, the resolver starts reading entries a
     #: caller can write — a bypass. A deployment that adds a hop must raise this;
     #: forgetting to is safe, forgetting the other direction is not.
-    trusted_proxy_hops: int = 0
+    #:
+    #: ``ge=0`` is not decoration: a negative value made `resolve_client_ip`
+    #: index past the end of the chain and raise ``IndexError`` on every request
+    #: carrying the header — a typo would have become an HTTP 500 crashloop on
+    #: device pairing, MCP auth and service-account validation instead of a
+    #: startup failure.
+    trusted_proxy_hops: int = Field(default=0, ge=0)
 
     # REQ-025 Privacy / GDPR
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production

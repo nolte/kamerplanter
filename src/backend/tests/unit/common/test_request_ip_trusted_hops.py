@@ -13,7 +13,7 @@ front replaces the header. Nothing in this repository makes that true:
   `X-Forwarded-For: 203.0.113.1` is handed back `203.0.113.1, <their real peer>`
   — and the left-most entry is their invention.
 * No `forwardedHeaders` / `trustedIPs` is pinned anywhere in `helm/`
-  (`ingress: {}`), so the Traefik behaviour that would sanitise inbound headers
+  (`ingress: {}`), so the ingress behaviour that would sanitise inbound headers
   is an assumption, not a configured fact.
 
 ## Why counting from the right
@@ -28,7 +28,7 @@ constant:
 
 * e2e / dev — client → nginx → backend: nginx appends nothing before the peer,
   so the caller is the **last** entry (`trusted_proxy_hops = 0`).
-* production — client → Traefik → nginx → backend: nginx appends Traefik's
+* production — client → ingress → nginx → backend: nginx appends the ingress's
   address, so the caller is the **second to last** (`trusted_proxy_hops = 1`).
 
 The default is the *shallow* one on purpose. Configured too low, the resolved
@@ -83,7 +83,7 @@ class TestASpoofedClaimIsIgnored:
         assert resolve_client_ip(_request(f"{_SPOOF}, {_CLIENT}")) == _CLIENT
 
     def test_a_prepended_claim_does_not_win_in_the_two_proxy_chain(self, hops) -> None:
-        """Traefik saw the client, nginx appended Traefik — the claim is two to the left."""
+        """The ingress saw the client, nginx appended the ingress — the claim is two to the left."""
         hops(1)
 
         assert resolve_client_ip(_request(f"{_SPOOF}, {_CLIENT}, {_INGRESS}")) == _CLIENT

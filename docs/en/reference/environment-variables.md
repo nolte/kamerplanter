@@ -399,6 +399,7 @@ These variables control the daily background task that derives the FAO-56 refere
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `RATE_LIMIT_AUTH` | `20/minute` | No | Rate limit for authentication endpoints |
+| `TRUSTED_PROXY_HOPS` | `0` | **Yes, behind two proxies** | How many proxy addresses your infrastructure appends to `X-Forwarded-For`, counted from the right. `0` = client → nginx → backend (dev/e2e); `1` = client → Traefik → nginx → backend (the Helm chart sets this). Too low resolves every caller to the nearest proxy — the device-pairing lockout then locks all users at once and IP-allowlisted service accounts fail closed; too high reads entries a caller can forge. |
 | `RATE_LIMIT_GENERAL` | `100/minute` | No | Rate limit for general API endpoints |
 
 **Format:** `[count]/[unit]` — units: `second`, `minute`, `hour`, `day`

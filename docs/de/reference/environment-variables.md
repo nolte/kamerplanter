@@ -399,6 +399,7 @@ Diese Variablen steuern den täglichen Hintergrund-Task, der aus den Wetterdaten
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `RATE_LIMIT_AUTH` | `20/minute` | Nein | Rate-Limit für Authentifizierungsendpunkte |
+| `TRUSTED_PROXY_HOPS` | `0` | **Ja, hinter zwei Proxys** | Wie viele Proxy-Adressen die eigene Infrastruktur an `X-Forwarded-For` anhängt, von rechts gezählt. `0` = Client → nginx → Backend (Dev/E2E); `1` = Client → Traefik → nginx → Backend (das Helm-Chart setzt diesen Wert). Zu niedrig löst jeden Aufrufer auf den nächsten Proxy auf — der Device-Pairing-Lockout sperrt dann alle Nutzer gleichzeitig und IP-Allowlist-Service-Accounts scheitern; zu hoch liest Einträge, die ein Aufrufer fälschen kann. |
 | `RATE_LIMIT_GENERAL` | `100/minute` | Nein | Rate-Limit für allgemeine API-Endpunkte |
 
 **Format:** `[anzahl]/[einheit]` — Einheiten: `second`, `minute`, `hour`, `day`

@@ -1,6 +1,6 @@
 """Resolve the originating client IP behind the reverse proxies.
 
-The backend never sees the caller's socket: a Traefik ingress and the frontend's
+The backend never sees the caller's socket: an ingress proxy and the frontend's
 nginx sit in front, so ``request.client.host`` is a proxy address. The caller has
 to be read out of ``X-Forwarded-For`` — and *which* entry that is, is the whole
 question.
@@ -12,7 +12,16 @@ is handed back ``203.0.113.1, <their real address>`` — the left-most entry, wh
 this module used to return, is the caller's own invention. Taking the entry
 :data:`~app.config.settings.Settings.trusted_proxy_hops` in from the right reads
 what a proxy we run wrote, and pushes anything the caller prepends harmlessly out
-of reach, whether or not the outermost proxy sanitises inbound headers.
+of reach.
+
+**The bound of that claim**, because it is easy to overstate: it holds for a
+request that actually traversed ``hops + 1`` of our proxies. The chart's own
+NetworkPolicy admits a second path — a rule with no ``from`` selector on port
+8000, i.e. direct access to the backend — and a request arriving that way carries
+whatever header its sender chose, with no proxy entry appended after it. Reading
+from the right is what makes the *proxied* path unforgeable; keeping the direct
+path off the network is what makes the other one safe, and that is a
+NetworkPolicy question rather than something this function can decide.
 
 This matters beyond tidiness: the device-pairing lockout (#1118) and the
 service-account ``ip_allowlist`` (SEC-004) both key on this value. A caller who
@@ -36,8 +45,12 @@ def resolve_client_ip(request: Request) -> str | None:
     trusting a value no proxy of ours is known to have written. The peer is the
     one address nobody can fake.
 
-    ``None`` only when there is no header *and* no peer, which is a "nothing to
-    report" that callers keep distinct from an address.
+    ``None`` means the peer could not be read either — no header *or* a header
+    this configuration cannot interpret, and no ``request.client``. It is
+    emphatically **not** "no forwarded header was sent": a header shorter than
+    the configured depth also lands here. A caller reading ``None`` may conclude
+    only "no address could be established", which is why
+    ``McpAuthenticator._enforce_ip_allowlist`` fails closed on it.
     """
     peer = request.client.host if request.client else None
 
