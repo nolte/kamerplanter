@@ -47,15 +47,38 @@ class McpAuditLog(BaseModel):
 
 
 class McpAuditLogEntry(BaseModel):
-    """Read-projection of an audit entry for the privacy self-service view (§4.6)."""
+    """Read-projection of an audit entry for the privacy self-service view (§4.6).
+
+    **Every field here defaults exactly as its :class:`McpAuditLog` counterpart
+    does, and that is a rule, not a coincidence (#1145).** A read projection
+    stricter than the writer over the same collection can only fail.
+
+    The concrete break was ``error_class``. ``X | None`` *without* ``= None`` is a
+    **required** field in Pydantic — it permits null, it does not permit absence —
+    and :meth:`ArangoMcpAuditRepository.record` dumps with ``exclude_none=True``,
+    so a call that raised nothing stores no ``error_class`` key at all. Every
+    *successful* tool call therefore wrote a row this model rejected, and
+    ``get_mcp_activity`` answered 500 for every account and every ``limit`` from
+    the first such row onward. The inversion is the tell: an **error** row carries
+    an ``error_class`` and validated fine, so the only rows the activity view could
+    ever have read were the failures.
+
+    (#1145 reasonably guessed at old rows predating a later-added field, and left
+    the discriminator as an open question. It is not that: the mismatch is
+    deterministic and reproducible from the writer's own dump — see
+    ``test_mcp_audit_projection_matches_its_writer.py``. ``output_size_bytes``,
+    ``duration_ms`` and ``created_at`` were latently exposed to the same class of
+    bug and are defaulted here too, though none of them was reachable — the first
+    two never dump as ``None``, and ``record`` fills ``created_at`` explicitly.)
+    """
 
     tool_name: str
     tenant_key: str
     status: McpToolStatus
-    output_size_bytes: int
-    duration_ms: int
-    error_class: str | None
-    created_at: datetime | None
+    output_size_bytes: int = 0
+    duration_ms: int = 0
+    error_class: str | None = None
+    created_at: datetime | None = None
 
     model_config = {"use_enum_values": True}
 

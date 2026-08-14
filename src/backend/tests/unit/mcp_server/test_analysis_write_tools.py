@@ -241,7 +241,14 @@ class _NutrientPlanService:
         self.seen_tenants.append(tenant_key)
         return self._current
 
-    def assign_to_plant(self, plant_key, plan_key, assigned_by=""):
+    def assign_to_plant(self, plant_key, plan_key, assigned_by="", *, tenant_key):
+        # `tenant_key` is required and keyword-only since #950, and this double
+        # did not follow. Four tests here drove `execute` and stayed green while
+        # the real call site raised `TypeError` on every non-dry-run call (#1145)
+        # — the double modelled a contract the service had stopped offering.
+        # `test_mcp_service_doubles_match_their_service.py` now derives that
+        # agreement from the real signature instead of trusting this line.
+        self.seen_tenants.append(tenant_key)
         self.assignments.append((plant_key, plan_key, assigned_by))
         self._current = self._plans[plan_key]
         return {"_key": "edge-1"}
@@ -852,8 +859,12 @@ class TestAssignNutrientPlan:
             _ctx(plant_instance_service=plants, nutrient_plan_service=plans),
             AssignNutrientPlan.Input(plant_key="p1", plan_key="np-1"),
         )
-        # assign_to_plant itself takes no tenant, which is why both keys are
-        # resolved first (SEC-001 fetch-then-use).
+        # Resolving both keys first is the SEC-001 fetch-then-use guard: the
+        # lookups refuse a foreign key before any write is reached. This comment
+        # used to justify that with "assign_to_plant itself takes no tenant",
+        # which stopped being true at #950 and then served as the reason nobody
+        # re-read the call site (#1145). The write now carries a tenant of its
+        # own, and `seen_tenants` covers it because the double records it.
         assert plants.seen_tenant == TENANT
         assert set(plans.seen_tenants) == {TENANT}
 
