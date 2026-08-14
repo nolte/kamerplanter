@@ -2643,6 +2643,44 @@ version: "4.1"
 
 ---
 
+## TC-001-099: Nur ein Plattform-Admin darf globale Botanische Familien anlegen
+
+**Requirement**: REQ-001 §2 — BotanicalFamily CRUD, §4 — Auth & Autorisierung; REQ-049 §2.5 — Plattform-Rolle
+
+**Priority**: Critical
+**Category**: Autorisierung
+
+**Warum getrennt von TC-001-006**: `BotanicalFamily` ist globale Referenzdaten
+ohne `tenant_key` — jede Zeile wird von *allen* Mandanten gelesen. Es gibt also
+keine Eigentümergrenze, auf die man zurückfallen könnte, und die Regel ist
+dieselbe wie für den globalen Sortenkatalog (#1109): kuratieren darf nur ein
+Plattform-Admin. TC-001-006 bleibt der Happy Path und läuft im light-Modus, wo
+der einzige anonyme Operator per REQ-027 als Plattform-Admin gilt; dieser Fall
+prüft die Verweigerung im full-Modus, wo der Demo-Nutzer bewusst ein gewöhnliches
+Mitglied ist.
+
+**Preconditions**:
+- Instanz läuft im `full`-Modus
+- Nutzer ist angemeldet und **kein** Plattform-Admin (keine `lead`-Mitgliedschaft im technischen `platform`-Mandanten)
+- Nutzer ist auf `/stammdaten/botanical-families`
+
+**Test Steps**:
+1. Nutzer klickt auf "Familie erstellen"
+2. Nutzer füllt das Formular mit einem gültigen, eindeutigen Familiennamen (Endung "-aceae") aus
+3. Nutzer klickt auf "Erstellen"
+
+**Expected Results**:
+- Der Erstellen-Dialog bleibt geöffnet
+- Eine Fehlermeldung weist auf die fehlende Berechtigung hin
+- Die Familie erscheint **nicht** in der Liste
+
+**Postconditions**:
+- Keine Daueränderung; der globale Katalog ist unverändert
+
+**Tags**: [req-001, botanical-family, autorisierung, plattform-admin, full-mode, negativ]
+
+---
+
 ## Abdeckungs-Matrix
 
 | Spezifikations-Abschnitt | Beschreibung | Testfälle |
@@ -2658,7 +2696,7 @@ version: "4.1"
 | §2 propagation_methods | Vermehrungsanzeige | TC-001-073 bis TC-001-074 |
 | §2 Seed-Daten Zierpflanzen | Violaceae, Stiefmütterchen-Species | TC-001-055 |
 | §3 Validierungen Python | aceae-Endung, ales-Endung, pH-Bereich, Allelopathie, N-Fixing, Scientific-Name-Hybrid, Traits, Duplikat | TC-001-007 bis TC-001-009, TC-001-013, TC-001-017, TC-001-026 bis TC-001-028, TC-001-038 bis TC-001-039, TC-001-040 bis TC-001-043, TC-001-075 bis TC-001-078 |
-| §4 Auth & Autorisierung | Redirect unauthenticated, Platform-Admin Schreibzugriff | TC-001-057, TC-001-063 |
+| §4 Auth & Autorisierung | Redirect unauthenticated, Platform-Admin Schreibzugriff, Rollengate globale Referenzdaten | TC-001-057, TC-001-063, TC-001-099 |
 | §6 DoD i18n | Deutsch/Englisch Familiennamen | TC-001-053 |
 | §6 DoD Seed-Daten | 9 Pflanzenfamilien vollständig | TC-001-054 |
 | §6 DoD Stammdaten-Scoping v4.0 | tenant_has_access, Tenant-eigene Species, Overlay, hidden-Flag, Promotion | TC-001-058 bis TC-001-063 |
