@@ -27,15 +27,24 @@ asserts `assert name`, the others compare it against a tenant they switched to
 or expect to survive a reload. That is what makes waiting for a non-empty label
 the right anchor rather than a way of hiding an empty one.
 
-## The two shapes that produce `""`
+## What the component can and cannot do
 
-Both are "not yet" and both are modelled below, because the fix has to cover
-them together: the trigger can be **absent** (the App Bar has not mounted the
-switcher) or **present with no text** (`TenantSwitcher` renders the button
-before its query resolves). An anchor keyed only on presence would still return
-`""` for the second one -- which is the shape a plain
-`wait_for_element(TRIGGER_BUTTON_ALT)` covers and the failing test's *second*
-capture happened to get away with.
+The first draft of this module justified the fix with a second "not yet" state:
+a mounted trigger whose label had not filled in. **That state does not exist.**
+`TenantSwitcher.tsx` returns `null` while `myTenants` is empty, and
+`tenantSlice` sets `myTenants` and `activeTenant` in one reducer, so the button
+never renders without a name. A test for it would have certified an impossible
+DOM shape -- green, and covering nothing.
+
+What the component *does* produce is a label that reads
+`t('pages.tenants.selectTenant')` ("Garten wählen") whenever `activeTenant` is
+null while tenants exist -- the stale-slug recovery `clearActiveTenant` performs
+in `store.ts`. A reader keyed on "non-empty text" accepts that placeholder as a
+tenant name, which is why the component now marks the label with
+`data-tenant-selected` and the reader is scoped to the selected case.
+
+So the two states the anchor has to survive are: the switcher is **absent**
+(the nightly's shape), and it is present but **unselected**.
 
 This is a browser-free unit test and belongs in this tier, never under
 `tests/e2e/` -- see `tests/e2e_selftest/README.md`.
@@ -75,32 +84,40 @@ class FakeLabel:
 
 
 class FakeSwitcherDriver:
-    """A switcher that mounts, and then fills in its label, after N reads.
+    """The switcher as the reader can observe it, one `find_elements` at a time.
 
-    *mounts_after* and *labels_after* are counted in ``find_elements`` calls, so
-    "the button is not there yet" and "the button is there but empty" are
-    separate, orderable states -- which is what the reader has to survive.
+    *mounts_after* delays the trigger, which is the nightly's shape. *selected*
+    models the component's own scoping: the reader's locator carries
+    ``[data-tenant-selected='true']``, so an unselected switcher matches
+    *nothing* -- the placeholder is not a shorter name, it is not a name.
+    *dies_after_poll* kills the node once the poll has already seen it, which is
+    the window a second read would fall into.
     """
 
     def __init__(
         self,
         *,
         mounts_after: int = 0,
-        labels_after: int = 0,
+        selected: bool = True,
         stale: bool = False,
+        dies_after_poll: bool = False,
     ) -> None:
         self.mounts_after = mounts_after
-        self.labels_after = labels_after
+        self.selected = selected
         self.stale = stale
+        self.dies_after_poll = dies_after_poll
         self.reads = 0
 
     @property
     def label(self) -> str:
-        return TENANT if self.reads > self.labels_after else ""
+        return TENANT
 
     def find_elements(self, _by: str, _value: str) -> list[FakeLabel]:
         self.reads += 1
-        if self.reads <= self.mounts_after:
+        if not self.selected or self.reads <= self.mounts_after:
+            return []
+        if self.dies_after_poll and self.reads > 1:
+            # The poll saw it on read 1; everything after that is the re-render.
             return []
         return [FakeLabel(self)]
 
@@ -123,13 +140,26 @@ class TestGetActiveTenantName:
 
         assert page(driver).get_active_tenant_name() == TENANT
 
-    def test_outlives_a_trigger_whose_label_is_still_empty(self) -> None:
-        """The button is mounted, the tenant query has not resolved.
+    def test_does_not_read_the_pick_a_tenant_placeholder_as_a_name(self) -> None:
+        """An unselected switcher has no name to report, however much text it shows.
 
-        The half a presence-only wait does not cover: `wait_for_element`
-        succeeds on this frame and the read still comes back `""`.
+        `assert name` at `test_req024_tenant_switcher.py:81` would otherwise pass
+        on "Garten wählen", and TC-024-010 would compare that string against the
+        real tenant across the reload.
         """
-        driver = FakeSwitcherDriver(labels_after=3)
+        driver = FakeSwitcherDriver(selected=False)
+
+        assert page(driver).get_active_tenant_name() == ""
+
+    def test_returns_the_text_the_anchor_itself_observed(self) -> None:
+        """No second read: the DOM may move between the poll and the return.
+
+        `handleSwitch` triggers `window.location.reload()`, so the node that
+        satisfied the poll can be gone one command later. Re-reading there would
+        answer `""` -- the exact failure the anchor exists to remove, just one
+        line further down.
+        """
+        driver = FakeSwitcherDriver(dies_after_poll=True)
 
         assert page(driver).get_active_tenant_name() == TENANT
 
