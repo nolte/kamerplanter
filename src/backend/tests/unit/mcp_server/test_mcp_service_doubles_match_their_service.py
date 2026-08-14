@@ -24,13 +24,17 @@ must be pinned is that their parameter contract has not diverged.
 
 from __future__ import annotations
 
+import ast
 import inspect
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from app.domain.services.nutrient_plan_service import NutrientPlanService
-from tests.unit.mcp_server import test_analysis_write_tools as write_tools
+
+#: Root of the test tree the double scan walks.
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _binds(func: Any, *args: Any, **kwargs: Any) -> bool:
@@ -42,70 +46,153 @@ def _binds(func: Any, *args: Any, **kwargs: Any) -> bool:
     return True
 
 
-#: (double class, double attribute, real service, real attribute).
-#: One row per method an MCP tool calls through a hand-written double.
-_DOUBLED_METHODS = [
-    (write_tools._NutrientPlanService, "assign_to_plant", NutrientPlanService, "assign_to_plant"),
-    (write_tools._NutrientPlanService, "get_plan", NutrientPlanService, "get_plan"),
-    (write_tools._NutrientPlanService, "get_plant_plan", NutrientPlanService, "get_plant_plan"),
-]
+#: Methods of the real services whose doubles must not drift. Keyed by service
+#: class so a double is matched to the right contract by *name*.
+_GUARDED_SERVICES: dict[type, frozenset[str]] = {
+    NutrientPlanService: frozenset({"assign_to_plant", "get_plan", "get_plant_plan"}),
+}
 
 
-@pytest.mark.parametrize(
-    ("double_cls", "double_attr", "service_cls", "service_attr"),
-    _DOUBLED_METHODS,
-    ids=[f"{d.__name__}.{a}" for d, a, _, _ in _DOUBLED_METHODS],
-)
-def test_the_double_requires_every_argument_the_service_requires(
-    double_cls: type, double_attr: str, service_cls: type, service_attr: str
-) -> None:
-    """A parameter the service requires must not be optional on the double.
+def _discovered_doubles() -> list[tuple[Path, str, str, type]]:
+    """Find every hand-written double of a guarded method, anywhere under ``tests/``.
 
-    That asymmetry is precisely what shipped the bug: the tool omitted
-    `tenant_key`, the double accepted the omission, and the service did not.
+    **Discovered, not listed — and that distinction is the whole lesson of #1145.**
+    The first version of this file carried a three-row table naming the doubles in
+    one module. There was a *second* copy of the same obsolete `assign_to_plant`
+    in ``tests/api/test_mcp_analysis_tools_endpoints.py``; the table did not name
+    it, so the guard walked straight past it and it went red only when the
+    production call site was corrected. A guard against drift that has to be kept
+    in sync by hand is the thing it is guarding against.
+
+    Returns ``(file, class name, method name, service class)`` per double found.
+    Source-level so no test module has to be imported (importing them all would
+    make this guard depend on every fixture in the suite).
     """
-    real = inspect.signature(getattr(service_cls, service_attr))
-    fake = inspect.signature(getattr(double_cls, double_attr))
+    guarded = {name: cls for cls, names in _GUARDED_SERVICES.items() for name in names}
+    found: list[tuple[Path, str, str, type]] = []
+    for path in sorted(_TESTS_ROOT.rglob("test_*.py")):
+        if path.name == Path(__file__).name:
+            continue  # this file names the methods in prose and in _GUARDED_SERVICES
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:  # pragma: no cover - a syntax error fails the build anyway
+            raise AssertionError(f"{path} does not parse — the double scan cannot run.") from exc
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.name in guarded:
+                    found.append((path, node.name, item.name, guarded[item.name]))
+    return found
 
-    required_on_real = {
+
+def _required_params(sig: inspect.Signature) -> set[str]:
+    return {
         name
-        for name, p in real.parameters.items()
+        for name, p in sig.parameters.items()
         if name != "self"
         and p.default is inspect.Parameter.empty
         and p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
     }
-    optional_on_fake = {
-        name for name, p in fake.parameters.items() if name != "self" and p.default is not inspect.Parameter.empty
-    }
 
-    drifted = required_on_real & optional_on_fake
+
+def _double_signature(path: Path, class_name: str, method_name: str) -> inspect.Signature:
+    """Build a Signature from the double's *source*, without importing its module."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    cls = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == class_name)
+    fn = next(n for n in cls.body if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef) and n.name == method_name)
+    params: list[inspect.Parameter] = []
+    args = fn.args
+    n_defaults = len(args.defaults)
+    positional = args.posonlyargs + args.args
+    for i, a in enumerate(positional):
+        has_default = i >= len(positional) - n_defaults
+        params.append(
+            inspect.Parameter(
+                a.arg,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                default=None if has_default else inspect.Parameter.empty,
+            )
+        )
+    for a, d in zip(args.kwonlyargs, args.kw_defaults, strict=True):
+        params.append(
+            inspect.Parameter(
+                a.arg,
+                inspect.Parameter.KEYWORD_ONLY,
+                default=inspect.Parameter.empty if d is None else None,
+            )
+        )
+    return inspect.Signature(params)
+
+
+def test_at_least_one_double_is_discovered() -> None:
+    """T3: an empty scan would make every parametrised case below silently vanish."""
+    assert _discovered_doubles(), "no doubles found — the scanner is broken, not the suite"
+
+
+@pytest.mark.parametrize(
+    ("path", "class_name", "method_name", "service_cls"),
+    _discovered_doubles(),
+    ids=[f"{p.name}::{c}.{m}" for p, c, m, _ in _discovered_doubles()],
+)
+def test_the_double_requires_every_argument_the_service_requires(
+    path: Path, class_name: str, method_name: str, service_cls: type
+) -> None:
+    """Every parameter the service requires must be required on the double too.
+
+    Stated as *missing-or-optional*, not merely *optional* — and the difference is
+    not academic. The first version of this rule intersected "required on the real"
+    with "optional on the fake", which is empty when the fake does not name the
+    parameter **at all**. That is exactly the obsolete double's shape, so the guard
+    was inert against the one signature it was written for, and a counterfactual
+    (restore the old double, expect red) is what surfaced it — the rule's own
+    falsifiability test had been checking `_binds`, a different proposition, and
+    passed regardless.
+    """
+    real = inspect.signature(getattr(service_cls, method_name))
+    fake = _double_signature(path, class_name, method_name)
+    where = f"{path.name}::{class_name}.{method_name}"
+
+    drifted = sorted(_required_params(real) - _required_params(fake))
     assert not drifted, (
-        f"{double_cls.__name__}.{double_attr} makes {sorted(drifted)} optional, "
-        f"but {service_cls.__name__}.{service_attr} requires it — a tool omitting it "
-        "passes here and raises TypeError in production"
+        f"{where} does not require {drifted}, but {service_cls.__name__}.{method_name} does — "
+        "a caller omitting it passes here and raises TypeError in production (#1145)"
     )
 
 
-def test_the_guard_catches_the_signature_that_actually_shipped() -> None:
-    """Falsifiability: the pre-#1145 double must be rejected by the rule above.
+def test_the_rule_rejects_the_signature_that_actually_shipped() -> None:
+    """Falsifiability, applied to the rule itself rather than to a neighbour of it.
 
-    Without this the test above would pass just as well if its set intersection
-    were empty for the wrong reason — an inverted condition, a name mismatch, a
-    `self` that was not filtered. Here the exact obsolete signature is rebuilt and
-    the rule is required to flag it.
+    Rebuilds the pre-#950 double verbatim and asserts the **same expression** the
+    parametrised test asserts. The previous version of this test exercised
+    `_binds`, which is true of the obsolete signature for reasons unrelated to the
+    rule — so it passed while the rule it claimed to protect was inert.
     """
 
     def pre_950_double(self, plant_key, plan_key, assigned_by=""):  # noqa: ANN001, ANN202, ARG001
         pass
 
     real = inspect.signature(NutrientPlanService.assign_to_plant)
-    assert real.parameters["tenant_key"].default is inspect.Parameter.empty, (
-        "precondition: the service still requires tenant_key"
-    )
-    # The obsolete double does not even name the parameter, so the call the tool
-    # used to make binds against it and not against the service.
-    assert _binds(pre_950_double, None, "p1", "np-1", "mcp:sa")
-    assert not _binds(NutrientPlanService.assign_to_plant, None, "p1", "np-1", "mcp:sa")
+    assert "tenant_key" in _required_params(real), "precondition: the service still requires tenant_key"
+
+    drifted = _required_params(real) - _required_params(inspect.signature(pre_950_double))
+
+    assert "tenant_key" in drifted, "the rule must flag the exact declaration that shipped the bug"
+
+
+def test_the_rule_accepts_a_faithful_double() -> None:
+    """The other half: a double that matches must not be reported.
+
+    Without this the rule would be satisfied just as well by one that flags
+    everything, which would be a guard nobody can keep green.
+    """
+
+    def faithful(self, plant_key, plan_key, assigned_by="", *, tenant_key):  # noqa: ANN001, ANN202, ARG001
+        pass
+
+    real = inspect.signature(NutrientPlanService.assign_to_plant)
+
+    assert not _required_params(real) - _required_params(inspect.signature(faithful))
 
 
 def test_the_mcp_tool_passes_the_tenant_to_the_write() -> None:

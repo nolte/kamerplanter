@@ -130,8 +130,13 @@ class _NutrientPlanService:
     def get_phase_entries(self, plan_key):
         return []
 
-    def assign_to_plant(self, plant_key, plan_key, assigned_by=""):
-        self.assignments.append((plant_key, plan_key, assigned_by))
+    def assign_to_plant(self, plant_key, plan_key, assigned_by="", *, tenant_key):
+        # Keyword-only and required since #950. This double was the *second* copy
+        # of the pre-#950 contract; #1145 fixed the one in
+        # tests/unit/mcp_server/test_analysis_write_tools.py and the guard it added
+        # only scanned that file, so this one kept the same green-but-wrong shape
+        # and turned red the moment the call site was corrected.
+        self.assignments.append((plant_key, plan_key, assigned_by, tenant_key))
         return {"_key": "edge-1"}
 
 
@@ -375,7 +380,10 @@ def test_assign_nutrient_plan_becomes_visible_through_get_plant_nutrient_plan():
         json={"plant_key": "p1", "plan_key": "np-1"},
     )
     assert assigned.status_code == 200
-    assert services["nutrient_plan_service"].assignments == [("p1", "np-1", "mcp:sa-1")]
+    # The acting tenant is part of the recorded call since #950/#1145: the write is
+    # tenant-scoped, and asserting it here is what keeps the route from quietly
+    # dropping the argument again.
+    assert services["nutrient_plan_service"].assignments == [("p1", "np-1", "mcp:sa-1", "home")]
 
     after = client.post("/api/v1/mcp/tools/get_plant_nutrient_plan", json={"plant_key": "p1"})
     assert after.json()["data"]["plan_key"] == "np-1"
