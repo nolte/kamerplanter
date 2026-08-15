@@ -54,9 +54,10 @@ from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.species_service import SpeciesService
+from tests.support.grant_fakes import NoGrantsMixin
 
 
-class _FakeRepo:
+class _FakeRepo(NoGrantsMixin):
     """In-memory species + cultivar catalogue with full-replace update semantics."""
 
     def __init__(self, species: list[Species], cultivars: list[Cultivar]) -> None:

@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
+from pydantic import BaseModel, Field
 
 from app.api.mapping import to_response
 from app.api.v1.species.schemas import (
@@ -203,6 +204,90 @@ def update_species(
         is_platform_admin=is_platform_admin,
     )
     return _species_response(updated, family_repo)
+
+
+class SpeciesGrantRequest(BaseModel):
+    """Which tenant a species is being shared with (#1092).
+
+    The field is ``grantee_tenant_key``, not ``tenant_key``, and the distinction is
+    the one #1000 draws: a body field named ``tenant_key`` reads as "the tenant of
+    this request" and is the ownership-smuggling vector the guard exists to block.
+    This names a *different* tenant — the recipient — which the caller genuinely
+    has to supply, because no path segment can carry it.
+    """
+
+    grantee_tenant_key: str = Field(min_length=1, description="Key of the tenant to grant read access to.")
+
+
+@router.get("/{key}/grants", response_model=list[str])
+def list_species_grants(
+    key: Annotated[str, Path(description="Document key of the species.")],
+    service: SpeciesService = Depends(get_species_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
+):
+    """List the tenants this species has been shared with. Owner only (#1092).
+
+    Not readable by a grantee: that would turn a share into a directory of which
+    tenants exist.
+    """
+    return service.list_species_grants(
+        key,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
+
+
+@router.post("/{key}/grants", status_code=204)
+def grant_species_access(
+    key: Annotated[str, Path(description="Document key of the species.")],
+    body: SpeciesGrantRequest,
+    service: SpeciesService = Depends(get_species_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
+):
+    """Share one of this tenant's own species with another tenant (REQ-001 v4.0, #1092).
+
+    The community-garden case: a shared cultivar reaches a member tenant without
+    becoming global. Read-only — the grantee sees the row, the owner keeps update
+    and delete.
+
+    Gated exactly like the edit path: a *foreign* species answers 404 (never a 403,
+    which would confirm it exists), the *global* catalogue is platform-admin only,
+    and sharing an *own* species needs a writing role.
+    """
+    service.grant_species_access(
+        key,
+        to_tenant_key=body.grantee_tenant_key,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
+
+
+@router.delete("/{key}/grants/{grantee_key}", status_code=204)
+def revoke_species_access(
+    key: Annotated[str, Path(description="Document key of the species.")],
+    grantee_key: Annotated[str, Path(description="Key of the tenant whose access is withdrawn.")],
+    service: SpeciesService = Depends(get_species_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
+):
+    """Withdraw a grant (#1092).
+
+    Shipped together with the grant, deliberately: a share that cannot be taken
+    back is a permanent one wearing a revocable label. Idempotent — revoking a
+    grant that is not there answers 204, because the caller's intent ("this tenant
+    must not see it") is satisfied either way.
+    """
+    service.revoke_species_access(
+        key,
+        from_tenant_key=grantee_key,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
 
 
 @router.delete("/{key}", status_code=204)

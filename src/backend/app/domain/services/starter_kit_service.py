@@ -33,7 +33,14 @@ class StarterKitService:
         all_kits = self.list_kits(difficulty)
 
         if accessible_species is None:
-            # No tenant_has_access collection — return all kits (graceful degradation)
+            # The collection is genuinely absent (a volume predating #1092). Showing
+            # everything is the pre-grant behaviour and stays correct there: with no
+            # grant mechanism, kit visibility was never restricted.
+            #
+            # What is NOT this branch any more: an *empty* grant set. That used to
+            # land here too and meant "no grants yet -> show everything", which is
+            # the wrong direction the moment grants are real — a missing store must
+            # never reveal more than a populated one.
             return all_kits
 
         # Filter kits: show if at least one species is accessible
@@ -55,10 +62,10 @@ class StarterKitService:
                 """,
                 bind_vars={"tenant_key": tenant_key},
             )
-            keys = set(cursor)
-            if not keys:
-                return None  # No edges yet — return all kits
-            return keys
+            # An empty result is an answer: this tenant has been granted nothing.
+            # Returning None here (the pre-#1092 behaviour) turned "no grants" into
+            # "all kits", i.e. the absence of a permission granted it.
+            return set(cursor)
         except Exception:
             return None
 

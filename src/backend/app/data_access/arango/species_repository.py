@@ -6,7 +6,10 @@ from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import AQLBuilder, escape_aql_like
-from app.data_access.arango.tenant_scope import tenant_union_predicate
+from app.data_access.arango.tenant_scope import (
+    tenant_union_predicate,
+    tenant_union_with_grants_predicate,
+)
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
@@ -42,7 +45,11 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         if tenant_key is None:
             return super().get_all(offset, limit)
-        predicate, bind_vars = tenant_union_predicate(tenant_key)
+        # Own ∪ global ∪ explicitly granted (#1092). The grant arm is opt-in and
+        # only masterdata readers take it — the shared two-arm predicate has 24
+        # call sites, one of which narrows further on purpose, and widening it
+        # centrally would have widened all of them.
+        predicate, bind_vars = tenant_union_with_grants_predicate(tenant_key)
         list_vars: dict[str, Any] = {**bind_vars, "offset": offset, "limit": limit}
         list_query = f"FOR doc IN {col.SPECIES} FILTER {predicate} SORT doc._key LIMIT @offset, @limit RETURN doc"
         cursor = self._db.aql.execute(list_query, bind_vars=list_vars)
@@ -67,6 +74,95 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         (``ensure_collections``) backs it, so it never degrades to a scan.
         """
         return self.find_one_by_field("scientific_name_normalized", normalize_scientific_name(name))
+
+    # ── explicit masterdata grants (#1092) ──────────────────────────────────
+    #
+    # One set of edge primitives serves both catalogues. Species and cultivars are
+    # the same hybrid-catalogue shape and share the ``tenant_has_access`` edge, so
+    # writing the AQL twice would only create two places for the visibility rule to
+    # drift apart — and a grant that behaves differently per record type is the
+    # kind of asymmetry nobody discovers until a share silently does nothing.
+
+    def _grant(self, collection: str, record_key: str, to_tenant_key: str) -> None:
+        from_id = f"{col.TENANTS}/{to_tenant_key}"
+        to_id = f"{collection}/{record_key}"
+        existing = list(
+            self._db.aql.execute(
+                f"FOR g IN {col.TENANT_HAS_ACCESS} FILTER g._from == @f AND g._to == @t LIMIT 1 RETURN 1",
+                bind_vars={"f": from_id, "t": to_id},
+            )
+        )
+        if existing:
+            return
+        self._db.collection(col.TENANT_HAS_ACCESS).insert({"_from": from_id, "_to": to_id})
+
+    def _revoke(self, collection: str, record_key: str, from_tenant_key: str) -> bool:
+        cursor = self._db.aql.execute(
+            f"FOR g IN {col.TENANT_HAS_ACCESS} FILTER g._from == @f AND g._to == @t "
+            f"REMOVE g IN {col.TENANT_HAS_ACCESS} RETURN 1",
+            bind_vars={"f": f"{col.TENANTS}/{from_tenant_key}", "t": f"{collection}/{record_key}"},
+        )
+        return bool(list(cursor))
+
+    def _grants(self, collection: str, record_key: str) -> list[str]:
+        cursor = self._db.aql.execute(
+            f"FOR g IN {col.TENANT_HAS_ACCESS} FILTER g._to == @t RETURN PARSE_IDENTIFIER(g._from).key",
+            bind_vars={"t": f"{collection}/{record_key}"},
+        )
+        return sorted(cursor)
+
+    def _is_granted(self, collection: str, record_key: str, tenant_key: str) -> bool:
+        cursor = self._db.aql.execute(
+            f"FOR g IN {col.TENANT_HAS_ACCESS} FILTER g._from == @f AND g._to == @t LIMIT 1 RETURN 1",
+            bind_vars={"f": f"{col.TENANTS}/{tenant_key}", "t": f"{collection}/{record_key}"},
+        )
+        return bool(list(cursor))
+
+    def grant_access(self, species_key: str, to_tenant_key: str) -> None:
+        """Let ``to_tenant_key`` see this species without owning it.
+
+        Idempotent: re-granting is a no-op rather than a second edge, so a
+        double submit cannot make a later revocation partial.
+        """
+        self._grant(col.SPECIES, species_key, to_tenant_key)
+
+    def revoke_access(self, species_key: str, from_tenant_key: str) -> bool:
+        """Withdraw a grant. Returns whether one was removed.
+
+        The half that gets forgotten: a grant nobody can take back is a permanent
+        share dressed as a revocable one.
+        """
+        return self._revoke(col.SPECIES, species_key, from_tenant_key)
+
+    def list_grants(self, species_key: str) -> list[str]:
+        """Tenant keys this species has been granted to."""
+        return self._grants(col.SPECIES, species_key)
+
+    def is_granted_to(self, species_key: str, tenant_key: str) -> bool:
+        """Does an explicit grant let ``tenant_key`` see this species?
+
+        The by-key counterpart of the grant arm in
+        :func:`~app.data_access.arango.tenant_scope.tenant_union_with_grants_predicate`
+        — the detail read resolves one document rather than filtering a set, so it
+        cannot reuse the predicate and asks the same question directly instead.
+        """
+        return self._is_granted(col.SPECIES, species_key, tenant_key)
+
+    def grant_cultivar_access(self, cultivar_key: str, to_tenant_key: str) -> None:
+        """Share one cultivar with another tenant. See :meth:`grant_access`."""
+        self._grant(col.CULTIVARS, cultivar_key, to_tenant_key)
+
+    def revoke_cultivar_access(self, cultivar_key: str, from_tenant_key: str) -> bool:
+        """Withdraw a cultivar grant. See :meth:`revoke_access`."""
+        return self._revoke(col.CULTIVARS, cultivar_key, from_tenant_key)
+
+    def list_cultivar_grants(self, cultivar_key: str) -> list[str]:
+        """Tenant keys this cultivar has been granted to."""
+        return self._grants(col.CULTIVARS, cultivar_key)
+
+    def is_cultivar_granted_to(self, cultivar_key: str, tenant_key: str) -> bool:
+        """Does an explicit grant let ``tenant_key`` see this cultivar?"""
+        return self._is_granted(col.CULTIVARS, cultivar_key, tenant_key)
 
     def find_visible_by_normalized_scientific_name(self, name: str, tenant_key: str) -> Species | None:
         """Is a species with this dedup key *visible to this caller*? (#1162)
@@ -273,11 +369,14 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
             return [Species(**self._from_doc(doc)) for doc in cursor]
 
         # Tenant-scoped search (SEC-005, #808): the same hybrid-catalogue union as
-        # get_all — the caller's own rows plus the global seeds, never a foreign
-        # tenant's — AND-composed with the optional name/family filters. The union
-        # bind var is ``tenant_key``; the name/family filters bind under distinct
-        # names, so there is no collision. Every value is bound, never interpolated.
-        predicate, bind_vars = tenant_union_predicate(tenant_key)
+        # get_all — the caller's own rows plus the global seeds and anything
+        # explicitly granted (#1092), never an ungranted foreign tenant's —
+        # AND-composed with the optional name/family filters. Search and list must
+        # take the *same* arms: a granted species that lists but cannot be found by
+        # name reads to the recipient as a broken share rather than a scoping rule.
+        # The union bind var is ``tenant_key``; the name/family filters bind under
+        # distinct names, so there is no collision. Every value is bound.
+        predicate, bind_vars = tenant_union_with_grants_predicate(tenant_key)
         filters: list[str] = [predicate]
         query_vars: dict[str, Any] = dict(bind_vars)
         if name:
@@ -322,7 +421,13 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         if tenant_key is None:
             return self._cultivars.find_by_field("species_key", species_key)
-        predicate, bind_vars = tenant_union_predicate(tenant_key)
+        # Since #1092 a fourth arm: cultivars shared with this tenant by explicit
+        # grant. Community gardens maintain cultivars, so this is the record type
+        # the grant feature was actually asked for — species-only would have
+        # shipped the mechanism without the use case. The helper needs no
+        # collection argument: the arm matches ``__g._to == doc._id``, and an
+        # ArangoDB ``_id`` already carries its collection.
+        predicate, bind_vars = tenant_union_with_grants_predicate(tenant_key)
         query_vars: dict[str, Any] = {**bind_vars, "species_key": species_key}
         query = (
             f"FOR doc IN {col.CULTIVARS} "

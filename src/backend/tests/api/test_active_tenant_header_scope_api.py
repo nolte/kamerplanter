@@ -81,6 +81,7 @@ from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.species_service import SpeciesService
+from tests.support.grant_fakes import NoGrantsMixin
 
 # ── The world under test ─────────────────────────────────────────────────────
 
@@ -182,7 +183,7 @@ class _FakeTenantService:
         return self._memberships.get((user_key, tenant_key))
 
 
-class _FakeSpeciesRepo:
+class _FakeSpeciesRepo(NoGrantsMixin):
     """The species/cultivar repository, modelling the hybrid-catalogue union.
 
     The union is the production predicate
