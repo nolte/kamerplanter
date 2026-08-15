@@ -677,7 +677,7 @@ export interface Substrate {
   max_reuse_cycles: number;
   water_holding_capacity_percent: number | null;
   easily_available_water_percent: number | null;
-  cec_meq_per_100g: number | null;
+  cec_meq_per_100cm3: number | null;
   particle_size_mm: number | null;
   bulk_density_g_per_l: number | null;
   irrigation_strategy: IrrigationStrategy | null;
