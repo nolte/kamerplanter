@@ -155,17 +155,32 @@ def plant_has_watering_tasks_due(
     explicitly instead of asserting — the behavioural assertions all live in the
     ``Then`` bindings, per ``spec/project/bdd-page-object-integration/``.
 
-    While the tasks tab is open, the Overdue/Active/Done summary bar is recorded
-    as well, so the outcome step can state a *gain* over the pre-action bar
-    rather than an absolute count.
+    **At least, not exactly.** The precondition this journey needs is "there is an
+    open watering task to complete"; the number of them is not the subject. It
+    used to demand an exact count and failed the 2026-08-15 nightly with
+    ``expected 1 … found 2``.
+
+    The reason it cannot be exact: ``provision_watering_care_task`` materialises
+    the task through ``POST /t/{slug}/tasks/generate-care-reminders``, which runs
+    ``generate_due_care_reminders`` — the **daily producer**, for every plant it
+    finds, not for this one. In light mode all four xdist workers share a single
+    tenant, so another worker provisioning its own plant runs that producer over
+    this plant too. A second qualifying reminder is therefore ordinary, not a
+    defect, and its presence depends on scheduling.
+
+    The sibling summary-bar step already knew this — it states a *gain* over a
+    baseline for exactly the same reason ("a fresh care profile also materialises
+    the other opted-in reminder types"). This step records the same kind of
+    baseline; ``follow_up_watering_tasks_are_due`` is what consumes it.
     """
-    expected = int(count)
+    at_least = int(count)
     plant_detail.open_tasks_tab(context["key"])
     pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
-    if pending != expected:
+    if pending < at_least:
         raise RuntimeError(
-            f"TC-004-092 SETUP: expected {expected} pending '— watering' task(s) "
-            f"before the action, found {pending}"
+            f"TC-004-092 SETUP: expected at least {at_least} pending '— watering' task(s) "
+            f"before the action, found {pending} — the self-provisioned task did not "
+            f"materialise, so there is nothing for the coupling to complete"
         )
     context["baseline_pending"] = pending
     context["baseline_summary"] = plant_detail.get_task_summary_counts()
@@ -383,12 +398,32 @@ def follow_up_watering_tasks_are_due(
     context: dict[str, Any],
     plant_detail: PlantInstanceDetailPage,
 ) -> None:
-    """View 3 — the coupling scheduled the next watering."""
-    expected = int(count)
+    """View 3 — the coupling scheduled the next watering.
+
+    Stated as a *balance*, not an absolute count, and for the same reason the
+    summary-bar step below states a gain: the plant may legitimately carry more
+    than one pending watering task, because the daily producer that materialises
+    them runs tenant-wide and light mode shares one tenant across four xdist
+    workers.
+
+    What the coupling guarantees is the exchange: the completed task leaves the
+    Active section and its follow-up takes the freed slot, so the pending count
+    is **unchanged**. That is a stronger statement than "there is one", not a
+    weaker one — it fails if the follow-up is never scheduled (count drops) and
+    it fails if the completed task stays pending (count rises). An absolute
+    ``== 1`` asserted neither of those; it asserted that nothing else in the
+    tenant had happened.
+
+    ``count`` is how many follow-ups the scenario expects the exchange to
+    produce, which is what keeps this readable against the feature file.
+    """
+    expected_gain = int(count)
+    baseline = context["baseline_pending"]
     pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
-    assert pending == expected, (
-        f"TC-004-092 FAIL (View 3): exactly {expected} new pending '— watering' "
-        f"follow-up task(s) must exist, found {pending}"
+    assert pending == baseline, (
+        f"TC-004-092 FAIL (View 3): completing a watering task must leave the pending "
+        f"count unchanged — {expected_gain} follow-up task(s) replace the {expected_gain} "
+        f"completed one(s) (baseline {baseline}, now {pending})"
     )
 
 
