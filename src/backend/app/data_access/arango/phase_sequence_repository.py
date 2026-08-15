@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -9,6 +11,20 @@ from app.domain.models.phase_sequence import (
     PhaseSequence,
     PhaseSequenceEntry,
 )
+
+#: Who decided a ``has_phase_sequence`` binding (#1146). The reconciler may correct
+#: anything machine-made and must never touch ``manual``.
+#:
+#: ``seed`` — written by the seed linker on a fresh install.
+#: ``resolver`` — written at runtime by :class:`PhaseSequenceBinder` when a species
+#: is minted (identify→create, CSV import).
+#: ``migration:v00XX`` — written by a versioned rebind.
+#: ``manual`` — a deliberate human override. Not yet writable (#1099 measured both
+#: candidate endpoints silently dropping the field), which is why every *existing*
+#: edge is unambiguously machine-made and the first repair has nothing to protect.
+BOUND_BY_SEED = "seed"
+BOUND_BY_RESOLVER = "resolver"
+BOUND_BY_MANUAL = "manual"
 
 
 class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoRepository):
@@ -112,13 +128,24 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         doc = next(cursor, None)
         return PhaseSequence(**self._from_doc(doc)) if doc else None
 
-    def set_species_sequence(self, species_key: str, seq_key: str) -> str | None:
+    def set_species_sequence(self, species_key: str, seq_key: str, *, bound_by: str = BOUND_BY_RESOLVER) -> str | None:
         """Re-point the species' HAS_PHASE_SEQUENCE edge at ``seq_key`` (issue #949).
 
         Every outbound edge is removed first so the species keeps exactly one
         binding — :meth:`get_sequence_by_species` takes the first vertex it finds,
         so a second edge would make resolution order-dependent and therefore
         unstable. Returns the previously bound sequence key, or ``None``.
+
+        ``bound_by`` records **who** decided this binding (#1146). A reconciliation
+        pass has to be able to tell a machine binding it may correct from a human
+        one it must not touch, and the edge is the only place that fact can live:
+        ``LifecycleConfig.phase_sequence_key`` answers a different question (*what
+        does the master data declare*) and is null on exactly the species that
+        motivated this — `Yucca gigantea` carries a wrong edge and a null field.
+
+        Recorded now rather than when overrides become writable, because the
+        moment #1099's silent drop is fixed, a repair pass with no provenance
+        would start reverting deliberate user choices with nothing to warn it.
         """
         species_id = f"{col.SPECIES}/{species_key}"
         previous = self.get_sequence_by_species(species_key)
@@ -127,6 +154,7 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
             col.HAS_PHASE_SEQUENCE,
             species_id,
             f"{col.PHASE_SEQUENCES}/{seq_key}",
+            data={"bound_by": bound_by, "bound_at": datetime.now(UTC).isoformat()},
         )
         return previous.key if previous else None
 
