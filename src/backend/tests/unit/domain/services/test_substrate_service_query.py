@@ -19,9 +19,16 @@ class _RecordingRepo:
 
     def __init__(self) -> None:
         self.calls: list[tuple[int, int, str | None]] = []
+        self.tenant_keys: list[str | None] = []
 
-    def get_all_substrates(self, offset: int = 0, limit: int = 50, query: str | None = None):
+    def get_all_substrates(
+        self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
+    ):
+        # ``tenant_key`` recorded, not swallowed (#1195): this file's subject is
+        # that the service forwards what it is given, and a double that dropped
+        # the scope would keep asserting forwarding while the scope went missing.
         self.calls.append((offset, limit, query))
+        self.tenant_keys.append(tenant_key)
         return [Substrate(_key="s1", brand="BioBizz", name_de="BioBizz Light·Mix")], 1
 
 
