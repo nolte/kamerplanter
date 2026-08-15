@@ -223,9 +223,20 @@ _MODULES_TOUCHING_CULTIVARS: dict[str, str] = {
     "data_access/arango/succession_plan_repository.py": (
         "Write-path reference guard (SEC-006, #1112): declares ``cultivar_key`` as an "
         "owned reference so a plan cannot point at a foreign tenant's cultivar. "
-        "``SuccessionPlan`` carries its own ``tenant_key``, so the guard is live "
-        "rather than the inert declaration ``PlantingRunEntry`` would get. It "
-        "verifies one supplied key; it does not list."
+        "``SuccessionPlan`` carries its own ``tenant_key``, so the guard was live "
+        "immediately — unlike ``PlantingRunEntry``, which had to be given one "
+        "first (see its entry above, closed by #1112). It verifies one supplied "
+        "key; it does not list."
+    ),
+    "data_access/arango/planting_run_repository.py": (
+        "Write-path reference guard on ``PlantingRunEntry.cultivar_key`` (SEC-004, "
+        "#1112). Unlike its two siblings this one needed a model change first: an "
+        "entry had **no** ``tenant_key`` (it is tenant-verified through its parent "
+        "run), and ``_verify_owned_references`` skips a row that carries none — so "
+        "the declaration alone would have been the inert guard the #1112 issue "
+        "names as the trap. The entry now carries the run's tenant, stamped by "
+        "``PlantingRunService`` and backfilled by ``v0042``. It verifies one "
+        "supplied key on create and on re-point; it does not list."
     ),
     "data_access/repositories/propagation_repository.py": (
         "Same write-path reference guard on ``PropagationEvent.cultivar_key`` "
