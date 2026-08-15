@@ -24,6 +24,20 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
     remember_me: bool = False
+    #: Opt-in to the native-client transport (#1134): return the refresh token in
+    #: the response body and set **no** ``kp_refresh`` cookie.
+    #:
+    #: Default ``False``, and the default is the load-bearing part. A browser must
+    #: never receive its refresh token as readable JSON — XSS that reads a
+    #: response body would harvest a 30-day credential where the HttpOnly cookie
+    #: gives it nothing. So the weaker transport is never the fallback and never
+    #: inferred from a header, a user agent or the absence of a cookie jar: it is
+    #: reachable only by a client that names it, which is a decision that shows up
+    #: in the request and in the audit trail rather than in a heuristic.
+    #:
+    #: A client that sets this gets exactly one transport for the credential, the
+    #: same rule ``/refresh`` and ``/device-pairing/redeem`` already follow.
+    refresh_token_in_body: bool = False
 
 
 class VerifyEmailRequest(BaseModel):

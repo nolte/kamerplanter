@@ -198,7 +198,7 @@ def register(
     return UserProfileResponse(**profile.model_dump())
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenPairResponse | TokenResponse)
 @limiter.limit(settings.rate_limit_auth)
 def login(
     body: LoginRequest,
@@ -206,7 +206,43 @@ def login(
     response: Response,
     service: AuthService = Depends(get_auth_service),
 ):
-    """Authenticate with email and password, issuing access and refresh tokens."""
+    """Authenticate with email and password, issuing access and refresh tokens.
+
+    **Cookie transport (browsers, the default and unchanged).** The refresh token
+    leaves as the HttpOnly ``kp_refresh`` cookie and never appears in the JSON
+    (AP-7 / FE-S1); the CSRF cookie is set alongside it. Every existing client
+    keeps this shape byte-for-byte, because the alternative below is opt-in.
+
+    **Body transport (native clients, opt-in via** ``refresh_token_in_body``
+    **, #1134).** A mobile app has no cookie jar by design. Before this, a
+    password sign-in handed it a 15-minute access token and a refresh token it
+    could never read — so the session died unrotatable, and the Android client
+    had to drop the password path entirely
+    (``nolte/kamerplanter-android#8``). Its remaining options were both bad:
+    scrape ``kp_refresh`` through an OkHttp ``CookieJar`` (works, but leans on
+    behaviour documented as browser-only, so a server upgrade could break it
+    silently) or keep the user's password on the device. This route now offers
+    the same affordance ``/device-pairing/redeem`` already does.
+
+    **Why opt-in and not inferred.** The obvious alternative — detect the absence
+    of a browser and switch transports — would decide a security property from a
+    ``User-Agent`` string, which is caller-controlled. Worse, it would make the
+    weaker transport the *fallback*: any request that failed the sniff would be
+    handed a readable 30-day credential. XSS in the web app can read a response
+    body; it cannot read an HttpOnly cookie. So the browser keeps the stronger
+    transport unless a client explicitly asks for the other one, and that ask is
+    visible in the request.
+
+    **One credential, one transport.** When the body transport is chosen no
+    ``kp_refresh`` cookie is set — the same rule ``/refresh`` and
+    ``/device-pairing/redeem`` follow. Two transports for one credential double
+    its exposure and leave no single place that revokes it. The CSRF cookie is
+    also skipped: it exists to protect an *ambient* credential, and there is none
+    here.
+
+    ``remember_me`` still decides the refresh token's lifetime in both shapes; it
+    is orthogonal to how the token is delivered.
+    """
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
     token_pair, raw_refresh, is_persistent = service.login_local(
@@ -216,6 +252,13 @@ def login(
         ip_address,
         remember_me=body.remember_me,
     )
+    if body.refresh_token_in_body:
+        return TokenPairResponse(
+            access_token=token_pair.access_token,
+            token_type=token_pair.token_type,
+            expires_in=token_pair.expires_in,
+            refresh_token=raw_refresh,
+        )
     _set_refresh_cookie(response, raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(response)
     return TokenResponse(
