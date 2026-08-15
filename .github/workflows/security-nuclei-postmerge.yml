@@ -226,10 +226,26 @@ jobs:
           ' openapi-raw.json > openapi.json
           echo "Converted to: $(jq -r '.openapi' openapi.json), servers: $(jq -c '.servers' openapi.json)"
 
+      - name: Resolve the pinned Nuclei version
+        id: nuclei_pin
+        # Read once, here, so the validator and every scan lane install the same
+        # binary. `nuclei-action` defaults to `version: latest`; leaving it there
+        # is what let this gate change meaning between two runs with no commit
+        # in between (#1177).
+        run: |
+          set -euo pipefail
+          version=$(yq e '.nuclei_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_version missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Install Nuclei
         uses: projectdiscovery/nuclei-action@cc153d0541e1adf8a42bbe31c0a4fb2376147538 # v3.1.1
         with:
           install-only: true
+          version: ${{ steps.nuclei_pin.outputs.version }}
 
       - name: Run Nuclei (HTTP surface)
         # `flags` reaches the script through the environment, not through

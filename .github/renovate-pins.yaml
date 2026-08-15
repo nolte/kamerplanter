@@ -23,3 +23,31 @@ nuclei_templates_version: v10.4.7
 # When Renovate bumps the tag, this assertion fails until the commit is updated
 # in the same pull request — which is the review the pin exists to force.
 nuclei_templates_commit: 83234ce456da3e90dda86dfbc5e605e64a846df3
+
+# The nuclei BINARY, pinned for the validator and every scan lane alike (#1177).
+#
+# `nuclei-action` defaults to `version: latest`, and it was left at that. The
+# consequence is not the one #1177 assumed — validator and scanners were never on
+# *different* versions, they were all on whatever "latest" meant that morning.
+# The consequence is that the gate's meaning changed under it without a commit:
+#
+#   2026-08-01, nuclei v3.11.0 — validated 6 templates, GREEN
+#   2026-08-15, nuclei v3.11.1 — the same jwt-leak matcher FAILS to compile
+#
+# `kamerplanter-jwt-leak.yaml` carried a negative lookahead since #122. Go's
+# regexp is RE2 and has never supported lookaheads, so that template could never
+# run — yet the validator called it fine for two weeks, because v3.11.0's
+# `-validate` did not compile matchers and v3.11.1's does. Nothing in this
+# repository changed; the tool did.
+#
+# Pinning turns that into a Renovate pull request, where the new binary meets the
+# whole template set and a human sees the result — instead of a silent change of
+# what "validated" means.
+#
+# The datasource comment sits directly above the key on purpose: the custom
+# manager in renovate.json5 matches `datasource=… depName=…` followed by the key
+# on the *next* line, so prose between the two would leave this pin unwatched —
+# a stale pin and a floating reference fail the same reproducibility goal from
+# opposite directions.
+# datasource=github-releases depName=projectdiscovery/nuclei
+nuclei_version: v3.11.1

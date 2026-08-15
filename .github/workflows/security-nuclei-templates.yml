@@ -29,6 +29,23 @@ on:
     branches: [develop]
     paths:
       - 'tests/security/nuclei-templates/**'
+  # A path filter alone cannot see the failure this gate actually had (#1177).
+  #
+  # `kamerplanter-jwt-leak.yaml` carried a negative lookahead from #122 onward.
+  # Go's regexp is RE2 and has never supported one, so the template could never
+  # run — not the header arm, not the body arm, not the headless localStorage
+  # arm — and it is a *critical*-severity check. The gate reported success on it
+  # on 2026-08-01 under nuclei v3.11.0, whose `-validate` did not compile
+  # matchers, and would have kept reporting success indefinitely: the only way it
+  # looks at a template is if somebody edits that directory, and nobody did for
+  # two weeks. What broke the silence was v3.11.1 tightening `-validate` — an
+  # upstream change, with no commit here to trigger on.
+  #
+  # So the trigger set needs a leg that does not depend on a repository change.
+  # Daily, before the nightly scan lane, so a template the scanner will skip is
+  # reported as broken rather than as absent findings.
+  schedule:
+    - cron: '17 1 * * *'
   workflow_dispatch:
 
 permissions:
@@ -46,10 +63,26 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Resolve the pinned Nuclei version
+        id: nuclei_pin
+        # Read once, here, so the validator and every scan lane install the same
+        # binary. `nuclei-action` defaults to `version: latest`; leaving it there
+        # is what let this gate change meaning between two runs with no commit
+        # in between (#1177).
+        run: |
+          set -euo pipefail
+          version=$(yq e '.nuclei_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_version missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Install Nuclei
         uses: projectdiscovery/nuclei-action@cc153d0541e1adf8a42bbe31c0a4fb2376147538 # v3.1.1
         with:
           install-only: true
+          version: ${{ steps.nuclei_pin.outputs.version }}
 
       - name: Assert there are templates to validate
         # `nuclei -validate` over an empty or missing directory exits 0. Without
