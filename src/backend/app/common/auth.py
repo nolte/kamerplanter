@@ -215,6 +215,9 @@ def _resolve_active_tenant(
       personal tenant, ``""`` when they have none. Unvalidated, exactly as before
       #1091 — a user's own personal tenant needs no membership proof, and the
       fallback must stay fail-open-to-*narrow* (global-only), never an error.
+      A **service account** has no personal fallback at all and resolves to ``""``
+      (#1122); see the inline note below for why that is pinned rather than left
+      to the shape of the data.
     * **A slug**: resolved and then *validated*. The caller must hold an active
       membership in it; otherwise the request is refused.
 
@@ -231,6 +234,22 @@ def _resolve_active_tenant(
     slug = (active_tenant_slug or "").strip()
 
     if not slug:
+        # A **service account** (REQ-023 M2M: Home Assistant, Grafana, CI/CD) has
+        # no personal-tenant fallback (#1122). It participates in this mechanism
+        # exactly like an interactive caller in every other respect — through a
+        # real membership, named by a real header — but "which tenant did this
+        # machine mean?" has no implicit answer, so the answer is none: global
+        # scope, the same fail-safe an anonymous caller gets.
+        #
+        # This is a *rule*, not an observation. Nothing creates a personal tenant
+        # for a service account today, so the lookup below would return ``None``
+        # and the effect would be identical — by accident of the data. The day an
+        # admin, a migration or a fixture gives one to a service account, every
+        # header-less M2M call would silently start acting inside a tenant. That
+        # is a widening with no code change to announce it, which §2.11 forbids;
+        # deciding it here turns the accident into a guarantee.
+        if user.account_type == "service":
+            return _ActiveTenant(key="", tenant=None, membership=lambda: None)
         personal = tenant_service.get_personal_tenant(user_key)
         key = personal.key if personal and personal.key else ""
         return _ActiveTenant(

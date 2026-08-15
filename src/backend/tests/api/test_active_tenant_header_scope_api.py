@@ -348,7 +348,7 @@ def _harness(*, org_role: TenantRole = TenantRole.GROWER, user_key: str = _USER)
     service = SpeciesService(species_repo, graph_repo=_FakeGraphRepo())  # type: ignore[arg-type]
     tenant_service = _FakeTenantService(org_role=org_role)
 
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=user_key)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=user_key, account_type="user")
     app.dependency_overrides[get_tenant_service] = lambda: tenant_service
     app.dependency_overrides[get_species_service] = lambda: service
     app.dependency_overrides[get_family_repo] = lambda: family_repo

@@ -18,7 +18,9 @@ from app.common import auth as auth_mod
 
 
 def _user() -> SimpleNamespace:
-    return SimpleNamespace(key="user_1")
+    # ``account_type`` decides the header-less fallback since #1122: a service
+    # account has none. These cases are about the interactive caller.
+    return SimpleNamespace(key="user_1", account_type="user")
 
 
 def test_resolves_the_callers_personal_tenant():
@@ -43,7 +45,9 @@ def test_falls_back_to_global_for_a_keyless_user():
     tenant_service = MagicMock()
     tenant_service.get_personal_tenant.return_value = None
 
-    result = auth_mod.get_active_tenant_key(user=SimpleNamespace(key=None), tenant_service=tenant_service)
+    result = auth_mod.get_active_tenant_key(
+        user=SimpleNamespace(key=None, account_type="user"), tenant_service=tenant_service
+    )
 
     assert result == ""
     # A keyless (anonymous) caller is resolved against "", never crashing on None.
