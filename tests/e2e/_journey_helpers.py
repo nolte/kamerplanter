@@ -291,16 +291,35 @@ def create_care_task(
 
     # The queue refetches after the mutation; poll a few reloads so a slow
     # refetch does not read the list before the new card is materialised.
+    #
+    # **Scoped to the plant before scanning.** The docstring above explains that
+    # a due-today/high task lands at or near the head of the queue — which is why
+    # the scan used to find it. That head is shared: light mode runs all four
+    # xdist workers against one tenant, and every worker's self-provisioned
+    # due-today task competes for the same first screenful. As a run fills the
+    # queue up, "near the head" stops being near enough, and the lookup fails
+    # while the task exists — which is how the 2026-08-16 matrix failed here
+    # ("did not appear in the queue after creation").
+    #
+    # ``filter_by_plant`` is the existing answer, and its own docstring states
+    # the property: it "makes card lookups robust regardless of how many
+    # unrelated tasks exist in the tenant". The instance id is unique per
+    # provisioned plant, so the filtered queue holds only this test's cards.
     deadline = time.time() + 15.0
     while time.time() < deadline:
         task_queue.open()
+        # Falling back to the unfiltered scan rather than failing: the plant may
+        # not be in the filter's autocomplete yet on the first pass, and an
+        # unfiltered look is what this did before — never worse than the old
+        # behaviour, only better once the filter takes.
+        task_queue.filter_by_plant(instance_id)
         key = task_queue.find_task_key_by_name(task_name)
         if key is not None:
             return key
         time.sleep(1.0)
     raise AssertionError(
-        f"Self-provisioning failed: care task '{task_name}' did not appear "
-        f"in the queue after creation"
+        f"Self-provisioning failed: care task '{task_name}' did not appear in the "
+        f"queue after creation, even filtered to plant '{instance_id}'"
     )
 
 
