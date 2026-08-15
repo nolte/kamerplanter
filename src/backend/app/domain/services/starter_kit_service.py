@@ -28,43 +28,79 @@ class StarterKitService:
         return StarterKit(**docs[0])
 
     def list_kits_for_tenant(self, tenant_key: str, difficulty: str | None = None) -> list[StarterKit]:
-        """List kits accessible to a tenant. Graceful: returns all kits if tenant_has_access doesn't exist."""
-        accessible_species = self._get_accessible_species_keys(tenant_key)
+        """List the starter kits a tenant can actually use.
+
+        A kit is offered when the tenant can **see** at least one of its species.
+        Visibility is the hybrid-catalogue union the rest of the system uses —
+        the global seed catalogue (``tenant_key == ""``) plus the tenant's own
+        rows plus anything explicitly granted (#1092) — not the grants alone.
+
+        That distinction is the #1178 regression, and it is worth spelling out
+        because the wrong version looked stricter and therefore safer:
+
+        Before #1092 this asked ``tenant_has_access`` for the tenant's granted
+        species. The collection did not exist, the lookup returned ``None``, and
+        the method showed every kit. #1092 *created* the collection — and from
+        that moment the lookup returned an **empty set** for every tenant, because
+        nobody has been granted anything. The filter then kept only kits with no
+        species at all. Every seeded kit names species, so the onboarding wizard
+        showed **zero cards to everyone**, and the e2e-smoke lane went from seven
+        consecutive greens to failing on the merge commit itself.
+
+        The mistake was not the empty-set handling — "no grants" really is an
+        answer, and an absent store must never reveal more than a populated one.
+        The mistake was treating a *grant* as the only source of visibility. A
+        grant is **additive**: it opens a row the tenant could not otherwise see.
+        Every starter-kit species is global seed data, visible to everyone, with
+        no grant involved.
+        """
+        visible_species = self._visible_species_keys(tenant_key)
         all_kits = self.list_kits(difficulty)
 
-        if accessible_species is None:
-            # The collection is genuinely absent (a volume predating #1092). Showing
-            # everything is the pre-grant behaviour and stays correct there: with no
-            # grant mechanism, kit visibility was never restricted.
-            #
-            # What is NOT this branch any more: an *empty* grant set. That used to
-            # land here too and meant "no grants yet -> show everything", which is
-            # the wrong direction the moment grants are real — a missing store must
-            # never reveal more than a populated one.
+        if visible_species is None:
+            # The species collection is unreachable. Degrading to "show everything"
+            # is deliberate and is *not* the failure above: a starter kit names
+            # nothing tenant-private — it is a seed-data suggestion of what to
+            # plant — so the fail-open direction costs no isolation. Failing closed
+            # here would leave a new user staring at an empty wizard because of an
+            # infrastructure hiccup.
             return all_kits
 
-        # Filter kits: show if at least one species is accessible
         return [
-            kit for kit in all_kits if not kit.species_keys or any(sk in accessible_species for sk in kit.species_keys)
+            kit for kit in all_kits if not kit.species_keys or any(sk in visible_species for sk in kit.species_keys)
         ]
 
-    def _get_accessible_species_keys(self, tenant_key: str) -> set[str] | None:
-        """Get species keys accessible to a tenant. Returns None if collection doesn't exist."""
+    def _visible_species_keys(self, tenant_key: str) -> set[str] | None:
+        """Species keys this tenant can see: global ∪ own ∪ granted.
+
+        One query rather than a lookup per kit, and deliberately the *same* three
+        arms the species reads use — a fourth notion of "visible" is how the two
+        would drift into disagreeing about which rows a tenant has.
+
+        Returns ``None`` only when the species collection itself is unreachable,
+        which the caller degrades on. An empty *set* is a real answer and is
+        treated as one.
+        """
         try:
-            if not self._db.has_collection("tenant_has_access"):
+            if not self._db.has_collection("species"):
                 return None
             cursor = self._db.aql.execute(
                 """
-                FOR edge IN tenant_has_access
-                    FILTER edge._from == CONCAT("tenants/", @tenant_key)
-                    FILTER STARTS_WITH(edge._to, "species/")
-                    RETURN PARSE_IDENTIFIER(edge._to).key
+                FOR doc IN species
+                    FILTER doc.tenant_key == @tenant_key
+                        OR doc.tenant_key == ""
+                        OR doc.tenant_key == null
+                        OR LENGTH(
+                            FOR edge IN tenant_has_access
+                                FILTER edge._from == CONCAT("tenants/", @tenant_key)
+                                FILTER edge._to == doc._id
+                                LIMIT 1
+                                RETURN 1
+                        ) > 0
+                    RETURN doc._key
                 """,
                 bind_vars={"tenant_key": tenant_key},
             )
-            # An empty result is an answer: this tenant has been granted nothing.
-            # Returning None here (the pre-#1092 behaviour) turned "no grants" into
-            # "all kits", i.e. the absence of a permission granted it.
             return set(cursor)
         except Exception:
             return None
