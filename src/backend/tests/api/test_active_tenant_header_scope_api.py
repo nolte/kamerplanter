@@ -77,6 +77,7 @@ from app.common.enums import AdminScope, DataOrigin, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.config.settings import settings
+from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.species_service import SpeciesService
@@ -237,6 +238,24 @@ class _FakeSpeciesRepo:
 
     def get_by_normalized_scientific_name(self, name: str) -> Species | None:
         return None
+
+    def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None:
+        """The dedup lookup the create path uses since #1162 — scoped, not global.
+
+        Modelled against the fixture rows rather than answering ``None`` flatly:
+        the point of the per-tenant key is that another tenant's private row must
+        not answer this question, and a double blind to ``tenant_key`` could not
+        tell a correct create apart from one that silently adopts a foreign row.
+        """
+        normalized = normalize_scientific_name(name)
+        return next(
+            (
+                s
+                for s in self._species.values()
+                if s.scientific_name_normalized == normalized and s.tenant_key == tenant_key
+            ),
+            None,
+        )
 
     def find_synonym_match_candidates(self, species: Species) -> list[Species]:
         return []

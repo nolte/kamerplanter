@@ -64,6 +64,12 @@ class _FakeRepo:
     def get_by_normalized_scientific_name(self, name: str) -> Species | None:
         return None
 
+    def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None:
+        """Tenant-scoped dedup lookup (#1162). This double holds no catalogue at
+        all, so "nothing is catalogued" is true for every tenant — the answer is
+        not a shortcut around the scoping."""
+        return None
+
     def find_synonym_match_candidates(self, species: Species) -> list[Species]:
         return []
 

@@ -71,6 +71,11 @@ class _FakeRepo:
     def get_by_normalized_scientific_name(self, name: str) -> Species | None:
         return None
 
+    def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None:
+        """Tenant-scoped dedup lookup (#1162). Empty catalogue, so every tenant
+        gets the same honest ``None`` — the gate under test is the role check."""
+        return None
+
     def find_synonym_match_candidates(self, species: Species) -> list[Species]:
         return []
 

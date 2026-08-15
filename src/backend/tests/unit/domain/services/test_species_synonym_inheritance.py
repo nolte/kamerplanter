@@ -41,6 +41,16 @@ class _FakeSpeciesRepo:
     def get_by_normalized_scientific_name(self, name: str) -> Species | None:
         return self._by_norm.get(normalize_scientific_name(name))
 
+    def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None:
+        """The tenant-scoped lookup the create path uses since #1162.
+
+        Modelled rather than delegated to the unscoped one above: the whole point
+        of the per-tenant key is that a *foreign* row must not answer this
+        question, and a double that ignored `tenant_key` would hide exactly that.
+        """
+        found = self._by_norm.get(normalize_scientific_name(name))
+        return found if found is not None and found.tenant_key == tenant_key else None
+
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species:
         existing = self._by_norm.get(species.scientific_name_normalized)
         if existing is not None:

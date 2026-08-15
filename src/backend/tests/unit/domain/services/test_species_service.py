@@ -28,6 +28,17 @@ class _FakeSpeciesRepo:
     def get_by_normalized_scientific_name(self, name: str) -> Species | None:
         return self._by_norm.get(normalize_scientific_name(name))
 
+    def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None:
+        """The lookup ``create_species`` uses since #1162.
+
+        Modelled rather than delegated to the unscoped one above, because the
+        distinction is the whole point: a foreign tenant's private row must not
+        count as already catalogued, and a double ignoring ``tenant_key`` would
+        hide exactly the collision the tenant-scoped index exists to allow.
+        """
+        found = self._by_norm.get(normalize_scientific_name(name))
+        return found if found is not None and found.tenant_key == tenant_key else None
+
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species:
         existing = self._by_norm.get(species.scientific_name_normalized)
         if existing is not None:
