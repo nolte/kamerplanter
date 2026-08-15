@@ -81,6 +81,7 @@ from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.species_service import SpeciesService
+from tests.support.grant_fakes import NoGrantsMixin
 
 # ── The world under test ─────────────────────────────────────────────────────
 
@@ -182,7 +183,7 @@ class _FakeTenantService:
         return self._memberships.get((user_key, tenant_key))
 
 
-class _FakeSpeciesRepo:
+class _FakeSpeciesRepo(NoGrantsMixin):
     """The species/cultivar repository, modelling the hybrid-catalogue union.
 
     The union is the production predicate
@@ -347,7 +348,7 @@ def _harness(*, org_role: TenantRole = TenantRole.GROWER, user_key: str = _USER)
     service = SpeciesService(species_repo, graph_repo=_FakeGraphRepo())  # type: ignore[arg-type]
     tenant_service = _FakeTenantService(org_role=org_role)
 
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=user_key)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=user_key, account_type="user")
     app.dependency_overrides[get_tenant_service] = lambda: tenant_service
     app.dependency_overrides[get_species_service] = lambda: service
     app.dependency_overrides[get_family_repo] = lambda: family_repo

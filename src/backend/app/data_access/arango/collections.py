@@ -579,6 +579,17 @@ SEQ_HAS_ENTRY = "seq_has_entry"
 ENTRY_USES_DEFINITION = "entry_uses_definition"
 HAS_PHASE_SEQUENCE = "has_phase_sequence"
 
+# REQ-001 v4.0 — explicit masterdata grants beyond ownership (#1092).
+#
+# A tenant may share one of *its own* masterdata rows with another tenant without
+# making it global. Named here rather than only as a string in
+# ``starter_kit_service`` — which was the only reader, and referred to a collection
+# nothing created, so its "graceful" fallback was the whole behaviour.
+#
+# Read-only by construction: the edge widens *visibility*, never write rights. The
+# owner keeps update and delete (REQ-049 §2.3).
+TENANT_HAS_ACCESS = "tenant_has_access"
+
 # REQ-025 Privacy edges
 REQUESTED_EXPORT = "requested_export"
 HAS_CONSENT = "has_consent"
@@ -614,6 +625,7 @@ CV_ATTACHED_TO_INSPECTION = "cv_attached_to_inspection"  # → inspections
 CV_PHENOTYPE_OF = "cv_phenotype_of"  # plant_diagnosis_requests → harvest_observations
 
 EDGE_COLLECTIONS = [
+    TENANT_HAS_ACCESS,
     BELONGS_TO_FAMILY,
     HAS_CULTIVAR,
     HAS_LIFECYCLE,
@@ -795,6 +807,15 @@ EDGE_COLLECTIONS = [
 GRAPH_NAME = "kamerplanter_graph"
 
 GRAPH_EDGE_DEFINITIONS = [
+    {
+        # tenants -> the masterdata rows they have been granted access to (#1092).
+        # Species and cultivars only: those are the hybrid-catalogue entities an
+        # owner can share. Adding a vertex collection here is a deliberate widening
+        # of what may be granted, not a formality.
+        "edge_collection": TENANT_HAS_ACCESS,
+        "from_vertex_collections": [TENANTS],
+        "to_vertex_collections": [SPECIES, CULTIVARS],
+    },
     {
         "edge_collection": BELONGS_TO_FAMILY,
         "from_vertex_collections": [SPECIES],

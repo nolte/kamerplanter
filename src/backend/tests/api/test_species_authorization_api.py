@@ -42,9 +42,10 @@ from app.config.settings import settings
 from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.species_service import SpeciesService
+from tests.support.grant_fakes import NoGrantsMixin
 
 
-class _FakeRepo:
+class _FakeRepo(NoGrantsMixin):
     def __init__(self, species: list[Species]) -> None:
         self._by_key = {s.key: s for s in species}
         self.created: list[Species] = []

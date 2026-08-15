@@ -47,9 +47,10 @@ from app.common.exceptions import KamerplanterError, NotFoundError
 from app.domain.models.species import Cultivar, Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.species_service import SpeciesService
+from tests.support.grant_fakes import NoGrantsMixin
 
 
-class _FakeRepo:
+class _FakeRepo(NoGrantsMixin):
     def __init__(self, species: list[Species], cultivars: list[Cultivar]) -> None:
         self._species = {s.key: s for s in species}
         self._cultivars = {c.key: c for c in cultivars}

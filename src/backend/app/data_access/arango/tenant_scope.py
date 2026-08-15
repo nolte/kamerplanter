@@ -31,6 +31,47 @@ seeded with a *null* ``tenant_key``, never an empty string, so admitting the
 from __future__ import annotations
 
 
+def tenant_union_with_grants_predicate(
+    tenant_key: str,
+    *,
+    doc_var: str = "doc",
+    field: str = "tenant_key",
+    bind_name: str = "tenant_key",
+    grants_collection: str = "tenant_has_access",
+    tenants_collection: str = "tenants",
+) -> tuple[str, dict[str, str]]:
+    """The hybrid union **plus** rows explicitly granted to this tenant (#1092).
+
+    Own ∪ global ∪ granted. Deliberately a *separate* function rather than a flag
+    on :func:`tenant_union_predicate`: that one has 24 call sites across
+    fertilizers, AI conversations, tasks and more, and one of them narrows further
+    (``include_empty_string=False``) precisely because global rows must not leak
+    into it. Widening the shared predicate would have widened every one of them at
+    once, which is not what an explicit *masterdata* grant means.
+
+    So this is opt-in, and only the masterdata readers take it.
+
+    **Read only.** The grant makes a row visible; it never makes it editable or
+    deletable. Write authority stays with the owner (REQ-049 §2.3), and the write
+    gates continue to use the ownership predicate.
+
+    The grant arm is a correlated subquery — one lookup per candidate row. That is
+    acceptable for the catalogue's size and is the honest cost of a per-record
+    grant; a per-collection grant would be cheaper and, per the #1092 decision,
+    far harder to take back.
+    """
+    grant_arm = (
+        f"LENGTH(FOR __g IN {grants_collection} "
+        f'FILTER __g._from == CONCAT("{tenants_collection}/", @{bind_name}) '
+        f"AND __g._to == {doc_var}._id LIMIT 1 RETURN 1) > 0"
+    )
+    base, binds = tenant_union_predicate(tenant_key, doc_var=doc_var, field=field, bind_name=bind_name)
+    # `base` is already parenthesised; splice the extra arm inside it so operator
+    # precedence cannot change when a caller drops this into a larger FILTER.
+    combined = f"{base[:-1]} OR {grant_arm})"
+    return combined, binds
+
+
 def tenant_union_predicate(
     tenant_key: str,
     *,
