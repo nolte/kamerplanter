@@ -68,6 +68,40 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         return self.find_one_by_field("scientific_name_normalized", normalize_scientific_name(name))
 
+    def find_visible_by_normalized_scientific_name(self, name: str, tenant_key: str) -> Species | None:
+        """Is a species with this dedup key *visible to this caller*? (#1162)
+
+        The third of three questions the same key can be asked, and they are not
+        interchangeable — which is the whole point of making the key per-tenant:
+
+        * :meth:`get_by_normalized_scientific_name` — *any* row, unscoped. For
+          migrations and reporting, where "does this exist anywhere" is the
+          question.
+        * :meth:`get_by_normalized_scientific_name_for_tenant` — the caller's
+          **own** row. The create path asks this: another tenant's row must not
+          stop me minting mine.
+        * this one — the hybrid **visibility** union (own ∪ global). The
+          identification flow asks this, because "already in the catalogue"
+          means "you can see it".
+
+        Using the unscoped one here would report a *foreign* tenant's private
+        species as catalogued — an existence oracle in a user-facing flow, and one
+        that only became reachable when the key stopped being global.
+        """
+        predicate, binds = tenant_union_predicate(tenant_key, doc_var="s")
+        query = f"""
+        FOR s IN {col.SPECIES}
+          FILTER s.scientific_name_normalized == @norm AND {predicate}
+          LIMIT 1
+          RETURN s
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"norm": normalize_scientific_name(name), **binds},
+        )
+        doc = next(cursor, None)
+        return Species(**self._from_doc(doc)) if doc else None
+
     def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None:
         """The tenant-scoped sibling of the lookup above (#1162).
 

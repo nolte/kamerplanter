@@ -67,13 +67,18 @@ class _Aql:
             new.setdefault("_key", f"sp{len(self.docs) + 1}")
             self.docs.append(new)
             return iter([new])  # type: ignore[return-value]
-        # tenant-scoped lookup
-        matches = [
-            d
-            for d in self.docs
-            if d.get("scientific_name_normalized") == bind_vars.get("norm")
-            and d.get("tenant_key") == bind_vars.get("tenant")
-        ]
+        # Two different lookups reach here and they must not be conflated — the
+        # exact-tenant one binds `@tenant`, the visibility union binds
+        # `@tenant_key`. A first version of this double only understood the first,
+        # so the union query matched nothing: the "foreign species is not visible"
+        # test passed while the "own species IS visible" test failed, i.e. the
+        # negative was green for the wrong reason.
+        by_name = [d for d in self.docs if d.get("scientific_name_normalized") == bind_vars.get("norm")]
+        if "tenant" in bind_vars:
+            matches = [d for d in by_name if d.get("tenant_key") == bind_vars["tenant"]]
+        else:
+            caller = bind_vars.get("tenant_key")
+            matches = [d for d in by_name if d.get("tenant_key") in (caller, "", None)]
         return iter(matches[:1])  # type: ignore[return-value]
 
 
@@ -185,6 +190,45 @@ def test_the_scoped_lookup_does_not_see_a_foreign_row() -> None:
 
     assert repo.get_by_normalized_scientific_name_for_tenant("Solanum lycopersicum", _MINE) is None
     assert repo.get_by_normalized_scientific_name_for_tenant("Solanum lycopersicum", _THEIRS) is not None
+
+
+# ── visibility, which is a third question again ──────────────────────────────
+
+
+def test_a_foreign_private_species_is_not_visible() -> None:
+    """The oracle this change would otherwise have opened.
+
+    While the dedup key was global there was exactly one row per taxon, so
+    "does it exist?" and "can you see it?" could not disagree. Per-tenant rows make
+    them different questions — and the identification flow asks the *visibility*
+    one. Answering it unscoped would report another tenant's private species as
+    already catalogued.
+    """
+    docs = [
+        {
+            "_key": "sp1",
+            "scientific_name": "Monstera deliciosa",
+            "scientific_name_normalized": "monstera deliciosa",
+            "tenant_key": _THEIRS,
+        }
+    ]
+
+    assert _repo(docs).find_visible_by_normalized_scientific_name("Monstera deliciosa", _MINE) is None
+
+
+@pytest.mark.parametrize("owner", [_MINE, ""])
+def test_an_own_or_global_species_is_visible(owner: str) -> None:
+    """Both arms of the hybrid union, or the fix above would read as "see nothing"."""
+    docs = [
+        {
+            "_key": "sp1",
+            "scientific_name": "Monstera deliciosa",
+            "scientific_name_normalized": "monstera deliciosa",
+            "tenant_key": owner,
+        }
+    ]
+
+    assert _repo(docs).find_visible_by_normalized_scientific_name("Monstera deliciosa", _MINE) is not None
 
 
 # ── the index definition itself ──────────────────────────────────────────────

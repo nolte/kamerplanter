@@ -67,6 +67,22 @@ class _FakeSpeciesRepo:
                 return species
         return None
 
+    def find_visible_by_normalized_scientific_name(self, name: str, tenant_key: str) -> Species | None:
+        """The visibility union the engine uses since #1162: own tenant OR global.
+
+        Modelled rather than delegated to the unscoped lookup above, because the
+        distinction is the whole point: a foreign tenant's private species must
+        *not* count as catalogued, and a double that ignored `tenant_key` would
+        hide exactly that.
+        """
+        target = normalize_scientific_name(name)
+        for species in self._known.values():
+            if normalize_scientific_name(species.scientific_name) != target:
+                continue
+            if species.tenant_key in (tenant_key, ""):
+                return species
+        return None
+
 
 class _FakeIdentRepo:
     def __init__(self) -> None:
