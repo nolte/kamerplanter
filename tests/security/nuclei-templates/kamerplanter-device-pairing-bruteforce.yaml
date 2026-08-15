@@ -1,0 +1,155 @@
+id: kamerplanter-device-pairing-bruteforce
+
+info:
+  name: Kamerplanter — device-pairing redeem accepts unlimited guesses
+  author: kamerplanter-security
+  severity: high
+  description: |
+    `POST /api/v1/auth/device-pairing/redeem` is public by design (REQ-023 /
+    #1118): the caller is a freshly installed app holding no credential, and the
+    scanned code *is* the credential. That makes it the one unauthenticated route
+    where a guessing budget is the only thing standing between an attacker and a
+    token pair.
+
+    Two independent guards are supposed to close that: a per-address lockout
+    (`AccountLockedError` -> **423**, read *before* the code store is touched, so a
+    locked-out caller cannot even test a code) and a `10/minute` rate limit
+    (**429**).
+
+    This template spends more attempts than either budget allows and looks at the
+    last response. **The finding is the absence of a refusal**: if the twelfth
+    consecutive bad guess is still answered with an ordinary "wrong code" status,
+    neither guard is in force and the code space is open to enumeration.
+
+    Why this exists at all: the ZAP API scan already discovers this route from the
+    OpenAPI document and `zap_auth_bypass.py` correctly classifies it as
+    intentionally public. Neither asserts *behaviour*. The in-repo adversarial API
+    tests do — against doubles. This is the same property against a running
+    instance, which is the only place a misconfigured limiter (a wrong key
+    function, a proxy collapsing every caller onto one address, a disabled
+    backend) can actually be observed.
+  reference:
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+  classification:
+    cwe-id: CWE-307
+  tags: kamerplanter,auth,bruteforce,device-pairing,req-023
+
+http:
+  - raw:
+      # Twelve attempts against a code that cannot exist. Twelve because the rate
+      # limit is 10/minute: the count has to exceed the *looser* of the two guards,
+      # or a template could pass while only the stricter one is alive.
+      #
+      # Written out rather than driven by a payload list so `req-condition` can
+      # address the final response by index — Nuclei evaluates matchers per
+      # request, and "the last one was not refused" is the whole assertion.
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-01"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-02"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-03"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-04"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-05"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-06"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-07"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-08"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-09"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-10"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-11"}
+      - |
+        POST /api/v1/auth/device-pairing/redeem HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"code":"nuclei-bruteforce-probe-12"}
+
+    # Sequential on one connection, so every attempt reaches the server as the
+    # same client. Without this the lockout — which is keyed on the source address
+    # — could be spread across connections and the template would measure nothing.
+    unsafe: false
+    stop-at-first-match: false
+    req-condition: true
+
+    matchers-condition: and
+    matchers:
+      - type: dsl
+        name: no-lockout-after-twelve-attempts
+        dsl:
+          # The finding: the last attempt was neither locked out (423) nor rate
+          # limited (429). Asserted on the final response only — the first eleven
+          # are *expected* to be ordinary refusals, and matching on those would
+          # report every healthy instance.
+          - "status_code_12 != 423 && status_code_12 != 429"
+
+      - type: dsl
+        name: the-endpoint-is-actually-there
+        dsl:
+          # Guards against the vacuous pass. A 404 (route absent, wrong base URL,
+          # backend down) also satisfies the condition above, and would let this
+          # template report "no lockout" about an endpoint it never reached.
+          - "status_code_12 != 404 && status_code_12 != 405"
+
+      - type: dsl
+        name: the-request-reached-the-handler
+        dsl:
+          # And against the false positive. Request validation runs *before* the
+          # handler, so a body rejected at the schema (422) never consults the
+          # lockout and would look identical to a missing one. The probe codes are
+          # sized to pass `code: min_length=1, max_length=512` deliberately; this
+          # asserts that they still do, rather than trusting that the schema has
+          # not tightened since.
+          - "status_code_12 != 422"

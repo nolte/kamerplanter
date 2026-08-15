@@ -47,11 +47,26 @@ http:
         regex:
           - '\\beyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\b'
 
-      - type: regex
+      # Was a single regex with a negative lookahead `(?!authorization:|...)`.
+      # Go's regexp is RE2, which has never supported lookaheads, so the pattern
+      # could not compile — and Nuclei fails the **whole template** on one bad
+      # matcher. This critical-severity check therefore never ran at all: not the
+      # header arm, not the body arm, not the headless storage arm.
+      #
+      # Rewritten as a DSL conjunction, which RE2 can express: a JWT is present in
+      # the response headers, and it is not the documented refresh-token cookie.
+      # `authorization:` needs no arm — it is a *request* header and has no
+      # business in a response.
+      #
+      # Residual, stated rather than hidden: if a genuine leak and the refresh
+      # cookie appear in the same response, the second clause suppresses the
+      # finding. RE2 cannot express "some JWT other than this one" without
+      # per-header iteration, and a false negative in that narrow case is a better
+      # trade than a matcher that does not compile.
+      - type: dsl
         name: jwt-in-non-auth-header
-        part: header
-        regex:
-          - '(?i)^(?!authorization:|set-cookie:\\s*refresh_token=)[a-z0-9_-]+:.*\\beyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\b'
+        dsl:
+          - "regex('eyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}', header) && !regex('(?i)set-cookie:\\s*refresh_token=eyJ', header)"
 
 headless:
   - steps:
