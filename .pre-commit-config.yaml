@@ -616,6 +616,18 @@ repos:
         always_run: true
         pass_filenames: false
 
+      - id: nuclei-version-pin
+        name: the Nuclei binary is pinned, not `latest` (#1177)
+        # `always_run`, because the thing this catches is not a change to any
+        # file the hook could be selected by: leaving `nuclei-action` on its
+        # `latest` default let the template gate report green on an uncompilable
+        # critical-severity template for two weeks, and what ended that was an
+        # upstream release, not a commit here.
+        entry: python3 scripts/check_nuclei_version_pin.py
+        language: python
+        always_run: true
+        pass_filenames: false
+
   # ── Backend (Python) ──────────────────────────────────────────────────
   # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
   - repo: local

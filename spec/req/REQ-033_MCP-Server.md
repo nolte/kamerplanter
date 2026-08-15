@@ -105,7 +105,21 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 
 Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den haeufigsten LLM-Use-Cases mit Schwerpunkt **Onboarding (Wohnung/Garten einrichten)**, **Bestandsaufnahme (Pflanzen erfassen)** und **Tagesbetrieb (Pflege, Diagnose)**. Erweiterung erfolgt nach Nutzungsmessung.
 
-**Mandanten-Parameter:** Jedes Tool, das nutzereigene Daten beruehrt, akzeptiert `tenant` (Slug des handelnden Mandanten). Bei genau einer Mitgliedschaft darf es entfallen, bei mehreren ist es Pflicht — der Server waehlt nie selbst einen aus. Tools auf globalen Katalogdaten (`list_species`, `get_species_info`) und auf kontobezogenen Daten (`list_tenants`, `get_mcp_activity`) fuehren den Parameter nicht. Die Aufloesung passiert zentral im Dispatcher, nicht im Tool (§4.3).
+**Mandanten-Parameter:** Jedes Tool, das nutzereigene Daten beruehrt, akzeptiert `tenant` (Slug des handelnden Mandanten). Bei genau einer Mitgliedschaft darf es entfallen, bei mehreren ist es Pflicht — der Server waehlt nie selbst einen aus. Tools auf kontobezogenen Daten (`list_tenants`, `get_mcp_activity`) fuehren den Parameter nicht. Die Aufloesung passiert zentral im Dispatcher, nicht im Tool (§4.3).
+
+**Hybrid-Katalog-Parameter (#1121).** Die Arten- und Sortenwerkzeuge (`list_species`, `get_species_info`, `list_cultivars`, `get_cultivar`) sind ein **dritter** Fall, der bis #1121 fehlte. Sie fuehren `tenant`, aber es *bindet* nicht, es *erweitert*:
+
+| `tenant` | Sichtbarkeit |
+|---|---|
+| weggelassen | nur der geteilte Seed-Katalog (`tenant_key == ""`) — unveraendertes Verhalten vor #1121 |
+| Slug einer eigenen Mitgliedschaft | geteilter Katalog **plus** die eigenen Eintraege dieses Mandanten (die Vereinigung aus #324, wie die HTTP-Route seit #1091) |
+| ein anderer Slug | `not_found` — byte-gleich zu einem Slug, der gar keinen Mandanten benennt |
+
+Das ist bewusst **nicht** `TenantToolInput`. Ein mandanten-*gebundenes* Werkzeug verlangt einen Mandanten und weist ein mehrdeutiges Weglassen mit `validation.tenant_required` zurueck; das ist richtig fuer ein Werkzeug, das *innerhalb* eines Mandanten handelt, und falsch fuer einen Katalog, dessen Antwort ohne Mandanten eine echte Antwort ist. Eine Beforderung haette genau die bestehenden Clients zu Fehlern gebracht, die den Parameter weglassen — die Rueckwaertskompatibilitaet, die #1121 als Abnahmekriterium fordert.
+
+Die Asymmetrie ist dieselbe wie in REQ-049 §2.11: **Abwesenheit verengt, ein abgelehnter Wert laesst den Aufruf scheitern, und nur ein geprueftes Slug erweitert ueberhaupt etwas.** Die Ablehnung ist `not_found` und nie `permission.denied` — diese Werkzeuge kann jeder Principal aufrufen, auch einer ganz ohne Mitgliedschaft, eine unterscheidbare Ablehnung machte sie zum Mandanten-Verzeichnis (§8.8 Szenario 6).
+
+Der uebrige globale Referenzkatalog (Substrate, Winterhaertezonen, Phasendefinitionen, Glossar, IPM) bleibt ohne Parameter: dort gibt es keine mandanteneigenen Zeilen, die eine Vereinigung sichtbar machen koennte.
 
 **Schreibzugriffs-Philosophie:** Schreibtools folgen vier festen Mustern, damit ein LLM sie sicher und idempotent verwenden kann:
 
@@ -335,6 +349,29 @@ Schreibtools liefern zusaetzlich:
 > ausschliesslich Protokoll- oder Authentifizierungsversagen. Die vollstaendige Ausformulierung
 > dieses Vertrags samt Fehlercodes steht in REQ-050 §4.0; sie gilt fuer **alle** Werkzeuge, nicht
 > nur die dort spezifizierten fuenf.
+>
+> **Echte Serverfehler tragen eine Klasse, nicht nur eine Referenz-ID (#1164).** Scheitert ein
+> Werkzeug an einem Fehler in *unserem* Code statt an der Anfrage des Aufrufers, antwortet es mit
+> einem der beiden `internal.*`-Codes und HTTP-Status **500**:
+>
+> | `error_code` | Bedeutung | `retryable` |
+> |---|---|---|
+> | `internal.contract_mismatch` | Der Server hat seine eigene Arbeit falsch zusammengesetzt (falsche Aufrufsignatur, Schema-Bruch). | `false` |
+> | `internal.unavailable` | Eine benoetigte Abhaengigkeit war nicht erreichbar. | `true` |
+>
+> `details` traegt `reference_id`, `tool` und `retryable`. Drei Dinge sind dabei **bewusst**
+> ausgeschlossen:
+>
+> - **Keine Umdeutung nach 4xx.** Ein Validierungsfehler aus einer schlechten *Anfrage* ist
+>   typisiert und 4xx; einer aus unserer eigenen Zusammensetzung ist ein echter Serverfehler und
+>   muss laut bleiben (REQ-053 / #970). Eine Umdeutung haette #1145 leiser gemacht und nicht
+>   weniger kaputt — ein MCP-Client haette gegen einen „Client-Fehler" endlos weiter versucht.
+> - **Kein Ausnahmetext.** Ein `TypeError`-Repr nennt interne Symbole, ein `ValidationError` kann
+>   gespeicherte Feldwerte zitieren. Die Meldung ist ein fester Satz je Klasse.
+> - **Keine Voreingenommenheit zugunsten „transient".** Eine *unbekannte* Ausnahme gilt als
+>   `internal.contract_mismatch`. Eine faelschlich als dauerhaft eingestufte Stoerung kostet eine
+>   Meldung; eine faelschlich als voruebergehend eingestufte kostet eine endlose Wiederholschleife
+>   gegen einen Aufruf, der nie gelingen kann — genau das taten die Clients in #1145.
 
 Werkzeuge, die Bilder liefern (§2.2a), haengen zusaetzlich **Content-Bloecke** an. `summary`
 bleibt auch dort der fuehrende Block — siehe §4.3b.

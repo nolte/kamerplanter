@@ -36,9 +36,66 @@ _ERROR_CODE_STATUS: dict[str, int] = {
 }
 _ERROR_PREFIX_STATUS: tuple[tuple[str, int], ...] = (
     ("conflict.", 409),
+    ("internal.", 500),
     ("payload.", 413),
     ("validation.", 422),
 )
+
+#: Genuine-500 classes (#1164). A failure in *our* code, not in the caller's
+#: request — deliberately **not** mapped to 4xx. That is #970's second horn: a
+#: validation error our own assembly caused is not a client error, and dressing
+#: it as one would make an MCP client retry a permanently broken call forever.
+#:
+#: The pair exists because a caller cannot form a retry policy without it. #1145
+#: produced five identical ``INTERNAL_ERROR`` markers across two *unrelated*
+#: defects, which read as one incident; one of them (``assign_nutrient_plan``) was
+#: a contract mismatch that clients retried indefinitely.
+INTERNAL_CONTRACT_MISMATCH = "internal.contract_mismatch"
+INTERNAL_UNAVAILABLE = "internal.unavailable"
+
+#: Fixed, caller-safe sentences. Never the exception text: a ``TypeError`` repr
+#: names internal symbols and a ``pydantic.ValidationError`` can quote stored
+#: field values.
+_INTERNAL_MESSAGES: dict[str, str] = {
+    INTERNAL_CONTRACT_MISMATCH: (
+        "This tool failed inside the server while assembling its work. Retrying will not help; report the reference ID."
+    ),
+    INTERNAL_UNAVAILABLE: (
+        "This tool could not reach a dependency it needs. Retrying later may succeed; "
+        "report the reference ID if it persists."
+    ),
+}
+
+#: Exception types that mean *a dependency was unreachable* rather than *we built
+#: something wrong*. Deliberately narrow: anything unrecognised is classified as a
+#: contract mismatch, so an unknown failure is called permanent and gets looked
+#: at, rather than being called transient and retried into silence.
+_UNAVAILABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    ConnectionError,
+    TimeoutError,
+    OSError,
+)
+
+
+def classify_internal_failure(exc: BaseException) -> str:
+    """Which genuine-500 class an unexpected exception belongs to (#1164).
+
+    The classification answers exactly one question for the caller: *will
+    retrying ever help?* It does not attempt to describe the fault — that is what
+    the reference ID and the server log are for.
+
+    Unrecognised exceptions are :data:`INTERNAL_CONTRACT_MISMATCH`, i.e.
+    permanent. The asymmetry is on purpose: calling a transient fault permanent
+    costs one report, while calling a permanent fault transient costs an infinite
+    retry loop against a call that can never succeed — which is what #1145's
+    clients actually did.
+    """
+    return INTERNAL_UNAVAILABLE if isinstance(exc, _UNAVAILABLE_EXCEPTIONS) else INTERNAL_CONTRACT_MISMATCH
+
+
+def internal_failure_message(error_code: str) -> str:
+    """The caller-facing sentence for a genuine-500 class."""
+    return _INTERNAL_MESSAGES[error_code]
 
 
 def image_content_index(position: int) -> int:
@@ -131,6 +188,47 @@ class TenantToolInput(ToolInput):
         description=(
             "Slug of the tenant to act in. Optional when the API key grants exactly one tenant; "
             "required otherwise. Use the list_tenants tool to discover the available slugs."
+        ),
+    )
+
+
+class CatalogueToolInput(ToolInput):
+    """Input base for a *hybrid-catalogue* read: global rows plus one tenant's own (#1121).
+
+    Deliberately **not** :class:`TenantToolInput`, and the difference is the whole
+    point of this class existing.
+
+    ``TenantToolInput`` makes a tool tenant-*scoped*: the dispatcher binds a
+    membership before the handler runs, and a principal holding several
+    memberships that omits ``tenant`` is refused with ``validation.tenant_required``.
+    That is right for a tool that acts *inside* a tenant — there is no sensible
+    default for "which garden did you mean". It is wrong here. The species and
+    cultivar catalogues have a meaningful answer with no tenant at all: the shared
+    seed catalogue, which is what these tools returned before #1121 and what every
+    existing client is calling them for. Promoting them to ``TenantToolInput``
+    would turn a working global-only call into an error for exactly those clients
+    — the back-compatibility this issue's acceptance criteria rule out.
+
+    So ``tenant`` here is a *widening*, not a binding:
+
+    * omitted → the global catalogue (``tenant_key == ""``), unchanged behaviour;
+    * a slug the principal is a member of → global ∪ that tenant's own rows, the
+      #324 both-direction union the HTTP routes apply since #1091;
+    * a slug the principal is **not** a member of → ``not_found``, identical to a
+      slug that names no tenant, so the tool cannot be walked to enumerate
+      tenants (§8.8 Szenario 6).
+
+    Note the asymmetry that keeps this safe: *absence* narrows to global-only, a
+    *rejected* value fails the call, and only a validated slug widens anything.
+    That is the same rule REQ-049 §2.11 states for ``X-Active-Tenant``, which is
+    what makes the two surfaces answer alike.
+    """
+
+    tenant: str | None = Field(
+        default=None,
+        description=(
+            "Slug of the tenant whose own catalogue entries should be included alongside the "
+            "shared ones. Omit for the shared catalogue only. Use list_tenants to discover slugs."
         ),
     )
 
