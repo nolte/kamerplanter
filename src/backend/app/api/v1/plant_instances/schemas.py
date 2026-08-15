@@ -23,6 +23,53 @@ class PlantCreate(BaseModel):
     cultivation_cycle_type: CycleType | None = None
 
 
+class PlantPatch(BaseModel):
+    """Partial update of a plant instance — only the fields actually sent (#1098).
+
+    The sibling ``PUT`` takes :class:`PlantCreate` and is a **full replacement**:
+    it assigns thirteen of the fourteen body fields onto the stored row, so every
+    optional field the caller omits is written back as ``None`` and — because
+    ``ArangoPlantInstanceRepository._update_is_full_replace`` is ``True``, which it
+    must be so a ``PUT`` can *clear* a nullable field — removed from the document.
+
+    Measured on the real route: a call carrying only the three required fields
+    plus the one being changed erases ``location_key``, ``slot_key``,
+    ``cultivar_key``, ``plant_name``, ``container_volume_liters`` and
+    ``substrate_batch_key``. Nothing in the endpoint's name or its schema says so.
+    That is fine for the edit form, which always sends the whole record, and a trap
+    for anything composing a request from the schema alone.
+
+    Here **omitted means untouched** and an explicit ``null`` means *clear this
+    field*. The two are distinguished by ``model_fields_set`` (via
+    ``exclude_unset``), not by the value — a dump that could not tell them apart
+    would make one of the two intents unreachable.
+
+    ``instance_id`` and ``current_phase_key`` are deliberately **absent**.
+    ``instance_id`` is the plant's human-facing identity, and renaming a plant as
+    a side effect of setting its substrate is the class of surprise this endpoint
+    removes. ``current_phase_key`` is server-managed — the ``PUT`` excludes it too
+    — and moves only through the phase-transition path, which enforces the state
+    machine (REQ-003); accepting it here would be a second, ungated way to set a
+    phase. ``extra="forbid"`` rejects both outright rather than dropping them,
+    because a silently ignored field reads to the caller as success.
+    """
+
+    species_key: str | None = None
+    cultivar_key: str | None = None
+    site_key: str | None = None
+    location_key: str | None = None
+    slot_key: str | None = None
+    substrate_batch_key: str | None = None
+    substrate_key: str | None = None
+    plant_name: str | None = None
+    planted_on: date | None = None
+    container_volume_liters: float | None = Field(default=None, ge=0.1, le=500)
+    substrate_type_override: SubstrateType | None = None
+    cultivation_cycle_type: CycleType | None = None
+
+    model_config = {"extra": "forbid"}
+
+
 class RemovePlantRequest(BaseModel):
     """Optional body for POST /{key}/remove (REQ-003 E5).
 
