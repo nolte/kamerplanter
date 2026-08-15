@@ -26,9 +26,11 @@ security binding, idempotency and audit.
 from __future__ import annotations
 
 import json
+import uuid
 from time import perf_counter
 from typing import Any
 
+import structlog
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import McpToolStatus, TenantRole
@@ -36,11 +38,20 @@ from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundErr
 from app.core.permissions import assert_mcp_permission
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.audit import MCPAuditLogger, hash_arguments
-from app.mcp_server.base import McpToolError, ToolBase, WriteToolBase
+from app.mcp_server.base import (
+    INTERNAL_UNAVAILABLE,
+    McpToolError,
+    ToolBase,
+    WriteToolBase,
+    classify_internal_failure,
+    internal_failure_message,
+)
 from app.mcp_server.context import ToolContext
 from app.mcp_server.idempotency import IdempotencyStore
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.registry import ToolRegistry
+
+logger = structlog.get_logger(__name__)
 
 
 class ToolDispatcher:
@@ -132,7 +143,7 @@ class ToolDispatcher:
                 error_class=type(exc).__name__,
                 membership=membership,
             )
-            raise
+            raise self._as_internal_tool_error(exc, tool_name) from exc
 
         duration_ms = int((perf_counter() - started) * 1000)
         # AC-S9 — image payload is reported *separately*, not folded into
@@ -203,6 +214,60 @@ class ToolDispatcher:
             error_class="not_found",
         )
         raise NotFoundError("Tenant", requested)
+
+    @staticmethod
+    def _as_internal_tool_error(exc: BaseException, tool_name: str) -> McpToolError:
+        """Turn an unexpected exception into a *typed* genuine-500 result (#1164).
+
+        Before this, both #1145 defects — a ``TypeError`` from a missed keyword
+        argument and a ``pydantic.ValidationError`` from a schema mismatch — fell
+        through to the REST catch-all and reached the operator as
+        ``INTERNAL_ERROR`` plus a bare reference ID. Five such IDs were collected
+        across two tools before anyone could say more than "something is wrong",
+        and because they were identical the two unrelated defects read as one
+        incident. The reference ID is only actionable to someone holding the
+        server logs, which for an MCP client is nobody in the loop.
+
+        What is added is deliberately the *smallest* thing that lets a caller act:
+        a stable class saying whether retrying can ever help, plus the tool name.
+        What is deliberately **not** added:
+
+        * **No 4xx.** These stay 500. A domain validation error caused by a bad
+          request is typed and 4xx; one caused by our own code assembling
+          something wrongly is a genuine server fault and must stay loud (#970's
+          second horn). Reclassifying would have made #1145 quieter and no less
+          broken.
+        * **No exception text.** A ``TypeError`` repr names internal symbols and a
+          ``ValidationError`` can quote stored field values. The message is a
+          fixed sentence per class.
+        * **No phase or symbol.** Localising further needs the log, and the
+          reference ID is what joins the two.
+
+        The reference ID is minted and logged *here*, so the value the caller is
+        told to report is the value that appears in the log line — raising an
+        ``McpToolError`` means the REST catch-all that used to mint it no longer
+        runs.
+        """
+        error_code = classify_internal_failure(exc)
+        reference_id = f"err_{uuid.uuid4()}"
+        logger.error(
+            "mcp_tool_internal_failure",
+            error_id=reference_id,
+            tool=tool_name,
+            error_code=error_code,
+            exc_info=True,
+        )
+        return McpToolError(
+            error_code,
+            internal_failure_message(error_code),
+            details={
+                "reference_id": reference_id,
+                "tool": tool_name,
+                # Explicit rather than implied by the code, so a client that does
+                # not know this vocabulary yet still has the one bit it needs.
+                "retryable": error_code == INTERNAL_UNAVAILABLE,
+            },
+        )
 
     async def _run(
         self,
