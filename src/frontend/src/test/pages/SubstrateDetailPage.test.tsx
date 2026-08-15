@@ -31,7 +31,7 @@ const substrate = {
   max_reuse_cycles: 3,
   water_holding_capacity_percent: null,
   easily_available_water_percent: null,
-  cec_meq_per_100g: null,
+  cec_meq_per_100cm3: null,
   particle_size_mm: null,
   bulk_density_g_per_l: null,
   irrigation_strategy: null,

@@ -4,15 +4,33 @@ Weighting is per-property physics, not one-size-fits-all:
 
 * Per-volume properties (porosity, water retention, WHC, EAW, bulk density,
   EC) are volume-weighted by the component fractions, which are volume shares.
-* Per-mass properties (CEC, defined in meq per 100 g) are mass-weighted: the
-  volume fractions are converted to mass fractions via each component's bulk
-  density, because a 50/50 volume blend of media with different densities is
-  not a 50/50 mass blend.
+* CEC is **also** volume-weighted, because the catalogue's values are per unit
+  VOLUME (``cec_meq_per_100cm3``) — see below.
 * pH is buffering-weighted: a blend's pH is set by the fraction that actually
   buffers, not by volume. An inert diluent (near-zero CEC) dilutes the medium
   toward the buffered component's set point rather than shifting it linearly.
 
-See issue #1099 (defects 2 and 3).
+The CEC unit, and why this reverts part of #1099 (#1152 §F)
+-----------------------------------------------------------
+
+#1099 read the old field name ``cec_meq_per_100g`` as a statement of fact and
+mass-weighted accordingly. The values do not support that reading: seven of seven
+sampled materials land outside their literature band as written, and inside it
+once divided by bulk density. Peat at 10 against a literature 100–200; vermiculite
+at 15 against 100–150; perlite at 0.1 against ≈1.5. They behave as meq per 100 cm³.
+
+The field is renamed to say so, and the weighting follows the values rather than
+the old label. The divergence is not academic: a 50/50 blend of perlite (100 g/L)
+and worm humus (600 g/L) computes 15.1 volume-weighted and 25.7 mass-weighted —
+70 %, growing with the density spread of the components. It stayed unnoticed
+because the blends people actually had were made of similarly dense media.
+
+``bulk_density_g_per_l`` is still required wherever CEC is declared, and
+``_mass_fractions`` still exists: bulk density is a mix output in its own right,
+and keeping the conversion available is what makes the other reading testable
+rather than merely arguable.
+
+See issue #1099 (defects 2 and 3) and #1152 §F, which corrects defect 3.
 """
 
 from app.common.enums import BufferCapacity, IrrigationStrategy, WaterRetention
@@ -29,7 +47,7 @@ _IRRIGATION_PRIORITY = {
 }
 
 # Representative CEC (meq/100 g) used only as a buffering-weight fallback when a
-# component does not declare cec_meq_per_100g. Ordinal buffer_capacity is the
+# component does not declare cec_meq_per_100cm3. Ordinal buffer_capacity is the
 # coarse stand-in the model offers; these magnitudes keep an inert (low) tier
 # well below a limed (medium/high) tier.
 _BUFFER_NOMINAL_CEC = {BufferCapacity.LOW: 1.0, BufferCapacity.MEDIUM: 8.0, BufferCapacity.HIGH: 20.0}
@@ -71,8 +89,8 @@ def _mass_fractions(pairs: list[tuple[Substrate, float]]) -> list[float] | None:
 
 def _effective_cec(sub: Substrate) -> float:
     """Buffering magnitude of a component: declared CEC, else a buffer-tier proxy."""
-    if sub.cec_meq_per_100g is not None:
-        return sub.cec_meq_per_100g
+    if sub.cec_meq_per_100cm3 is not None:
+        return sub.cec_meq_per_100cm3
     return _BUFFER_NOMINAL_CEC[sub.buffer_capacity]
 
 
@@ -158,14 +176,12 @@ def calculate_mix_properties(
     eaw = _weighted_optional([(s.easily_available_water_percent, f) for s, f in pairs])
     bulk = _weighted_optional([(s.bulk_density_g_per_l, f) for s, f in pairs])
 
-    # CEC is defined per 100 g of MASS, so mass-weight it: convert the volume
-    # fractions to mass fractions via bulk density — issue #1099 #3. Fall back to
-    # volume-weighting only when densities are unavailable.
-    mass_fracs = _mass_fractions(pairs)
-    if mass_fracs is not None:
-        cec = _weighted_optional([(s.cec_meq_per_100g, mf) for (s, _f), mf in zip(pairs, mass_fracs, strict=True)])
-    else:
-        cec = _weighted_optional([(s.cec_meq_per_100g, f) for s, f in pairs])
+    # CEC is declared per 100 cm³ of VOLUME, so the component fractions — which are
+    # volume shares — weight it directly (#1152 §F). #1099 mass-weighted this on the
+    # strength of the old field name; the values never supported that reading, and
+    # converting them made a correct number wrong by up to 70 % on a density-spread
+    # blend.
+    cec = _weighted_optional([(s.cec_meq_per_100cm3, f) for s, f in pairs])
 
     # Merged composition: combine raw-material compositions weighted by fraction
     merged_composition: dict[str, float] = {}
@@ -189,7 +205,7 @@ def calculate_mix_properties(
         "buffer_capacity": _resolve_buffer(buffer_num),
         "water_holding_capacity_percent": round(whc, 1) if whc is not None else None,
         "easily_available_water_percent": round(eaw, 1) if eaw is not None else None,
-        "cec_meq_per_100g": round(cec, 1) if cec is not None else None,
+        "cec_meq_per_100cm3": round(cec, 1) if cec is not None else None,
         "bulk_density_g_per_l": round(bulk, 1) if bulk is not None else None,
         "composition": {k: round(v, 4) for k, v in merged_composition.items()},
         "reusable": all_reusable,
