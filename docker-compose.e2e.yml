@@ -290,7 +290,33 @@ services:
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
+      # Both limits are per **client IP** and sized for production, where one
+      # address is roughly one human. This harness violates that assumption by
+      # construction: four xdist workers drive four browsers through a single
+      # Selenium node, so the backend sees every request from one address.
+      #
+      # RATE_LIMIT_AUTH was already raised for the login path. The refresh path
+      # was missed, and it is the busier of the two — `AuthProvider` dispatches a
+      # refresh on **every** app bootstrap, which for an E2E suite means every
+      # `page.open()`.
+      #
+      # Measured on the 2026-08-15 nightly (`e2e-nightly` run 31859469145,
+      # profile `full`): 4 137 refresh calls in 38 minutes, **289 refused with
+      # 429**. Median 34/minute against a 60/minute budget — so the average was
+      # never the problem. The peak minute was 63, and the refusals come from
+      # *bursts*: four browsers navigating together exhaust a minute's budget in
+      # seconds, and everything for the rest of that minute is refused.
+      #
+      # A refused refresh drops the browser to logged-out, and every subsequent
+      # `page.open()` then times out waiting for a page it never reaches. That is
+      # what the 119 failures were: every one a `TimeoutException` at page open,
+      # spread evenly over all four workers (30/30/30/29), and only in the three
+      # profiles that authenticate — `light`, `mobile` and `tablet` passed.
+      #
+      # Ten times the production budget, matching the RATE_LIMIT_AUTH precedent
+      # above and leaving an order of magnitude over the observed peak.
       RATE_LIMIT_AUTH: "200/minute"
+      RATE_LIMIT_TOKEN_REFRESH: "600/minute"
     depends_on:
       arangodb:
         condition: service_healthy
