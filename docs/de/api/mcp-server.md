@@ -219,7 +219,14 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `list_fertilizers` | Verfügbare Dünger mit EC-Beitrag und Maximaldosis |
 | `calculate_mixing_protocol` | Düngerechner: Dosierung je Produkt für dein Zielvolumen und deine Ziel-EC, in der richtigen Mischreihenfolge |
 | `list_cultivars` / `get_cultivar` | Sorten einer Art: Züchter, Merkmale, Saatgut-Typ, Tage bis zur Reife |
-| `list_substrates` | Substratkatalog: Medien und ihre Eigenschaften |
+| `list_substrates` | Substratkatalog: Medien und ihre Eigenschaften — **seit #1195 ein Hybrid-Katalog**: die geseedeten Basis-Medien plus die eigenen Mischungen deines Mandanten, sobald du `tenant` angibst |
+| `get_substrate` | Ein einzelnes Substrat im Detail: pH- und EC-Basis, Porosität, **CEC**, Pufferkapazität, Wiederverwendungsgrenzen. Genau die Zahlen, die zwischen zwei Medien desselben Typs verschieden sind — und über eine sichere Dosierung entscheiden |
+| `preview_substrate_mix` | Was eine gewichtete Mischung ergäbe, **ohne** sie anzulegen. Reine Rechnung; die richtige Gewichtung ist je Eigenschaft eine andere (Volumen für Porosität, **Masse** für CEC, puffergewichtet für pH), selbst ausrechnen führt zu plausiblen falschen Zahlen |
+| `create_substrate_mix` | Eine Mischung anlegen und speichern — **sie gehört deinem Mandanten**, nicht dem geteilten Katalog |
+| `list_substrate_batches` / `get_substrate_batch` | Die angemischten Chargen eines Substrats mit pH/EC-Verlauf und Zyklenzahl. Damit ist `substrate_batch_key` einer Pflanze erstmals auflösbar |
+| `check_batch_reusability` | Ob *diese* Charge wiederverwendet werden darf — eine Entscheidung aus ihrer Historie, nicht aus dem Katalog — und welche Behandlungen sie vorher braucht |
+| `set_plant_substrate` | Substrat und/oder Charge einer Pflanze setzen, **ohne** ein anderes Feld anzufassen. Der einzige vorherige Weg war der Voll-Ersatz-`PUT`, der dabei Standort, Sorte, Name und ausgerechnet die Chargen-Referenz gelöscht hat |
+| `get_location` | Die Eigenschaften eines Standorts selbst — Typ, Klimazone, Frostexposition. `list_plants_at_location` liefert die Pflanzen und nie den Standort, und ob ein Beet frostexponiert ist, entscheidet über die Substratwahl |
 | `list_overwintering_profiles` | Überwinterungsprofile: Schutzmethode, Lagerbedingungen, Zeitpunkte |
 | `list_starter_kits` | Starter-Kits für den Einstieg |
 | `list_phase_definitions` | Wachstumsphasen-Definitionen der Lebenszyklus-Logik — die einzelnen Bausteine, nicht die Abfolgen |

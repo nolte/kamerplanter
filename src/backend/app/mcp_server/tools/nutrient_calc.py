@@ -98,6 +98,13 @@ class CalculateMixingProtocol(ToolBase):
             description="Carbonate hardness of the base water; drives the pH reserve.",
         )
         substrate_type: SubstrateType = SubstrateType.COCO
+        substrate_key: str | None = Field(
+            default=None,
+            description=(
+                "Key of the actual medium. When given, its recorded properties are used and "
+                "`substrate_type` is ignored. Omit to fall back to the coarse type."
+            ),
+        )
         phase: str = Field(
             default="vegetative",
             description=(
@@ -142,12 +149,40 @@ class CalculateMixingProtocol(ToolBase):
         # calc silently fell to a wrong band (#1099 defect 4).
         resolved_phase = PhaseName(ec_phase(args.phase))
 
+        # P4 of #1098: prefer the *recorded* medium over the coarse enum.
+        #
+        # The engine takes a `SubstrateType`, and two media of the same type can
+        # differ in exactly the properties that decide a safe dose — the mix
+        # created in the #1098 session had CEC 6.1 against Light-Mix's 12, `low`
+        # buffer capacity against `medium`, and 0.6 mS already in the medium. A
+        # dose computed for "soil" is a dose computed for twice the buffering the
+        # plant actually sits in.
+        #
+        # Resolving the key here does two things the enum could not: it takes the
+        # medium's *own* type rather than one the caller guessed, and it surfaces
+        # the properties in the response so the number can be checked against the
+        # medium it was computed for. Scoped, so a foreign mix is `not_found`.
+        substrate_type = args.substrate_type
+        resolved_substrate: dict[str, object] | None = None
+        if args.substrate_key is not None:
+            medium = ctx.substrate_service.get_substrate(args.substrate_key, tenant_key=ctx.tenant_key)
+            substrate_type = medium.type
+            resolved_substrate = {
+                "substrate_key": medium.key,
+                "name_de": medium.name_de,
+                "type": medium.type,
+                "cec_meq_per_100cm3": medium.cec_meq_per_100cm3,
+                "buffer_capacity": medium.buffer_capacity,
+                "ec_base_ms": medium.ec_base_ms,
+                "ph_base": medium.ph_base,
+            }
+
         result = EcBudgetCalculator().calculate(
             EcBudgetInput(
                 base_water_ec=args.base_water_ec,
                 target_ec=args.target_ec_ms,
                 alkalinity_ppm=args.alkalinity_ppm,
-                substrate=args.substrate_type,
+                substrate=substrate_type,
                 phase=resolved_phase,
                 volume_liters=args.target_volume_liters,
                 fertilizers=inputs,
@@ -186,6 +221,12 @@ class CalculateMixingProtocol(ToolBase):
         }
         if uncertain:
             data["estimated_ec_products"] = uncertain
+        if resolved_substrate is not None:
+            # Reported back so the dose can be checked against the medium it was
+            # computed for. Without this, a caller passing `substrate_key` gets a
+            # number and no way to tell which properties produced it — which is
+            # the state `substrate_type` alone left every caller in.
+            data["substrate"] = resolved_substrate
 
         summary = (
             f"{len(dosages)} fertilisers for {args.target_volume_liters} L at "
@@ -198,6 +239,12 @@ class CalculateMixingProtocol(ToolBase):
             summary += " The mix does NOT satisfy the constraints — see warnings."
         if uncertain:
             summary += f" Doses are estimates: EC contribution is uncertain for {', '.join(uncertain)}."
+        if resolved_substrate is None:
+            # Said out loud, because the difference is invisible in the numbers.
+            # A dose computed from the coarse type is computed for a *category* of
+            # medium, and two media in one category can differ by a factor of two
+            # in the buffering that decides whether the dose is safe (#1098 §7).
+            summary += " Computed from the substrate TYPE — pass substrate_key to use the medium's own properties."
         return self._response(
             summary=summary,
             data=data,

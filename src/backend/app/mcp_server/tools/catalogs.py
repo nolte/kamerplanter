@@ -25,7 +25,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.base import TenantToolInput, ToolBase, ToolInput, mcp_tool
+from app.mcp_server.base import CatalogueToolInput, TenantToolInput, ToolBase, ToolInput, mcp_tool
 from app.mcp_server.context import ToolContext
 
 _MAX_LIMIT = 200
@@ -72,7 +72,7 @@ def _dump(obj: Any) -> dict[str, Any]:
 class ListSubstrates(ToolBase):
     """List the substrate catalogue (REQ-019): media, their type and properties."""
 
-    class Input(ToolInput):
+    class Input(CatalogueToolInput):
         query: str | None = Field(
             default=None,
             description="Case-insensitive filter over the substrate name (German/English) and the brand.",
@@ -80,7 +80,12 @@ class ListSubstrates(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        substrates, total = ctx.substrate_service.list_substrates(offset=0, limit=_MAX_LIMIT)
+        # Substrates became a hybrid catalogue in #1195 — seeded base media plus a
+        # tenant's own mixes — so this read takes the same widening ``tenant`` the
+        # species tools took in #1121. Omitted stays the shared catalogue, which is
+        # what this tool returned before and what an existing client expects.
+        tenant_key = ctx.catalogue_tenant_key(args.tenant)
+        substrates, total = ctx.substrate_service.list_substrates(offset=0, limit=_MAX_LIMIT, tenant_key=tenant_key)
         selected = list(substrates)
         if args.query:
             needle = args.query.strip().lower()

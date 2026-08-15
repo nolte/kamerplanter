@@ -97,6 +97,7 @@ from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
     runs,
     sites,
     species,
+    substrates,
     tasks,
     tenants,
 )

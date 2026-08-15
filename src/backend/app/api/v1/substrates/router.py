@@ -262,9 +262,14 @@ def delete_batch(
 def check_reusability(
     key: Annotated[str, Path(description="Document key of the substrate batch.")],
     service: SubstrateService = Depends(get_substrate_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ):
-    """Assess whether a substrate batch can be reused and which treatments it needs."""
-    can_reuse, issues, prep_steps, prep_time, ready_date = service.check_reusability(key)
+    """Assess whether a substrate batch can be reused and which treatments it needs.
+
+    Scoped (#1195): the verdict quotes the batch's pH/EC history and cycle count,
+    so an unscoped check reads a foreign batch with an assessment as cover.
+    """
+    can_reuse, issues, prep_steps, prep_time, ready_date = service.check_reusability(key, tenant_key=tenant_key)
     return ReusabilityResponse(
         can_reuse=can_reuse,
         treatments=issues,
@@ -278,9 +283,16 @@ def check_reusability(
 def prepare_reuse(
     key: Annotated[str, Path(description="Document key of the substrate batch.")],
     service: SubstrateService = Depends(get_substrate_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Run the reuse preparation for a substrate batch and return its steps."""
-    result = service.prepare_reuse(key)
+    """Run the reuse preparation for a substrate batch and return its steps.
+
+    A write: it advances the batch's reuse cycle. Gated like the other batch
+    writes and scoped to the caller's tenant (#1195).
+    """
+    _ = is_platform_admin
+    result = service.prepare_reuse(key, tenant_key=ctx.tenant_key)
     return PreparationResponse(
         can_reuse=result["can_reuse"],
         issues=result["issues"],
