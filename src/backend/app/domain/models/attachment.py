@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, CaptureDevice
 
 # REQ-034 §2.1 — upper bound for the user-editable gallery photo caption.
 CAPTION_MAX_LENGTH = 500
@@ -83,6 +83,12 @@ class Attachment(BaseModel):
     # time is unavailable here because EXIF is stripped on upload (NFR-013 §6.4).
     caption: str | None = None
     taken_on: date | None = None
+    #: Which physical device produced the image (#1137). Same contract as on
+    #: ``PestDetection``: client-declared, untrusted, analysis-only. Sits here
+    #: rather than only on the detection record because a diary photo carries the
+    #: same distinction — "this close-up is a microscope shot" is context for
+    #: whoever reads the entry later, and for the REQ-050 §4.4 image blocks.
+    capture_device: CaptureDevice = CaptureDevice.UNKNOWN
     # REQ-034 §4a.2 — last image-quality assessment (Ampel + top suggestions).
     # Populated on demand for gallery photos; ``None`` until the user triggers
     # an assessment. Re-running overwrites it.

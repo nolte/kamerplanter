@@ -33,7 +33,7 @@ from datetime import UTC, datetime
 import httpx
 import structlog
 
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, CaptureDevice
 from app.common.exceptions import (
     FileTooLargeError,
     InvalidFileTypeError,
@@ -113,6 +113,7 @@ class AttachmentService:
         mime_type: str,
         original_filename: str,
         category: AttachmentCategory,
+        capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
     ) -> Attachment:
         """Run the full upload pipeline and return the persisted attachment."""
         mime_type = (mime_type or "").lower().strip()
@@ -183,6 +184,9 @@ class AttachmentService:
             created_by=user_key,
             category=category,
             storage_key=storage_key,
+            # Client-declared provenance (#1137). Recorded at ingestion because
+            # EXIF is stripped in step 5 — a device hint not captured here is gone.
+            capture_device=capture_device,
             created_at=created_at,
         )
         created = self._repo.create(attachment)

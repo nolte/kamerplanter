@@ -36,7 +36,7 @@ from app.api.v1.attachments.schemas import (
     ThumbnailUris,
 )
 from app.common.dependencies import get_attachment_service
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, CaptureDevice
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, KamerplanterError, ValidationError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
@@ -98,6 +98,7 @@ def _to_response(attachment: Attachment, tenant_slug: str) -> AttachmentResponse
     return AttachmentResponse(
         attachment_id=attachment_id,
         category=attachment.category,
+        capture_device=attachment.capture_device,
         mime_type=attachment.mime_type,
         byte_size=attachment.byte_size,
         original_filename=attachment.original_filename,
@@ -122,6 +123,15 @@ async def upload_attachment(
     request: Request,
     file: UploadFile,
     category: str = Form(..., description="Attachment category the file belongs to."),
+    capture_device: CaptureDevice = Form(
+        CaptureDevice.UNKNOWN,
+        description=(
+            "Which physical device produced the image (#1137). Optional and "
+            "client-declared: EXIF is stripped on upload, so provenance not stated "
+            "here is lost permanently. Analysis metadata only — it never affects "
+            "access, storage or processing."
+        ),
+    ),
     ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> AttachmentResponse:
@@ -147,6 +157,7 @@ async def upload_attachment(
         mime_type=mime_type,
         original_filename=file.filename or "upload",
         category=parsed_category,
+        capture_device=capture_device,
     )
     return _to_response(attachment, ctx.tenant_slug)
 
