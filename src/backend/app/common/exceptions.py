@@ -1,5 +1,6 @@
-import uuid
 from typing import Any
+
+from app.common.error_ids import new_error_id
 
 
 class KamerplanterError(Exception):
@@ -12,7 +13,7 @@ class KamerplanterError(Exception):
         status_code: int = 500,
         details: list[dict[str, str]] | None = None,
     ) -> None:
-        self.error_id = f"err_{uuid.uuid4()}"
+        self.error_id = new_error_id()
         self.message = message
         self.error_code = error_code
         self.status_code = status_code

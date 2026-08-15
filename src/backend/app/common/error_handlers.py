@@ -1,4 +1,3 @@
-import uuid
 from datetime import UTC, datetime
 
 import structlog
@@ -6,6 +5,7 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.common.error_ids import new_error_id
 from app.common.exceptions import KamerplanterError
 
 logger = structlog.get_logger()
@@ -37,7 +37,7 @@ async def app_error_handler(request: Request, exc: KamerplanterError) -> JSONRes
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handler for Pydantic validation errors."""
-    error_id = f"err_{uuid.uuid4()}"
+    error_id = new_error_id()
     details = [
         {
             "field": ".".join(str(loc) for loc in err["loc"]),
@@ -69,7 +69,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handler for unexpected errors - never expose internal details."""
-    error_id = f"err_{uuid.uuid4()}"
+    error_id = new_error_id()
     logger.error(
         "unhandled_error",
         error_id=error_id,
