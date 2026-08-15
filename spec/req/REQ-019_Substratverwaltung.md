@@ -291,15 +291,44 @@ IRRIGATION_STRATEGY_MAP = {
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft. Alle Substrat-Daten sind Tenant-scoped.
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token).
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Substrat-Typen (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Substrat-Chargen (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Substrat-Analysen (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Wiederverwendungszyklen | Mitglied | Mitglied | — |
+> **Korrektur (#1195, 2026-08-15).** Dieser Abschnitt behauptete „Alle Substrat-Daten sind
+> Tenant-scoped" — das traf **nicht zu**. Bis #1195 trugen weder `Substrate` noch
+> `SubstrateBatch` ein `tenant_key`, das Repository war nicht mandantengebunden, und
+> `/api/v1/substrates` hing über alle 15 Routen hinter `Depends(get_current_user)` allein:
+> jeder authentifizierte Nutzer konnte die Chargen **jedes** Mandanten lesen, ändern und
+> löschen sowie den geteilten Katalog verändern. Die Tabelle beschrieb einen Sollzustand in
+> der Gegenwartsform — genau die Fehlerklasse, die NFR-018 §1 katalogisiert. Sie beschreibt
+> jetzt den durchgesetzten Zustand, und die durchsetzende Stelle ist jeweils benannt.
+>
+> Die Rollenbezeichnungen sind zugleich auf das verbindliche Vokabular aus REQ-049 §3
+> gebracht: „Mitglied" und unqualifiziertes „Admin" sind dort ausdrücklich **verboten**,
+> weil beide mehrdeutig sind (§3.2).
+
+**Zwei unterschiedliche Scoping-Regeln**, deren Verwechslung der naheliegende Fehler ist:
+
+- **Substrat-Katalog — Hybrid.** Geseedete Basis-Medien (`tenant_key == ""`) plus die
+  **eigenen Mischungen** eines Mandanten. Lesen nimmt die *Vereinigung* (eigene ∪ global);
+  ein strikter Filter würde den geseedeten Katalog für jeden echten Mandanten leeren (#324
+  in der Gegenrichtung). Dieselbe Form wie Arten und Sorten seit #1090.
+- **Substrat-Chargen — strikt.** Eine Charge ist eine physische Sache, die *ein* Mandant
+  angemischt hat; eine globale Charge gibt es nicht. Lesen filtert auf Gleichheit. Eine
+  Zeile, die die Migration `v0043` nicht zuordnen konnte, trägt `""` und ist damit im
+  `full`-Modus für niemanden sichtbar — die fail-safe Richtung, dokumentiert in §7.
+
+| Ressource | Lesen | Anlegen/Ändern | Löschen | Durchgesetzt durch |
+|---|---|---|---|---|
+| Substrat-Katalog, **globale** Basis-Medien | Alle Rollen (auch ohne Mandant) | Plattform-Admin | Plattform-Admin | `require_platform_admin_for_global_catalogue` |
+| Substrat-Katalog, **eigene** Mischungen | Alle Rollen des Mandanten | Ab Gärtner | Nur Leitung | `SubstrateService._authorize_write` |
+| Substrat-Chargen | Alle Rollen des Mandanten | Ab Gärtner | Nur Leitung | `SubstrateService._authorize_batch_write`, fremd → `404` |
+| Wiederverwendungs-Prüfung | Alle Rollen des Mandanten | — | — | Chargen-Scope oben |
+
+Ein **fremder** Datensatz antwortet mit `404`, nie mit `403` — Eigentümer-Verschleierung, damit
+die By-Key-Routen kein mandantenübergreifendes Existenz-Orakel werden. Der aktive Mandant wird
+über den `X-Active-Tenant`-Mechanismus aufgelöst (REQ-049 §2.11), nicht über einen
+`/t/{slug}/`-Pfad: die Routen sind global-aber-mandantenbewusst, genau die Form, für die dieser
+Resolver gebaut wurde.
 
 ## 5. Abhängigkeiten
 
