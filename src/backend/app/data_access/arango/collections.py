@@ -1645,7 +1645,20 @@ GRAPH_EDGE_DEFINITIONS = [
 
 
 #: Fields of the canonical species dedup index (REQ-048 Stufe 1 / SEC-003).
-SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS = ["scientific_name_normalized"]
+#:
+#: Compound since #1162: the key is ``(tenant_key, scientific_name_normalized)``.
+#: A tenant may hold its own row for a taxon another tenant also holds; the system
+#: context (``tenant_key == ""``) still yields exactly one row per taxon in the
+#: shared catalogue, which is what the global constraint was really protecting.
+#:
+#: ``tenant_key`` leads deliberately: an index is usable for a prefix of its
+#: fields, and every scoped read filters on the tenant first.
+SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS = ["tenant_key", "scientific_name_normalized"]
+
+#: The pre-#1162 global index. Named so the bootstrap and ``v0041`` can recognise
+#: and retire it — leaving it in place would keep the *old, stricter* constraint
+#: active and make the compound index cosmetic.
+LEGACY_GLOBAL_NAME_INDEX_FIELDS = ["scientific_name_normalized"]
 
 
 def ensure_species_normalized_index(species_col: StandardCollection) -> None:
@@ -1671,7 +1684,7 @@ def ensure_species_normalized_index(species_col: StandardCollection) -> None:
             and idx.get("fields") == SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS
             and idx.get("unique")
         ):
-            return  # already unique — nothing to do
+            return  # already the compound unique index — nothing to do
     try:
         species_col.add_persistent_index(fields=SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS, unique=True)
     except IndexCreateError:

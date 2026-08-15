@@ -131,7 +131,7 @@ class IdentificationEngine:
                 "message": "No plant material detected in image.",
             }
 
-        candidates = self._match_candidates(result)
+        candidates = self._match_candidates(result, tenant_key)
 
         saved = self._persist(
             tenant_key=tenant_key,
@@ -172,7 +172,14 @@ class IdentificationEngine:
             raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"]) from exc
         return adapter.identify(clean_image, organ=organ, language=language)
 
-    def _match_candidates(self, result: IdentificationResult) -> list[IdentificationCandidate]:
+    def _match_candidates(self, result: IdentificationResult, tenant_key: str) -> list[IdentificationCandidate]:
+        """``tenant_key`` is required on purpose (#1162).
+
+        A default of ``""`` would scope silently to global-only when a call site
+        forgot to pass it — the caller's own species would stop counting as
+        catalogued, and nothing would fail. Required makes that a TypeError
+        instead of a quiet behaviour change.
+        """
         """Map adapter suggestions onto local species, filtering by min confidence."""
         candidates: list[IdentificationCandidate] = []
         for suggestion in result.suggestions:
@@ -185,7 +192,14 @@ class IdentificationEngine:
                 # marker/casing/whitespace variant of an existing species
                 # (Fragaria × ananassa vs Fragaria x ananassa) resolves to it and
                 # reports species_in_database=True instead of looking un-catalogued.
-                matched = self._species_repo.get_by_normalized_scientific_name(suggestion.scientific_name)
+                # Scoped to what this caller can actually see (#1162). The dedup
+                # key became per-tenant, so an unscoped lookup would report
+                # another tenant's private species as "already in the catalogue" —
+                # an existence oracle in a user-facing flow, and one that did not
+                # exist while the key was global.
+                matched = self._species_repo.find_visible_by_normalized_scientific_name(
+                    suggestion.scientific_name, tenant_key
+                )
 
             candidates.append(
                 IdentificationCandidate(

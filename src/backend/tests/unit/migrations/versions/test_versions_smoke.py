@@ -76,9 +76,20 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
             # v0019 actuators (tenant_key, name) lookup index
             {"type": "persistent", "fields": ["tenant_key", "name"], "unique": False},
-            # v0025 (#624): the canonical species dedup index is bootstrapped UNIQUE
-            # on a fresh volume, so the promotion migration finds it present → no-op.
+            # v0026 (#624): the *legacy global* species dedup index. Still listed
+            # because that migration is shipped and looks for exactly these fields;
+            # without it here it would create the index and this fixture's "no index
+            # migration churns on a fresh volume" property would break for a reason
+            # that says nothing about v0026.
             {"type": "persistent", "fields": ["scientific_name_normalized"], "unique": True},
+            # v0041 (#1162): the dedup key became (tenant_key, scientific_name_normalized),
+            # and `ensure_collections` now bootstraps *this* shape on a fresh volume.
+            # Both are listed because the chain passes through both states: v0026
+            # finds the legacy one present, v0041 finds the compound one present and
+            # drops the legacy one. Listing only the new shape would make v0026
+            # create the old index here; listing only the old one would make v0041
+            # create the new one. Neither is what a fresh volume does.
+            {"type": "persistent", "fields": ["tenant_key", "scientific_name_normalized"], "unique": True},
             # v0030 (#740): harvest_batches.batch_id is bootstrapped unique+sparse on a
             # fresh volume, so the promotion migration finds it present → no-op.
             {"type": "persistent", "fields": ["batch_id"], "unique": True, "sparse": True},

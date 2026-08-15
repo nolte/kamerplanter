@@ -261,7 +261,13 @@ class SpeciesService:
         # Gated on "no exact match" so an idempotent re-create of an existing
         # taxon stays a plain no-op resolve; the UPSERT below still closes the
         # insert race.
-        if self._repo.get_by_normalized_scientific_name(species.scientific_name) is None:
+        # Scoped to the creating tenant since #1162: the dedup key is now
+        # (tenant_key, normalized name), so "is there already an exact match?" is
+        # only answerable within a tenant. Asking unscoped would find a *foreign*
+        # tenant's row, skip the synonym inheritance for a record that genuinely
+        # has no twin here, and then insert anyway — the inheritance would be
+        # suppressed by a row the caller can never see.
+        if self._repo.get_by_normalized_scientific_name_for_tenant(species.scientific_name, species.tenant_key) is None:
             species = self._inherit_unset_from_synonym_match(species)
         created = self._repo.upsert_by_normalized_scientific_name(species)
         # Give the species the phase sequence the seed would have given it (#1006).
