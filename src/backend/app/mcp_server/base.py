@@ -36,9 +36,66 @@ _ERROR_CODE_STATUS: dict[str, int] = {
 }
 _ERROR_PREFIX_STATUS: tuple[tuple[str, int], ...] = (
     ("conflict.", 409),
+    ("internal.", 500),
     ("payload.", 413),
     ("validation.", 422),
 )
+
+#: Genuine-500 classes (#1164). A failure in *our* code, not in the caller's
+#: request — deliberately **not** mapped to 4xx. That is #970's second horn: a
+#: validation error our own assembly caused is not a client error, and dressing
+#: it as one would make an MCP client retry a permanently broken call forever.
+#:
+#: The pair exists because a caller cannot form a retry policy without it. #1145
+#: produced five identical ``INTERNAL_ERROR`` markers across two *unrelated*
+#: defects, which read as one incident; one of them (``assign_nutrient_plan``) was
+#: a contract mismatch that clients retried indefinitely.
+INTERNAL_CONTRACT_MISMATCH = "internal.contract_mismatch"
+INTERNAL_UNAVAILABLE = "internal.unavailable"
+
+#: Fixed, caller-safe sentences. Never the exception text: a ``TypeError`` repr
+#: names internal symbols and a ``pydantic.ValidationError`` can quote stored
+#: field values.
+_INTERNAL_MESSAGES: dict[str, str] = {
+    INTERNAL_CONTRACT_MISMATCH: (
+        "This tool failed inside the server while assembling its work. Retrying will not help; report the reference ID."
+    ),
+    INTERNAL_UNAVAILABLE: (
+        "This tool could not reach a dependency it needs. Retrying later may succeed; "
+        "report the reference ID if it persists."
+    ),
+}
+
+#: Exception types that mean *a dependency was unreachable* rather than *we built
+#: something wrong*. Deliberately narrow: anything unrecognised is classified as a
+#: contract mismatch, so an unknown failure is called permanent and gets looked
+#: at, rather than being called transient and retried into silence.
+_UNAVAILABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    ConnectionError,
+    TimeoutError,
+    OSError,
+)
+
+
+def classify_internal_failure(exc: BaseException) -> str:
+    """Which genuine-500 class an unexpected exception belongs to (#1164).
+
+    The classification answers exactly one question for the caller: *will
+    retrying ever help?* It does not attempt to describe the fault — that is what
+    the reference ID and the server log are for.
+
+    Unrecognised exceptions are :data:`INTERNAL_CONTRACT_MISMATCH`, i.e.
+    permanent. The asymmetry is on purpose: calling a transient fault permanent
+    costs one report, while calling a permanent fault transient costs an infinite
+    retry loop against a call that can never succeed — which is what #1145's
+    clients actually did.
+    """
+    return INTERNAL_UNAVAILABLE if isinstance(exc, _UNAVAILABLE_EXCEPTIONS) else INTERNAL_CONTRACT_MISMATCH
+
+
+def internal_failure_message(error_code: str) -> str:
+    """The caller-facing sentence for a genuine-500 class."""
+    return _INTERNAL_MESSAGES[error_code]
 
 
 def image_content_index(position: int) -> int:
