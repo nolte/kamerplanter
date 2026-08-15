@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.common.enums import TenantRole
+from app.common.exceptions import NotFoundError
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 
 
@@ -57,6 +58,38 @@ class ToolContext:
     @property
     def role(self) -> TenantRole:
         return self._require_membership().role
+
+    def catalogue_tenant_key(self, tenant: str | None) -> str:
+        """Resolve a :class:`CatalogueToolInput` ``tenant`` to a read scope (#1121).
+
+        Returns the ``tenant_key`` to hand a hybrid-catalogue read:
+
+        * ``None`` → ``""``. The shared seed catalogue, which is what these tools
+          returned before #1121 and what an existing global-only client is
+          calling them for. Absence narrows; it is never an error.
+        * a slug the principal is a member of → that tenant's key, so the read
+          unions the tenant's own rows with the global ones.
+        * anything else → :class:`NotFoundError`.
+
+        The refusal is ``not_found`` and never ``permission.denied``, and it is
+        the *same* answer a slug naming no tenant at all gets. Otherwise the two
+        cases would be distinguishable and this tool would become the tenant
+        directory that §8.8 Szenario 6 forbids — the more so here, because these
+        tools are reachable by every principal, including one with no membership
+        anywhere.
+
+        Deliberately resolved in the handler rather than by the dispatcher's
+        tenant binding: that binding *requires* a tenant and refuses an ambiguous
+        omission, which is correct for a tool acting inside a tenant and wrong for
+        one whose no-tenant answer is a real answer. See
+        :class:`~app.mcp_server.base.CatalogueToolInput`.
+        """
+        if tenant is None:
+            return ""
+        membership = self.principal.membership_for(tenant)
+        if membership is None:
+            raise NotFoundError("Tenant", tenant)
+        return membership.tenant_key
 
     # ── service resolution ───────────────────────────────────────────────
     def _service(self, name: str) -> Any:

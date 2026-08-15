@@ -135,6 +135,47 @@ class TenantToolInput(ToolInput):
     )
 
 
+class CatalogueToolInput(ToolInput):
+    """Input base for a *hybrid-catalogue* read: global rows plus one tenant's own (#1121).
+
+    Deliberately **not** :class:`TenantToolInput`, and the difference is the whole
+    point of this class existing.
+
+    ``TenantToolInput`` makes a tool tenant-*scoped*: the dispatcher binds a
+    membership before the handler runs, and a principal holding several
+    memberships that omits ``tenant`` is refused with ``validation.tenant_required``.
+    That is right for a tool that acts *inside* a tenant — there is no sensible
+    default for "which garden did you mean". It is wrong here. The species and
+    cultivar catalogues have a meaningful answer with no tenant at all: the shared
+    seed catalogue, which is what these tools returned before #1121 and what every
+    existing client is calling them for. Promoting them to ``TenantToolInput``
+    would turn a working global-only call into an error for exactly those clients
+    — the back-compatibility this issue's acceptance criteria rule out.
+
+    So ``tenant`` here is a *widening*, not a binding:
+
+    * omitted → the global catalogue (``tenant_key == ""``), unchanged behaviour;
+    * a slug the principal is a member of → global ∪ that tenant's own rows, the
+      #324 both-direction union the HTTP routes apply since #1091;
+    * a slug the principal is **not** a member of → ``not_found``, identical to a
+      slug that names no tenant, so the tool cannot be walked to enumerate
+      tenants (§8.8 Szenario 6).
+
+    Note the asymmetry that keeps this safe: *absence* narrows to global-only, a
+    *rejected* value fails the call, and only a validated slug widens anything.
+    That is the same rule REQ-049 §2.11 states for ``X-Active-Tenant``, which is
+    what makes the two surfaces answer alike.
+    """
+
+    tenant: str | None = Field(
+        default=None,
+        description=(
+            "Slug of the tenant whose own catalogue entries should be included alongside the "
+            "shared ones. Omit for the shared catalogue only. Use list_tenants to discover slugs."
+        ),
+    )
+
+
 class _WriteFields(BaseModel):
     """The two fields every write tool carries — dry-run preview + idempotency (§2.6)."""
 
