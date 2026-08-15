@@ -62,7 +62,7 @@ def _summarise(plant: Any) -> dict[str, Any]:
         # on the detail view instead. Without these, ``list_substrates`` is a
         # catalogue an agent cannot connect to a plant — the substrate properties
         # a feeding judgement needs (ph_base, ec_base_ms, buffer_capacity,
-        # cec_meq_per_100g) would have no way in.
+        # cec_meq_per_100cm3) would have no way in.
         "substrate_key": plant.substrate_key,
         "substrate_batch_key": plant.substrate_batch_key,
         # ``str()`` rather than the bare enum, as every other tool in the palette

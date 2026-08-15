@@ -19,7 +19,7 @@ def _make_substrate(key: str, **overrides) -> Substrate:
         "water_retention": WaterRetention.MEDIUM,
         "air_porosity_percent": 25.0,
         "buffer_capacity": BufferCapacity.MEDIUM,
-        "cec_meq_per_100g": 10.0,
+        "cec_meq_per_100cm3": 10.0,
         "bulk_density_g_per_l": 400.0,
     }
     defaults.update(overrides)
@@ -35,7 +35,7 @@ def _light_mix() -> Substrate:
         ec_base_ms=1.2,
         air_porosity_percent=30.0,
         buffer_capacity=BufferCapacity.MEDIUM,
-        cec_meq_per_100g=12.0,
+        cec_meq_per_100cm3=12.0,
         bulk_density_g_per_l=400.0,
     )
 
@@ -50,7 +50,7 @@ def _clay_pebbles() -> Substrate:
         water_retention=WaterRetention.LOW,
         air_porosity_percent=45.0,
         buffer_capacity=BufferCapacity.LOW,
-        cec_meq_per_100g=0.2,
+        cec_meq_per_100cm3=0.2,
         bulk_density_g_per_l=350.0,
     )
 
@@ -86,8 +86,8 @@ class TestBufferingWeightedPh:
         the blend pH is the volume-weighted mean — proving the fix only shifts
         the result when buffering differs.
         """
-        acid = _make_substrate("acid", ph_base=6.0, cec_meq_per_100g=10.0, bulk_density_g_per_l=400.0)
-        base = _make_substrate("base", ph_base=7.0, cec_meq_per_100g=10.0, bulk_density_g_per_l=400.0)
+        acid = _make_substrate("acid", ph_base=6.0, cec_meq_per_100cm3=10.0, bulk_density_g_per_l=400.0)
+        base = _make_substrate("base", ph_base=7.0, cec_meq_per_100cm3=10.0, bulk_density_g_per_l=400.0)
 
         result = _half_half(acid, base)
 
@@ -97,34 +97,62 @@ class TestBufferingWeightedPh:
 # ── WP-4: CEC is mass-weighted, not volume-weighted ───────────────────
 
 
-class TestMassWeightedCec:
-    def test_cec_uses_mass_fractions_not_volume_fractions(self):
-        """50/50 volume blend of media with different bulk densities.
+class TestVolumeWeightedCec:
+    """CEC is weighted by volume, because the catalogue's values are per volume.
 
-        0.5 l × 400 g/l = 200 g Light·Mix → 53.3 % by mass
-        0.5 l × 350 g/l = 175 g Blähton   → 46.7 % by mass
-        0.533 × 12 + 0.467 × 0.2 ≈ 6.5 meq/100 g  (issue #1099, defect 3).
-        The volume method wrongly returns (12 + 0.2) / 2 = 6.1.
+    This class previously asserted the opposite. #1099 read the old field name
+    `cec_meq_per_100g` as a statement of fact and mass-weighted accordingly — but
+    the values never supported that reading: seven of seven sampled materials land
+    outside their literature band as written and inside it once divided by bulk
+    density (peat 10 vs 100–200; vermiculite 15 vs 100–150; perlite 0.1 vs ≈1.5).
+
+    The field is renamed to `cec_meq_per_100cm3` and the weighting follows the
+    values rather than the old label (#1152 §F). The numbers below are the same
+    fixtures #1099 used, with the expectations swapped — which is deliberate:
+    keeping the fixtures makes the reversal legible instead of hiding it behind
+    new data.
+    """
+
+    def test_cec_is_weighted_by_the_volume_fractions(self):
+        """50/50 volume blend: (12 + 0.2) / 2 = 6.1.
+
+        #1099 asserted 6.5 here, arrived at by converting to mass fractions
+        (0.533 / 0.467). That conversion is exactly what turns a correct per-volume
+        number into a wrong one.
         """
         result = _half_half(_light_mix(), _clay_pebbles())
 
-        assert result["cec_meq_per_100g"] == 6.5
-        assert result["cec_meq_per_100g"] != 6.1
+        assert result["cec_meq_per_100cm3"] == 6.1
 
-    def test_mass_weighting_diverges_from_volume_on_high_density_spread(self):
-        """A high density spread makes the volume method visibly wrong.
+    def test_a_density_spread_no_longer_moves_the_result(self):
+        """The divergence, from the other side.
 
-        cec 5 @ 600 g/l + cec 20 @ 350 g/l, 50/50 by volume:
-          mass fractions 0.632 / 0.368 → 0.632×5 + 0.368×20 ≈ 10.5 meq/100 g,
-        whereas the old volume method returns (5 + 20) / 2 = 12.5.
+        cec 5 @ 600 g/l + cec 20 @ 350 g/l, 50/50 by volume → (5 + 20) / 2 = 12.5.
+        Mass-weighting returned 10.5. Asserting the volume answer *and* naming the
+        mass one keeps the two distinguishable: an implementation that silently
+        reverted would otherwise only fail by a rounded digit.
         """
-        dense_low_cec = _make_substrate("dense", ph_base=6.5, cec_meq_per_100g=5.0, bulk_density_g_per_l=600.0)
-        light_high_cec = _make_substrate("light", ph_base=6.5, cec_meq_per_100g=20.0, bulk_density_g_per_l=350.0)
+        dense_low_cec = _make_substrate("dense", ph_base=6.5, cec_meq_per_100cm3=5.0, bulk_density_g_per_l=600.0)
+        light_high_cec = _make_substrate("light", ph_base=6.5, cec_meq_per_100cm3=20.0, bulk_density_g_per_l=350.0)
 
         result = _half_half(dense_low_cec, light_high_cec)
 
-        assert result["cec_meq_per_100g"] == 10.5
-        assert result["cec_meq_per_100g"] != 12.5
+        assert result["cec_meq_per_100cm3"] == 12.5
+        assert result["cec_meq_per_100cm3"] != 10.5
+
+    def test_the_worst_case_from_the_issue(self):
+        """Perlite + worm humus, the pair #1152 measured: 15.1 by volume, 25.7 by mass.
+
+        The 70 % gap is what makes the unit question consequential rather than
+        pedantic, and this is the fixture that makes the decision hard to reverse
+        by accident.
+        """
+        perlite = _make_substrate("perlite", ph_base=7.0, cec_meq_per_100cm3=0.1, bulk_density_g_per_l=100.0)
+        humus = _make_substrate("humus", ph_base=7.0, cec_meq_per_100cm3=30.0, bulk_density_g_per_l=600.0)
+
+        result = _half_half(perlite, humus)
+
+        assert result["cec_meq_per_100cm3"] == 15.1
 
     def test_bulk_density_stays_volume_weighted(self):
         """bulk_density is genuinely per-volume — it must NOT change.

@@ -50,7 +50,11 @@ Das System verwaltet Substrate als wiederverwendbare Definitionen mit konkreten 
     - `water_holding_capacity_percent: Optional[float]` (volumetrische WHC, quantitativ: low <30%, medium 30–60%, high >60%)
     - `easily_available_water_percent: Optional[float]` (pflanzenverfügbares Wasser, 15–55%)
     - `air_porosity_percent: float` (bei <10% → Wiederverwendung ablehnen: Verdichtung/Erstickungsgefahr)
-    - `cec_meq_per_100g: Optional[float]` (Kationenaustauschkapazität — bestimmt Nährstoffpufferung: Steinwolle 0–2, Perlite 1–3, Blähton 2–5, Kokos 40–100, Erde 100–200, Living Soil 150–300. Beeinflusst Düngfrequenz und Spülberechnung in REQ-004)
+    - `cec_meq_per_100cm3: Optional[float]` (Kationenaustauschkapazität **pro 100 cm³ Substratvolumen** — bestimmt Nährstoffpufferung. Beeinflusst Düngfrequenz und Spülberechnung in REQ-004)
+
+      > **Einheit (festgelegt 2026-08-15, #1152 §F):** die Werte sind **volumenbezogen**, nicht massebezogen. Der Katalog wurde so gepflegt: sieben von sieben Stichproben liegen erst nach Division durch die Schüttdichte in ihrer Literaturbandbreite (Torf 10 statt 100–200 meq/100 g; Vermiculit 15 statt 100–150; Perlit 0,1 statt ≈1,5). Das Feld hieß bis #1152 `cec_meq_per_100g`, und #1099 hatte die Mix-Engine auf dieser Namensgrundlage massegewichtet — das machte korrekte Zahlen falsch, bei einer 50/50-Mischung aus Perlit und Wurmhumus um 70 % (15,1 volumengewichtet gegen 25,7 massegewichtet).
+      >
+      > Die oben genannten Literaturbereiche (Steinwolle 0–2, Perlite 1–3, Blähton 2–5, Kokos 40–100, Erde 100–200, Living Soil 150–300) sind **masse**bezogen und daher nicht direkt mit den Katalogwerten vergleichbar. Sie sind hier absichtlich stehen geblieben, weil ihre Umrechnung auf die Volumenbasis noch aussteht — ein daraus geratener Plausibilitätsbereich würde nur die vorhandenen Werte bestätigen.
     - `particle_size_mm: Optional[float]` (mittlere Partikelgröße, substrattyp-abhängig)
     - `bulk_density_g_per_l: Optional[float]` (Schüttdichte, 50–1200 g/L)
     - `composition: dict[str, float]` (z.B. {"peat": 0.4, "compost": 0.3, "perlite": 0.3} — Summe muss 1.0 ergeben)
@@ -304,7 +308,7 @@ und Tenant-Mitgliedschaft. Alle Substrat-Daten sind Tenant-scoped.
 
 **Wird benötigt von:**
 - REQ-003 (Phasen): Substrattyp beeinflusst Phasen-Parameter
-- REQ-004 (Düngung): **HOCH** — Substrat-EC/pH für Düngeberechnung, `buffer_capacity` und `cec_meq_per_100g` für Spül-Berechnung (FlushingProtocol benötigt CEC für korrekte Spülzeitberechnung)
+- REQ-004 (Düngung): **HOCH** — Substrat-EC/pH für Düngeberechnung, `buffer_capacity` und `cec_meq_per_100cm3` für Spül-Berechnung (FlushingProtocol benötigt CEC für korrekte Spülzeitberechnung)
 - REQ-005 (Sensorik): Substrat-Messwerte (pH, EC, Feuchtigkeit, Temperatur)
 - REQ-018 (Umgebungssteuerung): **MITTEL** — `irrigation_strategy` bestimmt Bewässerungs-Automatik (Frequenz, Volumen)
 

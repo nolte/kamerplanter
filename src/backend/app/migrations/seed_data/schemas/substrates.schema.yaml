@@ -1,0 +1,124 @@
+# JSON Schema for substrates.yaml (REQ-019, #1152)
+#
+# `substrates.yaml` was one of five seed files declaring no schema — and the only
+# one of the five that is 636 lines of numeric agronomic data feeding two engines.
+# The exemption was recorded rather than hidden, but it meant three physically
+# impossible records shipped: air porosity plus water-holding capacity above 100 %,
+# on the same pore space.
+#
+# WHAT THIS SCHEMA CANNOT DO, stated here so nobody assumes it does. JSON Schema
+# expresses per-field constraints, not arithmetic across fields. The invariants
+# that actually catch the defects in #1152 are cross-field —
+# `air + whc <= 100`, `eaw <= whc`, "a composition containing a fertiliser key
+# implies `ec_base_ms > 0`", "composition sums to 1.0" — and live in
+# `tests/unit/migrations/test_substrate_invariants.py`. This file pins structure,
+# types and per-field ranges; that one pins the physics. Both are required, and a
+# green run here alone means less than it looks like.
+#
+# NOT constrained yet: `cec_meq_per_100cm3` has no plausibility band. The *unit*
+# is now settled — the values are per 100 cm³ of volume, the field is named for it
+# and the mix engine weights by volume (#1152 §F) — but a per-type band still needs
+# literature figures converted to the volume basis, which is data nobody has
+# assembled here. A band guessed from the current values would only ratify them.
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "substrates.schema.yaml"
+title: "Substrates Seed Data"
+description: "Schema for the REQ-019 standard substrate catalogue"
+type: object
+
+properties:
+  substrates:
+    type: array
+    minItems: 1
+    items:
+      $ref: "#/$defs/substrate"
+
+required: [substrates]
+additionalProperties: false
+
+$defs:
+  substrate:
+    type: object
+    properties:
+      type:
+        type: string
+        description: "SubstrateType enum value. Kept as a string, not an enum list, so the schema does not become a second copy of the enum that drifts from it."
+        minLength: 1
+      brand:
+        type: string
+        description: "Manufacturer, or empty for a generic material."
+      name_de:
+        type: string
+        minLength: 1
+      name_en:
+        type: string
+        minLength: 1
+      ph_base:
+        type: number
+        description: "Substrate pH. Bounded to the range a growing medium can physically occupy."
+        minimum: 3.0
+        maximum: 9.0
+      ec_base_ms:
+        type: number
+        description: "Base conductivity in mS/cm, subtracted from the target as EC-net in calculate_mixing_protocol."
+        minimum: 0.0
+        maximum: 10.0
+      water_retention:
+        type: string
+        enum: [low, medium, high]
+      air_porosity_percent:
+        type: number
+        description: "Air-filled porosity at container capacity, as a percentage of medium volume."
+        minimum: 0.0
+        maximum: 100.0
+      composition:
+        type: object
+        description: "Component name -> volume fraction. A non-empty map sums to 1.0; the sum is checked in the invariant test, not here. Empty is legal and means exactly what it says: `Hydrokultur (kein Substrat)` composes nothing, because there is no substrate. Requiring one component would have forced a fictional one onto the only honest record."
+        additionalProperties:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+      buffer_capacity:
+        type: string
+        enum: [low, medium, high]
+      reusable:
+        type: boolean
+      max_reuse_cycles:
+        type: integer
+        minimum: 0
+      water_holding_capacity_percent:
+        type: number
+        description: "Water-filled porosity at container capacity, as a percentage of medium volume."
+        minimum: 0.0
+        maximum: 100.0
+      easily_available_water_percent:
+        type: number
+        description: "The fraction of held water a plant can actually extract. A subset of water_holding_capacity_percent — the relation is checked in the invariant test."
+        minimum: 0.0
+        maximum: 100.0
+      cec_meq_per_100cm3:
+        type: number
+        description: "Cation exchange capacity per 100 cm³ of medium volume (#1152 §F, settled 2026-08-15). The mix engine weights it by volume fraction accordingly."
+        minimum: 0.0
+      particle_size_mm:
+        type: number
+        minimum: 0.0
+      bulk_density_g_per_l:
+        type: number
+        description: "Required wherever CEC is declared: without it the volume/mass conversion cannot be performed at all."
+        exclusiveMinimum: 0.0
+      irrigation_strategy:
+        type: string
+        # Mirrors `IrrigationStrategy`. A first draft of this schema guessed
+        # `sparse` and omitted `continuous`, and the conformance run rejected two
+        # real records — which is the schema doing its job on its own author, and
+        # the reason these lists are copied from the enum rather than from memory.
+        enum: [infrequent, moderate, frequent, continuous]
+    required:
+      - type
+      - name_de
+      - name_en
+      - ph_base
+      - ec_base_ms
+      - composition
+    additionalProperties: false

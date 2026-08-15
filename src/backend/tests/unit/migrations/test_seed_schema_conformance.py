@@ -64,7 +64,9 @@ NO_SCHEMA_DECLARED: frozenset[str] = frozenset(
         "glossary_terms.yaml",
         "hardiness_zones.yaml",
         "substrate_defaults.yaml",
-        "substrates.yaml",
+        # "substrates.yaml" removed by #1152: it was the only one of the five that
+        # is 636 lines of numeric agronomic data feeding two engines, and the
+        # exemption was hiding three physically impossible records.
     }
 )
 
