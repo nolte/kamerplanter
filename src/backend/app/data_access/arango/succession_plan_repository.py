@@ -10,6 +10,18 @@ from app.domain.models.succession_plan import SuccessionPlan
 class ArangoSuccessionPlanRepository(BaseArangoRepository[SuccessionPlan], ISuccessionPlanRepository):
     is_tenant_scoped = True
     _model_cls = SuccessionPlan
+    #: SEC-006 (#1112): ``cultivar_key`` arrives from the request body and was
+    #: written unverified, so a plan could reference a foreign tenant's cultivar.
+    #: The plan carries its own ``tenant_key``, so the declared guard is live here
+    #: — unlike ``PlantingRunEntry``, which has none and would get an inert one.
+    #:
+    #: This also narrows that surface indirectly: ``succession_plan_engine`` copies
+    #: a plan's ``cultivar_key`` into the entries it generates, so a key refused
+    #: here never reaches one.
+    _owned_reference_fields = {"cultivar_key": col.CULTIVARS}
+    #: The key is reachable from the ``PUT`` body, so the update half is opted in
+    #: (#1090 C-9); create-only verification would leave the edit path open.
+    _verify_references_on_update = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SUCCESSION_PLANS)
