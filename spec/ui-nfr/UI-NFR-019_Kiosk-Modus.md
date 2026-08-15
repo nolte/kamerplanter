@@ -348,19 +348,26 @@ Ohne Kiosk-Modus wird die Anwendung in der primären Arbeitsumgebung nicht praxi
 
 ### Definition of Done
 
+> **Jede Zeile nennt ihre durchsetzende Pruefung — oder sagt, dass es keine gibt (#1096).**
+> Gemessener Stand: **2026-08-15**. Fuer den Kiosk-Modus existiert genau eine
+> automatisierte Pruefung (`kioskTheme.test.tsx`), und sie misst die
+> Theme-Deklaration, nicht die gerenderte Oberflaeche. Alles Uebrige unten ist
+> unmarkiert, weil es unmarkiert *ist* — eine Regel ohne Messung ist von einer
+> nicht vorhandenen Regel nicht zu unterscheiden (NFR-018 §1).
+
 - [ ] **Kiosk-Modus — Aktivierung**
     - [ ] Kiosk-Modus ist über `/kiosk` und über Einstellungen-Toggle erreichbar
     - [ ] Modus-Präferenz wird persistent gespeichert
     - [ ] Visueller Indikator „Kiosk" ist im aktiven Modus sichtbar
     - [ ] Wechsel erfolgt ohne Seitenneuladen
     - [ ] High-Contrast-Theme ist im Kiosk-Modus automatisch aktiv
-- [ ] **Touch-Targets**
-    - [ ] Alle interaktiven Elemente haben im Kiosk-Modus min. 64×64px Touch-Target
-    - [ ] Primäre Aktions-Buttons haben 72×72px
-    - [ ] Mindestabstand zwischen Elementen ist 16px (gemessen)
-    - [ ] MUI-Defaults sind im Kiosk-Modus auf `size: 'large'` gesetzt
-    - [ ] Manuelle Tests: Bedienung mit Gartenhandschuhen auf realem Tablet bestanden
-    - [ ] Manuelle Tests: Bedienung mit Nase auf realem Tablet bestanden (primäre Quick-Actions)
+- [ ] **Touch-Targets** — teilweise durchgesetzt, und der Unterschied ist wesentlich (#1096)
+    - [x] MUI-Defaults im Kiosk-Modus auf `size: 'large'` und `minHeight = KIOSK_TOUCH_TARGET` (64) — **`src/frontend/src/test/theme/kioskTheme.test.tsx`**, laeuft im required Check `lint-test-build (22)`
+    - [ ] Alle interaktiven Elemente haben min. 64×64px — **nicht durchgesetzt.** Der Test oben pinnt die Theme-*Deklaration*, nicht die gerenderte Groesse. Ein Element, das das Override ueberschreibt, ein Custom-Button ausserhalb der MUI-Komponenten oder eine Zelle mit eigenem `sx` faellt durch — und der Theme-Test bleibt gruen. Eine gerenderte Groesse ist in jsdom nicht messbar (kein Layout); es braeuchte die E2E-Ebene (#1095).
+    - [ ] Primäre Aktions-Buttons 72×72px — **nicht durchgesetzt**, keine Konstante und kein Test
+    - [ ] Mindestabstand zwischen Elementen 16px (gemessen) — **nicht durchgesetzt**; „gemessen" beschreibt bis heute keine Messung, die jemand ausfuehrt
+    - [ ] Manuelle Tests mit Gartenhandschuhen auf realem Tablet — **nicht durchgefuehrt/protokolliert**
+    - [ ] Manuelle Tests mit der Nase auf realem Tablet (primäre Quick-Actions) — **nicht durchgefuehrt/protokolliert**
 - [ ] **Navigation**
     - [ ] Kiosk-Startseite zeigt Quick-Actions als große Kacheln
     - [ ] „Zurück"-Button ist auf jeder Unterseite sichtbar (min. 64px)

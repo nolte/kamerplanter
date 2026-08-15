@@ -929,6 +929,16 @@ export function renderWithProviders(
 
 ### 13.5 Accessibility-Tests (vitest-axe)
 
+**Was hier wirklich durchgesetzt wird (#1096).** Genau eine a11y-Pruefung
+blockiert: dieser vitest-axe-Lauf, im required Check `lint-test-build (22)`. Die
+Lighthouse-a11y-Assertion (`categories:accessibility >= 0.98`, error) ist echt,
+aber ihr Job ist **advisory** und sie sieht nur den statisch gebauten SPA-Shell —
+keine Seite hinter dem Login. Eine E2E-axe-Journey gegen die komponierte
+Anwendung existiert nicht (#1095, offen). Die vollstaendige Aufstellung samt der
+Regeln, die **niemand** misst (Tastaturnavigation, Fokus-Indikator, Kontraste,
+200%-Zoom), steht in der Definition of Done von UI-NFR-002; dieser Abschnitt
+beschreibt nur den einen Lauf, der blockiert.
+
 Benutze **immer** den gemeinsamen Helfer, nie `axe()` direkt (#1094):
 
 ```tsx
