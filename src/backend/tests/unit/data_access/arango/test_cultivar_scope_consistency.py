@@ -85,11 +85,17 @@ from app.data_access.arango import species_repository
 #: The repository class whose cultivar surface is pinned.
 _REPOSITORY_CLASS = "ArangoSpeciesRepository"
 
-#: The shared single-source-of-truth builder for the hybrid-catalogue union
-#: (``app.data_access.arango.tenant_scope``). Calling it — rather than inlining a
+#: The shared single-source-of-truth builders for the hybrid-catalogue union
+#: (``app.data_access.arango.tenant_scope``). Calling one — rather than inlining a
 #: copy — is what makes a *future* second narrowing path agree with this one by
 #: construction, which is the whole point of the #816 guard.
-_UNION_HELPER = "tenant_union_predicate"
+#:
+#: Two names, not one, since #1092 added the grant arm: the masterdata readers call
+#: ``tenant_union_with_grants_predicate`` while the other 24 call sites keep the
+#: two-arm original. Accepting both would be a hole if the variant were an
+#: independent copy — so :meth:`TestCultivarScopeConsistency.test_the_grants_variant_is_built_from_the_shared_union`
+#: pins that it *delegates*, which is what keeps "single source of truth" true.
+_UNION_HELPERS = frozenset({"tenant_union_predicate", "tenant_union_with_grants_predicate"})
 
 #: An AQL fragment that narrows on the ownership field, e.g. a hand-inlined copy
 #: of the union helper. Matched against a function's string literals with its
@@ -163,6 +169,38 @@ _DECLARED_CULTIVAR_SURFACE: dict[str, _Surface] = {
     "delete_cultivar": _Surface(
         narrows=False,
         why="Write. Gated in the service (lead-only, REQ-049 §2.3).",
+    ),
+    "is_cultivar_granted_to": _Surface(
+        narrows=True,
+        why=(
+            "The second narrowing path (#1092), and the reason this class is now the "
+            "agreement form rather than the absence form. It reads the "
+            "``tenant_has_access`` edge, not cultivar documents — it names "
+            "``col.CULTIVARS`` only to build a document handle — but it takes the "
+            "caller's tenant and decides visibility from it, so it is a scope "
+            "decision and is recorded as one. It must admit exactly the grants "
+            "``get_cultivars`` admits; that is what the agreement test pins."
+        ),
+    ),
+    "grant_cultivar_access": _Surface(
+        narrows=False,
+        why=(
+            "Write on the grant edge. It takes a *recipient* tenant, not the "
+            "caller's — the authority check happens in the service, and the "
+            "parameter deliberately is not named ``tenant_key`` for that reason."
+        ),
+    ),
+    "revoke_cultivar_access": _Surface(
+        narrows=False,
+        why="Write on the grant edge; same shape and same gate as ``grant_cultivar_access``.",
+    ),
+    "list_cultivar_grants": _Surface(
+        narrows=False,
+        why=(
+            "Reads the grant edges of one cultivar and returns tenant keys. It takes "
+            "no caller tenant at all: the owner-only gate is in the service, where "
+            "the ownership of the cultivar itself is already known."
+        ),
     ),
 }
 
@@ -288,7 +326,7 @@ def _narrows_by_tenant(func: ast.FunctionDef) -> bool:
         if isinstance(node, ast.Call):
             called = node.func
             name = called.id if isinstance(called, ast.Name) else getattr(called, "attr", None)
-            if name == _UNION_HELPER:
+            if name in _UNION_HELPERS:
                 return True
     if any(_INLINE_TENANT_PREDICATE.search(text) for text in _code_string_literals(func)):
         return True
@@ -322,6 +360,18 @@ def cultivar_surface(source: str, class_name: str = _REPOSITORY_CLASS) -> dict[s
         for node in classes[0].body
         if isinstance(node, ast.FunctionDef) and _touches_cultivar_collection(node)
     }
+
+
+def _named_helpers(source: str) -> set[str]:
+    """Which union helpers a module's source names at all.
+
+    A plain substring test would be ambiguous now that one helper's name contains
+    the other's: every module calling ``tenant_union_with_grants_predicate`` also
+    literally contains ``tenant_union_predicate``. Matching on word boundaries
+    keeps the two distinguishable, and the set form keeps the caller's question
+    ("does it name *any* of them") honest.
+    """
+    return {name for name in _UNION_HELPERS if re.search(rf"\b{re.escape(name)}\b", source)}
 
 
 def _modules_naming_the_cultivar_collection() -> dict[str, str]:
@@ -358,16 +408,103 @@ class TestCultivarScopeConsistency:
             "a rationale — and if it narrows, replace this class with the agreement form."
         )
 
-    def test_exactly_one_cultivar_read_path_narrows_by_tenant(self, surface):
+    def test_the_narrowing_cultivar_paths_are_the_declared_two(self, surface):
+        """#1092 made this the agreement form. There are now two narrowing paths.
+
+        The absence form (operator decision Q6, #1090) held while ``get_cultivars``
+        was alone: with one path there is nothing to hold anything against. The
+        grant arm added a second, so per this module's own instruction the guard
+        moved to agreement — pinned by the two tests below. This one keeps the
+        inventory honest: a *third* narrowing path is again a stop-and-look, and
+        losing one means a read stopped scoping.
+        """
         narrowing = sorted(name for name, narrows in surface.items() if narrows)
 
-        assert narrowing == ["get_cultivars"], (
-            f"Expected exactly one narrowing cultivar path, found {narrowing}. "
-            "If a second one legitimately exists, the absence form of this guard (operator "
-            "decision Q6, #1090) no longer applies: capture the AQL of every narrowing path and "
-            "assert their scope predicates are identical, like TestSpeciesScopeConsistencyWhenTenantScoped "
-            "does for species (#816). If instead get_cultivars stopped narrowing, the cultivar list "
-            "read is leaking again."
+        assert narrowing == ["get_cultivars", "is_cultivar_granted_to"], (
+            f"The set of narrowing cultivar paths changed: found {narrowing}. A new one must be "
+            "added to _DECLARED_CULTIVAR_SURFACE *and* brought under the agreement tests below — "
+            "two narrowing reads that disagree is the #816 defect, and two that agree only by "
+            "coincidence is the same defect waiting for the next edit. If instead get_cultivars "
+            "stopped narrowing, the cultivar list read is leaking again."
+        )
+
+    def test_both_narrowing_paths_admit_the_same_grants(self):
+        """The agreement that actually matters: list and by-key must see one set.
+
+        Not textual identity of the two predicates — they cannot be identical, one
+        filters cultivar documents and the other the ``tenant_has_access`` edge.
+        What must match is the *grant condition*: an edge from the caller's tenant
+        to this document. If the list arm and the by-key lookup disagreed by one
+        character of that condition, a shared cultivar would appear in the list and
+        404 when opened (or, worse in the other direction, open without listing) —
+        the cultivar form of the #816 defect, and the exact failure mode a grant
+        feature shipped in two places invites.
+        """
+        source = _module_source(species_repository)
+        tree = ast.parse(source)
+
+        def _aql_of(name: str) -> str:
+            func = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == name)
+            return " ".join(_code_string_literals(func))
+
+        # ``get_cultivars`` gets its grant arm from the shared builder rather than
+        # spelling it out, so the comparison runs against what the builder emits.
+        from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
+
+        list_arm, _ = tenant_union_with_grants_predicate("t1")
+        by_key = _aql_of("_is_granted")
+
+        # The by-key side names its collections through ``col.`` constants
+        # interpolated into an f-string, so they never appear in its string
+        # literals; the collection identity is asserted on the AST instead. Reading
+        # the *emitted* fragment on one side and the *source* on the other is
+        # deliberate — each is checked in the form it actually exists in.
+        by_key_func = next(
+            node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "_is_granted"
+        )
+        by_key_constants = {
+            node.attr for node in ast.walk(by_key_func) if isinstance(node, ast.Attribute) and node.attr.isupper()
+        }
+        assert {"TENANT_HAS_ACCESS", "TENANTS"} <= by_key_constants, (
+            f"the by-key grant lookup no longer names both edge collections: {sorted(by_key_constants)}"
+        )
+        assert col.TENANT_HAS_ACCESS in list_arm, "the list grant arm no longer reads the grant edge"
+
+        # Both must key the edge on the caller's tenant *and* on the document
+        # itself. A by-key lookup that matched only ``_to`` would let any tenant
+        # open any granted row; a list arm that matched only ``_from`` would show
+        # every row the caller was granted *anything* about.
+        for fragment in ("_from ==", "_to =="):
+            assert fragment in list_arm, f"the list grant arm no longer contains {fragment!r}"
+            assert fragment in by_key, f"the by-key grant lookup no longer contains {fragment!r}"
+        assert f"{col.TENANTS}/" in list_arm
+        assert "doc._id" in list_arm
+
+    def test_the_grants_variant_is_built_from_the_shared_union(self):
+        """Accepting two helper names is only safe while one is built from the other.
+
+        ``tenant_union_with_grants_predicate`` is sanctioned by
+        :data:`_UNION_HELPERS` alongside the original. If it were an independent
+        copy of the two-arm union, that acceptance would silently readmit the
+        fifth-copy drift the #816 guard exists to prevent — the guard would name a
+        single source of truth while permitting two.
+        """
+        from app.data_access.arango import tenant_scope
+
+        tree = ast.parse(_module_source(tenant_scope))
+        variant = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "tenant_union_with_grants_predicate"
+        )
+        calls = {
+            node.func.id for node in ast.walk(variant) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+
+        assert "tenant_union_predicate" in calls, (
+            "tenant_union_with_grants_predicate stopped delegating to tenant_union_predicate. "
+            "It is accepted as a union helper *because* it delegates; standing alone it is a "
+            "second copy of the hybrid union, and the two would drift on the next edit to either."
         )
 
     def test_every_method_narrows_exactly_as_declared(self, surface):
@@ -394,10 +531,10 @@ class TestCultivarScopeConsistency:
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
         }
 
-        assert _UNION_HELPER in calls, (
-            f"get_cultivars no longer calls {_UNION_HELPER}. Inlining the union makes it the "
-            "fifth hand-written copy of a predicate whose single source of truth exists precisely "
-            "so the next consumer cannot drift from it (#324, #816)."
+        assert calls & _UNION_HELPERS, (
+            f"get_cultivars no longer calls any of {sorted(_UNION_HELPERS)}. Inlining the union "
+            "makes it the fifth hand-written copy of a predicate whose single source of truth "
+            "exists precisely so the next consumer cannot drift from it (#324, #816)."
         )
 
 
@@ -425,7 +562,7 @@ class TestNoOtherModuleReachesTheCultivarCollection:
         )
 
     def test_only_the_species_repository_narrows_the_cultivar_collection(self, reaching):
-        narrowing = sorted(path for path, source in reaching.items() if _UNION_HELPER in source)
+        narrowing = sorted(path for path, source in reaching.items() if _UNION_HELPERS & _named_helpers(source))
 
         assert narrowing == ["data_access/arango/species_repository.py"], (
             f"Modules applying the tenant union to cultivars: {narrowing}. Only the species "
