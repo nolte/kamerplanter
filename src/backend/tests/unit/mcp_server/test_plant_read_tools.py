@@ -160,7 +160,7 @@ async def test_get_plant_survives_a_missing_catalogue_entry():
 # ══ The medium a plant stands in ═════════════════════════════════════════════
 #
 # ``list_substrates`` publishes ph_base, ec_base_ms, buffer_capacity and
-# cec_meq_per_100g — the properties that decide whether a given feeding level is
+# cec_meq_per_100cm3 — the properties that decide whether a given feeding level is
 # excessive. Without a substrate reference on the plant, that catalogue is
 # unreachable from an instance: an agent would have to guess which medium it is
 # looking at, and the same weekly dose is harmless in one and an overdose in

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/substrates.schema.yaml
 # ==============================================================================
 # SUBSTRATES — Standard substrate products (REQ-019)
 # ==============================================================================
@@ -26,7 +27,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 55.0
     easily_available_water_percent: 25.0
-    cec_meq_per_100g: 15.0
+    cec_meq_per_100cm3: 15.0
     particle_size_mm: 2.0
     bulk_density_g_per_l: 550.0
     irrigation_strategy: moderate
@@ -50,7 +51,7 @@ substrates:
     max_reuse_cycles: 5
     water_holding_capacity_percent: 60.0
     easily_available_water_percent: 28.0
-    cec_meq_per_100g: 25.0
+    cec_meq_per_100cm3: 25.0
     particle_size_mm: 3.0
     bulk_density_g_per_l: 500.0
     irrigation_strategy: infrequent
@@ -72,7 +73,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 70.0
     easily_available_water_percent: 35.0
-    cec_meq_per_100g: 10.0
+    cec_meq_per_100cm3: 10.0
     particle_size_mm: 1.0
     bulk_density_g_per_l: 120.0
     irrigation_strategy: moderate
@@ -95,7 +96,7 @@ substrates:
     max_reuse_cycles: 3
     water_holding_capacity_percent: 45.0
     easily_available_water_percent: 22.0
-    cec_meq_per_100g: 8.5
+    cec_meq_per_100cm3: 8.5
     particle_size_mm: 2.5
     bulk_density_g_per_l: 90.0
     irrigation_strategy: frequent
@@ -116,7 +117,7 @@ substrates:
     max_reuse_cycles: 2
     water_holding_capacity_percent: 38.0
     easily_available_water_percent: 18.0
-    cec_meq_per_100g: 6.0
+    cec_meq_per_100cm3: 6.0
     particle_size_mm: 3.0
     bulk_density_g_per_l: 100.0
     irrigation_strategy: frequent
@@ -138,7 +139,7 @@ substrates:
     max_reuse_cycles: 10
     water_holding_capacity_percent: 8.0
     easily_available_water_percent: 2.0
-    cec_meq_per_100g: 0.2
+    cec_meq_per_100cm3: 0.2
     particle_size_mm: 12.0
     bulk_density_g_per_l: 350.0
     irrigation_strategy: frequent
@@ -160,7 +161,7 @@ substrates:
     max_reuse_cycles: 3
     water_holding_capacity_percent: 12.0
     easily_available_water_percent: 5.0
-    cec_meq_per_100g: 0.1
+    cec_meq_per_100cm3: 0.1
     particle_size_mm: 4.0
     bulk_density_g_per_l: 100.0
     irrigation_strategy: frequent
@@ -182,7 +183,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 55.0
     easily_available_water_percent: 30.0
-    cec_meq_per_100g: 15.0
+    cec_meq_per_100cm3: 15.0
     particle_size_mm: 3.0
     bulk_density_g_per_l: 90.0
     irrigation_strategy: moderate
@@ -196,7 +197,10 @@ substrates:
     ph_base: 7.5
     ec_base_ms: 0.0
     water_retention: medium
-    air_porosity_percent: 40.0
+    # 40.0 was dry total porosity carried into a container-capacity field: with
+    # water_holding 80 it summed to 120 % of one pore space (#1152 §A). At
+    # container capacity a slab holds ~80 % water and 10–15 % air.
+    air_porosity_percent: 12.0
     composition:
       steinwolle: 1.0
     buffer_capacity: low
@@ -204,7 +208,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 80.0
     easily_available_water_percent: 40.0
-    cec_meq_per_100g: 0.3
+    cec_meq_per_100cm3: 0.3
     bulk_density_g_per_l: 80.0
     irrigation_strategy: frequent
 
@@ -215,7 +219,10 @@ substrates:
     ph_base: 7.5
     ec_base_ms: 0.0
     water_retention: medium
-    air_porosity_percent: 35.0
+    # Same correction as the slab above (#1152 §A): 35.0 with water_holding 85
+    # summed to 120 %. A propagation plug is denser and holds more water than a
+    # slab, so it takes the lower end of the 10–15 % container-capacity air band.
+    air_porosity_percent: 10.0
     composition:
       steinwolle: 1.0
     buffer_capacity: low
@@ -223,7 +230,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 85.0
     easily_available_water_percent: 45.0
-    cec_meq_per_100g: 0.3
+    cec_meq_per_100cm3: 0.3
     bulk_density_g_per_l: 75.0
     irrigation_strategy: frequent
 
@@ -244,7 +251,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 15.0
     easily_available_water_percent: 5.0
-    cec_meq_per_100g: 2.0
+    cec_meq_per_100cm3: 2.0
     particle_size_mm: 15.0
     bulk_density_g_per_l: 250.0
     irrigation_strategy: frequent
@@ -269,7 +276,7 @@ substrates:
     max_reuse_cycles: 8
     water_holding_capacity_percent: 30.0
     easily_available_water_percent: 12.0
-    cec_meq_per_100g: 12.0
+    cec_meq_per_100cm3: 12.0
     particle_size_mm: 6.0
     bulk_density_g_per_l: 600.0
     irrigation_strategy: moderate
@@ -291,7 +298,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 80.0
     easily_available_water_percent: 40.0
-    cec_meq_per_100g: 8.0
+    cec_meq_per_100cm3: 8.0
     bulk_density_g_per_l: 30.0
     irrigation_strategy: moderate
 
@@ -315,7 +322,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 48.0
     easily_available_water_percent: 24.0
-    cec_meq_per_100g: 12.0
+    cec_meq_per_100cm3: 12.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 430.0
     irrigation_strategy: moderate
@@ -338,7 +345,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 52.0
     easily_available_water_percent: 26.0
-    cec_meq_per_100g: 15.0
+    cec_meq_per_100cm3: 15.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 450.0
     irrigation_strategy: moderate
@@ -362,7 +369,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 58.0
     easily_available_water_percent: 28.0
-    cec_meq_per_100g: 22.0
+    cec_meq_per_100cm3: 22.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 480.0
     irrigation_strategy: moderate
@@ -386,7 +393,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 58.0
     easily_available_water_percent: 28.0
-    cec_meq_per_100g: 22.0
+    cec_meq_per_100cm3: 22.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 470.0
     irrigation_strategy: moderate
@@ -410,7 +417,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 56.0
     easily_available_water_percent: 27.0
-    cec_meq_per_100g: 20.0
+    cec_meq_per_100cm3: 20.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 460.0
     irrigation_strategy: moderate
@@ -433,7 +440,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 50.0
     easily_available_water_percent: 24.0
-    cec_meq_per_100g: 12.0
+    cec_meq_per_100cm3: 12.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 420.0
     irrigation_strategy: moderate
@@ -456,7 +463,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 48.0
     easily_available_water_percent: 24.0
-    cec_meq_per_100g: 13.0
+    cec_meq_per_100cm3: 13.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 420.0
     irrigation_strategy: moderate
@@ -476,7 +483,7 @@ substrates:
     max_reuse_cycles: 2
     water_holding_capacity_percent: 50.0
     easily_available_water_percent: 25.0
-    cec_meq_per_100g: 9.0
+    cec_meq_per_100cm3: 9.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 85.0
     irrigation_strategy: frequent
@@ -497,7 +504,7 @@ substrates:
     max_reuse_cycles: 2
     water_holding_capacity_percent: 40.0
     easily_available_water_percent: 20.0
-    cec_meq_per_100g: 6.5
+    cec_meq_per_100cm3: 6.5
     particle_size_mm: 3.0
     bulk_density_g_per_l: 95.0
     irrigation_strategy: frequent
@@ -522,7 +529,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 45.0
     easily_available_water_percent: 22.0
-    cec_meq_per_100g: 12.0
+    cec_meq_per_100cm3: 12.0
     particle_size_mm: 3.0
     bulk_density_g_per_l: 400.0
     irrigation_strategy: moderate
@@ -546,7 +553,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 58.0
     easily_available_water_percent: 28.0
-    cec_meq_per_100g: 20.0
+    cec_meq_per_100cm3: 20.0
     particle_size_mm: 2.5
     bulk_density_g_per_l: 480.0
     irrigation_strategy: moderate
@@ -568,7 +575,7 @@ substrates:
     max_reuse_cycles: 2
     water_holding_capacity_percent: 48.0
     easily_available_water_percent: 24.0
-    cec_meq_per_100g: 9.0
+    cec_meq_per_100cm3: 9.0
     particle_size_mm: 3.0
     bulk_density_g_per_l: 85.0
     irrigation_strategy: frequent
@@ -588,7 +595,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 65.0
     easily_available_water_percent: 30.0
-    cec_meq_per_100g: 30.0
+    cec_meq_per_100cm3: 30.0
     particle_size_mm: 1.5
     bulk_density_g_per_l: 600.0
     irrigation_strategy: infrequent
@@ -614,7 +621,7 @@ substrates:
     max_reuse_cycles: 1
     water_holding_capacity_percent: 50.0
     easily_available_water_percent: 22.0
-    cec_meq_per_100g: 25.0
+    cec_meq_per_100cm3: 25.0
     particle_size_mm: 2.0
     bulk_density_g_per_l: 520.0
     irrigation_strategy: moderate

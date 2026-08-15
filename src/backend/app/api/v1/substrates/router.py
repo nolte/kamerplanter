@@ -114,7 +114,7 @@ def preview_mix(body: SubstrateMixRequest, service: SubstrateService = Depends(g
         max_reuse_cycles=props["max_reuse_cycles"],
         water_holding_capacity_percent=props["water_holding_capacity_percent"],
         easily_available_water_percent=props["easily_available_water_percent"],
-        cec_meq_per_100g=props["cec_meq_per_100g"],
+        cec_meq_per_100cm3=props["cec_meq_per_100cm3"],
         bulk_density_g_per_l=props["bulk_density_g_per_l"],
         irrigation_strategy=props["irrigation_strategy"],
     )

@@ -32,7 +32,7 @@ class Substrate(BaseModel):
     max_reuse_cycles: int = Field(default=3, ge=1)
     water_holding_capacity_percent: float | None = Field(default=None, ge=0, le=100)
     easily_available_water_percent: float | None = Field(default=None, ge=0, le=100)
-    cec_meq_per_100g: float | None = Field(default=None, ge=0)
+    cec_meq_per_100cm3: float | None = Field(default=None, ge=0)
     particle_size_mm: float | None = Field(default=None, ge=0)
     bulk_density_g_per_l: float | None = Field(default=None, ge=0)
     irrigation_strategy: IrrigationStrategy | None = None
