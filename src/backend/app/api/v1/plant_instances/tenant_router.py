@@ -11,6 +11,7 @@ from app.api.v1.plant_instances.schemas import (
     PlantCreate,
     PlantInstanceInPhaseResponse,
     PlantInstancesInPhaseResponse,
+    PlantPatch,
     PlantResponse,
     PlantRunSummaryResponse,
     RemovePlantRequest,
@@ -128,7 +129,25 @@ def update_plant(
     ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    """Update the user-editable fields of a plant instance."""
+    """Replace the user-editable fields of a plant instance — **full replacement**.
+
+    Every optional field absent from the body is written back as ``None`` and
+    removed from the stored document. Measured: a body carrying only the three
+    required fields plus one change erases ``location_key``, ``slot_key``,
+    ``cultivar_key``, ``plant_name``, ``container_volume_liters`` and
+    ``substrate_batch_key``.
+
+    That is deliberate — the repository sets ``_update_is_full_replace`` so a
+    ``PUT`` can *clear* a nullable field, which the edit form needs — and it is a
+    trap for any caller composing a request from the schema alone, which is how
+    #1098 was filed. **Use ``PATCH`` to change a subset.**
+
+    ``current_phase_key`` is *not* in the assignment list below: it is
+    server-managed and moves only through the phase-transition path, which
+    enforces the state machine. A ``PUT`` therefore never loses a plant's phase —
+    contrary to what #1098 assumed, and worth stating here so the next reader does
+    not have to re-derive it from the absence of a line.
+    """
     existing = service.get_plant(key, tenant_key=ctx.tenant_key)
     # Merge: keep server-managed fields from existing, apply user-editable fields from body
     update_data = body.model_dump()
@@ -146,6 +165,32 @@ def update_plant(
     existing.substrate_type_override = update_data.get("substrate_type_override")
     # ADR-006 E1 — per-instance cultivation cycle override (None = same as the species).
     existing.cultivation_cycle_type = update_data.get("cultivation_cycle_type")
+    updated = service.update_plant(key, existing)
+    return _to_response(updated, service)
+
+
+@router.patch("/{key}", response_model=PlantResponse)
+def patch_plant(
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    body: PlantPatch,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
+    service: PlantInstanceService = Depends(get_plant_instance_service),
+):
+    """Change a subset of a plant's fields, leaving the rest untouched (#1098).
+
+    The safe sibling of ``PUT``. **Omitted means untouched**; an explicit ``null``
+    clears the field. The two are told apart by which keys the request actually
+    carried (``model_fields_set``), not by the resulting value — comparing values
+    would make one of the two intents unreachable.
+
+    This exists because the only way to change one field was the full-replacement
+    ``PUT``, and getting that wrong is silent: the response is a ``200`` carrying
+    the row it just emptied. An agent asked to set a substrate would, following
+    the schema name, also erase the plant's location and its batch reference.
+    """
+    existing = service.get_plant(key, tenant_key=ctx.tenant_key)
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(existing, field, value)
     updated = service.update_plant(key, existing)
     return _to_response(updated, service)
 
