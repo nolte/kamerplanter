@@ -1,3 +1,27 @@
+# -- IMAGE PINNING INVARIANT (#1025, and #1024 which measured it).
+#
+# Every ``image.tag`` in this chart is ``latest@sha256:<digest>``. The digest is
+# what identifies the bytes; the ``latest`` prefix is only a human-readable label
+# in front of it. Together with ``pullPolicy: IfNotPresent`` that is exact and
+# cheap: the kubelet never re-resolves a tag, because a digest cannot move.
+#
+# **A deployment overlay must NOT add a per-controller ``image.tag`` override.**
+# Doing so replaces a digest with a mutable tag, and ``IfNotPresent`` then means
+# "keep whatever is already on the node" — measured in #1024: a rollout restart
+# silently kept an old image, and the same class had already caught
+# inference-service. The failure is invisible from every side except the running
+# container.
+#
+# The division of responsibility that follows from this:
+#   * the overlay's ``targetRevision`` selects the chart **version**;
+#   * the chart selects the **bytes**.
+# An overlay that pins tags takes the second job away from the chart while still
+# looking like configuration.
+#
+# The prod overlay in ``nolte/k8s-home-lab`` still carries such overrides on six
+# controllers. That change belongs in that repository; this comment is the
+# invariant it has to satisfy, kept next to the values that enforce it here.
+
 # -- NFR-013 Object-storage configuration (§4.1, §10).
 #
 # This block is the operator-facing source of truth for the storage backend.
