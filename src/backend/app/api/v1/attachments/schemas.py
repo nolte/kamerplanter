@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, CaptureDevice
 
 
 class ThumbnailUris(BaseModel):
@@ -26,6 +26,10 @@ class AttachmentResponse(BaseModel):
 
     attachment_id: str
     category: AttachmentCategory
+    #: Client-declared capture provenance (#1137). Echoed so a client can verify
+    #: what was recorded — a write-only field would leave "did it arrive?"
+    #: unanswerable, and this one is unrecoverable if it did not.
+    capture_device: CaptureDevice = CaptureDevice.UNKNOWN
     mime_type: str
     byte_size: int
     original_filename: str

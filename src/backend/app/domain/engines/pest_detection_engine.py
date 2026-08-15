@@ -9,6 +9,7 @@ Persists the request without retaining the image (§8).
 from datetime import UTC, datetime
 
 from app.common.enums import (
+    CaptureDevice,
     PestDetectionNextStep,
     PestDetectionSource,
     PestDetectionTrigger,
@@ -42,6 +43,7 @@ class PestDetectionEngine:
         user_key: str,
         plant_instance_key: str | None,
         image_hash: str,
+        capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
         trigger: PestDetectionTrigger = PestDetectionTrigger.USER_PHOTO,
     ) -> PestDetection:
         for finding in result.findings:
@@ -63,6 +65,10 @@ class PestDetectionEngine:
             tiles_processed=result.tiles_processed,
             suggested_next_step=next_step,
             image_hash=image_hash,
+            # Client-declared provenance (#1137). Persisted at detection time
+            # because the image itself is never retained (§8) — there is no later
+            # moment at which the device could be recovered.
+            capture_device=capture_device,
             image_deleted_at=now,  # the image is never persisted (§8)
             disclaimer=result.disclaimer,
         )

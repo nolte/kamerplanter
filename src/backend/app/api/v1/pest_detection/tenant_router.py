@@ -19,6 +19,7 @@ from app.api.v1.pest_detection.schemas import (
 )
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_pest_detection_service
+from app.common.enums import CaptureDevice
 from app.common.exceptions import UnsupportedMediaTypeError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.core.permissions import Action, ResourceType
@@ -43,6 +44,16 @@ def pest_detection_status(
 async def detect_pests_global(
     image: UploadFile,
     language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),
+    capture_device: CaptureDevice = Form(
+        CaptureDevice.UNKNOWN,
+        description=(
+            "Which physical device produced the image (#1137). A microscope frame "
+            "and a phone frame are different image distributions and favour "
+            "opposite detection modes; recording which is which keeps HITL feedback "
+            "and accuracy analysis separable. Client-declared, optional, and never "
+            "an input to adapter choice or access."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> PestDetectionResponse:
@@ -67,6 +78,7 @@ async def detect_pests_global(
         user_key=ctx.user_key,
         plant_instance_key=None,
         language=language,
+        capture_device=capture_device,
     )
     return PestDetectionResponse(**result)
 
@@ -76,6 +88,16 @@ async def detect_pests(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     image: UploadFile,
     language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),
+    capture_device: CaptureDevice = Form(
+        CaptureDevice.UNKNOWN,
+        description=(
+            "Which physical device produced the image (#1137). A microscope frame "
+            "and a phone frame are different image distributions and favour "
+            "opposite detection modes; recording which is which keeps HITL feedback "
+            "and accuracy analysis separable. Client-declared, optional, and never "
+            "an input to adapter choice or access."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> PestDetectionResponse:
@@ -96,6 +118,7 @@ async def detect_pests(
         user_key=ctx.user_key,
         plant_instance_key=plant_key,
         language=language,
+        capture_device=capture_device,
     )
     return PestDetectionResponse(**result)
 

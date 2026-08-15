@@ -1395,6 +1395,34 @@ class PestDetectionTrigger(StrEnum):
     MANUAL = "manual"
 
 
+class CaptureDevice(StrEnum):
+    """Which physical device produced an image (#1137).
+
+    A third axis, orthogonal to the two that already exist:
+    :class:`PestDetectionSource` says which *engine* produced a result and
+    :class:`PestDetectionTrigger` says what *initiated* the detection. Neither can
+    express "captured with a USB microscope", and that distinction is not
+    cosmetic — a microscope frame is millimetres away under a ring light at high
+    magnification, a phone frame is a whole leaf at arm's length in ambient light.
+    They favour opposite detection modes.
+
+    **Declared by the client, never inferred.** EXIF is stripped before processing
+    (twice, for cloud transmission), so any device hint the file carried is gone by
+    the time the backend sees it: if the client does not state the provenance, it
+    is lost permanently rather than merely unread.
+
+    **Untrusted metadata.** It exists for HITL feedback quality and per-source
+    accuracy analysis. It must never become an authorization, routing or safety
+    input — a wrong value may skew a statistic, and must not be able to do more.
+    """
+
+    UNKNOWN = "unknown"
+    PHONE_CAMERA = "phone_camera"
+    USB_MICROSCOPE = "usb_microscope"
+    WEBCAM = "webcam"
+    FILE_UPLOAD = "file_upload"
+
+
 # ── REQ-026 Aquaponics ──────────────────────────────────────────────────
 
 

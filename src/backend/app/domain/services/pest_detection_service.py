@@ -12,6 +12,7 @@ import hashlib
 import structlog
 
 from app.common.enums import (
+    CaptureDevice,
     PestFindingCategory,
     PestPressureLevel,
 )
@@ -90,6 +91,7 @@ class PestDetectionService:
         plant_instance_key: str | None,
         language: str = "de",
         adapter_key: str | None = None,
+        capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
     ) -> dict:
         """Run pest detection over an uploaded photo. Never triggers a treatment."""
         self._validate_size(image_data)
@@ -118,6 +120,7 @@ class PestDetectionService:
             user_key=user_key,
             plant_instance_key=plant_instance_key,
             image_hash=image_hash,
+            capture_device=capture_device,
         )
         return self._to_response(detection)
 

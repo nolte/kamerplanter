@@ -32,6 +32,10 @@ class PestDetectionResponse(BaseModel):
     key: str | None = None
     plant_instance_key: str | None = None
     source: str
+    #: Which physical device produced the image (#1137). Echoed so a client can
+    #: verify what was recorded — the image itself is never retained (§8), so an
+    #: unverifiable write would be unrecoverable.
+    capture_device: str = "unknown"
     adapter_key: str
     is_confident: bool
     trigger: str

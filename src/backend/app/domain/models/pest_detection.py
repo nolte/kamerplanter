@@ -12,6 +12,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.common.enums import (
+    CaptureDevice,
     PestDetectionNextStep,
     PestDetectionSource,
     PestDetectionTrigger,
@@ -41,6 +42,15 @@ class PestDetection(BaseModel):
     adapter_key: str = ""
     is_confident: bool = True
     trigger: PestDetectionTrigger = PestDetectionTrigger.USER_PHOTO
+    #: Which physical device produced the image (#1137). Client-declared and
+    #: untrusted: it feeds HITL feedback quality and per-source accuracy analysis,
+    #: never adapter choice or access. Defaults to ``unknown`` so every existing
+    #: record and every client that does not send it stays valid.
+    #:
+    #: Recorded even though nothing reads it yet — EXIF is stripped before
+    #: processing, so a value not captured at ingestion is lost permanently rather
+    #: than merely unused.
+    capture_device: CaptureDevice = CaptureDevice.UNKNOWN
     findings: list[PestFinding] = Field(default_factory=list)
     tiles_processed: int = 0
     suggested_next_step: PestDetectionNextStep = PestDetectionNextStep.NONE
