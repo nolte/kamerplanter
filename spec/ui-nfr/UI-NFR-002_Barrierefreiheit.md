@@ -158,31 +158,48 @@ schließen die Lücke generisch für alle solchen Oberflächen.
 
 ### Definition of Done
 
+> **Jede Zeile nennt ihre durchsetzende Pruefung — oder sagt, dass es keine gibt (#1096).**
+>
+> Die vorige Fassung war reine Prosa und las sich, als waere alles davon verifiziert.
+> Das ist die Fehlerklasse aus NFR-018 §1: eine Regel, die niemand misst, ist von
+> einer nicht vorhandenen Regel nicht zu unterscheiden — nur teurer, weil sie
+> Abdeckung suggeriert. Stand der Messung: **2026-08-15**.
+>
+> Es gibt genau **drei** automatisierte Pruefungen, und nur eine davon blockiert:
+>
+> | Pruefung | Wo | Blockierend? | Was sie wirklich misst |
+> |---|---|---|---|
+> | **vitest-axe** (`expectNoA11yViolations`, #1094) | `lint-test-build (22)` | **ja** — required Check auf `develop` | axe gegen einzelne Seiten/Komponenten in jsdom, Schwelle `critical`. Seiten brauchen `minElements`, sonst zertifiziert der Test ein Ladeskelett. |
+> | **Lighthouse CI** (`categories:accessibility >= 0.98`, error) | Job `Lighthouse CI` | **nein** — advisory, absichtlich nicht in `.github/settings.yml` | Der statisch gebaute SPA-Shell (`./dist`), also die **unauthentifizierte** Huelle. Seiten hinter dem Login erreicht er nicht. |
+> | **Kiosk-Theme-Test** (`kioskTheme.test.tsx`) | `lint-test-build (22)` | **ja** | Die MUI-Theme-Overrides (`KIOSK_TOUCH_TARGET = 64`), nicht die gerenderte Groesse eines Elements. Siehe UI-NFR-019. |
+>
+> Eine E2E-axe-Journey gegen die komponierte Anwendung existiert **nicht** (#1095, offen). Damit ist keine Seite hinter dem Login jemals im Browser auf Barrierefreiheit geprueft worden.
+
 - [ ] **WCAG-Konformität**
-    - [ ] Automatisierte WCAG 2.1 AA Prüfung besteht (z.B. axe-core, Lighthouse)
-    - [ ] Manuelle Prüfung der Tastaturnavigation auf allen Seiten
-    - [ ] Screenreader-Test mit mindestens einem Tool (z.B. NVDA, VoiceOver)
-- [ ] **Tastaturnavigation**
-    - [ ] Alle Seiten sind vollständig per Tastatur bedienbar
-    - [ ] Tab-Reihenfolge ist logisch und konsistent
-    - [ ] Focus-Indikator ist auf allen interaktiven Elementen sichtbar
-    - [ ] Skip-Links sind implementiert und funktional
-    - [ ] Modale können per Escape geschlossen werden
-- [ ] **Screenreader**
-    - [ ] ARIA-Landmarks sind auf jeder Seite gesetzt
-    - [ ] Alle Bilder haben `alt`-Texte
-    - [ ] Formularfelder haben programmatisch verknüpfte Labels
-    - [ ] Dynamische Änderungen werden über Live-Regions angekündigt
-- [ ] **Kontraste**
-    - [ ] Alle Texte erfüllen das 4.5:1 Kontrastverhältnis
-    - [ ] Keine Information wird ausschließlich über Farbe vermittelt
-- [ ] **Schriftgrößen**
-    - [ ] Anwendung bleibt bei 200% Zoom vollständig nutzbar
-    - [ ] Schriftgrößen sind in rem/em definiert
+    - [x] Automatisierte WCAG-Pruefung — **vitest-axe** (blockierend) + **Lighthouse CI** (advisory)
+    - [ ] Manuelle Pruefung der Tastaturnavigation — **nicht durchgesetzt**, kein Gate, keine dokumentierte Durchfuehrung
+    - [ ] Screenreader-Test (NVDA/VoiceOver) — **nicht durchgesetzt**, manuell und bisher nicht protokolliert
+- [ ] **Tastaturnavigation** — **keine dieser Regeln ist durchgesetzt**
+    - [ ] Alle Seiten vollstaendig per Tastatur bedienbar — kein Test; axe in jsdom prueft Fokus-*Reihenfolge* nicht
+    - [ ] Tab-Reihenfolge logisch und konsistent — kein Test
+    - [ ] Focus-Indikator sichtbar — kein Test (Sichtbarkeit ist eine Renderfrage, jsdom rechnet keine Styles)
+    - [ ] Skip-Links implementiert und funktional — kein Test
+    - [ ] Modale per Escape schliessbar — kein Test; MUI liefert es per Default, was nicht dasselbe ist wie „geprueft"
+- [ ] **Screenreader** — teilweise durchgesetzt
+    - [x] Formularfelder haben programmatisch verknuepfte Labels — **vitest-axe** (`label`-Regel, `critical`)
+    - [x] Alle Bilder haben `alt`-Texte — **vitest-axe** (`image-alt`-Regel, `critical`)
+    - [ ] ARIA-Landmarks auf jeder Seite — **nicht durchgesetzt**: die Landmark-Regeln melden an isoliert gerenderten Komponenten Falschbefunde und liegen unterhalb der `critical`-Schwelle
+    - [ ] Dynamische Aenderungen ueber Live-Regions — **nicht durchgesetzt**, statisch nicht pruefbar
+- [ ] **Kontraste** — **nicht durchgesetzt**
+    - [ ] 4.5:1 fuer alle Texte — jsdom rechnet keine Farben; Lighthouse prueft es, ist aber advisory und sieht nur die unauthentifizierte Huelle
+    - [ ] Keine Information nur ueber Farbe — kein automatisierter Test moeglich, keine Review-Checkliste
+- [ ] **Schriftgrößen** — **nicht durchgesetzt**
+    - [ ] 200% Zoom nutzbar — kein Test
+    - [ ] Schriftgroessen in rem/em — kein Lint-Regel, kein Gate
 - [ ] **Testing**
-    - [ ] axe-core oder Lighthouse Accessibility-Score ≥90
-    - [ ] Manuelle Tests mit Tastatur und Screenreader durchgeführt
-    - [ ] Automatisierte Accessibility-Tests in CI-Pipeline integriert
+    - [x] Automatisierte Accessibility-Tests in der CI — **vitest-axe** im required Check
+    - [ ] Lighthouse-Accessibility-Score als **blockierendes** Gate — heute advisory; Promotion erfolgt auf gemessener Historie per NFR-018 §4, nicht durch Aendern dieses Satzes
+    - [ ] Manuelle Tests mit Tastatur und Screenreader — **nicht durchgefuehrt/protokolliert**
 
 ---
 
