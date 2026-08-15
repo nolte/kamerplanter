@@ -10,13 +10,47 @@ from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 
 
+class _PlantingRunEntryRepository(BaseArangoRepository[PlantingRunEntry]):
+    """The entry sub-repository, with the owned-reference declaration (SEC-004, #1112).
+
+    A named subclass rather than a bare ``BaseArangoRepository[...]`` instance,
+    because :attr:`_owned_reference_fields` and
+    :attr:`_verify_references_on_update` are **class** variables: setting them on
+    an instance would type-check and do nothing. That is the same trap
+    ``PropagationEvent`` documented when it grew the same declaration.
+
+    The declaration only bites because ``PlantingRunEntry`` now carries a
+    ``tenant_key`` of its own (stamped from the parent run in
+    ``PlantingRunService``, backfilled by ``v0042``):
+    :meth:`BaseArangoRepository._verify_owned_references` compares against the
+    row's own tenant and *skips a row that has none*. Declared without the field,
+    this guard would have looked implemented and never run — which is exactly the
+    outcome the #1112 issue text warns about by name.
+    """
+
+    _owned_reference_fields = {"cultivar_key": col.CULTIVARS}
+    #: A run entry's ``cultivar_key`` is reachable from a PATCH body
+    #: (``EntryUpdate``), so the create-only half would leave the re-point path
+    #: open — the #1090 C-9 shape.
+    #:
+    #: Note where this flag does and does not act. It gates the hook inside
+    #: :meth:`BaseArangoRepository.update`, which the *live* update path does not
+    #: use: ``ArangoPlantingRunRepository.update_entry`` writes to the collection
+    #: directly and calls the verification explicitly instead. The flag is set
+    #: anyway so that ``self._entries.update(...)`` — reachable, and the obvious
+    #: thing for a future edit to reach for — is not the one write that skips the
+    #: check. Neither mechanism is load-bearing on its own; the property is pinned
+    #: by test, so it survives whichever of the two a later refactor keeps.
+    _verify_references_on_update = True
+
+
 class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRunRepository):
     is_tenant_scoped = True
     _model_cls = PlantingRun
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PLANTING_RUNS)
-        self._entries = BaseArangoRepository[PlantingRunEntry](db, col.PLANTING_RUN_ENTRIES, PlantingRunEntry)
+        self._entries = _PlantingRunEntryRepository(db, col.PLANTING_RUN_ENTRIES, PlantingRunEntry)
 
     # ── Run CRUD ──────────────────────────────────────────────────────
 
@@ -96,6 +130,15 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         return self._entries.get_or_raise(entry_key)
 
     def update_entry(self, entry_key: PlantingRunEntryKey, entry: PlantingRunEntry) -> PlantingRunEntry:
+        # This method writes through `self._db.collection(...).update(...)` rather
+        # than `self._entries.update(...)`, so the base class's own
+        # `_verify_references_on_update` hook never fires here. Declaring it on
+        # `_PlantingRunEntryRepository` and stopping would therefore have covered
+        # `create_entry` only and left the re-point path — the one that matters —
+        # unguarded, while reading as if both were covered. The check is invoked
+        # explicitly instead, before anything is written (SEC-004, #1112).
+        self._entries._verify_changed_owned_references(entry_key, entry)
+
         # No exclude_none: the service passes a fully merged entry, and
         # explicitly cleared nullable fields (notes, cultivar_key, spacing_cm)
         # must be written as null — Arango's update() (keepNull=True) would

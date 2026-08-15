@@ -206,6 +206,11 @@ class PlantingRunService:
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("add_entry", run.status.value)
         entry.run_key = run_key
+        # The entry inherits the run's tenant (SEC-004, #1112). Not for access —
+        # this route already resolved the run tenant-scoped — but so the
+        # repository's owned-reference guard has a tenant to compare a
+        # body-supplied `cultivar_key` against. Without it the guard is skipped.
+        entry.tenant_key = run.tenant_key
         created = self._repo.create_entry(entry)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
@@ -240,6 +245,12 @@ class PlantingRunService:
             raise ValidationError(f"Fields cannot be null: {', '.join(sorted(nulled_required))}")
 
         merged = PlantingRunEntry.model_validate({**existing.model_dump(by_alias=False), **patch})
+        # Re-stamp from the run rather than trusting the stored value: a row
+        # predating the v0042 backfill carries "", and an update is exactly the
+        # moment its `cultivar_key` can be re-pointed at a foreign cultivar. A
+        # merged entry that kept the empty tenant would skip the guard on the one
+        # path that needs it most.
+        merged.tenant_key = run.tenant_key
         updated = self._repo.update_entry(entry_key, merged)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)

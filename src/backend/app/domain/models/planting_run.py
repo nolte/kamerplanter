@@ -18,6 +18,18 @@ ALLOWED_STATUS_TRANSITIONS: dict[PlantingRunStatus, list[PlantingRunStatus]] = {
 class PlantingRunEntry(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     run_key: str = ""
+    #: The owning tenant, copied from the parent run by ``PlantingRunService``
+    #: (SEC-004, #1112).
+    #:
+    #: An entry is not independently addressable — every route reaches it through
+    #: its run, which is tenant-verified — so this field carries no *access*
+    #: decision. It exists because
+    #: :meth:`BaseArangoRepository._verify_owned_references` compares a referenced
+    #: document against **the row's own** ``tenant_key`` and skips a row that has
+    #: none. Declaring ``cultivar_key`` as an owned reference without this field
+    #: would ship a guard that never runs — the inertness #1112 warns about by
+    #: name.
+    tenant_key: str = ""
     species_key: str
     cultivar_key: str | None = None
     quantity: int = Field(ge=1)
