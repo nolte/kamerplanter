@@ -91,7 +91,10 @@ def create_cultivar(
     #
     # tenant_key is resolved from the authenticated caller (their personal tenant),
     # never from the request body (#1000, #1090) — ``CultivarCreate`` carries no
-    # tenant field, so ``body.model_dump()`` cannot smuggle one in. This binds a
+    # tenant field, so ``body.model_dump()`` cannot smuggle one in. It carries no
+    # ``species_key`` either since #1114: the parent is the path segment, and the
+    # previous ``exclude={"species_key"}`` existed only to drop a field the schema
+    # required and this route never wanted. This binds a
     # newly created cultivar to its owner so the tenant-aware read predicate can keep
     # it out of foreign tenants while the global seed catalogue (tenant_key == "")
     # stays visible to all. Mirrors the species create path.
@@ -99,7 +102,7 @@ def create_cultivar(
         species_key=species_key,
         origin=DataOrigin.TENANT,
         tenant_key=tenant_key,
-        **body.model_dump(exclude={"species_key"}),
+        **body.model_dump(),
     )
     created = service.create_cultivar(
         cultivar,
