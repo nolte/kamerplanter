@@ -1,7 +1,8 @@
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request, Response
@@ -309,13 +310,68 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+_API_MAJOR_PATH = re.compile(r"^/api/v(\d+)(?:/|$)")
+
+
+def supported_api_majors(application: FastAPI) -> list[int]:
+    """Return the API major versions this deployment actually serves (#1124).
+
+    **Derived from the mounted routes, never a maintained list.** The Android
+    client is a separate release train against a *self-hosted* backend, so the two
+    drift in both directions and the client has to negotiate the highest major both
+    sides support. Until now it probed ``/api/v{n}/openapi.json`` downward from the
+    highest major it knew — a workaround, and one that cannot distinguish "major
+    not served" from "server briefly unreachable".
+
+    A hand-maintained constant would answer that question and then go stale the
+    first time a major is added or retired — replacing a probe that is at least
+    *true* with a declaration that might not be. Reading the router table means the
+    answer is wrong only if the routes are.
+
+    Sorted ascending; the client takes the highest it also supports.
+    """
+    return sorted({int(m.group(1)) for path in _mounted_paths(application) if (m := _API_MAJOR_PATH.match(path))})
+
+
+def _mounted_paths(application: Any, _depth: int = 0) -> Iterator[str]:
+    """Yield every route path reachable from ``application``, following inclusions.
+
+    ``include_router`` does not flatten child routes onto ``app.routes`` in this
+    FastAPI version — it appends an ``_IncludedRouter`` wrapper that keeps the real
+    router behind ``original_router``. A first version of this walked ``app.routes``
+    only and *appeared* to work: it returned ``[1]`` for the real application, but
+    from ``/api/v1/openapi.json`` — a **docs** route — rather than from any API
+    route. Right answer, accidental derivation, and it yielded an empty list for a
+    freshly mounted v2 in a test, which is how it was caught.
+
+    ``_depth`` bounds the recursion: a router graph is never deep, and a cycle here
+    would hang the health endpoint.
+    """
+    if _depth > 10:
+        return
+    for route in getattr(application, "routes", []) or []:
+        path = getattr(route, "path", None)
+        if isinstance(path, str):
+            yield path
+        nested = getattr(route, "original_router", None)
+        if nested is not None:
+            yield from _mounted_paths(nested, _depth + 1)
+
+
 @app.get("/api/health", tags=["health"])
 def root_health() -> dict:
-    """Root-level health endpoint for M2M consumers (HA integration)."""
+    """Root-level health endpoint for M2M consumers (HA integration).
+
+    Carries ``supported_majors`` (#1124) because this is the one endpoint a client
+    can reach *before* it has chosen an API major — putting the negotiation input
+    behind a versioned path would be circular. It is also unauthenticated, which
+    the negotiation needs: a client picks its base URL before it has a token.
+    """
     result: dict = {
         "status": "healthy",
         "version": settings.app_version,
         "mode": settings.kamerplanter_mode,
+        "supported_majors": supported_api_majors(app),
     }
     if settings.timescaledb_enabled:
         from app.common.dependencies import get_observation_repo
