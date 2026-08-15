@@ -100,6 +100,7 @@ def run_migrate_lifecycle_to_phase_sequence() -> None:
     from app.migrations.seed_data import (
         link_indoor_species_to_phase_sequence,
         report_binding_divergence,
+        report_unreachable_plant_phases,
         verify_all_species_bound,
     )
 
@@ -122,3 +123,10 @@ def run_migrate_lifecycle_to_phase_sequence() -> None:
     # belongs in a versioned migration with a dry-run, not in a job that runs on
     # every deployment.
     report_binding_divergence()
+
+    # And that every *plant* sits in a phase its species can actually reach (#1150).
+    # The two checks above are about species; this is the third shape, and the one
+    # that is invisible from every read: a plant whose phase entry survived a
+    # deleted sequence generation resolves fine, reports `in_phase` with a name,
+    # and never advances because `next_phase` has nowhere to point.
+    report_unreachable_plant_phases()

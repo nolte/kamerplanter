@@ -411,6 +411,71 @@ def report_binding_divergence(*, limit: int = 25) -> list[dict[str, str]]:
     return diverging
 
 
+def report_unreachable_plant_phases(*, limit: int = 25) -> list[dict[str, str]]:
+    """Report plants whose current phase is not reachable from their species (#1150).
+
+    ``verify_all_species_bound`` checks that a *species* has a sequence;
+    :func:`report_binding_divergence` checks that it is the *right* one. Neither
+    looks at a **plant**, and that is where the third shape lives: three plants on
+    the reference instance report a phase whose ``PhaseSequenceEntry`` belongs to a
+    sequence generation that no longer exists. ``indoor_default`` was deleted and
+    recreated during the fine-typing work (#616 / v0027); the old entry documents
+    survived and the plants pointing at them were never re-pointed.
+
+    A sunflower and a *Monstera deliciosa* share one entry key. The Monstera is
+    reported as ``flowering`` one month after planting, through the sunflower's
+    phase — and ``get_plant_phase_status`` answers ``in_phase`` with a phase name,
+    which is the strongest possible "this is fine" signal over a phase the plant is
+    not in.
+
+    ``v0021`` does not catch it: it heals a key resolving in *neither* key space,
+    and these resolve. Orphaned, not dangling — its predicate tests document
+    existence where what matters is reachability from a live sequence.
+
+    Reports only, for the same reason as its sibling above: re-homing a plant is
+    plant-visible lifecycle state, and the placement rule it needs is shared with
+    #1146's repair (name anchor, then elapsed days, backdated ``entered_at``). One
+    rule for both, in a versioned migration — not two rules invented separately.
+
+    Returns ``[{plant_id, kind, detail}]``; never raises.
+    """
+    from app.data_access.arango import collections as col
+    from app.domain.engines.phase_reachability import find_unreachable_phases
+
+    db = get_db()
+
+    def _scan(collection: str) -> list[dict]:
+        if not db.has_collection(collection):
+            return []
+        return list(db.aql.execute(f"FOR d IN {collection} RETURN d"))
+
+    findings = find_unreachable_phases(
+        plants=_scan(col.PLANT_INSTANCES),
+        entries=_scan(col.PHASE_SEQUENCE_ENTRIES),
+        sequences=_scan(col.PHASE_SEQUENCES),
+        growth_phases=_scan(col.GROWTH_PHASES),
+        species_sequence_edges=_scan(col.HAS_PHASE_SEQUENCE),
+        species_collection=col.SPECIES,
+        sequence_collection=col.PHASE_SEQUENCES,
+    )
+
+    rows = [{"plant_id": f.plant_id or f.plant_key, "kind": f.kind, "detail": f.detail} for f in findings]
+    if rows:
+        logger.error(
+            "plants_with_unreachable_phase",
+            count=len(rows),
+            plants=rows[:limit],
+            truncated=max(0, len(rows) - limit),
+            impact=(
+                "these plants sit in a phase their species is not bound to; "
+                "next_phase is null and the lifecycle cannot advance"
+            ),
+        )
+    else:
+        logger.info("all_plant_phases_reachable_from_their_species_sequence")
+    return rows
+
+
 def seed_cultivars(
     species_repo: ISpeciesRepository,
     cultivar_data: dict[str, list[dict[str, Any]]],
