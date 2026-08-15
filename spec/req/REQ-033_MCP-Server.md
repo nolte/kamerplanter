@@ -335,6 +335,29 @@ Schreibtools liefern zusaetzlich:
 > ausschliesslich Protokoll- oder Authentifizierungsversagen. Die vollstaendige Ausformulierung
 > dieses Vertrags samt Fehlercodes steht in REQ-050 §4.0; sie gilt fuer **alle** Werkzeuge, nicht
 > nur die dort spezifizierten fuenf.
+>
+> **Echte Serverfehler tragen eine Klasse, nicht nur eine Referenz-ID (#1164).** Scheitert ein
+> Werkzeug an einem Fehler in *unserem* Code statt an der Anfrage des Aufrufers, antwortet es mit
+> einem der beiden `internal.*`-Codes und HTTP-Status **500**:
+>
+> | `error_code` | Bedeutung | `retryable` |
+> |---|---|---|
+> | `internal.contract_mismatch` | Der Server hat seine eigene Arbeit falsch zusammengesetzt (falsche Aufrufsignatur, Schema-Bruch). | `false` |
+> | `internal.unavailable` | Eine benoetigte Abhaengigkeit war nicht erreichbar. | `true` |
+>
+> `details` traegt `reference_id`, `tool` und `retryable`. Drei Dinge sind dabei **bewusst**
+> ausgeschlossen:
+>
+> - **Keine Umdeutung nach 4xx.** Ein Validierungsfehler aus einer schlechten *Anfrage* ist
+>   typisiert und 4xx; einer aus unserer eigenen Zusammensetzung ist ein echter Serverfehler und
+>   muss laut bleiben (REQ-053 / #970). Eine Umdeutung haette #1145 leiser gemacht und nicht
+>   weniger kaputt — ein MCP-Client haette gegen einen „Client-Fehler" endlos weiter versucht.
+> - **Kein Ausnahmetext.** Ein `TypeError`-Repr nennt interne Symbole, ein `ValidationError` kann
+>   gespeicherte Feldwerte zitieren. Die Meldung ist ein fester Satz je Klasse.
+> - **Keine Voreingenommenheit zugunsten „transient".** Eine *unbekannte* Ausnahme gilt als
+>   `internal.contract_mismatch`. Eine faelschlich als dauerhaft eingestufte Stoerung kostet eine
+>   Meldung; eine faelschlich als voruebergehend eingestufte kostet eine endlose Wiederholschleife
+>   gegen einen Aufruf, der nie gelingen kann — genau das taten die Clients in #1145.
 
 Werkzeuge, die Bilder liefern (§2.2a), haengen zusaetzlich **Content-Bloecke** an. `summary`
 bleibt auch dort der fuehrende Block — siehe §4.3b.
