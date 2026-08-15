@@ -442,9 +442,33 @@ src/backend/tests/
 └── api/test_mcp_endpoints.py
 ```
 
-**Umsetzungsstand der Werkzeugpalette:** 56 Werkzeuge sind registriert — 44 lesende, 10 schreibende, 2 Setup. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_diagnostics`, `get_plant_inspections`, `list_cultivars`, `get_cultivar`, `list_substrates`, `list_overwintering_profiles`, `list_starter_kits`, `list_phase_definitions`, `get_species_phase_sequence`, `list_phase_sequences`, `list_species_by_phase_sequence`, `get_species_lifecycle`, `get_plant_phase_status`, `get_plant_phase_history`, `list_hardiness_zones`, `search_glossary`, `search_plant_knowledge`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`, `list_pending_diary_analyses`, `get_diary_entry`, `get_diary_entry_photos`, `list_diary_entries`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`, `add_plant_diary_entry`, `claim_diary_analysis`, `submit_diary_analysis`, `record_feeding_event`, `create_inspection`, `assign_nutrient_plan`, `transition_plant_phase`. Setup (`mcp.setup`): `create_site`, `assign_species_phase_sequence`.
+**Umsetzungsstand der Werkzeugpalette:** 64 Werkzeuge sind registriert — 51 lesende, 11 schreibende, 2 Setup. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_diagnostics`, `get_plant_inspections`, `list_cultivars`, `get_cultivar`, `list_substrates`, `list_overwintering_profiles`, `list_starter_kits`, `list_phase_definitions`, `get_species_phase_sequence`, `list_phase_sequences`, `list_species_by_phase_sequence`, `get_species_lifecycle`, `get_plant_phase_status`, `get_plant_phase_history`, `list_hardiness_zones`, `search_glossary`, `search_plant_knowledge`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`, `list_pending_diary_analyses`, `get_diary_entry`, `get_diary_entry_photos`, `list_diary_entries`, `get_substrate`, `preview_substrate_mix`, `list_substrate_batches`, `get_substrate_batch`, `check_batch_reusability`, `get_location`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`, `add_plant_diary_entry`, `claim_diary_analysis`, `submit_diary_analysis`, `record_feeding_event`, `create_inspection`, `assign_nutrient_plan`, `transition_plant_phase`, `set_plant_substrate`, `create_substrate_mix`. Setup (`mcp.setup`): `create_site`, `assign_species_phase_sequence`.
 
 > Diese Zahl ist gegen die *laufende* Registry gepinnt: `test_the_palette_grew_by_exactly_the_five_specified_tools` in `tests/unit/mcp_server/test_palette_registration.py` zaehlt die unter `app.mcp_server.tools` deklarierten Werkzeuge und schlaegt fehl, wenn sie von `PALETTE_SIZE` abweicht. Diese Aufzaehlung, `docs/*/api/mcp-server.md` und die Konstante werden gemeinsam fortgeschrieben — sie sind schon einmal auseinandergelaufen (#931).
+
+**Acht Werkzeuge fuer die Substratschicht (#1098, #1195).** Die gesamte Schicht war durch genau
+ein Werkzeug vertreten — `list_substrates`, eine Katalogauflistung. Nichts an Substraten war
+schreibbar, kein einzelnes Substrat lesbar, der Mischer unerreichbar und die Chargenschicht
+unsichtbar, obwohl `PlantCreate.substrate_batch_key` zeigt, dass das Datenmodell Chargen erwartet.
+
+Zwei Scoping-Regeln gelten hier, und ihre Verwechslung ist der naheliegende Fehler:
+
+- der **Katalog** ist hybrid — geseedete Basis-Medien plus eigene Mischungen —, seine Werkzeuge
+  nehmen `CatalogueToolInput`: `tenant` weggelassen heisst geteilter Katalog, ein eigenes Slug
+  erweitert;
+- **Chargen** sind strikt eigen — eine globale Charge gibt es nicht —, ihre Werkzeuge nehmen
+  `TenantToolInput` und *verlangen* damit einen handelnden Mandanten. „Kein Mandant" ist fuer eine
+  Charge keine sinnvolle Antwort, und ein Default wuerde die Zeilen liefern, die die Migration
+  `v0043` nicht zuordnen konnte.
+
+`set_plant_substrate` folgt der Vorlage von `set_plant_location` samt `_verify_targets` — was vor
+#1195 unmoeglich war, weil Substrate und Chargen keinen Eigentuemer trugen und es nichts gab,
+wogegen sich pruefen liess. Die Vorlage ohne ihren Waechter zu kopieren waere die schlechtere
+Haelfte gewesen.
+
+`calculate_mixing_protocol` nimmt seit #1098 optional einen `substrate_key` und faellt sonst auf
+`substrate_type` zurueck: zwei Medien desselben Typs unterscheiden sich genau in den Groessen, die
+ueber eine sichere Dosis entscheiden (CEC, Pufferkapazitaet, Vorlast-EC).
 
 Die Zahl stand bis hierhin auf 36 und listete die fuenf Tagebuch-Werkzeuge aus REQ-050 nicht mit, obwohl sie laengst registriert waren — ein Abgleich, der beim Nachziehen von §2.2a unterblieb.
 

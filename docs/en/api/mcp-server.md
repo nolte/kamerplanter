@@ -219,7 +219,14 @@ Because the role applies per garden, the same key can write in your own garden a
 | `list_fertilizers` | Available fertilisers with EC contribution and maximum dose |
 | `calculate_mixing_protocol` | Fertiliser calculator: per-product doses for your target volume and EC, in the correct mixing order |
 | `list_cultivars` / `get_cultivar` | A species' cultivars: breeder, traits, seed type, days to maturity |
-| `list_substrates` | Substrate catalogue: media and their properties |
+| `list_substrates` | Substrate catalogue: media and their properties — **a hybrid catalogue since #1195**: the seeded base media plus your tenant's own mixes once you pass `tenant` |
+| `get_substrate` | One substrate in full: pH and EC base, porosity, **CEC**, buffer capacity, reuse limits. Exactly the numbers that differ between two media of the same type — and that decide a safe dose |
+| `preview_substrate_mix` | What a weighted mix would behave like, **without** creating it. A pure calculation; the correct weighting differs per property (volume for porosity, **mass** for CEC, buffer-weighted for pH), so doing it by hand yields plausible wrong numbers |
+| `create_substrate_mix` | Create and persist a mix — **owned by your tenant**, not pushed into the shared catalogue |
+| `list_substrate_batches` / `get_substrate_batch` | A substrate's mixed batches with their pH/EC history and cycle count. This is what makes a plant's `substrate_batch_key` resolvable |
+| `check_batch_reusability` | Whether *this* batch may be reused — a decision from its own history, not a catalogue fact — and which treatments it needs first |
+| `set_plant_substrate` | Set a plant's substrate and/or batch **without touching any other field**. The only previous path was the full-replacement `PUT`, which erased the location, cultivar, name and — with some irony — the batch reference itself |
+| `get_location` | A location's own properties — type, climate zone, frost exposure. `list_plants_at_location` returns the plants and never the location, and whether a bed is frost-exposed decides which medium belongs there |
 | `list_overwintering_profiles` | Overwintering profiles: protection method, storage conditions, timing |
 | `list_starter_kits` | Starter kits for getting going |
 | `list_phase_definitions` | Growth-phase definitions behind the lifecycle logic — the individual building blocks, not the sequences |

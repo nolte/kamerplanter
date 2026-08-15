@@ -303,7 +303,7 @@ async def test_list_substrates_filters_by_name():
     # ``name`` matches nothing while a stub with a ``name`` attribute would let
     # that pass (#1006, same root cause as the get_plant join).
     class _Svc:
-        def list_substrates(self, offset=0, limit=50):
+        def list_substrates(self, offset=0, limit=50, *, tenant_key=None):
             return [
                 Substrate(_key="s1", name_de="Kokos", name_en="Coco coir"),
                 Substrate(_key="s2", name_de="Perlite", name_en="Perlite"),
@@ -325,7 +325,7 @@ async def test_list_substrates_matches_the_brand_and_catalogue_names():
     # filter over the names only would still miss a record whose name omitted the
     # manufacturer, so the brand is part of the haystack.
     class _Svc:
-        def list_substrates(self, offset=0, limit=50):
+        def list_substrates(self, offset=0, limit=50, *, tenant_key=None):
             return [
                 Substrate(_key="s1", brand="BioBizz", name_de="BioBizz Light·Mix", name_en="BioBizz Light Mix"),
                 Substrate(_key="s2", brand="BioBizz", name_de="BioBizz All·Mix", name_en="BioBizz All-Mix"),

@@ -205,12 +205,18 @@ class SubstrateService:
     def check_reusability(
         self,
         batch_key: BatchKey,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[bool, list[str], list[dict[str, str | float]], float, date | None]:
-        self.get_batch(batch_key)
+        # Scoped through the same by-key gate the reads use (#1195): a reusability
+        # verdict quotes the batch's pH/EC history and cycle count back to the
+        # caller, so an unscoped check is a read of a foreign batch wearing an
+        # assessment as cover.
+        self.get_batch(batch_key, tenant_key=tenant_key)
         return self._lifecycle_mgr.check_reusability(batch_key)
 
-    def prepare_reuse(self, batch_key: BatchKey) -> dict:
-        batch = self.get_batch(batch_key)
+    def prepare_reuse(self, batch_key: BatchKey, *, tenant_key: str | None = None) -> dict:
+        batch = self.get_batch(batch_key, tenant_key=tenant_key)
         self.get_substrate(batch.substrate_key)
         can_reuse, issues, prep_steps, prep_time, ready_date = self._lifecycle_mgr.check_reusability(batch_key)
         if not can_reuse:
