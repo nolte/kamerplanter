@@ -87,3 +87,42 @@ class TestEveryMintSiteUsesIt:
             f"these modules mint an error id by hand instead of calling new_error_id(): {offenders}. "
             "Each one can emit a card-like identifier and trip a PII scanner (#1158)."
         )
+
+
+class TestWhyTheOtherNumericIdentifierIsNotAffected:
+    """A response carries two numeric identifiers. Only one of them was the source.
+
+    Checked rather than assumed, because a fix that closes 0.035 % of a class
+    while a larger source sits beside it is the shape that reads as closed and is
+    not (#1158).
+
+    **ArangoDB document keys.** Observed on the reference instance during the
+    #1098 session: `13949`, `18132826`, `18132838`, `27773485`, `11598950`,
+    `122282`, `122484` — five to eight digits. Every card heuristic starts at
+    **twelve** (Maestro, the brand ZAP named), so a document key is structurally
+    too short to match, whatever its checksum.
+
+    A false trail worth recording, because it looked convincing: the scan's
+    request URIs *do* contain 328 numeric segments of 17–19 digits, 57.6 % of
+    which carry a Luhn-valid 12-digit window — and ZAP raised **zero** findings on
+    them. Those are ZAP's own filler values for OpenAPI path parameters, sitting
+    in *requests*; rule 10062 is a passive scanner over *response* bodies.
+    Measuring them was measuring the wrong side of the exchange.
+    """
+
+    OBSERVED_DOCUMENT_KEYS = ("13949", "18132826", "18132838", "27773485", "11598950", "122282", "122484")
+    SHORTEST_CARD_LENGTH = 12
+
+    def test_a_document_key_is_too_short_to_be_mistaken_for_a_card(self) -> None:
+        for key in self.OBSERVED_DOCUMENT_KEYS:
+            assert len(key) < self.SHORTEST_CARD_LENGTH, (
+                f"document key {key!r} reached card length — the exposure this file assumes away "
+                "no longer holds, and the fix here covers only error ids"
+            )
+            assert not looks_like_a_card_number(key)
+
+    def test_the_detector_is_not_error_id_specific(self) -> None:
+        """So if keys ever grow past twelve digits, the same helper applies at that
+        boundary. The exclusion above is a measured fact about today's data, not a
+        property of the code."""
+        assert looks_like_a_card_number("576481450749")
