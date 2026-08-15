@@ -105,7 +105,21 @@ REQ-033 stellt einen **Model Context Protocol (MCP) Server** bereit, der Kamerpl
 
 Die initiale Tool-Palette ist bewusst kuratiert (~30 Tools), abgeleitet aus den haeufigsten LLM-Use-Cases mit Schwerpunkt **Onboarding (Wohnung/Garten einrichten)**, **Bestandsaufnahme (Pflanzen erfassen)** und **Tagesbetrieb (Pflege, Diagnose)**. Erweiterung erfolgt nach Nutzungsmessung.
 
-**Mandanten-Parameter:** Jedes Tool, das nutzereigene Daten beruehrt, akzeptiert `tenant` (Slug des handelnden Mandanten). Bei genau einer Mitgliedschaft darf es entfallen, bei mehreren ist es Pflicht — der Server waehlt nie selbst einen aus. Tools auf globalen Katalogdaten (`list_species`, `get_species_info`) und auf kontobezogenen Daten (`list_tenants`, `get_mcp_activity`) fuehren den Parameter nicht. Die Aufloesung passiert zentral im Dispatcher, nicht im Tool (§4.3).
+**Mandanten-Parameter:** Jedes Tool, das nutzereigene Daten beruehrt, akzeptiert `tenant` (Slug des handelnden Mandanten). Bei genau einer Mitgliedschaft darf es entfallen, bei mehreren ist es Pflicht — der Server waehlt nie selbst einen aus. Tools auf kontobezogenen Daten (`list_tenants`, `get_mcp_activity`) fuehren den Parameter nicht. Die Aufloesung passiert zentral im Dispatcher, nicht im Tool (§4.3).
+
+**Hybrid-Katalog-Parameter (#1121).** Die Arten- und Sortenwerkzeuge (`list_species`, `get_species_info`, `list_cultivars`, `get_cultivar`) sind ein **dritter** Fall, der bis #1121 fehlte. Sie fuehren `tenant`, aber es *bindet* nicht, es *erweitert*:
+
+| `tenant` | Sichtbarkeit |
+|---|---|
+| weggelassen | nur der geteilte Seed-Katalog (`tenant_key == ""`) — unveraendertes Verhalten vor #1121 |
+| Slug einer eigenen Mitgliedschaft | geteilter Katalog **plus** die eigenen Eintraege dieses Mandanten (die Vereinigung aus #324, wie die HTTP-Route seit #1091) |
+| ein anderer Slug | `not_found` — byte-gleich zu einem Slug, der gar keinen Mandanten benennt |
+
+Das ist bewusst **nicht** `TenantToolInput`. Ein mandanten-*gebundenes* Werkzeug verlangt einen Mandanten und weist ein mehrdeutiges Weglassen mit `validation.tenant_required` zurueck; das ist richtig fuer ein Werkzeug, das *innerhalb* eines Mandanten handelt, und falsch fuer einen Katalog, dessen Antwort ohne Mandanten eine echte Antwort ist. Eine Beforderung haette genau die bestehenden Clients zu Fehlern gebracht, die den Parameter weglassen — die Rueckwaertskompatibilitaet, die #1121 als Abnahmekriterium fordert.
+
+Die Asymmetrie ist dieselbe wie in REQ-049 §2.11: **Abwesenheit verengt, ein abgelehnter Wert laesst den Aufruf scheitern, und nur ein geprueftes Slug erweitert ueberhaupt etwas.** Die Ablehnung ist `not_found` und nie `permission.denied` — diese Werkzeuge kann jeder Principal aufrufen, auch einer ganz ohne Mitgliedschaft, eine unterscheidbare Ablehnung machte sie zum Mandanten-Verzeichnis (§8.8 Szenario 6).
+
+Der uebrige globale Referenzkatalog (Substrate, Winterhaertezonen, Phasendefinitionen, Glossar, IPM) bleibt ohne Parameter: dort gibt es keine mandanteneigenen Zeilen, die eine Vereinigung sichtbar machen koennte.
 
 **Schreibzugriffs-Philosophie:** Schreibtools folgen vier festen Mustern, damit ein LLM sie sicher und idempotent verwenden kann:
 
