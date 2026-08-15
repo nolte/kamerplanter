@@ -9,7 +9,12 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
-from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
+from app.domain.services.catalogue_authorization import (
+    require_platform_admin_for_global_catalogue,
+)
+from app.domain.services.catalogue_authorization import (
+    require_role_for_catalogue_create as _authorize_tenant_owned_create,
+)
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
 
 #: Identity / provenance fields the synonym-inheritance (#975) must NEVER copy or
@@ -109,58 +114,6 @@ def _authorize_tenant_owned_write(
         return
     if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
         raise ForbiddenError(f"Your role may not modify {plural_noun} in this tenant.")
-
-
-def _authorize_tenant_owned_create(
-    *,
-    plural_noun: str,
-    caller_role: TenantRole | None,
-    is_platform_admin: bool,
-) -> None:
-    """Gate a hybrid-catalogue **create** on the caller's domain role — SEC-005 (#1113).
-
-    The create sibling of :func:`_authorize_tenant_owned_write`, and deliberately
-    the same kind of object: **one** function shared by Species and Cultivar rather
-    than a check per router. A router-only copy is precisely the drift that pulled
-    the delete boundary apart from :class:`MembershipEngine` before REQ-049 §2.3 was
-    re-pinned — and the reason the create hole existed at all is that the two POST
-    routes stamped ownership without ever asking who the caller was, while their
-    PUT/DELETE neighbours did.
-
-    Qualified as **SEC-005 (#1113)** throughout: ``SEC-005`` names two unrelated
-    findings (R-7) — the #808 companion-anchor/search scoping and this create gate.
-
-    Only one of the write gate's four arms survives, because there is no existing
-    row to own:
-
-    * ``caller_role is None`` — the unscoped **system-context** create (seeders,
-      CSV import, migrations, enrichment; no HTTP caller). No gate at all, mirroring
-      the ``tenant_key is None`` escape of :func:`_authorize_tenant_owned_write`, so
-      those callers keep working unchanged. Every HTTP route passes a real role
-      (:func:`~app.common.auth.get_active_tenant_context` falls back to
-      :attr:`TenantRole.VIEWER`, never ``None``), so the escape is not reachable
-      from the wire.
-    * platform admin — bypasses the domain rank, as it does for update/delete. This
-      is what keeps light-mode curation (REQ-027) of the shared catalogue working:
-      the sole operator holds no membership, so their context role is the fail-safe
-      viewer.
-    * otherwise the domain role gate: ``can_edit_resource`` — lead or grower may
-      create, a viewer may not (REQ-049 §2.3). There is no ``can_delete_resource``
-      arm and no ownership arm to choose between, so unlike the write gate this
-      takes no predicate argument: passing one would be a parameter that never
-      varies, and an argument that can only hold one value is the kind of hook that
-      silently stops meaning anything.
-
-    Refusal is a 403, never a 404: the caller is a legitimate member of the tenant
-    they are creating in — they are merely under-privileged — and there is no
-    existing row whose existence a 404 could hide.
-    """
-    if caller_role is None:
-        return
-    if is_platform_admin:
-        return
-    if not MembershipEngine.can_edit_resource(caller_role):
-        raise ForbiddenError(f"Your role may not create {plural_noun} in this tenant.")
 
 
 class SpeciesService:

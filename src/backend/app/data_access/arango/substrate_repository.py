@@ -4,6 +4,7 @@ from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import escape_aql_like
+from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import Substrate, SubstrateBatch
 
@@ -18,10 +19,40 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
     # ── Substrate CRUD ────────────────────────────────────────────────
 
     def get_all_substrates(
-        self, offset: int = 0, limit: int = 50, query: str | None = None
+        self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
     ) -> tuple[list[Substrate], int]:
+        """List the substrate catalogue, optionally scoped to a caller's tenant (#1195).
+
+        Substrate is a **hybrid catalogue**: the seeded base media
+        (``tenant_key == ""``) plus a tenant's own mixes. ``tenant_key`` selects
+        the visibility:
+
+        * ``None`` — no scoping: the whole catalogue. The *system-context* read
+          the seed loaders and the mix resolver depend on; never reachable from a
+          raw HTTP read, which always passes a resolved key.
+        * a string (including ``""``) — the hybrid union via the shared F-4 helper:
+          the caller's own mixes **plus** the global media, never a foreign
+          tenant's mix. ``""`` (anonymous / light mode) collapses it to
+          global-only.
+
+        The union is the shared helper rather than an inline copy, so this read
+        narrows the collection identically to the species reads (#324, #816).
+        """
+        scope, scope_binds = tenant_union_predicate(tenant_key) if tenant_key is not None else ("true", {})
+
         if query is None or not query.strip():
-            return super().get_all(offset, limit)
+            if tenant_key is None:
+                return super().get_all(offset, limit)
+            list_query = (
+                f"FOR doc IN {self._collection_name} FILTER {scope} SORT doc._key LIMIT @offset, @limit RETURN doc"
+            )
+            cursor = self._db.aql.execute(list_query, bind_vars={**scope_binds, "offset": offset, "limit": limit})
+            items = self._wrap_many([self._from_doc(doc) for doc in cursor])
+            count_query = (
+                f"FOR doc IN {self._collection_name} FILTER {scope} COLLECT WITH COUNT INTO total RETURN total"
+            )
+            total = int(next(self._db.aql.execute(count_query, bind_vars=dict(scope_binds)), 0))
+            return items, total
 
         # Case-insensitive substring match over the two catalogue names and the
         # brand, so the natural pre-create duplicate check ("does a BioBizz
@@ -32,22 +63,27 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
         # its wildcards escaped and bound as a parameter (never interpolated), and
         # the third LIKE argument makes the match case-insensitive.
         pattern = f"%{escape_aql_like(query.strip())}%"
+        # The scope is AND-composed *around* the name/brand OR-group. Without the
+        # inner parentheses the tenant arm would bind against only the first LIKE
+        # and a foreign tenant's mix would surface on a brand match — the widest
+        # possible leak, from operator precedence.
         filter_clause = (
-            "FILTER LIKE(doc.name_de, @pattern, true) "
+            f"FILTER {scope} AND ("
+            "LIKE(doc.name_de, @pattern, true) "
             "OR LIKE(doc.name_en, @pattern, true) "
-            "OR LIKE(doc.brand, @pattern, true)"
+            "OR LIKE(doc.brand, @pattern, true))"
         )
         list_query = (
             f"FOR doc IN {self._collection_name} {filter_clause} SORT doc._key LIMIT @offset, @limit RETURN doc"
         )
         cursor = self._db.aql.execute(
             list_query,
-            bind_vars={"pattern": pattern, "offset": offset, "limit": limit},
+            bind_vars={**scope_binds, "pattern": pattern, "offset": offset, "limit": limit},
         )
         items = self._wrap_many([self._from_doc(doc) for doc in cursor])
 
         count_query = f"FOR doc IN {self._collection_name} {filter_clause} COLLECT WITH COUNT INTO total RETURN total"
-        count_cursor = self._db.aql.execute(count_query, bind_vars={"pattern": pattern})
+        count_cursor = self._db.aql.execute(count_query, bind_vars={**scope_binds, "pattern": pattern})
         total = int(next(count_cursor, 0))
         return items, total
 
@@ -74,8 +110,30 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
     def get_batch_or_raise(self, key: BatchKey) -> SubstrateBatch:
         return self._batches.get_or_raise(key)
 
-    def get_batches_by_substrate(self, substrate_key: SubstrateKey) -> list[SubstrateBatch]:
-        return self._batches.find_by_field("substrate_key", substrate_key)
+    def get_batches_by_substrate(
+        self, substrate_key: SubstrateKey, *, tenant_key: str | None = None
+    ) -> list[SubstrateBatch]:
+        """List a substrate's batches, scoped to one tenant (#1195).
+
+        **Strict equality, not the hybrid union.** A batch belongs to exactly one
+        tenant — there is no global batch to share — so ``== @tenant_key`` is the
+        correct filter and admitting ``""`` would hand every caller the rows the
+        ``v0043`` backfill could not attribute.
+
+        ``tenant_key=None`` is the unscoped system-context read the migration and
+        the reuse engine use. Before #1195 that was the *only* behaviour, and it
+        was reachable straight from ``GET /substrates/{key}/batches`` — which
+        returned every tenant's batches to any authenticated caller.
+        """
+        if tenant_key is None:
+            return self._batches.find_by_field("substrate_key", substrate_key)
+        query = (
+            f"FOR doc IN {col.SUBSTRATE_BATCHES} "
+            "FILTER doc.substrate_key == @substrate_key AND doc.tenant_key == @tenant_key "
+            "SORT doc._key RETURN doc"
+        )
+        cursor = self._db.aql.execute(query, bind_vars={"substrate_key": substrate_key, "tenant_key": tenant_key})
+        return [SubstrateBatch(**self._from_doc(doc)) for doc in cursor]
 
     def create_batch(self, batch: SubstrateBatch) -> SubstrateBatch:
         created = self._batches.create(batch)

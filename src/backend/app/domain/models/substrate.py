@@ -16,6 +16,18 @@ class MixComponent(BaseModel):
 
 class Substrate(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    #: Owning tenant — a **hybrid catalogue** marker (#1195).
+    #:
+    #: ``""`` is the seeded base catalogue every tenant reads, exactly as it is
+    #: for :class:`~app.domain.models.species.Species` and ``Cultivar`` since
+    #: #1090. A non-empty key is a mix a tenant created for itself: the operator
+    #: decision on #1098 is that a community garden which mixes its own medium
+    #: owns that mix, rather than pushing it into the catalogue everyone shares.
+    #:
+    #: Reads therefore take the *union* (own ∪ global), never a strict filter —
+    #: a strict ``== @tenant_key`` would blank the whole seeded catalogue for
+    #: every real tenant, which is the #324 regression in its other direction.
+    tenant_key: str = ""
     type: SubstrateType = SubstrateType.SOIL
     brand: str | None = None
     name_de: str = ""
@@ -67,6 +79,21 @@ class Substrate(BaseModel):
 
 class SubstrateBatch(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    #: Owning tenant — **strict**, unlike :class:`Substrate` (#1195).
+    #:
+    #: A batch is a physical thing one tenant mixed: a volume, a mix date, its own
+    #: pH/EC history and reuse cycles. There is no such thing as a *global* batch,
+    #: so reads filter on equality and never union with ``""``.
+    #:
+    #: A row left at ``""`` by the ``v0043`` backfill — one whose owner could not
+    #: be established because plants of several tenants pointed at it — is
+    #: consequently invisible to every tenant in ``full`` mode, since a real
+    #: tenant key is never empty. That is the fail-safe direction (shown to nobody
+    #: rather than to everybody) and it is why the migration *counts* those rows
+    #: instead of guessing an owner. In ``light`` mode the sole operator resolves
+    #: to ``""`` and still sees them, which is correct for a single-operator
+    #: install.
+    tenant_key: str = ""
     batch_id: str
     substrate_key: str = ""
     volume_liters: float = Field(ge=0)
