@@ -531,11 +531,26 @@ class TestSubstrateDetailPage:
         substrate_list: SubstrateListPage,
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
+        app_mode: str,
     ) -> None:
         """TC-019-016: Edit pH base value and save successfully.
 
         Spec: TC-019-016 -- Substrat bearbeiten — pH-Basis aendern.
+
+        **Light mode only, since #1195.** The seeded substrates are the *global*
+        catalogue (``tenant_key == ""``), and editing a row every tenant reads is
+        curation: it needs a platform admin, the same rule #1120 set for botanical
+        families. In light mode the sole anonymous operator *is* that admin
+        (REQ-027), so the happy path is reachable. In full mode the E2E user is an
+        ordinary member — created by registration, which grants no platform
+        membership — and the edit is refused. That refusal is its own case below,
+        not a weaker assertion here.
         """
+        if app_mode != "light":
+            pytest.skip(
+                "TC-019-016 is the platform-admin happy path; in full mode the E2E user "
+                "is an ordinary member and the refusal is TC-019-099's subject"
+            )
         substrate_list.open()
 
         if substrate_list.get_row_count() == 0:
@@ -556,17 +571,32 @@ class TestSubstrateDetailPage:
 
         substrate_detail.submit_form()
         substrate_detail.wait_for_loading_complete()
-        updated_ph = substrate_detail.wait_for_field_value("ph_base", str(new_ph))
         screenshot("TC-REQ-019-022_after-save", "Detail page after saving")
 
-        # Verify the value was saved (page reloads with updated value)
-        assert updated_ph == str(new_ph), (
-            f"TC-REQ-019-022 FAIL: Expected pH value '{new_ph}' after save, got '{updated_ph}'"
+        # Reload before reading. The previous version read the field straight
+        # after the submit — the very field the test had just typed into — so it
+        # reported success on a save the server refused, and only the restore
+        # step further down happened to disagree. Measured on the 2026-08-15
+        # nightly: the assertion passed while a red "Sie haben keine Berechtigung
+        # für diese Aktion." toast was on screen (#1195 gated the global
+        # catalogue on the platform admin). Re-opening is what makes this read
+        # the *persisted* value instead of the form state.
+        substrate_detail.driver.refresh()
+        substrate_detail.wait_for_element(SubstrateDetailPage.PAGE)
+        substrate_detail.wait_for_loading_complete()
+        persisted_ph = substrate_detail.wait_for_field_value("ph_base", str(new_ph))
+
+        assert persisted_ph == str(new_ph), (
+            f"TC-REQ-019-022 FAIL: Expected pH value '{new_ph}' to survive a reload, "
+            f"got '{persisted_ph}'"
         )
 
         # Restore original value
         substrate_detail.fill_ph_base(float(original_ph))
         substrate_detail.submit_form()
+        substrate_detail.wait_for_loading_complete()
+        substrate_detail.driver.refresh()
+        substrate_detail.wait_for_element(SubstrateDetailPage.PAGE)
         substrate_detail.wait_for_loading_complete()
         substrate_detail.wait_for_field_value("ph_base", original_ph)
 
@@ -718,4 +748,76 @@ class TestSubstrateErrorHandling:
 
         assert substrate_detail.is_error_displayed(), (
             "TC-019-039 FAIL: Expected error display for non-existent substrate key"
+        )
+
+
+class TestGlobalSubstrateCatalogueRoleGate:
+    """Who may curate the global substrate catalogue (Spec: TC-019-099)."""
+
+    @pytest.mark.core_crud
+    def test_an_ordinary_member_cannot_edit_a_global_substrate(
+        self,
+        substrate_list: SubstrateListPage,
+        substrate_detail: SubstrateDetailPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
+    ) -> None:
+        """TC-019-099: An ordinary member may not curate the global substrate catalogue.
+
+        Spec: TC-019-099 -- Nur ein Plattform-Admin darf globale Substrate aendern.
+
+        The other half of the split TC-019-016 describes. Since #1195 `Substrate`
+        is a hybrid catalogue: the seeded base media are global (`tenant_key ==
+        ""`) and a tenant's own mixes are not. Editing a global row is curation and
+        needs the platform admin — the rule #1120 set for botanical families and
+        #1109 for the global cultivar catalogue.
+
+        Full mode only: in light mode the sole operator *is* that admin (REQ-027),
+        so there is no non-admin caller to refuse.
+
+        Asserted as a refusal the **user can observe**, and then as a value that
+        did not move. Either alone is too weak: a toast-only check passes if the
+        app shows an error and saves anyway, and a value-only check passes if the
+        app silently swallows the 403 — which is the worse outcome of the two,
+        because the user is left editing a form that does nothing.
+        """
+        if app_mode == "light":
+            pytest.skip(
+                "light mode's sole anonymous operator is treated as platform admin "
+                "(REQ-027), so there is no non-admin caller here — TC-019-016 covers it"
+            )
+
+        substrate_list.open()
+        if substrate_list.get_row_count() == 0:
+            pytest.skip("No substrates in database — cannot test the role gate")
+
+        substrate_list.click_row(0)
+        substrate_list.wait_for_url_contains("/standorte/substrates/")
+        substrate_detail.wait_for_element(SubstrateDetailPage.PAGE)
+        substrate_detail.wait_for_loading_complete()
+
+        original_ph = substrate_detail.get_ph_base_value()
+        refused_ph = 5.5 if original_ph != "5.5" else 6.0
+        substrate_detail.fill_ph_base(refused_ph)
+        substrate_detail.submit_form()
+        substrate_detail.wait_for_loading_complete()
+        screenshot(
+            "TC-REQ-019-099_after-submit", "Result after an ordinary member submitted the edit"
+        )
+
+        assert substrate_detail.has_error_snackbar(), (
+            "TC-REQ-019-099 FAIL: the refusal must be surfaced to the user, not swallowed — "
+            "otherwise the form silently does nothing and the user keeps trying"
+        )
+
+        # And nothing was written. Read after a reload, because the form field
+        # still holds what was typed: that is exactly how the old TC-019-016
+        # reported success on a save the server had refused.
+        substrate_detail.driver.refresh()
+        substrate_detail.wait_for_element(SubstrateDetailPage.PAGE)
+        substrate_detail.wait_for_loading_complete()
+
+        assert substrate_detail.get_ph_base_value() == original_ph, (
+            "TC-REQ-019-099 FAIL: the pH value changed despite the refusal — the gate "
+            "reported an error and wrote anyway"
         )
