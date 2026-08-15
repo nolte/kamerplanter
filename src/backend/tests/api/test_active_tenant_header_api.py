@@ -87,7 +87,7 @@ def _app(repo: _FakeFamilyRepo) -> FastAPI:
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.include_router(families_router, prefix="/api/v1")
-    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="user_1")
+    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="user_1", account_type="user")
     app.dependency_overrides[get_tenant_service] = _FakeTenantService
     app.dependency_overrides[get_family_repo] = lambda: repo
     return app

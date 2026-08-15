@@ -31,7 +31,7 @@ from app.common.exceptions import KamerplanterError
 
 
 def _user() -> SimpleNamespace:
-    return SimpleNamespace(key="user_1")
+    return SimpleNamespace(key="user_1", account_type="user")
 
 
 def _build_app(tenant_service: MagicMock) -> FastAPI:
