@@ -70,7 +70,12 @@ describe('CultivarCreateDialog', () => {
     await userEvent.click(screen.getByTestId('form-submit-button'));
 
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
-    expect(payload).toMatchObject({ name: 'Marmande', species_key: 'sp-1' });
+    // #1114: the body no longer carries the parent species — the URL does, and it
+    // is asserted by the handler path this test registers. Kept as an explicit
+    // absence check rather than just dropping the key: silently shortening the
+    // assertion would leave "does the client still smuggle it in?" unanswered.
+    expect(payload).toMatchObject({ name: 'Marmande' });
+    expect(payload).not.toHaveProperty('species_key');
   });
 
   it('keeps the dialog open and reports the error when creation fails', async () => {
