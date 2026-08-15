@@ -26,7 +26,6 @@ security binding, idempotency and audit.
 from __future__ import annotations
 
 import json
-import uuid
 from time import perf_counter
 from typing import Any
 
@@ -34,6 +33,7 @@ import structlog
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import McpToolStatus, TenantRole
+from app.common.error_ids import new_error_id
 from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError, ValidationError
 from app.core.permissions import assert_mcp_permission
 from app.domain.models.mcp import McpToolResponse
@@ -249,7 +249,7 @@ class ToolDispatcher:
         runs.
         """
         error_code = classify_internal_failure(exc)
-        reference_id = f"err_{uuid.uuid4()}"
+        reference_id = new_error_id()
         logger.error(
             "mcp_tool_internal_failure",
             error_id=reference_id,
