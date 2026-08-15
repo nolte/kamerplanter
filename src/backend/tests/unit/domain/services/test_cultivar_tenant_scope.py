@@ -23,6 +23,7 @@ import pytest
 from app.common.exceptions import NotFoundError
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.species_service import SpeciesService
+from tests.support.grant_fakes import NoGrantsMixin
 
 _SPECIES = [
     Species(_key="sp_global", scientific_name="Ocimum basilicum", tenant_key=""),
@@ -37,7 +38,7 @@ _CULTIVARS = [
 ]
 
 
-class _FakeUnionSpeciesRepo:
+class _FakeUnionSpeciesRepo(NoGrantsMixin):
     """Models the repository's three-arm hybrid-catalogue union for cultivars.
 
     ``tenant_key is None`` is the unscoped system read (whole collection); a string

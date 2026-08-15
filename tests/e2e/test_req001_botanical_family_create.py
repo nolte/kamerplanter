@@ -196,29 +196,85 @@ class TestBotanicalFamilyCreateDialog:
 
     @pytest.mark.core_crud
     def test_create_family_minimal_fields(
-        self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
+        self,
+        family_list: BotanicalFamilyListPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
     ) -> None:
         """TC-001-006: Create a family with minimal fields (only required).
 
         Spec: TC-001-006 -- Neue Botanische Familie mit minimalen Pflichtfeldern erstellen.
+
+        **What this case means, decided in #1153.** The minimum field set *is*
+        sufficient: ``FamilyCreate`` requires only ``name``, and the dialog's two
+        ``required`` multi-selects (``typical_growth_forms``,
+        ``pollination_type``) ship pre-filled with ``['herb']`` and ``['insect']``.
+        So typing only a name is a create that must land, and this asserts that it
+        did.
+
+        Until #1153 it asserted **nothing**. Its comment said either outcome was
+        acceptable — dialog closed *or* dialog still open — which made it green on
+        a successful create, on a validation refusal, and (as measured against the
+        ``full`` profile after #1120) on an *authorization* refusal. Its sibling
+        ``test_create_family_with_all_fields`` had to be mode-split because the
+        create genuinely stopped working for the demo user; this one did not
+        notice. It also stated a reason that was not true: no required multi-select
+        was ever empty.
+
+        **Light mode only, for the same reason as the sibling.** Creating global
+        reference data is curation and needs a platform admin (#1120); in light
+        mode the sole anonymous operator is that admin (REQ-027). The full-mode
+        refusal is TC-001-099's subject, not a weaker assertion here.
         """
+        if app_mode != "light":
+            pytest.skip(
+                "TC-001-006 minimal-fields is the platform-admin happy path; in full "
+                "mode the demo user is an ordinary member and the refusal is "
+                "TC-001-099's subject"
+            )
         family_list.open()
         family_list.click_create()
 
         unique = uuid.uuid4().hex[:6]
-        family_list.fill_name_only(f"Minimal{unique}aceae")
-        screenshot(
-            "TC-REQ-001-020_minimal-filled", f"Create dialog with only name Minimal{unique}aceae"
-        )
+        # The uniqueness suffix goes BEFORE "-aceae": botanical nomenclature is
+        # enforced on both FamilyCreate and the domain model, so a trailing suffix
+        # would make this a legitimate 422 and the case would never create anything.
+        family_name = f"Minimal{unique}aceae"
+        family_list.fill_name_only(family_name)
+        screenshot("TC-REQ-001-020_minimal-filled", f"Create dialog with only name {family_name}")
 
         family_list.submit_create_form()
+        # The exact post-condition, not `wait_for_loading_complete()` — that can
+        # return before the POST has been answered at all. The dialog closes only
+        # after `await api.createBotanicalFamily(...)` resolves 2xx, so waiting for
+        # it to close is what makes "the server accepted this" observable.
+        family_list.wait_for_create_dialog_closed()
 
-        family_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-020_after-submit", "Family list after minimal creation attempt")
-        # Either the dialog closes (creation succeeded) or it stays open because
-        # a required multi-select still needs a value — both are valid outcomes
-        # for a "minimal fields" attempt; the goal of this test is exercising the
-        # submit path without the app crashing, which the calls above already do.
+        family_list.open()
+        family_list.search(family_name)
+        family_list.wait_for_search_applied(family_name, what="botanical family list")
+        family_list.wait_for_row_identity(
+            0,
+            BotanicalFamilyListPage.NAME_COLUMN_ID,
+            family_name,
+            rows_locator=BotanicalFamilyListPage.TABLE_ROWS,
+            what=f"self-provisioned botanical family {family_name!r} (minimal create confirmed)",
+        )
+        screenshot(
+            "TC-REQ-001-020_after-submit", "Family list filtered to the minimally created family"
+        )
+
+        # Identity, not arithmetic, and not "the app did not crash" — the two
+        # shapes that let this class of test stay green through a refusal
+        # (#956/#966, and this very case for as long as it existed). The name
+        # carries a per-run uuid, so nothing but this create can satisfy it.
+        listed = family_list.get_first_column_texts()
+        assert listed == [family_name], (
+            f"TC-REQ-001-020 FAIL: The list filtered by {family_name!r} must name exactly "
+            f"the family just created from the minimum field set, but reads {listed!r}. "
+            f"An empty list means the create did not land despite the dialog closing; "
+            f"more than one row means the name is not unique."
+        )
 
     @pytest.mark.core_crud
     def test_cancel_create_dialog(

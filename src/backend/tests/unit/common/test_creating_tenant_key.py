@@ -20,7 +20,8 @@ from app.domain.services.tenant_service import TenantService
 
 
 def _user() -> SimpleNamespace:
-    return SimpleNamespace(key="user_1")
+    # ``account_type`` decides the header-less fallback since #1122.
+    return SimpleNamespace(key="user_1", account_type="user")
 
 
 def _tenant(key: str, tenant_type: TenantType, created_at: datetime | None = None) -> Tenant:

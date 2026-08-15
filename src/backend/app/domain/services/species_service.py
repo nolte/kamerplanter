@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 from app.common.enums import DataOrigin, TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
@@ -207,9 +207,20 @@ class SpeciesService:
           the by-key endpoint cannot be used as a cross-tenant existence oracle.
           An empty ``""`` (anonymous / light-mode / no personal tenant) collapses
           the check to global-only.
+
+        Since #1092 an **explicit grant** is a third way in. The edge is consulted
+        only after ownership and global both fail, so the common read still costs
+        no extra query — but it has to be consulted *here* and not only in the
+        list query: a species that appears in the list and then 404s when opened
+        is a grant shipped half-done, and the half that is missing is the one the
+        recipient actually uses.
         """
         species = self._repo.get_or_raise(key)
-        if tenant_key is not None and species.tenant_key not in (tenant_key, ""):
+        if (
+            tenant_key is not None
+            and species.tenant_key not in (tenant_key, "")
+            and not (tenant_key and self._repo.is_granted_to(key, tenant_key))
+        ):
             raise NotFoundError("Species", key)
         return species
 
@@ -504,6 +515,167 @@ class SpeciesService:
         species.cultivation_flexible = existing.cultivation_flexible
         return self._repo.update(key, species)
 
+    # ── explicit masterdata grants (#1092) ──────────────────────────────────
+
+    def grant_species_access(
+        self,
+        key: SpeciesKey,
+        *,
+        to_tenant_key: str,
+        tenant_key: str,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> None:
+        """Share one of *this tenant's own* species with another tenant.
+
+        The use case #1092 was decided on: a community garden shares a cultivar it
+        maintains with a member tenant, without making it global.
+
+        Gated through the same :func:`_authorize_tenant_owned_write` the edit path
+        uses, so the four arms answer identically — a *foreign* row is 404 (never a
+        403, which would confirm it exists), the *global* seed catalogue is
+        platform-admin only, and the caller's *own* row needs a writing role.
+        Sharing is a write about the row even though it does not change the row.
+
+        Note what is deliberately absent: granting to a tenant the caller is not a
+        member of is allowed. The grant gives *away* visibility, so it cannot be
+        used to widen the caller's own reach — the direction that would need
+        guarding is the reverse one, and it does not exist here.
+        """
+        existing = self.get_species(key)
+        self._authorize_species_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
+        if to_tenant_key == existing.tenant_key:
+            # Granting to the owner is meaningless, and silently writing the edge
+            # would leave a grant that revocation has no reason to look for.
+            raise ValidationError("A species cannot be granted to the tenant that already owns it.")
+        self._repo.grant_access(key, to_tenant_key)
+
+    def revoke_species_access(
+        self,
+        key: SpeciesKey,
+        *,
+        from_tenant_key: str,
+        tenant_key: str,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> bool:
+        """Withdraw a grant. Same authority as making one.
+
+        A grant that cannot be taken back is a permanent share wearing a revocable
+        label, so this is not an optional companion to the method above.
+        """
+        existing = self.get_species(key)
+        self._authorize_species_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
+        return self._repo.revoke_access(key, from_tenant_key)
+
+    def list_species_grants(
+        self,
+        key: SpeciesKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> list[str]:
+        """Who this species has been shared with. Owner-only.
+
+        A grantee must not be able to enumerate the other grantees: that would turn
+        a share into a directory of which tenants exist.
+        """
+        existing = self.get_species(key)
+        self._authorize_species_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
+        return self._repo.list_grants(key)
+
+    # The cultivar pendants. Same three operations, same gate, different entity —
+    # and the record type the #1092 use case actually names: a community garden
+    # shares a cultivar it maintains. They are written out rather than folded into
+    # one generic helper because the gate they call is already the shared one; a
+    # second layer of indirection would hide *which* entity's 404 a caller gets.
+
+    def grant_cultivar_access(
+        self,
+        key: CultivarKey,
+        *,
+        to_tenant_key: str,
+        tenant_key: str,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> None:
+        """Share one of this tenant's own cultivars with another tenant."""
+        existing = self.get_cultivar(key)
+        self._authorize_cultivar_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
+        if to_tenant_key == existing.tenant_key:
+            raise ValidationError("A cultivar cannot be granted to the tenant that already owns it.")
+        self._repo.grant_cultivar_access(key, to_tenant_key)
+
+    def revoke_cultivar_access(
+        self,
+        key: CultivarKey,
+        *,
+        from_tenant_key: str,
+        tenant_key: str,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> bool:
+        """Withdraw a cultivar grant. Same authority as making one."""
+        existing = self.get_cultivar(key)
+        self._authorize_cultivar_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
+        return self._repo.revoke_cultivar_access(key, from_tenant_key)
+
+    def list_cultivar_grants(
+        self,
+        key: CultivarKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> list[str]:
+        """Who this cultivar has been shared with. Owner-only, like the species list."""
+        existing = self.get_cultivar(key)
+        self._authorize_cultivar_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
+        return self._repo.list_cultivar_grants(key)
+
     def delete_species(
         self,
         key: SpeciesKey,
@@ -650,7 +822,15 @@ class SpeciesService:
         cultivar = self._repo.get_cultivar_or_raise(key)
         if species_key is not None and cultivar.species_key != species_key:
             raise NotFoundError("Cultivar", key)
-        if tenant_key is not None and cultivar.tenant_key not in (tenant_key, ""):
+        if (
+            tenant_key is not None
+            and cultivar.tenant_key not in (tenant_key, "")
+            # An explicit grant (#1092) is the third way in, checked only after
+            # ownership and global both fail so the common read costs no extra
+            # query — and checked *here* as well as in the list query, because a
+            # cultivar that lists but 404s when opened is a share shipped half-done.
+            and not (tenant_key and self._repo.is_cultivar_granted_to(key, tenant_key))
+        ):
             raise NotFoundError("Cultivar", key)
         return cultivar
 

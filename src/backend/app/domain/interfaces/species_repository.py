@@ -29,6 +29,35 @@ class ISpeciesRepository(ABC):
     @abstractmethod
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species: ...
 
+    # ── explicit masterdata grants (#1092) ──────────────────────────────────
+    # Read-only sharing: a grant makes a row visible to another tenant, never
+    # editable or deletable. Declared on the interface so a second implementation
+    # cannot ship the read arm without the revoke path.
+
+    @abstractmethod
+    def grant_access(self, species_key: str, to_tenant_key: str) -> None: ...
+
+    @abstractmethod
+    def revoke_access(self, species_key: str, from_tenant_key: str) -> bool: ...
+
+    @abstractmethod
+    def list_grants(self, species_key: str) -> list[str]: ...
+
+    @abstractmethod
+    def is_granted_to(self, species_key: str, tenant_key: str) -> bool: ...
+
+    @abstractmethod
+    def grant_cultivar_access(self, cultivar_key: str, to_tenant_key: str) -> None: ...
+
+    @abstractmethod
+    def revoke_cultivar_access(self, cultivar_key: str, from_tenant_key: str) -> bool: ...
+
+    @abstractmethod
+    def list_cultivar_grants(self, cultivar_key: str) -> list[str]: ...
+
+    @abstractmethod
+    def is_cultivar_granted_to(self, cultivar_key: str, tenant_key: str) -> bool: ...
+
     @abstractmethod
     def find_synonym_match_candidates(self, species: Species) -> list[Species]: ...
 

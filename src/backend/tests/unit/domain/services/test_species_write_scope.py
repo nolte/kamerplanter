@@ -25,9 +25,10 @@ from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError
 from app.domain.models.species import Species
 from app.domain.services.species_service import SpeciesService
+from tests.support.grant_fakes import NoGrantsMixin
 
 
-class _FakeRepo:
+class _FakeRepo(NoGrantsMixin):
     """Minimal repo over an in-memory catalogue keyed by document key."""
 
     def __init__(self, species: list[Species]) -> None:
