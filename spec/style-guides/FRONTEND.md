@@ -929,15 +929,24 @@ export function renderWithProviders(
 
 ### 13.5 Accessibility-Tests (vitest-axe)
 
+Benutze **immer** den gemeinsamen Helfer, nie `axe()` direkt (#1094):
+
 ```tsx
-import { axe } from 'vitest-axe';
+import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 
 it('has no critical a11y violations', async () => {
   const { container } = renderWithProviders(<DashboardPage />);
-  const results = await axe(container);
-  expect(results.violations.filter(v => v.impact === 'critical')).toEqual([]);
+  await expectNoA11yViolations(container, { minElements: 20 });
 });
 ```
+
+Der Helfer trifft drei Entscheidungen, die vorher jede Datei neu raten musste:
+
+- **`critical` laesst den Test scheitern**, nicht „gar keine Violations". In jsdom meldet axe an isoliert gerenderten Komponenten Kontrast- und Landmark-Befunde, die Artefakte des Tests sind und nicht des Bauteils; ein Helfer, der daran scheitert, wird abgeschaltet statt repariert. `minImpact` verschaerft pro Aufruf.
+- **Grosszuegiger Timeout.** `axe()` ist ein vollstaendiger DOM-Durchlauf und ueberschreitet unter Volllast den 1-Sekunden-Default von `waitFor` (unabhaengig von `testTimeout`). Last darf das Urteil nicht faellen.
+- **`minElements` ist bei Seiten Pflicht.** Eine Seite, die nur ihr Ladeskelett zeigt, besteht *jeden* axe-Test. Gemessen: zwei der vier in #1094 nachgezogenen Seiten standen bei 15 Elementen und waren gruen. Ohne diesen Boden zertifiziert der Test einen Spinner.
+
+Neue **Seiten**-Tests bekommen den axe-Durchlauf per Default — trage die Seite in `src/test/a11y/topPages.a11y.test.tsx` ein. Bleibt eine Seite im Ladezustand haengen, weil die Default-MSW-Handler ihre Anfragen nicht beantworten, dann **gehoert sie nicht mit abgesenktem Boden hinein**, sondern braucht ihre Fixture oder bleibt vorerst draussen (dokumentiert). Der abgesenkte Boden macht die ganze Datei wertlos: dann besteht jede Seite im Ladezustand.
 
 ### 13.6 Coverage-Schwellen
 
