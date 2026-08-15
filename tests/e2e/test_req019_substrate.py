@@ -26,7 +26,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-019.md):
 
 from __future__ import annotations
 
-import time
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -372,26 +372,21 @@ class TestSubstrateCreateDialog:
         Spec: TC-019-007 -- Substrat erfolgreich erstellen (Happy Path).
         """
         substrate_list.open()
-        # Counted behind the search filter, not on the unfiltered list. The list
-        # paginates at 25 rows, so on a full first page the visible row count
-        # cannot grow no matter how many substrates are created -- the check
-        # read `assert 25 > 25` and failed on every profile (#802). Filtering by
-        # the name this test creates keeps the count far below the page size and
-        # stays correct under parallel execution, because a concurrent test adds
-        # rows under its own name rather than this one.
-        substrate_list.search(SUBSTRATE_NAME_DE)
-        substrate_list.wait_for_loading_complete()
-        matches_before = substrate_list.get_row_count()
-        substrate_list.clear_search()
-        substrate_list.wait_for_loading_complete()
+        # A per-run name, so the assertion below can be about *this* create.
+        # A shared fixed name forces a before/after count, and a count is
+        # satisfiable by anything that adds a row — including another worker's
+        # create landing between the two reads.
+        unique = uuid.uuid4().hex[:6]
+        name_de = f"{SUBSTRATE_NAME_DE}-{unique}"
+        name_en = f"{SUBSTRATE_NAME_EN} {unique}"
         screenshot("TC-REQ-019-013_before-create", "Substrate list before creating")
 
         substrate_list.click_create()
         screenshot("TC-REQ-019-013_dialog-open", "Substrate create dialog opened")
 
         # Fill in form fields
-        substrate_list.fill_name_de(SUBSTRATE_NAME_DE)
-        substrate_list.fill_name_en(SUBSTRATE_NAME_EN)
+        substrate_list.fill_name_de(name_de)
+        substrate_list.fill_name_en(name_en)
         substrate_list.fill_brand("TestBrand")
         substrate_list.fill_ph_base(6.2)
         substrate_list.fill_ec_base(0.4)
@@ -407,28 +402,35 @@ class TestSubstrateCreateDialog:
             "TC-REQ-019-013 FAIL: Expected dialog to close after successful create"
         )
         # A closing dialog is not a created substrate: the row has to appear
-        # (#802). Re-counted behind the same name filter as above, so the page
-        # size cannot mask the new row.
+        # (#802). Asserted as **identity**, not arithmetic.
         #
-        # Polled rather than read once. Creating dispatches a refetch, and
-        # `wait_for_loading_complete` only waits for a skeleton to disappear --
-        # a refetch that resolves before the skeleton renders leaves nothing to
-        # wait for, and a single read then samples the pre-create list. Reading
-        # once reported `0 (was 0)` for exactly that reason.
-        deadline = time.time() + 10
-        matches_after = 0
-        while time.time() < deadline:
-            substrate_list.search(SUBSTRATE_NAME_DE)
-            substrate_list.wait_for_loading_complete()
-            matches_after = substrate_list.get_row_count()
-            if matches_after > matches_before:
-                break
-            substrate_list.clear_search()
-            substrate_list.wait_for_loading_complete()
-        assert matches_after > matches_before, (
-            f"TC-REQ-019-013 FAIL: Creating a substrate must add a row named "
-            f"'{SUBSTRATE_NAME_DE}', but after 10s the filtered list still shows "
-            f"{matches_after} row(s) (was {matches_before})"
+        # The count form failed the 2026-08-16 matrix with `assert 1 > 25`: the
+        # "before" read had been taken while the 300 ms search debounce was still
+        # in flight, so it captured the *unfiltered* catalogue (25 rows, the page
+        # size) instead of the filter's zero. The create had worked — the single
+        # row afterwards was the new substrate — and the test failed anyway.
+        #
+        # `wait_for_search_applied` is what closes that: it waits for the filter
+        # to actually be in effect rather than for a skeleton that a fast refetch
+        # may never render. And with a per-run name, one row named exactly this
+        # is proof about this create and nothing else — which is what the
+        # nutrient-plan tests learned the hard way over 274 days (#956/#966).
+        substrate_list.search(name_de)
+        substrate_list.wait_for_search_applied(name_de, what="substrate list")
+        substrate_list.wait_for_row_identity(
+            0,
+            SubstrateListPage.NAME_COLUMN_ID,
+            name_de,
+            rows_locator=SubstrateListPage.TABLE_ROWS,
+            what=f"self-provisioned substrate {name_de!r} (create confirmed)",
+        )
+
+        listed = substrate_list.get_first_column_texts()
+        assert listed == [name_de], (
+            f"TC-REQ-019-013 FAIL: the list filtered by {name_de!r} must name exactly the "
+            f"substrate just created, but reads {listed!r}. The dialog closed, so the POST "
+            f"returned 2xx — an empty list means the row never landed, and more than one "
+            f"means the per-run name is not unique."
         )
 
     @pytest.mark.core_crud
