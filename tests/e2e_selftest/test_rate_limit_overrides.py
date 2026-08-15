@@ -31,7 +31,6 @@ import pathlib
 import re
 
 import pytest
-import yaml
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _COMPOSE = _ROOT / "docker-compose.e2e.yml"
@@ -71,15 +70,31 @@ def _limits_gating_a_route() -> set[str]:
     return found
 
 
+#: A ``RATE_LIMIT_*`` assignment in the compose file's environment block.
+#: Anchored at the start of the line (after indentation) so a commented-out
+#: override — the exact thing this guard must not accept as present — does not
+#: match.
+_OVERRIDE = re.compile(r"^\s*(RATE_LIMIT_[A-Z_]+)\s*:", re.MULTILINE)
+
+
 def _harness_overrides() -> set[str]:
-    """The ``RATE_LIMIT_*`` env keys the E2E compose sets, as setting names."""
-    compose = yaml.safe_load(_COMPOSE.read_text(encoding="utf-8"))
-    keys: set[str] = set()
-    for service in (compose.get("services") or {}).values():
-        for key in service.get("environment") or {}:
-            if key.startswith("RATE_LIMIT_"):
-                keys.add(key.lower())
-    return keys
+    """The ``RATE_LIMIT_*`` env keys the E2E compose sets, as setting names.
+
+    Read as text rather than parsed as YAML on purpose: this file runs inside the
+    ``e2e-selftest`` pre-commit hook, whose isolated environment installs only
+    Selenium and pytest. That minimal env is deliberate — the hook's own comment
+    explains that installing a different Selenium would verify the page-object
+    proxy against a version the suite never runs on — so a guard that needed
+    PyYAML would either grow that env for one check or, as it did on the first
+    attempt, pass locally and fail in CI with ``No module named 'yaml'``.
+
+    Text matching is sufficient here: the question is whether a key is *set*, and
+    the pattern rejects a commented-out line, which is the one shape that would
+    make a missing override look present.
+    """
+    return {
+        match.group(1).lower() for match in _OVERRIDE.finditer(_COMPOSE.read_text(encoding="utf-8"))
+    }
 
 
 def test_the_scan_finds_something() -> None:
