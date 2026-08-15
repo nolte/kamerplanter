@@ -24,6 +24,9 @@ class ISpeciesRepository(ABC):
     def get_by_normalized_scientific_name(self, name: str) -> Species | None: ...
 
     @abstractmethod
+    def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None: ...
+
+    @abstractmethod
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species: ...
 
     @abstractmethod

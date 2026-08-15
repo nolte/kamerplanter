@@ -68,6 +68,28 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         return self.find_one_by_field("scientific_name_normalized", normalize_scientific_name(name))
 
+    def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None:
+        """The tenant-scoped sibling of the lookup above (#1162).
+
+        Since the dedup key became ``(tenant_key, scientific_name_normalized)``,
+        "does this taxon already exist?" is only answerable *within a tenant*. The
+        unscoped method above still has callers that legitimately want any row
+        (reporting, migrations), so it stays — but a create path must use this one,
+        or it would find a foreign tenant's row and decline to insert its own.
+        """
+        query = f"""
+        FOR s IN {col.SPECIES}
+          FILTER s.scientific_name_normalized == @norm AND s.tenant_key == @tenant
+          LIMIT 1
+          RETURN s
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"norm": normalize_scientific_name(name), "tenant": tenant_key},
+        )
+        doc = next(cursor, None)
+        return Species(**self._from_doc(doc)) if doc else None
+
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species:
         """Insert ``species`` or return the existing row with the same dedup key.
 
@@ -87,15 +109,25 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         now = self._now()
         doc["created_at"] = now
         doc["updated_at"] = now
+        # The dedup key is (tenant_key, scientific_name_normalized) since #1162 —
+        # the filter and the unique index must name the same pair, or the UPSERT
+        # would look for one thing and the database enforce another. `tenant_key`
+        # comes off the model the caller already stamped; the system context
+        # ("" = global) therefore keeps exactly one row per taxon in the shared
+        # catalogue, which is what REQ-048 Stufe 1 was really protecting.
         query = f"""
-        UPSERT {{ scientific_name_normalized: @norm }}
+        UPSERT {{ scientific_name_normalized: @norm, tenant_key: @tenant }}
         INSERT @doc
         UPDATE {{}} IN {col.SPECIES}
         RETURN NEW
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"norm": species.scientific_name_normalized, "doc": doc},
+            bind_vars={
+                "norm": species.scientific_name_normalized,
+                "tenant": species.tenant_key,
+                "doc": doc,
+            },
         )
         return Species(**self._from_doc(next(cursor)))
 
