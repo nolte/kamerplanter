@@ -144,7 +144,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest@sha256:db4e7f1bec95c1a72e3e4d5009ae7abd354f78ec87352dffccba9d3f2cf58fe5
+          tag: latest@sha256:e2b0aec41662febf6e5baa4dba29ddb1f5572bf5fa9feca9c244f255c2413c98
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -312,7 +312,7 @@ controllers:
       init-runtime-config:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest@sha256:5de044e7edcde922e5f343ecff2231dac865b703b9100a13ddc48007918e51f9
+          tag: latest@sha256:c355cb4bc44e7f0a4e92db34ef03eef80d01988572535d1d4ab544f2ce2f5018
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -349,7 +349,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest@sha256:5de044e7edcde922e5f343ecff2231dac865b703b9100a13ddc48007918e51f9
+          tag: latest@sha256:c355cb4bc44e7f0a4e92db34ef03eef80d01988572535d1d4ab544f2ce2f5018
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -479,7 +479,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest@sha256:db4e7f1bec95c1a72e3e4d5009ae7abd354f78ec87352dffccba9d3f2cf58fe5
+          tag: latest@sha256:e2b0aec41662febf6e5baa4dba29ddb1f5572bf5fa9feca9c244f255c2413c98
           pullPolicy: IfNotPresent
         command: ["celery"]
         args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
@@ -566,7 +566,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
-          tag: latest@sha256:db4e7f1bec95c1a72e3e4d5009ae7abd354f78ec87352dffccba9d3f2cf58fe5
+          tag: latest@sha256:e2b0aec41662febf6e5baa4dba29ddb1f5572bf5fa9feca9c244f255c2413c98
           pullPolicy: IfNotPresent
         command: ["celery"]
         args: ["-A", "app.tasks", "beat", "--loglevel=info", "--schedule=/tmp/celery-beat/celerybeat-schedule"]
@@ -648,7 +648,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-vectordb
-          tag: latest@sha256:c62ecd5e90d93017edcf31f93c2fae9b5c585c6a30d5b6495e34b8ac63a38f0d
+          tag: latest@sha256:ad24570969369e93853b67bd40cced9b9952cb6d858243149d9bfa5fc9077517
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -726,7 +726,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-inference-service
-          tag: latest@sha256:79329fd4c295802c3f1ebeb301d6f00b7051146c8ee960288646979dc5ec7e58
+          tag: latest@sha256:e64c678385b395ca45fa3797a8638f58963ed86d409f5c251a33ee077e022bf8
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
