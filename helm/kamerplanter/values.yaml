@@ -312,7 +312,7 @@ controllers:
       init-runtime-config:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest@sha256:c355cb4bc44e7f0a4e92db34ef03eef80d01988572535d1d4ab544f2ce2f5018
+          tag: latest@sha256:53fd706a999a78988af76d33df4ea1a74491f671544d96489df3d332e51b1f5d
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -349,7 +349,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
-          tag: latest@sha256:c355cb4bc44e7f0a4e92db34ef03eef80d01988572535d1d4ab544f2ce2f5018
+          tag: latest@sha256:53fd706a999a78988af76d33df4ea1a74491f671544d96489df3d332e51b1f5d
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
