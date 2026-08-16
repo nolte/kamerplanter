@@ -78,8 +78,6 @@ const PAGES_OWING_AN_AXE_PASS: ReadonlySet<string> = new Set([
   'AccountSettingsPage',
   'ActivityDetailPage',
   'ActivityListPage',
-  'ActivityPlanDetailPage',
-  'ActivityPlanOverviewPage',
   'AdminEditTenantPage',
   'AdminEditUserPage',
   'AquaponikPage',

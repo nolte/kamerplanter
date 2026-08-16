@@ -53,11 +53,3 @@ export function writeLocalKioskPreference(value: KioskPreference): void {
     // Storage unavailable (private mode / quota) — ignore silently.
   }
 }
-
-export function clearLocalKioskPreference(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // ignore
-  }
-}

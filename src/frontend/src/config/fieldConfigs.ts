@@ -102,62 +102,8 @@ export const waterSourceFieldConfig: Record<string, FieldMeta> = {
   source_note: { level: 'expert' },
 };
 
-// GrowthPhaseDialog field visibility
-export const growthPhaseFieldConfig: Record<string, FieldMeta> = {
-  // beginner
-  name: { level: 'beginner' },
-  duration_days: { level: 'beginner' },
-  // intermediate
-  photoperiod_hours: { level: 'intermediate' },
-  temp_day_celsius: { level: 'intermediate' },
-  temp_night_celsius: { level: 'intermediate' },
-  // expert
-  vpd_min_kpa: { level: 'expert' },
-  vpd_max_kpa: { level: 'expert' },
-  ec_min_ms: { level: 'expert' },
-  ec_max_ms: { level: 'expert' },
-  ph_min: { level: 'expert' },
-  ph_max: { level: 'expert' },
-  humidity_min_percent: { level: 'expert' },
-  humidity_max_percent: { level: 'expert' },
-  ppfd_min: { level: 'expert' },
-  ppfd_max: { level: 'expert' },
-};
 
-// FertilizerCreateDialog field visibility
-export const fertilizerFieldConfig: Record<string, FieldMeta> = {
-  // beginner
-  product_name: { level: 'beginner' },
-  manufacturer: { level: 'beginner' },
-  type: { level: 'beginner' },
-  // intermediate
-  npk_ratio: { level: 'intermediate' },
-  recommended_application: { level: 'intermediate' },
-  dosage_ml_per_liter: { level: 'intermediate' },
-  // expert
-  ec_contribution_per_ml: { level: 'expert' },
-  ph_effect: { level: 'expert' },
-  mixing_priority: { level: 'expert' },
-  tank_safe: { level: 'expert' },
-};
 
-// EC Budget / Water Mixer field visibility
-export const ecBudgetFieldConfig: Record<string, FieldMeta> = {
-  // intermediate (water mixer basics)
-  tap_water_ec: { level: 'intermediate' },
-  alkalinity: { level: 'intermediate' },
-  target_base_ec: { level: 'intermediate' },
-  // expert (full EC budget)
-  target_ec: { level: 'expert' },
-  substrate: { level: 'expert' },
-  phase: { level: 'expert' },
-  volume: { level: 'expert' },
-  fertilizer_keys: { level: 'expert' },
-  calmag: { level: 'expert' },
-  silicate: { level: 'expert' },
-  substrate_cycles: { level: 'expert' },
-  temperature: { level: 'expert' },
-};
 
 // Navigation items: which minimum level is required
 export const navItemConfig: Record<string, ExperienceLevel> = {

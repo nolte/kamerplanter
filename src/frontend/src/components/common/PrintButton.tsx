@@ -30,7 +30,7 @@ interface PrintButtonProps {
  * Use variant="icon" inside page headers alongside other icon actions.
  * Use variant="button" in empty areas or action bars where more prominence is needed.
  */
-export function PrintButton({
+function PrintButton({
   onPrint,
   filename,
   variant = 'icon',

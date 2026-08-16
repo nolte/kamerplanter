@@ -19,6 +19,20 @@
   // mirror of the backend's OpenAPI surface; a response type the UI does not
   // read yet is the file doing its job, not dead code. Dropping it leaves 47.
   //
+  // Worked down to **zero** on 2026-08-16 (#1207). All nine files were genuinely
+  // superseded, each by a live successor — the Karenz card by
+  // DiagnosisResultsPanel, the water-mix summary by NutrientCalculationsPage,
+  // the phase stepper by three separate timelines, the location list by
+  // LocationTreeSection, the plant-count step by the per-species counts in
+  // PlantSelectionStep. None was a wiring defect, which is worth recording
+  // because the issue that opened this predicted one and was wrong.
+  //
+  // The largest single item was not on the file list at all: FertilizerGanttChart
+  // lost its call site in the #347 split of NutrientPlanDetailPage (2026-07-04)
+  // and survived six weeks as 1 699 lines whose only remaining consumer imported
+  // one interface from it. A file can be almost entirely dead and still look
+  // alive to a file-level check.
+  //
   // Dependency, binary and unlisted-import checks are off for the same reason:
   // npm-audit, npm-licenses and the bundle budget already watch that surface,
   // and a second opinion on it would only add noise to a lane whose one
@@ -40,18 +54,31 @@
 
   // An export used only inside its own file is a private helper that happens to
   // carry the keyword — worth tidying, not worth a CI lane.
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": true,
+
+  // The KAMI illustration barrel is an asset catalogue, not code. Its entries
+  // are `export { default as … } from './x.svg'` re-exports of files the KAMI
+  // media pipeline produces ahead of the surfaces that will show them, so an
+  // entry with no importer is inventory, not debt — and Vite tree-shakes it, so
+  // it costs nothing in the bundle. Eighteen phase and state motifs are in that
+  // position today.
+  //
+  // Exempted by path rather than by a blanket ignore list, so the exemption says
+  // what it covers and stops covering anything else.
+  "ignore": ["src/assets/brand/illustrations/index.ts"]
 
   // ── NO BASELINE, DELIBERATELY ─────────────────────────────────────────
   //
-  // The 47 findings are NOT suppressed here. An ignore list would make this
-  // lane green on day one and measure only future regressions — while the nine
-  // unreachable files it names are precisely the debt the audit asked for. The
-  // lane is advisory instead (see the `deadcode` job in
-  // .github/workflows/frontend.yml): it is allowed to be red, it blocks
-  // nothing, and the number is visible on every run rather than frozen into a
-  // constant nobody revisits.
+  // The 47 findings were NOT suppressed here. An ignore list would have made
+  // this lane green on day one and measured only future regressions — while the
+  // nine unreachable files it named were precisely the debt the audit asked
+  // for. They were worked down instead (#1207), which is what the plan below
+  // always said had to happen first.
   //
-  // Promotion to a required check happens on measured history (NFR-018 §4),
-  // after the list is worked down — not by editing this comment.
+  // The lane stays advisory for now (see the `deadcode` job in
+  // .github/workflows/frontend.yml). It is green as of 2026-08-16, but a check
+  // is promoted on measured history per NFR-018 §4, not on the day it first
+  // passes: one green run says nothing about its false-positive rate on real
+  // changes. Promote it when the history supports it — not by editing this
+  // comment.
 }

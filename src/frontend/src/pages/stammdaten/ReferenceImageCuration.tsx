@@ -469,5 +469,3 @@ export function ReferenceImageCuration({ speciesKey, scientificName }: Reference
     </Box>
   );
 }
-
-export default ReferenceImageCuration;

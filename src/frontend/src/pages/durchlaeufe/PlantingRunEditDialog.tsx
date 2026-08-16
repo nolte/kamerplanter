@@ -21,7 +21,6 @@ import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
-import * as siteApi from '@/api/endpoints/sites';
 import type { PlantingRun, Site } from '@/api/types';
 
 const editSchema = z.object({
@@ -183,14 +182,4 @@ export default function PlantingRunEditDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-// Re-export helpers for sibling components that need site resolution
-export async function resolveSiteKeyFromLocation(locationKey: string): Promise<string | null> {
-  try {
-    const loc = await siteApi.getLocation(locationKey);
-    return loc.site_key;
-  } catch {
-    return null;
-  }
 }

@@ -67,7 +67,6 @@ export interface DashboardWidgetDefinition {
 
 /** Grid columns per breakpoint (UI-NFR-001): Desktop / Tablet / Mobile. */
 export const GRID_COLS_BY_BREAKPOINT = { lg: 12, md: 8, sm: 4 } as const;
-export const DASHBOARD_BREAKPOINTS = ['lg', 'md', 'sm'] as const;
 export const DASHBOARD_LAYOUT_SCHEMA_VERSION = 2;
 
 function def(

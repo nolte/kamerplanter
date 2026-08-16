@@ -35,7 +35,7 @@ interface SpeciesThumbnailProps {
  * The icon fallback carries an aria-label matching `alt` so screen-readers
  * still announce the species name even when no image is available.
  */
-export function SpeciesThumbnail({
+function SpeciesThumbnail({
   imageUrl,
   attribution,
   license,
