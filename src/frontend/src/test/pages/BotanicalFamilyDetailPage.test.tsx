@@ -30,6 +30,26 @@ vi.mock('@/api/endpoints/botanicalFamilies', () => ({
 import BotanicalFamilyDetailPage from '@/pages/stammdaten/BotanicalFamilyDetailPage';
 import { renderWithProviders, createTestStore } from '../helpers';
 
+/**
+ * Every render below is an authorised one, and that is load-bearing since #1155.
+ *
+ * #1120 made the global botanical-family mutations platform-admin-only, and
+ * #1155 stopped the UI offering them to anyone else — so an ordinary member sees
+ * no delete button and no save action, and the cases here would fail looking for
+ * affordances the product is right to withhold. Only `auth.user.is_platform_admin`
+ * is read (by `usePlatformAdmin`); the rest of the slice comes from its reducer.
+ *
+ * The gate itself is covered from both sides in
+ * `BotanicalFamilyPlatformAdminGate.test.tsx`. This file is about what an
+ * authorised user can do.
+ */
+function adminStore(overrides: Record<string, unknown> = {}) {
+  return createTestStore({
+    auth: { user: { is_platform_admin: true }, isAuthenticated: true, isLoading: false },
+    ...overrides,
+  });
+}
+
 function makeFamily(overrides: Partial<BotanicalFamily> = {}): BotanicalFamily {
   return {
     key: 'fam-1',
@@ -86,7 +106,7 @@ describe('BotanicalFamilyDetailPage', () => {
   });
 
   it('renders the loaded botanical family and its empty-species state', async () => {
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     expect(await screen.findByTestId('botanical-family-detail-page')).toBeInTheDocument();
     // Family name is shown in the page title.
@@ -100,7 +120,7 @@ describe('BotanicalFamilyDetailPage', () => {
   it('shows the loading skeleton while the family is being fetched', async () => {
     // Keep getBotanicalFamily pending so the slice stays in `loading`.
     getBotanicalFamily.mockReturnValue(new Promise(() => {}));
-    const store = createTestStore({
+    const store = adminStore({
       botanicalFamilies: { items: [], current: null, loading: true, error: null },
     });
     renderWithProviders(<BotanicalFamilyDetailPage />, { store });
@@ -111,7 +131,7 @@ describe('BotanicalFamilyDetailPage', () => {
   it('shows the error display and retries via navigate when the fetch fails', async () => {
     getBotanicalFamily.mockRejectedValue(new Error('nope'));
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     expect(await screen.findByTestId('error-display')).toBeInTheDocument();
     await user.click(screen.getByTestId('error-retry-button'));
@@ -123,7 +143,7 @@ describe('BotanicalFamilyDetailPage', () => {
       makeSpecies(),
       makeSpecies({ key: 'sp-2', scientific_name: 'Capsicum annuum', common_names: [] }),
     ]);
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByTestId('botanical-family-detail-page');
     expect(await screen.findByText('Solanum lycopersicum')).toBeInTheDocument();
@@ -137,7 +157,7 @@ describe('BotanicalFamilyDetailPage', () => {
 
   it('navigates to the filtered species list from the empty-state action', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByTestId('botanical-family-detail-page');
     await user.click(
@@ -150,7 +170,7 @@ describe('BotanicalFamilyDetailPage', () => {
 
   it('tolerates a failing species lookup and still renders the form', async () => {
     listSpeciesByFamily.mockRejectedValue(new Error('boom'));
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     expect(await screen.findByTestId('botanical-family-detail-page')).toBeInTheDocument();
     expect(
@@ -160,7 +180,7 @@ describe('BotanicalFamilyDetailPage', () => {
 
   it('submits the update with a soil-pH preference derived from both bounds', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByText('Solanaceae');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -182,7 +202,7 @@ describe('BotanicalFamilyDetailPage', () => {
       makeFamily({ soil_ph_preference: null, order: null }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByText('Solanaceae');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -196,7 +216,7 @@ describe('BotanicalFamilyDetailPage', () => {
   it('surfaces an error when the update fails', async () => {
     updateBotanicalFamily.mockRejectedValue(new Error('boom'));
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByText('Solanaceae');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -207,7 +227,7 @@ describe('BotanicalFamilyDetailPage', () => {
 
   it('navigates back when the cancel action is used', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByText('Solanaceae');
     await user.click(screen.getByTestId('form-cancel-button'));
@@ -216,7 +236,7 @@ describe('BotanicalFamilyDetailPage', () => {
 
   it('deletes the family through the confirm dialog and navigates to the list', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByTestId('botanical-family-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -236,7 +256,7 @@ describe('BotanicalFamilyDetailPage', () => {
         }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByTestId('botanical-family-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -257,7 +277,7 @@ describe('BotanicalFamilyDetailPage', () => {
   it('closes the dialog without navigating when the delete request fails', async () => {
     deleteBotanicalFamily.mockRejectedValue(new Error('boom'));
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByTestId('botanical-family-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -270,7 +290,7 @@ describe('BotanicalFamilyDetailPage', () => {
 
   it('cancels the delete confirmation without deleting', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<BotanicalFamilyDetailPage />);
+    renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     await screen.findByTestId('botanical-family-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));

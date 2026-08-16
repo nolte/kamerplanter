@@ -4,28 +4,37 @@ import { http, HttpResponse } from 'msw';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { server } from '../mocks/server';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
 import { ThemeContextProvider } from '@/theme';
-import uiReducer from '@/store/slices/uiSlice';
-import botanicalFamiliesReducer from '@/store/slices/botanicalFamiliesSlice';
-import speciesReducer from '@/store/slices/speciesSlice';
-import sitesReducer from '@/store/slices/sitesSlice';
-import substratesReducer from '@/store/slices/substratesSlice';
-import plantInstancesReducer from '@/store/slices/plantInstancesSlice';
 import BotanicalFamilyListPage from '@/pages/stammdaten/BotanicalFamilyListPage';
+import { createTestStore as sharedCreateTestStore } from '../helpers';
 import i18n from 'i18next';
 
+/**
+ * The store carries a platform admin, and that is load-bearing since #1155.
+ *
+ * These cases exercise the create dialog and the actions around it. #1120 made
+ * the global botanical-family mutations platform-admin-only, and #1155 stopped
+ * the UI offering them to everyone else — so an ordinary member no longer has a
+ * create button to click, and every one of those cases would fail looking for
+ * an affordance the product is right to withhold.
+ *
+ * The gate itself is covered from both sides in
+ * `BotanicalFamilyPlatformAdminGate.test.tsx`. This file is about what an
+ * authorised user can do.
+ *
+ * Delegates to the shared factory rather than assembling six reducers by hand,
+ * which is what it did before: the hand-rolled version had no `auth` slice at
+ * all, so `usePlatformAdmin` read `undefined` and every case here broke the
+ * moment the gate landed.
+ */
 function createTestStore() {
-  return configureStore({
-    reducer: {
-      ui: uiReducer,
-      botanicalFamilies: botanicalFamiliesReducer,
-      species: speciesReducer,
-      sites: sitesReducer,
-      substrates: substratesReducer,
-      plantInstances: plantInstancesReducer,
+  return sharedCreateTestStore({
+    auth: {
+      user: { is_platform_admin: true },
+      isAuthenticated: true,
+      isLoading: false,
     },
   });
 }
