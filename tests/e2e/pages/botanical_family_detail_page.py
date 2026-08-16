@@ -97,12 +97,6 @@ class BotanicalFamilyDetailPage(BasePage):
         el.send_keys(value)
         el.send_keys(Keys.ENTER)
 
-    def toggle_switch(self, field_name: str) -> None:
-        el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input[type='checkbox']")
-        )
-        self.scroll_and_click(el)
-
     # ── Actions ────────────────────────────────────────────────────────
 
     def click_save(self) -> None:

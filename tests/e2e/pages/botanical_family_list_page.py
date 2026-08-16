@@ -310,13 +310,6 @@ class BotanicalFamilyListPage(BasePage):
         self.open_select(field_testid)
         self.select_option_by_label(value_text)
 
-    def toggle_switch(self, field_testid: str) -> None:
-        """Toggle a MUI Switch by its field testid."""
-        switch = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] input[type='checkbox']")
-        )
-        self.scroll_and_click(switch)
-
     def is_switch_checked(self, field_testid: str) -> bool:
         switch = self.find_present(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] input[type='checkbox']")
