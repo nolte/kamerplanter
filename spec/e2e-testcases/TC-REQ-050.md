@@ -169,7 +169,8 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 **Priority**: Critical
 **Category**: Formular
 **Preconditions**:
-- Ein selbst verfasster Tagebuch-Eintrag existiert
+- Der Nutzer hat im adressierten Mandanten die Rolle **Leitung** (im persoenlichen Mandanten ist das automatisch der Fall). Ein Tagebuch-Eintrag existiert.
+- **Wichtig:** Als Gaertner ausgefuehrt scheitert der Fall bereits an Schritt 1 — REQ-051 §3.2 und AK-56 nehmen dem Gaertner das Loeschen auch am **eigenen** Eintrag, und die Oberflaeche zeigt ihm die Handlung gar nicht erst an. Die Rolle ist deshalb Teil der Vorbedingung, nicht des Zufalls
 
 **Testschritte**:
 1. Nutzer öffnet die Löschen-Aktion des Eintrags

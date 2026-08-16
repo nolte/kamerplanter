@@ -127,7 +127,7 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 - **all** = alle Ressourcen des Mandanten. Es gibt **kein** `own` und **kein** `community` mehr: Die Standort-Zuweisung schränkt Schreibrechte nicht ein (REQ-049 §3.5), und „Zugewiesene" ist als Rechteangabe verboten (REQ-049 §3.2).
 - ✅ = erlaubt, ❌ = verboten, 🔒 = nur Leitung
 
-**Die Matrix entscheidet allein über den Rang der fachlichen Rolle.** Jede Zeile lässt sich auf drei Regeln zurückführen: Lesen darf jedes Mitglied, Anlegen und Ändern ab Gärtner, Löschen nur die Leitung. Die Ressourcenzeilen sind deshalb heute weitgehend gleichförmig — sie stehen einzeln, weil eine künftige Verschärfung je Ressourcentyp hier ansetzt und nicht in den Routern. Abweichungen von den drei Regeln stehen ausschließlich in der Spalte **Spezialaktionen** und sind dort begründet.
+**Die Matrix entscheidet allein über den Rang der fachlichen Rolle.** Jede Zeile lässt sich auf drei Regeln zurückführen: Lesen darf jedes Mitglied, Anlegen und Ändern ab Gärtner, Löschen nur die Leitung. Die Ressourcenzeilen sind deshalb heute weitgehend gleichförmig — sie stehen einzeln, weil eine künftige Verschärfung je Ressourcentyp hier ansetzt und nicht in den Routern. Wo eine Zeile davon abweicht, steht der Grund in der Spalte **Spezialaktionen** — sofern er nicht schon aus der Ressource folgt: Ein reiner Lesekatalog (`Substrate Types`, `Workflow Templates`) trägt sein `❌CUD` ohne weitere Begründung, weil er im Mandanten gar nicht geschrieben wird. Die Spalte ist also der Ort für begründungsbedürftige Abweichungen, nicht eine Zusage, dass jede Zelle jenseits der drei Regeln dort erklärt wäre.
 
 | Ressource (Collection) | Leitung | Gärtner | Beobachter | Spezialaktionen |
 |------------------------|-------|--------|--------|-----------------|
@@ -381,7 +381,6 @@ Für Max (Rolle: grower) bedeutet das:
   👁 Anzeige:   "Parzelle A1" erscheint in seiner Ansicht "meine Parzelle",
                 die Liste ist danach vorsortiert, und an A2 steht sichtbar,
                 dass Lisa sich kümmert
-  ❌ Schreiben: "Parzelle A2" (Lisas) + "Parzelle A3" (Toms)
 ```
 
 **Szenario 3: Zwischen Gärten wechseln**
@@ -1382,7 +1381,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-32 | Ein Gärtner kann eine Aufgabe bearbeiten und ihren Status ändern, die **einem anderen Mitglied** zugewiesen ist. Ein Test, der das Gegenteil erwartet, prüft die mit REQ-049 §3.5 gestrichene Regel | Integration |
 | AK-33 | Aufgaben **zuweisen** (`assigned_to` setzen) gelingt nur der Leitung | Integration |
 | AK-34 | Pinnwand-Posts **pinnen** gelingt nur der Leitung | Integration |
-| AK-35 | Pinnwand-Posts **löschen** gelingt nur der Leitung — auch die eigenen. Das Löschen eigener Posts war bis v1.6 dem Gärtner erlaubt und ist mit der Irreversibilitätsgrenze entfallen | Integration |
+| AK-35 | Ein Gärtner kann **eigene** Pinnwand-Posts löschen, die Leitung alle. Das ist die eine dokumentierte Ausnahme von der Irreversibilitätsgrenze: REQ-049 §3.1 lässt „Eigene" ausdrücklich für **verfasste Inhalte** (Pinnwand-Beiträge, Kommentare) zu und verbietet es nur für Fachdaten. Ein Beitrag ist die Äußerung seines Verfassers, kein Datensatz über die Pflanze | Integration |
 | AK-36 | `require_permission(resource, action)` antwortet `403` mit klarer Meldung; eine Rolle, auf die keine Regel passt, wird abgewiesen (fehl-geschlossen), nicht durchgelassen | Unit + Integration |
 | AK-37 | Alle drei Wächter verhalten sich identisch für `account_type: 'human'` und `'service'` | Integration |
 | AK-38 | Platform-Viewer (`viewer` im Platform-Tenant) kann das Admin-Panel read-only sehen, aber keine Daten ändern | Integration |

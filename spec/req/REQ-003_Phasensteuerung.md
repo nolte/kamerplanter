@@ -1952,7 +1952,7 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 | PlantInstances (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | GrowthPhases (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | Phase-Transitions (Tenant-scoped) | — | Ab Gärtner | Ab Gärtner | — | — |
-| Berechnungen (VPD, GDD, Photoperiode) | Alle Rollen | — | — | — | Zustandslose Ableitung, kein Datensatz |
+| Berechnungen (VPD, GDD, Photoperiode) | **Ohne Anmeldung** | — | — | — | Zustandslose Ableitung, kein Datensatz — die Standardregel oben gilt für diese Zeile **nicht** (siehe Absatz darüber). REQ-049 §3.1 kennt keinen Begriff für „unauthentifiziert"; er wird hier ausgeschrieben, statt ihn als „Alle Rollen" zu tarnen, was Mitgliedschaft voraussetzte |
 
 ## 5. Abhängigkeiten
 

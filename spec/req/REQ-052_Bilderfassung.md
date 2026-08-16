@@ -214,15 +214,25 @@ iOS 11 standardmäßig HEIC. Die Normalisierung nach §3 kodiert ohnehin als JPE
 Problem also — **sofern der Browser das Bild dekodieren kann**. Safari kann es, Firefox und Chrome
 unter Windows und Linux überwiegend nicht.
 
-**Festlegung:** Schlägt die Dekodierung fehl, wird das Bild **unverändert** hochgeladen und die
-Konvertierung dem Server überlassen (NFR-013 §5.2 nennt die serverseitige Konvertierung
-ausdrücklich als empfohlen). Der Nutzer bekommt einen Hinweis, dass das Bild in Originalgröße
-übertragen wird, und keine Fehlermeldung.
+**Die Festlegung hängt am Ziel, nicht am Format.** Ein nicht dekodierbares Bild kann clientseitig
+nicht von seinen Metadaten getrennt werden (§5) — und damit unterscheiden sich die beiden Ziele:
 
-**Warum nicht ablehnen:** Eine Ablehnung träfe den Nutzer für eine Eigenschaft seines Geräts, die
-er nicht kennt und nicht ändern will, in einem Ablauf, in dem er nichts falsch gemacht hat. Der
-Preis ist eine größere Übertragung in einem Randfall — deutlich billiger als ein Foto, das nicht
-ankommt.
+| Ziel | Verhalten bei nicht dekodierbarem HEIC |
+|------|----------------------------------------|
+| **Eigene Instanz** (Galerie, Tagebuch, Referenzbild) | Bild wird **unverändert** hochgeladen; der Server konvertiert und strippt (NFR-013 §5.2/§6.4). Der Nutzer bekommt einen Hinweis auf die Originalgröße, **keine** Fehlermeldung |
+| **Dritter** (Erkennungsdienst, REQ-029/REQ-038/REQ-043/REQ-044) | Der Versand wird **abgelehnt**, mit dem Hinweis, das Bild als JPEG erneut aufzunehmen oder auszuwählen |
+
+**Warum die Ablehnung ausgerechnet hier steht.** Ein iPhone-HEIC trägt GPS. §5 begründet den
+clientseitigen Strip damit, dass der Aufnahmeort einer Zimmerpflanze die Wohnanschrift ist und das
+Bild auf dem Erkennungspfad die Instanz verlässt (REQ-029-A §0.1.1 Punkt 2). Ein
+unverändert weitergereichtes HEIC gäbe genau diese Koordinate an einen Dritten — der Rückfall
+höbe die Maßnahme auf, zu deren Schutz er gedacht war. Für die eigene Instanz gilt das nicht: Dort
+greift der serverseitige Strip, bevor irgendetwas das Netz verlässt.
+
+**Warum für die eigene Instanz nicht ablehnen:** Eine Ablehnung träfe den Nutzer für eine
+Eigenschaft seines Geräts, die er nicht kennt und nicht ändern will, in einem Ablauf, in dem er
+nichts falsch gemacht hat. Der Preis ist eine größere Übertragung in einem Randfall — deutlich
+billiger als ein Foto, das nicht ankommt.
 
 **Nicht angenommen** werden Animationen (GIF, animiertes WebP) und Vektorformate. Ein bewegtes
 Bild als Pflanzenbeleg ist keine gewollte Verwendung, und SVG ist ein Ausführungsvektor, kein
@@ -394,9 +404,9 @@ entsteht.
 | **AK-62** | Nach Beenden, Verlassen oder Verwerfen ist **jeder** Track des Kamerastreams gestoppt und die Kamera-Anzeige des Geräts erloschen. Der Nachweis umfasst die Abbruchpfade (Zurück-Navigation, Escape, Entfernen der Komponente durch einen Fehler), nicht nur den Normalablauf. |
 | **AK-63** | Ein Bild, dessen Ausrichtung ausschließlich im EXIF stand, wird nach der Normalisierung **richtig herum** angezeigt und hochgeladen: Die Orientierung wird vor dem Verwerfen der Metadaten in die Pixel geschrieben. |
 | **AK-64** | Werden mehr Bilder ausgewählt, als die konsumierende Anforderung zulässt, werden die überzähligen **benannt abgelehnt**. Eine stille Kürzung ist ein Fehlschlag des Kriteriums. |
-| **AK-65** | Ein hochgeladenes Bild enthält **keine** EXIF-Daten — insbesondere keine GPS-Koordinaten und keine Gerätekennung —, und zwar unabhängig von `STORAGE_STRIP_EXIF`. Der Nachweis erfolgt an der Datei, die das Gerät verlässt, nicht an der gespeicherten. |
+| **AK-65** | Ein Bild, das an einen **Dritten** geht (Erkennungspfad), enthält **keine** EXIF-Daten — insbesondere keine GPS-Koordinaten und keine Gerätekennung. Der Nachweis erfolgt an der Datei, die das Gerät verlässt. Für den Upload zur **eigenen Instanz** gilt dasselbe für jedes normalisierte Bild; die eine Ausnahme ist das nicht dekodierbare HEIC aus §4, dessen Metadaten der serverseitige Strip entfernt (NFR-013 §6.4) — es erreicht deshalb **nie** einen Dritten (AK-67). |
 | **AK-66** | Die Profile aus §3 sind die einzige Quelle der Normalisierungsparameter. Ein Test weist die **Abwesenheit** frei übergebener Pixelwerte an den Aufrufstellen nach — wird `maxEdge` irgendwo direkt gesetzt, ist die Vereinheitlichung aufgehoben, ohne dass ein Verhaltenstest anschlägt. |
-| **AK-67** | Ein HEIC-Bild, das der Browser dekodieren kann, wird normalisiert; eines, das er nicht dekodieren kann, wird **unverändert** hochgeladen — mit Hinweis auf die Originalgröße, nicht mit einer Fehlermeldung. In keinem Fall wird es abgewiesen. |
+| **AK-67** | Ein HEIC-Bild, das der Browser dekodieren kann, wird normalisiert. Eines, das er nicht dekodieren kann, wird beim Upload zur **eigenen Instanz** unverändert übertragen — mit Hinweis auf die Originalgröße statt einer Fehlermeldung — und auf dem Weg zu einem **Dritten** abgewiesen, weil es dort seine GPS-Koordinate mitnähme (§4). Überschreitet das unveränderte Original `STORAGE_MAX_FILE_SIZE_MB`, wird es abgelehnt; das ist der eine Fall, in dem der Upload-Pfad doch mit einem Fehler endet, und die Meldung benennt die Größe als Ursache (AK-72). |
 | **AK-68** | Die vier Kamera-Fehlerzustände aus §6 sind sichtbar voneinander unterschieden und benennen jeweils den Datei-Upload als Ausweg. `unsupported` bietet Weg 1 gar nicht erst an. |
 | **AK-69** | Die Kameraerlaubnis wird erst angefragt, wenn der Nutzer die Kamera anfordert — nicht beim Öffnen der Ansicht. |
 | **AK-70** | Alle drei Wege sind per Tastatur bedienbar; Start, Aufnahme und Fehler werden über `aria-live` angesagt (§7). |

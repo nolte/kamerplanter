@@ -1583,9 +1583,9 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Fish Species (global) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin | Globaler Katalog — mandantenübergreifend, §3.4 |
 | Aquaponic Systems | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | Fish Stocks | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
-| Water Tests | Alle Rollen | Ab Gärtner | Ab Gärtner | — | Unveränderlich: keine Korrektur, keine Löschung |
-| Feeding Events | Alle Rollen | Ab Gärtner | Ab Gärtner | — | Unveränderlich |
-| Supplementation Events | Alle Rollen | Ab Gärtner | Ab Gärtner | — | Unveränderlich |
+| Water Tests | Alle Rollen | Ab Gärtner | — | — | **Unveränderlich:** weder Korrektur noch Löschung. Ein Messwert, den man nachträglich ändern kann, ist als Beleg wertlos — die Korrektur ist eine **neue** Messung |
+| Feeding Events | Alle Rollen | Ab Gärtner | — | — | Unveränderlich |
+| Supplementation Events | Alle Rollen | Ab Gärtner | — | — | Unveränderlich |
 
 ## 6. Abhängigkeiten
 

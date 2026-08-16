@@ -3217,7 +3217,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | NutrientPlans (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | FeedingEvents (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | WateringEvents (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
-| NutrientCalculations (zustandslos) | Alle Rollen | — | — | — | Zustandslose Berechnung, kein Datensatz |
+| NutrientCalculations (zustandslos) | **Ohne Anmeldung** | — | — | — | Zustandslose Berechnung, kein Datensatz; die Standardregel oben gilt für diese Zeile **nicht**. Wie REQ-003 §4 bei den VPD-/GDD-Endpunkten |
 
 ## 6. Abhängigkeiten
 

@@ -14,6 +14,7 @@ Version: 2.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.7 | 2026-08-16 | **Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt.** §5 fuehrt jetzt das Sechs-Spalten-Schema (Lesen / Anlegen / Aendern / Loeschen / Sonderaktionen); die frueheren Werte `Mitglied` und `Admin` sind ersetzt. `Mitglied` erlaubte in der Spalte Schreiben jeder Zeile dem Beobachter das Schreiben — der Widerspruch, den REQ-049 §1 auffuehrt. Die Tagebuch-Zeile traegt die Autorschafts-Einschraenkung aus REQ-051 §3.2 jetzt explizit; die veraltete Notiz „bei der REQ-049-Migration nachzuziehen" ist entfernt, weil die Migration mit dieser Version erfolgt ist. |
 | 2.6 | 2026-08-16 | **REQ-051 (Pflanzen-Tagebuch) uebernimmt die Tagebuch-Fachlogik.** Diese Anforderung bleibt Quelle fuer den Knoten `:PlantDiaryEntry`, seine Graph-Einbettung und die Endpunkt-Tabelle in §4.7 — die **Verwendung** des Tagebuchs (Erfassung, nachtraegliche Bearbeitung, Oberflaeche, Client-Neutralitaet) steht ab jetzt in REQ-051 und wird hier nicht wiederholt. Additiv am Knoten: `content_version` und `analysis_claimed_content_version` (REQ-051 §3.6/§4.4), beide mit Vorgabewert und ohne Migration. Neue Collection `plant_diary_analyses` (Analyse-Archiv, REQ-051 §5) — ein Dokumentknoten **ohne** Kante im Named Graph. Neuer Endpunkt `POST .../diary/{entry_key}/capture-environment` in §4.7: der Umgebungs-Schnappschuss ist nachtraeglich **neu erfassbar**, weiterhin nicht editierbar; §2.3a.8 ist entsprechend praezisiert (das Verbot galt dem *stillen* Neustempeln durch `update_entry`, nicht einer ausdruecklichen Nutzerhandlung). |
 | 2.5 | 2026-08-07 | **Umgebungs-Schnappschuss am Tagebuch-Eintrag (Issue #961):** Neues §2.3a. `PlantDiaryEntry` traegt additiv `environment` / `environment_captured_at` / `environment_status`; beim Anlegen werden die Sensorwerte, die die Pflanze abdecken, **serverseitig** ueber die REQ-005-Kette (Standort → Gelaende → Wetterdienst → nichts) aufgeloest und mit Herkunft gespeichert. Bewusst **getrennt** von `measurements`: das offene Freitext-Dict traegt keine Provenienz, und REQ-005 §1 sowie NFR-011/REQ-025 verlangen, dass maschinell erhobene von handnotierten Werten unterscheidbar bleiben. Neuer Lesepunkt `GET /t/{slug}/plant-instances/{key}/environment` in §4.7 (Vorschau fuer den Anlege-Dialog). Die Klassifikation von Metriknamen (Lufttemperatur/Luftfeuchte) hat mit `app/domain/engines/sensor_metrics.py` genau **eine** Quelle; die beiden zuvor widerspruechlichen Heuristiken (Frostwarnung, Winterquartier) konsumieren sie. |
 | 2.4 | 2026-08-04 | **REQ-050 (KI-Analyse von Tagebuch-Eintraegen):** `PlantDiaryEntry` um additive Analyse-Felder erweitert (`analysis_state`, Lease-Felder, `analysis`, `analysis_error`) — §3 Knotendefinition und `PlantDiaryEntryResponse`. In §4.7 ergaenzt: zwei Endpunkte zum Markieren/Entmarkieren sowie die **mandantenweite** Uebersicht `GET /t/{slug}/diary` (die bisherige Aggregation deckt nur einen Durchlauf ab). `photo_refs` als `attachment_id` praezisiert (war faelschlich als „S3-URLs" beschrieben, obwohl Migration `v0003` sie normalisiert hat). Die Fachlogik (Zustandsmaschine, MCP-Vertrag, Oberflaeche, Datenschutz) steht in REQ-050, nicht hier. Ausserdem festgehalten: die seit v2.0 in §4.7 spezifizierten **Standalone**-Tagebuch-Endpunkte sind bis heute nicht implementiert. |
@@ -227,14 +228,15 @@ PlantingRun: "White Widow Klone Runde 3"
     - `analysis_claimed_content_version: Optional[int]` (Inhaltsversion zum Zeitpunkt des Beanspruchens; aus ihr setzt der Server `DiaryAnalysis.analyzed_content_version` beim Zurueckschreiben)
   - **Hinweis:** Wozu die beiden Zaehler dienen — Kennzeichnung einer veralteten Analyse, Erkennung gleichzeitiger Bearbeitung — steht in **REQ-051 §3.6, §3.7 und §4**, nicht hier.
 
-- **`:DiaryAnalysisRecord`** — Archivierter Analyselauf (REQ-051 §5)
-  - Collection: `plant_diary_analyses`
-  - Properties: `tenant_key`, `entry_key`, `plant_key`, `outcome: Literal['completed','failed']`, `analysis: Optional[DiaryAnalysis]`, `error: Optional[str]`, `analyzed_content_version: int`, `requested_at`/`requested_by`, `claimed_at`/`claimed_by`, `recorded_at: datetime`
-  - **Keine Kante im Named Graph.** Die einzige Abfrage lautet „alle Laeufe zu Eintrag X, neueste zuerst" und wird von einem persistenten Index ueber `(tenant_key, entry_key, recorded_at)` beantwortet. Eine Kante waere eine zweite Zuordnung neben `entry_key`, die mit ihr auseinanderlaufen kann und von keiner Traversierung gebraucht wird. Begruendung und Lebenszyklus stehen in **REQ-051 §5**.
   - Properties fuer den Umgebungs-Schnappschuss (§2.3a, alle additiv und optional — Bestandsdokumente ohne diese Felder bleiben gueltig und brauchen **keine** Migration):
     - `environment: list[DiaryEnvironmentReading]` (Default `[]`)
     - `environment_captured_at: Optional[datetime]` (Zeitpunkt der Erfassung — **nicht** der Messung)
     - `environment_status: Literal['not_attempted', 'opted_out', 'captured', 'no_source', 'unavailable']` (Default `'not_attempted'`)
+
+- **`:DiaryAnalysisRecord`** — Archivierter Analyselauf (REQ-051 §5)
+  - Collection: `plant_diary_analyses`
+  - Properties: `tenant_key`, `entry_key`, `plant_key`, `outcome: Literal['completed','failed']`, `analysis: Optional[DiaryAnalysis]`, `error: Optional[str]`, `analyzed_content_version: int`, `requested_at`/`requested_by`, `claimed_at`/`claimed_by`, `recorded_at: datetime`
+  - **Keine Kante im Named Graph.** Die einzige Abfrage lautet „alle Laeufe zu Eintrag X, neueste zuerst" und wird von einem persistenten Index ueber `(tenant_key, entry_key, recorded_at)` beantwortet. Eine Kante waere eine zweite Zuordnung neben `entry_key`, die mit ihr auseinanderlaufen kann und von keiner Traversierung gebraucht wird. Begruendung und Lebenszyklus stehen in **REQ-051 §5**.
 
 <!-- Quelle: Issue #961 -->
 ### 2.3a Umgebungs-Schnappschuss am Tagebuch-Eintrag
@@ -1845,14 +1847,11 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | PlantingRuns | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | PlantingRun-Eintraege | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | Run-Operationen | — | Ab Gärtner | Ab Gärtner | — | — |
-| Pflanzen-Tagebuch | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Pflanzen-Tagebuch | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Bearbeiten nur an eigenen Eintraegen; Loeschen ist Leitung, auch beim Verfasser (REQ-051 §3.2) |
 | Tagebuch KI-Analyse markieren (REQ-050) | Alle Rollen | Ab Gärtner | Ab Gärtner | — | Markieren nur an eigenen Einträgen (REQ-050 §7.2) |
 
-> **Hinweis zum Vokabular:** Die REQ-050-Zeile folgt dem verbindlichen Vokabular aus REQ-049 §3.1.
-> Die uebrigen Zeilen dieser Tabelle verwenden noch „Mitglied", das REQ-049 §3.2 ausdruecklich
-> verbietet, weil es den Beobachter mit einschliesst und damit Schreibrechte suggeriert, die er
-> nicht hat. Das ist Altbestand aus v2.0 und bei der REQ-049-Migration nachzuziehen — nicht
-> Gegenstand von REQ-050.
+> **Vokabular:** Diese Tabelle folgt REQ-049 §3.1/§3.3. Die frueheren Werte `Mitglied`
+> und `Admin` sind dort verboten und mit v2.7 vollstaendig ersetzt.
 
 ## 6. Abhaengigkeiten
 
