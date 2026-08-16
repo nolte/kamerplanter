@@ -30,6 +30,7 @@ def family_list(browser: WebDriver, base_url: str) -> BotanicalFamilyListPage:
     return BotanicalFamilyListPage(browser, base_url)
 
 
+@pytest.mark.platform_admin
 class TestBotanicalFamilyCreateDialog:
     """Create dialog and validation (Spec: TC-001-006, TC-001-007, TC-001-009, TC-001-013)."""
 
@@ -340,6 +341,7 @@ class TestBotanicalFamilyCreateDialog:
         # Should succeed (boundary values are valid)
 
 
+@pytest.mark.platform_admin
 class TestBotanicalFamilyBackendValidation:
     """Backend validation rules (Spec: TC-001-017, TC-001-078)."""
 
@@ -432,26 +434,34 @@ class TestGlobalCatalogueRoleGate:
     """Who may curate the global family catalogue (Spec: TC-001-099)."""
 
     @pytest.mark.core_crud
-    def test_a_non_admin_cannot_create_a_global_family(
+    def test_the_create_action_is_not_offered_to_an_ordinary_member(
         self,
         family_list: BotanicalFamilyListPage,
         screenshot: Callable[..., Path],
         app_mode: str,
     ) -> None:
-        """TC-001-099: An ordinary member may not curate the global family catalogue.
+        """TC-001-099: An ordinary member is not offered the global-catalogue create.
 
         Spec: TC-001-099 -- Nur ein Plattform-Admin darf globale Botanische Familien anlegen.
 
-        The other half of the split TC-001-006 describes. `BotanicalFamily` is
-        global reference data with no `tenant_key`, so #1120 gated its mutations
-        on the platform admin — the same rule #1109 set for the global cultivar
-        catalogue. Full mode only: in light mode the sole operator *is* that
-        admin (REQ-027), so there is no non-admin caller to refuse.
+        `BotanicalFamily` is global reference data with no `tenant_key`, so #1120
+        gated its mutations on the platform admin — the same rule #1109 set for
+        the global cultivar catalogue.
 
-        Asserted as a refusal the *user* can observe, not as a status code: the
-        dialog stays open (the create did not go through) and the name never
-        reaches the list. A test that only checked the dialog would pass on a
-        create that succeeded and left the dialog up for an unrelated reason.
+        **This case used to submit the form and assert the refusal**, which was
+        the right shape while the button was still offered to everyone: the whole
+        point of #1155 is that it was, and that a member could fill in every field
+        before learning they may not. Now that the affordance is gone the dialog
+        is unreachable, so the observable fact moved with it — from "the refusal
+        arrives" to "the request is never invited".
+
+        The API refusal itself is not lost, and is not re-asserted here: it lives
+        in the backend tests for #1120, where it belongs. Asserting it through a
+        UI that no longer offers the path would mean reaching around the product
+        to reach the rule.
+
+        Full mode only: in light mode the sole operator *is* that admin
+        (REQ-027), so there is no ordinary member to refuse.
         """
         if app_mode == "light":
             pytest.skip(
@@ -460,32 +470,18 @@ class TestGlobalCatalogueRoleGate:
             )
 
         family_list.open()
-        family_list.click_create()
-        unique = uuid.uuid4().hex[:6]
-        family_name = f"Refused{unique}aceae"
-        family_list.fill_name_only(family_name)
-        screenshot("TC-REQ-001-099_form-filled", f"Create dialog filled with {family_name}")
-
-        family_list.submit_create_form()
-        family_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-099_after-submit", "Result after a non-admin submitted the create")
-
-        assert family_list.is_create_dialog_open(), (
-            "TC-REQ-001-099 FAIL: the dialog must stay open — a closed dialog is how this "
-            "app reports that the create was accepted"
+        # Anchored on a rendered row, not read bare: the button and the table
+        # arrive in the same commit, so an absence read on a still-loading page
+        # would be satisfied for an administrator too, and this assertion would
+        # pass no matter who is logged in.
+        assert family_list.get_row_count() > 0, (
+            "TC-REQ-001-099 SETUP: the seeded family catalogue must have rendered before "
+            "the absence of the create button means anything"
         )
-        # The spec asks for a visible reason, not just a non-event: a frontend
-        # that swallowed the 403 silently would leave the user staring at a
-        # dialog that does nothing, and would pass a dialog-only assertion.
-        assert family_list.has_error_snackbar(), (
-            "TC-REQ-001-099 FAIL: the refusal must be surfaced to the user, not swallowed"
-        )
+        screenshot("TC-REQ-001-099_list-as-member", "Family list as an ordinary member")
 
-        # And nothing was written: the name carries a per-run uuid, so an empty
-        # search result is proof about this create and not about the seed.
-        family_list.open()
-        family_list.search(family_name)
-        family_list.wait_for_no_search_results(
-            family_name, what="botanical family list after a refused create"
+        assert not family_list.has_create_button(), (
+            "TC-REQ-001-099 FAIL: an ordinary member is offered 'Familie erstellen'. "
+            "The API refuses the create with 403 (#1120), so the dialog is a dead end: "
+            "every field accepts input and the refusal arrives only on submit."
         )
-        screenshot("TC-REQ-001-099_not-in-list", f"{family_name} is absent from the catalogue")

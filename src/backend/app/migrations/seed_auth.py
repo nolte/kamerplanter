@@ -3,7 +3,7 @@
 import structlog
 
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
-from app.common.enums import AdminScope, EmailVerificationStatus, TenantRole, TenantType
+from app.common.enums import AdminScope, TenantRole, TenantType
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import Membership
@@ -35,7 +35,7 @@ def run_seed_auth() -> None:
         email=demo["email"],
         display_name=demo["display_name"],
         password_hash=password_engine.hash_password(demo["password"]),
-        email_verified=EmailVerificationStatus.VERIFIED,
+        email_verified=True,  # the model field is a bool, not the enum
         is_active=True,
     )
     created_user = user_repo.create(user)

@@ -31,6 +31,7 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -93,6 +94,13 @@ export default function BotanicalFamilyDetailPage() {
   const { current, loading, error } = useAppSelector((s) => s.botanicalFamilies);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // #1155 — see the note on BotanicalFamilyListPage. #1120 made these mutations
+  // platform-admin-only in the API; until now the page offered delete and save to
+  // everyone, so an ordinary member could fill in the whole form and learn only
+  // on submit. `usePlatformAdmin`, not `useCanCreateCatalogEntry`: a botanical
+  // family is global and has no tenant, so being an editor somewhere grants
+  // nothing here.
+  const canEditCatalogue = usePlatformAdmin();
   const [deleting, setDeleting] = useState(false);
   const [familySpecies, setFamilySpecies] = useState<Species[]>([]);
 
@@ -236,9 +244,11 @@ export default function BotanicalFamilyDetailPage() {
       <PageTitle
         title={current?.name ?? t('entities.botanicalFamily')}
         action={
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-            {t('common.delete')}
-          </Button>
+          canEditCatalogue ? (
+            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+              {t('common.delete')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -451,7 +461,15 @@ export default function BotanicalFamilyDetailPage() {
           * {t('common.required')}
         </Typography>
 
-        <FormActions onCancel={() => navigate(-1)} loading={saving} />
+        {canEditCatalogue ? (
+          <FormActions onCancel={() => navigate(-1)} loading={saving} />
+        ) : (
+          // No submit affordance, and a sentence saying why — otherwise the page
+          // reads as an editable form whose save button someone lost.
+          <Typography variant="body2" color="text.secondary" data-testid="edit-denied-note">
+            {t('pages.botanicalFamilies.editDenied')}
+          </Typography>
+        )}
       </Form>
 
       <Divider sx={{ my: 4 }} />

@@ -106,6 +106,15 @@ def _build_jobs() -> list[SeedJob]:
 
         jobs.append(SeedJob("light_mode", lambda db: run_seed_light_mode()))
 
+    # E2E only (#1155). Appended unconditionally; the seed itself decides, and it
+    # refuses unless *both* its gates hold — see its module docstring for why a
+    # single environment variable is not allowed to mint a platform admin. Kept
+    # non-fatal like the other data seeds: a failure here must not wedge startup.
+    if settings.e2e_platform_admin_email:
+        from app.migrations.seed_e2e_platform_admin import run_seed_e2e_platform_admin
+
+        jobs.append(SeedJob("e2e_platform_admin", lambda db: run_seed_e2e_platform_admin()))
+
     return jobs
 
 

@@ -196,6 +196,16 @@ class BotanicalFamilyListPage(BasePage):
 
     # ── Create dialog ──────────────────────────────────────────────────
 
+    def has_create_button(self) -> bool:
+        """Return True if the create affordance is offered to the current user.
+
+        Read after the table has rows, never on its own: the button and the table
+        render in the same commit, so "no button" on a page that is still loading
+        is true of an administrator too, and an absence assertion taken there
+        would pass for every user (#1155).
+        """
+        return len(self.driver.find_elements(*self.CREATE_BUTTON)) > 0
+
     def click_create(self) -> None:
         self.wait_for_element_clickable(self.CREATE_BUTTON).click()
         self.wait_for_element_visible(self.CREATE_DIALOG)

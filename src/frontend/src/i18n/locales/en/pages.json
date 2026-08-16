@@ -1142,7 +1142,8 @@
       "speciesInFamily": "Species in this family",
       "noSpeciesInFamily": "No species have been assigned to this family yet.",
       "showAllSpeciesFiltered": "Show all species of this family",
-      "showAllSpeciesFilteredFor": "Show all species of {{family}} ({{count}})"
+      "showAllSpeciesFilteredFor": "Show all species of {{family}} ({{count}})",
+      "editDenied": "Botanical families are global and shared by every tenant, so creating, editing and deleting them is reserved for platform administrators — get in touch with them if something here is missing or wrong."
     },
     "species": {
       "title": "Species",
@@ -4028,7 +4029,7 @@
       "basedOnWorkflow": "Based on workflow",
       "viewWorkflows": "View workflows",
       "sharedPlanTitle": "Shared template",
-      "sharedPlanText": "This plan is still shared with everyone else growing this species. As soon as you change something we create your own copy automatically \u2013 your plan is then yours alone, and the template stays unchanged for everyone else.",
+      "sharedPlanText": "This plan is still shared with everyone else growing this species. As soon as you change something we create your own copy automatically – your plan is then yours alone, and the template stays unchanged for everyone else.",
       "privateCopyCreated": "Your own copy of this plan has been created. From now on your changes only affect you."
     },
     "gantt": {

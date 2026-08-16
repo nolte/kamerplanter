@@ -187,6 +187,23 @@ class Settings(BaseSettings):
     require_email_verification: bool = False  # Set True in production
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
+    #: E2E only (#1155) — email of a second, platform-admin account to seed.
+    #:
+    #: The full-mode E2E suite needs an account that may mutate the global
+    #: catalogues, because #1120 made those platform-admin-only. It cannot be the
+    #: demo user: half the suite exists to assert what an *ordinary member* is
+    #: refused, and promoting the one account both roles run through would make
+    #: those assertions vacuous — including #1120's own.
+    #:
+    #: Seeding an administrator from an environment variable is a dangerous shape
+    #: on its own, so it is not gated on this alone. See
+    #: ``seed_e2e_platform_admin`` for the second condition and why it was chosen.
+    e2e_platform_admin_email: str | None = None
+
+    #: Password for :attr:`e2e_platform_admin_email`. Both must be set; the seed
+    #: refuses a half-configured pair rather than inventing the missing half.
+    e2e_platform_admin_password: str | None = None
+
     #: REQ-023 / #1118 — lifetime of a QR device-pairing code, in seconds.
     #:
     #: The bounds are the guard, not the default. A pairing code is a bearer

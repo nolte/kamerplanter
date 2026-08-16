@@ -42,6 +42,11 @@ def _navigate_to_first_family_detail(
     return family_list.driver.current_url
 
 
+# Every case below either edits, deletes, or asserts the delete affordance, and
+# #1120 made those platform-admin-only. In full mode they therefore run as the
+# seeded admin account (#1155); in light mode the marker is a no-op, because the
+# sole operator already is that admin (REQ-027).
+@pytest.mark.platform_admin
 class TestBotanicalFamilyDetailPage:
     """Detail page view, edit, delete (Spec: TC-001-005, TC-001-010, TC-001-011, TC-001-012)."""
 
@@ -235,4 +240,46 @@ class TestBotanicalFamilyDetailPage:
 
         assert detail_page.is_error_displayed() or "nonexistent" not in detail_page.driver.title, (
             "TC-REQ-001-028 FAIL: Should show error display or not-found state"
+        )
+
+
+class TestDetailPageRoleGate:
+    """The detail page offers no mutation to an ordinary member (Spec: TC-001-099)."""
+
+    @pytest.mark.core_crud
+    def test_delete_and_save_are_not_offered_to_an_ordinary_member(
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
+    ) -> None:
+        """TC-001-099: The detail page shows no delete or save to a non-admin.
+
+        Spec: TC-001-099 -- Nur ein Plattform-Admin darf globale Botanische Familien anlegen.
+
+        The list-page half of this rule is in the create module. This is the other
+        end of the same dead end: before #1155 an ordinary member could edit every
+        field on this page and press save, and the 403 arrived then.
+
+        The explanation is the anchor rather than the absence, and deliberately
+        so — a page still loading has no delete button either, and an absence read
+        taken there would hold for an administrator too.
+        """
+        if app_mode == "light":
+            pytest.skip(
+                "light mode's sole anonymous operator is treated as platform admin "
+                "(REQ-027), so there is no non-admin caller here"
+            )
+
+        _navigate_to_first_family_detail(family_list)
+        assert detail_page.has_edit_denied_note(), (
+            "TC-REQ-001-099 SETUP: the read-only explanation must have rendered before the "
+            "absence of the delete button means anything — it arrives with the form"
+        )
+        screenshot("TC-REQ-001-099_detail-as-member", "Family detail page as an ordinary member")
+
+        assert not detail_page.has_delete_button(), (
+            "TC-REQ-001-099 FAIL: an ordinary member is offered delete on a global botanical "
+            "family. The API refuses it with 403 (#1120), so the button is a dead end."
         )

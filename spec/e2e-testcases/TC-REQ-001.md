@@ -2646,7 +2646,7 @@ version: "4.1"
 
 ---
 
-## TC-001-099: Nur ein Plattform-Admin darf globale Botanische Familien anlegen
+## TC-001-099: Nur ein Plattform-Admin darf globale Botanische Familien kuratieren
 
 **Requirement**: REQ-001 §2 — BotanicalFamily CRUD, §4 — Auth & Autorisierung; REQ-049 §2.5 — Plattform-Rolle
 
@@ -2662,20 +2662,41 @@ der einzige anonyme Operator per REQ-027 als Plattform-Admin gilt; dieser Fall
 prüft die Verweigerung im full-Modus, wo der Demo-Nutzer bewusst ein gewöhnliches
 Mitglied ist.
 
+**Was sich mit #1155 geändert hat**: Bis dahin wurde die Aktion jedem angeboten
+und erst der Absenden-Versuch abgelehnt — der Fall prüfte folglich, dass der
+Dialog offen bleibt und eine Fehlermeldung erscheint. Das war eine Sackgasse: Ein
+gewöhnliches Mitglied füllte jedes Feld aus und erfuhr erst beim Absenden, dass
+es nicht darf. Seit #1155 wird die Aktion gar nicht mehr angeboten, und damit
+wandert die beobachtbare Tatsache mit — von „die Ablehnung kommt" zu „die Anfrage
+wird nie eingeladen". Die API-Ablehnung selbst bleibt unverändert und wird von
+den Backend-Tests zu #1120 abgedeckt; sie hier erneut zu prüfen hiesse, um das
+Produkt herumzugreifen, um an die Regel zu kommen.
+
 **Preconditions**:
 - Instanz läuft im `full`-Modus
 - Nutzer ist angemeldet und **kein** Plattform-Admin (keine `lead`-Mitgliedschaft im technischen `platform`-Mandanten)
-- Nutzer ist auf `/stammdaten/botanical-families`
 
-**Test Steps**:
-1. Nutzer klickt auf "Familie erstellen"
-2. Nutzer füllt das Formular mit einem gültigen, eindeutigen Familiennamen (Endung "-aceae") aus
-3. Nutzer klickt auf "Erstellen"
+**Test Steps** (Liste):
+1. Nutzer öffnet `/stammdaten/botanical-families`
+2. Nutzer wartet, bis der Katalog Zeilen zeigt
 
-**Expected Results**:
-- Der Erstellen-Dialog bleibt geöffnet
-- Eine Fehlermeldung weist auf die fehlende Berechtigung hin
-- Die Familie erscheint **nicht** in der Liste
+**Expected Results** (Liste):
+- Es wird **keine** Schaltfläche „Familie erstellen" angeboten
+- Der Leerzustand nennt stattdessen den Grund (globale Daten, der Plattform-Administration vorbehalten)
+
+**Test Steps** (Detail):
+1. Nutzer öffnet die Detailseite einer beliebigen Familie
+2. Nutzer wartet, bis das Formular gerendert ist
+
+**Expected Results** (Detail):
+- Es wird **keine** Löschen-Schaltfläche und **keine** Speichern-Aktion angeboten
+- An deren Stelle steht eine Erläuterung, warum die Ansicht schreibgeschützt ist
+
+**Hinweis zur Verankerung**: Die Abwesenheit darf erst nach einem gerenderten
+Anker geprüft werden — gerenderte Tabellenzeilen bzw. die Erläuterung im
+Formular. Eine noch ladende Seite zeigt die Schaltflächen ebenfalls nicht, und
+eine dort gemessene Abwesenheit gilt auch für einen Plattform-Admin; der Fall
+wäre dann für jeden Nutzer grün.
 
 **Postconditions**:
 - Keine Daueränderung; der globale Katalog ist unverändert
