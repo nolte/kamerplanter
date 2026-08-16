@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
@@ -1259,19 +1259,38 @@ def ensure_authenticated(
 def _switch_account(driver: webdriver.Remote, base_url: str, account: str) -> None:
     """Put the browser into a session for ``account`` ("demo" or "admin").
 
-    The cookies are cleared first. Logging in over a live session would leave the
-    app on the dashboard and never submit the form, so the browser would keep the
-    previous account while this function reported success — and an admin-only
-    case would then run as an ordinary member and pass by not reaching the thing
-    it tests.
+    The refresh cookie has to go first, and getting *there* is the subtle part.
+    `kp_refresh` is scoped to ``path=/api/v1/auth``, and WebDriver's delete-all
+    only touches cookies matching the current document's address — the same
+    property `ensure_authenticated` documents for *reading* them. Called from
+    ``/login`` it therefore deletes nothing, the previous session survives, the
+    app redirects away from the login route, and the form never appears.
+
+    So the browser is parked on the cookie's own path before clearing. Then the
+    login form is confirmed to be reachable, because the failure mode this
+    guards against is silent: without it an admin-only case would run as the
+    demo user and pass by never reaching the thing it tests.
     """
-    driver.get(f"{base_url}/login")
+    # Any address under the cookie's path will do; the response is irrelevant.
+    driver.get(f"{base_url}/api/v1/auth/csrf")
     driver.delete_all_cookies()
 
     if account == "admin":
-        _browser_login(driver, base_url, PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD)
+        email, password = PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD
     else:
-        _browser_login(driver, base_url, DEMO_EMAIL_FULL, DEMO_PASSWORD)
+        email, password = DEMO_EMAIL_FULL, DEMO_PASSWORD
+
+    try:
+        _browser_login(driver, base_url, email, password)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"Could not log in as {email!r}. Two things go wrong here and they look "
+            f"identical from the outside: the account was never seeded (check the backend "
+            f"log for `e2e_platform_admin_created` / `seed_failed`), or the previous "
+            f"session survived and the app redirected away from /login before the form "
+            f"rendered. Both leave this test running as the wrong user, which is why this "
+            f"raises instead of carrying on."
+        ) from exc
 
     driver._kp_account = account  # type: ignore[attr-defined]
 

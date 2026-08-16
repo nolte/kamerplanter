@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from app.common.exceptions import DuplicateError
 from app.migrations import seed_e2e_platform_admin as seed
 
 
@@ -35,18 +36,49 @@ class _FakeUserRepo:
 
 
 class _FakeTenantRepo:
+    """Models what ArangoDB actually does, which is not what the caller asks for.
+
+    Two behaviours matter here, and the first version of this double had neither
+    — which is why it certified a seed that crashed in the E2E stack on the
+    second boot:
+
+    1. **``_key`` is discarded on insert.** ``BaseArangoRepository._to_doc`` pops
+       it unconditionally, so ``Tenant(_key="platform")`` does *not* produce a
+       document with key ``platform``; the key is generated. Any lookup by that
+       intended key therefore misses, forever.
+    2. **``slug`` is unique.** So the second attempt to create the same tenant
+       does not quietly succeed — it raises.
+
+    Together those turn "create it if the lookup misses" into "create it every
+    time, and fail from the second time on". A double that honoured ``_key``
+    hides exactly that, and reports green.
+    """
+
     def __init__(self) -> None:
         self.created: list[Any] = []
-        self.by_key: dict[str, Any] = {}
+        self._by_key: dict[str, Any] = {}
+        self._slugs: set[str] = set()
+        self._next = 34913
 
     def get_by_key(self, key: str) -> Any:
-        return self.by_key.get(key)
+        return self._by_key.get(key)
+
+    def get_by_slug(self, slug: str) -> Any:
+        for tenant in self.created:
+            if getattr(tenant, "slug", None) == slug:
+                return tenant
+        return None
 
     def create(self, tenant: Any) -> Any:
-        if not getattr(tenant, "key", None):
-            tenant.key = f"t-{len(self.created)}"
+        slug = getattr(tenant, "slug", None)
+        if slug in self._slugs:
+            raise DuplicateError("tenants", "slug", slug)
+        # The caller's `_key` is dropped, exactly as `_to_doc` drops it.
+        tenant.key = str(self._next)
+        self._next += 1
+        self._slugs.add(slug)
         self.created.append(tenant)
-        self.by_key[tenant.key] = tenant
+        self._by_key[tenant.key] = tenant
         return tenant
 
 
@@ -167,3 +199,31 @@ def test_leaves_an_existing_account_untouched(monkeypatch: pytest.MonkeyPatch, r
     assert any(m.user_key == "u-existing" and m.tenant_key == "platform" for m in membership_repo.created), (
         "the membership is still ensured, so a database seeded before this seed existed gains it on the next boot"
     )
+
+
+def test_survives_a_second_boot(monkeypatch: pytest.MonkeyPatch, repos: tuple[Any, Any, Any]) -> None:
+    """Startup seeds run on every boot, and the second one used to crash.
+
+    Measured, not imagined: `e2e-nightly` run 31933851949 failed all twelve
+    platform-admin cases in the three `full` profiles because this seed raised
+    `DuplicateError: tenants with slug='platform' already exists` — so the
+    account never got its membership and every admin login timed out.
+
+    The cause is in `_ensure_platform_admin`, which this seed reuses: it looks
+    the platform tenant up by `_key`, but `_to_doc` discards `_key` on insert, so
+    the lookup can never find what the previous boot created. It then creates it
+    again, and the unique `slug` index refuses.
+    """
+    user_repo, tenant_repo, membership_repo = repos
+    _configure(monkeypatch)
+
+    seed.run_seed_e2e_platform_admin()
+    user_repo.existing = user_repo.created[0]  # the account persists across boots
+
+    seed.run_seed_e2e_platform_admin()
+
+    assert [t.slug for t in tenant_repo.created].count("platform") == 1, (
+        "the platform tenant was created twice — the lookup that guards it is not "
+        "finding what the previous boot inserted"
+    )
+    assert len(user_repo.created) == 1
