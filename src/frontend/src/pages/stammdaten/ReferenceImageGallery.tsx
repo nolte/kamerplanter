@@ -31,7 +31,7 @@ interface ReferenceImageGalleryProps {
  * Responsive column count: 2 (xs), 3 (sm), 4 (md+) — fills available width.
  * Skeleton count mirrors the real column count to avoid layout shift.
  */
-export function ReferenceImageGallery({ speciesKey, scientificName }: ReferenceImageGalleryProps) {
+function ReferenceImageGallery({ speciesKey, scientificName }: ReferenceImageGalleryProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isPlatformAdmin = usePlatformAdmin();

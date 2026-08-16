@@ -52,10 +52,3 @@ export async function listHaPublishSettings(
   const { data } = await client.get<HaPublishSetting[]>(BASE, { params });
   return data;
 }
-
-export async function listHaPublishEnabledKeys(
-  entityType: HaPublishEntityType,
-): Promise<HaPublishEnabledKeys> {
-  const { data } = await client.get<HaPublishEnabledKeys>(`${BASE}/enabled-keys/${entityType}`);
-  return data;
-}

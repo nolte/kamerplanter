@@ -1,6 +1,8 @@
 export * from './types';
 export * from './errors';
-export { default as client } from './client';
+// `client` is deliberately NOT re-exported: its consumers import it from
+// `@/api/client` directly, and offering the same instance under two paths is how
+// a module ends up with an axios instance that looks shared and is not.
 export * as botanicalFamiliesApi from './endpoints/botanicalFamilies';
 export * as speciesApi from './endpoints/species';
 export * as companionPlantingApi from './endpoints/companionPlanting';

@@ -4,7 +4,22 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import * as planApi from '@/api/endpoints/nutrient-plans';
-import type { FertilizerRemoveAllPayload } from '../FertilizerGanttChart';
+/**
+ * The payload the "remove this fertilizer everywhere" confirmation carries.
+ *
+ * It used to live in `FertilizerGanttChart`, whose 1 472-line component lost its
+ * call site in the #347 split of `NutrientPlanDetailPage` (2026-07-04) — the
+ * replacement tab renders `PhaseGanttChart` and `PhaseDetailGantt` instead. The
+ * file survived that refactor solely because of this one interface; the other
+ * five it exported had no user left either. Moved here, where the state it types
+ * actually lives, and the component deleted.
+ */
+export interface FertilizerRemoveAllPayload {
+  fertilizerKey: string;
+  fertilizerName: string;
+  /** All entry/channel pairs where this fertilizer is present. */
+  targets: { entryKey: string; channelId: string }[];
+}
 import type { DosageEntry } from '../ChannelFertilizerDialog';
 import type {
   NutrientPlan,

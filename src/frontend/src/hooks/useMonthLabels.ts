@@ -21,5 +21,3 @@ export function useMonthLabels(format: MonthLabelFormat = 'long'): string[] {
     );
   }, [i18n.language, format]);
 }
-
-export default useMonthLabels;
