@@ -1142,7 +1142,8 @@
       "speciesInFamily": "Arten in dieser Familie",
       "noSpeciesInFamily": "Dieser Familie sind noch keine Arten zugeordnet.",
       "showAllSpeciesFiltered": "Alle Arten dieser Familie anzeigen",
-      "showAllSpeciesFilteredFor": "Alle Arten der Familie {{family}} anzeigen ({{count}})"
+      "showAllSpeciesFilteredFor": "Alle Arten der Familie {{family}} anzeigen ({{count}})",
+      "editDenied": "Die botanischen Familien sind global und gelten für alle Mandanten. Anlegen, Ändern und Löschen sind deshalb der Plattform-Administration vorbehalten — melde dich dort, wenn hier etwas fehlt oder falsch ist."
     },
     "species": {
       "title": "Arten",

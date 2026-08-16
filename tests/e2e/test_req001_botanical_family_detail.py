@@ -35,13 +35,24 @@ def _navigate_to_first_family_detail(
 ) -> str:
     """Navigate to first family's detail page and return the URL."""
     family_list.open()
-    if family_list.get_row_count() == 0:
-        pytest.skip("No botanical families in database")
+    # Asserted, not skipped. The seed ships 18 botanical families and they are
+    # global reference data, so an empty catalogue is a broken stack, not a
+    # reason to report a neutral result — and a skip here silently removes every
+    # case in this file at once.
+    assert family_list.get_row_count() > 0, (
+        "TC-REQ-001 SETUP: the botanical-family catalogue is empty. The seed ships 18 "
+        "global families, so this is a stack or seeding failure, not a missing fixture."
+    )
     family_list.click_row(0)
     family_list.wait_for_url_contains("/stammdaten/botanical-families/")
     return family_list.driver.current_url
 
 
+# Every case below either edits, deletes, or asserts the delete affordance, and
+# #1120 made those platform-admin-only. In full mode they therefore run as the
+# seeded admin account (#1155); in light mode the marker is a no-op, because the
+# sole operator already is that admin (REQ-027).
+@pytest.mark.platform_admin
 class TestBotanicalFamilyDetailPage:
     """Detail page view, edit, delete (Spec: TC-001-005, TC-001-010, TC-001-011, TC-001-012)."""
 
@@ -87,15 +98,12 @@ class TestBotanicalFamilyDetailPage:
         the demo user in full mode is deliberately an ordinary member. Left
         running there it would not fail — its only assertion is that the URL is
         still the detail route, which a refused save satisfies too — so it would
-        have gone on reporting green while testing nothing. The refusal itself is
-        pinned at the API tier (`test_botanical_family_role_gate.py`), which is
-        where a 403 is observable without a browser.
+        have gone on reporting green while testing nothing. Skipping full mode was
+        the honest answer while the demo user was the only account; running as the
+        seeded admin (#1155) is the better one. The refusal itself stays pinned at
+        the API tier (`test_botanical_family_role_gate.py`), where a 403 is
+        observable without a browser.
         """
-        if app_mode != "light":
-            pytest.skip(
-                "editing a global family requires a platform admin since #1120; "
-                "the refusal is pinned in tests/api/test_botanical_family_role_gate.py"
-            )
         _navigate_to_first_family_detail(family_list)
         screenshot("TC-REQ-001-024_before-edit", "Family detail page before editing")
 
@@ -166,14 +174,10 @@ class TestBotanicalFamilyDetailPage:
         create was refused, the row lookup below then raised `ValueError`, and
         the `except` turned it into "Family not found after creation" — a skip
         that blames the search for an authorization refusal and quietly removed
-        the delete happy path from three nightly profiles. The refusal is pinned
-        at the API tier (`test_botanical_family_role_gate.py`).
+        the delete happy path from three nightly profiles. Running as the seeded
+        admin (#1155) puts it back in all four. The refusal stays pinned at the
+        API tier (`test_botanical_family_role_gate.py`).
         """
-        if app_mode != "light":
-            pytest.skip(
-                "deleting a global family requires a platform admin since #1120; "
-                "the refusal is pinned in tests/api/test_botanical_family_role_gate.py"
-            )
         # First create a family to delete
         family_list.open()
         family_list.click_create()
@@ -181,16 +185,26 @@ class TestBotanicalFamilyDetailPage:
         delete_name = f"Delete{unique}aceae"
         family_list.fill_create_form(delete_name)
         family_list.submit_create_form()
-        family_list.wait_for_loading_complete()
+        # The exact post-condition of the create, not `wait_for_loading_complete()`:
+        # that waits for a loading skeleton to *unmount*, and a refetch that
+        # resolves before one renders leaves it waiting for nothing. The dialog
+        # closes only after `await api.createBotanicalFamily(...)` resolves 2xx.
+        # TC-001-006 learned this a few functions away in the create module; this
+        # case had not picked it up.
+        family_list.wait_for_create_dialog_closed()
         screenshot(
             "TC-REQ-001-026_family-created", f"Family {delete_name} created for deletion test"
         )
 
-        # Navigate to its detail page
-        try:
-            family_list.click_row_by_name(delete_name)
-        except ValueError:
-            pytest.skip(f"Family '{delete_name}' not found after creation")
+        # Found by searching, not by scanning whatever the table happens to show.
+        # `click_row_by_name` reads the rendered page only, so a bare scan depends
+        # on where the new row sorts and on whether the list has refetched at all
+        # — and when it missed, the `except` turned an authorization or timing
+        # failure into a neutral skip that blamed the search.
+        family_list.open()
+        family_list.search(delete_name)
+        family_list.wait_for_search_applied(delete_name, what="botanical family list")
+        family_list.click_row_by_name(delete_name)
 
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
         screenshot(
@@ -235,4 +249,46 @@ class TestBotanicalFamilyDetailPage:
 
         assert detail_page.is_error_displayed() or "nonexistent" not in detail_page.driver.title, (
             "TC-REQ-001-028 FAIL: Should show error display or not-found state"
+        )
+
+
+class TestDetailPageRoleGate:
+    """The detail page offers no mutation to an ordinary member (Spec: TC-001-099)."""
+
+    @pytest.mark.core_crud
+    def test_delete_and_save_are_not_offered_to_an_ordinary_member(
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
+        screenshot: Callable[..., Path],
+        app_mode: str,
+    ) -> None:
+        """TC-001-099: The detail page shows no delete or save to a non-admin.
+
+        Spec: TC-001-099 -- Nur ein Plattform-Admin darf globale Botanische Familien anlegen.
+
+        The list-page half of this rule is in the create module. This is the other
+        end of the same dead end: before #1155 an ordinary member could edit every
+        field on this page and press save, and the 403 arrived then.
+
+        The explanation is the anchor rather than the absence, and deliberately
+        so — a page still loading has no delete button either, and an absence read
+        taken there would hold for an administrator too.
+        """
+        if app_mode == "light":
+            pytest.skip(
+                "light mode's sole anonymous operator is treated as platform admin "
+                "(REQ-027), so there is no non-admin caller here"
+            )
+
+        _navigate_to_first_family_detail(family_list)
+        assert detail_page.has_edit_denied_note(), (
+            "TC-REQ-001-099 SETUP: the read-only explanation must have rendered before the "
+            "absence of the delete button means anything — it arrives with the form"
+        )
+        screenshot("TC-REQ-001-099_detail-as-member", "Family detail page as an ordinary member")
+
+        assert not detail_page.has_delete_button(), (
+            "TC-REQ-001-099 FAIL: an ordinary member is offered delete on a global botanical "
+            "family. The API refuses it with 403 (#1120), so the button is a dead end."
         )

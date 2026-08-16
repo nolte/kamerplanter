@@ -317,6 +317,16 @@ services:
       # above and leaving an order of magnitude over the observed peak.
       RATE_LIMIT_AUTH: "200/minute"
       RATE_LIMIT_TOKEN_REFRESH: "600/minute"
+      # A *second* account, with platform-admin rights (#1155). Not the demo
+      # user: much of this suite asserts what an ordinary member is refused, and
+      # promoting the single account those cases share would leave every one of
+      # them green while checking nothing.
+      #
+      # The seed behind these two variables refuses unless `cookie_secure` is
+      # also off, so a copied compose file or a leaked environment cannot mint an
+      # administrator on its own. See app/migrations/seed_e2e_platform_admin.py.
+      E2E_PLATFORM_ADMIN_EMAIL: e2e-admin@kamerplanter.example
+      E2E_PLATFORM_ADMIN_PASSWORD: e2e-admin-passwort-2026
     depends_on:
       arangodb:
         condition: service_healthy

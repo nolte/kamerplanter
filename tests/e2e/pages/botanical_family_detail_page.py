@@ -97,12 +97,6 @@ class BotanicalFamilyDetailPage(BasePage):
         el.send_keys(value)
         el.send_keys(Keys.ENTER)
 
-    def toggle_switch(self, field_name: str) -> None:
-        el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input[type='checkbox']")
-        )
-        self.scroll_and_click(el)
-
     # ── Actions ────────────────────────────────────────────────────────
 
     def click_save(self) -> None:
@@ -140,6 +134,17 @@ class BotanicalFamilyDetailPage(BasePage):
         assertion.
         """
         return self.is_absent_within(self.CONFIRM_DIALOG, timeout=timeout)
+
+    EDIT_DENIED_NOTE = (By.CSS_SELECTOR, "[data-testid='edit-denied-note']")
+
+    def has_edit_denied_note(self) -> bool:
+        """Wait for the read-only explanation a non-admin sees instead of save (#1155).
+
+        A genuine wait, unlike :meth:`has_delete_button` below: this is the
+        *anchor* an absence assertion hangs off, so it has to establish that the
+        form has rendered rather than sample whatever is on screen.
+        """
+        return bool(self.await_presence(self.EDIT_DENIED_NOTE))
 
     def has_delete_button(self) -> bool:
         """Return True if the delete button is rendered.

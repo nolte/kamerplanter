@@ -15,6 +15,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import type { BotanicalFamily } from '@/api/types';
 import Chip from '@mui/material/Chip';
 import MobileCard from '@/components/common/MobileCard';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import BotanicalFamilyCreateDialog from './BotanicalFamilyCreateDialog';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
@@ -25,6 +26,20 @@ export default function BotanicalFamilyListPage() {
   const { items, loading } = useAppSelector((s) => s.botanicalFamilies);
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
+  // #1155 — UX consequence of the #1120 backend gate, not a security control:
+  // `POST /botanical-families` refuses a non-platform-admin with 403 whatever is
+  // rendered here. Without this the dialog opens, every field accepts input, and
+  // the refusal arrives only on submit.
+  //
+  // `usePlatformAdmin` rather than `useCanCreateCatalogEntry`: the latter also
+  // lets a tenant editor through, which is right for species and cultivars —
+  // those can be tenant-owned. A botanical family cannot; it is global, so
+  // "editor in some tenant" grants nothing here.
+  //
+  // Hidden rather than disabled, following the established precedent: a hover
+  // tooltip is unreachable on touch and in kiosk mode (UI-NFR-019), so the empty
+  // state carries the explanation instead.
+  const canEditCatalogue = usePlatformAdmin();
 
   useEffect(() => {
     dispatch(fetchBotanicalFamilies({}));
@@ -142,14 +157,16 @@ export default function BotanicalFamilyListPage() {
       <PageTitle
         title={t('pages.botanicalFamilies.title')}
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-button"
-          >
-            {t('pages.botanicalFamilies.create')}
-          </Button>
+          canEditCatalogue ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-button"
+            >
+              {t('pages.botanicalFamilies.create')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -165,8 +182,9 @@ export default function BotanicalFamilyListPage() {
         loading={loading}
         onRowClick={(r) => navigate(`/stammdaten/botanical-families/${r.key}`)}
         getRowKey={(r) => r.key}
-        emptyActionLabel={t('pages.botanicalFamilies.create')}
-        onEmptyAction={() => setCreateOpen(true)}
+        emptyActionLabel={canEditCatalogue ? t('pages.botanicalFamilies.create') : undefined}
+        onEmptyAction={canEditCatalogue ? () => setCreateOpen(true) : undefined}
+        emptyDescription={canEditCatalogue ? undefined : t('pages.botanicalFamilies.editDenied')}
         emptyIllustration={kamiMasterdata}
         tableState={tableState}
         ariaLabel={t('pages.botanicalFamilies.title')}

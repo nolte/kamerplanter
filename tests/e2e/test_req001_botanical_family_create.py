@@ -30,6 +30,7 @@ def family_list(browser: WebDriver, base_url: str) -> BotanicalFamilyListPage:
     return BotanicalFamilyListPage(browser, base_url)
 
 
+@pytest.mark.platform_admin
 class TestBotanicalFamilyCreateDialog:
     """Create dialog and validation (Spec: TC-001-006, TC-001-007, TC-001-009, TC-001-013)."""
 
@@ -69,15 +70,11 @@ class TestBotanicalFamilyCreateDialog:
         **Light mode only, since #1120.** `BotanicalFamily` is global reference
         data with no `tenant_key`, so creating one is curation and requires a
         platform admin. In light mode the sole anonymous operator *is* that
-        admin (REQ-027), so the happy path is reachable. In full mode the demo
-        user is deliberately an ordinary member and the create is refused --
-        which is its own case, TC-001-099, rather than a weaker assertion here.
+        admin (REQ-027); in full mode this runs as the seeded admin account
+        (#1155). It used to skip full mode entirely, because no such account
+        existed — so the happy path was verified in one profile out of four while
+        the report showed a neutral skip for the rest.
         """
-        if app_mode != "light":
-            pytest.skip(
-                "TC-001-006 is the platform-admin happy path; in full mode the demo "
-                "user is an ordinary member and the refusal is TC-001-099's subject"
-            )
         family_list.open()
 
         family_list.click_create()
@@ -221,17 +218,11 @@ class TestBotanicalFamilyCreateDialog:
         notice. It also stated a reason that was not true: no required multi-select
         was ever empty.
 
-        **Light mode only, for the same reason as the sibling.** Creating global
-        reference data is curation and needs a platform admin (#1120); in light
-        mode the sole anonymous operator is that admin (REQ-027). The full-mode
-        refusal is TC-001-099's subject, not a weaker assertion here.
+        Creating global reference data is curation and needs a platform admin
+        (#1120): the sole anonymous operator in light mode (REQ-027), the seeded
+        admin account in full mode (#1155). Skipped in full mode until that
+        account existed.
         """
-        if app_mode != "light":
-            pytest.skip(
-                "TC-001-006 minimal-fields is the platform-admin happy path; in full "
-                "mode the demo user is an ordinary member and the refusal is "
-                "TC-001-099's subject"
-            )
         family_list.open()
         family_list.click_create()
 
@@ -340,6 +331,7 @@ class TestBotanicalFamilyCreateDialog:
         # Should succeed (boundary values are valid)
 
 
+@pytest.mark.platform_admin
 class TestBotanicalFamilyBackendValidation:
     """Backend validation rules (Spec: TC-001-017, TC-001-078)."""
 
@@ -357,18 +349,24 @@ class TestBotanicalFamilyBackendValidation:
 
         unique = uuid.uuid4().hex[:6]
         family_list.fill_name_only(f"Conflict{unique}aceae")
-        try:
-            family_list.select_option("typical_nutrient_demand", "Starkzehrer")
-        except Exception:
-            # The select option may not be available or use different labels
-            try:
-                family_list.select_option("typical_nutrient_demand", "heavy")
-            except Exception:
-                pytest.skip("typical_nutrient_demand dropdown not available or option not found")
-        try:
-            family_list.toggle_switch("nitrogen_fixing")
-        except Exception:
-            pytest.skip("nitrogen_fixing toggle not available in create dialog")
+        # Neither of these is attempted-and-excused any more.
+        #
+        # This block used to try the German label, fall back to the raw enum
+        # value, and skip on any exception; the toggle skipped on any exception
+        # too, with the message "nitrogen_fixing toggle not available in create
+        # dialog". That message was never measured, and it is wrong:
+        # `BotanicalFamilyCreateDialog` renders a `FormSwitchField` named
+        # `nitrogen_fixing`, which is exactly what `toggle_switch` addresses,
+        # and `enums.nutrientDemand.heavy` is "Starkzehrer", which is exactly
+        # what the first attempt asked for. So the fallback was dead and the
+        # skips asserted a cause nobody had checked — while destroying the
+        # evidence of whatever really went wrong.
+        #
+        # If either interaction fails now, it fails with its own exception. A
+        # red case with a traceback is worth more than a neutral result whose
+        # explanation is a guess.
+        family_list.select_option("typical_nutrient_demand", "Starkzehrer")
+        family_list.toggle_switch("nitrogen_fixing")
 
         screenshot(
             "TC-REQ-001-019_before-submit", "Create dialog with nitrogen_fixing + heavy demand"
@@ -402,16 +400,13 @@ class TestBotanicalFamilyBackendValidation:
 
         Spec: TC-001-078 -- Duplikat-Schutz — Familie mit identischem Namen wird abgelehnt.
 
-        **Light mode only, since #1120.** The assertion is "the dialog stays
-        open", and in full mode the platform-admin gate now refuses the create
-        *before* the unique index can reject the duplicate — so the test would
-        keep passing while the duplicate protection it exists for went untested.
+        The assertion is "the dialog stays open", which the #1120 role gate also
+        satisfies — so between #1120 and #1155 this ran in light mode only, since
+        in full mode the demo user was refused *before* the unique index could
+        reject the duplicate and the case would have passed without observing its
+        own subject. Running as the seeded admin (#1155) puts the duplicate back
+        in front of the index.
         """
-        if app_mode != "light":
-            pytest.skip(
-                "in full mode the #1120 role gate refuses the create before the unique "
-                "index sees the duplicate, so this case cannot observe its own subject"
-            )
         family_list.open()
         family_list.click_create()
         family_list.fill_name_only("Solanaceae")  # Exists in seed data
@@ -432,26 +427,34 @@ class TestGlobalCatalogueRoleGate:
     """Who may curate the global family catalogue (Spec: TC-001-099)."""
 
     @pytest.mark.core_crud
-    def test_a_non_admin_cannot_create_a_global_family(
+    def test_the_create_action_is_not_offered_to_an_ordinary_member(
         self,
         family_list: BotanicalFamilyListPage,
         screenshot: Callable[..., Path],
         app_mode: str,
     ) -> None:
-        """TC-001-099: An ordinary member may not curate the global family catalogue.
+        """TC-001-099: An ordinary member is not offered the global-catalogue create.
 
         Spec: TC-001-099 -- Nur ein Plattform-Admin darf globale Botanische Familien anlegen.
 
-        The other half of the split TC-001-006 describes. `BotanicalFamily` is
-        global reference data with no `tenant_key`, so #1120 gated its mutations
-        on the platform admin — the same rule #1109 set for the global cultivar
-        catalogue. Full mode only: in light mode the sole operator *is* that
-        admin (REQ-027), so there is no non-admin caller to refuse.
+        `BotanicalFamily` is global reference data with no `tenant_key`, so #1120
+        gated its mutations on the platform admin — the same rule #1109 set for
+        the global cultivar catalogue.
 
-        Asserted as a refusal the *user* can observe, not as a status code: the
-        dialog stays open (the create did not go through) and the name never
-        reaches the list. A test that only checked the dialog would pass on a
-        create that succeeded and left the dialog up for an unrelated reason.
+        **This case used to submit the form and assert the refusal**, which was
+        the right shape while the button was still offered to everyone: the whole
+        point of #1155 is that it was, and that a member could fill in every field
+        before learning they may not. Now that the affordance is gone the dialog
+        is unreachable, so the observable fact moved with it — from "the refusal
+        arrives" to "the request is never invited".
+
+        The API refusal itself is not lost, and is not re-asserted here: it lives
+        in the backend tests for #1120, where it belongs. Asserting it through a
+        UI that no longer offers the path would mean reaching around the product
+        to reach the rule.
+
+        Full mode only: in light mode the sole operator *is* that admin
+        (REQ-027), so there is no ordinary member to refuse.
         """
         if app_mode == "light":
             pytest.skip(
@@ -460,32 +463,18 @@ class TestGlobalCatalogueRoleGate:
             )
 
         family_list.open()
-        family_list.click_create()
-        unique = uuid.uuid4().hex[:6]
-        family_name = f"Refused{unique}aceae"
-        family_list.fill_name_only(family_name)
-        screenshot("TC-REQ-001-099_form-filled", f"Create dialog filled with {family_name}")
-
-        family_list.submit_create_form()
-        family_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-099_after-submit", "Result after a non-admin submitted the create")
-
-        assert family_list.is_create_dialog_open(), (
-            "TC-REQ-001-099 FAIL: the dialog must stay open — a closed dialog is how this "
-            "app reports that the create was accepted"
+        # Anchored on a rendered row, not read bare: the button and the table
+        # arrive in the same commit, so an absence read on a still-loading page
+        # would be satisfied for an administrator too, and this assertion would
+        # pass no matter who is logged in.
+        assert family_list.get_row_count() > 0, (
+            "TC-REQ-001-099 SETUP: the seeded family catalogue must have rendered before "
+            "the absence of the create button means anything"
         )
-        # The spec asks for a visible reason, not just a non-event: a frontend
-        # that swallowed the 403 silently would leave the user staring at a
-        # dialog that does nothing, and would pass a dialog-only assertion.
-        assert family_list.has_error_snackbar(), (
-            "TC-REQ-001-099 FAIL: the refusal must be surfaced to the user, not swallowed"
-        )
+        screenshot("TC-REQ-001-099_list-as-member", "Family list as an ordinary member")
 
-        # And nothing was written: the name carries a per-run uuid, so an empty
-        # search result is proof about this create and not about the seed.
-        family_list.open()
-        family_list.search(family_name)
-        family_list.wait_for_no_search_results(
-            family_name, what="botanical family list after a refused create"
+        assert not family_list.has_create_button(), (
+            "TC-REQ-001-099 FAIL: an ordinary member is offered 'Familie erstellen'. "
+            "The API refuses the create with 403 (#1120), so the dialog is a dead end: "
+            "every field accepts input and the refusal arrives only on submit."
         )
-        screenshot("TC-REQ-001-099_not-in-list", f"{family_name} is absent from the catalogue")

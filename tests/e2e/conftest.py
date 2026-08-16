@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
@@ -173,7 +173,7 @@ _TC_ID_STRICT = _pp_mod.TC_ID_PATTERN
 # exists for. Only the four known tag shapes below are accepted; anything else
 # is a hard UsageError naming the tag and its file, mirroring the FEATURES typo
 # guard in pytest_collection_modifyitems.
-_LEGACY_MARKERS = ("smoke", "core_crud", "requires_auth", "requires_desktop")
+_LEGACY_MARKERS = ("smoke", "core_crud", "requires_auth", "requires_desktop", "platform_admin")
 _REQ_TAG_PATTERN = re.compile(r"req\d{3}")
 
 
@@ -267,6 +267,12 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "requires_desktop: mark test as requiring desktop viewport (skipped on mobile/tablet)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "platform_admin: run this test as the seeded platform-admin account instead of the "
+        "demo user (full mode only; no-op in light mode, where the sole operator already is "
+        "platform admin per REQ-027) (#1155)",
     )
 
     # Register the feature-axis markers (semantic, cross-cutting to REQ IDs).
@@ -499,6 +505,20 @@ DEMO_EMAIL_FULL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
 DEMO_DISPLAY_NAME = "Mein Garten"
 
+# ── Platform-admin account (full mode only, #1155) ────────────────────────────
+# A *second* account, seeded by `app/migrations/seed_e2e_platform_admin.py` and
+# configured in `docker-compose.e2e.yml`. It exists because #1120 made the global
+# catalogue mutations platform-admin-only, and the demo user must stay an
+# ordinary member: a large part of this suite asserts what an ordinary member is
+# refused, and promoting the one shared account would leave all of those green
+# while checking nothing.
+#
+# Reach it with `@pytest.mark.platform_admin` on the test. In light mode the
+# marker is a no-op — the sole anonymous operator is already treated as platform
+# admin (REQ-027), so there is nothing to switch to.
+PLATFORM_ADMIN_EMAIL = "e2e-admin@kamerplanter.example"
+PLATFORM_ADMIN_PASSWORD = "e2e-admin-passwort-2026"
+
 
 def _api_helpers(auth_token: str | None = None):
     """Return (post, get) helper functions with optional Bearer auth."""
@@ -702,6 +722,56 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
             result.get("access_token"),
         )
         result["module_visibility_status"] = mv_status
+
+        # The same map for the platform-admin account (#1155) — full mode only,
+        # since light mode has no second account (its sole operator already is
+        # the platform admin, REQ-027).
+        #
+        # The PATCH above carries the demo user's token and leaves the admin's own
+        # preferences untouched, and `master_data` needs experience level
+        # `intermediate` — so without this the admin sees the module-hidden
+        # placeholder on every `/stammdaten/*` route, and the page object times
+        # out on a page that rendered perfectly well.
+        #
+        # The localStorage fallback does not cover it, for a reason that is easy
+        # to miss: `migrateLocalModuleVisibility` PATCHes the seeded localStorage
+        # map to the server **and then clears the key**. The demo user's first
+        # bootstrap consumes it, so by the time the browser switches accounts
+        # there is nothing left to migrate.
+        if app_mode == "full":
+            admin_status, admin_login = _post(
+                f"{api_base}/api/v1/auth/login",
+                {"email": PLATFORM_ADMIN_EMAIL, "password": PLATFORM_ADMIN_PASSWORD},
+            )
+            if admin_status != 200 or "access_token" not in admin_login:
+                raise RuntimeError(
+                    f"E2E seed: could not log in as the platform-admin account "
+                    f"{PLATFORM_ADMIN_EMAIL!r} (status={admin_status}). It is seeded by "
+                    f"app/migrations/seed_e2e_platform_admin.py from the "
+                    f"E2E_PLATFORM_ADMIN_* variables in docker-compose.e2e.yml — check "
+                    f"the backend log for `e2e_platform_admin_created` or `seed_failed`. "
+                    f"Raising rather than skipping, because every "
+                    f"@pytest.mark.platform_admin case would otherwise fail far from "
+                    f"here, on a login timeout that reads as a harness problem."
+                )
+            admin_token = admin_login["access_token"]
+            # Under the admin's *own* tenant slug: `user-preferences` is a
+            # tenant-scoped route, so the demo tenant's path would be a 403.
+            _, _admin_get = _api_helpers(admin_token)
+            _, admin_tenants = _admin_get(f"{api_base}/api/v1/tenants")
+            if not isinstance(admin_tenants, list) or not admin_tenants:
+                raise RuntimeError(
+                    f"E2E seed: the platform-admin account has no tenant, so its "
+                    f"preferences cannot be set: {admin_tenants}"
+                )
+            admin_slug = admin_tenants[0]["slug"]
+            admin_mv_status, _ = _api_patch(
+                f"{api_base}/api/v1/t/{admin_slug}/user-preferences",
+                {"module_visibility": {k: "enabled" for k in _E2E_TOGGLEABLE_MODULES}},
+                admin_token,
+            )
+            result["admin_module_visibility_status"] = admin_mv_status
+            result["admin_tenant_slug"] = admin_slug
 
         list_status, sites = _get(f"{api}/sites")
         existing_site = None
@@ -1148,11 +1218,20 @@ def browser(
     driver.quit()
 
 
-def _browser_login(driver: webdriver.Remote, base_url: str) -> None:
+def _browser_login(
+    driver: webdriver.Remote,
+    base_url: str,
+    email: str = DEMO_EMAIL_FULL,
+    password: str = DEMO_PASSWORD,
+) -> None:
     """Log into the app via the browser UI (full mode only).
 
     Navigates to /login, fills credentials, submits, and waits for
     redirect to /dashboard or /onboarding.
+
+    The credentials default to the demo user, so every existing caller keeps its
+    behaviour; `@pytest.mark.platform_admin` supplies the admin pair instead
+    (#1155).
     """
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
@@ -1165,11 +1244,11 @@ def _browser_login(driver: webdriver.Remote, base_url: str) -> None:
         EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email']"))
     )
     email_input.clear()
-    email_input.send_keys(DEMO_EMAIL_FULL)
+    email_input.send_keys(email)
 
     password_input = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
     password_input.clear()
-    password_input.send_keys(DEMO_PASSWORD)
+    password_input.send_keys(password)
 
     submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
     submit_btn.click()
@@ -1198,6 +1277,23 @@ def ensure_authenticated(
     if "requires_auth" in request.node.keywords:
         return
 
+    # #1155 — which account this test needs. The marker is only meaningful in
+    # full mode; light mode never reaches this line.
+    wants_admin = "platform_admin" in request.node.keywords
+    wanted = "admin" if wants_admin else "demo"
+
+    # The browser is session-scoped, so the account it holds is carried from the
+    # previous test on this worker. Tracked on the driver rather than inferred,
+    # because there is no way to read "who am I" from the page cheaply, and
+    # guessing would silently run an admin case as the demo user — which is the
+    # failure mode this whole change exists to prevent (it looks like a passing
+    # test of the gated path).
+    current_account = getattr(browser, "_kp_account", "demo")
+
+    if current_account != wanted:
+        _switch_account(browser, base_url, wanted)
+        return
+
     # Check if the browser ended up on the login page (= session lost).
     # We cannot reliably check the kp_refresh cookie because it is scoped
     # to path=/api/v1/auth and Selenium only returns cookies for the
@@ -1206,8 +1302,47 @@ def ensure_authenticated(
     if "/login" not in current:
         return
 
-    # Session lost — re-login
-    _browser_login(browser, base_url)
+    # Session lost — re-login as whoever this test needs
+    _switch_account(browser, base_url, wanted)
+
+
+def _switch_account(driver: webdriver.Remote, base_url: str, account: str) -> None:
+    """Put the browser into a session for ``account`` ("demo" or "admin").
+
+    The refresh cookie has to go first, and getting *there* is the subtle part.
+    `kp_refresh` is scoped to ``path=/api/v1/auth``, and WebDriver's delete-all
+    only touches cookies matching the current document's address — the same
+    property `ensure_authenticated` documents for *reading* them. Called from
+    ``/login`` it therefore deletes nothing, the previous session survives, the
+    app redirects away from the login route, and the form never appears.
+
+    So the browser is parked on the cookie's own path before clearing. Then the
+    login form is confirmed to be reachable, because the failure mode this
+    guards against is silent: without it an admin-only case would run as the
+    demo user and pass by never reaching the thing it tests.
+    """
+    # Any address under the cookie's path will do; the response is irrelevant.
+    driver.get(f"{base_url}/api/v1/auth/csrf")
+    driver.delete_all_cookies()
+
+    if account == "admin":
+        email, password = PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD
+    else:
+        email, password = DEMO_EMAIL_FULL, DEMO_PASSWORD
+
+    try:
+        _browser_login(driver, base_url, email, password)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"Could not log in as {email!r}. Two things go wrong here and they look "
+            f"identical from the outside: the account was never seeded (check the backend "
+            f"log for `e2e_platform_admin_created` / `seed_failed`), or the previous "
+            f"session survived and the app redirected away from /login before the form "
+            f"rendered. Both leave this test running as the wrong user, which is why this "
+            f"raises instead of carrying on."
+        ) from exc
+
+    driver._kp_account = account  # type: ignore[attr-defined]
 
 
 @pytest.fixture(scope="session")

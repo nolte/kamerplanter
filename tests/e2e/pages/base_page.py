@@ -1549,6 +1549,45 @@ class BasePage:
         """
         self.click_coordinate_free(self.wait_for_element_clickable(locator, timeout=timeout))
 
+    def toggle_switch(self, field_name: str) -> None:
+        """Flip the MUI ``Switch`` in ``form-field-{field_name}``, and verify it flipped.
+
+        **The hidden input cannot be the click target**, which is what the two
+        page-object copies this replaces both got wrong. MUI renders
+        ``SwitchBase``'s ``input`` as a full-size overlay at ``opacity: 0``, and
+        Selenium's displayedness check treats zero opacity as not shown — so
+        ``element_to_be_clickable`` on that input can never succeed. Both copies
+        waited for exactly that and timed out.
+
+        Nobody noticed because the one call site wrapped it in
+        ``except Exception: pytest.skip("nitrogen_fixing toggle not available in
+        create dialog")``. The toggle was available the whole time; the helper
+        could not reach it, and the skip reported a cause nobody had measured
+        while destroying the evidence. Measured properly once the skip was
+        removed: `e2e-nightly` run 31947430502, a `TimeoutException` in all six
+        profiles.
+
+        The click goes to ``.MuiSwitch-root``, which is a real, visible element,
+        and the input is then read back: a state-changing helper that cannot
+        confirm its own effect is how the next silent no-op gets written
+        (``spec/project/test-falsifiability`` T4).
+        """
+        selector = f"[data-testid='form-field-{field_name}']"
+        input_locator = (By.CSS_SELECTOR, f"{selector} input[type='checkbox']")
+        before = self.find_present(input_locator).is_selected()
+
+        target = self.wait_for_element_clickable((By.CSS_SELECTOR, f"{selector} .MuiSwitch-root"))
+        self.scroll_and_click(target)
+
+        try:
+            self.poll().until(lambda d: d.find_element(*input_locator).is_selected() is not before)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"toggle_switch({field_name!r}): the switch was clicked but its checked "
+                f"state stayed {before}. Either the click missed the control or the form "
+                f"rejected the change."
+            ) from exc
+
     def scroll_and_click(self, element: WebElement) -> None:
         """Scroll an element into view and click it, with a sound JS fallback.
 

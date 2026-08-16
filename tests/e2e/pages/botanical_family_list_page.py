@@ -196,6 +196,16 @@ class BotanicalFamilyListPage(BasePage):
 
     # ── Create dialog ──────────────────────────────────────────────────
 
+    def has_create_button(self) -> bool:
+        """Return True if the create affordance is offered to the current user.
+
+        Read after the table has rows, never on its own: the button and the table
+        render in the same commit, so "no button" on a page that is still loading
+        is true of an administrator too, and an absence assertion taken there
+        would pass for every user (#1155).
+        """
+        return len(self.driver.find_elements(*self.CREATE_BUTTON)) > 0
+
     def click_create(self) -> None:
         self.wait_for_element_clickable(self.CREATE_BUTTON).click()
         self.wait_for_element_visible(self.CREATE_DIALOG)
@@ -299,13 +309,6 @@ class BotanicalFamilyListPage(BasePage):
         """
         self.open_select(field_testid)
         self.select_option_by_label(value_text)
-
-    def toggle_switch(self, field_testid: str) -> None:
-        """Toggle a MUI Switch by its field testid."""
-        switch = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] input[type='checkbox']")
-        )
-        self.scroll_and_click(switch)
 
     def is_switch_checked(self, field_testid: str) -> bool:
         switch = self.find_present(

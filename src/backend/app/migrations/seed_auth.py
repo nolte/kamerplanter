@@ -3,7 +3,7 @@
 import structlog
 
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
-from app.common.enums import AdminScope, EmailVerificationStatus, TenantRole, TenantType
+from app.common.enums import AdminScope, TenantRole, TenantType
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import Membership
@@ -35,7 +35,7 @@ def run_seed_auth() -> None:
         email=demo["email"],
         display_name=demo["display_name"],
         password_hash=password_engine.hash_password(demo["password"]),
-        email_verified=EmailVerificationStatus.VERIFIED,
+        email_verified=True,  # the model field is a bool, not the enum
         is_active=True,
     )
     created_user = user_repo.create(user)
@@ -80,7 +80,17 @@ def _ensure_platform_admin(
     membership_repo,
 ) -> None:
     """Ensure platform tenant exists and user has admin membership."""
-    platform = tenant_repo.get_by_key("platform")
+    # Resolved by slug as well as by key, and the order matters. ``_key`` is
+    # discarded on insert — ``BaseArangoRepository._to_doc`` pops it
+    # unconditionally — so the ``_key="platform"`` below never reaches the
+    # database and ``get_by_key("platform")`` can never find what a previous run
+    # created. Without the slug lookup this function creates the tenant on every
+    # call and raises on the unique ``slug`` index from the second call on.
+    #
+    # That went unnoticed because nothing called this until #1155: measured in
+    # `e2e-nightly` run 31933851949, where the second backend boot failed the
+    # whole seed and left the E2E admin account without its membership.
+    platform = tenant_repo.get_by_key("platform") or tenant_repo.get_by_slug("platform")
     if not platform:
         platform = Tenant(
             _key="platform",
