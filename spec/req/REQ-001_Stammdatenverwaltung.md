@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.7 (Seed↔Phase-Sequence-Tracking #611: growth_determinacy nachgezogen + Lifecycle-Resolution-Pflichtfelder)
+Version: 4.8 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.2 (R-19 Promotion-Audit-Retention)
 ```
 
@@ -1393,21 +1393,26 @@ Lesezugriff für alle authentifizierten Benutzer (gefiltert durch `tenant_has_ac
 **Schicht 2 — Tenant-Overlay (tenant_species_config, tenant_cultivar_config):**
 Lese- und Schreibzugriff für **Tenant-Admins** des jeweiligen Tenants. Lesezugriff für alle Tenant-Mitglieder.
 
-**Schicht 3 — Tenant-eigene Stammdaten (origin: tenant/import, tenant_key gesetzt):**
-Schreibzugriff für **Tenant-Admins**. Lesezugriff für alle Mitglieder des Tenants.
+**Schicht 3 — Mandanteneigene Stammdaten (origin: tenant/import, tenant_key gesetzt):**
+Anlegen und Ändern ab Gärtner, Löschen nur Leitung. Lesen für alle Rollen des Mandanten.
 
-| Ressource/Endpoint-Gruppe | Lesen (Auth) | Schreiben (Auth) | Löschen (Auth) |
-|---------------------------|-------|-----------|---------|
-| BotanicalFamilies (global, ungefiltert) | Ja (alle) | Platform-Admin | Platform-Admin |
-| Species (global, via tenant_has_access) | Ja (Tenant-Mitglied) | Platform-Admin | Platform-Admin |
-| Species (tenant-eigen, origin: tenant) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
-| Cultivars (transitiv via Species) | Ja (Tenant-Mitglied) | Platform-Admin (global) / Tenant-Admin (tenant) | Platform-Admin / Tenant-Admin |
-| TenantSpeciesConfig (Overlay) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
-| TenantCultivarConfig (Overlay) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
-| tenant_has_access (Zuweisung) | — | Platform-Admin | Platform-Admin |
-| Promotion (tenant→system) | — | Platform-Admin | — |
-| CompanionPlanting (Graph-Beziehungen) | Ja (alle) | Platform-Admin | Platform-Admin |
-| CropRotation (Graph-Beziehungen) | Ja (alle) | Platform-Admin | Platform-Admin |
+> **Vokabular:** Tabelle nach **REQ-049 §3.3/§3.4**. `Tenant-Admin` ist dort ein **verbotener**
+> Begriff (er bezeichnete im alten Modell Rolle und Verwaltung zugleich) und wird hier zu
+> **Ab Gärtner** bzw. **Nur Leitung** aufgelöst — mandanteneigene Stammdaten sind Fachdaten,
+> keine Mandantenverwaltung. `Platform-Admin` heißt **Plattform-Admin**.
+
+| Ressource/Endpoint-Gruppe | Lesen | Anlegen | Ändern | Löschen |
+|---------------------------|-------|---------|--------|---------|
+| BotanicalFamilies (global, ungefiltert) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| Species (global, via tenant_has_access) | Alle Rollen | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| Species (mandanteneigen, origin: tenant) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung |
+| Cultivars (transitiv via Species) | Alle Rollen | Plattform-Admin (global) / Ab Gärtner (mandanteneigen) | dito | Plattform-Admin (global) / Nur Leitung (mandanteneigen) |
+| TenantSpeciesConfig (Overlay) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung |
+| TenantCultivarConfig (Overlay) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung |
+| tenant_has_access (Zuweisung) | — | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| Promotion (tenant→system) | — | Plattform-Admin | — | — |
+| CompanionPlanting (Graph-Beziehungen) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| CropRotation (Graph-Beziehungen) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin |
 <!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 ## 5. Abhängigkeiten

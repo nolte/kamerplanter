@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.12 (QR-Gerätekopplung für native Clients — Redis-Einmalcode, Body-Refresh)
+Version: 1.13 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -1022,12 +1022,12 @@ class UserService:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| GET | `/admin/oidc-providers` | Alle konfigurierten Provider auflisten | Admin |
-| POST | `/admin/oidc-providers` | Neuen OIDC-Provider registrieren | Admin |
-| GET | `/admin/oidc-providers/{slug}` | Provider-Details abrufen | Admin |
-| PATCH | `/admin/oidc-providers/{slug}` | Provider aktualisieren | Admin |
-| DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Admin |
-| POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Admin |
+| GET | `/admin/oidc-providers` | Alle konfigurierten Provider auflisten | Nur Leitung |
+| POST | `/admin/oidc-providers` | Neuen OIDC-Provider registrieren | Nur Leitung |
+| GET | `/admin/oidc-providers/{slug}` | Provider-Details abrufen | Nur Leitung |
+| PATCH | `/admin/oidc-providers/{slug}` | Provider aktualisieren | Nur Leitung |
+| DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Nur Leitung |
+| POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Nur Leitung |
 
 **Gesamtanzahl API-Endpunkte:** ~25
 
@@ -1330,8 +1330,8 @@ Das JWT Access Token wird um ein `is_platform_admin`-Flag erweitert:
     "email": "anna@example.com",
     "display_name": "Anna",
     "tenant_roles": {
-        "platform": "admin",        # Platform-Tenant Membership
-        "annas-garten": "admin",
+        "platform": "lead",         # Platform-Tenant Membership
+        "annas-garten": "lead",
         "gruene-oase": "grower"
     },
     "is_platform_admin": true,       # NEU: Shortcut für Frontend/Backend
@@ -1410,7 +1410,7 @@ Ein Tenant gilt als **verwaist** wenn:
 def is_orphaned(tenant_key: str) -> bool:
     """Ein Tenant ist verwaist wenn er keine aktiven Admins hat."""
     active_admins = membership_repo.count_by_tenant_and_role(
-        tenant_key, role="admin", status="active"
+        tenant_key, role="lead", admin_scopes=["management", "technical"], status="active"
     )
     return active_admins == 0
 ```
@@ -1780,14 +1780,14 @@ class ServiceAccountService:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/t/{slug}/service-accounts` | Service Account erstellen (inkl. initialer API-Key) | Tenant-Admin |
-| `GET` | `/t/{slug}/service-accounts` | Alle Service Accounts des Tenants auflisten | Tenant-Admin |
-| `GET` | `/t/{slug}/service-accounts/{sa_key}` | Details eines Service Accounts | Tenant-Admin |
-| `PATCH` | `/t/{slug}/service-accounts/{sa_key}` | Service Account aktualisieren (Name, Beschreibung, Rate Limit, IP-Ranges) | Tenant-Admin |
-| `POST` | `/t/{slug}/service-accounts/{sa_key}/suspend` | Service Account suspendieren | Tenant-Admin |
-| `POST` | `/t/{slug}/service-accounts/{sa_key}/reactivate` | Service Account reaktivieren | Tenant-Admin |
-| `DELETE` | `/t/{slug}/service-accounts/{sa_key}` | Service Account löschen (Soft-Delete) | Tenant-Admin |
-| `POST` | `/t/{slug}/service-accounts/{sa_key}/rotate-key` | API-Key rotieren (alter Key revoked, neuer Key erstellt) | Tenant-Admin |
+| `POST` | `/t/{slug}/service-accounts` | Service Account erstellen (inkl. initialer API-Key) | Nur Leitung |
+| `GET` | `/t/{slug}/service-accounts` | Alle Service Accounts des Tenants auflisten | Nur Leitung |
+| `GET` | `/t/{slug}/service-accounts/{sa_key}` | Details eines Service Accounts | Nur Leitung |
+| `PATCH` | `/t/{slug}/service-accounts/{sa_key}` | Service Account aktualisieren (Name, Beschreibung, Rate Limit, IP-Ranges) | Nur Leitung |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/suspend` | Service Account suspendieren | Nur Leitung |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/reactivate` | Service Account reaktivieren | Nur Leitung |
+| `DELETE` | `/t/{slug}/service-accounts/{sa_key}` | Service Account löschen (Soft-Delete) | Nur Leitung |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/rotate-key` | API-Key rotieren (alter Key revoked, neuer Key erstellt) | Nur Leitung |
 
 **Router: `/api/v1/admin/platform/service-accounts`** — Platform-scoped Service Account Verwaltung:
 

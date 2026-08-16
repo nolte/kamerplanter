@@ -7,8 +7,8 @@ Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
 Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport, Bild-Content und 56 Werkzeuge; Rest des Werkzeugkatalogs und die stdio-Bruecke offen, siehe §4.1 und §9)
-Version: 1.6
-Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.4 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.10 (Service Accounts), REQ-024 v1.6 (RBAC Permission-Matrix), REQ-025 v1.5 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.3 (Rollenvokabular), REQ-050 v1.3 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.3 (Thumbnail-Renditions)
+Version: 1.7 (Rollenvokabular §4.4 auf REQ-049 umgestellt)
+Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.7 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.13 (Service Accounts), REQ-024 v1.7 (RBAC Permission-Matrix), REQ-025 v1.6 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.4 (Rollenvokabular), REQ-050 v1.5 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.4 (Thumbnail-Renditions)
 ```
 
 ## 1. Business Case
@@ -208,7 +208,7 @@ zurueckgibt, und erzwingt deshalb die Protokoll-Erweiterung in §4.3b.
 
 Die `mcp.setup`-Permission ist getrennt von `mcp.write`, damit ein "Diary-Bot" nicht versehentlich Standorte loescht.
 
-> **Abweichung Ist-Zustand:** Die hier beschriebene gezielte Einzelvergabe ("Tenant-Admin gibt einem Account `mcp.setup` einmalig fuers Onboarding und widerruft danach") ist **nicht** umgesetzt. `mcp.setup` haengt an der Rolle `admin` im jeweiligen Mandanten (§4.4); ein temporaeres Anheben und Zuruecknehmen ginge heute nur ueber einen Rollenwechsel. Siehe §9.
+> **Abweichung Ist-Zustand:** Die hier beschriebene gezielte Einzelvergabe („ein Mitglied mit Verwaltung gibt einem Konto `mcp.setup` einmalig fuers Onboarding und widerruft danach") ist **nicht** umgesetzt. `mcp.setup` haengt an der Rolle Leitung im jeweiligen Mandanten (§4.4); ein temporaeres Anheben und Zuruecknehmen ginge heute nur ueber einen Rollenwechsel. Siehe §9.
 
 | Tool | Zweck | Backend-Endpoints (intern) |
 |------|-------|---------------------------|
@@ -599,7 +599,7 @@ Der Server implementiert den **Streamable-HTTP-Transport** (Protokollrevision 20
 
 **Konto ohne Mitgliedschaft:** Ein Key, dessen Konto in keinem aktiven Mandanten Mitglied ist, wird abgewiesen — es gaebe nichts, worin er handeln koennte.
 
-**Light-Modus (REQ-027):** Eine Light-Instanz kennt keine Konten — jede Anfrage wird ueber den `LightAuthProvider` zum System-User aufgeloest, und der komplette Auth-Router ist dort nicht gemountet. Genau deshalb ist die **API-Key-Verwaltung (`/auth/api-keys`) in beiden Betriebsmodi verfuegbar**: Ohne sie liesse sich der MCP-Server im Light-Modus zwar einschalten, aber niemals benutzen — der Endpunkt haette dauerhaft mit `401` geantwortet, ohne dass ein Weg zu einem Key existiert. Der ausgestellte Key gehoert dem System-User, der im Light-Seed Mitglied des Standard-Mandanten (`mein-garten`, Rolle `admin`) ist; MCP funktioniert damit unveraendert.
+**Light-Modus (REQ-027):** Eine Light-Instanz kennt keine Konten — jede Anfrage wird ueber den `LightAuthProvider` zum System-User aufgeloest, und der komplette Auth-Router ist dort nicht gemountet. Genau deshalb ist die **API-Key-Verwaltung (`/auth/api-keys`) in beiden Betriebsmodi verfuegbar**: Ohne sie liesse sich der MCP-Server im Light-Modus zwar einschalten, aber niemals benutzen — der Endpunkt haette dauerhaft mit `401` geantwortet, ohne dass ein Weg zu einem Key existiert. Der ausgestellte Key gehoert dem System-User, der im Light-Seed Mitglied des Standard-Mandanten (`mein-garten`, Rolle `lead`) ist; MCP funktioniert damit unveraendert.
 
 Sicherheitlich verschiebt das nichts: Im Light-Modus hat ohnehin jeder, der die Instanz erreicht, vollen Zugriff auf alle Daten — ein Key verleiht keine zusaetzliche Autoritaet, er macht denselben Zugriff nur von einem externen Client aus nutzbar. Die Vertrauensgrenze einer Light-Instanz ist ihr Netz, weshalb REQ-027 ein solches Deployment nicht ins offene Internet stellt. Login, Registrierung, Sitzungen und OAuth bleiben dem Full-Modus vorbehalten.
 
@@ -647,17 +647,29 @@ unveraendert — Bilder stehen in der Antwort, nicht in den Argumenten.
 
 Jedes Tool deklariert eine von drei Permissions: `mcp.read`, `mcp.write` oder `mcp.setup`. Sie werden **nicht** einzeln zugewiesen, sondern aus der Rolle abgeleitet, die das Konto **in dem Mandanten** haelt, in dem der Aufruf stattfindet:
 
-| Rolle im Mandanten | mcp.read | mcp.write | mcp.setup |
-|--------------------|----------|-----------|-----------|
-| `viewer` — Read-Only-Assistent, Gast im Gemeinschaftsgarten | ✓ | ✗ | ✗ |
-| `grower` — Tagesbetrieb (Pflege-Quittierung, Diary, Inspections) | ✓ | ✓ | ✗ |
-| `admin` — Einrichtung und Struktur | ✓ | ✓ | ✓ |
+> **Vokabular:** Die Tabelle stand bis hierher im Einachsen-Modell vor REQ-049
+> (`viewer`/`grower`/`admin`). Der Wert `admin` existiert in der Datenbasis seit REQ-024 v1.6
+> **nicht mehr** — Migration `v0032` bildet ihn auf `lead` plus beide Zusatzberechtigungen ab —,
+> und `app/core/permissions.py` entscheidet bereits auf `TenantRole.LEAD`. Die Spezifikation
+> hinkte nach.
 
-**Die Rolle gilt pro Mandant, nicht pro Key.** Derselbe persoenliche Key kann im eigenen Garten `admin` sein und im Gemeinschaftsgarten `viewer`. Deshalb bindet der Dispatcher erst den Mandanten und prueft **danach** die Permission (§4.3 Schritt 5); die umgekehrte Reihenfolge wuerde die staerkste Rolle ueberall gewaehren. Ein Nutzer erhaelt ueber MCP damit exakt die Rechte, die er in der Weboberflaeche in genau diesem Garten auch haette — nicht mehr.
+| Fachliche Rolle im Mandanten | mcp.read | mcp.write | mcp.setup |
+|------------------------------|----------|-----------|-----------|
+| **Beobachter** (`viewer`) — Read-Only-Assistent, Gast im Gemeinschaftsgarten | ✓ | ✗ | ✗ |
+| **Gärtner** (`grower`) — Tagesbetrieb (Pflege-Quittierung, Tagebuch, Inspektionen) | ✓ | ✓ | ✗ |
+| **Leitung** (`lead`) — Einrichtung und Struktur | ✓ | ✓ | ✓ |
 
-**Werkzeug-Uebersicht (`tools/list`)** zeigt die Vereinigung ueber alle Mitgliedschaften, denn ein Werkzeug zu verbergen, das der Nutzer irgendwo verwenden darf, waere falsch. Verbindlich ist die Pruefung beim Aufruf: ein gelistetes Werkzeug kann fuer einen Mandanten, in dem der Nutzer nur `viewer` ist, weiterhin mit `permission.denied` abgelehnt werden.
+**Achse 2 spielt hier keine Rolle.** Die MCP-Permissions leiten sich ausschließlich aus der
+fachlichen Rolle ab; die Zusatzberechtigungen `management` und `technical` (REQ-049 §2.4) gewähren
+**kein** `mcp.setup`. Das ist bewusst so: `mcp.setup` ist die zerstörerischste Klasse
+(Site-/Location-Löschung) und folgt damit derselben Irreversibilitätsgrenze wie das Löschen in der
+Weboberfläche (REQ-049 §2.3) — nicht der Personalhoheit.
 
-**Begruendung Drei-Stufen-Modell:** `mcp.setup` ist die destruktivste Klasse (Site-/Location-Loeschung kann ganze Pflanzdaten-Hierarchien zerstoeren) und bleibt deshalb der Admin-Rolle vorbehalten (AC-S6). Die feinere, vom Rollenmodell entkoppelte Vergabe pro Service Account steht weiterhin in §9 als offener Punkt.
+**Die Rolle gilt pro Mandant, nicht pro Key.** Derselbe persoenliche Key kann im eigenen Garten Leitung sein und im Gemeinschaftsgarten Beobachter. Deshalb bindet der Dispatcher erst den Mandanten und prueft **danach** die Permission (§4.3 Schritt 5); die umgekehrte Reihenfolge wuerde die staerkste Rolle ueberall gewaehren. Ein Nutzer erhaelt ueber MCP damit exakt die Rechte, die er in der Weboberflaeche in genau diesem Garten auch haette — nicht mehr.
+
+**Werkzeug-Uebersicht (`tools/list`)** zeigt die Vereinigung ueber alle Mitgliedschaften, denn ein Werkzeug zu verbergen, das der Nutzer irgendwo verwenden darf, waere falsch. Verbindlich ist die Pruefung beim Aufruf: ein gelistetes Werkzeug kann fuer einen Mandanten, in dem der Nutzer nur Beobachter ist, weiterhin mit `permission.denied` abgelehnt werden.
+
+**Begruendung Drei-Stufen-Modell:** `mcp.setup` ist die destruktivste Klasse (Site-/Location-Loeschung kann ganze Pflanzdaten-Hierarchien zerstoeren) und bleibt deshalb der Leitung vorbehalten (AC-S6). Die feinere, vom Rollenmodell entkoppelte Vergabe pro Service Account steht weiterhin in §9 als offener Punkt.
 
 ### 4.5 Streaming & Notifications
 
@@ -779,7 +791,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 
 - **AC-S1:** Cross-Tenant-Zugriff ist unmoeglich — ein Key kann ueber kein Werkzeug Daten eines Mandanten sehen, in dem sein Konto nicht aktives Mitglied ist (nachgewiesen via Tests).
 - **AC-S1a:** Ein persoenlicher API-Key gewaehrt genau die Mandanten aus `list_my_tenants` — dieselbe Quelle, auf die die REST-API scoped. Ueber MCP ist nichts erreichbar, was der Nutzer nicht auch in der Weboberflaeche sieht.
-- **AC-S1b:** Die Rechtepruefung erfolgt gegen die Rolle im **aufgerufenen** Mandanten. Ein Nutzer, der in Mandant A `admin` und in Mandant B `viewer` ist, kann in B kein Schreibwerkzeug ausfuehren (nachgewiesen via Test).
+- **AC-S1b:** Die Rechtepruefung erfolgt gegen die Rolle im **aufgerufenen** Mandanten. Ein Nutzer, der in Mandant A Leitung und in Mandant B Beobachter ist, kann in B kein Schreibwerkzeug ausfuehren (nachgewiesen via Test).
 - **AC-S1c:** Ein Werkzeug erhaelt den Mandanten ausschliesslich aus der aufgeloesten Mitgliedschaft, nie aus dem rohen Argument — ein Werkzeug kann seinen Wirkungsbereich nicht selbst erweitern.
 - **AC-S2:** API-Keys erscheinen niemals im Audit-Log oder in Fehlermeldungen.
 - **AC-S3:** Ein Nutzer kann ueber `GET /privacy/mcp-activity` alle MCP-Aufrufe seiner eigenen Keys (und der ihm zugeordneten Service-Accounts) der letzten 90 Tage einsehen.
@@ -845,7 +857,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **THEN** liefert das Tool `not_found`, NICHT `permission.denied` (kein Tenant-Information-Leak).
 
 **Szenario 8: Eine Person, zwei Gaerten, zwei Rollen**
-- **GIVEN** eine Nutzerin mit persoenlichem API-Key, die in ihrem eigenen Garten `admin` und im Gemeinschaftsgarten `viewer` ist
+- **GIVEN** eine Nutzerin mit persoenlichem API-Key, die in ihrem eigenen Garten Leitung und im Gemeinschaftsgarten `viewer` ist
 - **WHEN** der Client ein Schreibwerkzeug mit `tenant: "<eigener-garten>"` aufruft
 - **THEN** wird es ausgefuehrt
 - **WHEN** derselbe Client dasselbe Werkzeug mit `tenant: "<gemeinschaftsgarten>"` aufruft
@@ -875,7 +887,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **`apply_treatment` und `record_harvest` (bewusst zurueckgestellt, Issue #931):** Beide Analyse-Prozesse erzeugen *empfohlene* Massnahmen und halten dort an — die Entscheidung trifft ein Mensch. Ohne die beiden Werkzeuge endet eine getroffene Entscheidung als Handarbeit in der Oberflaeche. `apply_treatment` ist dabei das gewichtigere: es setzt die Karenz in Kraft, die `get_plant_diagnostics` und `get_harvest_readiness` als Ernte-Sperre melden, und es traegt mit `ResistanceWarningError` eine eigene Ablehnungsklasse, die im MCP-Fehlervertrag noch keinen Code hat.
 - **stdio-Bridge-Client:** Claude Desktop startet einen MCP-Server als lokalen Subprozess und kann keinen Pod ansprechen. Vorgesehen ist dafuer **kein zweiter Dienst**, sondern ein schlanker, beim Nutzer laufender Bridge-Client, der `MCP_SERVER_URL` + `X-API-Key` entgegennimmt und JSON-RPC an `/api/v1/mcp/rpc` durchreicht. Damit wird AC-D3 vollstaendig erfuellt, ohne den Server zu spalten.
 - **Eigenstaendiger Prozess (bewusst zurueckgestellt):** Ein Split von `app/mcp_server/` in eine eigene Komponente mit eigenem Helm-Chart wuerde die direkte Service-Anbindung durch eine HTTP-Grenze ersetzen und damit zusaetzliche Bulk-/Transaktions-Endpoints, eine zweite Fehleruebersetzung und DB-Zugriff ueber Umwege erzwingen (§4.1). Sinnvoll wird der Split erst, wenn MCP-Verkehr das Backend messbar beeintraechtigt oder eigene Ressourcen-/Skalierungsgrenzen braucht — etwa im Mehrmandanten-Hosting. Der `ToolDispatcher` ist als einziger Choke-Point fuer Auth, Permission, Idempotency und Audit die vorgesehene Schnittkante.
-- **Granulare MCP-Permissions:** `mcp.read`/`mcp.write`/`mcp.setup` werden aus der Mandanten-Rolle abgeleitet (viewer/grower/admin, §4.4), nicht einzeln pro Key zugewiesen. Der in §2.3 beschriebene Ablauf "Admin vergibt `mcp.setup` einmalig fuers Onboarding und widerruft danach" ist damit nur ueber einen Rollenwechsel moeglich. Sinnvolle Ausbaustufe: eine optionale Rechte-Obergrenze **pro Key** (z. B. "dieser Key darf nur lesen, auch wenn sein Besitzer Admin ist"), damit ein Nutzer einem LLM-Client weniger geben kann als er selbst hat.
+- **Granulare MCP-Permissions:** `mcp.read`/`mcp.write`/`mcp.setup` werden aus der fachlichen Mandanten-Rolle abgeleitet (Beobachter/Gaertner/Leitung, §4.4), nicht einzeln pro Key zugewiesen. Der in §2.3 beschriebene Ablauf „die Leitung vergibt `mcp.setup` einmalig fuers Onboarding und widerruft danach" ist damit nur ueber einen Rollenwechsel moeglich. Sinnvolle Ausbaustufe: eine optionale Rechte-Obergrenze **pro Key** (z. B. "dieser Key darf nur lesen, auch wenn sein Besitzer Admin ist"), damit ein Nutzer einem LLM-Client weniger geben kann als er selbst hat.
 - **Feingranulare Sichtbarkeit innerhalb eines Mandanten:** "Nur seine Daten" endet heute an der Mandantengrenze — innerhalb eines Gemeinschaftsgartens sehen alle Mitglieder dieselben Pflanzen, wie in der Weboberflaeche auch. Eine Einschraenkung auf die selbst angelegten Datensaetze existiert im Datenmodell nicht (`LocationAssignment` waere der Ansatzpunkt). **REQ-050 §7.2 ist der erste Fall, der daran nicht vorbeikommt:** Weil ein markierter Tagebuch-Eintrag samt Fotos an ein Sprachmodell geht, darf dort nur markieren, wer den Eintrag selbst verfasst hat (oder die Rolle Leitung haelt). Diese Pruefung findet im Werkzeug statt, nicht im Datenmodell — sie ist damit die erste Ausnahme von "Mandantengrenze = Sichtbarkeitsgrenze" und ein Argument dafuer, die feingranulare Sichtbarkeit endlich zu modellieren.
 - **Tagebuch-Schreibwerkzeug (erledigt):** `add_plant_diary_entry` (§2.2) ist umgesetzt — REQ-050 §9 (O-04) ist mit **ja, ohne `photo_refs`** entschieden. Ein Agent kann damit dokumentieren und nicht nur analysieren. Zwei Grenzen bleiben bewusst bestehen: Der geschriebene Eintrag wird **nicht** zur Analyse markiert (das bleibt eine Nutzerhandlung nach REQ-050 §1.3, sonst erzeugte sich ein Agent seine eigene Arbeit und umginge die Einwilligungspruefung aus §7.1), und Fotos kommen ausschliesslich ueber die Weboberflaeche an einen Eintrag.
 - **Server-zu-Client-Stream:** `GET /api/v1/mcp` lehnt mit `405` ab (§4.3a). Erst mit diesem Kanal sind Fortschritts-Notifications, `tools/list_changed` und wiederaufnehmbare Streams (`Last-Event-ID`) moeglich.

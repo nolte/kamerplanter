@@ -8,17 +8,18 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 6, MCP (JSON-RPC über Streamable HTTP)
 Status: Entwurf
 Priorität: Mittel
-Version: 1.4
-Datum: 2026-08-07
+Version: 1.5
+Datum: 2026-08-16
 Tags: [diary, ai-analysis, mcp, image-content, goose, async, opt-in]
-Abhängigkeit: REQ-013 v2.5 (Pflanzdurchlauf — PlantDiaryEntry, Umgebungs-Schnappschuss §2.3a), REQ-033 v1.5 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.6 (Mandant, Permission-Matrix), REQ-049 v1.3 (Rollenvokabular), REQ-025 v1.5 (DSGVO — Einwilligungszweck), REQ-023 v1.10 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
-Wird benötigt von: —
+Abhängigkeit: REQ-051 v1.0 (Pflanzen-Tagebuch — Oberfläche, Bearbeitung, Inhaltsversion, Analyse-Archiv), REQ-013 v2.7 (Pflanzdurchlauf — PlantDiaryEntry, Umgebungs-Schnappschuss §2.3a), REQ-033 v1.7 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.7 (Mandant, Permission-Matrix), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.6 (DSGVO — Einwilligungszweck), REQ-023 v1.13 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
+Wird benötigt von: REQ-051 (Analyse-Anzeige im Tagebuch)
 ```
 
 ## Versionshistorie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.5 | 2026-08-16 | **Die Tagebuch-Oberfläche wandert nach REQ-051.** §1.4 und §2.5.1–§2.5.4 sind dort aufgegangen, ebenso die Oberflächen-Kriterien AK-14…AK-17, AK-19, AK-20 und AK-28…AK-31 — **unter denselben Nummern**, damit bestehende Verweise (u. a. `spec/e2e-testcases/TC-REQ-050.md`) auflösbar bleiben. §1.4 hatte den Umzug bereits vorgezeichnet: die Oberfläche gehört fachlich nicht hierher, sie wurde nur hier mitspezifiziert, weil REQ-050 der Anlass ihrer Entstehung war. Mit einer eigenen Tagebuch-Anforderung entfällt dieser Grund. Gleichzeitig **O-01 mit „ja" entschieden** (Analyse-Historie, REQ-051 §5): §2.4 sagt nicht mehr, ein neues Ergebnis überschreibe das vorherige ersatzlos — es verdrängt es nur am Eintrag und wird archiviert. §5 trägt zusätzlich `analyzed_content_version` (REQ-051 §4.4). Zustandsmaschine, MCP-Vertrag und Datenschutz bleiben unverändert hier. |
 | 1.4 | 2026-08-07 | **Umgebungs-Schnappschuss im Analyse-Payload (Issue #961).** §4.3 trägt zusätzlich `environment`, `environment_captured_at` und `environment_status`: der Agent bekam bisher die Fotos und den Freitext, aber nicht das Klima, in dem die Pflanze steht — die diagnostisch wertvollste Information, die kostenlos verfügbar ist. Das Feld ist **getrennt** von `measurements` und bleibt es (Begründung in REQ-013 §2.3a.1). `list_diary_entries` trägt es bewusst **nicht** — dieselbe Linie, die dieses Werkzeug schon beim Freitext zieht. `add_plant_diary_entry` meldet im Ergebnis `environment_status`, hat aber kein Eingabefeld dafür: ein Agent, der die Werte schreiben könnte, könnte sie erfinden. |
 | 1.3 | 2026-08-05 | **O-04 entschieden: `add_plant_diary_entry` kommt, ohne `photo_refs`** (§9). Ein Agent konnte bis hierhin analysieren, aber nicht dokumentieren. Die beiden Grenzen der Entscheidung — keine Foto-Referenzen (SEC-003 lässt sie einem Service-Account ohnehin nicht zu) und kein Selbst-Markieren (§1.3, §7.1) — sind dort begründet. Das Werkzeug steht **außerhalb** des Analyse-Vertrags aus §4 und gehört zu REQ-033 §2.2. Ergänzt: `plant.cultivar_key` in §4.3 — die Prozess-Spezifikation des externen Agenten löst die Sorte über `get_cultivar` auf, das einen Schlüssel nimmt, und das Antwortschema trug nur `cultivar_name`. Nebenbei korrigiert: das Dokumentende trug noch „Version 1.1", während der Kopf 1.2 auswies. |
 | 1.2 | 2026-08-05 | **Anlass: §2.5.2 verlangt für `in_progress` den „Zeitpunkt des Beanspruchens", das Antwortschema trug ihn nicht.** `DiaryOverviewItem` bekommt `analysis_claimed_at` (Beginn des Lease — nicht `analyzed_at`, das der Abschluss ist), samt der Regel, dass der Wert zu dem Lauf gehört, den der **angezeigte** Zustand beschreibt, und bei abgelaufenem Lease als `null` unterdrückt wird. Ergänzt um die Klarstellung, dass `analysis_state` auf **allen** Lesepfaden der angezeigte Zustand ist (abgelaufenes Lease liest sich überall als `requested`) und `can_request_analysis` **auch** an `DiaryEntryResponse` steht, nicht nur an der Übersichtszeile — beides war seit dem Vorgängerpaket so gebaut, die Spezifikation hinkte nach (§2.5.2, §5). |
@@ -35,6 +36,7 @@ macht beides zusammen mit den Bildern über eine bereits vorhandene Schnittstell
 
 | Dokument | Was es liefert | Was REQ-050 daraus nutzt |
 |----------|----------------|--------------------------|
+| **REQ-051** | Das Tagebuch als Ganzes: Aufbau des Eintrags, Erfassung, nachträgliche Bearbeitung, Inhaltsversion, Analyse-Archiv, **die Oberfläche (§6)** | Die Darstellung dieser Analyse und der Ort, an dem ein Eintrag markiert wird. Seit v1.5 steht sie dort, nicht mehr hier. |
 | **REQ-013** | `PlantDiaryEntry` mit Freitext, Tags, Messwerten und `photo_refs` (≤ 5 Attachment-IDs), Tagebuch-Endpunkte | Der zu analysierende Datensatz. REQ-050 ergänzt nur Analyse-Zustand und Analyse-Ergebnis. |
 | **NFR-013** | `attachments`-Collection, Storage-Adapter, Thumbnail-Renditions 128/512/1280 px WebP (§8.2), EXIF-Strip (§6.4) | Bildquelle. REQ-050 liefert **Renditions**, nie Originale, und führt **keine** neue Storage-Kategorie ein — Tagebuchfotos sind `category = diary`. |
 | **REQ-033** | MCP-Server, `kp_`-API-Key-Auth, Mandantenbindung pro Aufruf, `ToolDispatcher` als einziger Kontrollpunkt, Audit, Idempotenz | Transportweg. REQ-050 ergänzt fünf Werkzeuge und den Bild-Content-Typ. |
@@ -124,26 +126,23 @@ folgen kann, und der Nutzer hat den Zugang dazu ohnehin schon.
 | Ein Analyse-Ergebnis je Eintrag (das jüngste) | Versionierte Analyse-Historie (§9, O-01) |
 | Fünf MCP-Werkzeuge als Vertrag für externe Agenten | Das Agenten-Rezept selbst (Repository `kamerplanter-goose`) |
 | Bilder als MCP-Bild-Content aus vorhandenen Renditions | Ausliefern von Originalbildern über MCP |
-| **Tagebuch-Erfassung an der Pflanzeninstanz** (§2.5.1) | Serverseitiger Modellaufruf jeglicher Art |
-| **Mandantenweite Tagebuch-Übersicht mit Analyse-Status** (§2.5.2) | Analyse-Übersicht über Mandantengrenzen hinweg |
+| **Tagebuch-Erfassung an der Pflanzeninstanz** (REQ-051 §6.1) | Serverseitiger Modellaufruf jeglicher Art |
+| **Mandantenweite Tagebuch-Übersicht mit Analyse-Status** (REQ-051 §6.2) | Analyse-Übersicht über Mandantengrenzen hinweg |
 | Einwilligungszweck + Löschklassifizierung | Automatische Übernahme in IPM-Behandlungen (§9, O-03) |
 
-### 1.4 Die Tagebuch-Oberfläche gibt es heute nicht — sie ist Teil dieser Anforderung
+### 1.4 Die Tagebuch-Oberfläche — seit v1.5 in REQ-051
 
-Im Frontend existiert **keine** Tagebuch-Oberfläche: weder Seite noch Route noch API-Modul;
-lediglich der TypeScript-Typ `PlantDiaryEntry` ist vorhanden und wird nirgends verwendet. Das
-Backend hat seit REQ-013 v2.0 sechs Tagebuch-Endpunkte, die nie eine Oberfläche bekommen haben.
-
-Damit gibt es heute keinen Ort, an dem ein Nutzer einen Eintrag anlegen, markieren oder ein
-Ergebnis lesen könnte. Eine Anforderung, die nur einen Zustand am Datensatz einführt und die
-Oberfläche einer anderen Anforderung überlässt, wäre nicht benutzbar — deshalb sind
-**Erfassung (§2.5.1) und Übersicht (§2.5.2) ausdrücklich Bestandteil von REQ-050**, nicht bloß
-Vorbedingung.
-
-Fachlich gehört die Tagebuch-Oberfläche zu REQ-013. Sie hier mitzuspezifizieren ist eine bewusste
-Zuschnitt-Entscheidung: REQ-050 ist der Anlass, aus dem sie überhaupt entsteht, und die
-Analyse-Anzeige ist von der Liste nicht sinnvoll zu trennen. REQ-013 bleibt die Quelle für den
-Eintrag selbst (Felder, Endpunkte, Rechte); REQ-050 spezifiziert seine Darstellung.
+> **Verlagert.** Bis v1.4 spezifizierte dieser Abschnitt, warum die Tagebuch-Oberfläche Bestandteil
+> von REQ-050 sein muss: Sie existierte nicht, und eine Anforderung, die nur einen Zustand am
+> Datensatz einführt und die Oberfläche einer anderen überlässt, wäre nicht benutzbar gewesen.
+> Zugleich hielt er fest, dass sie **fachlich nicht hierher gehört** und die Einordnung eine
+> bewusste Zuschnitt-Entscheidung war.
+>
+> Mit **REQ-051 (Pflanzen-Tagebuch)** gibt es die Anforderung, in die sie gehört. Der Grund für
+> die Ausnahme ist damit entfallen; die Oberfläche steht vollständig in REQ-051 §6 und wird hier
+> nicht wiederholt. REQ-050 bleibt die Quelle für alles, was die **Analyse** ausmacht:
+> Zustandsmaschine (§2.2), Gegenstand (§2.3), Ergebnisform (§2.4), Betriebsmodell (§3),
+> MCP-Vertrag (§4), Datenmodell der Analysefelder (§5), Rechte (§6) und Datenschutz (§7).
 
 ---
 
@@ -222,238 +221,48 @@ Ein **Vorbehalt** (`disclaimer`) ist Pflichtbestandteil und wird in der Oberflä
 angezeigt: Die Aussage stammt von einem Sprachmodell, ist eine Hypothese und ersetzt keine
 fachliche Prüfung. Dieselbe Vorsichtsregel gilt bereits für REQ-038.
 
-Es wird genau **ein** Ergebnis je Eintrag geführt — eine erneute Analyse überschreibt das
-vorherige. Eine Historie ist bewusst zurückgestellt (§9, O-01).
+Am Eintrag steht genau **ein** Ergebnis: das jüngste. Eine erneute Analyse verdrängt das vorherige
+von diesem Platz — sie vernichtet es aber seit v1.5 **nicht** mehr. Jeder eintreffende Lauf wird
+archiviert (REQ-051 §5, entscheidet O-01 mit „ja"); `entry.analysis` ist der schnelle Zugriff auf
+das letzte Glied der Reihe, die vollständige Reihe liefert
+`GET .../diary/{entry_key}/analyses`.
 
-### 2.5 Weboberfläche
+Ein Ergebnis trägt zusätzlich die **Inhaltsversion**, gegen die es gerechnet wurde
+(`analyzed_content_version`, §5). Ändert sich der Eintrag danach, gilt das Ergebnis als veraltet —
+die Regel steht in REQ-051 §4 und lässt die fünf Zustände dieses Dokuments unangetastet.
 
-Die Oberfläche hat **zwei getrennte Orte** mit unterschiedlichen Aufgaben. Diese Trennung ist
-verbindlich, nicht nur eine Layout-Empfehlung: Erfasst wird dort, wo man die Pflanze vor sich
-hat; gesichtet wird dort, wo man alle Pflanzen zusammen sieht.
+### 2.5 Weboberfläche — seit v1.5 in REQ-051
 
-| | Ort | Aufgabe |
-|---|-----|---------|
-| **Erfassung** | Pflanzeninstanz-Detailseite, neuer Tab „Tagebuch" | Einträge anlegen, bearbeiten, löschen, Fotos anhängen, zur Analyse markieren |
-| **Sichtung** | Eigene Tagebuch-Übersicht, mandantenweit | Alle Einträge **aller** Pflanzen zusammen, mit Analyse-Status auf einen Blick |
+> **Verlagert nach REQ-051 §6.** Die Oberfläche des Tagebuchs ist keine Eigenschaft der Analyse,
+> sondern des Tagebuchs; §1.4 hielt das schon in v1.0 fest. Sie steht vollständig in
+> **REQ-051 (Pflanzen-Tagebuch)** und wird hier nicht wiederholt, damit keine Aussage zweimal
+> existiert und auseinanderläuft.
 
-#### 2.5.1 Erfassung an der Pflanzeninstanz
+| Bis REQ-050 v1.4 | Jetzt | Inhalt |
+|------------------|-------|--------|
+| §2.5 (Kopf) | REQ-051 §6 | Zwei Orte, verbindlich getrennt |
+| §2.5.1 | REQ-051 §6.1 | Erfassung an der Pflanzeninstanz |
+| §2.5.2 | REQ-051 §6.2 | Mandantenweite Übersicht, `GET /t/{slug}/diary`, `DiaryOverviewItem` |
+| §2.5.3 | REQ-051 §6.4 | Darstellung des Analyse-Ergebnisses |
+| §2.5.4 | REQ-051 §6.5 | Aktualisierung ohne Server-zu-Client-Kanal |
+| AK-14…AK-17, AK-19, AK-20, AK-28…AK-31 | REQ-051 §12, **gleiche Nummern** | Oberflächen-Kriterien |
 
-Das Tagebuch einer Pflanze ist ein **Tab auf der Pflanzeninstanz-Detailseite** — neben dem
-Foto-Galerie-Tab aus REQ-034, nach demselben Muster. Der Nutzer sieht dort ausschließlich die
-Einträge dieser einen Pflanze, chronologisch absteigend.
+**Die Nummern der Akzeptanzkriterien wurden bewusst nicht neu vergeben.** Ein Testfall, der heute
+„REQ-050 §2.5.2, AK-15" nennt, meint danach dieselbe Aussage; nur das führende Dokument wechselt.
+Eine Umnummerierung hätte jeden dieser Verweise entwertet, ohne inhaltlich etwas zu verbessern.
 
-- Anlegen eines Eintrags: Typ, Titel, Freitext, Tags, optionale Messwerte, bis zu 5 Fotos
-  (Erfassungswege wie in REQ-034 §2.2 — Webcam, Smartphone-Kamera, Datei-Upload).
-- Je Eintrag: Bearbeiten, Löschen, Fotos als Vorschau (512-px-Rendition), Lightbox bei Klick.
-- Je Eintrag: Schalter **„Analysieren"** (nur mit Schreibrecht und nur für Einträge, die der
-  Nutzer selbst verfasst hat bzw. bei Rolle Leitung, §7.2). Ist der Eintrag bereits markiert,
-  wird der Schalter zu „Markierung zurücknehmen" — solange der Zustand `requested` ist.
+**Was REQ-050 an der Oberfläche weiterhin bindet** — die Aussagen sind fachlich Analyse und
+gelten unabhängig davon, wer sie darstellt:
 
-**Warum die Erfassung nicht in der Übersicht liegt:** Ein Eintrag gehört immer zu genau einer
-Pflanze. Ein Anlegen-Dialog in einer mandantenweiten Liste müsste die Pflanze erst erfragen —
-ein zusätzlicher Schritt genau dort, wo der Nutzer ihn schon beantwortet hat, wenn er von der
-Pflanze kommt.
-
-#### 2.5.2 Tagebuch-Übersicht (mandantenweit)
-
-Eine eigene Seite listet die Einträge **aller** Pflanzen des Mandanten in einer gemeinsamen,
-chronologisch absteigenden Ansicht. Sie ist der Ort, an dem ein Nutzer den Analyse-Stand
-überblickt, ohne Pflanze für Pflanze durchzuklicken.
-
-Je Zeile werden dargestellt:
-
-| Spalte | Inhalt |
-|--------|--------|
-| Datum | `created_at` des Eintrags |
-| Pflanze | Name und Kennung der Pflanzeninstanz, verlinkt auf deren Detailseite |
-| Art | Wissenschaftlicher bzw. gebräuchlicher Name |
-| Typ | Eintragstyp (Beobachtung, Problem, Meilenstein, Messung, Foto, Notiz) |
-| Titel / Auszug | Titel, sonst die ersten Zeichen des Freitexts |
-| Fotos | Anzahl angehängter Fotos, mit Miniaturvorschau des ersten |
-| **Analyse** | Zustandsanzeige, siehe unten |
-
-**Die Analyse-Spalte ist der Kern dieser Ansicht** und unterscheidet fünf Zustände sichtbar
-voneinander — nicht nur „Ergebnis ja/nein":
-
-| Zustand | Darstellung |
-|---------|-------------|
-| `none` | neutral, „nicht markiert"; bei Schreibrecht als Schalter „Analysieren" bedienbar |
-| `requested` | „wartet auf Analyse" — ausdrücklich **kein** Fortschrittsbalken, es gibt keine Zusage über die Dauer (§3) |
-| `in_progress` | „wird analysiert", mit dem Zeitpunkt des Beanspruchens |
-| `completed` | **Ergebnis vorhanden** — deutlich hervorgehoben, mit der Zusammenfassung als einzeilige Vorschau |
-| `failed` | Fehlerhinweis mit der gemeldeten Ursache und der Möglichkeit, erneut zu markieren |
-
-Filter und Sortierung, mindestens:
-
-- **nach Analyse-Zustand** — insbesondere „nur mit Ergebnis" und „nur wartend". Das ist der
-  häufigste Zugriff überhaupt: „Was ist inzwischen fertig?"
-- nach Pflanze, Art, Eintragstyp, Tag und Zeitraum
-- Freitextsuche über Titel und Text
-- Sortierung nach Erfassungsdatum (Vorgabe) oder Analyse-Zeitpunkt
-
-Ein Klick auf eine Zeile öffnet den vollständigen Eintrag samt Fotos und — falls vorhanden — dem
-Analyse-Ergebnis.
-
-Die Übersicht ist **mandantenweit**, zeigt also im Gemeinschaftsgarten auch Einträge anderer
-Mitglieder. Markieren darf der Nutzer dort trotzdem nur die eigenen (§7.2); fremde Zeilen zeigen
-den Analyse-Zustand, aber keinen Schalter.
-
-**Der tragende Endpunkt existiert heute nicht.** REQ-013 kennt nur eine Aggregation **je
-Pflanzdurchlauf** (`GET /planting-runs/{key}/diary`). Eine mandantenweite Liste über alle
-Pflanzen — mit oder ohne Run — gibt es nicht. REQ-050 fordert sie:
-
-```
-GET /api/v1/t/{tenant_slug}/diary
-```
-
-| Parameter | Typ | Bedeutung |
-|-----------|-----|-----------|
-| `analysis_state` | `list[DiaryAnalysisState] \| None` | Filter, mehrfach angebbar |
-| `plant_key`, `species_key` | `str \| None` | Filter |
-| `entry_type`, `tag` | `str \| None` | Filter |
-| `from`, `to` | `date \| None` | Zeitraum über `created_at` |
-| `q` | `str \| None` | Freitextsuche über Titel und Text |
-| `sort` | `'created_at' \| 'analyzed_at'` (Vorgabe `created_at`) | Sortierung, absteigend |
-| `limit`, `offset` | `int` | Seitenweise, Vorgabe 50 |
-
-**Antwortschema.** Die Zeile der Übersicht ist **nicht** `PlantDiaryEntryResponse` (REQ-013), sondern
-ein eigenes, schlankeres Modell: `DiaryOverviewItem`. Der Unterschied ist bewusst und
-verhaltensrelevant — es trägt vom Analyse-Ergebnis **nur** die Zusammenfassung. Andernfalls
-transportierte eine Seite mit 50 Zeilen 50 vollständige Befundlisten samt Begründungen, für eine
-Ansicht, die davon eine Zeile anzeigt. Das vollständige Ergebnis liefert erst der Einzelabruf.
-
-```python
-class DiaryOverviewItem(BaseModel):
-    """Eine Zeile der mandantenweiten Tagebuch-Übersicht (REQ-050 §2.5.2)."""
-
-    key: str
-    created_at: datetime | None            # nullable wie am Datensatz, siehe unten
-    entry_type: DiaryEntryType
-    title: str | None
-    excerpt: str = Field(max_length=200)      # Anfang von `text`, serverseitig gekürzt
-    tags: list[str]
-
-    plant_key: str
-    plant_name: str | None
-    instance_id: str
-    species_name: str | None
-
-    photo_count: int
-    preview_photo_id: str | None              # erstes Foto, für die Miniatur
-
-    analysis_state: DiaryAnalysisState        # der ANGEZEIGTE Zustand, siehe unten
-    analysis_summary: str | None              # NUR die Zusammenfassung, nie `findings`
-    analysis_error: str | None
-    analysis_claimed_at: datetime | None       # Zeitpunkt des Beanspruchens, siehe unten
-    analyzed_at: datetime | None
-
-    can_request_analysis: bool                # §7.2 serverseitig ausgewertet
-
-
-class DiaryOverviewResponse(BaseModel):
-    items: list[DiaryOverviewItem]
-    total: int                                # Treffer über alle Seiten
-    limit: int
-    offset: int
-```
-
-```json
-{
-  "items": [
-    {
-      "key": "8271634",
-      "created_at": "2026-08-03T18:22:11Z",
-      "entry_type": "problem",
-      "title": "Braune Flecken unten",
-      "excerpt": "Seit dem Umtopfen hängen die unteren Blätter, Substrat riecht sauer.",
-      "tags": ["blatt", "substrat"],
-      "plant_key": "5512099",
-      "plant_name": "Tomate Beet 2 #05",
-      "instance_id": "HOCHBEETA_TOM_05",
-      "species_name": "Solanum lycopersicum",
-      "photo_count": 2,
-      "preview_photo_id": "01HQ8X9V3J7P5K2N4M6T8R0S2W",
-      "analysis_state": "completed",
-      "analysis_summary": "Vermutlich Staunässe nach dem Umtopfen, kein Pilzbefall erkennbar.",
-      "analysis_error": null,
-      "analysis_claimed_at": "2026-08-04T07:10:00Z",
-      "analyzed_at": "2026-08-04T07:14:52Z",
-      "can_request_analysis": true
-    }
-  ],
-  "total": 137,
-  "limit": 50,
-  "offset": 0
-}
-```
-
-**`can_request_analysis` wird serverseitig ausgewertet, nicht im Client abgeleitet.** Ob ein
-Nutzer markieren darf, hängt von Rolle, Autorschaft (§7.2), Einwilligung (§7.1) und Betriebsmodus
-(§7.5) ab. Diese Regel im Frontend nachzubauen hieße, sie zweimal zu pflegen und beim nächsten
-Wechsel an einer Stelle zu vergessen. Das Feld ist eine Anzeigehilfe — es ersetzt die
-serverseitige Prüfung beim Markieren nicht.
-
-**Dasselbe Feld trägt auch `DiaryEntryResponse`** (§5, Einzelabruf über beide Präfixe). Es ist
-nutzer- **und** eintragsbezogen: dasselbe Dokument beantwortet es für den Verfasser mit `true` und
-für einen anderen Gärtner mit `false`. Deshalb hat es dort keinen Vorgabewert — ein Vorgabewert
-wäre genau der eine Wert, der für die Hälfte der Aufrufer falsch ist.
-
-**`analysis_claimed_at` liefert den Zeitpunkt, den die `in_progress`-Zeile oben verlangt.** Das ist
-der **Beginn** des Lease, nicht sein Abschluss; `analyzed_at` ist der Abschluss. Die beiden zu
-verwechseln wäre schlimmer, als die Angabe wegzulassen. Das Feld gehört zu dem Analyselauf, den
-der **angezeigte** Zustand der Zeile beschreibt:
-
-- `in_progress` → der laufende Lease, also die geforderte Angabe;
-- `completed` / `failed` → der Lauf, dessen Ergebnis die Zeile zeigt;
-- `requested` / `none` → `null`.
-
-Bei **abgelaufenem Lease** wird der gespeicherte Wert unterdrückt und die Zeile trägt `null`. Sie
-liest sich in diesem Fall als `requested` (siehe unten), und ein Beanspruchungszeitpunkt neben
-„wartet auf Analyse" wäre ein Widerspruch, den der Leser nicht auflösen kann: Die schlanke Zeile
-führt weder `analysis_claimed_by` noch `analysis_lease_expires_at` mit. Der Nachweis eines
-abgestürzten Agenten geht dadurch nicht verloren — er steht am Einzelabruf, der alle drei
-Lease-Felder unverändert liefert und damit erst als Ganzes lesbar macht („beansprucht von X,
-abgelaufen um Y"). Die Oberfläche zeigt den Zeitpunkt als **Tatsache**, nie als Laufzeit: ein
-mitlaufendes „läuft seit 14 Minuten" wäre bereits die Andeutung eines Fortschritts und damit ein
-Verstoß gegen §3 und AK-27/AK-29.
-
-**`analysis_state` ist auf allen Lesepfaden der angezeigte Zustand.** Ein Eintrag, dessen
-Agenten-Lease abgelaufen ist, liegt wieder im Arbeitsvorrat (§2.2, AK-06) — gespeichert steht
-weiterhin `in_progress`, gelesen wird `requested`. Diese Korrektur gilt für die Übersichtszeile
-**und** für `DiaryEntryResponse`; die beiden Sichten auf dasselbe Dokument dürfen sich nicht
-widersprechen. Lesen schreibt dabei nichts: Der gespeicherte Wert wird erst beim nächsten
-Schreibzugriff auf den Eintrag zurückgesetzt. Der Filter nach Analyse-Zustand folgt derselben
-Korrektur — „nur wartend" findet den Eintrag eines abgestürzten Agenten.
-
-Fehlende Werte kommen als `null`, nicht als ausgelassener Schlüssel; damit bleibt die Struktur
-über alle Zeilen gleich. Eine leere Trefferliste ist kein Fehler (`items: []`, `total: 0`).
-
-**`created_at` ist bewusst `datetime | None`.** `PlantDiaryEntry.created_at` ist am Datensatz
-nullable; ein einziges Altdokument ohne Zeitstempel würde eine nicht-nullable Zeile beim
-Serialisieren sprengen und damit die **ganze** Übersichtsseite in einen 500 verwandeln — dieselbe
-Fehlerklasse, gegen die AK-26 beim fehlenden `analysis_state` argumentiert. Ein `null` in einer
-Zelle ist der ehrliche und der billigere Ausgang.
-
-Die Liste ist strikt auf `tenant_key` gefiltert. Für die Filterung nach Analyse-Zustand ist
-derselbe persistente Index nötig, den auch der MCP-Arbeitsvorrat braucht (§5).
-
-#### 2.5.3 Darstellung des Ergebnisses
-
-Wo ein Ergebnis vorliegt — in der Detailansicht des Eintrags, an beiden Orten gleich:
-
-- Zusammenfassung als Erstes.
-- Aufklappbare Befundliste: je Befund Bezeichnung, Konfidenz und Begründung. Die Konfidenz wird
-  als Zahl **und** sprachlich eingeordnet; eine nackte Prozentzahl suggeriert eine Genauigkeit,
-  die ein Sprachmodell nicht hat.
-- Empfohlene Maßnahmen als Liste.
-- Herkunftsangabe: Modell, Rezeptversion, Zeitpunkt, welche Fotos ausgewertet wurden.
-- **Der Vorbehalt ist immer sichtbar**, nicht aufklappbar versteckt (§2.4).
-
-#### 2.5.4 Aktualisierung
-
-Der Zustand wird nicht live gepusht; ein Nachladen beim Öffnen der Ansicht genügt, ergänzt um
-eine Auffrischen-Schaltfläche in der Übersicht. Es gibt keinen Server-zu-Client-Kanal im
-MCP-Transport (REQ-033 §4.3a) und keinen Grund, für diese Funktion einen einzuführen.
+- Für `requested` gibt es **keine** Fortschrittsanzeige und keine Laufzeitangabe. Es existiert
+  keine Zusage über die Bearbeitungsdauer (§3), und jede Andeutung einer solchen wäre eine
+  Behauptung über einen Agenten, den diese Instanz nicht kennt.
+- Der **Vorbehalt** ist Pflichtbestandteil jedes Ergebnisses und immer sichtbar (§2.4).
+- **Markieren ist eine Nutzerhandlung, immer** (§2.1). Keine Oberfläche darf eine
+  Sammelmarkierung, eine Voreinstellung „alles analysieren" oder eine Regel anbieten, die
+  Einträge nach Typ oder Stichwort markiert.
+- Ob ein Nutzer markieren darf, wertet der **Server** aus und liefert es als
+  `can_request_analysis` (§5). Es ist eine Anzeigehilfe, keine Autorisierung.
 
 ---
 
@@ -982,14 +791,26 @@ class DiaryAnalysis(BaseModel):
     recipe_version: str = Field(max_length=50)
     analyzed_at: datetime
     disclaimer: str  # serverseitig gesetzt, siehe §4.5
+    # REQ-051 §4.4 — Inhaltsversion, gegen die dieser Lauf gerechnet hat.
+    # Serverseitig aus der beim Beanspruchen geltenden Version gesetzt; ein vom
+    # Agenten geliefertes Feld wird ignoriert. Fehlt es an einem Bestandsdokument,
+    # wird es als 1 gelesen.
+    analyzed_content_version: int = 1
 ```
 
-**Kein neuer Knoten, keine neue Kante.** Das Ergebnis ist ein eingebettetes Teildokument am
-Eintrag. Eine eigene Collection wäre erst mit der Historie (§9, O-01) gerechtfertigt.
+**Am Eintrag steht ein eingebettetes Teildokument, im Archiv die Reihe.** `entry.analysis` bleibt
+ein eingebettetes Teildokument — der schnelle Zugriff auf das jüngste Ergebnis, ohne Nachschlag.
+Die vollständige Reihe abgeschlossener Läufe liegt seit v1.5 in der eigenen Collection
+`plant_diary_analyses` (REQ-051 §5, entscheidet O-01). Eine **Kante** im Named Graph gibt es
+weiterhin nicht: Die einzige Abfrage lautet „alle Läufe zu Eintrag X" und wird von einem
+persistenten Index beantwortet.
+
+Der Eintrag trägt zusätzlich `content_version` und `analysis_claimed_content_version`; beide
+gehören zu REQ-051 §8 und sind hier nur genannt, weil `claim_diary_analysis` die zweite setzt.
 
 **Die Tabelle oben beschreibt den Datensatz, nicht die Antwort.** Zwei Unterschiede sind
 verhaltensrelevant und gelten für **jeden** Lesepfad — den Einzelabruf (`DiaryEntryResponse`, beide
-Präfixe) ebenso wie die Übersichtszeile (`DiaryOverviewItem`, §2.5.2):
+Präfixe) ebenso wie die Übersichtszeile (`DiaryOverviewItem`, REQ-051 §9.1):
 
 - **`analysis_state` wird als *angezeigter* Zustand geliefert.** Ist das Agenten-Lease abgelaufen,
   antwortet die API `requested`, obwohl `in_progress` gespeichert ist — der Eintrag liegt wieder im
@@ -1004,7 +825,7 @@ Präfixe) ebenso wie die Übersichtszeile (`DiaryOverviewItem`, §2.5.2):
   Es ist eine Anzeigehilfe, keine Autorisierung.
 
 **Index:** Für `list_pending_diary_analyses` (§4.1) **und** für die Zustandsfilter der
-mandantenweiten Übersicht (§2.5.2) ist ein persistenter Index über
+mandantenweiten Übersicht (REQ-051 §6.2) ist ein persistenter Index über
 `(tenant_key, analysis_state, analysis_requested_at)` anzulegen, sonst wird beides zum
 Sammelscan über alle Tagebuch-Einträge des Mandanten.
 
@@ -1017,7 +838,7 @@ Vokabular gemäß REQ-049 §3.1: Beobachter → Gärtner → Leitung.
 | Handlung | Beobachter | Gärtner | Leitung | MCP-Recht |
 |----------|-----------|---------|---------|-----------|
 | Analyse-Zustand und Ergebnis lesen | ✓ | ✓ | ✓ | `mcp.read` |
-| Tagebuch-Übersicht öffnen (§2.5.2) | ✓ | ✓ | ✓ | `mcp.read` |
+| Tagebuch-Übersicht öffnen (REQ-051 §6.2) | ✓ | ✓ | ✓ | `mcp.read` |
 | Eintrag markieren / Markierung zurücknehmen | ✗ | ✓ (nur eigene, §7.2) | ✓ | `mcp.write` |
 | Eintrag beanspruchen | ✗ | ✓ | ✓ | `mcp.write` |
 | Ergebnis zurückschreiben | ✗ | ✓ | ✓ | `mcp.write` |
@@ -1155,14 +976,14 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | **AK-11** | Der Vorbehalt wird serverseitig gesetzt und ist auch dann vorhanden, wenn der Agent kein entsprechendes Feld liefert. |
 | **AK-12** | Ein Eintrag aus einem fremden Mandanten liefert `not_found`, nie `permission.denied` (keine Preisgabe fremder Mandanten). |
 | **AK-13** | Ohne erteilte Einwilligung `diary_ai_analysis` lässt sich kein Eintrag markieren; ein Widerruf verhindert neue Markierungen und lässt vorhandene Ergebnisse unberührt. |
-| **AK-14** | Auf der Pflanzeninstanz-Detailseite gibt es einen Tagebuch-Tab, in dem ein Eintrag mit Typ, Titel, Freitext, Tags, Messwerten und bis zu 5 Fotos angelegt, bearbeitet, gelöscht und zur Analyse markiert werden kann (§2.5.1). |
-| **AK-15** | Eine mandantenweite Tagebuch-Übersicht listet die Einträge **aller** Pflanzen chronologisch absteigend mit Pflanze, Art, Typ, Titel/Auszug, Fotoanzahl und Analyse-Zustand (§2.5.2). |
-| **AK-16** | Die Übersicht unterscheidet alle fünf Analyse-Zustände sichtbar voneinander; `completed` ist als „Ergebnis vorhanden" hervorgehoben und zeigt die Zusammenfassung als Vorschau. |
-| **AK-17** | Die Übersicht lässt sich nach Analyse-Zustand filtern — insbesondere „nur mit Ergebnis" und „nur wartend" — sowie nach Pflanze, Art, Typ, Tag und Zeitraum; die Freitextsuche greift auf Titel und Text. |
+| **AK-14** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Tagebuch-Tab an der Pflanzeninstanz: anlegen, bearbeiten, löschen, Fotos, markieren. |
+| **AK-15** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Mandantenweite Übersicht über die Einträge aller Pflanzen. |
+| **AK-16** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Alle fünf Analyse-Zustände sichtbar unterschieden. |
+| **AK-17** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Filter und Freitextsuche der Übersicht. |
 | **AK-18** | `GET /t/{slug}/diary` liefert ausschließlich Einträge des angefragten Mandanten als `DiaryOverviewResponse`, seitenweise mit `total`/`limit`/`offset`. Jede Zeile trägt `analysis_state` und `analysis_summary`, **nie** `findings` oder `recommended_actions` — das vollständige Ergebnis liefert nur der Einzelabruf. |
 | **AK-18a** | `can_request_analysis` je Zeile spiegelt die serverseitige Auswertung von Rolle, Autorschaft, Einwilligung und Betriebsmodus. Ein Markierversuch auf einer Zeile mit `false` wird serverseitig abgelehnt — das Feld ist Anzeigehilfe, nicht Autorisierung. |
-| **AK-19** | Ein Nutzer kann in einem geteilten Mandanten nur eigene Einträge markieren, sofern er nicht die Rolle Leitung hat; fremde Zeilen der Übersicht zeigen den Zustand, aber keinen Schalter. |
-| **AK-20** | Der Vorbehalt ist in der Ergebnisdarstellung immer sichtbar und nicht hinter einem Aufklapp-Element versteckt. |
+| **AK-19** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Nur eigene Einträge markierbar; fremde Zeilen ohne Schalter. |
+| **AK-20** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Vorbehalt immer sichtbar, nicht aufklappbar versteckt. |
 | **AK-21** | Eine erneute Analyse eines `completed`- oder `failed`-Eintrags ist möglich; sie setzt den Zustand auf `requested` und überschreibt beim Abschluss das vorherige Ergebnis vollständig. |
 | **AK-22** | `submit_diary_analysis` weist Eingaben zurück, die eine Längengrenze aus §4.5 überschreiten, `confidence` außerhalb 0.0–1.0 tragen, bei `completed` kein `summary` oder bei `failed` kein `error` mitführen (jeweils `validation.error`). |
 | **AK-23** | Löschen des Eintrags löscht das Analyse-Ergebnis; Löschen der Pflanze löscht beides. Bei Nutzerlöschung bleibt der Eintrag erhalten und `created_by`, `analysis_requested_by` und `analysis_claimed_by` sind auf `_anonymized` gesetzt. |
@@ -1170,10 +991,10 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | **AK-25** | Im Light-Modus ist die Markierung ohne Einwilligungsprüfung möglich und die Einschränkung „nur eigene Einträge" greift nicht (§7.5). |
 | **AK-26** | Bestehende Tagebuch-Einträge ohne Analyse-Felder bleiben ohne Migration lesbar und schreibbar; `analysis_state` wird als `none` interpretiert. |
 | **AK-27** | Ohne laufenden externen Agenten funktioniert Kamerplanter unverändert; markierte Einträge verbleiben in `requested` und die Oberfläche benennt das als „wartet auf Analyse" — ohne Fortschrittsanzeige. |
-| **AK-28** | Alle Oberflächentexte liegen in DE und EN vor; DE ist Vorgabe und Rückfallsprache. |
-| **AK-29** | Die Übersicht bietet eine Auffrischen-Schaltfläche und lädt den Zustand beim Öffnen nach. Es gibt keinen Server-zu-Client-Kanal und keine Fortschrittsanzeige für `requested` (§2.5.4). |
-| **AK-30** | Die Konfidenz eines Befunds wird als Zahl **und** sprachlich eingeordnet dargestellt — eine nackte Prozentzahl allein erfüllt das Kriterium nicht (§2.5.3). |
-| **AK-31** | Die Tagebuch-Übersicht ist als Modul in REQ-042 registriert und in der Navigations-Zuordnung von REQ-021 eingeordnet; ohne beides erscheint eine Seite ohne Sichtbarkeitssteuerung und ohne Erfahrungsstufen-Einordnung. |
+| **AK-28** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Oberflächentexte in DE und EN, DE als Vorgabe. |
+| **AK-29** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Auffrischen statt Push; keine Fortschrittsanzeige. |
+| **AK-30** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Konfidenz als Zahl **und** sprachlich eingeordnet. |
+| **AK-31** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Modul in REQ-042 registriert, in REQ-021 eingeordnet. |
 
 ---
 
@@ -1181,13 +1002,25 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 
 | Nr. | Frage | Entscheider | Status |
 |-----|-------|-------------|--------|
-| O-01 | Soll eine **Historie** mehrerer Analysen je Eintrag geführt werden statt nur der jüngsten? Erst dann lohnt eine eigene Collection. | Produkt | offen |
+| O-01 | Soll eine **Historie** mehrerer Analysen je Eintrag geführt werden statt nur der jüngsten? Erst dann lohnt eine eigene Collection. | Produkt | **entschieden (v1.5): ja** |
 | O-02 | Darf in einem Gemeinschaftsgarten ein Gärtner **fremde** Einträge zur Analyse markieren? v1.0 verneint das (§7.2); die Lockerung ist eine Produkt- und Datenschutzentscheidung. | Produkt + Datenschutz | offen |
 | O-03 | Soll aus einem Befund direkt eine **IPM-Behandlung** (REQ-010) oder eine Diagnose-Sitzung (REQ-036) vorgeschlagen werden können? | Produkt | offen |
 | O-04 | Soll `add_plant_diary_entry` (REQ-033 §2.2, bislang nicht umgesetzt) zusammen mit dieser Anforderung realisiert werden, damit ein Agent auch Einträge **anlegen** kann? | Produkt | **entschieden (v1.3): ja, ohne `photo_refs`** |
-| O-05 | Sollen die in REQ-013 §4.7 spezifizierten, aber nie implementierten **Standalone**-Tagebuch-Endpunkte (`/plant-instances/{key}/diary`) mit REQ-050 nachgezogen werden? Ohne sie hat eine Pflanze ohne Pflanzdurchlauf kein Tagebuch — die Erfassung nach §2.5.1 wäre dort nicht bedienbar. | Produkt | **entschieden (v1.1): ja** |
+| O-05 | Sollen die in REQ-013 §4.7 spezifizierten, aber nie implementierten **Standalone**-Tagebuch-Endpunkte (`/plant-instances/{key}/diary`) mit REQ-050 nachgezogen werden? Ohne sie hat eine Pflanze ohne Pflanzdurchlauf kein Tagebuch — die Erfassung nach REQ-051 §6.1 wäre dort nicht bedienbar. | Produkt | **entschieden (v1.1): ja** |
 | O-06 | Soll die Obergrenze der Bild-Nutzlast je Mandant konfigurierbar sein oder global bleiben? | DevOps | offen |
-| O-07 | Unter welchem Modulschlüssel wird die Tagebuch-Übersicht (§2.5.2) in REQ-042 registriert, und welcher Erfahrungsstufe wird sie in der Navigations-Zuordnung von REQ-021 §3.3 zugewiesen? | Produkt | **entschieden (v1.1)** |
+| O-07 | Unter welchem Modulschlüssel wird die Tagebuch-Übersicht (REQ-051 §6.2) in REQ-042 registriert, und welcher Erfahrungsstufe wird sie in der Navigations-Zuordnung von REQ-021 §3.3 zugewiesen? | Produkt | **entschieden (v1.1)** |
+
+**Zu O-01 — entschieden: ja.** Die Historie kommt, in einer eigenen Collection
+`plant_diary_analyses`, und ist in **REQ-051 §5** spezifiziert. Der Auslöser war nicht die Frage
+selbst, sondern eine Nachbaranforderung: Sobald ein Eintrag nachträglich bearbeitbar ist
+(REQ-051 §3), ist „erneut analysieren" der Normalfall und nicht mehr die Ausnahme — und damit
+wird das Überschreiben des vorherigen Befundes zum regelmäßigen Datenverlust statt zum seltenen.
+§5 dieses Dokuments hatte die eigene Collection genau für diesen Fall in Aussicht gestellt.
+
+Zwei Festlegungen aus REQ-051 §5 wirken auf den MCP-Vertrag zurück, ohne ihn zu ändern:
+`submit_diary_analysis` erzeugt den Archiveintrag **beim Eintreffen** des Ergebnisses — für
+`completed` **und** `failed`, in derselben Transaktion, die den Zustand setzt. Der Agent merkt
+davon nichts; sein Vertrag aus §4.5 ist unverändert.
 
 **Zu O-05 — entschieden: ja.** Die Standalone-Endpunkte werden mit REQ-050 nachgezogen, unter
 
@@ -1197,7 +1030,7 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 
 — dasselbe Muster, unter dem die Foto-Galerie aus REQ-034 an derselben Pflanzeninstanz hängt
 (`/plant-instances/{key}/photos`). Begründung: Ohne sie hat eine Pflanze **ohne** Pflanzdurchlauf
-kein Tagebuch, und die Erfassung nach §2.5.1 wäre genau dort unbedienbar, wo sie am häufigsten
+kein Tagebuch, und die Erfassung nach REQ-051 §6.1 wäre genau dort unbedienbar, wo sie am häufigsten
 gebraucht wird — die Einzelpflanze ist der Normalfall, nicht der Sonderfall. Die
 Run-Endpunkte (`/planting-runs/{key}/diary`) bleiben **unverändert**; beide Wege bedienen denselben
 Dienst und dieselben Dokumente.
@@ -1246,11 +1079,11 @@ ausgerechnet vor der Zielgruppe verstecken, für die sie geschrieben ist.
 **Zur Einordnung:** Mit v1.1 sind die beiden Punkte entschieden, die der Umsetzung im Weg standen
 (O-05 blockierend, O-07 vor dem Bau der Übersichtsseite zu klären). O-01 bis O-04 und O-06 lassen
 sich nach der Umsetzung entscheiden, ohne bereits Gebautes zu entwerten. Die zuvor hier geführte
-Frage nach der Tagebuch-Oberfläche ist entfallen — sie ist mit §2.5 beantwortet und Bestandteil
-dieser Anforderung.
+Frage nach der Tagebuch-Oberfläche ist entfallen — sie ist mit REQ-051 §6 beantwortet und
+Bestandteil jener Anforderung.
 
 ---
 
 **Dokumenten-Ende**
-**Version:** 1.3
+**Version:** 1.5
 **Status:** Entwurf

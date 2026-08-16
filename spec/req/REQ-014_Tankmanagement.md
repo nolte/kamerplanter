@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.6 (Wasserquellen-Kaskade an REQ-004 delegiert, W-021)
+Version: 1.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
@@ -1956,15 +1956,24 @@ Für Einsteiger, Kiosk-Modus und Mobile. Nutzt alle Defaults aus dem NutrientPla
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Tanks | Mitglied | Mitglied | Admin |
-| Tank-States | Mitglied | Mitglied | — |
-| Tank-Fills | Mitglied | Mitglied | — |
-| Watering-Events | Mitglied | Mitglied | Admin |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Tanks | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Tank-States | Alle Rollen | Ab Gärtner | Ab Gärtner | — | — |
+| Tank-Fills | Alle Rollen | Ab Gärtner | Ab Gärtner | — | — |
+| Watering-Events | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 
 ## 5. Abhängigkeiten
 

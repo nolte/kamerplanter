@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, MUI
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -1416,15 +1416,24 @@ Alle Eingabefelder im Upload-Dialog müssen mit einem erklärenden Hinweistext v
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| CSV-Import (Upload & Ausführung) | — | Admin | — |
-| Import-Validierung (Dry-Run) | — | Admin | — |
-| Import-History | Admin | — | — |
-| Template-Download | Ja | — | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| CSV-Import (Upload & Ausführung) | Alle Rollen | Technik | Technik | Technik | Technische Konfiguration im Mandanten, §3.4 |
+| Import-Validierung (Dry-Run) | Alle Rollen | Technik | Technik | Technik | Technische Konfiguration im Mandanten, §3.4 |
+| Import-History | Technik | — | — | — | Protokoll der Importe |
+| Template-Download | Alle Rollen | — | — | — | Statische Vorlagedatei |
 
 ### 5.1 Sicherheitsanforderungen für CSV-Import
 

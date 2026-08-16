@@ -4,7 +4,7 @@ Kategorie: Pflanzenplanung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Quelle: Konsolidiert aus REQ-001 v5.0, REQ-013 v1.2, Outdoor-Garden-Planner Review G-008
 ```
 
@@ -536,9 +536,9 @@ Prefix: `/api/v1/companion-planting`
 
 | Methode | Pfad | Beschreibung | Auth |
 |---|---|---|---|
-| `GET` | `/species/{species_key}/recommendations` | Mischkultur-Empfehlungen für eine Species | Mitglied |
-| `GET` | `/species/{species_key}/compatible` | Kompatible Partner (Spezies-Level) | Mitglied |
-| `GET` | `/species/{species_key}/incompatible` | Inkompatible Partner (Spezies-Level) | Mitglied |
+| `GET` | `/species/{species_key}/recommendations` | Mischkultur-Empfehlungen für eine Species | Alle Rollen |
+| `GET` | `/species/{species_key}/compatible` | Kompatible Partner (Spezies-Level) | Alle Rollen |
+| `GET` | `/species/{species_key}/incompatible` | Inkompatible Partner (Spezies-Level) | Alle Rollen |
 | `POST` | `/compatible` | Neue compatible_with-Edge anlegen | Platform-Admin |
 | `DELETE` | `/compatible/{edge_key}` | compatible_with-Edge entfernen | Platform-Admin |
 | `POST` | `/incompatible` | Neue incompatible_with-Edge anlegen | Platform-Admin |
@@ -548,7 +548,7 @@ Prefix: `/api/v1/companion-planting`
 
 | Methode | Pfad | Beschreibung | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/t/{slug}/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check eines Runs | Mitglied |
+| `POST` | `/api/v1/t/{slug}/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check eines Runs | Ab Gärtner |
 
 ### 5.3 Request/Response-Beispiele
 

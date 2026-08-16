@@ -158,7 +158,7 @@ type FieldConfig<T extends string> = Record<T, FieldMeta>;
 3. Gießprotokoll
 4. Pflege-Dashboard
 5. Meine Pflanzen (PlantInstances)
-6. Tagebuch (mandantenweite Übersicht, REQ-050 § 2.5.2)
+6. Tagebuch (mandantenweite Übersicht, REQ-051 § 6.2)
 7. Aufgaben (Queue)
 8. Standorte (Sites)
 9. Einrichtung (Onboarding)
@@ -187,7 +187,7 @@ type FieldConfig<T extends string> = Record<T, FieldMeta>;
 | `/giessprotokoll` | Sichtbar | Sichtbar | Sichtbar | Gieß-Tracking ist Kernbedürfnis |
 | `/pflege` | Sichtbar | Sichtbar | Sichtbar | Pflege-Dashboard (REQ-022) |
 | `/pflanzen/plant-instances` | Sichtbar | Sichtbar | Sichtbar | "Meine Pflanzen" — Kernfunktion |
-| `/tagebuch` | Sichtbar | Sichtbar | Sichtbar | Tagebuch-Übersicht (REQ-050 § 2.5.2) — Notiz plus Foto ist die niedrigschwelligste Funktion; Modul `diary` (REQ-042 § 1.3), ausblendbar |
+| `/tagebuch` | Sichtbar | Sichtbar | Sichtbar | Tagebuch-Übersicht (REQ-051 § 6.2) — Notiz plus Foto ist die niedrigschwelligste Funktion; Modul `diary` (REQ-042 § 1.3), ausblendbar |
 | `/aufgaben/queue` | Sichtbar | Sichtbar | Sichtbar | Anstehende Aufgaben |
 | `/standorte/sites` | Sichtbar | Sichtbar | Sichtbar | Standorte sind Grundinfrastruktur |
 | `/duengung/fertilizers` | — | Sichtbar | Sichtbar | Düngemittelverwaltung |

@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.8 (Ampel-Implementierung → REQ-039 §3 `evaluate_winter_hardiness`; Winter-Pfad-Vertiefung → REQ-047 §§3.7–3.10)
+Version: 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## Versionshistorie
@@ -1481,12 +1481,12 @@ Router: `/api/v1/care-reminders`
 | Methode | Pfad | Beschreibung | Request | Response | Auth |
 |---------|------|-------------|---------|----------|------|
 | `GET` | `/dashboard` | Alle fälligen Erinnerungen, sortiert nach Dringlichkeit | Query: `?include_upcoming=true` | `list[CareDashboardEntry]` | Ja |
-| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen (auto-erstellt falls nicht vorhanden) | — | `CareProfile` | Mitglied |
-| `PATCH` | `/plants/{plant_key}/profile` | Intervalle anpassen | `CareProfileUpdate` | `CareProfile` | Mitglied |
-| `POST` | `/plants/{plant_key}/confirm` | Ein-Tap-Bestätigung einer Pflegeaktion | `CareConfirmRequest` | `CareConfirmation` | Mitglied |
-| `POST` | `/plants/{plant_key}/snooze` | Erinnerung um N Tage verschieben | `CareSnoozeRequest` | `CareConfirmation` | Mitglied |
-| `GET` | `/plants/{plant_key}/history` | Bestätigungshistorie | Query: `?limit=50&reminder_type=watering` | `list[CareConfirmation]` | Mitglied |
-| `POST` | `/plants/{plant_key}/reset-profile` | CareProfile auf Species-Defaults zurücksetzen | — | `CareProfile` | Mitglied |
+| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen (auto-erstellt falls nicht vorhanden) | — | `CareProfile` | Alle Rollen |
+| `PATCH` | `/plants/{plant_key}/profile` | Intervalle anpassen | `CareProfileUpdate` | `CareProfile` | Ab Gärtner |
+| `POST` | `/plants/{plant_key}/confirm` | Ein-Tap-Bestätigung einer Pflegeaktion | `CareConfirmRequest` | `CareConfirmation` | Ab Gärtner |
+| `POST` | `/plants/{plant_key}/snooze` | Erinnerung um N Tage verschieben | `CareSnoozeRequest` | `CareConfirmation` | Ab Gärtner |
+| `GET` | `/plants/{plant_key}/history` | Bestätigungshistorie | Query: `?limit=50&reminder_type=watering` | `list[CareConfirmation]` | Alle Rollen |
+| `POST` | `/plants/{plant_key}/reset-profile` | CareProfile auf Species-Defaults zurücksetzen | — | `CareProfile` | Ab Gärtner |
 
 **Fehlerbehandlung (NFR-006):**
 
@@ -1791,14 +1791,23 @@ Bedarf Aufgaben von Pflege-Erinnerungen.
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Pflege-Dashboard | Ja | — | — |
-| Pflegepläne (pro Pflanze) | Mitglied | Mitglied | Mitglied |
-| Erinnerungen (pro Pflanze) | Mitglied | Mitglied | Mitglied |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Pflege-Dashboard | Alle Rollen | — | — | — | Aggregierte Ansicht |
+| Pflegepläne (pro Pflanze) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Erinnerungen (pro Pflanze) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 
 ## 8. Abhängigkeiten
 

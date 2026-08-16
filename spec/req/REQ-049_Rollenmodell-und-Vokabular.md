@@ -511,5 +511,5 @@ Nicht Gegenstand dieses Dokuments:
 
 - **Befristete Mitgliedschaft / Urlaubsvertretung** — eigenes Vorhaben. Sie wird als *zeitliche Begrenzung einer bestehenden Mitgliedschaft* modelliert, nicht als weitere Rolle, damit die Rechtelogik nicht dupliziert wird.
 - **Untergruppen innerhalb eines Mandanten** (Klassen, Semester-Gruppen aus UZG-003) — eigenes Feature, keine Rollenfrage.
-- **Die ausführliche Permission-Matrix je Ressource** — bleibt REQ-024 §1a und wird dort auf dieses Vokabular umgestellt.
+- **Die ausführliche Permission-Matrix je Ressource** — bleibt REQ-024 §1a. Die Umstellung auf dieses Vokabular ist mit **REQ-024 v1.7** abgeschlossen: §1a.5 (zuweisungsbasierte Write-Kontrolle) ist dort ersatzlos gestrichen, die Matrixzellen tragen kein `own`/`community` mehr.
 - **Die Behebung der im Audit gefundenen Durchsetzungslücken im Code** — eigenes Vorhaben; REQ-049 liefert dafür die Sollvorgabe.

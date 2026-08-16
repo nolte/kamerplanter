@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 3.0 (Vollständige Einzelaufgaben-Pflege & Phasengebundene Workflows)
+Version: 3.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -2408,23 +2408,32 @@ CELERY_BEAT_SCHEDULE = {
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Tasks (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Task-Statusübergänge | — | Mitglied | — |
-| Task-Kommentare | Mitglied | Mitglied (eigene) | Mitglied (eigene) / Admin (alle) |
-| Task-Historie | Mitglied | — (systemgeneriert) | — |
-| Task-Klonen | — | Mitglied | — |
-| Task-Wiedereröffnen | — | Mitglied | — |
-| Task-Batch-Operationen | — | Mitglied (eigene) / Admin (alle) | Admin |
-| Task-Zuweisung | — | Admin / Grower (nur eigene) | — |
-| Recurring-Tasks | Mitglied | Mitglied | Mitglied (eigene) / Admin (alle) |
-| WorkflowTemplates | Mitglied | Admin | Admin |
-| Workflow-Instanziierung | — | Mitglied | — |
-| Workflow-Task-Hinzufügen | — | Mitglied (eigene Execution) | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Tasks (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Task-Statusübergänge | — | Ab Gärtner | Ab Gärtner | — | — |
+| Task-Kommentare | Alle Rollen | Ab Gärtner | Ab Gärtner (eigene) | Ab Gärtner (eigene) / Nur Leitung (alle) | Verfasster Inhalt — „Eigene" nach §3.1 zulässig |
+| Task-Historie | Alle Rollen | — | — | — | Systemgeneriert |
+| Task-Klonen | — | Ab Gärtner | Ab Gärtner | — | — |
+| Task-Wiedereröffnen | — | Ab Gärtner | Ab Gärtner | — | — |
+| Task-Batch-Operationen | — | Ab Gärtner | Ab Gärtner | Nur Leitung | Fachdaten: „(eigene)" nach §3.1/P1 unzulässig und entfernt |
+| Task-Zuweisung | Alle Rollen | Nur Leitung | Nur Leitung | — | `assigned_to` setzen ist Leitung (REQ-024 §1a.1); die Zuweisung schließt niemanden vom Erledigen aus (§3.5) |
+| Recurring-Tasks | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Fachdaten: „(eigene)" entfernt |
+| WorkflowTemplates | Alle Rollen | Nur Leitung | Nur Leitung | Nur Leitung | Vorlagen pflegen ist Leitung (REQ-049 §2.3) |
+| Workflow-Instanziierung | — | Ab Gärtner | Ab Gärtner | — | — |
+| Workflow-Task-Hinzufügen | — | Ab Gärtner | Ab Gärtner | — | „(eigene Execution)" entfernt, §3.5 |
 
 ## 5. Abhängigkeiten
 

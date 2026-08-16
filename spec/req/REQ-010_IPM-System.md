@@ -7,7 +7,7 @@ Kategorie: Schädlingsmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 1.4 (Nutzer-beigesteuerte Schädlings-Referenzbilder: Upload/Kamera, Freigabe, Erkennung)
+Version: 1.5 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
@@ -724,19 +724,28 @@ class TreatmentProtocol(BaseModel):
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Pests (globale Stammdaten) | Nein | Ja | Ja |
-| Diseases (globale Stammdaten) | Nein | Ja | Ja |
-| Treatments (globale Stammdaten) | Nein | Ja | Ja |
-| Inspections (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| TreatmentApplications (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Karenz-Status (Tenant-scoped) | Mitglied | — | — |
-| HermaphroditismFindings (Tenant-scoped) | Mitglied | Mitglied | Admin | <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
-| PollinationChecks (Tenant-scoped) | Mitglied | Mitglied | Admin | <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Pests (globale Stammdaten) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin | Globaler Katalog — mandantenübergreifend, §3.4 |
+| Diseases (globale Stammdaten) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin | Globaler Katalog — mandantenübergreifend, §3.4 |
+| Treatments (globale Stammdaten) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin | Globaler Katalog — mandantenübergreifend, §3.4 |
+| Inspections (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| TreatmentApplications (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Karenz-Status (Tenant-scoped) | Alle Rollen | — | — | — | — |
+| HermaphroditismFindings (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — | <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+| PollinationChecks (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — | <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
 
 ## 5. Abhängigkeiten
 

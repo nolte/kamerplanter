@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, ONNX Runtime (quantisierte Detektoren + Tiling), optional Kindwise-Cloud-API (crop.health/insect.id), optional lokales VLM (LLaVA/Qwen2.5-VL/Agri-LLaVA) + RAG (REQ-031), React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-010 v1.1 (IPM — Pests/Inspections/Treatments, Karenz-Gate, Ziel der Befund-Brücke), REQ-043 v1.0 (Health-Fusion — konsumiert das Schädlings-Bild-Signal), REQ-038 v1.1 (CV-Pflanzendiagnose — geteilte Vision-/Tiling-Infrastruktur), REQ-029 v1.0 (Adapter-Interface, EXIF/Consent), REQ-029-A v1.2 (Self-Hosted-Inferenz-Infrastruktur, ONNX), REQ-031 v2.0 (Knowledge-Service / RAG für Erklärungs-Layer), REQ-025 v1.4 (DSGVO/Consent), REQ-013 v2.0 (PlantInstance/Run), REQ-021 v1.0 (Erfahrungsstufen)
 Wird benoetigt von: —
 ```
@@ -315,7 +315,7 @@ async def detect_pests(
 
 | Komponente / Seite | Integration | Erfahrungsstufe (REQ-021) |
 |---|---|---|
-| **`PestScanButton`** | „Auf Schädlinge prüfen" → Foto-Erfassung (wiederverwendet REQ-029 §4.1) | alle |
+| **`PestScanButton`** | „Auf Schädlinge prüfen" → Foto-Erfassung nach REQ-052 §2, Profil `recognition` (wiederverwendet REQ-029 §4.1) | alle |
 | **`PestDetectionDialog`** | Ergebnis mit Bounding-Boxen-Overlay (Modus 1) bzw. markierten Symptom-Regionen (Modus 2) | alle |
 | Disclaimer-Banner | **Immer sichtbar**, prominent | alle |
 | Abstention-Hinweis | bei `is_confident=false`: „Keine sichere Erkennung — bitte manuell prüfen" + Verweis auf IPM-Inspektion | alle |

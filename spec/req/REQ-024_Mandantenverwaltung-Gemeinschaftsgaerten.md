@@ -7,14 +7,15 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.6 (Zwei-Achsen-Rollenmodell nach REQ-049)
-Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
+Version: 1.7 (Nachführung auf REQ-049 v1.4 — die Standort-Zuweisung ist keine Schreibgrenze)
+Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.7 | 2026-08-16 | **Nachführung auf REQ-049 v1.4 — die zuweisungsbasierte Write-Kontrolle ist weg.** v1.6 hatte die *Spaltenüberschriften* der Matrix auf das Zwei-Achsen-Vokabular umgestellt, die *Zellinhalte* aber nicht: §1a.1 trug weiterhin `U own+community`, `U own` und `U assigned+own`, §1.1 Szenario 2 beschrieb Parzellen als Schreibgrenze, und §1a.5 stand als Historie im Dokument. Genau das hat REQ-049 §3.5 abgeschafft — die Standort-Zuweisung ist Koordination, kein Recht — und REQ-049 §3.2 führt „Zugewiesene" als Rechteangabe seither unter den **verbotenen Begriffen**. Ein Leser, der nur REQ-024 kannte, baute die falsche Regel; der Code (`MembershipEngine`) tat es nie. Nachgeführt: Rollentabelle §1 (Zwei-Achsen-Modell, `admin` → `lead` + Zusatzberechtigungen), Matrix §1a.1 (alle Zellen auf reine Rangprüfung, Löschen durchgängig 🔒 Leitung), §1a.5 auf einen Grabstein reduziert, §1a.6 auf die drei **tatsächlich gebauten** Dependencies (`require_permission(resource, action)`, `require_tenant_role`, `require_admin_scope`) statt des nie so gebauten `ROLE_PERMISSIONS`-Dicts, Szenarien §1.1, Datenmodell §2, AQL, Engine §3.1, Middleware §3.3, Frontend §4.4/§4.5, Seeds §5, Abnahmekriterien §6 und Scope §8. **Verhaltensänderung gegenüber v1.6:** Das Löschen von Pflanzenfotos war für Gärtner als `D own+community` ausgewiesen und ist jetzt Leitung — die Irreversibilitätsgrenze kennt keine Foto-Ausnahme. |
 | 1.6 | 2026-07-29 | **Zwei-Achsen-Rollenmodell (REQ-049, Issue #780):** Die Permission-Matrix (§1a) folgt jetzt dem verbindlichen Vokabular aus REQ-049. Der Wert `admin` ist stillgelegt — er stand in dieser Matrix überwiegend für „darf löschen" (jetzt fachliche Rolle **Leitung**) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt Zusatzberechtigung **Verwaltung**). §1a.2 hängt vollständig an der Verwaltung statt an einem Rang; technische Konfiguration innerhalb des Mandanten hängt an der Zusatzberechtigung **Technik**. §1a.4 hält fest, dass die Plattform-Rolle über `lead` im Mandanten `platform` abgebildet wird. Die „letzter Admin"-Regel wird zu INV-1 („letzte Verwaltung") und greift auch beim Herabstufen, nicht nur beim Entfernen. Migration `v0032` bildet jeden Bestandswert verlustfrei ab. |
 | 1.5 | 2026-06-19 | **Pflanzenfoto-Galerie (REQ-034 Security-Review SR-002):** Permission-Matrix (§1a.1) um die Ressourcen-Zeile **Plant Instance Photos** (`category=plant`) erweitert. Upload/Cover/Löschen laufen über die generischen `CREATE_/UPDATE_/DELETE_RESOURCE`-Permissions mit Zuweisungs-Write-Kontrolle (§1a.5); Viewer nur lesend; DINOv2-Referenz-Freigabe bleibt Platform-Admin (REQ-029-A §4.5). Klärt die in NFR-013 §5.1 abstrakt notierte `attachment:create`-Anforderung gegen den realen `Permission`-Enum-Vertrag. |
 | 1.4 | 2026-03-17 | **RBAC Permission-Matrix, Platform-Rollen & Tenant-Notfallverwaltung:** (1) Granulare Permission-Matrix (§1a) mit ressourcentyp-spezifischen CRUD-Rechten pro Rolle (admin/grower/viewer). Spezialaktionen (Phasen-Transition, Task-Zuweisung, Pinnwand-Pinnen). Zuweisungsbasierte Write-Kontrolle formalisiert. (2) Platform-Rollen erweitert: `admin` (KA-Admin) + `viewer` (Read-Only Admin-Panel). (3) Tenant-Notfallverwaltung: `orphaned_since` + `suspended_reason` auf Tenant-Modell. Platform-Admin-Permissions für Emergency-Admin, Tenant-/User-Suspendierung. (4) `Permission` Enum + `require_permission()` Dependency. Service Account Integration (REQ-023 v1.7). |
@@ -25,19 +26,19 @@ Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 
 **User Story (Gemeinschaftsgarten gründen):** "Als Initiator eines Gemeinschaftsgartens möchte ich eine Organisation in Kamerplanter anlegen und meine 12 Gartenmitglieder einladen können — damit wir gemeinsam unsere Beete planen, Aufgaben verteilen und Ernten dokumentieren."
 
-**User Story (Parzelle zuweisen):** "Als Garten-Admin möchte ich einzelne Parzellen (Sites/Slots) bestimmten Mitgliedern zuweisen können — damit jedes Mitglied nur seine eigenen Beete sieht und bearbeitet, aber trotzdem die Gemeinschaftsflächen (Kompost, Gewächshaus) allen zugänglich bleiben."
+**User Story (Parzelle zuweisen):** "Als Mitglied mit Verwaltung möchte ich einzelne Parzellen (Sites/Slots) bestimmten Mitgliedern zuweisen können — damit jedes Mitglied nur seine eigenen Beete sieht und bearbeitet, aber trotzdem die Gemeinschaftsflächen (Kompost, Gewächshaus) allen zugänglich bleiben."
 
 **User Story (Mehrere Gärten):** "Als engagierter Gärtner bin ich sowohl in meinem privaten Balkongarten als auch im Gemeinschaftsgarten 'Grüne Oase e.V.' aktiv — ich möchte zwischen diesen Gärten wechseln können, ohne mich ab- und neu anzumelden."
 
-**User Story (Mitglied einladen):** "Als Garten-Admin möchte ich Mitglieder per E-Mail-Einladung oder Einladungslink hinzufügen können — weil nicht alle Mitglieder technisch versiert sind und ein einfacher Link einfacher ist als eine Registrierungs-Anleitung."
+**User Story (Mitglied einladen):** "Als Mitglied mit Verwaltung möchte ich Mitglieder per E-Mail-Einladung oder Einladungslink hinzufügen können — weil nicht alle Mitglieder technisch versiert sind und ein einfacher Link einfacher ist als eine Registrierungs-Anleitung."
 
-**User Story (Aufgaben delegieren):** "Als Garten-Admin möchte ich Gieß-Aufgaben an bestimmte Mitglieder zuweisen können — damit klar ist, wer diese Woche die Tomaten gießt, und nicht dreimal gegossen oder gar nicht."
+**User Story (Aufgaben delegieren):** "Als Gartenleitung möchte ich Gieß-Aufgaben an bestimmte Mitglieder zuweisen können — damit klar ist, wer diese Woche die Tomaten gießt, und nicht dreimal gegossen oder gar nicht."
 
-**User Story (Nur-Lese-Zugang):** "Als Garten-Admin möchte ich Besuchern oder Interessenten einen Nur-Lese-Zugang geben können — damit sie sich den Gartenplan ansehen können, ohne versehentlich Daten zu ändern."
+**User Story (Nur-Lese-Zugang):** "Als Mitglied mit Verwaltung möchte ich Besuchern oder Interessenten einen Nur-Lese-Zugang geben können — damit sie sich den Gartenplan ansehen können, ohne versehentlich Daten zu ändern."
 
 **User Story (Privater Bereich):** "Als Mitglied eines Gemeinschaftsgartens möchte ich meine privaten Zimmerpflanzen in einem separaten, nur für mich sichtbaren Bereich verwalten — ohne dass die Gemeinschaft Zugriff auf meine Wohnungspflanzen hat."
 
-**User Story (OIDC-Tenant-Zuweisung):** "Als Admin einer Anbauvereinigung möchte ich, dass sich Mitglieder über unseren zentralen Identity Provider (Keycloak) anmelden und automatisch unserem Tenant zugewiesen werden — ohne manuelle Einladung."
+**User Story (OIDC-Tenant-Zuweisung):** "Als Mitglied mit Verwaltung in einer Anbauvereinigung möchte ich, dass sich Mitglieder über unseren zentralen Identity Provider (Keycloak) anmelden und automatisch unserem Tenant zugewiesen werden — ohne manuelle Einladung."
 
 <!-- Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
 **User Story (Platform-Tenant):** "Als Plattform-Betreiber möchte ich über einen speziellen Platform-Tenant die globalen Stammdaten (Pflanzenarten, Sorten, Schädlinge, Krankheiten, Behandlungen, Düngemittel, Nährstoffpläne) verwalten und einzelnen Tenants zuweisen können — damit jeder Tenant nur relevante Daten sieht."
@@ -48,7 +49,7 @@ Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 <!-- /Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-030 -->
-**User Story (Gießdienst-Rotation):** "Als Gemeinschaftsgarten-Admin möchte ich einen rotierenden Gießdienst einrichten — jede Woche ist ein anderes Mitglied für die Gemeinschaftsbeete zuständig, und die App erinnert automatisch das diensthabende Mitglied."
+**User Story (Gießdienst-Rotation):** "Als Gartenleitung möchte ich einen rotierenden Gießdienst einrichten — jede Woche ist ein anderes Mitglied für die Gemeinschaftsbeete zuständig, und die App erinnert automatisch das diensthabende Mitglied."
 
 **User Story (Dienst tauschen):** "Als Gartenmitglied möchte ich meinen Gießdienst mit einem anderen Mitglied tauschen können, wenn ich im Urlaub bin — ohne den Admin belästigen zu müssen."
 
@@ -57,7 +58,7 @@ Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 
 **User Story (Ernte teilen):** "Als Gartenmitglied möchte ich überschüssige Ernte den anderen anbieten können — 'Zu viele Zucchini — wer will?' — ohne eine WhatsApp-Gruppe dafür zu brauchen."
 
-**User Story (Gemeinsame Bestellliste):** "Als Garten-Admin möchte ich eine gemeinsame Einkaufsliste für Saatgut, Erde und Werkzeuge pflegen können — damit wir Sammelbestellungen koordinieren und Kosten teilen können."
+**User Story (Gemeinsame Bestellliste):** "Als Gartenleitung möchte ich eine gemeinsame Einkaufsliste für Saatgut, Erde und Werkzeuge pflegen können — damit wir Sammelbestellungen koordinieren und Kosten teilen können."
 
 **Beschreibung:**
 Kamerplanter wird vom Einbenutzer-System zur Multi-Tenant-Plattform erweitert. Der **Tenant** (Mandant) ist der zentrale Isolations-Container: Alle Ressourcen (Pflanzen, Standorte, Aufgaben, Ernten) gehören zu genau einem Tenant. Benutzer können Mitglied in mehreren Tenants sein — mit unterschiedlichen Rollen pro Tenant.
@@ -72,28 +73,44 @@ Ein Tenant repräsentiert eine logische Organisationseinheit: einen privaten Gar
 - Ein User kann Mitglied in beliebig vielen Tenants sein
 - Ressourcen gehören immer zu genau einem Tenant (kein Cross-Tenant-Sharing)
 
-**Mandantenspezifisches Rollenmodell:**
-Ein User hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was der User innerhalb dieses Tenants darf:
+**Mandantenspezifisches Rollenmodell — zwei Achsen:**
 
-| Rolle | Schlüssel | Rechte |
-|-------|-----------|--------|
-| **Admin** | `admin` | Vollzugriff: Tenant-Einstellungen, Mitgliederverwaltung, alle Ressourcen, Rollenzuweisung. Duty-Rotations erstellen/bearbeiten, Pinnwand-Posts pinnen/löschen, Shopping-Lists verwalten |
-| **Gärtner** | `grower` | Lese- und Schreibzugriff auf zugewiesene und gemeinschaftliche Ressourcen, Aufgaben erstellen/bearbeiten, Ernten dokumentieren. An Duty-Rotation teilnehmen, Tausch anfragen, Pinnwand-Posts erstellen/kommentieren, auf Shopping-Lists eintragen |
-| **Beobachter** | `viewer` | Nur-Lese-Zugriff auf alle Ressourcen des Tenants, keine Änderungen möglich. Pinnwand lesen, Shopping-Lists lesen (kein Schreiben) |
+Ein User hat pro Tenant genau **eine fachliche Rolle** (Achse 1) und **keine, eine oder beide administrativen Zusatzberechtigungen** (Achse 2). Das Modell ist in [REQ-049](REQ-049_Rollenmodell-und-Vokabular.md) normativ definiert; die Tabelle hier ist die Kurzfassung, REQ-049 gewinnt bei Widerspruch.
 
-**Zuweisungsbasierte Sichtbarkeit:**
-Innerhalb eines organisatorischen Tenants können Standorte (Sites, Locations, Slots) einzelnen Mitgliedern zugewiesen werden:
+**Achse 1 — fachliche Rolle** (`TenantRole`, geordnet: Leitung ⊇ Gärtner ⊇ Beobachter):
 
-- **Zugewiesene Ressourcen:** Nur der zugewiesene Gärtner (und Admins) darf diese bearbeiten
-- **Gemeinschaftliche Ressourcen:** Ohne Zuweisung → für alle Gärtner des Tenants bearbeitbar
-- **Viewer** sehen immer alles (read-only), unabhängig von Zuweisungen
+| Rolle | Schlüssel | Was sie im Garten darf |
+|-------|-----------|------------------------|
+| **Beobachter** | `viewer` | Alles im Mandanten lesen, nichts ändern. Pinnwand und Einkaufslisten lesen |
+| **Gärtner** | `grower` | Alle Fachdaten des Mandanten anlegen und ändern, Aufgaben erledigen, Ernte und Behandlungen dokumentieren, Phasen weiterschalten. **Kein Löschen.** An Duty-Rotation teilnehmen, Tausch anfragen, Pinnwand-Posts erstellen und kommentieren, auf Einkaufslisten eintragen |
+| **Leitung** | `lead` | Zusätzlich **löschen**, Aufgaben an andere zuweisen, Standortstruktur umbauen, Vorlagen pflegen, Duty-Rotationen erstellen, Posts pinnen und fremde löschen, Einkaufslisten verwalten |
+
+**Achse 2 — administrative Zusatzberechtigung** (`AdminScope`, unabhängig vom Rang):
+
+| Zusatzberechtigung | Schlüssel | Was sie am Mandanten erlaubt |
+|--------------------|-----------|------------------------------|
+| **Verwaltung** | `management` | Mitglieder einladen, Rollen ändern, entfernen; Einladungslinks; Mandanten-Einstellungen; Standort-Zuweisungen; Dienstkonten; Mandant löschen |
+| **Technik** | `technical` | Home-Assistant- und InvenTree-Anbindung, MQTT, Sensor- und Aktor-Einrichtung, Import, Anreicherungs- und Wetterquellen |
+
+Die beiden Achsen sind **unabhängig**: Ein Beobachter kann Verwaltung halten (Schriftführerin, die nicht gärtnert), eine Leitung kann ohne Technik auskommen. Der frühere Wert `admin` ist stillgelegt — er stand in dieser Matrix überwiegend für „darf löschen" (jetzt `lead`) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt `management`). Migration `v0032` bildet jeden Bestandswert verlustfrei auf `lead` plus **beide** Zusatzberechtigungen ab.
+
+**Die Standort-Zuweisung ist Koordination, keine Schreibgrenze:**
+
+Standorte (Sites, Locations, Slots) können einzelnen Mitgliedern zugewiesen werden. Die Zuweisung sagt, **wer sich kümmert** — sie schränkt **nicht** ein, wer bearbeiten darf:
+
+- Jeder Gärtner darf jeden Standort und jede Pflanze des Mandanten bearbeiten, zugewiesen oder nicht
+- Die Zuweisung steuert Sortierung, Filter und die persönliche Ansicht „meine Parzelle"
+- `valid_from`/`valid_until` bleiben für die **saisonale Darstellung** erhalten und wirken nicht auf Berechtigungen
+- Beobachter sehen alles lesend, unabhängig von Zuweisungen
+
+**Warum keine Schreibgrenze:** Eine Trennung innerhalb eines Mandanten erzeugt Unvorhersehbarkeit — Mitglieder sehen Datensätze, die sie nicht bearbeiten dürfen, ohne dass die Oberfläche den Grund erklären kann. Wer echte Trennung braucht, bekommt einen eigenen Mandanten; das ist billig, sofort verfügbar und für den Nutzer verständlich (REQ-049 §2.1 P1/P2, §3.5). REQ-049 §3.2 führt „Zugewiesene" als Rechteangabe deshalb unter den **verbotenen Begriffen**.
 
 **Einladungssystem:**
 
 | Methode | Flow |
 |---------|------|
-| **E-Mail-Einladung** | Admin gibt E-Mail ein → System sendet Einladungs-E-Mail mit Link → Empfänger registriert sich oder meldet sich an → wird automatisch dem Tenant mit vorgewählter Rolle hinzugefügt |
-| **Einladungslink** | Admin generiert Link (optional: max. Nutzungen, Ablaufdatum, vordefinierte Rolle) → Link kann geteilt werden (WhatsApp, Aushang) → Jeder mit Link kann beitreten |
+| **E-Mail-Einladung** | Ein Mitglied mit **Verwaltung** gibt die E-Mail ein → System sendet Einladungs-E-Mail mit Link → Empfänger registriert sich oder meldet sich an → wird automatisch dem Tenant mit vorgewählter Rolle hinzugefügt |
+| **Einladungslink** | Ein Mitglied mit **Verwaltung** generiert einen Link (optional: max. Nutzungen, Ablaufdatum, vordefinierte Rolle) → Link kann geteilt werden (WhatsApp, Aushang) → Jeder mit Link kann beitreten |
 | **OIDC-Auto-Join** | OIDC-Provider hat `default_tenant_key` konfiguriert (REQ-023) → Neue User über diesen Provider werden automatisch dem Tenant hinzugefügt |
 
 <!-- Quelle: RBAC Permission-Matrix v1.4 -->
@@ -107,32 +124,33 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 
 **Legende:**
 - **C** = Create, **R** = Read, **U** = Update, **D** = Delete
-- **own** = nur eigene/zugewiesene Ressourcen, **all** = alle Ressourcen im Tenant
-- **community** = Gemeinschaftsressourcen (ohne LocationAssignment)
+- **all** = alle Ressourcen des Mandanten. Es gibt **kein** `own` und **kein** `community` mehr: Die Standort-Zuweisung schränkt Schreibrechte nicht ein (REQ-049 §3.5), und „Zugewiesene" ist als Rechteangabe verboten (REQ-049 §3.2).
 - ✅ = erlaubt, ❌ = verboten, 🔒 = nur Leitung
+
+**Die Matrix entscheidet allein über den Rang der fachlichen Rolle.** Jede Zeile lässt sich auf drei Regeln zurückführen: Lesen darf jedes Mitglied, Anlegen und Ändern ab Gärtner, Löschen nur die Leitung. Die Ressourcenzeilen sind deshalb heute weitgehend gleichförmig — sie stehen einzeln, weil eine künftige Verschärfung je Ressourcentyp hier ansetzt und nicht in den Routern. Abweichungen von den drei Regeln stehen ausschließlich in der Spalte **Spezialaktionen** und sind dort begründet.
 
 | Ressource (Collection) | Leitung | Gärtner | Beobachter | Spezialaktionen |
 |------------------------|-------|--------|--------|-----------------|
-| **Sites** | CRUD all | CR all, U own+community, ❌D | R all | — |
-| **Locations** | CRUD all | CR all, U own+community, ❌D | R all | Standort-Hierarchie: Location-Erstellung erbt Tenant-Zugehörigkeit der Parent-Site |
-| **Slots** | CRUD all | CR (in own/community Location), U own+community, ❌D | R all | — |
-| **Plant Instances** | CRUD all | CR all, U own+community, ❌D | R all | **Phasen-Transition:** Leitung, Gärtner (own+community) |
-| **Planting Runs** | CRUD all | CR all, U own, ❌D | R all | **State-Transition:** Leitung, Gärtner (own). **Batch-Ops:** Leitung, Gärtner (own) |
-| **Tasks** | CRUD all | CR all, U assigned+own, ❌D | R all | **Zuweisen (`assigned_to`):** 🔒 Leitung. **Status ändern:** Leitung, Gärtner (wenn assigned) |
-| **Harvest Batches** | CRUD all | CR all, U own, ❌D | R all | **Quality Assessment:** Leitung, Gärtner (own) |
-| **Tanks** | CRUD all | CR all, U all, ❌D | R all | **Tank-State erstellen:** Leitung, Gärtner |
+| **Sites** | CRUD all | CRU all, ❌D | R all | Standortstruktur umbauen (Hierarchie ändern): 🔒 Leitung |
+| **Locations** | CRUD all | CRU all, ❌D | R all | Location-Erstellung erbt die Tenant-Zugehörigkeit der Parent-Site. `Location` trägt **keinen** eigenen `tenant_key` — die Prüfung hängt am Parent |
+| **Slots** | CRUD all | CRU all, ❌D | R all | Wie Location: kein eigener `tenant_key`, Prüfung über die Parent-Site |
+| **Plant Instances** | CRUD all | CRU all, ❌D | R all | **Phasen-Transition:** ab Gärtner. Auf run-gebundenen Pflanzen gesperrt (REQ-003 §3, HTTP 409 `phase.run_owned`) — eine Sperre der Fachlogik, keine Rollenfrage |
+| **Planting Runs** | CRUD all | CRU all, ❌D | R all | **State-Transition** und **Batch-Ops:** ab Gärtner |
+| **Tasks** | CRUD all | CRU all, ❌D | R all | **Zuweisen (`assigned_to`):** 🔒 Leitung. **Status ändern:** ab Gärtner, **auch bei fremd zugewiesenen Aufgaben** — die Zuweisung ist Absprache, kein Ausschluss, und deckt genau den Fall ab, dass die zugewiesene Person ausfällt (REQ-049 §3.5) |
+| **Harvest Batches** | CRUD all | CRU all, ❌D | R all | **Quality Assessment:** ab Gärtner |
+| **Tanks** | CRUD all | CRU all, ❌D | R all | **Tank-State erstellen:** ab Gärtner |
 | **Fertilizers** (tenant-eigen) | CRUD all | CR all, R all, ❌U ❌D | R all | Globale Fertilizers: nur lesen (alle Rollen) |
-| **Nutrient Plans** (tenant-eigen) | CRUD all | CR all, U own, ❌D | R all | Globale Pläne: nur lesen |
-| **Feeding Events** | CRUD all | CR all, U own, ❌D | R all | — |
-| **Watering Events** | CRUD all | CR all, U own, ❌D | R all | **Quick-Confirm:** Leitung, Gärtner |
-| **Watering Logs** | CRUD all | CR all, U own, ❌D | R all | — |
-| **IPM Inspections** | CRUD all | CR all, U own, ❌D | R all | — |
-| **Treatment Applications** | CRUD all | CR all, U own, ❌D | R all | **Karenz-Gate:** automatisch (kein Rollen-Override) |
-| **Care Profiles** | CRUD all | R all, U own (confirm/snooze), ❌CD | R all | **Care Confirmation:** Leitung, Gärtner (own) |
+| **Nutrient Plans** (tenant-eigen) | CRUD all | CRU all, ❌D | R all | Globale Pläne: nur lesen (alle Rollen) |
+| **Feeding Events** | CRUD all | CRU all, ❌D | R all | — |
+| **Watering Events** | CRUD all | CRU all, ❌D | R all | **Quick-Confirm:** ab Gärtner |
+| **Watering Logs** | CRUD all | CRU all, ❌D | R all | — |
+| **IPM Inspections** | CRUD all | CRU all, ❌D | R all | — |
+| **Treatment Applications** | CRUD all | CRU all, ❌D | R all | **Karenz-Gate:** automatisch, **kein Rollen-Override** — auch die Leitung kann es nicht übergehen (422) |
+| **Care Profiles** | CRUD all | R all, U all (confirm/snooze), ❌CD | R all | **Care Confirmation:** ab Gärtner. Anlegen bleibt der Leitung: ein Pflegeprofil ist eine Vorlage, keine Beobachtung |
 | **Workflow Templates** | CRUD all | R all, ❌CUD | R all | Custom-Templates: nur Leitung |
 | **Substrate Types** | CRUD all | R all, ❌CUD | R all | — |
-| **Import Jobs** | CRUD all | CR all, R own, ❌UD | R all | **Confirm Import:** Leitung, Gärtner (own) |
-| **Plant Instance Photos** (Attachment, `category=plant`, REQ-034) | CRUD all | CR all, U own+community (Cover setzen), D own+community | R all | **Upload/Cover/Löschen:** generische Ressourcen-Permissions (`CREATE_/UPDATE_/DELETE_RESOURCE`) mit Zuweisungs-Write-Kontrolle (§1a.5). Viewer: nur Galerie ansehen. **DINOv2-Referenz-Freigabe (`is_active=true`):** 🔒 Platform-Admin (REQ-029-A §4.5) |
+| **Import Jobs** | CRUD all | CR all, ❌UD | R all | **Confirm Import:** ab Gärtner |
+| **Plant Instance Photos** (Attachment, `category=plant`, REQ-034) | CRUD all | CRU all (Cover setzen), ❌D | R all | **Upload/Cover:** ab Gärtner. **Löschen: 🔒 Leitung** — v1.6 wies hier `D own+community` aus; die Irreversibilitätsgrenze aus REQ-049 §2.3 kennt keine Foto-Ausnahme, und `require_attachment_permission` entscheidet über dieselbe Matrix. Ein Gärtner darf zudem nur Attachments **referenzieren**, die er selbst hochgeladen hat (SEC-003) — das ist eine Herkunftsprüfung am Anhang, keine Rollenregel. Beobachter: nur ansehen. **DINOv2-Referenz-Freigabe (`is_active=true`):** 🔒 Platform-Admin (REQ-029-A §4.5) |
 
 #### 1a.2 Tenant-Verwaltungs-Permissions
 
@@ -179,7 +197,7 @@ Technische Konfiguration innerhalb des Mandanten — Home-Assistant- und InvenTr
 
 #### 1a.4 Platform-Rollen — Differenziertes Admin-Panel
 
-Das Platform-Tenant-Modell (§1.3) wird um die `viewer`-Rolle erweitert. Die Plattform-Rolle wird über die höchste fachliche Rolle im technischen Mandanten `platform` abgebildet (REQ-049 §2.5); der frühere Schlüssel `admin` heißt dort seit `v0032` `lead`.
+Der Platform-Tenant (§2, `is_platform: true`) trägt zusätzlich die Rolle Beobachter. Die Plattform-Rolle wird über die höchste fachliche Rolle im technischen Mandanten `platform` abgebildet (REQ-049 §2.5); der frühere Schlüssel `admin` heißt dort seit `v0032` `lead`.
 
 | Platform-Rolle | Schlüssel | Rechte |
 |---------------|-----------|--------|
@@ -212,176 +230,111 @@ Das Platform-Tenant-Modell (§1.3) wird um die `viewer`-Rolle erweitert. Die Pla
 | **Tenant-Mitgliederliste einsehen (Cross-Tenant)** | ✅ | ✅ (read-only) |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
-#### 1a.5 Zuweisungsbasierte Write-Kontrolle — Formale Regeln
+#### 1a.5 Zuweisungsbasierte Write-Kontrolle — **entfallen**
 
-> **Abgelöst durch REQ-049 §3.5.** Der Mandant ist die gemeinsame Arbeitsmenge (REQ-049 §2.1 P1): Alle Gärtner pflegen alle Fachdaten des Mandanten, und die Standort-Zuweisung schränkt Schreibrechte nicht ein. `can_write()` reduziert sich damit auf die Rangprüfung der fachlichen Rolle. Dieser Abschnitt bleibt bis zur Nachführung von §1a als Historie stehen und ist **nicht** mehr umzusetzen. `valid_from`/`valid_until` bleiben für die saisonale Darstellung erhalten, wirken aber nicht auf Berechtigungen.
+> **Ersatzlos gestrichen mit v1.7.** Dieser Abschnitt definierte eine Funktion
+> `can_write(user, resource, tenant)`, die einem Gärtner das Schreiben nur an zugewiesenen und
+> gemeinschaftlichen Ressourcen erlaubte. **REQ-049 §3.5** hat sie aufgehoben: Der Mandant ist die
+> gemeinsame Arbeitsmenge, die Standort-Zuweisung ist Koordination und kein Recht.
+> `can_write()` reduziert sich damit auf die Rangprüfung der fachlichen Rolle und ist als eigene
+> Funktion überflüssig — sie heißt heute `MembershipEngine.can_edit_resource(role)` und nimmt
+> weder Ressource noch Zuweisungen entgegen.
 
-Die informelle Beschreibung "zugewiesene und gemeinschaftliche Ressourcen" wird wie folgt formalisiert:
+Was von der Zuweisung bleibt und was nicht:
 
-```
-can_write(user, resource, tenant) =
-    membership.role == 'admin'
-    OR (
-        membership.role == 'grower'
-        AND (
-            resource hat KEINE LocationAssignment im Tenant    # Gemeinschaftsressource
-            OR resource.location hat LocationAssignment für user  # Zugewiesene Ressource
-            OR resource.created_by == user._key                 # Eigene Ressource
-        )
-    )
-```
+| Konstrukt | Bleibt | Wirkt **nicht** auf |
+|-----------|--------|---------------------|
+| `LocationAssignment` | Anzeige „meine Parzelle", Sortierung, Filter, Zuständigkeits-Hinweis | Schreibrechte |
+| `valid_from` / `valid_until` | saisonale Darstellung der Zuständigkeit | Schreibrechte |
+| `Task.assigned_to` | Hervorhebung, Reihenfolge, Benachrichtigungsempfänger (REQ-049 §2.8) | Wer die Aufgabe erledigen darf |
 
-**Sonderfälle:**
-- **Pflanzen ohne Standort** (z.B. frisch importiert): Gemeinschaftsressource → jeder Grower darf bearbeiten
-- **Tasks:** `assigned_to` überschreibt LocationAssignment — ein zugewiesener Task darf nur vom Assignee und Admins bearbeitet werden
-- **LocationAssignment mit Zeitfenster:** `valid_from`/`valid_until` wird geprüft — außerhalb des Zeitraums gilt die Zuweisung nicht
-- **Service Accounts (REQ-023 v1.7):** Identische Regeln — ein Service Account mit `grower`-Rolle hat dieselben Write-Rechte wie ein menschlicher Grower. LocationAssignment ist für Service Accounts typischerweise nicht gesetzt → Zugriff auf alle Gemeinschaftsressourcen.
+**Warum der Abschnitt ganz verschwindet statt als Historie stehen zu bleiben:** v1.6 hatte ihn mit
+einem Vermerk „nicht mehr umzusetzen" versehen und die formalen Regeln darunter belassen. Das ist
+die schlechteste der drei Möglichkeiten — der Pseudocode blieb lesbar, vollständig und ohne
+Kontext zitierfähig, und genau danach wurde weiterhin gebaut und geprüft. Eine gestrichene Regel
+gehört nicht in halber Länge konserviert; wer den Vorzustand braucht, findet ihn in der
+Versionsgeschichte.
 
-#### 1a.6 Backend-Dependency: `require_permission()`
+#### 1a.6 Backend-Dependencies: drei Wächter, disjunkt
 
-Die bestehende `require_role()`-Dependency (REQ-023 §3.4) wird durch eine granularere `require_permission()`-Dependency ergänzt:
+> **Neu geschrieben mit v1.7.** Bis v1.6 beschrieb dieser Abschnitt ein `Permission`-Enum mit einem
+> `ROLE_PERMISSIONS`-Dict, aus dem eine einzige Dependency `require_permission(permission)` ihre
+> Entscheidung zog. So ist es nie gebaut worden, und es passt auch nicht zum Zwei-Achsen-Modell:
+> Ein Dict, das Rolle → Permissions abbildet, kann Achse 2 nicht ausdrücken, weil eine
+> Zusatzberechtigung gerade **unabhängig** vom Rang ist. Der Abschnitt beschreibt jetzt, was in
+> `app/common/auth.py` steht.
+
+REQ-049 §2.7 fordert drei **disjunkte** Zweige — eine Aktion darf nie über zwei zugleich
+erreichbar sein. Jeder Zweig hat genau eine Dependency:
+
+| Zweig | Dependency | Entscheidet über |
+|-------|-----------|------------------|
+| fachlich, je Ressource | `require_permission(resource, action)` | Anlegen / Ändern / Löschen einer Fachressource |
+| fachlich, je Rang | `require_tenant_role(min_role)` | Aktionen, die einen Mindestrang verlangen, ohne an einer Ressource zu hängen |
+| administrativ | `require_admin_scope(scope)` | Mitgliederverwaltung, Einstellungen, Integrationen |
 
 ```python
-class Permission(str, Enum):
-    """Granulare Permissions für RBAC-Prüfung."""
-    # Tenant-Verwaltung
-    MANAGE_MEMBERS = "manage_members"
-    MANAGE_INVITATIONS = "manage_invitations"
-    MANAGE_ASSIGNMENTS = "manage_assignments"
-    MANAGE_TENANT_SETTINGS = "manage_tenant_settings"
-    MANAGE_SERVICE_ACCOUNTS = "manage_service_accounts"
-    DELETE_TENANT = "delete_tenant"
-
-    # Ressourcen
-    CREATE_RESOURCE = "create_resource"
-    READ_RESOURCE = "read_resource"
-    UPDATE_RESOURCE = "update_resource"
-    DELETE_RESOURCE = "delete_resource"
-
-    # Spezialaktionen
-    ASSIGN_TASK = "assign_task"
-    TRANSITION_PHASE = "transition_phase"
-    TRANSITION_RUN_STATE = "transition_run_state"
-    CONFIRM_CARE = "confirm_care"
-    PIN_BULLETIN = "pin_bulletin"
-    MANAGE_DUTY_ROTATION = "manage_duty_rotation"
-    MANAGE_SHOPPING_LIST = "manage_shopping_list"
-
-    # Platform
-    MANAGE_GLOBAL_MASTER_DATA = "manage_global_master_data"
-    MANAGE_TENANT_ACCESS = "manage_tenant_access"
-    PROMOTE_TO_GLOBAL = "promote_to_global"
-    MANAGE_OIDC_PROVIDERS = "manage_oidc_providers"
-    MANAGE_PLATFORM_SERVICE_ACCOUNTS = "manage_platform_service_accounts"
-    VIEW_PLATFORM_ADMIN_PANEL = "view_platform_admin_panel"
-
-    # Platform — Tenant-Notfallverwaltung (REQ-023 v1.7 §5a.5)
-    APPOINT_EMERGENCY_ADMIN = "appoint_emergency_admin"
-    SUSPEND_TENANT = "suspend_tenant"
-    REACTIVATE_TENANT = "reactivate_tenant"
-    SUSPEND_USER = "suspend_user"
-    REACTIVATE_USER = "reactivate_user"
-    VIEW_TENANT_MEMBERS_CROSS = "view_tenant_members_cross"
-
-
-# Rolle → erlaubte Permissions
-ROLE_PERMISSIONS: dict[str, set[Permission]] = {
-    "admin": {
-        Permission.MANAGE_MEMBERS,
-        Permission.MANAGE_INVITATIONS,
-        Permission.MANAGE_ASSIGNMENTS,
-        Permission.MANAGE_TENANT_SETTINGS,
-        Permission.MANAGE_SERVICE_ACCOUNTS,
-        Permission.DELETE_TENANT,
-        Permission.CREATE_RESOURCE,
-        Permission.READ_RESOURCE,
-        Permission.UPDATE_RESOURCE,
-        Permission.DELETE_RESOURCE,
-        Permission.ASSIGN_TASK,
-        Permission.TRANSITION_PHASE,
-        Permission.TRANSITION_RUN_STATE,
-        Permission.CONFIRM_CARE,
-        Permission.PIN_BULLETIN,
-        Permission.MANAGE_DUTY_ROTATION,
-        Permission.MANAGE_SHOPPING_LIST,
-    },
-    "grower": {
-        Permission.CREATE_RESOURCE,
-        Permission.READ_RESOURCE,
-        Permission.UPDATE_RESOURCE,   # mit Zuweisungs-Prüfung (§1a.5)
-        Permission.TRANSITION_PHASE,  # mit Zuweisungs-Prüfung
-        Permission.TRANSITION_RUN_STATE,
-        Permission.CONFIRM_CARE,
-    },
-    "viewer": {
-        Permission.READ_RESOURCE,
-    },
-}
-
-# Platform-Rollen
-PLATFORM_ROLE_PERMISSIONS: dict[str, set[Permission]] = {
-    "admin": {
-        Permission.MANAGE_GLOBAL_MASTER_DATA,
-        Permission.MANAGE_TENANT_ACCESS,
-        Permission.PROMOTE_TO_GLOBAL,
-        Permission.MANAGE_OIDC_PROVIDERS,
-        Permission.MANAGE_PLATFORM_SERVICE_ACCOUNTS,
-        Permission.VIEW_PLATFORM_ADMIN_PANEL,
-        # Tenant-Notfallverwaltung (REQ-023 v1.7 §5a.5)
-        Permission.APPOINT_EMERGENCY_ADMIN,
-        Permission.SUSPEND_TENANT,
-        Permission.REACTIVATE_TENANT,
-        Permission.SUSPEND_USER,
-        Permission.REACTIVATE_USER,
-        Permission.VIEW_TENANT_MEMBERS_CROSS,
-    },
-    "viewer": {
-        Permission.VIEW_PLATFORM_ADMIN_PANEL,
-        Permission.VIEW_TENANT_MEMBERS_CROSS,  # Read-only: Mitgliederlisten einsehen
-    },
-}
-
-
-def require_permission(permission: Permission):
-    """Factory für FastAPI-Dependency die eine bestimmte Permission erfordert.
-    Prüft Membership-Rolle des aktuellen Users im aktuellen Tenant und
-    leitet Permission aus ROLE_PERMISSIONS ab."""
-
-    def dependency(
-        current_user: User = Depends(get_current_user),
-        membership: Membership = Depends(get_current_membership),
-    ) -> User:
-        role_perms = ROLE_PERMISSIONS.get(membership.role, set())
-        if permission not in role_perms:
-            raise ForbiddenError(
-                f"Permission '{permission.value}' required. "
-                f"Your role '{membership.role}' does not have this permission."
-            )
-        return current_user
-
-    return Depends(dependency)
+def require_permission(resource: ResourceType | str, action: Action) -> Callable: ...
+def require_tenant_role(min_role: TenantRole) -> Callable: ...
+def require_admin_scope(scope: AdminScope) -> Callable: ...
 ```
+
+**Alle drei setzen auf `get_current_tenant` auf**, das den Mandanten aus dem Pfad auflöst und einen
+Nicht-Mitglied bereits mit `403` abweist, bevor irgendein Wächter läuft. Die Wächter machen
+deshalb **keine** eigene Datenbankabfrage — sie entscheiden allein auf `ctx.role` bzw.
+`ctx.admin_scopes` — und sie schlagen fehl-geschlossen: Eine Rolle, auf die keine Regel passt,
+wird abgewiesen.
+
+**Die Autorität ist die reine `MembershipEngine`, nicht die Dependency.** `require_permission`
+delegiert an genau das Prädikat, das zur Aktion gehört:
+
+| `action` | Prädikat | Wer besteht |
+|----------|----------|-------------|
+| `CREATE`, `UPDATE` | `MembershipEngine.can_edit_resource` | Leitung, Gärtner |
+| `DELETE` | `MembershipEngine.can_delete_resource` | **nur Leitung** (REQ-049 §2.3) |
+| `READ` | `MembershipEngine.can_view_resource` | jedes Mitglied |
+
+Diese Umleitung ist der Grund, warum die Router-Oberfläche und die Engine nicht auseinanderlaufen
+können: Es gibt eine Stelle, an der „Gärtner darf nicht löschen" steht, und beide Wege gehen durch
+sie. Lesen bleibt offen — ein `GET` braucht den Wächter nur, wenn ein bestimmter Lesezugriff
+privilegiert ist.
+
+**`resource` entscheidet heute nichts** und wird trotzdem verlangt. Die Prädikate sind
+rollengetrieben, noch nicht ressourcentyp-spezifisch; das Argument dokumentiert an der Aufrufstelle,
+*was* dort bewacht wird, und erlaubt einer künftigen Matrix je Ressourcentyp, einzelne Einträge zu
+verschärfen, ohne jeden Router anzufassen.
+
+**Die beschreibende Matrix `app/core/permissions.py`** trägt die Ressource×Aktion-Zuordnung aus
+§1a.1 als Daten. Sie ist **nicht** der Wächter der HTTP-Router, sondern die Autorität für zwei
+andere Oberflächen: die Anhang-Wache (`require_attachment_permission`) und den MCP-Dispatcher
+(`assert_mcp_permission`, REQ-033). Ihre Einträge müssen mit §1a.1 übereinstimmen — die
+Löschrechte der Pflanzendomäne sind dort bereits auf Leitung korrigiert.
 
 **Verwendung in Routern:**
 
 ```python
-@router.post("/t/{slug}/tasks/{task_key}/assign")
-def assign_task(
-    task_key: str,
-    assignee_key: str,
-    current_user: User = require_permission(Permission.ASSIGN_TASK),
-):
-    ...
+@router.post("/t/{slug}/plant-instances")
+def create_plant(
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
+): ...
 
 @router.delete("/t/{slug}/sites/{site_key}")
 def delete_site(
-    site_key: str,
-    current_user: User = require_permission(Permission.DELETE_RESOURCE),
-):
-    ...
+    ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.DELETE)),
+): ...
+
+@router.post("/t/{slug}/members")
+def invite_member(
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
+): ...
 ```
 
-**Kompatibilität:** `require_role()` bleibt als Convenience-Wrapper bestehen — delegiert intern an `require_permission()`. Bestehender Code muss nicht sofort migriert werden.
+**Was ausdrücklich nicht passieren darf:** Eine administrative Aktion über `require_permission` zu
+gaten oder eine fachliche über `require_admin_scope`. Beides führte die Vermischung wieder ein, zu
+deren Beseitigung REQ-049 geschrieben wurde — und beides sieht an der Aufrufstelle unauffällig
+aus, weil ein Mitglied mit `lead` + `management` durch beide Wächter kommt. Der Fehler fällt erst
+bei der Schriftführerin auf, die Beobachter ist und die Mitgliederliste pflegen soll.
+
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 
 ### 1.1 Szenarien
@@ -393,14 +346,19 @@ def delete_site(
    name: "Grüne Oase e.V."
    type: organization
    description: "Gemeinschaftsgarten in Berlin-Kreuzberg, 24 Parzellen"
-3. Lisa wird automatisch Admin dieses Tenants
+3. Lisa wird automatisch Leitung dieses Tenants, mit beiden Zusatzberechtigungen
+   (role: lead, admin_scopes: [management, technical])
 4. Lisa erstellt Einladungslink:
    role: grower
+   admin_scopes: []
    max_uses: 20
    expires_in: 30 Tage
 5. Lisa teilt den Link in der WhatsApp-Gruppe des Vereins
 6. 11 Mitglieder klicken den Link → werden als "Gärtner" hinzugefügt
-7. Lisa ändert 2 Mitglieder zu "Admin" (Stellvertretung)
+7. Lisa gibt 2 Mitgliedern die Zusatzberechtigung "Verwaltung" (Stellvertretung
+   in der Mitgliederpflege) und einem davon zusätzlich die Rolle "Leitung",
+   damit er auch löschen darf. Die beiden Achsen werden getrennt vergeben —
+   wer die Mitgliederliste pflegt, muss nicht löschen dürfen
 ```
 
 **Szenario 2: Parzellen zuweisen**
@@ -415,16 +373,21 @@ Site-Struktur (REQ-002):
     Location: "Kompostplatz" → keine Zuweisung (Gemeinschaft)
     Location: "Gewächshaus" → keine Zuweisung (Gemeinschaft)
 
-Sichtbarkeit für Max (Rolle: grower):
-  ✅ Lesen: Alle Locations des Tenants
-  ✅ Schreiben: "Parzelle A1" (zugewiesen) + "Kompostplatz" + "Gewächshaus" (Gemeinschaft)
+Für Max (Rolle: grower) bedeutet das:
+  ✅ Lesen:     Alle Locations des Tenants
+  ✅ Schreiben: Alle Locations des Tenants — auch A2 und A3.
+                Die Zuweisung ist KEINE Schreibgrenze (REQ-049 §3.5)
+  ❌ Löschen:   Keine. Löschen ist Leitung (REQ-049 §2.3)
+  👁 Anzeige:   "Parzelle A1" erscheint in seiner Ansicht "meine Parzelle",
+                die Liste ist danach vorsortiert, und an A2 steht sichtbar,
+                dass Lisa sich kümmert
   ❌ Schreiben: "Parzelle A2" (Lisas) + "Parzelle A3" (Toms)
 ```
 
 **Szenario 3: Zwischen Gärten wechseln**
 ```
 Max ist Mitglied in:
-  1. "Maxs Garten" (personal, Admin) — 8 Zimmerpflanzen
+  1. "Maxs Garten" (personal, Leitung + beide Zusatzberechtigungen) — 8 Zimmerpflanzen
   2. "Grüne Oase e.V." (organization, Grower) — Parzelle A1
 
 1. Max öffnet Dashboard → sieht seinen aktiven Tenant "Maxs Garten"
@@ -441,7 +404,7 @@ Max ist Mitglied in:
 Voraussetzung:
   - OIDC-Provider "keycloak-anbauverein" konfiguriert (REQ-023)
   - default_tenant_key zeigt auf Tenant "Cannabis Social Club Berlin"
-  - default_role: "grower"
+  - default_role: "grower"   # admin_scopes bleibt leer
 
 1. Neues Vereinsmitglied Anna öffnet Kamerplanter
 2. Klickt "Cannabis Social Club Berlin" (OIDC-Button)
@@ -455,13 +418,13 @@ Voraussetzung:
 ```
 Voraussetzung: REQ-006 Task-System + Tenant "Grüne Oase e.V."
 
-1. Admin Lisa erstellt Task im Gemeinschaftsgarten:
+1. Lisa (Leitung) erstellt Task im Gemeinschaftsgarten:
    title: "Tomaten gießen — Parzelle A1-A6"
    assigned_to: Max (user_key)
    due_date: 2026-03-15
 2. Max sieht den Task in seiner persönlichen Task-Queue
 3. Max markiert Task als erledigt
-4. Lisa sieht im Admin-Dashboard: Task erledigt von Max, 2026-03-15 14:30
+4. Lisa sieht im Leitungs-Dashboard: Task erledigt von Max, 2026-03-15 14:30
 ```
 
 **Szenario 6: Persönlicher Bereich bleibt privat**
@@ -480,7 +443,7 @@ Sichtbarkeit für andere Mitglieder der "Grüne Oase":
 ```
 Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
 
-1. Admin Lisa erstellt Duty-Rotation:
+1. Lisa (Leitung) erstellt Duty-Rotation:
    name: "Gießdienst Gemeinschaftsbeete"
    type: watering_duty
    rotation_members: [Max, Lisa, Tom, Anna, ...] (8 von 12 Mitgliedern nehmen teil)
@@ -495,7 +458,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
 3. Tom geht in Urlaub (KW 12):
    Tom öffnet Dienstplan → "Tausch anfragen"
    Anna akzeptiert → KW 12: Anna statt Tom
-   System benachrichtigt beide + Admin
+   System benachrichtigt beide + die Leitung (REQ-049 §2.8)
 
 4. Max bestätigt Gießdienst:
    Öffnet App → "Gießdienst erledigt" + optionales Foto
@@ -513,7 +476,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
 3. Lisa kommentiert: "Habe Schneckenkorn (Eisen-III-Phosphat) mitgebracht, liegt im Schuppen"
 4. Anna reagiert: 👍
 
-5. Admin Lisa pinnt einen Beitrag:
+5. Lisa (Leitung) pinnt einen Beitrag:
    "📌 Nächster Arbeitseinsatz: Samstag 14.03., 10 Uhr. Kompost umsetzen + Beete vorbereiten."
    pinned: true → bleibt oben
 ```
@@ -546,7 +509,8 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
 - **`:Membership`** — Mitgliedschaft (User ↔ Tenant)
   - Collection: `memberships`
   - Properties:
-    - `role: Literal['admin', 'grower', 'viewer']`
+    - `role: Literal['viewer', 'grower', 'lead']` (Achse 1, genau eine — REQ-049 §2.3)
+    - `admin_scopes: list[Literal['management', 'technical']]` (Achse 2, keine bis beide — REQ-049 §2.4; unabhaengig vom Rang)
     - `display_name_override: Optional[str]` (Spitzname im Garten, z.B. "Max der Tomatenkönig")
     - `joined_at: datetime`
     - `invited_by: Optional[str]` (user_key des Einladenden)
@@ -558,7 +522,8 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
     - `type: Literal['email', 'link']`
     - `email: Optional[str]` (Nur bei `type: email`)
     - `token_hash: str` (SHA-256 Hash des Einladungstokens)
-    - `role: Literal['admin', 'grower', 'viewer']` (Rolle bei Beitritt)
+    - `role: Literal['viewer', 'grower', 'lead']` (fachliche Rolle bei Beitritt)
+    - `admin_scopes: list[Literal['management', 'technical']]` (Zusatzberechtigungen bei Beitritt, Vorgabe `[]`)
     - `max_uses: Optional[int]` (Nur bei `type: link`, `null` = unbegrenzt)
     - `use_count: int` (Default: 0)
     - `expires_at: Optional[datetime]` (`null` = kein Ablauf)
@@ -708,7 +673,7 @@ tenant_key: Optional[str]  # Default: null (global)
 ```
 
 - **Global (`tenant_key: null`):** Von KA-Admin gepflegt, sichtbar für Tenants mit `tenant_has_access`-Kante
-- **Tenant-eigen (`tenant_key` gesetzt):** Von Tenant-Admin erstellt, nur im eigenen Tenant sichtbar
+- **Tenant-eigen (`tenant_key` gesetzt):** Im Mandanten angelegt (ab Gärtner, §1a.1), nur im eigenen Mandanten sichtbar
 - Promotion (tenant → global) über KA-Admin wie bei Species (in-place: `origin` → `'system'`, `tenant_key` → `null`)
 
 **`tenant_has_access`-Edge unterstützt mehrere Collection-Typen:**
@@ -834,8 +799,11 @@ LET membership = FIRST(
     RETURN m
 )
 
-// Admin darf alles bearbeiten
-LET is_admin = membership.role == 'admin'
+// Schreibrecht haengt allein am Rang der fachlichen Rolle (REQ-049 §2.3, §3.5).
+// Die Zuweisung wird mitgeliefert, weil die Oberflaeche sie ANZEIGT --
+// sie geht bewusst NICHT in `can_edit` ein.
+LET can_edit = membership.role IN ['grower', 'lead']
+LET can_delete = membership.role == 'lead'
 
 FOR site IN sites
   FOR e IN belongs_to_tenant
@@ -853,17 +821,18 @@ FOR site IN sites
               RETURN { user_key: PARSE_IDENTIFIER(ue._from).key, role: la.role }
       )
 
-      LET is_assigned_to_me = LENGTH(
+      // Rein darstellend: steuert Sortierung und die Ansicht "meine Parzelle"
+      LET is_mine = LENGTH(
         FOR a IN assignments FILTER a.user_key == user_key RETURN 1
       ) > 0
 
       LET is_community = LENGTH(assignments) == 0
 
-      LET can_edit = is_admin OR is_assigned_to_me OR (is_community AND membership.role == 'grower')
-
       RETURN {
         location: loc,
-        can_edit: can_edit,
+        can_edit: can_edit,        // gleich fuer JEDE Location des Mandanten
+        can_delete: can_delete,
+        is_mine: is_mine,          // Anzeige, kein Recht
         is_community: is_community,
         assigned_to: assignments
       }
@@ -915,28 +884,39 @@ class TenantEngine:
 
 ```python
 class MembershipEngine:
-    ROLE_HIERARCHY = {'admin': 3, 'grower': 2, 'viewer': 1}
+    """Reine Praedikate. Kein Repository, kein Request, keine Zuweisungen."""
 
-    def can_manage_members(self, actor_role: str) -> bool: ...
-        # Nur Admin
+    ROLE_HIERARCHY = {'lead': 3, 'grower': 2, 'viewer': 1}
 
-    def can_assign_role(self, actor_role: str, target_role: str) -> bool: ...
-        # Admin kann alle Rollen zuweisen
-        # Niemand kann sich selbst zum Admin machen
+    # ── Achse 1: fachliche Rolle ─────────────────────────────────────────
+    @staticmethod
+    def can_edit_resource(role: TenantRole) -> bool: ...
+        # Leitung und Gaertner. NIMMT KEINE Zuweisungen ENTGEGEN --
+        # die Signatur ist der Ort, an dem REQ-049 §3.5 durchgesetzt wird:
+        # was nicht hereinkommt, kann die Entscheidung nicht beeinflussen.
 
-    def can_edit_resource(self, membership: Membership, resource_tenant_key: str,
-                          resource_assignments: list[LocationAssignment],
-                          user_key: str) -> bool: ...
-        # Admin → immer True
-        # Grower → True wenn zugewiesen ODER Gemeinschaftsressource
-        # Viewer → immer False
+    @staticmethod
+    def can_delete_resource(role: TenantRole) -> bool: ...
+        # NUR Leitung -- die Irreversibilitaetsgrenze aus REQ-049 §2.3
 
-    def can_view_resource(self, membership: Membership, resource_tenant_key: str) -> bool: ...
-        # Alle Rollen → True wenn im gleichen Tenant
+    @staticmethod
+    def can_view_resource(role: TenantRole) -> bool: ...
+        # Jede fachliche Rolle. Die Mandantenzugehoerigkeit ist zu diesem
+        # Zeitpunkt bereits geprueft (get_current_tenant), sonst gaebe es
+        # keine Rolle.
 
-    def validate_not_last_admin(self, tenant_memberships: list[Membership],
-                                 target_user_key: str) -> bool: ...
-        # Verhindert das Entfernen/Degradieren des letzten Admins
+    # ── Achse 2: administrative Zusatzberechtigung ───────────────────────
+    @staticmethod
+    def has_admin_scope(scopes: list[AdminScope], needed: AdminScope) -> bool: ...
+        # Unabhaengig vom Rang: ein Beobachter mit `management` besteht,
+        # eine Leitung ohne `management` nicht.
+
+    @staticmethod
+    def validate_not_last_management(tenant_memberships: list[Membership],
+                                     target_user_key: str) -> bool: ...
+        # INV-1: der letzte Traeger von `management` darf weder entfernt
+        # noch degradiert werden -- sonst ist der Mandant verwaist
+        # (REQ-023 §5a.5 Notfallverwaltung).
 ```
 
 **`InvitationEngine`** — Einladungslogik:
@@ -967,51 +947,54 @@ class TenantService:
     async def create_personal_tenant(self, user: User) -> Tenant: ...
         # Automatisch bei Registrierung (REQ-023)
         # name: "{display_name}s Garten", type: personal
-        # User wird Admin
+        # Ersteller wird role=lead mit beiden Zusatzberechtigungen
 
     async def create_organization(self, user: User, name: str, description: str = None) -> Tenant: ...
         # Prüft: Max 10 Orgs pro User
         # Generiert Slug (TenantEngine)
-        # Erstellt Tenant + Admin-Membership
+        # Erstellt Tenant + Membership (role=lead, admin_scopes=[management, technical])
 
     async def get_tenant(self, tenant_key: str, user: User) -> Tenant: ...
         # Prüft: User ist Mitglied
     async def update_tenant(self, tenant_key: str, user: User, updates: TenantUpdate) -> Tenant: ...
-        # Nur Admin
+        # Nur mit Verwaltung
     async def delete_tenant(self, tenant_key: str, user: User) -> None: ...
-        # Nur Admin, Soft-Delete, warnt bei aktiven Mitgliedern
+        # Nur mit Verwaltung, Soft-Delete, warnt bei aktiven Mitgliedern
 
     async def list_my_tenants(self, user: User) -> list[TenantWithRole]: ...
-        # Alle Tenants des Users mit jeweiliger Rolle
+        # Alle Tenants des Users mit fachlicher Rolle und Zusatzberechtigungen
 
     # --- Mitgliederverwaltung ---
     async def list_members(self, tenant_key: str, user: User) -> list[MemberInfo]: ...
-        # Alle aktiven Mitglieder mit Rolle
+        # Alle aktiven Mitglieder mit Rolle und Zusatzberechtigungen -- fuer JEDE Rolle
+        # sichtbar (Name + Rolle), das Aendern haengt an der Verwaltung (§1a.2)
     async def update_member_role(self, tenant_key: str, user: User,
-                                  target_user_key: str, new_role: str) -> Membership: ...
-        # Nur Admin, verhindert Degradierung des letzten Admins
+                                  target_user_key: str, new_role: str,
+                                  new_scopes: list[AdminScope] | None = None) -> Membership: ...
+        # Nur mit Verwaltung. Beide Achsen sind einzeln setzbar.
+        # INV-1: verhindert das Entziehen der LETZTEN Verwaltung
     async def remove_member(self, tenant_key: str, user: User, target_user_key: str) -> None: ...
-        # Admin entfernt Mitglied, oder Mitglied entfernt sich selbst (Leave)
-        # Verhindert Entfernung des letzten Admins
+        # Mit Verwaltung, oder Mitglied entfernt sich selbst (Leave)
+        # INV-1: verhindert die Entfernung der letzten Verwaltung
     async def leave_tenant(self, tenant_key: str, user: User) -> None: ...
         # User verlässt Tenant freiwillig
-        # Verhindert wenn letzter Admin
+        # INV-1: verhindert, wenn er die letzte Verwaltung traegt
 
     # --- Einladungen ---
     async def create_email_invitation(self, tenant_key: str, user: User,
                                        email: str, role: str) -> Invitation: ...
-        # Nur Admin, sendet Einladungs-E-Mail
+        # Nur mit Verwaltung, sendet Einladungs-E-Mail
     async def create_link_invitation(self, tenant_key: str, user: User,
                                       role: str, max_uses: int = None,
                                       expires_in_days: int = None) -> InvitationLink: ...
-        # Nur Admin, gibt Link + Token zurück
+        # Nur mit Verwaltung, gibt Link + Token zurück
     async def accept_invitation(self, token: str, user: User) -> Membership: ...
         # Validiert Token, erstellt Membership, erhöht use_count
     async def revoke_invitation(self, tenant_key: str, user: User,
                                  invitation_key: str) -> Invitation: ...
-        # Nur Admin, setzt status → revoked
+        # Nur mit Verwaltung, setzt status → revoked
     async def list_invitations(self, tenant_key: str, user: User) -> list[Invitation]: ...
-        # Nur Admin
+        # Nur mit Verwaltung
 
     # --- Standort-Zuweisungen ---
     async def assign_location(self, tenant_key: str, user: User,
@@ -1019,10 +1002,10 @@ class TenantService:
                                role: str = 'responsible',
                                valid_from: date = None,
                                valid_until: date = None) -> LocationAssignment: ...
-        # Nur Admin
+        # Nur mit Verwaltung. Setzt eine ZUSTAENDIGKEIT, kein Recht (§1a.5)
     async def unassign_location(self, tenant_key: str, user: User,
                                  assignment_key: str) -> None: ...
-        # Nur Admin
+        # Nur mit Verwaltung
     async def list_assignments(self, tenant_key: str, user: User,
                                 location_key: str = None,
                                 user_key: str = None) -> list[LocationAssignment]: ...
@@ -1043,11 +1026,20 @@ async def get_current_tenant(
     Gibt TenantContext zurück mit: tenant, membership, role.
     Wirft 403 wenn User nicht Mitglied ist."""
 
-def require_tenant_role(min_role: str):
-    """Factory-Dependency: Prüft ob User mindestens die angegebene Rolle im Tenant hat.
-    require_admin_scope('management') → nur Mitglieder mit Verwaltung
-    require_tenant_role('grower') → Admins und Gärtner
-    require_tenant_role('viewer') → alle Mitglieder"""
+def require_tenant_role(min_role: TenantRole):
+    """Achse 1 — Mindestrang der fachlichen Rolle (REQ-049 §2.3).
+    require_tenant_role(TenantRole.LEAD)   → nur Leitung
+    require_tenant_role(TenantRole.GROWER) → Leitung und Gärtner
+    require_tenant_role(TenantRole.VIEWER) → alle Rollen"""
+
+def require_admin_scope(scope: AdminScope):
+    """Achse 2 — administrative Zusatzberechtigung (REQ-049 §2.4).
+    Unabhängig vom Rang: ein Beobachter mit `management` besteht,
+    eine Leitung ohne `management` nicht. Disjunkt zu Achse 1 —
+    eine Aktion darf nie über beide erreichbar sein (§1a.6)."""
+
+def require_permission(resource: ResourceType | str, action: Action):
+    """Achse 1 je Ressource — delegiert an die MembershipEngine (§1a.6)."""
 ```
 
 ### 3.4 Tenant-scoped API-Routing
@@ -1178,7 +1170,7 @@ class PlantInstanceRepository:
 - Saisonale Filter (Datum-Range)
 
 **`TenantBadge`** — Kleine visuelle Indikatoren:
-- Zeigt aktuelle Rolle als Chip (Admin: rot, Gärtner: grün, Beobachter: grau)
+- Zeigt die fachliche Rolle als Chip (Leitung: rot, Gärtner: grün, Beobachter: grau) und die Zusatzberechtigungen als eigene, kleinere Chips — beide Achsen bleiben auch in der Anzeige getrennt
 - Zeigt Tenant-Typ-Icon (Haus = persönlich, Gruppe = Organisation)
 
 ### 4.3 URL-Struktur
@@ -1210,7 +1202,8 @@ interface TenantWithRole {
   name: string;
   slug: string;
   type: 'personal' | 'organization';
-  role: 'admin' | 'grower' | 'viewer';
+  role: 'viewer' | 'grower' | 'lead';
+  adminScopes: Array<'management' | 'technical'>;
   memberCount: number;
 }
 
@@ -1222,19 +1215,26 @@ interface TenantWithRole {
 
 ### 4.5 Berechtigungs-Hooks
 
+Die Hooks bilden die **zwei Achsen** ab und **kein** Ressourcenargument. Ein
+`useCanEditLocation(locationKey)` gab es bis v1.6 und ist mit der zuweisungsbasierten
+Write-Kontrolle entfallen (§1a.5): Es gibt keine Location im Mandanten, die ein Gärtner nicht
+bearbeiten darf, also auch keine Frage, die der Hook beantworten könnte. Wer ihn behält, baut die
+gestrichene Regel im Client nach — und der Server widerspricht ihm nicht, weil er sie gar nicht
+mehr kennt.
+
+Die Hooks sind **Anzeigehilfen, keine Autorisierung.** Sie entscheiden, ob ein Knopf erscheint;
+abgewiesen wird serverseitig (§1a.6).
+
 ```typescript
 function useTenantPermissions(): TenantPermissions {
-  // Gibt Objekt mit Berechtigungsprüfungen zurück:
-  // canEdit(resourceTenantKey, assignments): boolean
-  // canManageMembers: boolean
-  // canInvite: boolean
-  // canAssignLocations: boolean
-  // isAdmin: boolean
-  // isGrowerOrAbove: boolean
-}
-
-function useCanEditLocation(locationKey: string): boolean {
-  // Kombiniert: Tenant-Rolle + LocationAssignment-Prüfung
+  // Achse 1 — fachliche Rolle, KEIN Ressourcen- oder Zuweisungsargument:
+  //   canEdit: boolean          // Leitung oder Gärtner
+  //   canDelete: boolean        // nur Leitung
+  //   isGrowerOrAbove: boolean
+  //   isLead: boolean
+  // Achse 2 — Zusatzberechtigungen, unabhängig vom Rang:
+  //   hasManagement: boolean    // Mitglieder, Einladungen, Zuweisungen, Einstellungen
+  //   hasTechnical: boolean     // HA/MQTT/Sensorik/Import/Wetterquellen
 }
 ```
 
@@ -1265,18 +1265,21 @@ function useCanEditLocation(locationKey: string): boolean {
     {
       "_user": "demo@kamerplanter.local",
       "_tenant": "demo-garten",
-      "role": "admin"
+      "role": "lead",
+      "admin_scopes": ["management", "technical"]
     },
     {
       "_user": "demo@kamerplanter.local",
       "_tenant": "gemeinschaftsgarten-sonnenschein",
-      "role": "admin"
+      "role": "lead",
+      "admin_scopes": ["management", "technical"]
     },
     {
       "_user": "demo@kamerplanter.local",
       "_tenant": "platform",
-      "role": "admin",
-      "_comment": "Demo-User ist auch KA-Admin"
+      "role": "lead",
+      "admin_scopes": ["management", "technical"],
+      "_comment": "Demo-User ist auch KA-Admin (Leitung im Platform-Tenant, REQ-049 §2.5)"
     }
   ]
 }
@@ -1306,8 +1309,8 @@ PLATFORM_TENANT = Tenant(
 **Seed-Logik:**
 - Wird in `seed_initial_data()` erstellt (beide Modi: light + full)
 - Idempotent: Doppelter Aufruf erzeugt keine Duplikate
-- Im Light-Modus: System-User erhält automatisch admin-Membership im Platform-Tenant
-- Im Full-Modus: Erster registrierter Admin-User sollte manuell als Platform-Admin hinzugefügt werden (oder über Environment Variable `KAMERPLANTER_INITIAL_ADMIN_EMAIL` beim ersten Start)
+- Im Light-Modus: System-User erhält automatisch eine Membership mit `role: lead` und beiden Zusatzberechtigungen im Platform-Tenant
+- Im Full-Modus: Der erste Betreiber sollte manuell als Platform-Admin (`role: lead` im Platform-Tenant) hinzugefügt werden (oder über Environment Variable `KAMERPLANTER_INITIAL_ADMIN_EMAIL` beim ersten Start)
 
 ### 5.3 Auto-Assign Seed-Logik
 
@@ -1346,17 +1349,17 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-02 | User kann maximal 10 organisatorische Tenants erstellen | Unit + Integration |
 | AK-03 | Tenant-Slug wird URL-sicher generiert (Umlaute, Sonderzeichen korrekt) | Unit |
 | AK-04 | User kann zwischen Tenants wechseln ohne Neuanmeldung | E2E |
-| AK-05 | Ein User kann in Tenant A "Admin" und in Tenant B "Viewer" sein | Integration |
+| AK-05 | Ein User kann in Tenant A Leitung und in Tenant B Beobachter sein; die Zusatzberechtigungen werden je Mandant getrennt geführt | Integration |
 | AK-06 | E-Mail-Einladung sendet E-Mail und erstellt bei Annahme korrekte Membership | Integration |
 | AK-07 | Einladungslink mit `max_uses: 5` wird nach 5 Nutzungen ungültig | Integration |
 | AK-08 | Einladungslink mit `expires_at` wird nach Ablauf ungültig | Integration |
 | AK-09 | OIDC-Provider mit `default_tenant_key` weist neue User automatisch dem Tenant zu | Integration |
-| AK-10 | Letzter Admin eines Tenants kann weder entfernt noch degradiert werden | Unit + Integration |
-| AK-11 | Grower sieht alle Locations (read), kann aber nur zugewiesene + Gemeinschafts-Locations bearbeiten | Integration |
-| AK-12 | Viewer kann keine Ressourcen im Tenant erstellen, ändern oder löschen | Integration |
-| AK-13 | Admin sieht und bearbeitet alle Ressourcen im Tenant | Integration |
+| AK-10 | Das letzte Mitglied mit der Zusatzberechtigung **Verwaltung** kann weder entfernt noch dieser Berechtigung entzogen werden (INV-1). Der Anker ist die Verwaltung, **nicht** die Rolle Leitung: Ein Mandant ohne Leitung ist bedienbar, ein Mandant ohne Verwaltung ist verwaist (REQ-023 §5a.5) | Unit + Integration |
+| AK-11 | Ein Gärtner sieht **und bearbeitet** alle Locations des Mandanten — zugewiesene wie fremde. Löschen gelingt ihm bei keiner (REQ-049 §2.3, §3.5) | Integration |
+| AK-12 | Ein Beobachter kann keine Ressource des Mandanten erstellen, ändern oder löschen | Integration |
+| AK-13 | Die Leitung sieht, bearbeitet **und löscht** alle Ressourcen des Mandanten | Integration |
 | AK-14 | Ressourcen eines Tenants sind für Nicht-Mitglieder unsichtbar (kein Cross-Tenant-Zugriff) | Integration |
-| AK-15 | LocationAssignment mit `valid_from`/`valid_until` wird außerhalb des Zeitraums nicht berücksichtigt | Unit |
+| AK-15 | Eine `LocationAssignment` außerhalb von `valid_from`/`valid_until` verschwindet aus Anzeige und Vorsortierung und verändert **keine** Berechtigung (siehe AK-43) | Unit |
 | AK-16 | Tenant-Löschung (Soft-Delete) setzt `status: deleted` und deaktiviert alle Memberships | Integration |
 | AK-17 | Task-Zuweisung (`assigned_to`) im Tenant-Kontext: nur Mitglieder des Tenants wählbar | Integration |
 | AK-18 | Persönlicher Tenant ist für andere User unsichtbar | Integration |
@@ -1367,37 +1370,40 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-22 | `tenant_has_access`-Kanten werden für Species, Pests, Diseases, Treatments, Fertilizers, NutrientPlans erstellt | Integration |
 | AK-23 | Cultivars sind transitiv sichtbar — keine eigenen `tenant_has_access`-Kanten | Unit |
 | AK-24 | BotanicalFamilies bleiben ungefiltert (kein `tenant_has_access`) | Unit |
-| AK-25 | Tenant-Admin kann eigene Pests, Diseases, Treatments, Fertilizers, NutrientPlans anlegen (`origin: 'tenant'`) | Integration |
+| AK-25 | Ab der Rolle Gärtner können mandanteneigene Pests, Diseases, Treatments, Fertilizers und NutrientPlans angelegt werden (`origin: 'tenant'`); löschen kann sie nur die Leitung | Integration |
 | AK-26 | Tenant-eigene Stammdaten sind für andere Tenants unsichtbar | Integration |
 | AK-27 | KA-Admin kann Tenant-eigene Stammdaten zu global promoten (in-place: `origin` → `'system'`, `tenant_key` → `null`) | Integration |
-| AK-28 | Demo-User hat Platform-Admin-Membership in Seed-Daten | Seed-Validation |
+| AK-28 | Der Demo-User trägt im Platform-Tenant `role: lead` mit beiden Zusatzberechtigungen | Seed-Validation |
 <!-- /Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
 <!-- Quelle: RBAC Permission-Matrix v1.4 -->
-| AK-29 | Permission-Matrix: Admin hat alle Permissions (`ROLE_PERMISSIONS['admin']` enthält alle Tenant-Permissions) | Unit |
-| AK-30 | Permission-Matrix: Grower kann Ressourcen erstellen und eigene/gemeinschaftliche bearbeiten, aber nicht löschen | Unit + Integration |
-| AK-31 | Permission-Matrix: Viewer hat ausschließlich `READ_RESOURCE` Permission | Unit |
-| AK-32 | Permission-Matrix: Grower kann Tasks nur bearbeiten wenn `assigned_to == user_key` oder Gemeinschaftsressource | Integration |
-| AK-33 | Permission-Matrix: Nur Admin kann Tasks zuweisen (`ASSIGN_TASK` Permission) | Integration |
-| AK-34 | Permission-Matrix: Nur Admin kann Pinnwand-Posts pinnen (`PIN_BULLETIN` Permission) | Integration |
-| AK-35 | Permission-Matrix: Grower kann eigene Pinnwand-Posts löschen, Admin kann alle löschen | Integration |
-| AK-36 | `require_permission()` Dependency gibt 403 mit klarer Fehlermeldung bei fehlender Permission | Unit + Integration |
-| AK-37 | `require_permission()` funktioniert identisch für `account_type: 'human'` und `account_type: 'service'` | Integration |
-| AK-38 | Platform-Viewer (`viewer` im Platform-Tenant) kann Admin-Panel read-only sehen, aber keine Daten ändern | Integration |
+| AK-29 | Rolle **Leitung** besteht `can_edit_resource` **und** `can_delete_resource`; die Zusatzberechtigungen bleiben davon unberührt (eine Leitung ohne `management` verwaltet keine Mitglieder) | Unit |
+| AK-30 | Rolle **Gärtner** besteht `can_edit_resource`, aber **nicht** `can_delete_resource` — an **jeder** Ressource des Mandanten, unabhängig von Zuweisung und Autorschaft | Unit + Integration |
+| AK-31 | Rolle **Beobachter** besteht ausschließlich `can_view_resource`; jeder Schreib- und Löschversuch endet in `403` | Unit |
+| AK-32 | Ein Gärtner kann eine Aufgabe bearbeiten und ihren Status ändern, die **einem anderen Mitglied** zugewiesen ist. Ein Test, der das Gegenteil erwartet, prüft die mit REQ-049 §3.5 gestrichene Regel | Integration |
+| AK-33 | Aufgaben **zuweisen** (`assigned_to` setzen) gelingt nur der Leitung | Integration |
+| AK-34 | Pinnwand-Posts **pinnen** gelingt nur der Leitung | Integration |
+| AK-35 | Pinnwand-Posts **löschen** gelingt nur der Leitung — auch die eigenen. Das Löschen eigener Posts war bis v1.6 dem Gärtner erlaubt und ist mit der Irreversibilitätsgrenze entfallen | Integration |
+| AK-36 | `require_permission(resource, action)` antwortet `403` mit klarer Meldung; eine Rolle, auf die keine Regel passt, wird abgewiesen (fehl-geschlossen), nicht durchgelassen | Unit + Integration |
+| AK-37 | Alle drei Wächter verhalten sich identisch für `account_type: 'human'` und `'service'` | Integration |
+| AK-38 | Platform-Viewer (`viewer` im Platform-Tenant) kann das Admin-Panel read-only sehen, aber keine Daten ändern | Integration |
 | AK-39 | Platform-Viewer kann keine `tenant_has_access`-Kanten erstellen oder löschen | Integration |
 | AK-40 | Platform-Viewer kann keine Species promoten oder globale Stammdaten ändern | Integration |
-| AK-41 | Zuweisungsbasierte Write-Kontrolle: Grower kann Gemeinschaftsressource (keine LocationAssignment) bearbeiten | Integration |
-| AK-42 | Zuweisungsbasierte Write-Kontrolle: Grower kann NICHT die Ressource eines anderen zugewiesenen Growers bearbeiten | Integration |
-| AK-43 | Zuweisungsbasierte Write-Kontrolle: LocationAssignment mit abgelaufenem `valid_until` wird ignoriert | Unit + Integration |
-| AK-44 | Service Account mit `grower`-Rolle hat identische Zugriffsmuster wie menschlicher Grower (keine LocationAssignment → Gemeinschaftszugriff) | Integration |
+| AK-41 | **Die Standort-Zuweisung wirkt nicht auf Schreibrechte:** Ein Gärtner bearbeitet eine Location, die einem anderen Mitglied zugewiesen ist, erfolgreich. Ein `403` an dieser Stelle ist ein Fehlschlag des Kriteriums | Integration |
+| AK-42 | **`can_edit_resource` nimmt keine Zuweisungen entgegen.** Ein Test weist die **Abwesenheit** eines solchen Parameters in der Signatur nach — wird er wieder eingeführt, ist die gestrichene Regel zurück, ohne dass ein Verhaltenstest anschlägt | Unit |
+| AK-43 | Eine `LocationAssignment` mit abgelaufenem `valid_until` verändert **keine** Berechtigung; sie verschwindet lediglich aus der Ansicht „meine Parzelle" und aus der Vorsortierung | Unit + Integration |
+| AK-44 | Ein Dienstkonto mit Rolle `grower` hat dieselben Zugriffsmuster wie ein menschlicher Gärtner — insbesondere Schreibzugriff auf **alle** Fachdaten des Mandanten und **kein** Löschrecht | Integration |
+| AK-44a | Ein Mitglied mit `role: viewer` und `admin_scopes: ['management']` kann Mitglieder einladen und Rollen ändern, aber keine Pflanze anlegen. Ein Mitglied mit `role: lead` ohne `management` kann löschen, aber keine Mitglieder verwalten. Damit ist die Unabhängigkeit der beiden Achsen nachgewiesen | Integration |
+| AK-44b | Kein Router gatet eine administrative Aktion über `require_permission`/`require_tenant_role` oder eine fachliche über `require_admin_scope`. Ein statischer Test über die Router-Signaturen weist das nach — ein Mitglied mit `lead` + beiden Zusatzberechtigungen käme sonst durch beide Wächter und der Fehler bliebe unsichtbar | Unit |
+| AK-44c | Die beschreibende Matrix in `app/core/permissions.py` stimmt mit §1a.1 überein; insbesondere ist das Löschrecht der Pflanzendomäne dort auf Leitung beschränkt. Ein Test vergleicht beide Quellen, statt sie unabhängig zu pflegen | Unit |
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 <!-- Quelle: Tenant-Notfallverwaltung v1.4 -->
 | AK-45 | Platform-Admin kann Mitgliederliste eines fremden Tenants einsehen (`VIEW_TENANT_MEMBERS_CROSS`) | Integration |
 | AK-46 | Platform-Viewer kann Mitgliederliste eines fremden Tenants read-only einsehen | Integration |
 | AK-47 | Suspendierter Tenant: TenantSwitcher zeigt Tenant ausgegraut mit Hinweis "Suspendiert" | E2E |
 | AK-48 | Suspendierter Tenant: Kein Zugriff auf Ressourcen (403 mit klarer Fehlermeldung) | Integration |
-| AK-49 | `APPOINT_EMERGENCY_ADMIN`, `SUSPEND_TENANT`, `REACTIVATE_TENANT`, `SUSPEND_USER`, `REACTIVATE_USER` sind in `PLATFORM_ROLE_PERMISSIONS['admin']` enthalten | Unit |
-| AK-50 | `VIEW_TENANT_MEMBERS_CROSS` ist in `PLATFORM_ROLE_PERMISSIONS['viewer']` enthalten | Unit |
-| AK-51 | Platform-Viewer hat KEINE Permissions für `APPOINT_EMERGENCY_ADMIN`, `SUSPEND_TENANT` etc. | Unit |
+| AK-49 | Notfall-Admin ernennen, Tenant und User suspendieren und reaktivieren gelingt ausschließlich dem Platform-Admin (`lead` im Platform-Tenant) | Unit |
+| AK-50 | Der Platform-Viewer darf Mitgliederlisten fremder Mandanten **lesen** — das ist die einzige Cross-Tenant-Leseerlaubnis der Rolle | Unit |
+| AK-51 | Der Platform-Viewer kann weder einen Notfall-Admin ernennen noch Mandanten oder Nutzer suspendieren | Unit |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.4 -->
 
 ### Frontend-Kriterien:
@@ -1406,11 +1412,11 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 |---|-----------|-------------|
 | FK-01 | TenantSwitcher zeigt alle Tenants des Users mit korrekter Rolle | E2E |
 | FK-02 | Tenant-Wechsel aktualisiert URL (`/t/{slug}/...`) und lädt tenant-spezifische Daten | E2E |
-| FK-03 | MemberListPage zeigt korrekte Rollen-Chips und erlaubt Admins die Rollenzuweisung | E2E |
+| FK-03 | MemberListPage zeigt je Mitglied den Rollen-Chip **und** die Zusatzberechtigungen getrennt; beide sind für Mitglieder mit `management` einzeln änderbar | E2E |
 | FK-04 | InviteDialog generiert funktionierenden Einladungslink | E2E |
-| FK-05 | AssignmentListPage zeigt Matrix Location × Mitglied mit korrekter Farbcodierung | E2E |
-| FK-06 | Nicht-Admin-User sehen keine Admin-Funktionen (Mitglieder verwalten, Einstellungen) | E2E |
-| FK-07 | Viewer sehen keine Bearbeiten-/Erstellen-Buttons | E2E |
+| FK-05 | AssignmentListPage zeigt die Matrix Location × Mitglied als **Zuständigkeit**, nicht als Berechtigung; die Oberfläche behauptet an keiner Stelle, eine Zuweisung schränke das Bearbeiten ein | E2E |
+| FK-06 | Ohne die Zusatzberechtigung `management` erscheinen Mitgliederverwaltung und Mandanten-Einstellungen nicht — auch nicht für die Rolle Leitung | E2E |
+| FK-07 | Beobachter sehen keine Bearbeiten- und Erstellen-Schaltflächen; Gärtner sehen keine Löschen-Schaltflächen | E2E |
 
 ## 7. Abhängigkeiten
 
@@ -1447,9 +1453,9 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 
 **In Scope:**
 - Tenant als Isolations-Container (personal + organization)
-- Mandantenspezifisches 3-Rollen-Modell (Admin, Grower, Viewer)
+- Mandantenspezifisches **Zwei-Achsen-Rollenmodell** nach REQ-049: fachliche Rolle (Beobachter / Gärtner / Leitung) plus administrative Zusatzberechtigungen (Verwaltung / Technik)
 - Einladungssystem (E-Mail + Link + OIDC-Auto-Join)
-- Standort-Zuweisung an Mitglieder (mit saisonalen Zeiträumen)
+- Standort-Zuweisung an Mitglieder (mit saisonalen Zeiträumen) — als **Zuständigkeitshinweis**, nicht als Schreibgrenze
 - Tenant-Switcher im Frontend
 - Tenant-scoped API-Routing
 - Tenant-Key auf allen bestehenden Ressourcen
@@ -1459,13 +1465,17 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 - Gemeinsame Einkaufslisten (Sammelbestellungen koordinieren)
 <!-- Quelle: RBAC Permission-Matrix v1.4 -->
 - Granulare RBAC Permission-Matrix (§1a) mit ressourcentyp-spezifischen CRUD-Rechten pro Rolle
-- Zuweisungsbasierte Write-Kontrolle formal definiert (§1a.5)
-- Platform-Rollen-Differenzierung: `admin` (KA-Admin) und `viewer` (Read-Only Admin-Panel)
-- `Permission` Enum und `require_permission()` FastAPI-Dependency (§1a.6)
+- Platform-Rollen-Differenzierung: `lead` (KA-Admin) und `viewer` (Read-Only Admin-Panel) im Platform-Tenant
+- Drei disjunkte FastAPI-Dependencies: `require_permission(resource, action)`, `require_tenant_role(min_role)`, `require_admin_scope(scope)` (§1a.6)
 - Service Account Integration: Permission-Matrix gilt identisch für `account_type: 'human'` und `'service'`
 - `orphaned_since` und `suspended_reason` auf Tenant-Modell
 - Platform-Admin-Notfallrechte: Emergency-Admin, Tenant-/User-Suspendierung (REQ-023 §5a.5)
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->
+
+**Ausdrücklich gestrichen (war bis v1.6 in Scope):**
+- **Zuweisungsbasierte Write-Kontrolle** (`can_write(user, resource, tenant)`, §1a.5) — von REQ-049 §3.5 ersatzlos aufgehoben. Schreibrechte hängen allein am Rang der fachlichen Rolle.
+- **`useCanEditLocation(locationKey)`** und jeder andere Client-Hook, der eine Zuweisung in eine Berechtigung übersetzt (§4.5).
+- **Der Rollenwert `admin`** — stillgelegt zugunsten von `lead` plus Zusatzberechtigungen; Migration `v0032` bildet ihn verlustfrei ab.
 
 **Nicht in Scope (bewusst ausgeklammert):**
 - **Attribut-basiertes Access Control (ABAC)** — z.B. "darf nur Gießen-Tasks erstellen" oder zeitlich beschränkte Permissions → 3 Rollen + Permission-Matrix genügen
@@ -1474,10 +1484,11 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 - Tenant-Billing / Abrechnung → SaaS-Modell zukünftig
 - Hierarchische Tenants (Tenant-in-Tenant) → flache Struktur genügt
 - Automatische Parzellen-Rotation (saisonaler Wechsel der Zuweisungen) → manuell
+- **Untergruppen innerhalb eines Mandanten** (Klassen, Semester-Gruppen) und **befristete Mitgliedschaft / Urlaubsvertretung** → eigene Vorhaben, ausdrücklich keine Rollenfragen (REQ-049 §9)
 - Echtzeit-Chat/Direct-Messaging zwischen einzelnen Mitgliedern → externe Tools (WhatsApp, Signal); Pinnwand deckt asynchrone Kommunikation ab
 - DSGVO-Export pro Tenant → zukünftig, nach Audit-Log
 <!-- Quelle: RBAC Permission-Matrix v1.4 -->
-- Custom Roles (nutzerdefinierte Rollen pro Tenant) → feste 3 Rollen sind ausreichend, Komplexität nicht gerechtfertigt
-- Permission-Delegation (User gibt temporär eigene Permissions an anderen User weiter) → manuell über Admin
+- Custom Roles (nutzerdefinierte Rollen pro Tenant) → drei fachliche Rollen plus zwei Zusatzberechtigungen decken die erhobenen Zielgruppen ab (REQ-049 §2.7)
+- Permission-Delegation (User gibt temporär eigene Rechte an ein anderes Mitglied weiter) → manuell über die Verwaltung
 - Row-Level Security in ArangoDB → wird in der Service-Schicht gelöst, nicht auf DB-Ebene
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->

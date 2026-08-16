@@ -7,7 +7,7 @@ Kategorie: Post-Harvest
 Fokus: Beides
 Technologie: Python, Umweltsensorik, TimescaleDB (Zeitreihen)
 Status: Entwurf
-Version: 2.3 (Plan WP-6/WP-10: Pflanzen-Eigenschaften-Modellfelder für Ernte/Nachreife referenziert)
+Version: 2.4 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 > **Modellbezug (Plan WP-6/WP-10, v2.3):** Das Ernte- und Nachreifeverhalten stützt sich auf
@@ -1777,12 +1777,19 @@ class BurpingEvent(BaseModel):
 **Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
 und Tenant-Mitgliedschaft. Alle Post-Harvest-Daten sind Tenant-scoped.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Trocknungsprozesse (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Aushärtung/Curing (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Qualitätsprüfungen (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Lagerbestände (Tenant-scoped) | Mitglied | Mitglied | Admin |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**). Die Spalte „Schreiben"
+> ist nach §3.3 in **Anlegen** und **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Trocknungsprozesse (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Aushärtung/Curing (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Qualitätsprüfungen (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Lagerbestände (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 
 ## 5. Abhängigkeiten
 

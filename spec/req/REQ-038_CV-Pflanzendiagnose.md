@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, PlantCV, ONNX, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.1
+Version: 1.2 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-010 (IPM), REQ-029 (Bilderkennung), REQ-029-A (Self-Hosted), REQ-036 (KI-Diagnose-Assistent), REQ-007 (Ernte), REQ-025 (DSGVO), REQ-031 (Knowledge-Service)
 ```
 
@@ -595,7 +595,7 @@ class Settings(BaseSettings):
 
 ### 4.1 Wiederverwendung und neue Komponenten
 
-Die Erfassung (Kamera/Upload, EXIF-Strip, Organ-Auswahl) wird aus dem `PlantIdentificationDialog` (REQ-029 §4.1) wiederverwendet. Neu ist die **Ergebnis-Darstellung** mit Disclaimer und Phänotyp-Metriken.
+Die Erfassung (Kamera/Upload, EXIF-Strip) kommt aus **REQ-052** (Profil `recognition`); die Organ-Auswahl aus dem `PlantIdentificationDialog` (REQ-029 §4.1) wiederverwendet. Neu ist die **Ergebnis-Darstellung** mit Disclaimer und Phänotyp-Metriken.
 
 | Komponente | Beschreibung |
 |------------|--------------|
@@ -702,7 +702,7 @@ backend:
 - `PlantIdentificationAdapter`-Interface + `IdentificationAdapterRegistry` (REQ-029 §3.1/§3.4)
 - EXIF-Stripping + Consent-Mechanismus (REQ-029 §5)
 - Inference-Microservice + ONNX-Runtime-Pattern (REQ-029-A §3)
-- `PlantIdentificationDialog`-Erfassungskomponente (REQ-029 §4.1)
+- Erfassungsbaustein REQ-052 §2 (Profil `recognition`, REQ-052 §3)
 
 **Neue Abhängigkeiten:**
 - `plantcv` (MPL-2.0) als Python-Dependency — unverändert als Library, keine Patches an PlantCV-Quelldateien (Caveat C-6)

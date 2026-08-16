@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Redis, React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-021 v1.0 (Erfahrungsstufen), REQ-024 v1.4 (Mandantenverwaltung — fuer optionalen Tenant-Kontext), REQ-027 v1.2 (Light-Modus), REQ-031 v2.0 (KI-Assistent / Knowledge Service)
 Wird benoetigt von: —
 ```
@@ -147,8 +147,8 @@ Begriffsliste wird in `spec/knowledge/glossary/seed_terms.yaml` versioniert und 
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `GET` | `/term/{slug}` | Erklaerung zu einem Begriff. Query: `?expertise=beginner|intermediate|expert&language=de|en` | Viewer, Grower, Admin | — (kein Tenant-Daten-Zugriff) |
-| `GET` | `/terms` | Liste aller aktiven Begriffe (slug + label + category). Query: `?category=&language=` | Viewer, Grower, Admin | — |
+| `GET` | `/term/{slug}` | Erklaerung zu einem Begriff. Query: `?expertise=beginner|intermediate|expert&language=de|en` | Alle Rollen | — (kein Tenant-Daten-Zugriff) |
+| `GET` | `/terms` | Liste aller aktiven Begriffe (slug + label + category). Query: `?category=&language=` | Alle Rollen | — |
 
 Diese Endpunkte sind unter Tenant-Pfad erreichbar fuer einheitliches Routing, aber sie nutzen KEINE Tenant-Daten — der Knowledge-Service-Aufruf erfolgt strikt mit `context = null`.
 

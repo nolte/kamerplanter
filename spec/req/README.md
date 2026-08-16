@@ -12,6 +12,32 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 5. **Abhängigkeiten** — Querverweise zu anderen Modulen (bidirektional, mit Impact-Level)
 6. **Akzeptanzkriterien** — Definition of Done, Testszenarien (GIVEN/WHEN/THEN)
 
+
+---
+
+## Was ein Versions-Pin in `Abhängigkeit:` bedeutet
+
+Der YAML-Kopf jedes Dokuments nennt seine Abhängigkeiten mit Version, etwa
+`Abhängigkeit: REQ-024 v1.3`. **Dieser Wert ist ein Prüfvermerk, keine Aktualitätsangabe:** Er
+sagt „dieses Dokument wurde gegen REQ-024 in der Fassung 1.3 geschrieben und geprüft".
+
+Daraus folgt die Regel, die beim Aufräumen am leichtesten verletzt wird:
+
+> **Einen Pin anzuheben, ohne die neue Zielfassung gelesen zu haben, ist keine Korrektur, sondern
+> eine falsche Prüfbehauptung.** Ein veralteter Pin ist ehrlich — er sagt korrekt aus, wogegen
+> zuletzt geprüft wurde. Ein blind angehobener Pin sagt aus, jemand habe die neue Fassung gesichtet,
+> und lässt genau die Stelle unsichtbar werden, an der eine echte Abweichung säße.
+
+Stand **2026-08-16** tragen 78 Pins eine ältere als die aktuelle Zielversion. Das ist kein
+Defekt je Pin, sondern der normale Rückstand eines Korpus, in dem einzelne Dokumente
+weiterentwickelt werden. Ein Pin wird angehoben, wenn jemand die Zielfassung tatsächlich gegen das
+abhängige Dokument gelesen hat — einzeln, mit dem Ergebnis im Changelog.
+
+Zur Einordnung: Die Sammelmigration auf das Rollenvokabular (REQ-049 §3.3/§3.4) hat am
+2026-08-16 dreißig Dokumentversionen angehoben und damit selbst neue Rückstände erzeugt. Auch das
+ist gewollt — die Alternative wäre gewesen, 78 Prüfvermerke zu fälschen, um eine Zahl auf Null zu
+bringen.
+
 ---
 
 ## Enthaltene Dokumente
@@ -414,6 +440,32 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 - **Lease mit Ablauf** statt bloßem Statusfeld: verhindert Doppelanalysen durch parallel laufende Agenten und blockiert einen Eintrag nicht dauerhaft, wenn ein Agent abstürzt.
 
 **Abgrenzung zu den bestehenden Diagnosewegen:** REQ-036 ist ein Symptom-Dialog an der Pflanze, REQ-038 ein CV-Klassifikator auf einem Blattfoto — beide serverseitig. REQ-050 ist der einzige Weg, der einen **erzählenden** Eintrag samt aller Fotos und Messwerte auswertet.
+
+---
+
+## 📔 REQ-051: Pflanzen-Tagebuch
+**Fokus:** Das Tagebuch als eigenständige Funktion — Erfassung, **nachträgliche Bearbeitung**, Analyse-Archiv und Oberfläche, client-neutral für Web und Mobile · **Übernimmt:** REQ-050 §1.4 und §2.5.x (Oberfläche) · **Ergänzt:** REQ-013 (Datensatz), REQ-025 (Archiv-Anonymisierung)
+- **Bündelt eine bisher verteilte Funktion:** REQ-013 führte den Datensatz als Nebenaspekt der Pflanzdurchlauf-Verwaltung, REQ-050 die Oberfläche als Nebenaspekt der KI-Analyse — kein Dokument beschrieb, was ein Tagebuch ist und was mit einem Eintrag über seine Lebensdauer geschieht.
+- **Einträge sind nachträglich änderbar:** Freitext, Titel, Typ, Tags, Messwerte und Fotos. Der **Umgebungs-Schnappschuss** bleibt nicht editierbar — er ist maschinelles Belegmaterial mit Provenienz (REQ-005 §1) —, ist aber über eine ausdrückliche Nutzerhandlung **neu erfassbar**. Das schließt die Lücke für alle, die beim Anlegen abgewählt haben oder deren Sensor gerade nicht antwortete.
+- **Veraltete Analysen werden gekennzeichnet, nicht versteckt:** `analysis_outdated` wird aus dem Vergleich `analyzed_content_version < content_version` **abgeleitet**, nie als Flag gespeichert. Ein Flag müsste an jedem Schreibpfad gesetzt werden und wäre beim ersten vergessenen Pfad inert — und zwar in der schädlichen Richtung, weil ein veraltetes Ergebnis dann weiterhin als aktuell erschiene.
+- **Kein sechster Zustand.** Die fünf Zustände aus REQ-050 §2.2 bleiben unangetastet: `analysis_state` sagt, ob Arbeit läuft, `analysis_outdated` sagt, ob das Ergebnis noch passt. Zwei orthogonale Tatsachen, zwei Felder.
+- **Analyse-Archiv** in eigener Collection `plant_diary_analyses` — entscheidet REQ-050 O-01 mit „ja". Jeder eintreffende Lauf wird archiviert, **auch der fehlgeschlagene**; das Eintragsdokument behält nur das jüngste Ergebnis, damit eine 50-zeilige Übersicht nicht 50 Befundlisten trägt.
+- **Verbindliche Grundlage für beide Clients.** Keine Regel wird im Client nachgebaut (`can_edit`, `can_request_analysis`, `analysis_outdated` kommen vom Server); Renditions 128/512/1280 px statt Originalen; `expected_content_version` gegen die Lost-Update-Klasse bei Telefon und Browser parallel. Offline-Betrieb ist ausdrücklich **nicht** zugesagt (O-54).
+
+**Verhältnis zu REQ-050:** REQ-050 bleibt die Quelle für alles, was die Analyse ausmacht — Zustandsmaschine, Lease, MCP-Vertrag, Einwilligung, Betriebsmodell des externen Agenten. Die Oberfläche wandert mit v1.5 hierher, unter Beibehaltung der AK-Nummern, damit bestehende Verweise auflösbar bleiben.
+
+---
+
+## 📸 REQ-052: Bilderfassung
+**Fokus:** Der gemeinsame Erfassungsbaustein aller bildverarbeitenden Anforderungen — Kamera, Datei, Normalisierung, Vorschau · **Übernimmt:** REQ-029 §4.1 + §5.4, REQ-034 §2.2 · **Konsumenten:** REQ-029, REQ-034, REQ-038, REQ-043, REQ-044, REQ-051, REQ-010
+- **Sechs Konsumenten, bisher keine eigene Quelle:** Die Erfassung stand als §4.1 einer Anforderung über KI-Pflanzenidentifikation — historisch, weil REQ-029 zuerst da war. Genau die Lage, aus der Drift entsteht, und sie war bereits eingetreten.
+- **Ein Profilbegriff statt zweier verstreuter Zahlenpaare:** `recognition` (1280 px / 0.85) und `gallery` (2048 px / 0.9). Eine Fach-Anforderung wählt ein Profil, sie nennt keine Pixelwerte. Der Code hatte die Vereinheitlichung bereits vorweggenommen, die Spec nicht.
+- **Vier bislang unspezifizierte Lücken geschlossen:** die vier Kamera-Fehlerzustände (im Code als `WebcamError` klassifiziert, in keiner Spec genannt), HEIC/HEIF von iPhones (im Code unterstützt, nirgends beschrieben), Mehrfachauswahl, und der native Kamerapfad, den REQ-051 §7.2 fordert.
+- **EXIF fällt auf dem Gerät, nicht erst am Server** — mit drei Begründungen: Der Erkennungspfad geht in Phase 1 an Pl@ntNet, `STORAGE_STRIP_EXIF` ist abschaltbar, und der Aufnahmeort einer Zimmerpflanze ist die Wohnanschrift. Folge: Die Aufnahmezeit ist danach weg; `taken_on` muss ein gepflegtes Feld sein.
+- **Die Orientierung muss vor dem Verwerfen in die Pixel** (AK-63) — sonst löst der Datenschutzmechanismus einen Darstellungsfehler aus, und der nächste Bearbeiter behebt ihn, indem er den Strip abschaltet.
+- **Vorschau ist verbindlich**, kein Ablauf schickt ungesehen ab: Im Gegenlicht ist das unbrauchbare Bild der Regelfall, und bei der Erkennung kostet es zusätzlich einen bezahlten Fremdaufruf.
+
+**Trennlinie:** Alles bis zur hochladbaren Datei steht hier. Ab dem Upload übernimmt NFR-013 (Attachments, Renditions, serverseitiger Strip); was mit dem Bild fachlich geschieht, bleibt bei der jeweiligen Anforderung.
 
 ---
 

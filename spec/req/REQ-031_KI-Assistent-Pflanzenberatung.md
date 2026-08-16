@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Celery, ArangoDB, Redis, PostgreSQL 17 + pgvector 0.8, ONNX Embedding Service, bge-reranker-v2-m3, React 19, TypeScript 5.9, MUI 7, Ollama / Anthropic / OpenAI-kompatible APIs
 Status: Entwurf
-Version: 2.0
+Version: 2.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-003 v1.0 (Phasensteuerung), REQ-004 v3.1 (Düngung), REQ-005 v2.3 (Sensorik), REQ-006 v2.7 (Aufgabenplanung), REQ-009 v1.0 (Dashboard), REQ-011 v1.0 (Adapter-Pattern), REQ-013 v2.0 (Pflanzdurchlauf), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-023 v1.7 (Auth), REQ-024 v1.4 (Mandantenverwaltung), REQ-025 v1.0 (DSGVO), REQ-027 v1.2 (Light-Modus), NFR-007 (LLM-Sicherheit), NFR-011 (Retention)
 Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), REQ-036 (Diagnose-Assistent)
 ```
@@ -595,50 +595,50 @@ Alle KI-Endpunkte sind unter dem Pfadpraefix `/api/v1/.../ai/` erreichbar. Sie l
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `GET` | `/tips` | Aktuelle Tipps fuer Kontext (`?context_type=&context_key=`) | Viewer, Grower, Admin | `ai_tenant_data_access` |
-| `POST` | `/tips/refresh` | Tipps neu generieren (force) | Grower, Admin | `ai_tenant_data_access` |
-| `POST` | `/tips/{key}/dismiss` | Tip wegklicken | Viewer, Grower, Admin | — |
-| `POST` | `/tips/{key}/acted-on` | Tip als umgesetzt markieren | Grower, Admin | — |
+| `GET` | `/tips` | Aktuelle Tipps fuer Kontext (`?context_type=&context_key=`) | Alle Rollen | `ai_tenant_data_access` |
+| `POST` | `/tips/refresh` | Tipps neu generieren (force) | Ab Gärtner | `ai_tenant_data_access` |
+| `POST` | `/tips/{key}/dismiss` | Tip wegklicken | Alle Rollen | — |
+| `POST` | `/tips/{key}/acted-on` | Tip als umgesetzt markieren | Ab Gärtner | — |
 
 **Tipp des Tages (NEU):**
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `GET` | `/daily-tip` | Ein einziger personalisierter Tipp fuer Dashboard | Viewer, Grower, Admin | `ai_tenant_data_access` |
-| `POST` | `/daily-tip/dismiss` | Heutigen Daily-Tip wegklicken | Viewer, Grower, Admin | — |
+| `GET` | `/daily-tip` | Ein einziger personalisierter Tipp fuer Dashboard | Alle Rollen | `ai_tenant_data_access` |
+| `POST` | `/daily-tip/dismiss` | Heutigen Daily-Tip wegklicken | Alle Rollen | — |
 
 **"Warum?" / Explain (NEU):**
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `POST` | `/explain` | Erklaert eine konkrete Empfehlung. Body: `{ subject_type: "task"|"reminder"|"phase_transition"|"feeding_event", subject_key: "...", question_template_id: "..." }` | Viewer, Grower, Admin | `ai_tenant_data_access` |
+| `POST` | `/explain` | Erklaert eine konkrete Empfehlung. Body: `{ subject_type: "task"|"reminder"|"phase_transition"|"feeding_event", subject_key: "...", question_template_id: "..." }` | Alle Rollen | `ai_tenant_data_access` |
 
 **Chat (unveraendert, ergaenzt um `language`):**
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `GET` | `/conversations` | Liste der Konversationen | Grower, Admin | `ai_tenant_data_access` |
-| `POST` | `/conversations` | Neue Konversation starten (`{ context_type, context_key?, language? }`) | Grower, Admin | `ai_tenant_data_access` |
-| `GET` | `/conversations/{key}` | Konversation laden | Grower, Admin | `ai_tenant_data_access` |
-| `POST` | `/conversations/{key}/messages` | Nachricht senden (SSE Streaming) | Grower, Admin | `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`) |
-| `DELETE` | `/conversations/{key}` | DSGVO Art. 17, sofortige Loeschung | Grower, Admin | — |
+| `GET` | `/conversations` | Liste der Konversationen | Ab Gärtner | `ai_tenant_data_access` |
+| `POST` | `/conversations` | Neue Konversation starten (`{ context_type, context_key?, language? }`) | Ab Gärtner | `ai_tenant_data_access` |
+| `GET` | `/conversations/{key}` | Konversation laden | Ab Gärtner | `ai_tenant_data_access` |
+| `POST` | `/conversations/{key}/messages` | Nachricht senden (SSE Streaming) | Ab Gärtner | `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`) |
+| `DELETE` | `/conversations/{key}` | DSGVO Art. 17, sofortige Loeschung | Ab Gärtner | — |
 
 **Provider-Konfiguration (Tenant-eigene Keys):**
 
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
-| `GET` | `/providers` | Provider auflisten (Tenant + System-Defaults) | Grower, Admin |
-| `POST` | `/providers` | Neuen Provider konfigurieren | Admin |
-| `PUT` | `/providers/{key}` | Aktualisieren | Admin |
-| `DELETE` | `/providers/{key}` | Soft-Delete | Admin |
-| `GET` | `/providers/{key}/health` | Health testen (proxied an KnowledgeService) | Grower, Admin |
+| `GET` | `/providers` | Provider auflisten (Tenant + System-Defaults) | Ab Gärtner |
+| `POST` | `/providers` | Neuen Provider konfigurieren | Nur Leitung |
+| `PUT` | `/providers/{key}` | Aktualisieren | Nur Leitung |
+| `DELETE` | `/providers/{key}` | Soft-Delete | Nur Leitung |
+| `GET` | `/providers/{key}/health` | Health testen (proxied an KnowledgeService) | Ab Gärtner |
 
 **Tenant-Settings (NEU):**
 
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
-| `GET` | `/settings` | Aktuelle KI-Einstellungen des Tenants | Viewer, Grower, Admin |
-| `PUT` | `/settings` | KI-Einstellungen aendern (`ai_features_enabled`, `ai_default_provider_key`, `ai_allow_cloud_providers`, `ai_daily_tip_enabled`) | Admin |
+| `GET` | `/settings` | Aktuelle KI-Einstellungen des Tenants | Alle Rollen |
+| `PUT` | `/settings` | KI-Einstellungen aendern (`ai_features_enabled`, `ai_default_provider_key`, `ai_allow_cloud_providers`, `ai_daily_tip_enabled`) | Nur Leitung |
 
 ### 5.2 Globale Endpunkte
 
@@ -919,21 +919,26 @@ Lebt in der Knowledge-Service-Postgres-Instanz, NICHT mehr im TimescaleDB des Ba
 
 **Standardregel:** Alle Tenant-scoped Endpunkte erfordern JWT + Tenant-Mitgliedschaft. Light-Modus-Endpunkte sind ohne Auth, aber rate-limited.
 
-| Ressource/Endpoint-Gruppe | Viewer | Grower | Admin | Platform-Admin |
-|---------------------------|--------|--------|-------|----------------|
-| Tipps lesen / dismiss / acted-on | Ja | Ja | Ja | — |
-| Tipps refresh | — | Ja | Ja | — |
-| Daily Tip | Ja | Ja | Ja | — |
-| Explain | Ja | Ja | Ja | — |
-| Chat | — | Ja | Ja | — |
-| Chat loeschen | — | Ja (eigene) | Ja (alle im Tenant) | — |
-| Provider lesen | — | Ja | Ja | — |
-| Provider konfigurieren | — | — | Ja | — |
-| Tenant-KI-Settings lesen | Ja | Ja | Ja | — |
-| Tenant-KI-Settings schreiben | — | — | Ja | — |
-| System-Provider verwalten | — | — | — | Ja |
-| Knowledge-Service-Reingest / Health | — | — | — | Ja |
-| `/api/v1/public/ai/ask` | Anonym (Light-Modus) | — | — | — |
+> **Vokabular:** Spalten nach **REQ-049 §3.1**. Die frühere Spalte `Admin` meinte hier zwei
+> verschiedene Dinge: bei „Chat löschen" die fachliche Löschbefugnis (**Leitung**), bei
+> „Provider konfigurieren" und den KI-Einstellungen die technische Konfiguration im Mandanten
+> (**Technik**, REQ-049 §2.4/§3.4). Beide sind jetzt getrennt ausgewiesen.
+
+| Ressource/Endpoint-Gruppe | Beobachter | Gärtner | Leitung | Technik | Plattform-Admin |
+|---------------------------|------------|---------|---------|---------|-----------------|
+| Tipps lesen / dismiss / acted-on | Ja | Ja | Ja | — | — |
+| Tipps refresh | — | Ja | Ja | — | — |
+| Daily Tip | Ja | Ja | Ja | — | — |
+| Explain | Ja | Ja | Ja | — | — |
+| Chat | — | Ja | Ja | — | — |
+| Chat loeschen | — | Ja (eigene) | Ja (alle im Mandanten) | — | — |
+| Provider lesen | — | Ja | Ja | Ja | — |
+| Provider konfigurieren | — | — | — | Ja | — |
+| Tenant-KI-Settings lesen | Ja | Ja | Ja | Ja | — |
+| Tenant-KI-Settings schreiben | — | — | — | Ja | — |
+| System-Provider verwalten | — | — | — | — | Ja |
+| Knowledge-Service-Reingest / Health | — | — | — | — | Ja |
+| `/api/v1/public/ai/ask` | Anonym (Light-Modus, ohne Rolle) | — | — | — | — |
 
 **ExpertiseLevel-Einschraenkungen (REQ-021):**
 

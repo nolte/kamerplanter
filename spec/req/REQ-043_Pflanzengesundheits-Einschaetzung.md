@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, ONNX, DINOv2, optional Kindwise-Cloud-API, optional lokales VLM (LLaVA/Qwen2.5-VL/Agri-LLaVA) + RAG (REQ-031), React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-038 v1.1 (CV-Pflanzendiagnose — Vision-Erkennungstechnik), REQ-036 v1.0 (KI-Diagnose-Assistent — Symptom-Signal), REQ-010 v1.1 (IPM — Befall-Signal & Treatment-Brücke), REQ-005 (Hybrid-Sensorik — Sensor-Signal), REQ-022 (Pflegeerinnerungen — Pflege-Signal), REQ-029 v1.0 (Adapter-Interface, EXIF/Consent), REQ-029-A v1.2 (Self-Hosted-Inferenz-Infrastruktur), REQ-031 v2.0 (Knowledge-Service / RAG), REQ-025 v1.4 (DSGVO/Consent), REQ-013 v2.0 (PlantInstance/Run), REQ-021 v1.0 (Erfahrungsstufen)
 Wird benoetigt von: —
 ```
@@ -380,7 +380,7 @@ async def assess_plant_health(
 | Komponente / Seite | Integration | Erfahrungsstufe (REQ-021) |
 |---|---|---|
 | **`HealthStatusBadge`** | Ampel + Score auf `PlantInstanceCard` (Listen) und Detail-Header | alle |
-| **`HealthAssessmentDialog`** | „Gesundheit prüfen" → Foto-Erfassung (wiederverwendet aus REQ-029 §4.1) + Ergebnis | alle |
+| **`HealthAssessmentDialog`** | „Gesundheit prüfen" → Foto-Erfassung nach REQ-052 §2, Profil `recognition` (wiederverwendet aus REQ-029 §4.1) + Ergebnis | alle |
 | Disclaimer-Banner | **Immer sichtbar**, prominent (Querschnittsprinzip §3.3) | alle |
 | Faktoren-Aufschlüsselung | `contributing_signals` als verständliche Liste („Foto: Verfärbung; Sensor: EC zu niedrig") | Intermediate/Expert; Beginner nur Top-Faktor |
 | **`HealthTrendChart`** | Score-/Status-Verlauf auf der Detailseite (Brücke zu REQ-007/REQ-038-Phänotyp) | Intermediate/Expert |

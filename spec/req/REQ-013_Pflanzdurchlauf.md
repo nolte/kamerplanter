@@ -7,13 +7,14 @@ Kategorie: Gruppenmanagement
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 2.5 (Umgebungs-Schnappschuss am Tagebuch-Eintrag)
+Version: 2.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.6 | 2026-08-16 | **REQ-051 (Pflanzen-Tagebuch) uebernimmt die Tagebuch-Fachlogik.** Diese Anforderung bleibt Quelle fuer den Knoten `:PlantDiaryEntry`, seine Graph-Einbettung und die Endpunkt-Tabelle in §4.7 — die **Verwendung** des Tagebuchs (Erfassung, nachtraegliche Bearbeitung, Oberflaeche, Client-Neutralitaet) steht ab jetzt in REQ-051 und wird hier nicht wiederholt. Additiv am Knoten: `content_version` und `analysis_claimed_content_version` (REQ-051 §3.6/§4.4), beide mit Vorgabewert und ohne Migration. Neue Collection `plant_diary_analyses` (Analyse-Archiv, REQ-051 §5) — ein Dokumentknoten **ohne** Kante im Named Graph. Neuer Endpunkt `POST .../diary/{entry_key}/capture-environment` in §4.7: der Umgebungs-Schnappschuss ist nachtraeglich **neu erfassbar**, weiterhin nicht editierbar; §2.3a.8 ist entsprechend praezisiert (das Verbot galt dem *stillen* Neustempeln durch `update_entry`, nicht einer ausdruecklichen Nutzerhandlung). |
 | 2.5 | 2026-08-07 | **Umgebungs-Schnappschuss am Tagebuch-Eintrag (Issue #961):** Neues §2.3a. `PlantDiaryEntry` traegt additiv `environment` / `environment_captured_at` / `environment_status`; beim Anlegen werden die Sensorwerte, die die Pflanze abdecken, **serverseitig** ueber die REQ-005-Kette (Standort → Gelaende → Wetterdienst → nichts) aufgeloest und mit Herkunft gespeichert. Bewusst **getrennt** von `measurements`: das offene Freitext-Dict traegt keine Provenienz, und REQ-005 §1 sowie NFR-011/REQ-025 verlangen, dass maschinell erhobene von handnotierten Werten unterscheidbar bleiben. Neuer Lesepunkt `GET /t/{slug}/plant-instances/{key}/environment` in §4.7 (Vorschau fuer den Anlege-Dialog). Die Klassifikation von Metriknamen (Lufttemperatur/Luftfeuchte) hat mit `app/domain/engines/sensor_metrics.py` genau **eine** Quelle; die beiden zuvor widerspruechlichen Heuristiken (Frostwarnung, Winterquartier) konsumieren sie. |
 | 2.4 | 2026-08-04 | **REQ-050 (KI-Analyse von Tagebuch-Eintraegen):** `PlantDiaryEntry` um additive Analyse-Felder erweitert (`analysis_state`, Lease-Felder, `analysis`, `analysis_error`) — §3 Knotendefinition und `PlantDiaryEntryResponse`. In §4.7 ergaenzt: zwei Endpunkte zum Markieren/Entmarkieren sowie die **mandantenweite** Uebersicht `GET /t/{slug}/diary` (die bisherige Aggregation deckt nur einen Durchlauf ab). `photo_refs` als `attachment_id` praezisiert (war faelschlich als „S3-URLs" beschrieben, obwohl Migration `v0003` sie normalisiert hat). Die Fachlogik (Zustandsmaschine, MCP-Vertrag, Oberflaeche, Datenschutz) steht in REQ-050, nicht hier. Ausserdem festgehalten: die seit v2.0 in §4.7 spezifizierten **Standalone**-Tagebuch-Endpunkte sind bis heute nicht implementiert. |
 | 2.3 | 2026-04-27 | **W-010 (CareProfile Run-Owned):** `detach_plant()` um Schritt 6 erweitert — beim Detach wird das aktuelle Run-CareProfile als Plant-CareProfile auf die nun-standalone Plant kopiert (analog Karenz-Snapshot ADR-001). |
@@ -221,6 +222,15 @@ PlantingRun: "White Widow Klone Runde 3"
     - `analysis: Optional[DiaryAnalysis]` (juengstes Ergebnis; Sub-Modell in REQ-050 §5)
     - `analysis_error: Optional[str]` (Fehlertext bei `failed`)
   - **Hinweis:** REQ-013 definiert nur *dass* diese Felder existieren. Zustandsmaschine, Berechtigungen, MCP-Vertrag und Datenschutz stehen vollstaendig in **REQ-050**. Fuer die Abfrage des Arbeitsvorrats ist ein persistenter Index ueber `(tenant_key, analysis_state, analysis_requested_at)` noetig.
+  - Properties fuer die Inhaltsversionierung (REQ-051 §3.6/§4.4, additiv und mit Vorgabewert — Bestandsdokumente bleiben ohne Migration gueltig):
+    - `content_version: int` (Vorgabe `1`; wird bei jeder Aenderung an `entry_type`, `title`, `text`, `tags`, `measurements`, `photo_refs` oder `environment` um eins erhoeht. Ein Dokument ohne das Feld wird als `1` gelesen.)
+    - `analysis_claimed_content_version: Optional[int]` (Inhaltsversion zum Zeitpunkt des Beanspruchens; aus ihr setzt der Server `DiaryAnalysis.analyzed_content_version` beim Zurueckschreiben)
+  - **Hinweis:** Wozu die beiden Zaehler dienen — Kennzeichnung einer veralteten Analyse, Erkennung gleichzeitiger Bearbeitung — steht in **REQ-051 §3.6, §3.7 und §4**, nicht hier.
+
+- **`:DiaryAnalysisRecord`** — Archivierter Analyselauf (REQ-051 §5)
+  - Collection: `plant_diary_analyses`
+  - Properties: `tenant_key`, `entry_key`, `plant_key`, `outcome: Literal['completed','failed']`, `analysis: Optional[DiaryAnalysis]`, `error: Optional[str]`, `analyzed_content_version: int`, `requested_at`/`requested_by`, `claimed_at`/`claimed_by`, `recorded_at: datetime`
+  - **Keine Kante im Named Graph.** Die einzige Abfrage lautet „alle Laeufe zu Eintrag X, neueste zuerst" und wird von einem persistenten Index ueber `(tenant_key, entry_key, recorded_at)` beantwortet. Eine Kante waere eine zweite Zuordnung neben `entry_key`, die mit ihr auseinanderlaufen kann und von keiner Traversierung gebraucht wird. Begruendung und Lebenszyklus stehen in **REQ-051 §5**.
   - Properties fuer den Umgebungs-Schnappschuss (§2.3a, alle additiv und optional — Bestandsdokumente ohne diese Felder bleiben gueltig und brauchen **keine** Migration):
     - `environment: list[DiaryEnvironmentReading]` (Default `[]`)
     - `environment_captured_at: Optional[datetime]` (Zeitpunkt der Erfassung — **nicht** der Messung)
@@ -407,9 +417,18 @@ zu *schauen*, nie den Inhalt. Ein Wert, den der Client schreiben kann, ist ein W
 der Client erfinden kann, und dieser hier soll Belegmaterial sein (dieselbe Begruendung,
 aus der die REQ-050-Analysefelder in den Request-Schemata fehlen).
 
-Erfasst wird **nur beim Anlegen**. Eine spaetere Textkorrektur darf den Eintrag nicht
-still mit einem anderen Klima neu stempeln, deshalb schuetzt `update_entry` die drei
-Felder wie die Analysefelder.
+Der **generische Bearbeitungspfad** erfasst nie. Eine spaetere Textkorrektur darf den
+Eintrag nicht still mit einem anderen Klima neu stempeln, deshalb schuetzt `update_entry`
+die drei Felder wie die Analysefelder. Diese Regel gilt unveraendert.
+
+Seit REQ-051 §3.5 gibt es daneben eine **ausdrueckliche Nutzerhandlung**, die den
+Schnappschuss neu aufloest (`POST .../diary/{entry_key}/capture-environment`, §4.7). Sie
+ist das Gegenteil eines stillen Neustempelns: Der Nutzer loest sie aus, sie hat keinen
+Rumpf — also weiterhin keinen vom Client geschriebenen Messwert —, sie durchlaeuft
+dieselbe Kette mit demselben Zeitbudget und derselben Aktualitaetsgrenze, und
+`environment_captured_at` haelt fest, wann sie lief. Der Hauptfall ist der
+Wiederholungsversuch nach `opted_out`, `no_source` oder einem durch eine Stoerung
+abgeschnittenen `unavailable` — Zustaende, aus denen es bis dahin keinen Weg zurueck gab.
 
 **Mandantentrennung.** Anker ist die Pflanze: sie wird geladen und ihr `tenant_key`
 fail-closed gegen den Aufrufer geprueft, bevor irgendetwas passiert; jede weitere Suche
@@ -1532,53 +1551,53 @@ class PlantDiaryEntryDocument(BaseModel):
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/planting-runs` | Alle Durchlaeufe auflisten (Filter: status, run_type, location_key) | Mitglied |
-| `POST` | `/api/v1/planting-runs` | Neuen Durchlauf anlegen (inkl. Entry) | Mitglied |
-| `GET` | `/api/v1/planting-runs/{key}` | Einzelnen Durchlauf mit Entry, Pflanzen, Phase, Standort laden | Mitglied |
-| `PUT` | `/api/v1/planting-runs/{key}` | Durchlauf-Metadaten aktualisieren (Name, Notizen, Startdatum) | Mitglied |
-| `DELETE` | `/api/v1/planting-runs/{key}` | Durchlauf loeschen (nur Status `planned`, sonst 409 Conflict) | Admin |
+| `GET` | `/api/v1/planting-runs` | Alle Durchlaeufe auflisten (Filter: status, run_type, location_key) | Alle Rollen |
+| `POST` | `/api/v1/planting-runs` | Neuen Durchlauf anlegen (inkl. Entry) | Ab Gärtner |
+| `GET` | `/api/v1/planting-runs/{key}` | Einzelnen Durchlauf mit Entry, Pflanzen, Phase, Standort laden | Alle Rollen |
+| `PUT` | `/api/v1/planting-runs/{key}` | Durchlauf-Metadaten aktualisieren (Name, Notizen, Startdatum) | Ab Gärtner |
+| `DELETE` | `/api/v1/planting-runs/{key}` | Durchlauf loeschen (nur Status `planned`, sonst 409 Conflict) | Nur Leitung |
 
 ### 4.2 Entries — Artenzusammensetzung (4 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/planting-runs/{key}/entries` | Alle Entries eines Durchlaufs | Mitglied |
-| `POST` | `/api/v1/planting-runs/{key}/entries` | Entry hinzufuegen (nur Status `planned`) | Mitglied |
-| `PUT` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry aktualisieren (nur Status `planned`) | Mitglied |
-| `DELETE` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry entfernen (nur Status `planned`, Constraint-Pruefung) | Mitglied |
+| `GET` | `/api/v1/planting-runs/{key}/entries` | Alle Entries eines Durchlaufs | Alle Rollen |
+| `POST` | `/api/v1/planting-runs/{key}/entries` | Entry hinzufuegen (nur Status `planned`) | Ab Gärtner |
+| `PUT` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry aktualisieren (nur Status `planned`) | Ab Gärtner |
+| `DELETE` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry entfernen (nur Status `planned`, Constraint-Pruefung) | Nur Leitung |
 
 ### 4.3 Run-Operationen (5 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Request-Body | Auth |
 |---------|------|-------------|-------------|------|
-| `POST` | `/api/v1/planting-runs/{key}/create-plants` | N Pflanzen aus Entry erzeugen, Run → active | `BatchCreatePlantsRequest` | Mitglied |
-| `POST` | `/api/v1/planting-runs/{key}/adopt-plants` | Bestehende standalone PlantInstances dem Run zuordnen | `AdoptPlantsRequest` | Mitglied |
-| `POST` | `/api/v1/planting-runs/{key}/transition` | **Run-Level Phasenwechsel** (alle Pflanzen im Run) | `RunTransitionRequest` | Mitglied |
-| `POST` | `/api/v1/planting-runs/{key}/batch-harvest` | HarvestBatch erstellen | `BatchHarvestRequest` | Mitglied |
-| `POST` | `/api/v1/planting-runs/{key}/batch-remove` | Alle Pflanzen entfernen, Run abschliessen | `BatchRemoveRequest` | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/create-plants` | N Pflanzen aus Entry erzeugen, Run → active | `BatchCreatePlantsRequest` | Ab Gärtner |
+| `POST` | `/api/v1/planting-runs/{key}/adopt-plants` | Bestehende standalone PlantInstances dem Run zuordnen | `AdoptPlantsRequest` | Ab Gärtner |
+| `POST` | `/api/v1/planting-runs/{key}/transition` | **Run-Level Phasenwechsel** (alle Pflanzen im Run) | `RunTransitionRequest` | Ab Gärtner |
+| `POST` | `/api/v1/planting-runs/{key}/batch-harvest` | HarvestBatch erstellen | `BatchHarvestRequest` | Ab Gärtner |
+| `POST` | `/api/v1/planting-runs/{key}/batch-remove` | Alle Pflanzen entfernen, Run abschliessen | `BatchRemoveRequest` | Ab Gärtner |
 
 ### 4.4 Pflanzen im Run (2 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/planting-runs/{key}/plants` | Alle Pflanzen im Run (Filter: detached=true/false) | Mitglied |
-| `POST` | `/api/v1/planting-runs/{key}/plants/{plant_key}/detach` | Pflanze abtrennen → wird standalone mit Phase-Kopie | Mitglied |
+| `GET` | `/api/v1/planting-runs/{key}/plants` | Alle Pflanzen im Run (Filter: detached=true/false) | Alle Rollen |
+| `POST` | `/api/v1/planting-runs/{key}/plants/{plant_key}/detach` | Pflanze abtrennen → wird standalone mit Phase-Kopie | Ab Gärtner |
 
 ### 4.5 Naehrstoffplan-Zuweisung (3 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/api/v1/planting-runs/{key}/nutrient-plan` | NutrientPlan dem Run zuweisen (erzeugt `RUN_FOLLOWS_PLAN`-Edge) | Mitglied |
-| `GET` | `/api/v1/planting-runs/{key}/nutrient-plan` | Zugewiesenen NutrientPlan abrufen (inkl. WateringSchedule) | Mitglied |
-| `DELETE` | `/api/v1/planting-runs/{key}/nutrient-plan` | NutrientPlan-Zuweisung entfernen | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/nutrient-plan` | NutrientPlan dem Run zuweisen (erzeugt `RUN_FOLLOWS_PLAN`-Edge) | Ab Gärtner |
+| `GET` | `/api/v1/planting-runs/{key}/nutrient-plan` | Zugewiesenen NutrientPlan abrufen (inkl. WateringSchedule) | Alle Rollen |
+| `DELETE` | `/api/v1/planting-runs/{key}/nutrient-plan` | NutrientPlan-Zuweisung entfernen | Nur Leitung |
 
 ### 4.6 Giesskalender (1 Endpunkt)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/planting-runs/{key}/watering-schedule` | Aufgeloester Giesskalender: naechste 14 Tage mit Dosierungen | Mitglied |
+| `GET` | `/api/v1/planting-runs/{key}/watering-schedule` | Aufgeloester Giesskalender: naechste 14 Tage mit Dosierungen | Alle Rollen |
 
-### 4.7 Pflanzen-Tagebuch (13 Endpunkte)
+### 4.7 Pflanzen-Tagebuch (15 Endpunkte)
 
 > **Umsetzungsstand (Stand 2026-08-04):** Implementiert sind ausschliesslich die **sechs
 > Endpunkte im Run-Kontext**. Die fuenf **Standalone**-Endpunkte
@@ -1593,28 +1612,28 @@ class PlantDiaryEntryDocument(BaseModel):
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary` | Tagebuch einer Pflanze im Run | Mitglied |
-| `POST` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary` | Tagebuch-Eintrag erstellen | Mitglied |
-| `GET` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary/{entry_key}` | Einzelner Eintrag | Mitglied |
-| `PUT` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary/{entry_key}` | Eintrag aktualisieren | Mitglied |
-| `DELETE` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary/{entry_key}` | Eintrag loeschen | Mitglied |
-| `GET` | `/api/v1/planting-runs/{key}/diary` | Aggregiertes Tagebuch aller Pflanzen im Run | Mitglied |
+| `GET` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary` | Tagebuch einer Pflanze im Run | Alle Rollen |
+| `POST` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary` | Tagebuch-Eintrag erstellen | Ab Gärtner |
+| `GET` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary/{entry_key}` | Einzelner Eintrag | Alle Rollen |
+| `PUT` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary/{entry_key}` | Eintrag aktualisieren | Ab Gärtner |
+| `DELETE` | `/api/v1/planting-runs/{key}/plants/{plant_key}/diary/{entry_key}` | Eintrag loeschen | Nur Leitung |
+| `GET` | `/api/v1/planting-runs/{key}/diary` | Aggregiertes Tagebuch aller Pflanzen im Run | Alle Rollen |
 
 **Im Standalone-Kontext:**
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/plant-instances/{key}/diary` | Tagebuch einer standalone Pflanze | Mitglied |
-| `POST` | `/api/v1/plant-instances/{key}/diary` | Eintrag erstellen | Mitglied |
-| `GET` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Einzelner Eintrag | Mitglied |
-| `PUT` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag aktualisieren | Mitglied |
-| `DELETE` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag loeschen | Mitglied |
+| `GET` | `/api/v1/plant-instances/{key}/diary` | Tagebuch einer standalone Pflanze | Alle Rollen |
+| `POST` | `/api/v1/plant-instances/{key}/diary` | Eintrag erstellen | Ab Gärtner |
+| `GET` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Einzelner Eintrag | Alle Rollen |
+| `PUT` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag aktualisieren | Ab Gärtner |
+| `DELETE` | `/api/v1/plant-instances/{key}/diary/{entry_key}` | Eintrag loeschen | Nur Leitung |
 
 **Umgebungs-Vorschau (§2.3a):**
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/t/{tenant_slug}/plant-instances/{key}/environment` | Was eine Erfassung **jetzt** liefern wuerde — Vorschau fuer den Anlege-Dialog | Mitglied |
+| `GET` | `/api/v1/t/{tenant_slug}/plant-instances/{key}/environment` | Was eine Erfassung **jetzt** liefern wuerde — Vorschau fuer den Anlege-Dialog | Alle Rollen |
 
 Nur lesend, und ausdruecklich **keine** Eingabe: der Dialog stellt die Werte unveraenderbar
 dar und schickt nichts zurueck ausser `capture_environment`. Die Anlage loest alles erneut
@@ -1623,7 +1642,7 @@ Schreiben galt, nicht was der Dialog eine Minute vorher gemalt hatte. Eine fremd
 Pflanze antwortet 404, nie mit einem leeren Schnappschuss (ein leerer Schnappschuss
 bestaetigte immer noch, dass der Schluessel irgendwo existiert).
 
-**Mandantenweite Uebersicht (REQ-050 §2.5.2) — neu:**
+**Mandantenweite Uebersicht (REQ-051 §6.2):**
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
@@ -1631,7 +1650,20 @@ bestaetigte immer noch, dass der Schluessel irgendwo existiert).
 
 Die bisherige Aggregation `GET /planting-runs/{key}/diary` bleibt bestehen, deckt aber nur **einen
 Durchlauf** ab. Eine Pflanze ohne Durchlauf taucht dort nicht auf. Filterparameter und
-Antwortschema (`DiaryOverviewItem` / `DiaryOverviewResponse`) stehen in REQ-050 §2.5.2.
+Antwortschema (`DiaryOverviewItem` / `DiaryOverviewResponse`) stehen in REQ-051 §9.1.
+
+**Nachtraegliche Bearbeitung (REQ-051 §3) — neu:**
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `.../diary/{entry_key}/capture-environment` | Umgebungs-Schnappschuss neu aufloesen; ohne Rumpf, Antwort ist der aktualisierte Eintrag | Ab Gaertner |
+| `GET` | `.../diary/{entry_key}/analyses` | Archivierte Analyselaeufe, absteigend nach `recorded_at`, seitenweise | Alle Rollen |
+
+Beide existieren im Run- **und** im Standalone-Praefix. `PUT .../diary/{entry_key}` nimmt
+zusaetzlich optional `expected_content_version` entgegen und antwortet bei Abweichung
+`409 conflict.stale_write`, ohne zu schreiben (REQ-051 §3.7). Die Fachlogik — was aenderbar ist,
+was mit einer vorhandenen Analyse geschieht, wie das Archiv gefuellt wird — steht in REQ-051,
+nicht hier.
 
 **Der Endpunkt liefert bewusst NICHT `PlantDiaryEntryResponse`.** Die Uebersichtszeile traegt vom
 Analyse-Ergebnis nur die Zusammenfassung; das vollstaendige Ergebnis liefert der Einzelabruf.
@@ -1796,16 +1828,25 @@ Analyse-Zustand **nicht** — Zustandswechsel laufen nie ueber das generische Up
 > **Hinweis (SEC-H-001):** Dieser Abschnitt dokumentiert die Auth-Anforderungen
 > gemaess REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung).
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Loeschen |
-|---------------------------|-------|-----------|---------|
-| PlantingRuns | Mitglied | Mitglied | Admin |
-| PlantingRun-Eintraege | Mitglied | Mitglied | Mitglied |
-| Run-Operationen | — | Mitglied | — |
-| Pflanzen-Tagebuch | Mitglied | Mitglied | Mitglied |
-| Tagebuch KI-Analyse markieren (REQ-050) | Alle Rollen | Ab Gaertner | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| PlantingRuns | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| PlantingRun-Eintraege | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Run-Operationen | — | Ab Gärtner | Ab Gärtner | — | — |
+| Pflanzen-Tagebuch | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Tagebuch KI-Analyse markieren (REQ-050) | Alle Rollen | Ab Gärtner | Ab Gärtner | — | Markieren nur an eigenen Einträgen (REQ-050 §7.2) |
 
 > **Hinweis zum Vokabular:** Die REQ-050-Zeile folgt dem verbindlichen Vokabular aus REQ-049 §3.1.
 > Die uebrigen Zeilen dieser Tabelle verwenden noch „Mitglied", das REQ-049 §3.2 ausdruecklich

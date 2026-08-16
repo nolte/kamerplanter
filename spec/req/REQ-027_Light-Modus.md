@@ -7,7 +7,7 @@ Kategorie: Plattform & Deployment
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.4 (W-012 DSGVO-Klarstellung + W-015 Service Accounts + W-017 iCal)
+Version: 1.5 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 ```
 
@@ -354,7 +354,8 @@ SYSTEM_TENANT = Tenant(
 
 ```python
 SYSTEM_MEMBERSHIP = Membership(
-    role="admin",
+    role="lead",
+    admin_scopes=["management", "technical"],
     joined_at=datetime.now(UTC),
     status="active",
 )
@@ -371,7 +372,8 @@ Im Light-Modus erhält der System-User automatisch eine admin-Membership im Plat
 
 ```python
 SYSTEM_PLATFORM_MEMBERSHIP = Membership(
-    role="admin",
+    role="lead",
+    admin_scopes=["management", "technical"],
     joined_at=datetime.now(UTC),
     status="active",
 )
@@ -396,13 +398,13 @@ def seed_light_mode(db: StandardDatabase) -> None:
     if not tenants.has("system-tenant"):
         tenants.insert({**SYSTEM_TENANT.dict(), "_key": "system-tenant"})
         # Membership: system-user → system-tenant (admin)
-        _create_membership(db, "system-user", "system-tenant", "admin")
+        _create_membership(db, "system-user", "system-tenant", "lead", ["management", "technical"])
 
     # 3. Platform-Tenant erstellen (REQ-024 v1.3)
     if not tenants.has("platform"):
         tenants.insert({**PLATFORM_TENANT.dict(), "_key": "platform"})
         # Membership: system-user → platform (admin) → macht System-User zum KA-Admin
-        _create_membership(db, "system-user", "platform", "admin")
+        _create_membership(db, "system-user", "platform", "lead", ["management", "technical"])
 
     # 4. Auto-Assign: Alle globalen Stammdaten → System-Tenant
     auto_assign_all_master_data("system-tenant", db)
@@ -868,7 +870,7 @@ apiClient.interceptors.request.use((config) => {
 // Im Light-Modus:
 // - authSlice wird nicht initialisiert (kein Token-Management)
 // - tenantSlice wird mit System-Tenant vorbelegt:
-//   activeTenant: { slug: "mein-garten", role: "admin", type: "personal" }
+//   activeTenant: { slug: "mein-garten", role: "lead", adminScopes: ["management","technical"], type: "personal" }
 // - Kein Token-Refresh-Interceptor
 ```
 

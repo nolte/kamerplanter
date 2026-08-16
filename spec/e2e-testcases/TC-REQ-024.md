@@ -854,36 +854,42 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
-### TC-024-033: Zuweisungsbasierte Write-Kontrolle — Gärtner sieht Bearbeiten-Button nur für eigene/gemeinschaftliche Ressourcen
+### TC-024-033: Die Standort-Zuweisung ist keine Schreibgrenze — Gärtner bearbeitet auch fremde Parzellen
 
-**Requirement**: REQ-024 §1a.5 Zuweisungsbasierte Write-Kontrolle, §1.1 Szenario 2, AK-11, AK-41, AK-42
+> **Umgekehrt mit REQ-024 v1.7.** Bis dahin erwartete dieser Fall, dass der Bearbeiten-Knopf an
+> Lisas Parzelle fehlt. REQ-049 §3.5 hat die zuweisungsbasierte Write-Kontrolle ersatzlos
+> aufgehoben; der Fall prüft jetzt die geltende Regel und ist damit zugleich der Wächter gegen ihre
+> versehentliche Wiedereinführung.
+
+**Requirement**: REQ-024 §1.1 Szenario 2, §1a.5 (entfallen), AK-11, AK-41 · REQ-049 §3.5
 **Priority**: Critical
 **Category**: Berechtigungsprüfung
 **Preconditions**:
-- Max hat Rolle "grower", "Parzelle A1" ist ihm zugewiesen, "Parzelle A2" ist Lisa zugewiesen, "Kompostplatz" hat keine Zuweisung
-- Max navigiert zur Pflanzen-Listenansicht oder Locations-Seite des Tenants
+- Max hat Rolle `grower`, "Parzelle A1" ist ihm zugewiesen, "Parzelle A2" ist Lisa zugewiesen, "Kompostplatz" hat keine Zuweisung
+- Max navigiert zur Locations-Seite des Tenants
 
 **Testschritte**:
 1. Max navigiert zu `/t/gemeinschaftsgarten-sonnenschein/sites`
-2. Max öffnet die Location "Parzelle A1" (seine Parzelle)
-3. Max öffnet die Location "Kompostplatz" (Gemeinschaft)
-4. Max öffnet die Location "Parzelle A2" (Lisas Parzelle)
+2. Max öffnet die Location "Parzelle A1" (ihm zugewiesen) und speichert eine Änderung
+3. Max öffnet die Location "Kompostplatz" (ohne Zuweisung) und speichert eine Änderung
+4. Max öffnet die Location "Parzelle A2" (Lisa zugewiesen) und speichert eine Änderung
 
 **Erwartete Ergebnisse**:
-- Für "Parzelle A1": Bearbeiten-Button ist sichtbar und aktiv (zugewiesene Ressource)
-- Für "Kompostplatz": Bearbeiten-Button ist sichtbar und aktiv (Gemeinschaftsressource, keine Zuweisung)
-- Für "Parzelle A2": Bearbeiten-Button ist **nicht sichtbar** oder deaktiviert (Lisas Parzelle)
+- In **allen drei** Fällen ist der Bearbeiten-Knopf sichtbar und aktiv, und die Änderung wird gespeichert
+- Insbesondere an "Parzelle A2": kein `403`, kein deaktivierter Knopf, kein Hinweis auf eine fehlende Zuweisung
+- An **keiner** der drei Locations erscheint für Max ein Löschen-Knopf (Löschen ist Leitung)
+- "Parzelle A1" ist in der Liste als seine Zuständigkeit markiert und vorsortiert — eine reine Anzeige
 
 **Nachbedingungen**:
-- Kein Status geändert
+- Alle drei Locations tragen die Änderung
 
-**Tags**: [req-024, write-control, grower, ak-11, ak-41, ak-42, kritisch]
+**Tags**: [req-024, write-control, grower, ak-11, ak-41, kritisch, req-049-p1]
 
 ---
 
 ### TC-024-034: Abgelaufene Standort-Zuweisung wird nicht berücksichtigt
 
-**Requirement**: REQ-024 §1a.5 (LocationAssignment valid_from/valid_until), AK-15, AK-43
+**Requirement**: REQ-024 §1a.5 (entfallen), AK-15, AK-43 · REQ-049 §3.5
 **Priority**: Medium
 **Category**: Zustandswechsel
 **Preconditions**:
@@ -892,10 +898,11 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Testschritte**:
 1. Max navigiert zur Location "Parzelle A3"
+2. Max speichert eine Änderung
 
 **Erwartete Ergebnisse**:
-- Der Bearbeiten-Button für "Parzelle A3" ist **nicht sichtbar** für Max (Zuweisung ist abgelaufen)
-- Max kann "Parzelle A3" nur lesen (wenn kein anderer hat es zugewiesen → Gemeinschaftsressource ODER wenn ein anderer es hat → keine Berechtigung)
+- Der Bearbeiten-Knopf ist sichtbar und aktiv, die Änderung wird gespeichert — die abgelaufene Zuweisung verändert **keine** Berechtigung
+- "Parzelle A3" erscheint **nicht** mehr in Max' Ansicht „meine Parzelle" und ist nicht mehr vorsortiert: Genau das, und nur das, bewirkt der Ablauf
 
 **Nachbedingungen**:
 - Kein Status geändert
@@ -979,9 +986,9 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
-### TC-024-038: Gärtner kann Pflanzen-Phasen-Transition auslösen für eigene/gemeinschaftliche Pflanzen
+### TC-024-038: Gärtner kann Pflanzen-Phasen-Transition auslösen
 
-**Requirement**: REQ-024 §1a.1 (Plant Instances: Phasen-Transition: admin, grower (own+community)), AK-30
+**Requirement**: REQ-024 §1a.1 (Plant Instances — Phasen-Transition: ab Gärtner), AK-30
 **Priority**: High
 **Category**: Happy Path
 **Preconditions**:
@@ -1002,30 +1009,38 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 **Nachbedingungen**:
 - Beide Pflanzen haben nächste Phase
 
-**Tags**: [req-024, phase-transition, grower, ak-30, own-community-resource]
+**Tags**: [req-024, phase-transition, grower, ak-30]
 
 ---
 
-### TC-024-039: Gärtner kann Phasen-Transition NICHT für Pflanzen anderer Gärtner auslösen
+### TC-024-039: Gärtner kann Phasen-Transition auch an fremd zugewiesenen Pflanzen auslösen — aber nicht löschen
 
-**Requirement**: REQ-024 §1a.1, §1a.5 Zuweisungsbasierte Write-Kontrolle, AK-42
+> **Umgekehrt mit REQ-024 v1.7**, aus demselben Grund wie TC-024-033. Die frühere Erwartung
+> („Knopf nicht sichtbar") prüfte die mit REQ-049 §3.5 gestrichene Regel. Die **echte** Grenze für
+> einen Gärtner ist nicht die Parzelle, sondern das Löschen (REQ-049 §2.3) — der Fall prüft jetzt
+> beides zusammen, damit die Lockerung nicht versehentlich auch das Löschen mitöffnet.
+
+**Requirement**: REQ-024 §1a.1, AK-13, AK-30, AK-41 · REQ-049 §2.3, §3.5
 **Priority**: High
 **Category**: Berechtigungsprüfung
 **Preconditions**:
 - Max ist Gärtner, "Parzelle A2" ist Lisa zugewiesen
-- Pflanze "Tomate-Lisa" befindet sich in Parzelle A2 (Lisas Parzelle)
+- Pflanze "Tomate-Lisa" befindet sich in Parzelle A2
 
 **Testschritte**:
 1. Max öffnet "Tomate-Lisa" Detailansicht
+2. Max klickt "Nächste Phase"
+3. Max sucht nach einer Löschen-Handlung an derselben Pflanze
 
 **Erwartete Ergebnisse**:
-- Phasen-Transition-Button ("Nächste Phase") ist **nicht sichtbar** oder deaktiviert für Max
-- Max sieht die Pflanzendaten (read-only)
+- Der Knopf "Nächste Phase" ist aktiv, die Phase wechselt nach Klick
+- Eine Löschen-Handlung ist für Max **nicht** vorhanden; ein direkter `DELETE`-Aufruf antwortet `403`
+- Lisa als Leitung kann dieselbe Pflanze löschen
 
 **Nachbedingungen**:
-- Kein Status geändert
+- "Tomate-Lisa" steht in der nächsten Phase und existiert weiterhin
 
-**Tags**: [req-024, phase-transition, grower-restricted, ak-42, write-control]
+**Tags**: [req-024, phase-transition, grower, ak-41, delete-boundary, req-049-p1]
 
 ---
 
@@ -2426,7 +2441,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 | §1a.2 Tenant-Verwaltungs-Permissions | TC-024-012 – TC-024-021, TC-024-029, TC-024-032, TC-024-040 – TC-024-041 |
 | §1a.3 Kollaborations-Permissions | TC-024-053 – TC-024-069, TC-024-083 – TC-024-093 |
 | §1a.4 Platform-Rollen | TC-024-042 – TC-024-047, TC-024-051 – TC-024-052 |
-| §1a.5 Zuweisungsbasierte Write-Kontrolle | TC-024-033, TC-024-034, TC-024-038, TC-024-039 |
+| §1a.5 Zuweisungsbasierte Write-Kontrolle — **entfallen** (REQ-049 §3.5); die vier Fälle prüfen jetzt ihre **Abwesenheit** | TC-024-033, TC-024-034, TC-024-038, TC-024-039 |
 | §2 DutyRotation / DutySwapRequest | TC-024-053 – TC-024-057, TC-024-083 – TC-024-086 |
 | §2 BulletinPost / BulletinComment | TC-024-058 – TC-024-064, TC-024-087 – TC-024-090 |
 | §2 SharedShoppingList | TC-024-065 – TC-024-069, TC-024-091 – TC-024-093 |
