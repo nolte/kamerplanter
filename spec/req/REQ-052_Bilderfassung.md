@@ -26,7 +26,7 @@ Wird benötigt von: REQ-029, REQ-034, REQ-038, REQ-043, REQ-044, REQ-051, REQ-01
 ## 0. Verhältnis zu bestehenden Spezifikationen
 
 Diese Anforderung erfindet **keinen** neuen Erfassungsweg und **kein** neues Speicherkonzept. Sie
-beschreibt an einem Ort, was heute in zwei Dokumenten steht und von sechs weiteren zitiert wird.
+beschreibt an einem Ort, was heute in zwei Dokumenten steht und von fünf weiteren zitiert wird.
 
 | Dokument | Was es liefert | Verhältnis zu REQ-052 |
 |----------|----------------|----------------------|
@@ -49,7 +49,7 @@ beschreibt an einem Ort, was heute in zwei Dokumenten steht und von sechs weiter
 **Die Trennlinie verläuft an der Datei.** Alles, was zu einer hochladbaren, normalisierten Datei
 führt, steht hier. Alles, was danach mit ihr geschieht — an welche API sie geht, welche Organe
 auswählbar sind, wie das Ergebnis aussieht —, bleibt in der jeweiligen Fach-Anforderung. Der Grund
-ist der Anlass dieser Anforderung: Sechs Fach-Anforderungen brauchen dieselbe Datei und
+ist der Anlass dieser Anforderung: Sieben Fach-Anforderungen brauchen dieselbe Datei und
 unterscheiden sich vollständig in dem, was sie damit tun.
 
 ---
@@ -79,7 +79,7 @@ unterscheiden sich vollständig in dem, was sie damit tun.
 
 ### 1.2 Warum die Erfassung eine eigene Anforderung braucht
 
-Der Erfassungsbaustein wird heute von **sechs** Anforderungen konsumiert:
+Der Erfassungsbaustein wird heute von **sieben** Anforderungen konsumiert:
 
 | Anforderung | Verwendung | Verweist heute auf |
 |-------------|-----------|--------------------|
@@ -91,7 +91,7 @@ Der Erfassungsbaustein wird heute von **sechs** Anforderungen konsumiert:
 | REQ-051 | Tagebuch-Fotos | REQ-034 §2.2 |
 | REQ-010 v1.4 | nutzerbeigesteuerte Schädlingsfotos | REQ-034 |
 
-Sechs Konsumenten und keine eigene Quelle ist genau die Lage, aus der Drift entsteht. Sie ist
+Sieben Konsumenten und keine eigene Quelle ist genau die Lage, aus der Drift entsteht. Sie ist
 bereits eingetreten und **messbar**:
 
 - Die **Normalisierungsparameter** stehen in zwei Dokumenten mit verschiedenen Werten
@@ -377,12 +377,21 @@ Anforderung:
 
 | Handlung | Rolle |
 |----------|-------|
-| Erfassungsdialog öffnen | Alle Rollen |
+| Erfassungsdialog öffnen | **Ab Gärtner** |
 | Bild hochladen und verknüpfen | Ab Gärtner |
-| Bild entfernen | Nur Leitung (REQ-049 §2.3) |
+| Bild **vom Datensatz lösen** (Referenz entfernen) | wie die konsumierende Anforderung es festlegt — Tagebuch: ab Gärtner, nur eigene Einträge (REQ-051 §3.3) |
+| **Attachment löschen** (Datei und Metadaten) | Nur Leitung (REQ-049 §2.3) |
 
 Ein Beobachter bekommt den Erfassungsdialog **gar nicht erst angeboten** — eine Aufnahme, deren
-Upload anschließend abgewiesen wird, ist eine vorgetäuschte Fähigkeit.
+Upload anschließend abgewiesen wird, ist eine vorgetäuschte Fähigkeit. Deshalb steht in der Zeile
+„Erfassungsdialog öffnen" **Ab Gärtner** und nicht „Alle Rollen": Das Öffnen ist der erste Schritt
+eines Schreibvorgangs, nicht ein Lesezugriff.
+
+**Lösen und Löschen sind zwei Handlungen.** Eine Foto-Referenz aus einem Tagebuch-Eintrag zu
+entfernen ändert den Eintrag — das darf, wer den Eintrag ändern darf (REQ-051 §3.3). Das
+**Attachment** selbst samt Datei zu vernichten ist irreversibel und damit Leitung. Ob ein gelöstes
+Attachment aufgeräumt wird, entscheidet NFR-013, nicht diese Anforderung; ein Attachment kann von
+mehreren Stellen referenziert sein.
 
 Zusätzlich gilt die Herkunftsregel aus SEC-003: Ein Gärtner darf nur Attachments referenzieren,
 die er selbst hochgeladen hat; die Leitung ist ausgenommen (REQ-034, REQ-051 §3.3).

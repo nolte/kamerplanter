@@ -1481,7 +1481,7 @@ Router: `/api/v1/care-reminders`
 | Methode | Pfad | Beschreibung | Request | Response | Auth |
 |---------|------|-------------|---------|----------|------|
 | `GET` | `/dashboard` | Alle fälligen Erinnerungen, sortiert nach Dringlichkeit | Query: `?include_upcoming=true` | `list[CareDashboardEntry]` | Ja |
-| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen (auto-erstellt falls nicht vorhanden) | — | `CareProfile` | Alle Rollen |
+| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen; existiert keines, wird es **beim ersten Zugriff eines schreibberechtigten Aufrufers** aus den Species-Defaults erzeugt. Ein Beobachter erhaelt in diesem Fall das berechnete Profil **ohne** Persistierung — ein Lesezugriff darf keine Ressource anlegen (REQ-024 AK-12) | — | `CareProfile` | Alle Rollen |
 | `PATCH` | `/plants/{plant_key}/profile` | Intervalle anpassen | `CareProfileUpdate` | `CareProfile` | Ab Gärtner |
 | `POST` | `/plants/{plant_key}/confirm` | Ein-Tap-Bestätigung einer Pflegeaktion | `CareConfirmRequest` | `CareConfirmation` | Ab Gärtner |
 | `POST` | `/plants/{plant_key}/snooze` | Erinnerung um N Tage verschieben | `CareSnoozeRequest` | `CareConfirmation` | Ab Gärtner |
@@ -1806,7 +1806,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
 | Pflege-Dashboard | Alle Rollen | — | — | — | Aggregierte Ansicht |
-| Pflegepläne (pro Pflanze) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Pflegepläne (pro Pflanze) | Alle Rollen | **Nur Leitung** | Ab Gärtner (bestätigen, verschieben) | Nur Leitung | Ein Pflegeprofil ist eine **Vorlage**, keine Beobachtung — Anlegen ist Leitung (REQ-024 §1a.1), Bestätigen und Verschieben ab Gärtner |
 | Erinnerungen (pro Pflanze) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 
 ## 8. Abhängigkeiten

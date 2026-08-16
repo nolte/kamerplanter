@@ -628,9 +628,9 @@ Alle KI-Endpunkte sind unter dem Pfadpraefix `/api/v1/.../ai/` erreichbar. Sie l
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
 | `GET` | `/providers` | Provider auflisten (Tenant + System-Defaults) | Ab Gärtner |
-| `POST` | `/providers` | Neuen Provider konfigurieren | Nur Leitung |
-| `PUT` | `/providers/{key}` | Aktualisieren | Nur Leitung |
-| `DELETE` | `/providers/{key}` | Soft-Delete | Nur Leitung |
+| `POST` | `/providers` | Neuen Provider konfigurieren | Technik |
+| `PUT` | `/providers/{key}` | Aktualisieren | Technik |
+| `DELETE` | `/providers/{key}` | Soft-Delete | Technik |
 | `GET` | `/providers/{key}/health` | Health testen (proxied an KnowledgeService) | Ab Gärtner |
 
 **Tenant-Settings (NEU):**
@@ -638,7 +638,12 @@ Alle KI-Endpunkte sind unter dem Pfadpraefix `/api/v1/.../ai/` erreichbar. Sie l
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
 | `GET` | `/settings` | Aktuelle KI-Einstellungen des Tenants | Alle Rollen |
-| `PUT` | `/settings` | KI-Einstellungen aendern (`ai_features_enabled`, `ai_default_provider_key`, `ai_allow_cloud_providers`, `ai_daily_tip_enabled`) | Nur Leitung |
+| `PUT` | `/settings` | KI-Einstellungen aendern (`ai_features_enabled`, `ai_default_provider_key`, `ai_allow_cloud_providers`, `ai_daily_tip_enabled`) | Technik |
+
+> **Vokabular:** Die Konfiguration der KI-Provider und der Mandanten-KI-Einstellungen hängt an der
+> Zusatzberechtigung **Technik** (REQ-049 §2.4/§3.4), nicht am fachlichen Rang — dieselbe Einordnung
+> wie Home Assistant, MQTT und Sensorik. Eine Leitung ohne `technical` konfiguriert hier nichts; ein
+> Technikwart mit der Rolle Gärtner sehr wohl. Die Matrix in §7 sagt dasselbe.
 
 ### 5.2 Globale Endpunkte
 

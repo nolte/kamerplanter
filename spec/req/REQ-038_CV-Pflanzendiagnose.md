@@ -8,7 +8,7 @@ Fokus: Beides
 Technologie: Python 3.14+, PlantCV, ONNX, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
 Version: 1.2 (Erfassungsverweis auf REQ-052 umgehängt)
-Abhängigkeit: REQ-010 (IPM), REQ-029 (Bilderkennung), REQ-029-A (Self-Hosted), REQ-036 (KI-Diagnose-Assistent), REQ-007 (Ernte), REQ-025 (DSGVO), REQ-031 (Knowledge-Service)
+Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `recognition`), REQ-010 (IPM), REQ-029 (Bilderkennung), REQ-029-A (Self-Hosted), REQ-036 (KI-Diagnose-Assistent), REQ-007 (Ernte), REQ-025 (DSGVO), REQ-031 (Knowledge-Service)
 ```
 
 ## Versionshistorie

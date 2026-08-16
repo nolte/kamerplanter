@@ -9,6 +9,7 @@ Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, React 19/TypeScript 5.9, M
 Status: Entwurf
 Prioritaet: Hoch
 Version: 1.2 (Erfassung §2.2 nach REQ-052 ausgelagert)
+Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `gallery`), NFR-013 v1.4 (Object Storage), REQ-013 v2.7 (PlantInstance), REQ-024 v1.7 (Rollen), REQ-025 v1.6 (DSGVO), REQ-029-A v1.3 (DINOv2-Referenz-Index)
 Autor: Business Analyst - Agrotech
 Datum: 2026-06-19
 Tags: [photos, gallery, plant-instance, attachments, storage, dinov2, user-contributed, dsgvo]
@@ -261,7 +262,7 @@ REQ-034 erbt das gesamte Erasure-Fundament aus NFR-013 §6 / REQ-025 §3.1 (W-00
 ## 6. Sicherheit & Berechtigungen
 
 - **Upload-Pipeline:** unveraendert NFR-013 §5.1 (Auth → AuthZ → Quota → MIME-Whitelist → Magic-Byte → Groessenlimit → optional Virus-Scan → SHA-256 → Schreiben → Metadaten → Audit-Log).
-- **Permission-Vertrag (SR-002, REQ-024 v1.5 §1a):** Die in NFR-013 §5.1 abstrakt notierte `attachment:create`-Anforderung wird auf den realen `Permission`-Enum abgebildet — **Upload** = `Permission.CREATE_RESOURCE`, **Cover setzen** = `Permission.UPDATE_RESOURCE`, **Loeschen** = `Permission.DELETE_RESOURCE`. Jeweils mit der Zuweisungs-Write-Kontrolle aus REQ-024 §1a.5 (`grower` darf eigene/community-Pflanzen-Fotos, nicht fremde). Maßgeblich ist die neue Matrix-Zeile **„Plant Instance Photos (`category=plant`)"** (REQ-024 §1a.1).
+- **Permission-Vertrag (SR-002):** Upload, Titelbild-Setzen und Löschen laufen über die Ressourcen-Wächter aus REQ-024 §1a.6 (`require_permission(ResourceType.ATTACHMENT, …)`) — **Anlegen und Ändern ab Gärtner, Löschen nur Leitung** (REQ-024 §1a.1). Die frühere Formulierung verwies auf die zuweisungsbasierte Write-Kontrolle §1a.5 („grower darf eigene/community-Fotos, nicht fremde") und auf einen `Permission`-Enum mit `CREATE_/UPDATE_/DELETE_RESOURCE`; **beides existiert nicht mehr bzw. nie** — §1a.5 ist mit REQ-049 §3.5 gestrichen, und der Enum war in REQ-024 v1.6 spezifiziert, aber nie gebaut. Was den Zugriff zusätzlich einschränkt, ist die Herkunftsregel SEC-003: Ein Gärtner darf nur Attachments referenzieren, die er selbst hochgeladen hat; die Leitung ist ausgenommen.
 - **Viewer:** `Permission.READ_RESOURCE` — darf die Galerie sehen, aber nicht hochladen/Cover setzen/loeschen (AC-13).
 - **Stable URI** ist die einzige Frontend-Adresse (NFR-013 §2.4) — kein direkter Storage-Zugriff.
 - **Cross-Tenant-Schutz:** Verknuepfen eines Attachments mit fremdem `tenant_key` wird abgelehnt (§2.1). Tenant-Isolation auf Storage-Ebene durch das Key-Schema (NFR-013 §2.3).

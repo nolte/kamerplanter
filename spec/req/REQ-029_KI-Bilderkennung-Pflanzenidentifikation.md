@@ -10,7 +10,7 @@ Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI, Flutter
 Status: Entwurf
 Version: 1.1 (Erfassung §4.1/§5.4 nach REQ-052 ausgelagert)
-Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-011 v1.0 (Adapter-Pattern), REQ-020 v1.6 (Onboarding-Wizard), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-024 v1.3 (Mandantenverwaltung)
+Abhängigkeit: REQ-052 v1.0 (Bilderfassung — §4.1 dorthin ausgelagert), REQ-001 v5.0 (Stammdaten), REQ-011 v1.0 (Adapter-Pattern), REQ-020 v1.6 (Onboarding-Wizard), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-024 v1.3 (Mandantenverwaltung)
 ```
 
 ## 1. Business Case

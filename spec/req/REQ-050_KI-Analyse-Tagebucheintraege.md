@@ -123,7 +123,7 @@ folgen kann, und der Nutzer hat den Zugang dazu ohnehin schon.
 |-----------------|---------------------|
 | Markieren/Entmarkieren eines Eintrags zur Analyse | Automatische Markierung durch Regeln oder Schwellwerte |
 | Zustandsmaschine mit Lease gegen Doppelbearbeitung | Warteschlangen-Priorisierung, Fairness zwischen Mandanten |
-| Ein Analyse-Ergebnis je Eintrag (das jüngste) | Versionierte Analyse-Historie (§9, O-01) |
+| Ein Analyse-Ergebnis **am Eintrag** (das jüngste) | Die Archivierung selbst — sie ist mit v1.5 beschlossen (O-01) und in **REQ-051 §5** spezifiziert, nicht hier |
 | Fünf MCP-Werkzeuge als Vertrag für externe Agenten | Das Agenten-Rezept selbst (Repository `kamerplanter-goose`) |
 | Bilder als MCP-Bild-Content aus vorhandenen Renditions | Ausliefern von Originalbildern über MCP |
 | **Tagebuch-Erfassung an der Pflanzeninstanz** (REQ-051 §6.1) | Serverseitiger Modellaufruf jeglicher Art |
@@ -984,7 +984,7 @@ ein Agent, der ihren API-Schlüssel hat, ist innerhalb dieser Grenze. Die beiden
 | **AK-18a** | `can_request_analysis` je Zeile spiegelt die serverseitige Auswertung von Rolle, Autorschaft, Einwilligung und Betriebsmodus. Ein Markierversuch auf einer Zeile mit `false` wird serverseitig abgelehnt — das Feld ist Anzeigehilfe, nicht Autorisierung. |
 | **AK-19** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Nur eigene Einträge markierbar; fremde Zeilen ohne Schalter. |
 | **AK-20** | → **verlagert nach REQ-051 §12** (gleiche Nummer): Vorbehalt immer sichtbar, nicht aufklappbar versteckt. |
-| **AK-21** | Eine erneute Analyse eines `completed`- oder `failed`-Eintrags ist möglich; sie setzt den Zustand auf `requested` und überschreibt beim Abschluss das vorherige Ergebnis vollständig. |
+| **AK-21** | Eine erneute Analyse eines `completed`- oder `failed`-Eintrags ist möglich; sie setzt den Zustand auf `requested` und ersetzt beim Abschluss das Ergebnis **am Eintrag** vollständig. Das vorherige geht dabei **nicht** verloren: Jeder Lauf ist archiviert (REQ-051 §5). |
 | **AK-22** | `submit_diary_analysis` weist Eingaben zurück, die eine Längengrenze aus §4.5 überschreiten, `confidence` außerhalb 0.0–1.0 tragen, bei `completed` kein `summary` oder bei `failed` kein `error` mitführen (jeweils `validation.error`). |
 | **AK-23** | Löschen des Eintrags löscht das Analyse-Ergebnis; Löschen der Pflanze löscht beides. Bei Nutzerlöschung bleibt der Eintrag erhalten und `created_by`, `analysis_requested_by` und `analysis_claimed_by` sind auf `_anonymized` gesetzt. |
 | **AK-24** | Die Datenauskunft nach Art. 15 enthält Tagebuch-Einträge samt Analyse-Ergebnis. |

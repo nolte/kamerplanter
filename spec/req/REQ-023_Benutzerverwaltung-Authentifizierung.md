@@ -1416,9 +1416,7 @@ def is_orphaned(tenant_key: str) -> bool:
     niemand mehr Mitglieder einladen, Rollen aendern oder Einstellungen
     pflegen kann. Nur der zweite Fall rechtfertigt die Notfallverwaltung.
     """
-    active_managers = membership_repo.count_by_tenant_and_scope(
-        tenant_key, admin_scope="management", status="active"
-    )
+    active_managers = membership_repo.count_active_managers(tenant_key)
     return active_managers == 0
 ```
 

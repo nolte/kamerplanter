@@ -8,6 +8,7 @@ Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
 Version: 1.5 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Abhängigkeit: REQ-052 v1.0 (Bilderfassung — nutzerbeigesteuerte Schädlingsfotos, Profil `gallery`), REQ-024 v1.7 (Rollen), REQ-025 v1.6 (DSGVO), NFR-013 v1.4 (Object Storage)
 ```
 
 ### Changelog

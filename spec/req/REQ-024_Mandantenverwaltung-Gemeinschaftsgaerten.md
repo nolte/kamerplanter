@@ -139,7 +139,7 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 | **Tasks** | CRUD all | CRU all, ❌D | R all | **Zuweisen (`assigned_to`):** 🔒 Leitung. **Status ändern:** ab Gärtner, **auch bei fremd zugewiesenen Aufgaben** — die Zuweisung ist Absprache, kein Ausschluss, und deckt genau den Fall ab, dass die zugewiesene Person ausfällt (REQ-049 §3.5) |
 | **Harvest Batches** | CRUD all | CRU all, ❌D | R all | **Quality Assessment:** ab Gärtner |
 | **Tanks** | CRUD all | CRU all, ❌D | R all | **Tank-State erstellen:** ab Gärtner |
-| **Fertilizers** (tenant-eigen) | CRUD all | CR all, R all, ❌U ❌D | R all | Globale Fertilizers: nur lesen (alle Rollen) |
+| **Fertilizers** (tenant-eigen) | CRUD all | CRU all, ❌D | R all | Globale Fertilizers: nur lesen (alle Rollen). Mandanteneigene sind Fachdaten — anlegen und ändern ab Gärtner (AK-25, REQ-001 Schicht 3) |
 | **Nutrient Plans** (tenant-eigen) | CRUD all | CRU all, ❌D | R all | Globale Pläne: nur lesen (alle Rollen) |
 | **Feeding Events** | CRUD all | CRU all, ❌D | R all | — |
 | **Watering Events** | CRUD all | CRU all, ❌D | R all | **Quick-Confirm:** ab Gärtner |
@@ -905,17 +905,24 @@ class MembershipEngine:
         # keine Rolle.
 
     # ── Achse 2: administrative Zusatzberechtigung ───────────────────────
+    # Zwei getrennte Praedikate statt eines generischen `has_scope`, damit die
+    # Aufrufstelle die gemeinte Befugnis benennt statt einen Enum-Wert.
     @staticmethod
-    def has_admin_scope(scopes: list[AdminScope], needed: AdminScope) -> bool: ...
-        # Unabhaengig vom Rang: ein Beobachter mit `management` besteht,
-        # eine Leitung ohne `management` nicht.
+    def can_manage_members(admin_scopes: list[AdminScope]) -> bool: ...
+        # `management`. Unabhaengig vom Rang: ein Beobachter mit `management`
+        # besteht, eine Leitung ohne `management` nicht.
 
     @staticmethod
-    def validate_not_last_management(tenant_memberships: list[Membership],
-                                     target_user_key: str) -> bool: ...
-        # INV-1: der letzte Traeger von `management` darf weder entfernt
-        # noch degradiert werden -- sonst ist der Mandant verwaist
-        # (REQ-023 §5a.5 Notfallverwaltung).
+    def can_configure_integrations(admin_scopes: list[AdminScope]) -> bool: ...
+        # `technical`. Home Assistant, MQTT, Sensorik, Import, KI-Provider.
+
+    @staticmethod
+    def validate_not_last_manager(manager_count: int,
+                                  target_has_management: bool) -> bool: ...
+        # INV-1: der letzte Traeger von `management` darf weder entfernt noch
+        # dieser Berechtigung entzogen werden -- sonst ist der Mandant
+        # verwaist (REQ-023 §5a.5). Nimmt die ZAHL entgegen, nicht die Liste:
+        # das Praedikat bleibt damit frei von Repository-Kenntnis.
 ```
 
 **`InvitationEngine`** — Einladungslogik:
@@ -1376,7 +1383,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 <!-- /Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
 <!-- Quelle: RBAC Permission-Matrix v1.4 -->
 | AK-29 | Rolle **Leitung** besteht `can_edit_resource` **und** `can_delete_resource`; die Zusatzberechtigungen bleiben davon unberührt (eine Leitung ohne `management` verwaltet keine Mitglieder) | Unit |
-| AK-30 | Rolle **Gärtner** besteht `can_edit_resource`, aber **nicht** `can_delete_resource` — an **jeder** Ressource des Mandanten, unabhängig von Zuweisung und Autorschaft | Unit + Integration |
+| AK-30 | Rolle **Gärtner** besteht `can_edit_resource`, aber **nicht** `can_delete_resource` — an **jeder** Fachressource des Mandanten, unabhängig von der Zuweisung. Die **Autorschaft** ist davon nicht berührt: Sie ist keine Rollenfrage und wird nicht von diesem Prädikat entschieden, sondern zusätzlich am Dienst geprüft, dort wo REQ-049 §3.1 sie zulässt — bei **verfassten Inhalten** (Pinnwand-Beiträge und Kommentare, AK-35; Tagebuch-Einträge, REQ-051 §3.2). Für Fachdaten gibt es keine Autorschafts-Schranke | Unit + Integration |
 | AK-31 | Rolle **Beobachter** besteht ausschließlich `can_view_resource`; jeder Schreib- und Löschversuch endet in `403` | Unit |
 | AK-32 | Ein Gärtner kann eine Aufgabe bearbeiten und ihren Status ändern, die **einem anderen Mitglied** zugewiesen ist. Ein Test, der das Gegenteil erwartet, prüft die mit REQ-049 §3.5 gestrichene Regel | Integration |
 | AK-33 | Aufgaben **zuweisen** (`assigned_to` setzen) gelingt nur der Leitung | Integration |

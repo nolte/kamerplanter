@@ -11,7 +11,7 @@ Priorität: Hoch
 Version: 1.0
 Datum: 2026-08-16
 Tags: [diary, editing, versioning, analysis-archive, mobile, client-neutral]
-Abhängigkeit: REQ-013 v2.7 (Pflanzdurchlauf — `PlantDiaryEntry`, Endpunkte, Umgebungs-Schnappschuss §2.3a), REQ-050 v1.5 (KI-Analyse — Zustandsmaschine, MCP-Vertrag, Einwilligung), REQ-034 v1.1 (Foto-Erfassungswege), NFR-013 v1.4 (Object Storage — Attachments, Renditions), REQ-005 (Sensorik-Fallback-Kette, Provenienz), REQ-024 v1.7 (Mandant), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.6 (DSGVO), REQ-042 v1.1 (Modul `diary`), REQ-021 v1.4 (Navigations-Zuordnung), REQ-027 (Light-Modus)
+Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `gallery`), REQ-013 v2.7 (Pflanzdurchlauf — `PlantDiaryEntry`, Endpunkte, Umgebungs-Schnappschuss §2.3a), REQ-050 v1.5 (KI-Analyse — Zustandsmaschine, MCP-Vertrag, Einwilligung), REQ-034 v1.2 (Foto-Galerie — Zuordnung, Titelbild, Metadaten), NFR-013 v1.4 (Object Storage — Attachments, Renditions), REQ-005 (Sensorik-Fallback-Kette, Provenienz), REQ-024 v1.7 (Mandant), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.6 (DSGVO), REQ-042 v1.1 (Modul `diary`), REQ-021 v1.4 (Navigations-Zuordnung), REQ-027 (Light-Modus)
 Wird benötigt von: REQ-050 (Oberfläche der Analyse-Anzeige)
 ```
 
@@ -279,7 +279,7 @@ Wer im Mandanten Gärtner ist, darf an **jeder** Pflanze des Mandanten ein Tageb
 unabhängig davon, wem die Parzelle zugewiesen ist, auf der sie steht. Das ist keine Lücke dieser
 Anforderung, sondern die geltende Regel: **REQ-049 §3.5** stellt fest, dass die Standort-Zuweisung
 Koordination ist und kein Recht, und hebt die zuweisungsbasierte Schreibkontrolle aus
-REQ-024 §1a.5 **ersatzlos** auf. REQ-024 §1a.5 trägt den Vermerk „nicht mehr umzusetzen".
+REQ-024 §1a.5 **ersatzlos** auf; REQ-024 v1.7 hat den Abschnitt daraufhin gestrichen.
 
 Das Tagebuch prüft die Zuweisung also nicht, **weil es sie nicht prüfen soll**. Die Begründung aus
 REQ-049 §2.1 (P1/P2) trägt hier besonders gut: Eine Beobachtung ist kein Eingriff. „An der Pflanze
@@ -323,6 +323,20 @@ Zuordnung der Fotos und des Umgebungs-Schnappschusses wieder stimmig.
 Bearbeiten ist ein Schreibrecht und folgt derselben Regel wie das Markieren zur Analyse
 (REQ-050 §7.2): Gärtner bearbeiten **eigene** Einträge, die Rolle Leitung bearbeitet alle,
 Beobachter bearbeiten keine.
+
+**Warum „eigene" hier zulässig ist, obwohl REQ-049 §3.1 es für Fachdaten verbietet.** Die Regel
+dort lautet: `Eigene` gilt **ausschließlich** bei verfassten Inhalten — Pinnwand-Beiträge,
+Kommentare, eigene Betroffenenanfragen — und **nie** bei Fachdaten. Ein Tagebuch-Eintrag ist ein
+verfasster Inhalt: eine Beobachtung in den Worten ihres Verfassers, keine Zustandsangabe über die
+Pflanze. Er steht damit in derselben Kategorie wie ein Pinnwand-Beitrag, nicht in der von
+Pflanzdurchlauf, Ernte oder Messreihe.
+
+Die Abgrenzung trägt innerhalb dieser Anforderung: Ein **Foto** an einem Eintrag ist Fachdatum —
+es dokumentiert die Pflanze, nicht die Meinung des Fotografen — und unterliegt deshalb der
+Herkunftsregel SEC-003 (§3.3) statt der Autorschaft. Die Prüfung „nur eigene" ist außerdem
+**keine Rollenfrage** und liegt deshalb nicht in `MembershipEngine.can_edit_resource`, dessen
+Zusage („jede Fachressource, unabhängig von Zuweisung", REQ-024 AK-30) davon unberührt bleibt,
+sondern als zusätzliche Prüfung am Tagebuch-Dienst (§10).
 
 **Löschen ist ausschließlich der Rolle Leitung vorbehalten** — auch dem Verfasser eines Eintrags
 steht es nicht zu. Das ist die Irreversibilitätsgrenze aus REQ-049 §2.3, die dem Gärtner

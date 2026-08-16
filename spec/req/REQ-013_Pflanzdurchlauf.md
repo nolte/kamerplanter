@@ -1599,7 +1599,7 @@ class PlantDiaryEntryDocument(BaseModel):
 |---------|------|-------------|------|
 | `GET` | `/api/v1/planting-runs/{key}/watering-schedule` | Aufgeloester Giesskalender: naechste 14 Tage mit Dosierungen | Alle Rollen |
 
-### 4.7 Pflanzen-Tagebuch (15 Endpunkte)
+### 4.7 Pflanzen-Tagebuch (17 Endpunkte)
 
 > **Umsetzungsstand (Stand 2026-08-04):** Implementiert sind ausschliesslich die **sechs
 > Endpunkte im Run-Kontext**. Die fuenf **Standalone**-Endpunkte
@@ -1849,10 +1849,6 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Run-Operationen | — | Ab Gärtner | Ab Gärtner | — | — |
 | Pflanzen-Tagebuch | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Bearbeiten nur an eigenen Eintraegen; Loeschen ist Leitung, auch beim Verfasser (REQ-051 §3.2) |
 | Tagebuch KI-Analyse markieren (REQ-050) | Alle Rollen | Ab Gärtner | Ab Gärtner | — | Markieren nur an eigenen Einträgen (REQ-050 §7.2) |
-
-> **Vokabular:** Diese Tabelle folgt REQ-049 §3.1/§3.3. Die frueheren Werte `Mitglied`
-> und `Admin` sind dort verboten und mit v2.7 vollstaendig ersetzt.
-
 ## 6. Abhaengigkeiten
 
 ### Erforderliche Module:
