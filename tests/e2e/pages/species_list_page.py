@@ -112,11 +112,30 @@ class SpeciesListPage(BasePage):
         before scanning — mirrors ``provision_plant`` in ``_journey_helpers.py``.
         """
         self.search(name)
-        for row in self.driver.find_elements(*self.TABLE_ROWS):
-            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
-                self.click_row_via_column(row, self.NAME_COLUMN_ID)
-                return
-        raise ValueError(f"Row with name '{name}' not found")
+
+        # The whole scan is re-run when the table moves underneath it, not just
+        # the click. ``find_elements`` hands back raw references; reading a cell
+        # *through* one of them a moment later is the capture-then-use shape
+        # ``retry_on_stale`` exists for, and this call site never adopted it.
+        #
+        # It is not hypothetical: the 2026-08-16 matrix failed here with
+        # ``StaleElementReferenceException`` while provisioning a species for
+        # TC-001-0xx. ``search()`` already waits out the 300 ms debounce and then
+        # ``wait_for_loading_complete()`` — but that waits for a *skeleton* to
+        # unmount, and a refetch that resolves before one renders leaves nothing
+        # to wait for. The table then re-renders after the rows were captured.
+        #
+        # The retry is a genuine re-acquisition, not a loop hoping the same
+        # moment comes out differently: each attempt calls ``find_elements``
+        # again, so it looks at the render that exists *now*.
+        def _scan_and_click() -> None:
+            for row in self.driver.find_elements(*self.TABLE_ROWS):
+                if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
+                    self.click_row_via_column(row, self.NAME_COLUMN_ID)
+                    return
+            raise ValueError(f"Row with name '{name}' not found")
+
+        self.retry_on_stale(_scan_and_click)
 
     def click_next_page(self) -> None:
         self.wait_for_element_clickable(self.NEXT_PAGE).click()

@@ -87,18 +87,39 @@ def context() -> dict[str, Any]:
     return {}
 
 
-def _day(context: dict[str, Any], page: BasePage, token: str) -> tuple[int, int, int]:
-    """Resolve a scenario's day *token* against the browser's today.
+def _day(context: dict[str, Any], page: BasePage, token: str) -> set[tuple[int, int, int]]:
+    """Resolve a scenario's day *token* to the day(s) the assertion may accept.
 
-    "Today" is read from the browser once per scenario and cached in *context*:
-    browser and test runner can sit in different timezones in the containerised
-    stack, and every date cell under assertion was rendered by the frontend, so
-    the browser's notion of today is the only correct anchor. Any page object
-    can answer it — the call is a page-object call, not driver access.
+    "Today" is read from the **browser**: browser and test runner can sit in
+    different timezones in the containerised stack, and every date cell under
+    assertion was rendered by the frontend, so the browser's notion of today is
+    the only correct anchor. Any page object can answer it — the call is a
+    page-object call, not driver access.
+
+    **Anchored to the action, and a set rather than one day.** It used to read
+    "today" lazily, on the first *Then* step — i.e. after the watering had been
+    logged. A run that crossed midnight in between then compared a row written
+    on one day against an anchor taken on the next, and failed:
+
+        global-log timestamp of row 0 is not today
+        (cell='15.08.2026, 23:59', expected=(16, 8, 2026))
+
+    measured on the 2026-08-16 matrix, which ran 23:23Z–00:07Z.
+
+    So the day is captured around the *action* (see ``record_plain_watering``),
+    twice: before and after. Normally both reads agree and this returns a single
+    day, so the assertion is exactly as strict as it was. They differ only when
+    the action itself straddled 00:00 — and then the row legitimately carries
+    either day, so asserting one of them would be asserting the clock, not the
+    behaviour.
     """
-    if "today" not in context:
-        context["today"] = page.get_browser_today()
-    return resolve_day_token(token, context["today"])
+    anchors = context.get("action_days")
+    if not anchors:
+        # No action-anchored capture (a step that runs before the action, or a
+        # scenario that never acts): fall back to reading now, which is what the
+        # old behaviour was for every caller.
+        anchors = [page.get_browser_today()]
+    return {resolve_day_token(token, anchor) for anchor in anchors}
 
 
 # ── Scenario ─────────────────────────────────────────────────────────────────
@@ -155,17 +176,32 @@ def plant_has_watering_tasks_due(
     explicitly instead of asserting — the behavioural assertions all live in the
     ``Then`` bindings, per ``spec/project/bdd-page-object-integration/``.
 
-    While the tasks tab is open, the Overdue/Active/Done summary bar is recorded
-    as well, so the outcome step can state a *gain* over the pre-action bar
-    rather than an absolute count.
+    **At least, not exactly.** The precondition this journey needs is "there is an
+    open watering task to complete"; the number of them is not the subject. It
+    used to demand an exact count and failed the 2026-08-15 nightly with
+    ``expected 1 … found 2``.
+
+    The reason it cannot be exact: ``provision_watering_care_task`` materialises
+    the task through ``POST /t/{slug}/tasks/generate-care-reminders``, which runs
+    ``generate_due_care_reminders`` — the **daily producer**, for every plant it
+    finds, not for this one. In light mode all four xdist workers share a single
+    tenant, so another worker provisioning its own plant runs that producer over
+    this plant too. A second qualifying reminder is therefore ordinary, not a
+    defect, and its presence depends on scheduling.
+
+    The sibling summary-bar step already knew this — it states a *gain* over a
+    baseline for exactly the same reason ("a fresh care profile also materialises
+    the other opted-in reminder types"). This step records the same kind of
+    baseline; ``follow_up_watering_tasks_are_due`` is what consumes it.
     """
-    expected = int(count)
+    at_least = int(count)
     plant_detail.open_tasks_tab(context["key"])
     pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
-    if pending != expected:
+    if pending < at_least:
         raise RuntimeError(
-            f"TC-004-092 SETUP: expected {expected} pending '— watering' task(s) "
-            f"before the action, found {pending}"
+            f"TC-004-092 SETUP: expected at least {at_least} pending '— watering' task(s) "
+            f"before the action, found {pending} — the self-provisioned task did not "
+            f"materialise, so there is nothing for the coupling to complete"
         )
     context["baseline_pending"] = pending
     context["baseline_summary"] = plant_detail.get_task_summary_counts()
@@ -198,9 +234,16 @@ def record_plain_watering(
     context: dict[str, Any],
     watering_list: WateringLogListPage,
 ) -> None:
-    """Log one watering with no fertilizer channel — the single action under test."""
+    """Log one watering with no fertilizer channel — the single action under test.
+
+    Brackets the action with the browser's date, so the outcome steps compare the
+    logged row against the day it was *written* on rather than the day the
+    assertion happens to run on. Both reads normally agree; they differ only when
+    the action straddles midnight, and ``_day`` widens to accept either only then.
+    """
     volume = int(litres)
     watering_list.open()
+    context["action_days"] = [watering_list.get_browser_today()]
     watering_list.click_create()
     if not watering_list.select_plant_by_text(context["instance_id"]):
         raise RuntimeError(
@@ -212,6 +255,13 @@ def record_plain_watering(
     watering_list.select_water_source(TAP_LABEL)
     watering_list.submit_create_form()
     watering_list.wait_for_loading_complete()
+    # The closing bracket. Equal to the opening read in every normal run; a
+    # second, different day here is the only honest signal that the write itself
+    # straddled 00:00, and it is what lets `_day` widen exactly then and never
+    # otherwise.
+    after = watering_list.get_browser_today()
+    if after not in context["action_days"]:
+        context["action_days"].append(after)
     context["litres"] = volume
 
 
@@ -251,9 +301,9 @@ def global_log_holds_waterings(
         plants = watering_list.get_row_cell(index, "plants")
         if index == 0:
             context["view1_logged_at"] = logged_at
-        assert parse_de_date(logged_at) == expected_day, (
+        assert parse_de_date(logged_at) in expected_day, (
             f"TC-004-092 FAIL (View 1): global-log timestamp of row {index} is not "
-            f"{day} (cell={logged_at!r}, expected={expected_day})"
+            f"{day} (cell={logged_at!r}, expected one of {sorted(expected_day)})"
         )
         assert context["instance_id"] in plants, (
             f"TC-004-092 FAIL (View 1): expected the plant chip of row {index} to "
@@ -323,9 +373,9 @@ def instance_log_gained_entries(
         if index == 0:
             context["view2_logged_at"] = logged_at
 
-        assert parse_de_date(logged_at) == expected_day, (
+        assert parse_de_date(logged_at) in expected_day, (
             f"TC-004-092 FAIL (View 2): instance-log timestamp of row {index} is not "
-            f"{day} (cell={logged_at!r}, expected={expected_day})"
+            f"{day} (cell={logged_at!r}, expected one of {sorted(expected_day)})"
         )
         assert DRENCH_METHOD_LABEL in method, (
             f"TC-004-092 FAIL (View 2): expected application method "
@@ -371,9 +421,9 @@ def watering_tasks_have_been_completed(
         f"{completed}) — the open watering task must move to 'Abgeschlossen'"
     )
     expected_day = _day(context, plant_detail, day)
-    assert parse_de_date(completed_at) == expected_day, (
+    assert parse_de_date(completed_at) in expected_day, (
         f"TC-004-092 FAIL (View 3): the completed watering task must carry the "
-        f"{day} completion date (cell={completed_at!r}, expected={expected_day})"
+        f"{day} completion date (cell={completed_at!r}, expected one of {sorted(expected_day)})"
     )
 
 
@@ -383,12 +433,32 @@ def follow_up_watering_tasks_are_due(
     context: dict[str, Any],
     plant_detail: PlantInstanceDetailPage,
 ) -> None:
-    """View 3 — the coupling scheduled the next watering."""
-    expected = int(count)
+    """View 3 — the coupling scheduled the next watering.
+
+    Stated as a *balance*, not an absolute count, and for the same reason the
+    summary-bar step below states a gain: the plant may legitimately carry more
+    than one pending watering task, because the daily producer that materialises
+    them runs tenant-wide and light mode shares one tenant across four xdist
+    workers.
+
+    What the coupling guarantees is the exchange: the completed task leaves the
+    Active section and its follow-up takes the freed slot, so the pending count
+    is **unchanged**. That is a stronger statement than "there is one", not a
+    weaker one — it fails if the follow-up is never scheduled (count drops) and
+    it fails if the completed task stays pending (count rises). An absolute
+    ``== 1`` asserted neither of those; it asserted that nothing else in the
+    tenant had happened.
+
+    ``count`` is how many follow-ups the scenario expects the exchange to
+    produce, which is what keeps this readable against the feature file.
+    """
+    expected_gain = int(count)
+    baseline = context["baseline_pending"]
     pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
-    assert pending == expected, (
-        f"TC-004-092 FAIL (View 3): exactly {expected} new pending '— watering' "
-        f"follow-up task(s) must exist, found {pending}"
+    assert pending == baseline, (
+        f"TC-004-092 FAIL (View 3): completing a watering task must leave the pending "
+        f"count unchanged — {expected_gain} follow-up task(s) replace the {expected_gain} "
+        f"completed one(s) (baseline {baseline}, now {pending})"
     )
 
 

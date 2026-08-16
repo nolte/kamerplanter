@@ -1183,6 +1183,36 @@ class BasePage:
             return []
         return self.driver.find_elements(*locator)
 
+    #: Every shape an error can reach the user in. The first two are MUI's own
+    #: (an inline ``Alert``, a plain ``Snackbar``); the notistack ones are what
+    #: ``handleError`` actually enqueues, and they were **missing** from the
+    #: original reader — so it answered ``False`` while a red "Sie haben keine
+    #: Berechtigung für diese Aktion." toast was on screen (measured while
+    #: closing #1120, screenshot ``TC-REQ-001-099_after-submit``). A reader that
+    #: cannot see the app's usual error channel makes "an error appeared" a false
+    #: negative and "no error appeared" a vacuous pass.
+    #:
+    #: Lives on ``BasePage`` since the substrate role gate needed the same reader
+    #: (#1195): a second copy is how two page objects end up disagreeing about
+    #: what counts as a visible error, and the one nobody looks at is the one
+    #: that stays blind.
+    ERROR_SURFACES = (
+        By.CSS_SELECTOR,
+        ".MuiAlert-colorError, .MuiSnackbar-root, "
+        ".SnackbarItem-variantError, [class*='notistack-MuiContent-error']",
+    )
+
+    def has_error_snackbar(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
+        """Whether an error surfaced, waiting briefly for it to appear.
+
+        Anchored rather than instantaneous: the toast is enqueued when the
+        rejected request comes back, so a bare read taken right after a submit
+        races the round trip. ``False`` here means "no error within *timeout*",
+        which is a genuine negative — unlike a sample that happened to land one
+        frame early.
+        """
+        return self.is_visible_within(self.ERROR_SURFACES, timeout)
+
     def is_visible_within(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> bool:
         """Whether *locator* is displayed, waiting for it to appear first.
 

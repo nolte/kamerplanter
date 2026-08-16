@@ -194,31 +194,6 @@ class BotanicalFamilyListPage(BasePage):
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
 
-    #: Every shape an error can reach the user in on this page. The first two are
-    #: MUI's own (an inline `Alert`, a plain `Snackbar`); the notistack ones are
-    #: what `handleError` actually enqueues, and they were **missing** — so this
-    #: reader answered ``False`` while a red "Sie haben keine Berechtigung für
-    #: diese Aktion." toast was on screen (measured against the full stack while
-    #: closing #1120, screenshot ``TC-REQ-001-099_after-submit``). A reader that
-    #: cannot see the app's usual error channel makes "an error appeared" a
-    #: false negative and "no error appeared" a vacuous pass.
-    ERROR_SURFACES = (
-        By.CSS_SELECTOR,
-        ".MuiAlert-colorError, .MuiSnackbar-root, "
-        ".SnackbarItem-variantError, [class*='notistack-MuiContent-error']",
-    )
-
-    def has_error_snackbar(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> bool:
-        """Whether an error surfaced, waiting briefly for it to appear.
-
-        Anchored rather than instantaneous: the toast is enqueued when the
-        rejected request comes back, so a bare read taken right after the submit
-        races the round trip. ``False`` here means "no error within *timeout*",
-        which is a genuine negative — unlike a sample that happened to land one
-        frame early.
-        """
-        return self.is_visible_within(self.ERROR_SURFACES, timeout)
-
     # ── Create dialog ──────────────────────────────────────────────────
 
     def click_create(self) -> None:

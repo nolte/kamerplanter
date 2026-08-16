@@ -25,7 +25,7 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from ._journey_helpers import provision_plant
+from ._journey_helpers import provision_plant_with_live_watering_card
 from .pages.pflege_dashboard_page import PflegeDashboardPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_queue_page import TaskQueuePage
@@ -52,34 +52,6 @@ def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
 # ── Shared arrange step ──────────────────────────────────────────────────────
 
 
-def _wait_for_watering_card(
-    pflege: PflegeDashboardPage,
-    plant_key: str,
-    timeout: float = 15.0,
-) -> bool:
-    """Wait for the plant's live watering care card in the merged task queue.
-
-    Returns True once the ``care-card-care-{plant_key}-watering`` card appears.
-
-    A freshly provisioned plant gets an auto care profile whose watering entry
-    is due today, so the live care dashboard renders the card on its own. We
-    deliberately do NOT click "Generate reminders": generation materialises a
-    ``care_reminder`` *task*, and the merged task queue then deduplicates the
-    live care card away (rendering it as a task card instead), which would hide
-    the very card this journey asserts on. The dedup is intentional app
-    behaviour — see TaskQueuePage's merged-queue logic — not a regression.
-
-    One navigation and one continuous poll. The loop this replaces re-navigated
-    per attempt and then sampled a raw reader immediately, so every sample hit
-    the same not-yet-rendered window; it could not succeed however long it ran.
-    CI caught it on `c2b973b07` (TC-REQ-022-J087) after three local light runs
-    passed — this machine is fast enough to render inside the sample window, so
-    a green local run does not clear a test of this shape.
-    """
-    pflege.open()
-    return pflege.wait_for_care_card(plant_key, "watering", timeout=int(timeout))
-
-
 # ── TC-022-087 ───────────────────────────────────────────────────────────────
 
 
@@ -99,16 +71,12 @@ class TestCoreJourneyConfirmWateringReminder:
 
         Spec: TC-022-087 -- Core-Journey Gieß-Erinnerung bestätigen.
         """
-        key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-022")
-
-        appeared = _wait_for_watering_card(pflege, key)
+        key, instance_id = provision_plant_with_live_watering_card(
+            plant_creator, pflege, id_prefix="JOURNEY-022"
+        )
         screenshot(
             "TC-REQ-022-J087_reminder-card",
             f"Care dashboard with watering reminder for {instance_id}",
-        )
-        assert appeared, (
-            f"TC-REQ-022-J087 FAIL: A watering care reminder for plant '{instance_id}' "
-            f"(key={key}) should appear after reminder generation"
         )
 
         pflege.click_confirm_on_card(key, "watering")
@@ -146,11 +114,8 @@ class TestCoreJourneyReminderPersistsConfirmed:
 
         Spec: TC-022-088 -- Core-Journey Reload-Persistenz der Bestätigung.
         """
-        key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-022P")
-
-        appeared = _wait_for_watering_card(pflege, key)
-        assert appeared, (
-            f"TC-REQ-022-J088 FAIL: A watering reminder for '{instance_id}' should appear first"
+        key, instance_id = provision_plant_with_live_watering_card(
+            plant_creator, pflege, id_prefix="JOURNEY-022P"
         )
         pflege.click_confirm_on_card(key, "watering")
         time.sleep(0.5)

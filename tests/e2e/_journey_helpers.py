@@ -291,16 +291,35 @@ def create_care_task(
 
     # The queue refetches after the mutation; poll a few reloads so a slow
     # refetch does not read the list before the new card is materialised.
+    #
+    # **Scoped to the plant before scanning.** The docstring above explains that
+    # a due-today/high task lands at or near the head of the queue — which is why
+    # the scan used to find it. That head is shared: light mode runs all four
+    # xdist workers against one tenant, and every worker's self-provisioned
+    # due-today task competes for the same first screenful. As a run fills the
+    # queue up, "near the head" stops being near enough, and the lookup fails
+    # while the task exists — which is how the 2026-08-16 matrix failed here
+    # ("did not appear in the queue after creation").
+    #
+    # ``filter_by_plant`` is the existing answer, and its own docstring states
+    # the property: it "makes card lookups robust regardless of how many
+    # unrelated tasks exist in the tenant". The instance id is unique per
+    # provisioned plant, so the filtered queue holds only this test's cards.
     deadline = time.time() + 15.0
     while time.time() < deadline:
         task_queue.open()
+        # Falling back to the unfiltered scan rather than failing: the plant may
+        # not be in the filter's autocomplete yet on the first pass, and an
+        # unfiltered look is what this did before — never worse than the old
+        # behaviour, only better once the filter takes.
+        task_queue.filter_by_plant(instance_id)
         key = task_queue.find_task_key_by_name(task_name)
         if key is not None:
             return key
         time.sleep(1.0)
     raise AssertionError(
-        f"Self-provisioning failed: care task '{task_name}' did not appear "
-        f"in the queue after creation"
+        f"Self-provisioning failed: care task '{task_name}' did not appear in the "
+        f"queue after creation, even filtered to plant '{instance_id}'"
     )
 
 
@@ -384,6 +403,59 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
             f"Self-provisioning failed: generate-care-reminders returned "
             f"status={gen_status} for tenant '{slug}'"
         )
+
+
+def provision_plant_with_live_watering_card(
+    plant_creator: PlantInstanceListPage,
+    pflege: PflegeDashboardPage,
+    *,
+    id_prefix: str,
+    attempts: int = 3,
+) -> tuple[str, str]:
+    """Create a plant that currently shows a **live** watering card; return ``(key, id)``.
+
+    The card, not a task: every caller goes on to click ``care-confirm-…`` or
+    ``care-edit-profile-…``, and those affordances exist only on the care form of
+    the merged queue. So this cannot be relaxed into "reminder in any form".
+
+    A single create-then-wait is not enough, and the reason is a race that was
+    measured rather than guessed (light profile, e2e-nightly 31921610750 and
+    31914595277). Every link is verifiable in the source:
+
+    1. Opening ``/pflege`` calls ``get_care_dashboard``, which calls
+       ``get_or_create_profile`` per rendered plant — and that **persists** a
+       default profile with ``auto_create_watering_task`` on and watering due
+       today (``care_reminder_service.py``).
+    2. ``POST /t/{slug}/tasks/generate-care-reminders`` then runs
+       ``generate_due_care_reminders.apply()`` with no tenant argument, over
+       ``get_all_profiles()`` — every profile in the installation
+       (``tasks/tenant_router.py``, ``tasks/care_tasks.py``).
+    3. So any worker running that setup step materialises a pending
+       ``care_reminder`` task for *this* plant too.
+    4. ``TaskQueuePage.tsx`` then skips the live card for a plant+type that has a
+       pending care task, to avoid showing the same reminder twice.
+
+    The card is not late, in other words — it has been converted. Waiting longer
+    cannot help, which is why the budget is spent on a **fresh plant** instead of
+    a longer timeout. That also keeps the retry honest: each round provisions a
+    new plant with a new profile, so the sample is genuinely decorrelated from
+    the interfering event rather than re-observing the same lost race.
+
+    Light mode is where this bites, because all xdist workers share one tenant
+    there; scoping the endpoint to its tenant would not change that.
+    """
+    last_key = ""
+    for _attempt in range(attempts):
+        last_key, instance_id = provision_plant(plant_creator, id_prefix=id_prefix)
+        if wait_for_watering_card(pflege, last_key):
+            return last_key, instance_id
+
+    raise AssertionError(
+        f"Self-provisioning failed: no live watering care card appeared for any of "
+        f"{attempts} freshly created plants (last key '{last_key}'). Either the care "
+        f"dashboard stopped auto-generating a due watering entry, or a concurrent "
+        f"`generate-care-reminders` converted the card into a task on every attempt."
+    )
 
 
 def wait_for_watering_card(

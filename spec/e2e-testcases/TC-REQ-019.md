@@ -491,6 +491,14 @@ Das Dropdown enthält exakt diese 14 Optionen in der deutschen Übersetzung:
 **Nachbedingungen**:
 - Substrat hat pH-Basis `6.0` und Wasserhaltevermögen "Hoch"
 
+**Modus**: **Nur Light-Modus** (seit #1195). Die geseedeten Substrate sind der
+*globale* Katalog (`tenant_key == ""`); eine Zeile zu ändern, die jeder Mandant
+liest, ist Kuration und verlangt einen Plattform-Admin — dieselbe Regel, die
+#1120 für botanische Familien und #1109 für den globalen Sortenkatalog gesetzt
+hat. Im Light-Modus **ist** der einzige anonyme Betreiber dieser Admin (REQ-027),
+also ist der Happy Path dort erreichbar. Im Full-Modus wird die Änderung
+abgelehnt — das ist TC-019-099, nicht eine schwächere Zusicherung hier.
+
 **Tags**: [req-019, substrat-detail, bearbeiten, speichern, happy-path]
 
 ---
@@ -1126,6 +1134,43 @@ Das Dropdown enthält exakt diese 14 Optionen in der deutschen Übersetzung:
 
 ---
 
+## TC-019-099: Substrat-Detailseite — gewöhnliches Mitglied darf den globalen Katalog nicht ändern
+
+**Anforderung**: REQ-019 §4 (Autorisierung) — globaler Katalog nur für Plattform-Admin
+**Priorität**: Kritisch
+**Kategorie**: Autorisierung / Negativfall
+**Modus**: **Nur Full-Modus.** Im Light-Modus ist der einzige Betreiber der
+Plattform-Admin (REQ-027), es gibt dort also keinen abzulehnenden Aufrufer.
+
+**Vorbedingungen**:
+- Nutzer ist angemeldetes Mitglied eines Mandanten, **kein** Plattform-Admin
+- Nutzer ist auf der Detailseite eines **geseedeten** (globalen) Substrats
+
+**Testschritte**:
+1. Nutzer ändert im Feld "pH-Basis" den Wert
+2. Nutzer klickt die Schaltfläche "Speichern"
+3. Nutzer lädt die Seite neu
+
+**Erwartetes Ergebnis**:
+- Eine **sichtbare** Fehlermeldung erscheint („Sie haben keine Berechtigung für
+  diese Aktion.")
+- Nach dem Neuladen zeigt "pH-Basis" **unverändert** den ursprünglichen Wert
+
+**Nachbedingungen**:
+- Das Substrat ist unverändert
+
+**Warum beide Zusicherungen nötig sind**: Eine reine Toast-Prüfung besteht auch,
+wenn die Anwendung einen Fehler zeigt *und trotzdem speichert*. Eine reine
+Wert-Prüfung besteht auch, wenn die Anwendung den `403` still verschluckt — das
+ist der schlechtere der beiden Fälle, weil der Nutzer dann an einem Formular
+sitzt, das nichts tut. Der Wert wird **nach einem Neuladen** gelesen: das
+Formularfeld hält sonst weiter, was getippt wurde, und genau so hat TC-019-016
+vor #1195 einen abgelehnten Speichervorgang als Erfolg gemeldet.
+
+**Tags**: [req-019, substrat-detail, autorisierung, plattform-admin, negativfall]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spec-Abschnitt | Inhalte | Testfall-IDs |
@@ -1153,6 +1198,7 @@ Das Dropdown enthält exakt diese 14 Optionen in der deutschen Übersetzung:
 | Favoriten | Stern-Toggle, Filter-Button, localStorage | TC-019-006, TC-019-020 |
 | Substrat-Mischung (SubstrateMixDialog) | Erstellen, Vorschau, Fraktionsvalidierung, Duplikate | TC-019-021 bis TC-019-027 |
 | Fehlerbehandlung | Nicht-existenter Substrat-Key | TC-019-039 |
+| §4 Autorisierung — globaler Katalog | Nur Plattform-Admin darf geseedete Substrate ändern | TC-019-016 (Light), TC-019-099 (Full) |
 
 ---
 
