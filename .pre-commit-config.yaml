@@ -126,7 +126,10 @@ repos:
         language: python
         language_version: python3.14
         additional_dependencies: ['selenium>=4.25.0,<5', 'pytest>=8.3.0']
-        files: ^tests/(e2e_selftest/|e2e/pages/|e2e/requirements\.txt$)
+        # `e2e/.*\.py` and not just `e2e/pages/`: the selftests now also read the
+        # scenario modules (see test_set_returning_helper_comparisons.py), and a
+        # guard the hook never runs on the files it inspects is decoration.
+        files: ^tests/(e2e_selftest/|e2e/.*\.py$|e2e/requirements\.txt$)
         pass_filenames: false
 
   # ── Spec-to-test traceability ─────────────────────────────────────────

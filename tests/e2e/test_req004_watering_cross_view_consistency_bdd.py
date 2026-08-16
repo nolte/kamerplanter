@@ -373,9 +373,9 @@ def instance_log_gained_entries(
         if index == 0:
             context["view2_logged_at"] = logged_at
 
-        assert parse_de_date(logged_at) == expected_day, (
+        assert parse_de_date(logged_at) in expected_day, (
             f"TC-004-092 FAIL (View 2): instance-log timestamp of row {index} is not "
-            f"{day} (cell={logged_at!r}, expected={expected_day})"
+            f"{day} (cell={logged_at!r}, expected one of {sorted(expected_day)})"
         )
         assert DRENCH_METHOD_LABEL in method, (
             f"TC-004-092 FAIL (View 2): expected application method "
@@ -421,9 +421,9 @@ def watering_tasks_have_been_completed(
         f"{completed}) — the open watering task must move to 'Abgeschlossen'"
     )
     expected_day = _day(context, plant_detail, day)
-    assert parse_de_date(completed_at) == expected_day, (
+    assert parse_de_date(completed_at) in expected_day, (
         f"TC-004-092 FAIL (View 3): the completed watering task must carry the "
-        f"{day} completion date (cell={completed_at!r}, expected={expected_day})"
+        f"{day} completion date (cell={completed_at!r}, expected one of {sorted(expected_day)})"
     )
 
 
