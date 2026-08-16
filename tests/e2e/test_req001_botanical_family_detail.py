@@ -35,8 +35,14 @@ def _navigate_to_first_family_detail(
 ) -> str:
     """Navigate to first family's detail page and return the URL."""
     family_list.open()
-    if family_list.get_row_count() == 0:
-        pytest.skip("No botanical families in database")
+    # Asserted, not skipped. The seed ships 18 botanical families and they are
+    # global reference data, so an empty catalogue is a broken stack, not a
+    # reason to report a neutral result — and a skip here silently removes every
+    # case in this file at once.
+    assert family_list.get_row_count() > 0, (
+        "TC-REQ-001 SETUP: the botanical-family catalogue is empty. The seed ships 18 "
+        "global families, so this is a stack or seeding failure, not a missing fixture."
+    )
     family_list.click_row(0)
     family_list.wait_for_url_contains("/stammdaten/botanical-families/")
     return family_list.driver.current_url
@@ -179,16 +185,26 @@ class TestBotanicalFamilyDetailPage:
         delete_name = f"Delete{unique}aceae"
         family_list.fill_create_form(delete_name)
         family_list.submit_create_form()
-        family_list.wait_for_loading_complete()
+        # The exact post-condition of the create, not `wait_for_loading_complete()`:
+        # that waits for a loading skeleton to *unmount*, and a refetch that
+        # resolves before one renders leaves it waiting for nothing. The dialog
+        # closes only after `await api.createBotanicalFamily(...)` resolves 2xx.
+        # TC-001-006 learned this a few functions away in the create module; this
+        # case had not picked it up.
+        family_list.wait_for_create_dialog_closed()
         screenshot(
             "TC-REQ-001-026_family-created", f"Family {delete_name} created for deletion test"
         )
 
-        # Navigate to its detail page
-        try:
-            family_list.click_row_by_name(delete_name)
-        except ValueError:
-            pytest.skip(f"Family '{delete_name}' not found after creation")
+        # Found by searching, not by scanning whatever the table happens to show.
+        # `click_row_by_name` reads the rendered page only, so a bare scan depends
+        # on where the new row sorts and on whether the list has refetched at all
+        # — and when it missed, the `except` turned an authorization or timing
+        # failure into a neutral skip that blamed the search.
+        family_list.open()
+        family_list.search(delete_name)
+        family_list.wait_for_search_applied(delete_name, what="botanical family list")
+        family_list.click_row_by_name(delete_name)
 
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
         screenshot(

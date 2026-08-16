@@ -349,18 +349,24 @@ class TestBotanicalFamilyBackendValidation:
 
         unique = uuid.uuid4().hex[:6]
         family_list.fill_name_only(f"Conflict{unique}aceae")
-        try:
-            family_list.select_option("typical_nutrient_demand", "Starkzehrer")
-        except Exception:
-            # The select option may not be available or use different labels
-            try:
-                family_list.select_option("typical_nutrient_demand", "heavy")
-            except Exception:
-                pytest.skip("typical_nutrient_demand dropdown not available or option not found")
-        try:
-            family_list.toggle_switch("nitrogen_fixing")
-        except Exception:
-            pytest.skip("nitrogen_fixing toggle not available in create dialog")
+        # Neither of these is attempted-and-excused any more.
+        #
+        # This block used to try the German label, fall back to the raw enum
+        # value, and skip on any exception; the toggle skipped on any exception
+        # too, with the message "nitrogen_fixing toggle not available in create
+        # dialog". That message was never measured, and it is wrong:
+        # `BotanicalFamilyCreateDialog` renders a `FormSwitchField` named
+        # `nitrogen_fixing`, which is exactly what `toggle_switch` addresses,
+        # and `enums.nutrientDemand.heavy` is "Starkzehrer", which is exactly
+        # what the first attempt asked for. So the fallback was dead and the
+        # skips asserted a cause nobody had checked — while destroying the
+        # evidence of whatever really went wrong.
+        #
+        # If either interaction fails now, it fails with its own exception. A
+        # red case with a traceback is worth more than a neutral result whose
+        # explanation is a guess.
+        family_list.select_option("typical_nutrient_demand", "Starkzehrer")
+        family_list.toggle_switch("nitrogen_fixing")
 
         screenshot(
             "TC-REQ-001-019_before-submit", "Create dialog with nitrogen_fixing + heavy demand"
