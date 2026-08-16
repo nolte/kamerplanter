@@ -39,18 +39,16 @@ import { expectNoA11yViolations } from './expectNoA11yViolations';
 const PAGE_MIN_ELEMENTS = 20;
 
 /**
- * **`PlantInstanceDetailPage` is deliberately not in this file yet.**
+ * **`PlantInstanceDetailPage` lives in its own file**, because the route mock it
+ * needs is module-scoped and would reach every page here.
  *
- * It was, and it never left its loading skeleton: 15 elements, unchanged after
- * 15 seconds, because the default MSW handlers do not answer the per-plant
- * requests it makes. Axe passed it cleanly in that state — a green a11y test
- * over a spinner.
- *
- * The two honest options were to give it the per-plant fixture its own test file
- * builds by hand, or to leave it out and say so. Lowering `PAGE_MIN_ELEMENTS`
- * to 15 was the third and is the one that would have made this whole file worth
- * less than nothing: every page would then pass while loading. #1094 anticipates
- * incremental backfill, so it is left out and tracked rather than faked in.
+ * It was briefly in this file, and it never left its loading skeleton: 15
+ * elements, unchanged after 15 seconds, because the default MSW handlers do not
+ * answer the per-plant requests it makes. Axe passed it cleanly in that state —
+ * a green a11y test over a spinner. Lowering `PAGE_MIN_ELEMENTS` to 15 would
+ * have made this whole file worth less than nothing, since every page would then
+ * pass while loading. See `plantInstanceDetail.a11y.test.tsx`, where it is
+ * scanned against a seeded plant and the floor is what enforces that.
  */
 
 describe('Accessibility — top-traffic pages', () => {

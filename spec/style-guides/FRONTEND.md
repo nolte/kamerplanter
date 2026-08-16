@@ -958,6 +958,21 @@ Der Helfer trifft drei Entscheidungen, die vorher jede Datei neu raten musste:
 
 Neue **Seiten**-Tests bekommen den axe-Durchlauf per Default — trage die Seite in `src/test/a11y/topPages.a11y.test.tsx` ein. Bleibt eine Seite im Ladezustand haengen, weil die Default-MSW-Handler ihre Anfragen nicht beantworten, dann **gehoert sie nicht mit abgesenktem Boden hinein**, sondern braucht ihre Fixture oder bleibt vorerst draussen (dokumentiert). Der abgesenkte Boden macht die ganze Datei wertlos: dann besteht jede Seite im Ladezustand.
 
+„Per Default" ist dabei nicht als Zusage gemeint, sondern wird gemessen:
+`src/test/a11y/pageCoverage.test.tsx` zaehlt alle `*Page.tsx` auf und verlangt
+fuer jede entweder einen axe-Durchlauf oder einen Eintrag im Register
+`PAGES_OWING_AN_AXE_PASS`. Eine neue Seite kann die Pruefung damit nicht
+stillschweigend ueberspringen — sie faellt auf, und wer sie zurueckstellt, muss
+das hinschreiben. Das Register faellt ausserdem, sobald ein Eintrag ueberfluessig
+geworden ist, damit es nicht zur Liste dessen wird, was frueher einmal fehlte.
+
+Bei **Dialogen** ist der Container `document.body`, nicht das Render-Ergebnis:
+MUI rendert in ein Portal, das Fragment aus `render` bleibt leer, und ein Scan
+darueber besteht, waehrend er nichts ansieht. Ein Dialog ist zugleich die
+Oberflaeche, an der a11y am haertesten scheitert — er uebernimmt die Seite, also
+laesst ein fehlender Name oder eine fehlende Beschriftung Tastatur- und
+Screenreader-Nutzung ohne Ausweg. Siehe `src/test/a11y/dialogs.a11y.test.tsx`.
+
 ### 13.6 Coverage-Schwellen
 
 ```typescript
