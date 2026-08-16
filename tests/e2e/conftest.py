@@ -723,6 +723,56 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
         )
         result["module_visibility_status"] = mv_status
 
+        # The same map for the platform-admin account (#1155) — full mode only,
+        # since light mode has no second account (its sole operator already is
+        # the platform admin, REQ-027).
+        #
+        # The PATCH above carries the demo user's token and leaves the admin's own
+        # preferences untouched, and `master_data` needs experience level
+        # `intermediate` — so without this the admin sees the module-hidden
+        # placeholder on every `/stammdaten/*` route, and the page object times
+        # out on a page that rendered perfectly well.
+        #
+        # The localStorage fallback does not cover it, for a reason that is easy
+        # to miss: `migrateLocalModuleVisibility` PATCHes the seeded localStorage
+        # map to the server **and then clears the key**. The demo user's first
+        # bootstrap consumes it, so by the time the browser switches accounts
+        # there is nothing left to migrate.
+        if app_mode == "full":
+            admin_status, admin_login = _post(
+                f"{api_base}/api/v1/auth/login",
+                {"email": PLATFORM_ADMIN_EMAIL, "password": PLATFORM_ADMIN_PASSWORD},
+            )
+            if admin_status != 200 or "access_token" not in admin_login:
+                raise RuntimeError(
+                    f"E2E seed: could not log in as the platform-admin account "
+                    f"{PLATFORM_ADMIN_EMAIL!r} (status={admin_status}). It is seeded by "
+                    f"app/migrations/seed_e2e_platform_admin.py from the "
+                    f"E2E_PLATFORM_ADMIN_* variables in docker-compose.e2e.yml — check "
+                    f"the backend log for `e2e_platform_admin_created` or `seed_failed`. "
+                    f"Raising rather than skipping, because every "
+                    f"@pytest.mark.platform_admin case would otherwise fail far from "
+                    f"here, on a login timeout that reads as a harness problem."
+                )
+            admin_token = admin_login["access_token"]
+            # Under the admin's *own* tenant slug: `user-preferences` is a
+            # tenant-scoped route, so the demo tenant's path would be a 403.
+            _, _admin_get = _api_helpers(admin_token)
+            _, admin_tenants = _admin_get(f"{api_base}/api/v1/tenants")
+            if not isinstance(admin_tenants, list) or not admin_tenants:
+                raise RuntimeError(
+                    f"E2E seed: the platform-admin account has no tenant, so its "
+                    f"preferences cannot be set: {admin_tenants}"
+                )
+            admin_slug = admin_tenants[0]["slug"]
+            admin_mv_status, _ = _api_patch(
+                f"{api_base}/api/v1/t/{admin_slug}/user-preferences",
+                {"module_visibility": {k: "enabled" for k in _E2E_TOGGLEABLE_MODULES}},
+                admin_token,
+            )
+            result["admin_module_visibility_status"] = admin_mv_status
+            result["admin_tenant_slug"] = admin_slug
+
         list_status, sites = _get(f"{api}/sites")
         existing_site = None
         if list_status == 200 and isinstance(sites, list):

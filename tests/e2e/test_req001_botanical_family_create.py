@@ -70,15 +70,11 @@ class TestBotanicalFamilyCreateDialog:
         **Light mode only, since #1120.** `BotanicalFamily` is global reference
         data with no `tenant_key`, so creating one is curation and requires a
         platform admin. In light mode the sole anonymous operator *is* that
-        admin (REQ-027), so the happy path is reachable. In full mode the demo
-        user is deliberately an ordinary member and the create is refused --
-        which is its own case, TC-001-099, rather than a weaker assertion here.
+        admin (REQ-027); in full mode this runs as the seeded admin account
+        (#1155). It used to skip full mode entirely, because no such account
+        existed — so the happy path was verified in one profile out of four while
+        the report showed a neutral skip for the rest.
         """
-        if app_mode != "light":
-            pytest.skip(
-                "TC-001-006 is the platform-admin happy path; in full mode the demo "
-                "user is an ordinary member and the refusal is TC-001-099's subject"
-            )
         family_list.open()
 
         family_list.click_create()
@@ -222,17 +218,11 @@ class TestBotanicalFamilyCreateDialog:
         notice. It also stated a reason that was not true: no required multi-select
         was ever empty.
 
-        **Light mode only, for the same reason as the sibling.** Creating global
-        reference data is curation and needs a platform admin (#1120); in light
-        mode the sole anonymous operator is that admin (REQ-027). The full-mode
-        refusal is TC-001-099's subject, not a weaker assertion here.
+        Creating global reference data is curation and needs a platform admin
+        (#1120): the sole anonymous operator in light mode (REQ-027), the seeded
+        admin account in full mode (#1155). Skipped in full mode until that
+        account existed.
         """
-        if app_mode != "light":
-            pytest.skip(
-                "TC-001-006 minimal-fields is the platform-admin happy path; in full "
-                "mode the demo user is an ordinary member and the refusal is "
-                "TC-001-099's subject"
-            )
         family_list.open()
         family_list.click_create()
 
@@ -404,16 +394,13 @@ class TestBotanicalFamilyBackendValidation:
 
         Spec: TC-001-078 -- Duplikat-Schutz — Familie mit identischem Namen wird abgelehnt.
 
-        **Light mode only, since #1120.** The assertion is "the dialog stays
-        open", and in full mode the platform-admin gate now refuses the create
-        *before* the unique index can reject the duplicate — so the test would
-        keep passing while the duplicate protection it exists for went untested.
+        The assertion is "the dialog stays open", which the #1120 role gate also
+        satisfies — so between #1120 and #1155 this ran in light mode only, since
+        in full mode the demo user was refused *before* the unique index could
+        reject the duplicate and the case would have passed without observing its
+        own subject. Running as the seeded admin (#1155) puts the duplicate back
+        in front of the index.
         """
-        if app_mode != "light":
-            pytest.skip(
-                "in full mode the #1120 role gate refuses the create before the unique "
-                "index sees the duplicate, so this case cannot observe its own subject"
-            )
         family_list.open()
         family_list.click_create()
         family_list.fill_name_only("Solanaceae")  # Exists in seed data
