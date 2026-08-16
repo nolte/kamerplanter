@@ -405,6 +405,59 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
         )
 
 
+def provision_plant_with_live_watering_card(
+    plant_creator: PlantInstanceListPage,
+    pflege: PflegeDashboardPage,
+    *,
+    id_prefix: str,
+    attempts: int = 3,
+) -> tuple[str, str]:
+    """Create a plant that currently shows a **live** watering card; return ``(key, id)``.
+
+    The card, not a task: every caller goes on to click ``care-confirm-…`` or
+    ``care-edit-profile-…``, and those affordances exist only on the care form of
+    the merged queue. So this cannot be relaxed into "reminder in any form".
+
+    A single create-then-wait is not enough, and the reason is a race that was
+    measured rather than guessed (light profile, e2e-nightly 31921610750 and
+    31914595277). Every link is verifiable in the source:
+
+    1. Opening ``/pflege`` calls ``get_care_dashboard``, which calls
+       ``get_or_create_profile`` per rendered plant — and that **persists** a
+       default profile with ``auto_create_watering_task`` on and watering due
+       today (``care_reminder_service.py``).
+    2. ``POST /t/{slug}/tasks/generate-care-reminders`` then runs
+       ``generate_due_care_reminders.apply()`` with no tenant argument, over
+       ``get_all_profiles()`` — every profile in the installation
+       (``tasks/tenant_router.py``, ``tasks/care_tasks.py``).
+    3. So any worker running that setup step materialises a pending
+       ``care_reminder`` task for *this* plant too.
+    4. ``TaskQueuePage.tsx`` then skips the live card for a plant+type that has a
+       pending care task, to avoid showing the same reminder twice.
+
+    The card is not late, in other words — it has been converted. Waiting longer
+    cannot help, which is why the budget is spent on a **fresh plant** instead of
+    a longer timeout. That also keeps the retry honest: each round provisions a
+    new plant with a new profile, so the sample is genuinely decorrelated from
+    the interfering event rather than re-observing the same lost race.
+
+    Light mode is where this bites, because all xdist workers share one tenant
+    there; scoping the endpoint to its tenant would not change that.
+    """
+    last_key = ""
+    for _attempt in range(attempts):
+        last_key, instance_id = provision_plant(plant_creator, id_prefix=id_prefix)
+        if wait_for_watering_card(pflege, last_key):
+            return last_key, instance_id
+
+    raise AssertionError(
+        f"Self-provisioning failed: no live watering care card appeared for any of "
+        f"{attempts} freshly created plants (last key '{last_key}'). Either the care "
+        f"dashboard stopped auto-generating a due watering entry, or a concurrent "
+        f"`generate-care-reminders` converted the card into a task on every attempt."
+    )
+
+
 def wait_for_watering_card(
     pflege: PflegeDashboardPage,
     plant_key: str,

@@ -28,7 +28,7 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from ._journey_helpers import provision_plant, wait_for_watering_card
+from ._journey_helpers import provision_plant_with_live_watering_card
 from .pages.pflege_dashboard_page import PflegeDashboardPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_queue_page import TaskQueuePage
@@ -61,19 +61,16 @@ def _provision_plant_with_watering_card(
     *,
     id_prefix: str,
 ) -> str:
-    """Self-provision a plant and wait for its live watering care card; return plant_key.
+    """Self-provision a plant showing a live watering care card; return plant_key.
 
-    A freshly created plant gets an auto care profile whose watering entry is due
-    today, so the care dashboard renders a ``care-card-care-{key}-watering`` card
-    on its own — the precondition every watering-cycle test needs, established
-    through the real UI instead of relying on seed data.
+    Delegates to the shared helper, which retries with a fresh plant when a
+    concurrent installation-wide `generate-care-reminders` converts the live card
+    into a task — see its docstring for the measured chain. These cases need the
+    care form specifically: they go on to click `care-edit-profile-…`.
     """
-    plant_key, _instance_id = provision_plant(plant_creator, id_prefix=id_prefix)
-    if not wait_for_watering_card(pflege, plant_key):
-        raise AssertionError(
-            f"Self-provisioning failed: no watering care card appeared for the "
-            f"freshly created plant '{plant_key}'"
-        )
+    plant_key, _instance_id = provision_plant_with_live_watering_card(
+        plant_creator, pflege, id_prefix=id_prefix
+    )
     return plant_key
 
 
