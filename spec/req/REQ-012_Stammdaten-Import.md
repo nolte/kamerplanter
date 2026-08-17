@@ -1430,8 +1430,8 @@ adressierten Mandanten, sofern nicht anders angegeben.
 
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
-| CSV-Import (Upload & Ausführung) | Alle Rollen | Technik | Technik | Technik | Technische Konfiguration im Mandanten, §3.4 |
-| Import-Validierung (Dry-Run) | Alle Rollen | Technik | Technik | Technik | Technische Konfiguration im Mandanten, §3.4 |
+| CSV-Import (Upload & Ausführung) | — | Technik | — | — | Kein Lese- und kein Löschpfad für die Aktion selbst; `—` ist nach REQ-049 §3.1 normativ für „Aktion existiert nicht" |
+| Import-Validierung (Dry-Run) | — | Technik | — | — | Zustandsloser Probelauf, kein Datensatz |
 | Import-History | Technik | — | — | — | Protokoll der Importe |
 | Template-Download | Alle Rollen | — | — | — | Statische Vorlagedatei |
 

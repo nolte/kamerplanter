@@ -219,37 +219,32 @@ iOS 11 standardmäßig HEIC. Die Normalisierung nach §3 kodiert ohnehin als JPE
 Problem also — **sofern der Browser das Bild dekodieren kann**. Safari kann es, Firefox und Chrome
 unter Windows und Linux überwiegend nicht.
 
-**Die Festlegung hängt am Ziel, nicht am Format.** Ein nicht dekodierbares Bild kann clientseitig
-nicht von seinen Metadaten getrennt werden (§5) — und damit unterscheiden sich die beiden Ziele:
+**Ein nicht dekodierbares Bild wird abgelehnt — an jedem Ziel.**
 
-| Ziel | Verhalten bei nicht dekodierbarem HEIC |
-|------|----------------------------------------|
-| **jedes Ziel** | Der Upload wird **abgelehnt**, mit dem Hinweis, das Bild als JPEG erneut aufzunehmen oder auszuwählen |
+| Fall | Verhalten |
+|------|-----------|
+| Browser kann das HEIC dekodieren (Safari heute) | normale Normalisierung nach §3; das Bild ist danach EXIF-frei wie jedes andere |
+| Browser kann es **nicht** dekodieren (Chrome/Firefox unter Windows und Linux) | Upload **abgelehnt**, mit dem Hinweis, das Bild als JPEG erneut aufzunehmen oder auszuwählen |
 
 **Warum abgelehnt und nicht durchgereicht — gemessen, nicht angenommen.** Ein früherer Entwurf
-dieser Anforderung ließ das Bild unverändert passieren und stützte sich darauf, dass der
-serverseitige Strip es auffängt. Das ist falsch:
-`app/domain/engines/storage/exif_stripper.py` führt HEIC und HEIF in
+dieser Anforderung ließ das Bild zur eigenen Instanz unverändert passieren und stützte sich darauf,
+dass der serverseitige Strip es auffängt. Das ist falsch:
+`app/domain/engines/storage/exif_stripper.py` führt `image/heic` und `image/heif` in
 `_UNSUPPORTED_PHOTO_FORMATS` und gibt die Bytes **unverändert** zurück (SEC-005; der
-`pillow-heif`-Nachzug ist offen). Weder Client noch Server könnten die Metadaten also entfernen —
-die GPS-Koordinate landete im Original, und bei einer Erkennung zusätzlich beim Dritten.
+`pillow-heif`-Nachzug ist offen). Weder Client noch Server können die Metadaten entfernen — die
+GPS-Koordinate landete im Original, und auf dem Erkennungspfad zusätzlich beim Dritten. §5 nennt
+genau diese Koordinate als Grund für den clientseitigen Strip, weil der Aufnahmeort einer
+Zimmerpflanze die Wohnanschrift ist.
 
-**Die Ablehnung ist damit die einzige Variante, die keine Zusage bricht.** Sie fällt weg, sobald
-`pillow-heif` im Server steht **oder** der Client HEIC dekodieren kann (Safari kann es heute) — im
-zweiten Fall greift die normale Normalisierung und die Frage stellt sich nicht. Der Vorbehalt hängt
-also an einer messbaren Fähigkeit, nicht an einer Empfehlung (O-64).
+**Es gibt deshalb keine Unterscheidung nach Ziel.** Sie wäre naheliegend — die eigene Instanz
+scheint harmloser als ein Dritter — und trägt nicht: Ein gespeichertes Original mit GPS ist ein
+gespeichertes Personendatum, unabhängig davon, wer es später liest, und `STORAGE_STRIP_EXIF`
+könnte es ohnehin nicht mehr entfernen.
 
-**Warum die Ablehnung ausgerechnet hier steht.** Ein iPhone-HEIC trägt GPS. §5 begründet den
-clientseitigen Strip damit, dass der Aufnahmeort einer Zimmerpflanze die Wohnanschrift ist und das
-Bild auf dem Erkennungspfad die Instanz verlässt (REQ-029-A §0.1.1 Punkt 2). Ein
-unverändert weitergereichtes HEIC gäbe genau diese Koordinate an einen Dritten — der Rückfall
-höbe die Maßnahme auf, zu deren Schutz er gedacht war. Für die eigene Instanz gilt das nicht: Dort
-greift der serverseitige Strip, bevor irgendetwas das Netz verlässt.
-
-**Warum für die eigene Instanz nicht ablehnen:** Eine Ablehnung träfe den Nutzer für eine
-Eigenschaft seines Geräts, die er nicht kennt und nicht ändern will, in einem Ablauf, in dem er
-nichts falsch gemacht hat. Der Preis ist eine größere Übertragung in einem Randfall — deutlich
-billiger als ein Foto, das nicht ankommt.
+**Der Preis ist benannt:** Ein iPhone-Nutzer auf Chrome oder Firefox wird abgewiesen, für eine
+Geräteeigenschaft, die er nicht kennt. Das ist die schlechteste der drei Möglichkeiten außer der
+einen, die eine Datenschutzzusage bricht. Sie fällt weg, sobald `pillow-heif` im Server steht — dann
+wird aus der Ablehnung ein Durchreichen (O-64).
 
 **Nicht angenommen** werden Animationen (GIF, animiertes WebP) und Vektorformate. Ein bewegtes
 Bild als Pflanzenbeleg ist keine gewollte Verwendung, und SVG ist ein Ausführungsvektor, kein

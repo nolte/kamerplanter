@@ -486,7 +486,7 @@ Eine abgeschlossene Analyse gilt als **veraltet**, wenn sie gegen eine ältere I
 gerechnet wurde als die, die der Eintrag jetzt trägt:
 
 ```
-analysis_outdated  ⟺  analysis.analyzed_content_version < entry.content_version
+analysis_outdated  ⟺  analysis ≠ null  ∧  analysis.analyzed_content_version < entry.content_version
 ```
 
 Das Feld `analysis_outdated: bool` steht in jeder Antwort (`DiaryEntryResponse`,
@@ -1051,7 +1051,7 @@ Zusammenlegung zöge die Tagebuch-Sonderregel in eine Tabelle, die 27 andere Res
 
 | ID | Kriterium |
 |----|-----------|
-| **AK-14** | Auf der Pflanzeninstanz-Detailseite gibt es einen Tagebuch-Tab, in dem ein Eintrag mit Typ, Titel, Freitext, Tags, Messwerten und bis zu 5 Fotos angelegt, bearbeitet, gelöscht und zur Analyse markiert werden kann (§6.1). |
+| **AK-14** | Auf der Pflanzeninstanz-Detailseite gibt es einen Tagebuch-Tab, in dem ein Eintrag mit Typ, Titel, Freitext, Tags, Messwerten und bis zu 5 Fotos angelegt, bearbeitet, gelöscht (Löschen ab Rolle Leitung, §3.2/AK-56 — einem Gärtner wird die Handlung nicht angeboten) und zur Analyse markiert werden kann (§6.1). |
 | **AK-15** | Eine mandantenweite Tagebuch-Übersicht listet die Einträge **aller** Pflanzen chronologisch absteigend mit Pflanze, Art, Typ, Titel/Auszug, Fotoanzahl und Analyse-Zustand (§6.2). |
 | **AK-16** | Die Übersicht unterscheidet alle fünf Analyse-Zustände sichtbar voneinander; `completed` ist als „Ergebnis vorhanden" hervorgehoben und zeigt die Zusammenfassung als Vorschau. |
 | **AK-17** | Die Übersicht lässt sich nach Analyse-Zustand filtern — insbesondere „nur mit Ergebnis" und „nur wartend" — sowie nach Pflanze, Art, Typ, Tag und Zeitraum; die Freitextsuche greift auf Titel und Text. |
@@ -1067,7 +1067,7 @@ Zusammenlegung zöge die Tagebuch-Sonderregel in eine Tabelle, die 27 andere Res
 | ID | Kriterium |
 |----|-----------|
 | **AK-40** | Wird ein Eintrag mit vorhandenem Analyse-Ergebnis bearbeitet, liefern Einzelabruf **und** Übersichtszeile `analysis_outdated: true`; `analysis_state` bleibt dabei unverändert `completed` bzw. `failed`. Die Oberfläche zeigt den Hinweis **über** der Zusammenfassung, mit der Handlung „erneut analysieren" daneben. |
-| **AK-41** | Die Übersicht lässt sich auf veraltete Ergebnisse filtern; der Filter findet genau die Einträge, deren `analyzed_content_version` kleiner ist als ihre `content_version`. |
+| **AK-41** | Die Übersicht lässt sich auf veraltete Ergebnisse filtern. Der Filter findet genau die Einträge, die **ein Ergebnis haben** und deren `analyzed_content_version` kleiner ist als ihre `content_version`. Ein nie analysierter, aber bearbeiteter Eintrag darf **nicht** erscheinen — ohne die erste Bedingung wäre eine Liste „nur mit veraltetem Ergebnis" voller Einträge ohne jedes Ergebnis (§4.1, §8). |
 | **AK-42** | Der Bearbeitungsdialog weist vor dem Speichern darauf hin, dass ein vorhandenes Ergebnis als nicht mehr aktuell gekennzeichnet wird. Der Hinweis erscheint nur, wenn tatsächlich ein Ergebnis vorliegt, und verhindert das Speichern nicht. |
 | **AK-43** | `POST .../capture-environment` löst den Schnappschuss serverseitig neu auf, setzt `environment`, `environment_captured_at` und `environment_status` und erhöht `content_version`. Weicht `environment_captured_at` um mehr als `DIARY_ENVIRONMENT_MAX_AGE_MINUTES` von `created_at` ab, weist die Oberfläche darauf hin. |
 | **AK-44** | Steht `environment_status` auf `captured`, verlangt die Oberfläche vor der erneuten Erfassung eine Bestätigung, die benennt, dass der vorhandene Schnappschuss ersetzt wird. |
@@ -1098,7 +1098,7 @@ Zusammenlegung zöge die Tagebuch-Sonderregel in eine Tabelle, die 27 andere Res
 | O-54 | Soll der mobile Client Offline-Erfassung mit Synchronisation bekommen? v1.0 sagt sie ausdrücklich **nicht** zu (§7.3); die Entscheidung braucht ein Konfliktmodell auf Feldebene, das heute nirgends existiert. | Produkt | offen |
 | O-55 | Soll das Archiv eine Obergrenze bekommen (z. B. die letzten 50 Läufe je Eintrag)? Unbegrenzt ist heute unproblematisch, weil jeder Lauf eine Nutzerhandlung voraussetzt; ein fehlgeleitetes Agenten-Rezept, das im Minutentakt neu analysiert, wäre der Fall, der sie nötig macht. | DevOps | offen |
 | O-56 | Soll ein Befund aus einem archivierten Lauf mit dem aktuellen **verglichen** werden können („was hat sich seit dem Umtopfen geändert")? Das ist der eigentliche Grund, zweimal zu analysieren, und v1.0 liefert dafür nur die beiden Listen nebeneinander. | Produkt | offen |
-| O-57 | Soll ein Gärtner seinen **eigenen** Tagebuch-Eintrag löschen dürfen? v1.0 verneint das und folgt damit REQ-049 §2.3 ohne Ausnahme (§3.2); die vollständige Bearbeitung deckt den Korrekturfall ab, das Leeren eines versehentlichen Eintrags bleibt aber unbefriedigend. Eine Lockerung wäre die erste Ausnahme von der Irreversibilitätsgrenze und muss als solche entschieden werden. | Produkt | offen |
+| O-57 | Soll ein Gärtner seinen **eigenen** Tagebuch-Eintrag löschen dürfen? v1.0 verneint das und folgt damit REQ-049 §2.3 ohne Ausnahme (§3.2); die vollständige Bearbeitung deckt den Korrekturfall ab, das Leeren eines versehentlichen Eintrags bleibt aber unbefriedigend. Eine Lockerung wäre nicht die erste Ausnahme — REQ-024 AK-35 (eigener Pinnwand-Beitrag) und REQ-006 (eigener Aufgaben-Kommentar) haben je eine, beide gedeckt durch REQ-049 §3.1 „verfasste Inhalte". Der Tagebuch-Eintrag ist nach §3.2 dieselbe Kategorie; die Frage ist deshalb, warum das **Löschen** hier anders behandelt wird als das Bearbeiten, nicht ob eine Ausnahme zulässig wäre. | Produkt | offen |
 | O-58 | Soll das **Analyse-Archiv** im geteilten Mandanten für alle Mitglieder vollständig lesbar sein? v1.0 sagt ja (§5.3, konsistent zu REQ-050 §6). Die Übersicht zeigt fremden Zeilen nur die Zusammenfassung; die Historie liefert dagegen jedem Mitglied die vollständigen Befunde samt Begründungen aller Läufe aller anderen — dieselbe Rechtsgrundlage, aber ein Vielfaches der Menge. | Produkt + Datenschutz | offen |
 
 ---

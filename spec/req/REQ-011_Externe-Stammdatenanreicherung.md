@@ -857,9 +857,9 @@ adressierten Mandanten, sofern nicht anders angegeben.
 
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
-| Enrichment Sources | Alle Rollen | Technik | Technik | Technik | Technische Konfiguration im Mandanten, §3.4 |
+| Enrichment Sources | Alle Rollen | Technik | Technik | — | Technische Konfiguration, §3.4. Kein Löschpfad — Quellen werden deaktiviert, nicht entfernt |
 | Enrichment History | Alle Rollen | — | — | — | Protokoll, systemgeneriert |
-| Species-Enrichments | Alle Rollen | Technik | Technik | Technik | Übernahme in den Katalog ist Anreicherung, §3.4 |
+| Species-Enrichments | Alle Rollen | Technik (**Übernahme/Accept**) | Technik | — | Die Übernahme in den Katalog ist der einzige Schreibvorgang; kein Löschpfad |
 | Sync-Trigger | — | Technik | Technik | — | Anreicherungslauf anstoßen, §3.4 |
 | External Search | Alle Rollen | — | — | — | Reiner Lesezugriff auf eine Fremdquelle |
 

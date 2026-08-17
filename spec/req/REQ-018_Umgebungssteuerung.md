@@ -1468,12 +1468,12 @@ adressierten Mandanten, sofern nicht anders angegeben.
 
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
-| Actuators | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
-| Schedules | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
-| Rules | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
-| Command & Override | — | Ab Gärtner | Ab Gärtner | — | — |
+| Actuators | Alle Rollen | Technik | Technik | Technik | **Einrichtung** ist Achse 2 (REQ-024 §1a.2, REQ-049 §2.4 — „Sensor- und Aktor-Einrichtung"), wie die Sensor-Konfiguration in REQ-005. **Bedienen** ist Achse 1, siehe die Zeilen unten |
+| Schedules | Alle Rollen | Technik | Technik | Technik | **Einrichtung** ist Achse 2 (REQ-024 §1a.2, REQ-049 §2.4 — „Sensor- und Aktor-Einrichtung"), wie die Sensor-Konfiguration in REQ-005. **Bedienen** ist Achse 1, siehe die Zeilen unten |
+| Rules | Alle Rollen | Technik | Technik | Technik | **Einrichtung** ist Achse 2 (REQ-024 §1a.2, REQ-049 §2.4 — „Sensor- und Aktor-Einrichtung"), wie die Sensor-Konfiguration in REQ-005. **Bedienen** ist Achse 1, siehe die Zeilen unten |
+| Command & Override | — | Ab Gärtner | Ab Gärtner | — | **Bedienen, nicht einrichten** — ab Gärtner. Wer die Anlage betreut, muss sie schalten können, ohne `technical` zu halten |
 | HA-Integration | Technik | Technik | Technik | Technik | Enthält Zugangsdaten — auch Lesen ist Technik |
-| Emergency-Stop | — | Ab Gärtner | Ab Gärtner | — | — |
+| Emergency-Stop | — | Ab Gärtner | Ab Gärtner | — | **Ab Gärtner, ausdrücklich ohne `technical`.** Ein Not-Aus, der an einer Zusatzberechtigung hängt, ist im Ernstfall nicht erreichbar |
 
 ## 5. Abhängigkeiten
 

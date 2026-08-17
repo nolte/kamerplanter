@@ -1898,7 +1898,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
 | Kalender-Events | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
-| iCal-Feed (`feed.ics`) | Alle Rollen | — | — | — | Abruf zusätzlich per Feed-Token **ohne Anmeldung** — Token ersetzt die Rolle nicht, er adressiert einen Feed |
+| iCal-Feed (`feed.ics`) | **Ohne Anmeldung, per Feed-Token** | — | — | — | Abruf zusätzlich per Feed-Token **ohne Anmeldung** — Token ersetzt die Rolle nicht, er adressiert einen Feed |
 | Feed-Verwaltung | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | Aussaatkalender | Alle Rollen | — | — | — | — |
 | Saisonübersicht | Alle Rollen | — | — | — | — |
