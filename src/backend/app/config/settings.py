@@ -3,6 +3,12 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
+# What ``/api/health`` reports when no build stamped a revision into the image
+# (#1210). A fixed literal, not a formatted fallback: a consumer compares against
+# it to decide "this instance cannot identify itself", which a value that varied
+# with the environment would make impossible.
+UNKNOWN_BUILD_REVISION = "unknown"
+
 
 class GBIFSettings(BaseModel):
     base_url: str = "https://api.gbif.org/v1"
@@ -22,6 +28,27 @@ class GBIFSettings(BaseModel):
 class Settings(BaseSettings):
     app_name: str = "Kamerplanter API"
     app_version: str = "1.0.0"
+
+    # Build identity of the running image (#1210) — deliberately a SECOND field,
+    # never a repurposing of ``app_version``. ``app_version`` is the API contract
+    # version: it feeds OpenAPI ``info.version`` (and with it the published
+    # openapi.json release asset and the API docs), the mDNS advertisement and the
+    # Sentry release. Overloading it with a build identifier would silently
+    # rewrite all four.
+    #
+    # Carries the full 40-character git SHA the image was built from, baked in by
+    # ``src/backend/Dockerfile`` (``ARG``/``ENV BUILD_REVISION``) from
+    # ``.github/workflows/docker-publish.yml``
+    # (``build-args: BUILD_REVISION=${{ github.sha }}``) — the same value
+    # docker/metadata-action writes to the image's
+    # ``org.opencontainers.image.revision`` annotation, so the two compare without
+    # truncation. Full, not short, for exactly that reason.
+    #
+    # Empty on a local checkout, on the ``dev`` image target and on any image
+    # built without the build-arg; :meth:`resolve_build_revision` turns that into
+    # the honest ``"unknown"`` rather than a guess.
+    build_revision: str = ""
+
     debug: bool = False
 
     arangodb_host: str = "localhost"
@@ -621,6 +648,27 @@ class Settings(BaseSettings):
     storage_s3_allow_private_endpoint: bool = False
 
     model_config = {"env_prefix": "", "case_sensitive": False, "env_nested_delimiter": "__"}
+
+    def resolve_build_revision(self) -> str:
+        """Resolve the git SHA the running build was made from (#1210).
+
+        The resolution is deliberately trivial, and each half of it is a decision:
+
+        * **Verbatim when set.** The value exists to be compared against the
+          image's ``org.opencontainers.image.revision`` annotation and against
+          ``git log``. Truncating, normalising or deriving anything here would
+          defeat the one question it answers — "is the build I am looking at the
+          commit I think it is?".
+        * **``"unknown"`` when absent.** An unset ``BUILD_REVISION`` and the empty
+          ``ENV BUILD_REVISION=""`` that an unbaked image carries are the same
+          situation and must not be told apart. Never substituted with
+          ``app_version``: a plausible-looking wrong answer is worse than no
+          answer, because it is the answer an operator would act on.
+
+        Returns:
+            The full git SHA as baked into the image, or :data:`UNKNOWN_BUILD_REVISION`.
+        """
+        return self.build_revision.strip() or UNKNOWN_BUILD_REVISION
 
     def allowed_mime_types_for_category(self, category: str) -> list[str]:
         """Resolve the allowed-MIME whitelist for an attachment category (NFR-013 §5.2).

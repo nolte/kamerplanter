@@ -145,6 +145,16 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
+          # Bake the build identity into the image so the running instance can say
+          # which commit it is (#1210). `labels`/`annotations` above already record
+          # this on the *manifest*, but a manifest annotation is not readable from
+          # inside the container and so cannot reach `GET /api/health`.
+          # `github.sha` is the full 40-character SHA and the same value
+          # metadata-action puts in org.opencontainers.image.revision, so the
+          # endpoint and the annotation compare without truncation. Remove this line
+          # and the endpoint falls back to "unknown" — never to a wrong SHA.
+          build-args: |
+            BUILD_REVISION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

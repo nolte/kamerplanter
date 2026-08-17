@@ -366,12 +366,23 @@ def root_health() -> dict:
     can reach *before* it has chosen an API major — putting the negotiation input
     behind a versioned path would be circular. It is also unauthenticated, which
     the negotiation needs: a client picks its base URL before it has a token.
+
+    Carries ``build_revision`` (#1210) because ``version`` cannot answer "which
+    build am I running?". ``version`` is the API contract version — a constant
+    that stays ``1.0.0`` across every deployment — so an operator holding a merged
+    fix had no way to tell whether it had arrived, other than re-triggering the
+    bug. ``build_revision`` is the full git SHA baked into the image, or
+    ``"unknown"`` where nothing baked one in. It is reported *in addition to*
+    ``version``, never instead of it: ``version`` also feeds OpenAPI
+    ``info.version`` and the mDNS advertisement, which must keep describing the
+    contract rather than the build.
     """
     result: dict = {
         "status": "healthy",
         "version": settings.app_version,
         "mode": settings.kamerplanter_mode,
         "supported_majors": supported_api_majors(app),
+        "build_revision": settings.resolve_build_revision(),
     }
     if settings.timescaledb_enabled:
         from app.common.dependencies import get_observation_repo
