@@ -329,6 +329,19 @@ def supported_api_majors(application: FastAPI) -> list[int]:
     answer is wrong only if the routes are.
 
     Sorted ascending; the client takes the highest it also supports.
+
+    **Deliberately recomputed per request, measured rather than assumed** (#1210,
+    SEC-003). The walk covers 793 paths at 0.37 ms per call on the current tree —
+    below the noise of the HTTP round trip, and not what made this endpoint an
+    amplification point (the synchronous TimescaleDB / knowledge-service probes in
+    ``root_health`` are, and the rate limit now bounds those). Caching it would buy
+    that 0.37 ms for two real costs: computing it at startup is not even
+    observable in this suite, because ``TestClient(app)`` outside a context manager
+    never runs the lifespan — a startup-filled cache would answer ``[]`` to every
+    api-tier test and to anything else that skips it — and memoising it lazily
+    reintroduces exactly the staleness this function exists to eliminate, since the
+    answer would then be "the routes as they were at the first request" rather than
+    "the routes".
     """
     return sorted({int(m.group(1)) for path in _mounted_paths(application) if (m := _API_MAJOR_PATH.match(path))})
 
@@ -359,7 +372,8 @@ def _mounted_paths(application: Any, _depth: int = 0) -> Iterator[str]:
 
 
 @app.get("/api/health", tags=["health"])
-def root_health() -> dict:
+@limiter.limit(settings.rate_limit_health)
+def root_health(request: Request) -> dict:
     """Root-level health endpoint for M2M consumers (HA integration).
 
     Carries ``supported_majors`` (#1124) because this is the one endpoint a client
@@ -367,23 +381,41 @@ def root_health() -> dict:
     behind a versioned path would be circular. It is also unauthenticated, which
     the negotiation needs: a client picks its base URL before it has a token.
 
-    Carries ``build_revision`` (#1210) because ``version`` cannot answer "which
+    May carry ``build_revision`` (#1210) because ``version`` cannot answer "which
     build am I running?". ``version`` is the API contract version — a constant
     that stays ``1.0.0`` across every deployment — so an operator holding a merged
     fix had no way to tell whether it had arrived, other than re-triggering the
-    bug. ``build_revision`` is the full git SHA baked into the image, or
-    ``"unknown"`` where nothing baked one in. It is reported *in addition to*
-    ``version``, never instead of it: ``version`` also feeds OpenAPI
-    ``info.version`` and the mDNS advertisement, which must keep describing the
-    contract rather than the build.
+    bug. When present it is reported *in addition to* ``version``, never instead of
+    it: ``version`` also feeds OpenAPI ``info.version`` and the mDNS advertisement,
+    which must keep describing the contract rather than the build.
+
+    **The field is opt-in and absent by default** (``HEALTH_EXPOSE_BUILD_REVISION``).
+    On an unauthenticated endpoint the SHA is not the sensitive part — the
+    repository is public — the mapping *this host → that commit* is, because it
+    yields the exact hash-pinned dependency set and the exact list of merged
+    security fixes this instance is missing. Absent, the key does not appear at
+    all; it is never reported as ``"unknown"``, which means something else
+    ("willing to answer, nothing baked in") and which a drift-detection consumer
+    has to be able to tell apart from a deliberately silent instance.
+
+    Rate-limited per client IP (``rate_limit_health``, SEC-003). The endpoint is
+    unauthenticated and does real work — the router-graph walk below plus, where
+    enabled, **synchronous** probes into TimescaleDB and the knowledge service —
+    which made it a cheap amplification point into internal services. The
+    Kubernetes liveness/readiness probes hit ``/api/v1/health/live`` and
+    ``/api/v1/health/ready`` instead and stay unlimited.
+
+    ``request`` is unused by the body: SlowAPI resolves the client from it, and
+    requires it by that name.
     """
     result: dict = {
         "status": "healthy",
         "version": settings.app_version,
         "mode": settings.kamerplanter_mode,
         "supported_majors": supported_api_majors(app),
-        "build_revision": settings.resolve_build_revision(),
     }
+    if settings.health_expose_build_revision:
+        result["build_revision"] = settings.resolve_build_revision()
     if settings.timescaledb_enabled:
         from app.common.dependencies import get_observation_repo
 
