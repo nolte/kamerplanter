@@ -346,6 +346,15 @@ This workflow runs on pull requests to `develop` when `skaffold.yaml`, Helm file
 
 A full release consists of several automatic steps triggered by publishing a GitHub release.
 
+!!! note "A release deploys nothing"
+
+    The release process produces artifacts — chart package, compose files,
+    documentation. It does **not** bring a new version into a running cluster;
+    that is what the path under [Deployment and
+    rollback](#deployment-and-rollback) does. What a release delivers instead is
+    described under [What a release is actually
+    for](#what-a-release-is-for).
+
 ### Step 1: Prepare release draft (automatic)
 
 The `release-drafter` workflow automatically updates a release draft on every push to `develop` with the changes since the last tag.
@@ -421,7 +430,23 @@ graph LR
     D --> E[ArgoCD syncs<br/>pods roll]
 ```
 
+Spelled out, that is four hops, each owned by a different actor:
+
+1. **Merge to `develop`** — the commit that changes the code. A human.
+2. **`docker-publish.yml`** builds the image and pushes it; `:latest` in GHCR
+   points at the new bytes afterwards. The cluster notices nothing.
+3. **Renovate** opens the grouped `kamerplanter images` pull request and writes
+   the new digest into `helm/kamerplanter/values.yaml`; the pull request
+   automerges.
+4. **ArgoCD** syncs exactly that commit. The pods roll because the pod spec
+   changed — not because someone triggered a restart.
+
 A deploy is therefore a **commit**, not an operation on the cluster. Renovate keeps the digests current (`renovate.json5`, rule `kamerplanter images`); that they are present at all is enforced by `scripts/check_chart_image_digests.py` in the required `static` check.
+
+A hop that fails to happen does not announce itself: hop 3 stalls when Renovate
+stalls, and hop 4 can *look* synced while the pod runs something else. What
+guards against that is described under
+[Two hops, two checks](#two-hops-two-checks).
 
 ### Rollback
 
@@ -456,17 +481,97 @@ kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
     (`workflow_dispatch` + `kubectl rollout restart`) is no route at all: as
     measured above, it never reliably pulled a new image in the first place.
 
-### Production: the pin also lives in the GitOps repository
+### Production: the `Application` lives in the GitOps repository
 
-The ArgoCD `Application` for the Talos cluster is **not** in this repository but in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). It pulls the chart at a release tag (`targetRevision: vX.Y.Z`) and overrides `image.tag` per controller.
+The ArgoCD `Application` for the Talos cluster is **not** in this repository but in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). It does not pull the chart from the registry but straight from the source repository:
 
-!!! warning "A `tag` override in the Application manifest erases the digest"
+```yaml
+- path: helm/kamerplanter                              # (1)!
+  repoURL: https://github.com/nolte/kamerplanter.git
+  targetRevision: develop                              # (2)!
+```
 
-    The override beats the chart default. If it says `tag: "0.1.0"`, production
-    runs on a moving reference regardless. Now that the chart brings its own
-    digests, those overrides are redundant: `targetRevision` selects the
-    version, the chart selects the bytes. A rollback is then the revert of the
-    GitOps commit that raised `targetRevision`.
+1. The chart directory in the Git tree — not the OCI artifact `oci://ghcr.io/nolte/charts/kamerplanter`.
+2. A **branch**, not a release tag. Every commit on `develop` that touches `helm/kamerplanter/**` is immediately the new desired state of this instance.
+
+!!! warning "A published release is not on this instance's delivery path"
+
+    This instance learns about a new version **exclusively** through the four
+    hops above. A release changes nothing about it: it raises no
+    `targetRevision`, it moves no digest in `helm/kamerplanter/values.yaml`, and
+    it triggers no sync. Anyone expecting the release version in the cluster
+    after a release is looking in the wrong place — what runs there is the
+    digest set by the last Renovate merge on `develop`, which may be newer or
+    older than any release.
+
+#### What a release is actually for {#what-a-release-is-for}
+
+A release is cut by a maintainer by hand: **Actions → Release Publish → Run
+workflow**, using the tag of an open release-drafter draft — sensibly with
+`dry_run` first. It never happens automatically. Everything that hangs off it
+sits *outside* this instance:
+
+| Outcome | For whom |
+|---|---|
+| Chart package `oci://ghcr.io/nolte/charts/kamerplanter:<version>`, images pinned to `<version>@sha256:<digest>` | self-hosters and other clusters — see [ArgoCD](argocd.md) |
+| `docker-compose-<version>.yml`, `.env.example-<version>`, `openapi.json` as release assets | self-hosting without Kubernetes, API clients |
+| MkDocs documentation on GitHub Pages (`release-cd-deliver-docs.yml`) | readers of this page |
+| `main` moved to the release state (`release-cd-refresh-master.yml`) | anyone who needs a stable reference branch |
+
+#### Invariant: no `image.tag` in the overlay {#invariant-no-image-tag}
+
+**An overlay configuring this instance carries no per-controller `image.tag` overrides.** That is not a recommendation but the condition under which the digest pin holds at all.
+
+The chart pins every Kamerplanter image as `latest@sha256:…`. The digest names
+the bytes and cannot move. A `tag: "0.2.0"` in the Application manifest beats
+the chart default and replaces that digest with a moving reference — and
+`pullPolicy: IfNotPresent` then means: "keep whatever is already cached on the
+node". Delivery is back to depending on what one individual node happens to have
+pulled before.
+
+The consequence has been measured twice, not feared:
+
+- In the first incident (tracked internally as #1024) a `rollout restart`
+  silently kept an old image; the `inference-service` served a state without the
+  `/pest/*` routes for weeks. <!-- #1024 -->
+- In the second (internally #1210) the chart already pinned a build **with** the
+  fix while the instance served a state from before it — the overlay tag had
+  overwritten the digest. <!-- #1210 -->
+
+Both times it looked healthy from the outside: registry, chart and controller
+status all agreed. Only the running container did not. That is why the proof is
+always the look **into the pod**, never into the values file.
+
+The invariant is written out next to the digests it protects — in
+[`helm/kamerplanter/values.yaml`](https://github.com/nolte/kamerplanter/blob/develop/helm/kamerplanter/values.yaml)
+and in the overlay itself. Change it there, not here.
+
+### Two hops, two checks {#two-hops-two-checks}
+
+Between "the registry has the new bytes" and "the pod runs them" sit two
+independent transitions. Each has its own check — and neither says anything
+about the other:
+
+| Transition | Question | Check |
+|---|---|---|
+| GHCR → chart pin | Is the digest in `values.yaml` still the current one? | `chart-image-digest-freshness.yml`, daily at 06:00 UTC |
+| Chart pin → running instance | Does the pod run the bytes the chart names? | planned, see below |
+
+!!! danger "The first green check does not imply the second"
+
+    When the second incident surfaced, `chart-image-digest-freshness` was green
+    — entirely correctly: the chart pin *was* current. That is exactly what made
+    the divergence invisible, because the only check that existed measured the
+    hop that worked. A check over the first transition can say nothing about the
+    second; the two hops fail independently. <!-- #1210 -->
+
+!!! warning "Not yet implemented"
+
+    The check for the second hop does not exist yet. It will compare the digest
+    in `helm/kamerplanter/values.yaml` against the build identifier the running
+    instance reports itself (see the last question under "Frequently Asked
+    Questions"), and report a divergence the same way the first check does.
+    Until then this transition is only verifiable by hand. <!-- #1210 -->
 
 ---
 
@@ -512,7 +617,54 @@ All images are publicly readable. For local testing:
     `main` is updated exclusively and automatically by `release-cd-refresh-master.yml` after a published release. Direct pushes to `main` are not intended.
 
 ??? question "How do I see which image version is currently running?"
-    The image digest labels (`org.opencontainers.image.*`) are embedded in every image. You can read them with `docker inspect <image>` or check the GHCR package tab on GitHub.
+
+    !!! warning "Not yet implemented"
+
+        The health endpoint will only ship the `build_revision` field with a
+        future build. Until then it answers without that field; use the fallback
+        route below in the meantime. <!-- #1210 -->
+
+    Ask the instance itself — it is the only source that actually covers the hop
+    from the chart pin to the running process:
+
+    ```bash
+    curl -s https://your-instance.example.com/api/health
+    ```
+
+    ```json
+    {
+      "status": "healthy",
+      "version": "1.0.0",
+      "mode": "light",
+      "supported_majors": [1],
+      "build_revision": "37cbc06fcf0c7d69c07f7abbd3d485cb241070da"
+    }
+    ```
+
+    `build_revision` will be the full 40-character Git commit of the running
+    build — the identifier you hold against `git log` to see whether a
+    particular fix is in there. If nothing sets it, the literal value
+    `"unknown"` will appear instead; that is an answer, not a malfunction, but
+    it means this route proves nothing for that instance.
+
+    !!! note "`version` is not the build identifier"
+
+        `version` is the application and API version (the same one that appears
+        under `info.version` in the OpenAPI description). It stays the same
+        across many builds and does not answer the question "which bytes are
+        running here?".
+
+    **Fallback route — for an image that is not currently running.** The
+    `org.opencontainers.image.*` labels are embedded in every image; `docker
+    inspect <image>` reads them, and the GHCR package tab on GitHub shows them
+    too. That tells you what is *inside* an artifact — not which artifact your
+    cluster is running. For the answer in the cluster, take the digest from the
+    pod:
+
+    ```bash
+    kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
+      -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+    ```
 
 ---
 

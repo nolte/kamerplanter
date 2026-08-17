@@ -100,6 +100,17 @@ spec:
 1. `ARANGODB_PASSWORD` is injected from the `kamerplanter-secrets` Secret.
 2. `ARANGO_ROOT_PASSWORD` is injected from the same Secret.
 
+!!! warning "Do not override `image.tag` in `valuesObject`"
+
+    The published chart pins every Kamerplanter image to
+    `<version>@sha256:<digest>` — the digest names the bytes and cannot move. An
+    `image.tag` of your own in `valuesObject` beats that default and replaces it
+    with a moving reference; together with `pullPolicy: IfNotPresent` the node
+    then serves whatever it happens to have cached. Division of responsibility:
+    `targetRevision` selects the **chart version**, the chart selects the
+    **bytes**. Why this went wrong twice, measured:
+    [CI/CD — Invariant: no `image.tag` in the overlay](ci-cd.md#invariant-no-image-tag).
+
 ---
 
 ## Ingress with TLS

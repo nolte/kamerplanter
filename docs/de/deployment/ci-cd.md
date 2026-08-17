@@ -346,6 +346,14 @@ Dieser Workflow läuft bei Pull Requests auf `develop`, wenn `skaffold.yaml`, He
 
 Ein vollständiger Release besteht aus mehreren automatischen Schritten, die durch das Veröffentlichen eines GitHub-Releases ausgelöst werden.
 
+!!! note "Ein Release deployt nichts"
+
+    Der Release-Prozess erzeugt Artefakte — Chart-Paket, Compose-Dateien,
+    Dokumentation. Er bringt **keine** neue Version in einen laufenden Cluster;
+    das tut der Weg unter [Deployment und Rollback](#deployment-und-rollback).
+    Was ein Release stattdessen leistet, steht unter
+    [Wofür ein Release dann da ist](#wofuer-ein-release).
+
 ### Schritt 1: Release-Entwurf vorbereiten (automatisch)
 
 Der `release-drafter`-Workflow aktualisiert bei jedem Push auf `develop` automatisch einen Release-Entwurf mit den Änderungen seit dem letzten Tag.
@@ -421,7 +429,23 @@ graph LR
     D --> E[ArgoCD synct<br/>Pods rollen]
 ```
 
+Ausgeschrieben sind das vier Sprünge, und jeder gehört einem anderen Akteur:
+
+1. **Merge nach `develop`** — der Commit, der den Code ändert. Ein Mensch.
+2. **`docker-publish.yml`** baut das Image und pusht es; `:latest` in der GHCR
+   zeigt danach auf die neuen Bytes. Der Cluster merkt davon nichts.
+3. **Renovate** öffnet den gruppierten Pull Request `kamerplanter images` und
+   schreibt den neuen Digest nach `helm/kamerplanter/values.yaml`; der Pull
+   Request mergt automatisch.
+4. **ArgoCD** synct genau diesen Commit. Die Pods rollen, weil sich die Pod-Spec
+   geändert hat — nicht, weil jemand einen Neustart ausgelöst hat.
+
 Der Deploy ist also ein **Commit**, kein Handgriff am Cluster. Renovate hält die Digests aktuell (`renovate.json5`, Regel `kamerplanter images`); dass die Digests überhaupt vorhanden sind, sichert `scripts/check_chart_image_digests.py` im Pflicht-Check `static` ab.
+
+Ein Sprung, der ausbleibt, meldet sich nicht von selbst: Sprung 3 ruht, wenn
+Renovate hängt, und Sprung 4 kann synchronisiert *aussehen*, während der Pod
+etwas anderes ausführt. Was das absichert, steht unter
+[Zwei Sprünge, zwei Prüfungen](#zwei-sprunge-zwei-prufungen).
 
 ### Rollback
 
@@ -457,17 +481,98 @@ kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
     keiner mehr: Er hat, wie oben gemessen, ohnehin nie zuverlässig ein neues
     Image gezogen.
 
-### Produktion: der Pin liegt zusätzlich im GitOps-Repository
+### Produktion: die `Application` liegt im GitOps-Repository
 
-Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Repository, sondern in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). Sie zieht das Chart an einem Release-Tag (`targetRevision: vX.Y.Z`) und überschreibt pro Controller `image.tag`.
+Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Repository, sondern in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). Sie zieht das Chart nicht aus der Registry, sondern direkt aus dem Quell-Repository:
 
-!!! warning "Ein `tag`-Override im Application-Manifest löscht den Digest"
+```yaml
+- path: helm/kamerplanter                              # (1)!
+  repoURL: https://github.com/nolte/kamerplanter.git
+  targetRevision: develop                              # (2)!
+```
 
-    Der Override gewinnt gegen den Chart-Default. Steht dort `tag: "0.1.0"`,
-    läuft Produktion trotz allem auf einer beweglichen Referenz. Seit das Chart
-    seine Digests selbst mitbringt, sind diese Overrides überflüssig: `targetRevision`
-    wählt die Version, das Chart die Bytes. Ein Rollback ist dann der Revert des
-    Commits im GitOps-Repository, der `targetRevision` angehoben hat.
+1. Der Chart-Ordner im Git-Baum — nicht das OCI-Artefakt `oci://ghcr.io/nolte/charts/kamerplanter`.
+2. Ein **Branch**, kein Release-Tag. Jeder Commit auf `develop`, der `helm/kamerplanter/**` berührt, ist damit sofort der neue Soll-Zustand dieser Instanz.
+
+!!! warning "Ein veröffentlichtes Release liegt nicht auf dem Auslieferungspfad dieser Instanz"
+
+    Diese Instanz erfährt von einer neuen Version **ausschließlich** über die
+    vier Sprünge oben. Ein Release ändert an ihr nichts: Es hebt kein
+    `targetRevision` an, es bewegt keinen Digest in
+    `helm/kamerplanter/values.yaml` und es löst keinen Sync aus. Wer nach einem
+    Release im Cluster die Release-Version erwartet, sucht am falschen Ort —
+    dort läuft der Digest, den der letzte Renovate-Merge auf `develop` gesetzt
+    hat, und der kann jünger oder älter sein als jedes Release.
+
+#### Wofür ein Release dann da ist {#wofuer-ein-release}
+
+Ein Release schneidet ein Maintainer von Hand: **Actions → Release Publish → Run
+workflow**, mit dem Tag eines offenen Release-Drafter-Entwurfs — sinnvollerweise
+zuerst mit `dry_run`. Automatisch passiert das nie. Was daran hängt, ist alles
+*außerhalb* dieser Instanz:
+
+| Ergebnis | Für wen |
+|---|---|
+| Chart-Paket `oci://ghcr.io/nolte/charts/kamerplanter:<version>`, mit Images auf `<version>@sha256:<digest>` gepinnt | Self-Hoster und fremde Cluster — siehe [ArgoCD](argocd.md) |
+| `docker-compose-<version>.yml`, `.env.example-<version>`, `openapi.json` als Release-Assets | Self-Hosting ohne Kubernetes, API-Clients |
+| MkDocs-Dokumentation auf GitHub Pages (`release-cd-deliver-docs.yml`) | Leser dieser Seite |
+| `main` auf den Release-Stand gesetzt (`release-cd-refresh-master.yml`) | alle, die einen stabilen Referenz-Branch brauchen |
+
+#### Invariante: kein `image.tag` im Overlay {#invariante-kein-image-tag}
+
+**Ein Overlay, das diese Instanz konfiguriert, trägt keine per-Controller-`image.tag`-Overrides.** Das ist keine Empfehlung, sondern die Bedingung, unter der der Digest-Pin überhaupt trägt.
+
+Das Chart pinnt jedes Kamerplanter-Image als `latest@sha256:…`. Der Digest
+benennt die Bytes und kann sich nicht bewegen. Ein `tag: "0.2.0"` im
+Application-Manifest gewinnt gegen den Chart-Default und ersetzt den Digest
+durch eine bewegliche Referenz — und `pullPolicy: IfNotPresent` heißt dann:
+„nimm, was auf dem Node im Cache liegt". Damit ist die Auslieferung wieder davon
+abhängig, was ein einzelner Knoten zufällig schon einmal gezogen hat.
+
+Die Konsequenz ist zweimal gemessen worden, nicht befürchtet:
+
+- Im ersten Vorfall (intern verfolgt als #1024) behielt ein `rollout restart`
+  still ein altes Image; der `inference-service` bediente wochenlang einen Stand
+  ohne die `/pest/*`-Routen. <!-- #1024 -->
+- Im zweiten (intern #1210) pinnte das Chart bereits einen Build **mit** dem
+  Fix, während die Instanz einen Stand von davor auslieferte — der Overlay-Tag
+  hatte den Digest überschrieben. <!-- #1210 -->
+
+Beide Male sah die Lage von außen gesund aus: Registry, Chart und
+Controller-Status waren einer Meinung. Nur der laufende Container war es nicht.
+Deshalb ist der Beweis immer der Blick **in den Pod**, nie in die Values-Datei.
+
+Die Invariante steht im Klartext neben den Digests, die sie schützt — in
+[`helm/kamerplanter/values.yaml`](https://github.com/nolte/kamerplanter/blob/develop/helm/kamerplanter/values.yaml)
+und im Overlay selbst. Ändere sie dort, nicht hier.
+
+### Zwei Sprünge, zwei Prüfungen {#zwei-sprunge-zwei-prufungen}
+
+Zwischen „die Registry hat die neuen Bytes" und „der Pod führt sie aus" liegen
+zwei unabhängige Übergänge. Jeder hat seine eigene Prüfung — und keine der
+beiden sagt etwas über die andere aus:
+
+| Übergang | Frage | Prüfung |
+|---|---|---|
+| GHCR → Chart-Pin | Ist der Digest in `values.yaml` noch der aktuelle? | `chart-image-digest-freshness.yml`, täglich 06:00 UTC |
+| Chart-Pin → laufende Instanz | Führt der Pod die Bytes aus, die im Chart stehen? | geplant, siehe unten |
+
+!!! danger "Der erste grüne Haken impliziert den zweiten nicht"
+
+    Als der zweite Vorfall auffiel, war `chart-image-digest-freshness` grün —
+    völlig zu Recht: Der Chart-Pin *war* aktuell. Genau das machte die
+    Abweichung unsichtbar, denn die einzige Prüfung, die es gab, maß den
+    Sprung, der funktionierte. Ein Check über den ersten Übergang kann über den
+    zweiten nichts aussagen; die beiden Sprünge fallen unabhängig voneinander
+    aus. <!-- #1210 -->
+
+!!! warning "Noch nicht implementiert"
+
+    Die Prüfung des zweiten Sprungs gibt es noch nicht. Sie wird den Digest aus
+    `helm/kamerplanter/values.yaml` gegen die Build-Kennung vergleichen, die die
+    laufende Instanz selbst meldet (siehe die letzte Frage unter „Häufige
+    Fragen"), und eine Abweichung genauso melden wie die erste Prüfung. Bis
+    dahin ist dieser Übergang nur von Hand prüfbar. <!-- #1210 -->
 
 ---
 
@@ -513,7 +618,54 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     `main` wird ausschließlich automatisch durch `release-cd-refresh-master.yml` nach einem veröffentlichten Release aktualisiert. Direkte Pushes auf `main` sind nicht vorgesehen.
 
 ??? question "Wie sehe ich, welche Image-Version gerade läuft?"
-    Die Image-Digest-Labels (`org.opencontainers.image.*`) sind in jedem Image eingebettet. Du kannst sie mit `docker inspect <image>` auslesen oder im GHCR-Package-Tab auf GitHub nachsehen.
+
+    !!! warning "Noch nicht implementiert"
+
+        Das Feld `build_revision` wird der Health-Endpunkt erst mit einem
+        künftigen Build ausliefern. Bis dahin antwortet er ohne dieses Feld;
+        nutze so lange den Rückfallweg unten. <!-- #1210 -->
+
+    Frag die Instanz selbst — sie ist die einzige Quelle, die den Sprung vom
+    Chart-Pin zum laufenden Prozess tatsächlich abdeckt:
+
+    ```bash
+    curl -s https://deine-instanz.example.com/api/health
+    ```
+
+    ```json
+    {
+      "status": "healthy",
+      "version": "1.0.0",
+      "mode": "light",
+      "supported_majors": [1],
+      "build_revision": "37cbc06fcf0c7d69c07f7abbd3d485cb241070da"
+    }
+    ```
+
+    `build_revision` wird der vollständige, 40-stellige Git-Commit des laufenden
+    Builds sein — die Kennung, die du gegen `git log` hältst, um zu sehen, ob
+    ein bestimmter Fix drin ist. Setzt ihn niemand, wird dort der Literalwert
+    `"unknown"` stehen; das ist eine Antwort, keine Panne, aber es heißt, dass
+    dieser Weg für diese Instanz nichts beweist.
+
+    !!! note "`version` ist nicht die Build-Kennung"
+
+        `version` ist die Anwendungs- und API-Version (dieselbe, die in der
+        OpenAPI-Beschreibung unter `info.version` steht). Sie bleibt über viele
+        Builds hinweg gleich und beantwortet die Frage „welche Bytes laufen
+        hier?" nicht.
+
+    **Rückfallweg — für ein Image, das gerade nicht läuft.** Die Labels
+    `org.opencontainers.image.*` sind in jedes Image eingebettet; `docker inspect
+    <image>` liest sie aus, der GHCR-Package-Tab auf GitHub zeigt sie ebenfalls.
+    Damit prüfst du, was *in* einem Artefakt steckt — nicht, welches Artefakt
+    dein Cluster gerade ausführt. Für die Antwort im Cluster nimm den Digest aus
+    dem Pod:
+
+    ```bash
+    kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
+      -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+    ```
 
 ---
 
