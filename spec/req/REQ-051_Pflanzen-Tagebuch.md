@@ -32,7 +32,8 @@ einem Ort und erweitert es um drei Fähigkeiten, die heute fehlen.
 |----------|----------------|----------------------|
 | **REQ-013** | `PlantDiaryEntry` als Knoten, die Tagebuch-Endpunkte in beiden Präfixen, der Umgebungs-Schnappschuss §2.3a | **Bleibt die Quelle für den Datensatz und die Graph-Einbettung.** REQ-051 ergänzt additive Felder (§8) und einen Endpunkt (§9) und beschreibt, was mit dem Datensatz *fachlich* geschieht. |
 | **REQ-050** | Analyse-Zustandsmaschine, Lease, MCP-Vertrag, Einwilligungszweck `diary_ai_analysis` | **Bleibt die Quelle für die Analyse.** REQ-051 übernimmt von dort die Oberfläche (§6) und ergänzt Aktualität (§4) und Archiv (§5). Die fünf Zustände aus REQ-050 §2.2 werden **nicht** verändert. |
-| **REQ-034** | Foto-Erfassungswege (Webcam, Smartphone-Kamera, Datei-Upload), Galerie-Muster am Pflanzeninstanz-Tab | Erfassungswege und Tab-Muster werden wiederverwendet, nicht nachgebaut. |
+| **REQ-052** | Erfassungsbaustein: die drei Erfassungswege, Normalisierungsprofile, EXIF-Strip | Tagebuchfotos werden damit erfasst, Profil `gallery` (§3.3, §6.1). |
+| **REQ-034** | Galerie-Muster am Pflanzeninstanz-Tab, Foto-Metadaten (`caption`, `taken_on`) | Das Tab-Muster wird wiederverwendet, nicht nachgebaut. Die Erfassungswege lagen bis REQ-034 v1.2 hier und stehen jetzt in REQ-052. |
 | **NFR-013** | `attachments`-Collection, Renditions 128/512/1280 px WebP, EXIF-Strip | Bildquelle. Tagebuchfotos sind `category = diary`; REQ-051 führt **keine** neue Storage-Kategorie ein. |
 | **REQ-005** | Fallback-Kette und Provenienz je Messwert | Begründet, warum der Umgebungs-Schnappschuss nicht handisch editierbar ist (§3.5). |
 | **REQ-042 / REQ-021** | Modul `diary` (`core: false`, `beginner`), Navigationspfad `/tagebuch` | Unverändert; nur der Verweis wandert von REQ-050 §2.5.2 auf REQ-051 §6.2. |

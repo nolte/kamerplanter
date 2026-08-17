@@ -1443,7 +1443,7 @@ CSV-Dateien können bösartigen Inhalt transportieren. Die folgenden Sicherheits
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| CI-001 | CSV-Import MUSS auf die Rolle **Admin** beschränkt sein (keine Grower/Viewer). | MUSS |
+| CI-001 | CSV-Import MUSS auf die Zusatzberechtigung **Technik** beschränkt sein (REQ-049 §2.4/§3.4). Der fachliche Rang entscheidet **nicht**: Ein Beobachter mit `technical` darf importieren, eine Leitung ohne `technical` nicht. Der frühere Wortlaut „Rolle Admin (keine Grower/Viewer)" benutzte einen von REQ-049 §3.2 verbotenen Begriff und hätte auf einen Rang gegatet. | MUSS |
 | CI-002 | Maximale Dateigröße: **10 MB** (erzwungen via FastAPI `UploadFile` und NFR-001 §6.5 EV-004). | MUSS |
 | CI-003 | Maximale Zeilenanzahl: **10.000 Zeilen** pro Import-Job. Dateien mit mehr Zeilen werden mit Validierungsfehler abgelehnt. | MUSS |
 | CI-004 | **CSV-Injection-Sanitisierung:** Zellenwerte die mit `=`, `+`, `-`, `@`, `\t`, `\r` beginnen, MÜSSEN bei der Validierung als `SUSPICIOUS_CONTENT`-Warnung markiert werden. Das führende Zeichen wird beim Import automatisch entfernt (Prefix-Stripping). | MUSS |

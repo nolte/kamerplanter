@@ -1481,7 +1481,7 @@ Router: `/api/v1/care-reminders`
 | Methode | Pfad | Beschreibung | Request | Response | Auth |
 |---------|------|-------------|---------|----------|------|
 | `GET` | `/dashboard` | Alle fälligen Erinnerungen, sortiert nach Dringlichkeit | Query: `?include_upcoming=true` | `list[CareDashboardEntry]` | Ja |
-| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen; existiert keines, wird es **beim ersten Zugriff eines schreibberechtigten Aufrufers** aus den Species-Defaults erzeugt. Ein Beobachter erhaelt in diesem Fall das berechnete Profil **ohne** Persistierung — ein Lesezugriff darf keine Ressource anlegen (REQ-024 AK-12) | — | `CareProfile` | Alle Rollen |
+| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen; existiert keines, wird es **beim ersten Zugriff eines Aufrufers ab der Rolle Leitung** aus den Species-Defaults erzeugt (Anlegen ist Leitung, §7 und REQ-024 §1a.1 — ein Gärtner ist schreibberechtigt fuer *Aendern*, nicht fuer *Anlegen*). Ein Beobachter erhaelt in diesem Fall das berechnete Profil **ohne** Persistierung — ein Lesezugriff darf keine Ressource anlegen (REQ-024 AK-12) | — | `CareProfile` | Alle Rollen |
 | `PATCH` | `/plants/{plant_key}/profile` | Intervalle anpassen | `CareProfileUpdate` | `CareProfile` | Ab Gärtner |
 | `POST` | `/plants/{plant_key}/confirm` | Ein-Tap-Bestätigung einer Pflegeaktion | `CareConfirmRequest` | `CareConfirmation` | Ab Gärtner |
 | `POST` | `/plants/{plant_key}/snooze` | Erinnerung um N Tage verschieben | `CareSnoozeRequest` | `CareConfirmation` | Ab Gärtner |

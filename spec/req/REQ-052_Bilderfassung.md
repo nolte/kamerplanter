@@ -206,8 +206,13 @@ moderne Telefone liefern.
 
 ## 4. Welche Formate angenommen werden
 
-Angenommen werden `image/jpeg`, `image/png`, `image/webp`, `image/heic` und `image/heif` — dieselbe
-Menge, die NFR-013 §5.2 für Foto-Kategorien zulässt.
+Angenommen werden `image/jpeg`, `image/png`, `image/webp`, `image/heic` und `image/heif`.
+
+**Kleine, aber reale Abweichung von NFR-013:** Dessen Mime-Whitelist in §5.2 führt für
+Foto-Kategorien nur `jpeg`, `png`, `webp` und `heic` — **ohne** `heif`. Die Umsetzung
+(`_PHOTO_MIME_TYPES`) enthält `heif`; die Lücke liegt also in NFR-013, nicht im Code. Wer die
+Server-Whitelist aus NFR-013 baut, weist `image/heif` ab, obwohl dieselben Geräte es liefern wie
+`heic`. Die Nachführung gehört in NFR-013 und ist als O-65 geführt.
 
 **HEIC/HEIF ist der iOS-Normalfall und muss ausdrücklich funktionieren.** Ein iPhone liefert seit
 iOS 11 standardmäßig HEIC. Die Normalisierung nach §3 kodiert ohnehin als JPEG neu, löst das
@@ -219,8 +224,20 @@ nicht von seinen Metadaten getrennt werden (§5) — und damit unterscheiden sic
 
 | Ziel | Verhalten bei nicht dekodierbarem HEIC |
 |------|----------------------------------------|
-| **Eigene Instanz** (Galerie, Tagebuch, Referenzbild) | Bild wird **unverändert** hochgeladen; der Server konvertiert und strippt (NFR-013 §5.2/§6.4). Der Nutzer bekommt einen Hinweis auf die Originalgröße, **keine** Fehlermeldung |
-| **Dritter** (Erkennungsdienst, REQ-029/REQ-038/REQ-043/REQ-044) | Der Versand wird **abgelehnt**, mit dem Hinweis, das Bild als JPEG erneut aufzunehmen oder auszuwählen |
+| **jedes Ziel** | Der Upload wird **abgelehnt**, mit dem Hinweis, das Bild als JPEG erneut aufzunehmen oder auszuwählen |
+
+**Warum abgelehnt und nicht durchgereicht — gemessen, nicht angenommen.** Ein früherer Entwurf
+dieser Anforderung ließ das Bild unverändert passieren und stützte sich darauf, dass der
+serverseitige Strip es auffängt. Das ist falsch:
+`app/domain/engines/storage/exif_stripper.py` führt HEIC und HEIF in
+`_UNSUPPORTED_PHOTO_FORMATS` und gibt die Bytes **unverändert** zurück (SEC-005; der
+`pillow-heif`-Nachzug ist offen). Weder Client noch Server könnten die Metadaten also entfernen —
+die GPS-Koordinate landete im Original, und bei einer Erkennung zusätzlich beim Dritten.
+
+**Die Ablehnung ist damit die einzige Variante, die keine Zusage bricht.** Sie fällt weg, sobald
+`pillow-heif` im Server steht **oder** der Client HEIC dekodieren kann (Safari kann es heute) — im
+zweiten Fall greift die normale Normalisierung und die Frage stellt sich nicht. Der Vorbehalt hängt
+also an einer messbaren Fähigkeit, nicht an einer Empfehlung (O-64).
 
 **Warum die Ablehnung ausgerechnet hier steht.** Ein iPhone-HEIC trägt GPS. §5 begründet den
 clientseitigen Strip damit, dass der Aufnahmeort einer Zimmerpflanze die Wohnanschrift ist und das
@@ -413,9 +430,9 @@ entsteht.
 | **AK-62** | Nach Beenden, Verlassen oder Verwerfen ist **jeder** Track des Kamerastreams gestoppt und die Kamera-Anzeige des Geräts erloschen. Der Nachweis umfasst die Abbruchpfade (Zurück-Navigation, Escape, Entfernen der Komponente durch einen Fehler), nicht nur den Normalablauf. |
 | **AK-63** | Ein Bild, dessen Ausrichtung ausschließlich im EXIF stand, wird nach der Normalisierung **richtig herum** angezeigt und hochgeladen: Die Orientierung wird vor dem Verwerfen der Metadaten in die Pixel geschrieben. |
 | **AK-64** | Werden mehr Bilder ausgewählt, als die konsumierende Anforderung zulässt, werden die überzähligen **benannt abgelehnt**. Eine stille Kürzung ist ein Fehlschlag des Kriteriums. |
-| **AK-65** | Ein Bild, das an einen **Dritten** geht (Erkennungspfad), enthält **keine** EXIF-Daten — insbesondere keine GPS-Koordinaten und keine Gerätekennung. Der Nachweis erfolgt an der Datei, die das Gerät verlässt. Für den Upload zur **eigenen Instanz** gilt dasselbe für jedes normalisierte Bild; die eine Ausnahme ist das nicht dekodierbare HEIC aus §4, dessen Metadaten der serverseitige Strip entfernt (NFR-013 §6.4) — es erreicht deshalb **nie** einen Dritten (AK-67). |
+| **AK-65** | Jedes hochgeladene Bild enthält **keine** EXIF-Daten — insbesondere keine GPS-Koordinaten und keine Gerätekennung. Der Nachweis erfolgt an der Datei, die das Gerät verlässt, nicht an der gespeicherten. Es gibt **keine** Ausnahme: Ein Bild, dessen Metadaten der Client nicht entfernen kann, wird nach §4 abgewiesen, statt sich auf einen serverseitigen Strip zu verlassen, den es für dieses Format nicht gibt. |
 | **AK-66** | Die Profile aus §3 sind die einzige Quelle der Normalisierungsparameter. Ein Test weist die **Abwesenheit** frei übergebener Pixelwerte an den Aufrufstellen nach — wird `maxEdge` irgendwo direkt gesetzt, ist die Vereinheitlichung aufgehoben, ohne dass ein Verhaltenstest anschlägt. |
-| **AK-67** | Ein HEIC-Bild, das der Browser dekodieren kann, wird normalisiert. Eines, das er nicht dekodieren kann, wird beim Upload zur **eigenen Instanz** unverändert übertragen — mit Hinweis auf die Originalgröße statt einer Fehlermeldung — und auf dem Weg zu einem **Dritten** abgewiesen, weil es dort seine GPS-Koordinate mitnähme (§4). Überschreitet das unveränderte Original `STORAGE_MAX_FILE_SIZE_MB`, wird es abgelehnt; das ist der eine Fall, in dem der Upload-Pfad doch mit einem Fehler endet, und die Meldung benennt die Größe als Ursache (AK-72). |
+| **AK-67** | Ein HEIC-Bild, das der Browser dekodieren kann, wird normalisiert und ist danach EXIF-frei wie jedes andere. Eines, das er **nicht** dekodieren kann, wird abgewiesen — die Meldung nennt das Format als Ursache und schlägt JPEG vor. Ein Test weist nach, dass der Pfad **nicht** auf `strip_exif` vertraut: `is_strippable_format('image/heic')` ist `false`, und ein Ablauf, der sich darauf stützte, wäre ein stiller Standortdaten-Leak. |
 | **AK-68** | Die vier Kamera-Fehlerzustände aus §6 sind sichtbar voneinander unterschieden und benennen jeweils den Datei-Upload als Ausweg. `unsupported` bietet Weg 1 gar nicht erst an. |
 | **AK-69** | Die Kameraerlaubnis wird erst angefragt, wenn der Nutzer die Kamera anfordert — nicht beim Öffnen der Ansicht. |
 | **AK-70** | Alle drei Wege sind per Tastatur bedienbar; Start, Aufnahme und Fehler werden über `aria-live` angesagt (§7). |
@@ -433,7 +450,8 @@ entsteht.
 | O-61 | Soll **Zuschneiden** vor dem Upload angeboten werden? §1.3 schließt Bildbearbeitung aus, aber bei Blattfotos für die Diagnose ist der Zuschnitt fachlich sinnvoll — REQ-038 und REQ-044 profitierten. Die Grenze zwischen „Ausschnitt wählen" und „Beleg verändern" ist zu ziehen. | Produkt | offen |
 | O-62 | Soll bei mehreren Kameras eine **Auswahl** angeboten werden? v1.0 nimmt die Rückkamera mit Rückfall (§6.2); die Gerätenamen sind vor der Erlaubniserteilung leer und danach herstellerabhängig unlesbar. | Produkt | offen |
 | O-63 | Soll die Mobil-App einen **Hintergrund-Upload** bekommen, der nach dem Verlassen der Ansicht weiterläuft? v1.0 sagt ihn nicht zu (§8.2). | Produkt | offen |
-| O-64 | Soll die HEIC-Konvertierung auf dem Server verbindlich werden, statt „empfohlen" (NFR-013 §5.2)? Der Rückfall aus §4 hängt heute an einer Empfehlung, nicht an einer Zusage. | DevOps + Produkt | offen |
+| O-64 | Wann wird HEIC serverseitig **strippbar** (`pillow-heif`, SEC-005)? Bis dahin lehnt §4 ein nicht dekodierbares HEIC ab — die einzige Variante, die keine EXIF-Zusage bricht, aber auch die einzige, die einen iPhone-Nutzer auf Chrome/Linux abweist. Mit `pillow-heif` im Server wird aus der Ablehnung ein Durchreichen. | DevOps + Produkt | offen |
+| O-65 | NFR-013 §5.2 um `image/heif` ergänzen — die Umsetzung führt es, die Whitelist der Spezifikation nicht (§4). Reine Nachführung, aber sie gehört in NFR-013, nicht hierher. | DevOps | offen |
 
 ---
 

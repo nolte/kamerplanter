@@ -149,7 +149,7 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 | **Care Profiles** | CRUD all | R all, U all (confirm/snooze), ❌CD | R all | **Care Confirmation:** ab Gärtner. Anlegen bleibt der Leitung: ein Pflegeprofil ist eine Vorlage, keine Beobachtung |
 | **Workflow Templates** | CRUD all | R all, ❌CUD | R all | Custom-Templates: nur Leitung |
 | **Substrate Types** | CRUD all | R all, ❌CUD | R all | — |
-| **Import Jobs** | CRUD all | CR all, ❌UD | R all | **Confirm Import:** ab Gärtner |
+| **Import Jobs** | CRUD all | **—** | R all | **CSV-Import ausführen, Dry-Run und Bestätigen: Technik** (REQ-049 §2.4, REQ-012 §5). Ein Import schreibt in den Stammdatenbestand und ist damit technische Konfiguration, keine Gartenarbeit — die fachliche Rolle entscheidet hier nichts |
 | **Plant Instance Photos** (Attachment, `category=plant`, REQ-034) | CRUD all | CRU all (Cover setzen), ❌D | R all | **Upload/Cover:** ab Gärtner. **Löschen: 🔒 Leitung** — v1.6 wies hier `D own+community` aus; die Irreversibilitätsgrenze aus REQ-049 §2.3 kennt keine Foto-Ausnahme, und `require_attachment_permission` entscheidet über dieselbe Matrix. Ein Gärtner darf zudem nur Attachments **referenzieren**, die er selbst hochgeladen hat (SEC-003) — das ist eine Herkunftsprüfung am Anhang, keine Rollenregel. Beobachter: nur ansehen. **DINOv2-Referenz-Freigabe (`is_active=true`):** 🔒 Platform-Admin (REQ-029-A §4.5) |
 
 #### 1a.2 Tenant-Verwaltungs-Permissions
@@ -885,7 +885,9 @@ class TenantEngine:
 class MembershipEngine:
     """Reine Praedikate. Kein Repository, kein Request, keine Zuweisungen."""
 
-    ROLE_HIERARCHY = {'lead': 3, 'grower': 2, 'viewer': 1}
+    # Werte wie im Code (membership_engine.py) -- Rangvergleich, keine Bedeutung
+    # der Zahlen selbst; nur die Ordnung ist verbindlich.
+    ROLE_HIERARCHY = {TenantRole.VIEWER: 0, TenantRole.GROWER: 1, TenantRole.LEAD: 2}
 
     # ── Achse 1: fachliche Rolle ─────────────────────────────────────────
     @staticmethod
@@ -1081,7 +1083,7 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 |---------|------|-------------|------|
 | GET | `/tenants` | Eigene Tenants auflisten | Ja |
 | POST | `/tenants` | Neuen Org-Tenant erstellen | Ja |
-| GET | `/tenants/{slug}` | Tenant-Details abrufen | Mitglied |
+| GET | `/tenants/{slug}` | Tenant-Details abrufen | Alle Rollen |
 | PATCH | `/tenants/{slug}` | Tenant aktualisieren | Verwaltung |
 | DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete) | Verwaltung |
 
@@ -1089,10 +1091,10 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| GET | `/tenants/{slug}/members` | Mitglieder auflisten | Mitglied |
+| GET | `/tenants/{slug}/members` | Mitglieder auflisten | Alle Rollen |
 | PATCH | `/tenants/{slug}/members/{user_key}` | Rolle ändern | Verwaltung |
 | DELETE | `/tenants/{slug}/members/{user_key}` | Mitglied entfernen | Verwaltung |
-| POST | `/tenants/{slug}/leave` | Tenant verlassen | Mitglied |
+| POST | `/tenants/{slug}/leave` | Tenant verlassen | Alle Rollen |
 
 **Router: `/api/v1/tenants/{slug}/invitations`** — Einladungen:
 
@@ -1108,7 +1110,7 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| GET | `/t/{slug}/assignments` | Zuweisungen auflisten (Filter: location, user) | Mitglied |
+| GET | `/t/{slug}/assignments` | Zuweisungen auflisten (Filter: location, user) | Alle Rollen |
 | POST | `/t/{slug}/assignments` | Zuweisung erstellen | Verwaltung |
 | PATCH | `/t/{slug}/assignments/{key}` | Zuweisung aktualisieren | Verwaltung |
 | DELETE | `/t/{slug}/assignments/{key}` | Zuweisung entfernen | Verwaltung |
@@ -1403,7 +1405,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-44c | Die beschreibende Matrix in `app/core/permissions.py` stimmt mit §1a.1 überein; insbesondere ist das Löschrecht der Pflanzendomäne dort auf Leitung beschränkt. Ein Test vergleicht beide Quellen, statt sie unabhängig zu pflegen | Unit |
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 <!-- Quelle: Tenant-Notfallverwaltung v1.4 -->
-| AK-45 | Platform-Admin kann Mitgliederliste eines fremden Tenants einsehen (`VIEW_TENANT_MEMBERS_CROSS`) | Integration |
+| AK-45 | Der Platform-Admin kann die Mitgliederliste eines fremden Mandanten einsehen — die einzige Cross-Tenant-Leseerlaubnis der Plattform-Ebene | Integration |
 | AK-46 | Platform-Viewer kann Mitgliederliste eines fremden Tenants read-only einsehen | Integration |
 | AK-47 | Suspendierter Tenant: TenantSwitcher zeigt Tenant ausgegraut mit Hinweis "Suspendiert" | E2E |
 | AK-48 | Suspendierter Tenant: Kein Zugriff auf Ressourcen (403 mit klarer Fehlermeldung) | Integration |
