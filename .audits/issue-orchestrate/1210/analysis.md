@@ -48,23 +48,42 @@ Planning proceeds on that override. The measured grounding is recorded under
 Everything in this section was measured on 2026-08-17. The issue's own causal claim is
 refuted; the plan is built against what was found instead.
 
-### REFUTED — the issue's stated cause
+### CONFIRMED — the issue's stated cause was right, and an earlier entry here was wrong
 
-The issue states the fix never arrived because *"no release has been published since the
-fix merged"*. That is not the mechanism.
+**This section previously claimed the opposite. That claim was a measurement error and is
+retracted in full.**
 
-- **ESTABLISHED**: the ArgoCD `Application` for the production instance tracks a **git
-  branch, not a release tag**. `~/repos/github/argo-charts`
-  (remote `git@github.com:nolte/k8s-home-lab.git`), file
-  `src/applications/kamerplanter/deploy/argocd/application.yaml`, second source:
-  `path: helm/kamerplanter`, `repoURL: https://github.com/nolte/kamerplanter.git`,
-  `targetRevision: develop`. A published GitHub release is therefore **not** on this
-  instance's delivery path at all.
-- **ESTABLISHED**: `docs/de/deployment/ci-cd.md:462` currently asserts the opposite —
-  *"Sie zieht das Chart an einem Release-Tag (`targetRevision: vX.Y.Z`) und überschreibt
-  pro Controller `image.tag`."* The manifest above contradicts both halves. The
-  documentation is stale on exactly the fact AC-3 asks to be written down. AC-3 is
-  therefore a **correction**, not a greenfield write-up.
+The retracted claim: that the ArgoCD `Application` tracks `targetRevision: develop`, and
+that a published release is therefore not on the instance's delivery path. It was derived
+from the **local working copy** of
+`argo-charts/src/applications/kamerplanter/deploy/argocd/application.yaml`, which held an
+**unpushed** change — now `nolte/k8s-home-lab` PR #837. ArgoCD reads GitHub, not a local
+checkout.
+
+- **ESTABLISHED** (`git show origin/master:src/applications/kamerplanter/deploy/argocd/application.yaml`
+  in `~/repos/github/argo-charts`, remote `git@github.com:nolte/k8s-home-lab.git`): the
+  ref ArgoCD actually reads pins `path: helm/kamerplanter`,
+  `repoURL: https://github.com/nolte/kamerplanter.git`, **`targetRevision: v0.1.0`** —
+  a release tag — plus six per-controller `tag: "0.0.23"` overrides.
+- **ESTABLISHED** (operator, 2026-08-17): production rolls out **release versions only**.
+  This is intended, and PR #837's `targetRevision: develop` half is rejected on that basis.
+- **Therefore the issue's own diagnosis holds**: `v0.2.0` was published 2026-08-13T18:09Z,
+  `#1163` merged 2026-08-14T20:50Z — after it — and `v0.2.1` was never published. With
+  production anchored to a release tag, an unpublished release *is* the blocker.
+- The instance runs image `0.0.23` under a `v0.1.0` chart, because the overlay's tag
+  overrides win over the chart's pins. That is why `/api/health` lacks `supported_majors`
+  (added 2026-08-15) — the running image predates it by roughly a month.
+
+**The `image.tag` override remains a genuine defect even under release tags.** At release
+time `scripts/ci/pin_chart_image_digests.sh` writes `<version>@sha256:<digest>` into the
+chart values; a per-controller `image.tag` override replaces that digest with a mutable
+tag, and `pullPolicy: IfNotPresent` then degrades to "keep whatever is cached on the node"
+— the failure measured in #1024. Operator decision on #837: keep the release tag, remove
+the six overrides.
+
+**Method note, recorded so the error is not repeated:** when a load-bearing fact lives in
+another repository, measure the ref the consumer actually reads (`origin/<branch>`), never
+the local working tree.
 
 ### ESTABLISHED — the actual root cause, and that it is still live
 
