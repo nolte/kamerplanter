@@ -7,7 +7,7 @@ Kategorie: Automatisierung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, Home Assistant, MQTT
 Status: Entwurf
-Version: 1.2 (HA-UI-Visibility gemäß REQ-005 §4a)
+Version: 1.3 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -1454,17 +1454,26 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Actuators | Mitglied | Mitglied | Admin |
-| Schedules | Mitglied | Mitglied | Mitglied |
-| Rules | Mitglied | Mitglied | Mitglied |
-| Command & Override | — | Mitglied | — |
-| HA-Integration | Admin | Admin | Admin |
-| Emergency-Stop | — | Mitglied | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Actuators | Alle Rollen | Technik | Technik | Technik | **Einrichtung** ist Achse 2 (REQ-024 §1a.2, REQ-049 §2.4 — „Sensor- und Aktor-Einrichtung"), wie die Sensor-Konfiguration in REQ-005. **Bedienen** ist Achse 1, siehe die Zeilen unten |
+| Schedules | Alle Rollen | Technik | Technik | Technik | **Einrichtung** ist Achse 2 (REQ-024 §1a.2, REQ-049 §2.4 — „Sensor- und Aktor-Einrichtung"), wie die Sensor-Konfiguration in REQ-005. **Bedienen** ist Achse 1, siehe die Zeilen unten |
+| Rules | Alle Rollen | Technik | Technik | Technik | **Einrichtung** ist Achse 2 (REQ-024 §1a.2, REQ-049 §2.4 — „Sensor- und Aktor-Einrichtung"), wie die Sensor-Konfiguration in REQ-005. **Bedienen** ist Achse 1, siehe die Zeilen unten |
+| Command & Override | — | Ab Gärtner | Ab Gärtner | — | **Bedienen, nicht einrichten** — ab Gärtner. Wer die Anlage betreut, muss sie schalten können, ohne `technical` zu halten |
+| HA-Integration | Technik | Technik | Technik | Technik | Enthält Zugangsdaten — auch Lesen ist Technik |
+| Emergency-Stop | — | Ab Gärtner | Ab Gärtner | — | **Ab Gärtner, ausdrücklich ohne `technical`.** Ein Not-Aus, der an einer Zusatzberechtigung hängt, ist im Ernstfall nicht erreichbar |
 
 ## 5. Abhängigkeiten
 

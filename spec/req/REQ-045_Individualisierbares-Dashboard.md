@@ -7,7 +7,7 @@ Kategorie: Visualisierung / Benutzerführung
 Fokus: Frontend (mit Backend-Persistenz)
 Technologie: FastAPI, React 19, ArangoDB, react-grid-layout (lazy), MUI 7, Redux Toolkit, TanStack Query
 Status: Entwurf
-Version: 1.2
+Version: 1.3 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-009 (Dashboard-Widget-Katalog & Datenquellen — SSOT), REQ-021 (Erfahrungsstufen), REQ-042 (Modulare Feature-Sichtbarkeit), REQ-024 (Multi-Tenant/Permission-Matrix), REQ-027 (Light-Modus), REQ-020 (Onboarding), REQ-022 (Pflegeerinnerungen), REQ-031 (KI-Daily-Tip), UI-NFR-001 (Responsive), UI-NFR-002 (Barrierefreiheit), UI-NFR-003 (Bundle-Budget), UI-NFR-012 (PWA-Offline), UI-NFR-019 (Kiosk-Modus), NFR-007 (Performance)
 ```
 
@@ -484,7 +484,7 @@ Beide Flächen mutieren denselben `DashboardLayout` (`widgets` + `placements[bre
 | Ressource/Endpoint | Lesen | Schreiben | Löschen/Reset |
 |--------------------|-------|-----------|---------------|
 | `dashboard_layout` (Teil der eigenen `UserPreference`) | Eigentümer (self) | Eigentümer (self) | Eigentümer (self, via PATCH `null`) |
-| `GET …/dashboard/widgets/catalog` | Mitglied | — | — |
+| `GET …/dashboard/widgets/catalog` | Alle Rollen | — | — |
 | Widget-**Inhalte** (REQ-009 `aggregated`/Polls) | gemäß REQ-024 Permission-Matrix pro Datenquelle | — | — |
 
 - Ein Nutzer kann **nur sein eigenes** Layout lesen/schreiben; das Layout ist an `user_key` gebunden und

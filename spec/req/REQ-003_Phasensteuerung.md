@@ -7,7 +7,7 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.18 (#949: Resolver-Fallback für unauflösbare Arten korrigiert, Null-Semantik der Resolver-Inputs dokumentiert, schreibbarer Zuweisungspunkt + MCP-Oberfläche der Phasen-Ebene, D15)
+Version: 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
@@ -1933,17 +1933,26 @@ Phase, skaliert durch die Art-Basis `species.nutrient_demand_level`
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
+
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
 
 Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zugänglich, da sie keine persistierten Daten lesen oder schreiben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| PlantInstances (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| GrowthPhases (Tenant-scoped) | Mitglied | Mitglied | Admin |
-| Phase-Transitions (Tenant-scoped) | — | Mitglied | — |
-| Berechnungen (VPD, GDD, Photoperiode) | Nein | — | — |
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| PlantInstances (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| GrowthPhases (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Phase-Transitions (Tenant-scoped) | — | Ab Gärtner | Ab Gärtner | — | — |
+| Berechnungen (VPD, GDD, Photoperiode) | **Ohne Anmeldung** | — | — | — | Zustandslose Ableitung, kein Datensatz — die Standardregel oben gilt für diese Zeile **nicht** (siehe Absatz darüber). REQ-049 §3.1 kennt keinen Begriff für „unauthentifiziert"; er wird hier ausgeschrieben, statt ihn als „Alle Rollen" zu tarnen, was Mitgliedschaft voraussetzte |
 
 ## 5. Abhängigkeiten
 

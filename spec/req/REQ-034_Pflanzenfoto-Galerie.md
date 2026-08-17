@@ -8,7 +8,8 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, React 19/TypeScript 5.9, MUI 7
 Status: Entwurf
 Prioritaet: Hoch
-Version: 1.1 (Security-Review SR-001..SR-007 eingearbeitet)
+Version: 1.2 (Erfassung §2.2 nach REQ-052 ausgelagert)
+Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `gallery`), NFR-013 v1.4 (Object Storage), REQ-013 v2.7 (PlantInstance), REQ-024 v1.7 (Rollen), REQ-025 v1.6 (DSGVO), REQ-029-A v1.3 (DINOv2-Referenz-Index)
 Autor: Business Analyst - Agrotech
 Datum: 2026-06-19
 Tags: [photos, gallery, plant-instance, attachments, storage, dinov2, user-contributed, dsgvo]
@@ -114,15 +115,23 @@ Jedes Galerie-Foto ist ein **Attachment** im Sinne von NFR-013 mit `category = p
 
 - **Loeschung der Pflanzeninstanz:** Beim Entfernen einer `PlantInstance` werden die referenzierten Attachments ueber den Attachment-Service mitgeloescht (`delete_object` je `attachment_id` + Metadaten). Verwaiste Storage-Bytes sind unzulaessig.
 
-### 2.2 Upload-Erlebnis (Wiederverwendung der Bilderkennungs-UX)
+### 2.2 Erfassung (REQ-052)
 
-Der Foto-Upload nutzt **dieselben drei Erfassungswege** wie die Bilderkennung (REQ-029 §4.1, Komponente `ImageCapturePanel.tsx`):
+> **Verlagert.** Bis v1.2 beschrieb dieser Abschnitt die drei Erfassungswege und die
+> parametrierbare Normalisierung. Beides steht seit v1.2 in
+> [REQ-052](REQ-052_Bilderfassung.md) — dieselbe Zuschnitt-Entscheidung wie bei REQ-029 §4.1:
+> Der Baustein hat sechs Konsumenten und braucht eine eigene Quelle.
 
-1. **Live-Webcam** (`navigator.mediaDevices.getUserMedia()`) — Desktop/Kiosk
-2. **Smartphone-Rueckkamera** (`<input type="file" accept="image/*" capture="environment">`)
-3. **Datei-Upload / Drag&Drop**
+Der Foto-Upload verwendet den Erfassungsbaustein aus **REQ-052 §2** (Live-Kamera, Gerätekamera,
+Datei-Upload) mit dem Normalisierungsprofil **`gallery`** (REQ-052 §3): 2048 px längste Kante,
+JPEG-Qualität 0.9.
 
-Unterschied zur Erkennung: Galerie-Fotos sollen in **hoeherer Aufloesung** erhalten bleiben als die fuer die Erkennung normalisierten Bilder. Die Client-Normalisierung (`imageNormalization.ts`) wird **parametrisierbar** (z.B. `maxEdge` Galerie 2048 px statt 1280 px, JPEG-Qualitaet 0.9). EXIF wird clientseitig gestript (Konsistenz zu REQ-029 §5.4); die serverseitige EXIF-Behandlung gilt zusaetzlich (§5).
+**Warum `gallery` und nicht `recognition`:** Galeriefotos dokumentieren die Pflanze über Monate und
+werden später vergrößert betrachtet. Auf Erkennungsgröße gestaucht verlören sie genau das, wofür
+sie aufgenommen wurden. Die Zahlen selbst stehen nicht mehr hier — eine Fach-Anforderung wählt ein
+Profil, sie nennt keine Pixelwerte (REQ-052 §3).
+
+EXIF fällt clientseitig (REQ-052 §5); die serverseitige Behandlung gilt zusätzlich (§5).
 
 ### 2.3 Anzeige in der Instanz-Uebersicht
 
@@ -253,8 +262,8 @@ REQ-034 erbt das gesamte Erasure-Fundament aus NFR-013 §6 / REQ-025 §3.1 (W-00
 ## 6. Sicherheit & Berechtigungen
 
 - **Upload-Pipeline:** unveraendert NFR-013 §5.1 (Auth → AuthZ → Quota → MIME-Whitelist → Magic-Byte → Groessenlimit → optional Virus-Scan → SHA-256 → Schreiben → Metadaten → Audit-Log).
-- **Permission-Vertrag (SR-002, REQ-024 v1.5 §1a):** Die in NFR-013 §5.1 abstrakt notierte `attachment:create`-Anforderung wird auf den realen `Permission`-Enum abgebildet — **Upload** = `Permission.CREATE_RESOURCE`, **Cover setzen** = `Permission.UPDATE_RESOURCE`, **Loeschen** = `Permission.DELETE_RESOURCE`. Jeweils mit der Zuweisungs-Write-Kontrolle aus REQ-024 §1a.5 (`grower` darf eigene/community-Pflanzen-Fotos, nicht fremde). Maßgeblich ist die neue Matrix-Zeile **„Plant Instance Photos (`category=plant`)"** (REQ-024 §1a.1).
-- **Viewer:** `Permission.READ_RESOURCE` — darf die Galerie sehen, aber nicht hochladen/Cover setzen/loeschen (AC-13).
+- **Permission-Vertrag (SR-002):** Upload, Titelbild-Setzen und Löschen laufen über die Ressourcen-Wächter aus REQ-024 §1a.6 (`require_permission(ResourceType.ATTACHMENT, …)`) — **Anlegen und Ändern ab Gärtner, Löschen nur Leitung** (REQ-024 §1a.1). Die frühere Formulierung verwies auf die zuweisungsbasierte Write-Kontrolle §1a.5 („grower darf eigene/community-Fotos, nicht fremde") und auf einen `Permission`-Enum mit `CREATE_/UPDATE_/DELETE_RESOURCE`; **beides existiert nicht mehr bzw. nie** — §1a.5 ist mit REQ-049 §3.5 gestrichen, und der Enum war in REQ-024 v1.6 spezifiziert, aber nie gebaut. Was den Zugriff zusätzlich einschränkt, ist die Herkunftsregel SEC-003: Ein Gärtner darf nur Attachments referenzieren, die er selbst hochgeladen hat; die Leitung ist ausgenommen.
+- **Beobachter:** darf die Galerie sehen, aber nicht hochladen, kein Titelbild setzen und nicht loeschen (AC-13). Durchgesetzt ueber `require_permission(ResourceType.ATTACHMENT, …)`, nicht ueber einen `Permission`-Enum.
 - **Stable URI** ist die einzige Frontend-Adresse (NFR-013 §2.4) — kein direkter Storage-Zugriff.
 - **Cross-Tenant-Schutz:** Verknuepfen eines Attachments mit fremdem `tenant_key` wird abgelehnt (§2.1). Tenant-Isolation auf Storage-Ebene durch das Key-Schema (NFR-013 §2.3).
 - **Reference-Hook-Berechtigung:** Der Daten-Beitrag (§4) erfordert zusaetzlich Consent `reference_contribution`; die Freigabe der Referenz ist ausschliesslich Platform-Admin.
@@ -302,7 +311,7 @@ Antworten referenzieren ausschliesslich `attachment_id` + Stable URIs (`/api/v1/
 ## 9. Definition of Done
 
 - `PlantInstance.photo_refs` + `cover_photo_ref` implementiert; Service erzwingt Category-/Tenant-Konsistenz.
-- Galerie-Tab in `PlantInstanceDetailPage.tsx` (Grid, Lightbox, Upload via wiederverwendetem `ImageCapturePanel`, Loeschen, Cover) + Cover-Vorschau im Info-/Listen-Kontext, i18n DE/EN, `useMemo`-Konvention.
+- Galerie-Tab in `PlantInstanceDetailPage.tsx` (Grid, Lightbox, Upload via REQ-052-Erfassung, wiederverwendetem `ImageCapturePanel`, Loeschen, Cover) + Cover-Vorschau im Info-/Listen-Kontext, i18n DE/EN, `useMemo`-Konvention.
 - 4 fachliche API-Endpunkte (§7) auf dem NFR-013-Attachment-Fundament; tenant-scoped, permission-gegated.
 - NFR-013 v1.2 mit category `plant` gemerged (Changelog + §4.3/§5.2).
 - DINOv2-Referenz-Hook als Celery-Task mit drei Guards + Kuratierungs-Gate (`is_active=false`); no-op bis Phase 2.

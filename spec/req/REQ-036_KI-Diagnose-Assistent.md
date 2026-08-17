@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Redis, Celery, React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-010 v1.0 (IPM), REQ-013 v2.0 (Pflanzdurchlauf), REQ-021 v1.0 (Erfahrungsstufen), REQ-024 v1.4 (Mandantenverwaltung), REQ-025 v1.0 (DSGVO), REQ-029 v1.0 (Bilderkennung — optional), REQ-031 v2.0 (KI-Assistent / Knowledge Service)
 Wird benoetigt von: —
 ```
@@ -257,23 +257,23 @@ Alle Endpoints unter `/api/v1/t/{tenant_slug}/diagnosis/`. Authentifiziert ueber
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `POST` | `/sessions` | Neue Session anlegen (Status `draft`) | Grower, Admin | (siehe unten) |
-| `GET` | `/sessions` | Sessions des Users auflisten (Filter: `?plant_instance_key=&status=`) | Grower, Admin | — |
-| `GET` | `/sessions/{key}` | Session-Details laden | Grower, Admin | — |
-| `PATCH` | `/sessions/{key}` | Wizard-Felder aktualisieren (`selected_symptoms`, `context_snapshot.extra_notes`) — nur im Status `draft` | Grower, Admin | — |
-| `POST` | `/sessions/{key}/attachments` | Foto-Anhang hochladen (multipart) | Grower, Admin | — |
-| `DELETE` | `/sessions/{key}/attachments/{attachment_key}` | Anhang loeschen | Grower, Admin | — |
-| `POST` | `/sessions/{key}/analyze` | Wizard abschliessen, KS-Aufruf starten (sync: HTTP 200 mit Spinner-Hinweis im Frontend; alternativ async mit Polling) | Grower, Admin | `ai_tenant_data_access` |
-| `POST` | `/sessions/{key}/feedback` | Diagnose-Auswahl + Notizen setzen | Grower, Admin | — |
-| `POST` | `/sessions/{key}/start-treatment` | Treatment aus IPM-Vorschlag starten — leitet an REQ-010 weiter | Grower, Admin | — |
-| `PATCH` | `/sessions/{key}/retention` | Retention-Klasse aendern (`default_90d`, `extended_1y`) | Grower, Admin | — |
-| `DELETE` | `/sessions/{key}` | Session sofort loeschen (DSGVO Art. 17) | Grower, Admin | — |
+| `POST` | `/sessions` | Neue Session anlegen (Status `draft`) | Ab Gärtner | (siehe unten) |
+| `GET` | `/sessions` | Sessions des Users auflisten (Filter: `?plant_instance_key=&status=`) | Ab Gärtner | — |
+| `GET` | `/sessions/{key}` | Session-Details laden | Ab Gärtner | — |
+| `PATCH` | `/sessions/{key}` | Wizard-Felder aktualisieren (`selected_symptoms`, `context_snapshot.extra_notes`) — nur im Status `draft` | Ab Gärtner | — |
+| `POST` | `/sessions/{key}/attachments` | Foto-Anhang hochladen (multipart) | Ab Gärtner | — |
+| `DELETE` | `/sessions/{key}/attachments/{attachment_key}` | Anhang loeschen | Ab Gärtner | — |
+| `POST` | `/sessions/{key}/analyze` | Wizard abschliessen, KS-Aufruf starten (sync: HTTP 200 mit Spinner-Hinweis im Frontend; alternativ async mit Polling) | Ab Gärtner | `ai_tenant_data_access` |
+| `POST` | `/sessions/{key}/feedback` | Diagnose-Auswahl + Notizen setzen | Ab Gärtner | — |
+| `POST` | `/sessions/{key}/start-treatment` | Treatment aus IPM-Vorschlag starten — leitet an REQ-010 weiter | Ab Gärtner | — |
+| `PATCH` | `/sessions/{key}/retention` | Retention-Klasse aendern (`default_90d`, `extended_1y`) | Ab Gärtner | — |
+| `DELETE` | `/sessions/{key}` | Session sofort loeschen (DSGVO Art. 17) | Ab Gärtner | — |
 
 ### 3.1 Symptom-Katalog-Endpoints (oeffentlich pro Tenant)
 
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
-| `GET` | `/api/v1/t/{slug}/diagnosis/symptoms` | Aktive Symptome (Filter: `?category=&phase=&language=`) | Viewer, Grower, Admin |
+| `GET` | `/api/v1/t/{slug}/diagnosis/symptoms` | Aktive Symptome (Filter: `?category=&phase=&language=`) | Alle Rollen |
 
 ### 3.2 Platform-Admin
 

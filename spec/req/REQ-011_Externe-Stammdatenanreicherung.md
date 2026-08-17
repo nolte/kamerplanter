@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Backend
 Technologie: Python, Celery, ArangoDB, REST-APIs
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -843,16 +843,25 @@ async def search_external(
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Enrichment Sources | Ja | Admin | — |
-| Enrichment History | Ja | — | — |
-| Species-Enrichments | Ja | Admin (Accept) | — |
-| Sync-Trigger | — | Admin | — |
-| External Search | Ja | — | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Enrichment Sources | Alle Rollen | Technik | Technik | — | Technische Konfiguration, §3.4. Kein Löschpfad — Quellen werden deaktiviert, nicht entfernt |
+| Enrichment History | Alle Rollen | — | — | — | Protokoll, systemgeneriert |
+| Species-Enrichments | Alle Rollen | Technik (**Übernahme/Accept**) | Technik | — | Die Übernahme in den Katalog ist der einzige Schreibvorgang; kein Löschpfad |
+| Sync-Trigger | — | Technik | Technik | — | Anreicherungslauf anstoßen, §3.4 |
+| External Search | Alle Rollen | — | — | — | Reiner Lesezugriff auf eine Fremdquelle |
 
 ## 5. Abhängigkeiten
 

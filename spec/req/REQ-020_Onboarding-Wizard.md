@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Frontend (Backend-Unterstützung für Starter-Kits und Präferenzen)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.6 (Smart-Home-Deaktivierung: UserPreference smart_home_enabled)
+Version: 1.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne), REQ-024 v1.3 (Platform-Tenant), REQ-027 v1.2 (Moduswechsel)
 ```
 
@@ -1188,17 +1188,26 @@ interface NutrientPlanMatch {
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Onboarding-Status | Ja | Ja | — |
-| Starter-Kits (Katalog) | Nein | — | — |
-| Starter-Kits (Anwenden) | — | Ja | — |
-| User Preferences | Ja | Ja | Ja |
-| Favoriten | Ja | Ja | Ja |
-| Matching Nutrient Plans | Ja | — | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Onboarding-Status | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
+| Starter-Kits (Katalog) | Alle Rollen, auch ohne Mandant | — | — | — | Globaler Katalog |
+| Starter-Kits (Anwenden) | — | Ab Gärtner | Ab Gärtner | — | Legt Fachdaten im Mandanten an |
+| User Preferences | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
+| Favoriten | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
+| Matching Nutrient Plans | Alle Rollen | — | — | — | Zustandslose Empfehlung |
 
 ## 8. Abhängigkeiten
 

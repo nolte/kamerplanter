@@ -7,7 +7,7 @@ Kategorie: Integration & Inventar
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -1317,38 +1317,47 @@ async def equipment_by_location(
 
 | # | Methode | Pfad | Beschreibung | Auth |
 |---|---------|------|-------------|------|
-| 1 | GET | `/api/v1/inventree/connections` | Alle Verbindungen | Admin |
-| 2 | POST | `/api/v1/inventree/connections` | Verbindung anlegen | Admin |
-| 3 | GET | `/api/v1/inventree/connections/{key}` | Verbindung laden | Admin |
-| 4 | PUT | `/api/v1/inventree/connections/{key}` | Verbindung aktualisieren | Admin |
-| 5 | POST | `/api/v1/inventree/connections/{key}/health-check` | Health-Check | Admin |
-| 6 | POST | `/api/v1/inventree/references/link` | Entität verknüpfen | Mitglied |
-| 7 | GET | `/api/v1/inventree/references` | Referenzen auflisten | Mitglied |
-| 8 | DELETE | `/api/v1/inventree/references/{key}` | Verknüpfung lösen | Mitglied |
-| 9 | POST | `/api/v1/inventree/references/{key}/sync` | Einzelne Referenz synchronisieren | Mitglied |
-| 10 | GET | `/api/v1/inventree/browse/parts` | Parts suchen | Mitglied |
-| 11 | GET | `/api/v1/inventree/browse/categories` | Kategorien laden | Mitglied |
-| 12 | POST | `/api/v1/inventree/sync/trigger` | Manueller Full-Sync | Mitglied |
-| 13 | GET | `/api/v1/inventree/transactions` | Transaktions-Log | Mitglied |
-| 14 | GET | `/api/v1/equipment/` | Equipment auflisten | Mitglied |
-| 15 | POST | `/api/v1/equipment/` | Equipment anlegen | Mitglied |
-| 16 | GET | `/api/v1/equipment/{key}` | Equipment laden | Mitglied |
-| 17 | PUT | `/api/v1/equipment/{key}` | Equipment aktualisieren | Mitglied |
-| 18 | GET | `/api/v1/equipment/by-location/{key}` | Equipment pro Location | Mitglied |
+| 1 | GET | `/api/v1/inventree/connections` | Alle Verbindungen | Technik |
+| 2 | POST | `/api/v1/inventree/connections` | Verbindung anlegen | Technik |
+| 3 | GET | `/api/v1/inventree/connections/{key}` | Verbindung laden | Technik |
+| 4 | PUT | `/api/v1/inventree/connections/{key}` | Verbindung aktualisieren | Technik |
+| 5 | POST | `/api/v1/inventree/connections/{key}/health-check` | Health-Check | Technik |
+| 6 | POST | `/api/v1/inventree/references/link` | Entität verknüpfen | Ab Gärtner |
+| 7 | GET | `/api/v1/inventree/references` | Referenzen auflisten | Alle Rollen |
+| 8 | DELETE | `/api/v1/inventree/references/{key}` | Verknüpfung lösen | Nur Leitung |
+| 9 | POST | `/api/v1/inventree/references/{key}/sync` | Einzelne Referenz synchronisieren | Ab Gärtner |
+| 10 | GET | `/api/v1/inventree/browse/parts` | Parts suchen | Alle Rollen |
+| 11 | GET | `/api/v1/inventree/browse/categories` | Kategorien laden | Alle Rollen |
+| 12 | POST | `/api/v1/inventree/sync/trigger` | Manueller Full-Sync | Ab Gärtner |
+| 13 | GET | `/api/v1/inventree/transactions` | Transaktions-Log | Alle Rollen |
+| 14 | GET | `/api/v1/equipment/` | Equipment auflisten | Alle Rollen |
+| 15 | POST | `/api/v1/equipment/` | Equipment anlegen | Ab Gärtner |
+| 16 | GET | `/api/v1/equipment/{key}` | Equipment laden | Alle Rollen |
+| 17 | PUT | `/api/v1/equipment/{key}` | Equipment aktualisieren | Ab Gärtner |
+| 18 | GET | `/api/v1/equipment/by-location/{key}` | Equipment pro Location | Alle Rollen |
 
 ## 4. Authentifizierung & Autorisierung
 
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Connection-Config | Admin | Admin | Admin |
-| References & Sync | Mitglied | Mitglied | — |
-| Equipment | Mitglied | Mitglied | Admin |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Connection-Config | Technik | Technik | Technik | Technik | Enthält Zugangsdaten — auch Lesen ist Technik |
+| References & Sync | Alle Rollen | Ab Gärtner | Ab Gärtner | — | — |
+| Equipment | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 
 ### 4.1 Sicherheitsanforderungen für InvenTree-Anbindung
 

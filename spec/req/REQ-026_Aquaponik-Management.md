@@ -7,7 +7,7 @@ Kategorie: Aquaponik
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -1423,12 +1423,12 @@ Router: `/api/v1/t/{tenant_slug}/aquaponics`
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/systems` | Neues Aquaponik-System erstellen | Mitglied |
-| `GET` | `/systems` | Alle Systeme des Tenants | Mitglied |
-| `GET` | `/systems/{system_key}` | System-Details inkl. Status, Stocks, letzte Wasserwerte | Mitglied |
-| `PATCH` | `/systems/{system_key}` | System-Konfiguration aktualisieren | Mitglied |
-| `DELETE` | `/systems/{system_key}` | System entfernen (nur wenn kein Fischbestand) | Admin |
-| `POST` | `/systems/{system_key}/cycling-status` | Cycling-Status manuell setzen (Override) | Mitglied |
+| `POST` | `/systems` | Neues Aquaponik-System erstellen | Ab Gärtner |
+| `GET` | `/systems` | Alle Systeme des Tenants | Alle Rollen |
+| `GET` | `/systems/{system_key}` | System-Details inkl. Status, Stocks, letzte Wasserwerte | Alle Rollen |
+| `PATCH` | `/systems/{system_key}` | System-Konfiguration aktualisieren | Ab Gärtner |
+| `DELETE` | `/systems/{system_key}` | System entfernen (nur wenn kein Fischbestand) | Nur Leitung |
+| `POST` | `/systems/{system_key}/cycling-status` | Cycling-Status manuell setzen (Override) | Ab Gärtner |
 
 ### 4.2 Fish Species Stammdaten (4 Endpunkte, global)
 
@@ -1436,62 +1436,62 @@ Router: `/api/v1/fish-species` (nicht tenant-scoped, Seed-Daten)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/` | Alle Fischarten (Filter: temperature_zone, feed_type) | Mitglied |
-| `GET` | `/{species_key}` | Fischart-Details | Mitglied |
-| `GET` | `/{species_key}/compatible-plants` | Kompatible Pflanzenarten (Graph-Traversal) | Mitglied |
-| `GET` | `/by-temperature-zone/{zone}` | Fischarten nach Temperaturzone | Mitglied |
+| `GET` | `/` | Alle Fischarten (Filter: temperature_zone, feed_type) | Alle Rollen |
+| `GET` | `/{species_key}` | Fischart-Details | Alle Rollen |
+| `GET` | `/{species_key}/compatible-plants` | Kompatible Pflanzenarten (Graph-Traversal) | Alle Rollen |
+| `GET` | `/by-temperature-zone/{zone}` | Fischarten nach Temperaturzone | Alle Rollen |
 
 ### 4.3 Fish Stocks (6 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/systems/{system_key}/fish-stocks` | Neuen Fischbestand anlegen | Mitglied |
-| `GET` | `/systems/{system_key}/fish-stocks` | Alle Bestände eines Systems | Mitglied |
-| `PATCH` | `/systems/{system_key}/fish-stocks/{stock_key}` | Bestand aktualisieren (Gewicht, Anzahl) | Mitglied |
-| `DELETE` | `/systems/{system_key}/fish-stocks/{stock_key}` | Bestand entfernen (Ernte/Umsetzung). Hinweis: Fisch-Ernte-Workflow wird in zukünftiger Erweiterung über REQ-007 (Erntemanagement) abgebildet. Bei Speisefischen: Tierarzneimittel-Rückstandsverordnung (EU-VO 37/2010) definiert Wartezeiten. | Mitglied |
-| `POST` | `/systems/{system_key}/fish-stocks/{stock_key}/mortality` | Mortalitätseintrag (Verluste dokumentieren) | Mitglied |
-| `GET` | `/systems/{system_key}/fish-stocks/{stock_key}/biomass-history` | Gewichtsverlauf über Zeit | Mitglied |
+| `POST` | `/systems/{system_key}/fish-stocks` | Neuen Fischbestand anlegen | Ab Gärtner |
+| `GET` | `/systems/{system_key}/fish-stocks` | Alle Bestände eines Systems | Alle Rollen |
+| `PATCH` | `/systems/{system_key}/fish-stocks/{stock_key}` | Bestand aktualisieren (Gewicht, Anzahl) | Ab Gärtner |
+| `DELETE` | `/systems/{system_key}/fish-stocks/{stock_key}` | Bestand entfernen (Ernte/Umsetzung). Hinweis: Fisch-Ernte-Workflow wird in zukünftiger Erweiterung über REQ-007 (Erntemanagement) abgebildet. Bei Speisefischen: Tierarzneimittel-Rückstandsverordnung (EU-VO 37/2010) definiert Wartezeiten. | Nur Leitung |
+| `POST` | `/systems/{system_key}/fish-stocks/{stock_key}/mortality` | Mortalitätseintrag (Verluste dokumentieren) | Ab Gärtner |
+| `GET` | `/systems/{system_key}/fish-stocks/{stock_key}/biomass-history` | Gewichtsverlauf über Zeit | Alle Rollen |
 
 ### 4.4 Water Tests (5 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/systems/{system_key}/water-tests` | Wassertest erfassen (immutable, free_ammonia wird berechnet) | Mitglied |
-| `GET` | `/systems/{system_key}/water-tests` | Wassertest-Historie (Pagination + Zeitraum-Filter) | Mitglied |
-| `GET` | `/systems/{system_key}/water-quality-status` | Aktuelle Bewertung mit Alarmstufen (artspezifisch) | Mitglied |
-| `GET` | `/systems/{system_key}/nitrogen-cycle-chart` | Zeitreihe TAN/NO2/NO3/free-NH3 für Diagramm | Mitglied |
-| `GET` | `/systems/{system_key}/cycling-progress` | Biofilter-Cycling-Fortschritt + geschätzte Fertigstellung | Mitglied |
+| `POST` | `/systems/{system_key}/water-tests` | Wassertest erfassen (immutable, free_ammonia wird berechnet) | Ab Gärtner |
+| `GET` | `/systems/{system_key}/water-tests` | Wassertest-Historie (Pagination + Zeitraum-Filter) | Alle Rollen |
+| `GET` | `/systems/{system_key}/water-quality-status` | Aktuelle Bewertung mit Alarmstufen (artspezifisch) | Alle Rollen |
+| `GET` | `/systems/{system_key}/nitrogen-cycle-chart` | Zeitreihe TAN/NO2/NO3/free-NH3 für Diagramm | Alle Rollen |
+| `GET` | `/systems/{system_key}/cycling-progress` | Biofilter-Cycling-Fortschritt + geschätzte Fertigstellung | Alle Rollen |
 
 ### 4.5 Fish Feeding (4 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/systems/{system_key}/feeding-events` | Fütterung dokumentieren | Mitglied |
-| `GET` | `/systems/{system_key}/feeding-events` | Fütterungshistorie (Pagination + Zeitraum) | Mitglied |
-| `GET` | `/systems/{system_key}/feeding-recommendation` | Tagesaktuelle Empfehlung (temperaturkorrigiert + Cycling-Faktor) | Mitglied |
-| `GET` | `/systems/{system_key}/fcr-analysis` | FCR über Zeitraum (Futtermenge vs. Biomassezuwachs) | Mitglied |
+| `POST` | `/systems/{system_key}/feeding-events` | Fütterung dokumentieren | Ab Gärtner |
+| `GET` | `/systems/{system_key}/feeding-events` | Fütterungshistorie (Pagination + Zeitraum) | Alle Rollen |
+| `GET` | `/systems/{system_key}/feeding-recommendation` | Tagesaktuelle Empfehlung (temperaturkorrigiert + Cycling-Faktor) | Alle Rollen |
+| `GET` | `/systems/{system_key}/fcr-analysis` | FCR über Zeitraum (Futtermenge vs. Biomassezuwachs) | Alle Rollen |
 
 ### 4.6 Supplementation (3 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/systems/{system_key}/supplementation-events` | Supplementierung dokumentieren | Mitglied |
-| `GET` | `/systems/{system_key}/supplementation-events` | Supplementierungshistorie | Mitglied |
-| `GET` | `/systems/{system_key}/deficiency-check` | Aktuelle Nährstoffdefizit-Analyse (Fe, K, Ca, Mg) mit Empfehlung | Mitglied |
+| `POST` | `/systems/{system_key}/supplementation-events` | Supplementierung dokumentieren | Ab Gärtner |
+| `GET` | `/systems/{system_key}/supplementation-events` | Supplementierungshistorie | Alle Rollen |
+| `GET` | `/systems/{system_key}/deficiency-check` | Aktuelle Nährstoffdefizit-Analyse (Fe, K, Ca, Mg) mit Empfehlung | Alle Rollen |
 
 ### 4.7 Safety & Alerts (2 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/systems/{system_key}/safety-status` | Gesamtbewertung: Wasserwerte, Besatzdichte, Temperatur, Biofilter | Mitglied |
-| `GET` | `/systems/{system_key}/alerts` | Aktive Warnungen und Alarme (sortiert nach Severity) | Mitglied |
+| `GET` | `/systems/{system_key}/safety-status` | Gesamtbewertung: Wasserwerte, Besatzdichte, Temperatur, Biofilter | Alle Rollen |
+| `GET` | `/systems/{system_key}/alerts` | Aktive Warnungen und Alarme (sortiert nach Severity) | Alle Rollen |
 
 ### 4.8 Fish Health (2 Endpunkte)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/systems/{system_key}/fish-health` | Integrierte Gesundheitsbewertung: Mortalitätsrate, Fressverhalten, Wasserqualität-Stress | Mitglied |
-| `GET` | `/systems/{system_key}/fish-stocks/{stock_key}/mortality-rate` | Mortalitätsrate (% pro Woche/Monat) mit Trendanalyse | Mitglied |
+| `GET` | `/systems/{system_key}/fish-health` | Integrierte Gesundheitsbewertung: Mortalitätsrate, Fressverhalten, Wasserqualität-Stress | Alle Rollen |
+| `GET` | `/systems/{system_key}/fish-stocks/{stock_key}/mortality-rate` | Mortalitätsrate (% pro Woche/Monat) mit Trendanalyse | Alle Rollen |
 
 ### Request/Response-Beispiele:
 
@@ -1566,17 +1566,26 @@ Router: `/api/v1/fish-species` (nicht tenant-scoped, Seed-Daten)
 > **Hinweis (SEC-H-001):** Dieser Abschnitt folgt den Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung).
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Fish Species (global) | Mitglied | Admin | Admin |
-| Aquaponic Systems | Mitglied | Mitglied | Admin |
-| Fish Stocks | Mitglied | Mitglied | Mitglied |
-| Water Tests | Mitglied | Mitglied | — (immutable) |
-| Feeding Events | Mitglied | Mitglied | — (immutable) |
-| Supplementation Events | Mitglied | Mitglied | — (immutable) |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Fish Species (global) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin | Globaler Katalog — mandantenübergreifend, §3.4 |
+| Aquaponic Systems | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Fish Stocks | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Water Tests | Alle Rollen | Ab Gärtner | — | — | **Unveränderlich:** weder Korrektur noch Löschung. Ein Messwert, den man nachträglich ändern kann, ist als Beleg wertlos — die Korrektur ist eine **neue** Messung |
+| Feeding Events | Alle Rollen | Ab Gärtner | — | — | Unveränderlich |
+| Supplementation Events | Alle Rollen | Ab Gärtner | — | — | Unveränderlich |
 
 ## 6. Abhängigkeiten
 

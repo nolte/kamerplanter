@@ -63,7 +63,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-001: Tagebuch-Tab auf der Pflanzeninstanz-Detailseite sichtbar
 
-**Requirement**: REQ-050 §2.5.1 — Erfassung an der Pflanzeninstanz, AK-14
+**Requirement**: REQ-051 §6.1 — Erfassung an der Pflanzeninstanz, AK-14
 **Priority**: Critical
 **Category**: Navigation
 **Preconditions**:
@@ -88,7 +88,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-002: Neuen Tagebuch-Eintrag mit Foto anlegen
 
-**Requirement**: REQ-050 §2.5.1, AK-14
+**Requirement**: REQ-051 §6.1, AK-14
 **Priority**: Critical
 **Category**: Formular
 **Preconditions**:
@@ -118,7 +118,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-003: Sechstes Foto an einem Tagebuch-Eintrag wird abgelehnt
 
-**Requirement**: REQ-050 §2.5.1 — „bis zu 5 Fotos", AK-14
+**Requirement**: REQ-051 §6.1 — „bis zu 5 Fotos", AK-14
 **Priority**: Medium
 **Category**: Validierung
 **Preconditions**:
@@ -141,7 +141,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-004: Tagebuch-Eintrag bearbeiten
 
-**Requirement**: REQ-050 §2.5.1, AK-14
+**Requirement**: REQ-051 §6.1, AK-14
 **Priority**: High
 **Category**: Formular
 **Preconditions**:
@@ -165,11 +165,12 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-005: Tagebuch-Eintrag löschen
 
-**Requirement**: REQ-050 §2.5.1, AK-14
+**Requirement**: REQ-051 §6.1, AK-14
 **Priority**: Critical
 **Category**: Formular
 **Preconditions**:
-- Ein selbst verfasster Tagebuch-Eintrag existiert
+- Der Nutzer hat im adressierten Mandanten die Rolle **Leitung** (im persoenlichen Mandanten ist das automatisch der Fall). Ein Tagebuch-Eintrag existiert.
+- **Wichtig:** Als Gaertner ausgefuehrt scheitert der Fall bereits an Schritt 1 — REQ-051 §3.2 und AK-56 nehmen dem Gaertner das Loeschen auch am **eigenen** Eintrag, und die Oberflaeche zeigt ihm die Handlung gar nicht erst an. Die Rolle ist deshalb Teil der Vorbedingung, nicht des Zufalls
 
 **Testschritte**:
 1. Nutzer öffnet die Löschen-Aktion des Eintrags
@@ -188,7 +189,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-006: Fotos im Eintrag als Vorschau mit Lightbox bei Klick
 
-**Requirement**: REQ-050 §2.5.1 — „Fotos als Vorschau (512-px-Rendition), Lightbox bei Klick"
+**Requirement**: REQ-051 §6.1 — „Fotos als Vorschau (512-px-Rendition), Lightbox bei Klick"
 **Priority**: Medium
 **Category**: Detailansicht
 **Preconditions**:
@@ -239,7 +240,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-008: Übersicht listet Einträge aller Pflanzen chronologisch mit allen Spalten
 
-**Requirement**: REQ-050 §2.5.2, AK-15
+**Requirement**: REQ-051 §6.2, AK-15
 **Priority**: Critical
 **Category**: Listenansicht
 **Preconditions**:
@@ -264,7 +265,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-009: Übersicht unterscheidet alle fünf Analyse-Zustände sichtbar voneinander
 
-**Requirement**: REQ-050 §2.5.2 — Zustandstabelle, AK-16
+**Requirement**: REQ-051 §6.2 — Zustandstabelle, AK-16
 **Priority**: Critical
 **Category**: Zustandsanzeige
 **Preconditions**:
@@ -300,7 +301,7 @@ Aufruf der betroffenen MCP-Werkzeuge außerhalb der Oberfläche. Nur `none` und 
 
 ### TC-050-010: Zustand `completed` ist hervorgehoben und zeigt die Zusammenfassung als Vorschau
 
-**Requirement**: REQ-050 §2.5.2 — „deutlich hervorgehoben, mit der Zusammenfassung als einzeilige
+**Requirement**: REQ-051 §6.2 — „deutlich hervorgehoben, mit der Zusammenfassung als einzeilige
 Vorschau", AK-16
 **Priority**: Critical
 **Category**: Zustandsanzeige
@@ -328,7 +329,7 @@ Vorschau", AK-16
 
 ### TC-050-011: Zustand `failed` zeigt Fehlerhinweis und Möglichkeit zur erneuten Markierung
 
-**Requirement**: REQ-050 §2.5.2 — Zustandstabelle `failed`, AK-16
+**Requirement**: REQ-051 §6.2 — Zustandstabelle `failed`, AK-16
 **Priority**: High
 **Category**: Zustandsanzeige
 **Preconditions**:
@@ -355,7 +356,7 @@ Vorschau", AK-16
 
 ### TC-050-012: Filter „nur mit Ergebnis" zeigt ausschließlich `completed`-Einträge
 
-**Requirement**: REQ-050 §2.5.2 — Filter „nach Analyse-Zustand … insbesondere „nur mit
+**Requirement**: REQ-051 §6.2 — Filter „nach Analyse-Zustand … insbesondere „nur mit
 Ergebnis"", AK-17
 **Priority**: Critical
 **Category**: Filter
@@ -380,7 +381,7 @@ Ergebnis"", AK-17
 
 ### TC-050-013: Filter „nur wartend" zeigt ausschließlich `requested`-Einträge
 
-**Requirement**: REQ-050 §2.5.2 — Filter „insbesondere … nur wartend", AK-17
+**Requirement**: REQ-051 §6.2 — Filter „insbesondere … nur wartend", AK-17
 **Priority**: Critical
 **Category**: Filter
 **Preconditions**:
@@ -403,7 +404,7 @@ Ergebnis"", AK-17
 
 ### TC-050-014: Freitextsuche über Titel und Text findet passende Einträge
 
-**Requirement**: REQ-050 §2.5.2 — „Freitextsuche über Titel und Text", AK-17
+**Requirement**: REQ-051 §6.2 — „Freitextsuche über Titel und Text", AK-17
 **Priority**: High
 **Category**: Suche
 **Preconditions**:
@@ -429,7 +430,7 @@ Ergebnis"", AK-17
 
 ### TC-050-015: Fremde Zeile in der Übersicht zeigt den Zustand, aber keinen Markier-Schalter
 
-**Requirement**: REQ-050 §2.5.2, §7.2, AK-19
+**Requirement**: REQ-051 §6.2 / REQ-050 §7.2, AK-19
 **Priority**: Critical
 **Category**: Berechtigung
 **Preconditions**:
@@ -568,7 +569,7 @@ versteckt", AK-20
 
 ### TC-050-020: Konfidenz eines Befunds wird als Zahl UND sprachlich eingeordnet dargestellt
 
-**Requirement**: REQ-050 §2.5.3 — „Die Konfidenz wird als Zahl und sprachlich eingeordnet
+**Requirement**: REQ-051 §6.4 — „Die Konfidenz wird als Zahl und sprachlich eingeordnet
 dargestellt; eine nackte Prozentzahl allein erfüllt das Kriterium nicht", AK-30
 **Priority**: Critical
 **Category**: Zustandsanzeige
@@ -597,7 +598,7 @@ dargestellt; eine nackte Prozentzahl allein erfüllt das Kriterium nicht", AK-30
 
 ### TC-050-021: Sprachliche Einordnung der Konfidenz unterscheidet niedrige und hohe Werte
 
-**Requirement**: REQ-050 §2.5.3, AK-30
+**Requirement**: REQ-051 §6.4, AK-30
 **Priority**: High
 **Category**: Validierung
 **Preconditions**:
@@ -629,7 +630,7 @@ dargestellt; eine nackte Prozentzahl allein erfüllt das Kriterium nicht", AK-30
 ### TC-050-022: Zustand `requested` liest sich als „wartet auf Analyse" — ohne
 Fortschrittsanzeige
 
-**Requirement**: REQ-050 §2.5.2, §3, AK-27
+**Requirement**: REQ-051 §6.2 / REQ-050 §3, AK-27
 **Priority**: Critical
 **Category**: Zustandsanzeige
 **Preconditions**:
@@ -656,7 +657,7 @@ Fortschrittsanzeige
 
 ### TC-050-023: Auffrischen-Schaltfläche lädt den Analyse-Zustand ohne Seiten-Reload nach
 
-**Requirement**: REQ-050 §2.5.4, AK-29
+**Requirement**: REQ-051 §6.5, AK-29
 **Priority**: High
 **Category**: Formular
 **Preconditions**:

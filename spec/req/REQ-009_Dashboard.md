@@ -7,7 +7,7 @@ Kategorie: Visualisierung
 Fokus: Beides
 Technologie: FastAPI, React 19, ArangoDB, Recharts (v1), Polling (v1) / WebSocket (Phase 2)
 Status: Entwurf
-Version: 2.1 (Konsolidierung mit jüngeren Specs, W-020)
+Version: 2.2 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 Abhängigkeit: REQ-021 (Erfahrungsstufen), REQ-022 (Pflegeerinnerungen), REQ-024 v1.3 (Multi-Tenant), REQ-027 v1.4 (Light-Modus), REQ-031 v2.1 (KI-Daily-Tip), REQ-032 (Drucksicht), UI-NFR-001, UI-NFR-003 (Bundle-Budget), UI-NFR-012 (PWA-Offline), UI-NFR-019 (Kiosk-Variante), NFR-007 (Performance)
 ```
 
@@ -1294,11 +1294,18 @@ class DashboardConfig(BaseModel):
 **Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
 und Tenant-Mitgliedschaft.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Dashboard-Daten (Tenant-scoped) | Mitglied | — | — |
-| Dashboard-Konfiguration | Mitglied | Mitglied | Mitglied |
-| Widget-Einstellungen | Mitglied | Mitglied | Mitglied |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**). Die Spalte „Schreiben"
+> ist nach §3.3 in **Anlegen** und **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Dashboard-Daten (Tenant-scoped) | Alle Rollen | — | — | — | — |
+| Dashboard-Konfiguration | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Widget-Einstellungen | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 
 ## 5. Abhängigkeiten
 

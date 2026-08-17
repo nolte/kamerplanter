@@ -113,7 +113,7 @@ Die folgende Taxonomie leitet sich aus der Navigationsstruktur (REQ-021 § 3.3 `
 
 > Der Katalog ist erweiterbar. Neue REQs registrieren ihr Modul durch einen Eintrag; das Sichtbarkeitssystem greift automatisch. Die kanonische Quelle der Wahrheit ist `moduleCatalog.ts` (§ 4.1).
 
-**Zu `diary` (REQ-050 §2.5.2, O-07):** Die mandantenweite Tagebuch-Übersicht ist bewusst **kein** Kern-Modul — REQ-050 AK-31 verlangt Abschaltbarkeit, und `core: true` wäre genau der Zustand, in dem ein Nutzer, der kein Tagebuch führt, den Navigationspunkt nicht loswird. Das Default-Level ist `beginner`, weil ein Tagebuch die niedrigschwelligste Funktion des Systems ist (Notiz plus Foto, ohne Fachbegriff); `intermediate` würde sie ausgerechnet vor der Zielgruppe verstecken, für die sie gedacht ist. Die **Erfassung** je Pflanze liegt als Tab an der Pflanzeninstanz-Detailseite (REQ-050 §2.5.1) und folgt damit dem Kern-Modul `plants`, nicht diesem Eintrag.
+**Zu `diary` (REQ-051 §6.2; Modulentscheidung REQ-050 O-07):** Die mandantenweite Tagebuch-Übersicht ist bewusst **kein** Kern-Modul — REQ-050 AK-31 verlangt Abschaltbarkeit, und `core: true` wäre genau der Zustand, in dem ein Nutzer, der kein Tagebuch führt, den Navigationspunkt nicht loswird. Das Default-Level ist `beginner`, weil ein Tagebuch die niedrigschwelligste Funktion des Systems ist (Notiz plus Foto, ohne Fachbegriff); `intermediate` würde sie ausgerechnet vor der Zielgruppe verstecken, für die sie gedacht ist. Die **Erfassung** je Pflanze liegt als Tab an der Pflanzeninstanz-Detailseite (REQ-051 §6.1) und folgt damit dem Kern-Modul `plants`, nicht diesem Eintrag.
 
 ### 1.4 Light-Modus-Verhalten (REQ-027)
 

@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.6 (Light-Modus iCal-Token, W-017)
+Version: 1.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -1536,7 +1536,7 @@ class SeasonOverviewEngine:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/calendar/events` | Aggregierte Events mit Filtern | Mitglied |
+| `GET` | `/api/v1/calendar/events` | Aggregierte Events mit Filtern | Alle Rollen |
 
 **Query-Parameter:**
 
@@ -1684,12 +1684,12 @@ mode: single
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/api/v1/calendar/feeds` | Neuen Feed erstellen | Mitglied |
-| `GET` | `/api/v1/calendar/feeds` | Alle Feeds auflisten | Mitglied |
-| `GET` | `/api/v1/calendar/feeds/{feed_id}` | Feed-Details abrufen | Mitglied |
-| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren | Mitglied |
-| `DELETE` | `/api/v1/calendar/feeds/{feed_id}` | Feed löschen | Mitglied |
-| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern | Mitglied |
+| `POST` | `/api/v1/calendar/feeds` | Neuen Feed erstellen | Ab Gärtner |
+| `GET` | `/api/v1/calendar/feeds` | Alle Feeds auflisten | Alle Rollen |
+| `GET` | `/api/v1/calendar/feeds/{feed_id}` | Feed-Details abrufen | Alle Rollen |
+| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren | Ab Gärtner |
+| `DELETE` | `/api/v1/calendar/feeds/{feed_id}` | Feed löschen | Nur Leitung |
+| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern | Ab Gärtner |
 
 **POST /api/v1/calendar/feeds — Request:**
 ```json
@@ -1743,7 +1743,7 @@ mode: single
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/calendar/sowing` | Aussaatkalender für ein Jahr und eine Site | Mitglied |
+| `GET` | `/api/v1/calendar/sowing` | Aussaatkalender für ein Jahr und eine Site | Alle Rollen |
 
 **Query-Parameter:**
 
@@ -1845,7 +1845,7 @@ mode: single
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/calendar/season-overview` | Saisonübersicht (12 Monatskarten) | Mitglied |
+| `GET` | `/api/v1/calendar/season-overview` | Saisonübersicht (12 Monatskarten) | Alle Rollen |
 
 **Query-Parameter:**
 
@@ -1883,16 +1883,25 @@ mode: single
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| Kalender-Events | Mitglied | Mitglied | Mitglied |
-| iCal-Feed (`feed.ics`) | Nein (Feed-Token) | — | — |
-| Feed-Verwaltung | Mitglied | Mitglied | Mitglied |
-| Aussaatkalender | Mitglied | — | — |
-| Saisonübersicht | Mitglied | — | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Kalender-Events | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| iCal-Feed (`feed.ics`) | **Ohne Anmeldung, per Feed-Token** | — | — | — | Abruf zusätzlich per Feed-Token **ohne Anmeldung** — Token ersetzt die Rolle nicht, er adressiert einen Feed |
+| Feed-Verwaltung | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Aussaatkalender | Alle Rollen | — | — | — | — |
+| Saisonübersicht | Alle Rollen | — | — | — | — |
 
 ## 6. Abhängigkeiten
 

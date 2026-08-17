@@ -7,8 +7,8 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.5 (REQ-050: diary_ai_analysis-Consent + Präzisierung des KI-Assistent-Zwecks)
-Abhängigkeit: REQ-023 v1.10 (Benutzerverwaltung), REQ-024 v1.6 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.3 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.0 (KI-Analyse von Tagebuch-Einträgen)
+Version: 1.6 (REQ-051: Anonymisierung und Auskunft für das Analyse-Archiv)
+Abhängigkeit: REQ-023 v1.13 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.4 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
 
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.6 | 2026-08-16 | **REQ-051 Analyse-Archiv:** REQ-051 §5 fuehrt die Collection `plant_diary_analyses`, in der jeder abgeschlossene Analyselauf eines Tagebuch-Eintrags aufbewahrt wird. Damit entstehen zwei personenbezogene Felder ausserhalb des Eintragsdokuments (`requested_by`, `claimed_by`), die die drei Regeln aus v1.5 nicht erfassten — ohne Ergaenzung waere ein geloeschter Nutzer im Archiv weiterhin namentlich zugeordnet, waehrend er am Eintrag selbst bereits anonymisiert ist. Zwei neue `AnonymizationRule`-Eintraege schliessen die Luecke; die Abwaegung ist dieselbe wie beim Eintragsdokument (Anonymisierung statt Hard-Delete, weil der Lauf zum Pflanzen-Datensatz eines womoeglich geteilten Mandanten gehoert). Neue Abnahmekriterien AK-DA-04 (Anonymisierung) und AK-DA-05 (Art.-15-Auskunft umfasst die archivierten Laeufe). |
 | 1.5 | 2026-08-04 | **REQ-050 KI-Analyse von Tagebuch-Einträgen:** Neuer Consent-Purpose `diary_ai_analysis` (Art. 6(1)(a), opt-in **je Eintrag**, nie automatisch). Gleichzeitig **Widerspruch aufgelöst:** Der Zwecktext von `ai_tenant_data_access` sagte pauschal, Tagebuch-Freitexte würden „NIE" übertragen. Diese Zusage gilt für den **serverseitigen** Assistenten (REQ-031) und ist entsprechend präzisiert; sie darf nicht als Verbot der ausdrücklich vom Nutzer ausgelösten Freigabe nach REQ-050 gelesen werden. Beide Wege sind getrennt und einzeln einwilligungspflichtig. |
 | 1.4 | 2026-06-19 | **REQ-034 Pflanzenfoto-Galerie (Security-Review SR-001/SR-003):** Neuer Consent-Purpose `reference_contribution` in `ConsentEngine.PURPOSES` (opt-in Foto-Beitrag zum DINOv2-Index, Art. 6(1)(a), global pro Nutzer). `user_diary_attachments`-Cleanup-Regel um `category 'plant'` erweitert. Neue Erasure-**Phase 0.5** `_reference_index_cleanup` (pgvector): entfernt vom Nutzer beigesteuerte `user_contributed`-Embeddings via Provenienz `contributed_by`/`tenant_key` VOR der ArangoDB-Löschung. Neues Abnahmekriterium AK-OS-05. |
 | 1.3 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im Export):** `SpeciesReferenceResolver` + `species_ref`-Wrapper-Struktur ergänzt. Tenant-eigene Species werden inline als Snapshot exportiert (DSGVO Art. 20 Datenübertragbarkeit). Globale Species bleiben als Referenz mit `scope='global'`. Neue `DataSourceDefinition`s für `tenant_species_config` und `tenant_cultivar_config`. |
@@ -352,6 +353,26 @@ class ErasureEngine:
             user_field="analysis_claimed_by",
             anonymized_value="_anonymized",
             reason="REQ-050: Kennung des ausführenden Agenten",
+            min_retention=None,
+        ),
+        # REQ-051 §5: Das Analyse-Archiv. Die drei Regeln darüber fassen nur das
+        # Eintragsdokument; ein archivierter Lauf liegt in einer eigenen
+        # Collection und trägt dieselben zwei Kennungen noch einmal. Ohne die
+        # beiden Regeln hier wäre ein gelöschter Nutzer am Eintrag anonymisiert
+        # und im Archiv weiterhin namentlich zugeordnet — dieselbe Lücke, die
+        # REQ-050 für das Eintragsdokument geschlossen hat, eine Ebene tiefer.
+        AnonymizationRule(
+            collection="plant_diary_analyses",
+            user_field="requested_by",
+            anonymized_value="_anonymized",
+            reason="REQ-051: wer den archivierten Lauf angefordert hat",
+            min_retention=None,
+        ),
+        AnonymizationRule(
+            collection="plant_diary_analyses",
+            user_field="claimed_by",
+            anonymized_value="_anonymized",
+            reason="REQ-051: Kennung des ausführenden Agenten",
             min_retention=None,
         ),
     ]
@@ -1305,6 +1326,8 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-DA-01 | **Tagebuch-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_entries` die Felder `created_by`, `analysis_requested_by` und `analysis_claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Das Eintragsdokument selbst — Freitext, Tags, Messwerte, `photo_refs` und ein vorhandenes `analysis`-Ergebnis — bleibt vollstaendig erhalten. Dies schliesst die Luecke, dass bislang nur die **Anhaenge** (AK-OS-02), nicht aber das Eintragsdokument geregelt waren. | 17 | Integration |
 | AK-DA-02 | **Auskunft umfasst Tagebuch:** Der Datenexport nach Art. 15/20 enthaelt die Tagebuch-Eintraege des Nutzers samt vorhandener KI-Analyse-Ergebnisse (REQ-050). | 15/20 | Integration |
 | AK-DA-03 | **Einwilligung `diary_ai_analysis`:** Ohne erteilte Einwilligung lehnt das Markieren eines Tagebuch-Eintrags zur KI-Analyse ab; ein Widerruf verhindert neue Markierungen und laesst bestehende Ergebnisse unberuehrt. Im Light-Modus (REQ-027) entfaellt die Pruefung, weil dort kein Consent erteilt werden kann (REQ-050 §7.5). | 6(1)(a) | Integration |
+| AK-DA-04 | **Archiv-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_analyses` die Felder `requested_by` und `claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Der Lauf selbst — Zusammenfassung, Befunde, Empfehlungen, Herkunftsangabe — bleibt vollstaendig erhalten (REQ-051 §5.4, §11). | 17 | Integration |
+| AK-DA-05 | **Auskunft umfasst das Analyse-Archiv:** Der Datenexport nach Art. 15/20 enthaelt die archivierten Analyselaeufe, nicht nur das juengste Ergebnis am Eintrag (REQ-051 §11). | 15/20 | Integration |
 <!-- /Quelle: REQ-050 §7.4 -->
 
 ### Frontend-Kriterien:

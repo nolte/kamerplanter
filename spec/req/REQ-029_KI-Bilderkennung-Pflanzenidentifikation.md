@@ -9,8 +9,8 @@ Kategorie: Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI, Flutter
 Status: Entwurf
-Version: 1.0
-Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-011 v1.0 (Adapter-Pattern), REQ-020 v1.6 (Onboarding-Wizard), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-024 v1.3 (Mandantenverwaltung)
+Version: 1.1 (Erfassung §4.1/§5.4 nach REQ-052 ausgelagert)
+Abhängigkeit: REQ-052 v1.0 (Bilderfassung — §4.1 dorthin ausgelagert), REQ-001 v5.0 (Stammdaten), REQ-011 v1.0 (Adapter-Pattern), REQ-020 v1.6 (Onboarding-Wizard), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-024 v1.3 (Mandantenverwaltung)
 ```
 
 ## 1. Business Case
@@ -1253,12 +1253,19 @@ backend:
 
 ### 4.1 Identifikations-Dialog (Wiederverwendbare Komponente)
 
-**`PlantIdentificationDialog`** — Modal mit Kamera/Upload und Ergebnis-Anzeige:
+**`PlantIdentificationDialog`** — Modal mit Erfassung und Ergebnis-Anzeige:
+
+> **Die Erfassung selbst steht seit v1.1 in [REQ-052](REQ-052_Bilderfassung.md).** Die drei
+> Erfassungswege (Live-Kamera, Gerätekamera, Datei-Upload), die Vorschau, die Fehlerzustände der
+> Kamera und der clientseitige EXIF-Strip waren bis hierher in diesem Abschnitt beschrieben und
+> wurden von fünf weiteren Anforderungen zitiert. Sie sind ein Querschnitts-Baustein und gehören
+> nicht in eine Anforderung über Artbestimmung; der Ablageort war historisch, weil REQ-029 zuerst
+> da war. Dieser Dialog **verwendet** den Baustein mit dem Normalisierungsprofil `recognition`
+> (REQ-052 §3) und beschreibt hier nur noch, was die Identifikation daraus macht.
 
 | Element | Beschreibung |
 |---------|-------------|
-| Kamera-Button | `navigator.mediaDevices.getUserMedia()` oder `<input type="file" accept="image/*" capture="environment">` (Mobile) |
-| Datei-Upload | Drag & Drop oder Dateiauswahl (Desktop) |
+| Erfassung | REQ-052 §2, Profil `recognition` (1280 px / 0.85) |
 | Organ-Auswahl | Optional: Chips (Blatt, Blüte, Frucht, Rinde) — Default "Auto" |
 | Lade-Zustand | Skeleton + "Pflanze wird analysiert..." |
 | Ergebnis-Liste | Top-3 Vorschläge als Cards mit Konfidenz-Bar, Referenzbild, Common Name |
@@ -1359,7 +1366,12 @@ backend:
 
 ### 5.4 EXIF-Stripping
 
-Vor dem Senden an die API werden **alle EXIF-Metadaten entfernt**, insbesondere:
+> **Der clientseitige Strip steht seit v1.1 in REQ-052 §5**, samt der Begründung, warum er nicht
+> erst am Server laufen darf (der Primärpfad geht in Phase 1 an Pl@ntNet, REQ-029-A §0.1.1 Punkt 2)
+> und welche Folge er hat (die Aufnahmezeit ist danach nicht mehr verfügbar). Der hier gezeigte
+> **serverseitige** Strip bleibt als zweite Verteidigungslinie bestehen.
+
+Vor dem Senden an die API sind **alle EXIF-Metadaten entfernt**, insbesondere:
 - GPS-Koordinaten
 - Geräte-Informationen
 - Datum/Uhrzeit der Aufnahme

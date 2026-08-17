@@ -4,7 +4,7 @@ Kategorie: Pflanzenplanung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Quelle: Konsolidiert aus REQ-001 v5.0, REQ-013 v1.2, Outdoor-Garden-Planner Review G-008
 ```
 
@@ -149,10 +149,10 @@ Mischkultur-Edges sind **globale Stammdaten** (nicht tenant-scoped). Sie gelten 
 
 | Entität | Scope | Erstellt durch | Bearbeitet durch |
 |---|---|---|---|
-| `compatible_with` Edge | Global | Seed / Enrichment | Platform-Admin |
-| `incompatible_with` Edge | Global | Seed / Enrichment | Platform-Admin |
-| `family_compatible_with` Edge | Global | Seed | Platform-Admin |
-| `family_incompatible_with` Edge | Global | Seed | Platform-Admin |
+| `compatible_with` Edge | Global | Seed / Enrichment | Plattform-Admin |
+| `incompatible_with` Edge | Global | Seed / Enrichment | Plattform-Admin |
+| `family_compatible_with` Edge | Global | Seed | Plattform-Admin |
+| `family_incompatible_with` Edge | Global | Seed | Plattform-Admin |
 
 ## 3. Empfehlungs-Engine (CompanionPlantingEngine)
 
@@ -536,19 +536,19 @@ Prefix: `/api/v1/companion-planting`
 
 | Methode | Pfad | Beschreibung | Auth |
 |---|---|---|---|
-| `GET` | `/species/{species_key}/recommendations` | Mischkultur-Empfehlungen für eine Species | Mitglied |
-| `GET` | `/species/{species_key}/compatible` | Kompatible Partner (Spezies-Level) | Mitglied |
-| `GET` | `/species/{species_key}/incompatible` | Inkompatible Partner (Spezies-Level) | Mitglied |
-| `POST` | `/compatible` | Neue compatible_with-Edge anlegen | Platform-Admin |
-| `DELETE` | `/compatible/{edge_key}` | compatible_with-Edge entfernen | Platform-Admin |
-| `POST` | `/incompatible` | Neue incompatible_with-Edge anlegen | Platform-Admin |
-| `DELETE` | `/incompatible/{edge_key}` | incompatible_with-Edge entfernen | Platform-Admin |
+| `GET` | `/species/{species_key}/recommendations` | Mischkultur-Empfehlungen für eine Species | Alle Rollen |
+| `GET` | `/species/{species_key}/compatible` | Kompatible Partner (Spezies-Level) | Alle Rollen |
+| `GET` | `/species/{species_key}/incompatible` | Inkompatible Partner (Spezies-Level) | Alle Rollen |
+| `POST` | `/compatible` | Neue compatible_with-Edge anlegen | Plattform-Admin |
+| `DELETE` | `/compatible/{edge_key}` | compatible_with-Edge entfernen | Plattform-Admin |
+| `POST` | `/incompatible` | Neue incompatible_with-Edge anlegen | Plattform-Admin |
+| `DELETE` | `/incompatible/{edge_key}` | incompatible_with-Edge entfernen | Plattform-Admin |
 
 ### 5.2 PlantingRun-Integration
 
 | Methode | Pfad | Beschreibung | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/t/{slug}/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check eines Runs | Mitglied |
+| `POST` | `/api/v1/t/{slug}/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check eines Runs | Alle Rollen |
 
 ### 5.3 Request/Response-Beispiele
 
@@ -812,7 +812,7 @@ companion.validation.warning = "{count} inkompatible(s) Paar(e)" / "{count} inco
 ### API:
 - [ ] **7 Companion-Planting-Endpoints:** GET recommendations, GET compatible, GET incompatible, POST/DELETE compatible, POST/DELETE incompatible
 - [ ] **Run-Validierung:** POST `/planting-runs/{key}/validate-compatibility` liefert RunCompatibilityResult
-- [ ] **Auth:** GET-Endpoints für alle Mitglieder; POST/DELETE nur für Platform-Admin
+- [ ] **Auth:** GET-Endpoints für alle Mitglieder; POST/DELETE nur für Plattform-Admin
 
 ### UI:
 - [ ] **Mischkultur-Partner-Panel:** Erscheint nach Primary-Auswahl im PlantingRun-Create-Dialog

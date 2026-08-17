@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.7 (Seed↔Phase-Sequence-Tracking #611: growth_determinacy nachgezogen + Lifecycle-Resolution-Pflichtfelder)
+Version: 4.8 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.2 (R-19 Promotion-Audit-Retention)
 ```
 
@@ -32,7 +32,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 <!-- Quelle: Stammdaten-Scoping v4.0 -->
 **User Story (KA-Admin — Stammdaten kuratieren):** "Als Plattform-Administrator möchte ich steuern können, welche Pflanzenarten und Sorten ein bestimmter Tenant sieht — damit ein Cannabis Social Club nicht mit Tomaten-Stammdaten überflutet wird und ein Gemüse-Gemeinschaftsgarten keine Cannabis-Einträge sieht."
 
-**User Story (Tenant-Overlay):** "Als Tenant-Admin möchte ich zu einer globalen Pflanzenart eigene Notizen, angepasste Phasendauern und bevorzugte Sorten hinterlegen können — ohne die globalen Stammdaten zu verändern, damit meine lokalen Anpassungen erhalten bleiben, auch wenn die globalen Daten aktualisiert werden."
+**User Story (Tenant-Overlay):** "Als Gärtnerin möchte ich zu einer globalen Pflanzenart eigene Notizen, angepasste Phasendauern und bevorzugte Sorten hinterlegen können — ohne die globalen Stammdaten zu verändern, damit meine lokalen Anpassungen erhalten bleiben, auch wenn die globalen Daten aktualisiert werden."
 
 **User Story (Tenant-eigene Stammdaten):** "Als ambitionierter Züchter möchte ich eigene Pflanzensorten und Kreuzungen anlegen können, die nur in meinem Tenant sichtbar sind — weil diese Stammdaten für andere Tenants irrelevant sind und ich meine Zuchtarbeit nicht öffentlich teilen möchte."
 
@@ -1391,23 +1391,28 @@ Stammdaten unterliegen einer **dreistufigen Autorisierung** basierend auf dem St
 Lesezugriff für alle authentifizierten Benutzer (gefiltert durch `tenant_has_access`-Kante). Schreibzugriff nur für **Platform-Admins** (Membership im Platform-Tenant, REQ-023 v1.6).
 
 **Schicht 2 — Tenant-Overlay (tenant_species_config, tenant_cultivar_config):**
-Lese- und Schreibzugriff für **Tenant-Admins** des jeweiligen Tenants. Lesezugriff für alle Tenant-Mitglieder.
+Anlegen und Ändern **ab Gärtner**, Löschen **nur Leitung**. Lesen für alle Rollen des Mandanten.
 
-**Schicht 3 — Tenant-eigene Stammdaten (origin: tenant/import, tenant_key gesetzt):**
-Schreibzugriff für **Tenant-Admins**. Lesezugriff für alle Mitglieder des Tenants.
+**Schicht 3 — Mandanteneigene Stammdaten (origin: tenant/import, tenant_key gesetzt):**
+Anlegen und Ändern ab Gärtner, Löschen nur Leitung. Lesen für alle Rollen des Mandanten.
 
-| Ressource/Endpoint-Gruppe | Lesen (Auth) | Schreiben (Auth) | Löschen (Auth) |
-|---------------------------|-------|-----------|---------|
-| BotanicalFamilies (global, ungefiltert) | Ja (alle) | Platform-Admin | Platform-Admin |
-| Species (global, via tenant_has_access) | Ja (Tenant-Mitglied) | Platform-Admin | Platform-Admin |
-| Species (tenant-eigen, origin: tenant) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
-| Cultivars (transitiv via Species) | Ja (Tenant-Mitglied) | Platform-Admin (global) / Tenant-Admin (tenant) | Platform-Admin / Tenant-Admin |
-| TenantSpeciesConfig (Overlay) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
-| TenantCultivarConfig (Overlay) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
-| tenant_has_access (Zuweisung) | — | Platform-Admin | Platform-Admin |
-| Promotion (tenant→system) | — | Platform-Admin | — |
-| CompanionPlanting (Graph-Beziehungen) | Ja (alle) | Platform-Admin | Platform-Admin |
-| CropRotation (Graph-Beziehungen) | Ja (alle) | Platform-Admin | Platform-Admin |
+> **Vokabular:** Tabelle nach **REQ-049 §3.3/§3.4**. `Tenant-Admin` ist dort ein **verbotener**
+> Begriff (er bezeichnete im alten Modell Rolle und Verwaltung zugleich) und wird hier zu
+> **Ab Gärtner** bzw. **Nur Leitung** aufgelöst — mandanteneigene Stammdaten sind Fachdaten,
+> keine Mandantenverwaltung. `Platform-Admin` heißt **Plattform-Admin**.
+
+| Ressource/Endpoint-Gruppe | Lesen | Anlegen | Ändern | Löschen |
+|---------------------------|-------|---------|--------|---------|
+| BotanicalFamilies (global, ungefiltert) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| Species (global, via tenant_has_access) | Alle Rollen | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| Species (mandanteneigen, origin: tenant) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung |
+| Cultivars (transitiv via Species) | Alle Rollen | Plattform-Admin (global) / Ab Gärtner (mandanteneigen) | dito | Plattform-Admin (global) / Nur Leitung (mandanteneigen) |
+| TenantSpeciesConfig (Overlay) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung |
+| TenantCultivarConfig (Overlay) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung |
+| tenant_has_access (Zuweisung) | — | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| Promotion (tenant→system) | — | Plattform-Admin | — | — |
+| CompanionPlanting (Graph-Beziehungen) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin |
+| CropRotation (Graph-Beziehungen) | Alle Rollen, auch ohne Mandant | Plattform-Admin | Plattform-Admin | Plattform-Admin |
 <!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 ## 5. Abhängigkeiten
@@ -1472,7 +1477,7 @@ Schreibzugriff für **Tenant-Admins**. Lesezugriff für alle Mitglieder des Tena
 - [ ] **Stammdaten-Scoping — Tenant-Overlay:** `tenant_species_config` und `tenant_cultivar_config` Collections ermöglichen Tenant-spezifische Anpassungen ohne Änderung globaler Daten
 - [ ] **Stammdaten-Scoping — Merge-Logik:** API liefert gemergte Ansicht (global + Overlay), `has_overlay: bool` im Response zeigt an ob ein Overlay aktiv ist
 - [ ] **Stammdaten-Scoping — hidden-Flag:** Overlay mit `hidden: true` blendet zugewiesene Species im Tenant aus
-- [ ] **Stammdaten-Scoping — Tenant-eigene Species:** Tenant-Admins können eigene Species/Cultivars anlegen (`origin: 'tenant'`, `tenant_key` gesetzt), sichtbar nur im eigenen Tenant
+- [ ] **Stammdaten-Scoping — Tenant-eigene Species:** Ab der Rolle Gärtner können mandanteneigene Species/Cultivars angelegt werden (löschen nur Leitung) (`origin: 'tenant'`, `tenant_key` gesetzt), sichtbar nur im eigenen Tenant
 - [ ] **Stammdaten-Scoping — Promotion:** KA-Admin kann Tenant-Species in-place zu globalen Stammdaten promoten (`origin: 'tenant'` → `'system'`, `tenant_key` → `null`)
 - [ ] **Stammdaten-Scoping — BotanicalFamily ungefiltert:** Familien bleiben global ohne `tenant_has_access`-Filterung
 - [ ] **Stammdaten-Scoping — Weitere Collections:** Pests, Diseases, Treatments (REQ-010), Fertilizers, NutrientPlans (REQ-004) erhalten ebenfalls `origin`/`tenant_key`-Felder und `tenant_has_access`-Kanten (definiert in REQ-024 v1.3)

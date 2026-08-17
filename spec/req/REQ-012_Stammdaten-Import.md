@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, MUI
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -1416,15 +1416,24 @@ Alle Eingabefelder im Upload-Dialog müssen mit einem erklärenden Hinweistext v
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
 
-**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
-|---------------------------|-------|-----------|---------|
-| CSV-Import (Upload & Ausführung) | — | Admin | — |
-| Import-Validierung (Dry-Run) | — | Admin | — |
-| Import-History | Admin | — | — |
-| Template-Download | Ja | — | — |
+> **Vokabular:** Diese Tabelle folgt dem verbindlichen Schema aus **REQ-049 §3.3** und wurde nach
+> den Migrationsregeln aus **REQ-049 §3.4** umgeschrieben. Die früheren Werte `Mitglied` und
+> `Admin` sind dort ausdrücklich **verboten**: `Mitglied` umfasst den Beobachter und erlaubte in
+> der Spalte „Schreiben" jeder Zeile dem Beobachter das Schreiben — im Widerspruch zu REQ-024.
+> `Admin` stand überwiegend für „darf löschen" (jetzt **Nur Leitung**) und an den übrigen Stellen
+> für Mandantenverwaltung (**Verwaltung**), technische Konfiguration (**Technik**) oder globale
+> Stammdaten (**Plattform-Admin**). Die Spalte „Schreiben" ist nach §3.3 in **Anlegen** und
+> **Ändern** aufgeteilt. Bei Widerspruch gilt REQ-049.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| CSV-Import (Upload & Ausführung) | — | Technik | — | — | Kein Lese- und kein Löschpfad für die Aktion selbst; `—` ist nach REQ-049 §3.1 normativ für „Aktion existiert nicht" |
+| Import-Validierung (Dry-Run) | — | Technik | — | — | Zustandsloser Probelauf, kein Datensatz |
+| Import-History | Technik | — | — | — | Protokoll der Importe |
+| Template-Download | Alle Rollen | — | — | — | Statische Vorlagedatei |
 
 ### 5.1 Sicherheitsanforderungen für CSV-Import
 
@@ -1434,7 +1443,7 @@ CSV-Dateien können bösartigen Inhalt transportieren. Die folgenden Sicherheits
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| CI-001 | CSV-Import MUSS auf die Rolle **Admin** beschränkt sein (keine Grower/Viewer). | MUSS |
+| CI-001 | CSV-Import MUSS auf die Zusatzberechtigung **Technik** beschränkt sein (REQ-049 §2.4/§3.4). Der fachliche Rang entscheidet **nicht**: Ein Beobachter mit `technical` darf importieren, eine Leitung ohne `technical` nicht. Der frühere Wortlaut „Rolle Admin (keine Grower/Viewer)" benutzte einen von REQ-049 §3.2 verbotenen Begriff und hätte auf einen Rang gegatet. | MUSS |
 | CI-002 | Maximale Dateigröße: **10 MB** (erzwungen via FastAPI `UploadFile` und NFR-001 §6.5 EV-004). | MUSS |
 | CI-003 | Maximale Zeilenanzahl: **10.000 Zeilen** pro Import-Job. Dateien mit mehr Zeilen werden mit Validierungsfehler abgelehnt. | MUSS |
 | CI-004 | **CSV-Injection-Sanitisierung:** Zellenwerte die mit `=`, `+`, `-`, `@`, `\t`, `\r` beginnen, MÜSSEN bei der Validierung als `SUSPICIOUS_CONTENT`-Warnung markiert werden. Das führende Zeichen wird beim Import automatisch entfernt (Prefix-Stripping). | MUSS |

@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.12 (QR-Gerätekopplung für native Clients — Redis-Einmalcode, Body-Refresh)
+Version: 1.13 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -1022,12 +1022,12 @@ class UserService:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| GET | `/admin/oidc-providers` | Alle konfigurierten Provider auflisten | Admin |
-| POST | `/admin/oidc-providers` | Neuen OIDC-Provider registrieren | Admin |
-| GET | `/admin/oidc-providers/{slug}` | Provider-Details abrufen | Admin |
-| PATCH | `/admin/oidc-providers/{slug}` | Provider aktualisieren | Admin |
-| DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Admin |
-| POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Admin |
+| GET | `/admin/oidc-providers` | Alle konfigurierten Provider auflisten | Plattform-Admin |
+| POST | `/admin/oidc-providers` | Neuen OIDC-Provider registrieren | Plattform-Admin |
+| GET | `/admin/oidc-providers/{slug}` | Provider-Details abrufen | Plattform-Admin |
+| PATCH | `/admin/oidc-providers/{slug}` | Provider aktualisieren | Plattform-Admin |
+| DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Plattform-Admin |
+| POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Plattform-Admin |
 
 **Gesamtanzahl API-Endpunkte:** ~25
 
@@ -1330,8 +1330,8 @@ Das JWT Access Token wird um ein `is_platform_admin`-Flag erweitert:
     "email": "anna@example.com",
     "display_name": "Anna",
     "tenant_roles": {
-        "platform": "admin",        # Platform-Tenant Membership
-        "annas-garten": "admin",
+        "platform": "lead",         # Platform-Tenant Membership
+        "annas-garten": "lead",
         "gruene-oase": "grower"
     },
     "is_platform_admin": true,       # NEU: Shortcut für Frontend/Backend
@@ -1382,18 +1382,18 @@ def assign_species_to_tenant(
 
 | Aktion | Berechtigung | Endpoint-Pattern |
 |--------|-------------|------------------|
-| Globale Species/Cultivars erstellen/bearbeiten/löschen | Platform-Admin | `POST/PUT/DELETE /api/v1/species/*` |
-| `tenant_has_access`-Kanten verwalten (zuweisen/entziehen) | Platform-Admin | `POST/DELETE /api/v1/admin/species/{key}/tenants/{tenant_key}` |
-| Tenant-Species zu global promoten | Platform-Admin | `POST /api/v1/admin/species/{key}/promote` |
-| Alle Tenants auflisten | Platform-Admin | `GET /api/v1/admin/tenants` |
-| Globale IPM-Daten verwalten | Platform-Admin | `POST/PUT/DELETE /api/v1/pests/*`, `/diseases/*`, `/treatments/*` |
-| OIDC-Provider konfigurieren | Platform-Admin | `POST/PUT/DELETE /api/v1/admin/oidc-providers/*` (bereits vorhanden) |
+| Globale Species/Cultivars erstellen/bearbeiten/löschen | Plattform-Admin | `POST/PUT/DELETE /api/v1/species/*` |
+| `tenant_has_access`-Kanten verwalten (zuweisen/entziehen) | Plattform-Admin | `POST/DELETE /api/v1/admin/species/{key}/tenants/{tenant_key}` |
+| Tenant-Species zu global promoten | Plattform-Admin | `POST /api/v1/admin/species/{key}/promote` |
+| Alle Tenants auflisten | Plattform-Admin | `GET /api/v1/admin/tenants` |
+| Globale IPM-Daten verwalten | Plattform-Admin | `POST/PUT/DELETE /api/v1/pests/*`, `/diseases/*`, `/treatments/*` |
+| OIDC-Provider konfigurieren | Plattform-Admin | `POST/PUT/DELETE /api/v1/admin/oidc-providers/*` (bereits vorhanden) |
 <!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
-| Verwaisten Tenant einsehen (Mitglieder, Status) | Platform-Admin | `GET /api/v1/admin/tenants/{tenant_key}/members` |
-| Neuen Admin in Tenant ernennen (Notfall) | Platform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/emergency-admin` |
-| Tenant suspendieren | Platform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/suspend` |
-| Tenant reaktivieren | Platform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/reactivate` |
-| User-Status ändern (suspend/reactivate) | Platform-Admin | `POST /api/v1/admin/users/{user_key}/suspend`, `POST .../reactivate` |
+| Verwaisten Tenant einsehen (Mitglieder, Status) | Plattform-Admin | `GET /api/v1/admin/tenants/{tenant_key}/members` |
+| Neuen Admin in Tenant ernennen (Notfall) | Plattform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/emergency-admin` |
+| Tenant suspendieren | Plattform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/suspend` |
+| Tenant reaktivieren | Plattform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/reactivate` |
+| User-Status ändern (suspend/reactivate) | Plattform-Admin | `POST /api/v1/admin/users/{user_key}/suspend`, `POST .../reactivate` |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
 <!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
@@ -1408,11 +1408,16 @@ def assign_species_to_tenant(
 Ein Tenant gilt als **verwaist** wenn:
 ```python
 def is_orphaned(tenant_key: str) -> bool:
-    """Ein Tenant ist verwaist wenn er keine aktiven Admins hat."""
-    active_admins = membership_repo.count_by_tenant_and_role(
-        tenant_key, role="admin", status="active"
-    )
-    return active_admins == 0
+    """Verwaist = kein aktives Mitglied mit der Zusatzberechtigung `management`.
+
+    Der Anker ist Achse 2, NICHT der fachliche Rang (REQ-024 AK-10): Ein
+    Mandant ohne Leitung ist bedienbar -- niemand darf loeschen, aber alles
+    andere laeuft. Ein Mandant ohne `management` ist handlungsunfaehig, weil
+    niemand mehr Mitglieder einladen, Rollen aendern oder Einstellungen
+    pflegen kann. Nur der zweite Fall rechtfertigt die Notfallverwaltung.
+    """
+    active_managers = membership_repo.count_active_managers(tenant_key)
+    return active_managers == 0
 ```
 
 **Automatische Erkennung:** Ein Celery-Task prüft wöchentlich alle Organisations-Tenants auf Verwaist-Status und setzt ggf. ein Flag `orphaned_since: datetime` auf dem Tenant. Platform-Admins sehen verwaiste Tenants prominent im Admin-Panel.
@@ -1780,26 +1785,26 @@ class ServiceAccountService:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/t/{slug}/service-accounts` | Service Account erstellen (inkl. initialer API-Key) | Tenant-Admin |
-| `GET` | `/t/{slug}/service-accounts` | Alle Service Accounts des Tenants auflisten | Tenant-Admin |
-| `GET` | `/t/{slug}/service-accounts/{sa_key}` | Details eines Service Accounts | Tenant-Admin |
-| `PATCH` | `/t/{slug}/service-accounts/{sa_key}` | Service Account aktualisieren (Name, Beschreibung, Rate Limit, IP-Ranges) | Tenant-Admin |
-| `POST` | `/t/{slug}/service-accounts/{sa_key}/suspend` | Service Account suspendieren | Tenant-Admin |
-| `POST` | `/t/{slug}/service-accounts/{sa_key}/reactivate` | Service Account reaktivieren | Tenant-Admin |
-| `DELETE` | `/t/{slug}/service-accounts/{sa_key}` | Service Account löschen (Soft-Delete) | Tenant-Admin |
-| `POST` | `/t/{slug}/service-accounts/{sa_key}/rotate-key` | API-Key rotieren (alter Key revoked, neuer Key erstellt) | Tenant-Admin |
+| `POST` | `/t/{slug}/service-accounts` | Service Account erstellen (inkl. initialer API-Key) | Verwaltung |
+| `GET` | `/t/{slug}/service-accounts` | Alle Service Accounts des Tenants auflisten | Verwaltung |
+| `GET` | `/t/{slug}/service-accounts/{sa_key}` | Details eines Service Accounts | Verwaltung |
+| `PATCH` | `/t/{slug}/service-accounts/{sa_key}` | Service Account aktualisieren (Name, Beschreibung, Rate Limit, IP-Ranges) | Verwaltung |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/suspend` | Service Account suspendieren | Verwaltung |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/reactivate` | Service Account reaktivieren | Verwaltung |
+| `DELETE` | `/t/{slug}/service-accounts/{sa_key}` | Service Account löschen (Soft-Delete) | Verwaltung |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/rotate-key` | API-Key rotieren (alter Key revoked, neuer Key erstellt) | Verwaltung |
 
 **Router: `/api/v1/admin/platform/service-accounts`** — Platform-scoped Service Account Verwaltung:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/admin/platform/service-accounts` | Platform Service Account erstellen | Platform-Admin |
-| `GET` | `/admin/platform/service-accounts` | Alle Platform Service Accounts auflisten | Platform-Admin |
-| `GET` | `/admin/platform/service-accounts/{sa_key}` | Details eines Platform Service Accounts | Platform-Admin |
-| `PATCH` | `/admin/platform/service-accounts/{sa_key}` | Platform Service Account aktualisieren | Platform-Admin |
-| `POST` | `/admin/platform/service-accounts/{sa_key}/tenants/{tenant_key}` | Service Account Membership in weiterem Tenant hinzufügen | Platform-Admin |
-| `DELETE` | `/admin/platform/service-accounts/{sa_key}/tenants/{tenant_key}` | Service Account Membership aus Tenant entfernen | Platform-Admin |
-| `DELETE` | `/admin/platform/service-accounts/{sa_key}` | Platform Service Account löschen | Platform-Admin |
+| `POST` | `/admin/platform/service-accounts` | Platform Service Account erstellen | Plattform-Admin |
+| `GET` | `/admin/platform/service-accounts` | Alle Platform Service Accounts auflisten | Plattform-Admin |
+| `GET` | `/admin/platform/service-accounts/{sa_key}` | Details eines Platform Service Accounts | Plattform-Admin |
+| `PATCH` | `/admin/platform/service-accounts/{sa_key}` | Platform Service Account aktualisieren | Plattform-Admin |
+| `POST` | `/admin/platform/service-accounts/{sa_key}/tenants/{tenant_key}` | Service Account Membership in weiterem Tenant hinzufügen | Plattform-Admin |
+| `DELETE` | `/admin/platform/service-accounts/{sa_key}/tenants/{tenant_key}` | Service Account Membership aus Tenant entfernen | Plattform-Admin |
+| `DELETE` | `/admin/platform/service-accounts/{sa_key}` | Platform Service Account löschen | Plattform-Admin |
 
 **Gesamt:** 15 neue API-Endpoints
 
