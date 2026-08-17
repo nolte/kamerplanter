@@ -394,6 +394,42 @@ Diese Variablen steuern den täglichen Hintergrund-Task, der aus den Wetterdaten
 
 ---
 
+## Health-Endpunkt und Build-Kennung {#health-endpunkt}
+
+Der unauthentifizierte Endpunkt `GET /api/health` kann beantworten, welcher Build gerade läuft. Weil er unauthentifiziert ist, ist diese Auskunft standardmäßig abgeschaltet und der Endpunkt mengenbegrenzt.
+
+<!-- Quelle: src/backend/app/config/settings.py (health_expose_build_revision, build_revision, rate_limit_health), src/backend/app/main.py (root_health) -->
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `HEALTH_EXPOSE_BUILD_REVISION` | `false` | Nein | Ob `GET /api/health` das Feld `build_revision` überhaupt ausliefert. Bei `false` fehlt der Schlüssel vollständig in der Antwort. |
+| `BUILD_REVISION` | *(leer)* | Nein | Der vollständige Git-Commit, aus dem das Image gebaut wurde. Wird beim Container-Build eingebacken (`docker-publish.yml` reicht ihn als Build-Argument in das Dockerfile); von Hand setzen musst du ihn nur, wenn du selbst baust. |
+| `RATE_LIMIT_HEALTH` | `60/minute` | Nein | Mengenbegrenzung für `GET /api/health`, je Client-IP. Die Kubernetes-Proben zeigen auf `/api/v1/health/live` und `/api/v1/health/ready` und sind davon **nicht** betroffen. |
+
+!!! warning "Warum die Build-Kennung standardmäßig fehlt"
+
+    Öffentlich ist nicht der Commit-Hash — das Repository ist ohnehin offen —,
+    sondern die Zuordnung *dieser Host läuft auf jenem Commit*. Aus ihr folgt
+    der exakte Rückstand gegenüber dem Entwicklungsstand und damit die Liste der
+    Fehlerbehebungen, die dieser Instanz fehlen. Aktiviere das Feld deshalb
+    bewusst — etwa auf einer Instanz, die ohnehin nur im eigenen Netz erreichbar
+    ist, oder für die Dauer einer Fehlersuche. <!-- #1210 -->
+
+**Drei unterscheidbare Antwortzustände**, die nicht verwechselt werden dürfen:
+
+| Antwort | Bedeutung |
+|---|---|
+| Der Schlüssel `build_revision` **fehlt** | `HEALTH_EXPOSE_BUILD_REVISION` ist `false`. Bewusste Konfiguration, kein Defekt. |
+| `"unknown"` | Auskunft ist erlaubt, aber es ist keine Revision eingebacken (Entwicklungs-Image, ungestempelter Build). |
+| Ein 40-stelliger Hexadezimal-Wert | Die echte Antwort. |
+
+Der Wert wird vor der Ausgabe gegen `^[0-9a-f]{7,40}$` geprüft (nach dem Abschneiden von Leerraum, damit ein in YAML umbrochener oder in der Shell gequoteter Wert überlebt). Alles andere wird zu `"unknown"` — nie zu einem erfundenen oder abgeleiteten Wert.
+
+!!! note "Betriebssignal, keine Attestierung"
+    `build_revision` sagt, was die Instanz über sich behauptet. Wer das Deployment kompromittiert hat, kann sie jeden Hash melden lassen. Der belastbare Nachweis bleibt `gh attestation verify` zusammen mit dem Digest aus `.status.containerStatuses[].imageID` des Pods — siehe [CI/CD — Prüfungen entlang der Auslieferungskette](../deployment/ci-cd.md#pruefungen-auslieferungskette).
+
+---
+
 ## Rate Limiting
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -401,6 +437,7 @@ Diese Variablen steuern den täglichen Hintergrund-Task, der aus den Wetterdaten
 | `RATE_LIMIT_AUTH` | `20/minute` | Nein | Rate-Limit für Authentifizierungsendpunkte |
 | `TRUSTED_PROXY_HOPS` | `0` | **Ja, hinter zwei Proxys** | Wie viele Proxy-Adressen die eigene Infrastruktur an `X-Forwarded-For` anhängt, von rechts gezählt. `0` = Client → nginx → Backend (Dev/E2E); `1` = Client → Traefik → nginx → Backend (das Helm-Chart setzt diesen Wert). Zu niedrig löst jeden Aufrufer auf den nächsten Proxy auf — der Device-Pairing-Lockout sperrt dann alle Nutzer gleichzeitig und IP-Allowlist-Service-Accounts scheitern; zu hoch liest Einträge, die ein Aufrufer fälschen kann. |
 | `RATE_LIMIT_GENERAL` | `100/minute` | Nein | Rate-Limit für allgemeine API-Endpunkte |
+| `RATE_LIMIT_HEALTH` | `60/minute` | Nein | Rate-Limit für `GET /api/health` — siehe [Health-Endpunkt und Build-Kennung](#health-endpunkt) |
 
 **Format:** `[anzahl]/[einheit]` — Einheiten: `second`, `minute`, `hour`, `day`
 
