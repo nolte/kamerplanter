@@ -618,7 +618,7 @@ Die sechs Sprünge fallen **unabhängig voneinander** aus. Eine Prüfung über e
 
 #### Was `release-lag.yml` leistet — und was nicht
 
-Der Job vergleicht täglich um 09:00 UTC den Stand von `develop` mit dem jüngsten **veröffentlichten** Release. Ein Entwurf zählt ausdrücklich nicht; er wird in der Meldung sogar eigens benannt, weil genau er den Eindruck erzeugt, es sei etwas ausgeliefert. Gemeldet wird über ein einzelnes, deduppliziertes Issue mit dem Label `release-lag`; der Messbericht liegt als `release-lag-report.json` am Lauf.
+Der Job vergleicht täglich um 09:00 UTC den Stand von `develop` mit dem jüngsten **veröffentlichten** Release. Ein Entwurf zählt ausdrücklich nicht; er wird in der Meldung sogar eigens benannt, weil genau er den Eindruck erzeugt, es sei etwas ausgeliefert. Gemeldet wird über ein einzelnes, deduppliziertes Issue mit dem Label `release-lag`. Der Messbericht `release-lag-report.json` entsteht nur im Arbeitsverzeichnis des Runners und wird nicht als Artefakt hochgeladen — er dient dem Issue-Schritt als Bedingung: fehlt er, war die Messung unbestimmt, der Lauf ist rot und es wird kein Issue geöffnet.
 
 | Einstellung | Standard | Bedeutung |
 |---|---|---|

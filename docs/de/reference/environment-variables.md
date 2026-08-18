@@ -421,7 +421,7 @@ Der unauthentifizierte Endpunkt `GET /api/health` kann beantworten, welcher Buil
 |---|---|
 | Der Schlüssel `build_revision` **fehlt** | `HEALTH_EXPOSE_BUILD_REVISION` ist `false`. Bewusste Konfiguration, kein Defekt. |
 | `"unknown"` | Auskunft ist erlaubt, aber es ist keine Revision eingebacken (Entwicklungs-Image, ungestempelter Build). |
-| Ein 40-stelliger Hexadezimal-Wert | Die echte Antwort. |
+| Ein 7- bis 40-stelliger Hexadezimal-Wert | Die echte Antwort. Ein von `docker-publish.yml` gebautes Image meldet den vollen 40-stelligen SHA; ein selbst gebautes Image mit `BUILD_REVISION=$(git rev-parse --short HEAD)` meldet entsprechend weniger. |
 
 Der Wert wird vor der Ausgabe gegen `^[0-9a-f]{7,40}$` geprüft (nach dem Abschneiden von Leerraum, damit ein in YAML umbrochener oder in der Shell gequoteter Wert überlebt). Alles andere wird zu `"unknown"` — nie zu einem erfundenen oder abgeleiteten Wert.
 

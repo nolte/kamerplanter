@@ -418,6 +418,54 @@ class TestGraceWindow:
         assert report["oldest_unreleased"]["sha"] == "f" * 40
         assert report["alert"] is True
 
+    def test_a_truncated_commit_array_reports_no_newest_commit(self) -> None:
+        """Past the 250-commit cap the newest entry is unknowable — say so.
+
+        The array is oldest-first, so truncation removes exactly the entries a
+        naive ``commits[-1]`` would call "newest". Reporting the 250th commit
+        under that label produces an alert that reads correct and is not, with
+        nothing in the rendering to reveal the substitution. `ahead_by` exceeding
+        the array length is the detectable signal, and the honest answer is None.
+        """
+        fetch = RecordingFetch(
+            {
+                RELEASES_URL: [release("v0.2.0", published_at="2026-08-13T18:09:49Z")],
+                compare_url("v0.2.0"): comparison(
+                    commit("f" * 40, date="2026-08-14T00:00:00Z"),
+                    commit("e" * 40, date="2026-08-15T00:00:00Z"),
+                    ahead_by=312,
+                ),
+            }
+        )
+        report = build(fetch, now="2026-08-20T00:00:00Z")
+
+        assert report["newest_unreleased"] is None
+        # The oldest — which drives the age clock and the alert — survives the cap.
+        assert report["oldest_unreleased"]["sha"] == "f" * 40
+        assert report["alert"] is True
+
+    def test_an_untruncated_comparison_still_reports_its_newest_commit(self) -> None:
+        """The guard must not cost the ordinary case its answer.
+
+        Twin of the test above: with `ahead_by` matching the array length nothing
+        was dropped, so the newest entry is genuine and must still be reported.
+        Without this, silencing `newest_unreleased` unconditionally would pass.
+        """
+        fetch = RecordingFetch(
+            {
+                RELEASES_URL: [release("v0.2.0", published_at="2026-08-13T18:09:49Z")],
+                compare_url("v0.2.0"): comparison(
+                    commit("f" * 40, date="2026-08-14T00:00:00Z"),
+                    commit("e" * 40, date="2026-08-15T00:00:00Z"),
+                    ahead_by=2,
+                ),
+            }
+        )
+        report = build(fetch, now="2026-08-20T00:00:00Z")
+
+        assert report["newest_unreleased"]["sha"] == "e" * 40
+        assert report["oldest_unreleased"]["sha"] == "f" * 40
+
 
 # --------------------------------------------------------------------------- #
 # Fail-loud (criterion 5).

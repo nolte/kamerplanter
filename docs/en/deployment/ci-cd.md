@@ -614,7 +614,7 @@ therefore says nothing about the others:
 
 #### What `release-lag.yml` does — and what it does not
 
-The job compares the state of `develop` against the newest **published** release daily at 09:00 UTC. A draft explicitly does not count; it is even named in the alert, because a draft is precisely what creates the impression that something has been delivered. Reporting goes into a single, deduplicated issue labelled `release-lag`; the measurement report is attached to the run as `release-lag-report.json`.
+The job compares the state of `develop` against the newest **published** release daily at 09:00 UTC. A draft explicitly does not count; it is even named in the alert, because a draft is precisely what creates the impression that something has been delivered. Reporting goes into a single, deduplicated issue labelled `release-lag`. The measurement report `release-lag-report.json` exists only in the runner's workspace and is not uploaded as an artifact — it gates the issue step: if it is missing, the measurement was undetermined, the run goes red, and no issue is opened.
 
 | Setting | Default | Meaning |
 |---|---|---|

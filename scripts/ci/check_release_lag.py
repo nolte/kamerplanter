@@ -349,7 +349,15 @@ def build_report(
     )
 
     oldest = commits[0] if commits else None
-    newest = commits[-1] if commits else None
+    # The compare API caps `commits` at 250 and returns them OLDEST-FIRST, so the
+    # cap truncates the NEW end. `commits[0]` therefore stays the true oldest at
+    # any size — which is what the age clock and the alert decision read — but
+    # `commits[-1]` is only the true newest while nothing was dropped. Past the
+    # cap it is the 250th commit wearing the newest's label, and nothing in the
+    # rendered alert would reveal the substitution. Report nothing rather than
+    # something plausible and wrong.
+    truncated = ahead_by > len(commits)
+    newest = commits[-1] if commits and not truncated else None
     oldest_age_days = _days_between(now, oldest.committed_at) if oldest else 0.0
     alert = ahead_by > 0 and oldest_age_days >= threshold_days
 

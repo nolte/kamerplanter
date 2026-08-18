@@ -421,7 +421,7 @@ The unauthenticated endpoint `GET /api/health` can answer which build is current
 |---|---|
 | The `build_revision` key is **absent** | `HEALTH_EXPOSE_BUILD_REVISION` is `false`. Deliberate configuration, not a defect. |
 | `"unknown"` | Disclosure is allowed, but no revision was baked in (development image, unstamped build). |
-| A 40-character hexadecimal value | The real answer. |
+| A 7- to 40-character hexadecimal value | The real answer. An image built by `docker-publish.yml` reports the full 40-character SHA; a self-built image using `BUILD_REVISION=$(git rev-parse --short HEAD)` reports correspondingly fewer. |
 
 Before it is reported, the value is checked against `^[0-9a-f]{7,40}$` (after stripping whitespace, so a YAML-folded or shell-quoted value survives). Anything else becomes `"unknown"` — never a fabricated or derived value.
 

@@ -51,12 +51,26 @@ on:
         required: false
         type: string
 
-# Least privilege. Read the checkout (the script is read from the tree; the
-# measurement itself is pure REST API, so no tag fetch and no git are needed),
-# write issues for the single deduped alert. No packages, no id-token, no
-# contents:write.
+# `contents: write` is a DELIBERATE trade, not an oversight — it is the narrowest
+# scope that makes this check tell the truth.
+#
+# `GET /repos/{owner}/{repo}/releases` lists a DRAFT release only to a token with
+# push access. Under `contents: read` the draft is simply absent from the payload,
+# so `newest_unpublished_draft()` returns None and the alert states "There is no
+# draft release either — nothing is queued for publication."
+#
+# That sentence would have been FALSE for the whole window this job exists to
+# close: `v0.2.1` sat as an unpublished draft from 2026-08-13 while the fix that
+# #1210 is about went undelivered. A check that asserts the opposite of the fact
+# it was built to surface is worse than no check, so the scope follows the truth
+# requirement rather than the other way round.
+#
+# What the elevated scope does NOT buy anyone: the script performs GETs only
+# (release list + compare endpoint) and never writes contents; `issues: write` is
+# what opens the alert. Reconsider this if GitHub ever exposes draft listings to a
+# read-only token.
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 # An alerting job: serialise a scheduled run against a manual one so two runs
