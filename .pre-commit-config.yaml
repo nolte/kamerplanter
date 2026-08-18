@@ -449,6 +449,42 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Attestation registry credentials (#1218) ───────────────────────────
+  # `actions/attest-build-provenance` with `push-to-registry: true` reads exactly
+  # one credential file — `~/.docker/config.json`, in its bundled
+  # `getRegistryCredentials`. `publish-helm-charts` logged in with
+  # `helm registry login`, which writes Helm's OWN store, so every run since
+  # 2026-08-01 died with `No credentials found for registry ghcr.io`. Two
+  # published releases (v0.1.0, v0.2.0) lost their chart .tgz, their compose
+  # file, their env example and the release body's Packages block — the failing
+  # job took `update-release-assets` down with it. Seventeen days, nobody noticed.
+  #
+  # Nothing in the YAML expressed that coupling: eight image jobs with
+  # `docker/login-action` and one chart job with `helm registry login` looked
+  # interchangeable. This hook expresses it, and turns a failure that only
+  # surfaced at release time into one a pull request shows.
+  #
+  # Two logins to the same registry in one job is the CORRECT end state here
+  # (`helm push` reads Helm's store, the attest action reads Docker's), which is
+  # exactly why it needs a gate: it looks redundant and is not.
+  #
+  # `# attest-credentials-ok: <reason>` per site rather than a ban — a job may
+  # legitimately get its Docker credentials some other way, and then it says so.
+  #
+  # `language: python` with PyYAML, like the gate-integrity hook above: the
+  # required `static` job runs on a bare runner with none of the project's
+  # dependencies installed. always_run, because deleting a login moves the
+  # answer as much as editing one.
+  - repo: local
+    hooks:
+      - id: attest-registry-credentials
+        name: an attesting job carries a Docker-store login (#1218)
+        entry: python3 scripts/check_attest_registry_credentials.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
+
   # ── Seed YAML ↔ JSON Schema (P3.3) ─────────────────────────────────────
   # The seed files carry a `# yaml-language-server: $schema=…` directive and 31
   # of them declare one, but only ~12 were ever validated: the backend test
