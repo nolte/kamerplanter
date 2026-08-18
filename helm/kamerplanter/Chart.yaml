@@ -2,7 +2,27 @@ apiVersion: v2
 name: kamerplanter
 description: Kamerplanter plant lifecycle management system
 type: application
-version: 0.2.0
+# Develop channel, not a release version (issue #1222).
+#
+# `helm push` derives the OCI tag verbatim from this value, and
+# docker-publish.yml rewrites it to `${REF_NAME#v}` only on a release tag ref.
+# So on every `helm/**` merge to develop this exact string becomes the published
+# OCI tag. It read `0.2.0` until 2026-08-18, which republished
+# charts/kamerplanter:0.2.0 five days after release v0.2.0 had published it.
+#
+# The `-dev` pre-release gives develop a channel no release tag can ever name:
+# scripts/check_chart_develop_version.py refuses a releasable version here, and
+# scripts/ci/determine_chart_version.sh refuses a release tag carrying `-dev`.
+#
+# `oci://ghcr.io/nolte/charts/kamerplanter:0.2.1-dev` is REWRITTEN BY EVERY
+# `helm/**` MERGE and MUST NOT be pinned by any consumer. Pin a released version
+# (ArgoCD `targetRevision`) or the chart manifest digest for immutability.
+#
+# The number tracks the intended next release (the `v0.2.1` draft), not a
+# schedule: no periodic bump is required, because any `-dev` value keeps the
+# collision impossible. `appVersion` stays as it is — the release path overwrites
+# it too, so it is inert on this channel.
+version: 0.2.1-dev
 appVersion: "1.0.0"
 dependencies:
   - name: common

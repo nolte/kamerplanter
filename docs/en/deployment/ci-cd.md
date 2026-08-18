@@ -306,7 +306,7 @@ The Helm chart for Kamerplanter lives under `helm/kamerplanter/` and is pushed a
 oci://ghcr.io/nolte/charts/kamerplanter
 ```
 
-On a release tag, `version` and `appVersion` in `Chart.yaml` are automatically set to the release version before the chart is packaged. At the same time `scripts/ci/pin_chart_image_digests.sh` pins every Kamerplanter image in `values.yaml` to `<version>@sha256:<digest>` — addressed by YAML path rather than by text-replacing the literal `tag: latest`. The same run then re-reads the file and aborts the release if any Kamerplanter image survived the substitution.
+On a release tag, `version` and `appVersion` in `Chart.yaml` are automatically set to the release version before the chart is packaged. On any other ref that rewrite does **not** apply — whatever version the tree carries is what gets packaged, and `develop` has its own channel for that (see [Two channels](#two-channels)). At the same time `scripts/ci/pin_chart_image_digests.sh` pins every Kamerplanter image in `values.yaml` to `<version>@sha256:<digest>` — addressed by YAML path rather than by text-replacing the literal `tag: latest`. The same run then re-reads the file and aborts the release if any Kamerplanter image survived the substitution.
 
 The digest is resolved from the registry rather than handed over from the build jobs. That also proves `<image>:<version>` exists at all — which is why `publish-helm-charts` has been ordered behind the image builds via `needs:` since #987. And it is the difference between "immutable" and "immutable by convention": a version tag can be re-pushed, a digest cannot.
 
@@ -317,8 +317,64 @@ The digest is resolved from the registry rather than handed over from the build 
     *name*: re-run the publish workflow for an existing tag and the same name
     points at different bytes, with no way for a consumer to notice.
 
+#### Two channels: `develop` and release {#two-channels}
+
+The same OCI address carries two kinds of tag, and they mean different things:
+
+| Channel | Version in the tree | Published OCI tag | Lifetime |
+|---------|---------------------|-------------------|----------|
+| `develop` | a pre-release with the `-dev` suffix, currently `0.2.1-dev` | `charts/kamerplanter:0.2.1-dev` | overwritten by **every** `helm/` merge |
+| Release | bare version, set from the tag | `charts/kamerplanter:0.1.0` | belongs to exactly one release and is never re-pushed — with one measured exception, see below |
+
+<!-- Source: helm/kamerplanter/Chart.yaml, scripts/check_chart_develop_version.py, scripts/ci/determine_chart_version.sh -->
+
+Two things the table does not say, and that are easy to read wrongly:
+
+- **Only the `dev` identifier is enforced on the `-dev` value, not the number in
+  front of it.** `0.2.1-dev` names the intended next release, but it is not a
+  promise: once `v0.2.1` ships, `0.2.1-dev` sorts *below* the release, and no
+  schedule bumps the value. Nor does it need to — the collision stays impossible
+  for any `-dev` number, which is exactly why the check demands nothing stronger.
+- **The example tag in the release row is `0.1.0`, not `0.2.0`.** `0.1.0` still
+  carries its release timestamp in the manifest (`created` 2026-08-06 at
+  13:38:04 UTC, 15 seconds after `v0.1.0` was published), whereas `0.2.0`
+  carries that of a `develop` build. `0.2.0` is therefore the one release tag
+  the "Lifetime" column does not hold for — the incident below, unrepaired and
+  hence not an example of the rule.
+  <!-- #1222 -->
+
+The two channels are **disjoint**, and that is enforced at both ends — as a
+check, not as a convention:
+
+- `scripts/check_chart_develop_version.py` runs as a hook in the required
+  `static` lane and rejects any chart version in the tree whose first
+  pre-release identifier is not exactly `dev`. The `develop` tree therefore
+  cannot carry a version a release would ever publish.
+- `scripts/ci/determine_chart_version.sh` rejects the converse: a release tag
+  carrying the `dev` pre-release identifier, before anything is packaged or
+  pushed. `v0.3.0-dev` is not a valid release tag. `v0.3.0-rc1` and
+  `v0.3.0-beta.1` stay legal — they cannot collide with the `develop` channel.
+
+!!! danger "No deployment points at the `-dev` channel"
+
+    The `-dev` tag is overwritten with different bytes by every `helm/` merge
+    into `develop`. That is its purpose, not a defect. A `targetRevision`, a
+    `--version` or an `image.tag` pointing at it is therefore not a fixed state:
+    the deployed content changes without anything changing in the GitOps
+    repository — and nobody sees a diff. Anchor only a bare release version or
+    the manifest digest.
+
+    Why this separation exists, measured: until 2026-08-18 the `develop` tree
+    carried version `0.2.0` — the version of a *published* release. The chart
+    tag `charts/kamerplanter:0.2.0` was published on 2026-08-13 with release
+    `v0.2.0` and overwritten from `develop` five days later, with different
+    content under the same version reference. No consumer could notice; it only
+    became visible by comparing the `org.opencontainers.image.created` timestamp
+    on the OCI manifest with the release publication date.
+    <!-- #1222 -->
+
 ```bash
-# Pull the chart directly
+# Pull the chart directly — always a published version, never a -dev one
 helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 1.2.0
 ```
 

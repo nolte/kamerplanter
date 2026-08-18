@@ -64,8 +64,41 @@ Das Kamerplanter Helm-Chart liegt als OCI-Artefakt in der GitHub Container Regis
 ```bash
 # OCI-Registries benötigen kein helm repo add —
 # der Pull erfolgt direkt über die OCI-URL
-helm pull oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter --version 0.2.0
+helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 0.2.0
 ```
+
+!!! warning "`--version` muss eine veröffentlichte Version nennen"
+
+    `0.2.0` ist die zuletzt veröffentlichte Chart-Version. Unter derselben
+    OCI-Adresse liegt daneben ein Entwicklungskanal: Der `develop`-Baum trägt
+    eine Vorabversion mit dem Zusatz `-dev` (derzeit `0.2.1-dev`), und dieser Tag
+    wird bei jedem Merge nach `develop` überschrieben, der `helm/` berührt.
+    Erzwungen ist dabei nur der Bezeichner `dev`, nicht die Nummer davor: Die
+    `-dev`-Version muss der veröffentlichten Linie nicht voraus sein. Ziehe
+    daraus nichts, was laufen soll — die Bytes wechseln unter dir, ohne dass sich
+    die Versionsangabe ändert. Details:
+    [CI/CD — Zwei Kanäle](ci-cd.md#zwei-kanaele).
+
+!!! danger "Der Chart-Tag `0.2.0` wurde aus `develop` überschrieben"
+
+    `charts/kamerplanter:0.2.0` trägt nicht mehr das, was das Release `v0.2.0`
+    veröffentlicht hat. Gemessen am OCI-Manifest: Es ist mit
+    `org.opencontainers.image.created: 2026-08-18T14:09:14Z` annotiert, während
+    `v0.2.0` am 13.08.2026 um 18:09:49 UTC veröffentlicht wurde — ein
+    `helm/`-Merge nach `develop` hat den Tag fünf Tage später neu gepusht. Genau
+    das verhindern die beiden Kanal-Prüfungen seither. Repariert wird der Tag
+    bewusst **nicht**: Ihn zu überschreiben wäre ein zweiter Push unter derselben
+    Versionsreferenz.
+
+    Für die Befehle auf dieser Seite heißt das: `--version 0.2.0` löst weiterhin
+    auf, liefert aber einen `develop`-Stand statt des Release-Stands. `0.1.0` ist
+    der jüngste Chart-Tag, dessen Manifest noch seinen Release-Zeitstempel trägt
+    (erstellt am 06.08.2026 um 13:38:04 UTC, 15 Sekunden nach der
+    Veröffentlichung von `v0.1.0`), und `v0.2.1` — zum Zeitpunkt dieser Zeilen
+    noch ein Entwurf — ist das erste Release, das unter dem Schutz beider
+    Prüfungen entsteht. Was du auch wählst: Reproduzierbar wird ein Deployment
+    erst, wenn du den Manifest-Digest pinnst, den du geprüft hast.
+    <!-- #1222 -->
 
 ??? note "Authentifizierung an der GitHub Registry"
     Falls die Registry privat ist, musst du dich vorher anmelden:
@@ -161,12 +194,19 @@ ingress:
 
 ```bash
 helm install kamerplanter \
-  oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter \
+  oci://ghcr.io/nolte/charts/kamerplanter \
   --version 0.2.0 \
   --namespace kamerplanter \
   --create-namespace \
   --values values-production.yaml
 ```
+
+!!! warning "`0.2.0` ist hier dieselbe überschriebene Chart-Version"
+
+    Der Tag löst auf, liefert aber einen `develop`-Stand und nicht den Stand des
+    Releases `v0.2.0`. Warum, und was du stattdessen pinnst, steht in
+    [Schritt 1](#1-helm-repository-hinzufugen).
+    <!-- #1222 -->
 
 ### 5. Deployment prüfen
 
@@ -198,7 +238,7 @@ kamerplanter-valkey-0                     1/1     Running   0          45s
 ```bash
 # Auf neue Version aktualisieren
 helm upgrade kamerplanter \
-  oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter \
+  oci://ghcr.io/nolte/charts/kamerplanter \
   --version 0.3.0 \
   --namespace kamerplanter \
   --values values-production.yaml

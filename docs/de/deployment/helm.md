@@ -8,7 +8,7 @@ Das Kamerplanter Helm-Chart basiert auf der [bjw-s common library](https://bjw-s
 
 | Artefakt | OCI-URL |
 |----------|---------|
-| Helm-Chart | `oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter` |
+| Helm-Chart | `oci://ghcr.io/nolte/charts/kamerplanter` |
 | Backend-Image | `ghcr.io/nolte/kamerplanter-backend` |
 | Frontend-Image | `ghcr.io/nolte/kamerplanter-frontend` |
 
@@ -16,12 +16,40 @@ Das Kamerplanter Helm-Chart basiert auf der [bjw-s common library](https://bjw-s
 
 ## Chart-Informationen
 
+<!-- Quelle: helm/kamerplanter/Chart.yaml -->
+
 ```yaml
 name: kamerplanter
 type: application
-version: 0.2.0          # Chart-Version (Helm-spezifisch)
+version: 0.2.1-dev      # Chart-Version im develop-Baum — Vorabkanal
 appVersion: "1.0.0"     # Anwendungs-Version
 ```
+
+!!! danger "`-dev` ist der Entwicklungskanal, kein Release"
+
+    Der Zusatz `-dev` ist kein Schreibfehler. Der `develop`-Baum trägt immer
+    eine Vorabversion mit diesem Zusatz, und `helm push` leitet den OCI-Tag
+    wörtlich aus dieser Zeile ab. Der Tag
+    `oci://ghcr.io/nolte/charts/kamerplanter:0.2.1-dev` wird deshalb bei jedem
+    Merge nach `develop` überschrieben, der `helm/` berührt — das ist der Zweck
+    dieses Kanals.
+
+    Ein Release publiziert dagegen unter der reinen Version ohne Zusatz, etwa
+    `0.1.0`. Die beiden Kanäle sind disjunkt und können sich nicht überschneiden:
+    Der Vorab-Bezeichner `dev` ist im Release-Pfad gesperrt, ein Tag `v0.3.0-dev`
+    wird abgewiesen. `-rc` und `-beta` bleiben erlaubt.
+
+    Erzwungen ist allein der Bezeichner `dev`, nicht die Nummer davor. `0.2.1`
+    benennt das beabsichtigte nächste Release, ohne dass irgendetwas den Wert
+    vor der veröffentlichten Linie hält — sobald `v0.2.1` erscheint, sortiert
+    `0.2.1-dev` darunter, und kein Turnus hebt ihn an. Das ist Absicht: Jede
+    `-dev`-Nummer ist kollisionssicher, ein regelmäßiger Bump brächte nichts.
+
+    **Verwende in keinem Deployment eine `-dev`-Version.** Pinne eine
+    veröffentlichte Version oder den Manifest-Digest. Warum das keine Theorie
+    ist, und wie beide Kanäle abgesichert sind:
+    [CI/CD — Zwei Kanäle](ci-cd.md#zwei-kanaele).
+    <!-- #1222 -->
 
 ### Abhängigkeiten
 

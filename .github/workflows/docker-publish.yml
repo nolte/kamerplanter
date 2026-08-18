@@ -744,18 +744,27 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
+      # Same resolution as before — `${REF_NAME#v}` on a tag ref, empty on a
+      # branch push — plus one rejection: a release tag whose first pre-release
+      # identifier is `dev` fails the job here (#1222).
+      #
+      # `helm/*/Chart.yaml` carries a `-dev` version on develop so that a
+      # `helm/**` merge can never publish under a released version, and
+      # `scripts/check_chart_develop_version.py` enforces that in the required
+      # `static` lane. That static rule is only SUFFICIENT while no release tag
+      # carries a `-dev` pre-release: `v0.3.0-dev` would resolve here to
+      # `0.3.0-dev`, and the release would be published under precisely the OCI
+      # tag every develop merge rewrites. The reservation is what makes the
+      # static guard's premise a rule instead of an assumption. It sits in this
+      # step because it must fire BEFORE `helm package`/`helm push` below —
+      # rejecting afterwards would leave the artifact published. `-rc`/`-beta`
+      # release tags stay legal; see the script header for the full reasoning.
       - name: Determine chart version
         id: version
         env:
           REF: ${{ github.ref }}
           REF_NAME: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          if [[ "$REF" == refs/tags/v* ]]; then
-            echo "version=${REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=" >> "$GITHUB_OUTPUT"
-          fi
+        run: scripts/ci/determine_chart_version.sh
 
       - name: Update chart version for release
         if: steps.version.outputs.version != ''

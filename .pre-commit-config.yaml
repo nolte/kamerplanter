@@ -485,6 +485,48 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Chart version on the develop channel (#1222) ───────────────────────
+  # `helm push` derives the OCI tag from the chart version, and
+  # docker-publish.yml's `Update chart version for release` step is gated on a
+  # tag ref — so whatever `helm/*/Chart.yaml` commits is exactly what every
+  # `helm/**` merge to develop publishes. The tree carried `version: 0.2.0`,
+  # which is a PUBLISHED RELEASE, so on 2026-08-18 a develop merge republished
+  # charts/kamerplanter:0.2.0 — `created: 2026-08-18T14:09:14Z` against a release
+  # published 2026-08-13T18:09:49Z, five days earlier. Different bytes under an
+  # existing version reference, which spec/project/continuous-delivery/en.md
+  # prohibits outright.
+  #
+  # Nothing in the repository could observe that: you had to pull the OCI tag and
+  # diff it. This hook makes it visible in the diff instead.
+  #
+  # The rule is deliberately WEAKER than "must not equal a published release
+  # version". That stronger rule needs the published set, and every way of
+  # getting it makes the guard inert where it matters: a live API call ties the
+  # required lane to network reachability; deriving it from git tags is green
+  # locally (26 tags) and inert in CI (the static lane checks out shallow with
+  # none), and a DRAFT release has no tag at all. So: parse as SemVer 2.0 and
+  # carry a pre-release whose first identifier is exactly `dev`. Its premise —
+  # that no release tag carries a `dev` pre-release — is enforced on the release
+  # side by scripts/ci/determine_chart_version.sh, not assumed here.
+  #
+  # `# chart-develop-version-ok: <reason>` per chart rather than a ban — a chart
+  # that is never published from develop can say so.
+  #
+  # `language: python` with PyYAML, like the two hooks above: the required
+  # `static` job runs on a bare runner with none of the project's dependencies
+  # installed. always_run, because deleting a chart moves the answer as much as
+  # editing one, and because the checker errors rather than passing when it finds
+  # no chart at all.
+  - repo: local
+    hooks:
+      - id: chart-develop-version
+        name: the develop tree's chart version is a -dev pre-release (#1222)
+        entry: python3 scripts/check_chart_develop_version.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
+
   # ── Seed YAML ↔ JSON Schema (P3.3) ─────────────────────────────────────
   # The seed files carry a `# yaml-language-server: $schema=…` directive and 31
   # of them declare one, but only ~12 were ever validated: the backend test
