@@ -1,0 +1,247 @@
+name: Release Assets Complete
+
+# Issue #1218 — the OUTCOME watcher, as distinct from the process watchers.
+#
+# `release-lag.yml` asks "has a release been published?"; `delivery-run-alert.yml`
+# asks "did the delivery run go red?". Neither could have seen what happened
+# here, and the distinction is the reason this file exists.
+#
+# `publish-helm-charts` in docker-publish.yml has failed since 2026-08-01 (#886
+# added an attestation step whose action reads the Docker credential store while
+# that job only writes Helm's). `update-release-assets` declares
+# `needs: [... publish-helm-charts]` under `!contains(needs.*.result, 'failure')`,
+# so it was SKIPPED — not failed. A skipped job reports success. The loss was
+# therefore invisible everywhere except on the release page itself:
+#
+#   v0.0.24  default.env.example-0.0.24, docker-compose-0.0.24.yml,
+#            kamerplanter-0.0.24.tgz, openapi.json
+#   v0.1.0   openapi.json ONLY
+#   v0.2.0   openapi.json ONLY
+#
+# Three assets plus the release-notes Packages block, for two consecutive
+# published releases, for seventeen days. This job reads the release page and
+# says so.
+#
+# It is SCHEDULED, not a pull-request gate, for the same reason release-lag.yml
+# and chart-image-digest-freshness.yml are: release completeness is a fact that
+# changes with NO COMMIT. It becomes true minutes after a tag is pushed, by a
+# workflow a pull request never runs. A PR gate cannot observe it at all.
+#
+# THE FLOOR, AND WHY IT IS NOT A SILENT SKIP.
+# v0.1.0 and v0.2.0 are broken NOW, and the recorded decision on #1218 is to fix
+# forward rather than retro-fit assets onto published releases. Unfloored, this
+# job would open an alert on its first run and keep it open until the next
+# release — a permanently-open issue trains every reader to ignore the label,
+# which is worse than no check. So only releases published at or after
+# 2026-08-18 are evaluated (scripts/ci/check_release_assets.py, DEFAULT_FLOOR).
+# The cost, stated rather than hidden: THIS JOB IS INERT UNTIL THE NEXT RELEASE
+# IS PUBLISHED. Every run prints the floor, names the releases it declined to
+# judge, and says so in as many words; the alert body repeats it.
+#
+# Fail-loud contract (NFR-018 §2): an unreachable API, an unparseable release
+# list, a release payload without an assets array, or a tag outside the `v*`
+# convention makes THIS RUN RED and opens NO issue — an undetermined check is not
+# a clean check, and a transient API blip must not spam the tracker. A determined
+# result (complete or not) writes release-assets-report.json and exits 0; the
+# alert then lives in a single, deduped issue, not in the run status.
+
+on:
+  schedule:
+    # 10:00 UTC daily — the first free hour after the 00:00 Nuclei nightly, the
+    # 01:00/01:17/01:30 security+E2E block, the 06:00 digest-freshness job and
+    # the 09:00 release-lag job, so the alerting jobs do not cluster. Daily is
+    # the right cadence: releases are cut at most weekly here, and the settle
+    # window is measured in hours, so sampling more often only adds noise.
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+    inputs:
+      floor:
+        description: >-
+          Override the release floor (ISO-8601, e.g. 2026-07-01T00:00:00Z).
+          Lowering it makes the job judge already-published releases — which is
+          how the check is proven against the measured v0.1.0/v0.2.0 state. Note
+          that a lowered floor WILL open the alert issue for releases nobody
+          intends to repair; close it afterwards.
+        required: false
+        type: string
+      settle_hours:
+        description: "Override the post-publication settle window in hours (default 6)."
+        required: false
+        type: string
+
+# Narrower than release-lag.yml on purpose. That job needs `contents: write`
+# because `GET /releases` hides DRAFT releases from a read-only token and its
+# whole subject is the draft that reads as done. This job judges only PUBLISHED
+# releases, which a read-only token sees in full, so the elevated scope would buy
+# nothing and must not be copied along with the rest of the shape.
+permissions:
+  contents: read
+  issues: write
+
+# An alerting job: serialise a scheduled run against a manual one so two runs
+# cannot both act on the alert issue, and never cancel — a cancelled run could
+# leave the issue half-updated. Fixed group (not github.ref) because this only
+# ever runs on the default branch; there are no branches to keep apart.
+concurrency:
+  group: release-assets-complete
+  cancel-in-progress: false
+
+jobs:
+  check-release-assets:
+    name: Verify published releases carry their artefacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare each published release against its expected artefact set
+        id: check
+        env:
+          # Read-only API access; the default token suffices for the release list
+          # on a public repository and lifts the anonymous rate limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # Empty on a scheduled run, so the script's own dated defaults apply.
+          # Deliberately NOT defaulted here: the floor is a decision recorded in
+          # the script header next to its reason, and duplicating the date in the
+          # workflow is how the two would drift.
+          RELEASE_ASSETS_FLOOR: ${{ inputs.floor }}
+          RELEASE_ASSETS_SETTLE_HOURS: ${{ inputs.settle_hours }}
+        # Hard errors exit non-zero here => the run goes red and the issue step
+        # below no-ops (no release-assets-report.json). A determined result
+        # writes the report and exits 0.
+        run: python3 scripts/ci/check_release_assets.py release-assets-report.json
+
+      - name: Open, update or close the incomplete-release issue
+        # Runs only when the check DETERMINED a result (report exists). On a hard
+        # error the report is absent, this step is skipped, and the red run is the
+        # signal — deliberately NOT an issue, so a transient API blip cannot spam
+        # the tracker.
+        if: always() && hashFiles('release-assets-report.json') != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Read via process.env, never interpolated into the script body.
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('release-assets-report.json', 'utf8'));
+            const LABEL = 'release-assets-incomplete';
+            const TITLE = 'A published release is missing its artefacts (#1218)';
+            const runUrl = process.env.RUN_URL;
+
+            // Dedup anchor: the single open issue carrying our label. A good
+            // alerting job updates one issue; it does not open a new one daily.
+            const open = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: LABEL,
+            })).data.filter(i => !i.pull_request);
+            const existing = open[0];
+
+            // The floor is a decision, so it is restated wherever this job
+            // speaks — the job log, the alert body, and the closing comment.
+            const floorLine = `Floor: only releases published at or after \`${report.floor}\` are evaluated (issue #1218, Q4 — v0.1.0 and v0.2.0 are deliberately left unrepaired).`;
+
+            // Closing is keyed on `report.resolved`, NEVER on `!report.alert`.
+            // The two differ on the run that judged nothing (every release below
+            // the floor or inside the settle window): there `alert` is false for
+            // want of a measurement, not for want of a defect. Closing there
+            // would comment "Resolved: … nothing was judged" onto an open alert
+            // and shut it — and a workflow_dispatch with a raised floor or a
+            // long settle window produces exactly that state on a release that
+            // is still genuinely incomplete. Undetermined is not clean.
+            if (!report.alert && !report.resolved) {
+              core.notice(
+                `Nothing was judged: no published release at or after ${report.floor} has settled ` +
+                `(settle window ${report.settle_hours}h). This check is inert until the next release. ` +
+                (existing
+                  ? `Alert issue #${existing.number} is left OPEN — it was not measured, so it was not resolved.`
+                  : `No alert issue is open.`)
+              );
+              return;
+            }
+
+            if (report.resolved) {
+              const why = `all ${report.evaluated.length} evaluated release(s) carry their expected assets and packages block`;
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `Resolved: ${why}, as of ${runUrl}. Closing.\n\n${floorLine}`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number, state: 'closed',
+                });
+                core.notice(`Release assets complete — closed alert issue #${existing.number}.`);
+              } else {
+                core.notice(`No incomplete release (${why}).`);
+              }
+              return;
+            }
+
+            // Built by pushing rather than by filtering a sparse array: an
+            // earlier version of the sibling job dropped every deliberate blank
+            // line that way and collapsed the Markdown into one block.
+            const measured = [];
+            for (const entry of report.incomplete) {
+              measured.push(`### \`${entry.tag}\` — published ${entry.published_at}`);
+              measured.push('');
+              if (entry.missing_assets.length > 0) {
+                measured.push(`- Missing asset(s): ${entry.missing_assets.map(n => `\`${n}\``).join(', ')}`);
+              }
+              if (!entry.packages_block_present) {
+                measured.push('- Release notes carry **no** `<!-- kp:packages:begin -->` block: the image list, the chart pull command and the `gh attestation verify` instructions are absent.');
+              }
+              measured.push(`- Present: ${entry.present_assets.length > 0 ? entry.present_assets.map(n => `\`${n}\``).join(', ') : '_nothing_'}`);
+              measured.push(`- ${entry.url}`);
+              measured.push('');
+            }
+
+            const pending = report.skipped_within_settle.length > 0
+              ? `Not yet judged (inside the ${report.settle_hours}h settle window, their delivery run may still be publishing): ${report.skipped_within_settle.map(p => `\`${p.tag}\` (${p.age_hours}h)`).join(', ')}.`
+              : 'No release is currently inside the settle window.';
+
+            const body = [
+              `The scheduled release-asset check found **${report.incomplete.length}** published release(s) that do not carry the artefacts a release is supposed to carry.`,
+              '',
+              'This is an **outcome** check, not a process check. The failure mode it exists for is a job that is *skipped* rather than failed: `update-release-assets` in `docker-publish.yml` hangs off `publish-helm-charts` under `!contains(needs.*.result, \'failure\')`, and a skipped job reports success. Nothing goes red; the release page is simply short of its artefacts.',
+              '',
+              '## Measured',
+              '',
+              ...measured,
+              `${floorLine}`,
+              '',
+              pending,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '## Triage',
+              '',
+              '1. Open the tag\'s `docker-publish.yml` run and look for a **skipped** `update-release-assets`, not only for a red job. Its `needs` include `publish-helm-charts`, so a failure there removes the compose file, the environment file and the packages block as well as the chart.',
+              '2. `kamerplanter-<version>.tgz` comes from `publish-helm-charts`; `docker-compose-<version>.yml` and `default.env.example-<version>` from `update-release-assets`; `openapi.json` from `release-publish.yml`. Which names are missing tells you which producer failed.',
+              '3. `default.env.example-<version>` is not a typo: the workflow uploads `.env.example-<version>` and GitHub stores it under the `default.` prefix, because an asset name may not begin with a dot.',
+              '4. Re-running the tag\'s delivery workflow is the repair path. `scripts/ci/publish_release_asset.sh` refuses to overwrite a *differing* published asset, so a re-run either fills the gap or tells you the bytes moved — it will not silently rewrite a published artefact.',
+              '5. If a release is deliberately being left incomplete, say so on this issue so the next reader does not re-diagnose it, and consider moving the floor in `scripts/ci/check_release_assets.py` with the reason recorded there.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Still incomplete as of ${runUrl}: ${report.incomplete.map(e => `\`${e.tag}\``).join(', ')}.`,
+              });
+              core.notice(`Updated existing alert issue #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body, labels: [LABEL, 'deployment'],
+              });
+              core.notice(`Opened alert issue #${created.data.number}.`);
+            }
