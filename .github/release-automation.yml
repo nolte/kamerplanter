@@ -44,5 +44,8 @@
 #
 # Chart `version` (as opposed to `appVersion`) should NOT be added: it versions
 # the chart's own packaging contract and moves independently of the application
-# release, which is why it reads 0.2.0 against an app at 1.0.0.
+# release. Since #1222 the develop tree carries a `-dev` pre-release (`0.2.1-dev`
+# today), enforced by `scripts/check_chart_develop_version.py`, precisely so a
+# develop push cannot republish a released chart version; the release path
+# rewrites it to the tag. So this file must not claim it either.
 version_bearing_files: []

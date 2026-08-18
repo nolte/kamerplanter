@@ -34,11 +34,12 @@
 #     No release tag ever carries a `dev` pre-release.
 #
 # This script turns that premise from an assumption into an enforced rule, at
-# the one moment it is decidable: on the tag ref itself. Tag `v0.3.0-dev`, and
-# the release path resolves the chart version to `0.3.0-dev`, rewrites
-# Chart.yaml to it and pushes `charts/kamerplanter:0.3.0-dev` — the very OCI tag
-# every `helm/**` merge to develop republishes. The published release would then
-# be silently overwritten by the next develop merge: exactly the defect #1222 is
+# the one moment it is decidable: on the tag ref itself. Tag any `v<x>-dev`, and
+# the release path resolves the chart version to `<x>-dev`, rewrites Chart.yaml
+# to it and pushes `charts/kamerplanter:<x>-dev`. Should that string ever equal
+# the develop tree's own version — it reads `0.2.1-dev` today, and moves with
+# every release — the published release would be silently overwritten by the
+# next develop merge: exactly the defect #1222 is
 # about (measured: `charts/kamerplanter:0.2.0`, published with release v0.2.0 on
 # 2026-08-13, rebuilt from develop on 2026-08-18), reintroduced through the back
 # door. Without this rejection the static guard claims more than it enforces.

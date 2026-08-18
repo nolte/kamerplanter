@@ -63,7 +63,7 @@ helm/kamerplanter/
 # Chart.yaml
 apiVersion: v2
 name: kamerplanter
-version: 0.2.0
+version: 0.2.1-dev
 type: application
 
 dependencies:
@@ -550,14 +550,39 @@ ingress:
 
 ```yaml
 # Chart.yaml
-version: 0.2.0      # Chart-Version (SemVer)
+version: 0.2.1-dev   # Chart-Version (SemVer), develop-Kanal
 appVersion: "1.0.0"  # App-Version
 ```
+
+**Zwei Kanäle, und sie sind disjunkt.** Der develop-Baum trägt die *nächste*
+Version mit dem Pre-Release-Bezeichner `dev` (`0.2.1-dev`); ein Release
+publiziert unter der reinen Version (`0.2.1`). Der Versions-Rewrite im
+Release-Pfad ist an den Tag-Ref gebunden, ein develop-Push packt die
+Chart-Version also wortwörtlich.
+
+Trüge develop eine reine Version, überschriebe jeder `helm/**`-Merge den
+OCI-Chart-Tag eines veröffentlichten Releases. Genau das ist passiert: der Tag
+`0.2.0` wurde fünf Tage nach dem zugehörigen Release aus develop neu gebaut,
+gemessen an seiner `org.opencontainers.image.created`-Annotation. <!-- #1222 -->
+
+Zwei Prüfungen halten die Regel:
+
+- `scripts/check_chart_develop_version.py` verlangt im required `static`-Lane,
+  dass `helm/*/Chart.yaml` ein Pre-Release trägt, dessen erster Bezeichner
+  `dev` ist.
+- `scripts/ci/determine_chart_version.sh` weist ein Release-Tag ab, das `dev`
+  als ersten Pre-Release-Bezeichner trägt. `-rc` und `-beta` bleiben erlaubt.
+
+!!! warning "Ein Overlay zeigt nie auf den `-dev`-Kanal"
+
+    Der develop-Tag wird bei jedem `helm/**`-Merge überschrieben — das ist sein
+    Zweck. Ein Deployment, das `targetRevision` oder `--version` darauf richtet,
+    folgt still dem jeweils letzten Merge.
 
 **CI-Publishing:**
 ```bash
 helm package helm/kamerplanter
-helm push kamerplanter-0.2.0.tgz oci://ghcr.io/<org>/charts/
+helm push kamerplanter-0.2.1-dev.tgz oci://ghcr.io/<org>/charts/
 ```
 
 - **SemVer** fuer Chart-Version
