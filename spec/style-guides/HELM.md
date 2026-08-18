@@ -554,9 +554,14 @@ version: 0.2.1-dev   # Chart-Version (SemVer), develop-Kanal
 appVersion: "1.0.0"  # App-Version
 ```
 
-**Zwei Kanäle, und sie sind disjunkt.** Der develop-Baum trägt die *nächste*
-Version mit dem Pre-Release-Bezeichner `dev` (`0.2.1-dev`); ein Release
-publiziert unter der reinen Version (`0.2.1`). Der Versions-Rewrite im
+**Zwei Kanäle, und sie sind disjunkt.** Der develop-Baum trägt eine Version mit
+dem Pre-Release-Bezeichner `dev` (derzeit `0.2.1-dev`); ein Release publiziert
+unter einer reinen Version. Erzwungen ist nur der **Bezeichner**, nicht die
+Zahl: `check_chart_develop_version.py` verlangt ein `dev`-Pre-Release, prüft
+aber nicht, ob die Zahl der nächsten Version entspricht. Kein Turnus hebt sie
+an, und sobald das gleichnamige Release erschienen ist, sortiert der
+develop-Wert *unter* ihm. Das ist bewusst so — ein Wächter, der nach jedem
+Release einen Handgriff verlangt, wird zur Pflichtübung, die ausfällt. Der Versions-Rewrite im
 Release-Pfad ist an den Tag-Ref gebunden, ein develop-Push packt die
 Chart-Version also wortwörtlich.
 
