@@ -1,7 +1,32 @@
+import re
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
+
+# What ``/api/health`` reports when no build stamped a revision into the image
+# (#1210). A fixed literal, not a formatted fallback: a consumer compares against
+# it to decide "this instance cannot identify itself", which a value that varied
+# with the environment would make impossible.
+#
+# It says "willing to disclose, but nothing was baked in". It does NOT say
+# "configured not to disclose" — that state is the **absence** of the
+# ``build_revision`` key from the payload (see ``health_expose_build_revision``).
+# Collapsing the two would make the drift-detection job unable to tell a
+# deliberately silent instance from a broken build.
+UNKNOWN_BUILD_REVISION = "unknown"
+
+# The only shape ``/api/health`` will report as a build identity (#1210, SEC-002).
+# Lower-case hex, 7 (git's shortest unambiguous abbreviation) to 40 characters.
+#
+# **Not an injection defence** — there is no injection path: the value reaches the
+# client through ``JSONResponse`` with no string interpolation anywhere, and its
+# only supplier is ``github.sha``. The reason is downstream integrity: the payload
+# is read by operator tooling and by a CI drift job, and a misconfigured
+# arbitrary-length or markup-bearing value would propagate uncontrolled into
+# dashboards and scripts. The check restores what the field claims to be — a SHA,
+# or an honest admission of not knowing, and nothing in between.
+_BUILD_REVISION_SHAPE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 class GBIFSettings(BaseModel):
@@ -22,6 +47,50 @@ class GBIFSettings(BaseModel):
 class Settings(BaseSettings):
     app_name: str = "Kamerplanter API"
     app_version: str = "1.0.0"
+
+    # Build identity of the running image (#1210) — deliberately a SECOND field,
+    # never a repurposing of ``app_version``. ``app_version`` is the API contract
+    # version: it feeds OpenAPI ``info.version`` (and with it the published
+    # openapi.json release asset and the API docs), the mDNS advertisement and the
+    # Sentry release. Overloading it with a build identifier would silently
+    # rewrite all four.
+    #
+    # Carries the full 40-character git SHA the image was built from, baked in by
+    # ``src/backend/Dockerfile`` (``ARG``/``ENV BUILD_REVISION``) from
+    # ``.github/workflows/docker-publish.yml``
+    # (``build-args: BUILD_REVISION=${{ github.sha }}``) — the same value
+    # docker/metadata-action writes to the image's
+    # ``org.opencontainers.image.revision`` annotation, so the two compare without
+    # truncation. Full, not short, for exactly that reason.
+    #
+    # Empty on a local checkout, on the ``dev`` image target and on any image
+    # built without the build-arg; :meth:`resolve_build_revision` turns that into
+    # the honest ``"unknown"`` rather than a guess.
+    build_revision: str = ""
+
+    #: Whether ``GET /api/health`` discloses ``build_revision`` at all (#1210).
+    #:
+    #: **Off by default, and the default is the security decision.** The SHA
+    #: itself is public — the repository is. What is not public is the mapping
+    #: *this host → that commit*, and that mapping is the entire attacker-relevant
+    #: content of the field on an unauthenticated endpoint. From an exact commit
+    #: follows the exact hash-pinned dependency set (``requirements.txt`` is in the
+    #: public tree) and the exact patch distance: ``git log <revision>..develop``
+    #: enumerates the security fixes this instance has **not** received. This
+    #: repository also publishes its own open findings
+    #: (``spec/analysis/code-security-review.md``, the advisory scan lanes in
+    #: ``CLAUDE.md``), so the reader does not even have to guess which of them
+    #: still apply here. An operator who wants the diagnostic turns it on for their
+    #: own instance and accepts that trade knowingly; nobody inherits it silently.
+    #:
+    #: **Off means the key is absent, not ``"unknown"``.** Three states must stay
+    #: distinguishable for the drift-detection consumer: key absent = configured
+    #: not to disclose (nothing is wrong); ``"unknown"`` = willing, but no build
+    #: stamped a revision in; a SHA = the real answer. Reporting "unknown" for a
+    #: deliberately silent instance would make a healthy deployment indistinguishable
+    #: from a broken build pipeline.
+    health_expose_build_revision: bool = False
+
     debug: bool = False
 
     arangodb_host: str = "localhost"
@@ -510,6 +579,29 @@ class Settings(BaseSettings):
     #: behind one NAT address, and stays deliberately below ``rate_limit_auth`` so
     #: the two surfaces cannot be confused for one budget.
     rate_limit_device_pairing_redeem: str = "10/minute"
+    #: ``GET /api/health``, per client IP (#1210, SEC-003).
+    #:
+    #: **Why this endpoint has a limit and the Kubernetes probes do not.** The
+    #: cluster probes ``/api/v1/health/live`` and ``/api/v1/health/ready``
+    #: (``helm/kamerplanter/values.yaml``), which stay unlimited — throttling a
+    #: kubelet would restart healthy pods. ``/api/health`` is the *public* M2M
+    #: endpoint: unauthenticated by design (major negotiation happens before there
+    #: is a token, #1124) and doing real work per call — it walks the whole router
+    #: graph for ``supported_majors`` and, where those integrations are enabled,
+    #: performs **synchronous** probes against TimescaleDB and the knowledge
+    #: service. That last part is the actual amplification: an unauthenticated
+    #: caller could drive load into internal services one cheap request at a time.
+    #: The limiter had no ``default_limits``, so an undecorated route was
+    #: unbounded; this route is decorated rather than a global default being
+    #: introduced, because a global default would silently re-price every route in
+    #: the application.
+    #:
+    #: **Where 60 comes from — the legitimate side.** A Home Assistant integration
+    #: polls on the order of once a minute, an Android client calls this once per
+    #: base-URL negotiation, an operator during an incident a handful of times.
+    #: Sixty a minute leaves an order of magnitude of headroom for several such
+    #: clients behind one NAT address while still bounding a flood.
+    rate_limit_health: str = "60/minute"
 
     #: How many proxy addresses **our own** infrastructure appends to the right
     #: end of ``X-Forwarded-For`` (#1151).
@@ -621,6 +713,50 @@ class Settings(BaseSettings):
     storage_s3_allow_private_endpoint: bool = False
 
     model_config = {"env_prefix": "", "case_sensitive": False, "env_nested_delimiter": "__"}
+
+    def resolve_build_revision(self) -> str:
+        """Resolve the git SHA the running build was made from (#1210).
+
+        The resolution is deliberately trivial, and each part of it is a decision:
+
+        * **Verbatim when set and shaped like a revision.** The value exists to be
+          compared against the image's ``org.opencontainers.image.revision``
+          annotation and against ``git log``. Truncating, case-folding or deriving
+          anything here would defeat the one question it answers — "is the build I
+          am looking at the commit I think it is?".
+        * **``"unknown"`` when absent.** An unset ``BUILD_REVISION`` and the empty
+          ``ENV BUILD_REVISION=""`` that an unbaked image carries are the same
+          situation and must not be told apart. Never substituted with
+          ``app_version``: a plausible-looking wrong answer is worse than no
+          answer, because it is the answer an operator would act on.
+        * **``"unknown"`` when malformed** (SEC-002). Only ``[0-9a-f]{7,40}``
+          leaves this method. Surrounding whitespace is stripped first, because a
+          Helm- or shell-rendered value arrives padded and the SHA inside it is
+          recoverable *exactly* — reporting "unknown" for a correctly stamped build
+          because YAML added a newline would destroy information, not protect it.
+          Anything the strip does not rescue is not a revision and is not reported
+          as one.
+
+        **What this field is evidence of — and what it is not** (SEC-007). It is an
+        **operational** signal answering "did my fix arrive?". It is **not an
+        integrity attestation**. ``Settings`` runs with ``env_prefix: ""``, so any
+        ``BUILD_REVISION`` present in the environment overrides whatever the image
+        baked in; a compromised or hand-edited deployment can therefore report a
+        benign SHA while running something else. The authoritative proof of what an
+        image contains is ``gh attestation verify`` against the image digest read
+        from ``.status.containerStatuses[].imageID`` — the same distinction
+        ``.github/workflows/docker-publish.yml`` draws for build provenance. Never
+        cite this field as a compliance record.
+
+        Returns:
+            The full git SHA as baked into the image, or :data:`UNKNOWN_BUILD_REVISION`.
+        """
+        candidate = self.build_revision.strip()
+        # ``fullmatch``, not ``match``: Python's ``$`` also matches before a
+        # trailing newline, so ``match`` would admit ``"<sha>\n"`` if the strip
+        # above were ever removed. Two guards, because only one of them is visible
+        # in the pattern text.
+        return candidate if _BUILD_REVISION_SHAPE.fullmatch(candidate) else UNKNOWN_BUILD_REVISION
 
     def allowed_mime_types_for_category(self, category: str) -> list[str]:
         """Resolve the allowed-MIME whitelist for an attachment category (NFR-013 §5.2).

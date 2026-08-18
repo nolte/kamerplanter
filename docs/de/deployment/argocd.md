@@ -100,6 +100,17 @@ spec:
 1. `ARANGODB_PASSWORD` wird aus dem Secret `kamerplanter-secrets` injiziert.
 2. `ARANGO_ROOT_PASSWORD` wird aus demselben Secret injiziert.
 
+!!! warning "Kein `image.tag` in `valuesObject` überschreiben"
+
+    Das veröffentlichte Chart pinnt jedes Kamerplanter-Image auf
+    `<version>@sha256:<digest>` — der Digest benennt die Bytes und kann sich
+    nicht bewegen. Ein eigener `image.tag` in `valuesObject` gewinnt gegen
+    diesen Default und ersetzt ihn durch eine bewegliche Referenz; zusammen mit
+    `pullPolicy: IfNotPresent` liefert der Node dann aus, was er zufällig schon
+    im Cache hat. Arbeitsteilung: `targetRevision` wählt die **Chart-Version**,
+    das Chart wählt die **Bytes**. Warum das zweimal gemessen schiefging:
+    [CI/CD — Invariante: kein `image.tag` im Overlay](ci-cd.md#invariante-kein-image-tag).
+
 ---
 
 ## Ingress mit TLS

@@ -394,6 +394,42 @@ These variables control the daily background task that derives the FAO-56 refere
 
 ---
 
+## Health endpoint and build identity {#health-endpoint}
+
+The unauthenticated endpoint `GET /api/health` can answer which build is currently running. Because it is unauthenticated, that answer is off by default and the endpoint is rate-limited.
+
+<!-- Quelle: src/backend/app/config/settings.py (health_expose_build_revision, build_revision, rate_limit_health), src/backend/app/main.py (root_health) -->
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `HEALTH_EXPOSE_BUILD_REVISION` | `false` | No | Whether `GET /api/health` discloses the `build_revision` field at all. With `false` the key is absent from the response entirely. |
+| `BUILD_REVISION` | *(empty)* | No | The full Git commit the image was built from. It is baked in at container build time (`docker-publish.yml` passes it into the Dockerfile as a build argument); you only need to set it yourself when you build your own image. |
+| `RATE_LIMIT_HEALTH` | `60/minute` | No | Rate limit for `GET /api/health`, per client IP. The Kubernetes probes point at `/api/v1/health/live` and `/api/v1/health/ready` and are **not** affected. |
+
+!!! warning "Why the build identity is absent by default"
+
+    What is sensitive is not the commit hash — the repository is public anyway —
+    but the mapping *this host runs that commit*. From it follows the exact lag
+    behind the development state, and with it the list of fixes this instance is
+    missing. So enable the field deliberately — for instance on an instance that
+    is only reachable inside your own network, or for the duration of an
+    investigation. <!-- #1210 -->
+
+**Three distinguishable response states** that must not be confused:
+
+| Response | Meaning |
+|---|---|
+| The `build_revision` key is **absent** | `HEALTH_EXPOSE_BUILD_REVISION` is `false`. Deliberate configuration, not a defect. |
+| `"unknown"` | Disclosure is allowed, but no revision was baked in (development image, unstamped build). |
+| A 7- to 40-character hexadecimal value | The real answer. An image built by `docker-publish.yml` reports the full 40-character SHA; a self-built image using `BUILD_REVISION=$(git rev-parse --short HEAD)` reports correspondingly fewer. |
+
+Before it is reported, the value is checked against `^[0-9a-f]{7,40}$` (after stripping whitespace, so a YAML-folded or shell-quoted value survives). Anything else becomes `"unknown"` — never a fabricated or derived value.
+
+!!! note "An operational signal, not an attestation"
+    `build_revision` states what the instance claims about itself. Whoever compromised the deployment can make it report any hash. The load-bearing proof remains `gh attestation verify` together with the digest from the pod's `.status.containerStatuses[].imageID` — see [CI/CD — Checks along the delivery chain](../deployment/ci-cd.md#checks-delivery-chain).
+
+---
+
 ## Rate Limiting
 
 | Variable | Default | Required | Description |
@@ -401,6 +437,7 @@ These variables control the daily background task that derives the FAO-56 refere
 | `RATE_LIMIT_AUTH` | `20/minute` | No | Rate limit for authentication endpoints |
 | `TRUSTED_PROXY_HOPS` | `0` | **Yes, behind two proxies** | How many proxy addresses your infrastructure appends to `X-Forwarded-For`, counted from the right. `0` = client → nginx → backend (dev/e2e); `1` = client → Traefik → nginx → backend (the Helm chart sets this). Too low resolves every caller to the nearest proxy — the device-pairing lockout then locks all users at once and IP-allowlisted service accounts fail closed; too high reads entries a caller can forge. |
 | `RATE_LIMIT_GENERAL` | `100/minute` | No | Rate limit for general API endpoints |
+| `RATE_LIMIT_HEALTH` | `60/minute` | No | Rate limit for `GET /api/health` — see [Health endpoint and build identity](#health-endpoint) |
 
 **Format:** `[count]/[unit]` — units: `second`, `minute`, `hour`, `day`
 

@@ -252,6 +252,17 @@ Details: [Speicher konfigurieren](../user-guide/object-storage.md), [Helm Charts
 
 ---
 
+## Diagnose: Build-Kennung am Health-Endpunkt {#diagnose-build-kennung}
+
+| Funktion | Benötigte Dienste | Aktivierung/Deaktivierung | Pflicht-Secrets/Voraussetzungen | Ressourcenauswirkung | Startup-Gate? |
+|---|---|---|---|---|---|
+| `GET /api/health` meldet, aus welchem Commit das laufende Image gebaut wurde | Backend | `HEALTH_EXPOSE_BUILD_REVISION=true` (Default `false`) — bei `false` fehlt der Schlüssel `build_revision` vollständig, siehe [Umgebungsvariablen — Health-Endpunkt](../reference/environment-variables.md#health-endpunkt) | Ein Image, in das beim Bauen ein `BUILD_REVISION` eingebacken wurde; sonst lautet die Antwort `"unknown"` | — | Nein |
+
+!!! warning "Bewusst abgeschaltet, weil der Endpunkt unauthentifiziert ist"
+    Die Zuordnung *dieser Host läuft auf jenem Commit* verrät den exakten Rückstand gegenüber dem Entwicklungsstand und damit die Liste der Fehlerbehebungen, die dieser Instanz fehlen. Schalte die Auskunft deshalb bewusst frei. `GET /api/health` ist zusätzlich je Client-IP mengenbegrenzt (`RATE_LIMIT_HEALTH`, Default `60/minute`); die Kubernetes-Proben nutzen `/api/v1/health/live` und `/api/v1/health/ready` und sind davon nicht betroffen. <!-- #1210 -->
+
+---
+
 ## Kern-Funktionen ohne eigenen Betreiber-Schalter
 
 Die folgenden Funktionen sind Teil der Kernanwendung (Backend + Frontend + ArangoDB + Valkey + Celery Worker/Beat, siehe [Betriebsprofile — Kern](betriebsprofile.md#komponentenubersicht)) und besitzen **keinen** eigenen Aktivierungs-/Deaktivierungs-Schalter — sie laufen immer mit, sobald die Instanz steht. Persönliche Ein-/Ausblendung erfolgt ausschließlich über die [Modul-Sichtbarkeit](../user-guide/module-visibility.md) pro Nutzer, nicht über diese Seite.

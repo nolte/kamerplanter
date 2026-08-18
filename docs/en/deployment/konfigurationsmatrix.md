@@ -252,6 +252,17 @@ Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — 
 
 ---
 
+## Diagnostics: Build Identity on the Health Endpoint {#diagnose-build-kennung}
+
+| Feature | Required services | Activation/deactivation | Mandatory secrets/prerequisites | Resource impact | Startup gate? |
+|---|---|---|---|---|---|
+| `GET /api/health` reports which commit the running image was built from | Backend | `HEALTH_EXPOSE_BUILD_REVISION=true` (default `false`) — with `false` the `build_revision` key is absent entirely, see [Environment Variables — Health endpoint](../reference/environment-variables.md#health-endpoint) | An image with a `BUILD_REVISION` baked in at build time; otherwise the answer is `"unknown"` | — | No |
+
+!!! warning "Deliberately off, because the endpoint is unauthenticated"
+    The mapping *this host runs that commit* reveals the exact lag behind the development state, and with it the list of fixes this instance is missing. So enable the disclosure deliberately. `GET /api/health` is additionally rate-limited per client IP (`RATE_LIMIT_HEALTH`, default `60/minute`); the Kubernetes probes use `/api/v1/health/live` and `/api/v1/health/ready` and are not affected. <!-- #1210 -->
+
+---
+
 ## Core Features Without a Dedicated Operator Switch
 
 The following features are part of the core application (backend + frontend + ArangoDB + Valkey + Celery worker/beat, see [Deployment Profiles — Core](betriebsprofile.md#komponentenubersicht)) and have **no** dedicated activation/deactivation switch — they always run once the instance is up. Personal show/hide happens exclusively through [module visibility](../user-guide/module-visibility.md) per user, not through this page.

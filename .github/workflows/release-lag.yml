@@ -1,0 +1,222 @@
+name: Release Lag
+
+# Issue #1210 — the hop between "merged" and "delivered" had no observer.
+#
+# Production tracks a RELEASE TAG, not `develop`: the ArgoCD `Application` in
+# `nolte/k8s-home-lab` pins `targetRevision` to a published tag for
+# `path: helm/kamerplanter`. That is intended — production rolls out release
+# versions only. What was missing is anything that could see the gap: a merged
+# fix is not a delivered fix, and nothing in this repository said how long
+# `develop` had been carrying changes no published release contains.
+#
+# The incident: PR #1163 merged 2026-08-14T20:50Z fixing two MCP tools that
+# returned 500; on 2026-08-16T12:00Z an operator hit the identical bug on the
+# running instance and re-diagnosed it from scratch. The newest PUBLISHED
+# release was still v0.2.0 (2026-08-13T18:09Z). `v0.2.1` existed — as an
+# unpublished DRAFT. Two days invisible, found only by re-encountering the bug.
+#
+# That draft is why the check discriminates published from draft and names the
+# draft in the alert: `release-drafter.yml` refreshes a draft on every push to
+# `develop`, while `release-publish.yml` is `workflow_dispatch`-only. The most
+# visible release artefact in the repository is therefore a draft that reads as
+# done and delivers nothing.
+#
+# It is SCHEDULED, not a pull-request gate, for the same reason
+# chart-image-digest-freshness.yml is: release lag is a fact that changes with
+# NO COMMIT. It grows every hour that nobody publishes, and it shrinks the
+# moment somebody does — neither event is a push, so a PR gate can never observe
+# it. The only thing a PR gate could measure here is "this PR is not yet
+# released", which is true of every PR and therefore worthless.
+#
+# Fail-loud contract (NFR-018 §2): an unreachable API, an unparseable release
+# list, no published release at all, or a tag that cannot be resolved makes THIS
+# RUN RED and opens NO issue — an undetermined check is not a clean check, and a
+# transient API blip must not spam the tracker. A determined result (lag or
+# none) writes release-lag-report.json and exits 0; the alert then lives in a
+# single, deduped issue, not in the run status.
+
+on:
+  schedule:
+    # 09:00 UTC daily — offset from the 00:00 Nuclei nightly, the 01:00/01:17/
+    # 01:30 security+E2E block and the 06:00 digest-freshness job, so the
+    # alerting jobs do not cluster. Daily is the right cadence: the lag this
+    # job guards is measured in days (see RELEASE_LAG_THRESHOLD_DAYS), so
+    # sampling more often only adds noise, and less often widens the blind spot
+    # it closes.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      threshold_days:
+        description: "Override the release-lag grace window in days (default 3)."
+        required: false
+        type: string
+
+# `contents: write` is a DELIBERATE trade, not an oversight — it is the narrowest
+# scope that makes this check tell the truth.
+#
+# `GET /repos/{owner}/{repo}/releases` lists a DRAFT release only to a token with
+# push access. Under `contents: read` the draft is simply absent from the payload,
+# so `newest_unpublished_draft()` returns None and the alert states "There is no
+# draft release either — nothing is queued for publication."
+#
+# That sentence would have been FALSE for the whole window this job exists to
+# close: `v0.2.1` sat as an unpublished draft from 2026-08-13 while the fix that
+# #1210 is about went undelivered. A check that asserts the opposite of the fact
+# it was built to surface is worse than no check, so the scope follows the truth
+# requirement rather than the other way round.
+#
+# What the elevated scope does NOT buy anyone: the script performs GETs only
+# (release list + compare endpoint) and never writes contents; `issues: write` is
+# what opens the alert. Reconsider this if GitHub ever exposes draft listings to a
+# read-only token.
+permissions:
+  contents: write
+  issues: write
+
+# An alerting job: serialise a scheduled run against a manual one so two runs
+# cannot both act on the alert issue, and never cancel — a cancelled run could
+# leave the issue half-updated. Fixed group (not github.ref) because this only
+# ever runs on the default branch; there are no branches to keep apart.
+concurrency:
+  group: release-lag
+  cancel-in-progress: false
+
+jobs:
+  check-release-lag:
+    name: Compare develop against the newest published release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Measure how far develop is ahead of the newest published release
+        id: check
+        env:
+          # Read-only API access; the default token suffices for the release list
+          # and the compare endpoint on a public repository, and lifts the
+          # anonymous rate limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_LAG_BASE_BRANCH: develop
+          RELEASE_LAG_THRESHOLD_DAYS: ${{ inputs.threshold_days || '3' }}
+        # Hard errors exit non-zero here => the run goes red and the issue step
+        # below no-ops (no release-lag-report.json). A determined result writes
+        # the report and exits 0.
+        run: python3 scripts/ci/check_release_lag.py release-lag-report.json
+
+      - name: Open, update or close the release-lag issue
+        # Runs only when the check DETERMINED a result (report exists). On a hard
+        # error the report is absent, this step is skipped, and the red run is the
+        # signal — deliberately NOT an issue, so a transient API blip cannot spam
+        # the tracker.
+        if: always() && hashFiles('release-lag-report.json') != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Read via process.env, never interpolated into the script body.
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('release-lag-report.json', 'utf8'));
+            const LABEL = 'release-lag';
+            const TITLE = 'develop carries commits no published release contains (#1210)';
+            const runUrl = process.env.RUN_URL;
+
+            // Dedup anchor: the single open issue carrying our label. A good
+            // alerting job updates one issue; it does not open a new one daily.
+            const open = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: LABEL,
+            })).data.filter(i => !i.pull_request);
+            const existing = open[0];
+
+            const released = report.released;
+            const draft = report.unpublished_draft;
+            const oldest = report.oldest_unreleased;
+
+            if (!report.alert) {
+              if (existing) {
+                const why = report.unreleased_count === 0
+                  ? `every commit on \`${report.base_branch}\` is contained in the published release \`${released.tag}\``
+                  : `the oldest un-released commit is back inside the ${report.threshold_days}-day window (${report.unreleased_count} commit(s) ahead)`;
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `Resolved: ${why}, as of ${runUrl}. Closing.`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number, state: 'closed',
+                });
+                core.notice(`Release lag cleared — closed alert issue #${existing.number}.`);
+              } else {
+                core.notice(`No alertable release lag (${report.unreleased_count} un-released commit(s), within the ${report.threshold_days}-day window).`);
+              }
+              return;
+            }
+
+            const draftParagraph = draft
+              ? [
+                  `> [!WARNING]`,
+                  `> An **unpublished draft** release \`${draft.tag}\` exists (created ${draft.created_at}). A draft is **not** a delivery: it has no git tag, ArgoCD cannot pin it, and \`gh release list\` shows it as \`Draft\`. This is exactly the state that reads as done and is not — publish it with \`release-publish.yml\`, or the lag continues.`,
+                ].join('\n')
+              : 'There is no draft release either — nothing is queued for publication.';
+
+            // Built by pushing, not by filtering a sparse array: an earlier
+            // `.filter(l => l !== '')` dropped the conditional entries AND every
+            // deliberate blank line, collapsing the Markdown into one block.
+            const measured = [
+              `- Newest **published** release: \`${released.tag}\`${released.name && released.name !== released.tag ? ` (${released.name})` : ''} — published **${released.published_at}** (${released.age_days} day(s) ago)`,
+              `- Un-released commits on \`${report.base_branch}\`: **${report.unreleased_count}**`,
+              `- Oldest un-released commit: \`${oldest.short_sha}\` — ${oldest.committed_at} (**${oldest.age_days} day(s)** old)`,
+            ];
+            if (oldest.headline) {
+              measured.push(`  - ${oldest.headline}`);
+            }
+            if (report.newest_unreleased && report.newest_unreleased.sha !== oldest.sha) {
+              measured.push(`- Newest un-released commit: \`${report.newest_unreleased.short_sha}\` — ${report.newest_unreleased.committed_at}`);
+            }
+
+            const body = [
+              `The scheduled release-lag check found **${report.unreleased_count}** commit(s) on \`${report.base_branch}\` that the newest **published** release does not contain, with the oldest one **${oldest.age_days} day(s)** old — past the ${report.threshold_days}-day grace window.`,
+              '',
+              'Production tracks a **release tag**, not `develop`: the ArgoCD `Application` in `nolte/k8s-home-lab` pins `targetRevision` to a published tag for `path: helm/kamerplanter`. So these commits are **merged but not delivered**, and every one of them is a fix or a feature that is still absent from the running instance.',
+              '',
+              '## Measured',
+              '',
+              ...measured,
+              '',
+              '## Published vs. draft',
+              '',
+              draftParagraph,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '## Triage',
+              '',
+              '1. If the un-released commits should be live, publish the release: `gh workflow run release-publish.yml -f tag=<tag>`. `release-publish.yml` is `workflow_dispatch`-only by design, so publication is always a deliberate human act — which is also why it can be forgotten.',
+              '2. If publication is deliberately being held (a known-bad change on `develop`, a freeze), say so on this issue so the next reader does not re-diagnose it. The check will keep re-stating the lag until a release covers those commits.',
+              '3. If a release *was* published and this issue is still open, the next scheduled run closes it automatically; re-run this workflow to close it sooner.',
+              '4. This job measures the repository side only. That a release exists does not prove the cluster took it — the GitOps `targetRevision` bump lives in `nolte/k8s-home-lab` and is out of this job’s reach.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Still lagging as of ${runUrl}: ${report.unreleased_count} un-released commit(s), oldest ${oldest.age_days} day(s) old, newest published release still \`${released.tag}\`.`,
+              });
+              core.notice(`Updated existing alert issue #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body, labels: [LABEL, 'deployment'],
+              });
+              core.notice(`Opened alert issue #${created.data.number}.`);
+            }

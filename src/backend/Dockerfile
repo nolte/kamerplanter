@@ -74,4 +74,21 @@ USER 1000
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["curl", "-f", "http://localhost:8000/api/v1/health/live"]
+
+# Build identity (#1210) — deliberately the LAST thing in the stage. The value
+# changes on every single commit, so anything below it would be rebuilt every
+# time; here, every expensive layer above (apt, the hash-verified pip install,
+# COPY, chown, useradd) is already cached and an ARG/ENV pair adds only metadata.
+#
+# CI passes it in from .github/workflows/docker-publish.yml
+# (`build-args: BUILD_REVISION=${{ github.sha }}`) — the same full 40-character
+# SHA docker/metadata-action writes to org.opencontainers.image.revision, so
+# `GET /api/health` and the image annotation compare with no truncation.
+#
+# The empty default is load-bearing: an image built without the build-arg (the
+# `dev` target, a local `docker build`) reports "unknown" rather than a stale or
+# invented SHA. Settings.resolve_build_revision() maps both unset and empty there.
+ARG BUILD_REVISION=""
+ENV BUILD_REVISION=${BUILD_REVISION}
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,6 +1,6 @@
 # CI/CD-Pipeline
 
-Die Kamerplanter-CI/CD-Pipeline läuft vollständig auf **GitHub Actions**. Sie umfasst automatische Qualitätsprüfungen für Backend und Frontend, das Bauen und Veröffentlichen von Container-Images sowie die automatisierte Helm-Chart-Publikation. Releases werden durch Git-Tags ausgelöst und führen alle Schritte in der richtigen Reihenfolge aus.
+Die Kamerplanter-CI/CD-Pipeline läuft vollständig auf **GitHub Actions**. Sie umfasst automatische Qualitätsprüfungen für Backend und Frontend, das Bauen und Veröffentlichen von Container-Images sowie die automatisierte Helm-Chart-Publikation. Ein Release stößt ein Maintainer von Hand an; danach laufen alle Schritte automatisch in der richtigen Reihenfolge ab.
 
 ---
 
@@ -38,8 +38,11 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 | `docker-publish.yml` | Push auf `develop` oder `v*`-Tag | Container-Images + Helm-Chart bauen und publizieren |
 | `skaffold-verify.yml` | PR auf `develop`, Pfad `skaffold.yaml`, `helm/**`, Dockerfiles | Helm-Lint + Skaffold-Diagnose |
 | `release-drafter.yml` | Push auf `develop` | Release-Notes-Entwurf automatisch aktualisieren |
+| `release-publish.yml` | **Nur manuell** (`workflow_dispatch`) | Einen Release-Entwurf veröffentlichen — der einzige Schritt, der ein Release entstehen lässt |
 | `release-cd-deliver-docs.yml` | Veröffentlichtes Release | MkDocs-Dokumentation auf GitHub Pages deployen |
 | `release-cd-refresh-master.yml` | Veröffentlichtes Release | `main`-Branch auf den Release-Stand aktualisieren |
+| `chart-image-digest-freshness.yml` | Zeitplan, täglich 06:00 UTC | Meldet, wenn die Digests in `helm/kamerplanter/values.yaml` veraltet sind |
+| `release-lag.yml` | Zeitplan, täglich 09:00 UTC (+ manuell) | Meldet, wenn `develop` Commits trägt, die kein **veröffentlichtes** Release enthält |
 
 ---
 
@@ -344,24 +347,47 @@ Dieser Workflow läuft bei Pull Requests auf `develop`, wenn `skaffold.yaml`, He
 
 ## Release-Prozess
 
-Ein vollständiger Release besteht aus mehreren automatischen Schritten, die durch das Veröffentlichen eines GitHub-Releases ausgelöst werden.
+Ein Release ist der Schritt, mit dem aus einem Stand auf `develop` eine ausgelieferte Version wird. Er läuft **nicht** automatisch an: Ein Mensch stößt ihn an, und alles danach ist automatisch.
+
+!!! danger "Ein Entwurf ist keine Auslieferung"
+
+    `release-drafter.yml` läuft bei **jedem** Push auf `develop` und hält einen
+    Release-Entwurf aktuell. `release-publish.yml` läuft dagegen **nur** über
+    `workflow_dispatch`. Das sichtbarste Release-Artefakt des Repositories ist
+    deshalb dauerhaft ein *Entwurf* — er trägt eine Versionsnummer, listet die
+    Änderungen und liest sich wie ein fertiges Release, hat aber kein Git-Tag,
+    ist über die API nicht als Release abrufbar und liegt auf keinem
+    Auslieferungspfad. Solange niemand ihn veröffentlicht, ist kein einziger
+    Commit ausgeliefert.
+
+    Genau diese Lage ist gemessen worden: Ein Entwurf `v0.2.1` existierte seit
+    dem 13.08.2026; am 14.08. wurde eine Fehlerbehebung nach `develop` gemergt;
+    am 16.08. lief in der Instanz weiterhin der Stand von davor. Das jüngste
+    *veröffentlichte* Release war die ganze Zeit `v0.2.0`. Beobachtet wird das
+    seitdem von [`release-lag.yml`](#pruefungen-auslieferungskette).
+    <!-- #1210 -->
 
 ### Schritt 1: Release-Entwurf vorbereiten (automatisch)
 
-Der `release-drafter`-Workflow aktualisiert bei jedem Push auf `develop` automatisch einen Release-Entwurf mit den Änderungen seit dem letzten Tag.
+Der `release-drafter`-Workflow aktualisiert bei jedem Push auf `develop` automatisch einen Release-Entwurf mit den Änderungen seit dem letzten Tag. Er schlägt dabei auch die nächste Versionsnummer vor.
 
-### Schritt 2: Release-Tag setzen
+### Schritt 2: Release veröffentlichen (manuell — der eine Handgriff)
+
+Ein Maintainer startet `release-publish.yml` von Hand: **Actions → Release Publish → Run workflow**, mit dem Tag des offenen Entwurfs. Sinnvollerweise zuerst mit `dry_run: true` — das validiert, ohne den Entwurf umzustellen.
 
 ```bash
-git tag v1.2.0
-git push origin v1.2.0
+# Äquivalent über die CLI
+gh workflow run release-publish.yml -f tag=v1.2.0 -f dry_run=true
+gh workflow run release-publish.yml -f tag=v1.2.0
 ```
 
-Das Tag löst `docker-publish.yml` aus und baut alle Images und den Helm-Chart mit der korrekten Versionsnummer.
+Das Veröffentlichen ist der Moment, in dem das Git-Tag überhaupt erst entsteht — ein Entwurf hat keins.
 
-### Schritt 3: Release veröffentlichen
+### Schritt 3: Was am veröffentlichten Release hängt (automatisch)
 
-Wenn das GitHub-Release als "published" markiert wird, laufen zwei weitere Workflows an:
+Das entstehende `v*`-Tag löst `docker-publish.yml` aus: Alle Images und der Helm-Chart werden mit der Release-Versionsnummer gebaut, und `scripts/ci/pin_chart_image_digests.sh` pinnt jedes Kamerplanter-Image in den Chart-Values auf `<version>@sha256:<digest>`.
+
+Parallel starten am Ereignis „Release veröffentlicht" zwei weitere Workflows:
 
 **`release-cd-deliver-docs.yml`** — deployt die MkDocs-Dokumentation auf GitHub Pages über einen wiederverwendbaren Workflow aus `nolte/gh-plumbing`.
 
@@ -377,20 +403,21 @@ Der `update-release-assets`-Job im `docker-publish`-Workflow hängt am Release f
 
 ### Zusammenfassung Release-Ablauf
 
-<!-- diagram-source: user-described — release publish sequence from git tag push to docs deploy and main branch update -->
+<!-- diagram-source: measured against .github/workflows/release-publish.yml (workflow_dispatch only), release-drafter.yml, docker-publish.yml (tags: v*), release-cd-*.yml -->
 ```mermaid
 sequenceDiagram
-    participant Dev as Developer
+    participant Dev as Maintainer
     participant GH as GitHub
     participant GHCR as ghcr.io
 
-    Dev->>GH: git push origin v1.2.0
-    GH->>GH: docker-publish.yml starts
+    Note over GH: release-drafter hält laufend<br/>einen Entwurf aktuell
+    Dev->>GH: run release-publish.yml (tag=v1.2.0) — manuell
+    GH->>GH: draft = published, Git-Tag v1.2.0 entsteht
+    GH->>GH: docker-publish.yml startet (Trigger: v*-Tag)
     GH->>GHCR: push backend image :1.2.0
     GH->>GHCR: push frontend image :1.2.0
-    GH->>GHCR: push Helm chart :1.2.0
+    GH->>GHCR: push Helm chart :1.2.0 (Images auf Digest gepinnt)
     GH->>GH: attach release assets
-    Dev->>GH: mark release as "published"
     GH->>GH: deploy MkDocs docs
     GH->>GH: update main branch
 ```
@@ -408,39 +435,75 @@ image:
   pullPolicy: IfNotPresent      # (2)!
 ```
 
-1. Entscheidend ist der Teil **nach** dem `@`. Der Digest ist inhaltsadressiert und kann sich nicht bewegen. Das `latest` davor ist hier keine bewegliche Referenz, sondern ein Etikett, aus welchem Kanal der Digest stammt — aufgelöst wird es von niemandem. Es steht in derselben Zeile, weil Renovate genau diese Schreibweise pflegt (siehe unten).
+1. Entscheidend ist der Teil **nach** dem `@`. Der Digest ist inhaltsadressiert und kann sich nicht bewegen. Das `latest` davor ist hier keine bewegliche Referenz, sondern ein Etikett, aus welchem Kanal der Digest stammt — aufgelöst wird es von niemandem. Es steht in derselben Zeile, weil Renovate genau diese Schreibweise pflegt (siehe unten). Im Release-Chart steht an dieser Stelle die Release-Version statt `latest`, weil `pin_chart_image_digests.sh` sie beim Packen einsetzt — der Digest dahinter bleibt das Entscheidende.
 2. Bleibt bewusst `IfNotPresent`. Ein Digest ist inhaltsadressiert: Ein Image, das auf dem Node liegt, **ist** das angeforderte — ein erneuter Pull könnte das nur bestätigen. `Always` würde jeden Pod-Start von der Erreichbarkeit der GHCR abhängig machen und nichts gewinnen.
 
-### So kommt eine neue Version in den Cluster
+### So kommt eine neue Version in die Produktion {#so-kommt-eine-neue-version-in-die-produktion}
+
+Die Produktions-Instanz rollt **ausschließlich Release-Versionen** aus. Das ist eine Betriebsentscheidung und nicht bloß der zufällige Ist-Zustand: Die ArgoCD-`Application` verankert den Chart an einem Release-Tag, nicht an einem Branch.
 
 ```mermaid
-graph LR
-    A[Merge nach develop] --> B[docker-publish<br/>pusht Image, :latest bewegt sich]
-    B --> C[Renovate-PR<br/>Gruppe kamerplanter images]
-    C --> D[Automerge<br/>= ein Commit mit dem neuen Digest]
-    D --> E[ArgoCD synct<br/>Pods rollen]
+graph TD
+    A[1. Merge nach develop] --> B[2. docker-publish + Renovate<br/>Digest in values.yaml auf develop]
+    B -.Vorstufe, erreicht die Produktion nicht.-> C
+    C[3. Maintainer veröffentlicht ein Release<br/>MANUELL] --> D[4. docker-publish pinnt<br/>Chart-Images auf Version + Digest]
+    D --> E[5. targetRevision im GitOps-Repo<br/>auf das neue Tag heben — MANUELL]
+    E --> F[6. ArgoCD synct, Pods rollen]
 ```
 
-Der Deploy ist also ein **Commit**, kein Handgriff am Cluster. Renovate hält die Digests aktuell (`renovate.json5`, Regel `kamerplanter images`); dass die Digests überhaupt vorhanden sind, sichert `scripts/check_chart_image_digests.py` im Pflicht-Check `static` ab.
+Ausgeschrieben sind das sechs Sprünge, und jeder gehört einem anderen Akteur:
+
+1. **Merge nach `develop`** — der Commit, der den Code ändert. Ein Mensch.
+2. **`docker-publish.yml`** baut die Images und pusht sie; **Renovate** schreibt
+   die neuen Digests über den gruppierten Pull Request `kamerplanter images`
+   nach `helm/kamerplanter/values.yaml` auf `develop`. Das ist die **Vorstufe**:
+   Sie hält den Entwicklungsstand konsistent, **erreicht die Produktion aber
+   nicht**.
+3. **Ein Maintainer schneidet ein Release** — von Hand, über
+   `release-publish.yml`. **Der erste manuelle Sprung.** Passiert er nicht, ist
+   nichts von Schritt 1 und 2 ausgeliefert, egal wie lange es her ist.
+4. **`docker-publish.yml`** läuft auf dem entstandenen `v*`-Tag und pinnt über
+   `scripts/ci/pin_chart_image_digests.sh` jedes Kamerplanter-Image in den
+   Chart-Values auf `<version>@sha256:<digest>`.
+5. **`targetRevision` im GitOps-Repository wird auf das neue Tag gehoben** —
+   ebenfalls von Hand, in `nolte/k8s-home-lab`, also **außerhalb dieses
+   Repositories**. **Der zweite manuelle Sprung**, und der einzige, den kein
+   Workflow dieses Repositories überhaupt sehen kann.
+6. **ArgoCD** synct den neuen Stand. Die Pods rollen, weil sich die Pod-Spec
+   geändert hat — nicht, weil jemand einen Neustart ausgelöst hat.
+
+!!! warning "Zwei der sechs Sprünge tut ein Mensch"
+
+    Sprung 3 (Release veröffentlichen) und Sprung 5 (`targetRevision` heben)
+    sind keine Automatik. Beide sind Handgriffe eines Maintainers, beide können
+    vergessen werden, und beide sehen von außen aus wie nichts — es gibt keinen
+    roten Lauf, keine offene Pull Request, kein Artefakt, das fehlt. Ein
+    gemergter Fix ist deshalb **kein ausgelieferter Fix**.
+
+    Wie weit das auseinanderlaufen kann, ist messbar: Am 17.08.2026 verankerte
+    die Produktions-`Application` das Chart auf `v0.1.0` (veröffentlicht am
+    06.08.), während das jüngste veröffentlichte Release bereits `v0.2.0` war.
+
+Der Deploy selbst ist also ein **Commit** — im GitOps-Repository —, kein Handgriff am Cluster. Dass die Digests in den Chart-Values überhaupt vorhanden und wohlgeformt sind, sichert `scripts/check_chart_image_digests.py` im Pflicht-Check `static` ab; ob sie noch *aktuell* sind, beantwortet erst der tägliche Lauf von `chart-image-digest-freshness.yml` (siehe [Prüfungen entlang der Auslieferungskette](#pruefungen-auslieferungskette)).
 
 ### Rollback
 
-```bash
-# 1. Den Commit finden, der den Digest gesetzt hat
-git log --oneline -- helm/kamerplanter/values.yaml
+Ein Rollback ist ein Commit im **GitOps-Repository**: `targetRevision` zurück auf das vorherige Release-Tag setzen.
 
-# 2. Ihn zurücknehmen — das ist der komplette Rollback
-git revert <commit>
+```yaml
+- path: helm/kamerplanter
+  repoURL: https://github.com/nolte/kamerplanter.git
+  targetRevision: v0.1.0   # statt v0.2.0
 ```
 
-ArgoCD synct den vorherigen Digest, die Pods rollen zurück. Prüfe das Ergebnis **im laufenden Pod**, nicht in der Values-Datei und nicht am Controller-Status:
+ArgoCD synct das Chart aus dem älteren Tag — mitsamt der Digests, die dieses Tag pinnt — und die Pods rollen zurück. Prüfe das Ergebnis **im laufenden Pod**, nicht in der Values-Datei und nicht am Controller-Status:
 
 ```bash
 kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
   -o jsonpath='{range .items[*]}{.metadata.name}{"  "}{.status.containerStatuses[0].imageID}{"\n"}{end}'
 ```
 
-`imageID` nennt den Digest, den der Kubelet tatsächlich gestartet hat. Er muss zu dem passen, der nach dem Revert in `values.yaml` steht.
+`imageID` nennt den Digest, den der Kubelet tatsächlich gestartet hat. Er muss zu dem passen, den die Chart-Values unter dem zurückgesetzten Tag pinnen.
 
 !!! danger "Nicht am laufenden Cluster editieren"
 
@@ -448,26 +511,143 @@ kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
     `kubectl set image`-Änderung binnen Minuten rückgängig. Ein Rollback, der
     nicht im Git steht, ist kein Rollback, sondern eine Verzögerung.
 
-!!! warning "Was ein Deploy jetzt langsamer macht"
+!!! warning "Was ein Hotfix wirklich kostet"
 
-    Ein Publish ist erst live, wenn der Renovate-PR gemergt ist. Renovate läuft
-    nach Zeitplan, nicht auf Zuruf — für einen Hotfix hakst du im
-    Dependency-Dashboard-Issue die Refresh-Checkbox an, statt zu warten. Der
-    frühere Weg (`workflow_dispatch` + `kubectl rollout restart`) ist damit
-    keiner mehr: Er hat, wie oben gemessen, ohnehin nie zuverlässig ein neues
-    Image gezogen.
+    Ein Hotfix ist erst live, wenn beide manuellen Sprünge getan sind: Release
+    veröffentlichen **und** `targetRevision` heben. Ein gemergter Pull Request
+    allein bewegt in der Produktion nichts — auch dann nicht, wenn `develop`
+    längst grün ist und die Registry die neuen Bytes hat. Der frühere Weg
+    (`workflow_dispatch` + `kubectl rollout restart`) ist keine Abkürzung: Er
+    hat, wie oben gemessen, ohnehin nie zuverlässig ein neues Image gezogen.
 
-### Produktion: der Pin liegt zusätzlich im GitOps-Repository
+### Produktion: die `Application` liegt im GitOps-Repository
 
-Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Repository, sondern in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). Sie zieht das Chart an einem Release-Tag (`targetRevision: vX.Y.Z`) und überschreibt pro Controller `image.tag`.
+Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Repository, sondern in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). Sie zieht das Chart nicht aus der Registry, sondern direkt aus dem Quell-Repository:
 
-!!! warning "Ein `tag`-Override im Application-Manifest löscht den Digest"
+```yaml
+- path: helm/kamerplanter                              # (1)!
+  repoURL: https://github.com/nolte/kamerplanter.git
+  targetRevision: v0.1.0                               # (2)!
+```
 
-    Der Override gewinnt gegen den Chart-Default. Steht dort `tag: "0.1.0"`,
-    läuft Produktion trotz allem auf einer beweglichen Referenz. Seit das Chart
-    seine Digests selbst mitbringt, sind diese Overrides überflüssig: `targetRevision`
-    wählt die Version, das Chart die Bytes. Ein Rollback ist dann der Revert des
-    Commits im GitOps-Repository, der `targetRevision` angehoben hat.
+1. Der Chart-Ordner im Git-Baum — nicht das OCI-Artefakt `oci://ghcr.io/nolte/charts/kamerplanter`.
+2. Ein **Release-Tag**, kein Branch. Nur ein veröffentlichtes Release kann hier stehen, und niemand hebt diesen Wert automatisch an.
+
+!!! info "Nur Release-Versionen — bewusst so"
+
+    Diese Instanz rollt **ausschließlich Release-Versionen** aus. Ein Commit auf
+    `develop` erreicht sie nicht, auch dann nicht, wenn er
+    `helm/kamerplanter/**` berührt: Der Anker ist ein Tag, und ein Tag bewegt
+    sich nicht, weil jemand mergt.
+
+    Das ist der gewollte Zustand, keine Momentaufnahme. Der Preis dafür ist die
+    Latenz: Zwischen „gemergt" und „läuft" liegen die beiden manuellen Sprünge
+    aus [So kommt eine neue Version in die
+    Produktion](#so-kommt-eine-neue-version-in-die-produktion). Wer nach einem
+    Merge im Cluster den neuen Stand erwartet, sucht am falschen Ort — dort
+    läuft das Release, auf das `targetRevision` zeigt, und das kann mehrere
+    Releases hinterherhinken.
+
+#### Wofür ein Release da ist {#wofuer-ein-release}
+
+Ein Release ist gleichzeitig das Auslieferungsvehikel dieser Instanz **und** die Verpackung für alle anderen. Was daran hängt:
+
+| Ergebnis | Für wen |
+|---|---|
+| Der Anker, auf den `targetRevision` im GitOps-Repository gehoben werden **kann** | die Produktions-Instanz — der Sprung selbst bleibt ein Handgriff |
+| Chart-Paket `oci://ghcr.io/nolte/charts/kamerplanter:<version>`, mit Images auf `<version>@sha256:<digest>` gepinnt | Self-Hoster und fremde Cluster — siehe [ArgoCD](argocd.md) |
+| `docker-compose-<version>.yml`, `.env.example-<version>`, `openapi.json` als Release-Assets | Self-Hosting ohne Kubernetes, API-Clients |
+| MkDocs-Dokumentation auf GitHub Pages (`release-cd-deliver-docs.yml`) | Leser dieser Seite |
+| `main` auf den Release-Stand gesetzt (`release-cd-refresh-master.yml`) | alle, die einen stabilen Referenz-Branch brauchen |
+
+#### Invariante: kein `image.tag` im Overlay {#invariante-kein-image-tag}
+
+**Ein Overlay, das diese Instanz konfiguriert, trägt keine per-Controller-`image.tag`-Overrides.** Das ist keine Empfehlung, sondern die Bedingung, unter der der Digest-Pin überhaupt trägt.
+
+Die Arbeitsteilung ist: `targetRevision` wählt die **Chart-Version**, das Chart wählt die **Bytes**. Ein `image.tag` im Overlay bricht die zweite Hälfte auf.
+
+!!! danger "Die Invariante gilt auch unter einem Release-Tag"
+
+    Der Digest-Pin ist keine Eigenschaft des Branches, sondern des Charts:
+    `scripts/ci/pin_chart_image_digests.sh` schreibt die Digests **in** die
+    Chart-Values, bevor das Release-Chart gepackt wird. Ein `image.tag`-Override
+    gewinnt gegen diesen Default — unabhängig davon, ob `targetRevision` auf
+    einen Branch oder auf ein Release-Tag zeigt. Er ersetzt den Digest durch
+    eine bewegliche Referenz, und `pullPolicy: IfNotPresent` heißt dann: „nimm,
+    was auf dem Node im Cache liegt". Damit hängt die Auslieferung wieder daran,
+    was ein einzelner Knoten zufällig schon einmal gezogen hat — und das Anheben
+    von `targetRevision` bewirkt nichts mehr.
+
+Die Konsequenz ist zweimal gemessen worden, nicht befürchtet:
+
+- Im ersten Vorfall (intern verfolgt als Ticket 1024) behielt ein `rollout
+  restart` still ein altes Image; der `inference-service` bediente wochenlang
+  einen Stand ohne die `/pest/*`-Routen. <!-- #1024 -->
+- Im zweiten (intern verfolgt als Ticket 1210) fuhr die Produktions-Instanz am
+  17.08.2026 unter einem `v0.1.0`-Chart die Images `0.0.23` — sechs
+  `image.tag`-Overrides im Overlay hatten die Digests des Charts ersetzt. Dem
+  laufenden Backend fehlte deshalb das Feld `supported_majors` auf
+  `/api/health`, das am 15.08. dazukam: Das ausgelieferte Image war rund einen
+  Monat älter als das Chart, unter dem es lief. <!-- #1210 -->
+
+Beide Male sah die Lage von außen gesund aus: Registry, Chart und
+Controller-Status waren einer Meinung. Nur der laufende Container war es nicht.
+Deshalb ist der Beweis immer der Blick **in den Pod**, nie in die Values-Datei.
+
+Die Invariante steht im Klartext neben den Digests, die sie schützt — in
+[`helm/kamerplanter/values.yaml`](https://github.com/nolte/kamerplanter/blob/develop/helm/kamerplanter/values.yaml)
+und im Overlay selbst. Ändere sie dort, nicht hier.
+
+### Prüfungen entlang der Auslieferungskette {#pruefungen-auslieferungskette}
+
+Die sechs Sprünge fallen **unabhängig voneinander** aus. Eine Prüfung über einen Übergang sagt deshalb nichts über die anderen aus:
+
+| Übergang | Frage | Prüfung |
+|---|---|---|
+| GHCR → Chart-Pin auf `develop` | Ist der Digest in `values.yaml` noch der aktuelle? | `chart-image-digest-freshness.yml`, täglich 06:00 UTC |
+| `develop` → veröffentlichtes Release | Trägt `develop` Commits, die kein veröffentlichtes Release enthält — und wie lange schon? | `release-lag.yml`, täglich 09:00 UTC |
+| Release → `targetRevision` im GitOps-Repo | Zeigt die Instanz auf das neue Release? | **keine** — der Wert liegt in einem anderen Repository |
+| Chart-Pin → laufender Pod | Führt der Pod die Bytes aus, die das Chart nennt? | **keine Automatik** — von Hand, siehe [Häufige Fragen](#haeufige-fragen) |
+
+!!! danger "Ein grüner Haken impliziert den nächsten nicht"
+
+    Als der zweite Vorfall auffiel, war `chart-image-digest-freshness` grün —
+    völlig zu Recht: Der Chart-Pin *war* aktuell. Genau das machte die
+    Abweichung unsichtbar, denn die einzige Prüfung, die es gab, maß den
+    Sprung, der funktionierte. <!-- #1210 -->
+
+#### Was `release-lag.yml` leistet — und was nicht
+
+Der Job vergleicht täglich um 09:00 UTC den Stand von `develop` mit dem jüngsten **veröffentlichten** Release. Ein Entwurf zählt ausdrücklich nicht; er wird in der Meldung sogar eigens benannt, weil genau er den Eindruck erzeugt, es sei etwas ausgeliefert. Gemeldet wird über ein einzelnes, deduppliziertes Issue mit dem Label `release-lag`. Der Messbericht `release-lag-report.json` entsteht nur im Arbeitsverzeichnis des Runners und wird nicht als Artefakt hochgeladen — er dient dem Issue-Schritt als Bedingung: fehlt er, war die Messung unbestimmt, der Lauf ist rot und es wird kein Issue geöffnet.
+
+| Einstellung | Standard | Bedeutung |
+|---|---|---|
+| `RELEASE_LAG_THRESHOLD_DAYS` | `3` | Karenzfenster. Gemeldet wird erst, wenn der **älteste** unveröffentlichte Commit mindestens so alt ist. |
+| `RELEASE_LAG_BASE_BRANCH` | `develop` | Der Branch, dessen Rückstand gemessen wird. |
+
+Der Job ist ein Zeitplan-Job und kein Pull-Request-Gate, weil der Rückstand **ohne jeden Commit** wächst: Er nimmt mit jeder Stunde zu, in der niemand veröffentlicht, und schrumpft in dem Moment, in dem jemand es tut. Keines dieser beiden Ereignisse ist ein Push.
+
+!!! warning "Mit dem ausgelieferten Standard hätte der Job den Vorfall nicht rechtzeitig gemeldet"
+
+    Das ist nachgerechnet, nicht geschätzt. Der älteste unveröffentlichte Commit
+    war am 13.08.2026 um 21:26 UTC entstanden; als am 16.08. um 12:00 UTC
+    jemand erneut über denselben Fehler stolperte, war er 2,6 Tage alt — unter
+    der Schwelle von 3 Tagen. Der erste Lauf, der Alarm geschlagen hätte, wäre
+    der vom 17.08. um 09:00 UTC gewesen, also gut einen Tag nach dem Vorfall.
+
+    Die Schwelle ist bewusst ein Kompromiss: Ein engeres Fenster meldet
+    gewöhnliche Wochenendentwicklung als Rückstand. Sie lässt sich ohne
+    Codeänderung messen — beim manuellen Start des Workflows über den Eingabe­wert
+    `threshold_days`. <!-- #1210 -->
+
+!!! danger "Ein Release beweist nicht, dass der Cluster es genommen hat"
+
+    `release-lag.yml` misst ausschließlich die Repository-Seite. Es sieht, dass
+    ein Release *existiert* — nicht, dass `targetRevision` darauf gehoben wurde
+    und schon gar nicht, welche Bytes ein Pod ausführt. Der Sprung 5 liegt in
+    `nolte/k8s-home-lab` und ist für jeden Workflow dieses Repositories
+    unerreichbar. Diese Lücke ist offen und darf nicht als geschlossen gelesen
+    werden.
 
 ---
 
@@ -498,7 +678,7 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
 
 ---
 
-## Häufige Fragen
+## Häufige Fragen {#haeufige-fragen}
 
 ??? question "Warum schlägt der Backend-CI fehl, obwohl die Tests lokal laufen?"
     Stelle sicher, dass du Python 3.14 verwendest (`python --version`). Die CI verwendet explizit `python-version: '3.14'` mit `allow-prereleases: true`. Abweichende Python-Versionen können zu unterschiedlichem Verhalten führen. Prüfe auch, ob alle Abhängigkeiten mit `pip install -e ".[dev]"` installiert wurden.
@@ -513,7 +693,108 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     `main` wird ausschließlich automatisch durch `release-cd-refresh-master.yml` nach einem veröffentlichten Release aktualisiert. Direkte Pushes auf `main` sind nicht vorgesehen.
 
 ??? question "Wie sehe ich, welche Image-Version gerade läuft?"
-    Die Image-Digest-Labels (`org.opencontainers.image.*`) sind in jedem Image eingebettet. Du kannst sie mit `docker inspect <image>` auslesen oder im GHCR-Package-Tab auf GitHub nachsehen.
+
+    Frag die Instanz selbst:
+
+    ```bash
+    curl -s https://deine-instanz.example.com/api/health
+    ```
+
+    ```json
+    {
+      "status": "healthy",
+      "version": "1.0.0",
+      "mode": "light",
+      "supported_majors": [1],
+      "build_revision": "37cbc06fcf0c7d69c07f7abbd3d485cb241070da"
+    }
+    ```
+
+    `build_revision` ist der vollständige, 40-stellige Git-Commit des laufenden
+    Builds — die Kennung, die du gegen `git log` hältst, um zu sehen, ob ein
+    bestimmter Fix drin ist.
+
+    !!! info "Nur über Betreiber-Konfiguration: `build_revision`"
+
+        Das Feld ist **standardmäßig abgeschaltet** und erscheint erst, wenn die
+        Instanz mit `HEALTH_EXPOSE_BUILD_REVISION=true` betrieben wird. Der
+        Grund: `/api/health` ist unauthentifiziert. Öffentlich ist nicht der
+        Commit-Hash — das Repository ist ohnehin offen —, sondern die Zuordnung
+        *dieser Host läuft auf jenem Commit*, denn aus ihr folgt der exakte
+        Rückstand gegenüber `develop` und damit die Liste der Fehlerbehebungen,
+        die dieser Instanz fehlen. Details unter
+        [Umgebungsvariablen — Health-Endpunkt](../reference/environment-variables.md#health-endpunkt).
+        <!-- #1210 -->
+
+    Die Antwort kennt **drei unterscheidbare Zustände**, und die Unterscheidung
+    trägt:
+
+    | Antwort | Bedeutung |
+    |---|---|
+    | Der Schlüssel **fehlt** ganz | Die Instanz wurde bewusst so konfiguriert. Nichts ist kaputt — sie gibt nur keine Auskunft. |
+    | `"unknown"` | Die Instanz *will* antworten, aber es ist keine Revision eingebacken (Entwicklungs-Image, ungestempelter Build). |
+    | Ein 40-stelliger Hexadezimal-Wert | Die echte Antwort. |
+
+    Der Wert wird vor der Ausgabe gegen das Muster `^[0-9a-f]{7,40}$` geprüft
+    (nach dem Abschneiden von Leerraum, damit ein in YAML umbrochener oder in
+    der Shell gequoteter Wert überlebt). Alles, was nicht passt, wird zu
+    `"unknown"` — nie zu einem erfundenen oder abgeleiteten Wert.
+
+    !!! warning "`build_revision` ist ein Betriebssignal, keine Attestierung"
+
+        Wer das Deployment kompromittiert hat, kann die Instanz jeden beliebigen
+        Hash melden lassen. Der belastbare Nachweis bleibt `gh attestation
+        verify` zusammen mit dem Digest, den der Pod tatsächlich ausführt:
+
+        ```bash
+        kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
+          -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+        ```
+
+        `imageID` nennt den Digest, den der Kubelet gestartet hat — die einzige
+        Angabe, die weder von der Values-Datei noch vom Controller-Status
+        abhängt.
+
+    !!! note "`version` ist nicht die Build-Kennung"
+
+        `version` ist die Anwendungs- und API-Version (dieselbe, die in der
+        OpenAPI-Beschreibung unter `info.version` steht). Sie bleibt über viele
+        Builds hinweg gleich und beantwortet die Frage „welche Bytes laufen
+        hier?" nicht.
+
+    **Für ein Image, das gerade nicht läuft.** Die Labels
+    `org.opencontainers.image.*` sind in jedes Image eingebettet; `docker inspect
+    <image>` liest sie aus, der GHCR-Package-Tab auf GitHub zeigt sie ebenfalls.
+    Damit prüfst du, was *in* einem Artefakt steckt — nicht, welches Artefakt
+    dein Cluster gerade ausführt.
+
+??? question "Zählt der Aufruf von /api/health gegen ein Rate-Limit?"
+
+    Ja. `/api/health` ist unauthentifiziert und macht echte Arbeit — je nach
+    Konfiguration synchrone Anfragen an TimescaleDB und den Knowledge Service —,
+    war also ein billiger Verstärkungspunkt in interne Dienste hinein. Der
+    Endpunkt ist deshalb pro Client-IP begrenzt; einstellbar über
+    `RATE_LIMIT_HEALTH` (Standard `60/minute`).
+
+    Die Kubernetes-Proben sind davon **nicht** betroffen: Sie zeigen auf
+    `/api/v1/health/live` beziehungsweise `/api/v1/health/ready` und bleiben
+    unbegrenzt. <!-- #1210 -->
+
+??? question "Ist mein gemergter Fix schon ausgeliefert?"
+
+    Drei Fragen, in dieser Reihenfolge:
+
+    1. **Gibt es ein veröffentlichtes Release, das den Commit enthält?**
+       `gh release list` zeigt Entwürfe als `Draft` — ein Entwurf zählt nicht.
+       Beobachtet wird das laufend von `release-lag.yml`.
+    2. **Zeigt `targetRevision` im GitOps-Repository auf dieses Release?** Der
+       Wert liegt in `nolte/k8s-home-lab` und wird von Hand gehoben.
+    3. **Führt der Pod die passenden Bytes aus?** Über `imageID` und, wo
+       aktiviert, `build_revision` — siehe die Frage oben.
+
+    Erst wenn alle drei zutreffen, ist der Fix ausgeliefert. Die vollständige
+    Kette steht unter [So kommt eine neue Version in die
+    Produktion](#so-kommt-eine-neue-version-in-die-produktion).
 
 ---
 
