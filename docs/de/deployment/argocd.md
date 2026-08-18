@@ -111,6 +111,24 @@ spec:
     das Chart wählt die **Bytes**. Warum das zweimal gemessen schiefging:
     [CI/CD — Invariante: kein `image.tag` im Overlay](ci-cd.md#invariante-kein-image-tag).
 
+!!! danger "`targetRevision` niemals auf den `-dev`-Kanal"
+
+    `0.2.0` oben ist eine **veröffentlichte** Chart-Version. Daneben gibt es
+    einen zweiten Kanal: Der `develop`-Baum trägt stets die nächste Version mit
+    dem Zusatz `-dev` — `<nächste-version>-dev` —, und dieser OCI-Tag wird von jedem
+    Merge nach `develop` überschrieben, der `helm/` berührt. Genau dafür ist er
+    da.
+
+    Eine `Application`, die darauf zeigt, hat damit keinen festen Stand mehr:
+    ArgoCD synct beim nächsten Merge andere Bytes unter unverändertem
+    `targetRevision`, und im GitOps-Repository ändert sich dabei nichts, was
+    jemand im Review sehen könnte. Ein Overlay verankert deshalb ausschließlich
+    eine reine Versionsnummer ohne Zusatz — oder den Manifest-Digest. Der
+    Vorab-Bezeichner `dev` ist umgekehrt für Release-Tags gesperrt, ein
+    `-dev`-Stand kann also nie versehentlich zu einem Release werden. Die
+    Kanaltrennung im Detail: [CI/CD — Zwei Kanäle](ci-cd.md#zwei-kanaele).
+    <!-- #1222 -->
+
 ---
 
 ## Ingress mit TLS

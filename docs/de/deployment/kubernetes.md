@@ -64,8 +64,18 @@ Das Kamerplanter Helm-Chart liegt als OCI-Artefakt in der GitHub Container Regis
 ```bash
 # OCI-Registries benötigen kein helm repo add —
 # der Pull erfolgt direkt über die OCI-URL
-helm pull oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter --version 0.2.0
+helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 0.2.0
 ```
+
+!!! warning "`--version` muss eine veröffentlichte Version nennen"
+
+    `0.2.0` ist die zuletzt veröffentlichte Chart-Version. Unter derselben
+    OCI-Adresse liegt daneben ein Entwicklungskanal: Der `develop`-Baum trägt
+    stets die nächste Version mit dem Zusatz `-dev` (`<nächste-version>-dev`), und
+    dieser Tag wird bei jedem Merge nach `develop` überschrieben, der `helm/`
+    berührt. Ziehe daraus nichts, was laufen soll — die Bytes wechseln unter dir,
+    ohne dass sich die Versionsangabe ändert. Details:
+    [CI/CD — Zwei Kanäle](ci-cd.md#zwei-kanaele).
 
 ??? note "Authentifizierung an der GitHub Registry"
     Falls die Registry privat ist, musst du dich vorher anmelden:
@@ -161,7 +171,7 @@ ingress:
 
 ```bash
 helm install kamerplanter \
-  oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter \
+  oci://ghcr.io/nolte/charts/kamerplanter \
   --version 0.2.0 \
   --namespace kamerplanter \
   --create-namespace \
@@ -198,7 +208,7 @@ kamerplanter-valkey-0                     1/1     Running   0          45s
 ```bash
 # Auf neue Version aktualisieren
 helm upgrade kamerplanter \
-  oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter \
+  oci://ghcr.io/nolte/charts/kamerplanter \
   --version 0.3.0 \
   --namespace kamerplanter \
   --values values-production.yaml

@@ -111,6 +111,24 @@ spec:
     **bytes**. Why this went wrong twice, measured:
     [CI/CD — Invariant: no `image.tag` in the overlay](ci-cd.md#invariant-no-image-tag).
 
+!!! danger "Never point `targetRevision` at the `-dev` channel"
+
+    The `0.2.0` above is a **published** chart version. Alongside it there is a
+    second channel: the `develop` tree always carries the next version with the
+    `-dev` suffix — `<next-version>-dev` — and that OCI tag is overwritten by
+    every merge into `develop` that touches `helm/`. That is exactly what it is
+    for.
+
+    An `Application` pointing at it no longer has a fixed state: on the next
+    merge ArgoCD syncs different bytes under an unchanged `targetRevision`, and
+    nothing changes in the GitOps repository that anyone could catch in review.
+    An overlay therefore anchors only a bare version number without a suffix —
+    or the manifest digest. Conversely, the `dev` pre-release identifier is
+    refused for release tags, so a `-dev` state can never accidentally become a
+    release. The channel separation in detail:
+    [CI/CD — Two channels](ci-cd.md#two-channels).
+    <!-- #1222 -->
+
 ---
 
 ## Ingress with TLS

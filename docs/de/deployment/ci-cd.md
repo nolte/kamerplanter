@@ -306,7 +306,7 @@ Das Helm-Chart für Kamerplanter liegt unter `helm/kamerplanter/` und wird als O
 oci://ghcr.io/nolte/charts/kamerplanter
 ```
 
-Bei einem Release-Tag werden `version` und `appVersion` in `Chart.yaml` automatisch auf die Release-Version gesetzt, bevor das Chart gepackt wird. Gleichzeitig pinnt `scripts/ci/pin_chart_image_digests.sh` jedes Kamerplanter-Image in `values.yaml` auf `<version>@sha256:<digest>` — adressiert über den YAML-Pfad, nicht über eine Textersetzung des Literals `tag: latest`. Derselbe Lauf liest die Datei anschließend erneut und bricht das Release ab, falls ein Kamerplanter-Image die Umstellung überlebt hat.
+Bei einem Release-Tag werden `version` und `appVersion` in `Chart.yaml` automatisch auf die Release-Version gesetzt, bevor das Chart gepackt wird. Auf jedem anderen Ref greift dieser Rewrite **nicht** — dort wird die Version gepackt, die im Baum steht, und `develop` hat dafür einen eigenen Kanal (siehe [Zwei Kanäle](#zwei-kanaele)). Gleichzeitig pinnt `scripts/ci/pin_chart_image_digests.sh` jedes Kamerplanter-Image in `values.yaml` auf `<version>@sha256:<digest>` — adressiert über den YAML-Pfad, nicht über eine Textersetzung des Literals `tag: latest`. Derselbe Lauf liest die Datei anschließend erneut und bricht das Release ab, falls ein Kamerplanter-Image die Umstellung überlebt hat.
 
 Der Digest wird dabei aus der Registry aufgelöst, nicht aus den Build-Jobs durchgereicht. Das prüft nebenbei, dass `<image>:<version>` überhaupt existiert — deshalb hängt `publish-helm-charts` seit #987 per `needs:` hinter den Image-Builds. Und es ist der Unterschied zwischen „unveränderlich" und „unveränderlich per Konvention": ein Versions-Tag lässt sich neu pushen, ein Digest nicht.
 
@@ -317,8 +317,53 @@ Der Digest wird dabei aus der Registry aufgelöst, nicht aus den Build-Jobs durc
     Namen: wird der Publish-Workflow für ein bestehendes Tag erneut ausgeführt,
     zeigt derselbe Name auf andere Bytes, und kein Konsument kann das bemerken.
 
+#### Zwei Kanäle: `develop` und Release {#zwei-kanaele}
+
+Unter derselben OCI-Adresse liegen zwei Sorten von Tags, und sie bedeuten
+Verschiedenes:
+
+| Kanal | Version im Baum | Veröffentlichter OCI-Tag | Lebensdauer |
+|-------|-----------------|--------------------------|-------------|
+| `develop` | die nächste Version mit dem Zusatz `-dev`, aktuell `0.2.1-dev` | `charts/kamerplanter:0.2.1-dev` | wird bei **jedem** `helm/`-Merge überschrieben |
+| Release | reine Version, vom Tag gesetzt | `charts/kamerplanter:0.2.0` | gehört genau einem Release und wird nicht neu gepusht |
+
+<!-- Quelle: helm/kamerplanter/Chart.yaml, scripts/check_chart_develop_version.py, scripts/ci/determine_chart_version.sh -->
+
+Die beiden Kanäle sind **disjunkt**, und das wird an beiden Enden erzwungen —
+nicht als Konvention, sondern als Prüfung:
+
+- `scripts/check_chart_develop_version.py` läuft als Hook im Pflicht-Check
+  `static` und weist jede Chart-Version im Baum zurück, deren erster
+  Vorab-Bezeichner nicht exakt `dev` lautet. Der `develop`-Baum kann damit keine
+  Version tragen, die ein Release je publizieren würde.
+- `scripts/ci/determine_chart_version.sh` weist umgekehrt ein Release-Tag ab,
+  das den Vorab-Bezeichner `dev` trägt, und zwar bevor gepackt und gepusht wird.
+  `v0.3.0-dev` ist deshalb kein gültiges Release-Tag. `v0.3.0-rc1` und
+  `v0.3.0-beta.1` bleiben erlaubt — sie können mit dem `develop`-Kanal nicht
+  kollidieren.
+
+!!! danger "Kein Deployment zeigt auf den `-dev`-Kanal"
+
+    Der `-dev`-Tag wird bei jedem `helm/`-Merge nach `develop` mit anderen Bytes
+    überschrieben. Das ist sein Zweck, kein Defekt. Ein `targetRevision`, ein
+    `--version` oder ein `image.tag`, der darauf zeigt, ist deshalb kein fester
+    Stand: Der ausgerollte Inhalt ändert sich, ohne dass sich im
+    GitOps-Repository irgendetwas ändert — und niemand sieht einen Diff.
+    Verankere ausschließlich eine reine Release-Version oder den
+    Manifest-Digest.
+
+    Warum es diese Trennung gibt, gemessen: Bis zum 18.08.2026 trug der
+    `develop`-Baum die Version `0.2.0` — die Version eines *veröffentlichten*
+    Releases. Der Chart-Tag `charts/kamerplanter:0.2.0` wurde am 13.08.2026 mit
+    dem Release `v0.2.0` publiziert und fünf Tage später aus `develop` erneut
+    überschrieben, mit anderem Inhalt unter derselben Versionsreferenz. Ein
+    Konsument konnte das nicht bemerken; sichtbar wurde es erst beim Vergleich
+    des Zeitstempels `org.opencontainers.image.created` am OCI-Manifest mit dem
+    Veröffentlichungsdatum des Releases.
+    <!-- #1222 -->
+
 ```bash
-# Chart direkt verwenden
+# Chart direkt verwenden — immer eine veröffentlichte Version, nie eine -dev
 helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 1.2.0
 ```
 

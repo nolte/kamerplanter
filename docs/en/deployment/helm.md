@@ -8,7 +8,7 @@ The Kamerplanter Helm chart is based on the [bjw-s common library](https://bjw-s
 
 | Artifact | OCI URL |
 |----------|---------|
-| Helm chart | `oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter` |
+| Helm chart | `oci://ghcr.io/nolte/charts/kamerplanter` |
 | Backend image | `ghcr.io/nolte/kamerplanter-backend` |
 | Frontend image | `ghcr.io/nolte/kamerplanter-frontend` |
 
@@ -16,12 +16,33 @@ The Kamerplanter Helm chart is based on the [bjw-s common library](https://bjw-s
 
 ## Chart information
 
+<!-- Source: helm/kamerplanter/Chart.yaml -->
+
 ```yaml
 name: kamerplanter
 type: application
-version: 0.2.0          # Chart version (Helm-specific)
+version: 0.2.1-dev      # Chart version in the develop tree — pre-release channel
 appVersion: "1.0.0"     # Application version
 ```
+
+!!! danger "`-dev` is the development channel, not a release"
+
+    The `-dev` suffix is not a typo. The `develop` tree always carries the
+    **next** version with that suffix, and `helm push` derives the OCI tag
+    verbatim from this line. The tag
+    `oci://ghcr.io/nolte/charts/kamerplanter:0.2.1-dev` is therefore overwritten
+    by every merge into `develop` that touches `helm/` — that is what the
+    channel is for.
+
+    A release, by contrast, publishes under the bare version without a suffix,
+    for example `0.2.0`. The two channels are disjoint and cannot overlap: the
+    `dev` pre-release identifier is refused on the release path, so a tag
+    `v0.3.0-dev` is rejected. `-rc` and `-beta` remain legal.
+
+    **Never use a `-dev` version in a deployment.** Pin a published version or
+    the manifest digest. Why this is not theoretical, and how both channels are
+    enforced: [CI/CD — Two channels](ci-cd.md#two-channels).
+    <!-- #1222 -->
 
 ### Dependencies
 
