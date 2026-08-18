@@ -113,11 +113,13 @@ spec:
 
 !!! danger "`targetRevision` niemals auf den `-dev`-Kanal"
 
-    `0.2.0` oben ist eine **veröffentlichte** Chart-Version. Daneben gibt es
-    einen zweiten Kanal: Der `develop`-Baum trägt stets die nächste Version mit
-    dem Zusatz `-dev` — `<nächste-version>-dev` —, und dieser OCI-Tag wird von jedem
-    Merge nach `develop` überschrieben, der `helm/` berührt. Genau dafür ist er
-    da.
+    `0.2.0` oben ist die Version eines **veröffentlichten** Releases — mit einer
+    Einschränkung, die am Ende dieses Kastens steht. Daneben gibt es einen zweiten
+    Kanal: Der `develop`-Baum trägt eine Vorabversion mit dem Zusatz `-dev`
+    (derzeit `0.2.1-dev`), und dieser OCI-Tag wird von jedem Merge nach `develop`
+    überschrieben, der `helm/` berührt. Genau dafür ist er da. Erzwungen ist nur
+    der Bezeichner `dev`, nicht die Nummer davor: Die `-dev`-Version muss der
+    veröffentlichten Linie nicht voraus sein.
 
     Eine `Application`, die darauf zeigt, hat damit keinen festen Stand mehr:
     ArgoCD synct beim nächsten Merge andere Bytes unter unverändertem
@@ -129,11 +131,30 @@ spec:
     Kanaltrennung im Detail: [CI/CD — Zwei Kanäle](ci-cd.md#zwei-kanaele).
     <!-- #1222 -->
 
+    Die Einschränkung: Ausgerechnet `charts/kamerplanter:0.2.0` ist der eine
+    Tag, bei dem genau das schiefgegangen ist, bevor es die beiden Prüfungen
+    gab. Er wurde am 18.08.2026 aus `develop` neu gepusht (Manifest-Annotation
+    `org.opencontainers.image.created: 2026-08-18T14:09:14Z`), fünf Tage nach
+    der Veröffentlichung des Releases `v0.2.0` — und wird bewusst nicht
+    repariert, weil ein weiterer Push unter derselben Versionsreferenz derselbe
+    Fehler wäre. Ein `targetRevision: 0.2.0` synct also einen `develop`-Stand.
+    `0.1.0` ist der jüngste Chart-Tag, dessen Manifest noch seinen
+    Release-Zeitstempel trägt; ansonsten pinne den Manifest-Digest oder warte
+    auf das erste Release unter beiden Prüfungen (`v0.2.1`, derzeit ein
+    Entwurf).
+    <!-- #1222 -->
+
 ---
 
 ## Ingress mit TLS
 
 Vollständiges Beispiel mit Ingress, TLS über cert-manager und Traefik als Ingress-Controller:
+
+!!! warning "`targetRevision: 0.2.0` trägt dieselbe Einschränkung"
+
+    Dieser Chart-Tag wurde aus `develop` überschrieben; siehe
+    [Basis-Application](#basis-application).
+    <!-- #1222 -->
 
 ```yaml title="argocd/kamerplanter-ingress-tls.yaml"
 apiVersion: argoproj.io/v1alpha1
@@ -216,6 +237,12 @@ spec:
 ## Externe Values-Datei
 
 Statt alle Values inline im Application-Manifest zu pflegen, kannst du eine separate Values-Datei in einem Git-Repository verwenden:
+
+!!! warning "`targetRevision: 0.2.0` trägt dieselbe Einschränkung"
+
+    Dieser Chart-Tag wurde aus `develop` überschrieben; siehe
+    [Basis-Application](#basis-application).
+    <!-- #1222 -->
 
 ```yaml title="argocd/kamerplanter-multi-source.yaml"
 apiVersion: argoproj.io/v1alpha1

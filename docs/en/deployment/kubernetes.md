@@ -70,12 +70,33 @@ helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 0.2.0
 !!! warning "`--version` must name a published version"
 
     `0.2.0` is the most recently published chart version. The same OCI address
-    also carries a development channel: the `develop` tree always holds the next
-    version with the `-dev` suffix (`<next-version>-dev`), and that tag is
-    overwritten by every merge into `develop` that touches `helm/`. Do not pull
-    anything from it that is meant to run — the bytes change underneath you while
-    the version string stays the same. Details:
+    also carries a development channel: the `develop` tree holds a pre-release
+    with the `-dev` suffix (`0.2.1-dev` at the moment), and that tag is
+    overwritten by every merge into `develop` that touches `helm/`. Only the
+    `dev` identifier is enforced, not the number in front of it: the `-dev`
+    version is not guaranteed to lead the published line. Do not pull anything
+    from it that is meant to run — the bytes change underneath you while the
+    version string stays the same. Details:
     [CI/CD — Two channels](ci-cd.md#two-channels).
+
+!!! danger "The `0.2.0` chart tag was overwritten from `develop`"
+
+    `charts/kamerplanter:0.2.0` no longer carries what release `v0.2.0`
+    published. Measured on the OCI manifest: it is annotated
+    `org.opencontainers.image.created: 2026-08-18T14:09:14Z`, while `v0.2.0` was
+    published on 2026-08-13 at 18:09:49 UTC — a `helm/` merge into `develop`
+    re-pushed the tag five days later. That is exactly what the two channel
+    checks have prevented since. The tag is deliberately **not** repaired:
+    overwriting it would be a second push under the same version reference.
+
+    For the commands on this page that means: `--version 0.2.0` still resolves,
+    but delivers a `develop` build rather than the release build. `0.1.0` is the
+    newest chart tag whose manifest still carries its release timestamp (created
+    on 2026-08-06 at 13:38:04 UTC, 15 seconds after `v0.1.0` was published), and
+    `v0.2.1` — still a draft as this is written — is the first release created
+    under the protection of both checks. Whichever you pick, a deployment only
+    becomes reproducible once you pin the manifest digest you audited.
+    <!-- #1222 -->
 
 ??? note "Authentication to the GitHub registry"
     If the registry is private, you need to log in first:
@@ -177,6 +198,13 @@ helm install kamerplanter \
   --create-namespace \
   --values values-production.yaml
 ```
+
+!!! warning "`0.2.0` is the same overwritten chart version here"
+
+    The tag resolves, but delivers a `develop` build rather than what release
+    `v0.2.0` published. Why, and what to pin instead:
+    [step 1](#1-add-the-helm-repository).
+    <!-- #1222 -->
 
 ### 5. Verify the deployment
 

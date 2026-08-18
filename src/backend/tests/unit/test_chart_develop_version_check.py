@@ -20,6 +20,13 @@ carries them:
 Both are stated as tests rather than left to the PR body, because a checker that
 only ever agrees with the repaired tree certifies nothing.
 
+:class:`TestTheMarkerMustOpenTheComment` carries a third direction, found in
+review (F-5): a comment block that *explains* the escape hatch — the natural
+thing to write above ``version:`` — must not *be* the escape hatch. The reviewer's
+reproduction is :data:`PROSE_EXPLAINING_THE_HATCH`, held verbatim, and it exited 0
+on a releasable ``0.2.0`` while reporting "1 justified site(s)". The class asserts
+both directions, because anchoring the marker must not amount to removing it.
+
 **The pre-fix file is reproduced verbatim, not read from the tree.** It is a
 module constant here. Reading it from ``helm/`` would make the test follow the
 repair and stop testing anything; reading it from a git object would make a unit
@@ -82,6 +89,26 @@ dependencies:
     repository: https://otwld.github.io/ollama-helm/
     version: 1.62.0
     condition: ollama.enabled
+"""
+
+
+#: The reviewer's reproduction of finding F-5, verbatim. A comment block that
+#: *explains* the escape hatch — the natural thing to write directly above
+#: ``version:`` — while stating that this chart is **not** exempt. Under the
+#: substring search this file was reported as "1 justified site(s)" and exited 0
+#: with a plainly releasable ``version: 0.2.0``.
+PROSE_EXPLAINING_THE_HATCH = """
+apiVersion: v2
+name: probe
+description: probe chart
+type: application
+# The develop tree carries a -dev pre-release so a merge cannot republish a
+# released chart version. If a chart legitimately reaches the registry some
+# other way, the escape hatch is `# chart-develop-version-ok: <reason>` written
+# on the version line or in this block. That is documentation of the mechanism,
+# not a claim that this chart is exempt.
+version: 0.2.0
+appVersion: "1.0.0"
 """
 
 
@@ -413,6 +440,118 @@ class TestJustification:
         )
         assert checker.main(["--helm-root", str(root), "--list"]) == checker.EXIT_OK
         assert "never published from this repository" in capsys.readouterr().out
+
+
+class TestTheMarkerMustOpenTheComment:
+    """Finding F-5: prose *about* the hatch is not a use of the hatch.
+
+    The exemption is recognised only where a comment begins — the trailing
+    comment on the ``version:`` line, or the head of a comment line above it.
+    A substring search over the block admitted any sentence that merely named
+    the marker, and the block above ``version:`` is precisely where a chart
+    explains the mechanism. Both directions live here: the prose must not exempt,
+    and a genuine marker must still exempt, including when it sits in the same
+    block as the prose.
+    """
+
+    def test_prose_explaining_the_hatch_does_not_exempt_a_releasable_version(
+        self, build_charts: Callable[..., Path]
+    ) -> None:
+        """The reviewer's reproduction, verbatim: releasable, and reported so."""
+        root = build_charts(probe=PROSE_EXPLAINING_THE_HATCH)
+        assert _kinds(root) == ["chart_version_releasable"]
+        assert [finding.justified for finding in _findings(root)] == [False]
+
+    def test_the_prose_fixture_exits_non_zero(
+        self, build_charts: Callable[..., Path], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """It exited 0 announcing "1 justified site(s)" — the shape NFR-018 §2 forbids."""
+        root = build_charts(probe=PROSE_EXPLAINING_THE_HATCH)
+        assert checker.main(["--helm-root", str(root), "--list"]) == checker.EXIT_DEFECTS
+        assert "justified site(s)" not in capsys.readouterr().out
+
+    def test_a_marker_quoted_mid_sentence_in_a_comment_is_not_an_exemption(
+        self, build_charts: Callable[..., Path]
+    ) -> None:
+        """The minimal form of the same defect, on a single comment line.
+
+        Quoted *with* its ``#``, exactly as one writes it in prose — which is
+        what made the substring search match.
+        """
+        root = build_charts(
+            probe="""
+            apiVersion: v2
+            name: probe
+            # the hatch is spelled `# chart-develop-version-ok: <reason>` on the version line
+            version: 0.2.0
+            """
+        )
+        assert _kinds(root) == ["chart_version_releasable"]
+
+    def test_a_marker_behind_another_trailing_comment_is_not_an_exemption(
+        self, build_charts: Callable[..., Path]
+    ) -> None:
+        """On the ``version:`` line the marker must BE the comment, not be in it."""
+        root = build_charts(
+            probe="""
+            apiVersion: v2
+            name: probe
+            version: 0.2.0  # pinned by hand # chart-develop-version-ok: never published here
+            """
+        )
+        assert _kinds(root) == ["chart_version_releasable"]
+
+    def test_a_genuine_marker_line_inside_the_prose_block_still_exempts(
+        self, build_charts: Callable[..., Path]
+    ) -> None:
+        """The hatch is anchored, not removed — the other direction of F-5.
+
+        Same block, same prose, plus one line that actually opens with the
+        marker. A "fix" that dropped the block form would go green on the four
+        tests above and silently take the escape hatch away.
+        """
+        root = build_charts(
+            probe=PROSE_EXPLAINING_THE_HATCH.replace(
+                "version: 0.2.0",
+                "# chart-develop-version-ok: vendored, never published from this repository\nversion: 0.2.0",
+                1,
+            )
+        )
+        assert _kinds(root) == []
+        assert [finding.justification for finding in _findings(root)] == [
+            "vendored, never published from this repository"
+        ]
+
+    def test_a_genuine_marker_on_the_version_line_still_exempts_under_the_prose(
+        self, build_charts: Callable[..., Path]
+    ) -> None:
+        """The trailing form, with the explanatory block left in place above it."""
+        root = build_charts(
+            probe=PROSE_EXPLAINING_THE_HATCH.replace(
+                "version: 0.2.0",
+                "version: 0.2.0  # chart-develop-version-ok: vendored, never published here",
+                1,
+            )
+        )
+        assert _kinds(root) == []
+        assert checker.main(["--helm-root", str(root)]) == checker.EXIT_OK
+
+    def test_a_double_hash_comment_still_exempts(self, build_charts: Callable[..., Path]) -> None:
+        """``##`` is a comment style, not a different marker."""
+        root = build_charts(
+            probe="""
+            apiVersion: v2
+            name: probe
+            ## chart-develop-version-ok: vendored, never published from this repository
+            version: 0.2.0
+            """
+        )
+        assert _kinds(root) == []
+
+    def test_the_displayed_marker_is_derived_from_the_matched_key(self) -> None:
+        """The report shows one spelling and the matcher uses another — unless derived."""
+        assert checker.JUSTIFICATION_MARKER.endswith(checker.JUSTIFICATION_KEY)
+        assert checker.JUSTIFICATION_MARKER.startswith("#")
 
 
 class TestProcessContract:

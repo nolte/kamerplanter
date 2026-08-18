@@ -27,17 +27,23 @@ appVersion: "1.0.0"     # Application version
 
 !!! danger "`-dev` is the development channel, not a release"
 
-    The `-dev` suffix is not a typo. The `develop` tree always carries the
-    **next** version with that suffix, and `helm push` derives the OCI tag
-    verbatim from this line. The tag
+    The `-dev` suffix is not a typo. The `develop` tree always carries a
+    pre-release with that suffix, and `helm push` derives the OCI tag verbatim
+    from this line. The tag
     `oci://ghcr.io/nolte/charts/kamerplanter:0.2.1-dev` is therefore overwritten
     by every merge into `develop` that touches `helm/` — that is what the
     channel is for.
 
     A release, by contrast, publishes under the bare version without a suffix,
-    for example `0.2.0`. The two channels are disjoint and cannot overlap: the
+    for example `0.1.0`. The two channels are disjoint and cannot overlap: the
     `dev` pre-release identifier is refused on the release path, so a tag
     `v0.3.0-dev` is rejected. `-rc` and `-beta` remain legal.
+
+    What is enforced is the `dev` identifier alone, not the number in front of
+    it. `0.2.1` names the intended next release and nothing keeps it ahead of
+    the published line — once `v0.2.1` ships, `0.2.1-dev` sorts below it, and no
+    schedule bumps this value. That is deliberate: any `-dev` number is
+    collision-proof, so a periodic bump would buy nothing.
 
     **Never use a `-dev` version in a deployment.** Pin a published version or
     the manifest digest. Why this is not theoretical, and how both channels are

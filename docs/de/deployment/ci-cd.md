@@ -324,10 +324,26 @@ Verschiedenes:
 
 | Kanal | Version im Baum | Veröffentlichter OCI-Tag | Lebensdauer |
 |-------|-----------------|--------------------------|-------------|
-| `develop` | die nächste Version mit dem Zusatz `-dev`, aktuell `0.2.1-dev` | `charts/kamerplanter:0.2.1-dev` | wird bei **jedem** `helm/`-Merge überschrieben |
-| Release | reine Version, vom Tag gesetzt | `charts/kamerplanter:0.2.0` | gehört genau einem Release und wird nicht neu gepusht |
+| `develop` | eine Vorabversion mit dem Zusatz `-dev`, derzeit `0.2.1-dev` | `charts/kamerplanter:0.2.1-dev` | wird bei **jedem** `helm/`-Merge überschrieben |
+| Release | reine Version, vom Tag gesetzt | `charts/kamerplanter:0.1.0` | gehört genau einem Release und wird nicht neu gepusht — mit einer gemessenen Ausnahme, siehe unten |
 
 <!-- Quelle: helm/kamerplanter/Chart.yaml, scripts/check_chart_develop_version.py, scripts/ci/determine_chart_version.sh -->
+
+Zwei Dinge, die die Tabelle nicht sagt und die man leicht falsch liest:
+
+- **Am `-dev`-Wert ist nur der Bezeichner `dev` erzwungen, nicht die Nummer
+  davor.** `0.2.1-dev` benennt das beabsichtigte nächste Release, ist aber keine
+  Zusage: Sobald `v0.2.1` erscheint, sortiert `0.2.1-dev` *unter* dem Release,
+  und kein Turnus hebt den Wert an. Nötig ist das auch nicht — die Kollision
+  bleibt bei jeder `-dev`-Nummer unmöglich, und genau das ist der Grund, warum
+  die Prüfung nichts Stärkeres verlangt.
+- **Der Beispiel-Tag in der Release-Zeile ist `0.1.0` und nicht `0.2.0`.**
+  `0.1.0` trägt im Manifest noch den Zeitstempel seines Releases (`created`
+  06.08.2026 um 13:38:04 UTC, 15 Sekunden nach der Veröffentlichung von
+  `v0.1.0`), `0.2.0` dagegen den eines `develop`-Builds. `0.2.0` ist damit der
+  eine Release-Tag, für den die Spalte „Lebensdauer" nicht gilt — der Vorfall
+  weiter unten, unrepariert und deshalb kein Beispiel für die Regel.
+  <!-- #1222 -->
 
 Die beiden Kanäle sind **disjunkt**, und das wird an beiden Enden erzwungen —
 nicht als Konvention, sondern als Prüfung:

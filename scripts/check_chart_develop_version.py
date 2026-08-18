@@ -90,6 +90,18 @@ as a silencer. This mirrors ``scripts/check_workflow_gate_integrity.py``'s
 ``# gate-integrity-ok:`` and ``scripts/check_attest_registry_credentials.py``'s
 ``# attest-credentials-ok:`` deliberately: one convention, not three.
 
+**The marker must OPEN a comment, not merely occur in one.** It is recognised
+only as the first thing after the ``#`` — on the ``version:`` line's trailing
+comment, or at the head of a comment line above it. Anywhere else it is prose.
+This is not pedantry: the comment block above ``version:`` is exactly where a
+``Chart.yaml`` explains the develop channel, and an explanation naturally quotes
+the marker it is explaining. Searching the whole block for the string made such
+a paragraph a silent exemption — this file passed with a plainly releasable
+``version: 0.2.0`` because a sentence four lines above it mentioned
+``chart-develop-version-ok: <reason>`` while saying the chart was *not* exempt.
+A gate whose own documentation disables it is worse than no gate, because the
+report reads "1 justified site(s)" and nobody looks.
+
 **Precision, and what is deliberately not checked.**
 
 * Only ``helm/*/Chart.yaml`` — the charts this repository publishes. A
@@ -140,7 +152,13 @@ CHART_GLOB = "*/Chart.yaml"
 
 #: The marker that exempts a chart, plus the minimum length of the reason that
 #: must follow it. A bare marker is not an exemption.
-JUSTIFICATION_MARKER = "# chart-develop-version-ok:"
+#:
+#: ``JUSTIFICATION_KEY`` is what is matched, and it is matched only where a
+#: comment *begins* (see :func:`_reason_on`). ``JUSTIFICATION_MARKER`` is the
+#: spelling shown to the reader in the report and in ``--help``; it is derived
+#: from the key so the two can never drift apart.
+JUSTIFICATION_KEY = "chart-develop-version-ok:"
+JUSTIFICATION_MARKER = f"# {JUSTIFICATION_KEY}"
 MIN_JUSTIFICATION_CHARS = 12
 
 #: The reserved first pre-release identifier of the develop channel. Compared
@@ -205,14 +223,46 @@ KIND_LABELS = {
 }
 
 
+def _reason_on(line: str) -> str | None:
+    """The exempting reason *opening* the comment on one line, or ``None``.
+
+    Everything before the first ``#`` is not a comment — the ``version:`` key on
+    the site's own line, whitespace on a comment line — and the marker must be
+    the first thing after it. Leading ``#`` characters and whitespace are
+    skipped, so ``#chart-…``, ``# chart-…`` and ``## chart-…`` all count; a
+    marker further into the text does not.
+
+    Anchoring rather than searching is the whole point. The comment block above
+    ``version:`` is where a ``Chart.yaml`` explains the develop channel, and such
+    an explanation quotes the marker; a substring search read that quotation as
+    an exemption and passed a releasable version (finding F-5 on the #1222 PR).
+
+    Args:
+        line: One raw source line, without its terminator.
+
+    Returns:
+        The reason text when the comment opens with the marker and the reason is
+        at least :data:`MIN_JUSTIFICATION_CHARS` long, else ``None``.
+    """
+    _, hash_sign, comment = line.partition("#")
+    if not hash_sign:
+        return None
+    body = comment.lstrip("#").lstrip()
+    if not body.startswith(JUSTIFICATION_KEY):
+        return None
+    reason = body[len(JUSTIFICATION_KEY) :].strip()
+    return reason if len(reason) >= MIN_JUSTIFICATION_CHARS else None
+
+
 def justification_for(lines: list[str], line: int) -> str | None:
     """Return the reason exempting the site on *line*, or ``None``.
 
-    Accepted on the site's own line (trailing comment) and anywhere in the
-    contiguous comment block directly above it. The block form matters here: a
-    ``Chart.yaml`` explains a version choice in the comment paragraph above the
+    Accepted on the site's own line (as the trailing comment) and on any line of
+    the contiguous comment block directly above it. The block form matters here:
+    a ``Chart.yaml`` explains a version choice in the comment paragraph above the
     key, and a marker is most useful inside the paragraph that already argues the
-    point.
+    point — but it must *open* one of that paragraph's lines, see
+    :func:`_reason_on`.
 
     Args:
         lines: The file's lines, without terminators.
@@ -227,11 +277,8 @@ def justification_for(lines: list[str], line: int) -> str | None:
         candidates.append(lines[index].strip())
         index -= 1
     for candidate in candidates:
-        marker = candidate.find(JUSTIFICATION_MARKER)
-        if marker == -1:
-            continue
-        reason = candidate[marker + len(JUSTIFICATION_MARKER) :].strip()
-        if len(reason) >= MIN_JUSTIFICATION_CHARS:
+        reason = _reason_on(candidate)
+        if reason is not None:
             return reason
     return None
 
@@ -467,7 +514,10 @@ def report(findings: list[Finding], *, scanned: int, list_all: bool, as_json: bo
             "\n"
             f"    {JUSTIFICATION_MARKER} <why this version cannot collide with a release>\n"
             "\n"
-            f"The reason is mandatory and must be at least {MIN_JUSTIFICATION_CHARS} characters."
+            f"The reason is mandatory and must be at least {MIN_JUSTIFICATION_CHARS} characters,\n"
+            "and the marker must OPEN the comment. Naming it inside a sentence — as a\n"
+            "comment block explaining this very mechanism naturally does — is prose, not an\n"
+            "exemption."
         )
         return EXIT_DEFECTS
 

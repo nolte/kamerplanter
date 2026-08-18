@@ -113,11 +113,13 @@ spec:
 
 !!! danger "Never point `targetRevision` at the `-dev` channel"
 
-    The `0.2.0` above is a **published** chart version. Alongside it there is a
-    second channel: the `develop` tree always carries the next version with the
-    `-dev` suffix — `<next-version>-dev` — and that OCI tag is overwritten by
-    every merge into `develop` that touches `helm/`. That is exactly what it is
-    for.
+    The `0.2.0` above is the version of a **published** release — with one
+    caveat, at the end of this box. Alongside it there is a second channel: the
+    `develop` tree carries a pre-release with the `-dev` suffix (`0.2.1-dev` at
+    the moment), and that OCI tag is overwritten by every merge into `develop`
+    that touches `helm/`. That is exactly what it is for. Only the `dev`
+    identifier is enforced, not the number in front of it: the `-dev` version is
+    not guaranteed to lead the published line.
 
     An `Application` pointing at it no longer has a fixed state: on the next
     merge ArgoCD syncs different bytes under an unchanged `targetRevision`, and
@@ -129,11 +131,29 @@ spec:
     [CI/CD — Two channels](ci-cd.md#two-channels).
     <!-- #1222 -->
 
+    The caveat: `charts/kamerplanter:0.2.0` of all tags is the one where exactly
+    that went wrong, before the two checks existed. It was re-pushed from
+    `develop` on 2026-08-18 (manifest annotation
+    `org.opencontainers.image.created: 2026-08-18T14:09:14Z`), five days after
+    release `v0.2.0` was published — and it is deliberately not repaired,
+    because another push under the same version reference would be the same
+    mistake again. A `targetRevision: 0.2.0` therefore syncs a `develop` build.
+    `0.1.0` is the newest chart tag whose manifest still carries its release
+    timestamp; otherwise pin the manifest digest, or wait for the first release
+    created under both checks (`v0.2.1`, a draft at the moment).
+    <!-- #1222 -->
+
 ---
 
 ## Ingress with TLS
 
 Complete example with Ingress, TLS via cert-manager, and Traefik as Ingress controller:
+
+!!! warning "`targetRevision: 0.2.0` carries the same caveat"
+
+    That chart tag was overwritten from `develop`; see
+    [Basic Application](#basic-application).
+    <!-- #1222 -->
 
 ```yaml title="argocd/kamerplanter-ingress-tls.yaml"
 apiVersion: argoproj.io/v1alpha1
@@ -216,6 +236,12 @@ spec:
 ## External values file
 
 Instead of maintaining all values inline in the Application manifest, you can use a separate values file from a Git repository:
+
+!!! warning "`targetRevision: 0.2.0` carries the same caveat"
+
+    That chart tag was overwritten from `develop`; see
+    [Basic Application](#basic-application).
+    <!-- #1222 -->
 
 ```yaml title="argocd/kamerplanter-multi-source.yaml"
 apiVersion: argoproj.io/v1alpha1

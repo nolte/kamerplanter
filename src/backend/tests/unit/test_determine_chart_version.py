@@ -33,6 +33,13 @@ still pass every process test while being entirely inert in CI, so the step is
 asserted to invoke the script *and* to sit ahead of ``helm package`` and
 ``helm push``. A rejection after the push would be theatre.
 
+:class:`TestTheBlastRadiusIsDisclosed` is the third half of it. The rejection
+fires *after* the GitHub release for the tag exists, and ``update-release-assets``
+is gated on this job not failing — so refusing a ``-dev`` tag costs that release
+its chart, its compose file, its env example and its Packages block. That is a
+property of the workflow, measured here, and the script header is required to
+say so: an undisclosed cost is one the person tagging pays without being asked.
+
 **Why here.** ``pytest tests/unit/`` from ``src/backend`` is a CI check, and the
 script lives outside the backend package, so it is reached by path. It is not a
 backend test in subject; it is one in placement, because this is the tier that
@@ -69,6 +76,11 @@ if not SCRIPT.is_file():  # pragma: no cover — only on a partial checkout
 CHART_JOB = "publish-helm-charts"
 VERSION_STEP = "Determine chart version"
 PUBLISHING_STEPS = ("Package chart", "Push chart to GHCR")
+
+#: The job that carries every non-chart release asset and is chained to
+#: :data:`CHART_JOB`'s result. A rejection here skips it — see
+#: :class:`TestTheBlastRadiusIsDisclosed`.
+ASSET_JOB = "update-release-assets"
 
 
 @dataclass(frozen=True)
@@ -289,3 +301,60 @@ class TestTheWiring:
         steps = self._chart_job_steps()
 
         assert self._index_of(steps, VERSION_STEP) < self._index_of(steps, publishing_step)
+
+
+class TestTheBlastRadiusIsDisclosed:
+    """Finding F-3: what this rejection costs, measured and written down.
+
+    The workflow is triggered *by* the tag, so the GitHub release for a
+    ``v0.3.0-dev`` tag is already published when this script fires — and
+    ``update-release-assets`` is gated on this job not failing. The rejection
+    therefore leaves a published release with no chart, no compose file, no env
+    example and no Packages block: the #1218 damage, caused by our own check.
+
+    Two assertions, and they are only worth something together. The first
+    *measures* the coupling in the workflow, so it goes red if the chaining is
+    ever changed — at which point the header would be stating something false.
+    The second requires the header to disclose it, so a reader deciding whether
+    to tag ``-dev`` learns the cost from the file that imposes it rather than
+    from a release that came out half-built.
+    """
+
+    @staticmethod
+    def _header() -> str:
+        """The script's leading comment block, up to the first executable line."""
+        text = SCRIPT.read_text(encoding="utf-8")
+        head, marker, _ = text.partition("set -euo pipefail")
+        assert marker, "the script no longer starts with a comment header followed by `set -euo pipefail`"
+        return head
+
+    def test_the_asset_job_is_chained_to_this_jobs_result(self) -> None:
+        """The coupling itself — the reason a chart rejection costs the assets."""
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        job = workflow["jobs"][ASSET_JOB]
+
+        assert CHART_JOB in job["needs"]
+        assert "!contains(needs.*.result, 'failure')" in " ".join(str(job["if"]).split())
+
+    def test_the_asset_job_carries_the_artifacts_the_header_names(self) -> None:
+        """Named concretely, so the disclosure cannot outlive what it describes."""
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        run_bodies = " ".join(str(step.get("run", "")) for step in workflow["jobs"][ASSET_JOB]["steps"])
+
+        assert "docker-compose" in run_bodies
+        assert ".env.example" in run_bodies
+
+    def test_the_header_discloses_the_skipped_asset_job(self) -> None:
+        """Disclosing only the eight images understates the cost by three artifacts."""
+        header = self._header()
+
+        assert ASSET_JOB in header
+        assert "docker-compose" in header
+        assert ".env.example" in header
+
+    def test_the_header_says_the_release_is_already_published_when_this_runs(self) -> None:
+        """The decisive fact: this check cannot prevent the release, only the chart."""
+        header = self._header()
+
+        assert "#1218" in header
+        assert "already" in header

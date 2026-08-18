@@ -323,10 +323,25 @@ The same OCI address carries two kinds of tag, and they mean different things:
 
 | Channel | Version in the tree | Published OCI tag | Lifetime |
 |---------|---------------------|-------------------|----------|
-| `develop` | the next version with the `-dev` suffix, currently `0.2.1-dev` | `charts/kamerplanter:0.2.1-dev` | overwritten by **every** `helm/` merge |
-| Release | bare version, set from the tag | `charts/kamerplanter:0.2.0` | belongs to exactly one release and is never re-pushed |
+| `develop` | a pre-release with the `-dev` suffix, currently `0.2.1-dev` | `charts/kamerplanter:0.2.1-dev` | overwritten by **every** `helm/` merge |
+| Release | bare version, set from the tag | `charts/kamerplanter:0.1.0` | belongs to exactly one release and is never re-pushed — with one measured exception, see below |
 
 <!-- Source: helm/kamerplanter/Chart.yaml, scripts/check_chart_develop_version.py, scripts/ci/determine_chart_version.sh -->
+
+Two things the table does not say, and that are easy to read wrongly:
+
+- **Only the `dev` identifier is enforced on the `-dev` value, not the number in
+  front of it.** `0.2.1-dev` names the intended next release, but it is not a
+  promise: once `v0.2.1` ships, `0.2.1-dev` sorts *below* the release, and no
+  schedule bumps the value. Nor does it need to — the collision stays impossible
+  for any `-dev` number, which is exactly why the check demands nothing stronger.
+- **The example tag in the release row is `0.1.0`, not `0.2.0`.** `0.1.0` still
+  carries its release timestamp in the manifest (`created` 2026-08-06 at
+  13:38:04 UTC, 15 seconds after `v0.1.0` was published), whereas `0.2.0`
+  carries that of a `develop` build. `0.2.0` is therefore the one release tag
+  the "Lifetime" column does not hold for — the incident below, unrepaired and
+  hence not an example of the rule.
+  <!-- #1222 -->
 
 The two channels are **disjoint**, and that is enforced at both ends — as a
 check, not as a convention:

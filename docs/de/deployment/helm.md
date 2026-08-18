@@ -27,17 +27,23 @@ appVersion: "1.0.0"     # Anwendungs-Version
 
 !!! danger "`-dev` ist der Entwicklungskanal, kein Release"
 
-    Der Zusatz `-dev` ist kein Schreibfehler. Der `develop`-Baum trägt immer die
-    **nächste** Version mit diesem Zusatz, und `helm push` leitet den OCI-Tag
+    Der Zusatz `-dev` ist kein Schreibfehler. Der `develop`-Baum trägt immer
+    eine Vorabversion mit diesem Zusatz, und `helm push` leitet den OCI-Tag
     wörtlich aus dieser Zeile ab. Der Tag
     `oci://ghcr.io/nolte/charts/kamerplanter:0.2.1-dev` wird deshalb bei jedem
     Merge nach `develop` überschrieben, der `helm/` berührt — das ist der Zweck
     dieses Kanals.
 
     Ein Release publiziert dagegen unter der reinen Version ohne Zusatz, etwa
-    `0.2.0`. Die beiden Kanäle sind disjunkt und können sich nicht überschneiden:
+    `0.1.0`. Die beiden Kanäle sind disjunkt und können sich nicht überschneiden:
     Der Vorab-Bezeichner `dev` ist im Release-Pfad gesperrt, ein Tag `v0.3.0-dev`
     wird abgewiesen. `-rc` und `-beta` bleiben erlaubt.
+
+    Erzwungen ist allein der Bezeichner `dev`, nicht die Nummer davor. `0.2.1`
+    benennt das beabsichtigte nächste Release, ohne dass irgendetwas den Wert
+    vor der veröffentlichten Linie hält — sobald `v0.2.1` erscheint, sortiert
+    `0.2.1-dev` darunter, und kein Turnus hebt ihn an. Das ist Absicht: Jede
+    `-dev`-Nummer ist kollisionssicher, ein regelmäßiger Bump brächte nichts.
 
     **Verwende in keinem Deployment eine `-dev`-Version.** Pinne eine
     veröffentlichte Version oder den Manifest-Digest. Warum das keine Theorie
