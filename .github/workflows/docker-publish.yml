@@ -783,6 +783,29 @@ jobs:
         # for this release actually exist (see the `needs:` on this job).
         run: scripts/ci/pin_chart_image_digests.sh "helm/$CHART/values.yaml" "$VERSION"
 
+      # TWO logins to the same registry, and both are load-bearing (#1218).
+      #
+      # `helm registry login` writes Helm's OWN credential store; `helm push`
+      # below reads that one. `actions/attest-build-provenance` with
+      # `push-to-registry: true` reads ~/.docker/config.json and nothing else
+      # (its dist/index.js `getRegistryCredentials`), so without the step below
+      # it fails with "No credentials found for registry ghcr.io" — the file
+      # exists, it just has no ghcr.io entry. That cost v0.1.0 and v0.2.0 their
+      # chart, compose file, env example and the Packages block of their notes:
+      # the attest step died, and `update-release-assets` is gated on this job
+      # not failing, so the upload never ran.
+      #
+      # The eight image jobs above have carried this step all along, which is
+      # why their identical attest steps succeed. Do not "simplify" either login
+      # away; `scripts/check_attest_registry_credentials.py` fails the required
+      # `static` lane if the Docker-store login goes missing.
+      - name: Log in to GHCR (Docker credential store, for the attestation)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
