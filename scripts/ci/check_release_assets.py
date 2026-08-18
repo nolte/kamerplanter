@@ -124,6 +124,18 @@ WITHOUT writing the report — the run goes red and opens NO issue. An undetermi
 check must never read as a clean one, and a transient API blip must not spam the
 tracker.
 
+THE REPORT CARRIES TWO VERDICTS, NOT ONE
+----------------------------------------
+``alert`` is true when a *judged* release is incomplete. ``resolved`` is true
+only when at least one release was judged AND every judged release is complete.
+They are not each other's negation, and the gap between them is the state this
+check spends most of its life in: nothing at or after the floor has settled, so
+nothing was measured. ``not alert`` is true there — and reading that as "all
+clear" would let the workflow comment "Resolved" on an open alert and close it
+having measured NOTHING, which a `workflow_dispatch` with a raised floor or a
+long settle window can trigger at will. The workflow therefore opens on
+``alert`` and closes on ``resolved``; on neither it leaves the issue alone.
+
 Traces to issue #1218 (no TC-ID: a CI alarm is not a user-facing case).
 """
 
@@ -412,8 +424,12 @@ def build_report(
         now: Evaluation instant, timezone-aware.
 
     Returns:
-        A JSON-serialisable report; ``alert`` is the single verdict the workflow
-        keys off.
+        A JSON-serialisable report carrying two independent verdicts, because
+        three states have to be told apart and one boolean cannot:
+        ``alert`` says *a judged release is incomplete* (open or update the
+        issue), ``resolved`` says *at least one release was judged and every
+        judged release is complete* (close it). A run that judged nothing is
+        neither — it leaves the issue exactly as it found it.
 
     Raises:
         ReleaseAssetsError: Anything that leaves the answer undetermined.
@@ -475,6 +491,15 @@ def build_report(
         "skipped_below_floor": below_floor,
         "skipped_within_settle": pending,
         "alert": bool(incomplete),
+        # NOT `not alert`. The two differ on the run that judged NOTHING — every
+        # release below the floor or inside the settle window — where `alert` is
+        # false because there was no finding, not because there was a clean
+        # measurement. The workflow closes its alert issue on THIS flag, so a
+        # dispatch with a raised floor or a wide settle window can no longer
+        # report "Resolved" on a release that is still genuinely incomplete.
+        # Undetermined presenting itself as measured-clean is the failure class
+        # this whole check exists to remove.
+        "resolved": bool(evaluated) and not incomplete,
     }
 
 

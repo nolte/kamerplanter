@@ -41,9 +41,22 @@ interchangeable. This checker states it.
 **What it enforces.** For every job containing a step that uses an
 ``actions/attest*`` action with ``push-to-registry`` true, that same job must
 contain a step that writes the *Docker* credential store — a
-``docker/login-action`` step, or a ``run:`` step invoking ``docker login``. When
-both the attested subject's registry and the login's registry resolve to literal
-hostnames, they must also be the same host; when either is an unresolved
+``docker/login-action`` step, or a ``run:`` step invoking ``docker login`` —
+and that step must actually have run by the time the attestation does:
+
+* **Earlier in the job.** Steps run in file order, and the action reads
+  ``~/.docker/config.json`` when *it* runs. A login below the attest step leaves
+  the file unwritten at exactly the moment it is read, and the run dies with the
+  same ``No credentials found for registry <host>`` this whole gate exists for.
+* **Unconditionally**, or under the attest step's own ``if:``. Whether an
+  expression is true on the release run is not statically decidable, so a login
+  guarded by a condition the attest step does not share is treated as *not*
+  satisfying the requirement rather than as satisfying it — the lenient reading
+  is the one that reproduced the incident. Two steps carrying the *same*
+  condition run or skip together, which is decidable and therefore accepted.
+
+When both the attested subject's registry and the login's registry resolve to
+literal hostnames, they must also be the same host; when either is an unresolved
 expression the comparison is skipped rather than guessed (see §Precision).
 
 **The escape hatch.** A site may stand by carrying a justification on its own
@@ -65,6 +78,14 @@ used as a silencer. This mirrors ``scripts/check_workflow_gate_integrity.py``'s
   unresolvable, so only the *presence* rule applies there. Only ``${{ env.X }}``
   is substituted, from the workflow-level and job-level ``env:`` mappings; the
   ``github``/``matrix``/``secrets`` contexts are not knowable statically.
+* A ``${{ … }}`` expression inside a ``run:`` command line is collapsed to one
+  opaque token *before* the line is split on whitespace. It contains spaces, so
+  naive tokenising tears it into three pieces and makes ``docker login -u
+  ${{ github.actor }} … ghcr.io`` read ``github.actor`` as the registry — a
+  spurious mismatch that would turn the required lane red on a correct workflow.
+* A ``docker login`` continued across lines with a trailing backslash is read as
+  the one command it is; a ``docker login`` with no arguments at all means
+  Docker Hub, which is what the daemon does with it.
 * A login performed by a composite action or a reusable workflow is invisible
   here. That is what the marker is for.
 
@@ -121,6 +142,29 @@ HELM_LOGIN_RUN = re.compile(r"\bhelm\s+registry\s+login\b")
 #: A GitHub Actions expression left in a value we would otherwise compare.
 EXPRESSION = re.compile(r"\$\{\{")
 
+#: A whole ``${{ … }}`` expression, collapsed to :data:`EXPRESSION_TOKEN` before
+#: a shell command line is split on whitespace. ``DOTALL`` because a ``run:``
+#: block may wrap one across lines.
+EXPRESSION_SPAN = re.compile(r"\$\{\{.*?\}\}", re.DOTALL)
+
+#: The opaque stand-in for a collapsed expression. Not spellable in YAML, so it
+#: can never collide with a real registry name.
+EXPRESSION_TOKEN = "\x00expression\x00"
+
+#: ``docker login`` flags that take no value. Everything else spelled ``-x`` or
+#: ``--xy`` consumes the token after it, which is how ``-u <user>`` avoids being
+#: mistaken for the registry argument.
+VALUELESS_LOGIN_FLAGS = frozenset({"--password-stdin"})
+
+#: Shell punctuation that ends the ``docker login`` command line.
+COMMAND_SEPARATORS = frozenset({"|", "||", "&", "&&", ";", ">", ">>", "2>&1"})
+
+#: ``if:`` values under which a step always runs, so they are no condition at
+#: all. ``success()`` is the implicit default; ``always()`` and ``!cancelled()``
+#: widen it. Anything else is an expression whose run-time value is unknowable
+#: here, and is therefore treated as a real condition.
+ALWAYS_RUN_CONDITIONS = frozenset({"true", "success()", "always()", "!cancelled()", "! cancelled()"})
+
 #: ``${{ env.NAME }}`` — the one context resolvable from the file itself.
 ENV_REFERENCE = re.compile(r"\$\{\{\s*env\.([A-Za-z_][A-Za-z0-9_-]*)\s*\}\}")
 
@@ -162,9 +206,52 @@ class Finding:
             return str(self.path)
 
 
+@dataclass(frozen=True)
+class LoginStep:
+    """A step that writes ``~/.docker/config.json``.
+
+    Attributes:
+        position: Index among the job's steps, so a login can be compared
+            against the attest step it is supposed to precede.
+        registry: The host it authenticates against, or ``None`` when that
+            cannot be resolved statically (presence satisfied, comparison
+            skipped).
+        condition: The step's normalised ``if:``, or ``None`` when it always
+            runs.
+    """
+
+    position: int
+    registry: str | None
+    condition: str | None
+
+
+@dataclass(frozen=True)
+class AttestSite:
+    """One ``actions/attest*`` step that pushes its attestation to a registry.
+
+    Attributes:
+        ordinal: Index among *all* ``actions/attest*`` steps of the job —
+            including the ones that do not push. This is the number that ties
+            the site back to its ``uses:`` line, because the line scan sees
+            every attest step and cannot tell the pushing ones apart. Counting
+            pushing steps only is exactly the desynchronisation that let a
+            justification on a harmless step exculpate a real violation.
+        position: Index among the job's steps.
+        registry: The attested subject's registry, or ``None`` when unresolvable.
+        condition: The step's normalised ``if:``, or ``None``.
+    """
+
+    ordinal: int
+    position: int
+    registry: str | None
+    condition: str | None
+
+
 #: Human wording per finding kind, used in the report.
 KIND_LABELS = {
     "attest_without_docker_login": "nothing writes ~/.docker/config.json in this job",
+    "attest_login_after_attest_step": "the Docker login runs only after the attestation",
+    "attest_login_only_conditional": "the Docker login may be skipped on the run that attests",
     "attest_login_registry_mismatch": "the Docker login targets a different registry",
 }
 
@@ -321,77 +408,150 @@ def _with(step: dict[str, Any]) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def docker_login_registries(job: dict[str, Any], env: dict[str, str]) -> list[str | None]:
-    """One entry per step in *job* that writes the Docker credential store.
+def step_condition(step: dict[str, Any]) -> str | None:
+    """The step's ``if:``, normalised, or ``None`` when the step always runs.
 
-    ``None`` means "this step logs in, but to a registry that cannot be resolved
-    statically" — which satisfies the presence rule and suppresses the host
-    comparison.
+    Normalising strips an enclosing ``${{ … }}`` and collapses whitespace, so
+    ``if: ${{ github.ref_type == 'tag' }}`` and ``if: github.ref_type == 'tag'``
+    — the two spellings of one condition — compare equal. That comparison is the
+    only thing this value is used for: two steps under the same condition run or
+    skip together, which is decidable without knowing what the condition means.
     """
-    registries: list[str | None] = []
-    for step in _steps(job):
+    raw = step.get("if")
+    if raw is None:
+        return None
+    text = " ".join(str(raw).split())
+    if text.startswith("${{") and text.endswith("}}"):
+        text = " ".join(text[3:-2].split())
+    if not text or text.lower() in ALWAYS_RUN_CONDITIONS:
+        return None
+    return text
+
+
+def docker_login_steps(job: dict[str, Any], env: dict[str, str]) -> list[LoginStep]:
+    """Every step in *job* that writes the Docker credential store.
+
+    A ``registry`` of ``None`` means "this step logs in, but to a registry that
+    cannot be resolved statically" — which satisfies the presence rule and
+    suppresses the host comparison.
+    """
+    logins: list[LoginStep] = []
+    for position, step in enumerate(_steps(job)):
+        condition = step_condition(step)
         if DOCKER_LOGIN_ACTION.match(_uses(step)):
             raw = _with(step).get("registry")
             if raw is None:
                 # login-action's documented default is Docker Hub.
-                registries.append(DOCKER_HUB)
+                logins.append(LoginStep(position=position, registry=DOCKER_HUB, condition=condition))
                 continue
             resolved = resolve_env(str(raw), env)
-            registries.append(None if EXPRESSION.search(resolved) else canonical_registry(resolved))
+            registry = None if EXPRESSION.search(resolved) else canonical_registry(resolved)
+            logins.append(LoginStep(position=position, registry=registry, condition=condition))
             continue
-        run = _run(step)
-        if DOCKER_LOGIN_RUN.search(run):
-            registries.append(_registry_from_shell_login(resolve_env(run, env)))
-    return registries
+        run = resolve_env(_run(step), env)
+        logins.extend(
+            LoginStep(position=position, registry=registry, condition=condition)
+            for registry in _shell_login_registries(run)
+        )
+    return logins
 
 
-def _registry_from_shell_login(run: str) -> str | None:
-    """Best-effort registry argument of a ``docker login`` command line.
+def _logical_line(text: str) -> str:
+    """The first shell command line of *text*, following ``\\`` continuations.
+
+    ``docker login \\`` with its registry on the next line is one command, and
+    reading only the physical first line of it yields "no argument" — which
+    resolves to Docker Hub and produces a mismatch against a GHCR subject that
+    is not there. Returns ``""`` for empty input rather than indexing into an
+    empty list: ``run: docker login`` with nothing after it is legal YAML, and a
+    linter that raises ``IndexError`` on it prints a traceback instead of a
+    verdict.
+    """
+    parts: list[str] = []
+    for raw in text.splitlines():
+        stripped = raw.rstrip()
+        if stripped.endswith("\\"):
+            parts.append(stripped[:-1])
+            continue
+        parts.append(stripped)
+        break
+    return " ".join(parts)
+
+
+def _shell_tokens(line: str) -> list[str]:
+    """Split a command line, keeping each ``${{ … }}`` expression as one token.
+
+    An expression contains spaces, so plain whitespace splitting tears it apart
+    and hands its tail to whatever consumes the next token.
+    """
+    return EXPRESSION_SPAN.sub(EXPRESSION_TOKEN, line).split()
+
+
+def _shell_login_registries(run: str) -> list[str | None]:
+    """The registry of every ``docker login`` invocation in a ``run:`` block."""
+    return [_registry_from_shell_login(run, match.end()) for match in DOCKER_LOGIN_RUN.finditer(run)]
+
+
+def _registry_from_shell_login(run: str, start: int) -> str | None:
+    """Best-effort registry argument of the ``docker login`` beginning at *start*.
 
     Returns ``None`` when it cannot be read off, which makes the step count as a
     login to an unknown registry — presence satisfied, comparison skipped. Being
     wrong in the strict direction here would report a job that does log in.
     """
-    match = DOCKER_LOGIN_RUN.search(run)
-    if match is None:  # pragma: no cover — callers check first
-        return None
-    tail = run[match.end() :].splitlines()[0]
-    tokens = tail.replace("\\", " ").split()
+    tokens = _shell_tokens(_logical_line(run[start:]))
     index = 0
     while index < len(tokens):
         token = tokens[index]
         if token.startswith("-"):
             # `-u user` / `--username user` take a value; `--password-stdin` does not.
-            if "=" not in token and token not in {"--password-stdin"}:
+            if "=" not in token and token not in VALUELESS_LOGIN_FLAGS:
                 index += 2
             else:
                 index += 1
             continue
-        if EXPRESSION.search(token) or token in {"|", "&&", ";"}:
+        # `in`, not `==`: a host only partly spelled as an expression
+        # (`${{ env.REG }}.example.com`) is just as unresolvable, and guessing
+        # at it would report a job that logs in exactly where it should.
+        if EXPRESSION_TOKEN in token or token in COMMAND_SEPARATORS:
             return None
         return canonical_registry(token)
+    # `docker login` with no argument authenticates against Docker Hub.
     return DOCKER_HUB
 
 
-def attest_subject_registries(job: dict[str, Any], env: dict[str, str]) -> list[str | None]:
-    """One entry per attest step in *job* that pushes to a registry.
+def attest_push_sites(job: dict[str, Any], env: dict[str, str]) -> list[AttestSite]:
+    """Every attest step in *job* that pushes its attestation to a registry.
 
-    Order matches the job's step order, which is what ties an entry back to its
-    ``uses: actions/attest…`` line.
+    Each site carries its ``ordinal`` among *all* attest steps of the job, not
+    among the pushing ones: that ordinal is what the caller indexes the
+    ``uses: actions/attest…`` line list with. Numbering the pushing steps
+    consecutively desynchronises the two lists the moment a non-pushing attest
+    step precedes a pushing one, which anchors the finding on the wrong step —
+    and a justification comment on that wrong step then silently exempts the
+    real violation.
     """
-    subjects: list[str | None] = []
-    for step in _steps(job):
+    sites: list[AttestSite] = []
+    ordinal = 0
+    for position, step in enumerate(_steps(job)):
         if not ATTEST_ACTION.match(_uses(step)):
             continue
+        current = ordinal
+        ordinal += 1
         options = _with(step)
         if not wants_registry_push(options.get("push-to-registry")):
             continue
         raw = options.get("subject-name")
-        if not isinstance(raw, str):
-            subjects.append(None)
-            continue
-        subjects.append(registry_of_image(resolve_env(raw, env)))
-    return subjects
+        registry = registry_of_image(resolve_env(raw, env)) if isinstance(raw, str) else None
+        sites.append(
+            AttestSite(
+                ordinal=current,
+                position=position,
+                registry=registry,
+                condition=step_condition(step),
+            )
+        )
+    return sites
 
 
 def _attest_lines(lines: list[str], span: tuple[int, int]) -> list[int]:
@@ -437,41 +597,47 @@ def scan_document(path: Path, lines: list[str], document: Any) -> list[Finding]:
     for name, job in named_jobs:
         env = {**workflow_env, **_env_of(job)}
 
-        pushing = attest_subject_registries(job, env)
-        if not pushing:
+        sites = attest_push_sites(job, env)
+        if not sites:
             continue
 
-        logins = docker_login_registries(job, env)
+        logins = docker_login_steps(job, env)
         uses_helm_login = any(HELM_LOGIN_RUN.search(_run(step)) for step in _steps(job))
         anchors = _attest_lines(lines, spans[name])
+        attest_steps = sum(1 for step in _steps(job) if ATTEST_ACTION.match(_uses(step)))
+        # The line scan and the parsed steps must agree on how many attest steps
+        # the job has, or the ordinal means nothing. When they do not, fall back
+        # to the job key: a finding anchored one step too high is a nuisance, one
+        # anchored on the wrong step is an exemption granted to the wrong site.
+        aligned = len(anchors) == attest_steps
 
-        for position, subject_registry in enumerate(pushing):
-            anchor = anchors[position] if position < len(anchors) else spans[name][0]
+        for site in sites:
+            anchor = anchors[site.ordinal] if aligned else spans[name][0]
             line = step_start_line(lines, anchor)
-            target = subject_registry or "the attested registry"
 
-            if not logins:
-                instead = (
-                    " — its only registry login is `helm registry login`, which writes Helm's own store"
-                    if uses_helm_login
-                    else ""
-                )
+            usable = [
+                login
+                for login in logins
+                if login.position < site.position and (login.condition is None or login.condition == site.condition)
+            ]
+            if not usable:
+                kind, reason = _explain_unusable(logins, site, uses_helm_login=uses_helm_login)
                 findings.append(
                     Finding(
                         path=path,
                         line=line,
-                        kind="attest_without_docker_login",
+                        kind=kind,
                         detail=(
-                            f"job '{name}' attests to {target} with push-to-registry: true, "
-                            f"but no step in it writes ~/.docker/config.json{instead}"
+                            f"job '{name}' attests to {site.registry or 'the attested registry'} "
+                            f"with push-to-registry: true, but {reason}"
                         ),
                         justification=justification_for(lines, line),
                     )
                 )
                 continue
 
-            known = [registry for registry in logins if registry is not None]
-            if subject_registry is None or len(known) != len(logins) or subject_registry in known:
+            known = [login.registry for login in usable if login.registry is not None]
+            if site.registry is None or len(known) != len(usable) or site.registry in known:
                 continue
             findings.append(
                 Finding(
@@ -479,13 +645,55 @@ def scan_document(path: Path, lines: list[str], document: Any) -> list[Finding]:
                     line=line,
                     kind="attest_login_registry_mismatch",
                     detail=(
-                        f"job '{name}' attests to {subject_registry} with push-to-registry: true, "
+                        f"job '{name}' attests to {site.registry} with push-to-registry: true, "
                         f"but its Docker login(s) target {', '.join(sorted(set(known)))}"
                     ),
                     justification=justification_for(lines, line),
                 )
             )
     return findings
+
+
+def _explain_unusable(
+    logins: list[LoginStep],
+    site: AttestSite,
+    *,
+    uses_helm_login: bool,
+) -> tuple[str, str]:
+    """Why no Docker login covers *site*, as a finding kind and a clause.
+
+    The three reasons need three different repairs — add a step, move a step,
+    drop or match a condition — so they are three kinds rather than one. When
+    both near misses are present the conditional one is reported: a login that
+    is merely misplaced is also conditional, and the condition is the harder
+    fact to see.
+    """
+    earlier_conditional = [login for login in logins if login.position < site.position and login.condition is not None]
+    if earlier_conditional:
+        conditions = ", ".join(sorted({f"`if: {login.condition}`" for login in earlier_conditional}))
+        attest_condition = f"carries `if: {site.condition}`" if site.condition else "is unconditional"
+        return (
+            "attest_login_only_conditional",
+            (
+                f"every Docker login before that step is conditional ({conditions}) while the attest step "
+                f"{attest_condition} — nothing here decides whether the login runs on the run that attests"
+            ),
+        )
+    if logins:
+        return (
+            "attest_login_after_attest_step",
+            (
+                "the step that writes ~/.docker/config.json runs after it — steps run in file order, and "
+                "the action reads the credential file at the moment it runs, not at the end of the job"
+            ),
+        )
+    instead = (
+        " — its only registry login is `helm registry login`, which writes Helm's own store" if uses_helm_login else ""
+    )
+    return (
+        "attest_without_docker_login",
+        f"no step in it writes ~/.docker/config.json{instead}",
+    )
 
 
 def scan_file(path: Path) -> list[Finding]:
@@ -573,7 +781,8 @@ def report(findings: list[Finding], *, list_all: bool, as_json: bool) -> int:
             "releases their chart, their compose file, their env example and their release\n"
             "notes' Packages block.\n"
             "\n"
-            "Add the step the eight image jobs already carry:\n"
+            "Add the step the eight image jobs already carry, ABOVE the attest step and\n"
+            "without an `if:` the attest step does not itself carry:\n"
             "\n"
             "    - name: Log in to GHCR\n"
             "      uses: docker/login-action@<pinned-sha>\n"

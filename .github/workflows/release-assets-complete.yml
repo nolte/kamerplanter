@@ -144,11 +144,27 @@ jobs:
             // speaks — the job log, the alert body, and the closing comment.
             const floorLine = `Floor: only releases published at or after \`${report.floor}\` are evaluated (issue #1218, Q4 — v0.1.0 and v0.2.0 are deliberately left unrepaired).`;
 
-            if (!report.alert) {
-              const evaluated = report.evaluated.length;
-              const why = evaluated === 0
-                ? `no published release at or after the floor has settled yet — nothing was judged (this check is inert until the next release)`
-                : `all ${evaluated} evaluated release(s) carry their expected assets and packages block`;
+            // Closing is keyed on `report.resolved`, NEVER on `!report.alert`.
+            // The two differ on the run that judged nothing (every release below
+            // the floor or inside the settle window): there `alert` is false for
+            // want of a measurement, not for want of a defect. Closing there
+            // would comment "Resolved: … nothing was judged" onto an open alert
+            // and shut it — and a workflow_dispatch with a raised floor or a
+            // long settle window produces exactly that state on a release that
+            // is still genuinely incomplete. Undetermined is not clean.
+            if (!report.alert && !report.resolved) {
+              core.notice(
+                `Nothing was judged: no published release at or after ${report.floor} has settled ` +
+                `(settle window ${report.settle_hours}h). This check is inert until the next release. ` +
+                (existing
+                  ? `Alert issue #${existing.number} is left OPEN — it was not measured, so it was not resolved.`
+                  : `No alert issue is open.`)
+              );
+              return;
+            }
+
+            if (report.resolved) {
+              const why = `all ${report.evaluated.length} evaluated release(s) carry their expected assets and packages block`;
               if (existing) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner, repo: context.repo.repo,

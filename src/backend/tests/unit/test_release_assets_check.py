@@ -42,14 +42,18 @@ Traces to issue #1218 (no TC-ID: a CI alarm is not a user-facing case).
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
-from tests.support.repo_scripts import load_repo_script
+from tests.support.repo_scripts import find_repo_root, load_repo_script
 
 checker = load_repo_script("ci/check_release_assets")
 
@@ -702,3 +706,239 @@ class TestMain:
         assert "default.env.example-0.2.0" in out
         assert "no packages block" in out
         assert "RELEASE ASSETS INCOMPLETE" in out
+
+
+# --------------------------------------------------------------------------- #
+# The alerting workflow's own decision — review finding F-5 on PR #1224.
+# --------------------------------------------------------------------------- #
+
+#: The workflow whose `actions/github-script` step acts on the report.
+ALERT_WORKFLOW = ".github/workflows/release-assets-complete.yml"
+
+
+def alert_script() -> str:
+    """The ``actions/github-script`` body of the alerting workflow, as shipped.
+
+    Read out of the workflow file rather than transcribed here: a copy would
+    keep passing while the shipped script drifted away from it, which is the
+    "test reaches the rule by a different path than production" failure this
+    repository pays for repeatedly.
+    """
+    root = find_repo_root(Path(__file__).resolve())
+    assert root is not None, "checkout root not found"
+    document = yaml.safe_load((root / ALERT_WORKFLOW).read_text(encoding="utf-8"))
+    scripts = [
+        step["with"]["script"]
+        for step in document["jobs"]["check-release-assets"]["steps"]
+        if str(step.get("uses", "")).startswith("actions/github-script@")
+    ]
+    assert len(scripts) == 1, f"expected exactly one github-script step, found {len(scripts)}"
+    return scripts[0]
+
+
+#: Harness around the shipped script: the three objects `actions/github-script`
+#: injects, faked, recording every call. The script body runs verbatim inside
+#: the async wrapper — nothing about it is re-implemented here.
+NODE_HARNESS = """
+const fs = require('fs');
+const calls = [];
+const openIssues = JSON.parse(process.env.OPEN_ISSUES);
+const github = {
+  rest: {
+    issues: {
+      listForRepo: async () => ({ data: openIssues }),
+      createComment: async (args) => { calls.push(['createComment', args]); },
+      update: async (args) => { calls.push(['update', args]); },
+      create: async (args) => { calls.push(['create', args]); return { data: { number: 4242 } }; },
+    },
+  },
+};
+const context = { repo: { owner: 'nolte', repo: 'kamerplanter' } };
+const core = { notice: (message) => { calls.push(['notice', message]); } };
+
+(async () => {
+__BODY__
+})().then(
+  () => fs.writeFileSync('calls.json', JSON.stringify(calls)),
+  (error) => { fs.writeFileSync('calls.json', JSON.stringify([['threw', String(error)]])); process.exit(3); },
+);
+"""
+
+
+def run_alert_script(
+    tmp_path: Path,
+    report: dict[str, Any],
+    *,
+    open_issues: list[dict[str, Any]] | None = None,
+) -> list[list[Any]]:
+    """Execute the shipped script against *report* and return the calls it made.
+
+    Node is what runs this script in production (`actions/github-script` is a
+    Node action) and is present on every `ubuntu-latest` runner, which is where
+    the backend suite runs. Asserting on the text of the script instead would
+    pin its spelling, not its behaviour.
+    """
+    node = shutil.which("node")
+    if node is None:  # pragma: no cover — only on a runner without Node
+        pytest.skip("node is not on PATH; the shipped github-script body cannot be executed")
+
+    body = "\n".join(f"  {line}" if line.strip() else line for line in alert_script().splitlines())
+    (tmp_path / "harness.js").write_text(NODE_HARNESS.replace("__BODY__", body), encoding="utf-8")
+    (tmp_path / "release-assets-report.json").write_text(json.dumps(report), encoding="utf-8")
+
+    completed = subprocess.run(  # noqa: S603 — fixed argv, no shell, test-only
+        [node, "harness.js"],
+        cwd=tmp_path,
+        # Inherited rather than replaced: a version-managed `node` shim needs
+        # both HOME and its own PATH entries to resolve an interpreter at all.
+        env={
+            **os.environ,
+            "RUN_URL": "https://github.com/nolte/kamerplanter/actions/runs/1",
+            "OPEN_ISSUES": json.dumps(open_issues or []),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, f"node exited {completed.returncode}: {completed.stderr}"
+    return json.loads((tmp_path / "calls.json").read_text(encoding="utf-8"))
+
+
+#: An open alert issue as `listForRepo` returns it.
+OPEN_ALERT = {"number": 77, "pull_request": None}
+
+
+@pytest.mark.usefixtures("clean_env")
+class TestNothingJudgedIsNotResolved:
+    """The report tells "nothing was measured" apart from "measured clean".
+
+    Review finding F-5 on PR #1224. The workflow closed its alert issue on
+    ``!report.alert``, which is also true on every run that judged NOTHING — and
+    a `workflow_dispatch` with a raised floor or a long `settle_hours` produces
+    exactly that state at will. The comment it wrote said so in as many words
+    ("nothing was judged") and closed the issue anyway, on a release that may
+    still be genuinely incomplete. An undetermined state presenting itself as
+    measured-clean is the class this whole PR exists to remove.
+    """
+
+    def test_a_run_that_judged_nothing_is_not_resolved(self) -> None:
+        """Everything below the floor: no alert, and no resolution either."""
+        report = build(fetching(MEASURED_V0_2_0, MEASURED_V0_1_0), now="2026-08-18T10:00:00Z")
+
+        assert report["evaluated"] == []
+        assert report["alert"] is False
+        assert report["resolved"] is False
+
+    def test_a_release_still_inside_the_settle_window_is_not_a_resolution_either(self) -> None:
+        """The other way to judge nothing — and it is reachable from the dispatch input."""
+        report = build(
+            fetching(complete_release("v0.3.0", published_at="2026-09-02T09:00:00Z")),
+            now="2026-09-02T10:00:00Z",
+            settle_hours=6.0,
+        )
+
+        assert [entry["tag"] for entry in report["skipped_within_settle"]] == ["v0.3.0"]
+        assert report["alert"] is False
+        assert report["resolved"] is False
+
+    def test_a_judged_complete_release_is_resolved(self) -> None:
+        """The negative twin: a real measurement, and it does resolve."""
+        report = build(
+            fetching(complete_release("v0.3.0", published_at="2026-09-01T09:00:00Z")),
+            now="2026-09-02T10:00:00Z",
+        )
+
+        assert [entry["tag"] for entry in report["evaluated"]] == ["v0.3.0"]
+        assert report["alert"] is False
+        assert report["resolved"] is True
+
+    def test_an_incomplete_release_is_neither_resolved_nor_silent(self) -> None:
+        report = build(
+            fetching(MEASURED_V0_2_0),
+            now="2026-08-18T10:00:00Z",
+            floor=FLOOR_BEFORE_THE_INCIDENT,
+        )
+
+        assert report["alert"] is True
+        assert report["resolved"] is False
+
+    def test_the_written_report_carries_the_flag(self, tmp_path: Path) -> None:
+        """The workflow reads the file, not the return value — so the file must carry it."""
+        target = tmp_path / "report.json"
+
+        checker.main([str(target)], fetch=fetching(MEASURED_V0_2_0), now=at("2026-08-18T10:00:00Z"))
+
+        assert json.loads(target.read_text(encoding="utf-8"))["resolved"] is False
+
+
+class TestTheAlertWorkflowActsOnTheMeasurement:
+    """The shipped `actions/github-script` body, executed against real reports.
+
+    The reports come from :func:`checker.build_report`, not from hand-written
+    JSON: a fixture inventing a report shape the script will never see would
+    certify nothing.
+    """
+
+    def _nothing_judged(self) -> dict[str, Any]:
+        return build(fetching(MEASURED_V0_2_0, MEASURED_V0_1_0), now="2026-08-18T10:00:00Z")
+
+    def _measured_clean(self) -> dict[str, Any]:
+        return build(
+            fetching(complete_release("v0.3.0", published_at="2026-09-01T09:00:00Z")),
+            now="2026-09-02T10:00:00Z",
+        )
+
+    def _incomplete(self) -> dict[str, Any]:
+        return build(fetching(MEASURED_V0_2_0), now="2026-08-18T10:00:00Z", floor=FLOOR_BEFORE_THE_INCIDENT)
+
+    def test_an_open_alert_survives_a_run_that_judged_nothing(self, tmp_path: Path) -> None:
+        """It commented "Resolved: … nothing was judged" and closed the issue before F-5."""
+        calls = run_alert_script(tmp_path, self._nothing_judged(), open_issues=[OPEN_ALERT])
+
+        assert [call[0] for call in calls] == ["notice"]
+        assert "left OPEN" in calls[0][1]
+
+    def test_a_run_that_judged_nothing_opens_nothing_either(self, tmp_path: Path) -> None:
+        """Inertness is not a finding; it must not spawn an issue."""
+        calls = run_alert_script(tmp_path, self._nothing_judged())
+
+        assert [call[0] for call in calls] == ["notice"]
+
+    def test_an_open_alert_is_closed_once_a_release_is_judged_clean(self, tmp_path: Path) -> None:
+        """The other direction: a measured-clean run must still resolve the alert.
+
+        Without this, "never close" would pass the test above and leave a
+        permanently-open issue — the outcome the floor exists to avoid.
+        """
+        calls = run_alert_script(tmp_path, self._measured_clean(), open_issues=[OPEN_ALERT])
+
+        kinds = [call[0] for call in calls]
+        assert "createComment" in kinds
+        closing = [call[1] for call in calls if call[0] == "update"]
+        assert closing and closing[0]["state"] == "closed"
+        assert closing[0]["issue_number"] == 77
+
+    def test_an_incomplete_release_opens_the_alert(self, tmp_path: Path) -> None:
+        """The alerting path itself, so the guard cannot have swallowed it."""
+        calls = run_alert_script(tmp_path, self._incomplete())
+
+        created = [call[1] for call in calls if call[0] == "create"]
+        assert created, f"expected an issue to be created, got {[call[0] for call in calls]}"
+        assert "v0.2.0" in created[0]["body"]
+        assert created[0]["labels"] == ["release-assets-incomplete", "deployment"]
+
+    def test_the_script_closes_on_the_resolution_flag_and_not_on_the_absent_alert(self) -> None:
+        """A structural guard that runs even where Node does not.
+
+        The Node tests above are the behavioural ones; this one holds the line on
+        a machine without Node, where they skip. It pins the one relationship
+        that matters: no ``state: 'closed'`` before the ``report.resolved`` gate.
+        """
+        script = alert_script()
+
+        assert "report.resolved" in script
+        gate = script.index("if (report.resolved)")
+        closes = [index for index in range(len(script)) if script.startswith("state: 'closed'", index)]
+        assert closes, "the script no longer closes the alert issue at all"
+        assert all(index > gate for index in closes)
