@@ -1,0 +1,41 @@
+# Project-type override for the release-layer skills (`release-notes-curate`,
+# `release-publish-trigger`), per spec/project/release-skill-layer/ §Skill split
+# and shared shape, which allows a per-repo override "when autodetection misses
+# (hybrid repos, monorepos with multiple package roots)".
+#
+# WHY THIS FILE EXISTS
+#
+# Autodetection walks six signals in order and stops at the first match. For this
+# repository it stops at signal 3, "Python library", because
+# `src/backend/pyproject.toml` declares a distributable package
+# (`name = "kamerplanter-backend"`, `version = "1.0.0"`) and no
+# `[project.scripts]` entry point. That match is formally correct and
+# substantively wrong: nobody consumes `kamerplanter-backend` as a package. It
+# ships as container images plus a Helm chart, deployed to a cluster.
+#
+# Left to autodetect, the release notes would be composed from the library
+# bundle — public API-surface diffs and major-version bumps for library
+# consumers — addressed to an audience that does not exist. Measured on
+# 2026-08-19 while curating the v0.2.1 draft; the run stopped and asked rather
+# than writing that bundle.
+#
+# WHY `python-application` AND NOT SOMETHING NEW
+#
+# It is the closest of the seven types the shared bundle reference carries, and
+# two of its three sections land squarely: "Runtime requirements" (dependency and
+# base-image bumps) and "Migration notes for operators" (config changes, renamed
+# environment variables, breaking defaults). Its third, "Hardware support", does
+# not apply — the bundle names it as conditional on a hardware heuristic this
+# repository does not meet.
+#
+# What the bundle does not carry, and what this project's releases do need, is
+# covered by the audience artefact instead: `AUDIENCES.md` pins a
+# community-garden administrator (tenant isolation and roles), a self-hoster
+# (deployment artefacts, migrations) and a Home Assistant integrator (the API
+# contract). The skill derives sections from the audience artefact as well as the
+# bundle, so those are reachable without a new type.
+#
+# If a seventh bundle for deployed multi-service applications is ever added
+# upstream in `nolte/claude-shared` — as `pre-commit-hook-collection` was, for
+# the same reason — this value should move to it.
+project_type: python-application
