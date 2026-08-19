@@ -76,9 +76,11 @@ Traces to issue #1225 (no TC-ID: a CI alarm is not a user-facing case).
 
 from __future__ import annotations
 
+import http.client
 import json
 import subprocess
 import sys
+import urllib.error
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime
@@ -870,10 +872,15 @@ class TestFailLoud:
         with pytest.raises(checker.DeliveryRunError, match="no integer total_count"):
             judge(RUN_V0_2_0_RED, without(RUN_V0_2_0_RED_JOBS, "total_count"))
 
-    def test_a_completed_run_with_no_jobs_at_all_raises(self) -> None:
-        """Refusing to judge the lane against nothing."""
+    def test_a_green_run_with_no_jobs_at_all_raises(self) -> None:
+        """Refusing to CERTIFY the lane against nothing.
+
+        The asymmetry with the alerting case below is the point: "the run went
+        red" survives an empty job list, "every job that had failed ran and
+        succeeded" does not.
+        """
         with pytest.raises(checker.DeliveryRunError, match="carries no jobs"):
-            judge(RUN_V0_2_0_RED, jobs_page(31729355999))
+            judge(RUN_V0_2_1_GREEN, jobs_page(32259216513))
 
     def test_a_job_without_a_conclusion_raises(self) -> None:
         """An unclassifiable job silently dropped would shrink `succeeded_jobs`."""
@@ -943,6 +950,119 @@ class TestFailLoud:
     def test_an_unparseable_timestamp_raises(self) -> None:
         with pytest.raises(checker.DeliveryRunError, match="unparseable timestamp"):
             judge(replacing(RUN_V0_2_1_GREEN, updated_at="yesterday"), RUN_V0_2_1_GREEN_JOBS)
+
+
+class TestARunThatNeverStartedAJob:
+    """`startup_failure` — the most systematic lane breakage, and it has no jobs.
+
+    A run that dies before any job starts (an invalid `if:`, a YAML error) ends
+    as `startup_failure` with `"total_count": 0` on its jobs endpoint. Measured
+    by the reviewer on runs 32202729898 (nolte/gh-plumbing) and 26304512675
+    (nolte/claude-shared). Refusing to judge that shape would leave the worst
+    case unobserved, which is the hole this whole check exists to close.
+
+    The payload here is the recorded develop failure with its conclusion set to
+    `startup_failure` and an EMPTY jobs page — the two fields the measurement
+    established, and nothing else invented.
+    """
+
+    def test_a_startup_failure_without_jobs_still_alerts(self) -> None:
+        payload = replacing(RUN_DEVELOP_RED_FIRST, conclusion="startup_failure")
+
+        report = judge(payload, jobs_page(RUN_DEVELOP_RED_FIRST["id"]))
+
+        assert report["alert"] is True
+        assert report["resolved"] is False
+        assert report["failed_jobs"] == []
+        assert report["job_count"] == 0
+        assert report["jobs"] == []
+
+    def test_the_lane_half_is_still_known_so_the_alert_can_be_closed_later(self) -> None:
+        """Without `lane_ref` such an alert could never be resolved."""
+        payload = replacing(RUN_DEVELOP_RED_FIRST, conclusion="startup_failure")
+
+        assert judge(payload, jobs_page(RUN_DEVELOP_RED_FIRST["id"]))["lane_ref"] == "develop"
+
+    @pytest.mark.parametrize("conclusion", ["failure", "timed_out", "startup_failure"])
+    def test_every_alerting_conclusion_tolerates_an_empty_job_list(self, conclusion: str) -> None:
+        payload = replacing(RUN_DEVELOP_RED_FIRST, conclusion=conclusion)
+
+        assert judge(payload, jobs_page(RUN_DEVELOP_RED_FIRST["id"]))["alert"] is True
+
+    def test_an_inconclusive_run_without_jobs_is_also_reported(self) -> None:
+        """A run cancelled in its first seconds has no jobs either, and saying
+        "cancelled" about it is still a determined fact."""
+        payload = replacing(RUN_DEVELOP_RED_FIRST, conclusion="cancelled")
+
+        report = judge(payload, jobs_page(RUN_DEVELOP_RED_FIRST["id"]))
+
+        assert report["verdict"] == "inconclusive"
+        assert report["job_count"] == 0
+
+
+class TestWhichHalfOfTheLaneARunBelongsTo:
+    """`lane_ref` — the field a closing decision may read, unlike `ref_kind`.
+
+    `docker-publish.yml` carries an unrestricted `workflow_dispatch:` and its
+    `publish-helm-charts` job runs unconditionally there, so a dispatch on a
+    feature branch produces a green run in which the failing job "ran and
+    succeeded". And the two halves are not interchangeable: that job's `Upload
+    chart as release asset` step runs only on a tag, so a green `develop` run
+    executes the same job NAME with fewer steps.
+
+    The dispatch rows are derived — `…/workflows/246887462/runs?event=workflow_dispatch`
+    returns `total_count: 0`, there has never been one — by replacing exactly
+    `event` and `head_branch` on a recorded payload.
+    """
+
+    @pytest.mark.parametrize(
+        ("event", "head_branch", "expected"),
+        [
+            ("push", "develop", "develop"),
+            ("push", "v0.2.0", "tag"),
+            ("push", "v0.2.1-rc1", "tag"),
+            ("workflow_dispatch", "develop", "develop"),
+            ("workflow_dispatch", "v0.2.1", "tag"),
+            ("workflow_dispatch", "fix/xyz", None),
+            ("workflow_dispatch", "v2", None),
+            ("schedule", "develop", None),
+        ],
+        ids=[
+            "push-develop",
+            "push-tag",
+            "push-prerelease-tag",
+            "dispatch-develop",
+            "dispatch-tag",
+            "dispatch-feature-branch",
+            "dispatch-tag-outside-the-convention",
+            "another-event",
+        ],
+    )
+    def test_the_lane_half_is_derived_from_the_trigger_list(
+        self, event: str, head_branch: str, expected: str | None
+    ) -> None:
+        payload = replacing(RUN_V0_2_1_GREEN, event=event, head_branch=head_branch)
+
+        assert judge(payload, RUN_V0_2_1_GREEN_JOBS)["lane_ref"] == expected
+
+    def test_a_push_is_classified_by_branch_name_not_by_the_tag_heuristic(self) -> None:
+        """`on.push` accepts `[develop]` and `v*` and nothing else.
+
+        So a push that is not on `develop` is a tag push — including a tag whose
+        name the `ref_kind` heuristic does not recognise. Deciding a push by the
+        heuristic instead would file `v2` under `develop`.
+        """
+        payload = replacing(RUN_V0_2_1_GREEN, event="push", head_branch="v2")
+        report = judge(payload, RUN_V0_2_1_GREEN_JOBS)
+
+        assert report["lane_ref"] == "tag"
+        assert report["ref_kind"] == "branch"
+
+    def test_the_recorded_runs_land_on_the_half_they_came_from(self) -> None:
+        assert judge(RUN_V0_2_0_RED, RUN_V0_2_0_RED_JOBS)["lane_ref"] == "tag"
+        assert judge(RUN_DEVELOP_RED_FIRST, RUN_DEVELOP_RED_FIRST_JOBS)["lane_ref"] == "develop"
+        assert judge(RUN_V0_2_1_GREEN, RUN_V0_2_1_GREEN_JOBS)["lane_ref"] == "tag"
+        assert judge(RUN_DEVELOP_GREEN_CHART_SKIPPED, RUN_DEVELOP_GREEN_CHART_SKIPPED_JOBS)["lane_ref"] == "develop"
 
 
 class TestTheRunIdIsValidatedBeforeAnyRequest:
@@ -1031,6 +1151,61 @@ class TestPagination:
 
         with pytest.raises(checker.DeliveryRunError, match="page 2 is empty"):
             build(fetch, run_id=999)
+
+
+class TestTheHttpLayerTurnsEveryTransportFailureIntoADomainError:
+    """`api_json` is the only place a raw exception could escape.
+
+    `URLError` covers a DNS or connect failure, but a socket dying mid-response
+    does not go through it: a read timeout arrives as `TimeoutError` and a
+    truncated chunked body as `http.client.IncompleteRead`, which is an
+    `HTTPException` and NOT an `OSError`. Either escaping raw would still fail
+    the run — without the `::error::` annotation and without naming the URL.
+    """
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            TimeoutError("timed out"),
+            ConnectionResetError("connection reset by peer"),
+            http.client.IncompleteRead(b"partial"),
+            http.client.RemoteDisconnected("remote end closed connection"),
+            OSError("network is unreachable"),
+        ],
+        ids=["read-timeout", "connection-reset", "incomplete-read", "remote-disconnected", "oserror"],
+    )
+    def test_a_transport_failure_becomes_a_delivery_run_error(
+        self, error: Exception, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def explode(*args: Any, **kwargs: Any) -> Any:
+            raise error
+
+        monkeypatch.setattr(checker.urllib.request, "urlopen", explode)
+
+        with pytest.raises(checker.DeliveryRunError, match="failed"):
+            checker.api_json("https://api.github.com/repos/x/y/actions/runs/1")
+
+    def test_an_http_status_keeps_its_more_specific_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """HTTPError is an OSError subclass; the wider clause must not swallow it."""
+
+        def explode(*args: Any, **kwargs: Any) -> Any:
+            raise urllib.error.HTTPError("https://api.github.com/x", 403, "Forbidden", {}, None)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(checker.urllib.request, "urlopen", explode)
+
+        with pytest.raises(checker.DeliveryRunError, match="HTTP 403"):
+            checker.api_json("https://api.github.com/repos/x/y/actions/runs/1")
+
+    def test_the_error_names_the_url_that_died(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A red observer run has to say WHICH read failed to be diagnosable."""
+
+        def explode(*args: Any, **kwargs: Any) -> Any:
+            raise TimeoutError("timed out")
+
+        monkeypatch.setattr(checker.urllib.request, "urlopen", explode)
+
+        with pytest.raises(checker.DeliveryRunError, match="actions/runs/31729355999"):
+            checker.api_json("https://api.github.com/repos/nolte/kamerplanter/actions/runs/31729355999")
 
 
 # --------------------------------------------------------------------------- #

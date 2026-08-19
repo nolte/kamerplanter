@@ -46,14 +46,22 @@ import yaml
 
 from tests.support.repo_scripts import find_repo_root
 from tests.unit.test_delivery_run_check import (
+    DELIVERY_WORKFLOW,
+    RUN_DEVELOP_GREEN_CHART_RAN,
+    RUN_DEVELOP_GREEN_CHART_RAN_JOBS,
     RUN_DEVELOP_GREEN_CHART_SKIPPED,
     RUN_DEVELOP_GREEN_CHART_SKIPPED_JOBS,
+    RUN_DEVELOP_RED_FIRST,
+    RUN_DEVELOP_RED_FIRST_JOBS,
+    RUN_DEVELOP_RED_SECOND,
+    RUN_DEVELOP_RED_SECOND_JOBS,
     RUN_NUCLEI_CANCELLED,
     RUN_NUCLEI_CANCELLED_JOBS,
     RUN_V0_2_0_RED,
     RUN_V0_2_0_RED_JOBS,
     RUN_V0_2_1_GREEN,
     RUN_V0_2_1_GREEN_JOBS,
+    jobs_page,
     judge,
     replacing,
 )
@@ -175,20 +183,35 @@ def issue(number: int, *, body: str, pull_request: Any = None) -> dict[str, Any]
     return {"number": number, "body": body, "pull_request": pull_request}
 
 
-def marker(*job_names: str) -> str:
-    """The machine-readable marker the alert body carries.
+def entry(job: str, lane_ref: str, since: str) -> dict[str, str]:
+    """One outstanding failure, exactly as the marker records it.
 
-    FULL job names, matrix suffix included — see
-    ``TestClosingCannotFlap::test_one_matrix_leg_cannot_prove_another`` for why
-    base names would be the wrong key.
-
-    Rendered exactly as `JSON.stringify` does it — compact separators, no space
-    after the comma. A Python default of `", "` here would build a string the
-    shipped script never writes, and the union assertion would then be checking
-    a marker that cannot occur.
+    ``job`` is the FULL job name (matrix suffix included) or ``"*"`` for a run
+    that failed without any job reporting a failing conclusion; ``lane_ref`` is
+    the half of the lane the failure happened on; ``since`` is the failing run's
+    ``run_started_at`` as the report normalises it.
     """
-    payload = json.dumps(sorted(job_names), separators=(",", ":"))
-    return f"<!-- kp:delivery-run-alert:failed-jobs={payload} -->"
+    return {"job": job, "lane_ref": lane_ref, "since": since}
+
+
+def marker(*entries: dict[str, str]) -> str:
+    """The machine-readable marker (v2) the alert body carries.
+
+    Three things about an entry are load-bearing, and each has its own test
+    below: the FULL job name (``test_one_matrix_leg_cannot_prove_another``), the
+    lane half (``test_a_green_develop_run_cannot_prove_a_tag_failure``) and the
+    ``since`` anchor
+    (``test_a_green_run_that_started_before_the_failure_proves_nothing``).
+
+    Rendered exactly as the shipped script renders it: compact separators, key
+    order ``job, lane_ref, since``, entries sorted by ``"<lane_ref> <job>"``. A
+    Python default of ``", "`` here, or a different key order, would build a
+    string the script never writes — and every assertion comparing a whole
+    marker would then be checking a shape that cannot occur.
+    """
+    ordered = sorted(entries, key=lambda item: f"{item['lane_ref']} {item['job']}")
+    payload = json.dumps({"entries": ordered}, separators=(",", ":"))
+    return f"<!-- kp:delivery-run-alert:v2={payload} -->"
 
 
 # --------------------------------------------------------------------------- #
@@ -257,6 +280,62 @@ RED_DISPATCH_FEATURE_REPORT = judge(
 )
 
 
+#: A run that concluded `startup_failure` having started NO job — the shape of a
+#: `docker-publish.yml` whose YAML or job-level expression did not parse.
+#: Measured on runs 32202729898 (nolte/gh-plumbing) and 26304512675
+#: (nolte/claude-shared): `total_count: 0` with the run itself red. The
+#: conclusion and the empty job page are placed on the recorded develop payload;
+#: no field of it is invented, and the delivery lane has never produced one (a
+#: fact this check exists to be ready for, not to wait for).
+STARTUP_FAILURE_REPORT = judge(
+    replacing(RUN_DEVELOP_GREEN_CHART_SKIPPED, conclusion="startup_failure"),
+    jobs_page(RUN_DEVELOP_GREEN_CHART_SKIPPED["id"]),
+)
+
+#: A red run in which an IMAGE BUILD failed and the chart job passed — eight of
+#: the lane's eleven jobs are image builds, so this is the ordinary alert, not
+#: the exotic one. The two conclusions are swapped on the recorded v0.2.0
+#: payload (the same technique as INCONCLUSIVE_REPORT above): everything else,
+#: including every job name and timestamp, is the measured run.
+RED_BACKEND_BUILD_JOBS = jobs_page(
+    RUN_V0_2_0_RED["id"],
+    *[
+        {**item, "conclusion": "success" if item["name"] == CHART_JOB_RAN else item["conclusion"]}
+        if item["name"] == CHART_JOB_RAN
+        else {**item, "conclusion": "failure" if item["name"] == "build-backend" else item["conclusion"]}
+        for item in RUN_V0_2_0_RED_JOBS["jobs"]
+    ],
+)
+RED_BACKEND_BUILD_REPORT = judge(RUN_V0_2_0_RED, RED_BACKEND_BUILD_JOBS)
+
+#: Green, chart job ran, dispatched on a `v*` TAG. `docker-publish.yml` gates
+#: every release step on `startsWith(github.ref, 'refs/tags/v')` and runs the
+#: whole release path on exactly such a run, so it is a legitimate repair of the
+#: tag half — `gh workflow run docker-publish.yml --ref v0.2.1` is a path GitHub
+#: offers next to `gh run rerun`.
+GREEN_DISPATCH_TAG_REPORT = judge(
+    replacing(RUN_V0_2_1_GREEN, event="workflow_dispatch"),
+    RUN_V0_2_1_GREEN_JOBS,
+)
+
+#: Green on `develop`, chart job RAN — 32188774721, 2026-08-18T21:38. The run
+#: that can prove a `develop` entry, as opposed to its skipped sibling.
+GREEN_DEVELOP_CHART_RAN_REPORT = judge(RUN_DEVELOP_GREEN_CHART_RAN, RUN_DEVELOP_GREEN_CHART_RAN_JOBS)
+
+#: The `run_started_at` of each recorded run, as the report normalises it. The
+#: markers below anchor on these rather than on retyped literals, so a fixture
+#: whose timestamp changes cannot leave a test asserting an impossible ordering.
+TAG_RED_AT = RED_TAG_REPORT["run_started_at"]
+TAG_GREEN_AT = GREEN_CHART_RAN_REPORT["run_started_at"]
+DEVELOP_RED_FIRST_AT = judge(RUN_DEVELOP_RED_FIRST, RUN_DEVELOP_RED_FIRST_JOBS)["run_started_at"]
+DEVELOP_RED_SECOND_AT = judge(RUN_DEVELOP_RED_SECOND, RUN_DEVELOP_RED_SECOND_JOBS)["run_started_at"]
+DEVELOP_GREEN_CHART_RAN_AT = GREEN_DEVELOP_CHART_RAN_REPORT["run_started_at"]
+RED_WITHOUT_A_FAILING_JOB_AT = RED_WITHOUT_A_FAILING_JOB_REPORT["run_started_at"]
+
+#: `job: "*"` — how the marker records a run that failed with no failing job.
+RUN_ITSELF = "*"
+
+
 class TestTheReportsUnderTestAreWhatTheScriptProduces:
     """Guards against this module's own fixtures drifting from the check."""
 
@@ -297,8 +376,8 @@ class TestOpeningTheAlert:
         """
         calls = run_alert_script(tmp_path, RED_TAG_REPORT)
 
-        assert marker(CHART_JOB_RAN) in only(calls, "create")["body"]
-        assert marker(CHART_BASE) not in only(calls, "create")["body"]
+        assert marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)) in only(calls, "create")["body"]
+        assert marker(entry(CHART_BASE, "tag", TAG_RED_AT)) not in only(calls, "create")["body"]
 
     def test_the_body_names_the_measurement_a_human_needs(self, tmp_path: Path) -> None:
         body = only(run_alert_script(tmp_path, RED_TAG_REPORT), "create")["body"]
@@ -321,33 +400,67 @@ class TestOpeningTheAlert:
 
         assert RED_TAG_REPORT["display_title"] not in body
 
-    def test_a_red_run_without_a_failing_job_says_so_and_marks_an_empty_set(self, tmp_path: Path) -> None:
+    def test_a_red_run_without_a_failing_job_records_the_run_itself(self, tmp_path: Path) -> None:
+        """An alert whose `failed_jobs` is empty is still a closable alert.
+
+        There are two ways to reach it: a `startup_failure` run that never
+        started a job (measured: runs 32202729898 and 26304512675 return
+        `total_count: 0`), and a run GitHub failed while every job it reports
+        concluded otherwise. Both are recorded as `*` — "the run itself" — so a
+        later green run of the same half can strike it off. Recording nothing
+        would leave the lane's most systematic breakage in an issue that can
+        never close on its own.
+        """
         calls = run_alert_script(tmp_path, RED_WITHOUT_A_FAILING_JOB_REPORT)
 
         body = only(calls, "create")["body"]
         assert "none reports a failing conclusion" in body
-        assert marker() in body
+        assert marker(entry(RUN_ITSELF, "develop", RED_WITHOUT_A_FAILING_JOB_AT)) in body
+        assert "the run itself on the develop half" in body
 
-    def test_an_empty_job_set_promises_a_manual_close_not_an_automatic_one(self, tmp_path: Path) -> None:
-        """S-6: the body must not promise what the marker cannot deliver.
+    def test_a_startup_failure_says_no_job_ran_and_where_to_look(self, tmp_path: Path) -> None:
+        """The zero-job shape reads differently from "no job failed", and must.
 
-        With no job named, no green run can ever satisfy the closing rule, so
-        telling the reader "it closes when the job(s) named above succeed" —
-        while naming none — would leave an issue open forever with a false
-        explanation attached to it.
+        A run that started no job at all has nothing to open and read inside it;
+        the triage step therefore points at `docker-publish.yml` itself. Pinning
+        both halves keeps the branch from collapsing into one generic sentence.
         """
-        body = only(run_alert_script(tmp_path, RED_WITHOUT_A_FAILING_JOB_REPORT), "create")["body"]
+        body = only(run_alert_script(tmp_path, STARTUP_FAILURE_REPORT), "create")["body"]
 
-        assert "cannot close automatically" in body
-        assert "close this issue yourself" in body
-        assert "It closes only when a run on the lane itself" not in body
+        assert "the run started no job at all" in body
+        assert "unparseable workflow file" in body
+        assert marker(entry(RUN_ITSELF, "develop", RED_WITHOUT_A_FAILING_JOB_AT)) in body
 
-    def test_a_normal_alert_still_promises_the_automatic_close(self, tmp_path: Path) -> None:
-        """The other direction of the same branch — falsification, not one-sided."""
+    def test_the_outstanding_list_names_what_has_to_be_proven(self, tmp_path: Path) -> None:
+        """The closing rule works off the marker; the body says the same in prose.
+
+        A reader who cannot see the HTML comment must still be able to tell why
+        the issue is open and what would close it — otherwise the only honest
+        answer is "wait and see", which is what this observer replaces.
+        """
         body = only(run_alert_script(tmp_path, RED_TAG_REPORT), "create")["body"]
 
-        assert "It closes only when a run on the lane itself" in body
-        assert "cannot close automatically" not in body
+        assert "## Outstanding" in body
+        assert f"`{CHART_JOB_RAN}` on the tag half (failing since {TAG_RED_AT})" in body
+        assert "proven independently" in body
+
+    def test_the_chart_incident_is_not_baked_into_an_unrelated_alert(self, tmp_path: Path) -> None:
+        """F8: eight of the lane's eleven jobs are image builds.
+
+        The `publish-helm-charts` story (#1218/#1224) is one incident, not every
+        alert. Emitted unconditionally it would hand a reader diagnosing a
+        `build-backend` failure a Helm-attestation diagnosis — the misdirected
+        triage this observer exists to prevent.
+        """
+        chart = only(run_alert_script(tmp_path, RED_TAG_REPORT), "create")["body"]
+        other = only(run_alert_script(tmp_path, RED_BACKEND_BUILD_REPORT), "create")["body"]
+
+        assert "Attest chart provenance" in chart
+        assert "runs only when `helm/**` changed" in chart
+        assert "Attest chart provenance" not in other
+        assert "runs only when `helm/**` changed" not in other
+        # Falsification in the same expression: the generic half survives.
+        assert "A job that is **skipped** takes nothing down with it" in other
 
     def test_the_body_warns_that_it_is_regenerated_and_points_edits_at_comments(self, tmp_path: Path) -> None:
         """S-5: the body is rewritten on every red run.
@@ -367,7 +480,7 @@ class TestUpdatingTheAlert:
     """A second red run updates the one issue and unions the marker."""
 
     def test_an_existing_issue_is_updated_not_duplicated(self, tmp_path: Path) -> None:
-        open_issue = issue(77, body=f"old body\n{marker(CHART_JOB_RAN)}")
+        open_issue = issue(77, body=f"old body\n{marker(entry(CHART_JOB_RAN, 'tag', TAG_RED_AT))}")
 
         calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[open_issue])
 
@@ -381,16 +494,46 @@ class TestUpdatingTheAlert:
         Replacing the set instead of unioning it would let a green run that only
         repaired the newer failure close an alert whose older one is still broken.
         """
-        open_issue = issue(77, body=f"old body\n{marker('update-release-assets')}")
+        older = entry("update-release-assets", "tag", "2026-08-01T00:00:00+00:00")
+        open_issue = issue(77, body=f"old body\n{marker(older)}")
 
         calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[open_issue])
 
-        assert marker(CHART_JOB_RAN, "update-release-assets") in only(calls, "update")["body"]
+        assert marker(older, entry(CHART_JOB_RAN, "tag", TAG_RED_AT)) in only(calls, "update")["body"]
+
+    def test_the_same_job_failing_again_moves_its_anchor_forward(self, tmp_path: Path) -> None:
+        """Otherwise a green run BETWEEN the two failures would prove the second.
+
+        The union keeps one entry per (half, job); which of the two `since`
+        values it keeps decides whether an already-elapsed green run counts. It
+        keeps the later one, so proof must postdate the most recent failure.
+        """
+        stale = entry(CHART_JOB_RAN, "tag", "2026-08-01T00:00:00+00:00")
+        open_issue = issue(77, body=marker(stale))
+
+        calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[open_issue])
+
+        assert marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)) in only(calls, "update")["body"]
+
+    def test_an_unreadable_marker_is_rebuilt_and_the_loss_is_stated(self, tmp_path: Path) -> None:
+        """F6: `recorded || []` would drop the old names silently.
+
+        The new marker can only carry this run's entries — that is unavoidable —
+        but a silently shortened list closes the issue too early, so the comment
+        says what happened and points at the history.
+        """
+        open_issue = issue(77, body="somebody edited this and the marker is gone")
+
+        calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[open_issue])
+
+        assert marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)) in only(calls, "update")["body"]
+        assert "could not be read" in only(calls, "createComment")["body"]
 
     def test_a_pull_request_carrying_the_label_is_not_mistaken_for_the_alert(self, tmp_path: Path) -> None:
         """`listForRepo` returns pull requests too; the script filters them out."""
-        pull = {"number": 9, "body": marker(CHART_JOB_RAN), "pull_request": {"url": "…"}}
-        real = issue(77, body=marker(CHART_JOB_RAN))
+        recorded = marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT))
+        pull = {"number": 9, "body": recorded, "pull_request": {"url": "…"}}
+        real = issue(77, body=recorded)
 
         calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[pull, real])
 
@@ -404,11 +547,17 @@ class TestUpdatingTheAlert:
 
 
 class TestClosingCannotFlap:
-    """R6: only a run that actually re-ran the failing job may close the alert."""
+    """R6: an entry is struck off only by a run that actually proves it.
+
+    Three independent conditions, each with its own failure mode and its own
+    test: the same half of the lane, started after the failure, and the job
+    itself ran and passed. Dropping any one of them closes an alert on evidence
+    that does not exist.
+    """
 
     def test_the_green_run_that_ran_the_chart_job_closes_the_alert(self, tmp_path: Path) -> None:
-        """32259216513, the v0.2.1 tag run: the chart job ran and passed."""
-        open_issue = issue(77, body=f"…\n{marker(CHART_JOB_RAN)}")
+        """32259216513, the v0.2.1 tag run: same half, later, job ran and passed."""
+        open_issue = issue(77, body=f"…\n{marker(entry(CHART_JOB_RAN, 'tag', TAG_RED_AT))}")
 
         calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
 
@@ -429,7 +578,7 @@ class TestClosingCannotFlap:
         chart job is skipped on nearly every push, so closing here would reopen
         and reclose the alert indefinitely while the lane stayed broken.
         """
-        open_issue = issue(77, body=f"…\n{marker(CHART_JOB_RAN)}")
+        open_issue = issue(77, body=f"…\n{marker(entry(CHART_JOB_RAN, 'develop', DEVELOP_RED_FIRST_AT))}")
 
         calls = run_alert_script(tmp_path, GREEN_CHART_SKIPPED_REPORT, open_issues=[open_issue])
 
@@ -438,7 +587,81 @@ class TestClosingCannotFlap:
         assert "stays OPEN" in notice
         # Named with the reason: the job still exists, this run just never
         # reached it. "Absent" would mean something else entirely (S-6).
-        assert f"{CHART_JOB_RAN} [skipped in this run]" in notice
+        assert f"`{CHART_JOB_RAN}` on the develop half" in notice
+        assert "[skipped in this run]" in notice
+
+    def test_a_green_develop_run_cannot_prove_a_tag_failure(self, tmp_path: Path) -> None:
+        """The two halves are not interchangeable, and the job NAME hides it.
+
+        `publish-helm-charts`'s `Upload chart as release asset` step runs only on
+        a tag (`if: startsWith(github.ref, 'refs/tags/v')`), so a green `develop`
+        run executes the same job name with that step skipped. Accepting it as
+        proof would re-introduce the skipped-proves-nothing blindness one level
+        down, where no job-level bucket can see it.
+        """
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)))
+
+        calls = run_alert_script(tmp_path, GREEN_DEVELOP_CHART_RAN_REPORT, open_issues=[open_issue])
+
+        assert "update" not in names(calls)
+        assert "[this run is on the develop half]" in messages(calls, "notice")
+
+    def test_a_green_tag_run_cannot_prove_a_develop_failure(self, tmp_path: Path) -> None:
+        """The same rule in the other direction — falsification, not one-sided."""
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "develop", DEVELOP_RED_FIRST_AT)))
+
+        calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
+
+        assert "update" not in names(calls)
+        assert "[this run is on the tag half]" in messages(calls, "notice")
+
+    def test_a_green_run_that_started_before_the_failure_proves_nothing(self, tmp_path: Path) -> None:
+        """F4: two delivery runs overlap routinely, and a replay is arbitrary.
+
+        `docker-publish.yml`'s concurrency is per `github.ref`, so a `develop`
+        push and a tag run run side by side; the older one finishing green says
+        nothing about a failure that began after it started. The same anchor
+        stops `workflow_dispatch -f run_id=<old green run>` from closing a
+        current alert.
+        """
+        failed_after_the_green_run = entry(CHART_JOB_RAN, "tag", "2026-08-19T20:00:00+00:00")
+        open_issue = issue(77, body=marker(failed_after_the_green_run))
+
+        calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
+
+        assert "update" not in names(calls)
+        assert "started before that failure" in messages(calls, "notice")
+
+    def test_two_failures_on_one_half_clear_one_at_a_time(self, tmp_path: Path) -> None:
+        """F6: all-or-nothing would leave an alert `develop` can never close.
+
+        On `develop` most jobs are path-skipped on any given push, so two jobs
+        breaking in two runs are almost never repaired by one run. Proving them
+        together would hold the alert open until an unrelated `v*` tag; entries
+        are therefore struck off independently, and only the last one closes it.
+        """
+        chart = entry(CHART_JOB_RAN, "develop", DEVELOP_RED_FIRST_AT)
+        other = entry("build-backend", "develop", DEVELOP_RED_SECOND_AT)
+        open_issue = issue(77, body=marker(chart, other))
+
+        first = run_alert_script(tmp_path, GREEN_DEVELOP_CHART_RAN_REPORT, open_issues=[open_issue])
+
+        # The chart job ran and passed in 32188774721; `build-backend` did too,
+        # so this run proves both — the interesting half is that the body is
+        # rewritten with the remaining entries rather than all-or-nothing.
+        assert only(first, "update")["state"] == "closed"
+
+        # Now the same alert with one entry this run cannot prove.
+        unprovable = entry("a-job-that-did-not-run", "develop", DEVELOP_RED_SECOND_AT)
+        partial = issue(78, body=marker(chart, unprovable))
+
+        second = run_alert_script(tmp_path, GREEN_DEVELOP_CHART_RAN_REPORT, open_issues=[partial])
+
+        updated = only(second, "update")
+        assert "state" not in updated
+        assert marker(unprovable) in updated["body"]
+        assert marker(chart, unprovable) not in updated["body"]
+        assert "Proven in run" in only(second, "createComment")["body"]
 
     def test_the_skipped_case_is_reported_to_the_run_log_and_not_as_a_comment(self, tmp_path: Path) -> None:
         """Deliberate: this branch is reached on nearly every push to `develop`.
@@ -447,29 +670,46 @@ class TestClosingCannotFlap:
         under dozens of identical notes a day; the observer's run log is where a
         maintainer looking at this looks.
         """
-        open_issue = issue(77, body=f"…\n{marker(CHART_JOB_RAN)}")
+        open_issue = issue(77, body=f"…\n{marker(entry(CHART_JOB_RAN, 'develop', DEVELOP_RED_FIRST_AT))}")
 
         calls = run_alert_script(tmp_path, GREEN_CHART_SKIPPED_REPORT, open_issues=[open_issue])
 
         assert "createComment" not in names(calls)
         assert "update" not in names(calls)
 
-    def test_an_empty_marker_set_never_closes_the_alert(self, tmp_path: Path) -> None:
+    def test_an_empty_entry_list_never_closes_the_alert(self, tmp_path: Path) -> None:
         """`every()` over an empty array is TRUE — the vacuous close.
 
-        An alert opened by a red run with no failing job carries an empty marker.
-        Treating it as satisfied would close the issue having verified nothing,
-        which is the failure class this repository pays for repeatedly.
+        A hand-emptied marker names nothing that has to be proven. Treating it
+        as satisfied would close the issue having verified nothing, which is the
+        failure class this repository pays for repeatedly.
         """
         open_issue = issue(77, body=f"…\n{marker()}")
 
         calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
 
         assert names(calls) == ["listForRepo", "notice"]
-        assert "names no job set" in messages(calls, "notice")
+        assert "marker missing, unparseable or empty" in messages(calls, "notice")
 
-    def test_an_alert_opened_without_a_failing_job_is_not_closed_by_the_next_green_run(self, tmp_path: Path) -> None:
-        """End to end over the two runs, using the body the script itself wrote."""
+    def test_an_alert_about_the_run_itself_closes_on_a_later_green_run_of_that_half(self, tmp_path: Path) -> None:
+        """End to end over two runs, using the body the script itself wrote.
+
+        The `*` entry is what makes a `startup_failure` observable AND closable:
+        no job can prove it, so the proof is a later green run of the same half.
+        """
+        opened = only(run_alert_script(tmp_path, RED_WITHOUT_A_FAILING_JOB_REPORT), "create")
+
+        calls = run_alert_script(
+            tmp_path,
+            GREEN_DEVELOP_CHART_RAN_REPORT,
+            open_issues=[issue(77, body=opened["body"])],
+        )
+
+        assert only(calls, "update")["state"] == "closed"
+        assert "the run itself" in only(calls, "createComment")["body"]
+
+    def test_an_alert_about_the_run_itself_is_not_closed_by_the_other_half(self, tmp_path: Path) -> None:
+        """The negative twin: a green TAG run says nothing about a broken `develop`."""
         opened = only(run_alert_script(tmp_path, RED_WITHOUT_A_FAILING_JOB_REPORT), "create")
 
         calls = run_alert_script(
@@ -479,19 +719,31 @@ class TestClosingCannotFlap:
         )
 
         assert "update" not in names(calls)
+        assert "the run itself" in messages(calls, "notice")
 
     @pytest.mark.parametrize(
         "body",
         [
             "no marker at all",
-            "<!-- kp:delivery-run-alert:failed-jobs=not json -->",
-            '<!-- kp:delivery-run-alert:failed-jobs={"a": 1} -->',
-            "<!-- kp:delivery-run-alert:failed-jobs=[1, 2] -->",
+            "<!-- kp:delivery-run-alert:v2=not json -->",
+            '<!-- kp:delivery-run-alert:v2={"entries":"nope"} -->',
+            '<!-- kp:delivery-run-alert:v2={"entries":[{"job":"x"}]} -->',
+            (
+                '<!-- kp:delivery-run-alert:v2={"entries":[{"job":"x","lane_ref":"moon",'
+                '"since":"2026-08-13T18:09:50+00:00"}]} -->'
+            ),
+            '<!-- kp:delivery-run-alert:v2={"entries":[{"job":"x","lane_ref":"tag","since":"whenever"}]} -->',
+            '<!-- kp:delivery-run-alert:failed-jobs=["publish-helm-charts (kamerplanter)"] -->',
         ],
-        ids=["absent", "unparseable", "not-an-array", "not-strings"],
+        ids=["absent", "unparseable", "not-a-list", "incomplete", "unknown-half", "unparseable-since", "v1-marker"],
     )
     def test_a_marker_that_cannot_be_read_leaves_the_alert_open(self, tmp_path: Path, body: str) -> None:
-        """A hand-edited body must not be read as "nothing to prove"."""
+        """A hand-edited — or outdated — body must not be read as "nothing to prove".
+
+        The v1 case is deliberate: an alert opened before this rule landed
+        carries the old marker, and the safe reading of it is "I cannot tell",
+        not "nothing outstanding".
+        """
         calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[issue(77, body=body)])
 
         assert names(calls) == ["listForRepo", "notice"]
@@ -506,18 +758,24 @@ class TestClosingCannotFlap:
     def test_one_matrix_leg_cannot_prove_another(self, tmp_path: Path) -> None:
         """S-4: the reason the marker records full names.
 
-        `publish-helm-charts` has exactly ONE leg today
-        (docker-publish.yml, `matrix.chart: [kamerplanter]`), so a base-name key
-        would work — right up to the second chart. Two legs failing and one leg
-        re-running would then read as "proven", because both collapse to
-        `publish-helm-charts`. The full name keeps them apart, and this test is
-        what stops a future refactor from quietly re-introducing the collapse.
+        `publish-helm-charts` has exactly ONE leg today (docker-publish.yml,
+        `matrix.chart: [kamerplanter]`), so a base-name key would work — right up
+        to the second chart. Two legs failing and one leg re-running would then
+        read as "proven", because both collapse to `publish-helm-charts`. The
+        full name keeps them apart, and this test is what stops a future refactor
+        from quietly re-introducing the collapse.
         """
-        open_issue = issue(77, body=marker(CHART_JOB_RAN, "publish-helm-charts (other-chart)"))
+        open_issue = issue(
+            77,
+            body=marker(
+                entry(CHART_JOB_RAN, "tag", TAG_RED_AT),
+                entry("publish-helm-charts (other-chart)", "tag", TAG_RED_AT),
+            ),
+        )
 
         calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
 
-        assert "update" not in names(calls)
+        assert "state" not in only(calls, "update")
         assert "publish-helm-charts (other-chart)" in messages(calls, "notice")
 
     def test_a_job_that_vanished_reads_differently_from_one_that_was_skipped(self, tmp_path: Path) -> None:
@@ -526,29 +784,21 @@ class TestClosingCannotFlap:
         A skipped job will come back on the right trigger; a renamed or deleted
         one never will, and that alert can only be closed by a human.
         """
-        open_issue = issue(77, body=marker("a-job-that-no-longer-exists"))
+        open_issue = issue(77, body=marker(entry("a-job-that-no-longer-exists", "tag", TAG_RED_AT)))
 
         calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
 
         assert "update" not in names(calls)
-        assert "a-job-that-no-longer-exists [absent from this run" in messages(calls, "notice")
-
-    def test_a_partially_repaired_alert_stays_open(self, tmp_path: Path) -> None:
-        """Two recorded failures, one repaired: not resolved.
-
-        The green tag run re-ran and passed `publish-helm-charts`, but the alert
-        also remembers `some-other-job`, which is in no bucket of that run.
-        """
-        open_issue = issue(77, body=marker(CHART_JOB_RAN, "some-other-job"))
-
-        calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
-
-        assert "update" not in names(calls)
-        assert "some-other-job" in messages(calls, "notice")
+        notice = messages(calls, "notice")
+        assert "`a-job-that-no-longer-exists` on the tag half" in notice
+        assert "[absent from this run — renamed or removed?]" in notice
+        # The two readings must not collapse: a skipped job comes back, an
+        # absent one does not, and only the second needs a human.
+        assert "[skipped in this run]" not in notice
 
 
 class TestOnlyTheLaneCanProveARepair:
-    """W-1: `docker-publish.yml` can be dispatched on ANY branch.
+    """W-1/F2: `docker-publish.yml` can be dispatched on ANY branch.
 
     Its `workflow_dispatch` is unrestricted and `publish-helm-charts` runs
     unconditionally there, so a collaborator dispatching on `fix/xyz` produces a
@@ -556,65 +806,83 @@ class TestOnlyTheLaneCanProveARepair:
     alert was never about. Closing on that would report the lane repaired while
     `develop` and the release tags are still broken.
 
-    The predicate reads `event` and `head_branch`, both verbatim API fields, and
-    deliberately not `ref_kind`, which is a heuristic on the branch name.
+    The predicate reads `lane_ref`, which the check derives from `event` and
+    `head_branch` against docker-publish.yml's own trigger list — deliberately
+    not `ref_kind`, which is a heuristic kept for prose.
     """
 
     def test_a_green_dispatch_on_a_feature_branch_does_not_close_the_alert(self, tmp_path: Path) -> None:
-        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)))
 
         calls = run_alert_script(tmp_path, GREEN_DISPATCH_FEATURE_REPORT, open_issues=[open_issue])
 
-        assert names(calls) == ["listForRepo", "notice"]
-        notice = messages(calls, "notice")
-        assert "non-lane ref" in notice
-        assert "fix/xyz" in notice
-        assert "stays OPEN" in notice
+        assert names(calls) == ["listForRepo", "warning"]
+        warning = messages(calls, "warning")
+        assert "fix/xyz" in warning
+        assert "not the delivery lane" in warning
+        assert "untouched" in warning
 
     def test_a_green_dispatch_on_develop_does_close_the_alert(self, tmp_path: Path) -> None:
         """The manual repair path stays usable — the gate is the ref, not the event."""
-        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "develop", DEVELOP_RED_FIRST_AT)))
 
         calls = run_alert_script(tmp_path, GREEN_DISPATCH_DEVELOP_REPORT, open_issues=[open_issue])
 
         assert only(calls, "update")["state"] == "closed"
 
-    def test_a_green_tag_push_closes_the_alert(self, tmp_path: Path) -> None:
-        """`event == 'push'` needs no branch check: docker-publish.yml's `on.push`
-        accepts only `branches: [develop]` and `tags: ['v*']`, so a push can
-        reach it from nowhere else."""
-        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+    def test_a_green_dispatch_on_a_tag_does_close_the_alert(self, tmp_path: Path) -> None:
+        """F2: `gh workflow run docker-publish.yml --ref v0.2.1` is a repair path.
 
-        calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
+        Every release step in that workflow is gated on
+        `startsWith(github.ref, 'refs/tags/v')` and runs on exactly such a
+        dispatch, so refusing it would leave an alert open until an unrelated
+        `helm/**` push — while the release it is about had already been repaired.
+        """
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)))
+
+        calls = run_alert_script(tmp_path, GREEN_DISPATCH_TAG_REPORT, open_issues=[open_issue])
 
         assert only(calls, "update")["state"] == "closed"
 
-    def test_a_red_dispatch_on_a_feature_branch_still_opens_but_says_where(self, tmp_path: Path) -> None:
-        """Opening is the right call — a red delivery run is worth seeing.
+    def test_a_red_dispatch_on_a_feature_branch_opens_nothing(self, tmp_path: Path) -> None:
+        """Opening would be a claim the run does not support.
 
-        The title says "the delivery lane went red", which on a dispatched
-        feature-branch run is not yet established, so the body has to carry the
-        ref the reader would otherwise assume.
+        The title says "the delivery lane went red", but a dispatch on `fix/xyz`
+        is somebody's branch, not `develop` and not a release tag. Worse, the
+        entry would be recorded against no half of the lane and could therefore
+        never be proven — an alert that can only be closed by hand. The
+        dispatcher sees their own red run; the warning records that the observer
+        looked and stayed out.
         """
-        body = only(run_alert_script(tmp_path, RED_DISPATCH_FEATURE_REPORT), "create")["body"]
+        calls = run_alert_script(tmp_path, RED_DISPATCH_FEATURE_REPORT)
 
-        assert "not on the delivery lane's own refs" in body
-        assert "`workflow_dispatch` on" in body
-        assert "`fix/xyz`" in body
+        assert "create" not in names(calls)
+        warning = messages(calls, "warning")
+        assert "`fix/xyz`" in warning
+        assert "neither `develop` nor a `v*` tag" in warning
+
+    def test_a_red_dispatch_on_a_feature_branch_leaves_an_open_alert_alone(self, tmp_path: Path) -> None:
+        """And it must not touch an existing one either — in either direction."""
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)))
+
+        calls = run_alert_script(tmp_path, RED_DISPATCH_FEATURE_REPORT, open_issues=[open_issue])
+
+        assert names(calls) == ["listForRepo", "warning"]
+        assert "#77 is untouched" in messages(calls, "warning")
 
     def test_the_lane_check_does_not_run_when_no_alert_is_open(self, tmp_path: Path) -> None:
-        """Nothing to protect, so the ordinary "nothing is open" notice wins."""
+        """Nothing to protect, so the notice says only that nothing is open."""
         calls = run_alert_script(tmp_path, GREEN_DISPATCH_FEATURE_REPORT)
 
-        assert names(calls) == ["listForRepo", "notice"]
-        assert "no alert issue is open" in messages(calls, "notice").lower()
+        assert names(calls) == ["listForRepo", "warning"]
+        assert "no alert issue is open" in messages(calls, "warning").lower()
 
 
 class TestVerdictsThatMustTouchNothing:
     """Inconclusive and foreign runs leave the tracker exactly as they found it."""
 
     def test_an_inconclusive_run_leaves_an_open_alert_alone(self, tmp_path: Path) -> None:
-        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)))
 
         calls = run_alert_script(tmp_path, INCONCLUSIVE_REPORT, open_issues=[open_issue])
 
@@ -635,12 +903,75 @@ class TestVerdictsThatMustTouchNothing:
         foreign GREEN one would close a genuine, still-unrepaired alert. The
         script returns before the dedup query is even issued.
         """
-        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+        open_issue = issue(77, body=marker(entry(CHART_JOB_RAN, "tag", TAG_RED_AT)))
 
         calls = run_alert_script(tmp_path, FOREIGN_REPORT, open_issues=[open_issue])
 
         assert names(calls) == ["warning"]
         assert "Security — Nuclei Post-Merge Scan" in messages(calls, "warning")
+
+
+class TestTheCouplingToTheObservedWorkflow:
+    """F7: three literal copies of `docker-publish.yml`'s identity, plus a
+    hard-coded reading of its triggers — and nothing that notices when they rot.
+
+    The `workflow_run` trigger matches on the observed workflow's `name:`, the
+    script defaults to the same string, and the fixtures repeat it. A rename in
+    an unrelated refactor makes the observer silently stop firing — no red run,
+    no alert, exactly the "nothing observed it" class #1225 was opened for.
+
+    The trigger list is load-bearing a second time: `lane_ref` derives "a push
+    run is on `develop` exactly when `head_branch` says so, and is a tag run
+    otherwise" FROM the fact that `on.push` accepts nothing else. Adding
+    `branches: [develop, release/*]` — or a `pull_request:` trigger — would make
+    a feature-branch run classify as on-lane and let it close a genuine alert.
+    That is the W-1 hole the closing rule exists to shut.
+
+    These assertions read the observed workflow itself, so they fail on the
+    change rather than on its consequence.
+    """
+
+    @staticmethod
+    def observed() -> dict[str, Any]:
+        root = find_repo_root(Path(__file__).resolve())
+        assert root is not None, "checkout root not found"
+        return yaml.safe_load((root / ".github/workflows/docker-publish.yml").read_text(encoding="utf-8"))
+
+    def test_all_three_copies_of_the_workflow_name_agree(self) -> None:
+        root = find_repo_root(Path(__file__).resolve())
+        assert root is not None
+        observer = yaml.safe_load((root / ALERT_WORKFLOW).read_text(encoding="utf-8"))
+        script = (root / "scripts/ci/check_delivery_run.py").read_text(encoding="utf-8")
+
+        observed_name = self.observed()["name"]
+
+        # `on` is parsed by PyYAML as the boolean True (YAML 1.1), hence the key.
+        assert observer[True]["workflow_run"]["workflows"] == [observed_name]
+        assert f'DEFAULT_WORKFLOW_NAME = "{observed_name}"' in script
+        assert observed_name == DELIVERY_WORKFLOW
+
+    def test_the_observed_push_trigger_is_still_develop_and_v_tags_only(self) -> None:
+        """The premise `lane_ref` is derived from, asserted against its source."""
+        push = self.observed()[True]["push"]
+
+        assert push["branches"] == ["develop"]
+        assert push["tags"] == ["v*"]
+
+    def test_the_observed_workflow_has_no_pull_request_trigger(self) -> None:
+        """A fork PR run would carry attacker-influenced fields into the report,
+        and `event == 'push'` is only a safe lane test while no other event can
+        reach the workflow from an arbitrary ref."""
+        assert "pull_request" not in self.observed()[True]
+
+    def test_the_chart_job_is_still_the_single_matrix_leg_the_fixtures_record(self) -> None:
+        """The recorded job name `publish-helm-charts (kamerplanter)` is a matrix
+        expansion. A second leg is legitimate — but the fixtures would then no
+        longer cover the lane, and `test_one_matrix_leg_cannot_prove_another`
+        would be guarding a case the recorded payloads never exercise."""
+        chart = self.observed()["jobs"]["publish-helm-charts"]
+
+        assert chart["strategy"]["matrix"]["chart"] == ["kamerplanter"]
+        assert f"{CHART_BASE} ({chart['strategy']['matrix']['chart'][0]})" == CHART_JOB_RAN
 
 
 class TestTheWorkflowContract:

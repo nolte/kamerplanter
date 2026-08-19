@@ -84,6 +84,40 @@ folding it into `inconclusive` would turn "we do not know" into the determined
 fact "the run neither failed nor succeeded", which is precisely the substitution
 NFR-018 §2 forbids.
 
+WHICH HALF OF THE LANE A RUN BELONGS TO
+---------------------------------------
+The report carries ``lane_ref``: ``"develop"``, ``"tag"`` or ``null``. It is
+derived from ``event`` + ``head_branch`` against `docker-publish.yml`'s own
+trigger list (see :attr:`Run.lane_ref`), and it exists because a green run only
+proves a repair of the lane it ran on:
+
+* that workflow's ``workflow_dispatch:`` is unrestricted, so anybody can run the
+  whole delivery lane on a feature branch and produce a green run in which the
+  failing job "ran and succeeded" — about a branch no alert was about;
+* the two halves are not interchangeable either. ``publish-helm-charts``'s
+  ``Upload chart as release asset`` step runs only on a tag, so a green
+  ``develop`` run executes the same job NAME with a different set of steps. It
+  cannot prove that the tag path works, and vice versa.
+
+``null`` means the run is on neither half. The observer neither opens nor closes
+an alert on such a run: an alert recorded against no half of the lane could never
+be proven, and "the delivery lane went red" would be a claim about `develop` and
+the release tags that the run does not support.
+
+A RUN CAN CARRY ZERO JOBS, AND THAT IS NOT A FAILURE OF THIS CHECK
+------------------------------------------------------------------
+A run that dies before any job starts — an invalid ``if:`` expression, a YAML
+error, an unresolvable reusable workflow — concludes ``startup_failure`` and its
+jobs endpoint returns ``"total_count": 0``. Measured on runs 32202729898
+(nolte/gh-plumbing) and 26304512675 (nolte/claude-shared).
+
+That is the most systematic breakage the delivery lane has, so refusing to judge
+it would leave precisely the worst case unobserved. An ALERTING run with no jobs
+is therefore reported with ``failed_jobs: []``; the observer records it as "the
+run itself" and closes it on a later green run of the same ``lane_ref``. A
+RESOLUTION still requires at least one job: "every job that had failed ran and
+succeeded" cannot be established from a run that ran nothing.
+
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
 A run that is not `completed`, an unreachable API, an undecodable payload, a run
@@ -100,12 +134,19 @@ WHAT THE OBSERVER WORKFLOW (P2) MUST KNOW
   the file, exactly as `release-assets-complete.yml` does.
 * Open/update on ``alert``; close on ``resolved`` AND on the per-job evidence —
   never on ``!alert``, which is also true for every inconclusive run.
-* ``alert: true`` with an EMPTY ``failed_jobs`` is possible: GitHub can fail a
-  run without any job carrying a failing conclusion (a workflow-level error, or
-  a failure on an earlier attempt while this endpoint reports the latest one).
-  The list is reported honestly rather than back-filled. Treat an empty set as
-  "unknown job set" and do NOT let the closing rule pass vacuously over it —
-  "every job in an empty set succeeded" is true and proves nothing.
+* ``alert: true`` with an EMPTY ``failed_jobs`` is possible and has two
+  distinct causes: a ``startup_failure`` run that never started a job (zero jobs
+  in the list), or a run GitHub failed while every job it reports concluded
+  otherwise (a workflow-level error, or a failure on an earlier attempt while
+  this endpoint reports the latest one). The list is reported honestly rather
+  than back-filled. Do NOT let a closing rule pass vacuously over it — "every
+  job in an empty set succeeded" is true and proves nothing. Record it as "the
+  run itself failed" and require a later green run of the same ``lane_ref``.
+* ``lane_ref`` decides whether a run may open or close anything at all; nothing
+  should be decided on ``ref_kind``, which is a heuristic for prose.
+* ``run_started_at`` is the ordering anchor. Two delivery runs overlap routinely
+  (a tag run and a `develop` push, or a re-run of an older run), so a green run
+  proves nothing about a failure that happened AFTER it started.
 * ``is_expected_workflow`` says whether the run belongs to the workflow this
   observer is for. On the `workflow_run` trigger it is always true by
   construction; on a `workflow_dispatch` a human can hand over any run id at
@@ -123,6 +164,7 @@ Traces to issue #1225 (no TC-ID: a CI alarm is not a user-facing case).
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import re
@@ -192,6 +234,14 @@ TAG_REF_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 #: the bare `<job>` when it is skipped. See "TWO MEASURED FACTS" above.
 MATRIX_SUFFIX_PATTERN = re.compile(r"\s+\(.*\)$")
 
+#: The branch `docker-publish.yml` builds from, per its `on.push.branches`.
+LANE_BRANCH = "develop"
+
+#: The two halves of the delivery lane. A run belongs to one of them, or to
+#: neither — see :func:`lane_ref`.
+LANE_REF_DEVELOP = "develop"
+LANE_REF_TAG = "tag"
+
 
 class DeliveryRunError(RuntimeError):
     """A condition under which the verdict could not be determined — fail loud."""
@@ -253,8 +303,53 @@ class Run:
 
     @property
     def ref_kind(self) -> str:
-        """``tag`` or ``branch`` — a heuristic, see :data:`TAG_REF_PATTERN`."""
+        """``tag`` or ``branch`` — a heuristic for PROSE, see :data:`TAG_REF_PATTERN`.
+
+        Do not decide anything on this. :attr:`lane_ref` is the decision-bearing
+        field; this one only makes an alert read "on tag v0.2.0" instead of "on
+        branch v0.2.0".
+        """
         return "tag" if TAG_REF_PATTERN.match(self.head_branch) else "branch"
+
+    @property
+    def lane_ref(self) -> str | None:
+        """Which half of the delivery lane this run belongs to, or None.
+
+        ``"develop"``, ``"tag"``, or ``None`` for a run that is on neither — and
+        the distinction decides whether a green run may resolve an alert at all.
+
+        WHY THIS IS NOT THE SAME QUESTION AS :attr:`ref_kind`. `docker-publish.yml`
+        carries an unrestricted `workflow_dispatch:`, and its `publish-helm-charts`
+        job runs unconditionally there. So a collaborator can dispatch the whole
+        delivery lane on `fix/xyz` and get a green run in which the failing job
+        "ran and succeeded" — about a branch nobody's alert was about.
+
+        HOW EACH BRANCH IS DERIVED, AND WHY IT IS NOT A GUESS:
+
+        * ``push`` — `docker-publish.yml`'s `on.push` accepts `branches:
+          [develop]` and `tags: ['v*']` and nothing else, so a push run is on
+          `develop` exactly when `head_branch` says `develop`, and is a tag run
+          otherwise. This is exact rather than heuristic BECAUSE of that trigger
+          list, which is why the coupling test in
+          `test_delivery_run_alert_workflow.py` pins the trigger list itself: if
+          somebody adds a branch to `on.push`, that test goes red here rather
+          than this function silently mislabelling the run.
+        * ``workflow_dispatch`` — the ref can be anything, so the tag half is
+          recognised by this project's release-tag shape (:data:`TAG_REF_PATTERN`)
+          and everything that is neither `develop` nor such a tag is None. A tag
+          outside the `v<major>.<minor>.<patch>` convention (`v2`, say) lands in
+          None: conservative in the safe direction — such a run neither opens nor
+          closes anything.
+        * anything else — None. `docker-publish.yml` has no other trigger; a run
+          reaching this code with one is a workflow change nobody told us about.
+        """
+        if self.event == "push":
+            return LANE_REF_DEVELOP if self.head_branch == LANE_BRANCH else LANE_REF_TAG
+        if self.event == "workflow_dispatch":
+            if self.head_branch == LANE_BRANCH:
+                return LANE_REF_DEVELOP
+            return LANE_REF_TAG if TAG_REF_PATTERN.match(self.head_branch) else None
+        return None
 
     @property
     def duration_seconds(self) -> float:
@@ -433,7 +528,13 @@ def parse_jobs_page(payload: Any, *, run_id: int, page: int) -> tuple[int, list[
     return total, jobs
 
 
-def fetch_jobs(fetch: Callable[[str], Any], *, repository: str, run_id: int) -> list[Job]:
+def fetch_jobs(
+    fetch: Callable[[str], Any],
+    *,
+    repository: str,
+    run_id: int,
+    require_any: bool,
+) -> list[Job]:
     """Read every job of *run_id*, following pagination.
 
     The endpoint defaults to ``filter=latest``, i.e. the jobs of the run's most
@@ -444,16 +545,18 @@ def fetch_jobs(fetch: Callable[[str], Any], *, repository: str, run_id: int) -> 
         fetch: The injected HTTP layer.
         repository: ``owner/name``.
         run_id: The run to read.
+        require_any: Whether an empty job list is an error. True only when the
+            verdict is a RESOLUTION — see :func:`build_report`.
 
     Returns:
-        Every job of the latest attempt.
+        Every job of the latest attempt; possibly none, see *require_any*.
 
     Raises:
         DeliveryRunError: The pages do not add up to the ``total_count`` the
-            endpoint reports, no job comes back at all, or the pagination does
-            not converge. A partially-read job list would let the observer close
-            an alert because the job it was watching happened to be on a page
-            nobody fetched.
+            endpoint reports, the pagination does not converge, or the list is
+            empty while *require_any*. A partially-read job list would let the
+            observer close an alert because the job it was watching happened to
+            be on a page nobody fetched.
     """
     collected: list[Job] = []
     total = 0
@@ -479,10 +582,10 @@ def fetch_jobs(fetch: Callable[[str], Any], *, repository: str, run_id: int) -> 
             f"run {run_id}: read {len(collected)} job(s) but the endpoint reports {total} — "
             "the job list is inconsistent and any verdict on it would be partial"
         )
-    if not collected:
+    if not collected and require_any:
         raise DeliveryRunError(
             f"run {run_id}: the run is completed but carries no jobs — "
-            "refusing to judge the delivery lane against nothing"
+            "refusing to certify the delivery lane against nothing"
         )
     return collected
 
@@ -540,8 +643,28 @@ def build_report(
     if run.run_id != run_id:
         raise DeliveryRunError(f"asked for run {run_id} but the API answered with run {run.run_id}")
 
-    jobs = fetch_jobs(fetch, repository=repository, run_id=run_id)
+    # Classified BEFORE the jobs are read, because the verdict decides whether an
+    # empty job list is a fact or a failure.
     verdict = classify(run.conclusion, run_id=run_id)
+
+    # A run that fails before any job starts carries ZERO jobs — measured on
+    # `startup_failure` runs 32202729898 (nolte/gh-plumbing) and 26304512675
+    # (nolte/claude-shared), both `"total_count": 0`. That is the shape of a
+    # YAML or expression error in docker-publish.yml, i.e. the most systematic
+    # lane breakage there is, and refusing to judge it would leave exactly that
+    # failure unobserved — the hole this whole check exists to close. So an
+    # alerting run with no jobs is reported honestly as `failed_jobs: []`.
+    #
+    # A RESOLUTION is the opposite case: "every job that had failed ran and
+    # succeeded" cannot be established from a run that carries no jobs at all,
+    # and certifying it would be the undetermined-reads-as-clean substitution
+    # NFR-018 §2 forbids. There, and only there, an empty list stays an error.
+    jobs = fetch_jobs(
+        fetch,
+        repository=repository,
+        run_id=run_id,
+        require_any=verdict == VERDICT_RESOLVED,
+    )
 
     failed = [job for job in jobs if job.failed]
     succeeded = [job for job in jobs if job.succeeded]
@@ -565,7 +688,13 @@ def build_report(
         "head_branch": run.head_branch,
         "head_sha": run.head_sha,
         # A heuristic on head_branch, which carries the TAG NAME on a tag run.
+        # For PROSE ONLY — `lane_ref` is what a decision may read.
         "ref_kind": run.ref_kind,
+        # "develop" | "tag" | null — which half of the delivery lane produced
+        # this run, derived from the workflow's own trigger list. A null means
+        # the run is on neither half (a dispatch on a feature branch), and the
+        # observer neither opens nor closes an alert on it.
+        "lane_ref": run.lane_ref,
         "display_title": run.display_title,
         "status": run.status,
         "conclusion": run.conclusion,
@@ -610,6 +739,15 @@ def api_json(url: str) -> Any:
     Raises:
         DeliveryRunError: Any transport, status or decode failure. Every branch
             raises; none returns a placeholder.
+
+            The last clause is the widest on purpose. `URLError` covers a DNS or
+            connect failure, but a socket that dies mid-response does not go
+            through it: a read timeout surfaces as `TimeoutError` and a truncated
+            chunked body as `http.client.IncompleteRead`, which is an
+            `HTTPException` and NOT an `OSError`. Either one escaping as a raw
+            traceback would still fail the run — but it would fail it without the
+            `::error::` annotation and without saying which URL died, which is
+            the difference between a diagnosable red run and a puzzling one.
     """
     request = urllib.request.Request(url)
     request.add_header("Accept", "application/vnd.github+json")
@@ -626,6 +764,11 @@ def api_json(url: str) -> Any:
         raise DeliveryRunError(f"GET {url} failed: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise DeliveryRunError(f"GET {url} returned undecodable JSON: {exc}") from exc
+    except (OSError, http.client.HTTPException) as exc:
+        # Read timeouts, connection resets, IncompleteRead. Listed after the two
+        # urllib branches because HTTPError and URLError are both OSError
+        # subclasses and carry the better message.
+        raise DeliveryRunError(f"GET {url} failed: {type(exc).__name__}: {exc}") from exc
 
 
 @dataclass(frozen=True)

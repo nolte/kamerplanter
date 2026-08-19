@@ -27,11 +27,31 @@ name: Delivery Run Alert
 # time and the red runs look intermittent rather than systematic. They were not:
 # every run that actually reached the chart job failed.
 #
-# That blindness is built into the closing rule below. A green run closes the
-# alert only if every job the alert names actually RAN and succeeded; a green
-# run that merely skipped them proves nothing and leaves the issue open. Without
-# that, the alert would flap — open on a `helm/**` push, close on the next
-# unrelated push, open again on the next release.
+# That blindness is built into the closing rule below, which is why the rule has
+# four parts rather than one. The alert issue carries a machine-readable list of
+# ENTRIES, one per job that failed, and an entry is proven — and only then
+# removed — by a green run that satisfies all of:
+#
+#   1. it RAN the job and the job passed (a skipped job proves nothing, and a
+#      skipped job is how this lane reads green while it is broken);
+#   2. it ran on the SAME HALF of the lane (`develop` or a `v*` tag). The halves
+#      are not interchangeable: `publish-helm-charts`'s `Upload chart as release
+#      asset` step runs only on a tag, so a green `develop` run executes the same
+#      job NAME with a different set of steps and cannot speak for the tag path;
+#   3. it STARTED AFTER the failure it is supposed to repair. Delivery runs
+#      overlap routinely — a tag run and a `develop` push, a `--failed` re-run of
+#      an older one — and a green run that started earlier proves nothing about a
+#      later failure. A dispatch replaying a historical green run is the same
+#      shape, deliberately;
+#   4. it ran on the lane AT ALL. `docker-publish.yml`'s `workflow_dispatch:` is
+#      unrestricted, so anybody can run the whole delivery lane on a feature
+#      branch; such a run is on neither half and the observer ignores it.
+#
+# Entries are proven INDEPENDENTLY and the issue closes when none is left. That
+# matters on `develop`, where most jobs are path-skipped on any given push: if
+# two different jobs failed in two pushes, no single later push is likely to run
+# both, and a rule demanding one run that proves everything would produce an
+# alert nothing could ever close.
 #
 # WHY workflow_run AND NOT A PULL-REQUEST GATE. "The delivery run went red" is a
 # fact about a run that only exists AFTER a merge: docker-publish.yml triggers on
@@ -82,11 +102,15 @@ on:
     inputs:
       run_id:
         description: >-
-          Judge a specific historical run of the delivery lane instead of the
-          one that just completed, e.g. 31729355999 (the measured v0.2.0 failure
-          from 2026-08-13). NOTE: this WILL open the alert issue for that run —
-          close it afterwards. A run id from a different workflow is reported and
-          then ignored, on purpose.
+          Judge a specific historical run of the delivery lane instead of the one
+          that just completed, e.g. 31729355999 (the measured v0.2.0 failure from
+          2026-08-13). Replaying a RED run opens or updates the alert issue for
+          it — close it afterwards. Replaying a GREEN run can also CLOSE entries
+          on an open alert, but only entries whose failure happened before that
+          run started and on the same half of the lane; a replay of an old green
+          run therefore proves nothing, which is the intended behaviour rather
+          than a limitation. A run id from a different workflow, or a run on
+          neither half of the lane, is reported and then ignored.
         required: false
         type: string
 
@@ -193,61 +217,65 @@ jobs:
             // rendered into the issue at all. It adds nothing the run URL does
             // not already give a reader.
 
-            // The marker records FULL job names — `publish-helm-charts
-            // (kamerplanter)`, not `publish-helm-charts`. Base names are the
-            // wrong key for the closing decision: a matrix leg that runs is
-            // named `<job> (<leg>)` while ANY skipped leg collapses to the bare
-            // `<job>`, so a set keyed on base names would let one green leg
-            // prove a different, still-red leg. `publish-helm-charts` has one
-            // leg today (docker-publish.yml, `matrix.chart: [kamerplanter]`) and
-            // that is exactly the assumption that would rot silently on the
-            // second one.
+            // ---------------------------------------------------------------
+            // The marker: the alert's memory, and the only state this workflow
+            // keeps. One ENTRY per job that failed:
             //
-            // Base names still do one job here, and only one: recognising that
-            // an unproven job was SKIPPED in the green run (its bare name) as
-            // opposed to gone from the lane entirely. That distinction goes into
-            // the notice, never into the decision.
-            const baseNamesOf = (names) => {
-              const wanted = new Set(names);
-              return report.jobs.filter(j => wanted.has(j.name)).map(j => j.base_name);
-            };
-            // Mirrors MATRIX_SUFFIX_PATTERN in scripts/ci/check_delivery_run.py.
-            // Needed for a name read back out of the marker, which has no job
-            // entry in THIS run to read `base_name` off.
-            const baseNameOf = (name) => name.replace(/\s+\(.*\)$/, '');
-            const MARKER = /<!-- kp:delivery-run-alert:failed-jobs=(\[.*?\]) -->/;
-            const renderMarker = (names) =>
-              `<!-- kp:delivery-run-alert:failed-jobs=${JSON.stringify([...names].sort())} -->`;
-            const parseMarker = (body) => {
-              const found = MARKER.exec(body || '');
+            //   { "job": "publish-helm-charts (kamerplanter)",
+            //     "lane_ref": "tag",
+            //     "since": "2026-08-13T18:09:50+00:00" }
+            //
+            // `job` is the FULL name, matrix suffix included. The base name
+            // would join the executed and the skipped form of a job —
+            // convenient, and wrong: it would also join two different matrix
+            // legs, so one green leg could prove a leg that never re-ran.
+            // `publish-helm-charts` has one leg today (docker-publish.yml,
+            // `matrix.chart: [kamerplanter]`) and that is exactly the assumption
+            // that would rot silently on the second one. Base names still do one
+            // job here, and only one: recognising that an unproven job was
+            // SKIPPED in the green run (its bare name) rather than gone from the
+            // lane. That distinction goes into the notice, never the decision.
+            //
+            // `job: "*"` means "the run itself": a run that failed with no job
+            // carrying a failing conclusion, including a `startup_failure` run
+            // that never started a job at all (its jobs endpoint returns
+            // `total_count: 0` — measured). Such an entry is proven by a later
+            // green run of the same lane half, as a whole; without it that alert
+            // could never close.
+            // ---------------------------------------------------------------
+            const MARKER = /<!-- kp:delivery-run-alert:v2=({.*?}) -->/;
+            const RUN_ITSELF = '*';
+            const renderMarker = (entries) =>
+              `<!-- kp:delivery-run-alert:v2=${JSON.stringify({ entries })} -->`;
+            const parseMarker = (text) => {
+              const found = MARKER.exec(text || '');
               if (!found) { return null; }
               try {
                 const parsed = JSON.parse(found[1]);
-                return Array.isArray(parsed) && parsed.every(n => typeof n === 'string') ? parsed : null;
+                const entries = parsed && parsed.entries;
+                if (!Array.isArray(entries)) { return null; }
+                const wellFormed = entries.every(e =>
+                  e && typeof e.job === 'string' && e.job.length > 0 &&
+                  typeof e.since === 'string' && !Number.isNaN(Date.parse(e.since)) &&
+                  (e.lane_ref === 'develop' || e.lane_ref === 'tag'));
+                return wellFormed ? entries : null;
               } catch (error) {
                 return null;
               }
             };
-
-            // WHICH REFS ARE THE DELIVERY LANE. `docker-publish.yml` triggers
-            // on `push` (branches: [develop], tags: ['v*']) and on an
-            // UNRESTRICTED `workflow_dispatch`, and its `publish-helm-charts`
-            // job runs unconditionally on a dispatch. So a collaborator
-            // dispatching the delivery workflow on `fix/xyz` produces a
-            // perfectly green run in which the failing job "ran and succeeded" —
-            // on a branch that is not what the alert is about. Closing on it
-            // would report the lane repaired while `develop` and the release
-            // tags are still broken, from a run nobody claimed anything about.
-            //
-            // `event === 'push'` is sufficient on its own precisely because of
-            // that trigger list: a push reaches this workflow only from
-            // `develop` or a `v*` tag. A dispatch has to name `develop`
-            // explicitly. This is read off `event`/`head_branch`, both verbatim
-            // API fields — deliberately NOT off `ref_kind`, which is a heuristic
-            // on the branch name and must not carry a decision.
-            const onTheLane =
-              report.event === 'push' ||
-              (report.event === 'workflow_dispatch' && report.head_branch === 'develop');
+            const entryKey = (entry) => `${entry.lane_ref} ${entry.job}`;
+            const jobLabel = (job) => (job === RUN_ITSELF ? 'the run itself' : `\`${job}\``);
+            const describe = (entry) =>
+              `${jobLabel(entry.job)} on the ${entry.lane_ref} half (failing since ${entry.since})`;
+            // Mirrors MATRIX_SUFFIX_PATTERN in scripts/ci/check_delivery_run.py.
+            // Needed for a name read back out of the marker, which has no job
+            // entry in THIS run to read `base_name` off.
+            const baseNameOf = (name) => name.replace(/\s+\(.*\)$/, '');
+            const baseNamesOf = (names) => {
+              const wanted = new Set(names);
+              return report.jobs.filter(j => wanted.has(j.name)).map(j => j.base_name);
+            };
+            const issueRef = { owner: context.repo.owner, repo: context.repo.repo };
 
             // A dispatch may hand over ANY run id, including one from another
             // workflow (`is_expected_workflow` is false then). Acting on it
@@ -267,8 +295,7 @@ jobs:
             // Dedup anchor: the single open issue carrying our label. A good
             // alerting job updates one issue; it does not open a new one per run.
             const open = (await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              ...issueRef,
               state: 'open',
               labels: LABEL,
             })).data.filter(i => !i.pull_request);
@@ -289,42 +316,43 @@ jobs:
               return;
             }
 
+            // Not on the lane at all: `docker-publish.yml`'s `workflow_dispatch:`
+            // is unrestricted, so this run may be the delivery lane executed on
+            // somebody's feature branch. It opens nothing — the title "the
+            // delivery lane went red" would be a claim about `develop` and the
+            // release tags that this run does not support, and an entry recorded
+            // against no half of the lane could never be proven, i.e. the alert
+            // could never close. It closes nothing either, for the same reason
+            // in reverse. The dispatcher sees their own run; a warning here says
+            // the observer saw it and stayed out.
+            if (report.lane_ref === null) {
+              core.warning(
+                `Run ${report.run_id} (${report.verdict}) ran \`${report.event}\` on ` +
+                `\`${report.head_branch}\`, which is neither \`develop\` nor a \`v*\` tag — it is not the ` +
+                `delivery lane, so no alert is opened or closed. ` +
+                (existing ? `Alert issue #${existing.number} is untouched.` : 'No alert issue is open.')
+              );
+              return;
+            }
+
             if (report.resolved) {
               if (!existing) {
                 core.notice(`Delivery run ${report.run_id} is green and no alert issue is open.`);
                 return;
               }
 
-              // W-1: a green run only proves a repair if it happened on the
-              // lane the alert is about. See "WHICH REFS ARE THE DELIVERY LANE"
-              // above — an unrestricted `workflow_dispatch` on a feature branch
-              // runs the chart job and passes, and closing on that would report
-              // `develop` repaired on the strength of somebody else's branch.
-              // Notice only, no comment: this is a rare, deliberate act by
-              // whoever dispatched, and the run log is where they will look.
-              if (!onTheLane) {
+              const entries = parseMarker(existing.body);
+              // Never dropped, never rebuilt from a green run: without the list
+              // we do not know what has to be proven, and inventing an empty one
+              // would close the issue on the spot. Notice only — this branch is
+              // reached on EVERY green delivery run while such an issue is open
+              // (several a day on `develop`), and a comment per run would bury
+              // the issue it is meant to protect.
+              if (entries === null || entries.length === 0) {
                 core.notice(
-                  `Delivery run ${report.run_id} is green but ran on a non-lane ref ` +
-                  `(\`${report.event}\` on \`${report.head_branch}\`), so it proves nothing about ` +
-                  `\`develop\` or a release tag. Alert issue #${existing.number} stays OPEN.`
-                );
-                return;
-              }
-
-              const recorded = parseMarker(existing.body);
-              // No marker, an unparseable one, or an EMPTY set: we do not know
-              // which jobs have to be proven, so we cannot judge the repair.
-              // Leave the issue open and say so in the run log only — this
-              // branch is reached on EVERY green delivery run while such an
-              // issue is open (several a day on `develop`), and a comment per
-              // run would bury the issue it is meant to protect. The empty set
-              // is included on purpose: `every()` over an empty array is TRUE,
-              // so treating it as satisfied would close the alert having
-              // verified nothing.
-              if (recorded === null || recorded.length === 0) {
-                core.notice(
-                  `Delivery run ${report.run_id} is green, but alert issue #${existing.number} names no ` +
-                  `job set this run could prove (marker missing, unparseable or empty). Leaving it open.`
+                  `Delivery run ${report.run_id} is green, but alert issue #${existing.number} carries no ` +
+                  `readable list of what has to be proven (marker missing, unparseable or empty). It stays ` +
+                  `OPEN and the marker needs repairing by hand — see the comment history for the failing jobs.`
                 );
                 return;
               }
@@ -334,78 +362,137 @@ jobs:
               // it here from `conclusion === 'success'` would be a second
               // definition of the rule, free to drift from the one the unit
               // tests pin.
-              const ran = new Set(report.succeeded_jobs);
-              const unproven = recorded.filter(name => !ran.has(name));
+              const succeeded = new Set(report.succeeded_jobs);
+              const skippedBases = new Set(baseNamesOf(report.skipped_jobs));
+              const startedAt = Date.parse(report.run_started_at);
+              const isProven = (entry) =>
+                entry.lane_ref === report.lane_ref &&
+                Date.parse(entry.since) < startedAt &&
+                (entry.job === RUN_ITSELF || succeeded.has(entry.job));
 
-              if (unproven.length > 0) {
-                // The green-but-skipped case, i.e. the flap this rule exists to
-                // prevent. Notice only, no comment, for the same reason as
-                // above: on `develop` the chart job is skipped on nearly every
-                // push, so commenting here would produce dozens of identical
-                // comments a day.
-                //
-                // The two ways a job can be unproven read very differently to a
-                // human, so they are told apart: SKIPPED means the lane still
-                // has the job and this run simply did not reach it (its bare
-                // matrix name is in `skipped_jobs`); ABSENT means no job of that
-                // name is in the run at all — renamed, removed, or moved to
-                // another workflow, in which case this alert will never close on
-                // its own and wants a human.
-                const skippedBases = new Set(baseNamesOf(report.skipped_jobs));
-                // Square brackets, because a matrix job's own name already ends
-                // in parentheses — `publish-helm-charts (kamerplanter)
-                // (skipped)` is a sentence nobody parses on first read.
-                const detail = unproven.map(name =>
-                  skippedBases.has(baseNameOf(name))
-                    ? `${name} [skipped in this run]`
-                    : `${name} [absent from this run — renamed or removed?]`
-                );
+              const proven = entries.filter(isProven);
+              const remaining = entries.filter(e => !isProven(e));
+
+              // Why an entry survived, in the order the conditions are checked.
+              // The two job-level answers read very differently to a human:
+              // SKIPPED means the lane still has the job and this run did not
+              // reach it; ABSENT means no job of that name is in the run at all
+              // — renamed, removed or moved — and that alert will never close on
+              // its own.
+              const reasonFor = (entry) => {
+                if (entry.lane_ref !== report.lane_ref) {
+                  return `${describe(entry)} [this run is on the ${report.lane_ref} half]`;
+                }
+                if (!(Date.parse(entry.since) < startedAt)) {
+                  return `${describe(entry)} [this run started before that failure]`;
+                }
+                if (skippedBases.has(baseNameOf(entry.job))) {
+                  return `${describe(entry)} [skipped in this run]`;
+                }
+                return `${describe(entry)} [absent from this run — renamed or removed?]`;
+              };
+
+              if (proven.length === 0) {
                 core.notice(
-                  `Delivery run ${report.run_id} is green but did not prove ${detail.join(', ')}. ` +
-                  `Alert issue #${existing.number} stays OPEN — a skipped job proves nothing.`
+                  `Delivery run ${report.run_id} is green but proves nothing on alert issue ` +
+                  `#${existing.number}, which stays OPEN: ${remaining.map(reasonFor).join('; ')}.`
                 );
                 return;
               }
 
+              const provenList = proven.map(e => jobLabel(e.job)).join(', ');
+              if (remaining.length === 0) {
+                await github.rest.issues.createComment({
+                  ...issueRef,
+                  issue_number: existing.number,
+                  body: [
+                    `Resolved: everything this alert was waiting for ran and succeeded in run ` +
+                    `${report.run_id}.`,
+                    '',
+                    `- Proven now: ${provenList}`,
+                    `- Delivery run: ${report.html_url} (${report.ref_kind} \`${report.head_branch}\`, ` +
+                    `${report.lane_ref} half, started ${report.run_started_at})`,
+                    `- Observer run: ${runUrl}`,
+                    '',
+                    'Closing.',
+                  ].join('\n'),
+                });
+                await github.rest.issues.update({
+                  ...issueRef, issue_number: existing.number, state: 'closed',
+                });
+                core.notice(`Delivery lane repaired — closed alert issue #${existing.number}.`);
+                return;
+              }
+
+              // Partial repair: strike the proven entries off the list and say
+              // so once. Only the marker is rewritten — the surrounding body is
+              // the last red run's own account of itself and stays as it was.
+              await github.rest.issues.update({
+                ...issueRef,
+                issue_number: existing.number,
+                body: existing.body.replace(MARKER, () => renderMarker(remaining)),
+              });
               await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
+                ...issueRef,
                 issue_number: existing.number,
                 body: [
-                  `Resolved: the job(s) that had failed ran and succeeded in run ${report.run_id}.`,
+                  `Proven in run ${report.run_id} (${report.html_url}): ${provenList}.`,
                   '',
-                  `- Proven again: ${recorded.map(n => `\`${n}\``).join(', ')}`,
-                  `- Delivery run: ${report.html_url} (${report.ref_kind} \`${report.head_branch}\`, ${report.conclusion})`,
-                  `- Observer run: ${runUrl}`,
-                  '',
-                  'Closing.',
+                  `Still open: ${remaining.map(describe).join('; ')}.`,
                 ].join('\n'),
               });
-              await github.rest.issues.update({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: existing.number, state: 'closed',
-              });
-              core.notice(`Delivery lane repaired — closed alert issue #${existing.number}.`);
+              core.notice(
+                `Proved ${proven.length} of ${entries.length} entry(ies) on alert issue ` +
+                `#${existing.number}; it stays OPEN for: ${remaining.map(reasonFor).join('; ')}.`
+              );
               return;
             }
 
+            // ---------------------------------------------------------------
             // report.alert
-            const recorded = existing ? parseMarker(existing.body) : null;
-            // Union, not replacement: two different jobs can break in two
-            // consecutive runs, and an alert that forgot the first one would be
-            // closed by a green run that only repaired the second.
-            const markerSet = new Set([...(recorded || []), ...report.failed_jobs]);
+            // ---------------------------------------------------------------
+            const fresh = (report.failed_jobs.length > 0 ? report.failed_jobs : [RUN_ITSELF])
+              .map(job => ({ job, lane_ref: report.lane_ref, since: report.run_started_at }));
+            const previous = existing ? parseMarker(existing.body) : null;
+            // An existing issue whose marker cannot be read: its entries are
+            // lost, and the new marker can only carry this run's. Said out loud
+            // in the comment rather than papered over — a silently shortened
+            // list would close the issue too early.
+            const lostEntries = Boolean(existing) && previous === null;
+
+            // Union by (lane half, job), keeping the LATER failure: two
+            // different jobs can break in two consecutive runs, and an alert
+            // that forgot the first one would be closed by a green run that only
+            // repaired the second. A repeat failure of the same job moves its
+            // `since` forward, so a green run between the two no longer proves it.
+            const merged = new Map();
+            for (const entry of (previous || [])) { merged.set(entryKey(entry), entry); }
+            for (const entry of fresh) {
+              const older = merged.get(entryKey(entry));
+              merged.set(
+                entryKey(entry),
+                older && Date.parse(older.since) > Date.parse(entry.since) ? older : entry
+              );
+            }
+            const entries = [...merged.values()].sort((a, b) =>
+              entryKey(a).localeCompare(entryKey(b)));
 
             // Built by pushing rather than by filtering a sparse array: the
             // sibling job dropped every deliberate blank line that way and
             // collapsed the Markdown into one block.
             const measured = [];
             measured.push(`- Run: ${report.html_url} (attempt ${report.run_attempt}, ${report.duration_seconds}s)`);
-            measured.push(`- Trigger: \`${report.event}\` on ${report.ref_kind} \`${report.head_branch}\``);
+            measured.push(
+              `- Trigger: \`${report.event}\` on ${report.ref_kind} \`${report.head_branch}\` — ` +
+              `the **${report.lane_ref}** half of the lane`
+            );
             measured.push(`- Conclusion: **${report.conclusion}**`);
             measured.push(
               report.failed_jobs.length > 0
                 ? `- Failed job(s): ${report.failed_jobs.map(n => `\`${n}\``).join(', ')}`
-                : '- Failed job(s): **none reports a failing conclusion** — the run itself failed. Open it and look for a workflow-level error, or a failure on an earlier attempt.'
+                : report.job_count === 0
+                  ? '- Failed job(s): **the run started no job at all** — a `startup_failure` shape: the workflow file itself did not parse, or a job-level expression did not evaluate. Nothing in the lane ran.'
+                  : '- Failed job(s): **none reports a failing conclusion** — the run itself failed. Open it and look for a workflow-level error, or a failure on an earlier attempt.'
             );
             measured.push(
               report.skipped_jobs.length > 0
@@ -413,19 +500,42 @@ jobs:
                 : '- Nothing was skipped.'
             );
             measured.push(`- Ran and succeeded: ${report.succeeded_jobs.length} of ${report.job_count} job(s)`);
-            if (!onTheLane) {
-              // The alert is still opened — a red delivery run is worth seeing
-              // wherever it ran — but the title says "the delivery lane went
-              // red", and on a dispatched feature-branch run that is not yet
-              // established. Say which ref it actually was, right where the
-              // reader is, rather than letting the title speak for it.
-              measured.push(
-                `- **This run was not on the delivery lane's own refs.** It was \`${report.event}\` on ` +
-                `\`${report.head_branch}\`, not a push to \`develop\` or a \`v*\` tag, so it does not by ` +
-                'itself establish that `develop` or a release is broken. It also cannot be resolved by a ' +
-                'green run: only a run on the lane closes this issue.'
-              );
+
+            // What is still outstanding, in the reader's words rather than the
+            // marker's. This is the list the closing rule works from, so it is
+            // shown rather than left implicit in an HTML comment.
+            const outstanding = entries.map(e => `- ${describe(e)}`);
+
+            // The chart-job story is the incident this observer was built for,
+            // but it is NOT every alert. Bake it in unconditionally and every
+            // future alert about an unrelated job arrives pre-loaded with a
+            // wrong diagnosis. It is emitted only when the chart job is among
+            // the jobs that failed.
+            const chartJobFailed = report.failed_jobs.some(n => baseNameOf(n) === 'publish-helm-charts');
+            const releaseAssetsAffected =
+              report.failed_jobs.concat(report.skipped_jobs).some(n => baseNameOf(n) === 'update-release-assets');
+
+            const whyMissed = [
+              'A job that is **skipped** takes nothing down with it, so a run whose broken job simply did not execute reads green. That is why this issue is not closed by the next green run: an entry above is struck off only by a run on the same half of the lane that actually executed that job, after the failure it is about.',
+            ];
+            if (chartJobFailed) {
+              whyMissed.push('');
+              whyMissed.push('`publish-helm-charts` in particular runs only when `helm/**` changed, on a `v*` tag, or on dispatch — on every other push to `develop` it is skipped. The lane therefore reads green most of the time and its red runs look intermittent. They usually are not: in the incident this observer was built for (31729355999, 31955164085, 31955579431), every run that reached the job failed.');
             }
+
+            const triage = [];
+            triage.push('Open the delivery run above and read the failing job — not only the red one: a job that is *skipped* because its `needs` failed is a loss too, and it reports success.');
+            if (report.job_count === 0) {
+              triage.push('This run started **no job**, so there is nothing to read inside it. Look at `docker-publish.yml` itself: an unparseable workflow file or a job-level expression that did not evaluate produces exactly this shape.');
+            }
+            if (chartJobFailed) {
+              triage.push('For `publish-helm-charts`, start at #1218 and #1224: the `Attest chart provenance` step reads `~/.docker/config.json` while the job used to log in only to Helm\'s own credential store. `scripts/check_attest_registry_credentials.py` is the gate that keeps that repaired.');
+            }
+            triage.push('Re-running the delivery workflow is the repair path: `gh run rerun <run-id> --failed`. The asset upload refuses to overwrite a *differing* published asset, so a re-run either fills the gap or tells you the bytes moved.');
+            if (releaseAssetsAffected) {
+              triage.push('`update-release-assets` did not complete, so a release page may be short of its chart, compose file, environment file and packages block. That outcome has its own watcher — `release-assets-complete.yml` (#1218) — and its own issue; repair the run, then let that check confirm the release.');
+            }
+            triage.push('If the lane is deliberately being left red, say so **in a comment on this issue** — not by editing the body, which is rewritten on the next red run — so the next reader does not re-diagnose it.');
 
             const body = [
               'A run of the delivery lane (`.github/workflows/docker-publish.yml`) went red. Until this observer existed, that was visible only in the Actions tab: three such runs (31729355999, 31955164085, 31955579431) went unnoticed for five days, and the cause was re-diagnosed from scratch (#1225).',
@@ -436,44 +546,48 @@ jobs:
               '',
               `Observer run: ${runUrl}`,
               '',
+              '## Outstanding',
+              '',
+              ...outstanding,
+              '',
+              'Each entry is proven independently: a green run on the same half of the lane, started after the failure, that actually ran and passed the job strikes that entry off. The issue closes when none is left. (On `develop` most jobs are path-skipped on any given push, so two failures rarely clear in one run — which is why they are tracked separately rather than all-or-nothing.)',
+              '',
               '## Why this is easy to miss',
               '',
-              '`publish-helm-charts` runs only when `helm/**` changed, on a `v*` tag, or on dispatch — on every other push to `develop` it is **skipped**, and a skipped job takes nothing down with it. The lane therefore reads green most of the time and its red runs look intermittent. They usually are not: every run that actually reached the failing job failed.',
-              '',
-              markerSet.size > 0
-                ? 'For the same reason this issue is **not** closed by the next green run. It closes only when a run on the lane itself (a push to `develop`, a `v*` tag, or a dispatch of `docker-publish.yml` on `develop`) has actually re-run the job(s) named above and they succeeded; a green run that skipped them, or one on another branch, leaves this open and says so in the observer run log.'
-                : 'This issue **cannot close automatically**: no job in the red run carries a failing conclusion, so there is nothing for a later green run to prove. Diagnose the run by hand and close this issue yourself once the lane is repaired — an empty job set must never be read as "everything is proven".',
+              ...whyMissed,
               '',
               'The body above is **regenerated on every red run**, so edits to it are lost (and an edit that removes the marker comment at the end would stop this issue from ever closing automatically). Add anything you want to keep as a **comment** instead.',
               '',
               '## Triage',
               '',
-              '1. Open the delivery run above and read the failing job — not only the red one: a job that is *skipped* because its `needs` failed is a loss too, and it reports success.',
-              '2. If `publish-helm-charts` is the failing job, start at #1218 and #1224: the `Attest chart provenance` step reads `~/.docker/config.json` while the job used to log in only to Helm\'s own credential store. `scripts/check_attest_registry_credentials.py` is the gate that keeps that repaired.',
-              '3. Re-running the tag\'s delivery workflow is the repair path for a release: `gh run rerun <run-id> --failed`. The asset upload refuses to overwrite a *differing* published asset, so a re-run either fills the gap or tells you the bytes moved.',
-              '4. A skipped `update-release-assets` means the release page is short of its chart, compose file, environment file and packages block. That outcome has its own watcher — `release-assets-complete.yml` (#1218) — and its own issue; repair the run, then let that check confirm the release.',
-              '5. If the lane is deliberately being left red, say so **in a comment on this issue** — not by editing the body, which is rewritten on the next red run — so the next reader does not re-diagnose it.',
+              ...triage.map((text, index) => `${index + 1}. ${text}`),
               '',
-              renderMarker(markerSet),
+              renderMarker(entries),
             ].join('\n');
 
             if (existing) {
-              await github.rest.issues.update({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: existing.number, body,
-              });
+              await github.rest.issues.update({ ...issueRef, issue_number: existing.number, body });
               await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
+                ...issueRef,
                 issue_number: existing.number,
-                body:
+                body: [
                   `Red again as of ${report.html_url} (\`${report.event}\` on ${report.ref_kind} ` +
-                  `\`${report.head_branch}\`): ${report.failed_jobs.map(n => `\`${n}\``).join(', ') || '_no job reports a failing conclusion_'}.`,
+                  `\`${report.head_branch}\`, ${report.lane_ref} half): ` +
+                  `${report.failed_jobs.map(n => `\`${n}\``).join(', ') || '_no job reports a failing conclusion_'}.`,
+                  ...(lostEntries
+                    ? [
+                        '',
+                        '**The previous marker on this issue could not be read**, so the outstanding list was ' +
+                        'rebuilt from this run alone — anything recorded earlier is lost. Check the comment ' +
+                        'history above for failures that are still unrepaired.',
+                      ]
+                    : []),
+                ].join('\n'),
               });
               core.notice(`Updated existing alert issue #${existing.number}.`);
             } else {
               const created = await github.rest.issues.create({
-                owner: context.repo.owner, repo: context.repo.repo,
-                title: TITLE, body, labels: [LABEL, 'deployment'],
+                ...issueRef, title: TITLE, body, labels: [LABEL, 'deployment'],
               });
               core.notice(`Opened alert issue #${created.data.number}.`);
             }
