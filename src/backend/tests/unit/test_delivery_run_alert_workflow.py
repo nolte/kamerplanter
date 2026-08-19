@@ -175,15 +175,19 @@ def issue(number: int, *, body: str, pull_request: Any = None) -> dict[str, Any]
     return {"number": number, "body": body, "pull_request": pull_request}
 
 
-def marker(*base_names: str) -> str:
+def marker(*job_names: str) -> str:
     """The machine-readable marker the alert body carries.
+
+    FULL job names, matrix suffix included — see
+    ``TestClosingCannotFlap::test_one_matrix_leg_cannot_prove_another`` for why
+    base names would be the wrong key.
 
     Rendered exactly as `JSON.stringify` does it — compact separators, no space
     after the comma. A Python default of `", "` here would build a string the
     shipped script never writes, and the union assertion would then be checking
     a marker that cannot occur.
     """
-    payload = json.dumps(sorted(base_names), separators=(",", ":"))
+    payload = json.dumps(sorted(job_names), separators=(",", ":"))
     return f"<!-- kp:delivery-run-alert:failed-jobs={payload} -->"
 
 
@@ -214,6 +218,43 @@ RED_WITHOUT_A_FAILING_JOB_REPORT = judge(
 #: A cancelled run of a DIFFERENT workflow — what a `workflow_dispatch` with a
 #: foreign run id produces.
 FOREIGN_REPORT = judge(RUN_NUCLEI_CANCELLED, RUN_NUCLEI_CANCELLED_JOBS)
+
+# --------------------------------------------------------------------------- #
+# The dispatch reports (W-1) are DERIVED, and here is why they have to be.
+#
+# `docker-publish.yml` carries a bare, unrestricted `workflow_dispatch:` — any
+# collaborator can run the delivery lane on any branch, and `publish-helm-charts`
+# runs unconditionally there (its `if:` accepts `github.event_name ==
+# 'workflow_dispatch'`). But nobody ever has:
+#
+#     gh api "repos/nolte/kamerplanter/actions/workflows/246887462/runs\
+#             ?event=workflow_dispatch" --jq .total_count   ->  0
+#
+# So there is no payload to record, and exactly two fields are replaced on a
+# recorded one — `event` and `head_branch`. Everything else, including the job
+# list that makes the chart job "ran and succeeded", is the measured v0.2.1 run.
+# --------------------------------------------------------------------------- #
+
+#: Green, chart job ran — but dispatched on a feature branch. The shape that
+#: would let somebody close a `develop`/tag alert from their own branch.
+GREEN_DISPATCH_FEATURE_REPORT = judge(
+    replacing(RUN_V0_2_1_GREEN, event="workflow_dispatch", head_branch="fix/xyz"),
+    RUN_V0_2_1_GREEN_JOBS,
+)
+
+#: Green, chart job ran, dispatched on `develop` — a legitimate manual repair of
+#: the lane, and therefore a legitimate resolution.
+GREEN_DISPATCH_DEVELOP_REPORT = judge(
+    replacing(RUN_V0_2_1_GREEN, event="workflow_dispatch", head_branch="develop"),
+    RUN_V0_2_1_GREEN_JOBS,
+)
+
+#: Red, dispatched on a feature branch. Still worth an alert — a red delivery run
+#: is worth seeing wherever it ran — but the body has to say where.
+RED_DISPATCH_FEATURE_REPORT = judge(
+    replacing(RUN_V0_2_0_RED, event="workflow_dispatch", head_branch="fix/xyz"),
+    RUN_V0_2_0_RED_JOBS,
+)
 
 
 class TestTheReportsUnderTestAreWhatTheScriptProduces:
@@ -246,16 +287,18 @@ class TestOpeningTheAlert:
         assert "update" not in names(calls)
         assert "createComment" not in names(calls)
 
-    def test_the_body_carries_the_failed_job_set_as_base_names(self, tmp_path: Path) -> None:
+    def test_the_body_carries_the_failed_job_set_as_full_names(self, tmp_path: Path) -> None:
         """The marker is the alert's memory: it is what a later green run is judged against.
 
-        BASE names, not display names — `publish-helm-charts (kamerplanter)` when
-        it runs, `publish-helm-charts` when it is skipped, and the marker has to
-        survive that switch.
+        FULL names, matrix suffix included. The base name would join the
+        executed and the skipped form of a job — convenient, and wrong: it would
+        also join two DIFFERENT matrix legs, so one green leg could prove a leg
+        that never re-ran.
         """
         calls = run_alert_script(tmp_path, RED_TAG_REPORT)
 
-        assert marker(CHART_BASE) in only(calls, "create")["body"]
+        assert marker(CHART_JOB_RAN) in only(calls, "create")["body"]
+        assert marker(CHART_BASE) not in only(calls, "create")["body"]
 
     def test_the_body_names_the_measurement_a_human_needs(self, tmp_path: Path) -> None:
         body = only(run_alert_script(tmp_path, RED_TAG_REPORT), "create")["body"]
@@ -285,12 +328,46 @@ class TestOpeningTheAlert:
         assert "none reports a failing conclusion" in body
         assert marker() in body
 
+    def test_an_empty_job_set_promises_a_manual_close_not_an_automatic_one(self, tmp_path: Path) -> None:
+        """S-6: the body must not promise what the marker cannot deliver.
+
+        With no job named, no green run can ever satisfy the closing rule, so
+        telling the reader "it closes when the job(s) named above succeed" —
+        while naming none — would leave an issue open forever with a false
+        explanation attached to it.
+        """
+        body = only(run_alert_script(tmp_path, RED_WITHOUT_A_FAILING_JOB_REPORT), "create")["body"]
+
+        assert "cannot close automatically" in body
+        assert "close this issue yourself" in body
+        assert "It closes only when a run on the lane itself" not in body
+
+    def test_a_normal_alert_still_promises_the_automatic_close(self, tmp_path: Path) -> None:
+        """The other direction of the same branch — falsification, not one-sided."""
+        body = only(run_alert_script(tmp_path, RED_TAG_REPORT), "create")["body"]
+
+        assert "It closes only when a run on the lane itself" in body
+        assert "cannot close automatically" not in body
+
+    def test_the_body_warns_that_it_is_regenerated_and_points_edits_at_comments(self, tmp_path: Path) -> None:
+        """S-5: the body is rewritten on every red run.
+
+        An edit to it is lost, and an edit that strips the marker would stop the
+        issue from ever closing automatically — so the body says so, and the
+        triage step that used to invite "say so here" now asks for a comment.
+        """
+        body = only(run_alert_script(tmp_path, RED_TAG_REPORT), "create")["body"]
+
+        assert "regenerated on every red run" in body
+        assert "as a **comment** instead" in body
+        assert "in a comment on this issue" in body
+
 
 class TestUpdatingTheAlert:
     """A second red run updates the one issue and unions the marker."""
 
     def test_an_existing_issue_is_updated_not_duplicated(self, tmp_path: Path) -> None:
-        open_issue = issue(77, body=f"old body\n{marker(CHART_BASE)}")
+        open_issue = issue(77, body=f"old body\n{marker(CHART_JOB_RAN)}")
 
         calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[open_issue])
 
@@ -308,12 +385,12 @@ class TestUpdatingTheAlert:
 
         calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[open_issue])
 
-        assert marker(CHART_BASE, "update-release-assets") in only(calls, "update")["body"]
+        assert marker(CHART_JOB_RAN, "update-release-assets") in only(calls, "update")["body"]
 
     def test_a_pull_request_carrying_the_label_is_not_mistaken_for_the_alert(self, tmp_path: Path) -> None:
         """`listForRepo` returns pull requests too; the script filters them out."""
-        pull = {"number": 9, "body": marker(CHART_BASE), "pull_request": {"url": "…"}}
-        real = issue(77, body=marker(CHART_BASE))
+        pull = {"number": 9, "body": marker(CHART_JOB_RAN), "pull_request": {"url": "…"}}
+        real = issue(77, body=marker(CHART_JOB_RAN))
 
         calls = run_alert_script(tmp_path, RED_TAG_REPORT, open_issues=[pull, real])
 
@@ -331,13 +408,13 @@ class TestClosingCannotFlap:
 
     def test_the_green_run_that_ran_the_chart_job_closes_the_alert(self, tmp_path: Path) -> None:
         """32259216513, the v0.2.1 tag run: the chart job ran and passed."""
-        open_issue = issue(77, body=f"…\n{marker(CHART_BASE)}")
+        open_issue = issue(77, body=f"…\n{marker(CHART_JOB_RAN)}")
 
         calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
 
         comment = only(calls, "createComment")["body"]
         assert "Resolved" in comment
-        assert f"`{CHART_BASE}`" in comment
+        assert f"`{CHART_JOB_RAN}`" in comment
         assert only(calls, "update") == {
             "owner": "nolte",
             "repo": "kamerplanter",
@@ -352,14 +429,16 @@ class TestClosingCannotFlap:
         chart job is skipped on nearly every push, so closing here would reopen
         and reclose the alert indefinitely while the lane stayed broken.
         """
-        open_issue = issue(77, body=f"…\n{marker(CHART_BASE)}")
+        open_issue = issue(77, body=f"…\n{marker(CHART_JOB_RAN)}")
 
         calls = run_alert_script(tmp_path, GREEN_CHART_SKIPPED_REPORT, open_issues=[open_issue])
 
         assert names(calls) == ["listForRepo", "notice"]
         notice = messages(calls, "notice")
         assert "stays OPEN" in notice
-        assert CHART_BASE in notice
+        # Named with the reason: the job still exists, this run just never
+        # reached it. "Absent" would mean something else entirely (S-6).
+        assert f"{CHART_JOB_RAN} [skipped in this run]" in notice
 
     def test_the_skipped_case_is_reported_to_the_run_log_and_not_as_a_comment(self, tmp_path: Path) -> None:
         """Deliberate: this branch is reached on nearly every push to `develop`.
@@ -368,7 +447,7 @@ class TestClosingCannotFlap:
         under dozens of identical notes a day; the observer's run log is where a
         maintainer looking at this looks.
         """
-        open_issue = issue(77, body=f"…\n{marker(CHART_BASE)}")
+        open_issue = issue(77, body=f"…\n{marker(CHART_JOB_RAN)}")
 
         calls = run_alert_script(tmp_path, GREEN_CHART_SKIPPED_REPORT, open_issues=[open_issue])
 
@@ -424,13 +503,43 @@ class TestClosingCannotFlap:
         assert names(calls) == ["listForRepo", "notice"]
         assert "no alert issue is open" in messages(calls, "notice").lower()
 
+    def test_one_matrix_leg_cannot_prove_another(self, tmp_path: Path) -> None:
+        """S-4: the reason the marker records full names.
+
+        `publish-helm-charts` has exactly ONE leg today
+        (docker-publish.yml, `matrix.chart: [kamerplanter]`), so a base-name key
+        would work — right up to the second chart. Two legs failing and one leg
+        re-running would then read as "proven", because both collapse to
+        `publish-helm-charts`. The full name keeps them apart, and this test is
+        what stops a future refactor from quietly re-introducing the collapse.
+        """
+        open_issue = issue(77, body=marker(CHART_JOB_RAN, "publish-helm-charts (other-chart)"))
+
+        calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
+
+        assert "update" not in names(calls)
+        assert "publish-helm-charts (other-chart)" in messages(calls, "notice")
+
+    def test_a_job_that_vanished_reads_differently_from_one_that_was_skipped(self, tmp_path: Path) -> None:
+        """S-6: "skipped in this run" and "absent from the lane" want different acts.
+
+        A skipped job will come back on the right trigger; a renamed or deleted
+        one never will, and that alert can only be closed by a human.
+        """
+        open_issue = issue(77, body=marker("a-job-that-no-longer-exists"))
+
+        calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
+
+        assert "update" not in names(calls)
+        assert "a-job-that-no-longer-exists [absent from this run" in messages(calls, "notice")
+
     def test_a_partially_repaired_alert_stays_open(self, tmp_path: Path) -> None:
         """Two recorded failures, one repaired: not resolved.
 
         The green tag run re-ran and passed `publish-helm-charts`, but the alert
         also remembers `some-other-job`, which is in no bucket of that run.
         """
-        open_issue = issue(77, body=marker(CHART_BASE, "some-other-job"))
+        open_issue = issue(77, body=marker(CHART_JOB_RAN, "some-other-job"))
 
         calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
 
@@ -438,11 +547,74 @@ class TestClosingCannotFlap:
         assert "some-other-job" in messages(calls, "notice")
 
 
+class TestOnlyTheLaneCanProveARepair:
+    """W-1: `docker-publish.yml` can be dispatched on ANY branch.
+
+    Its `workflow_dispatch` is unrestricted and `publish-helm-charts` runs
+    unconditionally there, so a collaborator dispatching on `fix/xyz` produces a
+    green run in which the failing job "ran and succeeded" — about a branch the
+    alert was never about. Closing on that would report the lane repaired while
+    `develop` and the release tags are still broken.
+
+    The predicate reads `event` and `head_branch`, both verbatim API fields, and
+    deliberately not `ref_kind`, which is a heuristic on the branch name.
+    """
+
+    def test_a_green_dispatch_on_a_feature_branch_does_not_close_the_alert(self, tmp_path: Path) -> None:
+        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+
+        calls = run_alert_script(tmp_path, GREEN_DISPATCH_FEATURE_REPORT, open_issues=[open_issue])
+
+        assert names(calls) == ["listForRepo", "notice"]
+        notice = messages(calls, "notice")
+        assert "non-lane ref" in notice
+        assert "fix/xyz" in notice
+        assert "stays OPEN" in notice
+
+    def test_a_green_dispatch_on_develop_does_close_the_alert(self, tmp_path: Path) -> None:
+        """The manual repair path stays usable — the gate is the ref, not the event."""
+        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+
+        calls = run_alert_script(tmp_path, GREEN_DISPATCH_DEVELOP_REPORT, open_issues=[open_issue])
+
+        assert only(calls, "update")["state"] == "closed"
+
+    def test_a_green_tag_push_closes_the_alert(self, tmp_path: Path) -> None:
+        """`event == 'push'` needs no branch check: docker-publish.yml's `on.push`
+        accepts only `branches: [develop]` and `tags: ['v*']`, so a push can
+        reach it from nowhere else."""
+        open_issue = issue(77, body=marker(CHART_JOB_RAN))
+
+        calls = run_alert_script(tmp_path, GREEN_CHART_RAN_REPORT, open_issues=[open_issue])
+
+        assert only(calls, "update")["state"] == "closed"
+
+    def test_a_red_dispatch_on_a_feature_branch_still_opens_but_says_where(self, tmp_path: Path) -> None:
+        """Opening is the right call — a red delivery run is worth seeing.
+
+        The title says "the delivery lane went red", which on a dispatched
+        feature-branch run is not yet established, so the body has to carry the
+        ref the reader would otherwise assume.
+        """
+        body = only(run_alert_script(tmp_path, RED_DISPATCH_FEATURE_REPORT), "create")["body"]
+
+        assert "not on the delivery lane's own refs" in body
+        assert "`workflow_dispatch` on" in body
+        assert "`fix/xyz`" in body
+
+    def test_the_lane_check_does_not_run_when_no_alert_is_open(self, tmp_path: Path) -> None:
+        """Nothing to protect, so the ordinary "nothing is open" notice wins."""
+        calls = run_alert_script(tmp_path, GREEN_DISPATCH_FEATURE_REPORT)
+
+        assert names(calls) == ["listForRepo", "notice"]
+        assert "no alert issue is open" in messages(calls, "notice").lower()
+
+
 class TestVerdictsThatMustTouchNothing:
     """Inconclusive and foreign runs leave the tracker exactly as they found it."""
 
     def test_an_inconclusive_run_leaves_an_open_alert_alone(self, tmp_path: Path) -> None:
-        open_issue = issue(77, body=marker(CHART_BASE))
+        open_issue = issue(77, body=marker(CHART_JOB_RAN))
 
         calls = run_alert_script(tmp_path, INCONCLUSIVE_REPORT, open_issues=[open_issue])
 
@@ -463,7 +635,7 @@ class TestVerdictsThatMustTouchNothing:
         foreign GREEN one would close a genuine, still-unrepaired alert. The
         script returns before the dedup query is even issued.
         """
-        open_issue = issue(77, body=marker(CHART_BASE))
+        open_issue = issue(77, body=marker(CHART_JOB_RAN))
 
         calls = run_alert_script(tmp_path, FOREIGN_REPORT, open_issues=[open_issue])
 
