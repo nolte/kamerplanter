@@ -1,0 +1,360 @@
+name: Delivery Run Alert
+
+# Issue #1225 — the PROCESS watcher of the delivery lane, and the third member
+# of a family whose division of labour is deliberate:
+#
+#   release-lag.yml             has a release been PUBLISHED at all?
+#   release-assets-complete.yml does the published release CARRY its artefacts?
+#   delivery-run-alert.yml      did the delivery RUN go red?      <- this file
+#
+# The other two watch outcomes on the release page. Neither can see a red run,
+# and a red run is exactly what nobody saw.
+#
+# THE INCIDENT. `publish-helm-charts` in docker-publish.yml failed on
+# 2026-08-13 (run 31729355999, tag v0.2.0), on 2026-08-16T15:16 (31955164085,
+# develop) and again eight minutes later (31955579431, develop). Every one of
+# those runs is RED in the Actions tab. Every one of them alerted nobody, and
+# the cause was re-diagnosed from scratch five days later. Nothing in this
+# repository observed it because nothing could: `grep -rl "workflow_run"
+# .github/workflows/` returned NOTHING on origin/develop (re-measured
+# 2026-08-19). A red run notifies the actor and no one else — and on a
+# Renovate-authored push the actor is a bot.
+#
+# WHY THE LANE STILL LOOKED HEALTHY. `publish-helm-charts` runs only when
+# `helm/**` changed, when the ref is a `v*` tag, or on workflow_dispatch. On
+# every other push to `develop` it is SKIPPED, and a skipped job takes nothing
+# down with it, so the run is green. The lane therefore reads green most of the
+# time and the red runs look intermittent rather than systematic. They were not:
+# every run that actually reached the chart job failed.
+#
+# That blindness is built into the closing rule below. A green run closes the
+# alert only if every job the alert names actually RAN and succeeded; a green
+# run that merely skipped them proves nothing and leaves the issue open. Without
+# that, the alert would flap — open on a `helm/**` push, close on the next
+# unrelated push, open again on the next release.
+#
+# WHY workflow_run AND NOT A PULL-REQUEST GATE. "The delivery run went red" is a
+# fact about a run that only exists AFTER a merge: docker-publish.yml triggers on
+# pushes to `develop` and on `v*` tags, never on a pull request. A PR gate cannot
+# observe it at all, and re-running the eight image builds plus the chart publish
+# per PR would be an expensive way to measure something else. `types: [completed]`
+# is the only sensible window — an in-flight run has no verdict.
+#
+# FAIL-LOUD CONTRACT (NFR-018 §2). An unreachable API, an unparseable run or
+# jobs payload, a run that is not `completed`, an empty run id or an unknown
+# conclusion makes THIS RUN RED and opens NO issue: the check writes no report,
+# the issue step below is skipped by its `hashFiles()` guard, and the red
+# observer run is the signal. An undetermined check must never read as a clean
+# one, and a transient API blip must not spam the tracker. A determined verdict
+# — alert, resolved AND inconclusive alike — writes delivery-run-report.json and
+# exits 0.
+#
+# THIS FILE CANNOT BE EXERCISED BY ITS OWN PULL REQUEST. `workflow_run` fires
+# only from the workflow file on the DEFAULT branch, so nothing about the
+# trigger runs until this is merged. Verification before merge is the unit
+# suite (src/backend/tests/unit/test_delivery_run_check.py, which replays the
+# recorded runs and executes the github-script body below verbatim under node).
+# After merge, replay the measured red run:
+#
+#     gh workflow run delivery-run-alert.yml -f run_id=31729355999
+#
+# That WILL open the alert issue for a run from 2026-08-13; close it afterwards.
+
+on:
+  workflow_run:
+    # The workflow's `name:`, not its file name — that is what this trigger
+    # matches on. docker-publish.yml has no `pull_request` trigger, so every run
+    # reaching this observer comes from a push to `develop`, a `v*` tag or a
+    # dispatch; none of them is fork-controlled.
+    workflows: ["Build & Publish Container Images"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: >-
+          Judge a specific historical run of the delivery lane instead of the
+          one that just completed, e.g. 31729355999 (the measured v0.2.0 failure
+          from 2026-08-13). NOTE: this WILL open the alert issue for that run —
+          close it afterwards. A run id from a different workflow is reported and
+          then ignored, on purpose.
+        required: false
+        type: string
+
+# `actions: read` is the scope `GET /repos/{owner}/{repo}/actions/runs/{id}/jobs`
+# needs. A public repository answers both endpoints anonymously, so this job
+# would work with no token at all — but the token lifts the anonymous rate limit
+# (which a busy delivery lane plus a nightly matrix can reach) and keeps the job
+# honest if this repository is ever forked private, where an anonymous read
+# simply 404s and the check would go red for the wrong reason.
+# `issues: write` opens and closes the single alert issue; `contents: read` is
+# the checkout. Nothing here writes contents.
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+# An alerting job: serialise a workflow_run-triggered run against a manual one so
+# two runs cannot both act on the alert issue, and never cancel — a cancelled run
+# could leave the issue half-updated. Fixed group (not github.ref) because the
+# issue is a single shared resource: two delivery runs finishing seconds apart
+# (31955164085 and 31955579431 were eight minutes apart) must queue, not race.
+concurrency:
+  group: delivery-run-alert
+  cancel-in-progress: false
+
+jobs:
+  check-delivery-run:
+    name: Judge the completed delivery run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Judge the run and its jobs
+        id: check
+        env:
+          # Read-only API access; see the permissions block for why the token is
+          # here at all on a public repository.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # The ONLY place an event field enters this workflow, and it enters as
+          # an environment variable — never interpolated into `run:` or into the
+          # script body (spec/project/github-actions-best-practices §untrusted
+          # input). `inputs.run_id` is null outside a dispatch, so `||` selects
+          # the triggering run; an empty value makes the script go red rather
+          # than fetch `/actions/runs/`.
+          DELIVERY_RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+        # Hard errors exit non-zero here => the run goes red and the issue step
+        # below no-ops (no delivery-run-report.json). A determined verdict writes
+        # the report and exits 0.
+        run: python3 scripts/ci/check_delivery_run.py delivery-run-report.json
+
+      - name: Open, update or close the delivery-run issue
+        # Runs only when the check DETERMINED a verdict (report exists). On a hard
+        # error the report is absent, this step is skipped, and the red run is the
+        # signal — deliberately NOT an issue, so a transient API blip cannot spam
+        # the tracker.
+        if: always() && hashFiles('delivery-run-report.json') != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Read via process.env, never interpolated into the script body.
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('delivery-run-report.json', 'utf8'));
+            const LABEL = 'delivery-run-failed';
+            const TITLE = 'The delivery lane went red: Build & Publish Container Images failed (#1225)';
+            const runUrl = process.env.RUN_URL;
+
+            // Everything below reads the REPORT, never `github.event.workflow_run.*`.
+            // The report's fields come from the REST API through the checked-in
+            // script, so no attacker-influenced event field reaches this body —
+            // and the commit subject (`display_title`), the most
+            // attacker-influenced string in the payload, is deliberately not
+            // rendered into the issue at all. It adds nothing the run URL does
+            // not already give a reader.
+
+            // The failing/skipped/succeeded sets are keyed on BASE names: a
+            // matrix job is reported as `publish-helm-charts (kamerplanter)`
+            // when it runs and as the bare `publish-helm-charts` when it is
+            // skipped (measured — runs 32259216513 vs 32157445903). Comparing
+            // display names across that boundary silently finds nothing.
+            const baseNamesOf = (names) => {
+              const wanted = new Set(names);
+              return report.jobs.filter(j => wanted.has(j.name)).map(j => j.base_name);
+            };
+            const MARKER = /<!-- kp:delivery-run-alert:failed-jobs=(\[.*?\]) -->/;
+            const renderMarker = (names) =>
+              `<!-- kp:delivery-run-alert:failed-jobs=${JSON.stringify([...names].sort())} -->`;
+            const parseMarker = (body) => {
+              const found = MARKER.exec(body || '');
+              if (!found) { return null; }
+              try {
+                const parsed = JSON.parse(found[1]);
+                return Array.isArray(parsed) && parsed.every(n => typeof n === 'string') ? parsed : null;
+              } catch (error) {
+                return null;
+              }
+            };
+
+            // A dispatch may hand over ANY run id, including one from another
+            // workflow (`is_expected_workflow` is false then). Acting on it
+            // would be wrong in both directions: a foreign red run would open an
+            // issue blaming the delivery lane, and a foreign GREEN run would
+            // close a genuine, still-unrepaired delivery alert. So: say what was
+            // measured, touch nothing.
+            if (!report.is_expected_workflow) {
+              core.warning(
+                `Run ${report.run_id} belongs to "${report.workflow_name}", not to the observed ` +
+                `"${report.expected_workflow}" — reporting its verdict (${report.verdict}) and leaving ` +
+                `the alert issue untouched.`
+              );
+              return;
+            }
+
+            // Dedup anchor: the single open issue carrying our label. A good
+            // alerting job updates one issue; it does not open a new one per run.
+            const open = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: LABEL,
+            })).data.filter(i => !i.pull_request);
+            const existing = open[0];
+
+            // Neither alert nor resolution. `cancelled`, `neutral`, `skipped`,
+            // `action_required` and `stale` are determined facts about the run
+            // and say nothing about the lane's health — a cancelled run is an
+            // operator act or a concurrency eviction. Closing on "did not fail"
+            // would certify something nobody measured, which is the class this
+            // whole PR exists to remove.
+            if (report.verdict === 'inconclusive') {
+              core.notice(
+                `Run ${report.run_id} concluded ${report.conclusion} — neither a lane failure nor proof ` +
+                `that the lane works. ` +
+                (existing ? `Alert issue #${existing.number} is left OPEN.` : 'No alert issue is open.')
+              );
+              return;
+            }
+
+            if (report.resolved) {
+              if (!existing) {
+                core.notice(`Delivery run ${report.run_id} is green and no alert issue is open.`);
+                return;
+              }
+
+              const recorded = parseMarker(existing.body);
+              // No marker, an unparseable one, or an EMPTY set: we do not know
+              // which jobs have to be proven, so we cannot judge the repair.
+              // Leave the issue open and say so in the run log only — this
+              // branch is reached on EVERY green delivery run while such an
+              // issue is open (several a day on `develop`), and a comment per
+              // run would bury the issue it is meant to protect. The empty set
+              // is included on purpose: `every()` over an empty array is TRUE,
+              // so treating it as satisfied would close the alert having
+              // verified nothing.
+              if (recorded === null || recorded.length === 0) {
+                core.notice(
+                  `Delivery run ${report.run_id} is green, but alert issue #${existing.number} names no ` +
+                  `job set this run could prove (marker missing, unparseable or empty). Leaving it open.`
+                );
+                return;
+              }
+
+              // `succeeded_jobs` is the script's own bucket of jobs that RAN and
+              // passed; re-deriving it here from `conclusion === 'success'`
+              // would be a second definition of the rule, free to drift from the
+              // one the unit tests pin. Only the name -> base_name mapping
+              // happens here.
+              const ran = new Set(baseNamesOf(report.succeeded_jobs));
+              const unproven = recorded.filter(name => !ran.has(name));
+
+              if (unproven.length > 0) {
+                // The green-but-skipped case, i.e. the flap this rule exists to
+                // prevent. Notice only, no comment, for the same reason as
+                // above: on `develop` the chart job is skipped on nearly every
+                // push, so commenting here would produce dozens of identical
+                // comments a day.
+                core.notice(
+                  `Delivery run ${report.run_id} is green but did not run ${unproven.join(', ')} ` +
+                  `(skipped: ${report.skipped_jobs.join(', ') || 'none'}). Alert issue #${existing.number} ` +
+                  `stays OPEN — a skipped job proves nothing.`
+                );
+                return;
+              }
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body: [
+                  `Resolved: the job(s) that had failed ran and succeeded in run ${report.run_id}.`,
+                  '',
+                  `- Proven again: ${recorded.map(n => `\`${n}\``).join(', ')}`,
+                  `- Delivery run: ${report.html_url} (${report.ref_kind} \`${report.head_branch}\`, ${report.conclusion})`,
+                  `- Observer run: ${runUrl}`,
+                  '',
+                  'Closing.',
+                ].join('\n'),
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, state: 'closed',
+              });
+              core.notice(`Delivery lane repaired — closed alert issue #${existing.number}.`);
+              return;
+            }
+
+            // report.alert
+            const failedBases = baseNamesOf(report.failed_jobs);
+            const recorded = existing ? parseMarker(existing.body) : null;
+            // Union, not replacement: two different jobs can break in two
+            // consecutive runs, and an alert that forgot the first one would be
+            // closed by a green run that only repaired the second.
+            const markerSet = new Set([...(recorded || []), ...failedBases]);
+
+            // Built by pushing rather than by filtering a sparse array: the
+            // sibling job dropped every deliberate blank line that way and
+            // collapsed the Markdown into one block.
+            const measured = [];
+            measured.push(`- Run: ${report.html_url} (attempt ${report.run_attempt}, ${report.duration_seconds}s)`);
+            measured.push(`- Trigger: \`${report.event}\` on ${report.ref_kind} \`${report.head_branch}\``);
+            measured.push(`- Conclusion: **${report.conclusion}**`);
+            measured.push(
+              report.failed_jobs.length > 0
+                ? `- Failed job(s): ${report.failed_jobs.map(n => `\`${n}\``).join(', ')}`
+                : '- Failed job(s): **none reports a failing conclusion** — the run itself failed. Open it and look for a workflow-level error, or a failure on an earlier attempt.'
+            );
+            measured.push(
+              report.skipped_jobs.length > 0
+                ? `- Skipped, therefore NOT proven by this run: ${report.skipped_jobs.map(n => `\`${n}\``).join(', ')}`
+                : '- Nothing was skipped.'
+            );
+            measured.push(`- Ran and succeeded: ${report.succeeded_jobs.length} of ${report.job_count} job(s)`);
+
+            const body = [
+              'A run of the delivery lane (`.github/workflows/docker-publish.yml`) went red. Until this observer existed, that was visible only in the Actions tab: three such runs (31729355999, 31955164085, 31955579431) went unnoticed for five days, and the cause was re-diagnosed from scratch (#1225).',
+              '',
+              '## Measured',
+              '',
+              ...measured,
+              '',
+              `Observer run: ${runUrl}`,
+              '',
+              '## Why this is easy to miss',
+              '',
+              '`publish-helm-charts` runs only when `helm/**` changed, on a `v*` tag, or on dispatch — on every other push to `develop` it is **skipped**, and a skipped job takes nothing down with it. The lane therefore reads green most of the time and its red runs look intermittent. They usually are not: every run that actually reached the failing job failed.',
+              '',
+              'For the same reason this issue is **not** closed by the next green run. It closes only when a run has actually re-run the job(s) named above and they succeeded; a green run that skipped them leaves this open and says so in the observer run log.',
+              '',
+              '## Triage',
+              '',
+              '1. Open the delivery run above and read the failing job — not only the red one: a job that is *skipped* because its `needs` failed is a loss too, and it reports success.',
+              '2. If `publish-helm-charts` is the failing job, start at #1218 and #1224: the `Attest chart provenance` step reads `~/.docker/config.json` while the job used to log in only to Helm\'s own credential store. `scripts/check_attest_registry_credentials.py` is the gate that keeps that repaired.',
+              '3. Re-running the tag\'s delivery workflow is the repair path for a release: `gh run rerun <run-id> --failed`. The asset upload refuses to overwrite a *differing* published asset, so a re-run either fills the gap or tells you the bytes moved.',
+              '4. A skipped `update-release-assets` means the release page is short of its chart, compose file, environment file and packages block. That outcome has its own watcher — `release-assets-complete.yml` (#1218) — and its own issue; repair the run, then let that check confirm the release.',
+              '5. If the lane is deliberately being left red, say so here so the next reader does not re-diagnose it.',
+              '',
+              renderMarker(markerSet),
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body:
+                  `Red again as of ${report.html_url} (\`${report.event}\` on ${report.ref_kind} ` +
+                  `\`${report.head_branch}\`): ${report.failed_jobs.map(n => `\`${n}\``).join(', ') || '_no job reports a failing conclusion_'}.`,
+              });
+              core.notice(`Updated existing alert issue #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body, labels: [LABEL, 'deployment'],
+              });
+              core.notice(`Opened alert issue #${created.data.number}.`);
+            }
