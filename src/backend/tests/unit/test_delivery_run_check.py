@@ -679,14 +679,15 @@ class TestTheGreenRuns:
 def would_close(report: dict[str, Any], recorded_failures: list[str]) -> bool:
     """The closing rule of requirement R6, expressed against the report schema.
 
-    NOT a copy of shipped code: the observer workflow is work package P2 and
-    does not exist yet. This is the *contract* P1 has to make expressible — if
-    the report cannot answer "did every job that failed run and succeed again?",
-    R6 cannot be implemented on top of it. When P2 ships, its own
-    `actions/github-script` body gets executed verbatim under node the way
-    `test_release_assets_check.py` does it; this helper does not stand in for
-    that, and the docstring says so rather than letting a green test here read
-    as coverage of a workflow nobody has written.
+    NOT a copy of shipped code, and it is not the observer workflow either. This
+    is the *contract* the report schema has to make expressible — if the report
+    cannot answer "did every job that failed run and succeed again?", R6 cannot
+    be implemented on top of it. The observer workflow (P2,
+    `.github/workflows/delivery-run-alert.yml`) exists and is its own subject:
+    its `actions/github-script` body is executed verbatim under node in
+    `test_delivery_run_alert_workflow.py`, the way `test_release_assets_check.py`
+    does it. This helper does not stand in for that coverage, and predates it —
+    the tests below must not be read as exercising the shipped closing logic.
     """
     return report["resolved"] and all(name in report["succeeded_jobs"] for name in recorded_failures)
 
