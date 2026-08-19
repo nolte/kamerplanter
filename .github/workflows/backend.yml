@@ -31,6 +31,16 @@ on:
       - 'scripts/check_layer_imports.py'
       - 'scripts/check_tenant_body_field.py'
       - 'scripts/check_workflow_gate_integrity.py'
+      # The CI-alarm checks live in scripts/ci/ but their tests live in
+      # src/backend/tests/unit/ (they run on a bare runner, so they are loaded
+      # by path). Without these entries a pull request that touches only the
+      # script or only its workflow's `github-script` body runs NONE of those
+      # tests, and a skipped required check does not block a merge — the
+      # closing rule could be rewritten with every guard green. (#1225)
+      - 'scripts/ci/**'
+      - '.github/workflows/delivery-run-alert.yml'
+      - '.github/workflows/release-lag.yml'
+      - '.github/workflows/release-assets-complete.yml'
       - '.github/workflows/backend.yml'
   pull_request:
     branches: [develop]
@@ -44,6 +54,16 @@ on:
       - 'scripts/check_layer_imports.py'
       - 'scripts/check_tenant_body_field.py'
       - 'scripts/check_workflow_gate_integrity.py'
+      # The CI-alarm checks live in scripts/ci/ but their tests live in
+      # src/backend/tests/unit/ (they run on a bare runner, so they are loaded
+      # by path). Without these entries a pull request that touches only the
+      # script or only its workflow's `github-script` body runs NONE of those
+      # tests, and a skipped required check does not block a merge — the
+      # closing rule could be rewritten with every guard green. (#1225)
+      - 'scripts/ci/**'
+      - '.github/workflows/delivery-run-alert.yml'
+      - '.github/workflows/release-lag.yml'
+      - '.github/workflows/release-assets-complete.yml'
       - '.github/workflows/backend.yml'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
