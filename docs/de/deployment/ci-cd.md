@@ -947,9 +947,19 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
       | jq -r '.annotations."org.opencontainers.image.revision"'
     # b40b3ccd8393a612876bdf8c48ad0144f81e32c3
 
-    # 3a. Prüfen, ob ein bestimmter Fix-Commit in dieser Revision steckt
-    git merge-base --is-ancestor <fix-commit> b40b3ccd8393a612876bdf8c48ad0144f81e32c3 \
-      && echo "enthalten" || echo "nicht enthalten"
+    # 3a. Prüfen, ob ein bestimmter Fix-Commit in dieser Revision steckt.
+    #     Erst absichern: `--is-ancestor` liefert Exit-Code 128, wenn die
+    #     Revision lokal unbekannt ist (flacher Checkout, fehlender Tag,
+    #     veralteter Fetch) — wer das im `||`-Zweig auffängt, meldet ein
+    #     selbstbewusstes „nicht enthalten" für eine Frage, die gar nicht
+    #     beantwortet wurde.
+    if ! git cat-file -e b40b3ccd8393a612876bdf8c48ad0144f81e32c3^{commit} 2>/dev/null; then
+      echo "Revision lokal nicht bekannt — erst fetchen, bevor du irgendetwas schlussfolgerst"
+    elif git merge-base --is-ancestor <fix-commit> b40b3ccd8393a612876bdf8c48ad0144f81e32c3; then
+      echo "enthalten"
+    else
+      echo "nicht enthalten"
+    fi
 
     # 3b. Alternative: alle Tags nennen, die den Fix-Commit tragen
     git tag --contains <fix-commit>
@@ -957,7 +967,8 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
 
     Ersetze `0.0.23` durch den Tag, den du prüfen willst, und `<fix-commit>`
     durch den Commit-Hash des Fixes. Beide `git`-Befehle laufen lokal gegen
-    deinen Checkout des Repositories.
+    deinen Checkout des Repositories; fehlt die Revision, erst `git fetch
+    origin <revision>` ausführen und die Prüfung danach wiederholen.
 
     !!! warning "Das beantwortet eine andere Frage als Schritt 3 der vorigen Frage"
 
