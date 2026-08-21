@@ -426,6 +426,13 @@ Ein Release ist der Schritt, mit dem aus einem Stand auf `develop` eine ausgelie
     am 16.08. lief in der Instanz weiterhin der Stand von davor. Das jüngste
     *veröffentlichte* Release war die ganze Zeit `v0.2.0`. Beobachtet wird das
     seitdem von [`release-lag.yml`](#pruefungen-auslieferungskette).
+
+    War der Entwurf absichtlich zurückgehalten? Nein — das ist inzwischen
+    aktenkundig beantwortet. Der von `release-lag.yml` erzeugte Alarm (#1229)
+    feuerte am 19.08.2026; `v0.2.1` wurde noch am selben Tag veröffentlicht, und
+    #1229 schloss sich am 20.08.2026 automatisch, weil die Prüfung danach
+    wieder grün war. Das war ein **Versäumnis im Ablauf**, kein absichtliches
+    Zurückhalten.
     <!-- #1210 -->
 
 ### Schritt 1: Release-Entwurf vorbereiten (automatisch)
@@ -685,6 +692,13 @@ Der Job vergleicht täglich um 09:00 UTC den Stand von `develop` mit dem jüngst
 |---|---|---|
 | `RELEASE_LAG_THRESHOLD_DAYS` | `3` | Karenzfenster. Gemeldet wird erst, wenn der **älteste** unveröffentlichte Commit mindestens so alt ist. |
 | `RELEASE_LAG_BASE_BRANCH` | `develop` | Der Branch, dessen Rückstand gemessen wird. |
+
+**`RELEASE_LAG_THRESHOLD_DAYS` ist eine Kadenz-Policy, kein unbegründetes
+Karenzfenster.** Die Erwartung an dieses Repository lautet: Ein gemergter Fix
+soll spätestens binnen **3 Tagen** ausgeliefert sein — veröffentlicht und mit
+gehobenem `targetRevision` in der Produktions-Instanz. Der Einstellungswert
+setzt genau diese Kadenz durch: Er meldet erst, sobald der älteste
+unveröffentlichte Commit die 3 Tage überschritten hat. <!-- #1210 -->
 
 Der Job ist ein Zeitplan-Job und kein Pull-Request-Gate, weil der Rückstand **ohne jeden Commit** wächst: Er nimmt mit jeder Stunde zu, in der niemand veröffentlicht, und schrumpft in dem Moment, in dem jemand es tut. Keines dieser beiden Ereignisse ist ein Push.
 

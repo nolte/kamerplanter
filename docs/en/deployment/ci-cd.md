@@ -419,7 +419,14 @@ A release is the step that turns a state on `develop` into a delivered version. 
     2026-08-13; a fix was merged to `develop` on 08-14; on 08-16 the instance
     was still running the state from before it. The newest *published* release
     was `v0.2.0` the whole time. Since then this is observed by
-    [`release-lag.yml`](#checks-delivery-chain). <!-- #1210 -->
+    [`release-lag.yml`](#checks-delivery-chain).
+
+    Was the draft held back on purpose? No — that question is now answered on
+    the record. The alert `release-lag.yml` raises (#1229) fired on 2026-08-19;
+    `v0.2.1` was published the same day, and #1229 auto-closed on 2026-08-20
+    once the check went green again. That was an **omission in the process**,
+    not a deliberate hold.
+    <!-- #1210 -->
 
 ### Step 1: Prepare release draft (automatic)
 
@@ -676,6 +683,13 @@ The job compares the state of `develop` against the newest **published** release
 |---|---|---|
 | `RELEASE_LAG_THRESHOLD_DAYS` | `3` | Grace window. An alert is raised only once the **oldest** un-released commit is at least this old. |
 | `RELEASE_LAG_BASE_BRANCH` | `develop` | The branch whose lag is measured. |
+
+**`RELEASE_LAG_THRESHOLD_DAYS` is a cadence policy, not an unexplained grace
+window.** The expectation for this repository is: a merged fix should be
+delivered within **3 days** at the latest — published and with the production
+instance's `targetRevision` raised. The setting enforces exactly that cadence:
+it only reports once the oldest un-released commit has exceeded the 3 days.
+<!-- #1210 -->
 
 It is a scheduled job and not a pull-request gate because the lag grows **with no commit at all**: it increases with every hour nobody publishes, and it shrinks the moment somebody does. Neither of those events is a push.
 
