@@ -548,9 +548,10 @@ Ausgeschrieben sind das sechs Sprünge, und jeder gehört einem anderen Akteur:
     roten Lauf, keine offene Pull Request, kein Artefakt, das fehlt. Ein
     gemergter Fix ist deshalb **kein ausgelieferter Fix**.
 
-    Wie weit das auseinanderlaufen kann, ist messbar: Am 17.08.2026 verankerte
-    die Produktions-`Application` das Chart auf `v0.1.0` (veröffentlicht am
-    06.08.), während das jüngste veröffentlichte Release bereits `v0.2.0` war.
+    Wie weit das auseinanderlaufen kann, ist messbar: Vom 13.08.2026 19:41 UTC
+    bis zum 16.08.2026 15:33 UTC verankerte die Produktions-`Application` das
+    Chart auf `v0.1.0` (veröffentlicht am 06.08.), während das jüngste
+    veröffentlichte Release bereits `v0.2.0` (veröffentlicht am 13.08.) war.
 
 Der Deploy selbst ist also ein **Commit** — im GitOps-Repository —, kein Handgriff am Cluster. Dass die Digests in den Chart-Values überhaupt vorhanden und wohlgeformt sind, sichert `scripts/check_chart_image_digests.py` im Pflicht-Check `static` ab; ob sie noch *aktuell* sind, beantwortet erst der tägliche Lauf von `chart-image-digest-freshness.yml` (siehe [Prüfungen entlang der Auslieferungskette](#pruefungen-auslieferungskette)).
 

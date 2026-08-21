@@ -540,9 +540,10 @@ Spelled out, that is six hops, each owned by a different actor:
     pull request, no missing artifact. A merged fix is therefore **not a
     delivered fix**.
 
-    How far apart these can drift is measurable: on 2026-08-17 the production
-    `Application` anchored the chart at `v0.1.0` (published on 08-06), while the
-    newest published release was already `v0.2.0`.
+    How far apart these can drift is measurable: from 2026-08-13 19:41 UTC to
+    2026-08-16 15:33 UTC, the production `Application` anchored the chart at
+    `v0.1.0` (published 08-06), while the newest published release was already
+    `v0.2.0` (published 08-13).
 
 The deploy itself is therefore a **commit** — in the GitOps repository — not an operation on the cluster. That the digests in the chart values are present and well-formed at all is enforced by `scripts/check_chart_image_digests.py` in the required `static` check; whether they are still *current* is answered only by the daily run of `chart-image-digest-freshness.yml` (see [Checks along the delivery chain](#checks-delivery-chain)).
 
