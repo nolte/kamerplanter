@@ -921,41 +921,49 @@ All images are publicly readable. For local testing:
     readable.
 
     ```bash
+    # 0. Fill in what you want to check.
+    IMAGE="nolte/kamerplanter-backend"
+    TAG="0.0.23"
+    FIX_COMMIT="<fix-commit>"
+
     # 1. Get an anonymous pull token (the package is public, no login needed)
-    TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:nolte/kamerplanter-backend:pull&service=ghcr.io" \
+    TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:${IMAGE}:pull&service=ghcr.io" \
       | jq -r '.token')
 
     # 2. Fetch the tag's manifest and read the OCI revision annotation.
     #    The index media type must stay in the Accept header: these tags are
     #    multi-arch, the annotation sits on the index, and asking for the image
     #    manifest alone returns a body in which it is null.
-    curl -s -H "Authorization: Bearer ${TOKEN}" \
+    REV=$(curl -s -H "Authorization: Bearer ${TOKEN}" \
          -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json" \
-         "https://ghcr.io/v2/nolte/kamerplanter-backend/manifests/0.0.23" \
-      | jq -r '.annotations."org.opencontainers.image.revision"'
+         "https://ghcr.io/v2/${IMAGE}/manifests/${TAG}" \
+      | jq -r '.annotations."org.opencontainers.image.revision"')
+    echo "${REV}"
     # b40b3ccd8393a612876bdf8c48ad0144f81e32c3
 
-    # 3a. Check whether a specific fix commit is contained in that revision.
-    #     Guard first: `--is-ancestor` exits 128 when the revision is unknown
-    #     locally (shallow clone, missing tag, stale fetch) — folding that
-    #     into the `||` branch reports a confident "not contained" for a
-    #     question that was never actually answered.
-    if ! git cat-file -e b40b3ccd8393a612876bdf8c48ad0144f81e32c3^{commit} 2>/dev/null; then
-      echo "revision not known locally — fetch it before concluding anything"
-    elif git merge-base --is-ancestor <fix-commit> b40b3ccd8393a612876bdf8c48ad0144f81e32c3; then
+    # 3a. Check whether the fix commit is contained in that revision.
+    #     Guard both commits first: `--is-ancestor` exits 128 when *either*
+    #     one is unknown locally (shallow clone, missing tag, stale fetch) —
+    #     folding that into the `||` branch reports a confident "not
+    #     contained" for a question that was never actually answered.
+    if ! git cat-file -e "${REV}^{commit}" 2>/dev/null \
+       || ! git cat-file -e "${FIX_COMMIT}^{commit}" 2>/dev/null; then
+      echo "revision or fix commit not known locally — fetch before concluding anything"
+    elif git merge-base --is-ancestor "${FIX_COMMIT}" "${REV}"; then
       echo "contained"
     else
       echo "not contained"
     fi
 
     # 3b. Alternative: list every tag carrying the fix commit
-    git tag --contains <fix-commit>
+    git tag --contains "${FIX_COMMIT}"
     ```
 
-    Replace `0.0.23` with the tag you want to check and `<fix-commit>` with the
-    fix's commit hash. Both `git` commands run locally against your checkout of
-    the repository; if the revision is missing, `git fetch origin
-    <revision>` before re-running the check.
+    Set `IMAGE`, `TAG`, and `FIX_COMMIT` in step 0 to the values you want to
+    check — every later step reads them back, nothing is hard-wired further
+    down. Both `git` commands run locally against your checkout of the
+    repository; if either commit is missing, `git fetch origin <commit>`
+    before re-running the check.
 
     !!! warning "This answers a different question than step 3 of the previous question"
 

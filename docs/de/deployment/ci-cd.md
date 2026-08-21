@@ -941,42 +941,50 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     öffentlich lesbar ist.
 
     ```bash
+    # 0. Eintragen, was du prüfen willst.
+    IMAGE="nolte/kamerplanter-backend"
+    TAG="0.0.23"
+    FIX_COMMIT="<fix-commit>"
+
     # 1. Anonymen Pull-Token holen (das Paket ist öffentlich, kein Login nötig)
-    TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:nolte/kamerplanter-backend:pull&service=ghcr.io" \
+    TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:${IMAGE}:pull&service=ghcr.io" \
       | jq -r '.token')
 
     # 2. Manifest des Tags abrufen und die OCI-Revision-Annotation entnehmen.
     #    Der Index-Medientyp muss im Accept-Header stehen bleiben: die Tags sind
     #    Multi-Arch, die Annotation hängt am Index, und wer nur das Image-Manifest
     #    anfragt, bekommt einen Body, in dem sie null ist.
-    curl -s -H "Authorization: Bearer ${TOKEN}" \
+    REV=$(curl -s -H "Authorization: Bearer ${TOKEN}" \
          -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json" \
-         "https://ghcr.io/v2/nolte/kamerplanter-backend/manifests/0.0.23" \
-      | jq -r '.annotations."org.opencontainers.image.revision"'
+         "https://ghcr.io/v2/${IMAGE}/manifests/${TAG}" \
+      | jq -r '.annotations."org.opencontainers.image.revision"')
+    echo "${REV}"
     # b40b3ccd8393a612876bdf8c48ad0144f81e32c3
 
-    # 3a. Prüfen, ob ein bestimmter Fix-Commit in dieser Revision steckt.
-    #     Erst absichern: `--is-ancestor` liefert Exit-Code 128, wenn die
-    #     Revision lokal unbekannt ist (flacher Checkout, fehlender Tag,
-    #     veralteter Fetch) — wer das im `||`-Zweig auffängt, meldet ein
-    #     selbstbewusstes „nicht enthalten" für eine Frage, die gar nicht
-    #     beantwortet wurde.
-    if ! git cat-file -e b40b3ccd8393a612876bdf8c48ad0144f81e32c3^{commit} 2>/dev/null; then
-      echo "Revision lokal nicht bekannt — erst fetchen, bevor du irgendetwas schlussfolgerst"
-    elif git merge-base --is-ancestor <fix-commit> b40b3ccd8393a612876bdf8c48ad0144f81e32c3; then
+    # 3a. Prüfen, ob der Fix-Commit in dieser Revision steckt.
+    #     Erst beide Commits absichern: `--is-ancestor` liefert Exit-Code 128,
+    #     wenn *einer der beiden* lokal unbekannt ist (flacher Checkout,
+    #     fehlender Tag, veralteter Fetch) — wer das im `||`-Zweig auffängt,
+    #     meldet ein selbstbewusstes „nicht enthalten" für eine Frage, die gar
+    #     nicht beantwortet wurde.
+    if ! git cat-file -e "${REV}^{commit}" 2>/dev/null \
+       || ! git cat-file -e "${FIX_COMMIT}^{commit}" 2>/dev/null; then
+      echo "Revision oder Fix-Commit lokal nicht bekannt — erst fetchen, bevor du irgendetwas schlussfolgerst"
+    elif git merge-base --is-ancestor "${FIX_COMMIT}" "${REV}"; then
       echo "enthalten"
     else
       echo "nicht enthalten"
     fi
 
     # 3b. Alternative: alle Tags nennen, die den Fix-Commit tragen
-    git tag --contains <fix-commit>
+    git tag --contains "${FIX_COMMIT}"
     ```
 
-    Ersetze `0.0.23` durch den Tag, den du prüfen willst, und `<fix-commit>`
-    durch den Commit-Hash des Fixes. Beide `git`-Befehle laufen lokal gegen
-    deinen Checkout des Repositories; fehlt die Revision, erst `git fetch
-    origin <revision>` ausführen und die Prüfung danach wiederholen.
+    Setze `IMAGE`, `TAG` und `FIX_COMMIT` in Schritt 0 auf die Werte, die du
+    prüfen willst — jeder spätere Schritt liest sie zurück, weiter unten ist
+    nichts fest verdrahtet. Beide `git`-Befehle laufen lokal gegen deinen
+    Checkout des Repositories; fehlt einer der beiden Commits, erst `git fetch
+    origin <commit>` ausführen und die Prüfung danach wiederholen.
 
     !!! warning "Das beantwortet eine andere Frage als Schritt 3 der vorigen Frage"
 
