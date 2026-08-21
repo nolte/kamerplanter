@@ -138,9 +138,11 @@ spec:
     release `v0.2.0` was published — and it is deliberately not repaired,
     because another push under the same version reference would be the same
     mistake again. A `targetRevision: 0.2.0` therefore syncs a `develop` build.
-    `0.1.0` is the newest chart tag whose manifest still carries its release
-    timestamp; otherwise pin the manifest digest, or wait for the first release
-    created under both checks (`v0.2.1`, a draft at the moment).
+    `0.2.1` — published 2026-08-19 and the first release created under both
+    checks — is now the newest chart tag whose manifest carries its own
+    release timestamp (`org.opencontainers.image.created:
+    2026-08-19T13:53:11Z`); `0.1.0` (created 2026-08-06) was the newest such
+    tag before it. Anchor there, or otherwise pin the manifest digest.
     <!-- #1222 -->
 
 ---

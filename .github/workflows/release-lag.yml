@@ -2,10 +2,11 @@ name: Release Lag
 
 # Issue #1210 — the hop between "merged" and "delivered" had no observer.
 #
-# Production tracks a RELEASE TAG, not `develop`: the ArgoCD `Application` in
-# `nolte/k8s-home-lab` pins `targetRevision` to a published tag for
-# `path: helm/kamerplanter`. That is intended — production rolls out release
-# versions only. What was missing is anything that could see the gap: a merged
+# Production tracks a published CHART VERSION, not `develop`: the ArgoCD
+# `Application` in `nolte/k8s-home-lab` pins `targetRevision` to a chart
+# version for `repoURL: oci://ghcr.io/nolte/charts/kamerplanter`, `path: .`.
+# That is intended — production rolls out release versions only. What was
+# missing is anything that could see the gap: a merged
 # fix is not a delivered fix, and nothing in this repository said how long
 # `develop` had been carrying changes no published release contains.
 #
@@ -182,7 +183,7 @@ jobs:
             const body = [
               `The scheduled release-lag check found **${report.unreleased_count}** commit(s) on \`${report.base_branch}\` that the newest **published** release does not contain, with the oldest one **${oldest.age_days} day(s)** old — past the ${report.threshold_days}-day grace window.`,
               '',
-              'Production tracks a **release tag**, not `develop`: the ArgoCD `Application` in `nolte/k8s-home-lab` pins `targetRevision` to a published tag for `path: helm/kamerplanter`. So these commits are **merged but not delivered**, and every one of them is a fix or a feature that is still absent from the running instance.',
+              'Production tracks a published **chart version**, not `develop`: the ArgoCD `Application` in `nolte/k8s-home-lab` pins `targetRevision` to a chart version for `repoURL: oci://ghcr.io/nolte/charts/kamerplanter` (`path: .`). So these commits are **merged but not delivered**, and every one of them is a fix or a feature that is still absent from the running instance.',
               '',
               '## Measured',
               '',

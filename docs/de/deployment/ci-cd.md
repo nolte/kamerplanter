@@ -426,6 +426,13 @@ Ein Release ist der Schritt, mit dem aus einem Stand auf `develop` eine ausgelie
     am 16.08. lief in der Instanz weiterhin der Stand von davor. Das jüngste
     *veröffentlichte* Release war die ganze Zeit `v0.2.0`. Beobachtet wird das
     seitdem von [`release-lag.yml`](#pruefungen-auslieferungskette).
+
+    War der Entwurf absichtlich zurückgehalten? Nein — das ist inzwischen
+    aktenkundig beantwortet. Der von `release-lag.yml` erzeugte Alarm (#1229)
+    feuerte am 19.08.2026; `v0.2.1` wurde noch am selben Tag veröffentlicht, und
+    #1229 schloss sich am 20.08.2026 automatisch, weil die Prüfung danach
+    wieder grün war. Das war ein **Versäumnis im Ablauf**, kein absichtliches
+    Zurückhalten.
     <!-- #1210 -->
 
 ### Schritt 1: Release-Entwurf vorbereiten (automatisch)
@@ -501,14 +508,14 @@ image:
 
 ### So kommt eine neue Version in die Produktion {#so-kommt-eine-neue-version-in-die-produktion}
 
-Die Produktions-Instanz rollt **ausschließlich Release-Versionen** aus. Das ist eine Betriebsentscheidung und nicht bloß der zufällige Ist-Zustand: Die ArgoCD-`Application` verankert den Chart an einem Release-Tag, nicht an einem Branch.
+Die Produktions-Instanz rollt **ausschließlich Release-Versionen** aus. Das ist eine Betriebsentscheidung und nicht bloß der zufällige Ist-Zustand: Die ArgoCD-`Application` verankert den Chart an einer veröffentlichten Chart-Version, nicht an einem Branch.
 
 ```mermaid
 graph TD
     A[1. Merge nach develop] --> B[2. docker-publish + Renovate<br/>Digest in values.yaml auf develop]
     B -.Vorstufe, erreicht die Produktion nicht.-> C
     C[3. Maintainer veröffentlicht ein Release<br/>MANUELL] --> D[4. docker-publish pinnt<br/>Chart-Images auf Version + Digest]
-    D --> E[5. targetRevision im GitOps-Repo<br/>auf das neue Tag heben — MANUELL]
+    D --> E[5. targetRevision im GitOps-Repo<br/>auf die neue Chart-Version heben — MANUELL]
     E --> F[6. ArgoCD synct, Pods rollen]
 ```
 
@@ -526,7 +533,7 @@ Ausgeschrieben sind das sechs Sprünge, und jeder gehört einem anderen Akteur:
 4. **`docker-publish.yml`** läuft auf dem entstandenen `v*`-Tag und pinnt über
    `scripts/ci/pin_chart_image_digests.sh` jedes Kamerplanter-Image in den
    Chart-Values auf `<version>@sha256:<digest>`.
-5. **`targetRevision` im GitOps-Repository wird auf das neue Tag gehoben** —
+5. **`targetRevision` im GitOps-Repository wird auf die neue Chart-Version gehoben** —
    ebenfalls von Hand, in `nolte/k8s-home-lab`, also **außerhalb dieses
    Repositories**. **Der zweite manuelle Sprung**, und der einzige, den kein
    Workflow dieses Repositories überhaupt sehen kann.
@@ -541,23 +548,32 @@ Ausgeschrieben sind das sechs Sprünge, und jeder gehört einem anderen Akteur:
     roten Lauf, keine offene Pull Request, kein Artefakt, das fehlt. Ein
     gemergter Fix ist deshalb **kein ausgelieferter Fix**.
 
-    Wie weit das auseinanderlaufen kann, ist messbar: Am 17.08.2026 verankerte
-    die Produktions-`Application` das Chart auf `v0.1.0` (veröffentlicht am
-    06.08.), während das jüngste veröffentlichte Release bereits `v0.2.0` war.
+    Wie weit das auseinanderlaufen kann, ist messbar: Vom 13.08.2026 19:41 UTC
+    bis zum 16.08.2026 15:33 UTC verankerte die Produktions-`Application` das
+    Chart auf `v0.1.0` (veröffentlicht am 06.08.), während das jüngste
+    veröffentlichte Release bereits `v0.2.0` (veröffentlicht am 13.08.) war.
 
 Der Deploy selbst ist also ein **Commit** — im GitOps-Repository —, kein Handgriff am Cluster. Dass die Digests in den Chart-Values überhaupt vorhanden und wohlgeformt sind, sichert `scripts/check_chart_image_digests.py` im Pflicht-Check `static` ab; ob sie noch *aktuell* sind, beantwortet erst der tägliche Lauf von `chart-image-digest-freshness.yml` (siehe [Prüfungen entlang der Auslieferungskette](#pruefungen-auslieferungskette)).
 
 ### Rollback
 
-Ein Rollback ist ein Commit im **GitOps-Repository**: `targetRevision` zurück auf das vorherige Release-Tag setzen.
+Ein Rollback ist ein Commit im **GitOps-Repository**: `targetRevision` zurück auf eine vorherige Chart-Version setzen.
 
 ```yaml
-- path: helm/kamerplanter
-  repoURL: https://github.com/nolte/kamerplanter.git
-  targetRevision: v0.1.0   # statt v0.2.0
+- path: .
+  repoURL: oci://ghcr.io/nolte/charts/kamerplanter
+  targetRevision: 0.1.0   # statt 0.2.1
 ```
 
-ArgoCD synct das Chart aus dem älteren Tag — mitsamt der Digests, die dieses Tag pinnt — und die Pods rollen zurück. Prüfe das Ergebnis **im laufenden Pod**, nicht in der Values-Datei und nicht am Controller-Status:
+!!! warning "Nicht jede veröffentlichte Versionsnummer ist ein sicheres Rollback-Ziel"
+
+    `0.2.0` sieht wie der naheliegende Vorgänger von `0.2.1` aus, ist es aber
+    nicht — siehe [ArgoCD — `targetRevision` niemals auf den `-dev`-Kanal](argocd.md#basis-application)
+    für das eine Release-Tag, bei dem diese Annahme nicht hielt. `0.1.0` steht
+    oben, weil es noch seinen ursprünglichen Release-Zeitstempel trägt; im
+    Zweifel den Manifest-Digest pinnen statt einer bloßen Versionsnummer.
+
+ArgoCD zieht die ältere Chart-Version — mitsamt der Digests, die diese Version pinnt — und die Pods rollen zurück. Prüfe das Ergebnis **im laufenden Pod**, nicht in der Values-Datei und nicht am Controller-Status:
 
 ```bash
 kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
@@ -583,30 +599,45 @@ kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
 
 ### Produktion: die `Application` liegt im GitOps-Repository
 
-Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Repository, sondern in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). Sie zieht das Chart nicht aus der Registry, sondern direkt aus dem Quell-Repository:
+Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Repository, sondern in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). Sie zieht das veröffentlichte Chart aus der Registry:
 
 ```yaml
-- path: helm/kamerplanter                              # (1)!
-  repoURL: https://github.com/nolte/kamerplanter.git
-  targetRevision: v0.1.0                               # (2)!
+- path: .                                              # (1)!
+  repoURL: oci://ghcr.io/nolte/charts/kamerplanter
+  targetRevision: 0.2.1                                # (2)!
 ```
 
-1. Der Chart-Ordner im Git-Baum — nicht das OCI-Artefakt `oci://ghcr.io/nolte/charts/kamerplanter`.
-2. Ein **Release-Tag**, kein Branch. Nur ein veröffentlichtes Release kann hier stehen, und niemand hebt diesen Wert automatisch an.
+1. Das OCI-Artefakt, kein Ordner im Git-Baum. `path: .` ist die Wurzel des Artefakts selbst.
+2. Eine **veröffentlichte Chart-Version**, kein Branch — die Release-Version ohne führendes `v`, Release `v0.2.1` ist also Chart `0.2.1`. Nur ein veröffentlichtes Release kann hier stehen, und niemand hebt diesen Wert automatisch an.
 
 !!! info "Nur Release-Versionen — bewusst so"
 
     Diese Instanz rollt **ausschließlich Release-Versionen** aus. Ein Commit auf
     `develop` erreicht sie nicht, auch dann nicht, wenn er
-    `helm/kamerplanter/**` berührt: Der Anker ist ein Tag, und ein Tag bewegt
-    sich nicht, weil jemand mergt.
+    `helm/kamerplanter/**` berührt: Der Anker ist eine veröffentlichte
+    Chart-Version, und — seit die mit #1222 eingeführten Prüfungen den einen
+    Weg geschlossen haben, auf dem diese Annahme schon einmal nicht hielt —
+    bewegt sich eine veröffentlichte Version nicht, weil jemand mergt. Bevor es
+    diese Prüfungen gab, ist genau das einmal passiert:
+    `charts/kamerplanter:0.2.0` wurde unter derselben Versionsreferenz aus
+    `develop` überschrieben (siehe [Zwei Kanäle](#zwei-kanaele)).
 
-    Das ist der gewollte Zustand, keine Momentaufnahme. Der Preis dafür ist die
-    Latenz: Zwischen „gemergt" und „läuft" liegen die beiden manuellen Sprünge
-    aus [So kommt eine neue Version in die
-    Produktion](#so-kommt-eine-neue-version-in-die-produktion). Wer nach einem
-    Merge im Cluster den neuen Stand erwartet, sucht am falschen Ort — dort
-    läuft das Release, auf das `targetRevision` zeigt, und das kann mehrere
+    Das ist der gewollte Zustand, keine Momentaufnahme — mit einer
+    dokumentierten Ausnahme. Vom 16.08.2026 15:33 UTC (`3e53606c8`, der Fix zu
+    #1210) bis zum 21.08.2026 15:17 UTC (`405b43a2f`) zeigte die `Application`
+    mit `targetRevision` direkt auf `develop` (`path: helm/kamerplanter`,
+    `repoURL: https://github.com/nolte/kamerplanter.git`) statt auf eine
+    veröffentlichte Chart-Version — um den unter [Invariante: kein
+    `image.tag` im Overlay](#invariante-kein-image-tag) beschriebenen
+    Image-Pinning-Fix zu entsperren. In diesen fünf Tagen erreichte ein Commit
+    auf `develop` diese Instanz **tatsächlich**. `405b43a2f` beendete die
+    Ausnahme und stellte den oben gezeigten OCI-Chart-Anker wieder her.
+
+    Der Preis des gewollten Zustands ist die Latenz: Zwischen „gemergt" und
+    „läuft" liegen die beiden manuellen Sprünge aus [So kommt eine neue Version
+    in die Produktion](#so-kommt-eine-neue-version-in-die-produktion). Wer nach
+    einem Merge im Cluster den neuen Stand erwartet, sucht am falschen Ort —
+    dort läuft das Release, auf das `targetRevision` zeigt, und das kann mehrere
     Releases hinterherhinken.
 
 #### Wofür ein Release da ist {#wofuer-ein-release}
@@ -627,13 +658,13 @@ Ein Release ist gleichzeitig das Auslieferungsvehikel dieser Instanz **und** die
 
 Die Arbeitsteilung ist: `targetRevision` wählt die **Chart-Version**, das Chart wählt die **Bytes**. Ein `image.tag` im Overlay bricht die zweite Hälfte auf.
 
-!!! danger "Die Invariante gilt auch unter einem Release-Tag"
+!!! danger "Die Invariante gilt auch unter einer Chart-Version"
 
     Der Digest-Pin ist keine Eigenschaft des Branches, sondern des Charts:
     `scripts/ci/pin_chart_image_digests.sh` schreibt die Digests **in** die
     Chart-Values, bevor das Release-Chart gepackt wird. Ein `image.tag`-Override
     gewinnt gegen diesen Default — unabhängig davon, ob `targetRevision` auf
-    einen Branch oder auf ein Release-Tag zeigt. Er ersetzt den Digest durch
+    einen Branch, auf ein Release-Tag oder auf eine veröffentlichte Chart-Version zeigt. Er ersetzt den Digest durch
     eine bewegliche Referenz, und `pullPolicy: IfNotPresent` heißt dann: „nimm,
     was auf dem Node im Cache liegt". Damit hängt die Auslieferung wieder daran,
     was ein einzelner Knoten zufällig schon einmal gezogen hat — und das Anheben
@@ -644,12 +675,13 @@ Die Konsequenz ist zweimal gemessen worden, nicht befürchtet:
 - Im ersten Vorfall (intern verfolgt als Ticket 1024) behielt ein `rollout
   restart` still ein altes Image; der `inference-service` bediente wochenlang
   einen Stand ohne die `/pest/*`-Routen. <!-- #1024 -->
-- Im zweiten (intern verfolgt als Ticket 1210) fuhr die Produktions-Instanz am
-  17.08.2026 unter einem `v0.1.0`-Chart die Images `0.0.23` — sechs
-  `image.tag`-Overrides im Overlay hatten die Digests des Charts ersetzt. Dem
-  laufenden Backend fehlte deshalb das Feld `supported_majors` auf
-  `/api/health`, das am 15.08. dazukam: Das ausgelieferte Image war rund einen
-  Monat älter als das Chart, unter dem es lief. <!-- #1210 -->
+- Im zweiten (intern verfolgt als Ticket 1210) verankerte das Overlay
+  `targetRevision: v0.1.0` mit sechs `image.tag`-Overrides je Controller auf
+  `0.1.0` — Images aus Release `v0.1.0`, veröffentlicht am 06.08.2026. Der Fix
+  aus #1163 mergte am 14.08.2026 nach `develop` und konnte in diesem Release
+  nicht enthalten sein. Behoben wurde das am 16.08.2026 um 15:33 UTC durch
+  `3e53606c8`, das `targetRevision` auf `develop` umstellte und alle Overrides
+  entfernte. <!-- #1210 -->
 
 Beide Male sah die Lage von außen gesund aus: Registry, Chart und
 Controller-Status waren einer Meinung. Nur der laufende Container war es nicht.
@@ -685,6 +717,19 @@ Der Job vergleicht täglich um 09:00 UTC den Stand von `develop` mit dem jüngst
 |---|---|---|
 | `RELEASE_LAG_THRESHOLD_DAYS` | `3` | Karenzfenster. Gemeldet wird erst, wenn der **älteste** unveröffentlichte Commit mindestens so alt ist. |
 | `RELEASE_LAG_BASE_BRANCH` | `develop` | Der Branch, dessen Rückstand gemessen wird. |
+
+**`RELEASE_LAG_THRESHOLD_DAYS` ist eine Kadenz-Policy, kein unbegründetes
+Karenzfenster.** Die Erwartung an dieses Repository lautet: Ein gemergter Fix
+soll spätestens binnen **3 Tagen** ausgeliefert sein — veröffentlicht **und**
+mit gehobenem `targetRevision` in der Produktions-Instanz, die beiden manuellen
+Sprünge aus [So kommt eine neue Version in die
+Produktion](#so-kommt-eine-neue-version-in-die-produktion). Der Einstellungswert
+setzt nur die **erste** Hälfte dieser Kadenz durch: Er meldet, sobald der
+älteste unveröffentlichte Commit die 3 Tage überschritten hat, also sobald die
+Veröffentlichung überfällig ist. Die zweite Hälfte kann er nicht prüfen — siehe
+die Box „Ein Release beweist nicht, dass der Cluster es genommen hat" weiter
+unten, die genau diese Lücke behandelt.
+<!-- #1210 -->
 
 Der Job ist ein Zeitplan-Job und kein Pull-Request-Gate, weil der Rückstand **ohne jeden Commit** wächst: Er nimmt mit jeder Stunde zu, in der niemand veröffentlicht, und schrumpft in dem Moment, in dem jemand es tut. Keines dieser beiden Ereignisse ist ein Push.
 
@@ -785,6 +830,17 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
         Rückstand gegenüber `develop` und damit die Liste der Fehlerbehebungen,
         die dieser Instanz fehlen. Details unter
         [Umgebungsvariablen — Health-Endpunkt](../reference/environment-variables.md#health-endpunkt).
+
+        Für eine Produktionsinstanz, deren Auslieferungsstand von außen prüfbar
+        sein soll, ist `HEALTH_EXPOSE_BUILD_REVISION=true` deshalb die
+        **empfohlene** Einstellung — die Abwägung oben bleibt bestehen, sie
+        kippt nur zugunsten der Prüfbarkeit, sobald ein Vorfall wie #1210 zeigt,
+        was die Alternative kostet: ohne das Feld bleibt „läuft der Fix schon?"
+        nur über `kubectl`-Zugriff auf den Cluster beantwortbar. Zu setzen
+        wäre die Variable im GitOps-Overlay in `nolte/k8s-home-lab`, nicht in
+        diesem Repository — und zum jetzigen Stand ist sie auch dort nicht
+        gesetzt, weshalb die Instanz diese Frage weiterhin nicht auf diesem
+        Weg beantwortet.
         <!-- #1210 -->
 
     Die Antwort kennt **drei unterscheidbare Zustände**, und die Unterscheidung
@@ -843,7 +899,8 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
 
 ??? question "Ist mein gemergter Fix schon ausgeliefert?"
 
-    Drei Fragen, in dieser Reihenfolge:
+    Drei Fragen — aber sie sind **nicht gleichrangig**, und sie widersprechen
+    sich manchmal:
 
     1. **Gibt es ein veröffentlichtes Release, das den Commit enthält?**
        `gh release list` zeigt Entwürfe als `Draft` — ein Entwurf zählt nicht.
@@ -853,9 +910,101 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     3. **Führt der Pod die passenden Bytes aus?** Über `imageID` und, wo
        aktiviert, `build_revision` — siehe die Frage oben.
 
-    Erst wenn alle drei zutreffen, ist der Fix ausgeliefert. Die vollständige
-    Kette steht unter [So kommt eine neue Version in die
+    !!! danger "Ein `image.tag`-Override macht Schritt 2 unzuverlässig"
+
+        Schritt 2 ist **kein** verlässlicher Ersatz für Schritt 3. Der Grund
+        ist nicht hypothetisch: Es ist derselbe Override-Mechanismus, der
+        unter [Invariante: kein `image.tag` im Overlay](#invariante-kein-image-tag)
+        beschrieben ist. Sobald ein Overlay einen per-Controller-`image.tag`-
+        Override trägt, ist das laufende Image von `targetRevision` entkoppelt
+        — den Anker anzuheben garantiert dann keine Änderung der laufenden
+        Bytes mehr, weil der Override entscheidet, was gezogen wird, nicht der
+        Digest-Pin des Charts.
+
+        Beide unter [dieser Invariante](#invariante-kein-image-tag)
+        dokumentierten Fälle sind genau das: der veraltete `rollout restart`
+        (#1024) und die sechs per-Controller-Overrides, die die
+        Produktions-Instanz vom 13.08.2026 19:41 UTC bis zum 16.08.2026
+        15:33 UTC auf das Chart `v0.1.0` und seine `0.1.0`-getaggten Images
+        verankerten (#1210) — ein Zustand, der erst aufgehoben war, als ein
+        einziger Commit sowohl `targetRevision` änderte als auch jeden
+        Override entfernte, weil keine der beiden Änderungen allein genügt
+        hätte.
+
+        Wenn sich Schritt 2 und Schritt 3 widersprechen, gewinnt **immer** die
+        Beobachtung am Pod selbst — `imageID`, `build_revision`, oder ersatzweise
+        jedes andere Feld, dessen Einführungscommit du kennst — **nie** das
+        Manifest allein. <!-- #1210 -->
+
+    Die Reihenfolge oben ist keine UND-Verknüpfung, die alle drei Häkchen
+    verlangt, bevor der Fix als ausgeliefert gilt — es ist eine
+    Eskalationsleiter: Schritt 3 sticht Schritt 2, sobald beide vorliegen. Die
+    vollständige Kette steht unter [So kommt eine neue Version in die
     Produktion](#so-kommt-eine-neue-version-in-die-produktion).
+
+??? question "Steckt Commit Y in Image X — ganz ohne `build_revision` und ohne Cluster-Zugriff?"
+
+    Ja. Diese Frage ist nicht dieselbe wie „was läuft gerade?" (siehe oben),
+    aber sie lässt sich beantworten, ohne das Flag zu setzen und ohne
+    überhaupt Zugriff auf einen Cluster zu haben — die Registry selbst kennt
+    die Herkunft jedes Tags, öffentlich und ohne Login, weil das Paket
+    öffentlich lesbar ist.
+
+    ```bash
+    # 0. Eintragen, was du prüfen willst.
+    IMAGE="nolte/kamerplanter-backend"
+    TAG="0.0.23"
+    FIX_COMMIT="<fix-commit>"
+
+    # 1. Anonymen Pull-Token holen (das Paket ist öffentlich, kein Login nötig)
+    TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:${IMAGE}:pull&service=ghcr.io" \
+      | jq -r '.token')
+
+    # 2. Manifest des Tags abrufen und die OCI-Revision-Annotation entnehmen.
+    #    Der Index-Medientyp muss im Accept-Header stehen bleiben: die Tags sind
+    #    Multi-Arch, die Annotation hängt am Index, und wer nur das Image-Manifest
+    #    anfragt, bekommt einen Body, in dem sie null ist.
+    REV=$(curl -s -H "Authorization: Bearer ${TOKEN}" \
+         -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json" \
+         "https://ghcr.io/v2/${IMAGE}/manifests/${TAG}" \
+      | jq -r '.annotations."org.opencontainers.image.revision"')
+    echo "${REV}"
+    # b40b3ccd8393a612876bdf8c48ad0144f81e32c3
+
+    # 3a. Prüfen, ob der Fix-Commit in dieser Revision steckt.
+    #     Erst beide Commits absichern: `--is-ancestor` liefert Exit-Code 128,
+    #     wenn *einer der beiden* lokal unbekannt ist (flacher Checkout,
+    #     fehlender Tag, veralteter Fetch) — wer das im `||`-Zweig auffängt,
+    #     meldet ein selbstbewusstes „nicht enthalten" für eine Frage, die gar
+    #     nicht beantwortet wurde.
+    if ! git cat-file -e "${REV}^{commit}" 2>/dev/null \
+       || ! git cat-file -e "${FIX_COMMIT}^{commit}" 2>/dev/null; then
+      echo "Revision oder Fix-Commit lokal nicht bekannt — erst fetchen, bevor du irgendetwas schlussfolgerst"
+    elif git merge-base --is-ancestor "${FIX_COMMIT}" "${REV}"; then
+      echo "enthalten"
+    else
+      echo "nicht enthalten"
+    fi
+
+    # 3b. Alternative: alle Tags nennen, die den Fix-Commit tragen
+    git tag --contains "${FIX_COMMIT}"
+    ```
+
+    Setze `IMAGE`, `TAG` und `FIX_COMMIT` in Schritt 0 auf die Werte, die du
+    prüfen willst — jeder spätere Schritt liest sie zurück, weiter unten ist
+    nichts fest verdrahtet. Beide `git`-Befehle laufen lokal gegen deinen
+    Checkout des Repositories; fehlt einer der beiden Commits, erst `git fetch
+    origin <commit>` ausführen und die Prüfung danach wiederholen.
+
+    !!! warning "Das beantwortet eine andere Frage als Schritt 3 der vorigen Frage"
+
+        Diese Kette identifiziert ein **Artefakt** — sie sagt, was in einem
+        Image steckt, das irgendwo in einer Registry liegt. Sie sagt **nicht**,
+        welches Artefakt dein Cluster gerade ausführt, und ersetzt Schritt 3
+        von „Ist mein gemergter Fix schon ausgeliefert?" nicht. Sie beantwortet
+        eine andere Frage: „steckt Commit Y in Image X?" statt „läuft Image X
+        gerade?". Für Letzteres bleibt der Blick in den laufenden Pod (`imageID`,
+        `build_revision`) der einzige belastbare Weg. <!-- #1210 -->
 
 ---
 

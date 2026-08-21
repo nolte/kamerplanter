@@ -259,7 +259,11 @@ Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — 
 | `GET /api/health` reports which commit the running image was built from | Backend | `HEALTH_EXPOSE_BUILD_REVISION=true` (default `false`) — with `false` the `build_revision` key is absent entirely, see [Environment Variables — Health endpoint](../reference/environment-variables.md#health-endpoint) | An image with a `BUILD_REVISION` baked in at build time; otherwise the answer is `"unknown"` | — | No |
 
 !!! warning "Deliberately off, because the endpoint is unauthenticated"
-    The mapping *this host runs that commit* reveals the exact lag behind the development state, and with it the list of fixes this instance is missing. So enable the disclosure deliberately. `GET /api/health` is additionally rate-limited per client IP (`RATE_LIMIT_HEALTH`, default `60/minute`); the Kubernetes probes use `/api/v1/health/live` and `/api/v1/health/ready` and are not affected. <!-- #1210 -->
+    The mapping *this host runs that commit* reveals the exact lag behind the development state, and with it the list of fixes this instance is missing. So enable the disclosure deliberately. `GET /api/health` is additionally rate-limited per client IP (`RATE_LIMIT_HEALTH`, default `60/minute`); the Kubernetes probes use `/api/v1/health/live` and `/api/v1/health/ready` and are not affected.
+
+    For a production instance whose delivery state needs to be auditable, `HEALTH_EXPOSE_BUILD_REVISION=true` is nonetheless the **recommended** setting — details and the measured cost of the alternative are under [CI/CD — How do I see which image version is currently running?](ci-cd.md#frequently-asked-questions). The variable is **not** set here — it would need to be set in the GitOps
+overlay in `nolte/k8s-home-lab`, and, as of this writing, it is not set there
+either. <!-- #1210 -->
 
 ---
 
