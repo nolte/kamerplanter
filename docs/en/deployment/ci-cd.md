@@ -844,7 +844,8 @@ All images are publicly readable. For local testing:
 
 ??? question "Has my merged fix been delivered yet?"
 
-    Three questions, in this order:
+    Three questions — but they are **not equally weighted**, and they
+    sometimes disagree:
 
     1. **Is there a published release containing the commit?** `gh release list`
        shows drafts as `Draft` — a draft does not count. This is observed
@@ -854,8 +855,30 @@ All images are publicly readable. For local testing:
     3. **Does the pod run the matching bytes?** Via `imageID` and, where
        enabled, `build_revision` — see the question above.
 
-    Only when all three hold is the fix delivered. The full chain is under [How
-    a new version reaches production](#how-a-new-version-reaches-production).
+    !!! danger "Manifest and running cluster disagree — a real failure mode, not a hypothetical one"
+
+        Step 2 is **not** a reliable substitute for step 3. Measured on
+        2026-08-21: `origin/master` in `nolte/k8s-home-lab`
+        (`src/applications/kamerplanter/deploy/argocd/application.yaml`) still
+        carries `targetRevision: v0.1.0` and `image.tag: "0.0.23"` — step 2
+        would therefore report "not delivered" (the fix for that lives in
+        `nolte/k8s-home-lab#837`, still open). The same running instance
+        answers `/api/health` with `supported_majors`, a field that only came
+        into existence with the #1180 commit on 2026-08-15 — an image `0.0.23`
+        provably cannot serve it (`git merge-base --is-ancestor` between that
+        commit and the revision baked into the image is false). Manifest and
+        cluster genuinely diverge here, not just in theory.
+
+        When step 2 and step 3 disagree, the observation at the pod itself
+        **always** wins — `imageID`, `build_revision`, or failing that any
+        other field whose introducing commit you know — **never** the
+        manifest alone. Applied against this instance on 2026-08-21, that
+        settles on "delivered". <!-- #1210 -->
+
+    The order above is not an AND across three checkboxes that all have to
+    hold before the fix counts as delivered — it is an escalation ladder:
+    step 3 beats step 2 whenever both are available. The full chain is under
+    [How a new version reaches production](#how-a-new-version-reaches-production).
 
 ---
 

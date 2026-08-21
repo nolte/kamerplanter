@@ -857,7 +857,8 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
 
 ??? question "Ist mein gemergter Fix schon ausgeliefert?"
 
-    Drei Fragen, in dieser Reihenfolge:
+    Drei Fragen — aber sie sind **nicht gleichrangig**, und sie widersprechen
+    sich manchmal:
 
     1. **Gibt es ein veröffentlichtes Release, das den Commit enthält?**
        `gh release list` zeigt Entwürfe als `Draft` — ein Entwurf zählt nicht.
@@ -867,8 +868,31 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     3. **Führt der Pod die passenden Bytes aus?** Über `imageID` und, wo
        aktiviert, `build_revision` — siehe die Frage oben.
 
-    Erst wenn alle drei zutreffen, ist der Fix ausgeliefert. Die vollständige
-    Kette steht unter [So kommt eine neue Version in die
+    !!! danger "Manifest und laufender Cluster widersprechen sich — das ist ein realer Fehlerfall, kein hypothetischer"
+
+        Schritt 2 ist **kein** verlässlicher Ersatz für Schritt 3. Gemessen am
+        21.08.2026: `origin/master` in `nolte/k8s-home-lab`
+        (`src/applications/kamerplanter/deploy/argocd/application.yaml`) trägt
+        weiterhin `targetRevision: v0.1.0` und `image.tag: "0.0.23"` — Schritt 2
+        würde also „nicht ausgeliefert" melden (die Korrektur dazu liegt in
+        `nolte/k8s-home-lab#837`, offen). Dieselbe laufende Instanz antwortet auf
+        `/api/health` jedoch mit `supported_majors`, einem Feld, das erst mit
+        dem Commit von #1180 am 15.08.2026 entstand — ein Image `0.0.23` kann es
+        nachweislich nicht liefern (`git merge-base --is-ancestor` zwischen
+        diesem Commit und der im Image gebauten Revision ist falsch). Manifest
+        und Cluster laufen hier also tatsächlich auseinander, nicht nur in der
+        Theorie.
+
+        Wenn sich Schritt 2 und Schritt 3 widersprechen, gewinnt **immer** die
+        Beobachtung am Pod selbst — `imageID`, `build_revision`, oder ersatzweise
+        jedes andere Feld, dessen Einführungscommit du kennst — **nie** das
+        Manifest allein. Gegen diese Instanz am 21.08.2026 angewandt, führt das
+        auf „ausgeliefert". <!-- #1210 -->
+
+    Die Reihenfolge oben ist keine UND-Verknüpfung, die alle drei Häkchen
+    verlangt, bevor der Fix als ausgeliefert gilt — es ist eine
+    Eskalationsleiter: Schritt 3 sticht Schritt 2, sobald beide vorliegen. Die
+    vollständige Kette steht unter [So kommt eine neue Version in die
     Produktion](#so-kommt-eine-neue-version-in-die-produktion).
 
 ---
