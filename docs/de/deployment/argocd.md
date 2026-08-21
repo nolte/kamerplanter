@@ -138,10 +138,12 @@ spec:
     der Veröffentlichung des Releases `v0.2.0` — und wird bewusst nicht
     repariert, weil ein weiterer Push unter derselben Versionsreferenz derselbe
     Fehler wäre. Ein `targetRevision: 0.2.0` synct also einen `develop`-Stand.
-    `0.1.0` ist der jüngste Chart-Tag, dessen Manifest noch seinen
-    Release-Zeitstempel trägt; ansonsten pinne den Manifest-Digest oder warte
-    auf das erste Release unter beiden Prüfungen (`v0.2.1`, derzeit ein
-    Entwurf).
+    `0.2.1` — veröffentlicht am 19.08.2026 und das erste Release unter beiden
+    Prüfungen — ist jetzt der jüngste Chart-Tag, dessen Manifest seinen
+    eigenen Release-Zeitstempel trägt (`org.opencontainers.image.created:
+    2026-08-19T13:53:11Z`); zuvor war `0.1.0` (erstellt am 06.08.2026) der
+    jüngste solche Tag. Verankere dort, oder pinne ansonsten den
+    Manifest-Digest.
     <!-- #1222 -->
 
 ---
