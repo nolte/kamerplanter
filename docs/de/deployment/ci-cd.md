@@ -652,12 +652,13 @@ Die Konsequenz ist zweimal gemessen worden, nicht befürchtet:
 - Im ersten Vorfall (intern verfolgt als Ticket 1024) behielt ein `rollout
   restart` still ein altes Image; der `inference-service` bediente wochenlang
   einen Stand ohne die `/pest/*`-Routen. <!-- #1024 -->
-- Im zweiten (intern verfolgt als Ticket 1210) fuhr die Produktions-Instanz am
-  17.08.2026 unter einem `v0.1.0`-Chart die Images `0.0.23` — sechs
-  `image.tag`-Overrides im Overlay hatten die Digests des Charts ersetzt. Dem
-  laufenden Backend fehlte deshalb das Feld `supported_majors` auf
-  `/api/health`, das am 15.08. dazukam: Das ausgelieferte Image war rund einen
-  Monat älter als das Chart, unter dem es lief. <!-- #1210 -->
+- Im zweiten (intern verfolgt als Ticket 1210) verankerte das Overlay
+  `targetRevision: v0.1.0` mit sechs `image.tag`-Overrides je Controller auf
+  `0.1.0` — Images aus Release `v0.1.0`, veröffentlicht am 06.08.2026. Der Fix
+  aus #1163 mergte am 14.08.2026 nach `develop` und konnte in diesem Release
+  nicht enthalten sein. Behoben wurde das am 16.08.2026 um 15:33 UTC durch
+  `3e53606c8`, das `targetRevision` auf `develop` umstellte und alle Overrides
+  entfernte. <!-- #1210 -->
 
 Beide Male sah die Lage von außen gesund aus: Registry, Chart und
 Controller-Status waren einer Meinung. Nur der laufende Container war es nicht.
