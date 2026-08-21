@@ -261,7 +261,9 @@ Details: [Speicher konfigurieren](../user-guide/object-storage.md), [Helm Charts
 !!! warning "Bewusst abgeschaltet, weil der Endpunkt unauthentifiziert ist"
     Die Zuordnung *dieser Host läuft auf jenem Commit* verrät den exakten Rückstand gegenüber dem Entwicklungsstand und damit die Liste der Fehlerbehebungen, die dieser Instanz fehlen. Schalte die Auskunft deshalb bewusst frei. `GET /api/health` ist zusätzlich je Client-IP mengenbegrenzt (`RATE_LIMIT_HEALTH`, Default `60/minute`); die Kubernetes-Proben nutzen `/api/v1/health/live` und `/api/v1/health/ready` und sind davon nicht betroffen.
 
-    Für eine Produktionsinstanz, deren Auslieferungsstand prüfbar sein soll, ist `HEALTH_EXPOSE_BUILD_REVISION=true` trotz dieser Abwägung die **empfohlene** Einstellung — Details und der gemessene Preis der Alternative stehen unter [CI/CD — Wie sehe ich, welche Image-Version gerade läuft?](ci-cd.md#haeufige-fragen). Gesetzt wird die Variable **nicht** hier, sondern im GitOps-Overlay in `nolte/k8s-home-lab`. <!-- #1210 -->
+    Für eine Produktionsinstanz, deren Auslieferungsstand prüfbar sein soll, ist `HEALTH_EXPOSE_BUILD_REVISION=true` trotz dieser Abwägung die **empfohlene** Einstellung — Details und der gemessene Preis der Alternative stehen unter [CI/CD — Wie sehe ich, welche Image-Version gerade läuft?](ci-cd.md#haeufige-fragen). Gesetzt wird die Variable **nicht** hier — sie wäre im GitOps-Overlay in
+`nolte/k8s-home-lab` zu setzen, und ist dort zum Zeitpunkt dieses Texts
+ebenfalls nicht gesetzt. <!-- #1210 -->
 
 ---
 
