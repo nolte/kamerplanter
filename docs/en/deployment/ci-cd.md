@@ -880,6 +880,49 @@ All images are publicly readable. For local testing:
     step 3 beats step 2 whenever both are available. The full chain is under
     [How a new version reaches production](#how-a-new-version-reaches-production).
 
+??? question "Does commit Y sit inside image X — with no `build_revision` and no cluster access at all?"
+
+    Yes. That is not the same question as "what is running right now?" (see
+    above), but it can be answered without setting the flag and without any
+    cluster access whatsoever — the registry itself knows the provenance of
+    every tag, publicly and without login, because the package is publicly
+    readable.
+
+    ```bash
+    # 1. Get an anonymous pull token (the package is public, no login needed)
+    TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:nolte/kamerplanter-backend:pull&service=ghcr.io" \
+      | jq -r '.token')
+
+    # 2. Fetch the tag's manifest and read the OCI revision annotation
+    curl -s -H "Authorization: Bearer ${TOKEN}" \
+         -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+         "https://ghcr.io/v2/nolte/kamerplanter-backend/manifests/0.0.23" \
+      | jq -r '.annotations."org.opencontainers.image.revision"'
+    # b40b3ccd8393a612876bdf8c48ad0144f81e32c3
+
+    # 3a. Check whether a specific fix commit is contained in that revision
+    git merge-base --is-ancestor <fix-commit> b40b3ccd8393a612876bdf8c48ad0144f81e32c3 \
+      && echo "contained" || echo "not contained"
+
+    # 3b. Alternative: list every tag carrying the fix commit
+    git tag --contains <fix-commit>
+    ```
+
+    Replace `0.0.23` with the tag you want to check and `<fix-commit>` with the
+    fix's commit hash. Both `git` commands run locally against your checkout of
+    the repository.
+
+    !!! warning "This answers a different question than step 3 of the previous question"
+
+        This chain identifies an **artefact** — it tells you what is inside an
+        image sitting somewhere in a registry. It does **not** tell you which
+        artefact your cluster is currently running, and it does not replace
+        step 3 of "Has my merged fix been delivered yet?". It answers a
+        different question: "does commit Y sit inside image X?" rather than
+        "is image X currently running?". For the latter, looking into the
+        running pod (`imageID`, `build_revision`) remains the only load-bearing
+        path. <!-- #1210 -->
+
 ---
 
 ## See also

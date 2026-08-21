@@ -895,6 +895,48 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     vollständige Kette steht unter [So kommt eine neue Version in die
     Produktion](#so-kommt-eine-neue-version-in-die-produktion).
 
+??? question "Steckt Commit Y in Image X — ganz ohne `build_revision` und ohne Cluster-Zugriff?"
+
+    Ja. Diese Frage ist nicht dieselbe wie „was läuft gerade?" (siehe oben),
+    aber sie lässt sich beantworten, ohne das Flag zu setzen und ohne
+    überhaupt Zugriff auf einen Cluster zu haben — die Registry selbst kennt
+    die Herkunft jedes Tags, öffentlich und ohne Login, weil das Paket
+    öffentlich lesbar ist.
+
+    ```bash
+    # 1. Anonymen Pull-Token holen (das Paket ist öffentlich, kein Login nötig)
+    TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:nolte/kamerplanter-backend:pull&service=ghcr.io" \
+      | jq -r '.token')
+
+    # 2. Manifest des Tags abrufen und die OCI-Revision-Annotation entnehmen
+    curl -s -H "Authorization: Bearer ${TOKEN}" \
+         -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+         "https://ghcr.io/v2/nolte/kamerplanter-backend/manifests/0.0.23" \
+      | jq -r '.annotations."org.opencontainers.image.revision"'
+    # b40b3ccd8393a612876bdf8c48ad0144f81e32c3
+
+    # 3a. Prüfen, ob ein bestimmter Fix-Commit in dieser Revision steckt
+    git merge-base --is-ancestor <fix-commit> b40b3ccd8393a612876bdf8c48ad0144f81e32c3 \
+      && echo "enthalten" || echo "nicht enthalten"
+
+    # 3b. Alternative: alle Tags nennen, die den Fix-Commit tragen
+    git tag --contains <fix-commit>
+    ```
+
+    Ersetze `0.0.23` durch den Tag, den du prüfen willst, und `<fix-commit>`
+    durch den Commit-Hash des Fixes. Beide `git`-Befehle laufen lokal gegen
+    deinen Checkout des Repositories.
+
+    !!! warning "Das beantwortet eine andere Frage als Schritt 3 der vorigen Frage"
+
+        Diese Kette identifiziert ein **Artefakt** — sie sagt, was in einem
+        Image steckt, das irgendwo in einer Registry liegt. Sie sagt **nicht**,
+        welches Artefakt dein Cluster gerade ausführt, und ersetzt Schritt 3
+        von „Ist mein gemergter Fix schon ausgeliefert?" nicht. Sie beantwortet
+        eine andere Frage: „steckt Commit Y in Image X?" statt „läuft Image X
+        gerade?". Für Letzteres bleibt der Blick in den laufenden Pod (`imageID`,
+        `build_revision`) der einzige belastbare Weg. <!-- #1210 -->
+
 ---
 
 ## Siehe auch
