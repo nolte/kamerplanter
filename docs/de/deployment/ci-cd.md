@@ -508,7 +508,7 @@ image:
 
 ### So kommt eine neue Version in die Produktion {#so-kommt-eine-neue-version-in-die-produktion}
 
-Die Produktions-Instanz rollt **ausschließlich Release-Versionen** aus. Das ist eine Betriebsentscheidung und nicht bloß der zufällige Ist-Zustand: Die ArgoCD-`Application` verankert den Chart an einem Release-Tag, nicht an einem Branch.
+Die Produktions-Instanz rollt **ausschließlich Release-Versionen** aus. Das ist eine Betriebsentscheidung und nicht bloß der zufällige Ist-Zustand: Die ArgoCD-`Application` verankert den Chart an einer veröffentlichten Chart-Version, nicht an einem Branch.
 
 ```mermaid
 graph TD
@@ -658,7 +658,7 @@ Ein Release ist gleichzeitig das Auslieferungsvehikel dieser Instanz **und** die
 
 Die Arbeitsteilung ist: `targetRevision` wählt die **Chart-Version**, das Chart wählt die **Bytes**. Ein `image.tag` im Overlay bricht die zweite Hälfte auf.
 
-!!! danger "Die Invariante gilt auch unter einem Release-Tag"
+!!! danger "Die Invariante gilt auch unter einer Chart-Version"
 
     Der Digest-Pin ist keine Eigenschaft des Branches, sondern des Charts:
     `scripts/ci/pin_chart_image_digests.sh` schreibt die Digests **in** die

@@ -501,7 +501,7 @@ image:
 
 ### How a new version reaches production {#how-a-new-version-reaches-production}
 
-The production instance rolls out **release versions only**. That is an operating decision, not merely the accidental current state: the ArgoCD `Application` anchors the chart at a release tag, not at a branch.
+The production instance rolls out **release versions only**. That is an operating decision, not merely the accidental current state: the ArgoCD `Application` anchors the chart at a published chart version, not at a branch.
 
 ```mermaid
 graph TD
@@ -648,7 +648,7 @@ A release is at once the delivery vehicle for this instance **and** the packagin
 
 The division of labour is: `targetRevision` picks the **chart version**, the chart picks the **bytes**. An `image.tag` in the overlay breaks the second half.
 
-!!! danger "The invariant holds under a release tag too"
+!!! danger "The invariant holds under a chart version too"
 
     The digest pin is not a property of the branch but of the chart:
     `scripts/ci/pin_chart_image_digests.sh` writes the digests **into** the
