@@ -820,9 +820,11 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
         **empfohlene** Einstellung — die Abwägung oben bleibt bestehen, sie
         kippt nur zugunsten der Prüfbarkeit, sobald ein Vorfall wie #1210 zeigt,
         was die Alternative kostet: ohne das Feld bleibt „läuft der Fix schon?"
-        nur über `kubectl`-Zugriff auf den Cluster beantwortbar. Gesetzt wird
-        die Variable **nicht** in diesem Repository, sondern im
-        GitOps-Overlay in `nolte/k8s-home-lab`.
+        nur über `kubectl`-Zugriff auf den Cluster beantwortbar. Zu setzen
+        wäre die Variable im GitOps-Overlay in `nolte/k8s-home-lab`, nicht in
+        diesem Repository — und zum jetzigen Stand ist sie auch dort nicht
+        gesetzt, weshalb die Instanz diese Frage weiterhin nicht auf diesem
+        Weg beantwortet.
         <!-- #1210 -->
 
     Die Antwort kennt **drei unterscheidbare Zustände**, und die Unterscheidung

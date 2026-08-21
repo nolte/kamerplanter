@@ -807,9 +807,10 @@ All images are publicly readable. For local testing:
         **recommended** setting — the trade-off above still stands, it just
         tips towards auditability once an incident like #1210 shows what the
         alternative costs: without the field, "is the fix live yet?" can only
-        be answered with `kubectl` access to the cluster. The variable is
-        **not** set in this repository but in the GitOps overlay in
-        `nolte/k8s-home-lab`.
+        be answered with `kubectl` access to the cluster. The variable would
+        need to be set in the GitOps overlay in `nolte/k8s-home-lab`, not in
+        this repository — and, as of this writing, it is not set there
+        either, which is why the instance still does not answer this way.
         <!-- #1210 -->
 
     The answer has **three distinguishable states**, and the distinction
