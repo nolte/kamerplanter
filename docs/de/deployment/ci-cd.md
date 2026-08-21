@@ -917,9 +917,12 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:nolte/kamerplanter-backend:pull&service=ghcr.io" \
       | jq -r '.token')
 
-    # 2. Manifest des Tags abrufen und die OCI-Revision-Annotation entnehmen
+    # 2. Manifest des Tags abrufen und die OCI-Revision-Annotation entnehmen.
+    #    Der Index-Medientyp muss im Accept-Header stehen bleiben: die Tags sind
+    #    Multi-Arch, die Annotation hängt am Index, und wer nur das Image-Manifest
+    #    anfragt, bekommt einen Body, in dem sie null ist.
     curl -s -H "Authorization: Bearer ${TOKEN}" \
-         -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+         -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json" \
          "https://ghcr.io/v2/nolte/kamerplanter-backend/manifests/0.0.23" \
       | jq -r '.annotations."org.opencontainers.image.revision"'
     # b40b3ccd8393a612876bdf8c48ad0144f81e32c3
