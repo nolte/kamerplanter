@@ -710,10 +710,16 @@ Der Job vergleicht täglich um 09:00 UTC den Stand von `develop` mit dem jüngst
 
 **`RELEASE_LAG_THRESHOLD_DAYS` ist eine Kadenz-Policy, kein unbegründetes
 Karenzfenster.** Die Erwartung an dieses Repository lautet: Ein gemergter Fix
-soll spätestens binnen **3 Tagen** ausgeliefert sein — veröffentlicht und mit
-gehobenem `targetRevision` in der Produktions-Instanz. Der Einstellungswert
-setzt genau diese Kadenz durch: Er meldet erst, sobald der älteste
-unveröffentlichte Commit die 3 Tage überschritten hat. <!-- #1210 -->
+soll spätestens binnen **3 Tagen** ausgeliefert sein — veröffentlicht **und**
+mit gehobenem `targetRevision` in der Produktions-Instanz, die beiden manuellen
+Sprünge aus [So kommt eine neue Version in die
+Produktion](#so-kommt-eine-neue-version-in-die-produktion). Der Einstellungswert
+setzt nur die **erste** Hälfte dieser Kadenz durch: Er meldet, sobald der
+älteste unveröffentlichte Commit die 3 Tage überschritten hat, also sobald die
+Veröffentlichung überfällig ist. Die zweite Hälfte kann er nicht prüfen — siehe
+die Box „Ein Release beweist nicht, dass der Cluster es genommen hat" weiter
+unten, die genau diese Lücke behandelt.
+<!-- #1210 -->
 
 Der Job ist ein Zeitplan-Job und kein Pull-Request-Gate, weil der Rückstand **ohne jeden Commit** wächst: Er nimmt mit jeder Stunde zu, in der niemand veröffentlicht, und schrumpft in dem Moment, in dem jemand es tut. Keines dieser beiden Ereignisse ist ein Push.
 

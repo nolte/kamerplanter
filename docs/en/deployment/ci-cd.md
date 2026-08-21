@@ -700,9 +700,13 @@ The job compares the state of `develop` against the newest **published** release
 
 **`RELEASE_LAG_THRESHOLD_DAYS` is a cadence policy, not an unexplained grace
 window.** The expectation for this repository is: a merged fix should be
-delivered within **3 days** at the latest — published and with the production
-instance's `targetRevision` raised. The setting enforces exactly that cadence:
-it only reports once the oldest un-released commit has exceeded the 3 days.
+delivered within **3 days** at the latest — published **and** with the
+production instance's `targetRevision` raised, the two manual hops from [How a
+new version reaches production](#how-a-new-version-reaches-production). The
+setting enforces only the **first** half of that cadence: it reports once the
+oldest un-released commit has exceeded the 3 days, i.e. once publishing is
+late. It has no way to check the second half — see the "A release does not
+prove the cluster took it" box below, which covers exactly that gap.
 <!-- #1210 -->
 
 It is a scheduled job and not a pull-request gate because the lag grows **with no commit at all**: it increases with every hour nobody publishes, and it shrinks the moment somebody does. Neither of those events is a push.
