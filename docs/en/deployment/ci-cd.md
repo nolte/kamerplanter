@@ -865,32 +865,29 @@ All images are publicly readable. For local testing:
     3. **Does the pod run the matching bytes?** Via `imageID` and, where
        enabled, `build_revision` — see the question above.
 
-    !!! danger "Manifest and running cluster disagree — a real failure mode, not a hypothetical one"
+    !!! danger "An `image.tag` override is what makes step 2 unreliable"
 
-        Step 2 is **not** a reliable substitute for step 3. That is not a
-        hypothetical: it was measured, and the incident is kept here because it
-        shows how far the two can drift apart while both look plausible.
+        Step 2 is **not** a reliable substitute for step 3. The reason is not
+        hypothetical: it is the same override mechanism described under
+        [Invariant: no `image.tag` in the overlay](#invariant-no-image-tag).
+        Once an overlay carries a per-controller `image.tag` override, the
+        running image is decoupled from `targetRevision` — raising the anchor
+        no longer guarantees a change in the running bytes, because the
+        override, not the chart's own digest pin, decides what gets pulled.
 
-        On 2026-08-21 around 14:00 UTC, `origin/master` in `nolte/k8s-home-lab`
-        (`src/applications/kamerplanter/deploy/argocd/application.yaml`)
-        carried `targetRevision: v0.1.0` and six per-controller `image.tag`
-        overrides pinning `0.0.23`, so step 2 answered "not delivered". The
-        same running instance answered `/api/health` with `supported_majors` —
-        a field that only came into existence with the #1180 commit on
-        2026-08-15, which an image `0.0.23` provably cannot serve
-        (`git merge-base --is-ancestor` between that commit and the revision
-        baked into the image is false). For those hours the manifest was a
-        month behind the cluster, and only step 3 gave the right answer.
-
-        The manifest caught up the same afternoon (`405b43a2f` in
-        `nolte/k8s-home-lab`, 15:17 UTC), so the example is historical — the
-        failure mode it demonstrates is not.
+        Both cases documented under [that invariant](#invariant-no-image-tag)
+        are instances of exactly this: the stale `rollout restart` (#1024),
+        and the six per-controller overrides that anchored the production
+        instance on the `v0.1.0` chart and its `0.1.0`-tagged images from
+        2026-08-13 19:41 UTC to 2026-08-16 15:33 UTC (#1210) — a state that was
+        undone only when a single commit both changed `targetRevision` and
+        removed every override, because either change alone would not have
+        been enough.
 
         When step 2 and step 3 disagree, the observation at the pod itself
         **always** wins — `imageID`, `build_revision`, or failing that any
         other field whose introducing commit you know — **never** the
-        manifest alone. Applied against this instance on 2026-08-21, that
-        settles on "delivered". <!-- #1210 -->
+        manifest alone. <!-- #1210 -->
 
     The order above is not an AND across three checkboxes that all have to
     hold before the fix counts as delivered — it is an escalation ladder:

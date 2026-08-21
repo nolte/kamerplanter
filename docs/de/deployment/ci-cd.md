@@ -878,34 +878,31 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
     3. **Führt der Pod die passenden Bytes aus?** Über `imageID` und, wo
        aktiviert, `build_revision` — siehe die Frage oben.
 
-    !!! danger "Manifest und laufender Cluster widersprechen sich — das ist ein realer Fehlerfall, kein hypothetischer"
+    !!! danger "Ein `image.tag`-Override macht Schritt 2 unzuverlässig"
 
-        Schritt 2 ist **kein** verlässlicher Ersatz für Schritt 3. Das ist
-        nicht hypothetisch: Es wurde gemessen, und der Vorfall steht hier,
-        weil er zeigt, wie weit beide auseinanderlaufen können, während beide
-        plausibel aussehen.
+        Schritt 2 ist **kein** verlässlicher Ersatz für Schritt 3. Der Grund
+        ist nicht hypothetisch: Es ist derselbe Override-Mechanismus, der
+        unter [Invariante: kein `image.tag` im Overlay](#invariante-kein-image-tag)
+        beschrieben ist. Sobald ein Overlay einen per-Controller-`image.tag`-
+        Override trägt, ist das laufende Image von `targetRevision` entkoppelt
+        — den Anker anzuheben garantiert dann keine Änderung der laufenden
+        Bytes mehr, weil der Override entscheidet, was gezogen wird, nicht der
+        Digest-Pin des Charts.
 
-        Am 21.08.2026 gegen 14:00 UTC trug `origin/master` in
-        `nolte/k8s-home-lab`
-        (`src/applications/kamerplanter/deploy/argocd/application.yaml`)
-        `targetRevision: v0.1.0` und sechs `image.tag`-Overrides je Controller
-        auf `0.0.23` — Schritt 2 meldete also „nicht ausgeliefert". Dieselbe
-        laufende Instanz antwortete auf `/api/health` mit `supported_majors`,
-        einem Feld, das erst mit dem Commit von #1180 am 15.08.2026 entstand
-        und das ein Image `0.0.23` nachweislich nicht liefern kann
-        (`git merge-base --is-ancestor` zwischen diesem Commit und der im Image
-        gebauten Revision ist falsch). Für diese Stunden lag das Manifest einen
-        Monat hinter dem Cluster, und nur Schritt 3 gab die richtige Antwort.
-
-        Noch am selben Nachmittag zog das Manifest nach (`405b43a2f` in
-        `nolte/k8s-home-lab`, 15:17 UTC) — das Beispiel ist damit historisch,
-        der Fehlerfall, den es zeigt, ist es nicht.
+        Beide unter [dieser Invariante](#invariante-kein-image-tag)
+        dokumentierten Fälle sind genau das: der veraltete `rollout restart`
+        (#1024) und die sechs per-Controller-Overrides, die die
+        Produktions-Instanz vom 13.08.2026 19:41 UTC bis zum 16.08.2026
+        15:33 UTC auf das Chart `v0.1.0` und seine `0.1.0`-getaggten Images
+        verankerten (#1210) — ein Zustand, der erst aufgehoben war, als ein
+        einziger Commit sowohl `targetRevision` änderte als auch jeden
+        Override entfernte, weil keine der beiden Änderungen allein genügt
+        hätte.
 
         Wenn sich Schritt 2 und Schritt 3 widersprechen, gewinnt **immer** die
         Beobachtung am Pod selbst — `imageID`, `build_revision`, oder ersatzweise
         jedes andere Feld, dessen Einführungscommit du kennst — **nie** das
-        Manifest allein. Gegen diese Instanz am 21.08.2026 angewandt, führt das
-        auf „ausgeliefert". <!-- #1210 -->
+        Manifest allein. <!-- #1210 -->
 
     Die Reihenfolge oben ist keine UND-Verknüpfung, die alle drei Häkchen
     verlangt, bevor der Fix als ausgeliefert gilt — es ist eine
