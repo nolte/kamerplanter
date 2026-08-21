@@ -606,8 +606,11 @@ The ArgoCD `Application` for the Talos cluster is **not** in this repository but
 
     This instance rolls out **release versions only**. A commit on `develop`
     does not reach it, not even when it touches `helm/kamerplanter/**`: the
-    anchor is a published chart version, and a published version does not move
-    because someone merges.
+    anchor is a published chart version, and — since the checks introduced by
+    #1222 closed the one way that assumption had failed — a published version
+    does not move because someone merges. Before those checks existed, exactly
+    that happened once: `charts/kamerplanter:0.2.0` was overwritten from
+    `develop` under the same version reference (see [Two channels](#two-channels)).
 
     That is the intended state, not a snapshot. The price is latency: between
     "merged" and "running" sit the two manual hops from [How a new version

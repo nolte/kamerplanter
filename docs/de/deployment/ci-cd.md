@@ -615,8 +615,12 @@ Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Reposi
     Diese Instanz rollt **ausschließlich Release-Versionen** aus. Ein Commit auf
     `develop` erreicht sie nicht, auch dann nicht, wenn er
     `helm/kamerplanter/**` berührt: Der Anker ist eine veröffentlichte
-    Chart-Version, und eine veröffentlichte Version bewegt sich nicht, weil
-    jemand mergt.
+    Chart-Version, und — seit die mit #1222 eingeführten Prüfungen den einen
+    Weg geschlossen haben, auf dem diese Annahme schon einmal nicht hielt —
+    bewegt sich eine veröffentlichte Version nicht, weil jemand mergt. Bevor es
+    diese Prüfungen gab, ist genau das einmal passiert:
+    `charts/kamerplanter:0.2.0` wurde unter derselben Versionsreferenz aus
+    `develop` überschrieben (siehe [Zwei Kanäle](#zwei-kanaele)).
 
     Das ist der gewollte Zustand, keine Momentaufnahme. Der Preis dafür ist die
     Latenz: Zwischen „gemergt" und „läuft" liegen die beiden manuellen Sprünge
