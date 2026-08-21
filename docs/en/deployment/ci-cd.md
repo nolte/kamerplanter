@@ -508,7 +508,7 @@ graph TD
     A[1. Merge to develop] --> B[2. docker-publish + Renovate<br/>digest in values.yaml on develop]
     B -.pre-stage, does not reach production.-> C
     C[3. Maintainer publishes a release<br/>MANUAL] --> D[4. docker-publish pins<br/>chart images to version + digest]
-    D --> E[5. Raise targetRevision in the GitOps repo<br/>to the new tag — MANUAL]
+    D --> E[5. Raise targetRevision in the GitOps repo<br/>to the new chart version — MANUAL]
     E --> F[6. ArgoCD syncs, pods roll]
 ```
 
@@ -525,7 +525,7 @@ Spelled out, that is six hops, each owned by a different actor:
 4. **`docker-publish.yml`** runs on the resulting `v*` tag and, via
    `scripts/ci/pin_chart_image_digests.sh`, pins every Kamerplanter image in the
    chart values to `<version>@sha256:<digest>`.
-5. **`targetRevision` in the GitOps repository is raised to the new tag** — also
+5. **`targetRevision` in the GitOps repository is raised to the new chart version** — also
    by hand, in `nolte/k8s-home-lab`, that is **outside this repository**. **The
    second manual hop**, and the only one no workflow in this repository can even
    see.
@@ -548,15 +548,15 @@ The deploy itself is therefore a **commit** — in the GitOps repository — not
 
 ### Rollback
 
-A rollback is a commit in the **GitOps repository**: set `targetRevision` back to the previous release tag.
+A rollback is a commit in the **GitOps repository**: set `targetRevision` back to the previous chart version.
 
 ```yaml
-- path: helm/kamerplanter
-  repoURL: https://github.com/nolte/kamerplanter.git
-  targetRevision: v0.1.0   # instead of v0.2.0
+- path: .
+  repoURL: oci://ghcr.io/nolte/charts/kamerplanter
+  targetRevision: 0.2.0   # instead of 0.2.1
 ```
 
-ArgoCD syncs the chart from the older tag — together with the digests that tag pins — and the pods roll back. Verify the result **in the running pod**, not in the values file and not from a controller status:
+ArgoCD pulls the older chart version — together with the digests that version pins — and the pods roll back. Verify the result **in the running pod**, not in the values file and not from a controller status:
 
 ```bash
 kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
@@ -582,22 +582,23 @@ kubectl get pod -n kamerplanter -l app.kubernetes.io/name=backend \
 
 ### Production: the `Application` lives in the GitOps repository
 
-The ArgoCD `Application` for the Talos cluster is **not** in this repository but in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). It does not pull the chart from the registry but straight from the source repository:
+The ArgoCD `Application` for the Talos cluster is **not** in this repository but in `k8s-home-lab` (`src/applications/kamerplanter/deploy/argocd/application.yaml`). It pulls the published chart from the registry:
 
 ```yaml
-- path: helm/kamerplanter                              # (1)!
-  repoURL: https://github.com/nolte/kamerplanter.git
-  targetRevision: v0.1.0                               # (2)!
+- path: .                                              # (1)!
+  repoURL: oci://ghcr.io/nolte/charts/kamerplanter
+  targetRevision: 0.2.1                                # (2)!
 ```
 
-1. The chart directory in the Git tree — not the OCI artifact `oci://ghcr.io/nolte/charts/kamerplanter`.
-2. A **release tag**, not a branch. Only a published release can stand here, and nobody raises this value automatically.
+1. The OCI artifact, not a directory in the Git tree. `path: .` is the artifact's own root.
+2. A **published chart version**, not a branch — the release version without the leading `v`, so release `v0.2.1` is chart `0.2.1`. Only a published release can stand here, and nobody raises this value automatically.
 
 !!! info "Release versions only — deliberately"
 
     This instance rolls out **release versions only**. A commit on `develop`
     does not reach it, not even when it touches `helm/kamerplanter/**`: the
-    anchor is a tag, and a tag does not move because someone merges.
+    anchor is a published chart version, and a published version does not move
+    because someone merges.
 
     That is the intended state, not a snapshot. The price is latency: between
     "merged" and "running" sit the two manual hops from [How a new version
@@ -630,7 +631,7 @@ The division of labour is: `targetRevision` picks the **chart version**, the cha
     `scripts/ci/pin_chart_image_digests.sh` writes the digests **into** the
     chart values before the release chart is packaged. An `image.tag` override
     beats that default — regardless of whether `targetRevision` points at a
-    branch or at a release tag. It replaces the digest with a moving reference,
+    branch, a release tag, or a published chart version. It replaces the digest with a moving reference,
     and `pullPolicy: IfNotPresent` then means: "keep whatever is already cached
     on the node". Delivery is back to depending on what one individual node
     happens to have pulled before — and raising `targetRevision` no longer
@@ -866,17 +867,24 @@ All images are publicly readable. For local testing:
 
     !!! danger "Manifest and running cluster disagree — a real failure mode, not a hypothetical one"
 
-        Step 2 is **not** a reliable substitute for step 3. Measured on
-        2026-08-21: `origin/master` in `nolte/k8s-home-lab`
-        (`src/applications/kamerplanter/deploy/argocd/application.yaml`) still
-        carries `targetRevision: v0.1.0` and `image.tag: "0.0.23"` — step 2
-        would therefore report "not delivered" (the fix for that lives in
-        `nolte/k8s-home-lab#837`, still open). The same running instance
-        answers `/api/health` with `supported_majors`, a field that only came
-        into existence with the #1180 commit on 2026-08-15 — an image `0.0.23`
-        provably cannot serve it (`git merge-base --is-ancestor` between that
-        commit and the revision baked into the image is false). Manifest and
-        cluster genuinely diverge here, not just in theory.
+        Step 2 is **not** a reliable substitute for step 3. That is not a
+        hypothetical: it was measured, and the incident is kept here because it
+        shows how far the two can drift apart while both look plausible.
+
+        On 2026-08-21 around 14:00 UTC, `origin/master` in `nolte/k8s-home-lab`
+        (`src/applications/kamerplanter/deploy/argocd/application.yaml`)
+        carried `targetRevision: v0.1.0` and six per-controller `image.tag`
+        overrides pinning `0.0.23`, so step 2 answered "not delivered". The
+        same running instance answered `/api/health` with `supported_majors` —
+        a field that only came into existence with the #1180 commit on
+        2026-08-15, which an image `0.0.23` provably cannot serve
+        (`git merge-base --is-ancestor` between that commit and the revision
+        baked into the image is false). For those hours the manifest was a
+        month behind the cluster, and only step 3 gave the right answer.
+
+        The manifest caught up the same afternoon (`405b43a2f` in
+        `nolte/k8s-home-lab`, 15:17 UTC), so the example is historical — the
+        failure mode it demonstrates is not.
 
         When step 2 and step 3 disagree, the observation at the pod itself
         **always** wins — `imageID`, `build_revision`, or failing that any
