@@ -549,13 +549,21 @@ The deploy itself is therefore a **commit** — in the GitOps repository — not
 
 ### Rollback
 
-A rollback is a commit in the **GitOps repository**: set `targetRevision` back to the previous chart version.
+A rollback is a commit in the **GitOps repository**: set `targetRevision` back to a previous chart version.
 
 ```yaml
 - path: .
   repoURL: oci://ghcr.io/nolte/charts/kamerplanter
-  targetRevision: 0.2.0   # instead of 0.2.1
+  targetRevision: 0.1.0   # instead of 0.2.1
 ```
+
+!!! warning "Not every published version number is safe to roll back to"
+
+    `0.2.0` looks like the obvious predecessor of `0.2.1` but is not — see
+    [ArgoCD — Never point `targetRevision` at the `-dev` channel](argocd.md#basic-application)
+    for the one release tag where that assumption failed. `0.1.0` is used
+    above because it still carries its original release timestamp; when in
+    doubt, pin the manifest digest instead of a bare version number.
 
 ArgoCD pulls the older chart version — together with the digests that version pins — and the pods roll back. Verify the result **in the running pod**, not in the values file and not from a controller status:
 
