@@ -787,6 +787,15 @@ All images are publicly readable. For local testing:
         commit*, because it yields the exact lag behind `develop` and with it
         the list of fixes this instance is missing. Details under [Environment
         Variables — Health endpoint](../reference/environment-variables.md#health-endpoint).
+
+        For a production instance whose delivery state needs to be auditable
+        from outside, `HEALTH_EXPOSE_BUILD_REVISION=true` is therefore the
+        **recommended** setting — the trade-off above still stands, it just
+        tips towards auditability once an incident like #1210 shows what the
+        alternative costs: without the field, "is the fix live yet?" can only
+        be answered with `kubectl` access to the cluster. The variable is
+        **not** set in this repository but in the GitOps overlay in
+        `nolte/k8s-home-lab`.
         <!-- #1210 -->
 
     The answer has **three distinguishable states**, and the distinction

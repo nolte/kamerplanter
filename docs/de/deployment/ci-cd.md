@@ -799,6 +799,15 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
         Rückstand gegenüber `develop` und damit die Liste der Fehlerbehebungen,
         die dieser Instanz fehlen. Details unter
         [Umgebungsvariablen — Health-Endpunkt](../reference/environment-variables.md#health-endpunkt).
+
+        Für eine Produktionsinstanz, deren Auslieferungsstand von außen prüfbar
+        sein soll, ist `HEALTH_EXPOSE_BUILD_REVISION=true` deshalb die
+        **empfohlene** Einstellung — die Abwägung oben bleibt bestehen, sie
+        kippt nur zugunsten der Prüfbarkeit, sobald ein Vorfall wie #1210 zeigt,
+        was die Alternative kostet: ohne das Feld bleibt „läuft der Fix schon?"
+        nur über `kubectl`-Zugriff auf den Cluster beantwortbar. Gesetzt wird
+        die Variable **nicht** in diesem Repository, sondern im
+        GitOps-Overlay in `nolte/k8s-home-lab`.
         <!-- #1210 -->
 
     Die Antwort kennt **drei unterscheidbare Zustände**, und die Unterscheidung
