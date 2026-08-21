@@ -137,3 +137,5 @@ None. Q1, Q2 and Q3 were answered at the approval gate on 2026-08-21 and are rec
 ## Dispatch log
 
 <!-- appended during operation 5 -->
+
+- **P5** — dispatched to the generalist (no matching specialised agent — generalist remediation). Filed as **nolte/k8s-home-lab#839**, carrying the four measured observations, both candidate explanations, and the two `kubectl` commands that separate them. Operator chose `nolte/k8s-home-lab` as the target at the dispatch gate, since the manifest and its correction live there.
