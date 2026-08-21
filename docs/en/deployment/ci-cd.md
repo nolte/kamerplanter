@@ -612,12 +612,23 @@ The ArgoCD `Application` for the Talos cluster is **not** in this repository but
     that happened once: `charts/kamerplanter:0.2.0` was overwritten from
     `develop` under the same version reference (see [Two channels](#two-channels)).
 
-    That is the intended state, not a snapshot. The price is latency: between
-    "merged" and "running" sit the two manual hops from [How a new version
-    reaches production](#how-a-new-version-reaches-production). Anyone expecting
-    the new state in the cluster right after a merge is looking in the wrong
-    place — what runs there is the release `targetRevision` points at, and that
-    can be several releases behind.
+    That is the intended state, not a snapshot — with one recorded exception.
+    From 2026-08-16 15:33 UTC (`3e53606c8`, the #1210 fix) to 2026-08-21 15:17
+    UTC (`405b43a2f`), the `Application` pointed `targetRevision` straight at
+    `develop` (`path: helm/kamerplanter`,
+    `repoURL: https://github.com/nolte/kamerplanter.git`) instead of at a
+    published chart version, to unblock the image-pinning fix described under
+    [Invariant: no `image.tag` in the overlay](#invariant-no-image-tag) below.
+    For those five days a commit on `develop` **did** reach this instance.
+    `405b43a2f` closed the exception and restored the OCI-chart anchor shown
+    above.
+
+    The price of the intended state is latency: between "merged" and "running"
+    sit the two manual hops from [How a new version reaches
+    production](#how-a-new-version-reaches-production). Anyone expecting the
+    new state in the cluster right after a merge is looking in the wrong place
+    — what runs there is the release `targetRevision` points at, and that can
+    be several releases behind.
 
 #### What a release is for {#what-a-release-is-for}
 

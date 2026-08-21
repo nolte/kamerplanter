@@ -622,12 +622,22 @@ Die ArgoCD-`Application` für den Talos-Cluster liegt **nicht** in diesem Reposi
     `charts/kamerplanter:0.2.0` wurde unter derselben Versionsreferenz aus
     `develop` überschrieben (siehe [Zwei Kanäle](#zwei-kanaele)).
 
-    Das ist der gewollte Zustand, keine Momentaufnahme. Der Preis dafür ist die
-    Latenz: Zwischen „gemergt" und „läuft" liegen die beiden manuellen Sprünge
-    aus [So kommt eine neue Version in die
-    Produktion](#so-kommt-eine-neue-version-in-die-produktion). Wer nach einem
-    Merge im Cluster den neuen Stand erwartet, sucht am falschen Ort — dort
-    läuft das Release, auf das `targetRevision` zeigt, und das kann mehrere
+    Das ist der gewollte Zustand, keine Momentaufnahme — mit einer
+    dokumentierten Ausnahme. Vom 16.08.2026 15:33 UTC (`3e53606c8`, der Fix zu
+    #1210) bis zum 21.08.2026 15:17 UTC (`405b43a2f`) zeigte die `Application`
+    mit `targetRevision` direkt auf `develop` (`path: helm/kamerplanter`,
+    `repoURL: https://github.com/nolte/kamerplanter.git`) statt auf eine
+    veröffentlichte Chart-Version — um den unter [Invariante: kein
+    `image.tag` im Overlay](#invariante-kein-image-tag) beschriebenen
+    Image-Pinning-Fix zu entsperren. In diesen fünf Tagen erreichte ein Commit
+    auf `develop` diese Instanz **tatsächlich**. `405b43a2f` beendete die
+    Ausnahme und stellte den oben gezeigten OCI-Chart-Anker wieder her.
+
+    Der Preis des gewollten Zustands ist die Latenz: Zwischen „gemergt" und
+    „läuft" liegen die beiden manuellen Sprünge aus [So kommt eine neue Version
+    in die Produktion](#so-kommt-eine-neue-version-in-die-produktion). Wer nach
+    einem Merge im Cluster den neuen Stand erwartet, sucht am falschen Ort —
+    dort läuft das Release, auf das `targetRevision` zeigt, und das kann mehrere
     Releases hinterherhinken.
 
 #### Wofür ein Release da ist {#wofuer-ein-release}
