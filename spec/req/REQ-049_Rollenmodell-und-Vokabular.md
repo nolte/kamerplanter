@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 5.9
 Status: Entwurf
-Version: 1.4
+Version: 1.5 (§3.1: persönliche Datensätze bekommen keinen eigenen Begriff)
 Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hier im Vokabular abgelöst und im Rollenumfang erweitert), REQ-023 (Authentifizierung — Kontoart, Dienstkonten), REQ-027 (Light-Modus — Einzelkonto), REQ-030 (Benachrichtigungssystem — übernimmt die Empfängerregel §2.8), REQ-022 (Pflegeerinnerungen — dieselbe Empfängerregel), REQ-046 (Wetterdienste — wandern auf die globale Ebene §2.9), REQ-005 + REQ-018 (Home Assistant — wandert auf die Mandantenebene §2.9), NFR-001 (Schichtenarchitektur), NFR-015 (OWASP-ZAP — Permission-Matrix-Tests), NFR-016 (Versioniertes Migrations-Framework — Datenmigration der Mitgliedschaften)
 ```
 
@@ -269,6 +269,23 @@ Dieser Abschnitt ist die normative Grundlage für **jede** Rechte-Tabelle im Rep
 | **Plattform-Admin** | Plattform-Ebene | globale Stammdaten und Instanzverwaltung |
 | **Eigene** | zusätzliche Einschränkung auf selbst verfasste Beiträge | **ausschließlich** bei verfassten Inhalten (Pinnwand-Beiträge, Kommentare, eigene Betroffenenanfragen) — **nie** bei Fachdaten, siehe P1 |
 | **—** | Aktion existiert für diese Ressource nicht | allen Spalten |
+
+**Persönliche Datensätze bekommen keinen eigenen Begriff.** Ein Datensatz, der
+genau einem Konto gehört — Onboarding-Status, Nutzerpräferenzen, Favoriten,
+Dashboard-Konfiguration — wird in der Rechtetabelle wie jede schreibende Aktion
+angegeben: **Ab Gärtner** beim Anlegen, Ändern und Löschen, **Alle Rollen** beim
+Lesen. Die Einschränkung „nur den eigenen" ist **kein Rollenbegriff**, sondern
+ein Prädikat auf Service-Ebene, das im Dokument in der Spalte „Besonderheiten"
+benannt wird — nach demselben Muster, das REQ-051 §3.2 für Tagebucheinträge
+verwendet.
+
+Der Grund ist P1: Rechteangabe und Datensatz-Prädikat sind zwei verschiedene
+Fragen. *Wer darf diese Art von Datensatz überhaupt schreiben* beantwortet die
+Rolle; *welchen Datensatz genau* beantwortet die Eigentümerprüfung. Sie in einen
+Begriff zu falten — „Alle Rollen (eigene)" — erzeugt einen Ausdruck, der weder
+in §3.1 steht noch aus ihm ableitbar ist, und macht nebenbei den Beobachter zum
+Schreiber. **„Eigene"** bleibt deshalb auf verfasste Inhalte beschränkt; ein
+Präferenzsatz ist kein verfasster Inhalt.
 
 ### 3.2 Verbotene Begriffe
 
