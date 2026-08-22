@@ -99,8 +99,25 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         """
         return self._stocks.get_or_raise(key)
 
-    def get_stocks(self, fertilizer_key: FertilizerKey) -> list[FertilizerStock]:
-        return self._stocks.find_by_field("fertilizer_key", fertilizer_key, sort="purchase_date", sort_direction="DESC")
+    def get_stocks(self, fertilizer_key: FertilizerKey, *, tenant_key: str) -> list[FertilizerStock]:
+        """Stocks of one product belonging to ``tenant_key`` (#1268).
+
+        Keyword-only and without a default so a caller that forgets fails loudly
+        rather than listing every tenant's inventory — the #948 convention, and
+        the state this filter replaces.
+
+        A strict ``==`` rather than the hybrid-catalogue ``IN ("", tenant)``
+        union: an empty stock tenant means "not attributable" (migration v0044),
+        not "global". Unioning it back in would restore exactly the shared pile
+        this exists to end.
+        """
+        return self._stocks.find_by_field(
+            "fertilizer_key",
+            fertilizer_key,
+            sort="purchase_date",
+            sort_direction="DESC",
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     def update_stock(self, key: FertilizerStockKey, stock: FertilizerStock) -> FertilizerStock:
         return self._stocks.update(key, stock)

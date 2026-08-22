@@ -114,9 +114,13 @@ def list_stocks(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
-    """List a fertilizer's stock entries."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    stocks = service.get_stocks(key)
+    """List this tenant's stock entries for a fertilizer.
+
+    Tenant-filtered since #1268. It used to return every row for the product,
+    which for a global fertilizer meant every tenant's batch numbers, volumes,
+    purchase dates and cost-per-litre.
+    """
+    stocks = service.get_stocks(key, tenant_key=ctx.tenant_key)
     return [to_response(s, StockResponse) for s in stocks]
 
 
@@ -127,10 +131,9 @@ def create_stock(
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.CREATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
-    """Add a stock entry to a fertilizer."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
+    """Add a stock entry to a fertilizer, owned by this tenant (#1268)."""
     stock = FertilizerStock(fertilizer_key=key, **body.model_dump())
-    created = service.create_stock(key, stock)
+    created = service.create_stock(key, stock, tenant_key=ctx.tenant_key)
     return to_response(created, StockResponse)
 
 

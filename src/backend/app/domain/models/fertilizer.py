@@ -86,6 +86,14 @@ class Fertilizer(BaseModel):
 class FertilizerStock(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     fertilizer_key: str
+    #: Owner of this physical stock (#1268). A stock is inventory — a batch
+    #: number, a purchase price, a volume in one garden's cupboard — not
+    #: catalogue data, so it does NOT inherit the hybrid-catalogue rule its
+    #: product follows. Before #1268 the field did not exist, and stocks of a
+    #: GLOBAL fertilizer therefore sat in one pile that every tenant could list
+    #: and edit. Empty means "not attributable" — see migration v0044; it is not
+    #: a global marker here, and no live write ever produces it.
+    tenant_key: str = ""
     current_volume_ml: float = Field(ge=0)
     purchase_date: date | None = None
     expiry_date: date | None = None
