@@ -9,7 +9,7 @@ Kategorie: Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI, Flutter
 Status: Entwurf
-Version: 1.1 (Erfassung §4.1/§5.4 nach REQ-052 ausgelagert)
+Version: 1.2 (§7: Bestimmen und Diagnostizieren sind schreibend — ab Gärtner)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — §4.1 dorthin ausgelagert), REQ-001 v5.0 (Stammdaten), REQ-011 v1.0 (Adapter-Pattern), REQ-020 v1.6 (Onboarding-Wizard), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-024 v1.3 (Mandantenverwaltung)
 ```
 
@@ -1442,13 +1442,35 @@ PLANT_ID_API_KEY gesetzt?
 
 **Standardregel:** Alle Endpunkte erfordern JWT Bearer Token und Tenant-Mitgliedschaft.
 
-| Endpoint | Auth | Consent | Rate-Limit |
-|----------|------|---------|------------|
-| `GET /status` | Keine (public) | Nein | — |
-| `POST /identify` | JWT + Tenant | `plant_identification` | Pro User/Tag |
-| `POST /diagnose` | JWT + Tenant | `plant_identification` | Pro User/Tag |
-| `POST /identify/{key}/confirm` | JWT + Tenant | Nein | — |
-| `GET /history` | JWT + Tenant | Nein | — |
+| Endpoint | Auth | Rolle | Consent | Rate-Limit |
+|----------|------|-------|---------|------------|
+| `GET /status` | Keine (public) | — | Nein | — |
+| `POST /identify` | JWT + Tenant | **Ab Gärtner** | `plant_identification` | Pro User/Tag |
+| `POST /diagnose` | JWT + Tenant | **Ab Gärtner** | `plant_identification` | Pro User/Tag |
+| `POST /identify/{key}/confirm` | JWT + Tenant | **Ab Gärtner** | Nein | — |
+| `GET /history` | JWT + Tenant | Alle Rollen | Nein | — |
+
+**Warum Bestimmen und Diagnostizieren schreibend sind (#1216).** Bis hierher stand in dieser
+Tabelle nur „JWT + Tenant", also faktisch *jedes* Mitglied einschließlich des Beobachters. Das
+widersprach REQ-052 §9, wo „Erfassungsdialog öffnen" bei **Ab Gärtner** liegt und AK-71 dem
+Beobachter den Dialog ausdrücklich verweigert — und ohne Erfassungsdialog gibt es kein Bild zu
+bestimmen. Von den beiden Aussagen ist REQ-052 die richtige, und der Grund liegt in dem, was ein
+Aufruf tatsächlich tut:
+
+- Er **legt einen Datensatz an** (`identification_requests`, §5) — samt Historie, die `GET
+  /history` danach ausliefert. Das ist eine Wirkung, keine Abfrage.
+- Er **schickt ein Foto an einen Dritten** (Plant.id, PlantNet), abgesichert nur durch die
+  `plant_identification`-Einwilligung. Eine Rolle, die nach REQ-049 §3.1 keine Fachdaten anlegen
+  darf, soll auch keine Daten aus der Installation herausgeben dürfen.
+
+Ein Beobachter kann Ergebnisse also **lesen** (`GET /history`, „Alle Rollen"), aber keine neuen
+erzeugen. Das ist dieselbe Trennung, die REQ-052 §9 zwischen „Erfassungsdialog öffnen" und dem
+Betrachten vorhandener Bilder zieht.
+
+**Die Einwilligung bleibt eine zweite, unabhängige Hürde.** Sie ersetzt die Rollenprüfung nicht:
+ein Gärtner ohne `plant_identification`-Einwilligung wird abgewiesen, und ein Beobachter mit
+Einwilligung ebenfalls. Die beiden beantworten verschiedene Fragen — *darf diese Person in diesem
+Mandanten schreiben* und *darf dieses Bild die Installation verlassen*.
 
 **Rate-Limiting:**
 
