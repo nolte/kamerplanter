@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 6, Flutter (geplant)
 Status: Entwurf
 Priorität: Hoch
-Version: 1.1
+Version: 1.2 (eigene Stellschraube für den Schnappschuss-Verzug)
 Datum: 2026-08-16
 Tags: [diary, editing, versioning, analysis-archive, mobile, client-neutral]
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `gallery`), REQ-013 v2.7 (Pflanzdurchlauf — `PlantDiaryEntry`, Endpunkte, Umgebungs-Schnappschuss §2.3a), REQ-050 v1.5 (KI-Analyse — Zustandsmaschine, MCP-Vertrag, Einwilligung), REQ-034 v1.2 (Foto-Galerie — Zuordnung, Titelbild, Metadaten), NFR-013 v1.4 (Object Storage — Attachments, Renditions), REQ-005 (Sensorik-Fallback-Kette, Provenienz), REQ-024 v1.7 (Mandant), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.6 (DSGVO), REQ-042 v1.1 (Modul `diary`), REQ-021 v1.4 (Navigations-Zuordnung), REQ-027 (Light-Modus)
@@ -19,6 +19,7 @@ Wird benötigt von: REQ-050 (Oberfläche der Analyse-Anzeige)
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.2 | 2026-08-22 | **`DIARY_SNAPSHOT_MAX_LAG_MINUTES` (§3.5, AK-43).** §3.5 verwendete `DIARY_ENVIRONMENT_MAX_AGE_MINUTES` mit — dieselbe Stellschraube, die REQ-013 §2.3a.5 dafür nutzt, wie alt ein **Sensorwert bei der Erfassung** sein darf. Beide stehen auf 60 Minuten, messen aber Verschiedenes: die eine das Alter der Messung, die andere den Abstand zwischen `environment_captured_at` und `created_at`. Mit einer Schraube für beides hatte jede Bewegung eine unbeabsichtigte zweite Wirkung — die Sensorfrische zu verschärfen hätte fast jeden nachgetragenen Schnappschuss markiert, sie zu lockern den Hinweis stillgelegt. Jetzt getrennt, mit einer Tabelle in §3.5, die benennt, was welche misst und woraus sie folgt. (#1216) |
 | 1.1 | 2026-08-22 | **§6.6 Nachforderung erfüllen.** Der Ablauf, mit dem ein Nutzer die von einem Analyse-Lauf nachgeforderten Bilder macht (REQ-050 §2.6). Einstieg ist die **Aufgabe**, nicht der Eintrag — die Bitte wird beantwortet, wenn der Nutzer bei der Pflanze steht, nicht wenn er das Ergebnis liest. Führt Motiv für Motiv, zeigt `why` immer sichtbar, erlaubt **Überspringen** (ein Ablauf, der auf Vollständigkeit besteht, wird abgebrochen und liefert gar nichts) und prüft die Fünf-Foto-Grenze **vor** der ersten Aufnahme statt nach der letzten. Die Erfassung selbst routet über **REQ-052 §2** (Profil `gallery`) — kein zweiter Erfassungsweg. Abgeschickt wird über denselben „Analysieren"-Schalter aus §6.1, damit kein Pfad an `can_request_analysis` und REQ-050 §7.1 vorbeiführt. (#1237) |
 | 1.0 | 2026-08-16 | Erstfassung. Bündelt die bislang auf REQ-013 (Datensatz, Endpunkte) und REQ-050 (Oberfläche) verteilte Tagebuch-Funktion zu einer eigenen Anforderung und ergänzt drei neue Fähigkeiten: **nachträgliche Bearbeitung** eines Eintrags samt Fotos und Messwerten (§3), **Aktualitätskennzeichnung** eines Analyse-Ergebnisses nach einer Bearbeitung (§4) und ein **Analyse-Archiv** (§5, entscheidet REQ-050 O-01 mit „ja"). Die Oberflächen-Abschnitte §2.5.1–§2.5.4 aus REQ-050 v1.4 wandern hierher (§6) — samt der Akzeptanzkriterien AK-14 bis AK-17, AK-19, AK-20 und AK-28 bis AK-31, die ihre Nummern behalten, damit bestehende Verweise (u. a. `spec/e2e-testcases/TC-REQ-050.md`) auflösbar bleiben. Neu ist außerdem §7: die Anforderung ist client-neutral formuliert und benennt, was ein mobiler Client zusätzlich braucht. **§2.4** führt die sonst über §3, §5, §9 und §11 verteilten Aussagen zur Mandantentrennung an einem Ort zusammen und beschreibt das Verhalten im geteilten Mandanten über die zweite Achse Autorschaft; dabei ist festgehalten, dass die Standort-Zuweisung nach REQ-049 §3.5 **keine** Schreibgrenze ist (§2.4.5), und eine bislang unausgesprochene Frage als O-58 aufgenommen worden: die mandantenweit offene Analyse-Historie. |
 
@@ -409,9 +410,25 @@ Handlung, die der Nutzer benennt und auslöst und deren Zeitpunkt der Datensatz 
 
 **`environment_captured_at` ist die Ehrlichkeitsgarantie.** Weicht es von `created_at` ab, wurde
 der Schnappschuss nachträglich geholt, und der Datensatz sagt das von selbst. Die Oberfläche muss
-diese Abweichung sichtbar machen, sobald sie die Aktualitätsgrenze
-(`DIARY_ENVIRONMENT_MAX_AGE_MINUTES`, Vorgabe 60 Minuten) überschreitet — sonst liest sich am
-Eintrag von gestern das Klima von heute wie das Klima von gestern (AK-43).
+diese Abweichung sichtbar machen, sobald sie `DIARY_SNAPSHOT_MAX_LAG_MINUTES` (Vorgabe
+**60 Minuten**) überschreitet — sonst liest sich am Eintrag von gestern das Klima von heute wie
+das Klima von gestern (AK-43).
+
+**Warum das eine eigene Stellschraube ist (#1216).** Bis hierher stand hier
+`DIARY_ENVIRONMENT_MAX_AGE_MINUTES` — dieselbe Einstellung, die REQ-013 §2.3a.5 dafür verwendet,
+wie alt ein **Sensorwert bei der Erfassung** sein darf. Die beiden Zahlen sind heute gleich, aber
+sie messen nicht dasselbe und folgen nicht demselben Grund:
+
+| Einstellung | Misst | Folgt aus |
+|---|---|---|
+| `DIARY_ENVIRONMENT_MAX_AGE_MINUTES` (REQ-013 §2.3a.5) | Alter der **Messung** zum Zeitpunkt der Erfassung | der Melde-Taktung der Hardware |
+| `DIARY_SNAPSHOT_MAX_LAG_MINUTES` (hier) | Abstand zwischen `environment_captured_at` und `created_at` | wie weit ein **nachgetragener** Schnappschuss noch als „die Bedingungen, als hingesehen wurde" durchgeht |
+
+Mit einer Stellschraube für beides hatte jede Bewegung eine unbeabsichtigte zweite Wirkung: Die
+Sensorfrische zu verschärfen — etwa auf 15 Minuten, weil ein Sensor stündlich meldet und das zu
+grob ist — hätte nebenbei fast jeden nachgetragenen Schnappschuss mit dem Warnhinweis versehen;
+sie zu lockern hätte den Hinweis stillgelegt. Getrennt lässt sich jede Zahl aus ihrem eigenen
+Grund wählen. Beide sind global konfigurierbar und **nicht** mandantenspezifisch.
 
 **Ein bereits erfolgreicher Schnappschuss wird nur nach Rückfrage ersetzt.** Steht
 `environment_status` auf `captured`, ist bereits Belegmaterial vorhanden; eine erneute Erfassung
@@ -1120,7 +1137,7 @@ Zusammenlegung zöge die Tagebuch-Sonderregel in eine Tabelle, die 27 andere Res
 | **AK-40** | Wird ein Eintrag mit vorhandenem Analyse-Ergebnis bearbeitet, liefern Einzelabruf **und** Übersichtszeile `analysis_outdated: true`; `analysis_state` bleibt dabei unverändert `completed` bzw. `failed`. Die Oberfläche zeigt den Hinweis **über** der Zusammenfassung, mit der Handlung „erneut analysieren" daneben. |
 | **AK-41** | Die Übersicht lässt sich auf veraltete Ergebnisse filtern. Der Filter findet genau die Einträge, die **ein Ergebnis haben** und deren `analyzed_content_version` kleiner ist als ihre `content_version`. Ein nie analysierter, aber bearbeiteter Eintrag darf **nicht** erscheinen — ohne die erste Bedingung wäre eine Liste „nur mit veraltetem Ergebnis" voller Einträge ohne jedes Ergebnis (§4.1, §8). |
 | **AK-42** | Der Bearbeitungsdialog weist vor dem Speichern darauf hin, dass ein vorhandenes Ergebnis als nicht mehr aktuell gekennzeichnet wird. Der Hinweis erscheint nur, wenn tatsächlich ein Ergebnis vorliegt, und verhindert das Speichern nicht. |
-| **AK-43** | `POST .../capture-environment` löst den Schnappschuss serverseitig neu auf, setzt `environment`, `environment_captured_at` und `environment_status` und erhöht `content_version`. Weicht `environment_captured_at` um mehr als `DIARY_ENVIRONMENT_MAX_AGE_MINUTES` von `created_at` ab, weist die Oberfläche darauf hin. |
+| **AK-43** | `POST .../capture-environment` löst den Schnappschuss serverseitig neu auf, setzt `environment`, `environment_captured_at` und `environment_status` und erhöht `content_version`. Weicht `environment_captured_at` um mehr als `DIARY_SNAPSHOT_MAX_LAG_MINUTES` von `created_at` ab, weist die Oberfläche darauf hin — **nicht** um mehr als `DIARY_ENVIRONMENT_MAX_AGE_MINUTES`, das eine andere Größe misst (§3.5). |
 | **AK-44** | Steht `environment_status` auf `captured`, verlangt die Oberfläche vor der erneuten Erfassung eine Bestätigung, die benennt, dass der vorhandene Schnappschuss ersetzt wird. |
 | **AK-45** | Jeder eintreffende Analyselauf — `completed` **und** `failed` — erzeugt einen Datensatz in `plant_diary_analyses`. `GET .../diary/{entry_key}/analyses` liefert sie absteigend nach `recorded_at`, seitenweise. Die Oberfläche bietet die Historie erst an, wenn mehr als ein Lauf existiert. |
 | **AK-46** | `content_version` wird an genau einer Stelle erhöht. Ein Test weist die **Abwesenheit** eines zweiten Schreibpfads nach: kein Modul außerhalb von `PlantDiaryService` schreibt `plant_diary_entries`. Der Test muss rot werden, wenn ein solcher Pfad eingefügt wird — die Gegenprobe ist Bestandteil der Umsetzung. |

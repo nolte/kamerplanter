@@ -365,6 +365,13 @@ noch dieselbe Wetterlage ist. Die Grenze ist global konfigurierbar und **nicht**
 mandantenspezifisch: sie folgt aus der Melde-Taktung der Hardware, nicht aus der Politik
 eines Gartens.
 
+**Diese Einstellung steuert nur die Erfassung.** Wie weit ein *nachgetragener* Schnappschuss
+von `created_at` abweichen darf, bevor die Oberfläche darauf hinweist, ist eine andere Frage
+und hat seit #1216 eine eigene Stellschraube: `DIARY_SNAPSHOT_MAX_LAG_MINUTES`
+(REQ-051 §3.5). Beide stehen auf 60 Minuten, messen aber Verschiedenes — wer diese hier
+verschaerft, weil ein Sensor zu grob meldet, veraendert damit nicht, welcher nachgetragene
+Schnappschuss als aktuell durchgeht.
+
 **Frische wird an `last_reported` gemessen, nicht an `last_changed`.** Home Assistants
 `last_changed` bewegt sich nur, wenn sich der Zustands*string* aendert — ein
 kerngesunder Sensor, der konstant 22.0 °C meldet, traegt ein stundenaltes
