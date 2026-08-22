@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 6, MCP (JSON-RPC über Streamable HTTP)
 Status: Entwurf
 Priorität: Mittel
-Version: 1.5
+Version: 1.6
 Datum: 2026-08-16
 Tags: [diary, ai-analysis, mcp, image-content, goose, async, opt-in]
 Abhängigkeit: REQ-051 v1.0 (Pflanzen-Tagebuch — Oberfläche, Bearbeitung, Inhaltsversion, Analyse-Archiv), REQ-013 v2.7 (Pflanzdurchlauf — PlantDiaryEntry, Umgebungs-Schnappschuss §2.3a), REQ-033 v1.7 (MCP-Server — Werkzeuge, Bild-Content), NFR-013 v1.4 (Object-Storage — Attachments, Thumbnail-Renditions), REQ-024 v1.7 (Mandant, Permission-Matrix), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.6 (DSGVO — Einwilligungszweck), REQ-023 v1.13 (API-Keys), REQ-042 v1.1 (Modul-Sichtbarkeit — Registrierung der Übersicht), REQ-021 v1.4 (Erfahrungsstufen — Navigations-Zuordnung), REQ-027 (Light-Modus)
@@ -19,6 +19,7 @@ Wird benötigt von: REQ-051 (Analyse-Anzeige im Tagebuch)
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.6 | 2026-08-22 | **Nachforderung (§2.6).** Der häufigste Grund für einen schwachen Befund ist ein fehlendes Bild, und der Agent ist die einzige Partei im Ablauf, die weiß, welches — bis hierher konnte er es niemandem sagen. Eine Nachforderung ist die **Bitte** um bestimmte Motive, gestellt als Teil des Ergebnisses: sie markiert den Eintrag **nicht** neu, sodass §2.1 („Markieren ist immer eine Nutzerhandlung") und die Einwilligungsprüfung nach §7.1 unangetastet bleiben. Höchstens fünf Motive (die Fotogrenze eines Eintrags, REQ-013), höchstens eine offene je Eintrag (ein neuer Lauf setzt die alte auf `superseded`). §4.5 trägt dafür das Feld `photo_request`; den Auftrag legt der **Server** als FreeStyle-Aufgabe an (REQ-006 § FreeStyle, „Foto-Auftrag"), nicht der Aufrufer — die einzige Variante, die mit der Herkunfts-Vertrauensregel (#1000) und dem MCP-Katalog ohne schreibendes Aufgaben-Werkzeug (REQ-033) verträglich ist. Was der Nutzer beim Erfüllen sieht: REQ-051 §6.6. (#1237) |
 | 1.5 | 2026-08-16 | **Die Tagebuch-Oberfläche wandert nach REQ-051.** §1.4 und §2.5.1–§2.5.4 sind dort aufgegangen, ebenso die Oberflächen-Kriterien AK-14…AK-17, AK-19, AK-20 und AK-28…AK-31 — **unter denselben Nummern**, damit bestehende Verweise (u. a. `spec/e2e-testcases/TC-REQ-050.md`) auflösbar bleiben. §1.4 hatte den Umzug bereits vorgezeichnet: die Oberfläche gehört fachlich nicht hierher, sie wurde nur hier mitspezifiziert, weil REQ-050 der Anlass ihrer Entstehung war. Mit einer eigenen Tagebuch-Anforderung entfällt dieser Grund. Gleichzeitig **O-01 mit „ja" entschieden** (Analyse-Historie, REQ-051 §5): §2.4 sagt nicht mehr, ein neues Ergebnis überschreibe das vorherige ersatzlos — es verdrängt es nur am Eintrag und wird archiviert. §5 trägt zusätzlich `analyzed_content_version` (REQ-051 §4.4). Zustandsmaschine, MCP-Vertrag und Datenschutz bleiben unverändert hier. |
 | 1.4 | 2026-08-07 | **Umgebungs-Schnappschuss im Analyse-Payload (Issue #961).** §4.3 trägt zusätzlich `environment`, `environment_captured_at` und `environment_status`: der Agent bekam bisher die Fotos und den Freitext, aber nicht das Klima, in dem die Pflanze steht — die diagnostisch wertvollste Information, die kostenlos verfügbar ist. Das Feld ist **getrennt** von `measurements` und bleibt es (Begründung in REQ-013 §2.3a.1). `list_diary_entries` trägt es bewusst **nicht** — dieselbe Linie, die dieses Werkzeug schon beim Freitext zieht. `add_plant_diary_entry` meldet im Ergebnis `environment_status`, hat aber kein Eingabefeld dafür: ein Agent, der die Werte schreiben könnte, könnte sie erfinden. |
 | 1.3 | 2026-08-05 | **O-04 entschieden: `add_plant_diary_entry` kommt, ohne `photo_refs`** (§9). Ein Agent konnte bis hierhin analysieren, aber nicht dokumentieren. Die beiden Grenzen der Entscheidung — keine Foto-Referenzen (SEC-003 lässt sie einem Service-Account ohnehin nicht zu) und kein Selbst-Markieren (§1.3, §7.1) — sind dort begründet. Das Werkzeug steht **außerhalb** des Analyse-Vertrags aus §4 und gehört zu REQ-033 §2.2. Ergänzt: `plant.cultivar_key` in §4.3 — die Prozess-Spezifikation des externen Agenten löst die Sorte über `get_cultivar` auf, das einen Schlüssel nimmt, und das Antwortschema trug nur `cultivar_name`. Nebenbei korrigiert: das Dokumentende trug noch „Version 1.1", während der Kopf 1.2 auswies. |
@@ -263,6 +264,70 @@ gelten unabhängig davon, wer sie darstellt:
   Einträge nach Typ oder Stichwort markiert.
 - Ob ein Nutzer markieren darf, wertet der **Server** aus und liefert es als
   `can_request_analysis` (§5). Es ist eine Anzeigehilfe, keine Autorisierung.
+
+### 2.6 Nachforderung: wenn die vorhandenen Bilder nicht reichen
+
+Der häufigste Grund für einen schwachen Befund ist kein schwaches Modell, sondern ein fehlendes
+Bild. Wer „braune Flecken unten" fotografiert, fotografiert die Blattoberseite; die Milbe sitzt
+unterseits. Der Agent sieht das — er ist die einzige Partei im Ablauf, die weiß, was ihm gefehlt
+hat —, und bis hierher konnte er es niemandem sagen. Er konnte nur eine Konfidenz von 0.4 melden
+und die Gärtnerin mit der Frage allein lassen, was sie damit anfangen soll.
+
+**Eine Nachforderung ist die Bitte des Agenten um bestimmte Bilder**, gestellt als Teil des
+Analyse-Ergebnisses. Sie benennt je Motiv, **was** aufzunehmen ist, **warum** es fehlt und
+optional **wie** es aufzunehmen ist. Aus ihr entsteht ein Auftrag, den der Nutzer in seiner
+Aufgabenwarteschlange vorfindet und der ihn bei der Erfassung Motiv für Motiv führt
+(REQ-051 §6.6).
+
+**Die Nachforderung markiert nicht neu.** Sie ist eine Bitte, kein Auftrag an das System. Der
+Eintrag geht mit ihr nach `completed` (bzw. `failed`) wie jeder andere Lauf; er kehrt **nicht**
+selbsttätig nach `requested` zurück. Erst wenn der Nutzer die Bilder gemacht und den Auftrag
+abgeschickt hat, entsteht die neue Markierung — und das ist dann seine Handlung, nicht die des
+Agenten. Damit bleibt §2.1 unangetastet, und die Konstruktion aus §9 (O-04) gilt hier
+gleichermaßen: Ein Agent, der sich seine eigene Arbeit einreihen könnte, ginge an der
+Einwilligungsprüfung nach §7.1 vorbei. Der Umweg über den Menschen ist hier kein Umstand,
+sondern der Zweck — ohne ihn gäbe es die Bilder ohnehin nicht.
+
+**Warum der Agent sie stellt und nicht der Nutzer.** Ein Knopf „erweiterte Analyse anfordern" am
+Ergebnis wäre billiger zu bauen und wertlos: Er verlangte vom Nutzer zu wissen, was dem Modell
+gefehlt hat. Genau diese Information ist der Inhalt einer Nachforderung, und sie entsteht
+ausschließlich beim Analysieren.
+
+**Höchstens fünf Motive.** Ein Tagebuch-Eintrag trägt höchstens fünf Fotos (REQ-013). Eine
+Nachforderung, die mehr verlangt, ist in dem Rücklaufweg, den der Nutzer wählt, nicht erfüllbar —
+sie erzeugte einen Auftrag, der die Erfüllung von vornherein ausschließt. Die Grenze steht
+deshalb am Vertrag (§4.5) und nicht in der Oberfläche.
+
+**Eine offene Nachforderung je Eintrag.** Trifft ein neuer Lauf am selben Eintrag ein, während
+eine Nachforderung noch offen ist, wird die alte geschlossen (`superseded`) und ihr Auftrag mit
+ihr. Zwei gleichzeitig offene Bitten um Bilder desselben Eintrags beschreiben nichts, was
+tatsächlich geschieht: Der zweite Lauf hat dieselben Bilder gesehen wie der erste und eine
+aktuellere Meinung dazu.
+
+**Der Auftrag ist eine gewöhnliche Aufgabe.** Er wird als FreeStyle-Aufgabe nach REQ-006
+angelegt — dem Mechanismus, den REQ-006 ausdrücklich für „maschinelle Produzenten (z. B.
+Goose-Analyse-Pipelines)" vorsieht, um „abgeleitete Arbeit dem Nutzer sichtbar zu machen". Damit
+erscheint die Nachforderung in Aufgabenliste, Dashboard und Kalender, ohne dass diese Anforderung
+einen zweiten Aufgabenbegriff einführt. Was REQ-006 dafür ergänzen muss, steht dort (§ FreeStyle,
+Unterabschnitt „Foto-Auftrag").
+
+**Erzeuger ist der Server, nicht der Aufrufer.** Die Aufgabe entsteht im selben Schreibvorgang,
+der das Ergebnis persistiert — nicht durch einen Aufruf des Agenten gegen den
+Aufgaben-Endpunkt. Das ist keine Bequemlichkeit, sondern die einzige Variante, die mit zwei
+bestehenden Festlegungen verträglich ist:
+
+- Die **Herkunfts-Vertrauensregel** (REQ-006, Issue #1000) leitet `origin` aus dem
+  authentifizierten Prinzipal ab und erzwingt für einen interaktiven Nutzer `origin: user`. Ein
+  Agent, der unter dem persönlichen Schlüssel seines Betreibers läuft — der Normalfall der ersten
+  Ausbaustufe (§3) —, könnte über den HTTP-Pfad also gar keine Pipeline-Aufgabe anlegen.
+- Der **MCP-Werkzeugkatalog kennt kein schreibendes Aufgaben-Werkzeug** (REQ-033: zwölf
+  Schreibwerkzeuge, keines legt eine Aufgabe an). Der Agent auf die REST-API auszuweichen zu
+  lassen, bräche die Zusage aus §4, dass sich das Rezept allein aus diesem Abschnitt schreiben
+  lässt.
+
+Der Server legt die Aufgabe daher mit `origin: pipeline` und `source: "diary-analysis"` an, weil
+er sie erzeugt hat — in Reaktion auf ein Ergebnis, nicht auf Geheiß des Aufrufers. Der Agent
+merkt davon nichts; sein Vertrag aus §4.5 kennt nur das Nachforderungsfeld.
 
 ---
 
@@ -692,10 +757,27 @@ Schreibt das Ergebnis zurück und beendet die Bearbeitung.
 | `model` | `str`, max. 200 | verwendetes Modell |
 | `recipe_version` | `str`, max. 50 | Version des Rezepts |
 | `error` | `str \| None` | Pflicht bei `failed` |
+| `photo_request` | `list \| None`, max. **5** Motive | Nachforderung (§2.6). Je Motiv: `what` (max. 200, Pflicht), `why` (max. 500, Pflicht), `how` (max. 500, optional) |
 | `dry_run`, `idempotency_key` | | Standardvertrag für Schreibwerkzeuge |
 
 Die Längengrenzen stehen hier bewusst **doppelt** (auch in §5) — ein Rezept, das nur §4 liest,
 muss sie kennen, sonst läuft es blind in `validation.error`.
+
+**Zu `photo_request`.** Das Feld ist bei **beiden** Ausgängen zulässig: ein `failed`-Lauf, der an
+unbrauchbaren Bildern gescheitert ist, hat dieselbe Auskunft zu geben wie ein `completed`-Lauf mit
+schwacher Konfidenz. Es ist in keinem der beiden Fälle Pflicht — ein Agent, der nichts vermisst,
+lässt es weg, und ein leeres Feld ist keine Nachforderung.
+
+Die Obergrenze von fünf Motiven ist **keine** Höflichkeitsempfehlung, sondern die Zahl der Fotos,
+die ein Eintrag überhaupt tragen kann (REQ-013). Eine sechste Bitte beschriebe einen Auftrag, den
+der Rücklaufweg nicht erfüllen kann; sie wird mit `validation.error` abgewiesen, nicht stillschweigend
+gekürzt. `why` ist Pflicht, weil eine Bitte ohne Grund den Nutzer wieder in genau die Lage bringt,
+die §2.6 auflöst: Er weiß, dass etwas fehlt, aber nicht, wozu.
+
+Was der Server daraus macht, sieht der Agent nicht: Er legt den Foto-Auftrag als FreeStyle-Aufgabe
+an (REQ-006 § FreeStyle, „Foto-Auftrag") und schließt eine noch offene Nachforderung desselben
+Eintrags als `superseded`. Der Vertrag hier kennt nur das Feld — bewusst, damit ein Rezept sich
+allein aus §4 schreiben lässt.
 
 `data` bei Erfolg — das persistierte Ergebnis wird zurückgespiegelt, inklusive des
 serverseitig gesetzten `disclaimer`, damit der Agent sieht, was tatsächlich am Eintrag steht:
