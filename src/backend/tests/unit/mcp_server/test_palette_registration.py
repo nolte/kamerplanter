@@ -151,11 +151,11 @@ def test_every_write_tool_takes_a_key_a_read_tool_produces():
     assert not offenders, f"Write tools with no resolvable key argument: {offenders}"
 
 
-#: Palette size after issue #1244 — 64 after #949, plus `clone_nutrient_plan`
-#: and `set_nutrient_plan_phase_targets`. This is the number
+#: Palette size after issue #1244 — 64 after #949, plus `clone_nutrient_plan`,
+#: `set_nutrient_plan_phase_targets` and `validate_nutrient_plan_coverage`. This is the number
 #: ``docs/*/api/mcp-server.md`` and REQ-033 §Umsetzungsstand both quote, which is
 #: the whole reason it is asserted rather than described.
-PALETTE_SIZE = 66
+PALETTE_SIZE = 67
 
 
 def test_the_palette_holds_exactly_the_registered_tools():
