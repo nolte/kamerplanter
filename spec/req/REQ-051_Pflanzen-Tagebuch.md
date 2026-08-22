@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 6, Flutter (geplant)
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Datum: 2026-08-16
 Tags: [diary, editing, versioning, analysis-archive, mobile, client-neutral]
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `gallery`), REQ-013 v2.7 (Pflanzdurchlauf — `PlantDiaryEntry`, Endpunkte, Umgebungs-Schnappschuss §2.3a), REQ-050 v1.5 (KI-Analyse — Zustandsmaschine, MCP-Vertrag, Einwilligung), REQ-034 v1.2 (Foto-Galerie — Zuordnung, Titelbild, Metadaten), NFR-013 v1.4 (Object Storage — Attachments, Renditions), REQ-005 (Sensorik-Fallback-Kette, Provenienz), REQ-024 v1.7 (Mandant), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.6 (DSGVO), REQ-042 v1.1 (Modul `diary`), REQ-021 v1.4 (Navigations-Zuordnung), REQ-027 (Light-Modus)
@@ -19,6 +19,7 @@ Wird benötigt von: REQ-050 (Oberfläche der Analyse-Anzeige)
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.1 | 2026-08-22 | **§6.6 Nachforderung erfüllen.** Der Ablauf, mit dem ein Nutzer die von einem Analyse-Lauf nachgeforderten Bilder macht (REQ-050 §2.6). Einstieg ist die **Aufgabe**, nicht der Eintrag — die Bitte wird beantwortet, wenn der Nutzer bei der Pflanze steht, nicht wenn er das Ergebnis liest. Führt Motiv für Motiv, zeigt `why` immer sichtbar, erlaubt **Überspringen** (ein Ablauf, der auf Vollständigkeit besteht, wird abgebrochen und liefert gar nichts) und prüft die Fünf-Foto-Grenze **vor** der ersten Aufnahme statt nach der letzten. Die Erfassung selbst routet über **REQ-052 §2** (Profil `gallery`) — kein zweiter Erfassungsweg. Abgeschickt wird über denselben „Analysieren"-Schalter aus §6.1, damit kein Pfad an `can_request_analysis` und REQ-050 §7.1 vorbeiführt. (#1237) |
 | 1.0 | 2026-08-16 | Erstfassung. Bündelt die bislang auf REQ-013 (Datensatz, Endpunkte) und REQ-050 (Oberfläche) verteilte Tagebuch-Funktion zu einer eigenen Anforderung und ergänzt drei neue Fähigkeiten: **nachträgliche Bearbeitung** eines Eintrags samt Fotos und Messwerten (§3), **Aktualitätskennzeichnung** eines Analyse-Ergebnisses nach einer Bearbeitung (§4) und ein **Analyse-Archiv** (§5, entscheidet REQ-050 O-01 mit „ja"). Die Oberflächen-Abschnitte §2.5.1–§2.5.4 aus REQ-050 v1.4 wandern hierher (§6) — samt der Akzeptanzkriterien AK-14 bis AK-17, AK-19, AK-20 und AK-28 bis AK-31, die ihre Nummern behalten, damit bestehende Verweise (u. a. `spec/e2e-testcases/TC-REQ-050.md`) auflösbar bleiben. Neu ist außerdem §7: die Anforderung ist client-neutral formuliert und benennt, was ein mobiler Client zusätzlich braucht. **§2.4** führt die sonst über §3, §5, §9 und §11 verteilten Aussagen zur Mandantentrennung an einem Ort zusammen und beschreibt das Verhalten im geteilten Mandanten über die zweite Achse Autorschaft; dabei ist festgehalten, dass die Standort-Zuweisung nach REQ-049 §3.5 **keine** Schreibgrenze ist (§2.4.5), und eine bislang unausgesprochene Frage als O-58 aufgenommen worden: die mandantenweit offene Analyse-Historie. |
 
 ---
@@ -744,6 +745,56 @@ Wo ein Ergebnis vorliegt — in der Detailansicht des Eintrags, an beiden Orten 
 Der Zustand wird nicht live gepusht; ein Nachladen beim Öffnen der Ansicht genügt, ergänzt um eine
 Auffrischen-Schaltfläche in der Übersicht. Es gibt keinen Server-zu-Client-Kanal im MCP-Transport
 (REQ-033 §4.3a) und keinen Grund, für diese Funktion einen einzuführen.
+
+### 6.6 Nachforderung erfüllen
+
+Fordert ein Analyse-Lauf Bilder nach (REQ-050 §2.6), erscheint dafür eine gewöhnliche Aufgabe in
+der Warteschlange. Dieser Abschnitt beschreibt, was der Nutzer sieht, wenn er sie öffnet — nicht,
+wie die Aufgabe entsteht (REQ-006 § FreeStyle, „Foto-Auftrag") und nicht, wie die Kamera bedient
+wird (REQ-052).
+
+**Der Einstieg ist die Aufgabe, nicht der Eintrag.** Die Nachforderung ist eine Bitte, die der
+Nutzer irgendwann beantwortet — vielleicht morgen, vielleicht wenn er ohnehin bei der Pflanze
+steht. Sie in die Eintragsansicht zu legen hieße, sie nur dort zu zeigen, wo er gerade nicht ist.
+Der Auftrag steht deshalb in Aufgabenliste, Dashboard und Kalender wie jede andere Aufgabe, mit
+dem Maschinen-Badge aus REQ-006. Aus der Eintragsansicht führt umgekehrt ein Verweis auf den
+offenen Auftrag, damit die beiden Orte sich nicht widersprechen.
+
+**Ein Motiv nach dem anderen.** Der Ablauf führt durch die Motive der Nachforderung einzeln, in der
+Reihenfolge, in der der Agent sie genannt hat. Je Motiv:
+
+- **Was** aufzunehmen ist (`what`) als Überschrift.
+- **Warum** es fehlt (`why`) darunter, immer sichtbar. Das ist der Grund, aus dem der Nutzer die
+  Bitte überhaupt befolgt; eingeklappt wäre er wertlos.
+- **Wie** (`how`), sofern der Agent es mitgegeben hat.
+- Die Erfassung selbst nach **REQ-052 §2**, Profil `gallery` — dieselben drei Wege (Kamera, Datei,
+  Zwischenablage), dieselbe Normalisierung, dieselbe Vorschau wie in §6.1. Diese Anforderung
+  beschreibt keinen zweiten Erfassungsweg.
+
+Ein Motiv darf **übersprungen** werden. Wer keine Blattunterseite fotografieren kann, weil die
+Pflanze verschenkt ist, soll den Auftrag trotzdem abschließen können; ein Ablauf, der auf
+Vollständigkeit besteht, wird stattdessen abgebrochen und liefert gar nichts. Übersprungene Motive
+werden beim Abschluss benannt, damit der nächste Lauf weiß, dass sie nicht vergessen, sondern nicht
+möglich waren.
+
+**Abschicken ist eine Nutzerhandlung, und zwar dieselbe wie sonst.** Am Ende hängt der Nutzer die
+aufgenommenen Fotos an den Eintrag und markiert ihn erneut zur Analyse — genau der Schalter aus
+§6.1, mit genau derselben Serverprüfung. Es entsteht **kein** eigener „Nachforderung
+abschicken"-Pfad, der an `can_request_analysis` und der Einwilligungsprüfung (REQ-050 §7.1)
+vorbeiliefe. Der Auftrag gilt damit als erledigt.
+
+Bricht der Nutzer ab, bleibt der Auftrag offen und der Eintrag unverändert. Nichts an der
+Nachforderung setzt den Eintrag von selbst zurück (REQ-050 §2.6).
+
+**Was passiert, wenn der Eintrag schon fünf Fotos trägt.** Dann ist er voll (REQ-013), und die
+neuen Bilder haben keinen Platz. Der Ablauf sagt das **vor** der ersten Aufnahme, nicht nach der
+letzten, und bietet an, Fotos des Eintrags zu entfernen. Erst danach beginnt die Erfassung. Ein
+Ablauf, der den Nutzer erst fotografieren lässt und dann ablehnt, verliert genau die Arbeit, um
+die gebeten wurde.
+
+**Ist der Auftrag `superseded`** — ein neuer Lauf hat die Nachforderung ersetzt, während der Nutzer
+sie offen hatte —, wird das beim Öffnen angezeigt und die aktuelle Nachforderung angeboten. Der
+Nutzer fotografiert sonst nach einer Liste, die niemand mehr auswertet.
 
 ---
 

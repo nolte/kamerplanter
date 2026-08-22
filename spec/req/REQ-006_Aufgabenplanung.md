@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 3.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
 ```
 
 ## 1. Business Case
@@ -185,6 +185,19 @@ Ein auf Tenant A beschränkter Producer kann in Tenant B weder Aufgaben erstelle
 
 **UI-Oberfläche:**
 FreeStyle-Aufgaben erscheinen in Aufgabenliste, Dashboard und Kalender wie jede andere Aufgabe, sind aber sichtbar als **maschinell erstellt** markiert (Badge + Filter in Liste und Detail). Die Detailseite zeigt `source` + `source_run_ref`; die Pflanzen-Detailseite listet die offenen FreeStyle-Aufgaben der Instanz.
+
+**Foto-Auftrag (der erste maschinelle Produzent, #1237):**
+
+Ein Analyse-Lauf über einen Tagebuch-Eintrag kann Bilder nachfordern, wenn die vorhandenen nicht ausreichen (REQ-050 §2.6). Der Auftrag, diese Bilder zu machen, ist eine FreeStyle-Aufgabe — kein zweiter Aufgabenbegriff. Was REQ-006 dafür festlegt:
+
+- **Der Server erzeugt sie, nicht der Aufrufer.** Sie entsteht in demselben Schreibvorgang, der das Analyse-Ergebnis persistiert (`submit_diary_analysis`, REQ-050 §4.5), nicht durch einen Aufruf gegen den Aufgaben-Endpunkt. Das ist keine Abkürzung, sondern die einzige Variante, die zu zwei bestehenden Festlegungen passt: die Herkunfts-Vertrauensregel oben erzwingt für einen interaktiven Nutzer `origin: user` und verwirft die Provenienzfelder — ein Agent unter dem persönlichen Schlüssel seines Betreibers könnte über HTTP also gar keine Pipeline-Aufgabe anlegen —, und der MCP-Werkzeugkatalog (REQ-033) enthält kein schreibendes Aufgaben-Werkzeug. Die serverseitige Erzeugung ist damit **kein** Bypass der Vertrauensregel: sie umgeht keinen authentifizierten Prinzipal, sondern findet auf der anderen Seite der Grenze statt, wo es keinen zu prüfen gibt.
+- **Provenienz:** `origin: pipeline`, `source: "diary-analysis"`. `source_run_ref` trägt die Kennung des Analyse-Laufs, sodass die Detailseite vom Auftrag zurück zum Ergebnis führt.
+- **Bindung:** `entity_key`/`entity_type` zeigen auf die **Pflanzeninstanz** des Eintrags, nicht auf den Eintrag. Der Nutzer steht bei der Pflanze, wenn er die Bilder macht; und die Aufgabenoberfläche bindet an Instanzen (siehe Instanzbindung oben). Der Eintrag selbst steht im `instruction`-Text und im `source_run_ref`.
+- **Idempotenz:** `external_ref` ist die Kennung des Analyse-Laufs. Ein wiederholter Schreibvorgang desselben Laufs aktualisiert damit die bestehende Aufgabe, statt eine zweite zu erzeugen — genau die Regel `(tenant_key, source, external_ref)` oben, ohne Sonderfall.
+- **Höchstens einer je Eintrag, offen.** Trifft ein neuer Lauf ein, während ein Foto-Auftrag desselben Eintrags noch offen ist, wird der alte geschlossen (`superseded`) — die Aufgabe zusammen mit der Nachforderung, die sie trug (REQ-050 §2.6). Zwei offene Aufträge für dieselben Bilder beschreiben nichts, was tatsächlich geschieht.
+- **Einmaligkeit** gilt wie für jeden Producer-Pfad: keine Wiederholung, die Recurrence-Felder bleiben leer.
+
+Was der Nutzer beim Öffnen des Auftrags sieht, steht in REQ-051 §6.6; REQ-006 sagt nur, dass es eine gewöhnliche Aufgabe ist.
 
 ### Phasengebundene Workflow-Gestaltung
 
