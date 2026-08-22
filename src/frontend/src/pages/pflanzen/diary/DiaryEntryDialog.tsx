@@ -104,7 +104,7 @@ function toMeasurements(rows: FormData['measurements']): Record<string, unknown>
 }
 
 /**
- * REQ-050 §2.5.1 — create or edit a diary entry of one plant instance.
+ * REQ-051 §6.1 — create or edit a diary entry of one plant instance.
  *
  * Photos are uploaded immediately when picked (they become attachments in their
  * own right) and the entry then references them by id. That is why the photo

@@ -9,7 +9,7 @@ import type { PlantDiaryEntry, TenantRole } from '@/api/types';
 import PlantDiaryTab from '@/pages/pflanzen/diary/PlantDiaryTab';
 
 /**
- * REQ-050 §2.5.1 — the diary tab of a plant instance.
+ * REQ-051 §6.1 — the diary tab of a plant instance.
  *
  * Covers AK-14 (create/edit/delete/mark in the tab), AK-19 (a foreign entry
  * shows its state but offers no control, and a server 403 is reported in words)
@@ -148,7 +148,7 @@ function apiError(status: number, code: string) {
   );
 }
 
-describe('PlantDiaryTab (REQ-050 §2.5.1)', () => {
+describe('PlantDiaryTab (REQ-051 §6.1)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     i18n.changeLanguage('de');

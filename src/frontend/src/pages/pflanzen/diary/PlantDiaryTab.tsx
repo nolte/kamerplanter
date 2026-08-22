@@ -31,7 +31,7 @@ interface PlantDiaryTabProps {
 }
 
 /**
- * REQ-050 §2.5.1 — the "Tagebuch" tab of a plant instance.
+ * REQ-051 §6.1 — the "Tagebuch" tab of a plant instance.
  *
  * Shows the entries of this one plant, newest first, and is the place entries
  * are created, edited, deleted and marked for analysis (AK-14). Built on the

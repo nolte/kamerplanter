@@ -140,15 +140,22 @@ jobs:
               return;
             }
 
+            // The wording tracks what the script measures. The registry cannot
+            // say WHEN a channel tag moved, so the divergence is reported as an
+            // interval: at most since the pinned build was created (age_days,
+            // the value the grace window is applied to), at least since the
+            // build now serving the channel was created (current_age_days).
+            // Claiming a single figure here would assert more than #1210's fix
+            // can measure — see the script's module docstring.
             const rows = drift.map(d =>
               `- \`${d.repository}:${d.channel}\`\n` +
-              `  - pinned:   \`${d.pinned}\`\n` +
-              `  - registry: \`${d.current}\`\n` +
-              `  - the registry build has been current for **${d.age_days} day(s)** (grace window: ${report.threshold_days})`
+              `  - pinned:   \`${d.pinned}\` — built ${d.age_days} day(s) ago\n` +
+              `  - registry: \`${d.current}\` — built ${d.current_age_days} day(s) ago\n` +
+              `  - the pin has been out of date for **at most ${d.age_days} day(s)**, at least ${d.current_age_days} (grace window: ${report.threshold_days})`
             ).join('\n');
 
             const body = [
-              `The scheduled freshness check found **${drift.length}** chart image pin(s) that have fallen behind what GHCR serves for their channel, beyond the ${report.threshold_days}-day grace window.`,
+              `The scheduled freshness check found **${drift.length}** chart image pin(s) that are no longer what GHCR serves for their channel, and whose pinned build is older than the ${report.threshold_days}-day grace window.`,
               '',
               'This is the signal #1026 exists to surface. `helm/kamerplanter/values.yaml` pins immutable digests kept current by Renovate’s `kamerplanter images` write-back (#987/#1024). When those pins age past the grace window, a published build has NOT been carried into the chart: deploys are pinned to older, still-pullable digests and are therefore **stalled, not broken** — `scripts/check_chart_image_digests.py` stays green because the pins are present and well-formed.',
               '',
@@ -163,6 +170,7 @@ jobs:
               '1. Look for an open Renovate PR grouped as **the Kamerplanter images** (labels `dependencies`, `deployment`). If one exists, Renovate is running but the PR is **stuck** (red CI / automerge blocked) — fix that PR. This job cannot see an open-but-unmerged PR; it only sees the divergence.',
               '2. If there is no such PR, Renovate is not running or not detecting the digests — check the Renovate app / its logs.',
               '3. A divergence can also mean a channel tag was re-pushed onto a different build (supply-chain), not a stall. This job reports the divergence; triage decides which case it is.',
+              '4. If the registry build above is only hours old and the pinned one is old merely because nothing was published for a while, the pin may have been superseded very recently: the window is applied to the **pinned build’s age**, which is an upper bound on the divergence (the registry exposes no tag-update time). That over-reports by at most one publish interval, and never under-reports — the failure this replaced was an alert that could never fire (#1210).',
             ].join('\n');
 
             if (existing) {
