@@ -9,7 +9,6 @@ from app.api.v1.harvest.schemas import (
     HarvestBatchUpdate,
     HarvestCompleteRequest,
     HarvestCompleteResponse,
-    HarvestIndicatorCreate,
     HarvestIndicatorResponse,
     ObservationCreate,
     ObservationResponse,
@@ -66,18 +65,6 @@ def list_indicators(
     """List harvest-readiness indicators (paginated)."""
     indicators, _ = service.list_indicators(pagination.offset, pagination.limit)
     return [_indicator_response(i) for i in indicators]
-
-
-@router.post("/indicators", response_model=HarvestIndicatorResponse, status_code=201)
-def create_indicator(
-    body: HarvestIndicatorCreate,
-    ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
-    service: HarvestService = Depends(get_harvest_service),
-):
-    """Create a harvest-readiness indicator."""
-    indicator = HarvestIndicator(**body.model_dump())
-    created = service.create_indicator(indicator)
-    return _indicator_response(created)
 
 
 @router.get("/species/{species_key}/indicators", response_model=list[HarvestIndicatorResponse])
