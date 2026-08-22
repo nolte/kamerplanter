@@ -1,25 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+// The two clients are SEPARATE doubles (#1249). Mapping `default` and
+// `tenantClient` to one object, as this file did before, made the choice between
+// them unobservable — and that choice is the whole point of the admin mount:
+// `/admin/harvest-indicators` carries no tenant segment, so posting it through
+// `tenantClient` would produce a path that does not exist.
 const mocks = vi.hoisted(() => {
-  const client = {
+  const make = () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
-  };
-  return { client };
+  });
+  return { client: make(), plainClient: make() };
 });
 
 vi.mock('@/api/client', () => ({
   __esModule: true,
-  default: mocks.client,
+  default: mocks.plainClient,
   tenantClient: mocks.client,
 }));
 
 import * as harvest from '@/api/endpoints/harvest';
 
 const client = mocks.client;
+const plainClient = mocks.plainClient;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -34,11 +40,15 @@ describe('harvest endpoints — indicators', () => {
     });
   });
 
-  it('createIndicator posts payload', async () => {
-    client.post.mockResolvedValue({ data: { key: 'i1' } });
+  it('createIndicator posts to the global admin catalogue, not the tenant mount', async () => {
+    // REQ-007 §4: harvest indicators are global master data, platform-admin only.
+    // Until #1249 this posted to `/t/{slug}/harvest/indicators` behind a
+    // tenant-level permission, so a grower in any tenant wrote shared records.
+    plainClient.post.mockResolvedValue({ data: { key: 'i1' } });
     const payload = { name: 'Trichomes' } as never;
     await harvest.createIndicator(payload);
-    expect(client.post).toHaveBeenCalledWith('/harvest/indicators', payload);
+    expect(plainClient.post).toHaveBeenCalledWith('/admin/harvest-indicators', payload);
+    expect(client.post).not.toHaveBeenCalled();
   });
 
   it('getIndicatorsForSpecies gets species indicators', async () => {

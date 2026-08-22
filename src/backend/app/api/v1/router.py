@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.api.v1.activities.router import router as activities_router
+from app.api.v1.admin.harvest_indicators.router import router as harvest_indicators_admin_router
 from app.api.v1.admin.pests.router import router as pests_admin_router
 from app.api.v1.admin.recognition.router import router as recognition_admin_router
 from app.api.v1.admin.reference_images.router import router as reference_images_router
@@ -83,6 +84,9 @@ def get_mode():
 api_router.include_router(mode_router)
 
 # Admin settings — available in both modes
+# REQ-007 §4 — the global harvest-indicator catalogue is platform-admin
+# territory; it used to be writable from the tenant mount (#1249).
+api_router.include_router(harvest_indicators_admin_router)
 api_router.include_router(admin_settings_router)
 # REQ-046 — central public weather-provider admin. platform-admin-gated
 # (light-mode-aware, like admin/settings/storage), so it is mode-agnostic and
