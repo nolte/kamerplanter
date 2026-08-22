@@ -477,7 +477,16 @@ def get_task_queue(
 def generate_care_reminders_now(
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
 ):
-    """Manually trigger care reminder task generation (same as daily Celery beat).
+    """Manually trigger care reminder generation for THIS tenant (#1204).
+
+    The route is addressed and permission-gated per tenant, so the work must be
+    bounded the same way. Until #1204 it was not: ``ctx`` was resolved, checked
+    and then never threaded in, so a grower exercising a permission granted in
+    tenant A wrote task rows in B, C and D, and the returned counts described
+    the whole installation's volume rather than the caller's.
+
+    ``ctx.tenant_key`` is therefore passed through. The daily Celery beat keeps
+    calling the same task with no argument for the installation-wide sweep.
 
     Calling a ``@celery.task``-decorated function directly bypasses Celery's
     request_stack setup and crashes with ``AttributeError`` on
@@ -486,7 +495,7 @@ def generate_care_reminders_now(
     """
     from app.tasks.care_tasks import generate_due_care_reminders
 
-    eager = generate_due_care_reminders.apply()
+    eager = generate_due_care_reminders.apply(kwargs={"tenant_key": ctx.tenant_key})
     return eager.result
 
 
