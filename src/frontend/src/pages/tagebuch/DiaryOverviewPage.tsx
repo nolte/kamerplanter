@@ -66,7 +66,7 @@ function mergeEntryIntoRow(row: DiaryOverviewItem, entry: PlantDiaryEntry): Diar
 }
 
 /**
- * REQ-050 §2.5.2 — the tenant-wide diary overview.
+ * REQ-051 §6.2 — the tenant-wide diary overview.
  *
  * Every diary entry of **every** plant of the tenant in one chronologically
  * descending list, so the analysis state can be surveyed without clicking

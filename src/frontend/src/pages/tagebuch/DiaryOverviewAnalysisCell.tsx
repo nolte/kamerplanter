@@ -18,7 +18,7 @@ interface DiaryOverviewAnalysisCellProps {
 }
 
 /**
- * REQ-050 §2.5.2 — the analysis column, the core of the overview.
+ * REQ-051 §6.2 — the analysis column, the core of the overview.
  *
  * It distinguishes **all five** states visibly, not "result yes/no" (AK-16):
  * the badge carries colour, icon and wording per state, `completed` adds the

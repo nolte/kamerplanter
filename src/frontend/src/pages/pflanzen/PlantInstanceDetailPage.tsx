@@ -2763,7 +2763,7 @@ export default function PlantInstanceDetailPage() {
         />
       )}
 
-      {/* Tab 9: Diary (REQ-050 §2.5.1) */}
+      {/* Tab 9: Diary (REQ-051 §6.1) */}
       {tab === 9 && key && (
         <PlantDiaryTab plantInstanceKey={key} readOnly={!!plant?.removed_on} />
       )}

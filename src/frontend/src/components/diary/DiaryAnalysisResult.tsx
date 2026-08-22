@@ -25,7 +25,7 @@ interface DiaryAnalysisResultProps {
 }
 
 /**
- * REQ-050 §2.5.3 — the analysis result, in the order the specification fixes:
+ * REQ-051 §6.4 — the analysis result, in the order the specification fixes:
  * summary first, then the expandable finding list, the recommended actions, the
  * provenance, and the disclaimer.
  *

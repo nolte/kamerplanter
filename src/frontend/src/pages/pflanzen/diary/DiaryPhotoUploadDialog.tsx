@@ -32,7 +32,7 @@ interface DiaryPhotoUploadDialogProps {
 }
 
 /**
- * REQ-050 §2.5.1 — attach a photo to a diary entry.
+ * REQ-051 §6.1 — attach a photo to a diary entry.
  *
  * The three capture paths of REQ-034 §2.2 (webcam, phone rear camera, file
  * upload) come from {@link ImageCapturePanel}, the same component the gallery

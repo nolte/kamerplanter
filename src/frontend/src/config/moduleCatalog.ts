@@ -106,7 +106,7 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
     '/aufgaben/workflows',
     '/aufgaben/tasks',
   ]),
-  // REQ-050 §2.5.2 / O-07 — the tenant-wide diary overview. Deliberately
+  // REQ-051 §6.2 / O-07 — the tenant-wide diary overview. Deliberately
   // `core: false`: AK-31 asks for a page a user who keeps no diary can switch
   // off, and a core module is exactly the nav entry nobody can get rid of. The
   // default level is `beginner` because a note plus a photo is the lowest-

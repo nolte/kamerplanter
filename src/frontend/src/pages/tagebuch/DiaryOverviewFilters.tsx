@@ -45,7 +45,7 @@ interface DiaryOverviewFiltersProps {
 const MENU_PROPS = { slotProps: { paper: { style: { maxHeight: 320 } } } };
 
 /**
- * REQ-050 §2.5.2 — the filter row of the tenant-wide diary overview.
+ * REQ-051 §6.2 — the filter row of the tenant-wide diary overview.
  *
  * **The analysis-state filter is never hidden.** "What is finished by now?" is
  * the most frequent access to this page, so "only with a result" and "only
