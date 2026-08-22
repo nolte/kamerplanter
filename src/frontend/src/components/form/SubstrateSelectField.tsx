@@ -15,7 +15,7 @@ import BlenderIcon from '@mui/icons-material/Blender';
 import InputAdornment from '@mui/material/InputAdornment';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { Substrate, SubstrateType } from '@/api/types';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useSubstrateFavorites } from '@/hooks/useCatalogFavorites';
 
 const SUBSTRATE_TYPES: SubstrateType[] = [
   'soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat',
@@ -60,7 +60,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
   disabled,
 }: SubstrateSelectFieldProps<T>) {
   const { t, i18n } = useTranslation();
-  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites('kamerplanter-substrate-favorites');
+  const { isFavorite, toggleFavorite, hasFavorites } = useSubstrateFavorites();
   const [favFilterActive, setFavFilterActive] = useState(false);
   const isDE = i18n.language?.startsWith('de');
 

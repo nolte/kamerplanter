@@ -11,8 +11,9 @@ import type { DashboardLayout } from '@/api/types';
 const KEY = 'kp-dashboard-layout';
 const HINT_KEY = 'dashboard_personalization_hint_dismissed';
 
-// jsdom in this environment ships no native localStorage; mirror the map-backed
-// mock the other storage tests use (see useLocalFavorites.test.ts).
+// jsdom in this environment ships no native localStorage; the tests that touch
+// it install a map-backed mock of their own. (This used to cite
+// useLocalFavorites.test.ts, deleted in #1233 with the hook it covered.)
 const storageMap = new Map<string, string>();
 const mockLocalStorage = {
   getItem: vi.fn((key: string) => storageMap.get(key) ?? null),

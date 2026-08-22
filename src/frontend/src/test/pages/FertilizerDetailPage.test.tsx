@@ -33,9 +33,15 @@ vi.mock('@/api/endpoints/fertilizers', () => ({
 
 import FertilizerDetailPage from '@/pages/duengung/FertilizerDetailPage';
 import { renderWithProviders } from '../helpers';
+import * as favoritesApi from '@/api/endpoints/favorites';
 
-// jsdom in this project ships no writable localStorage; back it with a Map so the
-// favorites hook can persist without throwing.
+// Fertilizer favorites became server-backed in #1233. Without this mock the
+// optimistic toggle posts against the real client, fails, and reverts — the
+// marker flips back and the assertion below reads as a component defect.
+vi.mock('@/api/endpoints/favorites');
+
+// jsdom in this project ships no writable localStorage; back it with a Map so
+// other storage users do not throw.
 function installLocalStorage() {
   const store = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', {
@@ -103,6 +109,12 @@ function makeStock(overrides: Partial<FertilizerStock> = {}): FertilizerStock {
 describe('FertilizerDetailPage', () => {
   beforeEach(() => {
     installLocalStorage();
+    // The auto-mock returns `undefined`, not a promise, so the favorites hook's
+    // effect would throw on `.then` and the page would never render — a failure
+    // that reads as a component defect rather than a missing stub.
+    vi.mocked(favoritesApi.listFavorites).mockResolvedValue([]);
+    vi.mocked(favoritesApi.addFavorite).mockResolvedValue({} as never);
+    vi.mocked(favoritesApi.removeFavorite).mockResolvedValue(undefined);
     i18n.changeLanguage('de');
     navigate.mockReset();
     fetchFertilizer.mockReset().mockResolvedValue(makeFertilizer());

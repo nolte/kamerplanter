@@ -197,9 +197,19 @@ version: "4.2"
 - Der Filter-Button hat wieder die neutrale Farbe
 
 **Nachbedingungen**:
-- "Rohfaser Kokos" ist als lokaler Favorit gespeichert (localStorage)
+- "Rohfaser Kokos" ist **serverseitig** als Favorit gespeichert: `POST /api/v1/t/{slug}/favorites`
+  hat eine `user_favorites`-Kante angelegt, und nach einem Neuladen **in einem anderen Browser**
+  ist der Stern weiterhin gefüllt
+- `localStorage` enthält **keinen** Schlüssel `kamerplanter-substrate-favorites`
 
-**Tags**: [req-019, substrat-liste, favoriten, filter, localStorage]
+**Tags**: [req-019, substrat-liste, favoriten, filter, serverseitig]
+
+> **Bis #1233 verlangte dieses Kriterium das Gegenteil** („als lokaler Favorit gespeichert
+> (localStorage)"). Damit beglaubigte der Testfall die Abweichung, statt sie zu fangen: Substrate
+> lagen nur im Browser, obwohl REQ-020 Favoriten als serverseitige, personenbezogene Datensätze
+> modelliert. Die Prüfung „in einem anderen Browser" ist der Teil, den die alte Fassung nicht
+> leisten konnte — sie ist der einzige Schritt, der lokale von serverseitiger Speicherung
+> unterscheidet.
 
 ---
 
@@ -606,9 +616,10 @@ abgelehnt — das ist TC-019-099, nicht eine schwächere Zusicherung hier.
 - In der Liste zeigt die Zeile "Rohfaser Kokos 50L" ebenfalls einen goldenen Stern
 
 **Nachbedingungen**:
-- "Rohfaser Kokos 50L" ist als lokaler Favorit gespeichert
+- "Rohfaser Kokos 50L" ist **serverseitig** als Favorit gespeichert und überlebt einen
+  Browserwechsel (siehe TC-019-006)
 
-**Tags**: [req-019, substrat-detail, favorit, localStorage, zustandswechsel]
+**Tags**: [req-019, substrat-detail, favorit, serverseitig, zustandswechsel]
 
 ---
 
@@ -1195,7 +1206,7 @@ vor #1195 einen abgelehnten Speichervorgang als Erfolg gemeldet.
 | §6 Szenario 2b — Steinwollmatte wiederverwenden | Sterilisation + Entsalzung | TC-019-034 |
 | §6 Szenario 3 — pH-Instabilität | σ-Grenzwert überschritten | TC-019-036 |
 | UnsavedChangesGuard | Warnung bei dirty Form + Navigation | TC-019-017, TC-019-032 |
-| Favoriten | Stern-Toggle, Filter-Button, localStorage | TC-019-006, TC-019-020 |
+| Favoriten | Stern-Toggle, Filter-Button, serverseitige Speicherung (#1233) | TC-019-006, TC-019-020 |
 | Substrat-Mischung (SubstrateMixDialog) | Erstellen, Vorschau, Fraktionsvalidierung, Duplikate | TC-019-021 bis TC-019-027 |
 | Fehlerbehandlung | Nicht-existenter Substrat-Key | TC-019-039 |
 | §4 Autorisierung — globaler Katalog | Nur Plattform-Admin darf geseedete Substrate ändern | TC-019-016 (Light), TC-019-099 (Full) |

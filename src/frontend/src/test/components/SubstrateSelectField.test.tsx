@@ -1,10 +1,13 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useForm } from 'react-hook-form';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import type { Substrate } from '@/api/types';
 import { renderWithProviders } from '../helpers';
+import * as favoritesApi from '@/api/endpoints/favorites';
+
+vi.mock('@/api/endpoints/favorites');
 
 const storageMap = new Map<string, string>();
 const mockLocalStorage = {
@@ -16,6 +19,12 @@ const mockLocalStorage = {
   key: vi.fn(() => null),
 };
 Object.defineProperty(globalThis, 'localStorage', { value: mockLocalStorage, writable: true });
+
+beforeEach(() => {
+  vi.mocked(favoritesApi.listFavorites).mockResolvedValue([]);
+  vi.mocked(favoritesApi.addFavorite).mockResolvedValue({} as never);
+  vi.mocked(favoritesApi.removeFavorite).mockResolvedValue(undefined);
+});
 
 const substrates: Substrate[] = [
   {
@@ -102,7 +111,11 @@ describe('SubstrateSelectField', () => {
     expect(within(listbox).getAllByRole('option').length).toBe(14);
   });
 
-  it('persists a starred favorite to localStorage', async () => {
+  it('persists a starred favorite to the server, not to localStorage', async () => {
+    // Until #1233 this asserted `localStorage.setItem`, which certified the
+    // drift instead of catching it: substrate favorites lived only in the
+    // browser, so the onboarding wizard's cascade was invisible here and the
+    // fertilizer cascade REQ-020 §1 specifies never ran outside the wizard.
     const user = userEvent.setup();
     renderWithProviders(<TestForm />);
     await user.click(screen.getByLabelText(/substrat/i));
@@ -110,7 +123,11 @@ describe('SubstrateSelectField', () => {
     const firstOption = within(listbox).getAllByRole('option')[0];
     const favButton = within(firstOption).getAllByRole('button')[0];
     await user.click(favButton);
-    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+
+    await waitFor(() =>
+      expect(favoritesApi.addFavorite).toHaveBeenCalledWith(expect.any(String), 'manual'),
+    );
+    expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
       'kamerplanter-substrate-favorites',
       expect.any(String),
     );

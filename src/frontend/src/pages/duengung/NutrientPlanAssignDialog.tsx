@@ -27,7 +27,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import EmptyState from '@/components/common/EmptyState';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useNutrientPlanFavorites } from '@/hooks/useCatalogFavorites';
 import type { NutrientPlan } from '@/api/types';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 
@@ -47,7 +47,7 @@ export default function NutrientPlanAssignDialog({
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [plans, setPlans] = useState<NutrientPlan[]>([]);
-  const { favorites, isFavorite } = useLocalFavorites('kamerplanter-nutrient-plan-favorites');
+  const { favorites, isFavorite } = useNutrientPlanFavorites();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedPlanKey, setSelectedPlanKey] = useState<string | null>(null);
