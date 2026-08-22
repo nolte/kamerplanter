@@ -28,21 +28,53 @@ permissions:
 # to develop used to race each other's `latest` push with nothing serialising
 # them.
 #
-# KNOWN GAP — the `changes` fan-out (2026-08-08, `scripts/check_workflow_gate_
-# integrity.py`). All eight build jobs below combine `always()` with
-# `needs.changes.outputs.<x> == 'true'` and never consult
-# `needs.changes.result`. When `changes` itself fails or is cancelled on a
-# branch push, every output is the empty string, no clause matches, the job is
-# skipped — and a skipped job reports Success. Nothing is published and nothing
-# is red. The two publishing jobs at the bottom are already guarded
-# (`!contains(needs.*.result, 'failure')`); these eight are not.
+# THE `changes` FAN-OUT (2026-08-08 `scripts/check_workflow_gate_integrity.py`;
+# corrected 2026-08-22, #1223). All eight build jobs below combine `always()`
+# with `needs.changes.outputs.<x> == 'true'` and never consult
+# `needs.changes.result`. Until #1223 this note claimed that a failed or
+# cancelled `changes` therefore leaves the lane publishing nothing while
+# "nothing is red", and proposed `needs.changes.result != 'success' ||` as the
+# repair. Measured, both halves are wrong, so the note is corrected rather than
+# the code — which is exactly the failure class NFR-018 §1 catalogues, here in
+# the comment that warns about it.
 #
-# NOT repaired here, deliberately. The fail-safe repair is
-# `needs.changes.result != 'success' ||`, which on any hiccup of the paths
-# filter rebuilds and republishes all eight images — a delivery decision with a
-# real cost, taken on a delivery lane, and not one to fold into the commit that
-# introduces the linter that found it. Each job carries the marker so the
-# omission is named rather than silent (NFR-018 §2). Needs follow-up.
+# 1. A failed `changes` IS red. The job's own conclusion reddens the run; run
+#    32146552770 is the shape, with eight skipped builds and a run conclusion of
+#    `failure`. What reports Success is the eight individual CONTEXTS, not the
+#    run — and nothing gates on those contexts.
+#
+# 2. It is also alerted. Since #1225 `delivery-run-alert.yml` fires on
+#    `workflow_run: workflows: ["Build & Publish Container Images"], types:
+#    [completed]` and opens a deduped issue on a red run. That observer landed
+#    after the note was written, so "nothing surfaces this" was true then and is
+#    not now.
+#
+# 3. Guarding these eight the way the two publishing jobs are guarded would be
+#    INERT. `needs` here is `changes` alone, so on a develop push where it fails
+#    the outputs clause is already false and the job already skips; adding
+#    `!contains(needs.*.result, 'failure')` reaches the same conclusion by a
+#    different route. The publishing jobs need it because their `needs` also
+#    carries the eight builds, whose failure would otherwise still satisfy their
+#    outputs clause.
+#
+# 4. It would also BREAK the manual escape hatch. `changes` runs on a
+#    `workflow_dispatch` against a branch (`if: github.ref_type == 'branch'`).
+#    If it fails there, `github.event_name == 'workflow_dispatch'` is true today
+#    and `always()` lets all eight build anyway — the rebuild-everything button
+#    works. A leading guard clause evaluates false first and skips all eight,
+#    disabling manual rebuild precisely when someone reaches for it BECAUSE the
+#    paths filter is misbehaving.
+#
+# WHAT IS STILL SILENT, and what no `needs.changes.result` guard can see:
+# `changes` SUCCEEDS and the filter reports `false` for everything — a base-ref
+# problem, a filter typo. Then the result is `success`, every output is
+# `'false'`, all eight skip, THE RUN IS GREEN, and nothing is published. That is
+# the "publishes nothing, reports success" shape, and it is indistinguishable at
+# the expression level from the legitimate case: a docs-only merge where
+# skipping all eight is correct. Separating the two is a check of its own, not a
+# guard clause, and is tracked in #1223. History as of 2026-08-22: across the
+# last 40 runs `changes` concluded `success` 39x and `skipped` once (the v0.2.1
+# tag run); `failure`/`cancelled` never.
 concurrency:
   group: docker-publish-${{ github.ref }}
   cancel-in-progress: false
@@ -88,8 +120,11 @@ jobs:
             helm:
               - 'helm/**'
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-backend:
     needs: changes
     if: |
@@ -173,8 +208,11 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-frontend:
     needs: changes
     if: |
@@ -248,8 +286,11 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-vectordb:
     needs: changes
     if: |
@@ -323,8 +364,11 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-knowledge:
     needs: changes
     if: |
@@ -398,8 +442,11 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-embedding-service:
     needs: changes
     if: |
@@ -473,8 +520,11 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-inference-service:
     needs: changes
     if: |
@@ -548,8 +598,11 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-reranker-service:
     needs: changes
     if: |
@@ -624,8 +677,11 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  # gate-integrity-ok: needs follow-up — a failed `changes` skips this job
-  # silently and it reports Success; see the "KNOWN GAP" note in the header.
+  # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
+  # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so
+  # this skip cannot hide a failure. Guarding on `needs.changes.result` here
+  # would be inert and would disable the workflow_dispatch rebuild; measured in
+  # #1223, argued in the header note.
   build-knowledge-service:
     needs: changes
     if: |
