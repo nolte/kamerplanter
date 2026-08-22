@@ -1,0 +1,9 @@
+{
+  "name": "kamerplanter-e2e-axe",
+  "version": "0.0.0",
+  "private": true,
+  "description": "axe-core for the Selenium accessibility journey (#1095). Not an application dependency: the E2E image builds from ./tests/e2e, so it cannot reach src/frontend/node_modules, and a manifest here is what makes the version Renovate-managed and license-audited like every other dependency instead of a vendored blob.",
+  "dependencies": {
+    "axe-core": "^4.11.1"
+  }
+}
