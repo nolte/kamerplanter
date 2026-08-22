@@ -9,7 +9,7 @@ Kategorie: Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI, Flutter
 Status: Entwurf
-Version: 1.2 (§7: Bestimmen und Diagnostizieren sind schreibend — ab Gärtner)
+Version: 1.3 (§7 nennt die ausgelieferten Schreibrouten; alle vier ab Gärtner)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — §4.1 dorthin ausgelagert), REQ-001 v5.0 (Stammdaten), REQ-011 v1.0 (Adapter-Pattern), REQ-020 v1.6 (Onboarding-Wizard), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-024 v1.3 (Mandantenverwaltung)
 ```
 
@@ -1447,8 +1447,22 @@ PLANT_ID_API_KEY gesetzt?
 | `GET /status` | Keine (public) | — | Nein | — |
 | `POST /identify` | JWT + Tenant | **Ab Gärtner** | `plant_identification` | Pro User/Tag |
 | `POST /diagnose` | JWT + Tenant | **Ab Gärtner** | `plant_identification` | Pro User/Tag |
-| `POST /identify/{key}/confirm` | JWT + Tenant | **Ab Gärtner** | Nein | — |
+| `POST /{request_key}/select` | JWT + Tenant | **Ab Gärtner** | Nein | — |
+| `POST /{request_key}/instance` | JWT + Tenant | **Ab Gärtner** | Nein | — |
+| `POST /reference` | JWT + Tenant | **Ab Gärtner** | Nein | — |
 | `GET /history` | JWT + Tenant | Alle Rollen | Nein | — |
+
+**Zwei Korrekturen an dieser Tabelle (#1256).** Sie nannte `POST /identify/{key}/confirm`,
+einen Pfad, den es nicht gibt, und ließ zwei ausgelieferte Schreibrouten aus:
+
+- Das Bestätigen heißt in der Umsetzung `POST /{request_key}/select` und nimmt den Rang der
+  gewählten Vorschlagszeile (REQ-029-A §0.1.1 Punkt 3).
+- `POST /{request_key}/instance` verknüpft die Anfrage mit der daraus erzeugten
+  Pflanzeninstanz (#630) und stand in keiner Fassung dieser Tabelle. Es ist **keine**
+  Umbenennung von `select`, sondern eine zweite Handlung: `select` schreibt die Wahl auf den
+  Anfragedatensatz, `instance` schreibt eine Referenz auf eine Pflanze.
+- `POST /reference` (Referenzbild-Beitrag, REQ-029-A) fehlte ebenfalls; es trug als einzige
+  Schreibroute schon vor #1256 die Rollenprüfung.
 
 **Warum Bestimmen und Diagnostizieren schreibend sind (#1216).** Bis hierher stand in dieser
 Tabelle nur „JWT + Tenant", also faktisch *jedes* Mitglied einschließlich des Beobachters. Das
