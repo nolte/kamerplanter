@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Frontend (Backend-Unterstützung für Starter-Kits und Präferenzen)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 1.9 (persönliche Datensätze: Rolle und Eigentümerprüfung getrennt)
 Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne), REQ-024 v1.3 (Platform-Tenant), REQ-027 v1.2 (Moduswechsel)
 ```
 
@@ -15,6 +15,8 @@ Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.9 | 2026-08-22 | **Persönliche Datensätze: Rolle und Eigentümerprüfung getrennt.** Onboarding-Status, User Preferences und Favoriten trugen `Alle Rollen (eigene)` in den Schreibspalten — ein Ausdruck, den REQ-049 §3.1 nicht kennt und der nebenbei den Beobachter zum Schreiber machte. Jetzt `Alle Rollen` beim Lesen, `Ab Gärtner` beim Anlegen/Ändern/Löschen; dass jede Rolle ausschließlich den eigenen Satz erreicht, steht als Service-Prädikat in „Besonderheiten". REQ-049 §3.1 hält die Regel jetzt allgemein fest. (#1216) |
+| 1.8 | 2026-08-22 | **Favoriten-Router nennt den Pfad, der ausgeliefert wird.** §4 spezifizierte `/api/v1/favorites` — einen Pfad ohne Mandanten-Segment, den es nie gab; montiert ist ausschließlich `/api/v1/t/{tenant_slug}/favorites`. Alle neun Vorkommen (Routertabelle, Response-Beispiel, drei Abnahmekriterien) korrigiert. Neu ist der Absatz, **warum** der Pfad einen Mandanten trägt, obwohl die Daten nutzerglobal bleiben: `get_current_tenant` braucht ihn für die Mitgliedschaftsprüfung, und `_verify_target_tenant_access` braucht ihn, um mandantenbesessene Kataloge (#1090, #950) überhaupt aufzulösen. Diese Begründung stand bisher nur im Docstring des Routers. Die Aussage von REQ-049 §Abgrenzung und ADR-009 — Favoriten sind personenbezogen und werden von `X-Active-Tenant` nicht neu gebunden — bleibt unberührt und ist jetzt hier verlinkt. (#1232) |
 | 1.6 | 2026-03-17 | **Smart-Home-Deaktivierung:** Neues `UserPreference`-Feld `smart_home_enabled: bool` (Default: `false`). Erlaubt Nutzern die vollständige Deaktivierung aller Smart-Home- und Sensor-Funktionen. Bei `smart_home_enabled == false` werden Sensoren, Aktoren, Live-EC-Berechnung, automatische EC-Übernahme beim Düngen und alle sensorabhängigen Dashboard-Widgets ausgeblendet. Vereinfacht die UI für Nutzer ohne Home Assistant / IoT-Hardware. Toggle im Onboarding (Schritt 2) und AccountSettingsPage. Querverweis: REQ-005 §4b, REQ-004, REQ-014. |
 | 1.5 | 2026-03-16 | **Favoriten-System im Onboarding:** Neues Konzept `user_favorites` (Edge-Collection). Schritt 4 erweitert um Favoriten-Toggle pro Species. Neuer Schritt 4b: Passende Nährstoffpläne für favorisierte Pflanzen anzeigen und als Favorit wählen. **Dünger-Kaskade:** Beim Favorisieren eines Nährstoffplans werden alle enthaltenen Dünger automatisch als Favoriten markiert (`source: 'cascade'`). StarterKit um `nutrient_plan_keys` erweitert. Neue API-Endpoints für Favoriten. Neue User Stories, Akzeptanzkriterien. |
 | 1.4 | 2026-03-16 | **Moduswechsel-Onboarding:** OnboardingState-Ownership bei Moduswechsel (Light→Full: neuer User bekommt eigenen State; Full→Light: System-User-State wird zurückgesetzt). Onboarding-Trigger nach Übernahme/Ablehnung des System-Tenants. **Starter-Kit tenant_has_access:** Kit-Validierung gegen `tenant_has_access`-Kanten — nicht zugewiesene Species werden ausgefiltert oder Kit wird ausgeblendet. Neue Szenarien, Abnahmekriterien. |
@@ -793,14 +795,37 @@ Dekorative Zimmerpflanzen (Kits `zimmerpflanzen` und `zimmerpflanzen-haustierfre
 | `PATCH` | `/api/v1/user-preferences` | Präferenzen aktualisieren (experience_level, locale, theme, temperature_unit) | Ja |
 
 <!-- Quelle: Favoriten-System v1.5 -->
-### Router: `/api/v1/favorites`
+### Router: `/api/v1/t/{tenant_slug}/favorites`
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `GET` | `/api/v1/favorites` | Alle Favoriten des Nutzers abfragen. Optional `?type=species\|nutrient_plans\|fertilizers` Filter. | Ja |
-| `POST` | `/api/v1/favorites` | Favorit setzen. Body: `{ "target_key": "species/...", "source": "manual" }` | Ja |
-| `DELETE` | `/api/v1/favorites/{target_key}` | Favorit entfernen. Bei NutrientPlan: Kaskaden-Cleanup der Dünger-Favoriten. Query-Param `?cascade_cleanup=true` (Default). | Ja |
-| `GET` | `/api/v1/favorites/nutrient-plans/matching` | Passende NutrientPlans für Species-Keys. Query: `?species_keys=species/abc,species/def` | Ja |
+| `GET` | `/api/v1/t/{tenant_slug}/favorites` | Alle Favoriten des Nutzers abfragen. Optional `?type=species\|nutrient_plans\|fertilizers` Filter. | Ja |
+| `POST` | `/api/v1/t/{tenant_slug}/favorites` | Favorit setzen. Body: `{ "target_key": "species/...", "source": "manual" }` | Ja |
+| `DELETE` | `/api/v1/t/{tenant_slug}/favorites/{target_key}` | Favorit entfernen. Bei NutrientPlan: Kaskaden-Cleanup der Dünger-Favoriten. Query-Param `?cascade_cleanup=true` (Default). | Ja |
+| `GET` | `/api/v1/t/{tenant_slug}/favorites/nutrient-plans/matching` | Passende NutrientPlans für Species-Keys. Query: `?species_keys=species/abc,species/def` | Ja |
+
+#### Warum der Pfad einen Mandanten trägt, obwohl die Daten es nicht tun
+
+Bis v1.5 nannte dieser Abschnitt `/api/v1/favorites` — einen Pfad ohne
+Mandanten-Segment. Dieser Pfad wurde nie ausgeliefert, und die Implementierung
+ist hier die richtige Seite. Der Grund ist keine Bequemlichkeit, sondern eine
+Abhängigkeit:
+
+- **Die Mitgliedschaftsprüfung braucht einen Mandanten.** Unter `/t/{tenant_slug}/`
+  weist `get_current_tenant` einen Nicht-Mitglied mit 403 ab, bevor irgendein
+  Gate greift. Ein mandantenfreier Pfad hätte diesen Anker nicht.
+- **Das Ziel-Prädikat braucht ihn ebenso.** `FavoritesService.add_favorite`
+  prüft über `_verify_target_tenant_access`, ob der Nutzer das *Ziel* überhaupt
+  sehen darf — und mandantenbesessene Kataloge (Sorten seit #1090, Nährstoffpläne
+  seit #950) sind nur gegen einen `tenant_key` auflösbar. Ein Pfad ohne
+  Mandanten-Segment könnte diesen Wert nicht liefern und müsste ihn erraten.
+
+**Die Daten bleiben davon unberührt.** Die `user_favorites`-Kante hängt am
+Nutzer, nicht am Mandanten: ein Favorit, der in einem Mandanten gesetzt wurde,
+ist in allen sichtbar. `REQ-049` (§Abgrenzung) und `ADR-009` halten das fest,
+und der `X-Active-Tenant`-Header bindet Favoriten ausdrücklich **nicht** neu.
+Der Mandant im Pfad ist also der Kontext, *in dem* gefragt wird — nicht der
+Besitzer dessen, was gespeichert wird.
 <!-- /Quelle: Favoriten-System v1.5 -->
 
 ### Response-Beispiele:
@@ -894,7 +919,7 @@ Dekorative Zimmerpflanzen (Kits `zimmerpflanzen` und `zimmerpflanzen-haustierfre
 ```
 
 <!-- Quelle: Favoriten-System v1.5 -->
-**GET /api/v1/favorites/nutrient-plans/matching?species_keys=species/ocimum-basilicum,species/mentha-spicata**
+**GET /api/v1/t/{tenant_slug}/favorites/nutrient-plans/matching?species_keys=species/ocimum-basilicum,species/mentha-spicata**
 ```json
 [
   {
@@ -1153,14 +1178,14 @@ interface NutrientPlanMatch {
 - [ ] **Pflanzen-Favoriten:** In Schritt 4 kann der Nutzer per Stern-Icon einzelne Species als Favoriten markieren
 - [ ] **Pflanzen-Favoriten optional:** Schritt 4 ist ohne Favoriten-Auswahl abschließbar
 - [ ] **Nährstoffplan-Schritt bedingt:** Schritt 5 wird nur angezeigt wenn mindestens eine Species favorisiert wurde UND passende NutrientPlans existieren
-- [ ] **Nährstoffplan-Matching:** `GET /api/v1/favorites/nutrient-plans/matching` liefert passende NutrientPlans für gegebene Species-Keys
+- [ ] **Nährstoffplan-Matching:** `GET /api/v1/t/{tenant_slug}/favorites/nutrient-plans/matching` liefert passende NutrientPlans für gegebene Species-Keys
 - [ ] **Nährstoffplan-Favoriten:** In Schritt 5 kann der Nutzer per Stern-Icon NutrientPlans als Favoriten markieren
 - [ ] **Dünger-Kaskade:** Beim Favorisieren eines NutrientPlans werden alle enthaltenen Dünger automatisch als Favoriten angelegt (`source: 'cascade'`, `cascade_from_key`)
 - [ ] **Kaskaden-Cleanup:** Beim Entfernen eines NutrientPlan-Favoriten werden kaskadierte Dünger-Favoriten entfernt, sofern sie nicht manuell oder von einem anderen Plan favorisiert wurden
 - [ ] **Favoriten-Idempotenz:** Doppelte Favoriten-Edges werden nicht erstellt; bei Hochstufung (cascade→manual/onboarding) wird `source` aktualisiert
 - [ ] **Favoriten in Zusammenfassung:** Schritt 6 zeigt Anzahl der favorisierten Pflanzen, Pläne und (kaskadierte) Dünger
-- [ ] **Favoriten persistiert:** Nach Wizard-Abschluss sind alle Favoriten über `GET /api/v1/favorites` abrufbar
-- [ ] **Favoriten-API:** `POST /api/v1/favorites`, `DELETE /api/v1/favorites/{target_key}` und `GET /api/v1/favorites` funktionieren auch außerhalb des Wizard-Kontexts
+- [ ] **Favoriten persistiert:** Nach Wizard-Abschluss sind alle Favoriten über `GET /api/v1/t/{tenant_slug}/favorites` abrufbar
+- [ ] **Favoriten-API:** `POST /api/v1/t/{tenant_slug}/favorites`, `DELETE /api/v1/t/{tenant_slug}/favorites/{target_key}` und `GET /api/v1/t/{tenant_slug}/favorites` funktionieren auch außerhalb des Wizard-Kontexts
 - [ ] **Erfahrungsstufe-Adaption Schritt 5:** Bei `beginner` zeigt NutrientPlanCard nur Name, Beschreibung und "X Dünger enthalten" — keine Dünger-Detailliste
 <!-- /Quelle: Favoriten-System v1.5 -->
 <!-- Quelle: Moduswechsel-Onboarding v1.4 -->
@@ -1202,11 +1227,11 @@ adressierten Mandanten, sofern nicht anders angegeben.
 
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
-| Onboarding-Status | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
+| Onboarding-Status | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz je Konto: die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1) — jede Rolle erreicht ausschließlich den eigenen Satz |
 | Starter-Kits (Katalog) | Alle Rollen, auch ohne Mandant | — | — | — | Globaler Katalog |
 | Starter-Kits (Anwenden) | — | Ab Gärtner | Ab Gärtner | — | Legt Fachdaten im Mandanten an |
-| User Preferences | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
-| Favoriten | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
+| User Preferences | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz je Konto: die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1) — jede Rolle erreicht ausschließlich den eigenen Satz |
+| Favoriten | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz je Konto: die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1) — jede Rolle erreicht ausschließlich den eigenen Satz |
 | Matching Nutrient Plans | Alle Rollen | — | — | — | Zustandslose Empfehlung |
 
 ## 8. Abhängigkeiten
