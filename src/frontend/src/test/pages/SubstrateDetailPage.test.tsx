@@ -5,6 +5,11 @@ import { http, HttpResponse, delay } from 'msw';
 import i18n from 'i18next';
 import SubstrateDetailPage from '@/pages/standorte/SubstrateDetailPage';
 import { renderWithProviders } from '../helpers';
+import * as favoritesApi from '@/api/endpoints/favorites';
+
+// Substrate favorites became server-backed in #1233; without this the optimistic
+// toggle posts against the real client, fails, and reverts.
+vi.mock('@/api/endpoints/favorites');
 import { server } from '../mocks/server';
 
 const mockNavigate = vi.fn();
@@ -80,6 +85,9 @@ function errorEnvelope(status: number) {
 
 describe('SubstrateDetailPage', () => {
   beforeEach(() => {
+    vi.mocked(favoritesApi.listFavorites).mockResolvedValue([]);
+    vi.mocked(favoritesApi.addFavorite).mockResolvedValue({} as never);
+    vi.mocked(favoritesApi.removeFavorite).mockResolvedValue(undefined);
     vi.clearAllMocks();
     // jsdom provides a read-only localStorage stub whose setItem throws; the
     // favorites hook writes to it, so back it with an in-memory Map.

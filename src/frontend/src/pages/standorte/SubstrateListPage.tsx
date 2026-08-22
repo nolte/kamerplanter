@@ -20,7 +20,7 @@ import SubstrateCreateDialog from './SubstrateCreateDialog';
 import SubstrateMixDialog from './SubstrateMixDialog';
 import { kamiLocations } from '@/assets/brand/illustrations';
 import BlenderIcon from '@mui/icons-material/Blender';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useSubstrateFavorites } from '@/hooks/useCatalogFavorites';
 
 export default function SubstrateListPage() {
   const { t, i18n } = useTranslation();
@@ -30,7 +30,7 @@ export default function SubstrateListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [mixOpen, setMixOpen] = useState(false);
   const [favFilterActive, setFavFilterActive] = useState(false);
-  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites('kamerplanter-substrate-favorites');
+  const { isFavorite, toggleFavorite, hasFavorites } = useSubstrateFavorites();
   const tableState = useTableUrlState({ defaultSort: { column: 'type', direction: 'asc' } });
 
   useEffect(() => {

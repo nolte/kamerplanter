@@ -22,7 +22,7 @@ import { fetchNutrientPlans } from '@/store/slices/nutrientPlansSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useNutrientPlanFavorites } from '@/hooks/useCatalogFavorites';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import type { NutrientPlan } from '@/api/types';
 import NutrientPlanCreateDialog from './NutrientPlanCreateDialog';
@@ -37,9 +37,7 @@ export default function NutrientPlanListPage() {
   const { plans, loading } = useAppSelector((s) => s.nutrientPlans);
   const [createOpen, setCreateOpen] = useState(false);
   const [favFilterActive, setFavFilterActive] = useState(false);
-  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites(
-    'kamerplanter-nutrient-plan-favorites',
-  );
+  const { isFavorite, toggleFavorite, hasFavorites } = useNutrientPlanFavorites();
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   useEffect(() => {

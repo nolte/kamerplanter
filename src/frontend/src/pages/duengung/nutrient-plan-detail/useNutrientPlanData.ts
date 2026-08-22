@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useNutrientPlanFavorites } from '@/hooks/useCatalogFavorites';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as planApi from '@/api/endpoints/nutrient-plans';
@@ -41,7 +41,7 @@ export function useNutrientPlanData() {
   const notification = useNotification();
   const { handleError } = useApiError();
 
-  const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-nutrient-plan-favorites');
+  const { isFavorite, toggleFavorite } = useNutrientPlanFavorites();
 
   const [plan, setPlan] = useState<NutrientPlan | null>(null);
   const [entries, setEntries] = useState<NutrientPlanPhaseEntry[]>([]);
