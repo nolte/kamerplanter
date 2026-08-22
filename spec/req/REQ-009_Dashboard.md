@@ -7,7 +7,7 @@ Kategorie: Visualisierung
 Fokus: Beides
 Technologie: FastAPI, React 19, ArangoDB, Recharts (v1), Polling (v1) / WebSocket (Phase 2)
 Status: Entwurf
-Version: 2.2 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.3 (Dashboard-Konfiguration ist ein persönlicher Datensatz — Löschen ab Gärtner)
 Abhängigkeit: REQ-021 (Erfahrungsstufen), REQ-022 (Pflegeerinnerungen), REQ-024 v1.3 (Multi-Tenant), REQ-027 v1.4 (Light-Modus), REQ-031 v2.1 (KI-Daily-Tip), REQ-032 (Drucksicht), UI-NFR-001, UI-NFR-003 (Bundle-Budget), UI-NFR-012 (PWA-Offline), UI-NFR-019 (Kiosk-Variante), NFR-007 (Performance)
 ```
 
@@ -1304,8 +1304,8 @@ und Tenant-Mitgliedschaft.
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
 | Dashboard-Daten (Tenant-scoped) | Alle Rollen | — | — | — | — |
-| Dashboard-Konfiguration | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
-| Widget-Einstellungen | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Dashboard-Konfiguration | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz (`owner_id`): die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1). „Nur Leitung" beim Löschen wäre die mechanische Abbildung und ergäbe eine Rolle, die ihr eigenes Dashboard anlegen, aber nicht entfernen darf |
+| Widget-Einstellungen | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz (`owner_id`): die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1). „Nur Leitung" beim Löschen wäre die mechanische Abbildung und ergäbe eine Rolle, die ihr eigenes Dashboard anlegen, aber nicht entfernen darf |
 
 ## 5. Abhängigkeiten
 

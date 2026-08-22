@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Frontend (Backend-Unterstützung für Starter-Kits und Präferenzen)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.8 (Favoriten-Router auf den tatsächlich ausgelieferten Pfad korrigiert)
+Version: 1.9 (persönliche Datensätze: Rolle und Eigentümerprüfung getrennt)
 Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne), REQ-024 v1.3 (Platform-Tenant), REQ-027 v1.2 (Moduswechsel)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.9 | 2026-08-22 | **Persönliche Datensätze: Rolle und Eigentümerprüfung getrennt.** Onboarding-Status, User Preferences und Favoriten trugen `Alle Rollen (eigene)` in den Schreibspalten — ein Ausdruck, den REQ-049 §3.1 nicht kennt und der nebenbei den Beobachter zum Schreiber machte. Jetzt `Alle Rollen` beim Lesen, `Ab Gärtner` beim Anlegen/Ändern/Löschen; dass jede Rolle ausschließlich den eigenen Satz erreicht, steht als Service-Prädikat in „Besonderheiten". REQ-049 §3.1 hält die Regel jetzt allgemein fest. (#1216) |
 | 1.8 | 2026-08-22 | **Favoriten-Router nennt den Pfad, der ausgeliefert wird.** §4 spezifizierte `/api/v1/favorites` — einen Pfad ohne Mandanten-Segment, den es nie gab; montiert ist ausschließlich `/api/v1/t/{tenant_slug}/favorites`. Alle neun Vorkommen (Routertabelle, Response-Beispiel, drei Abnahmekriterien) korrigiert. Neu ist der Absatz, **warum** der Pfad einen Mandanten trägt, obwohl die Daten nutzerglobal bleiben: `get_current_tenant` braucht ihn für die Mitgliedschaftsprüfung, und `_verify_target_tenant_access` braucht ihn, um mandantenbesessene Kataloge (#1090, #950) überhaupt aufzulösen. Diese Begründung stand bisher nur im Docstring des Routers. Die Aussage von REQ-049 §Abgrenzung und ADR-009 — Favoriten sind personenbezogen und werden von `X-Active-Tenant` nicht neu gebunden — bleibt unberührt und ist jetzt hier verlinkt. (#1232) |
 | 1.6 | 2026-03-17 | **Smart-Home-Deaktivierung:** Neues `UserPreference`-Feld `smart_home_enabled: bool` (Default: `false`). Erlaubt Nutzern die vollständige Deaktivierung aller Smart-Home- und Sensor-Funktionen. Bei `smart_home_enabled == false` werden Sensoren, Aktoren, Live-EC-Berechnung, automatische EC-Übernahme beim Düngen und alle sensorabhängigen Dashboard-Widgets ausgeblendet. Vereinfacht die UI für Nutzer ohne Home Assistant / IoT-Hardware. Toggle im Onboarding (Schritt 2) und AccountSettingsPage. Querverweis: REQ-005 §4b, REQ-004, REQ-014. |
 | 1.5 | 2026-03-16 | **Favoriten-System im Onboarding:** Neues Konzept `user_favorites` (Edge-Collection). Schritt 4 erweitert um Favoriten-Toggle pro Species. Neuer Schritt 4b: Passende Nährstoffpläne für favorisierte Pflanzen anzeigen und als Favorit wählen. **Dünger-Kaskade:** Beim Favorisieren eines Nährstoffplans werden alle enthaltenen Dünger automatisch als Favoriten markiert (`source: 'cascade'`). StarterKit um `nutrient_plan_keys` erweitert. Neue API-Endpoints für Favoriten. Neue User Stories, Akzeptanzkriterien. |
@@ -1226,11 +1227,11 @@ adressierten Mandanten, sofern nicht anders angegeben.
 
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
-| Onboarding-Status | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
+| Onboarding-Status | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz je Konto: die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1) — jede Rolle erreicht ausschließlich den eigenen Satz |
 | Starter-Kits (Katalog) | Alle Rollen, auch ohne Mandant | — | — | — | Globaler Katalog |
 | Starter-Kits (Anwenden) | — | Ab Gärtner | Ab Gärtner | — | Legt Fachdaten im Mandanten an |
-| User Preferences | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
-| Favoriten | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Alle Rollen (eigene) | Persönlicher Datensatz je Konto — „Eigene" nach §3.1 zulässig |
+| User Preferences | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz je Konto: die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1) — jede Rolle erreicht ausschließlich den eigenen Satz |
+| Favoriten | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner | Persönlicher Datensatz je Konto: die Eigentümerprüfung ist ein Service-Prädikat, keine Rollenangabe (REQ-049 §3.1) — jede Rolle erreicht ausschließlich den eigenen Satz |
 | Matching Nutrient Plans | Alle Rollen | — | — | — | Zustandslose Empfehlung |
 
 ## 8. Abhängigkeiten
