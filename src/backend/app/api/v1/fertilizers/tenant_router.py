@@ -142,10 +142,15 @@ def update_stock(
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
-    """Update a fertilizer stock entry."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
+    """Update a fertilizer stock entry.
+
+    The product/stock pairing and the visibility check live in the service
+    (#1265). They used to live here as `get_fertilizer(key, ...)`, which
+    verified the product named in the URL and then patched whatever stock key
+    followed it.
+    """
     data = body.model_dump(exclude_none=True)
-    updated = service.update_stock(sk, data)
+    updated = service.update_stock(sk, data, fertilizer_key=key, tenant_key=ctx.tenant_key)
     return to_response(updated, StockResponse)
 
 
@@ -156,9 +161,11 @@ def delete_stock(
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.DELETE)),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
-    """Delete a fertilizer stock entry."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.delete_stock(sk)
+    """Delete a fertilizer stock entry.
+
+    Pairing-checked in the service, for the reason given on `update_stock`.
+    """
+    service.delete_stock(sk, fertilizer_key=key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/incompatibilities", response_model=list[IncompatibilityResponse])
