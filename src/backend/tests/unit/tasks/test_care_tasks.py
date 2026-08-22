@@ -357,3 +357,133 @@ class TestGenerateDueCareReminders:
 
         assert result == {"created": 0, "skipped": 1}
         task_repo.create.assert_not_called()
+
+
+class TestTenantScope:
+    """#1204 — a scoped run writes only in the tenant it was addressed to.
+
+    These tests wire ``get_by_key`` with a per-key ``side_effect`` rather than
+    widening ``_wire``: that helper answers every key with one plant, which is
+    exactly what a cross-tenant assertion must not do, and twelve callers
+    depend on its current shape.
+
+    The predicate under test hangs on the PLANT. ``CareProfile`` has no
+    ``tenant_key``, so a test that gave profiles one would be asserting against
+    a data shape the product cannot produce.
+    """
+
+    @staticmethod
+    def _plant(tenant_key):
+        return SimpleNamespace(
+            current_phase_key=None,
+            plant_name="Monstera",
+            instance_id="m1",
+            tenant_key=tenant_key,
+            removed_on=None,
+            species_key="species_1",
+            cultivar_key=None,
+            site_key=None,
+        )
+
+    def _wire_two_tenants(self, deps, *, tenant_b="tenant_b"):
+        """One profile in ``tenant_a``, one in ``tenant_b``; both want a watering task."""
+        care_service = MagicMock()
+        care_service._repo.get_all_profiles.return_value = [
+            SimpleNamespace(plant_key="plant_a"),
+            SimpleNamespace(plant_key="plant_b"),
+        ]
+        care_service._repo.get_last_confirmation.return_value = None
+        care_service._engine.should_generate_reminder.return_value = False
+        # Every considered plant yields exactly one watering task, so the
+        # created-count equals the number of plants the run actually reached.
+        care_service.ensure_next_watering_task.side_effect = lambda profile, **kw: SimpleNamespace(
+            due_date="2026-08-22"
+        )
+        deps.get_care_reminder_service.return_value = care_service
+
+        plants = {"plant_a": self._plant("tenant_a"), "plant_b": self._plant(tenant_b)}
+        plant_repo = MagicMock()
+        plant_repo.get_by_key.side_effect = plants.get
+        deps.get_plant_repo.return_value = plant_repo
+
+        run_repo = MagicMock()
+        run_repo.get_plant_keys_with_active_schedule.return_value = set()
+        deps.get_planting_run_repo.return_value = run_repo
+
+        nutrient_plan_repo = MagicMock()
+        nutrient_plan_repo.get_plant_plan.return_value = None
+        deps.get_nutrient_plan_repo.return_value = nutrient_plan_repo
+
+        deps.get_lifecycle_repo.return_value = MagicMock()
+        deps.get_phase_sequence_repo.return_value = None
+        deps.get_task_repo.return_value = MagicMock()
+        return care_service
+
+    def test_a_scoped_run_reaches_only_its_own_tenants_plants(self, _mock_dependencies):
+        service = self._wire_two_tenants(_mock_dependencies)
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        generate_due_care_reminders(tenant_key="tenant_a")
+
+        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        assert reached == ["plant_a"]
+
+    def test_the_returned_counts_describe_only_the_callers_tenant(self, _mock_dependencies):
+        """The count is the information-leak half of #1204, not just the writes."""
+        self._wire_two_tenants(_mock_dependencies)
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        assert generate_due_care_reminders(tenant_key="tenant_a") == {"created": 1, "skipped": 0}
+
+    def test_a_foreign_plant_is_not_counted_as_skipped(self, _mock_dependencies):
+        """``skipped`` reports work this tenant declined, not work it never had.
+
+        This does NOT falsify the #1204 defect — it is green against the
+        unscoped code too, because that code creates the task instead of
+        skipping it. What it discriminates is the obvious wrong repair:
+        ``skipped_count += 1; continue`` on the tenant predicate, which would
+        put the other tenants' volume straight back into the response the fix
+        removes it from. Kept as an implementation guard, and labelled as one
+        so nobody reads it as evidence the scope works.
+        """
+        self._wire_two_tenants(_mock_dependencies)
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        assert generate_due_care_reminders(tenant_key="tenant_a")["skipped"] == 0
+
+    def test_a_tenantless_plant_is_excluded_from_a_scoped_run(self, _mock_dependencies):
+        """It belongs to no tenant, therefore not to this one."""
+        service = self._wire_two_tenants(_mock_dependencies, tenant_b=None)
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        generate_due_care_reminders(tenant_key="tenant_a")
+
+        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        assert reached == ["plant_a"]
+
+    def test_the_unscoped_sweep_still_covers_every_tenant(self, _mock_dependencies):
+        """The Celery beat calls this with no argument and must not narrow."""
+        service = self._wire_two_tenants(_mock_dependencies)
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        result = generate_due_care_reminders()
+
+        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        assert reached == ["plant_a", "plant_b"]
+        assert result == {"created": 2, "skipped": 0}
+
+    def test_the_sweep_still_covers_a_tenantless_plant(self, _mock_dependencies):
+        """Unchanged from before #1204: only a SCOPED run excludes it."""
+        service = self._wire_two_tenants(_mock_dependencies, tenant_b=None)
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        generate_due_care_reminders()
+
+        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        assert reached == ["plant_a", "plant_b"]
