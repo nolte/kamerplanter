@@ -181,10 +181,12 @@ Der uebrige globale Referenzkatalog (Substrate, Winterhaertezonen, Phasendefinit
 | `record_feeding_event` | Duenge-Vorgang erfassen (Menge, EC/pH, Tank) | `POST /t/{slug}/feeding-events` |
 | `record_harvest` | Ernte-Eintrag mit Frischgewicht + Quality-Notes | `POST /t/{slug}/harvest/batches` |
 | `apply_treatment` | IPM-Treatment anwenden (Karenz-Gate aktiv) | `POST /t/{slug}/ipm/treatment-applications` |
-| `assign_nutrient_plan` | Einen **bestehenden** Naehrstoffplan an eine Pflanze binden — **kein** Plan-Editor | `POST /t/{slug}/plant-instances/{key}/nutrient-plan` |
+| `assign_nutrient_plan` | Einen **bestehenden** Naehrstoffplan an eine Pflanze binden | `POST /t/{slug}/plant-instances/{key}/nutrient-plan` |
+| `clone_nutrient_plan` | Einen Plan — eigenen oder globale Vorlage — als **mandanteneigene Kopie** ableiten; die Quelle bleibt unveraendert | `POST /t/{slug}/nutrient-plans/{key}/clone` |
+| `set_nutrient_plan_phase_targets` | **Eine** Phase eines eigenen Plans patchen: `target_ec_ms`, `reference_ec_ms` | `PUT /t/{slug}/nutrient-plans/{key}/entries/{ek}` |
 | `transition_plant_phase` | Die Phase einer **Instanz** setzen oder korrigieren. Das Ziel wird gegen die PhaseSequence geprueft, die die Art *dieser* Pflanze aufloest — nicht gegen die Gesamtmenge aller Phasenschluessel, sonst landet die Pflanze in einer Phase, aus der ihr Lebenszyklus nie wieder herausfindet | `POST /t/{slug}/plant-instances/{key}/phases/transition` |
 
-`assign_nutrient_plan` kam nachtraeglich hinzu (Issue #931). AC-25 spricht von "dem einer Pflanze zugewiesenen Plan" als bestehendem Zustand, waehrend die Palette nur die lesende Seite kannte — die Zuweisung kam also von einer Stelle, die die MCP-Oberflaeche nicht erreichte, und jede Plan-Empfehlung eines Agenten endete als Handanweisung, deren Befolgung er nie nachpruefen konnte. Plaene zu **verfassen** bleibt bewusst ausserhalb: Phasenfenster, Produktdosen und Mischreihenfolge sind Redaktionsarbeit mit einer dafuer gebauten Oberflaeche.
+`assign_nutrient_plan` kam nachtraeglich hinzu (Issue #931). AC-25 spricht von "dem einer Pflanze zugewiesenen Plan" als bestehendem Zustand, waehrend die Palette nur die lesende Seite kannte — die Zuweisung kam also von einer Stelle, die die MCP-Oberflaeche nicht erreichte, und jede Plan-Empfehlung eines Agenten endete als Handanweisung, deren Befolgung er nie nachpruefen konnte. Plaene zu **verfassen** bleibt bewusst ausserhalb: Phasenfenster, Produktdosen und Mischreihenfolge sind Redaktionsarbeit mit einer dafuer gebauten Oberflaeche. Issue #1244 hat gemessen, was diese Grenze kostet, und `clone_nutrient_plan` sowie `set_nutrient_plan_phase_targets` nachgezogen — siehe unten.
 
 ### 2.2a Werkzeuge fuer die Tagebuch-KI-Analyse (REQ-050)
 
@@ -442,7 +444,7 @@ src/backend/tests/
 └── api/test_mcp_endpoints.py
 ```
 
-**Umsetzungsstand der Werkzeugpalette:** 64 Werkzeuge sind registriert — 51 lesende, 11 schreibende, 2 Setup. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_diagnostics`, `get_plant_inspections`, `list_cultivars`, `get_cultivar`, `list_substrates`, `list_overwintering_profiles`, `list_starter_kits`, `list_phase_definitions`, `get_species_phase_sequence`, `list_phase_sequences`, `list_species_by_phase_sequence`, `get_species_lifecycle`, `get_plant_phase_status`, `get_plant_phase_history`, `list_hardiness_zones`, `search_glossary`, `search_plant_knowledge`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`, `list_pending_diary_analyses`, `get_diary_entry`, `get_diary_entry_photos`, `list_diary_entries`, `get_substrate`, `preview_substrate_mix`, `list_substrate_batches`, `get_substrate_batch`, `check_batch_reusability`, `get_location`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`, `add_plant_diary_entry`, `claim_diary_analysis`, `submit_diary_analysis`, `record_feeding_event`, `create_inspection`, `assign_nutrient_plan`, `transition_plant_phase`, `set_plant_substrate`, `create_substrate_mix`. Setup (`mcp.setup`): `create_site`, `assign_species_phase_sequence`.
+**Umsetzungsstand der Werkzeugpalette:** 66 Werkzeuge sind registriert — 51 lesende, 13 schreibende, 2 Setup. Lesend (`mcp.read`): `list_tenants`, `list_species`, `get_species_info`, `list_plants`, `get_plant`, `list_plants_at_location`, `get_plant_care_log`, `get_plant_diagnostics`, `get_plant_inspections`, `list_cultivars`, `get_cultivar`, `list_substrates`, `list_overwintering_profiles`, `list_starter_kits`, `list_phase_definitions`, `get_species_phase_sequence`, `list_phase_sequences`, `list_species_by_phase_sequence`, `get_species_lifecycle`, `get_plant_phase_status`, `get_plant_phase_history`, `list_hardiness_zones`, `search_glossary`, `search_plant_knowledge`, `list_nutrient_plans`, `get_nutrient_plan`, `get_plant_nutrient_plan`, `get_sowing_calendar`, `list_fertilizers`, `calculate_mixing_protocol`, `list_pests`, `get_pest`, `list_diseases`, `get_disease`, `get_treatment`, `list_planting_runs`, `list_tasks`, `get_due_care_tasks`, `get_harvest_readiness`, `get_mcp_activity`, `list_pending_diary_analyses`, `get_diary_entry`, `get_diary_entry_photos`, `list_diary_entries`, `get_substrate`, `preview_substrate_mix`, `list_substrate_batches`, `get_substrate_batch`, `check_batch_reusability`, `get_location`. Schreibend (`mcp.write`): `confirm_care_task`, `archive_plant`, `set_plant_location`, `add_plant_diary_entry`, `claim_diary_analysis`, `submit_diary_analysis`, `record_feeding_event`, `create_inspection`, `assign_nutrient_plan`, `clone_nutrient_plan`, `set_nutrient_plan_phase_targets`, `transition_plant_phase`, `set_plant_substrate`, `create_substrate_mix`. Setup (`mcp.setup`): `create_site`, `assign_species_phase_sequence`.
 
 > Diese Zahl ist gegen die *laufende* Registry gepinnt: `test_the_palette_grew_by_exactly_the_five_specified_tools` in `tests/unit/mcp_server/test_palette_registration.py` zaehlt die unter `app.mcp_server.tools` deklarierten Werkzeuge und schlaegt fehl, wenn sie von `PALETTE_SIZE` abweicht. Diese Aufzaehlung, `docs/*/api/mcp-server.md` und die Konstante werden gemeinsam fortgeschrieben — sie sind schon einmal auseinandergelaufen (#931).
 
@@ -481,6 +483,8 @@ Die Zahl stand bis hierhin auf 36 und listete die fuenf Tagebuch-Werkzeuge aus R
 | `record_feeding_event` | `list_plants`, `list_fertilizers` | `get_plant_diagnostics` |
 | `create_inspection` | `list_plants`, `list_pests`, `list_diseases` | `get_plant_inspections` |
 | `assign_nutrient_plan` | `list_plants`, `list_nutrient_plans` | `get_plant_nutrient_plan` |
+| `clone_nutrient_plan` | `list_nutrient_plans` | `get_nutrient_plan` |
+| `set_nutrient_plan_phase_targets` | `get_nutrient_plan` (fuer Phasenname bzw. Eintragsschluessel) | `get_nutrient_plan` |
 | `get_plant_diagnostics` | `list_plants` | — (Lesewerkzeug) |
 | `search_plant_knowledge` | — (mandantenfrei) | — (Lesewerkzeug) |
 
@@ -489,6 +493,33 @@ Die Zahl stand bis hierhin auf 36 und listete die fuenf Tagebuch-Werkzeuge aus R
 - **`create_inspection`** schliesst eine Schleife: der Bildanalyse-Prozess *liest* `get_plant_inspections`, um seinen Prior zu setzen, konnte aber nie eine Inspektion *schreiben*. Auf einer rein per Agent betreuten Pflanze blieb die Historie damit dauerhaft leer und der Prior baute sich nie auf. Die Befundform ist die, die ein Agent erzeugt (Symptom, Sicherheit, betroffener Pflanzenteil) — dafuer traegt `Inspection` das additive Feld `findings`; `symptoms_observed` bleibt die kanonische flache Liste und wird aus den Befunden mitgefuellt, damit bestehende Leser (Oberflaeche) nichts verlieren.
 - **`search_plant_knowledge`** liefert **zitierfaehige** Chunk-Referenzen (`source_key`, `source_type`, `title`, `score`, `language`) und nutzt bewusst `search` statt `ask`: `ask` schiebt ein Sprachmodell zwischen Aufrufer und Korpus. Das Werkzeug ist mandantenfrei und PII-frei — nur die Suchanfrage verlaesst die Instanz, kein `QuestionContext`, keine Pflanze, keine aufgeloeste Art. Faellt der Knowledge-Service aus, endet der Aufruf mit `service.unavailable` (HTTP 503) statt mit einer leeren Trefferliste: „nichts gefunden" und „gar nicht gesucht" sind verschiedene Antworten, und nur eine davon rechtfertigt das Weglassen einer Aussage.
 - **`assign_nutrient_plan`** bindet einen **vorhandenen** Plan an eine Pflanze. Ein Plan-Editor ist ausdruecklich **nicht** vorgesehen: Phasenfenster, Produktdosen und Mischreihenfolge sind Redaktionsarbeit mit einer dafuer gebauten Oberflaeche, und ein Werkzeug, das Plaene anlegen kann, laedt ein Modell dazu ein, Duengeziele zu erfinden statt einen von Menschen geprueften Plan zu waehlen. Der Dry-Run benennt den Plan, der ersetzt wuerde — die Repository-Zuweisung loescht die bestehende `follows_plan`-Kante stillschweigend.
+
+- **`clone_nutrient_plan`** und **`set_nutrient_plan_phase_targets`** (Issue #1244) verschieben diese
+  Grenze um genau zwei Schritte — und die Begruendung dafuer ist eine Messung, keine Meinung. Ein
+  korrekt eingerichteter Bestand (Stammdaten vollstaendig, artgerechte globale Vorlage zugewiesen,
+  Substrattyp passend) trug in **jeder** Phase `target_ec_ms: null`. Damit ist die zweite Stufe der
+  Naehrstoff-Beweisleiter — Planziel gegen tatsaechliche Gabe — nicht bloss unbeantwortet, sondern
+  **strukturell unerreichbar**: eine einwandfreie Runoff-EC-Messung hat nichts, womit sie verglichen
+  werden koennte, und die Anweisung „miss deinen Runoff-EC" ist damit ein Rat, der das Ergebnis
+  nachweislich nicht aendern kann. Die Vorlage von Hand zu korrigieren ist nicht die Loesung, denn sie
+  ist mandantenuebergreifend geteilt; richtig ist *eine eigene Kopie ableiten und die korrigieren*,
+  und auch das war ueber MCP nicht erreichbar.
+
+  Beide bleiben bewusst **diesseits** eines Editors. `clone_nutrient_plan` erschafft nichts, es
+  leitet ab: der Lesepfad holt die Quelle (deshalb funktioniert es auch fuer globale Vorlagen, die
+  `for_write` verweigert), und `clone_plan` stempelt den Mandanten der *kopierenden* Seite, sodass
+  die Kopie privat ist statt global sichtbar. `set_nutrient_plan_phase_targets` patcht **eine
+  Feldgruppe an einer Phase** — nach dem Vorbild von `set_plant_location` und der Lehre aus #1098,
+  dass ein Voll-Ersatz-`PUT` jedes nicht mitgesendete Feld still loescht. Es kann einen Wert nie
+  *leeren*: ein ausgelassenes Feld heisst „unveraendert", ein leerer Patch wird abgewiesen.
+
+  **`target_ph` gehoert nicht dazu**, obwohl #1244 es vorschlaegt. Das Feld sitzt am
+  `DeliveryChannel`, nicht am Phaseneintrag — die Phase traegt `target_ec_ms` und `reference_ec_ms`
+  (REQ-004 §4b, „phase-level targets"). Ein Werkzeug, das beide zusammen setzt, vermischte zwei
+  Ebenen; der pH-Pfad braucht einen eigenen Zuschnitt und ist hier nicht vorweggenommen.
+
+  Nicht vorgesehen bleiben: `create_nutrient_plan` (ein Plan aus dem Nichts), das Anlegen oder
+  Aendern von **Duenger-Produkten**, und jede Aenderung an einer globalen Vorlage.
 
 **`measurements` hat jetzt deklarierte Groessen und bleibt trotzdem offen.** Das Feld an `add_plant_diary_entry` war ein offenes Objekt (`additionalProperties: true`, keine deklarierten Eigenschaften), dokumentiert allein durch das Beispiel `{'height_cm': 42, 'ph': 6.3}`. Einheit und Herkunft waren unbekannt, eine konsumierende Spezifikation musste mehrdeutige Werte **verwerfen** — eine Zahl, die der Leser wegwerfen muss, ist schlechter als keine. Deklariert sind nun `ec_ms_cm`, `ph`, `temperature_c`, `humidity_percent`, `height_cm` und `leaf_count`, keines davon Pflicht, mit physikalischen Grenzen dort, wo sie eindeutig sind. `ph`, `height_cm` und `leaf_count` behalten die Schreibweise, die **bereits in den Daten steht** — die Lesewerkzeuge geben `measurements` unveraendert zurueck und koennen Bestand nicht migrieren, eine Umbenennung haette also jede Pflanzenhistorie auf zwei Schluesselraeume aufgeteilt. Nur Groessen ohne etablierte Schreibweise (EC, Temperatur, Luftfeuchte) bekamen einen einheitentragenden Namen. Das Objekt bleibt `additionalProperties: true`: die Weboberflaeche schreibt es ueber einen freien Schluessel/Wert-Editor, ein Schliessen haette jeden dort vergebenen Schluessel zur Ablehnung gemacht. Das **REST**-Request-Schema bleibt unveraendert offen — es bedient jenen Editor, waehrend das MCP-Schema einen Leser bedient, der nichts nachfragen kann.
 

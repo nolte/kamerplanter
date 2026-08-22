@@ -22,15 +22,21 @@ _TENANT_OWNED_CATALOG_COLLECTIONS = frozenset(
         col.NUTRIENT_PLANS,
         col.FERTILIZERS,
         col.ACTIVITIES,
+        col.SUBSTRATES,
     }
 )
+
+#: Favouriting one of these cascades to the fertilizers it uses (REQ-020 §1).
+#: A frozenset rather than an ``==`` so the rule reads as a property of the
+#: target type; today it holds exactly one member.
+_CASCADING_COLLECTIONS = frozenset({col.NUTRIENT_PLANS})
 
 
 class FavoritesService:
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
 
-    def add_favorite(
+    def _add_one(
         self,
         user_key: str,
         target_key: str,
@@ -39,7 +45,16 @@ class FavoritesService:
         source: str = "manual",
         cascade_from_key: str | None = None,
     ) -> dict:
-        """Add a favorite edge from user to target entity. Upserts — upgrades cascade→manual.
+        """Create or upsert exactly ONE edge. Never cascades.
+
+        The cascade lives in :meth:`add_favorite` and this method is what it
+        calls, so a cascade can never re-enter one. That is structural rather
+        than a property of the data: today ``cascade_fertilizers`` only ever
+        adds fertilizers, which are not a cascading target — but nothing in the
+        code said so, and the next cascading target would have made recursion a
+        live question. It is not one.
+
+        Upserts — upgrades cascade→manual.
 
         Favourites are personal and span tenants (product decision, #965): a user
         may favourite a **global** catalogue entry (``tenant_key == ""``) or one
@@ -93,6 +108,11 @@ class FavoritesService:
 
         if existing:
             edge = existing[0]
+            # The resolved collection is authoritative, not the stored field: an
+            # edge written before `target_type` existed carries none, and the
+            # caller decides whether to cascade from this value. `to_id` was
+            # built from `target_collection`, so the two can never disagree.
+            edge["target_type"] = target_collection
             # Upgrade cascade→manual if user explicitly favorites
             if source == "manual" and edge.get("source") == "cascade":
                 self._db.collection(col.USER_FAVORITES).update(
@@ -123,8 +143,46 @@ class FavoritesService:
                 )
                 rows = list(cursor)
                 if rows:
-                    return rows[0]
+                    row = rows[0]
+                    row["target_type"] = target_collection
+                    return row
             raise
+
+    def add_favorite(
+        self,
+        user_key: str,
+        target_key: str,
+        *,
+        tenant_key: str,
+        source: str = "manual",
+        cascade_from_key: str | None = None,
+    ) -> dict:
+        """Favourite one entity, cascading where the target type says to (#1233).
+
+        Creation and removal now agree. Removal has honoured ``cascade_cleanup``
+        since REQ-020 v1.5 (:meth:`remove_favorite` -> :meth:`_cleanup_cascade`),
+        while creation cascaded only inside the onboarding wizard, which called
+        :meth:`cascade_fertilizers` by hand. Everywhere else ``POST /favorites``
+        with a nutrient-plan key produced no fertilizer favourites at all — so
+        removal cleaned up something creation could no longer create, and
+        REQ-020 §1's promise that favourites can be managed "jederzeit in den
+        jeweiligen Detailansichten" held for species only.
+
+        The cascade fires on an already-existing edge too. That is deliberate:
+        re-favouriting is how a plan favourited before this change backfills the
+        fertilizers it never cascaded, and :meth:`_add_one` is an upsert, so
+        doing it twice costs nothing.
+        """
+        edge = self._add_one(
+            user_key,
+            target_key,
+            tenant_key=tenant_key,
+            source=source,
+            cascade_from_key=cascade_from_key,
+        )
+        if edge.get("target_type") in _CASCADING_COLLECTIONS:
+            self.cascade_fertilizers(user_key, target_key, tenant_key=tenant_key)
+        return edge
 
     def remove_favorite(
         self,
@@ -265,7 +323,10 @@ class FavoritesService:
 
         created = []
         for fert_key in fertilizer_keys:
-            edge = self.add_favorite(
+            # `_add_one`, not `add_favorite`: fertilizers are not a cascading
+            # target today, so this could not recurse anyway — but calling the
+            # non-cascading primitive is what makes that true by construction.
+            edge = self._add_one(
                 user_key,
                 fert_key,
                 tenant_key=tenant_key,
@@ -326,6 +387,7 @@ class FavoritesService:
             col.FERTILIZERS,
             col.ACTIVITIES,
             col.BOTANICAL_FAMILIES,
+            col.SUBSTRATES,
         ]:
             try:
                 if self._db.collection(collection_name).has(key):

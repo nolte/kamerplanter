@@ -172,10 +172,15 @@ def update_entry(
     ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.UPDATE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    """Update a nutrient plan's phase entry."""
-    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
+    """Update a nutrient plan's phase entry.
+
+    The ownership check lives in the service (#1263). It used to live here, as
+    `get_plan(key, ...)` — which verified the plan named in the URL and then
+    edited whatever entry key followed it, so naming an own plan gave write
+    access to any entry, including one inside a global template.
+    """
     data = body.model_dump(exclude_none=True)
-    updated = service.update_phase_entry(ek, data)
+    updated = service.update_phase_entry(ek, data, plan_key=key, tenant_key=ctx.tenant_key)
     return _entry_response(updated)
 
 
@@ -186,9 +191,11 @@ def delete_entry(
     ctx: TenantContext = Depends(require_permission(ResourceType.NUTRIENT_PLAN, Action.DELETE)),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    """Delete a nutrient plan's phase entry."""
-    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
-    service.delete_phase_entry(ek)
+    """Delete a nutrient plan's phase entry.
+
+    Ownership-checked in the service, for the reason given on `update_entry`.
+    """
+    service.delete_phase_entry(ek, plan_key=key, tenant_key=ctx.tenant_key)
 
 
 @router.get(

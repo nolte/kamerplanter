@@ -26,7 +26,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFertilizers } from '@/store/slices/fertilizersSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useFertilizerFavorites } from '@/hooks/useCatalogFavorites';
 import type { Fertilizer } from '@/api/types';
 import FertilizerCreateDialog from './FertilizerCreateDialog';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
@@ -49,9 +49,7 @@ export default function FertilizerListPage() {
   const { fertilizers, loading } = useAppSelector((s) => s.fertilizers);
   const [createOpen, setCreateOpen] = useState(false);
   const [favFilterActive, setFavFilterActive] = useState(false);
-  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites(
-    'kamerplanter-fertilizer-favorites',
-  );
+  const { isFavorite, toggleFavorite, hasFavorites } = useFertilizerFavorites();
   const tableState = useTableUrlState({
     defaultSort: { column: 'product_name', direction: 'asc' },
   });

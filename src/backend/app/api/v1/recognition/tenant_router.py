@@ -1,9 +1,25 @@
 """REQ-029 — tenant-scoped plant-identification endpoints.
 
 Mounted under /api/v1/t/{tenant_slug}/identification/. All endpoints require
-authentication and tenant membership via ``get_current_tenant``. ``/identify``
-additionally enforces the ``plant_identification`` consent inside the service
-(REQ-029-A §0.1.1 point 2) before any photo leaves the instance.
+authentication and tenant membership.
+
+The four WRITES require at least ``grower`` (REQ-029 §7 v1.2, "Ab Gärtner").
+Until #1256 three of them — ``/identify``, ``/{key}/select`` and
+``/{key}/instance`` — were gated on membership alone, so an observer could
+identify a plant, choose a result, and link it to a plant instance. Only
+``/reference`` carried the role check, three lines below the first offender:
+the mechanism was there, the routes simply never got it.
+
+The single READ, ``/history``, stays open to every member. That split is the one
+REQ-052 §9 already draws between opening the capture dialog and looking at
+images that exist.
+
+The role check does not replace the consent check and is not replaced by it.
+``/identify`` additionally enforces ``plant_identification`` inside the service
+(REQ-029-A §0.1.1 point 2) before any photo leaves the instance. The two answer
+different questions — may this person write in this tenant, and may this image
+leave the installation — so a grower without consent is refused, and an observer
+with consent is refused too.
 """
 
 import io
@@ -113,7 +129,13 @@ async def identify_plant(
     image: UploadFile,
     organ: str = Form("auto", description="leaf, flower, fruit, bark, habit, auto"),
     language: str = Form("de", description="Preferred language for the returned suggestions (ISO code)."),
-    ctx: TenantContext = Depends(get_current_tenant),
+    # Ab Gärtner (#1256, REQ-029 §7 v1.2). Identifying is a write: it creates an
+    # `identification_requests` record AND sends a photo to a third-party adapter
+    # under the `plant_identification` consent. A role that may not create domain
+    # data must not be able to release data out of the installation either — and
+    # REQ-052 §9/AK-71 already denies an observer the capture dialog, so granting
+    # them the endpoint behind it described a capability they could not reach.
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: IdentificationService = Depends(get_identification_service),
 ) -> IdentifyResponse:
     """Identify a plant from an uploaded image (JPEG/PNG, max 5 MB).
@@ -208,7 +230,8 @@ async def contribute_reference(
 def select_result(
     request_key: Annotated[str, Path(description="Document key of the identification request.")],
     selected_rank: int = Query(..., ge=1, le=10, description="1-based rank of the chosen suggestion."),
-    ctx: TenantContext = Depends(get_current_tenant),
+    # Ab Gärtner (#1256): persists the choice on the request record.
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: IdentificationService = Depends(get_identification_service),
 ) -> SelectResultResponse:
     """Persist the user's explicit candidate choice (REQ-029-A §0.1.1 point 3).
@@ -228,7 +251,9 @@ def select_result(
 def link_plant_instance(
     request_key: Annotated[str, Path(description="Document key of the identification request.")],
     payload: LinkInstanceRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    # Ab Gärtner (#1256): writes a reference onto a plant instance, which is
+    # master data an observer may not touch.
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: IdentificationService = Depends(get_identification_service),
 ) -> LinkInstanceResponse:
     """Link an identification request to the plant instance created from it (#630).

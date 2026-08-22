@@ -195,7 +195,9 @@ Because the role applies per garden, the same key can write in your own garden a
     - `get_plant_diagnostics` returns **the trend, not just the latest value**: EC and pH series over a window you choose (input, post-feed and runoff kept apart), a sensor snapshot, IPM inspections, the safety interval and recent care — in a single call.
     - `create_inspection` records an IPM inspection and keeps, per finding, the **confidence** and the **affected plant part**. Without it, a plant tended entirely through agents kept an empty pest history forever. Visible through `get_plant_inspections`.
     - `search_plant_knowledge` searches the knowledge base and returns **citable source references**, so a rationale can name where it came from.
-    - `assign_nutrient_plan` binds an **existing** nutrient plan to a plant. *Editing* plans stays deliberately a job for the web UI. Visible through `get_plant_nutrient_plan`.
+    - `assign_nutrient_plan` binds an **existing** nutrient plan to a plant. Visible through `get_plant_nutrient_plan`.
+    - `clone_nutrient_plan` derives a **tenant-owned copy** of a plan, including a global template; the source is left untouched.
+    - `set_nutrient_plan_phase_targets` sets `target_ec_ms` or `reference_ec_ms` on **one** phase of a plan you own. Authoring a plan from scratch stays a job for the web UI.
 
 ### Read tools (`mcp.read`)
 
@@ -262,7 +264,9 @@ Because the role applies per garden, the same key can write in your own garden a
 | `submit_diary_analysis` | Write back the analysis result of a claimed diary entry |
 | `record_feeding_event` | Record a feeding: litres applied, EC and pH before and after, runoff EC/pH, and the tank reference. The care log only knows "confirmed" — here are the numbers |
 | `create_inspection` | Record an IPM inspection: pressure level, symptoms and **structured findings** with a confidence (0.0–1.0) and the affected plant part |
-| `assign_nutrient_plan` | Bind an **existing** nutrient plan to a plant (your own or a global template). Creating or editing plans is deliberately not a tool |
+| `assign_nutrient_plan` | Bind an **existing** nutrient plan to a plant (your own or a global template) |
+| `clone_nutrient_plan` | Derive a **tenant-owned copy** of a plan — the only correct way to correct a shared template |
+| `set_nutrient_plan_phase_targets` | Set `target_ec_ms` / `reference_ec_ms` on **one** phase of a plan you own. An omitted field stays unchanged; the tool can never clear a value |
 | `transition_plant_phase` | Put a plant into a phase, or correct a wrong one. The target is validated against the sequence **that plant's species** runs on — a phase key from elsewhere would park the plant in a phase its lifecycle can never advance out of |
 
 ### Setup tools (`mcp.setup`)

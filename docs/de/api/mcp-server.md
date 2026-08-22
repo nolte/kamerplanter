@@ -195,7 +195,9 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
     - `get_plant_diagnostics` liefert **den Verlauf statt nur des letzten Werts**: EC- und pH-Reihen über einen wählbaren Zeitraum (Zulauf, Nachmessung und Drainage getrennt), Sensor-Momentaufnahme, IPM-Inspektionen, Karenz und jüngste Pflegevorgänge — in einem Aufruf.
     - `create_inspection` legt eine IPM-Inspektion an und behält dabei je Befund die **Sicherheit** und den **betroffenen Pflanzenteil**. Ohne sie blieb die Befallshistorie einer rein per Agent betreuten Pflanze für immer leer. Sichtbar über `get_plant_inspections`.
     - `search_plant_knowledge` durchsucht die Wissensbasis und liefert **zitierfähige Quellenverweise**, damit eine Begründung ihre Quelle benennen kann.
-    - `assign_nutrient_plan` bindet einen **vorhandenen** Nährstoffplan an eine Pflanze. Pläne zu *bearbeiten* bleibt bewusst Aufgabe der Oberfläche. Sichtbar über `get_plant_nutrient_plan`.
+    - `assign_nutrient_plan` bindet einen **vorhandenen** Nährstoffplan an eine Pflanze. Sichtbar über `get_plant_nutrient_plan`.
+    - `clone_nutrient_plan` leitet aus einem Plan — auch einer globalen Vorlage — eine **eigene Kopie** ab; die Vorlage bleibt unverändert.
+    - `set_nutrient_plan_phase_targets` setzt `target_ec_ms` bzw. `reference_ec_ms` an **einer** Phase eines eigenen Plans. Einen Plan von Grund auf anzulegen bleibt Aufgabe der Oberfläche.
 
 ### Lese-Werkzeuge (`mcp.read`)
 
@@ -262,7 +264,9 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `submit_diary_analysis` | Das Analyse-Ergebnis eines beanspruchten Tagebuch-Eintrags zurückschreiben |
 | `record_feeding_event` | Einen Düngevorgang erfassen: Menge in Litern, EC und pH vor und nach der Gabe, Drainage-EC/-pH und der Tankbezug. Das Pflegeprotokoll kennt nur „quittiert" — hier stehen die Zahlen |
 | `create_inspection` | Eine IPM-Inspektion anlegen: Befallsdruck, Symptome und **strukturierte Befunde** mit Sicherheit (0.0–1.0) und betroffenem Pflanzenteil |
-| `assign_nutrient_plan` | Einen **vorhandenen** Nährstoffplan an eine Pflanze binden (eigener Plan oder globale Vorlage). Pläne anzulegen oder zu bearbeiten ist bewusst kein Werkzeug |
+| `assign_nutrient_plan` | Einen **vorhandenen** Nährstoffplan an eine Pflanze binden (eigener Plan oder globale Vorlage) |
+| `clone_nutrient_plan` | Einen Plan als **mandanteneigene Kopie** ableiten — der einzige richtige Weg, eine geteilte Vorlage zu korrigieren |
+| `set_nutrient_plan_phase_targets` | An **einer** Phase eines eigenen Plans `target_ec_ms` / `reference_ec_ms` setzen. Ein ausgelassenes Feld bleibt unverändert; leeren kann das Werkzeug nichts |
 | `transition_plant_phase` | Eine Pflanze in eine Phase setzen oder eine falsche korrigieren. Das Ziel wird gegen die Abfolge geprüft, auf der die **Art dieser Pflanze** läuft — ein fremder Phasenschlüssel würde die Pflanze in einer Phase parken, aus der ihr Lebenszyklus nie wieder herausfindet |
 
 ### Setup-Werkzeuge (`mcp.setup`)

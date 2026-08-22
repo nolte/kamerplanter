@@ -13,7 +13,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Alert from '@mui/material/Alert';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useSubstrateFavorites } from '@/hooks/useCatalogFavorites';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -73,7 +73,7 @@ export default function SubstrateDetailPage() {
   const [batchCreateOpen, setBatchCreateOpen] = useState(false);
   const [reusability, setReusability] = useState<Record<string, ReusabilityResponse>>({});
   const [allSubstrates, setAllSubstrates] = useState<Substrate[]>([]);
-  const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-substrate-favorites');
+  const { isFavorite, toggleFavorite } = useSubstrateFavorites();
   const batchTableState = useTableLocalState({ defaultSort: { column: 'mixedOn', direction: 'desc' } });
 
   const {
