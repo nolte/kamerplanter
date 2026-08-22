@@ -1,0 +1,286 @@
+name: Deployed Build Freshness
+
+# Issue #1210 — the LAST hop of the delivery chain, and the only one nothing
+# measured.
+#
+# A merge reaches the cluster in four hops:
+#
+#   merge -> docker-publish (GHCR) -> Renovate digest PR (chart pin) -> ArgoCD sync
+#
+# `chart-image-digest-freshness.yml` (#1026) measures hop 3: is the digest in
+# helm/kamerplanter/values.yaml still the one GHCR serves for the channel? During
+# the 2026-08-17 incident that job was GREEN, and it was right to be: the chart
+# pinned a build containing both the fix in question and everything after it. The
+# blind spot was hop 4 — whether the pod actually runs those bytes. It did not,
+# for days, and the way that surfaced was an operator re-triggering a bug a merged
+# fix had already removed.
+#
+# This job closes hop 4 by asking the instance itself. It compares the pinned
+# image's `org.opencontainers.image.revision` against `build_revision` from
+# `GET <instance>/api/health`. Both are the same full 40-character `github.sha`
+# from the same build — metadata-action writes one, the Dockerfile's
+# ARG/ENV BUILD_REVISION bakes the other — so they are compared in full, with no
+# truncation rule anywhere. A truncation rule is a thing to get wrong.
+#
+# SCHEDULED, not a pull-request gate, for the same reason as hop 3: "what is
+# running" is a cluster fact that changes with no commit, so a PR gate can never
+# observe it.
+#
+# --- PRECONDITION: the watched instance must be willing to disclose ------------
+#
+# `build_revision` appears in the health payload only when the instance sets
+# HEALTH_EXPOSE_BUILD_REVISION, whose default is OFF. Turning it on for an
+# internet-facing instance is a DELIBERATE DECISION TO DISCLOSE, and this job
+# does not get to paper over it: the SHA itself is public, but the mapping
+# host -> commit is not, and it yields the exact patch distance — anyone can run
+# `git log <revision>..develop` and read off which fixes that host has not got,
+# amplified by this repository publishing its own open security findings.
+#
+# For the reference deployment that trade was made knowingly, so this job can run
+# against it. Point this job at an instance that has not made that trade and it
+# will go red, by design — see below.
+#
+# --- The instance has THREE answers, and they mean three different things ------
+#
+#   * no `build_revision` key at all -> the instance was configured not to
+#     disclose. NOTHING IS WRONG WITH THE DEPLOYMENT; this check simply cannot run
+#     against it. RED, no issue, and a message naming HEALTH_EXPOSE_BUILD_REVISION
+#     that deliberately does not read as drift.
+#   * "unknown" -> the instance would disclose, but no build stamped a revision in
+#     (a dev image, or a build without the BUILD_REVISION build-arg). Undetermined
+#     -> RED, no issue. When the PINNED image is unstamped too, the error says so,
+#     because then no deployment of the pinned bytes could have answered.
+#   * a 40-character SHA -> the real answer, and the only one that is compared.
+#
+# WHY "not disclosed" IS RED RATHER THAN A GREEN WARNING. The tempting argument is
+# that the deployment is healthy and only the view of it is missing, and that a
+# job which is red for a known reason trains people to ignore it. That was weighed
+# and rejected:
+#
+#   1. Scheduling this job IS the statement "I want this answered". If the far end
+#      declines to answer, the check is not running — and NFR-018 §2's thesis is
+#      that a check which cannot report a failure is indistinguishable from one
+#      that is not running. A green run saying "not disclosed" is precisely that
+#      shape, and cluster G of the 2026-08-08 audit is eighteen issues of checks
+#      that reported green on nothing.
+#   2. NO OTHER JOB COVERS THIS GAP. Hop 3 cannot see whether the instance
+#      answers, so there is no second guard to lean on — which is what would
+#      otherwise justify a soft state.
+#   3. It is resolvable by exactly one known action, named in the error. A red
+#      that names its single fix is a to-do, not an ignore-trainer; and if the
+#      operator decides NOT to disclose, the correct response is to stop
+#      scheduling this job (or point it at an instance that does disclose), not to
+#      leave a job running that structurally cannot answer. The red forces that
+#      decision instead of letting the repository drift into believing hop 4 is
+#      covered when it is not.
+#
+# --- The three verdicts -------------------------------------------------------
+#
+#   match        -> the instance serves the pinned build; an open alert issue is
+#                   closed.
+#   within_grace -> they differ, but the pinned image is younger than
+#                   DRIFT_THRESHOLD_HOURS (default 24, measured from its
+#                   org.opencontainers.image.created). A pin written minutes ago
+#                   has not had time to roll out; alerting on it would fire after
+#                   every Renovate merge. Green, no issue.
+#   drift        -> they differ beyond the grace window. THE incident. Exit 0 and
+#                   a single deduped issue, exactly as the hop-3 job does it —
+#                   the alert belongs in the tracker, not in the run status.
+#
+# KNOWN LIMITATION, recorded rather than silently accepted: the grace clock is
+# anchored on the pinned image's creation time, so a fresh re-pin RESETS it, and a
+# stuck cluster is invisible for the first DRIFT_THRESHOLD_HOURS after each
+# re-pin. Measured against this repository's real history the exposure is small —
+# image re-pins run 3-5 days apart, with the occasional same-day pair (two on
+# 2026-08-16, 1.9h apart) — so a multi-day stall is still caught on most days,
+# just not always the first. Removing the reset needs a clock this job does not
+# have: when the current pin was written, or how long the instance's own build has
+# been superseded.
+#
+# Fail-loud contract (NFR-018 §2): an unset DEPLOYED_INSTANCE_URL, an unreachable
+# instance, a reply that is not a Kamerplanter health payload, an undisclosed or
+# "unknown" revision, a missing revision annotation or an unparseable manifest
+# makes THIS RUN RED and opens NO issue — an undetermined check is not a clean
+# check, and a transient blip must not spam the tracker. A determined verdict
+# writes deployed-build-report.json and exits 0.
+
+on:
+  schedule:
+    # 07:00 UTC daily — deliberately AFTER the 06:00 chart-image-digest-freshness
+    # run (and well clear of the 00:00 Nuclei nightly). Ordering matters for
+    # triage, not for correctness: when both fire, the hop-3 verdict is already
+    # on the board, so "chart pin current + instance behind" reads immediately as
+    # a hop-4 stall rather than as two unrelated alerts.
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      threshold_hours:
+        description: "Override the roll-out grace window in hours (default 24)."
+        required: false
+        type: string
+
+# Least privilege. Read the checkout, read packages for the pull-token exchange
+# (anonymous suffices for the public packages today), write issues for the single
+# deduped alert. No id-token, no contents:write.
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+# An alerting job: serialise a scheduled run against a manual one so two runs
+# cannot both act on the alert issue, and never cancel — a cancelled run could
+# leave the issue half-updated. Fixed group (not github.ref) because this only
+# ever runs on the default branch.
+concurrency:
+  group: deployed-build-freshness
+  cancel-in-progress: false
+
+jobs:
+  check-deployed-build:
+    name: Compare the running instance against the pinned chart digest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The SAME owned-glob extraction chart-image-digest-freshness.yml uses, so
+      # both jobs read the chart identically. The script then selects the backend
+      # pin — it is the image that serves /api/health — and refuses to continue if
+      # it is absent. Refuse an empty set here too: a delivery check that examined
+      # nothing must not report clean (NFR-018 §2).
+      - name: Extract Kamerplanter image pins from the chart
+        run: |
+          set -euo pipefail
+          yq -o=json '[.. | select(has("repository"))
+            | select(.repository == "*ghcr.io/nolte/kamerplanter-*")
+            | {"repository": .repository, "tag": .tag}]' \
+            helm/kamerplanter/values.yaml > pins.json
+          count=$(yq -o=json 'length' pins.json)
+          if [[ "$count" -eq 0 ]]; then
+            echo "::error::No Kamerplanter image pins found in helm/kamerplanter/values.yaml — refusing to report a clean delivery check against nothing." >&2
+            exit 1
+          fi
+          echo "Extracted $count image pin(s)."
+
+      - name: Compare the running instance against the pinned build
+        env:
+          # A public repository VARIABLE, not a secret: the URL is already in the
+          # public issue body and in the GitOps manifest, and /api/health answers
+          # unauthenticated. An unset variable is a hard error in the script, not
+          # a skipped check — see the fail-loud note in the header.
+          DEPLOYED_INSTANCE_URL: ${{ vars.DEPLOYED_INSTANCE_URL }}
+          # Used only for the GHCR pull-token exchange, so this keeps working if a
+          # package is ever made private — same mechanism as
+          # scripts/ci/pin_chart_image_digests.sh.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRIFT_THRESHOLD_HOURS: ${{ inputs.threshold_hours || '24' }}
+        # Hard errors exit non-zero here => the run goes red and the issue step
+        # below no-ops (no deployed-build-report.json). A determined verdict
+        # writes the report and exits 0.
+        run: python3 scripts/ci/check_deployed_build.py pins.json
+
+      - name: Open, update or close the deployment drift issue
+        # Runs only when the check DETERMINED a verdict (report exists). On a hard
+        # error — including "the instance does not disclose its build" — the
+        # report is absent, this step is skipped, and the red run is the signal.
+        # Deliberately NOT an issue: a configuration gap and a transient blip are
+        # both misrepresented by an issue titled "the instance is not serving the
+        # pinned build".
+        if: always() && hashFiles('deployed-build-report.json') != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Read via process.env, never interpolated into the script body.
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('deployed-build-report.json', 'utf8'));
+            const LABEL = 'deployed-build-drift';
+            const TITLE = 'The running instance is not serving the build the chart pins (#1210)';
+            const runUrl = process.env.RUN_URL;
+
+            // Dedup anchor: the single open issue carrying our label. A good
+            // alerting job updates one issue; it does not open a new one daily.
+            const open = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: LABEL,
+            })).data.filter(i => !i.pull_request);
+            const existing = open[0];
+
+            // The alert policy lives in the script, not here, so the console
+            // output and the issue can never disagree about what was decided.
+            if (!report.alerting) {
+              await core.summary
+                .addHeading('Deployed build freshness', 3)
+                .addRaw(`**${report.verdict}** — ${report.headline}`)
+                .addBreak()
+                .addRaw(report.explanation || '')
+                .write();
+
+              // Only a CONFIRMED match resolves the alert. `within_grace` is
+              // still "not serving the pinned build"; closing on it would retract
+              // an open alert without the deployment having caught up.
+              if (report.verdict === 'match' && existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `Resolved: the instance now serves the pinned build \`${report.pinned.revision}\` as of ${runUrl}. Closing.`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number, state: 'closed',
+                });
+                core.notice(`Deployment caught up — closed alert issue #${existing.number}.`);
+                return;
+              }
+              core.notice(report.headline);
+              return;
+            }
+
+            const body = [
+              `The scheduled delivery check found that **${report.instance_url}** is not serving the build \`helm/kamerplanter/values.yaml\` pins.`,
+              '',
+              `> ${report.headline}`,
+              '',
+              report.explanation,
+              '',
+              '## Measured',
+              '',
+              '| | |',
+              '|---|---|',
+              `| pinned image | \`${report.pinned.repository}:${report.pinned.channel}\` |`,
+              `| pinned digest | \`${report.pinned.digest}\` |`,
+              `| pinned revision | \`${report.pinned.revision}\` |`,
+              `| pinned image built | ${report.pinned.created} (${report.age_hours}h ago, grace window ${report.threshold_hours}h) |`,
+              `| instance reports | \`${report.instance.revision}\` |`,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '## Triage',
+              '',
+              '1. Check the ArgoCD Application for `kamerplanter` — is it `Synced` and `Healthy`, and at which revision of `helm/kamerplanter`?',
+              '2. Check the backend pods: `kubectl get pods -l app.kubernetes.io/name=kamerplanter-backend -o jsonpath=\'{.items[*].spec.containers[*].image}\'`. If the digest there is the pinned one, the pod has the right bytes and the mismatch is in the endpoint, not the delivery.',
+              '3. A pod stuck on an older digest with `pullPolicy: IfNotPresent` and a re-pushed channel tag needs a rollout restart, not a re-sync.',
+              '4. `chart-image-digest-freshness.yml` covers the hop BEFORE this one (GHCR → chart pin). If that job is green — as it was throughout the incident this check was built for — the stall is between the pin and the pod.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Still drifting as of ${runUrl} — pinned \`${report.pinned.revision}\`, instance \`${report.instance.revision}\`.`,
+              });
+              core.notice(`Updated existing alert issue #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body, labels: [LABEL, 'deployment'],
+              });
+              core.notice(`Opened alert issue #${created.data.number}.`);
+            }
