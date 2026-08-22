@@ -28,7 +28,7 @@ interface DiaryEntryCardProps {
   /**
    * The server's §7.2 verdict on whether this user may mark this entry
    * (`can_request_analysis`). **Not computed here.** Whether marking is allowed
-   * depends on role, authorship, consent and operating mode; REQ-050 §2.5.2 is
+   * depends on role, authorship, consent and operating mode; REQ-051 §6.2 is
    * explicit that rebuilding that in the client means maintaining it twice.
    *
    * `undefined` means "no verdict available" — the control is then offered and
@@ -49,7 +49,7 @@ interface DiaryEntryCardProps {
 }
 
 /**
- * REQ-050 §2.5.1 / §2.5.3 — one diary entry with its analysis state and result.
+ * REQ-051 §6.1 / §6.4 — one diary entry with its analysis state and result.
  *
  * Shared between the plant's diary tab and the tenant-wide overview's detail
  * view, so an entry looks the same wherever a user opens it.

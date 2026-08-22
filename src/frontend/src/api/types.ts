@@ -1420,7 +1420,7 @@ export interface PlantDiaryEntryUpdate {
 }
 
 /**
- * REQ-050 §2.5.2 — one row of the tenant-wide diary overview.
+ * REQ-051 §6.2 — one row of the tenant-wide diary overview.
  *
  * Deliberately slimmer than {@link PlantDiaryEntry}: it carries the analysis
  * *summary* but never `findings` or `recommended_actions` (AK-18). Both views
@@ -1471,7 +1471,7 @@ export interface DiaryOverviewItem {
   can_request_analysis: boolean;
 }
 
-/** A page of the tenant-wide diary overview (REQ-050 §2.5.2). */
+/** A page of the tenant-wide diary overview (REQ-051 §6.2). */
 export interface DiaryOverviewResponse {
   items: DiaryOverviewItem[];
   /** Matches across all pages, independent of `limit`. */

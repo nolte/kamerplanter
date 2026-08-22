@@ -1,7 +1,7 @@
 import type { DiaryAnalysisState, DiaryEntryType } from '@/api/types';
 
 /**
- * REQ-050 §2.5.2 — the filter state of the tenant-wide diary overview.
+ * REQ-051 §6.2 — the filter state of the tenant-wide diary overview.
  *
  * Kept in its own module so the page, the filter toolbar and the tests agree on
  * one shape instead of three near-copies. Every field maps 1:1 onto a query

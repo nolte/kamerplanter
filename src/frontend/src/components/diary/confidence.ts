@@ -1,5 +1,5 @@
 /**
- * REQ-050 §2.5.3 / AK-30 — putting a finding's confidence into words.
+ * REQ-051 §6.4 / AK-30 — putting a finding's confidence into words.
  *
  * A bare percentage is explicitly not enough: it suggests a precision a language
  * model does not have. Every place that shows a confidence shows the number

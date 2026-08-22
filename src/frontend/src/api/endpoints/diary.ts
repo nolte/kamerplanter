@@ -10,7 +10,7 @@ import type {
 } from '../types';
 
 /**
- * REQ-050 §2.5.1 / REQ-013 §4.7 — plant diary API layer.
+ * REQ-051 §6.1 / REQ-013 §4.7 — plant diary API layer.
  *
  * Modelled on `plantPhotos.ts`: every path is tenant-scoped and goes through
  * {@link tenantClient}, which prepends `/t/{slug}` on its own. The frontend
@@ -149,7 +149,7 @@ export async function cancelDiaryEntryAnalysis(
   return data;
 }
 
-/** Query parameters of the tenant-wide overview (REQ-050 §2.5.2). */
+/** Query parameters of the tenant-wide overview (REQ-051 §6.2). */
 export interface DiaryOverviewParams {
   /** Repeatable: several states widen the filter. */
   analysis_state?: DiaryAnalysisState[];
@@ -169,7 +169,7 @@ export interface DiaryOverviewParams {
 }
 
 /**
- * GET — the tenant-wide diary overview (REQ-050 §2.5.2).
+ * GET — the tenant-wide diary overview (REQ-051 §6.2).
  *
  * The cross-plant view: every plant of the tenant in one chronological list,
  * with the slim row of {@link DiaryOverviewItem}.

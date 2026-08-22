@@ -36,7 +36,7 @@ interface DiaryEntryDetailDialogProps {
 }
 
 /**
- * REQ-050 §2.5.2 — a row click opens the complete entry with its photos and,
+ * REQ-051 §6.2 — a row click opens the complete entry with its photos and,
  * where one exists, the analysis result.
  *
  * The overview row is deliberately slim: it carries the summary and nothing
