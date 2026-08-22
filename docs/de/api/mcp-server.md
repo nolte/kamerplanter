@@ -198,6 +198,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
     - `assign_nutrient_plan` bindet einen **vorhandenen** Nährstoffplan an eine Pflanze. Sichtbar über `get_plant_nutrient_plan`.
     - `clone_nutrient_plan` leitet aus einem Plan — auch einer globalen Vorlage — eine **eigene Kopie** ab; die Vorlage bleibt unverändert.
     - `set_nutrient_plan_phase_targets` setzt `target_ec_ms` bzw. `reference_ec_ms` an **einer** Phase eines eigenen Plans. Einen Plan von Grund auf anzulegen bleibt Aufgabe der Oberfläche.
+    - `validate_nutrient_plan_coverage` meldet lesend, welche Phasen der Pflanze der gebundene Plan **namentlich** deckt — deckt er eine nicht, greift eine stille Kalenderwochen-Ersatzregel.
 
 ### Lese-Werkzeuge (`mcp.read`)
 

@@ -459,6 +459,119 @@ class SetNutrientPlanPhaseTargets(WriteToolBase):
         return by_name[0], patch
 
 
+@mcp_tool(name="validate_nutrient_plan_coverage", permission=McpPermission.READ)
+class ValidateNutrientPlanCoverage(ToolBase):
+    """Report where a plant's bound plan does not actually cover its phases."""
+
+    class Input(TenantToolInput):
+        plant_key: str = Field(description="Key of the plant. Resolve it with list_plants.")
+
+    async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        # Tenant-scoped read first: a foreign key raises not_found before any plan
+        # data is touched (SEC-001, the fetch-then-use guard).
+        plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+        name = plant.plant_name or plant.instance_id or plant.key
+
+        plan = ctx.nutrient_plan_service.get_plant_plan(plant.key, tenant_key=ctx.tenant_key)
+        if plan is None:
+            return self._response(
+                summary=f"No nutrient plan is assigned to '{name}', so there is nothing to check.",
+                data={"plant_key": plant.key, "plan": None},
+                links=[ctx.ui_link(f"/plants/{plant.key}")],
+            )
+
+        entries = ctx.nutrient_plan_service.get_phase_entries(plan.key)
+        plan_phases = {_phase_name(e) for e in entries}
+        sequence_phases = self._sequence_phases(ctx, plant)
+        current_phase = self._current_phase(ctx, plant)
+
+        uncovered = sorted(p for p in sequence_phases if p not in plan_phases)
+        no_target = sorted(_phase_name(e) for e in entries if e.target_ec_ms is None)
+        current_covered = current_phase in plan_phases if current_phase else None
+
+        return self._response(
+            summary=self._summary(name, plan, current_phase, current_covered, uncovered, no_target),
+            data={
+                "plant_key": plant.key,
+                "plan_key": plan.key,
+                "plan_name": plan.name,
+                "plan_is_global_template": not getattr(plan, "tenant_key", ""),
+                "current_phase": current_phase,
+                "current_phase_covered_by_name": current_covered,
+                "plan_phases": sorted(plan_phases),
+                "sequence_phases": sorted(sequence_phases),
+                "phases_not_covered_by_name": uncovered,
+                "phases_without_target_ec": no_target,
+            },
+            links=[ctx.api_link(f"/nutrient-plans/{plan.key}"), ctx.ui_link(f"/duengung/plaene/{plan.key}")],
+        )
+
+    @staticmethod
+    def _sequence_phases(ctx: ToolContext, plant: Any) -> set[str]:
+        """Phase names of the plant's species sequence, empty when it has none.
+
+        A species without a sequence is not an error: the plan then has nothing
+        to be compared against by name, and the report says so by returning an
+        empty list rather than claiming full coverage.
+        """
+        species_key = getattr(plant, "species_key", "") or ""
+        if not species_key:
+            return set()
+        sequence = ctx.phase_sequence_service.get_sequence_by_species(species_key)
+        if sequence is None or not sequence.key:
+            return set()
+        full = ctx.phase_sequence_service.get_full_sequence(sequence.key)
+        names = set()
+        for entry in full.get("entries", []):
+            definition = entry.get("phase_definition") or {}
+            if definition.get("name"):
+                names.add(str(definition["name"]))
+        return names
+
+    @staticmethod
+    def _current_phase(ctx: ToolContext, plant: Any) -> str | None:
+        current = ctx.phase_service.get_current_phase(plant.key) or {}
+        return current.get("phase") or None
+
+    @staticmethod
+    def _summary(
+        name: str,
+        plan: Any,
+        current_phase: str | None,
+        current_covered: bool | None,
+        uncovered: list[str],
+        no_target: list[str],
+    ) -> str:
+        parts = [f"'{name}' follows '{plan.name}'."]
+        if current_covered is False:
+            # The consequence worth naming, not just the fact. `resolve_effective_entry`
+            # falls back to a week-range match when no phase name matches, and returns
+            # the entry with no indication of which branch it took — so a wrong phase is
+            # silently used rather than reported.
+            parts.append(
+                f"Its current phase '{current_phase}' is NOT a phase of this plan, so the feeding "
+                "targets it receives come from a calendar-week match, which is silent when wrong."
+            )
+        elif current_covered:
+            parts.append(f"Its current phase '{current_phase}' is covered by name.")
+        if uncovered:
+            parts.append(f"Phases the plan does not name: {', '.join(uncovered)}.")
+        if no_target:
+            parts.append(
+                f"Phases with no target EC: {', '.join(no_target)} — a runoff-EC reading has nothing "
+                "to be compared against in those."
+            )
+        if not uncovered and not no_target and current_covered is not False:
+            parts.append("Every sequence phase is named and every phase carries a target EC.")
+        return " ".join(parts)
+
+
+def _phase_name(entry: Any) -> str:
+    """The entry's phase as a plain string, whether it is an enum or already one."""
+    value = getattr(entry, "phase_name", "")
+    return str(getattr(value, "value", value))
+
+
 __all__ = [
     "AssignNutrientPlan",
     "CloneNutrientPlan",
@@ -466,4 +579,5 @@ __all__ = [
     "GetPlantNutrientPlan",
     "ListNutrientPlans",
     "SetNutrientPlanPhaseTargets",
+    "ValidateNutrientPlanCoverage",
 ]
