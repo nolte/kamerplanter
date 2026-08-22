@@ -79,14 +79,29 @@ class FertilizerService:
 
     # ── Stock CRUD ───────────────────────────────────────────────────
 
-    def create_stock(self, fertilizer_key: FertilizerKey, stock: FertilizerStock) -> FertilizerStock:
-        self.get_fertilizer(fertilizer_key)
+    def create_stock(
+        self,
+        fertilizer_key: FertilizerKey,
+        stock: FertilizerStock,
+        *,
+        tenant_key: str,
+    ) -> FertilizerStock:
+        """Add a stock row, stamped with its owner (#1268).
+
+        The tenant comes from the caller's context, never from the body — the
+        #1000 rule. The product may be global (the seeded catalogue is), but the
+        inventory of it is not: a batch number and a purchase price belong to
+        one garden.
+        """
+        self.get_fertilizer(fertilizer_key, tenant_key)
         stock.fertilizer_key = fertilizer_key
+        stock.tenant_key = tenant_key
         return self._repo.create_stock(stock)
 
-    def get_stocks(self, fertilizer_key: FertilizerKey) -> list[FertilizerStock]:
-        self.get_fertilizer(fertilizer_key)
-        return self._repo.get_stocks(fertilizer_key)
+    def get_stocks(self, fertilizer_key: FertilizerKey, *, tenant_key: str) -> list[FertilizerStock]:
+        """This tenant's stocks of one product (#1268)."""
+        self.get_fertilizer(fertilizer_key, tenant_key)
+        return self._repo.get_stocks(fertilizer_key, tenant_key=tenant_key)
 
     #: Patchable through :meth:`update_stock`. ``fertilizer_key`` is deliberately
     #: absent: re-pointing a stock at another product is not an edit, it is a
@@ -140,18 +155,28 @@ class FertilizerService:
         return self._repo.delete_stock(key)
 
     def _owned_stock_or_raise(self, key: FertilizerStockKey, tenant_key: str) -> FertilizerStock:
-        """Resolve a stock through its OWN fertilizer's visibility.
+        """Resolve a stock through its OWN tenant, then its product's visibility.
 
-        ``FertilizerStock`` carries no tenant of its own; it belongs to the
-        product named by ``fertilizer_key``. This applies exactly the check the
-        routes already make for the product — own or global — and is therefore
-        **not** a tenant-isolation guarantee: stocks of a GLOBAL fertilizer are
-        one shared pile that every tenant can list and, with this, still edit.
-        That gap predates #1265 and needs a data-model decision (does
-        ``FertilizerStock`` gain a ``tenant_key``?), so it is reported rather
-        than silently invented here.
+        #1265 could only check the PRODUCT's visibility, because
+        ``FertilizerStock`` had no tenant — and for a global fertilizer that is
+        "every tenant", so the check was explicitly not isolation. #1268 gave the
+        stock an owner and that gap is closed: the stock's tenant is checked
+        first, and the product check stays because a stock of a product this
+        tenant cannot see is still not theirs to touch.
+
+        An unattributable stock (``tenant_key == ""``, migration v0044) matches
+        no real tenant and is therefore reachable by nobody in ``full`` mode.
+        Fail-safe, and the same consequence v0043 accepted for substrate
+        batches; in ``light`` mode the sole operator resolves to ``""`` and
+        still reaches them.
         """
         stock = self._repo.get_stock_or_raise(key)
+        if (stock.tenant_key or "") != tenant_key:
+            # Anchored on the STOCK's own tenant since #1268. It used to hang on
+            # the product's visibility, which for a global fertilizer is "every
+            # tenant" — so this method's own docstring had to say it was not
+            # isolation. It is now.
+            raise NotFoundError("FertilizerStock", key)
         self.get_fertilizer(stock.fertilizer_key, tenant_key)
         return stock
 

@@ -27,10 +27,14 @@ FOREIGN_FERT = "fert-foreign"
 TENANT = "tenant-a"
 
 
-def _stock() -> FertilizerStock:
+def _stock(tenant: str = TENANT) -> FertilizerStock:
     return FertilizerStock(
         _key="stock-1",
         fertilizer_key=OWN_FERT,
+        # `tenant_key` became the ownership anchor in #1268; before that the
+        # check hung on the product's visibility, which for a global product is
+        # every tenant. A fixture without it would now be refused — correctly.
+        tenant_key=tenant,
         current_volume_ml=750.0,
         purchase_date=date(2026, 5, 1),
         expiry_date=date(2027, 5, 1),
@@ -135,7 +139,7 @@ class TestPairing:
     def test_a_stock_of_a_foreign_tenants_product_is_refused(self, service) -> None:
         svc, repo = service
         repo._stocks_by_key["stock-2"] = FertilizerStock(
-            _key="stock-2", fertilizer_key=FOREIGN_FERT, current_volume_ml=100.0
+            _key="stock-2", fertilizer_key=FOREIGN_FERT, current_volume_ml=100.0, tenant_key="tenant-b"
         )
 
         with pytest.raises(NotFoundError):
