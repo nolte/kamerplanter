@@ -88,21 +88,72 @@ class FertilizerService:
         self.get_fertilizer(fertilizer_key)
         return self._repo.get_stocks(fertilizer_key)
 
-    def update_stock(self, key: FertilizerStockKey, data: dict) -> FertilizerStock:
-        # We need to find the stock first — stocks don't have a dedicated get
-        # Use repository directly
-        stocks_col = getattr(self._repo, "_db", None)
-        if stocks_col is None:
-            raise NotFoundError("FertilizerStock", key)
-        stock = FertilizerStock(fertilizer_key="temp", current_volume_ml=0)
-        allowed_fields = {"current_volume_ml", "expiry_date", "batch_number", "cost_per_liter"}
-        for field, value in data.items():
-            if field in allowed_fields:
-                setattr(stock, field, value)
-        return self._repo.update_stock(key, stock)
+    #: Patchable through :meth:`update_stock`. ``fertilizer_key`` is deliberately
+    #: absent: re-pointing a stock at another product is not an edit, it is a
+    #: different record.
+    STOCK_UPDATABLE_FIELDS = frozenset(
+        {"current_volume_ml", "purchase_date", "expiry_date", "batch_number", "cost_per_liter"}
+    )
 
-    def delete_stock(self, key: FertilizerStockKey) -> bool:
+    def update_stock(
+        self,
+        key: FertilizerStockKey,
+        data: dict,
+        *,
+        fertilizer_key: FertilizerKey,
+        tenant_key: str,
+    ) -> FertilizerStock:
+        """Patch one stock row, merged onto the stored document.
+
+        Until #1265 this never read the stored row. It built a **fresh**
+        ``FertilizerStock(fertilizer_key="temp", current_volume_ml=0)``, applied
+        the patch fields to that, and handed it to ``_repo.update_stock`` —
+        which is :meth:`BaseArangoRepository.update`, a full REPLACE. So a
+        request changing only ``batch_number`` wrote ``fertilizer_key: "temp"``,
+        detaching the stock from its product, and reset every unpatched field to
+        its model default (``current_volume_ml`` to 0, ``purchase_date`` to
+        ``None``). The comment "we need to find the stock first" stated the
+        intent; the code never did it, because the repository had no read for a
+        single stock. It has one now.
+
+        ``fertilizer_key`` and ``tenant_key`` are keyword-only without defaults
+        (#948/#1263): the route used to check the product named in the URL and
+        then patch whatever stock key followed it, so the pairing is verified
+        here where no caller can skip it.
+        """
+        existing = self._owned_stock_or_raise(key, tenant_key)
+        if existing.fertilizer_key != fertilizer_key:
+            # The same 404 a foreign row gets — naming product A while editing a
+            # stock of product B must not be distinguishable from absence.
+            raise NotFoundError("FertilizerStock", key)
+
+        for field, value in data.items():
+            if field in self.STOCK_UPDATABLE_FIELDS:
+                setattr(existing, field, value)
+        return self._repo.update_stock(key, existing)
+
+    def delete_stock(self, key: FertilizerStockKey, *, fertilizer_key: FertilizerKey, tenant_key: str) -> bool:
+        """Delete one stock row, ownership-checked like :meth:`update_stock`."""
+        existing = self._owned_stock_or_raise(key, tenant_key)
+        if existing.fertilizer_key != fertilizer_key:
+            raise NotFoundError("FertilizerStock", key)
         return self._repo.delete_stock(key)
+
+    def _owned_stock_or_raise(self, key: FertilizerStockKey, tenant_key: str) -> FertilizerStock:
+        """Resolve a stock through its OWN fertilizer's visibility.
+
+        ``FertilizerStock`` carries no tenant of its own; it belongs to the
+        product named by ``fertilizer_key``. This applies exactly the check the
+        routes already make for the product — own or global — and is therefore
+        **not** a tenant-isolation guarantee: stocks of a GLOBAL fertilizer are
+        one shared pile that every tenant can list and, with this, still edit.
+        That gap predates #1265 and needs a data-model decision (does
+        ``FertilizerStock`` gain a ``tenant_key``?), so it is reported rather
+        than silently invented here.
+        """
+        stock = self._repo.get_stock_or_raise(key)
+        self.get_fertilizer(stock.fertilizer_key, tenant_key)
+        return stock
 
     # ── Incompatibility ──────────────────────────────────────────────
 

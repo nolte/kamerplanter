@@ -198,6 +198,7 @@ Because the role applies per garden, the same key can write in your own garden a
     - `assign_nutrient_plan` binds an **existing** nutrient plan to a plant. Visible through `get_plant_nutrient_plan`.
     - `clone_nutrient_plan` derives a **tenant-owned copy** of a plan, including a global template; the source is left untouched.
     - `set_nutrient_plan_phase_targets` sets `target_ec_ms` or `reference_ec_ms` on **one** phase of a plan you own. Authoring a plan from scratch stays a job for the web UI.
+    - `validate_nutrient_plan_coverage` reports, read-only, which of the plant's phases the bound plan covers **by name** — where it covers none, a silent calendar-week fallback takes over.
 
 ### Read tools (`mcp.read`)
 

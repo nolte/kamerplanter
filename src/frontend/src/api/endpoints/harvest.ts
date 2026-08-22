@@ -1,4 +1,4 @@
-import { tenantClient as client } from '../client';
+import plainClient, { tenantClient as client } from '../client';
 import type {
   HarvestBatch,
   HarvestBatchCreate,
@@ -30,11 +30,23 @@ export async function getIndicators(
   return data;
 }
 
+/**
+ * Create a harvest indicator in the GLOBAL catalogue.
+ *
+ * Platform-admin only, and not tenant-scoped: `HarvestIndicator` carries no
+ * `tenant_key` and hangs off `species_key`, so a record written here is read by
+ * every tenant (REQ-007 §4). Until #1249 this posted to
+ * `/t/{slug}/harvest/indicators` behind a tenant-level permission, which let a
+ * grower in any tenant write shared master data.
+ *
+ * Uses the plain client rather than `tenantClient` — there is no tenant segment
+ * on the admin mount.
+ */
 export async function createIndicator(
   payload: HarvestIndicatorCreate,
 ): Promise<HarvestIndicator> {
-  const { data } = await client.post<HarvestIndicator>(
-    `${BASE}/indicators`,
+  const { data } = await plainClient.post<HarvestIndicator>(
+    '/admin/harvest-indicators',
     payload,
   );
   return data;

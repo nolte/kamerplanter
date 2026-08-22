@@ -11,6 +11,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "activity-plans", "description": "Generated activity plans and recurring activity templates."},
     {"name": "actuators", "description": "Actuator registration and rule-based environmental control (REQ-018)."},
     {"name": "admin-oidc", "description": "Platform administration of OIDC identity providers (REQ-023)."},
+    {
+        "name": "admin-harvest-indicators",
+        "description": "Platform administration of the global harvest-indicator catalog (REQ-007 §4).",
+    },
     {"name": "admin-pests", "description": "Platform administration of the global pest catalog (REQ-010)."},
     {"name": "admin-platform", "description": "Platform-level administration: users, tenants, status (REQ-024)."},
     {"name": "admin-recognition", "description": "Platform administration of the plant-recognition service."},

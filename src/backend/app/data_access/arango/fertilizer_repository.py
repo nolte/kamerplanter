@@ -90,6 +90,15 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         self.create_edge(col.HAS_STOCK, from_id, to_id)
         return created
 
+    def get_stock_or_raise(self, key: FertilizerStockKey) -> FertilizerStock:
+        """Read one stock row, 404 when absent.
+
+        Added in #1265. Its absence is why ``FertilizerService.update_stock``
+        carried the comment "stocks don't have a dedicated get" and then wrote a
+        freshly constructed model over the stored document instead of reading it.
+        """
+        return self._stocks.get_or_raise(key)
+
     def get_stocks(self, fertilizer_key: FertilizerKey) -> list[FertilizerStock]:
         return self._stocks.find_by_field("fertilizer_key", fertilizer_key, sort="purchase_date", sort_direction="DESC")
 
