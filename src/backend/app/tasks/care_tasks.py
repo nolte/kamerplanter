@@ -7,7 +7,7 @@ logger = structlog.get_logger()
 
 
 @celery_app.task(name="app.tasks.care_tasks.generate_due_care_reminders")
-def generate_due_care_reminders() -> dict:
+def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     """Generate Task objects for due care reminders.
 
     Daily at 06:00 UTC. Idempotent: checks if a task already exists
@@ -15,6 +15,23 @@ def generate_due_care_reminders() -> dict:
 
     For profiles with auto_create_watering_task=True, ensures exactly
     one pending watering task exists (even if the due date is in the future).
+
+    ``tenant_key`` bounds the run to one tenant (#1204). The Celery beat calls
+    this without an argument for the installation-wide sweep; the manual
+    trigger at ``POST /t/{slug}/tasks/generate-care-reminders`` passes the
+    caller's tenant, so a permission granted in one tenant stops writing rows
+    in the others and the returned counts stop describing their volume.
+
+    The predicate hangs on the PLANT, not on the profile. ``CareProfile``
+    carries no ``tenant_key`` — it is tenant-anchored through the plant it
+    belongs to, the same shape ``Location``/``Slot`` have through their site.
+    The plant document is already this module's authority on its own tenant
+    (see the ``has_nutrient_plan`` scoping from #927), so reading the tenant
+    anywhere else would create a second owner of the same fact.
+
+    A plant with no ``tenant_key`` belongs to no tenant and therefore not to
+    this one: it is skipped for a scoped run and processed by the sweep, which
+    is the pre-#1204 behaviour for both.
     """
     from datetime import UTC, datetime
 
@@ -79,6 +96,12 @@ def generate_due_care_reminders() -> dict:
         plant = plant_repo.get_by_key(plant_key)
         if plant is None or plant.removed_on is not None:
             skipped_count += 1
+            continue
+
+        # Tenant bound (#1204). Not counted as "skipped": a scoped run never
+        # considered these profiles, and folding them into the tally would put
+        # another tenant's volume back into the number this fix removes it from.
+        if tenant_key is not None and plant.tenant_key != tenant_key:
             continue
 
         has_plan = plant_key in plants_with_schedule
