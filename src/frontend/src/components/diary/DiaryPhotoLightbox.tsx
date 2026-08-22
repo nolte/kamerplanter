@@ -24,7 +24,7 @@ interface DiaryPhotoLightboxProps {
 }
 
 /**
- * REQ-050 §2.5.1 — full-size viewer for the photos of a diary entry.
+ * REQ-051 §6.1 — full-size viewer for the photos of a diary entry.
  *
  * **Why not `PlantPhotoLightbox`.** That component is typed on `PlantPhoto`
  * (`api/endpoints/plantPhotos.ts:50`) and needs `uri`, `thumbnail_uris`,

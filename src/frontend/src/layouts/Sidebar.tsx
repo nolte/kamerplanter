@@ -132,7 +132,7 @@ export default function Sidebar({ open }: SidebarProps) {
       icon: <HistoryIcon />,
     },
     {
-      // REQ-050 §2.5.2 — the tenant-wide diary overview. A top-level beginner
+      // REQ-051 §6.2 — the tenant-wide diary overview. A top-level beginner
       // entry per REQ-021 §3.3, owned by the `diary` module (REQ-042 §1.3) and
       // therefore hideable like its siblings (AK-31).
       label: t('nav.diary'),

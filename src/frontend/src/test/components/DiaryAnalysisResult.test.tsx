@@ -7,7 +7,7 @@ import type { DiaryAnalysis } from '@/api/types';
 import DiaryAnalysisResult from '@/components/diary/DiaryAnalysisResult';
 
 /**
- * REQ-050 §2.5.3 — how an analysis result is presented.
+ * REQ-051 §6.4 — how an analysis result is presented.
  *
  * Two acceptance criteria are checked here because both are stated as hard
  * requirements rather than layout preferences: AK-20 (the disclaimer is always
@@ -38,7 +38,7 @@ function analysis(overrides: Partial<DiaryAnalysis> = {}): DiaryAnalysis {
   };
 }
 
-describe('DiaryAnalysisResult (REQ-050 §2.5.3)', () => {
+describe('DiaryAnalysisResult (REQ-051 §6.4)', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
   });
