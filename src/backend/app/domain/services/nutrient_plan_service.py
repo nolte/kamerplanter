@@ -96,8 +96,33 @@ class NutrientPlanService:
         self.get_plan(plan_key)
         return self._repo.get_phase_entries(plan_key)
 
-    def update_phase_entry(self, key: NutrientPlanPhaseEntryKey, data: dict) -> NutrientPlanPhaseEntry:
-        existing = self._repo.get_phase_entry_or_raise(key)
+    def update_phase_entry(
+        self,
+        key: NutrientPlanPhaseEntryKey,
+        data: dict,
+        *,
+        plan_key: NutrientPlanKey,
+        tenant_key: str,
+    ) -> NutrientPlanPhaseEntry:
+        """Patch one phase entry, ownership-checked through the entry's OWN plan.
+
+        ``plan_key`` and ``tenant_key`` are keyword-only for the #948 reason: a
+        caller that forgets them fails loudly instead of silently writing
+        unscoped. Both were missing until #1263, and the route above compensated
+        with a check that looked equivalent and was not — it verified the plan
+        named in the URL, then edited whatever entry key followed it.
+
+        The predicate hangs on the entry's own ``plan_key``, not on the URL's.
+        ``plan_key`` here is only asked to MATCH, so a request cannot edit an
+        entry while naming a different plan; the authorisation comes from
+        :meth:`_owned_phase_entry_or_raise`, which resolves the entry's plan and
+        refuses the global catalogue as well.
+        """
+        existing = self._owned_phase_entry_or_raise(key, tenant_key)
+        if existing.plan_key != plan_key:
+            # Same 404 a foreign entry gets: naming plan A while editing an entry
+            # of plan B must not be distinguishable from the entry not existing.
+            raise NotFoundError("nutrient plan phase entry", key)
         allowed_fields = {
             "phase_name",
             "sequence_order",
@@ -122,8 +147,17 @@ class NutrientPlanService:
                 setattr(existing, field, value)
         return self._repo.update_phase_entry(key, existing)
 
-    def delete_phase_entry(self, key: NutrientPlanPhaseEntryKey) -> bool:
-        self._repo.get_phase_entry_or_raise(key)
+    def delete_phase_entry(
+        self,
+        key: NutrientPlanPhaseEntryKey,
+        *,
+        plan_key: NutrientPlanKey,
+        tenant_key: str,
+    ) -> bool:
+        """Delete one phase entry, ownership-checked like :meth:`update_phase_entry`."""
+        existing = self._owned_phase_entry_or_raise(key, tenant_key)
+        if existing.plan_key != plan_key:
+            raise NotFoundError("nutrient plan phase entry", key)
         return self._repo.delete_phase_entry(key)
 
     # ── Channel fertilizer assignment ─────────────────────────────────
