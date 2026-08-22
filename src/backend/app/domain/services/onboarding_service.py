@@ -135,8 +135,11 @@ class OnboardingService:
                     fav_service.add_favorite(user_key, species_key, tenant_key=tenant_key, source="onboarding")
             for plan_key in fav_plans:
                 with contextlib.suppress(ValueError, Exception):
+                    # The explicit `cascade_fertilizers` call that stood here was
+                    # removed in #1233: `add_favorite` cascades on a nutrient-plan
+                    # target now, so the wizard is no longer the only path that
+                    # does. Two callers of one rule is how the rule drifts.
                     fav_service.add_favorite(user_key, plan_key, tenant_key=tenant_key, source="onboarding")
-                    fav_service.cascade_fertilizers(user_key, plan_key, tenant_key=tenant_key)
 
         state_data = state.model_dump()
         state_data.update(

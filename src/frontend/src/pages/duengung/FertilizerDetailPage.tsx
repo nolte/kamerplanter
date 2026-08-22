@@ -43,7 +43,7 @@ import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
 import { useTabUrl } from '@/hooks/useTabUrl';
-import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useFertilizerFavorites } from '@/hooks/useCatalogFavorites';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -223,7 +223,7 @@ export default function FertilizerDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [stockSaving, setStockSaving] = useState(false);
-  const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-fertilizer-favorites');
+  const { isFavorite, toggleFavorite } = useFertilizerFavorites();
   const fertilizerOrigin = resolveOrigin(fertilizer);
   const { isReadOnly, isDeletionProtected, tooltipText: originTooltipText } = useOriginProtection({
     origin: fertilizerOrigin,
