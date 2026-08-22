@@ -13,7 +13,7 @@ interface DiaryPhotoStripProps {
 }
 
 /**
- * REQ-050 §2.5.1 — a diary entry's photos as previews with a lightbox.
+ * REQ-051 §6.1 — a diary entry's photos as previews with a lightbox.
  *
  * The grid loads the **512-px** rendition, as the specification requires; the
  * 1280-px one is fetched only when a photo is actually opened. Same discipline

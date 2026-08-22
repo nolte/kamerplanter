@@ -8,7 +8,7 @@ import { renderWithProviders } from '@/test/helpers';
 import DiaryPhotoStrip from '@/components/diary/DiaryPhotoStrip';
 
 /**
- * REQ-050 §2.5.1 — a diary entry's photos as 512-px previews with a lightbox.
+ * REQ-051 §6.1 — a diary entry's photos as 512-px previews with a lightbox.
  *
  * The rendition assertion is the point of this file: the grid must never pull
  * the original or the 1280-px rendition, or a list of entries with five photos
@@ -37,7 +37,7 @@ function mockAttachmentBlobs(): string[] {
   return requested;
 }
 
-describe('DiaryPhotoStrip (REQ-050 §2.5.1)', () => {
+describe('DiaryPhotoStrip (REQ-051 §6.1)', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
   });

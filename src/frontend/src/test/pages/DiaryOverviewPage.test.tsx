@@ -21,7 +21,7 @@ import type {
 } from '@/api/types';
 
 /**
- * REQ-050 §2.5.2 — the tenant-wide diary overview.
+ * REQ-051 §6.2 — the tenant-wide diary overview.
  *
  * Covers AK-15 (all plants, descending, with every column), AK-16 (five states
  * told apart, `completed` highlighted with a summary preview), AK-17 (state
@@ -169,7 +169,7 @@ function apiError(status: number, code: string) {
   );
 }
 
-describe('DiaryOverviewPage (REQ-050 §2.5.2)', () => {
+describe('DiaryOverviewPage (REQ-051 §6.2)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     i18n.changeLanguage('de');

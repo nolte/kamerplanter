@@ -17,7 +17,7 @@ interface DiaryAnalysisStateChipProps {
 }
 
 /**
- * REQ-050 §2.5.2 — the analysis state as a single, legible badge.
+ * REQ-051 §6.2 — the analysis state as a single, legible badge.
  *
  * Shared by the plant diary tab and the tenant-wide overview so the five states
  * cannot come to look different in the two places a user meets them (AK-16).
