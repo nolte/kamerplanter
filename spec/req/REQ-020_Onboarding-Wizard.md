@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Frontend (Backend-Unterstützung für Starter-Kits und Präferenzen)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.9 (persönliche Datensätze: Rolle und Eigentümerprüfung getrennt)
+Version: 1.10 (Favoriten sind serverseitig — sechs Zieltypen)
 Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne), REQ-024 v1.3 (Platform-Tenant), REQ-027 v1.2 (Moduswechsel)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.10 | 2026-08-22 | **Favoriten sind serverseitig, und §2 nennt alle sechs Zieltypen.** Die Liste stand auf `species | nutrient_plans | fertilizers`, während `_resolve_collection` zusätzlich `activities` und `botanical_families` auflöste; Substrate waren in der Oberfläche favorisierbar und in **keiner** Anforderung als Ziel genannt — sie lagen nur im `localStorage`. Mit #1233 sind alle sechs serverseitig, und `add_favorite` kaskadiert dort, wo `DELETE` schon aufräumt: die in §1 zugesagte Dünger-Kaskade lief bis dahin ausschließlich im Onboarding-Assistenten. (#1233) |
 | 1.9 | 2026-08-22 | **Persönliche Datensätze: Rolle und Eigentümerprüfung getrennt.** Onboarding-Status, User Preferences und Favoriten trugen `Alle Rollen (eigene)` in den Schreibspalten — ein Ausdruck, den REQ-049 §3.1 nicht kennt und der nebenbei den Beobachter zum Schreiber machte. Jetzt `Alle Rollen` beim Lesen, `Ab Gärtner` beim Anlegen/Ändern/Löschen; dass jede Rolle ausschließlich den eigenen Satz erreicht, steht als Service-Prädikat in „Besonderheiten". REQ-049 §3.1 hält die Regel jetzt allgemein fest. (#1216) |
 | 1.8 | 2026-08-22 | **Favoriten-Router nennt den Pfad, der ausgeliefert wird.** §4 spezifizierte `/api/v1/favorites` — einen Pfad ohne Mandanten-Segment, den es nie gab; montiert ist ausschließlich `/api/v1/t/{tenant_slug}/favorites`. Alle neun Vorkommen (Routertabelle, Response-Beispiel, drei Abnahmekriterien) korrigiert. Neu ist der Absatz, **warum** der Pfad einen Mandanten trägt, obwohl die Daten nutzerglobal bleiben: `get_current_tenant` braucht ihn für die Mitgliedschaftsprüfung, und `_verify_target_tenant_access` braucht ihn, um mandantenbesessene Kataloge (#1090, #950) überhaupt aufzulösen. Diese Begründung stand bisher nur im Docstring des Routers. Die Aussage von REQ-049 §Abgrenzung und ADR-009 — Favoriten sind personenbezogen und werden von `X-Active-Tenant` nicht neu gebunden — bleibt unberührt und ist jetzt hier verlinkt. (#1232) |
 | 1.6 | 2026-03-17 | **Smart-Home-Deaktivierung:** Neues `UserPreference`-Feld `smart_home_enabled: bool` (Default: `false`). Erlaubt Nutzern die vollständige Deaktivierung aller Smart-Home- und Sensor-Funktionen. Bei `smart_home_enabled == false` werden Sensoren, Aktoren, Live-EC-Berechnung, automatische EC-Übernahme beim Düngen und alle sensorabhängigen Dashboard-Widgets ausgeblendet. Vereinfacht die UI für Nutzer ohne Home Assistant / IoT-Hardware. Toggle im Onboarding (Schritt 2) und AccountSettingsPage. Querverweis: REQ-005 §4b, REQ-004, REQ-014. |
@@ -240,10 +241,20 @@ includes_cultivar:       starter_kits → cultivars             (Kit enthält Cu
 includes_template:       starter_kits → workflow_templates     (Kit enthält WorkflowTemplate)
 includes_nutrient_plan:  starter_kits → nutrient_plans         (Kit empfiehlt NutrientPlan)
 created_by_wizard:       onboarding_states → planting_runs     (Wizard erstellt PlantingRun, nicht einzelne Plants; REQ-013 v2.0)
-user_favorites:          users → species | nutrient_plans | fertilizers  (User hat Entität favorisiert)
+user_favorites:          users → species | nutrient_plans | fertilizers | substrates | activities | botanical_families
+                         (User hat Entität favorisiert; die sechs Ziele, die _resolve_collection auflöst)
 ```
 
 <!-- Quelle: Favoriten-System v1.5 -->
+> **Die Zielliste nennt sechs Typen, nicht drei.** Bis #1233 stand hier
+> `species | nutrient_plans | fertilizers`, während `FavoritesService._resolve_collection`
+> zusätzlich `activities` und `botanical_families` auflöste — und Substrate waren in der
+> Oberfläche favorisierbar, aber in gar keiner Anforderung als Favoritenziel genannt: sie
+> lagen ausschließlich im `localStorage` des Browsers. Mit #1233 sind alle sechs
+> serverseitige Ziele, `substrates` eingeschlossen. Wer einen siebten hinzufügt, ändert
+> beide Stellen — die Liste hier und `_resolve_collection` — oder erzeugt genau die Drift,
+> die #1233 beseitigt hat.
+
 **Edge `:user_favorites` — Nutzer-Favoriten:**
 - Collection: `user_favorites` (Edge-Collection)
 - Von: `users/{user_key}`
