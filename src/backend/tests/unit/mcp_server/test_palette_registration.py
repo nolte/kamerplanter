@@ -151,14 +151,14 @@ def test_every_write_tool_takes_a_key_a_read_tool_produces():
     assert not offenders, f"Write tools with no resolvable key argument: {offenders}"
 
 
-#: Palette size after issue #949 — 48 after #931, plus the eight phase/lifecycle
-#: tools. This is the number ``docs/*/api/mcp-server.md`` and REQ-033
-#: §Umsetzungsstand both quote, which is the whole reason it is asserted rather
-#: than described.
-PALETTE_SIZE = 64
+#: Palette size after issue #1244 — 64 after #949, plus `clone_nutrient_plan`
+#: and `set_nutrient_plan_phase_targets`. This is the number
+#: ``docs/*/api/mcp-server.md`` and REQ-033 §Umsetzungsstand both quote, which is
+#: the whole reason it is asserted rather than described.
+PALETTE_SIZE = 66
 
 
-def test_the_palette_grew_by_exactly_the_five_specified_tools():
+def test_the_palette_holds_exactly_the_registered_tools():
     """Counts only tools declared under ``app.mcp_server.tools``.
 
     The registry is a **process-wide singleton** and other test modules register
