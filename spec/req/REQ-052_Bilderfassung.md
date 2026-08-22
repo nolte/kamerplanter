@@ -11,7 +11,7 @@ Priorität: Hoch
 Version: 1.0
 Datum: 2026-08-16
 Tags: [capture, camera, upload, normalization, exif, client-neutral, cross-cutting]
-Abhängigkeit: NFR-013 v1.4 (Object Storage — Attachments, Renditions, Mime-Whitelist, Größenlimit), REQ-029 v1.1 (Bilderkennung — Ursprung des Erfassungsdialogs), REQ-029-A v1.2 (§0.1.1 Punkt 4 — Webcam und Smartphone als Bildquelle), REQ-034 v1.2 (Foto-Galerie — parametrierbare Normalisierung), REQ-025 v1.6 (DSGVO — Standortdaten in Bildern), REQ-024 v1.7 / REQ-049 v1.4 (Rollen), REQ-027 (Light-Modus), UI-NFR-001 (Responsive), UI-NFR-002 (Barrierefreiheit)
+Abhängigkeit: NFR-013 v1.4 (Object Storage — Attachments, Renditions, Mime-Whitelist, Größenlimit), REQ-029 v1.2 (Bilderkennung — Ursprung des Erfassungsdialogs; §7 ist seit v1.2 mit §9 hier deckungsgleich), REQ-029-A v1.2 (§0.1.1 Punkt 4 — Webcam und Smartphone als Bildquelle), REQ-034 v1.2 (Foto-Galerie — parametrierbare Normalisierung), REQ-025 v1.6 (DSGVO — Standortdaten in Bildern), REQ-024 v1.7 / REQ-049 v1.4 (Rollen), REQ-027 (Light-Modus), UI-NFR-001 (Responsive), UI-NFR-002 (Barrierefreiheit)
 Wird benötigt von: REQ-029, REQ-034, REQ-038, REQ-043, REQ-044, REQ-051, REQ-010
 ```
 
