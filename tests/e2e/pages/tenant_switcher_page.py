@@ -158,11 +158,46 @@ class TenantSwitcherPage(BasePage):
         """Return the name displayed on the trigger button (active tenant)."""
         return self.wait_for_active_tenant_label()
 
+    #: Budget for :meth:`wait_for_menu_labels`. A constant rather than a
+    #: parameter, for the same reason as :data:`ACTIVE_LABEL_TIMEOUT` above: no
+    #: caller has a reason to shorten it, and it is only ever spent in full when
+    #: a label is genuinely blank -- which fails the caller's own assertion.
+    MENU_LABEL_TIMEOUT = DEFAULT_TIMEOUT
+
+    def wait_for_menu_labels(self, timeout: int | None = None) -> None:
+        """Wait until every rendered menu item exposes a label; never raises.
+
+        An anchor for the readers below, not an assertion — a menu that
+        legitimately renders no item is a state the caller must still be able to
+        observe, and a name that is genuinely empty must still reach the caller's
+        own assertion rather than being swallowed here.
+
+        `open_menu` waits for the menu *container* to be visible, which says
+        nothing about its items: MUI grows the `Menu` paper over ~200 ms, and
+        `WebElement.text` answers `''` for a node that has not been laid out yet.
+        A read taken in that window returns a list with an empty string in it —
+        which is exactly how TC-REQ-024-020 failed on the 2026-08-21 nightly and
+        again on run 33195629069, with ``assert ''``.
+        """
+
+        def _labelled(_driver: WebDriver) -> bool:
+            items = self.driver.find_elements(*self.MENU_ITEMS)
+            if not items:
+                return False
+            return all((item.text or "").strip() for item in items)
+
+        with suppress(TimeoutException, StaleElementReferenceException):
+            self.poll(timeout if timeout is not None else self.MENU_LABEL_TIMEOUT).until(_labelled)
+
     def get_tenant_names(self) -> list[str]:
         """Return the names of all tenants in the open dropdown.
 
         Excludes the last "Create organization" item after the divider.
+
+        Anchored on :meth:`wait_for_menu_labels`, so the scan reads the menu the
+        user sees rather than the frame it was mounted in.
         """
+        self.wait_for_menu_labels()
         items = self.driver.find_elements(*self.MENU_ITEMS)
         names = []
         for item in items:
