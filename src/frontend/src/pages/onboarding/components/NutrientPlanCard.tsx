@@ -152,7 +152,7 @@ export default function NutrientPlanCard({
                     <Typography variant="body2" color="text.secondary">
                       {f.product_name}
                       {f.brand ? (
-                        <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 0.5 }}>
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
                           ({f.brand})
                         </Typography>
                       ) : null}

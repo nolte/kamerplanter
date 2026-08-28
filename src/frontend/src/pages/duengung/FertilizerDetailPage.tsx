@@ -448,7 +448,10 @@ export default function FertilizerDetailPage() {
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
               <WarningAmberIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-              <Typography variant="body2" color="warning.main">
+              {/* `warning.dark`, not `.main`: #ed6c02 is 3.11:1 on white and this
+                  is read as text (UI-NFR-002). The icon beside it keeps the brand
+                  tone — a graphic only owes 3:1 (WCAG 1.4.11). */}
+              <Typography variant="body2" color="warning.dark">
                 {label}
               </Typography>
             </Box>
@@ -812,7 +815,7 @@ export default function FertilizerDetailPage() {
 
           {/* Metadata */}
           {(fertilizer.created_at || fertilizer.updated_at) && (
-            <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               {fertilizer.created_at && `${t('common.createdAt')}: ${new Date(fertilizer.created_at).toLocaleDateString()}`}
               {fertilizer.created_at && fertilizer.updated_at && ' · '}
               {fertilizer.updated_at && `${t('common.updatedAt')}: ${new Date(fertilizer.updated_at).toLocaleDateString()}`}

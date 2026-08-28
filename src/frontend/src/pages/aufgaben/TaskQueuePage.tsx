@@ -798,7 +798,7 @@ export default function TaskQueuePage() {
                       <TaskOriginBadge origin={task.origin} testId={`task-origin-badge-${task.key}`} />
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                      <Typography variant="caption" color="text.disabled">
+                      <Typography variant="caption" color="text.secondary">
                         {t(`enums.taskCategory.${task.category}`)}
                         {' · '}
                         {task.activity_key
@@ -812,7 +812,7 @@ export default function TaskQueuePage() {
                                 : t('pages.tasks.sourceManual')}
                       </Typography>
                       {task.estimated_duration_minutes != null && (
-                        <Typography variant="caption" color="text.disabled" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                           <ScheduleIcon sx={{ fontSize: 13 }} />
                           {task.estimated_duration_minutes} min
                         </Typography>
@@ -1007,7 +1007,7 @@ export default function TaskQueuePage() {
                     {entry.plant_name}
                   </Typography>
                   {entry.species_name && (
-                    <Typography variant="caption" color="text.disabled">
+                    <Typography variant="caption" color="text.secondary">
                       {entry.species_name}
                     </Typography>
                   )}
