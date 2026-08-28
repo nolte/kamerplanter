@@ -481,7 +481,14 @@ export default function Sidebar({ open }: SidebarProps) {
                     fontSize: '0.7rem',
                     letterSpacing: '0.08em',
                     textTransform: 'uppercase',
-                    color: 'text.disabled',
+                    // `text.secondary`, not `text.disabled`: this label is quiet,
+                    // not inactive. MUI's `text.disabled` is rgba(0,0,0,0.38),
+                    // which composites to #9e9e9e on the drawer's white paper —
+                    // 2.67:1 at 11.2px, below WCAG AA's 4.5:1 (UI-NFR-002). The
+                    // 1.4.3 exemption covers *disabled controls*, and a section
+                    // header is neither. `text.secondary` composites to #666666
+                    // (5.74:1) and is #000000 in the high-contrast palette.
+                    color: 'text.secondary',
                     mt: 0.5,
                   }}
                 >

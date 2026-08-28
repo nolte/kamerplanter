@@ -253,13 +253,20 @@ export default function PhaseKamiTimeline({ phases, speciesName }: PhaseKamiTime
                     gridColumn: col,
                     gridRow: 3,
                     fontWeight: isCurrent ? 700 : 500,
-                    color: isProjected ? 'text.disabled' : 'text.primary',
+                    // Projected phases are de-emphasised by colour alone. The
+                    // former `text.disabled` + `opacity: 0.5` composited to
+                    // ~#cfcfcf on white (~1.9:1) on a label that is focusable
+                    // and carries a tooltip — far below WCAG AA (UI-NFR-002).
+                    // Dropping the opacity is what makes the colour change
+                    // effective; the projected state stays distinguishable
+                    // through the greyscaled Kami image and the `action.disabled`
+                    // timeline dot above, so no signal is lost.
+                    color: isProjected ? 'text.secondary' : 'text.primary',
                     fontSize: { xs: '0.65rem', sm: '0.75rem' },
                     textAlign: 'center',
                     mt: 0.5,
                     lineHeight: 1.2,
                     cursor: phaseDescription ? 'help' : 'default',
-                    opacity: isProjected ? 0.5 : 1,
                     '&:hover': phaseDescription
                       ? { textDecoration: 'underline dotted' }
                       : undefined,
