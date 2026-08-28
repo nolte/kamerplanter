@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -128,14 +129,43 @@ class SpeciesListPage(BasePage):
         # The retry is a genuine re-acquisition, not a loop hoping the same
         # moment comes out differently: each attempt calls ``find_elements``
         # again, so it looks at the render that exists *now*.
-        def _scan_and_click() -> None:
+        #
+        # **"Not there yet" is now also waited out, not only staleness.**
+        # ``retry_on_stale`` catches ``StaleElementReferenceException`` alone, so
+        # the scan running one frame ahead of the filtered render raised
+        # ``ValueError`` on the first pass and was re-raised immediately — the
+        # 2026-08-28 light nightly failed exactly so ("Row with name
+        # 'Solanum journey315634' not found") on a species whose create had just
+        # succeeded. ``poll`` supplies the budget and treats POLL_TRANSIENTS as
+        # "not yet"; a falsy return is the third such state.
+        #
+        # The ``ValueError`` contract is deliberately kept: two callers branch on
+        # it (``test_req001_cross_entity`` falls back to the first row,
+        # ``test_req001_species`` skips), and turning their outcome into an error
+        # is a separate decision from removing this race. What changes is only
+        # *when* it is raised — after the budget rather than on the first frame —
+        # and that it now names what was on screen instead of only what was not.
+        def _scan_and_click(_driver: WebDriver) -> bool:
             for row in self.driver.find_elements(*self.TABLE_ROWS):
                 if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
                     self.click_row_via_column(row, self.NAME_COLUMN_ID)
-                    return
-            raise ValueError(f"Row with name '{name}' not found")
+                    return True
+            return False
 
-        self.retry_on_stale(_scan_and_click)
+        try:
+            self.poll(DEFAULT_TIMEOUT).until(_scan_and_click)
+        except TimeoutException as exc:
+            rendered = self.retry_on_stale(
+                lambda: [
+                    self.get_row_primary_text(row, self.NAME_COLUMN_ID)
+                    for row in self.driver.find_elements(*self.TABLE_ROWS)
+                ]
+            )
+            raise ValueError(
+                f"Row with name '{name}' not found within {DEFAULT_TIMEOUT}s after "
+                f"searching for it. The filtered list renders {len(rendered)} row(s): "
+                f"{rendered[:10]!r}"
+            ) from exc
 
     def click_next_page(self) -> None:
         self.wait_for_element_clickable(self.NEXT_PAGE).click()
