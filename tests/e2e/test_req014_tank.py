@@ -722,11 +722,25 @@ class TestTankStateRecording:
         # measurement an earlier run left behind — the same move #980 made for
         # the maintenance log's `performed_by`. A tank state has no name, so the
         # pH carries it: `TankState.ph` is a free float (0–14) and the states
-        # table renders it verbatim (`render: (r) => r.ph ?? '—'`). Python's
-        # `str()` and JS's `String()` both print the shortest round-trip form of
-        # a float, so the value typed here and the text rendered there agree
-        # without any formatting assumption — 5.2 reads as "5.2" on both sides.
-        ph_value = round(5.0 + (int(uuid.uuid4().hex[:4], 16) % 290 + 1) / 100, 2)
+        # table renders it verbatim (`render: (r) => r.ph ?? '—'`).
+        #
+        # The hundredths offset is forced non-zero. Python and JS agree on the
+        # shortest round-trip form of a float *except* at integral values:
+        # `str(7.0)` is "7.0" while `String(7)` is "7", because JSON round-trips
+        # 7.0 as a number JS cannot tell from an integer. The previous draw could
+        # land on 6.0 or 7.0 (2 of its 290 outcomes), and when it did, the
+        # read-back searched for "7.0" in a row that read "7" and failed with the
+        # message of a rejected create. The 2026-08-22 full-mobile nightly is
+        # that case; every other night drew a fractional value and passed. The
+        # remaining 288 outcomes keep the per-run identity this needs.
+        _offset = int(uuid.uuid4().hex[:4], 16) % 290 + 1
+        if _offset % 100 == 0:
+            _offset += 1
+        ph_value = round(5.0 + _offset / 100, 2)
+        assert ph_value != int(ph_value), (
+            f"pH draw {ph_value} is integral, so Python would search for "
+            f"'{ph_value}' in a cell JS renders as '{int(ph_value)}'"
+        )
 
         tank_detail.fill_state_ph(ph_value)
         tank_detail.fill_state_ec(1.8)
