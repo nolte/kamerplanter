@@ -248,12 +248,16 @@ export default function PlantFilterTree({
                 onChange={() => handleToggleRun(run)}
                 data-testid={`plant-filter-run-${run.runKey}`}
               />
+              {/* Unchecked is de-emphasised with `text.secondary`, never
+                  `text.disabled` — this label is click-to-toggle and stays fully
+                  interactive, so it must not read (or measure) as disabled: 0.38
+                  alpha is 2.67:1 on white, below WCAG AA (UI-NFR-002). */}
               <Typography
                 variant="body2"
                 sx={{
                   fontWeight: 600,
                   cursor: 'pointer',
-                  color: allRunChecked || someRunChecked ? 'text.primary' : 'text.disabled',
+                  color: allRunChecked || someRunChecked ? 'text.primary' : 'text.secondary',
                 }}
                 onClick={() => handleToggleRun(run)}
                 noWrap
@@ -282,7 +286,7 @@ export default function PlantFilterTree({
                     variant="body2"
                     sx={{
                       cursor: 'pointer',
-                      color: checkedPlantKeys.has(plant.plantKey) ? 'text.primary' : 'text.disabled',
+                      color: checkedPlantKeys.has(plant.plantKey) ? 'text.primary' : 'text.secondary',
                     }}
                     onClick={() => handleTogglePlant(plant.plantKey)}
                     noWrap

@@ -378,7 +378,7 @@ export function ReferenceImageCuration({ speciesKey, scientificName }: Reference
             <Typography variant="body2">{t('pages.species.referenceImages.empty')}</Typography>
             <Typography
               variant="caption"
-              color="text.disabled"
+              color="text.secondary"
               sx={{ display: 'block', mt: 0.25 }}
             >
               {t('pages.species.referenceImages.emptyHint')}

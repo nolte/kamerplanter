@@ -812,7 +812,7 @@ export default function FertilizerDetailPage() {
 
           {/* Metadata */}
           {(fertilizer.created_at || fertilizer.updated_at) && (
-            <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               {fertilizer.created_at && `${t('common.createdAt')}: ${new Date(fertilizer.created_at).toLocaleDateString()}`}
               {fertilizer.created_at && fertilizer.updated_at && ' · '}
               {fertilizer.updated_at && `${t('common.updatedAt')}: ${new Date(fertilizer.updated_at).toLocaleDateString()}`}

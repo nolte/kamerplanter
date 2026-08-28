@@ -387,7 +387,7 @@ export default function NotificationDrawer({
                 >
                   {notification.body}
                 </Typography>
-                <Typography variant="caption" color="text.disabled">
+                <Typography variant="caption" color="text.secondary">
                   {formatRelativeTime(notification.created_at, t)}
                 </Typography>
               </CardContent>
