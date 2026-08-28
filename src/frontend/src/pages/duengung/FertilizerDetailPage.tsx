@@ -448,7 +448,10 @@ export default function FertilizerDetailPage() {
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
               <WarningAmberIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-              <Typography variant="body2" color="warning.main">
+              {/* `warning.dark`, not `.main`: #ed6c02 is 3.11:1 on white and this
+                  is read as text (UI-NFR-002). The icon beside it keeps the brand
+                  tone — a graphic only owes 3:1 (WCAG 1.4.11). */}
+              <Typography variant="body2" color="warning.dark">
                 {label}
               </Typography>
             </Box>

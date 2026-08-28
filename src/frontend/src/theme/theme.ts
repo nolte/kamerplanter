@@ -34,15 +34,46 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
           disableElevation: true,
         },
         styleOverrides: {
-          root: {
+          // Same rule as `MuiChip` below, same reason: an outlined warning
+          // Button draws its label in `warning.main`, which is 3.11:1 on white.
+          root: ({ theme }) => ({
             textTransform: 'none',
             fontWeight: 600,
-          },
+            '&.MuiButton-outlinedWarning': {
+              color: theme.palette.warning.dark,
+              borderColor: theme.palette.warning.dark,
+            },
+          }),
         },
       },
       MuiCard: {
         defaultProps: {
           variant: 'outlined',
+        },
+      },
+      // `warning.main` (#ed6c02) reaches only 3.11:1 on white, so wherever it is
+      // used as *text* it misses WCAG AA's 4.5:1 (UI-NFR-002). The outlined Chip
+      // is the construct that does exactly that — its label and border are drawn
+      // in the palette colour — and its label is the one axe reports.
+      //
+      // Fixed here rather than per call site: three outlined warning chips exist
+      // (dashboard plant grid, pest gallery, AI response) and patching only the
+      // one the nightly happened to scan is how the sibling call sites drift
+      // apart. `warning.dark` is MUI's own darkened tone of the same brand
+      // orange (#a54c01, 5.78:1), so the brand colour itself is untouched and
+      // still fills icons, alerts and filled chips.
+      //
+      // Class-based rather than an `ownerState` callback: the classes are the
+      // stable part of MUI's Chip API across versions, and this override has to
+      // survive the next minor bump without silently becoming a no-op.
+      MuiChip: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            '&.MuiChip-outlined.MuiChip-colorWarning': {
+              color: theme.palette.warning.dark,
+              borderColor: theme.palette.warning.dark,
+            },
+          }),
         },
       },
       MuiTextField: {
