@@ -449,6 +449,108 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Workflow + shell linting (#1295) ───────────────────────────────────
+  # Three workflows already *reasoned about* shellcheck in their comments —
+  # `e2e-smoke.yml:191`, `e2e-nightly.yml:106`,
+  # `security-nuclei-nightly.yml:181` — while neither shellcheck nor
+  # actionlint ran anywhere in this repository. That belief is how #1010
+  # survived a required lane for three weeks: a `#` on a backslash-continued
+  # line ended the logical `nuclei` command, `-tags`, `-severity`, `-o` and
+  # `-sarif-export` were dropped with it, and the nightly scan reported green
+  # for 22 consecutive nights while writing none of the artefacts the steps
+  # downstream gate on.
+  #
+  # BLOCKING from day one, not advisory. NFR-018 §4 wants promotion to
+  # blocking to be a measured decision, and what was measured is that there
+  # is nothing to promote *through*: actionlint over every file under
+  # `.github/workflows/` is silent, and shellcheck at `--severity=warning`
+  # over the 21 own `*.sh` is silent once the three findings cleared in the
+  # first half of this change (SC2034 in `dev-teardown.sh`, SC2155 in
+  # `run-e2e.sh`, and SC2088 in `worktree_add.sh` — that last one a false
+  # positive, suppressed with its reason). An advisory phase exists to work a
+  # backlog down; with no backlog it is only a window in which the gate
+  # cannot report, which is the shape NFR-018 §2 forbids outright.
+  #
+  # `language: docker_image` — upstream's `actionlint-docker` id, not
+  # `actionlint`. R3 asks that BOTH tools be pinned, and only this form
+  # delivers that: `language: golang` builds actionlint at the `rev` and then
+  # takes shellcheck from the runner's PATH, so half the gate would be
+  # whatever `ubuntu-latest` happens to ship that week — precisely the
+  # unpinned exposure R3 exists to close. `language: system` pins nothing at
+  # all. The docker form pins both, because the upstream
+  # `.pre-commit-hooks.yaml` at each tag carries a literal
+  # `docker.io/rhysd/actionlint:1.7.12` /
+  # `docker.io/koalaman/shellcheck:v0.11.0` entry and never `latest`: the
+  # `rev:` below *is* the tool version, and Renovate's pre-commit manager
+  # owns the bumps (it already does — #1079 bumped check-jsonschema below).
+  # Residual, accepted: a `rev` binds an image TAG, not a digest.
+  #
+  # Consequence worth stating, because these are the repository's FIRST
+  # `docker_image` hooks (measured: there were none): a local commit that
+  # touches a workflow or a `*.sh` now needs a running Docker daemon. Docker
+  # is already a precondition for `task dev` and the E2E suite, and the
+  # upstream `files:`/`types:` filters keep the cost off every other commit —
+  # but it is new. ~0.9 s per hook over the whole tree with a warm image; the
+  # cold pull in the `static` lane is not measured here.
+  #
+  # One container-specific trap, for whoever re-wires this outside pre-commit:
+  # actionlint needs a `.git` MARKER in the mounted tree. Measured against
+  # 1.7.12 — a mount with no `.git` at all exits **3** with "no project was
+  # found", having checked nothing, which is a silent-green shape if the exit
+  # code is ever swallowed. A `.git` *file* whose gitdir points outside the
+  # container (i.e. a `task worktree:add` working copy, where that path does
+  # not exist in the mount) is enough and checks normally — verified on the
+  # #1010 form, so the `Passed` above is a real pass and not that trap.
+  #
+  # THE TWO HALVES DO NOT SHARE A THRESHOLD, and that asymmetry is not an
+  # oversight to be tidied away. actionlint's bundled shellcheck runs at
+  # shellcheck's own default floor and exits 1 on `info`, while the `*.sh`
+  # hook is floored at `warning` (A2 of the requirement artifact: nothing was
+  # measured about the `info`/`style` band, so lowering that floor is a
+  # separate, additive decision). Measured on one construct: `sort f > f` is
+  # `SC2094:info` — red through actionlint, silent through the `*.sh` hook at
+  # `--severity=warning`. Harmless today, since both halves sit at zero, but
+  # a future `info`-level rule will redden the workflow half and not the
+  # script half, and a reader who assumes symmetry will misdiagnose it.
+  #
+  # No `exclude:` for `src/backend/.venv/**` or `**/node_modules/**`, even
+  # though the requirement names them out of scope: `pre-commit --all-files`
+  # works over the git INDEX, and no indexed path lies under either, so an
+  # `exclude:` here would be dead configuration reading as a live rule. The
+  # flip side belongs here too — the exclusion is a consequence of those
+  # trees being unindexed, so a later glob-driven `task` variant would NOT
+  # inherit it and would have to state it. Measured for the same reason:
+  # upstream's `types: [shell]` selects exactly the 21 own `*.sh` and nothing
+  # else, because no extensionless indexed file carries a shell shebang.
+  #
+  # This does NOT retire `scan_continuations` in
+  # `scripts/check_workflow_gate_integrity.py`, and #1295's own claim that it
+  # "overlaps SC2215" is incomplete. Measured against the bundled shellcheck
+  # 0.11.0 on three `run:` blocks differing only in the line after the `#`:
+  # a flag gives `SC2215`, an argument to a command whose arity shellcheck
+  # knows gives `SC2225`, and a bare positional to a command it does not know
+  # gives NOTHING. That third case is why both checks stay; the measured
+  # division of labour is recorded in that function's docstring rather than
+  # only here, because the next reader meets the code first.
+  #
+  # `name:` is overridden for actionlint, whose upstream name says nothing
+  # about the shellcheck integration that does most of the work here — and
+  # deliberately NOT for shellcheck: upstream regenerates `ShellCheck
+  # v0.11.0` from the tag at every release, so that name tracks `rev:` by
+  # itself, whereas a hand-written copy would go stale the first time
+  # Renovate bumps the pin.
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint-docker
+        name: actionlint + bundled shellcheck over .github/workflows/ (#1295)
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+        args: ['--severity=warning']
+
   # ── Attestation registry credentials (#1218) ───────────────────────────
   # `actions/attest-build-provenance` with `push-to-registry: true` reads exactly
   # one credential file — `~/.docker/config.json`, in its bundled

@@ -29,8 +29,14 @@ for OVERLAY in ${E2E_COMPOSE_OVERLAYS:-}; do
     COMPOSE_ARGS+=(-f "$OVERLAY")
 done
 
-# Pass host UID/GID so the e2e-tests container writes files as the current user
-export UID GID="$(id -g)"
+# Pass host UID/GID so the e2e-tests container writes files as the current user.
+# Assign first, export second, so `id -g`'s exit status is not masked by `export`
+# (SC2155). Both variables must reach docker compose's environment: docker-compose.e2e.yml
+# interpolates "${UID:-1000}:${GID:-1000}" for the `user:` of eight services. UID is
+# readonly in bash (`declare -ir`), which does not prevent exporting it — so keep it in
+# the `export`, or those eight services silently fall back to 1000.
+GID="$(id -g)"
+export UID GID
 
 # Determine run mode
 PROFILE="light"

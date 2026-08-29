@@ -256,6 +256,29 @@ def scan_continuations(path: Path, lines: list[str]) -> list[Finding]:
     return — skipped silently for 22 consecutive nights while the scan appeared
     to run. Two inert gates, which is exactly NFR-018 §2.
 
+    Why adopting actionlint does not retire this shape. #1295 brings in
+    actionlint, which runs shellcheck over every ``run:`` block, and assumed
+    this scan merely duplicated ``SC2215``. Measured — actionlint ``latest``
+    with its bundled shellcheck 0.11.0, over three ``run:`` blocks of identical
+    structure differing only in the line after the ``#`` — the overlap is
+    partial, because shellcheck keys on what *follows* the comment:
+
+    * a flag (``-tags exposure``) → ``SC2215``, "this flag is used as a command
+      name". That is the ``security-nuclei-nightly.yml`` case above, and the
+      only one the "isn't this just SC2215?" question actually looks at.
+    * an argument to a command whose arity it knows (``dest.txt`` after
+      ``cp source.txt``) → ``SC2225``, "this cp has no destination".
+    * a bare positional to a command it does not know (``mycmd … arg``) →
+      **nothing reported**, and still nothing under ``--enable=all`` at
+      ``-S style``, the lowest severity.
+
+    This scan keys on the *structure* instead — a ``#`` reached through a
+    trailing ``\\``, whatever follows — and flags all three. The two are
+    therefore complementary, not redundant, and #1295 (R5) keeps both: retiring
+    this one would leave the third case with no static signal at all, caught
+    only once the truncated command has already run — and per the paragraph
+    above, that run's red step is the least informative part of the damage.
+
     Detection is on the *code* part of each line, so a documentation block whose
     own comment line happens to end in a backslash is not a finding: stripping
     the comment leaves no trailing continuation to follow.
