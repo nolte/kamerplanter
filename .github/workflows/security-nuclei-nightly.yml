@@ -183,15 +183,22 @@ jobs:
           for u in $TARGETS; do target_args+=(-u "$u"); done
           read -ra suppress_args <<< "$SUPPRESS_FLAGS"
 
+          # NOTE — keep every comment ABOVE this command, never between its
+          # continued lines. A `#` on a line reached through a trailing `\`
+          # terminates the logical line: bash ran `nuclei` truncated at the
+          # preceding argument and then tried to execute `-tags …` as its own
+          # command. That is not a hypothesis — it is what happened here from
+          # 2026-08-08 to 2026-08-29, 22 consecutive red nights (#1010).
+          #
+          # `token-spray` in the tag list was added 2026-08-07 (#993): it only
+          # ever ran in the per-push PR lane, which now runs post-merge. Without
+          # it here the nightly would not be a backstop for that tag should the
+          # push trigger ever stop firing. The reverse gap stands: the OpenAPI
+          # surface (§4.3) still runs only in the merge lane.
           nuclei \
             -t tests/security/nuclei-templates \
             -t ./nuclei-templates \
             "${target_args[@]}" \
-            # `token-spray` added 2026-08-07 (#993): it only ever ran in the
-            # per-push PR lane, which now runs post-merge. Without it here the
-            # nightly would not be a backstop for that tag should the push
-            # trigger ever stop firing. The reverse gap stands: the OpenAPI
-            # surface (§4.3) still runs only in the merge lane.
             -tags exposure,misconfig,default-login,token-spray,cve,vulnerability,kamerplanter \
             -severity low,medium,high,critical \
             -rate-limit 100 \

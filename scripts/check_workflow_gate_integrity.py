@@ -17,7 +17,7 @@ reported green on nothing: #814 (a pre-commit hook printing ``Passed`` for a
 check whose tool was absent), #828 (a required context that gated no test run),
 the ZAP scaffold that echoed ``OK`` while scanning nothing.
 
-Three shapes, all of which have occurred in this repository:
+Four shapes, all of which have occurred in this repository:
 
 1. **``|| true`` in a ``run:`` step.** The step's verdict is discarded. Often
    correct — ``grep -c`` exits 1 on no match and a counting expression under
@@ -41,6 +41,17 @@ Three shapes, all of which have occurred in this repository:
    the comment in ``frontend.yml`` that describes the trap is the reason this
    third shape is checked at all.
 
+4. **A comment on a line reached through a trailing ``\\``.** The ``#`` ends
+   the logical line, so the command runs truncated at the previous argument and
+   the next flag is executed as its own program. The step goes *red*, which
+   looks self-reporting — but the truncated command is the one that writes the
+   artefacts later steps gate on. ``security-nuclei-nightly.yml`` lost
+   ``-tags``, ``-severity`` and both output flags this way; ``results.jsonl``
+   and ``results.sarif`` were never written, so the SARIF upload
+   (``if: hashFiles(...) != ''``) and the issue-opening step (an ``existsSync``
+   early return) skipped silently for 22 consecutive nights, 2026-08-08 to
+   2026-08-29 (#1010). Two inert gates behind one loud one.
+
 **The escape hatch.** A site may stand by carrying a justification on its own
 line or in the comment block directly above it::
 
@@ -51,7 +62,7 @@ The reason is mandatory and must be more than a word, so the hatch cannot be
 used as a silencer. For shape 3 the marker goes in the comment block above the
 job key, which is where this repository already explains its jobs.
 
-**Best-effort, and deliberately so.** Shapes 1 and 2 are found textually, so a
+**Best-effort, and deliberately so.** Shapes 1, 2 and 4 are found textually, so a
 swallowed exit code spelled ``|| :`` or ``; true`` slips through; shape 3 reads
 the parsed YAML but cannot see through a composite action or a reusable
 workflow. A checker that tried to be exhaustive here would need a shell parser
@@ -138,6 +149,7 @@ KIND_LABELS = {
     "swallowed_exit": "the step's exit code is discarded",
     "continue_on_error": "this cannot turn its check red",
     "unguarded_needs_output": "a failed dependency makes this job report success",
+    "commented_continuation": "a comment ends this command early, so it runs truncated",
 }
 
 
@@ -226,6 +238,47 @@ def scan_text(path: Path, lines: list[str]) -> list[Finding]:
     return findings
 
 
+def scan_continuations(path: Path, lines: list[str]) -> list[Finding]:
+    """Find a command truncated by a comment on one of its continued lines.
+
+    A ``#`` reached through a trailing ``\\`` ends the logical line: everything
+    after it is a comment, and the *following* lines become separate commands.
+    The shell runs the command truncated at the previous argument and then tries
+    to execute the next flag as a program.
+
+    Why this belongs in a gate-integrity check rather than in a shell linter:
+    the visible symptom is a red step, which looks self-reporting — but the
+    truncated command is the one that produces the artefacts the *later* steps
+    gate on. ``security-nuclei-nightly.yml`` lost ``-tags``, ``-severity`` and
+    both ``-o``/``-sarif-export`` this way, so ``results.jsonl`` and
+    ``results.sarif`` were never written, and the two steps downstream —
+    ``if: hashFiles('results.sarif') != ''`` and an ``existsSync`` early
+    return — skipped silently for 22 consecutive nights while the scan appeared
+    to run. Two inert gates, which is exactly NFR-018 §2.
+
+    Detection is on the *code* part of each line, so a documentation block whose
+    own comment line happens to end in a backslash is not a finding: stripping
+    the comment leaves no trailing continuation to follow.
+    """
+    findings: list[Finding] = []
+    for index, line in enumerate(lines):
+        if not _strip_comment(line).rstrip().endswith("\\"):
+            continue
+        following = lines[index + 1] if index + 1 < len(lines) else ""
+        if not following.lstrip().startswith("#"):
+            continue
+        findings.append(
+            Finding(
+                path=path,
+                line=index + 2,
+                kind="commented_continuation",
+                detail=following.strip(),
+                justification=justification_for(lines, index + 2),
+            )
+        )
+    return findings
+
+
 def scan_needs(path: Path, lines: list[str], document: Any) -> list[Finding]:
     """Find jobs that read a dependency's outputs without reading its result.
 
@@ -281,7 +334,11 @@ def scan_file(path: Path) -> list[Finding]:
     except yaml.YAMLError as exc:
         raise WorkflowIntegrityCheckError(f"cannot parse {path}: {exc}") from exc
 
-    findings = [*scan_text(path, lines), *scan_needs(path, lines, document)]
+    findings = [
+        *scan_text(path, lines),
+        *scan_continuations(path, lines),
+        *scan_needs(path, lines, document),
+    ]
     return sorted(findings, key=lambda finding: (finding.line, finding.kind))
 
 
@@ -289,7 +346,9 @@ def collect(scan_root: Path) -> list[Finding]:
     """Every finding below *scan_root*, justified or not."""
     if not scan_root.exists():
         raise WorkflowIntegrityCheckError(f"scan root does not exist: {scan_root}")
-    paths = sorted(path for path in scan_root.rglob("*") if path.suffix in {".yml", ".yaml"})
+    paths = sorted(
+        path for path in scan_root.rglob("*") if path.suffix in {".yml", ".yaml"}
+    )
     if not paths:
         raise WorkflowIntegrityCheckError(f"no workflow files under {scan_root}")
     findings: list[Finding] = []
@@ -334,7 +393,9 @@ def report(findings: list[Finding], *, list_all: bool, as_json: bool) -> int:
         return EXIT_DEFECTS if unjustified else EXIT_OK
 
     if unjustified:
-        print(f"check_workflow_gate_integrity: {len(unjustified)} site(s) where a check cannot fail\n")
+        print(
+            f"check_workflow_gate_integrity: {len(unjustified)} site(s) where a check cannot fail\n"
+        )
         for finding in unjustified:
             print(f"  {finding.relative()}:{finding.line}: {KIND_LABELS[finding.kind]}")
             print(f"      {finding.detail}")
@@ -356,7 +417,9 @@ def report(findings: list[Finding], *, list_all: bool, as_json: bool) -> int:
     )
     if list_all:
         for finding in justified:
-            print(f"  {finding.relative()}:{finding.line} [{finding.kind}]: {finding.justification}")
+            print(
+                f"  {finding.relative()}:{finding.line} [{finding.kind}]: {finding.justification}"
+            )
     return EXIT_OK
 
 

@@ -132,6 +132,127 @@ class TestItCanFail:
         assert checker.main(["--scan-root", str(root)]) == checker.EXIT_OK
 
 
+class TestCommentedContinuation:
+    """The fourth shape: a comment that ends a continued command early.
+
+    The real one, from `security-nuclei-nightly.yml`: a `#` on a line reached
+    through a trailing backslash ended the `nuclei` invocation at its previous
+    argument, so `-tags`, `-severity` and both output flags never reached it and
+    the next flag was executed as its own command. The step went red — but the
+    two steps that gate on the artefacts it should have written
+    (`if: hashFiles('results.sarif') != ''` and an `existsSync` early return)
+    skipped silently for 22 consecutive nights. Two inert gates, which is why
+    this shape belongs to NFR-018 §2 and not merely to shell hygiene.
+    """
+
+    def test_a_comment_between_continued_lines_is_caught(self, build_workflows: Callable[..., Path]) -> None:
+        """The exact shape that cost 22 nightly runs."""
+        root = build_workflows(
+            gate="""
+            name: Gate
+            on: [push]
+            jobs:
+              check:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: |
+                      scanner \\
+                        -t templates \\
+                        # why the next flag is here
+                        -tags exposure \\
+                        -o results.json
+            """
+        )
+        assert _kinds(root) == ["commented_continuation"]
+
+    def test_the_finding_names_the_comment_that_truncates(self, build_workflows: Callable[..., Path]) -> None:
+        """A line number alone sends the reader hunting for which comment."""
+        root = build_workflows(
+            gate="""
+            name: Gate
+            on: [push]
+            jobs:
+              check:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: |
+                      scanner \\
+                        # the offending explanation
+                        -tags exposure
+            """
+        )
+        (finding,) = checker.collect(root)
+        assert finding.detail == "# the offending explanation"
+
+    def test_the_comment_moved_above_the_command_clears_it(self, build_workflows: Callable[..., Path]) -> None:
+        """The fix the message implies has to actually make the check green.
+
+        Same comment, same flags — only the placement differs, which is the
+        whole of the defect and therefore the whole of the fix.
+        """
+        root = build_workflows(
+            gate="""
+            name: Gate
+            on: [push]
+            jobs:
+              check:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: |
+                      # why the next flag is here
+                      scanner \\
+                        -t templates \\
+                        -tags exposure \\
+                        -o results.json
+            """
+        )
+        assert _kinds(root) == []
+
+    def test_a_documentation_block_ending_in_a_backslash_is_not_a_finding(
+        self, build_workflows: Callable[..., Path]
+    ) -> None:
+        """Precision: a comment cannot continue a line, so it cannot truncate one.
+
+        `scripts/frontend_hook.sh` carries exactly this — a shell example inside
+        a comment block, wrapped across lines with a backslash. Flagging it would
+        put the checker's first false positive on prose.
+        """
+        root = build_workflows(
+            gate="""
+            name: Gate
+            on: [push]
+            jobs:
+              check:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: |
+                      # Verify the live list rather than the declaration:
+                      #     gh api repos/o/r/branches/develop/protection \\
+                      #       --jq '.required_status_checks.contexts'
+                      scanner -t templates
+            """
+        )
+        assert _kinds(root) == []
+
+    def test_a_reason_exempts_it_like_every_other_shape(self, build_workflows: Callable[..., Path]) -> None:
+        """The escape hatch is the shared one, not a second mechanism."""
+        root = build_workflows(
+            gate="""
+            name: Gate
+            on: [push]
+            jobs:
+              check:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: |
+                      scanner \\
+                        # gate-integrity-ok: the truncation here is deliberate
+                        -tags exposure
+            """
+        )
+        assert _kinds(root) == []
+
+
 class TestPrecisionGuards:
     """What the check refuses to report, so it does not get switched off."""
 
