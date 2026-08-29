@@ -457,7 +457,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                       </Typography>
                       <Typography
                         variant="caption"
-                        color="text.disabled"
+                        color="text.secondary"
                         sx={{ fontSize: '0.55rem', lineHeight: 1 }}
                       >
                         {(phaseWeek - 1) * 7}d
@@ -993,7 +993,7 @@ function FertilizerRow({
             {row.name}
           </Typography>
           {row.brand && (
-            <Typography variant="caption" noWrap sx={{ fontSize: '0.6rem', display: 'block', lineHeight: 1.2 }} color="text.disabled">
+            <Typography variant="caption" noWrap sx={{ fontSize: '0.6rem', display: 'block', lineHeight: 1.2 }} color="text.secondary">
               {row.brand}
             </Typography>
           )}

@@ -129,7 +129,7 @@ type CompletionFormData = z.infer<typeof completionSchema>;
 function MetaItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Box sx={{ minWidth: 0 }}>
-      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 0.25 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
         {label}
       </Typography>
       {children}
@@ -996,7 +996,7 @@ export default function TaskDetailPage() {
                       </ListItemIcon>
                       <ListItemText
                         primary={item.text}
-                        slotProps={{ primary: { variant: 'body2', sx: item.done ? { textDecoration: 'line-through', color: 'text.disabled' } : {} } }}
+                        slotProps={{ primary: { variant: 'body2', sx: item.done ? { textDecoration: 'line-through', color: 'text.secondary' } : {} } }}
                       />
                     </ListItem>
                   ))}

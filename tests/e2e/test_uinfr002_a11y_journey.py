@@ -108,9 +108,13 @@ def test_uinfr002_a02_a_seeded_violation_is_reported(browser: WebDriver, base_ur
     """
     browser.get(base_url)
     before = run_axe(browser)
-    assert not any(v.get("id") == "color-contrast" for v in before), (
-        "the landing page already violates color-contrast, so this control cannot "
-        "distinguish the seeded failure from a pre-existing one — seed a different rule"
+    pre_existing = [v for v in before if v.get("id") == "color-contrast"]
+    assert not pre_existing, (
+        "the landing page itself violates color-contrast, so this control can no longer "
+        "tell the seeded failure apart from a pre-existing one. Read this as a product "
+        "regression first — the page is what changed, not the control. Fix the page; "
+        "only if the finding is genuinely unfixable does seeding a different rule become "
+        f"the answer. Found:\n{format_violations(pre_existing)}"
     )
 
     seed_contrast_violation(browser)

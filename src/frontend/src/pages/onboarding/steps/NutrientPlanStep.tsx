@@ -76,7 +76,7 @@ export default function NutrientPlanStep({
           <Typography variant="body1" color="text.secondary">
             {t('pages.onboarding.nutrientPlans.noPlans')}
           </Typography>
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" color="text.secondary">
             {t('pages.onboarding.nutrientPlans.noPlansDetail')}
           </Typography>
         </Box>

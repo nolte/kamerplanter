@@ -229,7 +229,7 @@ export default function ImageCapturePanel({
                 <Typography variant="body2" color="text.secondary">
                   {t('pages.plantIdentification.dropzoneHint')}
                 </Typography>
-                <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
                   {t('pages.plantIdentification.dropzoneHintFormats')}
                 </Typography>
               </>

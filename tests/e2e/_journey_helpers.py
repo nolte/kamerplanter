@@ -306,20 +306,36 @@ def create_care_task(
     # unrelated tasks exist in the tenant". The instance id is unique per
     # provisioned plant, so the filtered queue holds only this test's cards.
     deadline = time.time() + 15.0
+    # `filter_by_plant` returns whether it actually selected an option, and that
+    # return value decides what a failure here means — so it is recorded rather
+    # than discarded. Without it the message below claimed the queue had been
+    # "filtered to plant X" whether or not the filter ever took, which sends the
+    # reader after a create that in fact succeeded: an unfiltered scan reads the
+    # head of a queue four xdist workers share, and misses a task that exists.
+    # The two cases need different fixes, so the message has to tell them apart.
+    filter_took = False
     while time.time() < deadline:
         task_queue.open()
         # Falling back to the unfiltered scan rather than failing: the plant may
         # not be in the filter's autocomplete yet on the first pass, and an
         # unfiltered look is what this did before — never worse than the old
         # behaviour, only better once the filter takes.
-        task_queue.filter_by_plant(instance_id)
+        filter_took |= task_queue.filter_by_plant(instance_id)
         key = task_queue.find_task_key_by_name(task_name)
         if key is not None:
             return key
         time.sleep(1.0)
+    diagnosis = (
+        "the queue was scoped to that plant on at least one pass, so the card is "
+        "genuinely absent — look at the create, not the lookup"
+        if filter_took
+        else "the plant filter never took (its autocomplete offered no option for "
+        "this instance id), so every scan read the unfiltered, shared head of the "
+        "queue — the lookup is what failed here, not necessarily the create"
+    )
     raise AssertionError(
         f"Self-provisioning failed: care task '{task_name}' did not appear in the "
-        f"queue after creation, even filtered to plant '{instance_id}'"
+        f"queue within 15s after creation, for plant '{instance_id}'. {diagnosis}."
     )
 
 

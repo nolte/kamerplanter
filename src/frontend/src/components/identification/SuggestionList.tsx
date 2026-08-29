@@ -236,7 +236,7 @@ export default function SuggestionList({
                               arrow
                             >
                               <InfoOutlinedIcon
-                                sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }}
+                                sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }}
                                 aria-label={t('pages.plantIdentification.confidenceHelp')}
                                 tabIndex={0}
                               />

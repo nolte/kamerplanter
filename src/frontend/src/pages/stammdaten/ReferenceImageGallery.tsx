@@ -116,7 +116,7 @@ function ReferenceImageGallery({ speciesKey, scientificName }: ReferenceImageGal
             <Typography variant="body2">
               {t('pages.species.referenceImages.empty')}
             </Typography>
-            <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.25 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
               {t('pages.species.referenceImages.emptyHint')}
             </Typography>
           </Box>

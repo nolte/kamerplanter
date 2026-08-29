@@ -1257,7 +1257,9 @@ export default function PlantInstanceDetailPage() {
                           estimatedHarvest.daysRemaining < 0
                             ? 'error.main'
                             : estimatedHarvest.daysRemaining <= 7
-                              ? 'warning.main'
+                              // `.dark`: #ed6c02 is 3.11:1 on white, and this is
+                              // the date itself, not the icon above it.
+                              ? 'warning.dark'
                               : undefined
                         } sx={{ fontWeight: 500 }}>
                         {estimatedHarvest.date.toLocaleDateString(i18n.language)}
