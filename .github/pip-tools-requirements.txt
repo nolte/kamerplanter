@@ -1,0 +1,59 @@
+# The complete toolchain that compiles the backend dependency locks
+# (src/backend/requirements.txt and requirements-dev.txt).
+#
+# Installed by:
+#   - .github/workflows/backend.yml, job "Lock staleness" (NFR-009 §2.3)
+#   - `task deps:toolchain`, which `task deps:compile` and `task deps:check`
+#     tell you to run first
+# Both install THIS file, so CI and a local recompile cannot disagree about what
+# produced a lock.
+#
+# Why the whole transitive closure and not just pip-tools
+# -------------------------------------------------------
+# pip-compile writes the invocation that produced a lock into the lock's header,
+# and it reconstructs that line from CLICK's parameter metadata rather than from
+# argv. A click minor bump therefore rewrites the header of a lock whose package
+# versions and hashes are completely unchanged, and the staleness gate — which
+# diffs the recompiled lock against the committed one — reports drift that no
+# commit caused. That is what happened on 2026-08-27 (#1296): pip and pip-tools
+# were pinned in the workflow, their transitive dependencies were not, click went
+# 8.4.2 -> 8.5.0, and every backend pull request plus `develop` itself went red
+# with the header comment as the only difference. Measured, not inferred: with
+# pip-tools 7.6.1 held fixed, click 8.4.2 emits
+#   `pip-compile --generate-hashes --no-strip-extras --output-file=… pyproject.toml`
+# and click 8.5.0 emits the same line with `--no-index` inserted.
+#
+# `build`, `packaging`, `pyproject-hooks`, `setuptools` and `wheel` reach the
+# output the same way — they parse pyproject.toml, normalise versions and build
+# metadata — so they are pinned for the same reason, before rather than after
+# one of them moves the locks.
+#
+# Deliberately WITHOUT --generate-hashes: Renovate's `pip_requirements` manager
+# rewrites the version but cannot recompute a `--hash=` line, so a hashed file
+# here would make every bot bump an uninstallable one. The pins are exact (`==`),
+# and the job installs them with `--no-deps` followed by `pip check`, so an
+# unpinned transitive that a future pip-tools introduces fails loudly and
+# attributably instead of drifting into the output.
+#
+# Renovate keeps these current through the built-in `pip_requirements` manager
+# (this path is outside the `src/backend/**` disable rule in renovate.json5) and
+# groups them into one "python lock toolchain" pull request. That pull request
+# may legitimately move the locks — header or content — so recompile them in the
+# same pull request when `Lock staleness` says so; the gate running there at all
+# is why `.github/pip-tools-requirements.txt` is in backend.yml's `paths:`.
+#
+# click carries an extra `allowedVersions: '<8.5'` cap in renovate.json5, scoped
+# to THIS file: 8.5.0 is the release that broke the header, pip-tools 7.6.1 is
+# the newest release and is affected, so there is nothing to bump to yet. The cap
+# does not touch the click in src/backend/requirements.txt, which celery needs.
+
+pip==26.1.2
+pip-tools==7.6.1
+
+# Transitive dependencies of pip-tools, pinned for the reasons above.
+build==1.6.0
+click==8.4.2
+packaging==26.3
+pyproject-hooks==1.2.0
+setuptools==84.0.0
+wheel==0.48.0
