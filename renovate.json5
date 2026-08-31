@@ -240,10 +240,14 @@
     // before doing any work, and the `Lock staleness` gate in backend.yml fails
     // on every run.
     //
-    // There is nothing to bump *to*: pip-tools 7.6.0 is the latest release and
-    // is affected, as is 7.5.3. The workflow therefore pins pip explicitly
-    // rather than merely upgrading it (see backend.yml "Install pip-tools"), and
-    // this rule stops Renovate from re-raising the bump that breaks the pin.
+    // There is nothing to bump *to*: pip-tools 7.6.1 is the latest release and
+    // is affected, as are 7.6.0 and 7.5.3. pip is therefore pinned explicitly
+    // rather than merely upgraded — in `.github/pip-tools-requirements.txt`,
+    // installed by `task deps:toolchain`, which backend.yml's `Lock staleness`
+    // job reaches through `task deps:check`. (It used to live in a backend.yml
+    // step called "Install pip-tools"; that step no longer exists, and a revisit
+    // trigger that names a step no `grep` can find is a trigger nobody pulls.)
+    // This rule stops Renovate from re-raising the bump that breaks the pin.
     //
     // Revisit when pip-tools ships a release that drops the `stdlib_pkgs`
     // import, then drop this rule and bump both together — pinning pip forever
@@ -256,6 +260,72 @@
         'pip',
       ],
       allowedVersions: '<26.2',
+    },
+    // ── The toolchain that compiles the backend locks (#1296) ───────────────
+    // `.github/pip-tools-requirements.txt` pins pip, pip-tools AND their
+    // transitive dependencies, because pip-compile's output — down to the header
+    // comment it writes into each lock — is a function of that whole set, not of
+    // pip-tools alone. The file deliberately sits OUTSIDE `src/backend/`: the
+    // rule above disables `pip_requirements` there so the compiled locks are not
+    // scanned in isolation, and the toolchain is not a lock, it is the thing that
+    // produces one. Renovate picks it up through the built-in `pip_requirements`
+    // manager, whose default file pattern already matches this name.
+    //
+    // Grouped into ONE pull request on purpose. These versions are only
+    // meaningful together — a click bump beside its pip-tools, not ahead of it —
+    // and a bump here may legitimately move both locks' header, which is a single
+    // recompile to review, not five.
+    //
+    // Two entries of that file also appear in the compiled backend locks and are
+    // held equal to them by hand: `click` and `packaging`. `task deps:toolchain`
+    // installs into whatever environment is active, so a toolchain `packaging`
+    // ahead of `packaging==` in src/backend/requirements.txt leaves a backend
+    // virtualenv running an unlocked version of it. When this group's pull
+    // request moves either of the two, check them against the locks — the
+    // toolchain versions do not have to be the newest, only reproducible.
+    {
+      groupName: 'python lock toolchain',
+      matchManagers: [
+        'pip_requirements',
+      ],
+      matchFileNames: [
+        '.github/pip-tools-requirements.txt',
+      ],
+    },
+    // ── click held below 8.5 for the lock toolchain only (#1296) ─────────────
+    // click 8.5.0 stopped reporting an untouched boolean flag's `Option.default`
+    // as `False` (it is a sentinel now). pip-tools 7.6.1 rebuilds the
+    // `pip-compile …` line in each lock's header by skipping options whose value
+    // still equals their default, so that comparison stopped matching and
+    // `--no-index` appeared in the header of both backend locks — a flag that was
+    // never passed and that would make the recorded command not reproduce the
+    // lock if anyone ran it. Every backend pull request and `develop` itself went
+    // red on that one line.
+    //
+    // There is nothing to bump *to*: pip-tools 7.6.1 is the latest release, it
+    // declares `click>=8` with no upper bound, and it is affected. So the cap
+    // sits here rather than in the workflow, where it would age unwatched.
+    //
+    // Scoped to this ONE file on purpose. click is also a runtime dependency of
+    // the backend (via celery) and is pinned in src/backend/requirements.txt; a
+    // repository-wide cap would freeze that copy too and stop its security
+    // updates, which is a far larger cost than a stale build tool.
+    //
+    // Revisit when pip-tools ships a release that reads the parameter source
+    // instead of comparing against `Option.default`, then drop this rule and let
+    // click and pip-tools move together — pinning click forever is the other half
+    // of the reproducibility problem, not a resting state.
+    {
+      matchManagers: [
+        'pip_requirements',
+      ],
+      matchFileNames: [
+        '.github/pip-tools-requirements.txt',
+      ],
+      matchPackageNames: [
+        'click',
+      ],
+      allowedVersions: '<8.5',
     },
     {
       groupName: 'frontend eslint',

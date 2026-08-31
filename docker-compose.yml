@@ -36,7 +36,7 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:9-alpine@sha256:de31910896150d5e754a07d57d227cfdde4e258ddd0d1aa4607f2d2f95843715
+    image: valkey/valkey:9-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
     ports:
       - "6379:6379"
     volumes:
@@ -68,7 +68,7 @@ services:
 
   # ── Ollama (optional — local LLM inference for AI assistant) ──
   ollama:
-    image: ollama/ollama:latest@sha256:075246f72d4109385b4a01c3ac8e9cbd26a0bcb21cd7aa30edbccd24e1b3180c
+    image: ollama/ollama:latest@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
     profiles: ["ollama"]
     environment:
       OLLAMA_MODELS: /models
