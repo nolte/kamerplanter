@@ -20,8 +20,33 @@ nuclei_templates_version: v10.4.8
 #
 # Deliberately kept ALONGSIDE the tag rather than replacing it: Renovate's
 # custom manager tracks the tag, so the human-readable version stays updatable.
-# When Renovate bumps the tag, this assertion fails until the commit is updated
-# in the same pull request — which is the review the pin exists to force.
+#
+# WHERE THE ASSERTION ACTUALLY RUNS (#1302). Until 2026-09-01 this comment
+# claimed that "when Renovate bumps the tag, this assertion fails until the
+# commit is updated in the same pull request". It did not. The assertion lived
+# only in `security-nuclei-nightly.yml` and `security-nuclei-postmerge.yml`,
+# both of which run after the merge, and the one nuclei lane with a
+# `pull_request` trigger did not list this file in its path filter. #1280
+# changed exactly this file, ran no nuclei check at all, merged green, and the
+# nightly scan then failed to start for two nights (#1312).
+#
+# Three lanes assert it now, and only the first of them can act before a merge:
+#
+#   * `security-nuclei-templates.yml` — pull request, triggered by a change to
+#     THIS FILE, resolves the tag with `git ls-remote` in seconds. This is the
+#     check that goes red on a bumped tag with a stale commit.
+#   * `security-nuclei-postmerge.yml` — after the merge, from the full clone.
+#   * `security-nuclei-nightly.yml` — nightly, likewise from the full clone.
+#
+# All three are advisory: `.github/settings.yml` requires only
+# `static / Static CI Tests` and `lint-test-build (22)`. The pull-request lane
+# therefore reports the mismatch rather than blocking on it — but it reports it
+# on the pull request that caused it, which is the review the pin exists to
+# force and which nothing performed before.
+#
+# `scripts/check_workflow_gate_integrity.py` keeps the wiring honest: a workflow
+# that reads this file while its `paths:` filter excludes it fails the required
+# `static` lane (#1313).
 nuclei_templates_commit: e5f19e6144135e107962bb943231413796fd7fe7
 
 # The nuclei BINARY, pinned for the validator and every scan lane alike (#1177).

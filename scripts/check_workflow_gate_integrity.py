@@ -17,7 +17,7 @@ reported green on nothing: #814 (a pre-commit hook printing ``Passed`` for a
 check whose tool was absent), #828 (a required context that gated no test run),
 the ZAP scaffold that echoed ``OK`` while scanning nothing.
 
-Four shapes, all of which have occurred in this repository:
+Five shapes, all of which have occurred in this repository:
 
 1. **``|| true`` in a ``run:`` step.** The step's verdict is discarded. Often
    correct — ``grep -c`` exits 1 on no match and a counting expression under
@@ -52,6 +52,42 @@ Four shapes, all of which have occurred in this repository:
    early return) skipped silently for 22 consecutive nights, 2026-08-08 to
    2026-08-29 (#1010). Two inert gates behind one loud one.
 
+5. **A path the workflow reads that its own ``paths:`` filter excludes.** The
+   workflow declares *when it runs* — ``on.push.paths`` / ``on.pull_request.paths``
+   — in one place, and *what it reads* somewhere else entirely: a ``run:`` step, a
+   ``yq`` lookup, a ``with: file:`` input. The two lists are maintained by hand,
+   by different people, at different times, and nothing asserts they agree. When
+   they drift the result is always the same shape — **the one change most able to
+   break a check is the one change that never runs it** — and the breakage
+   surfaces later, on ``develop`` or in a nightly, where nobody can attribute it.
+
+   Four incidents on 2026-08-31 alone (#1313). #1296: ``backend.yml`` pinned its
+   own lock-compiling toolchain but nothing watched the pin file, so
+   ``Lock staleness`` went red on every backend pull request *and on develop* for
+   four days. #1302: ``security-nuclei-templates.yml`` is the only nuclei lane
+   with a ``pull_request`` trigger and its filter excluded
+   ``.github/renovate-pins.yaml``, so #1280 changed only the nuclei pin, ran no
+   nuclei check at all, merged green — and the nightly then failed to start for
+   two nights. Those two are literally the same defect in two lanes, found six
+   hours apart, which is what makes it mechanical rather than incidental;
+   #1010/#1294 and #1295 are the same family from other directions.
+
+   And it was still present in a third, unreported place when this shape was
+   written: ``docker-publish.yml`` runs
+   ``scripts/ci/determine_chart_version.sh`` — the script that computes the
+   published chart version — and builds ``src/inference-service`` and
+   ``src/knowledge-service`` into images that production pulls by ``:latest``,
+   while none of those four paths appeared in its ``push`` filter.
+
+**Why the fifth shape lives here and not in a script of its own.** This file
+already owns workflow discovery, the justification hatch, the ``--list``/``--json``
+contract, its selftests and the pre-commit wiring in the required ``static``
+lane. A second thin checker for one rule would duplicate all of that and then
+drift from it — which is, recursively, the defect #1313 is about. #1295 is the
+worked example: three workflows reasoned in their comments about a ``shellcheck``
+that ran nowhere, for months. Sibling guards drifting apart is the class, not the
+cure.
+
 **The escape hatch.** A site may stand by carrying a justification on its own
 line or in the comment block directly above it::
 
@@ -60,14 +96,20 @@ line or in the comment block directly above it::
 
 The reason is mandatory and must be more than a word, so the hatch cannot be
 used as a silencer. For shape 3 the marker goes in the comment block above the
-job key, which is where this repository already explains its jobs.
+job key, which is where this repository already explains its jobs. Shape 5 adds
+one placement — a marker anywhere in the same workflow whose reason *names the
+path* — because a reference can sit inside a JavaScript or shell string where a
+``#`` is a syntax error rather than a comment, and because the honest place to
+write "this reference deliberately does not widen the trigger" is next to the
+``paths:`` filter it declines to widen. Naming the path is what keeps that
+placement from becoming a file-wide silencer.
 
-**Best-effort, and deliberately so.** Shapes 1, 2 and 4 are found textually, so a
-swallowed exit code spelled ``|| :`` or ``; true`` slips through; shape 3 reads
+**Best-effort, and deliberately so.** Shapes 1, 2, 4 and 5 are found textually, so
+a swallowed exit code spelled ``|| :`` or ``; true`` slips through; shape 3 reads
 the parsed YAML but cannot see through a composite action or a reusable
 workflow. A checker that tried to be exhaustive here would need a shell parser
 and would still miss things, while its false positives got it switched off.
-What it does guarantee is that the three shapes that have actually cost this
+What it does guarantee is that the shapes that have actually cost this
 repository something cannot be *added* without somebody writing down why.
 
 Standard library plus PyYAML — the same isolated pre-commit environment the
@@ -114,6 +156,22 @@ GATING_OVERRIDES = ("always()", "cancelled()", "failure()")
 _NEEDS_OUTPUT = re.compile(r"needs\.([A-Za-z0-9_-]+)\.outputs\b")
 _NEEDS_RESULT = re.compile(r"needs\.([A-Za-z0-9_*-]+)\.result\b")
 
+#: The ``on:`` keys whose ``paths:`` filter decides whether a *diff* runs the
+#: workflow. ``schedule`` and ``workflow_dispatch`` are deliberately absent: they
+#: fire regardless of the diff, so their existence does not mean the change that
+#: breaks a check ever meets it.
+DIFF_TRIGGERS = ("push", "pull_request", "pull_request_target")
+
+#: A candidate repo-relative path: at least two ``/``-separated segments. One
+#: segment is not enough to tell ``Taskfile.yaml`` from a shell word, and the
+#: existence probe below cannot rescue that — ``docker``, ``helm`` and ``spec``
+#: are all directories *and* plausible words in prose.
+_PATH_CANDIDATE = re.compile(r"(?<![A-Za-z0-9_./@-])((?:[A-Za-z0-9_.+-]+/)+[A-Za-z0-9_.+-]+)")
+
+#: Probe segment used to ask "does this filter entry match anything *below* this
+#: directory?". Any name that cannot collide with a real one works.
+_DIRECTORY_PROBE = "__gate_integrity_probe__"
+
 EXIT_OK = 0
 EXIT_DEFECTS = 1
 EXIT_USAGE = 2
@@ -150,6 +208,7 @@ KIND_LABELS = {
     "continue_on_error": "this cannot turn its check red",
     "unguarded_needs_output": "a failed dependency makes this job report success",
     "commented_continuation": "a comment ends this command early, so it runs truncated",
+    "uncovered_path_reference": "this workflow reads a file its own paths: filter excludes",
 }
 
 
@@ -302,6 +361,286 @@ def scan_continuations(path: Path, lines: list[str]) -> list[Finding]:
     return findings
 
 
+def filter_pattern_groups(document: Any) -> list[list[str]]:
+    """One ``paths:`` list per diff-driven trigger, in file order.
+
+    Grouped per trigger rather than flattened, because ``!`` negation is
+    *ordered within a list*: a change is selected by the last entry that matches
+    it. Flattening would let a positive entry on ``push`` cancel an exclusion on
+    ``pull_request`` and vice versa.
+
+    A workflow is then considered to cover a path when **any** of its triggers
+    does. That union across triggers is deliberate: grading each trigger
+    separately would report ``security-nuclei-templates.yml``'s intentionally
+    narrower ``push`` filter — the template directory only, while the
+    ``pull_request`` filter also watches the validator hook and the pins file —
+    as findings naming no defect. Whether the *right lane* fires is the sibling
+    shape (#1302's deeper half: a pin assertion living only in a nightly that
+    blocks nothing) and needs a judgement this one does not make.
+    """
+    if not isinstance(document, dict):
+        return []
+    # PyYAML resolves the bare key ``on:`` to the boolean True (YAML 1.1), which
+    # is why every workflow parser in this repository has to look for both.
+    trigger_block = document.get(True, document.get("on"))
+    if not isinstance(trigger_block, dict):
+        return []
+    groups: list[list[str]] = []
+    for trigger in DIFF_TRIGGERS:
+        spec = trigger_block.get(trigger)
+        if not isinstance(spec, dict):
+            continue
+        entries = spec.get("paths")
+        if not isinstance(entries, list):
+            continue
+        group = [entry for entry in entries if isinstance(entry, str)]
+        if group:
+            groups.append(group)
+    return groups
+
+
+def glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """Compile a GitHub path-filter pattern into an anchored regex.
+
+    GitHub's filter globs, as documented for ``on.<event>.paths``: ``*`` matches
+    any run of characters except ``/``, ``**`` matches any run including ``/``,
+    ``?`` matches exactly one character except ``/``, and ``[…]`` is a character
+    range. Everything else is literal — notably ``.``, which a naive
+    ``fnmatch``-style translation would turn into "any character" and quietly
+    widen every entry.
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*":
+            if pattern[index + 1 : index + 2] == "*":
+                out.append(".*")
+                index += 2
+                continue
+            out.append("[^/]*")
+            index += 1
+            continue
+        if char == "?":
+            out.append("[^/]")
+            index += 1
+            continue
+        if char == "[":
+            close = pattern.find("]", index + 1)
+            if close != -1:
+                body = pattern[index + 1 : close]
+                if body.startswith("!"):
+                    body = "^" + body[1:]
+                out.append(f"[{body}]")
+                index = close + 1
+                continue
+        out.append(re.escape(char))
+        index += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
+_ON_KEY = re.compile(r"^(?:on|true|\"on\"|'on'):")
+
+
+def trigger_block_lines(lines: list[str]) -> set[int]:
+    """The 1-based line numbers of the top-level ``on:`` block.
+
+    Excluded from reference extraction, because a ``paths:`` entry is the filter
+    — not something the workflow reads. Two reasons it has to be skipped rather
+    than left to cover itself: a negated entry (``!scripts/ci/**``) would
+    otherwise be read as a *reference* to the very directory it removes from the
+    trigger, and a ``branches:``/``tags:`` value can collide with a real path.
+
+    A ``dorny/paths-filter`` block inside ``jobs:`` is deliberately NOT skipped.
+    Those entries are the workflow reasoning about paths, and they are how the
+    ``docker-publish.yml`` side-service drift surfaced: the fan-out filtered on
+    ``src/inference-service/**`` while the trigger did not list it, so a push
+    touching only that tree published nothing.
+    """
+    start = None
+    for index, line in enumerate(lines):
+        if start is None:
+            if _ON_KEY.match(line):
+                start = index
+            continue
+        if line and not line[0].isspace() and not line.startswith("#"):
+            return set(range(start + 1, index + 1))
+    if start is None:
+        return set()
+    return set(range(start + 1, len(lines) + 1))
+
+
+def path_references(lines: list[str], tree_root: Path) -> dict[str, int]:
+    """Every repo-relative path the workflow *references*, and where first.
+
+    A reference is a **literal** path in the executable part of a line outside
+    the ``on:`` block. The comment is stripped first, and that distinction is
+    load-bearing: leaving comments in raised eleven candidates against four real
+    ones, because this repository argues about paths in prose at length. A path
+    named in a comment is a mention, not a read.
+
+    Two filters make the candidate set precise enough for a required lane:
+
+    * **at least two segments.** A single name cannot be told apart from a shell
+      word, and existence cannot rescue it — ``docker``, ``helm`` and ``spec``
+      are all real directories *and* plausible English.
+    * **it must exist in the checkout.** This is what removes URLs
+      (``github.com/projectdiscovery/nuclei-templates``), image references
+      (``ghcr.io/nolte/kamerplanter-backend``), action references (the part of
+      ``actions/checkout@<sha>`` before the ``@``) and runtime artefacts the
+      workflow writes rather than reads (``results.sarif``). It also means the
+      guard says nothing about a reference to a file that does not exist — that
+      is a different defect, and a loud one at runtime.
+
+    Known blind spot, stated rather than papered over: a path assembled from
+    variables (``"$ROOT/tool.sh"``), or reached indirectly through a ``task``
+    target that reads a third file, is invisible here. It would still have
+    caught all four incidents in the module docstring.
+    """
+    skipped = trigger_block_lines(lines)
+    found: dict[str, int] = {}
+    for number, line in enumerate(lines, start=1):
+        if number in skipped:
+            continue
+        for match in _PATH_CANDIDATE.finditer(_strip_comment(line)):
+            candidate = match.group(1)
+            while candidate.startswith("./"):
+                candidate = candidate[2:]
+            parts = candidate.split("/")
+            if len(parts) < 2 or ".." in parts or "" in parts:
+                continue
+            if not (tree_root / candidate).exists():
+                continue
+            found.setdefault(candidate, number)
+    return found
+
+
+def _comment_block_reasons(lines: list[str]) -> list[str]:
+    """Every justification reason in the file, joined across its comment block.
+
+    Joining matters: a reason long enough to be worth reading wraps over several
+    ``#`` lines, and the path it names is as likely to land on the second line
+    as the first.
+    """
+    reasons: list[str] = []
+    index = 0
+    while index < len(lines):
+        if not lines[index].strip().startswith("#"):
+            index += 1
+            continue
+        start = index
+        while index < len(lines) and lines[index].strip().startswith("#"):
+            index += 1
+        block = " ".join(line.strip().lstrip("#").strip() for line in lines[start:index])
+        marker = block.find(JUSTIFICATION_MARKER.lstrip("# "))
+        if marker != -1:
+            reasons.append(block[marker + len(JUSTIFICATION_MARKER.lstrip("# ")) :].strip())
+    return reasons
+
+
+def path_justification_for(lines: list[str], line: int, reference: str) -> str | None:
+    """The reason exempting *reference*, or ``None``.
+
+    The shared placements first — the reference's own line, or the comment block
+    directly above it. Then one placement this shape adds: a marker **anywhere**
+    in the same workflow whose reason names the path verbatim.
+
+    That extra placement is not laxity, it is reachability. A reference can sit
+    inside a ``script:`` block's JavaScript or a quoted shell string, where a
+    trailing ``#`` is a syntax error rather than a comment — the real case is
+    ``security-nuclei-postmerge.yml``, which quotes ``docs/security/nuclei-triage.md``
+    in the body of the issue it opens. And the honest home for "this reference
+    deliberately does not widen the trigger" is beside the ``paths:`` filter it
+    declines to widen. Requiring the path to appear in the reason is what stops
+    the placement from becoming a file-wide silencer: one marker exempts one
+    named path, not the file.
+    """
+    direct = justification_for(lines, line)
+    if direct is not None:
+        return direct
+    for reason in _comment_block_reasons(lines):
+        if reference in reason and len(reason) >= MIN_JUSTIFICATION_CHARS:
+            return reason
+    return None
+
+
+def entry_matches(pattern: str, reference: str, *, is_directory: bool) -> bool:
+    """Whether one filter pattern selects *reference*.
+
+    A **file** matches when the pattern matches it outright. A **directory**
+    matches when the pattern matches the directory, matches something beneath it,
+    or is itself rooted beneath it — ``src/backend/app/**`` counts as reaching
+    ``src/backend``. That last case is partial coverage, and it counts on
+    purpose: this shape reports the *absence* of any trigger path into a
+    reference, not the completeness of one, and grading completeness would demand
+    a written reason for entries that do fire.
+    """
+    regex = glob_to_regex(pattern)
+    if regex.match(reference):
+        return True
+    if not is_directory:
+        return False
+    return bool(
+        regex.match(f"{reference}/{_DIRECTORY_PROBE}") or pattern.startswith(f"{reference}/")
+    )
+
+
+def covers(group: list[str], reference: str, *, is_directory: bool) -> bool:
+    """Whether one trigger's ``paths:`` list selects a change to *reference*.
+
+    GitHub evaluates the list in order and lets the **last** matching entry
+    decide, so a ``!`` exclusion after a positive pattern removes what the
+    positive pattern admitted. Modelling that rather than merely dropping ``!``
+    entries matters for honesty as much as correctness: with the entries simply
+    skipped, the leading ``!`` was escaped into the regex and could never match
+    anything, so the line that dropped them was unobservable — a guard nobody can
+    watch fail, which is the class this whole file exists to refuse.
+    """
+    verdict = False
+    for entry in group:
+        negated = entry.startswith("!")
+        pattern = entry[1:] if negated else entry
+        if entry_matches(pattern, reference, is_directory=is_directory):
+            verdict = not negated
+    return verdict
+
+
+def scan_path_filters(path: Path, lines: list[str], document: Any, tree_root: Path) -> list[Finding]:
+    """Find files the workflow reads that its own ``paths:`` filter excludes.
+
+    Only workflows that *have* a diff-driven ``paths:`` filter are in scope: a
+    workflow without one runs on every change, so it cannot drift away from one.
+
+    An unfiltered sibling trigger does **not** exempt a filtered workflow.
+    ``schedule`` and ``workflow_dispatch`` fire regardless of the diff, and
+    ``security-nuclei-postmerge.yml``'s label-driven ``pull_request`` leg fires
+    only when somebody remembers the label — none of them puts the change that
+    breaks a check in front of that check automatically, which is the whole
+    property being asserted.
+
+    Coverage is decided per reference — see :func:`covers`.
+    """
+    groups = filter_pattern_groups(document)
+    if not groups:
+        return []
+
+    findings: list[Finding] = []
+    for reference, line in path_references(lines, tree_root).items():
+        is_directory = (tree_root / reference).is_dir()
+        if any(covers(group, reference, is_directory=is_directory) for group in groups):
+            continue
+        findings.append(
+            Finding(
+                path=path,
+                line=line,
+                kind="uncovered_path_reference",
+                detail=f"reads '{reference}', which no paths: entry of this workflow covers",
+                justification=path_justification_for(lines, line, reference),
+            )
+        )
+    return sorted(findings, key=lambda finding: finding.line)
+
+
 def scan_needs(path: Path, lines: list[str], document: Any) -> list[Finding]:
     """Find jobs that read a dependency's outputs without reading its result.
 
@@ -345,8 +684,16 @@ def scan_needs(path: Path, lines: list[str], document: Any) -> list[Finding]:
     return findings
 
 
-def scan_file(path: Path) -> list[Finding]:
-    """Every finding in one workflow file."""
+def scan_file(path: Path, tree_root: Path | None = None) -> list[Finding]:
+    """Every finding in one workflow file.
+
+    Args:
+        path: The workflow file.
+        tree_root: The checkout the workflow's path references are resolved
+            against. Defaults to this script's own repository root; the
+            selftests point it at a constructed tree instead.
+    """
+    tree_root = REPO_ROOT if tree_root is None else tree_root
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -361,11 +708,12 @@ def scan_file(path: Path) -> list[Finding]:
         *scan_text(path, lines),
         *scan_continuations(path, lines),
         *scan_needs(path, lines, document),
+        *scan_path_filters(path, lines, document, tree_root),
     ]
     return sorted(findings, key=lambda finding: (finding.line, finding.kind))
 
 
-def collect(scan_root: Path) -> list[Finding]:
+def collect(scan_root: Path, tree_root: Path | None = None) -> list[Finding]:
     """Every finding below *scan_root*, justified or not."""
     if not scan_root.exists():
         raise WorkflowIntegrityCheckError(f"scan root does not exist: {scan_root}")
@@ -376,7 +724,7 @@ def collect(scan_root: Path) -> list[Finding]:
         raise WorkflowIntegrityCheckError(f"no workflow files under {scan_root}")
     findings: list[Finding] = []
     for path in paths:
-        findings.extend(scan_file(path))
+        findings.extend(scan_file(path, tree_root))
     return findings
 
 
@@ -432,6 +780,16 @@ def report(findings: list[Finding], *, list_all: bool, as_json: bool) -> int:
             "\n"
             f"The reason is mandatory and must be at least {MIN_JUSTIFICATION_CHARS} characters."
         )
+        if any(finding.kind == "uncovered_path_reference" for finding in unjustified):
+            print(
+                "\nFor an uncovered path (#1313): the workflow reads a file that cannot\n"
+                "trigger it, so the one change most able to break this check is the one\n"
+                "change that never runs it. Add the path — or a pattern covering it — to\n"
+                "the workflow's `paths:` filter. If widening the trigger would be wrong\n"
+                "(a path quoted in an error message, a file read only by a dispatched\n"
+                "job), write the reason and NAME THE PATH in it; the marker may then sit\n"
+                "anywhere in that workflow, including beside the `paths:` filter itself."
+            )
         return EXIT_DEFECTS
 
     print(
@@ -457,8 +815,10 @@ def main(argv: list[str] | None = None) -> int:
         prog="check_workflow_gate_integrity.py",
         description=(
             "Refuse a GitHub Actions gate that cannot fail (NFR-018 §2): a discarded exit "
-            "code, continue-on-error, or a job reading a dependency's outputs without its "
-            f"result. A site may stand by carrying a '{JUSTIFICATION_MARKER} <reason>' comment."
+            "code, continue-on-error, a job reading a dependency's outputs without its "
+            "result, a comment truncating a continued command, or a file the workflow reads "
+            "that its own paths: filter excludes. A site may stand by carrying a "
+            f"'{JUSTIFICATION_MARKER} <reason>' comment."
         ),
     )
     parser.add_argument(
@@ -466,6 +826,12 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PATH",
         default=None,
         help=f"the workflow directory to scan (default: {DEFAULT_SCAN_ROOT})",
+    )
+    parser.add_argument(
+        "--tree-root",
+        metavar="PATH",
+        default=None,
+        help="the checkout that path references are resolved against (default: this repository)",
     )
     parser.add_argument(
         "--list",
@@ -482,9 +848,10 @@ def main(argv: list[str] | None = None) -> int:
 
     raw = args.scan_root or DEFAULT_SCAN_ROOT
     scan_root = Path(raw) if Path(raw).is_absolute() else REPO_ROOT / raw
+    tree_root = Path(args.tree_root).resolve() if args.tree_root else REPO_ROOT
 
     try:
-        findings = collect(scan_root)
+        findings = collect(scan_root, tree_root)
     except WorkflowIntegrityCheckError as exc:
         print(f"check_workflow_gate_integrity: {exc}", file=sys.stderr)
         return EXIT_USAGE

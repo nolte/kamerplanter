@@ -18,6 +18,27 @@ name: Security — Nuclei Template Validation
 ## cheapest-broadest-first ordering. It also keeps this gate reporting on
 ## template changes that the scan's own path filter would not otherwise select.
 ##
+## SINCE #1302 THIS IS ALSO THE PULL-REQUEST HOME OF THE TEMPLATE-PIN ASSERTION.
+##
+## `.github/renovate-pins.yaml` carries a pair — the community-templates tag and
+## the commit that tag pointed at when it was reviewed — and its own comment
+## claimed that "when Renovate bumps the tag, this assertion fails until the
+## commit is updated in the same pull request". It could not. The assertion
+## existed only in `security-nuclei-nightly.yml` and
+## `security-nuclei-postmerge.yml`, both of which run AFTER the merge, and this
+## workflow — the only nuclei lane with a `pull_request` trigger — did not even
+## list the pins file in its filter. So #1280 changed exactly that one file, ran
+## no nuclei check at all, merged green, and the nightly scan then failed to
+## start for two nights (#1312).
+##
+## Adding the file to the filter was necessary and NOT sufficient: with only the
+## filter, such a pull request would run a template *syntax* check that never
+## looks at the pin. The step below is what makes the pins file's stated intent
+## true. It resolves the tag with a single `git ls-remote` instead of the
+## nightly's clone-and-checkout, because the question a pull request has to
+## answer is "where does this tag point", not "what is in the tree" — one
+## network round trip, no working copy, seconds.
+##
 on:
   pull_request:
     branches: [develop, main]
@@ -25,6 +46,11 @@ on:
       - 'tests/security/nuclei-templates/**'
       - 'scripts/security/nuclei_validate_hook.sh'
       - '.github/workflows/security-nuclei-templates.yml'
+      # Both pins this workflow reads: the community-template tag/commit pair
+      # asserted below, and the nuclei binary version every lane installs.
+      # Without this entry the pull request that changes a pin is the one pull
+      # request that checks no pin (#1302).
+      - '.github/renovate-pins.yaml'
   push:
     branches: [develop]
     paths:
@@ -62,6 +88,68 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Assert the community-template tag still points at the reviewed commit
+        # THE PULL-REQUEST HALF OF #1302. The nightly and the post-merge lane
+        # perform the same assertion after cloning the template set; both run
+        # only once the change is already on `develop`. This is that check,
+        # placed where the pin is actually edited.
+        #
+        # `git ls-remote` rather than a clone: the tag is resolved server-side in
+        # one round trip, so this lane stays in the seconds range it was split
+        # out to preserve. A lightweight tag answers on `refs/tags/<v>`; an
+        # annotated one answers on both, and `<v>^{}` is the commit it
+        # dereferences to — which is what the nightly's `git rev-parse HEAD`
+        # after checkout prints. Prefer the peeled ref, fall back to the plain
+        # one. Verified against both kinds before this landed.
+        #
+        # `git ls-remote` exits 0 with EMPTY output for a tag that does not
+        # exist, so the emptiness has to be tested explicitly: without that, a
+        # typo'd or deleted tag would compare "" against the recorded commit,
+        # fail with a confusing message, or — had this been written as a
+        # non-empty match — pass on nothing.
+        #
+        # This step reaches the network, so it can go red for a reason outside
+        # the diff (the #1311 shape). Accepted here: the lane is advisory —
+        # `.github/settings.yml` requires only `static / Static CI Tests` and
+        # `lint-test-build (22)` — and a pin assertion that refuses to ask
+        # upstream cannot assert anything at all.
+        env:
+          UPSTREAM: https://github.com/projectdiscovery/nuclei-templates.git
+        run: |
+          set -euo pipefail
+          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          expected=$(yq e '.nuclei_templates_commit' .github/renovate-pins.yaml)
+          if [[ -z "$expected" || "$expected" == "null" ]]; then
+            echo "::error::nuclei_templates_commit missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+
+          refs=$(git ls-remote "$UPSTREAM" "refs/tags/$version" "refs/tags/$version^{}")
+          peeled=""
+          plain=""
+          while read -r sha ref; do
+            case "$ref" in
+              "refs/tags/$version^{}") peeled="$sha" ;;
+              "refs/tags/$version") plain="$sha" ;;
+            esac
+          done <<< "$refs"
+          actual="${peeled:-$plain}"
+          if [[ -z "$actual" ]]; then
+            echo "::error::$version does not exist upstream — refs/tags/$version resolved to nothing." >&2
+            exit 1
+          fi
+
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::$version resolves to $actual, but .github/renovate-pins.yaml records $expected." >&2
+            echo "         Review what the tag now points at and update nuclei_templates_commit in this pull request." >&2
+            exit 1
+          fi
+          echo "Templates at $version = $actual (matches the recorded commit)."
 
       - name: Resolve the pinned Nuclei version
         id: nuclei_pin

@@ -439,10 +439,16 @@ repos:
   # required `static` job runs on a bare runner with none of the project's
   # dependencies installed. always_run, because deleting a workflow moves the
   # answer as much as editing one.
+  #
+  # Since #1313 the same hook also refuses a gate that cannot RUN on the change
+  # that breaks it: a workflow reading a file its own `paths:` filter excludes.
+  # Same script on purpose — a second thin checker for one rule would duplicate
+  # the discovery, the escape hatch and this wiring and then drift from them,
+  # which is recursively the defect #1313 is about.
   - repo: local
     hooks:
       - id: workflow-gate-integrity
-        name: no CI gate that cannot fail (NFR-018 §2)
+        name: no CI gate that cannot fail, or cannot run on the change (NFR-018 §2, #1313)
         entry: python3 scripts/check_workflow_gate_integrity.py
         language: python
         additional_dependencies: ['PyYAML>=6.0']
