@@ -22,7 +22,7 @@ nuclei_templates_version: v10.4.8
 # custom manager tracks the tag, so the human-readable version stays updatable.
 # When Renovate bumps the tag, this assertion fails until the commit is updated
 # in the same pull request — which is the review the pin exists to force.
-nuclei_templates_commit: 83234ce456da3e90dda86dfbc5e605e64a846df3
+nuclei_templates_commit: e5f19e6144135e107962bb943231413796fd7fe7
 
 # The nuclei BINARY, pinned for the validator and every scan lane alike (#1177).
 #
