@@ -240,10 +240,14 @@
     // before doing any work, and the `Lock staleness` gate in backend.yml fails
     // on every run.
     //
-    // There is nothing to bump *to*: pip-tools 7.6.0 is the latest release and
-    // is affected, as is 7.5.3. The workflow therefore pins pip explicitly
-    // rather than merely upgrading it (see backend.yml "Install pip-tools"), and
-    // this rule stops Renovate from re-raising the bump that breaks the pin.
+    // There is nothing to bump *to*: pip-tools 7.6.1 is the latest release and
+    // is affected, as are 7.6.0 and 7.5.3. pip is therefore pinned explicitly
+    // rather than merely upgraded — in `.github/pip-tools-requirements.txt`,
+    // installed by `task deps:toolchain`, which backend.yml's `Lock staleness`
+    // job reaches through `task deps:check`. (It used to live in a backend.yml
+    // step called "Install pip-tools"; that step no longer exists, and a revisit
+    // trigger that names a step no `grep` can find is a trigger nobody pulls.)
+    // This rule stops Renovate from re-raising the bump that breaks the pin.
     //
     // Revisit when pip-tools ships a release that drops the `stdlib_pkgs`
     // import, then drop this rule and bump both together — pinning pip forever
@@ -271,6 +275,14 @@
     // meaningful together — a click bump beside its pip-tools, not ahead of it —
     // and a bump here may legitimately move both locks' header, which is a single
     // recompile to review, not five.
+    //
+    // Two entries of that file also appear in the compiled backend locks and are
+    // held equal to them by hand: `click` and `packaging`. `task deps:toolchain`
+    // installs into whatever environment is active, so a toolchain `packaging`
+    // ahead of `packaging==` in src/backend/requirements.txt leaves a backend
+    // virtualenv running an unlocked version of it. When this group's pull
+    // request moves either of the two, check them against the locks — the
+    // toolchain versions do not have to be the newest, only reproducible.
     {
       groupName: 'python lock toolchain',
       matchManagers: [
