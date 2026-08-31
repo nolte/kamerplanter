@@ -208,6 +208,40 @@ controllers:
           # changes, not one.
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "false"
+          # #1236 — the last delivery hop, made measurable. `GET /api/health`
+          # discloses `build_revision` (the full 40-character commit the running
+          # image was built from) only when this is true; the application default
+          # is false, so without this line a deployment cannot be asked what it
+          # runs and hop 4 — *does the pod actually serve the bytes the chart
+          # pins?* — has no observable at all. That is the hop the 2026-08-17
+          # incident failed on, with the hop-3 digest check green and correct.
+          #
+          # SET HERE, IN THE CHART, ON PURPOSE. #1236's earlier investigation
+          # concluded the variable "would need to be set in the GitOps overlay,
+          # not in this repository" and stalled on it. That is wrong: production
+          # deploys THIS chart (ArgoCD `targetRevision` against
+          # `oci://ghcr.io/nolte/charts/kamerplanter`), and Helm merges an
+          # operator's `valuesObject` env map INTO this one rather than replacing
+          # it. Verified by rendering released chart 0.2.1 with the production
+          # Application's own valuesObject: this default and every operator
+          # override (KAMERPLANTER_MODE, CORS_ORIGINS, ...) both survive.
+          #
+          # THE TRADE, STATED PLAINLY. `/api/health` is unauthenticated. The
+          # commit hash itself is public — the repository is — but the mapping
+          # *this host runs that commit* is not, and it yields the exact patch
+          # distance to develop: `git log <revision>..develop` reads off which
+          # fixes this instance has NOT got, amplified by this project publishing
+          # its own security findings. docs/{de,en}/deployment/ci-cd.md weighs
+          # that trade and calls `true` the recommended setting for a production
+          # instance whose delivery state should be auditable; this line
+          # implements that recommendation as the chart default instead of
+          # leaving every deployment to rediscover it.
+          #
+          # An operator who does not want to disclose overrides this to "false"
+          # in their own values — and should then stop running
+          # `scripts/ci/check_deployed_build.py` against that instance, which
+          # reports "not disclosed" as loud-undetermined, never as clean.
+          HEALTH_EXPOSE_BUILD_REVISION: "true"
           MDNS_ENABLED: "false"  # mDNS is LAN-only, disable in K8s
           # REQ-029 Plant identification (Phase 1 — Pl@ntNet-first). All optional:
           # without an API key the feature is disabled and all camera UI is hidden.

@@ -71,3 +71,40 @@ tasks:
         msg: "nuclei not found — install it from https://github.com/projectdiscovery/nuclei/releases"
     cmds:
       - nuclei -validate -t tests/security/nuclei-templates/
+
+  verify:deployed-build:
+    desc: |
+      Ask a running instance whether it serves the build its chart version pins
+      — hop 4 of the delivery chain (#1236), the one the 2026-08-17 incident
+      failed on while the hop-3 digest guard stayed green and correct.
+
+      Deliberately a local task and NOT a scheduled workflow. Measured
+      2026-09-01: the reference deployment resolves to an RFC1918 address from
+      every public resolver, and this repository has no self-hosted runners, so
+      a GitHub-hosted runner cannot reach the instance — and one that could
+      reach 192.168.178.0/24 would silently measure a different machine. This
+      runs where the instance is actually reachable: an operator workstation,
+      or a job inside the cluster.
+
+      CHART_VERSION is the version the deployment targets (ArgoCD
+      `targetRevision`), not this repository's `develop` channel — comparing
+      production against `develop` reports permanent drift for ordinary release
+      lag, which is what release-lag.yml already watches.
+
+      Exit codes: 0 the instance serves the pinned build (or a rollout is in
+      progress), 3 drift, 1 undetermined — including an instance that does not
+      disclose `build_revision` at all, which is loud on purpose and never
+      reported as clean.
+
+      Usage:
+        task verify:deployed-build INSTANCE_URL=https://example.org CHART_VERSION=0.2.1
+    requires:
+      vars: [INSTANCE_URL, CHART_VERSION]
+    vars:
+      REPORT: '{{.REPORT | default "deployed-build-report.json"}}'
+    cmds:
+      - >-
+        python3 scripts/ci/check_deployed_build.py
+        --instance-url {{.INSTANCE_URL}}
+        --chart-version {{.CHART_VERSION}}
+        --json {{.REPORT}}

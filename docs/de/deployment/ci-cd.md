@@ -836,12 +836,28 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
         **empfohlene** Einstellung — die Abwägung oben bleibt bestehen, sie
         kippt nur zugunsten der Prüfbarkeit, sobald ein Vorfall wie #1210 zeigt,
         was die Alternative kostet: ohne das Feld bleibt „läuft der Fix schon?"
-        nur über `kubectl`-Zugriff auf den Cluster beantwortbar. Zu setzen
-        wäre die Variable im GitOps-Overlay in `nolte/k8s-home-lab`, nicht in
-        diesem Repository — und zum jetzigen Stand ist sie auch dort nicht
-        gesetzt, weshalb die Instanz diese Frage weiterhin nicht auf diesem
-        Weg beantwortet.
-        <!-- #1210 -->
+        nur über `kubectl`-Zugriff auf den Cluster beantwortbar.
+
+        **Seit #1236 setzt der Chart die Variable selbst.**
+        `helm/kamerplanter/values.yaml` führt `HEALTH_EXPOSE_BUILD_REVISION:
+        "true"` als Chart-Default. Ein früherer Stand dieses Absatzes behauptete,
+        die Variable sei „im GitOps-Overlay zu setzen, nicht in diesem
+        Repository" — das war falsch: Produktion deployt genau diesen Chart
+        (ArgoCD `targetRevision` gegen `oci://ghcr.io/nolte/charts/kamerplanter`),
+        und Helm mischt die `valuesObject`-Env-Map des Betreibers **in** die des
+        Charts, statt sie zu ersetzen. Nachgemessen durch Rendern des
+        veröffentlichten Charts 0.2.1 mit dem `valuesObject` der
+        Produktions-`Application`: Chart-Default und Betreiber-Overrides
+        überleben beide. Eine Instanz aus einem Chart-Release **nach dem
+        2026-09-01** antwortet also von selbst; ältere Releases,
+        docker-compose-Installationen und ausdrückliche Overrides brauchen die
+        Variable weiterhin gesetzt.
+
+        Wer *nicht* offenlegen will, überschreibt den Wert in den eigenen Values
+        — und sollte dann `scripts/ci/check_deployed_build.py` nicht gegen diese
+        Instanz laufen lassen, denn „nicht offengelegt" ist dort bewusst ein
+        lautes *unbestimmt* und nie ein sauberes Ergebnis.
+        <!-- #1210, #1236 -->
 
     Die Antwort kennt **drei unterscheidbare Zustände**, und die Unterscheidung
     trägt:
