@@ -1,0 +1,2523 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/wichtige-prompts/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/wichtige-prompts/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/wichtige-prompts/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/tags/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/tags/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/tags/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/001-arangodb-multi-model/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/001-arangodb-multi-model/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/001-arangodb-multi-model/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/002-python-314/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/002-python-314/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/002-python-314/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/003-authlib-statt-python-jose/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/003-authlib-statt-python-jose/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/003-authlib-statt-python-jose/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/004-bcrypt-direkt/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/004-bcrypt-direkt/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/004-bcrypt-direkt/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/005-yaml-seed-jobs-startup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/005-yaml-seed-jobs-startup/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/005-yaml-seed-jobs-startup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/006-embedding-modell-e5-base-hybrid-search/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/006-embedding-modell-e5-base-hybrid-search/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/006-embedding-modell-e5-base-hybrid-search/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/007-cross-encoder-reranking/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/007-cross-encoder-reranking/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/007-cross-encoder-reranking/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/008-zeroconf-mdns-auto-discovery/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/008-zeroconf-mdns-auto-discovery/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/008-zeroconf-mdns-auto-discovery/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/009-versioned-migration-framework/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/009-versioned-migration-framework/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/009-versioned-migration-framework/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/010-bdd-e2e-architektur-pytest-bdd/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/010-bdd-e2e-architektur-pytest-bdd/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/010-bdd-e2e-architektur-pytest-bdd/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/adr/011-e2e-smoke-merge-gate/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/011-e2e-smoke-merge-gate/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/011-e2e-smoke-merge-gate/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/SUMMARY/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/SUMMARY/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/SUMMARY/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/agrobiology-requirements-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/agrobiology-requirements-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/agrobiology-requirements-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/cannabis-indoor-grower-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/cannabis-indoor-grower-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/cannabis-indoor-grower-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/casual-houseplant-user-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/casual-houseplant-user-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/casual-houseplant-user-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/frontend-design-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/frontend-design-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/frontend-design-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/frontend-usability-optimizer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/frontend-usability-optimizer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/frontend-usability-optimizer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/fullstack-developer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/fullstack-developer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/fullstack-developer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/gemini-graphic-prompt-generator/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/gemini-graphic-prompt-generator/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/gemini-graphic-prompt-generator/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/growing-phase-auditor/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/growing-phase-auditor/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/growing-phase-auditor/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/ha-integration-requirements-engineer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/ha-integration-requirements-engineer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/ha-integration-requirements-engineer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/it-security-requirements-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/it-security-requirements-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/it-security-requirements-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/kami-image-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/kami-image-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/kami-image-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/knowledge-chunk-author/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/knowledge-chunk-author/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/knowledge-chunk-author/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/mkdocs-documentation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/mkdocs-documentation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/mkdocs-documentation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/outdoor-garden-planner-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/outdoor-garden-planner-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/outdoor-garden-planner-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/plant-info-document-generator/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/plant-info-document-generator/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/plant-info-document-generator/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/plant-info-to-seed-yaml/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/plant-info-to-seed-yaml/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/plant-info-to-seed-yaml/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/pr-to-develop/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/pr-to-develop/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/pr-to-develop/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/rag-eval-runner/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/rag-eval-runner/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/rag-eval-runner/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/requirements-contradiction-analyzer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/requirements-contradiction-analyzer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/requirements-contradiction-analyzer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/seed-data-validator/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/seed-data-validator/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/seed-data-validator/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/smart-home-ha-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/smart-home-ha-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/smart-home-ha-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/target-audience-analyzer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/target-audience-analyzer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/target-audience-analyzer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/tech-stack-architect/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/tech-stack-architect/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/tech-stack-architect/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/agents/kamerplanter/unit-test-runner/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/unit-test-runner/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/unit-test-runner/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/api/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/api/authentication/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/authentication/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/api/error-handling/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/error-handling/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/error-handling/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/api/mcp-server/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/mcp-server/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/mcp-server/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/api/overview/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/overview/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/overview/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/api/service-accounts/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/service-accounts/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/service-accounts/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/architecture/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/architecture/ai-architecture/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/ai-architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/ai-architecture/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/architecture/backend/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/backend/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/backend/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/architecture/database/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/database/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/database/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/architecture/frontend/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/frontend/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/frontend/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/architecture/infrastructure/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/infrastructure/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/infrastructure/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/architecture/overview/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/overview/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/overview/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/changelog/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/changelog/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/changelog/unreleased/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/changelog/unreleased/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/changelog/unreleased/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/argocd/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/argocd/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/argocd/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/betriebsprofile/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/betriebsprofile/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/betriebsprofile/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/ci-cd/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/ci-cd/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/ci-cd/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/docker-dauerbetrieb/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/docker-dauerbetrieb/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/docker-dauerbetrieb/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/docker-installation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/docker-installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/docker-installation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/docker-quickstart/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/docker-quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/docker-quickstart/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/fehler-tracking/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/fehler-tracking/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/fehler-tracking/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/helm/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/helm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/helm/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/inference-service/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/inference-service/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/inference-service/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/konfigurationsmatrix/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/konfigurationsmatrix/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/konfigurationsmatrix/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/deployment/kubernetes/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/kubernetes/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/kubernetes/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/code-standards/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/code-standards/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/code-standards/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/debugging/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/debugging/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/debugging/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/local-setup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/local-setup/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/local-setup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/mcp-tools/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/mcp-tools/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/mcp-tools/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/troubleshooting/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/troubleshooting/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/troubleshooting/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/workflows/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/workflows/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/workflows/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/testing/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/testing/stufen/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/testing/stufen/component/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/component/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/component/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/testing/stufen/e2e/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/e2e/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/e2e/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/testing/stufen/integration/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/integration/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/integration/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/development/testing/stufen/unit/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/unit/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/unit/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/getting-started/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/getting-started/erste-pflanze/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/getting-started/erste-pflanze/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/getting-started/erste-pflanze/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/getting-started/funktionen-entdecken/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/getting-started/funktionen-entdecken/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/getting-started/funktionen-entdecken/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/ai-plant-data-pipeline/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/ai-plant-data-pipeline/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/ai-plant-data-pipeline/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/browser-push-setup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/browser-push-setup/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/browser-push-setup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/climate-zones/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/climate-zones/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/climate-zones/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/companion-planting/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/companion-planting/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/companion-planting/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/compliance-anbauvereinigung/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/compliance-anbauvereinigung/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/compliance-anbauvereinigung/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/data-enrichment/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/data-enrichment/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/data-enrichment/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/data-retention/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/data-retention/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/data-retention/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/gdd-calculation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/gdd-calculation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/gdd-calculation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/home-assistant-integration/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/home-assistant-integration/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/home-assistant-integration/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/journey-cannabis-cycle/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/journey-cannabis-cycle/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/journey-cannabis-cycle/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/journey-garden-year/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/journey-garden-year/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/journey-garden-year/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/journey-hydroponics-setup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/journey-hydroponics-setup/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/journey-hydroponics-setup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/nutrient-mixing/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/nutrient-mixing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/nutrient-mixing/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/post-harvest/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/post-harvest/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/post-harvest/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/rag-knowledge-base/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/rag-knowledge-base/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/rag-knowledge-base/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/guides/vpd-optimization/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/vpd-optimization/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/vpd-optimization/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/reference/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/reference/api-reference/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/api-reference/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/api-reference/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/reference/database-schema/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/database-schema/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/database-schema/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/reference/environment-variables/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/environment-variables/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/environment-variables/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/reference/glossary/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/glossary/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/glossary/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/reference/roles-and-permissions/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/roles-and-permissions/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/roles-and-permissions/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/SUMMARY/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/SUMMARY/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/SUMMARY/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-architecture/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-architecture/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-helm/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-helm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-helm/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-pest-data/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-pest-data/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-pest-data/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-retention/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-retention/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-retention/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-seed-data/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-seed-data/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-seed-data/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-slo/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-slo/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-slo/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-test-pyramid/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-test-pyramid/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-test-pyramid/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/check-ui-crud/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-ui-crud/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-ui-crud/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/deploy-ha/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/deploy-ha/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/deploy-ha/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/gen-knowledge/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/gen-knowledge/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/gen-knowledge/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/ha-derive/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/ha-derive/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/ha-derive/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/implement/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/implement/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/implement/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/plant-lifecycle/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/plant-lifecycle/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/plant-lifecycle/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/pre-pr/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/pre-pr/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/pre-pr/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/req-coverage-audit/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/req-coverage-audit/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/req-coverage-audit/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/review-spec/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/review-spec/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/review-spec/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/spec-status/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/spec-status/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/spec-status/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/skills/kamerplanter/verify-ha/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/verify-ha/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/verify-ha/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/account/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/account/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/account/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/actuator-control/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/actuator-control/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/actuator-control/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/admin/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/admin/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/admin/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/ai-assistant/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/ai-assistant/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/ai-assistant/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/ai-diagnosis/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/ai-diagnosis/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/ai-diagnosis/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/ai-providers/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/ai-providers/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/ai-providers/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/aquaponics/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/aquaponics/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/aquaponics/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/calculations/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/calculations/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/calculations/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/calendar/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/calendar/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/calendar/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/care-reminders/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/care-reminders/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/care-reminders/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/dashboard-personalization/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/dashboard-personalization/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/dashboard-personalization/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/dashboard/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/dashboard/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/dashboard/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/fertilization/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/fertilization/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/fertilization/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/glossary/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/glossary/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/glossary/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/growth-phases/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/growth-phases/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/growth-phases/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/harvest/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/harvest/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/harvest/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/import/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/import/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/import/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/inventree/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/inventree/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/inventree/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/kiosk-mode/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/kiosk-mode/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/kiosk-mode/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/light-mode/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/light-mode/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/light-mode/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/locations-substrates/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/locations-substrates/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/locations-substrates/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/module-visibility/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/module-visibility/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/module-visibility/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/notifications/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/notifications/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/notifications/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/object-storage/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/object-storage/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/object-storage/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/onboarding/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/onboarding/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/onboarding/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/overwintering/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/overwintering/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/overwintering/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/pest-detail/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/pest-detail/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/pest-detail/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/pest-detection/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/pest-detection/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/pest-detection/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/pest-management/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/pest-management/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/pest-management/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/plant-diary/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-diary/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-diary/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/plant-health-troubleshooting/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-health-troubleshooting/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-health-troubleshooting/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/plant-identification/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-identification/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-identification/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/plant-management/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-management/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-management/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/plant-photos/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-photos/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-photos/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/planting-runs/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/planting-runs/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/planting-runs/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/post-harvest/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/post-harvest/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/post-harvest/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/print-export/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/print-export/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/print-export/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/privacy/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/privacy/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/privacy/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/propagation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/propagation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/propagation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/reference-image-curation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/reference-image-curation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/reference-image-curation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/season-automation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/season-automation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/season-automation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/sensors/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/sensors/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/sensors/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/tanks/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/tanks/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/tanks/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/tasks/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/tasks/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/tasks/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/tenants/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/tenants/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/tenants/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/treatment-detail/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/treatment-detail/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/treatment-detail/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/watering-log/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/watering-log/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/watering-log/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/weather-services/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/weather-services/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/weather-services/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/user-guide/weather-sources/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/weather-sources/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/weather-sources/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/includes/abbreviations/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/includes/abbreviations/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/includes/abbreviations/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/security/nuclei-triage/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/security/nuclei-triage/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/security/nuclei-triage/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/security/zap-auth-bypass-impl/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/security/zap-auth-bypass-impl/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/security/zap-auth-bypass-impl/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/wichtige-prompts/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/wichtige-prompts/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/wichtige-prompts/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/tags/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/tags/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/tags/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/001-arangodb-multi-model/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/001-arangodb-multi-model/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/001-arangodb-multi-model/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/002-python-314/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/002-python-314/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/002-python-314/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/003-authlib-statt-python-jose/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/003-authlib-statt-python-jose/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/003-authlib-statt-python-jose/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/004-bcrypt-direkt/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/004-bcrypt-direkt/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/004-bcrypt-direkt/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/005-yaml-seed-jobs-startup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/005-yaml-seed-jobs-startup/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/005-yaml-seed-jobs-startup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/006-embedding-modell-e5-base-hybrid-search/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/006-embedding-modell-e5-base-hybrid-search/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/006-embedding-modell-e5-base-hybrid-search/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/007-cross-encoder-reranking/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/007-cross-encoder-reranking/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/007-cross-encoder-reranking/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/008-zeroconf-mdns-auto-discovery/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/008-zeroconf-mdns-auto-discovery/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/008-zeroconf-mdns-auto-discovery/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/009-versioned-migration-framework/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/009-versioned-migration-framework/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/009-versioned-migration-framework/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/010-bdd-e2e-architektur-pytest-bdd/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/010-bdd-e2e-architektur-pytest-bdd/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/010-bdd-e2e-architektur-pytest-bdd/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/adr/011-e2e-smoke-merge-gate/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/adr/011-e2e-smoke-merge-gate/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/adr/011-e2e-smoke-merge-gate/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/SUMMARY/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/SUMMARY/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/SUMMARY/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/agrobiology-requirements-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/agrobiology-requirements-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/agrobiology-requirements-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/cannabis-indoor-grower-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/cannabis-indoor-grower-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/cannabis-indoor-grower-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/casual-houseplant-user-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/casual-houseplant-user-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/casual-houseplant-user-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/frontend-design-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/frontend-design-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/frontend-design-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/frontend-usability-optimizer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/frontend-usability-optimizer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/frontend-usability-optimizer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/fullstack-developer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/fullstack-developer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/fullstack-developer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/gemini-graphic-prompt-generator/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/gemini-graphic-prompt-generator/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/gemini-graphic-prompt-generator/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/growing-phase-auditor/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/growing-phase-auditor/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/growing-phase-auditor/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/ha-integration-requirements-engineer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/ha-integration-requirements-engineer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/ha-integration-requirements-engineer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/it-security-requirements-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/it-security-requirements-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/it-security-requirements-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/kami-image-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/kami-image-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/kami-image-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/knowledge-chunk-author/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/knowledge-chunk-author/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/knowledge-chunk-author/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/mkdocs-documentation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/mkdocs-documentation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/mkdocs-documentation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/outdoor-garden-planner-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/outdoor-garden-planner-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/outdoor-garden-planner-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/plant-info-document-generator/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/plant-info-document-generator/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/plant-info-document-generator/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/plant-info-to-seed-yaml/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/plant-info-to-seed-yaml/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/plant-info-to-seed-yaml/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/pr-to-develop/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/pr-to-develop/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/pr-to-develop/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/rag-eval-runner/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/rag-eval-runner/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/rag-eval-runner/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/requirements-contradiction-analyzer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/requirements-contradiction-analyzer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/requirements-contradiction-analyzer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/seed-data-validator/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/seed-data-validator/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/seed-data-validator/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/smart-home-ha-reviewer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/smart-home-ha-reviewer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/smart-home-ha-reviewer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/target-audience-analyzer/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/target-audience-analyzer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/target-audience-analyzer/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/tech-stack-architect/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/tech-stack-architect/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/tech-stack-architect/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/agents/kamerplanter/unit-test-runner/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/agents/kamerplanter/unit-test-runner/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/agents/kamerplanter/unit-test-runner/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/api/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/api/authentication/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/authentication/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/api/error-handling/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/error-handling/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/error-handling/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/api/mcp-server/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/mcp-server/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/mcp-server/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/api/overview/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/overview/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/overview/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/api/service-accounts/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/api/service-accounts/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/api/service-accounts/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/architecture/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/architecture/ai-architecture/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/ai-architecture/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/ai-architecture/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/architecture/backend/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/backend/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/backend/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/architecture/database/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/database/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/database/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/architecture/frontend/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/frontend/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/frontend/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/architecture/infrastructure/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/infrastructure/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/infrastructure/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/architecture/overview/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/architecture/overview/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/architecture/overview/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/changelog/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/changelog/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/changelog/unreleased/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/changelog/unreleased/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/changelog/unreleased/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/argocd/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/argocd/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/argocd/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/betriebsprofile/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/betriebsprofile/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/betriebsprofile/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/ci-cd/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/ci-cd/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/ci-cd/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/docker-dauerbetrieb/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/docker-dauerbetrieb/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/docker-dauerbetrieb/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/docker-installation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/docker-installation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/docker-installation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/docker-quickstart/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/docker-quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/docker-quickstart/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/fehler-tracking/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/fehler-tracking/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/fehler-tracking/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/helm/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/helm/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/helm/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/inference-service/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/inference-service/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/inference-service/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/konfigurationsmatrix/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/konfigurationsmatrix/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/konfigurationsmatrix/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/deployment/kubernetes/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/deployment/kubernetes/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/deployment/kubernetes/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/code-standards/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/code-standards/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/code-standards/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/debugging/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/debugging/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/debugging/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/local-setup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/local-setup/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/local-setup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/mcp-tools/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/mcp-tools/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/mcp-tools/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/troubleshooting/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/troubleshooting/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/troubleshooting/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/workflows/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/workflows/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/workflows/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/testing/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/testing/stufen/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/testing/stufen/component/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/component/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/component/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/testing/stufen/e2e/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/e2e/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/e2e/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/testing/stufen/integration/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/integration/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/integration/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/development/testing/stufen/unit/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/development/testing/stufen/unit/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/development/testing/stufen/unit/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/getting-started/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/getting-started/erste-pflanze/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/getting-started/erste-pflanze/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/getting-started/erste-pflanze/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/getting-started/funktionen-entdecken/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/getting-started/funktionen-entdecken/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/getting-started/funktionen-entdecken/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/ai-plant-data-pipeline/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/ai-plant-data-pipeline/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/ai-plant-data-pipeline/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/browser-push-setup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/browser-push-setup/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/browser-push-setup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/climate-zones/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/climate-zones/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/climate-zones/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/companion-planting/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/companion-planting/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/companion-planting/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/compliance-anbauvereinigung/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/compliance-anbauvereinigung/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/compliance-anbauvereinigung/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/data-enrichment/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/data-enrichment/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/data-enrichment/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/data-retention/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/data-retention/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/data-retention/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/gdd-calculation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/gdd-calculation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/gdd-calculation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/home-assistant-integration/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/home-assistant-integration/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/home-assistant-integration/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/journey-cannabis-cycle/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/journey-cannabis-cycle/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/journey-cannabis-cycle/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/journey-garden-year/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/journey-garden-year/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/journey-garden-year/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/journey-hydroponics-setup/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/journey-hydroponics-setup/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/journey-hydroponics-setup/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/nutrient-mixing/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/nutrient-mixing/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/nutrient-mixing/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/post-harvest/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/post-harvest/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/post-harvest/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/rag-knowledge-base/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/rag-knowledge-base/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/rag-knowledge-base/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/guides/vpd-optimization/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/guides/vpd-optimization/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/guides/vpd-optimization/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/reference/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/reference/api-reference/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/api-reference/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/api-reference/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/reference/database-schema/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/database-schema/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/database-schema/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/reference/environment-variables/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/environment-variables/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/environment-variables/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/reference/glossary/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/glossary/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/glossary/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/reference/roles-and-permissions/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/reference/roles-and-permissions/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/reference/roles-and-permissions/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/SUMMARY/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/SUMMARY/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/SUMMARY/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-architecture/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-architecture/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-architecture/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-helm/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-helm/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-helm/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-pest-data/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-pest-data/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-pest-data/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-retention/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-retention/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-retention/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-seed-data/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-seed-data/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-seed-data/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-slo/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-slo/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-slo/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-test-pyramid/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-test-pyramid/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-test-pyramid/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-ui-crud/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/check-ui-crud/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/check-ui-crud/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/deploy-ha/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/deploy-ha/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/deploy-ha/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/gen-knowledge/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/gen-knowledge/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/gen-knowledge/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/ha-derive/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/ha-derive/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/ha-derive/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/implement/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/implement/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/implement/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/plant-lifecycle/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/plant-lifecycle/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/plant-lifecycle/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/pre-pr/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/pre-pr/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/pre-pr/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/req-coverage-audit/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/req-coverage-audit/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/req-coverage-audit/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/review-spec/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/review-spec/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/review-spec/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/spec-status/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/spec-status/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/spec-status/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/skills/kamerplanter/verify-ha/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/skills/kamerplanter/verify-ha/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/skills/kamerplanter/verify-ha/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/account/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/account/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/account/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/actuator-control/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/actuator-control/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/actuator-control/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/admin/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/admin/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/admin/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/ai-assistant/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/ai-assistant/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/ai-assistant/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/ai-diagnosis/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/ai-diagnosis/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/ai-diagnosis/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/ai-providers/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/ai-providers/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/ai-providers/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/aquaponics/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/aquaponics/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/aquaponics/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/calculations/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/calculations/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/calculations/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/calendar/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/calendar/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/calendar/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/care-reminders/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/care-reminders/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/care-reminders/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/dashboard-personalization/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/dashboard-personalization/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/dashboard-personalization/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/dashboard/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/dashboard/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/dashboard/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/fertilization/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/fertilization/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/fertilization/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/glossary/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/glossary/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/glossary/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/growth-phases/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/growth-phases/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/growth-phases/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/harvest/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/harvest/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/harvest/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/import/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/import/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/import/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/inventree/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/inventree/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/inventree/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/kiosk-mode/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/kiosk-mode/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/kiosk-mode/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/light-mode/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/light-mode/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/light-mode/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/locations-substrates/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/locations-substrates/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/locations-substrates/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/module-visibility/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/module-visibility/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/module-visibility/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/notifications/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/notifications/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/notifications/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/object-storage/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/object-storage/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/object-storage/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/onboarding/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/onboarding/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/onboarding/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/overwintering/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/overwintering/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/overwintering/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/pest-detail/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/pest-detail/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/pest-detail/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/pest-detection/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/pest-detection/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/pest-detection/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/pest-management/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/pest-management/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/pest-management/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/plant-diary/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-diary/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-diary/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/plant-health-troubleshooting/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-health-troubleshooting/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-health-troubleshooting/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/plant-identification/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-identification/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-identification/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/plant-management/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-management/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-management/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/plant-photos/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/plant-photos/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/plant-photos/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/planting-runs/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/planting-runs/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/planting-runs/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/post-harvest/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/post-harvest/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/post-harvest/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/print-export/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/print-export/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/print-export/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/privacy/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/privacy/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/privacy/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/propagation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/propagation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/propagation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/reference-image-curation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/reference-image-curation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/reference-image-curation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/season-automation/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/season-automation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/season-automation/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/sensors/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/sensors/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/sensors/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/tanks/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/tanks/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/tanks/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/tasks/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/tasks/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/tasks/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/tenants/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/tenants/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/tenants/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/treatment-detail/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/treatment-detail/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/treatment-detail/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/watering-log/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/watering-log/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/watering-log/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/weather-services/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/weather-services/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/weather-services/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/user-guide/weather-sources/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/user-guide/weather-sources/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/user-guide/weather-sources/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/includes/abbreviations/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/includes/abbreviations/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/includes/abbreviations/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/security/nuclei-triage/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/security/nuclei-triage/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/security/nuclei-triage/"/>
+    </url>
+    <url>
+        <loc>https://nolte.github.io/kamerplanter/en/security/zap-auth-bypass-impl/</loc>
+        <lastmod>2026-08-31</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://nolte.github.io/kamerplanter/en/security/zap-auth-bypass-impl/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://nolte.github.io/kamerplanter/security/zap-auth-bypass-impl/"/>
+    </url>
+</urlset>
