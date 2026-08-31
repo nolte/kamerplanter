@@ -90,6 +90,14 @@ on:
       # readiness logic would land without the gate that exercises it.
       - '.github/actions/ephemeral-stack/**'
       - '.github/renovate-pins.yaml'
+      # gate-integrity-ok: docs/security/nuclei-triage.md is QUOTED, not read —
+      # it is a link in the body of the issue this lane opens on a High/Critical
+      # finding, and no step ever opens the file. Adding it here would spend a
+      # 16-to-19-minute scan of an ephemeral stack on a documentation edit, for
+      # a document whose contents cannot change what the scan finds. The
+      # reference must therefore stay uncovered; this is the decision, recorded
+      # where the filter it declines to widen lives (#1313).
+
   # On-demand pre-merge scan. No `paths:` — see the header.
   pull_request:
     types: [labeled]

@@ -10,6 +10,27 @@ on:
       - 'docker/**'
       - 'spec/knowledge/rag/**'
       - 'helm/**'
+      # The two in-house side services this workflow also builds and pushes.
+      # They were missing here while the `changes` filter below has selected on
+      # them since those jobs were added, so a develop push touching only one of
+      # them ran no publish at all: 5a67d9776 (2026-07-04) changed exactly
+      # `src/knowledge-service/app/service.py`, and the GitHub API reports zero
+      # `docker-publish.yml` runs for that SHA. Production pulls these images by
+      # `:latest`, so the consequence was a silently stale deployment rather
+      # than a red check (#1313).
+      - 'src/inference-service/**'
+      - 'src/knowledge-service/**'
+      # The three scripts the publishing jobs execute. Named individually rather
+      # than as `scripts/ci/**`: the other four files there belong to the
+      # release-lag, delivery-run and digest-freshness lanes, and this workflow
+      # builds and pushes eight images — widening it to the whole directory
+      # would spend a full delivery run on a change it cannot affect. The
+      # precision is safe to maintain because
+      # `scripts/check_workflow_gate_integrity.py` now refuses a script this
+      # workflow runs that is absent from this list.
+      - 'scripts/ci/determine_chart_version.sh'
+      - 'scripts/ci/pin_chart_image_digests.sh'
+      - 'scripts/ci/publish_release_asset.sh'
   workflow_dispatch:
 
 env:
