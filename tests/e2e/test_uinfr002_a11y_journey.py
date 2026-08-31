@@ -1,6 +1,6 @@
 """E2E accessibility journey — axe-core against the composed app (#1095, UI-NFR-002).
 
-Spec-TC Mapping (test TC -> spec/ui-nfr/):
+Spec-TC Mapping (test TC -> spec/e2e-testcases/):
   TC-UINFR002-001  ->  spec/e2e-testcases/TC-UI-NFR-002.md  Composed-page axe pass across the core route
   TC-UINFR002-002  ->  spec/e2e-testcases/TC-UI-NFR-002.md  Negative control — a seeded violation is reported
 

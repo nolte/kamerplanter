@@ -34,17 +34,39 @@ _SPEC_TC_DIR = _REPO_ROOT / "spec" / "e2e-testcases"
 
 # Pattern to extract REQ number from test file names or nodeids
 _REQ_PATTERN = re.compile(r"req[_-]?(\d{3})", re.IGNORECASE)
-# Canonical *strict* TC-ID shape. Two spellings are in use and both must match:
-# the older in-test ``TC-REQ-001-006`` and the spec IDs in
-# ``spec/e2e-testcases/`` / Gherkin tags, which read ``TC-004-092``. Until the
-# ``REQ-``-less form was added here, the "Testfall-ID" line silently never
-# appeared in protokoll.md for the latter.
-# This is the single source of truth for the strict shape: conftest.py imports
-# it (as ``_TC_ID_STRICT``) to validate Gherkin tags and to read TC-IDs off
-# markers, so the two files cannot drift apart again. conftest.py's own
-# ``_TC_ID_SCAN`` stays deliberately wider — it also captures test-local shapes
-# such as ``TC-REQ-004-W001`` that this strict pattern rejects on purpose.
-TC_ID_PATTERN = re.compile(r"(TC-(?:REQ-)?\d{3}-\d{3})")
+# The requirement family a TC-ID belongs to, as an optional prefix between the
+# ``TC-`` marker and the ``NNN-NNN`` number pair. Four spellings are in use and
+# all four must match:
+#
+#   ``TC-004-092``       bare — the spec IDs in ``spec/e2e-testcases/`` and the
+#                        Gherkin tags derived from them
+#   ``TC-REQ-001-006``   the older in-test spelling; ``REQ`` carries its own
+#                        separating dash
+#   ``TC-NFR008-001``    the NFR family — no dash after the family name
+#   ``TC-UINFR002-001``  the UI-NFR family, likewise dashless
+#
+# The dash asymmetry is in the data, not a typo: ``REQ-`` was introduced with a
+# separator and the two NFR families without one. Renumbering them onto
+# ``TC-NFR-008-001`` was considered in #1273 and rejected — 494 citations across
+# ``spec/``, the tests and immutable GitHub issues would have to move, against a
+# single extra alternation here.
+#
+# The alternation is deliberately closed rather than a generic ``[A-Z]+``: this
+# is the *strict* shape, and its job is to reject a family nobody declared. A
+# new family is a deliberate edit here plus a spec document that declares its
+# cases (``TestEveryDeclaredSpecCaseIsExpressible`` in
+# ``src/backend/tests/unit/test_e2e_tc_id_scope.py`` fails until both happen).
+TC_FAMILY_PREFIX = r"(?:REQ-|UINFR|NFR)?"
+
+# Canonical *strict* TC-ID shape. This is the single source of truth: conftest.py
+# imports it (as ``_TC_ID_STRICT``) to validate Gherkin tags and to read TC-IDs
+# off markers, and ``scripts/check_bdd_traceability.py`` loads it by path as the
+# shape its gate accepts — so none of the three can drift apart. conftest.py's
+# own ``_TC_ID_SCAN`` stays deliberately wider (it also captures test-local
+# shapes such as ``TC-REQ-004-W001`` that this pattern rejects on purpose) but
+# is built from ``TC_FAMILY_PREFIX``, so widening the family set here reaches it
+# too. Before #1273 it did not, and the NFR families were invisible to both.
+TC_ID_PATTERN = re.compile(rf"(TC-{TC_FAMILY_PREFIX}\d{{3}}-\d{{3}})")
 _TC_ID_PATTERN = TC_ID_PATTERN  # backwards-compatible alias
 
 

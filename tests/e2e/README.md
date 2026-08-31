@@ -238,6 +238,13 @@ the classic suite's docstrings. It exits non-zero on four defects
 The docstring pair carried shrink-only baselines from #775 until #839 cleared the
 debt; both are plain defects now, with no number to hide behind.
 
+**Scope: every `test_*.py` in `tests/e2e/`, not only `test_req*.py`.** Until #1273
+the docstring channel globbed `test_req*.py`, so a module outside the REQ naming
+convention — `test_uinfr002_a11y_journey.py` was the first — was never read at
+all: a test in one could declare a nonexistent case, or none, and the gate stayed
+green. `*_bdd.py` modules remain excluded on purpose (pytest-bdd overwrites their
+`__doc__`; their ID lives in the Gherkin tag).
+
 The reverse direction is **not** a defect: a declared test case without a
 scenario is simply not automated yet (2239 of 2240 today), so it is reported as
 an informational count. The script reuses `protocol_plugin.py::TC_ID_PATTERN`
@@ -274,12 +281,34 @@ tags declared on an `Examples:` table. Classic tests are untouched by this: they
 carry no TC marker, so their ID keeps coming from the docstring.
 
 The *strict* ID shape is owned by `protocol_plugin.py::TC_ID_PATTERN` and
-imported by `conftest.py`, so the two cannot drift apart. It matches both
-spellings in use — `TC-004-092` and the older `TC-REQ-001-006`. (Until that
-pattern was widened, the protocol's "Testfall-ID" silently never rendered for
-any `TC-NNN-NNN` ID, BDD or classic.) `conftest.py::_TC_ID_SCAN` stays
-deliberately wider for the junit property so it also captures test-local shapes
-such as `TC-REQ-004-W001`.
+imported by `conftest.py`, so the two cannot drift apart. It matches all four
+spellings in use:
+
+| Spelling | Family | Where it comes from |
+|---|---|---|
+| `TC-004-092` | bare | spec documents and the Gherkin tags derived from them |
+| `TC-REQ-001-006` | REQ | the older in-test form; `REQ` carries its own dash |
+| `TC-NFR008-001` | NFR | `spec/e2e-testcases/TC-NFR-0*.md` |
+| `TC-UINFR002-001` | UI-NFR | `spec/e2e-testcases/TC-UI-NFR-002.md` |
+
+The dash after `REQ` and its absence after `NFR`/`UINFR` is how the IDs were
+written, not a typo; #1273 weighed renumbering the 230 NFR-family cases onto
+`TC-NFR-008-001` against widening the pattern and chose the pattern — one extra
+alternation versus 494 citations across `spec/`, the tests and immutable GitHub
+issues. The family half of the alternation lives in
+`protocol_plugin.py::TC_FAMILY_PREFIX`, which `conftest.py::_TC_ID_SCAN` shares:
+that scan stays deliberately wider in the *case-number* position (so it also
+captures test-local shapes such as `TC-REQ-004-W001`) but must never know a
+narrower set of *families* than the gate — before #1273 it did, and the NFR
+families were unreachable through both. (Earlier still, before the bare form was
+added, the protocol's "Testfall-ID" silently never rendered for any `TC-NNN-NNN`
+ID, BDD or classic.)
+
+Adding a family is therefore a deliberate two-part edit: extend
+`TC_FAMILY_PREFIX` **and** declare the cases in `spec/e2e-testcases/`.
+`src/backend/tests/unit/test_e2e_tc_id_scope.py` fails until both are done — it
+asserts that every case the specification declares is expressible by the strict
+pattern, which is precisely the invariant the NFR family violated unnoticed.
 
 > The drift this note used to warn about is gone. #775 reconciled the 619
 > mechanically-resolvable IDs and #839 the remaining 99; all 718 classic tests now
