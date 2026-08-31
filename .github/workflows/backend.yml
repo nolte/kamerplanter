@@ -42,6 +42,22 @@ on:
       - '.github/workflows/release-lag.yml'
       - '.github/workflows/release-assets-complete.yml'
       - '.github/workflows/backend.yml'
+      # The pinned toolchain that compiles the locks. It determines their
+      # bytes down to the header comment, so a bump that touches only this
+      # file has to meet `Lock staleness` — otherwise the one change most
+      # able to move a lock is the one change that never runs the gate
+      # measuring it, and the drift reappears on develop with no pull
+      # request to attribute it to (#1296).
+      - '.github/pip-tools-requirements.txt'
+      # The Taskfile holds the lock-compiling invocation itself — the
+      # `Lock staleness` job runs `task deps:check`, and every backend job
+      # above runs `task lint:backend` / `task test:backend:*`. Without these
+      # entries a pull request that drops `--no-strip-extras` (#903) or
+      # `--no-build-isolation` (#1296) from `deps:compile`, or that rewires the
+      # include, triggers no backend job at all: the gate's own definition was
+      # the one input the gate did not watch.
+      - '.taskfiles/backend.yaml'
+      - 'Taskfile.yaml'
   pull_request:
     branches: [develop]
     paths:
@@ -65,6 +81,22 @@ on:
       - '.github/workflows/release-lag.yml'
       - '.github/workflows/release-assets-complete.yml'
       - '.github/workflows/backend.yml'
+      # The pinned toolchain that compiles the locks. It determines their
+      # bytes down to the header comment, so a bump that touches only this
+      # file has to meet `Lock staleness` — otherwise the one change most
+      # able to move a lock is the one change that never runs the gate
+      # measuring it, and the drift reappears on develop with no pull
+      # request to attribute it to (#1296).
+      - '.github/pip-tools-requirements.txt'
+      # The Taskfile holds the lock-compiling invocation itself — the
+      # `Lock staleness` job runs `task deps:check`, and every backend job
+      # above runs `task lint:backend` / `task test:backend:*`. Without these
+      # entries a pull request that drops `--no-strip-extras` (#903) or
+      # `--no-build-isolation` (#1296) from `deps:compile`, or that rewires the
+      # include, triggers no backend job at all: the gate's own definition was
+      # the one input the gate did not watch.
+      - '.taskfiles/backend.yaml'
+      - 'Taskfile.yaml'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.
@@ -169,48 +201,52 @@ jobs:
           python-version: '3.14'
           allow-prereleases: true
 
-      - name: Install pip-tools
-        # Pin pip-tools to the exact version the locks were compiled with. An
-        # unpinned pip-tools upgrade could change hash ordering or output format
-        # and cause a spurious staleness failure. Must match `task deps:compile`.
-        # pip itself is pinned, not merely upgraded. On 2026-07-29 pip 26.2
-        # removed `pip._internal.utils.compat.stdlib_pkgs`, which pip-tools
-        # imports; `pip-compile` then died with an ImportError before doing any
-        # work. This job pinned pip-tools with a careful reproducibility comment
-        # and upgraded pip beside it without one, so the unpinned half broke the
-        # pinned half. Both pip-tools 7.5.3 and 7.6.0 are affected; the working
-        # combination was verified locally to reproduce the committed lock
-        # byte-for-byte.
-        run: python -m pip install 'pip==26.1.2' 'pip-tools==7.6.1'
+      - name: Set up Task
+        # Needed because this job now delegates to the Taskfile instead of
+        # duplicating the compile invocation (see the next step).
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Recompile locks and fail on drift
-        # Regenerate both locks with the exact same flags as `task deps:compile`
-        # and the local workflow, then fail if the committed locks differ. This
-        # is the NFR-009 §2.3 lockfile-integrity gate: it catches a pyproject.toml
-        # bump that was not re-compiled, or a hand-edited lock.
+        # `task deps:check` IS this gate. It pulls in `deps:compile` (the only
+        # copy of the pip-compile flags in the repository) which pulls in
+        # `deps:toolchain` (`pip install --no-deps -r
+        # .github/pip-tools-requirements.txt` followed by `pip check`), then
+        # diffs the regenerated locks against the committed ones. This is the
+        # NFR-009 §2.3 lockfile-integrity gate: it catches a pyproject.toml bump
+        # that was not re-compiled, or a hand-edited lock.
+        #
+        # It used to inline both `pip-compile` lines here, which made this
+        # workflow a second copy of flags that also live in
+        # .taskfiles/backend.yaml — and that file was not in this workflow's
+        # `paths:`, so a pull request dropping `--no-strip-extras` (#903) from
+        # the Taskfile copy would have run no backend job at all. Both halves are
+        # fixed: the flags exist once, and the file holding them triggers this
+        # workflow.
+        #
+        # Why the toolchain is pinned as a whole set, and not just pip-tools:
+        # pip-compile writes the invocation that produced a lock into the lock's
+        # header and reconstructs that line from *click's* parameter metadata
+        # rather than from argv. On 2026-08-27 click went 8.4.2 -> 8.5.0, a bare
+        # flag's `Option.default` became a sentinel instead of `False`, pip-tools'
+        # "skip options left at their default" test stopped matching, and
+        # `--no-index` appeared in the header of both locks. No package version
+        # and no hash moved, yet every backend pull request and `develop` itself
+        # went red on a difference that no commit had caused (#1296). pip is
+        # pinned rather than merely upgraded for the same class of reason: pip
+        # 26.2 removed `pip._internal.utils.compat.stdlib_pkgs`, which pip-tools
+        # imports, so `pip-compile` died with an ImportError before doing any
+        # work (#929) — the unpinned half broke the pinned half.
+        #
+        # The per-flag rationale (`--generate-hashes`, `--no-strip-extras`,
+        # `--no-build-isolation`) sits beside the invocation in
+        # .taskfiles/backend.yaml, and the per-pin rationale beside the pins in
+        # .github/pip-tools-requirements.txt — one place each, next to the thing
+        # they explain.
         run: |
-          # `--no-strip-extras`, not `--strip-extras` (#903).
-          #
-          # Renovate's pip-compile manager maps each dependency in the SOURCE
-          # (pyproject.toml) to its entry in the lock. Six dependencies are
-          # declared with extras — uvicorn[standard], pydantic[email],
-          # psycopg[binary,pool], qrcode[pil], sentry-sdk[fastapi], moto[s3] —
-          # and `--strip-extras` recorded them in the lock without the extras.
-          # The manager could not find `uvicorn[standard]` there, warned
-          # "dependency not found in lock file" on the Dependency Dashboard, and
-          # declined to regenerate the lock. Every backend dependency pull
-          # request therefore arrived with a stale lock and a red `Lock
-          # staleness` — a gate blamed for a defect it was correctly reporting.
-          #
-          # This is a deliberate opt-OUT of pip-tools' future default: 8.0.0
-          # makes `--strip-extras` the behaviour, and the explicit flag is what
-          # keeps this working past that release rather than silently flipping.
-          # Measured before choosing: restoring the extras moves 7 lines in
-          # requirements.txt and 9 in requirements-dev.txt, with no version and
-          # no hash changes.
-          pip-compile --generate-hashes --output-file=requirements.txt --no-strip-extras pyproject.toml
-          pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --no-strip-extras pyproject.toml
-          if ! git diff --exit-code -- requirements.txt requirements-dev.txt; then
+          if ! task deps:check; then
             echo "::error::Lockfiles are stale. Run 'task deps:compile' and commit the result." >&2
             exit 1
           fi
