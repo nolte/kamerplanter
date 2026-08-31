@@ -64,6 +64,11 @@ esac
 # Resolve the configurable root. Tilde in the env value is not expanded by the
 # shell when it arrives as a variable, so expand a leading ~ ourselves.
 root="${NOLTE_WORKTREE_ROOT:-$HOME/repos/.worktrees}"
+# shellcheck disable=SC2088 # False positive: "~" and "~/" here are case PATTERNS that
+# match a literal tilde arriving inside a variable, not paths meant to expand. Expanding
+# them is what the branch bodies do, which is the whole point of this block. The
+# directive must sit in front of the entire `case` — shellcheck rejects it on a single
+# branch (SC1124) — so it also covers the "~" branch, which reports nothing today.
 case "$root" in
   "~") root="$HOME" ;;
   "~/"*) root="$HOME/${root#\~/}" ;;

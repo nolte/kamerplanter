@@ -59,6 +59,59 @@ tasks:
     cmds:
       - python app/migrations/seed_steckbrief_consistency.py --verbose
 
+  check:workflow-shell-lint:
+    desc: |
+      Lint every file under .github/workflows/ with actionlint — which runs a
+      bundled shellcheck over each `run:` block — and every own *.sh with
+      shellcheck at --severity=warning (#1295). Both also run as pre-commit
+      hooks in the required `static` lane; this target is how `task check`
+      folds them into its table.
+
+      It DELEGATES to those hooks (`pre-commit run --all-files <id>`) instead
+      of calling `docker run` itself, and that is the whole design.
+      .pre-commit-config.yaml is where both tool versions are pinned and where
+      Renovate bumps them, so a second invocation here would be a second place
+      to keep in sync — and it would have to re-derive the file selection, the
+      --severity floor and the container mount, each of which is a chance to
+      gate something subtly different from what CI gates. In particular
+      actionlint exits 3 without checking anything when the mounted tree has
+      no `.git` marker, which is a silent-green shape a hand-rolled
+      `docker run` would have to remember and this one inherits for free.
+
+      Requires pre-commit AND a running Docker daemon: these are the
+      repository's first `language: docker_image` hooks.
+
+      A hook that reports `Skipped` fails this target. pre-commit exits 0 when
+      a hook matches no file, so a `files:`/`types:` filter that stops
+      selecting anything would otherwise read as a pass — the vacuous green
+      NFR-018 §2 forbids and #814 already produced once.
+    # The hook output IS the deliverable; echoing the loop above it would bury
+    # the two lines a reader came for.
+    silent: true
+    cmds:
+      - |
+        if ! command -v pre-commit >/dev/null 2>&1; then
+          printf 'FAIL  actionlint/shellcheck cannot run: pre-commit is not installed.\n' >&2
+          printf '      Install first:  pipx install pre-commit\n' >&2
+          exit 1
+        fi
+
+        rc=0
+        for hook in actionlint-docker shellcheck; do
+          if ! out=$(pre-commit run --all-files "$hook" 2>&1); then
+            rc=1
+          fi
+          printf '%s\n' "$out"
+          case "$out" in
+            *Skipped*)
+              printf 'FAIL  pre-commit hook %s selected no file and reported Skipped —\n' "$hook" >&2
+              printf '      a gate that cannot fail is a failure (NFR-018 §2).\n' >&2
+              rc=1
+              ;;
+          esac
+        done
+        exit "$rc"
+
   precommit:
     desc: |
       Run the full pre-commit hook suite over the whole tree — the local
@@ -106,14 +159,32 @@ tasks:
   # the active environment, its pytest cannot import and the category reports
   # FAIL (install with `pip install -e '.[dev]'` in each service dir), never a
   # silent green. Their CI home is the advisory side-services.yml workflow.
+  #
+  # Workflow + shell linting (actionlint, shellcheck) joined the table in #1295,
+  # via `task check:workflow-shell-lint`. It is the only category that runs
+  # through pre-commit, and the reason is worth stating because the obvious
+  # alternative looks tidier: `task precommit` already picks both hooks up, so
+  # "just call `task precommit` from here" would need no new category at all.
+  # It was rejected on what the whole suite actually does locally — it re-runs
+  # ESLint, tsc and the frontend hooks this table already owns as their own
+  # categories (one tool, two verdicts, no way to tell which one a reader is
+  # looking at), and it pulls in hooks that need tools this fast local loop
+  # deliberately does not require, `nuclei` among them. That would turn the
+  # table red for everyone without a security scanner installed — the same
+  # objection that keeps lint:frontend:deadcode out, above. Naming the two hook
+  # ids keeps the pins, the file selection and the --severity floor in
+  # .pre-commit-config.yaml (one source of truth with the required lane) while
+  # this target stays the fast loop it is for.
   check:
     desc: |
       Run every locally runnable quality gate and print a pass/fail table:
       lint (ruff + ESLint), typecheck (tsc), unit tests (pytest + vitest), the
-      side-service suites (knowledge-service, inference-service, kp_vectordb) and
-      the seven custom source-tree gates (UTC, boundary validation, layer
-      imports, tenant body field, workflow gate integrity, seed harvest
-      integrity, seed catalogue page size).
+      side-service suites (knowledge-service, inference-service, kp_vectordb),
+      the custom source-tree gates (UTC, boundary validation, layer imports,
+      tenant body field, workflow gate integrity, seed harvest integrity, seed
+      catalogue page size) and workflow + shell linting (actionlint over
+      .github/workflows/, shellcheck over the own *.sh — the #1295 hooks, run
+      through pre-commit so their version pins stay in one place).
 
       A category whose tool is missing counts as FAIL, never as skipped — the
       whole point is that "I did not measure this" and "this passed" must not
@@ -170,6 +241,10 @@ tasks:
         python3 scripts/check_seed_harvest_integrity.py || gates=1
         python3 scripts/check_seed_catalogue_page_size.py || gates=1
 
+        printf '\n=== workflow + shell lint (actionlint + shellcheck) ===\n'
+        shelllint=0
+        task check:workflow-shell-lint || shelllint=1
+
         verdict() { if [ "$1" -eq 0 ]; then printf 'PASS'; else printf 'FAIL'; fi; }
 
         printf '\n  %-34s %s\n' 'CATEGORY' 'RESULT'
@@ -179,9 +254,10 @@ tasks:
         printf '  %-34s %s\n' 'test:unit (pytest + vitest)' "$(verdict $tests)"
         printf '  %-34s %s\n' 'side-service tests (pytest)' "$(verdict $sideservices)"
         printf '  %-34s %s\n' 'custom gates (7)' "$(verdict $gates)"
+        printf '  %-34s %s\n' 'actionlint + shellcheck (#1295)' "$(verdict $shelllint)"
         printf '\n'
 
-        overall=$(( lint + typecheck + tests + sideservices + gates ))
+        overall=$(( lint + typecheck + tests + sideservices + gates + shelllint ))
         if [ "$overall" -ne 0 ]; then
           printf 'task check: not every category passed. A category that could not run\n'
           printf 'counts as FAIL, not as skipped — see the comment above this target.\n\n'
