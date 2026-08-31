@@ -98,7 +98,7 @@ pip-tools==7.6.1
 # Transitive dependencies of pip-tools, pinned for the reasons above.
 build==1.6.0
 click==8.4.2
-packaging==26.2
+packaging==26.3
 pyproject-hooks==1.2.0
 setuptools==84.0.0
 wheel==0.48.0
