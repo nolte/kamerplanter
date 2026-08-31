@@ -509,7 +509,11 @@ def collect_docstring_claims(
         if root.is_file():
             files = [root]
         elif root.is_dir():
-            files = sorted(root.glob("test_req*.py"))
+            # Every ``test_*.py``, not only ``test_req*.py``. The narrower glob
+            # scoped the whole gate to the REQ family: ``test_uinfr002_*`` — and
+            # any future NFR-family test — was simply not looked at, so a test
+            # claiming nothing at all would have passed silently (#1273).
+            files = sorted(root.glob("test_*.py"))
         else:
             raise TraceabilityError(f"docstring root does not exist: {root}")
         for path in files:

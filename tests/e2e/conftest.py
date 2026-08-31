@@ -74,10 +74,9 @@ KNOWN_FEATURE_MARKERS: dict[str, str] = {
 _REQ_FILE_PATTERN = re.compile(r"test_req(\d{3})_")
 # File names that are core-lifecycle journeys get an implicit ``journey`` marker.
 _JOURNEY_FILE_MARKER = "core_lifecycle_journey"
-# Broad TC-ID scan for the machine-readable ``tc_id`` property. Deliberately
-# wider than protocol_plugin's strict pattern so it also captures the test-local
-# ID shapes in use (e.g. ``TC-REQ-004-W001``, ``TC-REQ-001-PI-005``, ``TC-001-080``).
-_TC_ID_SCAN = re.compile(r"\bTC-(?:REQ-)?\d{3}-[A-Za-z0-9-]*\d[a-z]?\b")
+# The broad TC-ID scan for the machine-readable ``tc_id`` property is defined
+# further down, next to ``_TC_ID_STRICT``: it shares protocol_plugin's
+# ``TC_FAMILY_PREFIX``, which is only available after that module is loaded.
 
 
 def _req_marker_for(path_name: str) -> str | None:
@@ -150,9 +149,19 @@ _pp_spec.loader.exec_module(_pp_mod)  # type: ignore[union-attr]
 ProtocolGenerator = _pp_mod.ProtocolGenerator
 ScreenshotEntry = _pp_mod.ScreenshotEntry
 TestResult = _pp_mod.TestResult
-# Strict TC-ID shape (``TC-004-092`` / ``TC-REQ-001-006``), owned by
-# protocol_plugin so the protocol and this file cannot drift apart.
+# Strict TC-ID shape (``TC-004-092`` / ``TC-REQ-001-006`` / ``TC-NFR008-001`` /
+# ``TC-UINFR002-001``), owned by protocol_plugin so the protocol and this file
+# cannot drift apart.
 _TC_ID_STRICT = _pp_mod.TC_ID_PATTERN
+# Broad TC-ID scan for the machine-readable ``tc_id`` property. Deliberately
+# wider in the *case-number* position than the strict pattern, so it also
+# captures the test-local ID shapes in use (e.g. ``TC-REQ-004-W001``,
+# ``TC-REQ-001-PI-005``, ``TC-001-080``). It is deliberately **not** wider in the
+# *family* position: that half is protocol_plugin's ``TC_FAMILY_PREFIX``, shared
+# rather than restated. Restating it is how the NFR families ended up matching
+# the strict pattern but not this one (#1273) — a test would have declared an ID
+# the gate accepted while its junit ``tc_id`` property stayed empty.
+_TC_ID_SCAN = re.compile(rf"\bTC-{_pp_mod.TC_FAMILY_PREFIX}\d{{3}}-[A-Za-z0-9-]*\d[a-z]?\b")
 
 
 # ── Gherkin tags → registered markers (pytest-bdd) ────────────────────────
@@ -308,7 +317,8 @@ def pytest_configure(config: pytest.Config) -> None:
         if not _is_known_tag(tag):
             raise pytest.UsageError(
                 f"features/{files[0]}: unknown Gherkin tag '@{tag}'. Allowed tags are "
-                f"a TC-ID (TC-NNN-NNN / TC-REQ-NNN-NNN), a REQ axis tag (reqNNN), a "
+                f"a TC-ID (TC-NNN-NNN / TC-REQ-NNN-NNN / TC-NFRNNN-NNN / "
+                f"TC-UINFRNNN-NNN), a REQ axis tag (reqNNN), a "
                 f"feature axis tag ({sorted(KNOWN_FEATURE_MARKERS)}) or one of "
                 f"{list(_LEGACY_MARKERS)}."
             )
