@@ -4,7 +4,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import AquaponikPage from '@/pages/aquaponik/AquaponikPage';
-import { renderWithProviders } from '../helpers';
+import RequireRole from '@/auth/RequireRole';
+import { createStoreWithTenantRole, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 
 const T = '/api/v1/t/:tenant/aquaponics';
@@ -228,5 +229,51 @@ describe('AquaponikPage', () => {
 
     await waitFor(() => expect(recorded).toHaveBeenCalled());
     expect(recorded.mock.calls[0][0]).toMatchObject({ ammonia_tan_mgl: 1.5 });
+  });
+
+  it('hides the water-test action from a viewer under the route guard (#1261)', async () => {
+    // The route's *second* write affordance. `POST …/water-tests` carries
+    // `require_tenant_role(grower)` just like the header action, but it lives
+    // inside the detail card where PageTitle cannot reach it — so the page reads
+    // the restriction itself. Without this case the guard would look applied
+    // while the doomed button stayed on screen.
+    mockSystems([SYSTEM]);
+    mockDetail();
+    renderWithProviders(
+      <RequireRole min="grower">
+        <AquaponikPage />
+      </RequireRole>,
+      { store: createStoreWithTenantRole('viewer') },
+    );
+
+    // The read half must survive: the system is selected and its detail rendered.
+    // (The name appears twice — in the selector and as the detail heading — so
+    // assert on the detail body instead of on an ambiguous text match.)
+    await waitFor(() =>
+      expect(screen.getAllByText('Tilapia-Salat DWC').length).toBeGreaterThan(0),
+    );
+    expect(screen.getByTestId('system-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('role-restriction-notice')).toBeInTheDocument();
+    expect(screen.queryByTestId('record-water-test-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('create-system-button')).not.toBeInTheDocument();
+  });
+
+  it('keeps the water-test action for a grower under the same guard', async () => {
+    // The negative control for the case above, same page, same fixtures, only
+    // the role differs — so a fixture that never renders the button cannot pass
+    // for a working guard.
+    mockSystems([SYSTEM]);
+    mockDetail();
+    renderWithProviders(
+      <RequireRole min="grower">
+        <AquaponikPage />
+      </RequireRole>,
+      { store: createStoreWithTenantRole('grower') },
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('record-water-test-button')).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('role-restriction-notice')).not.toBeInTheDocument();
   });
 });

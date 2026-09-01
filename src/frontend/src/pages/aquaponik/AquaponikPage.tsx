@@ -26,6 +26,7 @@ import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { kamiAquaponik } from '@/assets/brand/illustrations';
+import { useRoleRestriction } from '@/auth/roleRestriction';
 import { useNotification } from '@/hooks/useNotification';
 import { useAquaponicSystems } from '@/hooks/useAquaponicSystems';
 import type { CyclingStatus, WaterQualitySeverity } from '@/api/types';
@@ -57,6 +58,13 @@ const severityIcon: Record<WaterQualitySeverity, ReactElement> = {
 
 export default function AquaponikPage() {
   const { t, i18n } = useTranslation();
+  // #1261 — this route is wrapped in `<RequireRole min="grower">`, which drops the
+  // header action centrally via PageTitle. Recording a water test is this page's
+  // *second* write affordance (`POST /aquaponics/systems/{key}/water-tests`, also
+  // `require_tenant_role(grower)`), and it sits inside the detail card where the
+  // page chrome cannot reach it — so it reads the restriction itself. Leaving it
+  // visible would make the guard look applied while the doomed button stayed.
+  const { restricted } = useRoleRestriction();
   const notification = useNotification();
   const {
     systems,
@@ -181,15 +189,17 @@ export default function AquaponikPage() {
                     <Typography variant="h5" component="h2">
                       {selectedSystem.name}
                     </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<ScienceIcon />}
-                      onClick={() => setWaterTestDialogOpen(true)}
-                      data-testid="record-water-test-button"
-                    >
-                      {t('pages.aquaponik.recordWaterTest')}
-                    </Button>
+                    {!restricted && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<ScienceIcon />}
+                        onClick={() => setWaterTestDialogOpen(true)}
+                        data-testid="record-water-test-button"
+                      >
+                        {t('pages.aquaponik.recordWaterTest')}
+                      </Button>
+                    )}
                   </Box>
 
                   {detailLoading ? (

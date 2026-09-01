@@ -159,6 +159,10 @@
       "description": "Nachschlagewerk für Fachbegriffe wie VPD oder EC rund um den Anbau."
     }
   },
+  "roleGuard": {
+    "title": "Zum Bearbeiten brauchst du die Rolle „{{role}}“",
+    "description": "Du kannst diese Seite ansehen, aber die Aktion oben rechts ist für dich ausgeblendet: Anlegen und Ändern ist in diesem Mandanten ab der Rolle „{{role}}“ möglich. Frag die Leitung deines Mandanten, wenn du diese Rechte brauchst."
+  },
   "storageSettings": {
     "title": "Speicher",
     "intro": "Lege fest, wo Kamerplanter Binärdaten (Fotos, Importe, Exporte) ablegt. Die Auswahl gilt für die gesamte Instanz und wirkt sofort nach dem Speichern.",
