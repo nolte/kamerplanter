@@ -22,7 +22,7 @@ import structlog
 from app.common.enums import ReminderType, TaskPriority
 from app.domain.engines.care_reminder_engine import evaluate_quarter_climate_violation
 from app.domain.engines.sensor_metrics import is_air_temperature
-from app.domain.services.care_reminder_service import build_care_reminder_task
+from app.domain.services.care_reminder_service import build_care_reminder_task, create_care_reminder_task
 
 if TYPE_CHECKING:
     from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
@@ -95,12 +95,17 @@ class QuarterClimateService:
             instruction=self._instruction(plant_label, violation, current_temp_c, profile),
             priority=TaskPriority.HIGH,
         )
-        created = self._task_repo.create_task(task)
+        # ``None`` when a concurrent producer created the equivalent task first
+        # (#1301) — the same "an equivalent open task already exists" outcome as
+        # the ``find_open_care_task`` guard above, reported as ``task_created`` so
+        # the log does not claim a task this run did not write.
+        created = create_care_reminder_task(self._task_repo, task)
         logger.info(
             "quarter_climate_violation",
             plant_key=plant_key,
             violation=violation,
             temperature_c=current_temp_c,
+            task_created=created is not None,
         )
         return created
 

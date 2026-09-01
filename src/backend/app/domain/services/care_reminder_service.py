@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import structlog
+
 from app.common.datetimes import today_utc
 from app.common.enums import (
     ApplicationMethod,
@@ -10,7 +12,7 @@ from app.common.enums import (
     TaskPriority,
     TaskStatus,
 )
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import DuplicateError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
@@ -33,6 +35,8 @@ from app.domain.models.species import Species
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.notification_propagation_service import NotificationPropagationService
+
+logger = structlog.get_logger()
 
 #: Which winter/spring reminder types a SeasonState transition into a given phase
 #: owns (REQ-047 §3.2). Used to create them the moment the site enters the phase.
@@ -138,6 +142,49 @@ def build_care_reminder_task(
         status=TaskStatus.PENDING,
         priority=priority,
     )
+
+
+def create_care_reminder_task(task_repo: ITaskRepository, task: Task) -> Task | None:
+    """Insert a care-reminder task, resolving a lost creation race to ``None`` (#1301).
+
+    The single insertion point for every care-reminder producer — the seasonal
+    path (:meth:`CareReminderService._ensure_care_task`), the watering follow-up
+    (:meth:`CareReminderService.ensure_next_watering_task`), the quarter-climate
+    service and the daily ``generate_due_care_reminders`` Celery producer. All
+    four first ask :meth:`ITaskRepository.find_open_care_task` whether an
+    equivalent task is already open; that read-then-create is not atomic, so two
+    overlapping producers (the 06:00 beat and a manual
+    ``POST /t/{slug}/tasks/generate-care-reminders``, or two E2E workers) both
+    read "none open" and both insert.
+
+    The ``tasks`` collection now carries a **unique sparse index over the open
+    care-reminder dedup key** (``ensure_care_task_dedup_index``), so exactly one
+    of the two inserts lands and the other is rejected with ArangoDB error code
+    ``1210``, which the repository already surfaces as :class:`DuplicateError`.
+
+    The loser wanted to know one thing — "does an equivalent open task already
+    exist?" — and the rejection *is* that answer, so this returns ``None``: the
+    same outcome as the ``existing is not None`` branch the racing read missed by
+    microseconds. It is never an error, and never a 409 leaking out of a
+    generation endpoint.
+
+    Why the exception is not narrowed further: ``tasks`` carries exactly one
+    unique index, this one, so on this collection code ``1210`` can only be it.
+    That assumption is pinned by
+    ``tests/integration/test_care_task_dedup_concurrency.py::test_tasks_carries_exactly_one_unique_index``
+    — add a second unique index to ``tasks`` and it reddens rather than letting a
+    genuinely different conflict be swallowed as "already exists".
+    """
+    try:
+        return task_repo.create_task(task)
+    except DuplicateError:
+        logger.info(
+            "care_reminder_task_dedup_race_lost",
+            entity_key=task.entity_key,
+            tenant_key=task.tenant_key,
+            task_name=task.name,
+        )
+        return None
 
 
 def _template_to_profile(
@@ -1196,7 +1243,7 @@ class CareReminderService:
             reminder_type=reminder_type,
             due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
         )
-        return self._task_repo.create_task(task)
+        return create_care_reminder_task(self._task_repo, task)
 
     def _resolve_overwintering_profile(self, plant_key: str) -> OverwinteringProfile | None:
         """Load the plant's overwintering profile (one lookup per subject, B1).
@@ -1288,9 +1335,21 @@ class CareReminderService:
                 completed-today recency rule (#509), which is what the producer
                 paths (daily Celery run, interval edit) rely on.
 
+        **Concurrency (#1301).** The dedup lookup below plus the create is a
+        read-then-create, which holds sequentially and not concurrently: the 06:00
+        beat and a manual ``POST /t/{slug}/tasks/generate-care-reminders`` are
+        different processes, so no in-process lock spans them and both used to read
+        "none open" and both insert. The promise in this docstring's first line is
+        therefore enforced in *storage*, by the unique sparse index over the open
+        care-reminder dedup key (``ensure_care_task_dedup_index``); the loser of
+        the race is turned back into "another task already satisfies the reminder"
+        by :func:`create_care_reminder_task`. The lookup below stays — it is what
+        keeps the normal, uncontended case free of a rejected insert.
+
         Returns:
             The created task, or ``None`` when another task already satisfies the
-            reminder or no due date can be computed.
+            reminder (whether the lookup found it or the storage constraint did) or
+            no due date can be computed.
         """
         if self._task_repo is None:
             return None
@@ -1353,7 +1412,7 @@ class CareReminderService:
             due_date=due_dt,
             instruction=f"Water {plant_label} (every {interval} days).",
         )
-        return self._task_repo.create_task(task)
+        return create_care_reminder_task(self._task_repo, task)
 
     def _next_watering_due_date(
         self,

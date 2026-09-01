@@ -272,8 +272,17 @@ class BaseArangoRepository[TModel: BaseModel]:
         return match.group("field") if match else None
 
     @classmethod
-    def _describe_unique_conflict(cls, error: DocumentInsertError, data: dict[str, Any]) -> tuple[str, str]:
+    def _describe_unique_conflict(
+        cls,
+        error: DocumentInsertError | DocumentUpdateError,
+        data: dict[str, Any],
+    ) -> tuple[str, str]:
         """Turn a unique-constraint violation into a ``(field, value)`` pair.
+
+        Reached from the insert **and** the two update paths: an update can violate
+        a unique index just as an insert can (reopening a completed care task while
+        an equivalent one is already open, #1301), and error code ``1210`` means the
+        same thing on both.
 
         Extracts the real conflicting field from the ArangoDB error message and
         pairs it with the value taken from the document being inserted, so the
@@ -595,6 +604,9 @@ class BaseArangoRepository[TModel: BaseModel]:
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 raise NotFoundError(self._collection_name, key) from e
+            if e.error_code == 1210:  # unique constraint violated
+                field, value = self._describe_unique_conflict(e, data)
+                raise DuplicateError(self._collection_name, field, value) from e
             raise
         return self._from_doc(result["new"])
 
@@ -623,6 +635,9 @@ class BaseArangoRepository[TModel: BaseModel]:
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 raise NotFoundError(self._collection_name, key) from e
+            if e.error_code == 1210:  # unique constraint violated
+                field, value = self._describe_unique_conflict(e, data)
+                raise DuplicateError(self._collection_name, field, value) from e
             raise
         return self._from_doc(result["new"])
 

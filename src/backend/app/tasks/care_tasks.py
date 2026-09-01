@@ -46,7 +46,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         get_task_repo,
     )
     from app.common.enums import ReminderType, TaskPriority
-    from app.domain.services.care_reminder_service import build_care_reminder_task
+    from app.domain.services.care_reminder_service import build_care_reminder_task, create_care_reminder_task
 
     care_service = get_care_reminder_service()
     task_repo = get_task_repo()
@@ -198,7 +198,15 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
                 due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
                 priority=TaskPriority.MEDIUM if urgency == "due_today" else TaskPriority.HIGH,
             )
-            task_repo.create(task)
+            # Shared creator, not a bare ``create``: it resolves a lost creation
+            # race to ``None`` against the unique open-care-task index instead of
+            # letting the beat abort a whole tenant's generation run with a
+            # DuplicateError (#1301). It also routes through ``create_task``, so
+            # this producer finally writes the ``has_task`` edge the service paths
+            # have always written — it was the one care-task producer that did not.
+            if create_care_reminder_task(task_repo, task) is None:
+                skipped_count += 1
+                continue
             created_count += 1
 
     logger.info(
