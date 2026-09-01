@@ -31,6 +31,8 @@ const substrate = {
   water_retention: 'medium',
   air_porosity_percent: 30,
   composition: {},
+  additives: [],
+  is_amendment: false,
   buffer_capacity: 'medium',
   reusable: true,
   max_reuse_cycles: 3,

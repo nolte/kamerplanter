@@ -293,7 +293,15 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">{t('pages.substrates.airPorosity')}</Typography>
-                <Typography variant="body2">{preview.air_porosity_percent.toFixed(1)}%</Typography>
+                {/* `null` means the blend has no pore space to state — a mix made
+                    only of non-substrates (#1175). Rendering "0.0 %" there would
+                    reintroduce the placeholder the model change removed, in the
+                    other direction. */}
+                <Typography variant="body2" data-testid="mix-preview-air-porosity">
+                  {preview.air_porosity_percent === null
+                    ? t('pages.substrates.notApplicable')
+                    : `${preview.air_porosity_percent.toFixed(1)}%`}
+                </Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">{t('pages.substrates.bufferCapacity')}</Typography>
@@ -310,6 +318,23 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
                 </Box>
               )}
             </Box>
+            {preview.additives.length > 0 && (
+              <Box sx={{ mt: 1 }} data-testid="mix-preview-additives">
+                <Typography variant="caption" color="text.secondary">{t('pages.substrates.additives')}</Typography>
+                {/* Names, no percentages: the catalogue records *that* a medium is
+                    limed, not how much (#1175). Showing them at all is the point —
+                    they used to be percentages in the composition row below, which
+                    is exactly the reading that was wrong. */}
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  {preview.additives.map((additive) => (
+                    <Chip key={additive} label={additive} size="small" variant="outlined" color="secondary" />
+                  ))}
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('pages.substrates.additivesHelper')}
+                </Typography>
+              </Box>
+            )}
             {Object.keys(preview.composition).length > 0 && (
               <Box sx={{ mt: 1 }}>
                 <Typography variant="caption" color="text.secondary">{t('pages.substrates.composition')}</Typography>

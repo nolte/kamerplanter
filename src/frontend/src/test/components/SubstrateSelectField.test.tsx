@@ -133,3 +133,48 @@ describe('SubstrateSelectField', () => {
     );
   });
 });
+
+describe('SubstrateSelectField — soil amendments (#1175)', () => {
+  const amendment = {
+    key: 'sub-premix',
+    type: 'peat',
+    brand: 'BioBizz',
+    name_de: 'BioBizz Pre·Mix (Bodenverbesserer)',
+    name_en: 'BioBizz Pre-Mix (Soil Conditioner)',
+    is_mix: false,
+    is_amendment: true,
+    reusable: false,
+    max_reuse_cycles: 1,
+  } as Substrate;
+
+  it('does not offer an amendment as a growing medium', async () => {
+    // `BioBizz Pre·Mix` is a soil conditioner — 30 % peat, the rest bone meal,
+    // blood meal, guano, dolomite, seaweed and leonardite. Nothing is planted in
+    // it, but it is typed `peat` and so appeared in the same list as the media.
+    // Both call sites of this field assign a plant's medium.
+    const user = userEvent.setup();
+    renderWithProviders(<TestForm substrates={[...substrates, amendment]} />);
+
+    await user.click(screen.getByRole('combobox'));
+    const list = await screen.findByRole('listbox');
+
+    expect(within(list).queryByText(/BioBizz/)).toBeNull();
+    // Control: the real media are still there, so the assertion above cannot be
+    // satisfied by an empty list.
+    expect(within(list).getByText('Coco soil')).toBeTruthy();
+  });
+
+  it('falls back to the enum types when the only entries are amendments', async () => {
+    // The fallback keys off "no selectable entity", not "no entity at all". A
+    // catalogue holding nothing but amendments has nothing to plant in, and an
+    // empty picker would be a dead end rather than a degraded one.
+    const user = userEvent.setup();
+    renderWithProviders(<TestForm substrates={[amendment]} />);
+
+    await user.click(screen.getByRole('combobox'));
+    const list = await screen.findByRole('listbox');
+
+    expect(within(list).queryByText(/BioBizz/)).toBeNull();
+    expect(within(list).getAllByRole('option').length).toBeGreaterThan(1);
+  });
+});

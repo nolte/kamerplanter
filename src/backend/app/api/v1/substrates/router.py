@@ -179,6 +179,7 @@ def preview_mix(
         water_retention=props["water_retention"],
         air_porosity_percent=props["air_porosity_percent"],
         composition=props["composition"],
+        additives=props["additives"],
         buffer_capacity=props["buffer_capacity"],
         reusable=props["reusable"],
         max_reuse_cycles=props["max_reuse_cycles"],

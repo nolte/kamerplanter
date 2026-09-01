@@ -86,7 +86,11 @@ class TestSetPlantSubstrate:
 
         source = inspect.getsource(SetPlantSubstrate._verify_targets)
 
-        assert "get_substrate(args.substrate_key, tenant_key=ctx.tenant_key)" in source
+        # `get_growing_medium`, not `get_substrate`: it resolves in exactly the same
+        # scope and additionally refuses a soil amendment (#1175). Asserting the
+        # narrower call is what stops a later edit from widening it back to the
+        # plain read while still looking tenant-safe.
+        assert "get_growing_medium(args.substrate_key, tenant_key=ctx.tenant_key)" in source
         assert "get_batch(args.substrate_batch_key, tenant_key=ctx.tenant_key)" in source
 
     def test_the_verification_runs_before_the_write_on_both_paths(self) -> None:

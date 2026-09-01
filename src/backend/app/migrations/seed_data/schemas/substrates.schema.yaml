@@ -67,8 +67,14 @@ $defs:
         type: string
         enum: [low, medium, high]
       air_porosity_percent:
-        type: number
-        description: "Air-filled porosity at container capacity, as a percentage of medium volume."
+        type: [number, "null"]
+        description: >-
+          Air-filled porosity at container capacity, as a percentage of medium volume.
+          Nullable, and null is not "unknown" but "does not apply": `Hydrokultur
+          (kein Substrat)` has no pore space to describe, and carrying 100.0 there
+          made a placeholder indistinguishable from a measurement for every consumer
+          that reads the field (#1175). The same reasoning that already made an
+          empty `composition` legal on that record.
         minimum: 0.0
         maximum: 100.0
       composition:
@@ -78,6 +84,31 @@ $defs:
           type: number
           minimum: 0.0
           maximum: 1.0
+      additives:
+        type: array
+        description: >-
+          Amendments the product contains, named without a quantity (#1175). Lime,
+          dolomitic lime and trace-element blends are dosed at single-digit kg/m³ —
+          two orders of magnitude below any bulk component — so they cannot be
+          carried in the normalised `composition` vector, where they read as real
+          proportions (a `kalk: 0.10` was literally ten percent lime). Names and not
+          a second numeric map, because the catalogue has no sourced dose rate for
+          any of these products and this seed file's header forbids inventing one:
+          a plausible 0.005 would look settled while being no better founded than
+          the 0.10 it replaced. The rule that keeps these keys out of `composition`
+          is cross-field and lives in tests/unit/migrations/test_substrate_invariants.py.
+        items:
+          type: string
+          minLength: 1
+      is_amendment:
+        type: boolean
+        description: >-
+          True for a soil conditioner — a concentrate, not something a plant grows
+          in (`BioBizz Pre·Mix`). It is not a `SubstrateType` member on purpose: the
+          per-type tables in the engines answer questions about medium physics with
+          a silent default, so a `soil_amendment` type would have produced confident
+          answers about a thing that is not a medium. An amendment stays a legal mix
+          component; what it may not be is the medium a plant is planted in.
       buffer_capacity:
         type: string
         enum: [low, medium, high]

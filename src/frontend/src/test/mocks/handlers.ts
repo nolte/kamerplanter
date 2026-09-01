@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import type { Substrate } from '@/api/types';
 
 const mockFamilies = [
   {
@@ -139,6 +140,11 @@ const mockPlants = [
 
 // Exported so substrate-list/detail tests can seed a populated list locally
 // via server.use() without mutating the (intentionally empty) global handler.
+// `satisfies Substrate[]`: an untyped literal here let the mocks drift from the
+// shape the API actually returns — they were missing `additives`/`is_amendment`
+// after #1175 and one carried an `irrigation_strategy: 'cycle'` no enum member
+// has, so a component reading either would have been exercised against data the
+// real backend can never produce.
 export const mockSubstrates = [
   {
     key: 'sub-1',
@@ -153,6 +159,8 @@ export const mockSubstrates = [
     water_retention: 'medium',
     air_porosity_percent: 30,
     composition: {},
+    additives: [],
+    is_amendment: false,
     buffer_capacity: 'medium',
     reusable: true,
     max_reuse_cycles: 3,
@@ -178,6 +186,8 @@ export const mockSubstrates = [
     water_retention: 'low',
     air_porosity_percent: 60,
     composition: {},
+    additives: [],
+    is_amendment: false,
     buffer_capacity: 'low',
     reusable: false,
     max_reuse_cycles: 1,
@@ -190,7 +200,7 @@ export const mockSubstrates = [
     created_at: '2024-01-02T00:00:00Z',
     updated_at: null,
   },
-];
+] satisfies Substrate[];
 
 // Minimal fertilizer catalogue for the nutrient-calculations selectors (#610).
 // The page only reads key/product_name/brand, so partial objects suffice.
@@ -489,6 +499,8 @@ export const handlers = [
       water_retention: 'medium',
       air_porosity_percent: 40,
       composition: { coco: 0.5, perlite: 0.5 },
+      additives: [],
+      is_amendment: false,
       buffer_capacity: 'medium',
       reusable: false,
       max_reuse_cycles: 1,
@@ -497,7 +509,7 @@ export const handlers = [
       cec_meq_per_100cm3: null,
       particle_size_mm: null,
       bulk_density_g_per_l: null,
-      irrigation_strategy: 'cycle',
+      irrigation_strategy: 'frequent',
       created_at: '2024-01-01T00:00:00Z',
       updated_at: null,
     });
@@ -517,6 +529,8 @@ export const handlers = [
       water_retention: 'medium',
       air_porosity_percent: 40,
       composition: { coco: 0.5, perlite: 0.5 },
+      additives: [],
+      is_amendment: false,
       buffer_capacity: 'medium',
       reusable: false,
       max_reuse_cycles: 1,

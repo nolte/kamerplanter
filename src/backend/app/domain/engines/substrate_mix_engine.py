@@ -167,7 +167,14 @@ def calculate_mix_properties(
 
     # Per-volume properties: volume-weighted by the component fractions.
     ec = _weighted_avg([(s.ec_base_ms, f) for s, f in pairs])
-    porosity = _weighted_avg([(s.air_porosity_percent, f) for s, f in pairs])
+    # Optional, not required: a component may decline to have an air porosity at
+    # all (`Hydrokultur (kein Substrat)`, #1175). `_weighted_optional` renormalises
+    # over the components that do declare one, which is the right reading here —
+    # a nutrient-solution share contributes no pore space to average in, and
+    # `_weighted_avg` would have folded its `None` in as a `TypeError` or, before
+    # the field was nullable, as a placeholder 100 that pulled every mix containing
+    # it upwards.
+    porosity = _weighted_optional([(s.air_porosity_percent, f) for s, f in pairs])
 
     retention_num = _weighted_avg([(_RETENTION_ORDER[s.water_retention], f) for s, f in pairs])
     buffer_num = _weighted_avg([(_BUFFER_ORDER[s.buffer_capacity], f) for s, f in pairs])
@@ -189,6 +196,14 @@ def calculate_mix_properties(
         for material, amount in sub.composition.items():
             merged_composition[material] = merged_composition.get(material, 0.0) + amount * frac
 
+    # Additives carry no quantity, so they merge as a set union rather than a
+    # weighted sum (#1175). Propagating them at all is the point: a blend of a
+    # limed peat and an inert diluent is still limed, and the whole reason the
+    # additives left `composition` is that nothing downstream could read a lime
+    # fraction correctly. Dropping them here would have moved the loss one layer
+    # down instead of fixing it.
+    merged_additives = sorted({a for sub, _ in pairs for a in sub.additives})
+
     # Reusability: mix is reusable only if all components are reusable
     all_reusable = all(s.reusable for s, _ in pairs)
     min_cycles = min((s.max_reuse_cycles for s, _ in pairs), default=1)
@@ -200,7 +215,7 @@ def calculate_mix_properties(
         "type": dominant[0].type,
         "ph_base": round(ph, 2),
         "ec_base_ms": round(ec, 3),
-        "air_porosity_percent": round(porosity, 1),
+        "air_porosity_percent": round(porosity, 1) if porosity is not None else None,
         "water_retention": _resolve_retention(retention_num),
         "buffer_capacity": _resolve_buffer(buffer_num),
         "water_holding_capacity_percent": round(whc, 1) if whc is not None else None,
@@ -208,6 +223,7 @@ def calculate_mix_properties(
         "cec_meq_per_100cm3": round(cec, 1) if cec is not None else None,
         "bulk_density_g_per_l": round(bulk, 1) if bulk is not None else None,
         "composition": {k: round(v, 4) for k, v in merged_composition.items()},
+        "additives": merged_additives,
         "reusable": all_reusable,
         "max_reuse_cycles": min_cycles if all_reusable else 1,
         "irrigation_strategy": _resolve_irrigation(pairs),

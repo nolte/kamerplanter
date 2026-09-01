@@ -47,7 +47,10 @@ const schema = z.object({
   ph_base: z.number().min(0).max(14),
   ec_base_ms: z.number().min(0),
   water_retention: z.enum(['low', 'medium', 'high']),
-  air_porosity_percent: z.number().min(0).max(100),
+  // Nullable: `Hydrokultur (kein Substrat)` declares no air porosity at all
+  // (#1175). A non-nullable schema rejected that record's own stored value, so the
+  // one entry the change is about could not be saved from its own detail page.
+  air_porosity_percent: z.number().min(0).max(100).nullable(),
   buffer_capacity: z.enum(['low', 'medium', 'high']),
   reusable: z.boolean(),
   max_reuse_cycles: z.number().min(1),

@@ -162,3 +162,78 @@ class TestVolumeWeightedCec:
         result = _half_half(_light_mix(), _clay_pebbles())
 
         assert result["bulk_density_g_per_l"] == 375.0
+
+
+# ── #1175: the two shapes the model change introduced ─────────────────
+
+
+class TestAdditivesSurviveTheMix:
+    """Additives merge as a union of names, because they carry no quantity.
+
+    The reason this is asserted at all: additives left `composition` precisely
+    because nothing downstream could read a lime *fraction* correctly. An engine
+    that merged the bulk vector and dropped the names would have moved the loss
+    one layer down rather than fixing it — a blend of a limed peat and an inert
+    diluent is still limed, and an agent computing a dose off the MCP summary has
+    no other way to learn that.
+    """
+
+    def test_a_limed_component_makes_the_blend_limed(self):
+        limed = _make_substrate("limed", additives=["kalk"])
+        inert = _make_substrate("inert", additives=[])
+
+        assert _half_half(limed, inert)["additives"] == ["kalk"]
+
+    def test_names_are_unioned_and_deduplicated_not_summed(self):
+        """Two limed components give one `kalk`, not two and not a fraction."""
+        a = _make_substrate("a", additives=["kalk", "spurenelemente"])
+        b = _make_substrate("b", additives=["kalk"])
+
+        assert _half_half(a, b)["additives"] == ["kalk", "spurenelemente"]
+
+    def test_a_mix_of_plain_media_declares_no_additives(self):
+        """Control: the key is always present and empty rather than absent."""
+        assert _half_half(_light_mix(), _clay_pebbles())["additives"] == []
+
+
+class TestPorosityIsOptional:
+    """`air_porosity_percent` may be absent, and absent is not zero (#1175).
+
+    Before the field was nullable, `Hydrokultur (kein Substrat)` carried 100.0 and
+    this engine volume-weighted it, so any mix containing a hydro share was pulled
+    toward a porosity that describes no pore space at all.
+    """
+
+    def test_a_component_without_a_porosity_does_not_drag_the_blend(self):
+        """50/50 with a component that declines the field renormalises over the rest.
+
+        30.0, not 15.0: the half that has no pore space contributes no pore space
+        to average, rather than contributing zero of it. Naming 15.0 keeps a
+        regression to `_weighted_avg`-with-a-`None`-as-0 distinguishable from the
+        correct answer.
+        """
+        medium = _make_substrate("medium", air_porosity_percent=30.0)
+        no_porosity = _make_substrate("solution", air_porosity_percent=None)
+
+        result = _half_half(medium, no_porosity)
+
+        assert result["air_porosity_percent"] == 30.0
+        assert result["air_porosity_percent"] != 15.0
+
+    def test_a_blend_of_components_that_all_decline_stays_absent(self):
+        """Not 0.0 — there is still nothing to state."""
+        a = _make_substrate("a", air_porosity_percent=None)
+        b = _make_substrate("b", air_porosity_percent=None)
+
+        assert _half_half(a, b)["air_porosity_percent"] is None
+
+    def test_the_placeholder_would_have_moved_the_result(self):
+        """The falsification: what the old 100.0 did to the same blend.
+
+        Without this the two readings are indistinguishable on any mix that happens
+        not to contain the hydro entry, which is most of them.
+        """
+        medium = _make_substrate("medium", air_porosity_percent=30.0)
+        placeholder = _make_substrate("placeholder", air_porosity_percent=100.0)
+
+        assert _half_half(medium, placeholder)["air_porosity_percent"] == 65.0

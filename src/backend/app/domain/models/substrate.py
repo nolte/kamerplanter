@@ -37,8 +37,55 @@ class Substrate(BaseModel):
     ph_base: float = Field(default=6.5, ge=0, le=14)
     ec_base_ms: float = Field(default=0.5, ge=0)
     water_retention: WaterRetention = WaterRetention.MEDIUM
-    air_porosity_percent: float = Field(default=25.0, ge=0, le=100)
+    #: Air-filled porosity at container capacity, or ``None`` where the field does
+    #: not apply (#1175).
+    #:
+    #: Nullable because a nutrient solution has no pore space to describe. The
+    #: seeded ``Hydrokultur (kein Substrat)`` record carried ``100.0`` as a
+    #: placeholder for "not applicable", and no consumer could tell that from a
+    #: measured 100: it was volume-weighted into every mix that contained it,
+    #: reported over MCP as a physical property and rendered as ``100.0 %`` in the
+    #: detail view. The same record's ``composition`` was already allowed to be
+    #: empty and mean exactly that; this is the same statement about the same
+    #: record, in the field that was still lying.
+    air_porosity_percent: float | None = Field(default=25.0, ge=0, le=100)
+    #: Bulk constituents as volume fractions of the medium, summing to 1.0.
+    #:
+    #: **Bulk only** — see :attr:`additives`.
     composition: dict[str, float] = Field(default_factory=dict)
+    #: Amendments the product contains, named without a quantity (#1175).
+    #:
+    #: One normalised vector cannot carry both bulk components and additives: peat
+    #: and perlite are tens of percent by volume, lime and trace elements go in at
+    #: single-digit kg/m³, two orders of magnitude below. Carried in
+    #: :attr:`composition` they were read as real proportions — ``kalk: 0.10`` on
+    #: BioBizz Light·Mix meant ten percent lime, which contradicted the
+    #: ``ph_base: 6.2`` the same record declared, and trace elements are ppm by
+    #: definition (#1152 §C).
+    #:
+    #: Deliberately a list of names and **not** a second numeric map. The catalogue
+    #: has no sourced dose rate for any of these products, and the seed file's own
+    #: header forbids inventing one; a plausible ``kalk: 0.005`` would look settled
+    #: while being no better founded than the 0.10 it replaced. The record knows
+    #: *that* the medium is limed, so that is what it says.
+    additives: list[str] = Field(default_factory=list)
+    #: True for a soil conditioner — a concentrate, not something a plant grows in.
+    #:
+    #: ``BioBizz Pre·Mix`` is 30 % peat and the rest bone meal, blood meal, guano,
+    #: dolomite, seaweed and leonardite. It is typed ``peat`` because that is the
+    #: material family, and the type stays: every ``dict[SubstrateType, ...]`` table
+    #: in the engines (irrigation strategy, flush duration, EC class, pH-stability
+    #: threshold, preparation steps) answers a question about medium physics with a
+    #: silent ``.get(..., default)``, so a new ``soil_amendment`` member would have
+    #: made five engines return a confident default for a thing that is not a
+    #: medium — the same "not applicable encoded as a value" defect
+    #: :attr:`air_porosity_percent` above exists to remove.
+    #:
+    #: What was actually wrong is that it was *selectable as a medium*, so that is
+    #: what this flag gates (see ``SubstrateService.get_growing_medium``). It stays
+    #: a legal **mix component**: blending Pre·Mix into a soil is what the product
+    #: is for.
+    is_amendment: bool = False
     buffer_capacity: BufferCapacity = BufferCapacity.MEDIUM
     reusable: bool = False
     max_reuse_cycles: int = Field(default=3, ge=1)

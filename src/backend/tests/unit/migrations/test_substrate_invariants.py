@@ -12,12 +12,17 @@ its boundary, and once over the real seed file. The first is what makes the
 boundary a decision rather than an accident of the data; the second is what makes
 it bite.
 
-Not covered here: the CEC plausibility band. Its *unit* is undecided (#1152 §F) —
-seven of seven values land in their literature band once divided by bulk density,
-i.e. they behave as meq per 100 cm³, while the field name and, since #1099, the
-mix engine treat them as per 100 g. A band written before that is settled would
-ratify whichever reading it assumed, and #1099's change would inherit the
-ratification.
+Not covered here: the CEC plausibility band. Its *unit* is settled — the values
+are per 100 cm³ of volume, the field is named ``cec_meq_per_100cm3`` and the mix
+engine weights it by volume (#1152 §F) — but a per-type band still is not, and
+writing one from the values present would only ratify them. The literature
+figures in REQ-019 are mass-based (meq/100 g) and converting them needs each
+source's own bulk density, which those sources mostly do not report; assembling
+that table across fourteen substrate types is a data job, not an inference, and
+#1175 deliberately leaves it rather than guessing a band. The one record that
+fits neither reading is named in #1152 §F: sphagnum at CEC 8 and 30 g/L implies
+267 meq/100 g, above its band, which is a second reason a band derived from this
+data would be wrong.
 """
 
 from __future__ import annotations
@@ -46,6 +51,25 @@ _FERTILISER_COMPONENTS = frozenset(
     {"langzeitduenger", "organischer_duenger", "fledermausguano", "pre_mix", "wurmhumus"}
 )
 
+#: Amendments dosed by mass, not by volume. Lime and a trace-element blend go into
+#: a growing medium at single-digit kg/m³ — well under one percent by volume — so a
+#: normalised volume vector cannot carry them next to peat and perlite without
+#: reading as ten percent lime (#1152 §C, #1175). They live in ``additives``, which
+#: names them and asserts no quantity, because this file has no sourced dose rate
+#: for any of them and its own header forbids inventing one.
+#:
+#: Deliberately only these three. ``wurmhumus``, ``organischer_duenger``,
+#: ``fledermausguano``, ``pre_mix``, ``seetang``, ``knochenmehl``, ``blutmehl`` and
+#: ``leonardit`` are bulk constituents at the percentages the records declare — a
+#: wider set would have moved real volume out of the vector and made the
+#: renormalisation below a rewrite rather than a rescale.
+_ADDITIVE_COMPONENTS = frozenset({"kalk", "dolomit", "spurenelemente"})
+
+#: Types that are not a medium at all. ``air_porosity_percent`` is a property of a
+#: pore space, and a nutrient solution has none — the field does not apply rather
+#: than evaluating to a number (#1152 §E).
+_NON_SUBSTRATE_TYPES = frozenset({"hydro_solution", "none"})
+
 #: Records that violate an invariant below and are **not** corrected here, because
 #: correcting them needs a sourced horticultural value and this file's own header
 #: says "do not invent or alter numeric values here". Registered rather than
@@ -68,14 +92,17 @@ _KNOWN_OPEN: dict[str, tuple[str, str]] = {
         _RULE_POROSITY,
         "air 25 + whc 80 = 105 %. Unlike rockwool, #1152 supplies no corrected air "
         "figure, and dried sphagnum genuinely has both very high porosity and very "
-        "high water holding — which of the two numbers is wrong is not derivable.",
-    ),
-    "Lechuza PON (Mineralsubstrat)": (
-        _RULE_FERTILISER_EC,
-        "declares 5 % langzeitduenger and ec_base_ms 0.0. A fertilised medium cannot "
-        "have zero conductivity, but the correct EC is a product property nobody has "
-        "measured here; #1152 leaves open whether the fertiliser component or the EC "
-        "is the wrong half.",
+        "high water holding — which of the two numbers is wrong is not derivable. "
+        "Searched under #1175 without finding an authoritative pair: Gaudig et al. "
+        "(2018), 'Sphagnum Farming From Species Selection to the Production of "
+        "Growing Media: A Review', Mires and Peat 20(13), doi:10.19189/MaP.2018.OMB.340 "
+        "— full text; it publishes dry bulk densities (8.5-25 g/L shredded and "
+        "long-fibre, which corroborates this record's 30 g/L) but no air-capacity / "
+        "water-capacity pair at container capacity; two OpenAlex searches; the "
+        "Besgrow Spagmoss product pages, which claim high water holding without a "
+        "figure. The arithmetic does not identify the wrong half either: at 30 g/L "
+        "total pore space is about 98 % (organic particle density ~1.5 g/cm3), so "
+        "105 % overshoots by ~7 points and either number could carry the error.",
     ),
 }
 
@@ -179,6 +206,15 @@ def test_a_fertilised_medium_declares_a_conductivity() -> None:
     Not a cosmetic contradiction: `ec_base_ms` is subtracted from the target as
     EC-net, so a plant in that medium is dosed as though the substrate contributed
     nothing at all.
+
+    **Closed under #1175**, and the register entry went with it — which is what the
+    healed-check below enforces. LECHUZA\'s own EU-FPR declaration lists the
+    controlled-release fertiliser as an ingredient (so the component was the right
+    half) and publishes "Elektrische Leitfähigkeit (EC): 5 mS/m" = 0.05 mS/cm (so
+    the zero was the wrong half). The citation lives in the record.
+
+    The rule stays, and stays over the whole file: it is the invariant, not a
+    single record\'s ticket.
     """
     offenders = {
         e.get("name_de"): f"{sorted(set(e.get('composition') or {}) & _FERTILISER_COMPONENTS)} with ec_base_ms=0"
@@ -219,3 +255,75 @@ def _assert_only_known_open(offenders: dict[str, str], rule: str, what: str) -> 
 
     healed = [name for name, (entry_rule, _) in _KNOWN_OPEN.items() if entry_rule == rule and name not in offenders]
     assert not healed, f"these no longer violate '{what}' and must be removed from _KNOWN_OPEN: {sorted(healed)}"
+
+
+# ── additives are not bulk components (#1175 model fix 1) ────────────────────
+
+
+def _is_amendment(entry: dict[str, Any]) -> bool:
+    return bool(entry.get("is_amendment"))
+
+
+def _additives_in_bulk(entry: dict[str, Any]) -> set[str]:
+    return set(entry.get("composition") or {}) & _ADDITIVE_COMPONENTS
+
+
+def test_the_additive_rule_exempts_an_amendment_and_only_an_amendment() -> None:
+    """The rule is about *media*, and that scoping is the decision, not a loophole.
+
+    A growing medium is mostly bulk, so a lime fraction inside its normalised
+    vector is read as ten percent lime. An amendment **is** the concentrate — its
+    dolomite really is a tenth of the product — so the same key means something
+    else there. Pinned with fixtures so the exemption cannot later be widened by
+    accident into "additive keys are fine anywhere".
+    """
+    medium = {"composition": {"torf": 0.9, "kalk": 0.1}}
+    amendment = {"is_amendment": True, "composition": {"torf": 0.9, "dolomit": 0.1}}
+    clean_medium = {"composition": {"torf": 0.7, "perlit": 0.3}}
+
+    assert _additives_in_bulk(medium) and not _is_amendment(medium)
+    assert _additives_in_bulk(amendment) and _is_amendment(amendment)
+    assert not _additives_in_bulk(clean_medium)
+
+
+def test_no_growing_medium_carries_an_additive_as_a_bulk_component() -> None:
+    """One normalised vector cannot hold both bulk components and additives (#1152 §C).
+
+    They differ by two orders of magnitude: peat and perlite are tens of percent
+    of the volume, lime is kilograms per cubic metre. Because the vector closes to
+    1.0 — pinned by ``test_every_composition_closes`` — a ``kalk: 0.10`` is a
+    literal ten percent lime, which would put the medium far above the ``ph_base:
+    6.2`` the same record declares.
+    """
+    offenders = {
+        _label(e): sorted(_additives_in_bulk(e))
+        for e in _substrates()
+        if not _is_amendment(e) and _additives_in_bulk(e)
+    }
+
+    assert not offenders, "additives carried as bulk components: " + "; ".join(
+        f"{n} ({', '.join(k)})" for n, k in sorted(offenders.items())
+    )
+
+
+# ── "not applicable" is absent, not a number (#1175 model fix 2) ─────────────
+
+
+def test_a_non_substrate_declares_no_air_porosity() -> None:
+    """``Hydrokultur`` carried ``air_porosity_percent: 100.0`` (#1152 §E).
+
+    That is "not applicable" written as a number, and it does not stay in the
+    record: the field is read by ``calculate_mix_properties``, by the substrate
+    MCP summary and by the detail view, none of which can tell a measured 100 from
+    a placeholder. The empty ``composition`` on the same record was already
+    allowed to say "there is nothing here"; the porosity now says it the same way.
+    """
+    offenders = {
+        _label(e): e.get("air_porosity_percent")
+        for e in _substrates()
+        if e.get("type") in _NON_SUBSTRATE_TYPES and e.get("air_porosity_percent") is not None
+    }
+
+    assert not offenders, "a non-substrate declares an air porosity: " + "; ".join(
+        f"{n} ({v})" for n, v in sorted(offenders.items())
+    )

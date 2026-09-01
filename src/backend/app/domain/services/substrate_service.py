@@ -43,6 +43,27 @@ class SubstrateService:
             raise NotFoundError("Substrate", key)
         return substrate
 
+    def get_growing_medium(self, key: SubstrateKey, *, tenant_key: str | None = None) -> Substrate:
+        """Resolve a substrate that a plant is to grow **in**, refusing an amendment.
+
+        ``BioBizz Pre·Mix`` is a soil conditioner: 30 % peat and the rest bone meal,
+        blood meal, guano, dolomite, seaweed and leonardite. Nothing is planted in
+        it, but it sat in the same catalogue as the media and was therefore offered
+        as one (#1152 §E).
+
+        The predicate lives here rather than at each call site, because that is the
+        failure this repository keeps paying for: a guard written into one route and
+        not its siblings. Resolution is the caller's scope, so a foreign medium
+        still answers 404 before the medium/amendment question is even asked.
+        """
+        substrate = self.get_substrate(key, tenant_key=tenant_key)
+        if substrate.is_amendment:
+            raise ValidationError(
+                f"Substrate '{substrate.name_de or substrate.name_en or key}' is a soil amendment, "
+                "not a growing medium — a plant cannot be planted in it."
+            )
+        return substrate
+
     def create_substrate(
         self,
         substrate: Substrate,
@@ -292,6 +313,11 @@ class SubstrateService:
             water_retention=props["water_retention"],
             air_porosity_percent=props["air_porosity_percent"],
             composition=props["composition"],
+            # A blend of a limed medium and an inert one is still limed (#1175).
+            # `is_amendment` is deliberately *not* carried over: an amendment is a
+            # legal component, but what you get by blending it into a medium is a
+            # medium.
+            additives=props["additives"],
             buffer_capacity=props["buffer_capacity"],
             reusable=props["reusable"],
             max_reuse_cycles=props["max_reuse_cycles"],

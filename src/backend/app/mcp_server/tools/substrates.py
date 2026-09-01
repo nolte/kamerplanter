@@ -68,6 +68,12 @@ def _substrate_summary(s: Any) -> dict[str, Any]:
         "reusable": s.reusable,
         "max_reuse_cycles": s.max_reuse_cycles,
         "composition": s.composition,
+        # Named, unquantified amendments (#1175). An agent computing a dose needs
+        # to know the medium is limed even though the catalogue cannot say how
+        # much; `composition` used to imply ten percent lime, which was worse than
+        # saying nothing.
+        "additives": s.additives,
+        "is_amendment": s.is_amendment,
     }
 
 
@@ -270,7 +276,9 @@ class SetPlantSubstrate(WriteToolBase):
         be walked to discover which media other tenants hold.
         """
         if args.substrate_key is not None:
-            ctx.substrate_service.get_substrate(args.substrate_key, tenant_key=ctx.tenant_key)
+            # `get_growing_medium`, not `get_substrate`: this assigns the medium a
+            # plant grows in, and a soil amendment is not one (#1175).
+            ctx.substrate_service.get_growing_medium(args.substrate_key, tenant_key=ctx.tenant_key)
         if args.substrate_batch_key is not None:
             ctx.substrate_service.get_batch(args.substrate_batch_key, tenant_key=ctx.tenant_key)
 

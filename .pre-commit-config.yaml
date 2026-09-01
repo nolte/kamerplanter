@@ -803,6 +803,20 @@ repos:
           - file://./src/backend/app/migrations/seed_data/schemas/
           - --schemafile
           - src/backend/app/migrations/seed_data/schemas/starter_kits.schema.yaml
+      - id: check-jsonschema
+        # substrates.schema.yaml existed and was enforced only by
+        # tests/unit/migrations/test_seed_schema_conformance.py, i.e. in the
+        # backend unit tier and not in the required `static` lane — so an edit to
+        # either the file or the schema reached the merge queue ungated by the
+        # check every sibling seed file gets. Added with #1175, which extended the
+        # schema.
+        name: seed schema — substrates.yaml
+        files: ^src/backend/app/migrations/seed_data/substrates\.yaml$
+        args:
+          - --base-uri
+          - file://./src/backend/app/migrations/seed_data/schemas/
+          - --schemafile
+          - src/backend/app/migrations/seed_data/schemas/substrates.schema.yaml
 
   # ── Chart image digests (#987) ─────────────────────────────────────────
   # Refuses a `ghcr.io/nolte/kamerplanter-*` image reference in the chart that
