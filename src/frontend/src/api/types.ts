@@ -1664,21 +1664,27 @@ export interface AdoptPlantsResponse {
   run_phase: string | null;
 }
 
-export interface BatchTransitionRequest {
+/**
+ * The run-level phase transition (#1334).
+ *
+ * Named for what the server serves. The previous pair described a *batch* over
+ * plants — counts, per-plant key lists, an `exclude_keys` filter — and no such
+ * operation exists: REQ-013 v2.0 moved the phase onto the PlantingRun, so a run
+ * has one phase and there is nothing to count, skip or exclude. Those fields
+ * were a survivor of the pre-v2.0 model and read `undefined` at runtime.
+ */
+export interface RunTransitionRequest {
   target_phase_key: string;
-  target_phase_name: string;
-  exclude_keys?: string[];
+  target_phase_name?: string;
+  override_reason?: string;
 }
 
-export interface BatchTransitionResponse {
+export interface RunTransitionResponse {
   run_key: string;
-  target_phase: string;
-  transitioned_count: number;
-  skipped_count: number;
-  failed_count: number;
-  transitioned_keys: string[];
-  skipped_keys: string[];
-  failed_keys: string[];
+  previous_phase: string | null;
+  new_phase: string;
+  new_phase_name: string;
+  transitioned_at: string;
 }
 
 export interface BatchRemoveRequest {

@@ -18,6 +18,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 import * as runs from '@/api/endpoints/plantingRuns';
+import type { RunTransitionRequest } from '@/api/types';
 
 const client = mocks.client;
 
@@ -112,11 +113,24 @@ describe('plantingRuns endpoints — batch operations', () => {
     });
   });
 
-  it('batchTransition posts transition payload', async () => {
-    client.post.mockResolvedValue({ data: { transitioned: 1 } });
-    const payload = { target_phase: 'flower' } as never;
-    await runs.batchTransition('r1', payload);
-    expect(client.post).toHaveBeenCalledWith('/planting-runs/r1/batch-transition', payload);
+  // #1334 — this asserted `/batch-transition`, a path no backend route serves.
+  // It was green from the day it was written and stayed green while the button
+  // 404'd, because it checks the client against itself: the mock never issues a
+  // request, so the only contract in reach is the one the test restates.
+  //
+  // The payload is typed rather than `as never` for the same reason — the cast
+  // waived the request contract too, so a field the server does not accept would
+  // also have passed.
+  it('transitionRun posts to the path the backend serves', async () => {
+    client.post.mockResolvedValue({ data: { run_key: 'r1', new_phase: 'flower' } });
+    const payload: RunTransitionRequest = {
+      target_phase_key: 'flower',
+      target_phase_name: 'Blüte',
+    };
+
+    await runs.transitionRun('r1', payload);
+
+    expect(client.post).toHaveBeenCalledWith('/planting-runs/r1/transition', payload);
   });
 
   it('batchRemove posts provided payload', async () => {
