@@ -85,6 +85,19 @@ tasks:
       a hook matches no file, so a `files:`/`types:` filter that stops
       selecting anything would otherwise read as a pass — the vacuous green
       NFR-018 §2 forbids and #814 already produced once.
+
+      EVERY PRECONDITION FAILS BY NAME (#1311). Every other missing tool in
+      this file says what to install; these hooks brought two further ways to
+      fail that said nothing actionable, because the failure happens inside
+      pre-commit and arrives as its raw traceback:
+
+        - no Docker daemon — measured, pre-commit dumps a ~2 KB
+          `docker system info` JSON blob per hook and the words "the daemon is
+          running" are the last line of it;
+        - the image cannot be pulled — a Docker Hub rate limit or outage, which
+          is an INFRA fault and not a defect in the tree being linted.
+
+      Both are now probed and classified before the raw output is passed on.
     # The hook output IS the deliverable; echoing the loop above it would bury
     # the two lines a reader came for.
     silent: true
@@ -93,6 +106,26 @@ tasks:
         if ! command -v pre-commit >/dev/null 2>&1; then
           printf 'FAIL  actionlint/shellcheck cannot run: pre-commit is not installed.\n' >&2
           printf '      Install first:  pipx install pre-commit\n' >&2
+          exit 1
+        fi
+
+        # The `desc` above has named a running Docker daemon as a precondition
+        # since these hooks landed, but nothing checked it: pre-commit's own
+        # error is a `CalledProcessError` carrying the whole `docker system
+        # info` payload, printed once per hook, with no hint that a precondition
+        # is missing rather than a workflow being malformed.
+        if ! command -v docker >/dev/null 2>&1; then
+          printf 'FAIL  actionlint/shellcheck cannot run: docker is not installed.\n' >&2
+          printf '      Both are `language: docker_image` pre-commit hooks and have no\n' >&2
+          printf '      non-container fallback. Install Docker Engine first.\n' >&2
+          exit 1
+        fi
+        if ! docker info >/dev/null 2>&1; then
+          printf 'FAIL  actionlint/shellcheck cannot run: the Docker daemon is not reachable.\n' >&2
+          printf '      Both are `language: docker_image` pre-commit hooks (#1295), so they\n' >&2
+          printf '      need a running daemon — the same precondition as `task dev`.\n' >&2
+          printf '      Start it first:  sudo systemctl start docker\n' >&2
+          printf '      Then re-run:     task check:workflow-shell-lint\n' >&2
           exit 1
         fi
 
@@ -106,6 +139,22 @@ tasks:
             *Skipped*)
               printf 'FAIL  pre-commit hook %s selected no file and reported Skipped —\n' "$hook" >&2
               printf '      a gate that cannot fail is a failure (NFR-018 §2).\n' >&2
+              rc=1
+              ;;
+          esac
+          # The daemon was up a moment ago, so a registry error here is the
+          # network or Docker Hub, not this repository. Saying so is the whole
+          # point: the expensive mistake with an infra failure in a lint gate is
+          # spending the next hour looking for it in the diff.
+          case "$out" in
+            *toomanyrequests*|*"pull rate limit"*|*"failed to resolve reference"*|\
+            *"registry-1.docker.io"*|*"Error response from daemon"*|*"failed to do request"*)
+              printf 'FAIL  actionlint/shellcheck could not obtain their pinned images.\n' >&2
+              printf '      CLASSIFY THIS AS infra, NOT AS A DEFECT IN THE TREE. Both hooks pull\n' >&2
+              printf '      unauthenticated from Docker Hub (docker.io/rhysd/actionlint and\n' >&2
+              printf '      docker.io/koalaman/shellcheck), which is rate-limited per source IP\n' >&2
+              printf '      and can be unavailable. Nothing in the diff causes it.\n' >&2
+              printf '      Retry, or warm the cache once:  docker pull docker.io/rhysd/actionlint:<rev>\n' >&2
               rc=1
               ;;
           esac

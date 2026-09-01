@@ -67,21 +67,33 @@ jobs:
           # empty string as falsy, so that idiom silently collapses to '1' in
           # BOTH branches and would arm the check against the very target it has
           # to stay quiet on. See the comment on that step for what it gates.
+          #
+          # `target_count` is DERIVED from the list below rather than written
+          # out a second time, so the number the coverage gate asserts against
+          # cannot drift from the number actually handed to nuclei.
           if [[ -n "${INPUT_TARGET:-}" ]]; then
+            targets="$INPUT_TARGET"
             {
               echo "ephemeral=false"
-              echo "targets=$INPUT_TARGET"
+              echo "targets=$targets"
               echo "require_lockdown=1"
             } >> "$GITHUB_OUTPUT"
             echo "Scanning external target: $INPUT_TARGET"
           else
+            targets="http://127.0.0.1:8000 http://127.0.0.1:5173"
             {
               echo "ephemeral=true"
-              echo "targets=http://127.0.0.1:8000 http://127.0.0.1:5173"
+              echo "targets=$targets"
               echo "require_lockdown="
             } >> "$GITHUB_OUTPUT"
             echo "Scanning an ephemeral stack built from this commit."
           fi
+          # Word-splitting is the intent here: the space-separated list becomes
+          # the positional parameters so `$#` counts it.
+          # shellcheck disable=SC2086
+          set -- $targets
+          echo "target_count=$#" >> "$GITHUB_OUTPUT"
+          echo "Configured targets: $# ($targets)"
 
       - name: Read pinned NUCLEI_TEMPLATES_VERSION
         id: pin
@@ -195,6 +207,17 @@ jobs:
           # it here the nightly would not be a backstop for that tag should the
           # push trigger ever stop firing. The reverse gap stands: the OpenAPI
           # surface (§4.3) still runs only in the merge lane.
+          #
+          # The whole run is TEE'd to `nuclei-run.log` because nuclei's coverage
+          # — how many templates it loaded, how many targets answered — exists
+          # ONLY in that log. It is not in the exit code and not in the result
+          # files: measured on v3.11.1, a scan whose targets are all dead exits
+          # 0 and writes the same zero-byte `results.jsonl` and the same absent
+          # SARIF as a genuinely clean scan. The next step is what reads it.
+          # `-no-color` keeps that log parseable; the run page renders it the
+          # same either way. The `set -euo pipefail` at the top of this step is
+          # what carries nuclei's exit code through the pipe — without pipefail
+          # the `tee` would mask a failing scan behind its own exit 0.
           nuclei \
             -t tests/security/nuclei-templates \
             -t ./nuclei-templates \
@@ -203,9 +226,10 @@ jobs:
             -severity low,medium,high,critical \
             -rate-limit 100 \
             -timeout 15 \
+            -no-color \
             -j -o "$GITHUB_WORKSPACE/results.jsonl" \
             -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
-            "${suppress_args[@]}"
+            "${suppress_args[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/nuclei-run.log"
 
       - name: Tear down ephemeral stack
         if: always() && steps.target.outputs.ephemeral == 'true'
@@ -217,9 +241,58 @@ jobs:
         env:
           COMPOSE_PROJECT_NAME: kamerplanter-security
 
-      # `hashFiles` guard as in security-nuclei-pr.yml: when the scan never ran,
-      # this step used to fail on the missing file and add a second red step that
-      # obscured the real cause further up.
+      # THE STEP THAT MAKES A QUIET NIGHT MEAN SOMETHING (#1308).
+      #
+      # Until this existed, "0 matches" and "never scanned" were the same
+      # observable state: same green job, same zero-byte `results.jsonl`, same
+      # skipped SARIF upload, same "no findings" notice. Measured on the pinned
+      # nuclei v3.11.1 — a scan whose targets are all unreachable exits 0 and
+      # produces byte-for-byte what run 33337784895's genuine clean scan
+      # produced. The exit code cannot carry this verdict, so the coverage
+      # nuclei reports about itself has to.
+      #
+      # `always()`, so the verdict is published for a skipped scan too: when an
+      # earlier step failed and nuclei never started, this writes SCAN DID NOT
+      # RUN to the run page instead of leaving that to whoever opens the log.
+      # That is the #1302 shape, where steps 7-11 skipped and the tail of the
+      # job still looked like a quiet success.
+      #
+      # The template floor is a floor, not an expectation: measured, the
+      # configured tag/severity combination loads 5902 templates, and the
+      # in-repo custom set alone loads 5. 1000 sits far from both, so it catches
+      # the community set silently dropping out without tracking upstream drift.
+      - name: Assert scan coverage and publish the verdict
+        if: always()
+        env:
+          EXPECT_TARGETS: ${{ steps.target.outputs.target_count }}
+        run: |
+          set -euo pipefail
+          # Empty only if the resolve step itself never ran. Say that, rather
+          # than letting the script exit 2 on a missing argument and print its
+          # usage over the real cause.
+          if [[ -z "${EXPECT_TARGETS:-}" ]]; then
+            echo "::error::Target resolution never ran, so no scan can have happened. Refusing to report a clean result."
+            exit 1
+          fi
+          ./scripts/security/assert-nuclei-coverage.sh \
+            --label "Nuclei Nightly Full-Scan" \
+            --log "$GITHUB_WORKSPACE/nuclei-run.log" \
+            --results "$GITHUB_WORKSPACE/results.jsonl" \
+            --sarif "$GITHUB_WORKSPACE/results.sarif" \
+            --expect-targets "$EXPECT_TARGETS" \
+            --min-templates 1000 \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --json-out "$GITHUB_WORKSPACE/nuclei-coverage.json" \
+            --write-empty-sarif "$GITHUB_WORKSPACE/results.sarif"
+
+      # `hashFiles` guard as in security-nuclei-postmerge.yml: when the scan
+      # never ran, this step used to fail on the missing file and add a second
+      # red step that obscured the real cause further up. It now also carries a
+      # zero-result SARIF on a clean night — synthesised by the step above, and
+      # ONLY when that step confirmed the scan's coverage. Without it the
+      # `nuclei-nightly` category was never written at all, so the Security tab
+      # could not distinguish a clean nightly from a nightly that had stopped
+      # running either.
       - name: Upload SARIF to Code Scanning
         if: always() && hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
@@ -235,6 +308,8 @@ jobs:
           path: |
             results.jsonl
             results.sarif
+            nuclei-run.log
+            nuclei-coverage.json
           retention-days: 365
 
       - name: Open issue for new High/Critical findings

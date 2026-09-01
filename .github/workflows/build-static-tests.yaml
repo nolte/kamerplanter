@@ -19,6 +19,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # WHEN `static` GOES RED WITH A DOCKER HUB ERROR, THAT IS `infra`, NOT A
+  # DEFECT IN THE PULL REQUEST (#1311). Classify it before looking at the diff.
+  #
+  # #1300 wired `actionlint` and `shellcheck` in as the repository's first
+  # `language: docker_image` pre-commit hooks, so this job now pulls
+  # `docker.io/rhysd/actionlint` and `docker.io/koalaman/shellcheck`
+  # ANONYMOUSLY from Docker Hub on every push to every branch. Measured
+  # 2026-09-01 against Docker Hub's own rate-limit headers: both repositories
+  # answer `ratelimit-limit: 100;w=3600` with a `pull_limit_interval` of 21600 s
+  # and no publisher exemption — the same limit the reference
+  # `ratelimitpreview/test` image reports. A rate limit or a Hub outage
+  # therefore turns a REQUIRED check red for a cause no commit introduced.
+  #
+  # It is not cached and cannot be. Measured in pre-commit's own
+  # `languages/docker_image.py`: `ENVIRONMENT_DIR = None` and
+  # `install_environment = lang_base.no_install`, so the image lives only in the
+  # daemon's image store and never under `~/.cache/pre-commit` — the
+  # `actions/cache` inside `pre-commit/action` cannot hold it. Every run on a
+  # fresh runner pulls both images.
+  #
+  # AND IT CANNOT BE PREVENTED FROM THIS REPOSITORY, which is why this comment
+  # exists instead of a fix. #1311 proposed three preventions —
+  # `docker/login-action`, an image cache, a GHCR mirror. The first two need a
+  # STEP inside the job, and the job is a reusable workflow owned by
+  # `nolte/gh-plumbing`: `uses:` admits no injected steps. The third would work
+  # by overriding each hook's `entry:`, but that moves the image tag out of
+  # `rev:` in .pre-commit-config.yaml, and that file's own reasoning turns on
+  # `rev:` BEING the tool version so Renovate's pre-commit manager owns the
+  # bumps; a mirrored tag would be a second place to keep in sync, plus a new
+  # mirroring lane that pulls from Docker Hub itself. Prevention belongs
+  # upstream in gh-plumbing, or in a deliberate mirror decision — not here.
+  #
+  # `task check:workflow-shell-lint` classifies the same failure locally.
   static:
     permissions:
       contents: read

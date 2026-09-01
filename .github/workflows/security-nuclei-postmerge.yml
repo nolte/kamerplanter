@@ -262,9 +262,18 @@ jobs:
         # pull request. Interpolating it would expand that content into a shell
         # script, which the Actions spec forbids for any untrusted value.
         # Split into an array so each flag reaches nuclei as its own argv entry.
+        #
+        # TEE'd to `nuclei-run.log` for the same reason as in the nightly
+        # (#1308): the step below can only assert what this scan covered by
+        # reading what nuclei said about itself. "Fail on High/Critical
+        # findings" further down refuses a MISSING results file, but measured on
+        # v3.11.1 nuclei writes that file at zero bytes even when every target
+        # was unreachable — so file presence alone cannot tell a clean scan from
+        # a blind one, in this lane just as in the nightly.
         env:
           SUPPRESS_FLAGS: ${{ steps.suppress.outputs.flags }}
         run: |
+          set -o pipefail
           read -ra suppress_args <<< "$SUPPRESS_FLAGS"
           nuclei \
             -t tests/security/nuclei-templates \
@@ -275,9 +284,10 @@ jobs:
             -severity medium,high,critical \
             -rate-limit 50 \
             -timeout 10 \
+            -no-color \
             -j -o "$GITHUB_WORKSPACE/results.jsonl" \
             -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
-            "${suppress_args[@]}"
+            "${suppress_args[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/nuclei-run.log"
 
       - name: Seed Nuclei OpenAPI fixtures (tenant + resources)
         # The Kamerplanter REST API places nearly every endpoint under
@@ -320,6 +330,36 @@ jobs:
             -sarif-export openapi-results.sarif \
             "${suppress_args[@]}"
 
+      # Same verdict step as the nightly carries, for the same reason and
+      # against the same measurement (#1308). Left off the OPENAPI scan
+      # deliberately: `-input-mode openapi` reports its coverage differently and
+      # nothing has measured what a healthy run of it prints, so an assertion
+      # there would be written from a guess. Recorded here rather than left to
+      # be rediscovered.
+      #
+      # The template floor is 100, not the nightly's 1000, and the difference is
+      # not an oversight. The nightly's 1000 is anchored on a measured 5902 for
+      # its tag/severity combination; this lane uses a narrower tag list and a
+      # higher severity floor, and every post-merge run in the current window
+      # was cancelled or skipped, so its healthy number has never been measured.
+      # 100 is therefore anchored on the OTHER measurement — the in-repo custom
+      # template set alone loads 5 — which is the failure mode the floor is for.
+      # Raise it once a completed run measures the real figure.
+      - name: Assert scan coverage and publish the verdict
+        if: always()
+        run: |
+          set -euo pipefail
+          ./scripts/security/assert-nuclei-coverage.sh \
+            --label "Nuclei Scan (fast profile) — HTTP surface" \
+            --log "$GITHUB_WORKSPACE/nuclei-run.log" \
+            --results "$GITHUB_WORKSPACE/results.jsonl" \
+            --sarif "$GITHUB_WORKSPACE/results.sarif" \
+            --expect-targets 2 \
+            --min-templates 100 \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --json-out "$GITHUB_WORKSPACE/nuclei-coverage.json" \
+            --write-empty-sarif "$GITHUB_WORKSPACE/results.sarif"
+
       # The two SARIF categories keep their historic names on purpose, even
       # though the workflow and the job were renamed. A Code Scanning category
       # is the key under which alerts are resolved: renaming it would orphan
@@ -351,6 +391,8 @@ jobs:
             openapi-results.jsonl
             openapi-results.sarif
             openapi.json
+            nuclei-run.log
+            nuclei-coverage.json
           retention-days: 90
 
       - name: Tear down ephemeral stack
