@@ -30,7 +30,7 @@
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12@sha256:01be938f3a8d3e82725d365ca6750e4cafd092ec78a33a027588cfac37be4e51
+    image: arangodb:3.12@sha256:39bbca489179ea03f2b24b7ea4e4c4cb5258f6474f8c1c4d9bd65f7cd6d211a5
     environment:
       ARANGO_ROOT_PASSWORD: e2e-test-password
     healthcheck:
@@ -42,7 +42,7 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:9-alpine@sha256:15568b9cb7eb67f4aed4de018c23f13d344e0e6437b31fe8fb8823dc81ebb3a9
+    image: valkey/valkey:9-alpine@sha256:a174b894902bd3367e330d47cc2054367dc4917701776aaf336f41d83b65ec7a
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
