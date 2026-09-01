@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.data_access.arango import collections as col
 from app.migrations.framework.discovery import load_migrations
 from app.migrations.framework.report import IrreversibleMigrationError, MigrationReport
 
@@ -24,6 +25,18 @@ class _NoopAql:
 class _NoopCollection:
     def update(self, *args, **kwargs):  # pragma: no cover - never reached on empty data
         raise AssertionError("no document should be written on an empty database")
+
+    def properties(self):
+        # v0045 (#1301): ``ensure_collections`` configures the care-task dedup
+        # computed value on ``tasks`` on a fresh volume, so the migration finds it
+        # present → no-op. The shape returned here is the one the real server
+        # echoes back for the parts the check reads; that it matches a real
+        # ArangoDB is asserted in
+        # ``tests/integration/test_care_task_dedup_concurrency.py``.
+        return {"computedValues": [col.CARE_TASK_DEDUP_COMPUTED_VALUE]}
+
+    def configure(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
+        raise AssertionError("no computed value should be configured when the bootstrap already added it")
 
     def indexes(self):
         # Models a bootstrapped-but-empty database: ``ensure_collections`` already
@@ -107,6 +120,14 @@ class _NoopCollection:
                 "type": "persistent",
                 "fields": ["tenant_key", "analysis_state", "analysis_requested_at"],
                 "unique": False,
+            },
+            # v0045 (#1301): tasks.care_dedup_key is bootstrapped unique+sparse on a
+            # fresh volume, so the dedup+constraint migration finds it present → no-op.
+            {
+                "type": "persistent",
+                "fields": col.CARE_TASK_DEDUP_INDEX_FIELDS,
+                "unique": True,
+                "sparse": True,
             },
         ]
 

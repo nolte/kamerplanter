@@ -244,6 +244,6 @@ class TestCeleryPathUsesFactory:
         assert spy.call_args.kwargs["priority"] == TaskPriority.MEDIUM
         # The task handed to the repository is exactly the factory's output, and its
         # instruction comes from the single shared source.
-        created = task_repo.create.call_args.args[0]
+        created = task_repo.create_task.call_args.args[0]
         assert created is built.tasks[0]
         assert created.instruction == care_reminder_instruction(ReminderType.FERTILIZING, "Monstera")

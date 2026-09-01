@@ -1,6 +1,10 @@
+import contextlib
+
 from arango.collection import StandardCollection
 from arango.database import StandardDatabase
 from arango.exceptions import IndexCreateError
+
+from app.common.enums import TaskCategory, TaskStatus
 
 # Document collections
 SPECIES = "species"
@@ -1754,6 +1758,172 @@ def ensure_user_singleton_index(singleton_col: StandardCollection) -> None:
         singleton_col.add_persistent_index(fields=USER_SINGLETON_INDEX_FIELDS, unique=False)
 
 
+#: Stored discriminator that carries the care-reminder dedup identity of a task
+#: while — and only while — that task is OPEN. Maintained by ArangoDB itself (see
+#: :data:`CARE_TASK_DEDUP_COMPUTED_VALUE`), never by application code, and not a
+#: field of :class:`~app.domain.models.task.Task`: Pydantic's ``extra="ignore"``
+#: drops it on the way back in, so no model, schema or API surface carries it.
+CARE_TASK_DEDUP_FIELD = "care_dedup_key"
+
+#: Fields of the sparse unique index over :data:`CARE_TASK_DEDUP_FIELD`.
+CARE_TASK_DEDUP_INDEX_FIELDS = [CARE_TASK_DEDUP_FIELD]
+
+#: Name of that index. Named explicitly so introspection (bootstrap, migration
+#: v0045, the integration test) matches on an identity rather than on a
+#: server-assigned id.
+CARE_TASK_DEDUP_INDEX_NAME = "care_dedup_open_unique"
+
+#: Task statuses under which a care reminder still blocks re-creation. Kept equal
+#: to ``ArangoTaskRepository._CARE_OPEN_STATUSES`` by
+#: ``tests/unit/data_access/test_care_task_dedup_index.py`` — the index and the
+#: lookup predicate must agree on what "open" means or one of them is inert.
+CARE_TASK_OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+
+#: The ``"<plant label> — <reminder type>"`` separator ``build_care_reminder_task``
+#: writes into a care task's name. The reminder type is not a first-class ``Task``
+#: field (audit P5), so this suffix is its only carrier and the dedup expression
+#: below has to read it back. Pinned against the real builder by
+#: ``tests/integration/test_care_task_dedup_concurrency.py``, which inserts a task
+#: the builder produced and asserts the derived key ends with its reminder type —
+#: so a change to the naming convention reddens instead of silently widening the
+#: index into "one open care task per plant, whatever the type".
+CARE_TASK_NAME_SEPARATOR = "— "
+
+#: The AQL that derives :data:`CARE_TASK_DEDUP_FIELD` from the task document.
+#:
+#: Mirrors ``ITaskRepository.find_open_care_task``'s predicate exactly:
+#: ``(tenant_key, entity_key, reminder type)`` for a ``care_reminder``-category
+#: task that is ``pending``/``in_progress``. The reminder type is not a
+#: first-class ``Task`` field (audit P5); its carrier is the ``"— {type}"`` name
+#: suffix written by ``build_care_reminder_task``, and ``LAST(SPLIT(name, '— '))``
+#: reads exactly that suffix — equivalent to the lookup's
+#: ``RIGHT(name, LENGTH(suffix)) == suffix`` for every task that builder produced,
+#: including labels that themselves contain an em dash.
+#:
+#: Anything else evaluates to ``null``, which with ``keepNull: false`` *removes*
+#: the attribute, which a **sparse** index skips. That is how "unique among the
+#: OPEN ones" is expressed without making completed tasks unique too — a
+#: constraint that would break normal use, since a plant is watered many times
+#: and each watering leaves another completed task with the same name.
+CARE_TASK_DEDUP_EXPRESSION = (
+    f"RETURN (@doc.category == '{TaskCategory.CARE_REMINDER.value}' "
+    f"AND @doc.status IN {CARE_TASK_OPEN_STATUSES!r} "
+    "AND @doc.entity_key != null AND @doc.entity_key != '' "
+    "AND @doc.name != null) "
+    f"? CONCAT_SEPARATOR('/', @doc.tenant_key, @doc.entity_key, LAST(SPLIT(@doc.name, '{CARE_TASK_NAME_SEPARATOR}'))) "
+    ": null"
+)
+
+#: ArangoDB *computed value* definition for :data:`CARE_TASK_DEDUP_FIELD`.
+#:
+#: ``computeOn`` covers ``insert``/``update``/``replace``, so the discriminator is
+#: re-derived by the **database** on every write — a full-model ``update``, a
+#: partial ``update_fields``, a raw AQL ``UPDATE``, a seed, a migration. No
+#: application path can forget to set or to clear it, which is the whole reason
+#: the field is a computed value rather than a model field maintained at each
+#: call site (the "guard opt-in at the call site" drift class).
+#:
+#: ``overwrite: true`` makes a client-supplied value irrelevant, so the key can
+#: never be forged from a request body. ``keepNull: false`` unsets the attribute
+#: when a task leaves the open statuses, releasing the slot for the next
+#: occurrence.
+CARE_TASK_DEDUP_COMPUTED_VALUE = {
+    "name": CARE_TASK_DEDUP_FIELD,
+    "expression": CARE_TASK_DEDUP_EXPRESSION,
+    "overwrite": True,
+    "computeOn": ["insert", "update", "replace"],
+    "keepNull": False,
+    "failOnWarning": False,
+}
+
+
+def has_care_task_dedup_computed_value(tasks_col: StandardCollection) -> bool:
+    """Return whether ``tasks`` already carries the *current* dedup computed value.
+
+    Compares the parts that decide behaviour rather than the whole dict, because
+    ArangoDB echoes the definition back with its own defaults filled in. A stale
+    definition — an older expression, or one that stopped unsetting the attribute
+    — reads as absent, so :func:`configure_care_task_dedup_computed_value`
+    replaces it instead of leaving a constraint that indexes the wrong thing.
+    """
+    configured = tasks_col.properties().get("computedValues") or []
+    return any(
+        isinstance(cv, dict)
+        and cv.get("name") == CARE_TASK_DEDUP_FIELD
+        and cv.get("expression") == CARE_TASK_DEDUP_EXPRESSION
+        and bool(cv.get("overwrite"))
+        and not cv.get("keepNull", True)
+        and sorted(cv.get("computeOn") or []) == sorted(CARE_TASK_DEDUP_COMPUTED_VALUE["computeOn"])
+        for cv in configured
+    )
+
+
+def configure_care_task_dedup_computed_value(tasks_col: StandardCollection) -> None:
+    """Install the dedup computed value on ``tasks``, keeping any unrelated ones.
+
+    ``configure`` **replaces** the whole ``computedValues`` list, so this merges:
+    every definition with a different ``name`` is carried over unchanged and only
+    :data:`CARE_TASK_DEDUP_FIELD` is (re-)written. There is no other computed
+    value on ``tasks`` today; the merge is here so that adding one later does not
+    silently lose it on the next startup.
+    """
+    others = [
+        cv
+        for cv in (tasks_col.properties().get("computedValues") or [])
+        if not (isinstance(cv, dict) and cv.get("name") == CARE_TASK_DEDUP_FIELD)
+    ]
+    tasks_col.configure(computed_values=[*others, CARE_TASK_DEDUP_COMPUTED_VALUE])
+
+
+def ensure_care_task_dedup_index(tasks_col: StandardCollection) -> None:
+    """Ensure "at most one OPEN care task per plant and reminder type" in storage (#1301).
+
+    ``CareReminderService.ensure_next_watering_task`` promised exactly one pending
+    watering task per plant and enforced it with a read-then-create. That holds
+    sequentially and not concurrently: the 06:00 beat overlapping with a manual
+    ``POST /t/{slug}/tasks/generate-care-reminders`` (or two E2E workers hitting
+    it at once) both read "none open" and both insert. The loser of that race has
+    to be rejected by the *storage layer*, because the two racers are different
+    processes and no in-process lock spans them.
+
+    Two parts, both idempotent:
+
+    1. the :data:`CARE_TASK_DEDUP_COMPUTED_VALUE` on the collection, so ArangoDB
+       derives the dedup discriminator on every write; and
+    2. a **unique, sparse** persistent index over it.
+
+    ``ensure_collections`` runs at startup *before* the migration runner, so on a
+    volume that still carries duplicate open care tasks the unique-index creation
+    would fail and take startup down before v0045 could repair it. This therefore
+    degrades gracefully in the same shape as :func:`ensure_user_singleton_index`:
+    it creates the unique+sparse index when that is safe and otherwise leaves the
+    collection without it, letting v0045 reconcile and create it. Once created, a
+    re-run finds it present and is a no-op.
+    """
+    if not has_care_task_dedup_computed_value(tasks_col):
+        configure_care_task_dedup_computed_value(tasks_col)
+
+    for idx in tasks_col.indexes():
+        if (
+            isinstance(idx, dict)
+            and idx.get("type") == "persistent"
+            and idx.get("fields") == CARE_TASK_DEDUP_INDEX_FIELDS
+            and idx.get("unique")
+            and idx.get("sparse")
+        ):
+            return  # already unique+sparse — nothing to do
+    # Duplicate open care tasks still present (a pre-v0045 volume) — leave the
+    # collection unconstrained so startup never fails; v0045 reconciles the
+    # duplicates, backfills the discriminator and creates the index.
+    with contextlib.suppress(IndexCreateError):
+        tasks_col.add_persistent_index(
+            fields=CARE_TASK_DEDUP_INDEX_FIELDS,
+            unique=True,
+            sparse=True,
+            name=CARE_TASK_DEDUP_INDEX_NAME,
+        )
+
+
 def ensure_collections(db: StandardDatabase) -> None:
     """Create all collections and the graph if they don't exist."""
     for name in DOCUMENT_COLLECTIONS:
@@ -1860,6 +2030,10 @@ def ensure_collections(db: StandardDatabase) -> None:
     tasks_col.add_persistent_index(fields=["plant_key"], unique=False)
     tasks_col.add_persistent_index(fields=["status"], unique=False)
     tasks_col.add_persistent_index(fields=["planting_run_key"], unique=False)
+    # "At most one OPEN care task per (tenant, plant, reminder type)" — the
+    # storage-level half of the guarantee ``find_open_care_task`` used to make on
+    # its own with a read-then-create (#1301).
+    ensure_care_task_dedup_index(tasks_col)
 
     wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
     wf_templates_col.add_persistent_index(fields=["name"], unique=True)

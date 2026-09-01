@@ -257,8 +257,8 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 1, "skipped": 0}
-        task_repo.create.assert_called_once()
-        created = task_repo.create.call_args.args[0]
+        task_repo.create_task.assert_called_once()
+        created = task_repo.create_task.call_args.args[0]
         assert created.name.endswith("— fertilizing")
         assert created.entity_key == "plant_1"
         assert created.tenant_key == "tenant_1"
@@ -291,7 +291,7 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 1, "skipped": 0}
-        created = task_repo.create.call_args.args[0]
+        created = task_repo.create_task.call_args.args[0]
         assert created.name.endswith("— winter_protection")
 
         # The overwintering context must reach both engine calls (B1).
@@ -322,7 +322,7 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 0, "skipped": 0}
-        task_repo.create.assert_not_called()
+        task_repo.create_task.assert_not_called()
 
     def test_idempotent_skip_when_pending_task_exists(self, _mock_dependencies):
         from app.common.enums import ReminderType, TaskCategory, TaskStatus
@@ -356,7 +356,46 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 0, "skipped": 1}
-        task_repo.create.assert_not_called()
+        task_repo.create_task.assert_not_called()
+
+    def test_lost_creation_race_counts_as_skipped_and_does_not_abort_the_run(self, _mock_dependencies):
+        """#1301 — a rejected insert must not take the rest of the run down with it.
+
+        The unique index on ``tasks`` rejects the beat's insert when a manual
+        ``generate-care-reminders`` won the race microseconds earlier. The producer
+        loops over every reminder type of every plant of every tenant, so an escaping
+        ``DuplicateError`` would abandon all the reminders after the collision. The
+        loser is the same answer ``find_open_care_task`` gives — "one already
+        exists" — so it lands in ``skipped``.
+        """
+        from app.common.enums import ReminderType
+        from app.common.exceptions import DuplicateError
+
+        service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
+
+        def _should_generate(profile, rt, **kwargs):
+            return rt in (ReminderType.FERTILIZING, ReminderType.PEST_CHECK)
+
+        service._engine.should_generate_reminder.side_effect = _should_generate
+        service._engine.calculate_due_date.return_value = "2026-06-14"
+        service._engine.calculate_urgency.return_value = "due_today"
+
+        task_repo = MagicMock()
+        task_repo.find_open_care_task.return_value = None  # the racing read: "none open"
+        # The first insert loses the race; the second (a different reminder type,
+        # a different index slot) must still go through.
+        task_repo.create_task.side_effect = [
+            DuplicateError("tasks", "care_dedup_key", ""),
+            SimpleNamespace(key="task-2"),
+        ]
+        _mock_dependencies.get_task_repo.return_value = task_repo
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        result = generate_due_care_reminders()
+
+        assert result == {"created": 1, "skipped": 1}
+        assert task_repo.create_task.call_count == 2
 
 
 class TestTenantScope:
