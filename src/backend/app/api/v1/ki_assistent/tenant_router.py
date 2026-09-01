@@ -34,7 +34,7 @@ from app.domain.services.ai_assistant_service import AiAssistantService
 
 router = APIRouter(
     prefix="/ai",
-    tags=["ki-assistent"],
+    tags=["ai-assistant"],
     dependencies=[Depends(require_ai_tenant_enabled)],
     responses=NOT_FOUND_RESPONSE,
 )

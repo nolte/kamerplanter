@@ -24,7 +24,7 @@ from app.domain.services.ai_assistant_service import AiAssistantService
 
 router = APIRouter(
     prefix="/public/ai",
-    tags=["ki-assistent-public"],
+    tags=["ai-assistant-public"],
     dependencies=[Depends(require_ai_feature_flag)],
     responses=NOT_FOUND_RESPONSE,
 )

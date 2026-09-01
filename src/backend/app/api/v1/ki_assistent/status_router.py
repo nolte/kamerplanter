@@ -15,7 +15,7 @@ from fastapi import APIRouter
 from app.api.v1.ki_assistent.schemas import AiStatusResponse
 from app.config.settings import settings
 
-router = APIRouter(prefix="/ai", tags=["ki-assistent-status"])
+router = APIRouter(prefix="/ai", tags=["ai-assistant-status"])
 
 
 @router.get("/status", response_model=AiStatusResponse)
