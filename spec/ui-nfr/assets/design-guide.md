@@ -69,6 +69,7 @@ Diese Werte stammen aus `src/frontend/src/theme/palette.ts` und sind verbindlich
 | Warning Contrast | `#000000` | 0, 0, 0 | Text auf gefuellten Warning-Flaechen — siehe Hinweis unten |
 | Warning Dark | `#a54c01` | 165, 76, 1 | Warning **als Text** auf hellem Grund (Chip/Button `outlined` + `text`) |
 | Warning Hover | `#d15f02` | 209, 95, 2 | Hover-Flaeche des gefuellten Warning-Buttons |
+| **Info** | `#01579b` | 1, 87, 155 | Neutrale Hinweise, Zusatzinformation — siehe Hinweis unten |
 | **Success** | `#2e7d32` | 46, 125, 50 | Erfolg, gesunde Pflanzen (= Primary) |
 | **Background** | `#f5f5f5` | 245, 245, 245 | Seitenhintergrund |
 | **Paper** | `#ffffff` | 255, 255, 255 | Karten, Dialoge, Oberflaechen |
@@ -113,6 +114,56 @@ Diese Werte stammen aus `src/frontend/src/theme/palette.ts` und sind verbindlich
 > Dark Mode und High-Contrast-Palette sind nicht betroffen: dort leitet MUI auf
 > `#ffa726` bereits Nahezu-Schwarz ab (9.14:1), und die High-Contrast-Palette
 > setzt ihr `contrastText` selbst auf einem deutlich dunkleren Orange (7.54:1).
+
+> **Hinweis zu Info (Issue #1323): Farbe abgedunkelt statt Schrift umgestellt.**
+>
+> `lightPalette` hat `info` frueher gar nicht definiert. Damit galt MUIs
+> Standardwert `#0288d1`, auf den `getContrastText` Weiss legt — **3.85:1**, also
+> unter den 4.5:1 fuer normalen Text (UI-NFR-002). Betroffen waren **beide**
+> Leserichtungen: gefuellte Info-Flaechen (Chip, Button, Alert) mit weisser
+> Schrift *und* die Varianten `outlined`/`text`, die `#0288d1` selbst als Schrift
+> auf dem Seitenhintergrund `#f5f5f5` zeichnen (**3.53:1**).
+>
+> Entschieden wurde `info.main: '#01579b'` — bewusst **anders** als bei Warning.
+> Dort erzwang ein dokumentierter Marken-Token den Weg ueber `contrastText`;
+> `#0288d1` ist dagegen kein Marken-Token, sondern MUIs Voreinstellung, steht in
+> keiner Tabelle dieses Leitfadens und an keiner Aufrufstelle als Literal. Der
+> Grund, der das Abdunkeln bei Warning ausgeschlossen hat, existiert hier also
+> nicht.
+>
+> `#01579b` ist MUIs eigenes `lightBlue[900]`, der `dark`-Ton derselben Rampe —
+> ein Wert, der im System bereits vorkommt, kein erfundener Hex. Er repariert
+> **beide** Richtungen mit einer Zeile, was `contrastText` nicht geleistet
+> haette: Weiss darauf **7.4:1**, und als Schrift auf `#f5f5f5` **6.79:1**.
+>
+> Daraus folgt bewusst, was hier **nicht** noetig war:
+>
+> - **Kein** `MuiChip`/`MuiButton`-Override auf `info.dark`, wie Warning es
+>   braucht — die Rollenfarbe selbst genuegt jetzt als Schrift. Damit existiert
+>   fuer Info auch kein Klassenselektor, der still wirkungslos werden koennte
+>   (`MuiButton-outlinedWarning` war aus genau diesem Grund eine Woche lang
+>   inert; MUI 9 kennt nur `MuiButton-outlined` **und** `MuiButton-colorWarning`
+>   getrennt).
+> - **Kein** `info`-Zweig im `MuiAlert`-Override. Der gefuellte Alert liest
+>   `contrastText` zwar weiterhin nicht, sondern `getContrastText(info.main)` —
+>   auf `#01579b` waehlt das aber von allein Weiss und landet bei **7.4:1**
+>   (gemessen, nicht angenommen).
+> - **Kein** explizites `contrastText`. Es waere eine zweite Stelle, die
+>   mitgepflegt werden muss, und wuerde Weiss festnageln, falls `main` je wieder
+>   aufgehellt wird.
+>
+> `light` und `dark` bleiben abgeleitet. Der Hover des gefuellten Info-Buttons
+> tauscht die Flaeche gegen `info.dark` — der Zustand, der bei #1289 beinahe
+> kaputtgegangen waere — und misst **11.27:1** (Weiss auf `#003c6c`). Der
+> Standard- und der Outlined-Alert leiten aus `light` ab und haben sich
+> **verbessert** statt verschlechtert: 9.58:1 auf 11.96:1 bzw. 9.74:1 auf 12.5:1.
+> Sichtbar ist die Aenderung dort als etwas kuehlerer, weniger himmelblauer
+> Farbton der Flaeche.
+>
+> Dark Mode und High-Contrast-Palette sind nicht betroffen: `darkPalette` laesst
+> `info` ebenfalls offen, MUIs Dunkel-Voreinstellung `#29b6f6` traegt aber
+> bereits Nahezu-Schwarz (9.12:1), und die High-Contrast-Palette setzt ihr
+> eigenes `#0b3d91` (10.04:1).
 
 #### Dark Mode
 
