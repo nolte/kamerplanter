@@ -2,6 +2,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -431,27 +432,31 @@ export default function Sidebar({ open }: SidebarProps) {
               const { path } = section;
               const isActive = location.pathname === path || location.pathname.startsWith(path + '/');
               return (
-                <ListItemButton
-                  key={path}
-                  component={Link}
-                  to={path}
-                  selected={isActive}
-                  aria-current={isActive ? 'page' : undefined}
-                  data-testid={`nav-${path}`}
-                  onClick={isMobile ? handleClose : undefined}
-                  sx={{
-                    borderRadius: 1,
-                    mx: 0.5,
-                    my: 0.25,
-                    '&.Mui-selected': {
-                      fontWeight: 600,
-                    },
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 40 }}>{section.icon}</ListItemIcon>
-                  <ListItemText
-                    primary={section.label} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
-                </ListItemButton>
+                // `ListItemButton component={Link}` renders a bare <a>, which is
+                // not a permitted direct child of <ul> (#1291, axe `list`). The
+                // wrapper supplies the <li> the list owes each entry; the button
+                // keeps every visual and semantic property it had.
+                <ListItem key={path} disablePadding sx={{ my: 0.25 }}>
+                  <ListItemButton
+                    component={Link}
+                    to={path}
+                    selected={isActive}
+                    aria-current={isActive ? 'page' : undefined}
+                    data-testid={`nav-${path}`}
+                    onClick={isMobile ? handleClose : undefined}
+                    sx={{
+                      borderRadius: 1,
+                      mx: 0.5,
+                      '&.Mui-selected': {
+                        fontWeight: 600,
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>{section.icon}</ListItemIcon>
+                    <ListItemText
+                      primary={section.label} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
+                  </ListItemButton>
+                </ListItem>
               );
             }
             const navSection = section as NavSection;
@@ -472,55 +477,72 @@ export default function Sidebar({ open }: SidebarProps) {
               hasSections &&
               visibleTopLevelItems.length > 0 &&
               navItems.findIndex((item) => !('path' in item)) === sectionIndex;
+            // One <li> holding its own <ul> — MUI's nested-list pattern (#1291).
+            // The previous <Box> was a <div> directly inside <ul> (axe `list`)
+            // and left the section's ListSubheader — itself an <li> — with no
+            // list parent at all (axe `listitem`). Both halves of that are the
+            // same mistake, so both are fixed by the same nesting: the group
+            // becomes a real sub-list, and `aria-labelledby` ties the heading to
+            // the group it heads, which is what makes a screen reader announce
+            // "Plants, list, 5 items" instead of an unattached label.
+            const sectionHeaderId = `nav-section-${navSection.sectionKey}`;
             return (
-              <Box key={navSection.header}>
+              <li key={navSection.header}>
                 {isFirstSection && <Divider sx={{ mt: 0.5 }} />}
-                <ListSubheader
-                  sx={{
-                    lineHeight: '32px',
-                    fontSize: '0.7rem',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    // `text.secondary`, not `text.disabled`: this label is quiet,
-                    // not inactive. MUI's `text.disabled` is rgba(0,0,0,0.38),
-                    // which composites to #9e9e9e on the drawer's white paper —
-                    // 2.67:1 at 11.2px, below WCAG AA's 4.5:1 (UI-NFR-002). The
-                    // 1.4.3 exemption covers *disabled controls*, and a section
-                    // header is neither. `text.secondary` composites to #666666
-                    // (5.74:1) and is #000000 in the high-contrast palette.
-                    color: 'text.secondary',
-                    mt: 0.5,
-                  }}
-                >
-                  {navSection.header}
-                </ListSubheader>
-                {visibleItems.map((item) => {
-                  const isActive = location.pathname.startsWith(item.path);
-                  return (
-                    <ListItemButton
-                      key={item.path}
-                      component={Link}
-                      to={item.path}
-                      selected={isActive}
-                      aria-current={isActive ? 'page' : undefined}
-                      data-testid={`nav-${item.path}`}
-                      onClick={isMobile ? handleClose : undefined}
+                <List
+                  disablePadding
+                  aria-labelledby={sectionHeaderId}
+                  subheader={
+                    <ListSubheader
+                      id={sectionHeaderId}
                       sx={{
-                        borderRadius: 1,
-                        mx: 0.5,
-                        my: 0.125,
-                        '&.Mui-selected': {
-                          fontWeight: 600,
-                        },
+                        lineHeight: '32px',
+                        fontSize: '0.7rem',
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        // `text.secondary`, not `text.disabled`: this label is quiet,
+                        // not inactive. MUI's `text.disabled` is rgba(0,0,0,0.38),
+                        // which composites to #9e9e9e on the drawer's white paper —
+                        // 2.67:1 at 11.2px, below WCAG AA's 4.5:1 (UI-NFR-002). The
+                        // 1.4.3 exemption covers *disabled controls*, and a section
+                        // header is neither. `text.secondary` composites to #666666
+                        // (5.74:1) and is #000000 in the high-contrast palette.
+                        color: 'text.secondary',
+                        mt: 0.5,
                       }}
                     >
-                      <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                      <ListItemText
-                        primary={item.label} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
-                    </ListItemButton>
-                  );
-                })}
-              </Box>
+                      {navSection.header}
+                    </ListSubheader>
+                  }
+                >
+                  {visibleItems.map((item) => {
+                    const isActive = location.pathname.startsWith(item.path);
+                    return (
+                      <ListItem key={item.path} disablePadding sx={{ my: 0.125 }}>
+                        <ListItemButton
+                          component={Link}
+                          to={item.path}
+                          selected={isActive}
+                          aria-current={isActive ? 'page' : undefined}
+                          data-testid={`nav-${item.path}`}
+                          onClick={isMobile ? handleClose : undefined}
+                          sx={{
+                            borderRadius: 1,
+                            mx: 0.5,
+                            '&.Mui-selected': {
+                              fontWeight: 600,
+                            },
+                          }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                          <ListItemText
+                            primary={item.label} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
+                        </ListItemButton>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              </li>
             );
           })}
         </List>
@@ -544,33 +566,42 @@ export default function Sidebar({ open }: SidebarProps) {
         )}
       </Box>
       <Divider />
+      {/* The footer list has the same defect as the nav list above and axe
+          reports it as a second `list` node — its two entries were bare <a>
+          children of <ul> too. Fixed here in the same pass rather than left for
+          the next scan, because a sibling repaired later is how the two halves
+          of one component drift apart. */}
       <List disablePadding sx={{ pb: 1 }}>
-        <ListItemButton
-          component={Link}
-          to="/onboarding"
-          selected={location.pathname === '/onboarding'}
-          aria-current={location.pathname === '/onboarding' ? 'page' : undefined}
-          data-testid="nav-onboarding"
-          onClick={isMobile ? handleClose : undefined}
-          sx={{ borderRadius: 1, mx: 0.5, my: 0.25 }}
-        >
-          <ListItemIcon sx={{ minWidth: 40 }}><RocketLaunchIcon /></ListItemIcon>
-          <ListItemText
-            primary={t('nav.onboarding')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
-        </ListItemButton>
-        <ListItemButton
-          component={Link}
-          to="/settings"
-          selected={location.pathname === '/settings'}
-          aria-current={location.pathname === '/settings' ? 'page' : undefined}
-          data-testid="nav-settings"
-          onClick={isMobile ? handleClose : undefined}
-          sx={{ borderRadius: 1, mx: 0.5, my: 0.25 }}
-        >
-          <ListItemIcon sx={{ minWidth: 40 }}><SettingsIcon /></ListItemIcon>
-          <ListItemText
-            primary={t('nav.settings')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
-        </ListItemButton>
+        <ListItem disablePadding sx={{ my: 0.25 }}>
+          <ListItemButton
+            component={Link}
+            to="/onboarding"
+            selected={location.pathname === '/onboarding'}
+            aria-current={location.pathname === '/onboarding' ? 'page' : undefined}
+            data-testid="nav-onboarding"
+            onClick={isMobile ? handleClose : undefined}
+            sx={{ borderRadius: 1, mx: 0.5 }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}><RocketLaunchIcon /></ListItemIcon>
+            <ListItemText
+              primary={t('nav.onboarding')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding sx={{ my: 0.25 }}>
+          <ListItemButton
+            component={Link}
+            to="/settings"
+            selected={location.pathname === '/settings'}
+            aria-current={location.pathname === '/settings' ? 'page' : undefined}
+            data-testid="nav-settings"
+            onClick={isMobile ? handleClose : undefined}
+            sx={{ borderRadius: 1, mx: 0.5 }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}><SettingsIcon /></ListItemIcon>
+            <ListItemText
+              primary={t('nav.settings')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
+          </ListItemButton>
+        </ListItem>
       </List>
     </Drawer>
   );

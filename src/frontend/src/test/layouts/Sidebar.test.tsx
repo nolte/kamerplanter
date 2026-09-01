@@ -202,3 +202,77 @@ describe('Sidebar — KI-Assistent gated on the AI feature flag (issue #685)', (
     expect(screen.getByTestId('nav-/glossar')).toBeInTheDocument();
   });
 });
+
+/**
+ * Issue #1291. axe reported `list` and `listitem` (serious) on every page that
+ * renders the drawer: the nav <ul> held bare <a> and <div> children, and each
+ * section's ListSubheader — an <li> — sat inside a <div>, so it had no list
+ * parent at all. Both halves are asserted here, in the same terms the two axe
+ * rules use, so a refactor that reintroduces either fails in the unit suite
+ * rather than four hours later in the nightly.
+ */
+describe('Sidebar — the navigation is a valid list (#1291)', () => {
+  function renderFullSidebar(route = '/'): void {
+    renderWithProviders(<Sidebar open />, {
+      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, true),
+      route,
+    });
+  }
+
+  /** Guards the guard: an empty query would satisfy every `every()` below. */
+  function sidebarLists(): HTMLUListElement[] {
+    const lists = Array.from(document.querySelectorAll('ul'));
+    expect(lists.length).toBeGreaterThan(1);
+    return lists as HTMLUListElement[];
+  }
+
+  it('lets a <ul> contain only <li> children (axe rule: list)', () => {
+    renderFullSidebar();
+    const offenders = sidebarLists().flatMap((ul) =>
+      Array.from(ul.children)
+        .filter((child) => !['LI', 'SCRIPT', 'TEMPLATE'].includes(child.tagName))
+        .map((child) => `${child.tagName.toLowerCase()} in ul.${ul.className.split(' ')[0]}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('gives every <li> a list parent (axe rule: listitem)', () => {
+    renderFullSidebar();
+    const items = Array.from(document.querySelectorAll('li'));
+    expect(items.length).toBeGreaterThan(0);
+    const orphans = items
+      .filter((li) => !['UL', 'OL'].includes(li.parentElement?.tagName ?? ''))
+      .map((li) => `${li.textContent} in ${li.parentElement?.tagName.toLowerCase()}`);
+    expect(orphans).toEqual([]);
+  });
+
+  it('associates each section heading with the sub-list it heads', () => {
+    renderFullSidebar();
+    const headings = Array.from(document.querySelectorAll('.MuiListSubheader-root'));
+    expect(headings.length).toBeGreaterThan(0);
+    for (const heading of headings) {
+      const id = heading.getAttribute('id');
+      expect(id, `section heading "${heading.textContent}" has no id to be referenced by`).toBeTruthy();
+      // The heading lives inside the very list it names, and that list points
+      // back at it — an unattached label is what the old markup produced.
+      const list = heading.closest('ul');
+      expect(list?.getAttribute('aria-labelledby')).toBe(id);
+    }
+  });
+
+  it('keeps aria-current and the selected highlight on the active entry', () => {
+    // A section entry, not a top-level one: sections are what the nesting
+    // changed, so marking the current page there is the property at risk.
+    renderFullSidebar('/stammdaten/species');
+    const current = Array.from(
+      document.querySelectorAll('[data-testid^="nav-"][aria-current="page"]'),
+    );
+    expect(current.map((el) => el.getAttribute('data-testid'))).toEqual([
+      'nav-/stammdaten/species',
+    ]);
+    // Still on the anchor itself rather than on the new <li> wrapper, and still
+    // carrying MUI's selected state that draws the highlight.
+    expect(current[0].tagName).toBe('A');
+    expect(current[0].classList.contains('Mui-selected')).toBe(true);
+  });
+});
