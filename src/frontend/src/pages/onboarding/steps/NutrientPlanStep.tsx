@@ -7,6 +7,7 @@ import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NutrientPlanCard from '../components/NutrientPlanCard';
 import type { NutrientPlanMatch, ExperienceLevel } from '@/api/types';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 interface NutrientPlanStepProps {
   plans: NutrientPlanMatch[];
@@ -31,8 +32,14 @@ export default function NutrientPlanStep({
         <Typography variant="h6" gutterBottom>
           {t('pages.onboarding.nutrientPlans.title')}
         </Typography>
-        {/* aria-live so screen readers announce when loading finishes */}
-        <Box aria-live="polite" aria-busy="true" aria-label={t('common.loading')}>
+        {/* The `aria-live="polite"` that used to sit on this wrapper announced
+            nothing: its only content was decorative skeletons, and the whole
+            block is unmounted when loading finishes rather than updated in
+            place, so there was never a content change to announce. The
+            announcement now comes from a live region that has words in it
+            (#1324). */}
+        <Box aria-busy="true">
+          <LoadingStatus />
           <Grid container spacing={2}>
             {[1, 2, 3].map((i) => (
               <Grid key={i} size={{ xs: 12, sm: 6 }}>

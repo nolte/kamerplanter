@@ -26,6 +26,7 @@ import {
 } from '@/api/endpoints/adminPestRecognition';
 import { formatDate } from '@/utils/formatting';
 import type { Pest, PestContribution } from '@/api/types';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 type GridColumnValue = string | Record<string, string>;
 
@@ -222,8 +223,8 @@ export function PestContributionsAdminCard({ gridColumn }: PestContributionsAdmi
               <Box
                 sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}
                 aria-busy="true"
-                aria-label={t('pages.admin.pestContributions.loading')}
               >
+                <LoadingStatus label={t('pages.admin.pestContributions.loading')} />
                 {[0, 1, 2].map((i) => (
                   <Skeleton key={i} variant="rectangular" height={88} sx={{ borderRadius: 1 }} />
                 ))}

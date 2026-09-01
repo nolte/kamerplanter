@@ -68,7 +68,14 @@ describe('HarvestReadinessSection — plant-detail wiring (REQ-007 §3)', () => 
     // The suite-wide loading marker the E2E page objects wait on.
     const skeleton = screen.getByTestId('loading-skeleton');
     expect(skeleton).toHaveAttribute('aria-busy', 'true');
-    expect(skeleton).toHaveAttribute('aria-label', i18n.t('pages.harvest.readinessLoading'));
+    // Asserted through the accessible role and name, not through `aria-label`
+    // on the wrapper (#1324): a `<div>` maps to `generic`, ARIA prohibits naming
+    // it, and the name was dropped - so the old attribute assertion held while
+    // no screen-reader user ever heard the wording it checked.
+    expect(skeleton).not.toHaveAttribute('aria-label');
+    expect(within(skeleton).getByRole('status')).toHaveAccessibleName(
+      i18n.t('pages.harvest.readinessLoading'),
+    );
     expect(screen.queryByTestId('harvest-readiness-card')).toBeNull();
   });
 

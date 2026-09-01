@@ -46,6 +46,7 @@ import {
 import { visuallyHidden } from '@mui/utils';
 import { useNotification } from '@/hooks/useNotification';
 import type { PestCoverageEntry, PestCurationImage, PestRecognitionStatus } from '@/api/types';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 const PEST_EXCLUSION_REASONS = ['blurry', 'wrong_species', 'duplicate', 'irrelevant', 'manual'] as const;
 type PestExclusionReason = (typeof PEST_EXCLUSION_REASONS)[number];
@@ -191,8 +192,8 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
           <Box
             sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
             aria-busy="true"
-            aria-label={t('pages.admin.pestRecognition.loading')}
           >
+            <LoadingStatus label={t('pages.admin.pestRecognition.loading')} />
             <Skeleton variant="rounded" height={28} width={180} />
             <Skeleton variant="text" />
             <Skeleton variant="text" width="60%" />

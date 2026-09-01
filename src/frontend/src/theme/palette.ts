@@ -39,6 +39,47 @@ export const lightPalette: PaletteOptions = {
     main: '#ed6c02',
     contrastText: '#000000',
   },
+  // `lightPalette` used to leave `info` undefined, so MUI's default `#0288d1`
+  // applied and `getContrastText` picked white on it: 3.85:1, under WCAG 2.2
+  // AA's 4.5:1 for normal text (UI-NFR-002, issue #1323). Every *filled* info
+  // Chip, Button and Alert was below the bar, and every *outlined*/`text` one
+  // too — `#0288d1` as a label on the `#f5f5f5` page background is 3.53:1.
+  //
+  // Darkened rather than repointing `contrastText` the way `warning` had to
+  // (#1289): nothing pins `#0288d1`. It is MUI's default, not a brand token —
+  // it appears in no design-guide table and at no call site as a literal, so
+  // the constraint that ruled darkening out for `#ed6c02` (which is also the
+  // favourite-star colour in six places) simply does not exist here.
+  //
+  // `#01579b` is MUI's own `lightBlue[900]`, the `dark` tone of the very ramp
+  // being replaced — a value already in the system rather than an invented hex.
+  // It repairs both failure directions with one line, which `contrastText`
+  // could not have done: white on it is 7.4:1 (filled surfaces) and it is
+  // 6.79:1 as a label on `#f5f5f5` (outlined and `text` surfaces). So `info`
+  // needs none of the `MuiChip`/`MuiButton` `.dark` overrides that `warning`
+  // carries — and therefore has no class selector that could go silently inert
+  // the way `MuiButton-outlinedWarning` did for a week.
+  //
+  // Deliberately no explicit `contrastText`. MUI derives white on `#01579b` by
+  // itself, and the *filled Alert* would ignore `contrastText` anyway — it
+  // calls `getContrastText(main)`, which is exactly why #1289 needed a
+  // `MuiAlert` override for warning. Measured here: the filled info Alert lands
+  // at 7.4:1 unaided, so it needs no info sibling in that override. Stating
+  // `contrastText` would only add a second place to keep in sync, and would
+  // pin white in place if `main` were ever lightened again.
+  //
+  // `light`/`dark` stay derived. The contained-button hover, which swaps the
+  // surface to `.dark` — the state that nearly broke in #1289 — measures
+  // 11.27:1 (white on `#003c6c`). The standard and outlined info Alerts derive
+  // from `.light`; both improved rather than regressed (9.58:1 -> 11.96:1 and
+  // 9.74:1 -> 12.5:1).
+  //
+  // Light palette only. `darkPalette` leaves `info` unset too, but MUI's dark
+  // default (`#29b6f6` with near-black text, 9.12:1) already clears AA, and
+  // `highContrastPalette` states its own `#0b3d91` (10.04:1).
+  info: {
+    main: '#01579b',
+  },
   success: {
     main: '#2e7d32',
   },

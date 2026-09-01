@@ -24,6 +24,7 @@ import PestImageContributeDialog from './PestImageContributeDialog';
 import { listPestImages, deletePestImage } from '@/api/endpoints/ipm';
 import { setPestContributionActive, setPestImageActive } from '@/api/endpoints/adminPestRecognition';
 import type { PestImage } from '@/api/types';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 interface PestImageGalleryProps {
   pestKey: string;
@@ -260,8 +261,12 @@ export default function PestImageGallery({ pestKey, pestName, detectionSlug = nu
             gap: 1,
           }}
           aria-busy="true"
-          aria-label={t('pages.pestDetail.sectionImages')}
         >
+          {/* The section title used to sit here as `aria-label`, which was wrong
+              twice over (#1324): a `<div>` maps to `generic`, so the name was
+              dropped, and naming a loading placeholder after the section rather
+              than after its state would have announced the wrong thing anyway. */}
+          <LoadingStatus />
           {skeletonItems.map((i) => (
             <Skeleton key={i} variant="rectangular" height={140} sx={{ borderRadius: 1 }} />
           ))}

@@ -14,6 +14,7 @@ import HarvestReadinessCard from '@/pages/ernte/HarvestReadinessCard';
 import ObservationCreateDialog from '@/pages/ernte/ObservationCreateDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchReadiness } from '@/store/slices/harvestSlice';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 interface HarvestReadinessSectionProps {
   /** Document key of the plant instance whose harvest readiness is assessed. */
@@ -126,12 +127,8 @@ export default function HarvestReadinessSection({
             <Typography variant="h6" gutterBottom>
               {t('pages.harvest.readiness')}
             </Typography>
-            <Box
-              aria-busy="true"
-              aria-live="polite"
-              aria-label={t('pages.harvest.readinessLoading')}
-              data-testid="loading-skeleton"
-            >
+            <Box aria-busy="true" data-testid="loading-skeleton">
+              <LoadingStatus label={t('pages.harvest.readinessLoading')} />
               <Skeleton variant="text" width="30%" height={48} />
               <Skeleton variant="rectangular" height={8} sx={{ borderRadius: 1, mb: 2 }} />
               <Skeleton variant="text" width="45%" height={24} />
