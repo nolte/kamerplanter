@@ -118,11 +118,59 @@ beforeEach(() => {
   server.use(http.get(STATUS_URL, () => HttpResponse.json(STATUS_AVAILABLE.pestDetection.status)));
 });
 
-function render(state: Record<string, unknown> = STATUS_AVAILABLE) {
-  return renderWithProviders(<PestIdentificationPage />, { store: createTestStore(state) });
+// #1333 — the page's capture panel is gated on `canEdit`, which reads the active
+// tenant's domain role. Every test below describes a user who may actually act,
+// so the default is `grower`; the viewer case is asserted explicitly instead of
+// arriving by accident through an absent tenant.
+function tenantState(role: 'lead' | 'grower' | 'viewer') {
+  return {
+    tenants: {
+      activeTenant: { key: 't1', slug: 't1', name: 'Garten', role, admin_scopes: [] },
+      myTenants: [],
+      isLoading: false,
+      error: null,
+    },
+  };
+}
+
+function render(
+  state: Record<string, unknown> = STATUS_AVAILABLE,
+  role: 'lead' | 'grower' | 'viewer' = 'grower',
+) {
+  return renderWithProviders(<PestIdentificationPage />, {
+    store: createTestStore({ ...state, ...tenantState(role) }),
+  });
 }
 
 describe('PestIdentificationPage', () => {
+  // #1333 — the server refuses `POST /pests/detect` below grower, so the capture
+  // panel must not be reachable by a viewer. Asserted on the panel rather than on
+  // a banner: this page has no read body (§7 omits history), so a route wrapper's
+  // restrict-only mode would leave the panel standing and let a viewer walk into
+  // the 403 — the guard being visible and inert.
+  it('offers a viewer an explanation instead of the capture panel', () => {
+    render(STATUS_AVAILABLE, 'viewer');
+
+    expect(screen.getByTestId('pest-identification-role-restricted')).toBeInTheDocument();
+    expect(screen.queryByTestId('mock-capture')).not.toBeInTheDocument();
+  });
+
+  it.each(['grower', 'lead'] as const)('lets a %s reach the capture panel', (role) => {
+    render(STATUS_AVAILABLE, role);
+
+    expect(screen.getByTestId('mock-capture')).toBeInTheDocument();
+    expect(screen.queryByTestId('pest-identification-role-restricted')).not.toBeInTheDocument();
+  });
+
+  // An unconfigured feature reads the same for everyone: the role message must
+  // not turn a disabled-feature answer into a role answer.
+  it('shows the unavailable notice, not the role notice, when the feature is off', () => {
+    render(STATUS_UNAVAILABLE, 'viewer');
+
+    expect(screen.getByTestId('page-feature-unavailable')).toBeInTheDocument();
+    expect(screen.queryByTestId('pest-identification-role-restricted')).not.toBeInTheDocument();
+  });
+
   it('always shows the disclaimer and the page intro', () => {
     render();
     expect(screen.getByTestId('pest-disclaimer')).toBeInTheDocument();

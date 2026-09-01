@@ -251,6 +251,7 @@
       "previewAlt": "Preview of the analysed photo",
       "lightModeBlocked": "Cloud pest detection is not available in light mode. You can use local detection.",
       "notConfigured": "Pest detection is not enabled on this instance.",
+      "roleRestricted": "Analysing a photo needs at least grower rights. As an observer you can view existing findings, but not start a new detection.",
       "consentRequired": "Cloud pest detection requires your consent.",
       "imageTooLarge": "The image is too large (max. 8 MB).",
       "unsupportedFormat": "Unsupported image format. Please use JPEG or PNG.",

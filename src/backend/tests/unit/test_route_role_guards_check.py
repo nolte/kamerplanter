@@ -236,6 +236,49 @@ class TestParsing:
         router, table = build_pair(plain_routes=("not-a-real-route",))
         assert rules(checker.collect(router, table)) == [("undecided-route", "not-a-real-route")]
 
+    def test_a_line_comment_beside_an_entry_does_not_change_the_parse(
+        self, tmp_path: Path, build_pair: Callable[..., tuple[Path, Path]]
+    ) -> None:
+        """A per-entry reason may contain an apostrophe (#1333).
+
+        The buckets carry each decision's *reason* as a `//` comment beside it —
+        that is what makes the table reviewable rather than a bare list. English
+        reasons contain apostrophes, and before this was handled the first such
+        comment made the parser read prose as route names: twelve decided routes
+        were reported `undecided-route` and two comment fragments came back as
+        `obsolete-decision`, on a table that was in fact complete.
+
+        Fails against the pre-#1333 parser, which is the point.
+        """
+        router, table = build_pair(plain_routes=("a", "b"), ungated=("a", "b"))
+        source = table.read_text(encoding="utf-8")
+        source = source.replace(
+            "  'a',",
+            "  // RequireRole's restrict-only mode can't help here — it isn't a read page.\n  'a',",
+            1,
+        )
+        table.write_text(source, encoding="utf-8")
+
+        assert checker.collect(router, table) == []
+
+    def test_an_entry_truncated_by_comment_stripping_is_refused_not_reported(
+        self, tmp_path: Path, build_pair: Callable[..., tuple[Path, Path]]
+    ) -> None:
+        """An unreadable table stops the check; it never reads as a clean one.
+
+        Stripping `//` to end-of-line is what lets a reason live beside its entry,
+        and the one input it cannot survive is a `//` *inside* a quoted entry. No
+        real entry has one, so this asserts the refusal rather than the hazard:
+        NFR-018 §2 wants a loud stop, not a confident wrong answer.
+        """
+        router, table = build_pair(plain_routes=("a",), ungated=("a",))
+        source = table.read_text(encoding="utf-8")
+        source = source.replace("  'a',", "  'https://example.test/x',\n  'a',", 1)
+        table.write_text(source, encoding="utf-8")
+
+        with pytest.raises(checker.RouteGuardCheckError):
+            checker.collect(router, table)
+
     def test_element_before_path_is_refused_rather_than_mis_attributed(
         self, tmp_path: Path, build_pair: Callable[..., tuple[Path, Path]]
     ) -> None:

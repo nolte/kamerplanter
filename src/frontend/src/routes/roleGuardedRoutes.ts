@@ -127,6 +127,14 @@ export const ACTION_GATED_ROUTES: readonly string[] = [
   'duengung/feeding-events/:key',
   'giessprotokoll',
   'giessprotokoll/:key',
+  // #1333 — server-side gate ADDED (`POST /pests/detect` →
+  // require_tenant_role(grower)), so the earlier reason "ungated server-side"
+  // has expired. It stays here rather than moving to ROLE_GUARDED_ROUTES because
+  // that criterion needs a read body to leave behind, and §7 omits history from
+  // this page deliberately: the body *is* the gated write. `<RequireRole>`'s
+  // restrict-only mode would withhold the retake button, leave the capture panel
+  // standing and let a viewer reach the 403 anyway — visible and inert. The gate
+  // is therefore on the capture panel itself, in PestIdentificationPage.
   'pflanzenschutz/erkennung',
   'pflanzenschutz/pests',
   'pflanzenschutz/pests/:key',

@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import PageTitle from '@/components/layout/PageTitle';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ImageCapturePanel from '@/components/identification/ImageCapturePanel';
 import PestFindingsResult from '@/components/pests/PestFindingsResult';
@@ -81,7 +82,15 @@ export default function PestIdentificationPage() {
   const active = status?.active_adapter;
   const activeRequiresConsent = active != null && status?.adapters?.[active]?.requires_consent != null;
   const cloudBlockedInLight = isLightMode && activeRequiresConsent;
-  const accessible = available && !cloudBlockedInLight;
+  // #1333 — the server now refuses `POST /pests/detect` below grower, so the
+  // capture panel must not be reachable by a viewer. This is an *action-level*
+  // gate rather than a `<RequireRole>` route wrapper on purpose: this page has
+  // no read body at all (§7 omits history deliberately), so the wrapper's
+  // restrict-only mode would hide the retake button, leave the capture panel
+  // standing, and let a viewer walk into the 403 anyway — a guard that is
+  // visible and inert, which `roleGuardedRoutes.ts` names as worse than none.
+  const { canEdit } = useTenantPermissions();
+  const accessible = available && !cloudBlockedInLight && canEdit;
 
   const handleImageReady = useCallback(
     (file: File, url: string) => {
@@ -178,6 +187,10 @@ export default function PestIdentificationPage() {
       ) : !available ? (
         <Alert severity="info" data-testid="page-feature-unavailable">
           {t('pages.pests.notConfigured')}
+        </Alert>
+      ) : !canEdit ? (
+        <Alert severity="info" data-testid="pest-identification-role-restricted">
+          {t('pages.pests.roleRestricted')}
         </Alert>
       ) : (
         <Card variant="outlined">
