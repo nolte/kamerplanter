@@ -35,6 +35,7 @@ set -euo pipefail
 usage() {
   cat >&2 <<'USAGE'
 Usage: assert-nuclei-coverage.sh --log FILE --results FILE --expect-targets N
+                                 --targets "URL [URL ...]"
                                  --min-templates N [--sarif FILE]
                                  [--summary FILE] [--json-out FILE]
                                  [--write-empty-sarif FILE] [--label TEXT]
@@ -43,6 +44,11 @@ Usage: assert-nuclei-coverage.sh --log FILE --results FILE --expect-targets N
   --results           the `-o` JSONL path. Nuclei creates it even with zero
                       matches, so its ABSENCE means the scan never ran.
   --expect-targets    how many targets the scan was configured with.
+  --targets           the configured targets themselves, space separated. Load
+                      bearing, not decoration: nuclei also reports ports its
+                      TEMPLATES probed and found closed, and without this list
+                      those are indistinguishable from a configured target that
+                      went unreachable. See "WHOSE DROP IS IT" below.
   --min-templates     floor for "Templates loaded for current scan".
   --sarif             the `-sarif-export` path, if any.
   --summary           append a Markdown verdict here ($GITHUB_STEP_SUMMARY).
@@ -60,6 +66,7 @@ summary_file=""
 json_out=""
 empty_sarif_out=""
 expect_targets=""
+configured_targets=""
 min_templates=""
 label="Nuclei scan"
 
@@ -72,6 +79,7 @@ while [[ $# -gt 0 ]]; do
     --json-out) json_out="$2"; shift 2 ;;
     --write-empty-sarif) empty_sarif_out="$2"; shift 2 ;;
     --expect-targets) expect_targets="$2"; shift 2 ;;
+    --targets) configured_targets="$2"; shift 2 ;;
     --min-templates) min_templates="$2"; shift 2 ;;
     --label) label="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -79,7 +87,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-for required in log_file results_file expect_targets min_templates; do
+for required in log_file results_file expect_targets configured_targets min_templates; do
   if [[ -z "${!required}" ]]; then
     echo "assert-nuclei-coverage: --${required//_/-} is required" >&2
     usage
@@ -113,6 +121,7 @@ templates_loaded=""
 targets_loaded=""
 unresponsive=""
 unresponsive_count=0
+incidental_count=0
 matches=0
 
 if [[ "$scan_ran" == true ]]; then
@@ -129,9 +138,71 @@ if [[ "$scan_ran" == true ]]; then
 
   # Nuclei drops a target it cannot reach and carries on to a green exit. It
   # repeats the line once per attempted request, so reduce to distinct hosts.
-  unresponsive=$(printf '%s\n' "$plain" \
+  #
+  # WHOSE DROP IS IT — the correction that cost the 2026-09-01 nightly.
+  #
+  # This originally counted EVERY `Skipped` line as a configured target going
+  # unreachable, and reported "3 of 2 targets were unreachable" on run
+  # 33462544851 — a ratio that cannot exist, which is the tell. The three were
+  # `127.0.0.1:80`, `127.0.0.1:4040` and `127.0.0.1:43800`, none of them
+  # configured. They are ports the TEMPLATES probed and found closed:
+  #
+  #   Skipped 127.0.0.1:80 … chain="… http://127.0.0.1:80/SMS_DP_SMSPKG$/Datalib"
+  #   Skipped 127.0.0.1:4040 … chain="… https://127.0.0.1:4040/jobs/?…"
+  #
+  # An SCCM template and a Spark-UI template knocking on closed ports is what a
+  # healthy full scan against a two-port host LOOKS like. So the check fired on
+  # every healthy night — a guaranteed false positive, which recreates exactly
+  # the condition #1308 exists to remove: a lane red for a reason unrelated to
+  # coverage, in which a real coverage failure cannot be seen.
+  #
+  # The guard was built and validated against the FAILURE case (two dead ports
+  # as targets, where every Skipped line WAS a configured target) and never
+  # against a healthy one at full breadth. Hence the identity check below and
+  # the selftest that now runs a healthy log through it.
+  all_skipped=$(printf '%s\n' "$plain" \
     | sed -n 's/.*Skipped \([^ ]\{1,\}\) from target list as found unresponsive permanently.*/\1/p' \
     | sort -u)
+
+  # Normalise both sides to host:port. Configured targets arrive as URLs, the
+  # log reports bare authorities. A URL without an explicit port carries the
+  # scheme's default, or nothing would ever match for a plain https target.
+  normalise_authority() {
+    local raw="$1" scheme="" hostport=""
+    case "$raw" in
+      http://*)  scheme=http;  hostport="${raw#http://}" ;;
+      https://*) scheme=https; hostport="${raw#https://}" ;;
+      *)         hostport="$raw" ;;
+    esac
+    hostport="${hostport%%/*}"
+    hostport="${hostport%%\?*}"
+    if [[ "$hostport" != *:* ]]; then
+      case "$scheme" in
+        https) hostport="$hostport:443" ;;
+        http)  hostport="$hostport:80" ;;
+      esac
+    fi
+    printf '%s' "$hostport"
+  }
+
+  configured_authorities=""
+  for t in $configured_targets; do
+    configured_authorities+="$(normalise_authority "$t")"$'\n'
+  done
+
+  # Only a drop of something we ASKED for is a coverage verdict. The rest is
+  # ordinary template probing and is reported as a number, never as a failure.
+  unresponsive=""
+  incidental_count=0
+  while IFS= read -r dropped; do
+    [[ -z "$dropped" ]] && continue
+    if printf '%s' "$configured_authorities" | grep -Fxq "$(normalise_authority "$dropped")"; then
+      unresponsive+="$dropped"$'\n'
+    else
+      incidental_count=$((incidental_count + 1))
+    fi
+  done <<< "$all_skipped"
+  unresponsive=$(printf '%s' "$unresponsive" | sed '/^$/d')
   # Both `|| true` below absorb `grep -c`'s exit 1 for a count of ZERO, which
   # is the ordinary case, not a failure. Neither swallows a verdict: every
   # verdict in this script is an explicit comparison on the resulting number,
@@ -157,8 +228,14 @@ if [[ "$scan_ran" == true ]]; then
     fail "$targets_loaded targets loaded, but $expect_targets were configured."
   fi
 
-  if [[ "$unresponsive_count" -gt 0 ]]; then
-    fail "$unresponsive_count of $expect_targets targets were unreachable and were dropped from the scan: $(printf '%s' "$unresponsive" | tr '\n' ' '). Coverage claimed by this run is not real."
+  # A count above the configured total is arithmetically impossible and means
+  # the identity check itself is broken, not that coverage was lost. Say which,
+  # because the previous version reported "3 of 2" as a coverage verdict and a
+  # reader had no way to tell a defect in this script from a defect in the scan.
+  if [[ "$unresponsive_count" -gt "$expect_targets" ]]; then
+    fail "assert-nuclei-coverage is broken: it matched $unresponsive_count dropped targets against $expect_targets configured ones, which cannot happen. Fix the parser; do NOT read this as a coverage failure."
+  elif [[ "$unresponsive_count" -gt 0 ]]; then
+    fail "$unresponsive_count of $expect_targets CONFIGURED targets were unreachable and were dropped from the scan: $(printf '%s' "$unresponsive" | tr '\n' ' '). Coverage claimed by this run is not real."
   fi
 fi
 
@@ -179,7 +256,8 @@ if [[ -n "$summary_file" ]]; then
     echo "| --- | --- |"
     echo "| Templates loaded | ${templates_loaded:-—} (floor ${min_templates}) |"
     echo "| Targets loaded | ${targets_loaded:-—} (configured ${expect_targets}) |"
-    echo "| Targets dropped as unreachable | ${unresponsive_count} |"
+    echo "| Configured targets dropped as unreachable | ${unresponsive_count} |"
+    echo "| Closed ports skipped by templates (informational) | ${incidental_count:-0} |"
     echo "| Findings written | ${matches} |"
     echo "| Verdict | **${verdict}** |"
     echo
@@ -205,10 +283,12 @@ if [[ -n "$json_out" ]]; then
     --argjson expected_targets "$expect_targets" \
     --argjson min_templates "$min_templates" \
     --argjson unreachable "$unresponsive_count" \
+    --argjson incidental_ports_skipped "${incidental_count:-0}" \
     --argjson matches "$matches" \
     '{label: $label, verdict: $verdict, templates_loaded: $templates,
       targets_loaded: $targets, targets_configured: $expected_targets,
       templates_floor: $min_templates, targets_unreachable: $unreachable,
+      incidental_ports_skipped: $incidental_ports_skipped,
       findings: $matches}' > "$json_out"
 fi
 

@@ -355,6 +355,7 @@ jobs:
             --results "$GITHUB_WORKSPACE/results.jsonl" \
             --sarif "$GITHUB_WORKSPACE/results.sarif" \
             --expect-targets 2 \
+            --targets "http://127.0.0.1:8000 http://127.0.0.1:5173" \
             --min-templates 100 \
             --summary "$GITHUB_STEP_SUMMARY" \
             --json-out "$GITHUB_WORKSPACE/nuclei-coverage.json" \
