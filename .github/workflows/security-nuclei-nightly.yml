@@ -265,6 +265,7 @@ jobs:
         if: always()
         env:
           EXPECT_TARGETS: ${{ steps.target.outputs.target_count }}
+          SCAN_TARGETS: ${{ steps.target.outputs.targets }}
         run: |
           set -euo pipefail
           # Empty only if the resolve step itself never ran. Say that, rather
@@ -280,6 +281,7 @@ jobs:
             --results "$GITHUB_WORKSPACE/results.jsonl" \
             --sarif "$GITHUB_WORKSPACE/results.sarif" \
             --expect-targets "$EXPECT_TARGETS" \
+            --targets "$SCAN_TARGETS" \
             --min-templates 1000 \
             --summary "$GITHUB_STEP_SUMMARY" \
             --json-out "$GITHUB_WORKSPACE/nuclei-coverage.json" \
