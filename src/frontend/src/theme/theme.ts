@@ -34,14 +34,30 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
           disableElevation: true,
         },
         styleOverrides: {
-          // Same rule as `MuiChip` below, same reason: an outlined warning
-          // Button draws its label in `warning.main`, which is 3.11:1 on white.
+          // Same rule as `MuiChip` below, same reason: a warning Button that
+          // draws its own label — outlined or text — paints it in
+          // `warning.main`, which is 3.11:1 on white and 2.85:1 on the app's
+          // `#f5f5f5` background. `warning.dark` (#a54c01) is MUI's own darkened
+          // tone of the same brand orange and reaches 5.34:1 there.
+          //
+          // Written as two classes. The previous single-class form,
+          // `&.MuiButton-outlinedWarning`, matched nothing in MUI 9 — the
+          // library emits `MuiButton-outlined` and `MuiButton-colorWarning`
+          // separately and no combined class — so the rule had been silently
+          // inert and outlined warning Buttons were still measured at 2.85:1
+          // while the comment above claimed they were fixed. The sibling
+          // `MuiChip` override survived only because it was already written this
+          // way. The `text` variant is covered too: it has the same defect and
+          // two live call sites (the AccountSettings reset dialogs).
           root: ({ theme }) => ({
             textTransform: 'none',
             fontWeight: 600,
-            '&.MuiButton-outlinedWarning': {
+            '&.MuiButton-outlined.MuiButton-colorWarning': {
               color: theme.palette.warning.dark,
               borderColor: theme.palette.warning.dark,
+            },
+            '&.MuiButton-text.MuiButton-colorWarning': {
+              color: theme.palette.warning.dark,
             },
             // A *contained* warning Button keeps `contrastText` as its label on
             // hover but swaps the background to `warning.dark` — so flipping
