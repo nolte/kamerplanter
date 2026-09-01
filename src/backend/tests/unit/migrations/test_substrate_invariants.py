@@ -46,6 +46,25 @@ _FERTILISER_COMPONENTS = frozenset(
     {"langzeitduenger", "organischer_duenger", "fledermausguano", "pre_mix", "wurmhumus"}
 )
 
+#: Amendments dosed by mass, not by volume. Lime and a trace-element blend go into
+#: a growing medium at single-digit kg/m³ — well under one percent by volume — so a
+#: normalised volume vector cannot carry them next to peat and perlite without
+#: reading as ten percent lime (#1152 §C, #1175). They live in ``additives``, which
+#: names them and asserts no quantity, because this file has no sourced dose rate
+#: for any of them and its own header forbids inventing one.
+#:
+#: Deliberately only these three. ``wurmhumus``, ``organischer_duenger``,
+#: ``fledermausguano``, ``pre_mix``, ``seetang``, ``knochenmehl``, ``blutmehl`` and
+#: ``leonardit`` are bulk constituents at the percentages the records declare — a
+#: wider set would have moved real volume out of the vector and made the
+#: renormalisation below a rewrite rather than a rescale.
+_ADDITIVE_COMPONENTS = frozenset({"kalk", "dolomit", "spurenelemente"})
+
+#: Types that are not a medium at all. ``air_porosity_percent`` is a property of a
+#: pore space, and a nutrient solution has none — the field does not apply rather
+#: than evaluating to a number (#1152 §E).
+_NON_SUBSTRATE_TYPES = frozenset({"hydro_solution", "none"})
+
 #: Records that violate an invariant below and are **not** corrected here, because
 #: correcting them needs a sourced horticultural value and this file's own header
 #: says "do not invent or alter numeric values here". Registered rather than
@@ -219,3 +238,75 @@ def _assert_only_known_open(offenders: dict[str, str], rule: str, what: str) -> 
 
     healed = [name for name, (entry_rule, _) in _KNOWN_OPEN.items() if entry_rule == rule and name not in offenders]
     assert not healed, f"these no longer violate '{what}' and must be removed from _KNOWN_OPEN: {sorted(healed)}"
+
+
+# ── additives are not bulk components (#1175 model fix 1) ────────────────────
+
+
+def _is_amendment(entry: dict[str, Any]) -> bool:
+    return bool(entry.get("is_amendment"))
+
+
+def _additives_in_bulk(entry: dict[str, Any]) -> set[str]:
+    return set(entry.get("composition") or {}) & _ADDITIVE_COMPONENTS
+
+
+def test_the_additive_rule_exempts_an_amendment_and_only_an_amendment() -> None:
+    """The rule is about *media*, and that scoping is the decision, not a loophole.
+
+    A growing medium is mostly bulk, so a lime fraction inside its normalised
+    vector is read as ten percent lime. An amendment **is** the concentrate — its
+    dolomite really is a tenth of the product — so the same key means something
+    else there. Pinned with fixtures so the exemption cannot later be widened by
+    accident into "additive keys are fine anywhere".
+    """
+    medium = {"composition": {"torf": 0.9, "kalk": 0.1}}
+    amendment = {"is_amendment": True, "composition": {"torf": 0.9, "dolomit": 0.1}}
+    clean_medium = {"composition": {"torf": 0.7, "perlit": 0.3}}
+
+    assert _additives_in_bulk(medium) and not _is_amendment(medium)
+    assert _additives_in_bulk(amendment) and _is_amendment(amendment)
+    assert not _additives_in_bulk(clean_medium)
+
+
+def test_no_growing_medium_carries_an_additive_as_a_bulk_component() -> None:
+    """One normalised vector cannot hold both bulk components and additives (#1152 §C).
+
+    They differ by two orders of magnitude: peat and perlite are tens of percent
+    of the volume, lime is kilograms per cubic metre. Because the vector closes to
+    1.0 — pinned by ``test_every_composition_closes`` — a ``kalk: 0.10`` is a
+    literal ten percent lime, which would put the medium far above the ``ph_base:
+    6.2`` the same record declares.
+    """
+    offenders = {
+        _label(e): sorted(_additives_in_bulk(e))
+        for e in _substrates()
+        if not _is_amendment(e) and _additives_in_bulk(e)
+    }
+
+    assert not offenders, "additives carried as bulk components: " + "; ".join(
+        f"{n} ({', '.join(k)})" for n, k in sorted(offenders.items())
+    )
+
+
+# ── "not applicable" is absent, not a number (#1175 model fix 2) ─────────────
+
+
+def test_a_non_substrate_declares_no_air_porosity() -> None:
+    """``Hydrokultur`` carried ``air_porosity_percent: 100.0`` (#1152 §E).
+
+    That is "not applicable" written as a number, and it does not stay in the
+    record: the field is read by ``calculate_mix_properties``, by the substrate
+    MCP summary and by the detail view, none of which can tell a measured 100 from
+    a placeholder. The empty ``composition`` on the same record was already
+    allowed to say "there is nothing here"; the porosity now says it the same way.
+    """
+    offenders = {
+        _label(e): e.get("air_porosity_percent")
+        for e in _substrates()
+        if e.get("type") in _NON_SUBSTRATE_TYPES and e.get("air_porosity_percent") is not None
+    }
+
+    assert not offenders, "a non-substrate declares an air porosity: " + "; ".join(
+        f"{n} ({v})" for n, v in sorted(offenders.items())
+    )

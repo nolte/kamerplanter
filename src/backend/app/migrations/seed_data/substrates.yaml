@@ -430,11 +430,20 @@ substrates:
     ec_base_ms: 0.7
     water_retention: medium
     air_porosity_percent: 25.0
+    # `kalk: 0.05` was a bulk fraction, i.e. five percent lime by volume (#1152 §C).
+    # Lime goes into a growing medium at single-digit kg/m³ — under one percent —
+    # so it cannot sit in a normalised volume vector next to peat and perlite. It
+    # moved to `additives`, which names it and asserts no quantity, because no
+    # sourced dose rate exists for this product and this file's header forbids
+    # inventing one. The remaining three components were RESCALED over 0.95, which
+    # preserves their ratios exactly (0.70 : 0.15 : 0.10) and closes the vector at
+    # 1.0 again; no new information was introduced.
     composition:
-      torf: 0.70
-      perlit: 0.15
+      torf: 0.74
+      perlit: 0.16
       fasern: 0.10
-      kalk: 0.05
+    additives:
+      - kalk
     buffer_capacity: medium
     reusable: false
     max_reuse_cycles: 1
@@ -519,11 +528,17 @@ substrates:
     ec_base_ms: 1.2
     water_retention: medium
     air_porosity_percent: 30.0
+    # `kalk: 0.10` and `spurenelemente: 0.05` were bulk fractions (#1152 §C): ten
+    # percent lime would put the medium far above the `ph_base: 6.2` two lines up,
+    # and trace elements are ppm by definition. Both moved to `additives` — named,
+    # unquantified — and the two real bulk components were rescaled over 0.85,
+    # preserving their 0.55 : 0.30 ratio exactly.
     composition:
-      torf: 0.55
-      perlit: 0.30
-      kalk: 0.10
-      spurenelemente: 0.05
+      torf: 0.65
+      perlit: 0.35
+    additives:
+      - kalk
+      - spurenelemente
     buffer_capacity: medium
     reusable: false
     max_reuse_cycles: 1
@@ -542,12 +557,17 @@ substrates:
     ec_base_ms: 2.4
     water_retention: high
     air_porosity_percent: 22.0
+    # Same correction as Light·Mix (#1152 §C): `kalk: 0.05` left the bulk vector for
+    # `additives`, the remaining four components rescaled over 0.95 with their
+    # ratios intact. `pre_mix` stays a bulk component — it is a fifteen-percent
+    # share of a real product, not a kg/m³ amendment.
     composition:
-      torf: 0.40
-      wurmhumus: 0.20
-      perlit: 0.20
-      pre_mix: 0.15
-      kalk: 0.05
+      torf: 0.42
+      wurmhumus: 0.21
+      perlit: 0.21
+      pre_mix: 0.16
+    additives:
+      - kalk
     buffer_capacity: high
     reusable: false
     max_reuse_cycles: 1
@@ -608,6 +628,16 @@ substrates:
     ec_base_ms: 1.8
     water_retention: medium
     air_porosity_percent: 20.0
+    # A soil conditioner, not a growing medium (#1152 §E): 30 % peat and the rest
+    # bone meal, blood meal, guano, dolomite, seaweed and leonardite. Nothing is
+    # planted in it. `type` stays `peat` — that is the material family, and the
+    # per-type tables in the engines answer questions about medium physics that an
+    # `soil_amendment` member would have made them answer with a silent default.
+    # What was wrong is that it was selectable as a medium, and that is what this
+    # flag gates. Its `dolomit: 0.10` therefore stays in `composition`: in a
+    # concentrate a tenth really is a tenth, which is why the additive rule is
+    # scoped to media.
+    is_amendment: true
     composition:
       torf: 0.30
       seetang: 0.20
@@ -635,7 +665,13 @@ substrates:
     ph_base: 6.0
     ec_base_ms: 0.0
     water_retention: low
-    air_porosity_percent: 100.0
+    # Was `100.0` — "not applicable" written as a number (#1152 §E). A nutrient
+    # solution has no pore space, so there is no air-filled fraction of it to
+    # state, and no consumer could tell the placeholder from a measurement: it was
+    # volume-weighted into every mix containing this entry, reported over MCP as a
+    # physical property and rendered as "100.0 %". The empty `composition` on the
+    # next line was already allowed to say "there is nothing here".
+    air_porosity_percent: null
     composition: {}
     buffer_capacity: low
     reusable: true

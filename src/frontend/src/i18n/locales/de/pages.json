@@ -1706,7 +1706,10 @@
       "mixPreviewTitle": "Berechnete Eigenschaften",
       "adjustFractions": "Passen Sie die Anteile an, sodass die Summe genau 100 % ergibt.",
       "irrigationStrategy": "Bewässerungsstrategie",
-      "composition": "Zusammensetzung"
+      "composition": "Zusammensetzung",
+      "additives": "Zuschlagstoffe",
+      "additivesHelper": "Beigemischte Zusätze wie Kalk oder Spurenelemente. Sie werden in Kilogramm je Kubikmeter dosiert, nicht als Volumenanteil — der Katalog nennt sie deshalb ohne Mengenangabe.",
+      "notApplicable": "nicht anwendbar"
     },
     "batches": {
       "title": "Chargen",

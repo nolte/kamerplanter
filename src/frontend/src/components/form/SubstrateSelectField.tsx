@@ -79,8 +79,19 @@ export default function SubstrateSelectField<T extends FieldValues>({
     })),
   []);
 
-  const useEntities = substrates.length > 0;
-  const allOptions: SubstrateOption[] = useEntities ? substrates : typeOnlyFallbacks;
+  // Soil amendments are catalogue entries but not growing media: nothing is
+  // planted in `BioBizz Pre·Mix` (#1175). Both call sites of this field assign a
+  // plant's medium, so the exclusion belongs here rather than at each of them.
+  // The backend refuses the same assignment through
+  // `SubstrateService.get_growing_medium`, so this filter shapes the choice
+  // rather than being the guard.
+  const selectableSubstrates = useMemo(
+    () => substrates.filter((s) => !s.is_amendment),
+    [substrates],
+  );
+
+  const useEntities = selectableSubstrates.length > 0;
+  const allOptions: SubstrateOption[] = useEntities ? selectableSubstrates : typeOnlyFallbacks;
 
   const displayName = useCallback((s: SubstrateOption) => {
     if (isTypeOnly(s)) return t(`enums.substrateType.${s.type}`);

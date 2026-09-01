@@ -671,8 +671,21 @@ export interface Substrate {
   ph_base: number;
   ec_base_ms: number;
   water_retention: WaterRetention;
-  air_porosity_percent: number;
+  /**
+   * Air-filled porosity at container capacity, or `null` where the field does not
+   * apply — `Hydrokultur (kein Substrat)` has no pore space to describe (#1175).
+   * `null` is "not applicable", never "unknown" and never zero.
+   */
+  air_porosity_percent: number | null;
   composition: Record<string, number>;
+  /**
+   * Amendments the product contains, named without a quantity (#1175). Lime and
+   * trace elements are dosed at single-digit kg/m³ and cannot sit in the
+   * normalised `composition` vector, where they read as real volume proportions.
+   */
+  additives: string[];
+  /** A soil conditioner rather than a growing medium — not something to plant in. */
+  is_amendment: boolean;
   buffer_capacity: BufferCapacity;
   reusable: boolean;
   max_reuse_cycles: number;
@@ -700,8 +713,10 @@ export interface SubstrateCreate {
   ph_base?: number;
   ec_base_ms?: number;
   water_retention?: WaterRetention;
-  air_porosity_percent?: number;
+  air_porosity_percent?: number | null;
   composition?: Record<string, number>;
+  additives?: string[];
+  is_amendment?: boolean;
   buffer_capacity?: BufferCapacity;
   reusable?: boolean;
   max_reuse_cycles?: number;

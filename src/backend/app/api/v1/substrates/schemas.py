@@ -29,8 +29,14 @@ class SubstrateCreate(BaseModel):
     ph_base: float = Field(default=6.5, ge=0, le=14)
     ec_base_ms: float = Field(default=0.5, ge=0)
     water_retention: WaterRetention = WaterRetention.MEDIUM
-    air_porosity_percent: float = Field(default=25.0, ge=0, le=100)
+    # Nullable: a non-substrate has no pore space to describe (#1175).
+    air_porosity_percent: float | None = Field(default=25.0, ge=0, le=100)
     composition: dict[str, float] = Field(default_factory=dict)
+    # Amendments the medium contains, named without a quantity — lime and trace
+    # elements are dosed by mass and cannot live in the normalised volume vector
+    # next to peat and perlite (#1175).
+    additives: list[str] = Field(default_factory=list)
+    is_amendment: bool = False
     buffer_capacity: BufferCapacity = BufferCapacity.MEDIUM
     reusable: bool = False
     max_reuse_cycles: int = Field(default=3, ge=1)
@@ -53,8 +59,10 @@ class SubstrateResponse(BaseModel):
     ph_base: float
     ec_base_ms: float
     water_retention: WaterRetention
-    air_porosity_percent: float
+    air_porosity_percent: float | None = None
     composition: dict[str, float]
+    additives: list[str] = Field(default_factory=list)
+    is_amendment: bool = False
     buffer_capacity: BufferCapacity
     reusable: bool
     max_reuse_cycles: int

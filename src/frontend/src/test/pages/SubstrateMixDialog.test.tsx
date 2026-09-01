@@ -164,3 +164,89 @@ describe('SubstrateMixDialog', () => {
     expect(previewBtn).toBeDisabled();
   });
 });
+
+describe('SubstrateMixDialog — the shapes #1175 introduced', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    seedSubstrates();
+  });
+
+  /** Runs a preview whose response is `overrides` merged over the default one. */
+  async function previewWith(overrides: Record<string, unknown>) {
+    server.use(
+      http.post('/api/v1/substrates/preview-mix', () =>
+        HttpResponse.json({
+          key: 'sub-preview',
+          type: 'coco',
+          brand: null,
+          name_de: 'Mix',
+          name_en: 'Mix',
+          is_mix: true,
+          mix_components: [],
+          ph_base: 6.2,
+          ec_base_ms: 0.3,
+          water_retention: 'medium',
+          air_porosity_percent: 40,
+          composition: { coco: 1.0 },
+          additives: [],
+          is_amendment: false,
+          buffer_capacity: 'medium',
+          reusable: false,
+          max_reuse_cycles: 1,
+          water_holding_capacity_percent: null,
+          easily_available_water_percent: null,
+          cec_meq_per_100cm3: null,
+          particle_size_mm: null,
+          bulk_density_g_per_l: null,
+          irrigation_strategy: null,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: null,
+          ...overrides,
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<SubstrateMixDialog open onClose={() => {}} onCreated={() => {}} />);
+    await screen.findByTestId('substrate-mix-dialog');
+    await pickComponent(user, 0, 'Kokos Substrat');
+    await pickComponent(user, 1, 'Perlit');
+    await user.click(screen.getByRole('button', { name: 'Vorschau berechnen' }));
+    await screen.findByText('Berechnete Eigenschaften');
+  }
+
+  it('renders an absent air porosity as "not applicable", not as a number', async () => {
+    // The whole point of making the field nullable: a blend with no pore space to
+    // state must not render a figure. `0.0 %` would be the placeholder again, in
+    // the other direction — and `.toFixed` on null is a crash, which is how this
+    // reached the UI at all.
+    await previewWith({ air_porosity_percent: null });
+
+    expect(screen.getByTestId('mix-preview-air-porosity').textContent).toBe('nicht anwendbar');
+  });
+
+  it('still renders a declared air porosity as a percentage', async () => {
+    // Control. Without it the assertion above passes on a component that renders
+    // "not applicable" unconditionally.
+    await previewWith({ air_porosity_percent: 40 });
+
+    expect(screen.getByTestId('mix-preview-air-porosity').textContent).toBe('40.0%');
+  });
+
+  it('shows the blend\'s additives by name, without a percentage', async () => {
+    // Additives left `composition` because a lime *fraction* was the wrong reading.
+    // Rendering them as `kalk: 10%` again would restore exactly that.
+    await previewWith({ additives: ['kalk', 'spurenelemente'] });
+
+    const box = screen.getByTestId('mix-preview-additives');
+    expect(within(box).getByText('kalk')).toBeTruthy();
+    expect(within(box).getByText('spurenelemente')).toBeTruthy();
+    expect(box.textContent).not.toMatch(/\d+\s*%/);
+  });
+
+  it('omits the additives block when the blend has none', async () => {
+    await previewWith({ additives: [] });
+
+    expect(screen.queryByTestId('mix-preview-additives')).toBeNull();
+  });
+});

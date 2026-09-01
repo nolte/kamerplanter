@@ -1706,7 +1706,10 @@
       "mixPreviewTitle": "Calculated Properties",
       "adjustFractions": "Adjust the fractions so they sum to exactly 100%.",
       "irrigationStrategy": "Irrigation Strategy",
-      "composition": "Composition"
+      "composition": "Composition",
+      "additives": "Additives",
+      "additivesHelper": "Amendments such as lime or trace elements. They are dosed in kilograms per cubic metre rather than as a volume share, so the catalogue names them without a quantity.",
+      "notApplicable": "not applicable"
     },
     "batches": {
       "title": "Batches",
