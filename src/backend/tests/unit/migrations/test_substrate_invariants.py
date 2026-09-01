@@ -12,12 +12,17 @@ its boundary, and once over the real seed file. The first is what makes the
 boundary a decision rather than an accident of the data; the second is what makes
 it bite.
 
-Not covered here: the CEC plausibility band. Its *unit* is undecided (#1152 §F) —
-seven of seven values land in their literature band once divided by bulk density,
-i.e. they behave as meq per 100 cm³, while the field name and, since #1099, the
-mix engine treat them as per 100 g. A band written before that is settled would
-ratify whichever reading it assumed, and #1099's change would inherit the
-ratification.
+Not covered here: the CEC plausibility band. Its *unit* is settled — the values
+are per 100 cm³ of volume, the field is named ``cec_meq_per_100cm3`` and the mix
+engine weights it by volume (#1152 §F) — but a per-type band still is not, and
+writing one from the values present would only ratify them. The literature
+figures in REQ-019 are mass-based (meq/100 g) and converting them needs each
+source's own bulk density, which those sources mostly do not report; assembling
+that table across fourteen substrate types is a data job, not an inference, and
+#1175 deliberately leaves it rather than guessing a band. The one record that
+fits neither reading is named in #1152 §F: sphagnum at CEC 8 and 30 g/L implies
+267 meq/100 g, above its band, which is a second reason a band derived from this
+data would be wrong.
 """
 
 from __future__ import annotations
@@ -87,14 +92,17 @@ _KNOWN_OPEN: dict[str, tuple[str, str]] = {
         _RULE_POROSITY,
         "air 25 + whc 80 = 105 %. Unlike rockwool, #1152 supplies no corrected air "
         "figure, and dried sphagnum genuinely has both very high porosity and very "
-        "high water holding — which of the two numbers is wrong is not derivable.",
-    ),
-    "Lechuza PON (Mineralsubstrat)": (
-        _RULE_FERTILISER_EC,
-        "declares 5 % langzeitduenger and ec_base_ms 0.0. A fertilised medium cannot "
-        "have zero conductivity, but the correct EC is a product property nobody has "
-        "measured here; #1152 leaves open whether the fertiliser component or the EC "
-        "is the wrong half.",
+        "high water holding — which of the two numbers is wrong is not derivable. "
+        "Searched under #1175 without finding an authoritative pair: Gaudig et al. "
+        "(2018), 'Sphagnum Farming From Species Selection to the Production of "
+        "Growing Media: A Review', Mires and Peat 20(13), doi:10.19189/MaP.2018.OMB.340 "
+        "— full text; it publishes dry bulk densities (8.5-25 g/L shredded and "
+        "long-fibre, which corroborates this record's 30 g/L) but no air-capacity / "
+        "water-capacity pair at container capacity; two OpenAlex searches; the "
+        "Besgrow Spagmoss product pages, which claim high water holding without a "
+        "figure. The arithmetic does not identify the wrong half either: at 30 g/L "
+        "total pore space is about 98 % (organic particle density ~1.5 g/cm3), so "
+        "105 % overshoots by ~7 points and either number could carry the error.",
     ),
 }
 
@@ -198,6 +206,15 @@ def test_a_fertilised_medium_declares_a_conductivity() -> None:
     Not a cosmetic contradiction: `ec_base_ms` is subtracted from the target as
     EC-net, so a plant in that medium is dosed as though the substrate contributed
     nothing at all.
+
+    **Closed under #1175**, and the register entry went with it — which is what the
+    healed-check below enforces. LECHUZA\'s own EU-FPR declaration lists the
+    controlled-release fertiliser as an ingredient (so the component was the right
+    half) and publishes "Elektrische Leitfähigkeit (EC): 5 mS/m" = 0.05 mS/cm (so
+    the zero was the wrong half). The citation lives in the record.
+
+    The rule stays, and stays over the whole file: it is the invariant, not a
+    single record\'s ticket.
     """
     offenders = {
         e.get("name_de"): f"{sorted(set(e.get('composition') or {}) & _FERTILISER_COMPONENTS)} with ec_base_ms=0"

@@ -5,6 +5,27 @@
 # Dedicated seed data for the `substrates` collection, loaded by
 # app/migrations/seed_substrates.py.  Values are the original REQ-019 catalog
 # records; do not invent or alter numeric values here.
+#
+# SOURCING CONVENTION (added with #1175, because the file had none)
+# ----------------------------------------------------------------
+# "Do not invent" is not "do not correct".  A value MAY be changed when an
+# authoritative external source states it, and then the source is recorded **in
+# the record**, immediately above the value, as:
+#
+#   # Source: <publisher>, <document>, retrieved <YYYY-MM-DD> — <URL>
+#   # "<the verbatim sentence the value comes from>"
+#
+# A manufacturer's own data sheet or regulatory declaration counts.  A number
+# reasoned to, interpolated, or found on a content-farm page does not — that is
+# the invention the paragraph above forbids, and it is worse than an open item
+# because it looks settled.  Where no such source could be found, the record
+# keeps its value and the violation stays registered in `_KNOWN_OPEN` in
+# tests/unit/migrations/test_substrate_invariants.py, which fails both on an
+# unregistered violation and on a register entry whose defect has been fixed.
+#
+# A citation is also a legitimate way to CONFIRM a value that was doubted; see
+# `Plagron Allmix` below, whose EC an issue reported as too high and the
+# manufacturer's published range says is correct.
 
 substrates:
   # ── Soil-based ──────────────────────────────────────────────────────
@@ -262,8 +283,38 @@ substrates:
     brand: "Lechuza"
     name_de: "Lechuza PON (Mineralsubstrat)"
     name_en: "Lechuza PON (Mineral Substrate)"
+    # NOT changed, and the source is why. The declaration below states two pH
+    # figures under two methods — "pH-Wert (H₂O): 8,2" and "pH-Wert (CaCl₂): 7,1" —
+    # and this field does not say which convention it uses. The Plagron records in
+    # this file match that manufacturer's published 1:1.5 extract, so the file is
+    # not even consistent on one method. Picking 8.2 over 7.1 here would be a coin
+    # flip dressed as a citation. Settling the pH convention for the whole
+    # catalogue is its own piece of work; until then 6.8 stands as an open item.
     ph_base: 6.8
-    ec_base_ms: 0.0
+    # Was 0.0, which contradicted the 5 % `langzeitduenger` two blocks down
+    # (#1152 §B). #1152 could not tell which half was wrong; the manufacturer's
+    # declaration settles both. It lists the fertiliser as an ingredient, so the
+    # component stays — and it publishes the conductivity, so the EC was the wrong
+    # half.
+    #
+    # 5 mS/m = 0.05 mS/cm (1 mS/cm = 100 mS/m). Near zero, but not zero, and the
+    # declaration says why: the granulate is "100 % umhüllt" (fully coated,
+    # Multicote controlled-release), so it contributes almost nothing to the
+    # immediate extract. That is a measured near-zero, not the absence of a
+    # measurement — and `ec_base_ms` is subtracted as EC-net in
+    # `calculate_mixing_protocol`, so the difference between "0.0, unknown" and
+    # "0.05, declared" is the difference between a guess and a value.
+    #
+    # Source: LECHUZA (geobra Brandstätter), product declaration
+    # "LECHUZA-PON 3 L, 6 L, 12 L, 18 L, 30 L" (EU 2019/1009 Düngeprodukt-
+    # Deklaration, PFC 7), retrieved 2026-09-01 —
+    # https://media.lechuza.com/lechuza-declaration-lechuza-pon.pdf
+    # "Produktspezifische Deklaration: Elektrische Leitfähigkeit (EC): 5 mS/m /
+    #  pH-Wert (H₂O): 8,2 / K₂O (Kaliumoxid CAT): 170 mg/l"
+    # "Inhaltsstoffe: Kultursubstrat (PFC 4) bestehend aus Bims […], Lava,
+    #  Zeolith […] / festes anorganisches Mehrnährstoff-Makronährstoff-
+    #  Düngemittel NPK 15-11-14+2+ME […] 100 % umhüllt"
+    ec_base_ms: 0.05
     water_retention: medium
     air_porosity_percent: 40.0
     composition:
@@ -354,10 +405,38 @@ substrates:
     brand: "Plagron"
     name_de: "Plagron Allmix"
     name_en: "Plagron All-Mix"
+    # UNCHANGED, and cited because it was doubted. #1152 §D and #1175 reported this
+    # `ec_base_ms: 2.5` as sitting above the manufacturer's stated "≈1.6–2.0". It
+    # does not: 1.3–2.0 is *Royalmix's* range, which the next record already carries
+    # as 1.6. Plagron publishes 2.0–3.0 for Allmix, and 2.5 is its midpoint. pH 6.6
+    # likewise sits inside the published 6.1–7.1.
+    #
+    # Recorded rather than silently left, because a report of a wrong value that is
+    # closed with "no change" is indistinguishable from one nobody looked at.
+    #
+    # Source: Plagron, product page "Allmix", retrieved 2026-09-01 —
+    # https://plagron.com/en/hobby/products/plagron-allmix
+    # "Characteristics Peat, perlite, worm castings, organic fertilizers.
+    #  Prefertilized with 12,5 kg/m³ organic fertilizer (NPK 5.5-11-5.5)
+    #  pH: 6.1 - 7.1 (1:1.5) EC: 2.0 - 3.0 mS/cm (1:1.5)"
     ph_base: 6.6
     ec_base_ms: 2.5
     water_retention: high
     air_porosity_percent: 22.0
+    # Byte-identical to Royalmix below, and #1152 §D read that as copy-paste. The
+    # manufacturer describes BOTH products with the same component list — "Peat,
+    # perlite, worm castings, organic fertilizers" — so the identity is the data,
+    # not a defect. What actually differs is the pre-fertilisation DOSE: 12.5 kg/m³
+    # here against 10.5 kg/m³ in Royalmix, which is why their EC ranges differ.
+    #
+    # That difference cannot be expressed here, and the reason is the same one that
+    # moved lime out of this vector: kg/m³ is a mass dose, and turning 12.5 vs 10.5
+    # into two distinct `organischer_duenger` volume fractions needs the
+    # fertiliser's bulk density, which Plagron does not publish. So the vectors stay
+    # identical rather than being given invented, differing numbers.
+    #
+    # This is also why the "composition uniqueness per brand" invariant proposed in
+    # #1152's table was NOT added: it would fail on correct data.
     composition:
       torf: 0.45
       wurmhumus: 0.25
@@ -378,6 +457,19 @@ substrates:
     brand: "Plagron"
     name_de: "Plagron Royalmix"
     name_en: "Plagron Royal Mix"
+    # UNCHANGED. EC 1.6 and pH 6.6 both sit inside the published ranges. #1175 also
+    # reported that "Royalmix is in reality lighter and more coco-based" — the
+    # manufacturer lists no coco in either product, and the only support for
+    # "lighter" is the bag weight (50 L at 14–17 kg here against 15–18 kg for
+    # Allmix), which the existing 470 vs 480 g/L already orders the same way. No
+    # change was derivable from that, so none was made.
+    #
+    # Source: Plagron, product page "Royalmix", retrieved 2026-09-01 —
+    # https://plagron.com/en/hobby/products/royalmix
+    # "Characteristics Peat, perlite, worm castings, organic fertilizers.
+    #  Prefertilized with 10,5 kg/m³ organic fertilizer (NPK 5.5-11-5.5)
+    #  pH: 6.0 - 7.2 (1:1.5) EC: 1.3 - 2.0 mS/cm (1:1.5)"
+    # "Packaging 25 L bag (6.5 KG-8.5 KG) & 50 L bag (14-17 KG)."
     ph_base: 6.6
     ec_base_ms: 1.6
     water_retention: high
@@ -430,6 +522,19 @@ substrates:
     ec_base_ms: 0.7
     water_retention: medium
     air_porosity_percent: 25.0
+    # NOT changed, but flagged: Plagron's own component list for Promix is "Peat,
+    # worm castings" — no perlite, no fibres, and a worm-castings share this record
+    # does not carry at all. A marketing characteristics line is a summary, not a
+    # recipe, so it is not authority enough to rewrite four fractions; but it is
+    # enough to say the vector below is unverified. Left as an open item rather than
+    # rebuilt from a bullet point.
+    #
+    # Source: Plagron, product page "Promix", retrieved 2026-09-01 —
+    # https://plagron.com/en/hobby/products/promix
+    # "Characteristics Peat, worm castings. pH: 6.1 - 7.1 (1:1.5)
+    #  EC: 0.4 - 1.1 mS/cm (1:1.5)"
+    # The record's ph_base 6.6 and ec_base_ms 0.7 both sit inside those ranges.
+    #
     # `kalk: 0.05` was a bulk fraction, i.e. five percent lime by volume (#1152 §C).
     # Lime goes into a growing medium at single-digit kg/m³ — under one percent —
     # so it cannot sit in a normalised volume vector next to peat and perlite. It
