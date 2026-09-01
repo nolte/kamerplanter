@@ -104,6 +104,9 @@ class NotificationEngine:
             notification.user_key = user_key
             notification.tenant_key = tenant_key
             notification.data = {**notification.data, "_queued_reason": "quiet_hours"}
+            # notification-write-ok: event: quiet hours park this inbound event as PENDING
+            # for later channel delivery. The row is BORN here; it follows no change at a
+            # source, so it is not the propagation service's to write.
             saved = self._notification_repo.create(notification)
             return {
                 "status": "queued_quiet_hours",
@@ -119,6 +122,9 @@ class NotificationEngine:
             notification.status = NotificationStatus.FAILED
             notification.user_key = user_key
             notification.tenant_key = tenant_key
+            # notification-write-ok: event: the event reached no deliverable channel. The row
+            # is still born here so the in-app centre shows it — again a first
+            # materialisation, not a source change being followed.
             saved = self._notification_repo.create(notification)
             return {
                 "status": "no_channels",
@@ -146,6 +152,9 @@ class NotificationEngine:
         notification.channels_sent = channels_sent
         notification.channels_failed = channels_failed
         notification.status = NotificationStatus.DELIVERED if channels_sent else NotificationStatus.FAILED
+        # notification-write-ok: event: the first materialisation of an inbound event
+        # after channel dispatch (REQ-030 §4.1). NotificationPropagationService owns the
+        # reverse direction — an existing row following its source — not this one.
         saved = self._notification_repo.create(notification)
 
         # 7. Dedup key
@@ -222,6 +231,8 @@ class NotificationEngine:
             notif.user_key = user_key
             notif.tenant_key = tenant_key
             notif.status = NotificationStatus.DELIVERED if total_sent > 0 else NotificationStatus.FAILED
+            # notification-write-ok: event: batch materialisation, one row per inbound event
+            # of the digest. Same class as the single-event path above.
             self._notification_repo.create(notif)
 
         return {"status": "batch_complete", "sent": total_sent, "failed": total_failed}

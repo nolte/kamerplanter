@@ -349,6 +349,9 @@ class NotificationService:
         # Verify the requesting user owns this notification
         if user_key and notif.user_key and notif.user_key != user_key:
             return None
+        # notification-write-ok: user-action: the reader marked their own row read
+        # (REQ-030 §5.2). Nothing at the source changed — the reader did — so this write
+        # is not on the propagation path.
         return self._notification_repo.mark_read(notification_key, datetime.now(UTC))
 
     def mark_acted(
@@ -367,6 +370,8 @@ class NotificationService:
         # Verify the requesting user owns this notification
         if user_key and notif.user_key and notif.user_key != user_key:
             return None
+        # notification-write-ok: user-action: the reader acted on their own row
+        # (REQ-030 §5.2), same class as mark_read above.
         return self._notification_repo.mark_acted(notification_key, datetime.now(UTC))
 
     # ── Preferences ───────────────────────────────────────────────────

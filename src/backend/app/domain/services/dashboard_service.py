@@ -198,6 +198,8 @@ class DashboardService:
     def _upcoming_tasks(self, tenant_key: str, today: date, limit: int = 5) -> list[dict[str, Any]]:
         self._require_methods(self._task_repo, "list_upcoming")
         try:
+            # recurrence-owner-ok: a fixed seven-day dashboard window, not a cadence — it
+            # bounds one repository query and nothing recurs on it.
             window_end = today + timedelta(days=7)
             return list(self._task_repo.list_upcoming(tenant_key, today, window_end, limit) or [])
         except Exception:

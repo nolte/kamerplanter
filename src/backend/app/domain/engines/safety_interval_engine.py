@@ -54,6 +54,11 @@ class SafetyIntervalValidator:
         latest = None
         for period in active_karenz_periods:
             applied_at = ensure_aware_utc(period["applied_at"])
+            # recurrence-owner-ok: a Karenz period is a one-shot waiting time between
+            # treatment and harvest (PflSchG), not a cadence — nothing recurs, so there is
+            # no rule for RecurrenceEngine to advance. The word `interval` in the field name
+            # is what the scan sees; the identical shift at line 32 is invisible to it
+            # because that operand is spelled `safety_days`.
             safe_date = applied_at + timedelta(days=period["safety_interval_days"])
             if latest is None or safe_date > latest:
                 latest = safe_date
