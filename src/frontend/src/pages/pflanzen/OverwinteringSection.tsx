@@ -26,6 +26,7 @@ import {
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import OverwinteringOverrideDialog from './OverwinteringOverrideDialog';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 interface Props {
   plantKey: string;
@@ -206,11 +207,11 @@ export default function OverwinteringSection({ plantKey }: Props) {
             // otherwise it defaults to `body1` sizing and the layout jumps
             // (height change) the instant the real hint text swaps in.
             <Typography variant="body2" component="div">
+              <LoadingStatus />
               <Skeleton
                 variant="text"
                 width="80%"
                 aria-busy="true"
-                aria-label={t('common.loading')}
                 data-testid="overwintering-section-status-loading"
               />
             </Typography>

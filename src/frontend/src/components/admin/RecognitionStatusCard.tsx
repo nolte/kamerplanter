@@ -23,6 +23,7 @@ import { visuallyHidden } from '@mui/utils';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { getRecognitionStatus, startRecognitionAcquisition } from '@/api/endpoints/adminSettings';
 import type { RecognitionStatus } from '@/api/types';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 /** Responsive CSS grid-column value: a raw string or a per-breakpoint map. */
 type GridColumnValue = string | Record<string, string>;
@@ -181,8 +182,8 @@ export function RecognitionStatusCard({ gridColumn }: RecognitionStatusCardProps
           <Box
             sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
             aria-busy="true"
-            aria-label={t('pages.admin.recognition.loading')}
           >
+            <LoadingStatus label={t('pages.admin.recognition.loading')} />
             <Skeleton variant="rounded" height={28} width={180} />
             <Skeleton variant="text" />
             <Skeleton variant="text" width="60%" />

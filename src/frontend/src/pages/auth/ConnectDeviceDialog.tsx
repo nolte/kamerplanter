@@ -18,6 +18,7 @@ import { createDevicePairing } from '@/api/endpoints/auth';
 import { parseApiError } from '@/api/errors';
 import { isLightMode } from '@/config/mode';
 import type { DevicePairingCreated } from '@/api/types';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 interface ConnectDeviceDialogProps {
   open: boolean;
@@ -266,9 +267,9 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
                 <Box
                   data-testid="loading-skeleton"
                   aria-busy="true"
-                  aria-label={t('common.loading')}
                   sx={QR_CONTAINER_SX}
                 >
+                  <LoadingStatus />
                   <Skeleton variant="rectangular" width={qrSize} height={qrSize} />
                 </Box>
               )}

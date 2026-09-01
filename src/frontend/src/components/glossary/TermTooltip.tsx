@@ -15,6 +15,7 @@ import AIResponse from '@/components/ai/AIResponse';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useGlossaryTerm } from '@/hooks/useGlossaryTerm';
 import type { GlossaryExpertiseLevel } from '@/api/types';
+import LoadingStatus from '@/components/common/LoadingStatus';
 
 export interface TermTooltipProps {
   /** Canonical glossary slug (e.g. "vpd", "ec", "karenzzeit"). */
@@ -143,11 +144,8 @@ export default function TermTooltip({ slug, children, iconOnly }: TermTooltipPro
             announce the change to screen-reader users (UI-NFR-002 R-011). */}
         <Box aria-live="polite">
           {loading && (
-            <Box
-              aria-busy="true"
-              aria-label={t('pages.glossary.tooltip.loading')}
-              data-testid="term-tooltip-loading"
-            >
+            <Box aria-busy="true" data-testid="term-tooltip-loading">
+              <LoadingStatus label={t('pages.glossary.tooltip.loading')} />
               <Skeleton variant="text" width="90%" />
               <Skeleton variant="text" width="75%" />
               <Skeleton variant="text" width="60%" />
