@@ -21,7 +21,7 @@ import type {
   PlantingRunEntry,
   PlantInRun,
   GrowthPhase,
-  BatchTransitionResponse,
+  RunTransitionResponse,
 } from '@/api/types';
 
 interface Props {
@@ -30,7 +30,7 @@ interface Props {
   entries: PlantingRunEntry[];
   plants: PlantInRun[];
   onClose: () => void;
-  onTransitioned: (result: BatchTransitionResponse) => void;
+  onTransitioned: (result: RunTransitionResponse) => void;
 }
 
 export default function BatchPhaseTransitionDialog({
@@ -117,15 +117,17 @@ export default function BatchPhaseTransitionDialog({
     if (!targetPhaseKey || !selectedPhase) return;
     try {
       setSaving(true);
-      const result = await runApi.batchTransition(runKey, {
+      const result = await runApi.transitionRun(runKey, {
         target_phase_key: targetPhaseKey,
         target_phase_name: selectedPhase.name,
       });
+      // #1334 — no counts here, and none are missing: REQ-013 v2.0 puts the phase
+      // on the run, so every plant in it moves together and nothing can be
+      // skipped or fail individually. The message names the phase the run is now
+      // in, which is the whole of what happened.
       notification.success(
-        t('pages.plantingRuns.batchTransitionSuccess', {
-          count: result.transitioned_count,
-          skipped: result.skipped_count,
-          failed: result.failed_count,
+        t('pages.plantingRuns.runTransitionSuccess', {
+          phase: result.new_phase_name || selectedPhase.display_name || selectedPhase.name,
         }),
       );
       onTransitioned(result);
@@ -139,7 +141,7 @@ export default function BatchPhaseTransitionDialog({
   return (
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="batch-phase-transition-dialog"
       aria-labelledby="batch-phase-transition-dialog-title">
-      <DialogTitle id="batch-phase-transition-dialog-title">{t('pages.plantingRuns.batchTransition')}</DialogTitle>
+      <DialogTitle id="batch-phase-transition-dialog-title">{t('pages.plantingRuns.runTransition')}</DialogTitle>
       <DialogContent>
         {loadingPhases ? (
           <CircularProgress sx={{ display: 'block', mx: 'auto', my: 2 }} />
@@ -167,7 +169,7 @@ export default function BatchPhaseTransitionDialog({
             </TextField>
             {selectedPhase && (
               <Alert severity="warning">
-                {t('pages.plantingRuns.batchTransitionConfirm', {
+                {t('pages.plantingRuns.runTransitionConfirm', {
                   count: eligibleCount,
                   phase: selectedPhase.display_name || selectedPhase.name,
                 })}

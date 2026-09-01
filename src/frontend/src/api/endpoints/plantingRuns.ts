@@ -4,8 +4,8 @@ import type {
   BatchCreatePlantsResponse,
   BatchRemoveRequest,
   BatchRemoveResponse,
-  BatchTransitionRequest,
-  BatchTransitionResponse,
+  RunTransitionRequest,
+  RunTransitionResponse,
   NutrientPlanAssignResponse,
   PlantInRun,
   PlantingRun,
@@ -123,12 +123,19 @@ export async function adoptPlants(
   return data;
 }
 
-export async function batchTransition(
+/**
+ * Move the whole planting run to a phase (#1334).
+ *
+ * Was `batchTransition` posting to `/batch-transition`, which no backend route
+ * has ever served — the button 404'd, and the unit test asserted the wrong path,
+ * so it was green throughout.
+ */
+export async function transitionRun(
   runKey: string,
-  payload: BatchTransitionRequest,
-): Promise<BatchTransitionResponse> {
-  const { data } = await client.post<BatchTransitionResponse>(
-    `${BASE}/${runKey}/batch-transition`,
+  payload: RunTransitionRequest,
+): Promise<RunTransitionResponse> {
+  const { data } = await client.post<RunTransitionResponse>(
+    `${BASE}/${runKey}/transition`,
     payload,
   );
   return data;

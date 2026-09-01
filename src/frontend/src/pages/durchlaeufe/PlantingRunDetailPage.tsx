@@ -581,7 +581,7 @@ export default function PlantingRunDetailPage() {
                 onClick={() => setBatchTransitionOpen(true)}
                 data-testid="batch-transition-button"
               >
-                {t('pages.plantingRuns.batchTransition')}
+                {t('pages.plantingRuns.runTransition')}
               </Button>
               <Button
                 variant="outlined"
