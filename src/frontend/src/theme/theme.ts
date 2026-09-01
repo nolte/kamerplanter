@@ -1,4 +1,4 @@
-import { createTheme, type Theme } from '@mui/material/styles';
+import { createTheme, darken, type Theme } from '@mui/material/styles';
 import { lightPalette, darkPalette, highContrastPalette } from './palette';
 import { typography } from './typography';
 import { breakpoints, radii } from './tokens';
@@ -42,6 +42,41 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
             '&.MuiButton-outlinedWarning': {
               color: theme.palette.warning.dark,
               borderColor: theme.palette.warning.dark,
+            },
+            // A *contained* warning Button keeps `contrastText` as its label on
+            // hover but swaps the background to `warning.dark` — so flipping
+            // `warning.contrastText` to black (#1289) would have taken this
+            // surface from 5.82:1 (white on #a54b01, passing) down to 3.60:1:
+            // the palette fix would have broken a state that was fine before.
+            // Measured, not assumed. Darkening by 12% instead of going all the
+            // way to `warning.dark` still reads as a hover and keeps black at
+            // 5.35:1. Derived from the token rather than a second hard-coded
+            // hex, so it cannot drift away from `warning.main`.
+            //
+            // Two classes, not the combined `MuiButton-containedWarning`: MUI 9
+            // emits `MuiButton-contained` and `MuiButton-colorWarning` as
+            // separate classes and no combined one, so a selector written the
+            // combined way matches nothing and the rule is silently inert. That
+            // is not hypothetical — see the `outlinedWarning` selector above.
+            '&.MuiButton-contained.MuiButton-colorWarning:hover': {
+              backgroundColor: darken(theme.palette.warning.main, 0.12),
+            },
+          }),
+        },
+      },
+      // A *filled* warning Alert never reads `warning.contrastText`: MUI derives
+      // its label from `palette.getContrastText(warning.main)`, which re-runs
+      // the `contrastThreshold` (3) decision and picks white again — 3.11:1. The
+      // #1289 palette change alone therefore leaves this surface failing, and
+      // that issue's acceptance criterion ("a filled warning chip *and* a
+      // warning Alert both reach >= 4.5:1") would have been reported as met with
+      // the Alert half untouched. Pointed at `contrastText` so the Alert follows
+      // the same single decision as every other filled warning surface.
+      MuiAlert: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            '&.MuiAlert-filled.MuiAlert-colorWarning': {
+              color: theme.palette.warning.contrastText,
             },
           }),
         },

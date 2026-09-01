@@ -17,8 +17,27 @@ export const lightPalette: PaletteOptions = {
   error: {
     main: '#d32f2f',
   },
+  // `#ed6c02` is the documented brand warning colour and stays exactly as it is:
+  // as a fill, icon or illustration colour it owes only 3:1 (WCAG 1.4.11) and
+  // clears it. What fails is the *text MUI puts on top of it* — `contrastText`
+  // is derived from `contrastThreshold`, which defaults to 3, so `#ed6c02`
+  // clears the threshold, MUI picks white, and white on that orange measures
+  // 3.11:1, under WCAG AA's 4.5:1 for normal text (UI-NFR-002, issue #1289).
+  // Contrast is symmetric, so it is the same 3.11:1 read either way.
+  //
+  // Black rather than white: 6.75:1 on the same orange, one line, every filled
+  // warning surface at once. The alternatives were rejected on blast radius, not
+  // on taste — raising `contrastThreshold` to 4.5 would silently re-decide
+  // `error` (`#d32f2f`, ~4.5:1 borderline) and every future palette entry
+  // between 3 and 4.5, and darkening `main` would move a brand token that is
+  // also the favourite-star colour in six places.
+  //
+  // Light palette only. `darkPalette.warning` is `#ffa726`, on which MUI already
+  // derives near-black (measured 9.14:1), and `highContrastPalette` states its
+  // own `contrastText` on a much darker orange (7.54:1) — neither is touched.
   warning: {
     main: '#ed6c02',
+    contrastText: '#000000',
   },
   success: {
     main: '#2e7d32',
