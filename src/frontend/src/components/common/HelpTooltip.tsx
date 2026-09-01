@@ -95,24 +95,50 @@ export default function HelpTooltip({
     />
   );
 
-  // The Tooltip needs a focusable / hoverable trigger. Box with tabIndex satisfies WCAG 2.1 AA.
-  // WCAG 2.5.8 (Target Size Minimum) / UI-NFR-002: minWidth/minHeight guarantee at least
-  // 24×24 px; the 18px icon plus 4px padding on each side actually renders at ~26×26 px,
-  // comfortably above the floor even where the icon is used at its smallest size.
-  // Stop the click from bubbling: a header title carrying this trigger (e.g.
-  // GenericWidget's `ipm_alerts` glossary icon) can itself sit inside an
-  // ancestor navigation link (issue #439 panel-level CardActionArea). Without
-  // this, tapping the tiny help icon would both toggle the tooltip *and* fire
-  // the ancestor link's navigation — on touch devices the click reaches the
+  // Keep an activation of this trigger from reaching an ancestor link: a header
+  // title carrying it (e.g. GenericWidget's `ipm_alerts` glossary icon) can sit
+  // inside an ancestor navigation link (issue #439 panel-level CardActionArea).
+  // Without this, tapping the tiny help icon would both toggle the tooltip *and*
+  // fire the ancestor link's navigation — on touch devices the click reaches the
   // ancestor well before any touch-hold tooltip delay, so the help affordance
   // would silently stop working the moment it is nested inside a link.
-  const stopBubble = (e: MouseEvent<HTMLElement>) => e.stopPropagation();
+  //
+  // `preventDefault` next to `stopPropagation`, because stopping propagation
+  // alone never delivered that. Measured on the dashboard, where the
+  // `ipm_alerts` trigger really does sit inside `<a href="/pflanzenschutz/pests">`:
+  // a click on the help icon navigated away — with the previous
+  // `stopPropagation`-only version too, so the guard this comment describes has
+  // been inert. Two independent routes get past propagation control: an <a>
+  // follows its href as the *default action* of a click that merely passed
+  // through it, and react-router's link handler runs off React's delegated root
+  // listener. `defaultPrevented` closes both — the browser skips the default
+  // navigation, and `useLinkClickHandler` returns early on an already-prevented
+  // event.
+  const swallowActivation = (e: MouseEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
-  const trigger = iconOnly ? (
+  // A real <button>, not a span carrying `tabIndex` (#1290). A <span> maps to
+  // the `generic` role, ARIA forbids naming a generic element, so the accessible
+  // name was *discarded* — screen-reader users reached a focus stop with no name
+  // at all. The button carries role, keyboard activation and focus handling
+  // natively, which retires the tabIndex/role/keyboard trio the span had to
+  // re-implement by hand.
+  //
+  // `type="button"` is load-bearing rather than boilerplate: several call sites
+  // place this trigger next to a field inside a <form>, and a bare <button>
+  // defaults to `type="submit"` — it would submit the form on every help click.
+  //
+  // WCAG 2.5.8 (Target Size Minimum) / UI-NFR-002: minWidth/minHeight guarantee
+  // at least 24×24 px; the 18px icon plus 4px padding on each side renders at
+  // ~26×26 px. The UA button styling (border, background, font) is reset so the
+  // trigger looks exactly as the span did.
+  const iconTrigger = (
     <Box
-      component="span"
-      tabIndex={0}
-      onClick={stopBubble}
+      component="button"
+      type="button"
+      onClick={swallowActivation}
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -120,17 +146,36 @@ export default function HelpTooltip({
         minWidth: 24,
         minHeight: 24,
         p: '4px',
+        m: 0,
+        border: 0,
+        background: 'none',
+        color: 'inherit',
+        font: 'inherit',
+        lineHeight: 0,
         cursor: 'help',
       }}
       aria-label={t(`glossary.${term}.short`, { defaultValue: term })}
     >
       {icon}
     </Box>
+  );
+
+  const trigger = iconOnly ? (
+    iconTrigger
   ) : (
+    // The labelled variant keeps a plain <span> as the Tooltip anchor and moves
+    // the focus stop onto the icon button inside it. Wrapping `children` in the
+    // button instead would be wrong twice over: call sites pass block content —
+    // `<Typography component="h2">` (VpdCalculatorCard) and
+    // `<Typography component="legend">` (RecognitionStatusCard) — which a
+    // <button> may not contain, its content model being phrasing only; and
+    // burying a heading inside a button drops it out of the heading outline a
+    // screen reader navigates by. The span keeps hover over the whole label
+    // working, and focus still reaches the Tooltip because React's `onFocus` is
+    // `focusin`, which bubbles up from the nested button.
     <Box
       component="span"
-      tabIndex={0}
-      onClick={stopBubble}
+      onClick={swallowActivation}
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -140,7 +185,7 @@ export default function HelpTooltip({
       }}
     >
       {children}
-      {icon}
+      {iconTrigger}
     </Box>
   );
 

@@ -1,4 +1,4 @@
-import { createTheme, type Theme } from '@mui/material/styles';
+import { createTheme, darken, type Theme } from '@mui/material/styles';
 import { lightPalette, darkPalette, highContrastPalette } from './palette';
 import { typography } from './typography';
 import { breakpoints, radii } from './tokens';
@@ -34,14 +34,65 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
           disableElevation: true,
         },
         styleOverrides: {
-          // Same rule as `MuiChip` below, same reason: an outlined warning
-          // Button draws its label in `warning.main`, which is 3.11:1 on white.
+          // Same rule as `MuiChip` below, same reason: a warning Button that
+          // draws its own label — outlined or text — paints it in
+          // `warning.main`, which is 3.11:1 on white and 2.85:1 on the app's
+          // `#f5f5f5` background. `warning.dark` (#a54c01) is MUI's own darkened
+          // tone of the same brand orange and reaches 5.34:1 there.
+          //
+          // Written as two classes. The previous single-class form,
+          // `&.MuiButton-outlinedWarning`, matched nothing in MUI 9 — the
+          // library emits `MuiButton-outlined` and `MuiButton-colorWarning`
+          // separately and no combined class — so the rule had been silently
+          // inert and outlined warning Buttons were still measured at 2.85:1
+          // while the comment above claimed they were fixed. The sibling
+          // `MuiChip` override survived only because it was already written this
+          // way. The `text` variant is covered too: it has the same defect and
+          // two live call sites (the AccountSettings reset dialogs).
           root: ({ theme }) => ({
             textTransform: 'none',
             fontWeight: 600,
-            '&.MuiButton-outlinedWarning': {
+            '&.MuiButton-outlined.MuiButton-colorWarning': {
               color: theme.palette.warning.dark,
               borderColor: theme.palette.warning.dark,
+            },
+            '&.MuiButton-text.MuiButton-colorWarning': {
+              color: theme.palette.warning.dark,
+            },
+            // A *contained* warning Button keeps `contrastText` as its label on
+            // hover but swaps the background to `warning.dark` — so flipping
+            // `warning.contrastText` to black (#1289) would have taken this
+            // surface from 5.82:1 (white on #a54b01, passing) down to 3.60:1:
+            // the palette fix would have broken a state that was fine before.
+            // Measured, not assumed. Darkening by 12% instead of going all the
+            // way to `warning.dark` still reads as a hover and keeps black at
+            // 5.35:1. Derived from the token rather than a second hard-coded
+            // hex, so it cannot drift away from `warning.main`.
+            //
+            // Two classes, not the combined `MuiButton-containedWarning`: MUI 9
+            // emits `MuiButton-contained` and `MuiButton-colorWarning` as
+            // separate classes and no combined one, so a selector written the
+            // combined way matches nothing and the rule is silently inert. That
+            // is not hypothetical — see the `outlinedWarning` selector above.
+            '&.MuiButton-contained.MuiButton-colorWarning:hover': {
+              backgroundColor: darken(theme.palette.warning.main, 0.12),
+            },
+          }),
+        },
+      },
+      // A *filled* warning Alert never reads `warning.contrastText`: MUI derives
+      // its label from `palette.getContrastText(warning.main)`, which re-runs
+      // the `contrastThreshold` (3) decision and picks white again — 3.11:1. The
+      // #1289 palette change alone therefore leaves this surface failing, and
+      // that issue's acceptance criterion ("a filled warning chip *and* a
+      // warning Alert both reach >= 4.5:1") would have been reported as met with
+      // the Alert half untouched. Pointed at `contrastText` so the Alert follows
+      // the same single decision as every other filled warning surface.
+      MuiAlert: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            '&.MuiAlert-filled.MuiAlert-colorWarning': {
+              color: theme.palette.warning.contrastText,
             },
           }),
         },

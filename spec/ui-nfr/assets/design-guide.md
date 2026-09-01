@@ -66,9 +66,53 @@ Diese Werte stammen aus `src/frontend/src/theme/palette.ts` und sind verbindlich
 | Secondary Contrast | `#ffffff` | 255, 255, 255 | Text auf Secondary-Flaechen |
 | **Error** | `#d32f2f` | 211, 47, 47 | Fehler, Schaedlingsbefall, kritische Warnungen |
 | **Warning** | `#ed6c02` | 237, 108, 2 | Hinweise, Pflegebedarf, Aufmerksamkeit |
+| Warning Contrast | `#000000` | 0, 0, 0 | Text auf gefuellten Warning-Flaechen — siehe Hinweis unten |
+| Warning Dark | `#a54c01` | 165, 76, 1 | Warning **als Text** auf hellem Grund (Chip/Button `outlined` + `text`) |
+| Warning Hover | `#d15f02` | 209, 95, 2 | Hover-Flaeche des gefuellten Warning-Buttons |
 | **Success** | `#2e7d32` | 46, 125, 50 | Erfolg, gesunde Pflanzen (= Primary) |
 | **Background** | `#f5f5f5` | 245, 245, 245 | Seitenhintergrund |
 | **Paper** | `#ffffff` | 255, 255, 255 | Karten, Dialoge, Oberflaechen |
+
+> **Hinweis zu Warning (Issue #1289): schwarzer statt weisser Text auf Orange.**
+>
+> `#ed6c02` bleibt unveraendert die Marken-Warnfarbe. Als **Flaeche, Icon oder
+> Illustration** schuldet sie nur 3:1 (WCAG 1.4.11) und erreicht das. Das Problem
+> ist der **Text, den MUI darauf setzt**: `contrastText` wird aus
+> `contrastThreshold` abgeleitet (Standard 3), `#ed6c02` erfuellt diese Schwelle,
+> also waehlt MUI Weiss — und Weiss auf diesem Orange misst **3.11:1**, unter den
+> 4.5:1, die WCAG 2.2 AA fuer normalen Text fordert (UI-NFR-002). Kontrast ist
+> symmetrisch, es sind also in beide Leserichtungen dieselben 3.11:1.
+>
+> Entschieden wurde `warning.contrastText: '#000000'` — **6.75:1** auf demselben
+> Orange, eine Zeile, alle gefuellten Warning-Flaechen auf einmal. Die
+> Alternativen wurden wegen ihrer Reichweite verworfen, nicht wegen des
+> Aussehens:
+>
+> - `contrastThreshold` auf 4.5 anheben wuerde stillschweigend auch `error`
+>   (`#d32f2f`, grenzwertig ~4.5:1) und jeden kuenftigen Paletteneintrag zwischen
+>   3 und 4.5 neu entscheiden;
+> - `warning.main` abdunkeln wuerde den Marken-Token verschieben, der zugleich an
+>   sechs Stellen die Favoriten-Stern-Farbe ist.
+>
+> Zwei Flaechen folgen dieser Entscheidung **nicht von allein** und sind deshalb
+> im Theme nachgezogen:
+>
+> - Der **gefuellte Warning-Alert** liest `contrastText` gar nicht, sondern
+>   leitet seine Schrift ueber `palette.getContrastText(warning.main)` her — das
+>   wiederholt die Schwellenentscheidung und waehlt erneut Weiss (3.11:1).
+> - Der **gefuellte Warning-Button** behaelt im Hover `contrastText` als Schrift,
+>   tauscht aber die Flaeche gegen `warning.dark` (`#a54c01`). Schwarz darauf
+>   ergaebe 3.60:1 — der Palettenfix haette also einen zuvor intakten Zustand
+>   (Weiss auf `#a54c01`, 5.82:1) verschlechtert. Die Hover-Flaeche wird daher nur
+>   um 12 % abgedunkelt (`#d15f02`), womit Schwarz bei 5.35:1 bleibt.
+>
+> Als **Text auf hellem Grund** bleibt `#ed6c02` unzureichend (2.85:1 auf
+> `#f5f5f5`). Dort gilt weiterhin `warning.dark` `#a54c01` (5.34:1) — verwendet
+> von Chip und Button in den Varianten `outlined` und `text`.
+>
+> Dark Mode und High-Contrast-Palette sind nicht betroffen: dort leitet MUI auf
+> `#ffa726` bereits Nahezu-Schwarz ab (9.14:1), und die High-Contrast-Palette
+> setzt ihr `contrastText` selbst auf einem deutlich dunkleren Orange (7.54:1).
 
 #### Dark Mode
 
