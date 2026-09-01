@@ -41,6 +41,9 @@ class ICalGenerator:
                         f"DTEND;VALUE=DATE:{event.end.strftime('%Y%m%d')}",
                     )
                 else:
+                    # recurrence-owner-ok: RFC 5545 requires an all-day VEVENT's DTEND to be the
+                    # exclusive next midnight; this is the end of ONE event, not the next occurrence
+                    # of anything. A recurring calendar event carries its own RRULE property.
                     next_day = event.start + timedelta(days=1)
                     lines.append(
                         f"DTEND;VALUE=DATE:{next_day.strftime('%Y%m%d')}",

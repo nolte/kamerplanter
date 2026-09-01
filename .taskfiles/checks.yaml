@@ -20,6 +20,52 @@ tasks:
     cmds:
       - python3 scripts/check_schema_examples.py {{.CLI_ARGS}}
 
+  check:recurrence-boundary:
+    desc: |
+      Count the cadence advances computed outside RecurrenceEngine — the (a) half
+      of the ADR-008 phase-0 inventory (#1061, feature F-6). Default mode is a
+      gate: red when a date shift carries neither a route through the engine nor
+      a `# recurrence-owner-ok: <reason>`, and red when such a reason has gone
+      stale (a pardon left behind after the fix). Pass --inventory for the
+      phase-0 instrument, which never fails and prints every site with file:line
+      attribution; --json for machine-readable output.
+
+      NOT a pre-commit hook and NOT in `task check` yet, deliberately: the gate
+      mode is red today — the debt it measures is the point — and NFR-018 §2
+      forbids shipping a gate that cannot pass. It joins the required `static`
+      lane in ADR-008 phase 4 (F-10), once phases 1-2 have driven the count to
+      zero. Until then the growth ratchet lives in
+      src/backend/tests/unit/test_recurrence_boundary_check.py, which runs in the
+      backend unit tier and carries the named register of what is still open.
+
+      The number is computed from the tree on every run and recorded nowhere
+      (NFR-018 §2.1). It is a floor, not a census — the script's docstring names
+      what a static scan of this shape cannot see.
+    cmds:
+      - python3 scripts/check_recurrence_boundary.py {{.CLI_ARGS}}
+
+  check:notification-write-boundary:
+    desc: |
+      Count the notification writes made outside NotificationPropagationService —
+      the (b) half of the ADR-008 phase-0 inventory (#1061, feature F-6). Default
+      mode is a gate: red when a mutating call on a notification repository
+      declares no write class (`# notification-write-ok: event|user-action:
+      <reason>`), when the declared class is unknown, or when a declaration has
+      gone stale. Pass --inventory for the never-failing phase-0 instrument,
+      --json for machine-readable output.
+
+      Same wiring status, and the same reason for it, as
+      check:recurrence-boundary above.
+
+      READ THE DOCSTRING BEFORE TRUSTING A ZERO HERE. This counts writes made in
+      the wrong place. It cannot see the propagation that never happens — a
+      source mutation with no notification call at all — which is the entire
+      #742/#769 class. Zero means no caller reaches around the owner, not that
+      every edge is wired; the pairing tests of ADR-008 phase 2 (F-8) own that
+      half.
+    cmds:
+      - python3 scripts/check_notification_write_boundary.py {{.CLI_ARGS}}
+
   check:seed-catalogue-page-size:
     desc: |
       Compare the seeded rows of every reference catalogue against the page its

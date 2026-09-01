@@ -10,6 +10,19 @@ M5). Angenommen wird dieses ADR, wenn die Phase-0-Bestandsaufnahme aus
 §"Migrationsskizze" vorliegt und die betroffenen REQs (006, 022, 030) die
 Zuständigkeitsgrenzen übernommen haben.
 
+**Stand der Annahmebedingung (2026-09-01).** Die erste Hälfte liegt vor:
+`.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md` zählt (a) **11**
+offene Kadenz-Vorschübe außerhalb der `RecurrenceEngine` und (b) **1** offenen
+Notification-Write außerhalb des Propagationsdienstes, je Stelle attribuiert und
+mit einem Ratchet abgesichert. Die zweite Hälfte steht aus: REQ-006, REQ-022 und
+REQ-030 verweisen bislang auf keine der vier Zuständigkeitsgrenzen. Der Status
+bleibt deshalb *Proposed*.
+
+Die Bestandsaufnahme korrigiert außerdem eine Annahme dieses ADR: das
+Abschlusskriterium von Phase 2 („Baseline (b) auf null“) trägt nicht allein,
+weil (b) bereits bei 1 steht und null erreichen kann, ohne dass eine einzige
+fehlende Propagationskante geschlossen wurde — siehe §4.2 und §6 dort.
+
 ## Context
 
 Kamerplanter führt heute **drei Teilsysteme, die dieselbe Sache tun** — „etwas
@@ -158,6 +171,12 @@ einzeln gebaut (#769). Ohne festgehaltene Grenze wiederholt sich das.
   einen nächsten Termin berechnen und (b) Notification-Zustand schreiben. Ergebnis
   ist eine Zahl, kein Gefühl — sie ist die Ratchet-Baseline der Phasen 1–3 und
   wird **berechnet, nicht eingecheckt** (NFR-018 §2.1).
+  **Erledigt am 2026-09-01:** `.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md`
+  (Zahlen, Stellenliste, Zähldefinition und die benannten Grenzen der Messung).
+  Die beiden Zähler sind `scripts/check_recurrence_boundary.py` und
+  `scripts/check_notification_write_boundary.py` (`task check:recurrence-boundary`,
+  `task check:notification-write-boundary`); ihr Gate-Modus ist heute rot und
+  deshalb bewusst in keiner CI-Lane verdrahtet — das leistet Phase 4.
 - **Phase 1 — Terminmechanik zusammenführen.** Jeden verbliebenen eigenen
   Datums-Vorschub auf `RecurrenceEngine` umstellen; die fachlichen
   Intervall-Bestimmungen bleiben, wo sie sind, und geben nur noch eine `RRULE`
@@ -184,6 +203,7 @@ einzeln gebaut (#769). Ohne festgehaltene Grenze wiederholt sich das.
 
 ## References
 
+- `.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md` — Phase-0-Bestandsaufnahme (Zahlen, Stellenliste, Blindstellen der Messung)
 - `.audits/issue-pattern-analysis/2026-08-08-report.md` — Cluster I, Meta-Muster M5, Maßnahme P6.1
 - Issues: #489 (Analyse), #508, #509, #510, #511, #548, #619, #622, #742, #769
 - `src/backend/app/domain/engines/recurrence_engine.py` — bestehende Teilkonsolidierung (#510)

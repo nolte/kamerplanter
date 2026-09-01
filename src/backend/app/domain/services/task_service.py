@@ -833,6 +833,11 @@ class TaskService:
             checklist = [ChecklistItem(text=item.text, done=False, order=item.order) for item in tt.default_checklist]
 
             status = "pending"
+            # recurrence-owner-ok: a workflow-template offset — it says when the FIRST task
+            # of this run falls due relative to instantiation, not when the next one does.
+            # Template offsets are named outside boundary 1 by the phase-0 counting
+            # definition; task recurrence runs through RecurrenceEngine in
+            # _create_next_recurring_task.
             due_date = now + timedelta(days=tt.days_offset) if tt.days_offset else None
             # Only plant_instance entities support phase-based dormant tasks
             if (
@@ -1195,6 +1200,9 @@ class TaskService:
         source = self.get_task(key, tenant_key=tenant_key)
         due_date = None
         if due_date_offset_days is not None:
+            # recurrence-owner-ok: a clone offset the caller chooses for one new task. It
+            # produces a single due date and establishes no cadence — the cloned task's own
+            # recurrence_rule, if it has one, is advanced by RecurrenceEngine.
             due_date = datetime.now(UTC) + timedelta(days=due_date_offset_days)
 
         entity_key = target_entity_key or source.entity_key
@@ -1405,6 +1413,9 @@ class TaskService:
                 # For days_after_phase: offset from now
                 tt = self._repo.get_task_template_by_key(task.template_key or "")
                 if tt and tt.trigger_type == "days_after_phase" and tt.days_offset:
+                    # recurrence-owner-ok: a `days_after_phase` template offset measured from the
+                    # phase entry. It fires once per transition for a dormant task and advances no
+                    # cadence.
                     task.due_date = now + timedelta(days=tt.days_offset)
                 else:
                     task.due_date = now

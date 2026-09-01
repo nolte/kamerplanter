@@ -55,6 +55,9 @@ class WateringScheduleEngine:
             else:
                 next_date = from_date + timedelta(days=remaining)
 
+        # recurrence-owner-ok: `days_ahead` is the look-ahead horizon of this query — it
+        # bounds how far the enumeration below runs. The cadence is `interval_days`, one
+        # line down; this is the wall it stops at.
         end = from_date + timedelta(days=days_ahead)
         while next_date < end:
             dates.append(next_date)
