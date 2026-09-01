@@ -402,7 +402,7 @@ The unauthenticated endpoint `GET /api/health` can answer which build is current
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `HEALTH_EXPOSE_BUILD_REVISION` | `false` | No | Whether `GET /api/health` discloses the `build_revision` field at all. With `false` the key is absent from the response entirely. |
+| `HEALTH_EXPOSE_BUILD_REVISION` | `false` (the Helm chart sets `true`) | No | Whether `GET /api/health` discloses the `build_revision` field at all. With `false` the key is absent from the response entirely. The **application** default stays `false` — `helm/kamerplanter/values.yaml` sets `true` for Kubernetes installations since #1236, so the delivery state is auditable. |
 | `BUILD_REVISION` | *(empty)* | No | The full Git commit the image was built from. It is baked in at container build time (`docker-publish.yml` passes it into the Dockerfile as a build argument); you only need to set it yourself when you build your own image. |
 | `RATE_LIMIT_HEALTH` | `60/minute` | No | Rate limit for `GET /api/health`, per client IP. The Kubernetes probes point at `/api/v1/health/live` and `/api/v1/health/ready` and are **not** affected. |
 

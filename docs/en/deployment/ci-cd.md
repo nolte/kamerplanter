@@ -822,11 +822,29 @@ All images are publicly readable. For local testing:
         **recommended** setting — the trade-off above still stands, it just
         tips towards auditability once an incident like #1210 shows what the
         alternative costs: without the field, "is the fix live yet?" can only
-        be answered with `kubectl` access to the cluster. The variable would
-        need to be set in the GitOps overlay in `nolte/k8s-home-lab`, not in
-        this repository — and, as of this writing, it is not set there
-        either, which is why the instance still does not answer this way.
-        <!-- #1210 -->
+        be answered with `kubectl` access to the cluster.
+
+        **Since #1236 the chart sets the variable itself.**
+        `helm/kamerplanter/values.yaml` carries `HEALTH_EXPOSE_BUILD_REVISION:
+        "true"` as a chart default. An earlier version of this paragraph claimed
+        the variable "would need to be set in the GitOps overlay, not in this
+        repository" — that was wrong: production deploys exactly this chart
+        (ArgoCD `targetRevision` against
+        `oci://ghcr.io/nolte/charts/kamerplanter`), and Helm merges the
+        operator's `valuesObject` env map **into** the chart's rather than
+        replacing it. Verified by rendering the published chart 0.2.1 with the
+        production `Application`'s own `valuesObject`: the chart default and
+        every operator override both survive. So an instance from a chart
+        release **after 2026-09-01** answers on its own; older releases,
+        docker-compose installations and explicit overrides still need the
+        variable set.
+
+        An operator who does *not* want to disclose overrides the value in their
+        own values — and should then stop running
+        `scripts/ci/check_deployed_build.py` against that instance, because
+        "not disclosed" is deliberately a loud *undetermined* there, never a
+        clean result.
+        <!-- #1210, #1236 -->
 
     The answer has **three distinguishable states**, and the distinction
     carries:

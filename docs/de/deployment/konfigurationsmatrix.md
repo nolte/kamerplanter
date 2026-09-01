@@ -256,14 +256,16 @@ Details: [Speicher konfigurieren](../user-guide/object-storage.md), [Helm Charts
 
 | Funktion | Benötigte Dienste | Aktivierung/Deaktivierung | Pflicht-Secrets/Voraussetzungen | Ressourcenauswirkung | Startup-Gate? |
 |---|---|---|---|---|---|
-| `GET /api/health` meldet, aus welchem Commit das laufende Image gebaut wurde | Backend | `HEALTH_EXPOSE_BUILD_REVISION=true` (Default `false`) — bei `false` fehlt der Schlüssel `build_revision` vollständig, siehe [Umgebungsvariablen — Health-Endpunkt](../reference/environment-variables.md#health-endpunkt) | Ein Image, in das beim Bauen ein `BUILD_REVISION` eingebacken wurde; sonst lautet die Antwort `"unknown"` | — | Nein |
+| `GET /api/health` meldet, aus welchem Commit das laufende Image gebaut wurde | Backend | `HEALTH_EXPOSE_BUILD_REVISION=true` (Anwendungs-Default `false`, **Chart-Default `true`** seit #1236) — bei `false` fehlt der Schlüssel `build_revision` vollständig, siehe [Umgebungsvariablen — Health-Endpunkt](../reference/environment-variables.md#health-endpunkt) | Ein Image, in das beim Bauen ein `BUILD_REVISION` eingebacken wurde; sonst lautet die Antwort `"unknown"` | — | Nein |
 
 !!! warning "Bewusst abgeschaltet, weil der Endpunkt unauthentifiziert ist"
     Die Zuordnung *dieser Host läuft auf jenem Commit* verrät den exakten Rückstand gegenüber dem Entwicklungsstand und damit die Liste der Fehlerbehebungen, die dieser Instanz fehlen. Schalte die Auskunft deshalb bewusst frei. `GET /api/health` ist zusätzlich je Client-IP mengenbegrenzt (`RATE_LIMIT_HEALTH`, Default `60/minute`); die Kubernetes-Proben nutzen `/api/v1/health/live` und `/api/v1/health/ready` und sind davon nicht betroffen.
 
-    Für eine Produktionsinstanz, deren Auslieferungsstand prüfbar sein soll, ist `HEALTH_EXPOSE_BUILD_REVISION=true` trotz dieser Abwägung die **empfohlene** Einstellung — Details und der gemessene Preis der Alternative stehen unter [CI/CD — Wie sehe ich, welche Image-Version gerade läuft?](ci-cd.md#haeufige-fragen). Gesetzt wird die Variable **nicht** hier — sie wäre im GitOps-Overlay in
-`nolte/k8s-home-lab` zu setzen, und ist dort zum Zeitpunkt dieses Texts
-ebenfalls nicht gesetzt. <!-- #1210 -->
+    Für eine Produktionsinstanz, deren Auslieferungsstand prüfbar sein soll, ist `HEALTH_EXPOSE_BUILD_REVISION=true` trotz dieser Abwägung die **empfohlene** Einstellung — Details und der gemessene Preis der Alternative stehen unter [CI/CD — Wie sehe ich, welche Image-Version gerade läuft?](ci-cd.md#haeufige-fragen). Seit #1236 setzt `helm/kamerplanter/values.yaml` sie als **Chart-Default auf
+`true`**; sie reist damit mit dem Chart und braucht keine Aktion im
+GitOps-Repository. Prüfen lässt sich der so freigeschaltete Stand mit
+`task verify:deployed-build INSTANCE_URL=… CHART_VERSION=…`.
+<!-- #1210, #1236 -->
 
 ---
 
