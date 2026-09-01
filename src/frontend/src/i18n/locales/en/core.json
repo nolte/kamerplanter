@@ -159,6 +159,10 @@
       "description": "Reference of technical terms such as VPD or EC around cultivation."
     }
   },
+  "roleGuard": {
+    "title": "This action needs the “{{role}}” role",
+    "description": "You can view this page, but the action in the header is hidden for you: creating and changing data in this tenant requires at least the “{{role}}” role. Ask your tenant lead if you need those rights."
+  },
   "storageSettings": {
     "title": "Storage",
     "intro": "Choose where Kamerplanter stores binary data (photos, imports, exports). This selection applies to the whole instance and takes effect immediately after saving.",

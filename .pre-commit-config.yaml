@@ -420,6 +420,37 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Route role-guard decisions (#1261, REQ-049 §2.3) ───────────────────
+  # The router had no role guard at all: after #1260 gated `POST /identify` at
+  # grower, a viewer could still open /pflanzen/identifikation, work through the
+  # whole wizard and collect a 403 on the last step. Adding the wrapper to that
+  # one route would have reproduced the defect one level up — a guard applied to
+  # the routes somebody happened to look at is exactly #948, where two of four
+  # sibling routes were repaired and the other two stayed open for months.
+  #
+  # So the hook does not check "are the guarded routes guarded". It checks that
+  # EVERY route in AppRoutes.tsx carries a recorded decision in
+  # roleGuardedRoutes.ts — guarded, gated inside the page, or nothing to gate —
+  # and that the <RequireRole> wrappers and the table agree in BOTH directions.
+  # A missing wrapper is the bug returning; a wrapper the table does not back is
+  # a guard stricter than the API, which removes read access the API grants.
+  #
+  # `language: system` (stdlib only, no YAML) and always_run: deleting a route
+  # moves the answer exactly as much as adding one, and a path-filtered hook
+  # never sees a deletion.
+  #
+  # What it deliberately does NOT do: verify a decision is right. That needs the
+  # route x backend-gate join, which needs the backend importable — see the
+  # script's docstring.
+  - repo: local
+    hooks:
+      - id: route-role-guards
+        name: every frontend route carries a role-guard decision (#1261)
+        entry: python3 scripts/check_route_role_guards.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── Workflow gate integrity (P5.4, NFR-018 §2) ─────────────────────────
   # NFR-018 says a check that cannot report a failure must not exist, and §8
   # admits the spec has no gate of its own — "die unangenehme Pointe". This is

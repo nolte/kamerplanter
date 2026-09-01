@@ -5,6 +5,12 @@ import KioskLayout from '@/layouts/KioskLayout';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import PublicOnlyRoute from '@/auth/PublicOnlyRoute';
+// #1261 — the domain-role guard. Every `<RequireRole>` below must match an entry
+// in ROLE_GUARDED_ROUTES, and every route in this file must carry a decision in
+// that table; `scripts/check_route_role_guards.py` and
+// `src/test/routes/roleRouteGuards.test.tsx` both enforce that pairing, so the
+// guard cannot be dropped from a route without a test going red.
+import RequireRole from '@/auth/RequireRole';
 import RouterErrorPage from '@/pages/RouterErrorPage';
 import { isLightMode } from '@/config/mode';
 
@@ -489,13 +495,15 @@ export const router = createBrowserRouter(
             }
           />
 
-          {/* REQ-026 Aquaponik */}
+          {/* REQ-026 Aquaponik — creating a system needs grower (#1261) */}
           <Route
             path="aquaponik"
             element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <AquaponikPage />
-              </Suspense>
+              <RequireRole min="grower">
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <AquaponikPage />
+                </Suspense>
+              </RequireRole>
             }
           />
 
@@ -509,23 +517,27 @@ export const router = createBrowserRouter(
             }
           />
 
-          {/* REQ-016 InvenTree integration (Equipment + inventory) */}
+          {/* REQ-016 InvenTree integration — creating equipment needs grower (#1261) */}
           <Route
             path="inventree"
             element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <InventreePage />
-              </Suspense>
+              <RequireRole min="grower">
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <InventreePage />
+                </Suspense>
+              </RequireRole>
             }
           />
 
-          {/* REQ-017 Vermehrung / Lineage */}
+          {/* REQ-017 Vermehrung / Lineage — recording an event needs grower (#1261) */}
           <Route
             path="vermehrung"
             element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <PropagationPage />
-              </Suspense>
+              <RequireRole min="grower">
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <PropagationPage />
+                </Suspense>
+              </RequireRole>
             }
           />
 
@@ -572,13 +584,17 @@ export const router = createBrowserRouter(
               </Suspense>
             }
           />
-          {/* REQ-029 / REQ-029-A KI-Pflanzenerkennung */}
+          {/* REQ-029 / REQ-029-A KI-Pflanzenerkennung — identifying needs grower
+              (#1256/#1260 gated the write, #1261 stops offering it to a viewer);
+              the history below it stays readable for every member */}
           <Route
             path="pflanzen/identifikation"
             element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <PlantIdentificationPage />
-              </Suspense>
+              <RequireRole min="grower">
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <PlantIdentificationPage />
+                </Suspense>
+              </RequireRole>
             }
           />
           {/* REQ-031 KI-Assistent & Wissensvermittlung */}
@@ -769,13 +785,15 @@ export const router = createBrowserRouter(
             }
           />
 
-          {/* REQ-008 Nacherntebehandlung */}
+          {/* REQ-008 Nacherntebehandlung — starting a drying run needs grower (#1261) */}
           <Route
             path="ernte/nachernte"
             element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <PostHarvestPage />
-              </Suspense>
+              <RequireRole min="grower">
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <PostHarvestPage />
+                </Suspense>
+              </RequireRole>
             }
           />
 

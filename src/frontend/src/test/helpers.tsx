@@ -135,6 +135,41 @@ export function createStoreWithModuleOverrides(
 }
 
 /**
+ * Store seeded with an active tenant in which the acting user holds `role`
+ * (REQ-049 §2.3) — what `<RequireRole>` and `useTenantPermissions` decide on.
+ *
+ * `activeTenant: null` is a *different* input, not "role viewer": it is the
+ * auth-bootstrap / stale-slug-recovery window, in which the guard must NOT
+ * restrict. Pass `createTestStore()` for that case rather than a role here.
+ */
+export function createStoreWithTenantRole(
+  role: 'viewer' | 'grower' | 'lead',
+  adminScopes: readonly string[] = [],
+): TestStore {
+  return createTestStore({
+    tenants: {
+      activeTenant: {
+        key: 'tenant-1',
+        name: 'Testgarten',
+        slug: 'testgarten',
+        tenant_type: 'organization',
+        description: null,
+        role,
+        admin_scopes: [...adminScopes],
+        avatar_url: null,
+        owner_key: 'user-1',
+        max_members: 50,
+        created_at: null,
+        updated_at: null,
+      },
+      myTenants: [],
+      isLoading: false,
+      error: null,
+    },
+  });
+}
+
+/**
  * Store seeded with the smart-home toggle enabled (issue #587). Sensor/actuator
  * surfaces are hidden until `smart_home_enabled` is true, so tests that exercise
  * that UI need this store. Experience level is left unknown (matches the null

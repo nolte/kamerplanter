@@ -2,11 +2,20 @@ import { useEffect, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { useRoleRestriction } from '@/auth/roleRestriction';
 
 interface PageTitleProps {
   title: string;
   /** Optional action element (e.g. "Create" button) rendered next to the title.
-   *  Wraps below the title on small screens automatically. */
+   *  Wraps below the title on small screens automatically.
+   *
+   *  **Suppressed on a route that `<RequireRole>` restricted** (#1261). The header
+   *  action of a role-guarded route is by construction the gated write the route
+   *  was guarded for — that is the criterion `ROLE_GUARDED_ROUTES` applies — so a
+   *  member who may not perform it must not be offered it. Reading the restriction
+   *  once, here, is what keeps the guard from being opt-in at 71 call sites; on
+   *  every unguarded route the context reports `restricted: false` and this is a
+   *  no-op. */
   action?: ReactNode;
   /** Optional meta-row content (Pattern C, UI-NFR-017 §3.3 R-010..R-012):
    *  status chips, badges, manufacturer text. Rendered as a second row below
@@ -15,7 +24,10 @@ interface PageTitleProps {
   sx?: SxProps<Theme>;
 }
 
-export default function PageTitle({ title, action, meta, sx }: PageTitleProps) {
+export default function PageTitle({ title, action: requestedAction, meta, sx }: PageTitleProps) {
+  const { restricted } = useRoleRestriction();
+  const action = restricted ? undefined : requestedAction;
+
   useEffect(() => {
     document.title = `${title} — Kamerplanter`;
     return () => {
