@@ -304,9 +304,10 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
         {/* Body */}
         <Box sx={{ flexGrow: 1, minHeight: 0 }}>
           {loading ? (
+            // Busy, but deliberately unnamed — see GenericWidget / #1337. The
+            // dashboard's single loading announcement lives on the grid.
             <Box
               aria-busy="true"
-              aria-label={t('common.loading')}
               data-testid={`widget-${widgetKey}-loading`}
               sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}
             >

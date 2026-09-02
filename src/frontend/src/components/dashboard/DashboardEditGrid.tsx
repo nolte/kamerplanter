@@ -8,6 +8,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import GridLayout, { WidthProvider, type Layout } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import DashboardLoadingRegion from '@/components/dashboard/DashboardLoadingRegion';
 import WidgetFrame from '@/components/dashboard/WidgetFrame';
 import {
   GRID_COLS_BY_BREAKPOINT,
@@ -158,6 +159,11 @@ export default function DashboardEditGrid({
 
   return (
     <Box data-testid="dashboard-edit-grid">
+      {/* Same single loading announcement as the read-only grid (#1337).
+          Exactly one of the two grids is mounted at a time, so the dashboard
+          always has exactly one loading region — and mounting it in both keeps
+          the two siblings from drifting apart on the shape. */}
+      <DashboardLoadingRegion />
       <GlobalStyles
         styles={{
           // U-006 — enlarge the resize-handle touch target to ≥48px while
