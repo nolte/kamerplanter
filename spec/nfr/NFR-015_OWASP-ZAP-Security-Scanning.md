@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: OWASP ZAP, ZAP Action (Baseline / Full / API), AjaxSpider, GitHub Actions, SARIF
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.1
+Version: 1.2
 Autor: QA / Security Engineering
 Datum: 2026-04-28
 Tags: [security, dast, zap, owasp, ajax-spider, active-scan, passive-scan, api-scan, authenticated-scan, sarif, ci-gate]
@@ -19,6 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows, tests/se
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-09-03 | §4.3/§5.3: Scan-Budget der Nightly korrigiert. Das Beispiel trug `-T 60`, doch `-T` begrenzt in `zap-full-scan.py` nur den ZAP-Start und das Warten auf den Passiv-Scan — Spider und Active Scan liefen unbegrenzt, und 4 von 8 Nächten (2026-08-27 bis 09-02) endeten mit totem Runner statt Report. Jetzt: `-m 15` für beide Spider, `-T 15` für Start und Passiv-Scan-Wartezeit, Active-Scan-Grenze 60 min über `zap_hooks.py` (einziger Ort, an dem sie gesetzt werden kann), Job-Timeout (240 min, nicht 6 h — §5.3 korrigiert) bleibt das Ceiling; der Hook meldet nach den Scans den Active-Scan-Fortschritt, damit ein gekappter Scan nicht wie ein vollständiger aussieht. |
 | 1.1 | 2026-04-29 | Spec-Followup nach PR-#115-Review: §3.2 von einem klassischen Authentication-Script auf ein **HttpSender-Script** umgestellt (Bearer-Header für ALLE Folgerequests, JWT-Refresh bei 401). §3.3 um konkretes **Passive-Rule-Script-Skelett** für Cross-Tenant-Detection erweitert (extrahiert Tenant aus URL und JWT-Payload, raised High-Alert bei Mismatch). §5.1 Severity-Mapping auf striktes 1:1-Mapping ZAP→NFR-Modell mit expliziter Critical-Eskalations-Regel für Cross-Tenant. §4.1 Beschreibung: Baseline-Profil aktiviert AjaxSpider explizit auch passive (nicht erst im Full). §4.3 Replacer-Konfig in `zap-context.xml` zentralisiert statt CLI-Override. Drei Test-Identitäten als Pflicht-Pre-Deploy-Check ergänzt (dürfen nicht in Prod-DB-Snapshots auftauchen). §3.1 Domain-Korrektur: `@kamerplanter.test` (von Pydantic abgelehnt) → `@zap.kamerplanter.example`; Setup-Tooling unter `tests/security/zap-setup/` statt im Backend-Code; Pre-Deploy-Check als AQL-Daten-Prüfung formuliert. PR-#117-Review-Followup: §4.2 um zwei Pässe (auth + anonym) für Auth-Bypass-Detection erweitert (Findings-Logik-Tabelle, Out-of-Scope-Routen referenziert §3.4). §3.2 dokumentiert die Limitation, dass ZAP einen 401-Request nicht automatisch nach `refreshToken()` replay-t — Mitigation über erhöhte Test-Token-Lifetime und Pre-Auth via Setup-Skript. |
 | 1.0 | 2026-04-28 | Erstversion — OWASP ZAP Baseline-, Full- und API-Scan-Profile; authentifizierte Scans gegen Tenant-Routing; AjaxSpider für React-SPA; SARIF-Reporting, Build-Gate, Triage. |
 
@@ -233,7 +234,7 @@ function refreshToken(helper) {
 
 **Limitation — 401-Replay**: ZAPs Spider-/Scanner-Komponenten replayen einen Request, der ein `401` erhalten hat, **nicht** automatisch nach dem `refreshToken()`-Lauf. Das Skript stellt nur sicher, dass jeder *folgende* Request mit einem frischen Bearer ausgestattet wird; der ursprüngliche Request bleibt für die Findings-Auswertung als `401` sichtbar. Mitigation:
 
-- **Token-Lebensdauer ≥ Scan-Laufzeit** — JWT-Lifetime im Login (REQ-023) wird für ZAP-Test-Identitäten so gesetzt, dass die `Full-Scan`-Maximaldauer (6 h, §5.3) zuverlässig unter dem TTL liegt. Empfehlung: 8 h Test-Token-Lifetime, ausschließlich in Staging/CI über die Auth-Service-Settings durchgesetzt.
+- **Token-Lebensdauer ≥ Scan-Laufzeit** — JWT-Lifetime im Login (REQ-023) wird für ZAP-Test-Identitäten so gesetzt, dass die `Full-Scan`-Maximaldauer (4 h, §5.3) zuverlässig unter dem TTL liegt. Empfehlung: 8 h Test-Token-Lifetime, ausschließlich in Staging/CI über die Auth-Service-Settings durchgesetzt.
 - **Pre-Auth via Setup-Skript** — `seed-cross-tenant.sh` (§3.3) schreibt unmittelbar vor dem Scan-Start einen frischen Bearer in `ScriptVars`, damit der erste Request der Session bereits authentifiziert läuft.
 - **Soft-Fail-Triage** — Findings, die ausschließlich auf einer 401-Response beruhen, werden im Triage-Workflow mit Confidence `Low` versehen und nicht als Auth-Bypass eskaliert.
 
@@ -520,7 +521,8 @@ jobs:
           cmd_options: >-
             -a
             -j
-            -T 60
+            -m 15
+            -T 15
             -n /zap/wrk/tests/security/zap-context.xml
           fail_action: true
           allow_issue_writing: true
@@ -589,7 +591,19 @@ jobs:
 |---|---|---|
 | Baseline (PR) | 20 min | Job-Timeout, Fail |
 | API-Scan (PR) | 15 min | Job-Timeout, Fail |
-| Full-Scan (Nightly) | 6 h | Soft-Fail, Issue mit Diagnose-Links |
+| Full-Scan (Nightly) | 4 h (`timeout-minutes: 240`) | Soft-Fail, Issue mit Diagnose-Links |
+
+Die 4 h sind das **Ceiling** des Jobs, nicht das Budget des Scans. Das Budget
+muss der Scan selbst tragen, sonst schreibt er keinen Report und der Job liefert
+kein Urteil: `-m 15` begrenzt traditionellen und AjaxSpider (je 15 min), `-T 15`
+den ZAP-Start und das Leeren des Passiv-Scan-Rückstands, die Active-Scan-Grenze
+(60 min) setzt `tests/security/zap-setup/zap_hooks.py` über die ZAP-API
+(`ascan/setOptionMaxScanDurationInMins`) — `zap-full-scan.py` hat dafür keinen
+Schalter, und `-T` bindet **nur** ZAP-Start und Passiv-Scan-Wartezeit (bei
+Überschreitung bricht das Warten ab, der Report wird trotzdem geschrieben). Ein Scan,
+der das Budget erreicht, beendet den Active Scan, schreibt den Report und läuft
+in die Severity-Policy (§5.1); erst das Job-Timeout wäre der Soft-Fail dieser
+Tabelle.
 
 ### 5.4 Time-to-Patch SLAs
 

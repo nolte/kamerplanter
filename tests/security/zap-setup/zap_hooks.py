@@ -27,6 +27,15 @@ SCRIPTS = [
     ("kp-cross-tenant", "passive", f"{WRK}/cross-tenant-passive.js"),
 ]
 
+# ``zap-full-scan.py`` bounds the spiders (``-m``) and the start-up / passive-scan
+# wait (``-T``) — but nothing bounds the active scan, and against a React SPA
+# on a hosted runner it does not end on its own: four of eight nightlies in
+# 2026-08/09 ran until the runner died (exit 143, "lost communication"), with no
+# report and therefore no verdict. This is the only place the bound can live.
+# The workflow's ``-m`` and ``timeout-minutes`` must leave room for it
+# (``src/backend/tests/unit/test_zap_hooks_scan_budget.py`` holds them together).
+ACTIVE_SCAN_MAX_MINUTES = 60
+
 
 def _require(result, what):
     if result != "OK":
@@ -64,4 +73,38 @@ def zap_started(zap, target):
             raise RuntimeError(f"{name} is not in ZAP's script list after loading.")
     print(f"[zap_hooks] registered: {', '.join(n for n, _, _ in SCRIPTS)}")
 
+    _bound_active_scan(zap)
+
     return zap, target
+
+
+def _bound_active_scan(zap):
+    """Cap the active scan, and read the cap back — a ZAP that answers OK and
+    keeps the default would scan without a budget while reporting one."""
+    _require(
+        zap.ascan.set_option_max_scan_duration_in_mins(ACTIVE_SCAN_MAX_MINUTES),
+        "bound the active scan",
+    )
+    applied = str(zap.ascan.option_max_scan_duration_in_mins)
+    if applied != str(ACTIVE_SCAN_MAX_MINUTES):
+        raise RuntimeError(
+            f"ZAP reports an active scan budget of {applied!r} min after being asked "
+            f"for {ACTIVE_SCAN_MAX_MINUTES} — refusing to run an unbounded scan."
+        )
+    print(f"[zap_hooks] active scan bounded to {ACTIVE_SCAN_MAX_MINUTES} min")
+
+
+def zap_get_alerts(zap, *_args, **_kwargs):
+    """Runs after the scans, before the alerts are collected: say how far the
+    active scan got. A scan the budget cut at 40 % and a scan that finished write
+    the same report, so without this line the verdict would claim a coverage it
+    never had. Diagnostics only — never let it fail the scan."""
+    try:
+        for scan in zap.ascan.scans:
+            print(
+                "[zap_hooks] active scan {id}: state={state} progress={progress}% "
+                "requests={reqCount} alerts={alertCount}".format(**scan)
+            )
+    except Exception as exc:  # noqa: BLE001 — diagnostics must not fail the scan
+        print(f"[zap_hooks] could not read active scan progress: {exc!r}")
+    return None

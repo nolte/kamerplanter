@@ -124,6 +124,14 @@ jobs:
           cp tests/security/zap-setup/zap_hooks.py zapwork/
           chmod -R a+rwX zapwork
 
+      # Scan budget (NFR-015 §5.3). `-m` caps each of the two spiders
+      # (traditional, then Ajax); `-T` caps ZAP start-up and the wait for the
+      # passive-scan backlog to drain (on overrun it breaks out and still writes
+      # the report); the active scan has no flag in zap-full-scan.py and is
+      # capped inside zap_hooks.py (ACTIVE_SCAN_MAX_MINUTES). Unbounded, the
+      # scan ran until the runner died on four of eight nights — with no report,
+      # and so no verdict. The unit test test_zap_hooks_scan_budget.py keeps
+      # `-m`, `-T`, the hook's cap and `timeout-minutes` consistent.
       - name: ZAP Full-Scan (authenticated, AjaxSpider)
         env:
           NET: ${{ steps.net.outputs.name }}
@@ -149,6 +157,8 @@ jobs:
               -r full-report.html \
               --hook=/zap/wrk/zap_hooks.py \
               -a -j -I \
+              -m 15 \
+              -T 15 \
             || echo "zap-full-scan exited $? — the verdict is applied below."
 
       - name: Apply the NFR-015 severity policy
