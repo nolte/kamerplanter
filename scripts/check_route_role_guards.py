@@ -137,22 +137,32 @@ def _read(path: Path) -> str:
         raise RouteGuardCheckError(f"cannot read {path}: {exc}") from exc
 
 
-def _strip_block_comments(source: str) -> str:
-    """Drop ``/* … */`` blocks so a route named in prose is not read as a decision.
+#: One pass over the source: a single- or double-quoted string literal (kept),
+#: or a ``/* … */`` block or ``//`` line comment (dropped). Because the
+#: alternation tries the string literal first, a ``//`` or ``/*`` *inside* a
+#: quoted entry is part of the string and never starts a comment.
+_TOKEN = re.compile(r"""'[^'\n]*'|"[^"\n]*"|(/\*.*?\*/|//[^\n]*)""", re.S)
+
+
+def _strip_comments(source: str) -> str:
+    """Drop both comment kinds so a route named in prose is not read as a decision.
 
     The table's own doc comments quote route paths (``'pflege'``,
-    ``aufgaben/activity-plans*``) to explain the buckets. Parsing the file
-    verbatim would count those as entries, and the check would then pass on a
-    table whose *documentation* covered a route its *lists* did not — a checker
-    green on the wrong evidence, which is the failure class this family exists
-    to remove.
+    ``aufgaben/activity-plans*``) to explain the buckets, and the entries carry
+    their reason as a ``//`` comment beside them — an English reason contains
+    apostrophes. Parsing the file verbatim would count prose as entries (a
+    checker green on the wrong evidence), and stripping comments blindly would
+    cut an entry that itself contains ``//`` in half (an absolute URL in a
+    ``gate``, say) and report the stump as a deleted route. Tokenising strings
+    and comments together removes both failure modes at once: a comment is only
+    ever recognised outside a string literal.
     """
-    return re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+    return _TOKEN.sub(lambda match: "" if match.group(1) else match.group(0), source)
 
 
 def parse_decisions(table_source: str) -> Decisions:
     """Extract the three buckets from the TypeScript decision table."""
-    source = _strip_block_comments(table_source)
+    source = _strip_comments(table_source)
 
     guarded_block = _named_block(source, "ROLE_GUARDED_ROUTES", "{", "}")
     guarded: dict[str, str] = {}

@@ -236,6 +236,59 @@ class TestParsing:
         router, table = build_pair(plain_routes=("not-a-real-route",))
         assert rules(checker.collect(router, table)) == [("undecided-route", "not-a-real-route")]
 
+    def test_a_line_comment_beside_an_entry_does_not_change_the_parse(
+        self, tmp_path: Path, build_pair: Callable[..., tuple[Path, Path]]
+    ) -> None:
+        """A per-entry reason may contain an apostrophe (#1333).
+
+        The buckets carry each decision's *reason* as a `//` comment beside it —
+        that is what makes the table reviewable rather than a bare list. English
+        reasons contain apostrophes, and before this was handled the first such
+        comment made the parser read prose as route names: twelve decided routes
+        were reported `undecided-route` and two comment fragments came back as
+        `obsolete-decision`, on a table that was in fact complete.
+
+        Fails against the pre-#1333 parser, which is the point.
+        """
+        router, table = build_pair(plain_routes=("a", "b"), ungated=("a", "b"))
+        source = table.read_text(encoding="utf-8")
+        source = source.replace(
+            "  'a',",
+            "  // RequireRole's restrict-only mode can't help here — it isn't a read page.\n  'a',",
+            1,
+        )
+        table.write_text(source, encoding="utf-8")
+
+        assert checker.collect(router, table) == []
+
+    @pytest.mark.parametrize(
+        "entries",
+        [
+            ("https://example.test/x", "a"),
+            ("a", "https://example.test/x"),
+            ("https://example.test/x",),
+        ],
+        ids=["first", "last", "sole"],
+    )
+    def test_an_entry_containing_comment_markers_is_parsed_intact(
+        self, build_pair: Callable[..., tuple[Path, Path]], entries: tuple[str, ...]
+    ) -> None:
+        """A `//` or `/*` inside a quoted entry is part of the entry, not a comment.
+
+        A stripper that cut comments blindly left a stump of the entry (or, for
+        the last entry of a bucket, nothing at all) and reported it as a deleted
+        route — a heuristic that only caught one of the shapes. The parser now
+        recognises comments only outside string literals, so the entry survives
+        in every position and the decision table is read as written. The URL is
+        then simply a decision for a route the router does not have.
+        """
+        router, table = build_pair(plain_routes=("a",), ungated=entries)
+
+        expected = [("obsolete-decision", "https://example.test/x")]
+        if "a" not in entries:
+            expected.append(("undecided-route", "a"))
+        assert sorted(rules(checker.collect(router, table))) == sorted(expected)
+
     def test_element_before_path_is_refused_rather_than_mis_attributed(
         self, tmp_path: Path, build_pair: Callable[..., tuple[Path, Path]]
     ) -> None:

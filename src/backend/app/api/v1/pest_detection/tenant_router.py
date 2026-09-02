@@ -1,7 +1,10 @@
 """REQ-044 §6 — tenant-scoped pest-detection endpoints.
 
-Mounted under /api/v1/t/{tenant_slug}/pests/. All endpoints require auth and
-tenant membership via ``get_current_tenant``. ``/detect`` strips EXIF and tiles
+Mounted under /api/v1/t/{tenant_slug}/pests/. Reads (``/status``, ``/history``)
+are open to every tenant member via ``get_current_tenant``; the detect and
+feedback writes require grower or above (``require_tenant_role``, #1333) and
+``create-inspection`` goes through ``require_permission`` like the rest of IPM
+(REQ-049 §2.3). ``/detect`` strips EXIF and tiles
 the image before any inference; the cloud path additionally enforces the
 ``pest_detection_cloud`` consent inside the service. No endpoint ever triggers a
 treatment (§0) — at most an IPM inspection is suggested.
@@ -17,9 +20,9 @@ from app.api.v1.pest_detection.schemas import (
     PestDetectionResponse,
     PestDetectionStatusResponse,
 )
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_current_tenant, require_permission, require_tenant_role
 from app.common.dependencies import get_pest_detection_service
-from app.common.enums import CaptureDevice
+from app.common.enums import CaptureDevice, TenantRole
 from app.common.exceptions import UnsupportedMediaTypeError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.core.permissions import Action, ResourceType
@@ -54,7 +57,18 @@ async def detect_pests_global(
             "an input to adapter choice or access."
         ),
     ),
-    ctx: TenantContext = Depends(get_current_tenant),
+    # Ab Gärtner (#1333, REQ-049 §2.3). Same argument as #1256/#1260 made for
+    # `POST /identification/identify`, unchanged: detecting is a write — it
+    # persists a `pest_detections` record whose key powers HITL feedback — AND it
+    # sends a photo to a third-party adapter on the cloud path. A role that may
+    # not create domain data must not be able to release data out of the
+    # installation either, and a viewer could do it in a loop.
+    #
+    # `require_permission(IPM_TREATMENT, CREATE)` was rejected although the
+    # fourth route in this file uses it: a detection is not a treatment (§0 says
+    # so explicitly), and gating it as one would make the permission matrix
+    # claim something false about what happened.
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> PestDetectionResponse:
     """Detect pests/symptoms in a photo without binding to a plant (REQ-044 §7).
@@ -98,7 +112,18 @@ async def detect_pests(
             "an input to adapter choice or access."
         ),
     ),
-    ctx: TenantContext = Depends(get_current_tenant),
+    # Ab Gärtner (#1333, REQ-049 §2.3). Same argument as #1256/#1260 made for
+    # `POST /identification/identify`, unchanged: detecting is a write — it
+    # persists a `pest_detections` record whose key powers HITL feedback — AND it
+    # sends a photo to a third-party adapter on the cloud path. A role that may
+    # not create domain data must not be able to release data out of the
+    # installation either, and a viewer could do it in a loop.
+    #
+    # `require_permission(IPM_TREATMENT, CREATE)` was rejected although the
+    # fourth route in this file uses it: a detection is not a treatment (§0 says
+    # so explicitly), and gating it as one would make the permission matrix
+    # claim something false about what happened.
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> PestDetectionResponse:
     """Detect pests (Mode 1) and/or symptoms (Mode 2) in an uploaded photo.
@@ -139,7 +164,12 @@ def detection_history(
 def submit_feedback(
     detection_key: Annotated[str, Path(description="Document key of the pest detection.")],
     body: FeedbackRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    # Ab Gärtner (#1333). Feedback corrects the recorded outcome of an existing
+    # detection, so the fitting predicate is `can_edit_resource` — lead or
+    # grower, which `require_tenant_role(GROWER)` is by rank. A viewer altering
+    # someone else's recorded finding is the same "read-only role writes"
+    # defect as the two routes above.
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> PestDetectionResponse:
     """Human-in-the-loop feedback: confirmed / wrong / was a beneficial (§5.3)."""
