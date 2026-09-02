@@ -79,6 +79,14 @@ Five shapes, all of which have occurred in this repository:
    ``src/knowledge-service`` into images that production pulls by ``:latest``,
    while none of those four paths appeared in its ``push`` filter.
 
+   The fifth shape asks "does the workflow read this path?", and the answer is
+   decided against the **tracked** files of the checkout, never against what
+   happens to be lying in the working tree (:class:`TreeIndex`, #1340). Resolving
+   it on disk made the verdict a function of untracked state: gitignored E2E
+   output turned the same workflows red on a workstation and green in CI, while
+   in CI — where nothing untracked exists — the rule could not report an
+   untracked read path at all.
+
 **Why the fifth shape lives here and not in a script of its own.** This file
 already owns workflow discovery, the justification hatch, the ``--list``/``--json``
 contract, its selftests and the pre-commit wiring in the required ``static``
@@ -125,9 +133,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -171,6 +180,13 @@ _PATH_CANDIDATE = re.compile(r"(?<![A-Za-z0-9_./@-])((?:[A-Za-z0-9_.+-]+/)+[A-Za
 #: Probe segment used to ask "does this filter entry match anything *below* this
 #: directory?". Any name that cannot collide with a real one works.
 _DIRECTORY_PROBE = "__gate_integrity_probe__"
+
+#: How long each ``git`` probe below may take before the checker stops waiting
+#: and resolves against the filesystem instead. Generous by two orders of
+#: magnitude — ``git ls-files`` over this repository's 4 300 tracked paths takes
+#: single-digit milliseconds — because this runs in the required ``static`` lane
+#: and a hang there costs more than a wrong answer would.
+GIT_TIMEOUT_SECONDS = 30
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
@@ -470,7 +486,136 @@ def trigger_block_lines(lines: list[str]) -> set[int]:
     return set(range(start + 1, len(lines) + 1))
 
 
-def path_references(lines: list[str], tree_root: Path) -> dict[str, int]:
+def _run_git(tree_root: Path, *arguments: str) -> str | None:
+    """Run one ``git`` command inside *tree_root*, or ``None`` if it cannot.
+
+    Every way this can go wrong — ``git`` absent from PATH, the directory not
+    being a repository, a hung invocation — means the same thing to the caller:
+    this tree cannot answer "is that path tracked?", so the answer has to come
+    from somewhere else. Collapsing them into one ``None`` is therefore not
+    swallowing an error; the distinction has no consumer.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(tree_root), *arguments],
+            capture_output=True,
+            encoding="utf-8",
+            errors="surrogateescape",
+            timeout=GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0:
+        return None
+    return completed.stdout
+
+
+def _implied_directories(files: frozenset[str]) -> frozenset[str]:
+    """Every directory implied by a tracked file.
+
+    Git tracks files, not directories: ``src/backend`` exists only because
+    something below it does. The ``is_dir`` half of the path rule needs those
+    directories by name — ``src/backend/app/**`` counts as reaching
+    ``src/backend`` — so they are derived here instead of probed on disk, where
+    an untracked sibling would answer for them.
+    """
+    directories: set[str] = set()
+    for entry in files:
+        parent = PurePosixPath(entry).parent
+        while str(parent) not in {".", "/"}:
+            directories.add(str(parent))
+            parent = parent.parent
+    return frozenset(directories)
+
+
+@dataclass(frozen=True)
+class TreeIndex:
+    """Which repo-relative paths count as existing in one checkout.
+
+    "Exists" has to mean **tracked by git**, not "is on disk". The predicate was
+    ``(tree_root / candidate).exists()`` until #1340, and that made the verdict a
+    function of *untracked* state, in both directions at once:
+
+    * **False positive.** ``test-reports/e2e/`` is gitignored E2E output.
+      ``e2e-smoke.yml`` names it as the report path of its ``dorny/test-reporter``
+      step, so the same workflows scanned green on a fresh CI checkout and red on
+      every workstation that had run the suite once — and the hook is
+      ``always_run``, so it blocked unrelated commits. There is no ``paths:``
+      entry that *should* cover it: it is an artefact the run produces, and
+      adding one would mean "re-run E2E when a report changes".
+    * **Inert where it should bite.** CI checks out only tracked files, so a
+      genuinely uncovered read path that happened not to be tracked could never
+      be reported there at all.
+
+    Reading the **index** (``git ls-files``) rather than ``HEAD`` is deliberate:
+    the pre-commit hook runs while a commit is being made, and a newly added file
+    is in the index before it is in any commit. A workflow and the file it starts
+    reading are therefore judged together, in the commit that introduces them.
+
+    Known blind spot, stated rather than papered over: a submodule is a gitlink,
+    so ``git ls-files`` reports it as a file and :meth:`is_dir` says no. This
+    repository has no submodules; if it gains one, a reference into it degrades
+    to the file case, which reports less rather than more.
+    """
+
+    root: Path
+    #: Tracked paths, or ``None`` when git could not answer — see
+    #: :meth:`for_root` for what that fallback is and who reaches it.
+    tracked_files: frozenset[str] | None
+    tracked_directories: frozenset[str]
+
+    @classmethod
+    def for_root(cls, root: Path) -> TreeIndex:
+        """Index *root*, falling back to the filesystem when git cannot answer.
+
+        The fallback is the filesystem listing the predicate used before #1340,
+        and it is reached in exactly two situations:
+
+        * **The tree is not a git checkout at all** — a ``git archive`` export or
+          a source tarball. There "on disk" and "tracked" coincide, so the
+          fallback is not an approximation.
+        * **The tree root is not itself the root of a work tree.** A directory
+          *inside* a repository would otherwise be handed that repository's
+          tracked listing, which names nothing below this root — every reference
+          would resolve to "does not exist" and the whole shape would pass
+          vacuously. That is the failure mode this file exists to refuse, so the
+          toplevel is compared rather than assumed.
+
+        Measured, no caller in this repository reaches the fallback in anger: the
+        pre-commit hook, ``task check`` and the backend suite's real-tree test all
+        run inside the checkout, and CI's required ``static`` lane uses
+        ``actions/checkout``, so all four get a work tree with an index.
+        """
+        toplevel = _run_git(root, "rev-parse", "--show-toplevel")
+        if toplevel is None or not toplevel.strip():
+            return cls(root=root, tracked_files=None, tracked_directories=frozenset())
+        if Path(toplevel.strip()).resolve() != root.resolve():
+            return cls(root=root, tracked_files=None, tracked_directories=frozenset())
+        listing = _run_git(root, "ls-files", "-z")
+        if listing is None:
+            return cls(root=root, tracked_files=None, tracked_directories=frozenset())
+        files = frozenset(entry for entry in listing.split("\0") if entry)
+        return cls(
+            root=root,
+            tracked_files=files,
+            tracked_directories=_implied_directories(files),
+        )
+
+    def exists(self, reference: str) -> bool:
+        """Whether *reference* names a tracked file or a tracked directory."""
+        if self.tracked_files is None:
+            return (self.root / reference).exists()
+        return reference in self.tracked_files or reference in self.tracked_directories
+
+    def is_dir(self, reference: str) -> bool:
+        """Whether *reference* names a directory holding tracked files."""
+        if self.tracked_files is None:
+            return (self.root / reference).is_dir()
+        return reference in self.tracked_directories
+
+
+def path_references(lines: list[str], tree: TreeIndex) -> dict[str, int]:
     """Every repo-relative path the workflow *references*, and where first.
 
     A reference is a **literal** path in the executable part of a line outside
@@ -484,13 +629,19 @@ def path_references(lines: list[str], tree_root: Path) -> dict[str, int]:
     * **at least two segments.** A single name cannot be told apart from a shell
       word, and existence cannot rescue it — ``docker``, ``helm`` and ``spec``
       are all real directories *and* plausible English.
-    * **it must exist in the checkout.** This is what removes URLs
+    * **it must be tracked in the checkout.** This is what removes URLs
       (``github.com/projectdiscovery/nuclei-templates``), image references
       (``ghcr.io/nolte/kamerplanter-backend``), action references (the part of
       ``actions/checkout@<sha>`` before the ``@``) and runtime artefacts the
-      workflow writes rather than reads (``results.sarif``). It also means the
-      guard says nothing about a reference to a file that does not exist — that
-      is a different defect, and a loud one at runtime.
+      workflow writes rather than reads (``results.sarif``, ``test-reports/e2e``).
+      It also means the guard says nothing about a reference to a file that is
+      not in the repository — that is a different defect, and a loud one at
+      runtime.
+
+      *Tracked*, not merely present on disk: see :class:`TreeIndex` for why the
+      distinction is the whole of #1340. A filesystem probe makes the verdict a
+      function of whatever the last local run left behind, so the same workflows
+      passed in CI and failed on a workstation.
 
     Known blind spot, stated rather than papered over: a path assembled from
     variables (``"$ROOT/tool.sh"``), or reached indirectly through a ``task``
@@ -509,7 +660,7 @@ def path_references(lines: list[str], tree_root: Path) -> dict[str, int]:
             parts = candidate.split("/")
             if len(parts) < 2 or ".." in parts or "" in parts:
                 continue
-            if not (tree_root / candidate).exists():
+            if not tree.exists(candidate):
                 continue
             found.setdefault(candidate, number)
     return found
@@ -605,7 +756,7 @@ def covers(group: list[str], reference: str, *, is_directory: bool) -> bool:
     return verdict
 
 
-def scan_path_filters(path: Path, lines: list[str], document: Any, tree_root: Path) -> list[Finding]:
+def scan_path_filters(path: Path, lines: list[str], document: Any, tree: TreeIndex) -> list[Finding]:
     """Find files the workflow reads that its own ``paths:`` filter excludes.
 
     Only workflows that *have* a diff-driven ``paths:`` filter are in scope: a
@@ -625,8 +776,8 @@ def scan_path_filters(path: Path, lines: list[str], document: Any, tree_root: Pa
         return []
 
     findings: list[Finding] = []
-    for reference, line in path_references(lines, tree_root).items():
-        is_directory = (tree_root / reference).is_dir()
+    for reference, line in path_references(lines, tree).items():
+        is_directory = tree.is_dir(reference)
         if any(covers(group, reference, is_directory=is_directory) for group in groups):
             continue
         findings.append(
@@ -684,16 +835,19 @@ def scan_needs(path: Path, lines: list[str], document: Any) -> list[Finding]:
     return findings
 
 
-def scan_file(path: Path, tree_root: Path | None = None) -> list[Finding]:
+def scan_file(path: Path, tree: TreeIndex | None = None) -> list[Finding]:
     """Every finding in one workflow file.
 
     Args:
         path: The workflow file.
-        tree_root: The checkout the workflow's path references are resolved
+        tree: The indexed checkout the workflow's path references are resolved
             against. Defaults to this script's own repository root; the
-            selftests point it at a constructed tree instead.
+            selftests point it at a constructed tree instead. It is passed in
+            rather than built here because building it shells out to ``git``,
+            and doing that once per workflow file would be two dozen
+            subprocesses per run.
     """
-    tree_root = REPO_ROOT if tree_root is None else tree_root
+    tree = TreeIndex.for_root(REPO_ROOT) if tree is None else tree
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -708,13 +862,20 @@ def scan_file(path: Path, tree_root: Path | None = None) -> list[Finding]:
         *scan_text(path, lines),
         *scan_continuations(path, lines),
         *scan_needs(path, lines, document),
-        *scan_path_filters(path, lines, document, tree_root),
+        *scan_path_filters(path, lines, document, tree),
     ]
     return sorted(findings, key=lambda finding: (finding.line, finding.kind))
 
 
 def collect(scan_root: Path, tree_root: Path | None = None) -> list[Finding]:
-    """Every finding below *scan_root*, justified or not."""
+    """Every finding below *scan_root*, justified or not.
+
+    Args:
+        scan_root: The workflow directory to scan.
+        tree_root: The checkout path references are resolved against. Indexed
+            once here and shared by every file, so one ``git`` call answers for
+            the whole run.
+    """
     if not scan_root.exists():
         raise WorkflowIntegrityCheckError(f"scan root does not exist: {scan_root}")
     paths = sorted(
@@ -722,9 +883,10 @@ def collect(scan_root: Path, tree_root: Path | None = None) -> list[Finding]:
     )
     if not paths:
         raise WorkflowIntegrityCheckError(f"no workflow files under {scan_root}")
+    tree = TreeIndex.for_root(REPO_ROOT if tree_root is None else tree_root)
     findings: list[Finding] = []
     for path in paths:
-        findings.extend(scan_file(path, tree_root))
+        findings.extend(scan_file(path, tree))
     return findings
 
 
@@ -831,7 +993,11 @@ def main(argv: list[str] | None = None) -> int:
         "--tree-root",
         metavar="PATH",
         default=None,
-        help="the checkout that path references are resolved against (default: this repository)",
+        help=(
+            "the checkout path references are resolved against: its TRACKED files, "
+            "or its filesystem when it is not the root of a git work tree "
+            "(default: this repository)"
+        ),
     )
     parser.add_argument(
         "--list",
