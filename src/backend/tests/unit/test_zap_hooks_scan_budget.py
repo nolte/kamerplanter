@@ -8,10 +8,10 @@ live, so this test asserts the hook sets it — and reads it back, so a ZAP that
 silently ignores the option fails loud instead of scanning without a budget
 (NFR-018 §1).
 
-The third test ties the hook to the workflow: the spider budget (``-m``) plus the
-active-scan budget must fit under the job timeout, or the timeout kills the run
-before the verdict step can read the report — the exact outcome the budget exists
-to prevent.
+The third test ties the hook to the workflow: both spiders (``-m`` each), the
+start-up / passive-scan wait (``-T``) and the active-scan budget must fit under
+the job timeout, or the timeout kills the run before the verdict step can read
+the report — the exact outcome the budget exists to prevent.
 """
 
 from __future__ import annotations
@@ -122,14 +122,46 @@ def test_a_zap_that_ignores_the_bound_fails_the_scan(hook: ModuleType) -> None:
         hook.zap_started(zap, "http://frontend:8080")
 
 
+def test_the_progress_report_never_fails_the_scan(hook: ModuleType, capsys: pytest.CaptureFixture[str]) -> None:
+    class _Scans:
+        scans = [{"id": "0", "state": "FINISHED", "progress": "100", "reqCount": "1234", "alertCount": "7"}]
+
+    class _Broken:
+        @property
+        def scans(self) -> list[dict[str, str]]:
+            raise OSError("ZAP went away")
+
+    reported = _FakeZap()
+    reported.ascan = _Scans()
+    assert hook.zap_get_alerts(reported, "http://frontend:8080", "", []) is None
+    assert "progress=100%" in capsys.readouterr().out
+
+    broken = _FakeZap()
+    broken.ascan = _Broken()
+    assert hook.zap_get_alerts(broken, "http://frontend:8080", "", []) is None
+    assert "could not read active scan progress" in capsys.readouterr().out
+
+
+def _flag_minutes(command_lines: list[str], flag: str) -> int:
+    """The value of *flag* on the ``docker run`` command — not in a comment."""
+    for line in command_lines:
+        found = re.fullmatch(rf"\s*{re.escape(flag)}\s+(\d+)\s*\\?", line)
+        if found:
+            return int(found.group(1))
+    raise AssertionError(f"the nightly passes no {flag}, so that phase runs unbounded")
+
+
 def test_the_budgets_fit_under_the_job_timeout(hook: ModuleType) -> None:
     text = _WORKFLOW.read_text()
     timeout = int(re.search(r"^\s+timeout-minutes:\s*(\d+)", text, re.MULTILINE).group(1))
-    spider = re.search(r"zap-full-scan\.py(?:.|\n)*?-m\s+(\d+)", text)
-    assert spider is not None, "the nightly passes no -m, so the spiders run unbounded"
-    spider_minutes = int(spider.group(1))
+    command = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+    spider_minutes = _flag_minutes(command, "-m")
+    wait_minutes = _flag_minutes(command, "-T")
 
-    # Stack build (~4 min), ZAP pull, spiders, active scan, passive-scan wait and
-    # report writing all share the timeout; 30 minutes of headroom covers the
-    # non-scan phases with margin.
-    assert spider_minutes + hook.ACTIVE_SCAN_MAX_MINUTES + 30 <= timeout
+    # Two spiders run in sequence (traditional, then Ajax), each capped by -m;
+    # -T caps both the start-up wait and the passive-scan drain, so it counts
+    # twice as well. Stack build (~4 min), the ZAP image pull, ZAP's own 5-minute
+    # thread wind-down after the active scan and report writing share the
+    # timeout; 30 minutes of headroom covers them with margin.
+    worst_case = 2 * spider_minutes + 2 * wait_minutes + hook.ACTIVE_SCAN_MAX_MINUTES + 30
+    assert worst_case <= timeout

@@ -92,3 +92,19 @@ def _bound_active_scan(zap):
             f"for {ACTIVE_SCAN_MAX_MINUTES} — refusing to run an unbounded scan."
         )
     print(f"[zap_hooks] active scan bounded to {ACTIVE_SCAN_MAX_MINUTES} min")
+
+
+def zap_get_alerts(zap, *_args, **_kwargs):
+    """Runs after the scans, before the alerts are collected: say how far the
+    active scan got. A scan the budget cut at 40 % and a scan that finished write
+    the same report, so without this line the verdict would claim a coverage it
+    never had. Diagnostics only — never let it fail the scan."""
+    try:
+        for scan in zap.ascan.scans:
+            print(
+                "[zap_hooks] active scan {id}: state={state} progress={progress}% "
+                "requests={reqCount} alerts={alertCount}".format(**scan)
+            )
+    except Exception as exc:  # noqa: BLE001 — diagnostics must not fail the scan
+        print(f"[zap_hooks] could not read active scan progress: {exc!r}")
+    return None
