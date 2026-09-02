@@ -137,22 +137,32 @@ def _read(path: Path) -> str:
         raise RouteGuardCheckError(f"cannot read {path}: {exc}") from exc
 
 
-def _strip_block_comments(source: str) -> str:
-    """Drop ``/* … */`` blocks so a route named in prose is not read as a decision.
+#: One pass over the source: a single- or double-quoted string literal (kept),
+#: or a ``/* … */`` block or ``//`` line comment (dropped). Because the
+#: alternation tries the string literal first, a ``//`` or ``/*`` *inside* a
+#: quoted entry is part of the string and never starts a comment.
+_TOKEN = re.compile(r"""'[^'\n]*'|"[^"\n]*"|(/\*.*?\*/|//[^\n]*)""", re.S)
+
+
+def _strip_comments(source: str) -> str:
+    """Drop both comment kinds so a route named in prose is not read as a decision.
 
     The table's own doc comments quote route paths (``'pflege'``,
-    ``aufgaben/activity-plans*``) to explain the buckets. Parsing the file
-    verbatim would count those as entries, and the check would then pass on a
-    table whose *documentation* covered a route its *lists* did not — a checker
-    green on the wrong evidence, which is the failure class this family exists
-    to remove.
+    ``aufgaben/activity-plans*``) to explain the buckets, and the entries carry
+    their reason as a ``//`` comment beside them — an English reason contains
+    apostrophes. Parsing the file verbatim would count prose as entries (a
+    checker green on the wrong evidence), and stripping comments blindly would
+    cut an entry that itself contains ``//`` in half (an absolute URL in a
+    ``gate``, say) and report the stump as a deleted route. Tokenising strings
+    and comments together removes both failure modes at once: a comment is only
+    ever recognised outside a string literal.
     """
-    return re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+    return _TOKEN.sub(lambda match: "" if match.group(1) else match.group(0), source)
 
 
 def parse_decisions(table_source: str) -> Decisions:
     """Extract the three buckets from the TypeScript decision table."""
-    source = _strip_line_comments(_strip_block_comments(table_source))
+    source = _strip_comments(table_source)
 
     guarded_block = _named_block(source, "ROLE_GUARDED_ROUTES", "{", "}")
     guarded: dict[str, str] = {}
@@ -177,9 +187,7 @@ def parse_decisions(table_source: str) -> Decisions:
     action_gated = _string_list(_named_block(source, "ACTION_GATED_ROUTES", "[", "]"))
     ungated = _string_list(_named_block(source, "UNGATED_ROUTES", "[", "]"))
 
-    decisions = Decisions(guarded=guarded, action_gated=action_gated, ungated=ungated)
-    _reject_truncated_entries(decisions)
-    return decisions
+    return Decisions(guarded=guarded, action_gated=action_gated, ungated=ungated)
 
 
 def _named_block(source: str, name: str, opener: str, closer: str) -> str:
@@ -199,53 +207,6 @@ def _named_block(source: str, name: str, opener: str, closer: str) -> str:
             if depth == 0:
                 return source[start + 1 : index]
     raise RouteGuardCheckError(f"{name} has an unbalanced `{opener}`")
-
-
-#: A ``//`` line comment, up to (not including) the newline.
-_LINE_COMMENT = re.compile(r"//[^\n]*")
-
-
-def _strip_line_comments(block: str) -> str:
-    """Drop ``//`` comments before any string is read out of ``block``.
-
-    Not cosmetic. The entries in these buckets carry their reason as a comment
-    beside them — that is the whole point of a decision table — and an English
-    reason contains apostrophes. Without this, ``'s restrict-only mode …'`` reads
-    as a quoted string and the parser invents route names out of prose, which is
-    how a comment added under #1333 turned twelve real routes into
-    ``undecided-route`` findings and two fragments into ``obsolete-decision``.
-
-    A parser that mis-reads a decision table is worse than one that refuses: it
-    reports confident nonsense about routes that are in fact decided.
-
-    The one thing this cannot survive is a bucket string that itself contains
-    ``//`` — an absolute URL, say. No entry does (route paths are relative and a
-    ``gate`` names a single-slash API path), and rather than rely on that holding,
-    :func:`_reject_truncated_entries` refuses loudly if it ever stops holding.
-    """
-    return _LINE_COMMENT.sub("", block)
-
-
-def _reject_truncated_entries(decisions: "Decisions") -> None:
-    """Refuse a parse that :func:`_strip_line_comments` may have cut in half.
-
-    NFR-018 §2: an unreadable table must stop the check, never be reported as a
-    clean one. A ``//`` inside a quoted entry would have been removed together
-    with everything after it on that line, leaving a silently truncated route
-    name that matches nothing — which reads exactly like a deleted route.
-    """
-    for bucket, entries in (
-        ("ROLE_GUARDED_ROUTES", tuple(decisions.guarded)),
-        ("ACTION_GATED_ROUTES", decisions.action_gated),
-        ("UNGATED_ROUTES", decisions.ungated),
-    ):
-        for entry in entries:
-            if not entry or any(character.isspace() for character in entry):
-                raise RouteGuardCheckError(
-                    f"{bucket} parsed {entry!r}, which is not a route path — the "
-                    "table is unreadable, most likely a quote left open by a "
-                    "`//` inside an entry"
-                )
 
 
 def _string_list(block: str) -> tuple[str, ...]:

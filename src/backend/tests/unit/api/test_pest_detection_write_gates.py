@@ -26,7 +26,7 @@ import inspect
 import pytest
 
 from app.api.v1.pest_detection import tenant_router as router_module
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.auth import get_current_tenant
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
@@ -79,20 +79,23 @@ def test_every_write_is_gated_and_the_reads_are_not(handler, needs_gate) -> None
     )
 
 
+_GATED = [handler for handler, needs_gate in _ROUTES if needs_gate]
+
+
 class TestTheGateActuallyRefuses:
-    """Reading the dependency proves which one is attached; this proves what it does."""
+    """Reading the dependency proves *a* gate is attached; this drives the one
+    that is. A freshly built ``require_tenant_role(GROWER)`` would prove nothing
+    about the route — a route re-gated at ``VIEWER`` left that shape green."""
 
-    def test_a_viewer_is_refused(self) -> None:
-        check = require_tenant_role(TenantRole.GROWER)
-
+    @pytest.mark.parametrize("handler", _GATED, ids=[h.__name__ for h in _GATED])
+    def test_a_viewer_is_refused_by_the_attached_gate(self, handler) -> None:
         with pytest.raises(ForbiddenError):
-            check(_ctx(TenantRole.VIEWER))
+            _ctx_dependency(handler)(_ctx(TenantRole.VIEWER))
 
+    @pytest.mark.parametrize("handler", _GATED, ids=[h.__name__ for h in _GATED])
     @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.LEAD])
-    def test_a_grower_and_a_lead_pass(self, role) -> None:
-        check = require_tenant_role(TenantRole.GROWER)
-
-        assert check(_ctx(role)).role is role
+    def test_a_grower_and_a_lead_pass_the_attached_gate(self, handler, role) -> None:
+        assert _ctx_dependency(handler)(_ctx(role)).role is role
 
 
 def test_the_two_reads_stay_open_to_a_viewer() -> None:

@@ -261,23 +261,33 @@ class TestParsing:
 
         assert checker.collect(router, table) == []
 
-    def test_an_entry_truncated_by_comment_stripping_is_refused_not_reported(
-        self, tmp_path: Path, build_pair: Callable[..., tuple[Path, Path]]
+    @pytest.mark.parametrize(
+        "entries",
+        [
+            ("https://example.test/x", "a"),
+            ("a", "https://example.test/x"),
+            ("https://example.test/x",),
+        ],
+        ids=["first", "last", "sole"],
+    )
+    def test_an_entry_containing_comment_markers_is_parsed_intact(
+        self, build_pair: Callable[..., tuple[Path, Path]], entries: tuple[str, ...]
     ) -> None:
-        """An unreadable table stops the check; it never reads as a clean one.
+        """A `//` or `/*` inside a quoted entry is part of the entry, not a comment.
 
-        Stripping `//` to end-of-line is what lets a reason live beside its entry,
-        and the one input it cannot survive is a `//` *inside* a quoted entry. No
-        real entry has one, so this asserts the refusal rather than the hazard:
-        NFR-018 §2 wants a loud stop, not a confident wrong answer.
+        A stripper that cut comments blindly left a stump of the entry (or, for
+        the last entry of a bucket, nothing at all) and reported it as a deleted
+        route — a heuristic that only caught one of the shapes. The parser now
+        recognises comments only outside string literals, so the entry survives
+        in every position and the decision table is read as written. The URL is
+        then simply a decision for a route the router does not have.
         """
-        router, table = build_pair(plain_routes=("a",), ungated=("a",))
-        source = table.read_text(encoding="utf-8")
-        source = source.replace("  'a',", "  'https://example.test/x',\n  'a',", 1)
-        table.write_text(source, encoding="utf-8")
+        router, table = build_pair(plain_routes=("a",), ungated=entries)
 
-        with pytest.raises(checker.RouteGuardCheckError):
-            checker.collect(router, table)
+        expected = [("obsolete-decision", "https://example.test/x")]
+        if "a" not in entries:
+            expected.append(("undecided-route", "a"))
+        assert sorted(rules(checker.collect(router, table))) == sorted(expected)
 
     def test_element_before_path_is_refused_rather_than_mis_attributed(
         self, tmp_path: Path, build_pair: Callable[..., tuple[Path, Path]]

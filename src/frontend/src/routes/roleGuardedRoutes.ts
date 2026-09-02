@@ -94,7 +94,9 @@ export const ROLE_GUARDED_ROUTES: Readonly<Record<string, RoleGuardedRoute>> = {
  * menu, a dialog, an inline control), so restricting the route would either
  * remove read access or hang a banner over a page whose write affordances the
  * banner cannot reach — a guard that is visible and inert, which is worse than
- * none.
+ * none. The same bucket holds the one page whose *body* is the gated write
+ * (`pflanzenschutz/erkennung`): there is no read surface to leave behind
+ * either, so its gate sits on the capture component, not on the route.
  *
  * These are not "done". They are the backlog of **action-level** gates, and the
  * measured gate per route is in the pull request for #1261. Moving one here to
