@@ -1,7 +1,10 @@
 """REQ-044 §6 — tenant-scoped pest-detection endpoints.
 
-Mounted under /api/v1/t/{tenant_slug}/pests/. All endpoints require auth and
-tenant membership via ``get_current_tenant``. ``/detect`` strips EXIF and tiles
+Mounted under /api/v1/t/{tenant_slug}/pests/. Reads (``/status``, ``/history``)
+are open to every tenant member via ``get_current_tenant``; the detect and
+feedback writes require grower or above (``require_tenant_role``, #1333) and
+``create-inspection`` goes through ``require_permission`` like the rest of IPM
+(REQ-049 §2.3). ``/detect`` strips EXIF and tiles
 the image before any inference; the cloud path additionally enforces the
 ``pest_detection_cloud`` consent inside the service. No endpoint ever triggers a
 treatment (§0) — at most an IPM inspection is suggested.

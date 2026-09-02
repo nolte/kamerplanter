@@ -122,10 +122,10 @@ beforeEach(() => {
 // tenant's domain role. Every test below describes a user who may actually act,
 // so the default is `grower`; the viewer case is asserted explicitly instead of
 // arriving by accident through an absent tenant.
-function tenantState(role: 'lead' | 'grower' | 'viewer') {
+function tenantState(role: 'lead' | 'grower' | 'viewer' | null) {
   return {
     tenants: {
-      activeTenant: { key: 't1', slug: 't1', name: 'Garten', role, admin_scopes: [] },
+      activeTenant: role ? { key: 't1', slug: 't1', name: 'Garten', role, admin_scopes: [] } : null,
       myTenants: [],
       isLoading: false,
       error: null,
@@ -135,7 +135,7 @@ function tenantState(role: 'lead' | 'grower' | 'viewer') {
 
 function render(
   state: Record<string, unknown> = STATUS_AVAILABLE,
-  role: 'lead' | 'grower' | 'viewer' = 'grower',
+  role: 'lead' | 'grower' | 'viewer' | null = 'grower',
 ) {
   return renderWithProviders(<PestIdentificationPage />, {
     store: createTestStore({ ...state, ...tenantState(role) }),
@@ -160,6 +160,16 @@ describe('PestIdentificationPage', () => {
 
     expect(screen.getByTestId('mock-capture')).toBeInTheDocument();
     expect(screen.queryByTestId('pest-identification-role-restricted')).not.toBeInTheDocument();
+  });
+
+  // Before `loadMyTenants` has resolved there is no role to refuse on; the
+  // status request can land first (light mode always does), and a lead must
+  // not see the role notice for that moment.
+  it('does not refuse while no active tenant is known yet', () => {
+    render(STATUS_AVAILABLE, null);
+
+    expect(screen.queryByTestId('pest-identification-role-restricted')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mock-capture')).toBeInTheDocument();
   });
 
   // An unconfigured feature reads the same for everyone: the role message must

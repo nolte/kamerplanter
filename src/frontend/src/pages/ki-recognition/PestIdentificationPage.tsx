@@ -89,8 +89,13 @@ export default function PestIdentificationPage() {
   // restrict-only mode would hide the retake button, leave the capture panel
   // standing, and let a viewer walk into the 403 anyway — a guard that is
   // visible and inert, which `roleGuardedRoutes.ts` names as worse than none.
-  const { canEdit } = useTenantPermissions();
-  const accessible = available && !cloudBlockedInLight && canEdit;
+  // "No active tenant yet" is not a refusal (the same reading as `RequireRole`
+  // and `useCanCreateCatalogEntry`): in light mode the status request resolves
+  // before `loadMyTenants` does, and in full mode the stale-slug recovery nulls
+  // the tenant for a moment — neither may flash the role notice at a lead.
+  const { canEdit, hasTenant } = useTenantPermissions();
+  const roleRestricted = hasTenant && !canEdit;
+  const accessible = available && !cloudBlockedInLight && !roleRestricted;
 
   const handleImageReady = useCallback(
     (file: File, url: string) => {
@@ -188,7 +193,7 @@ export default function PestIdentificationPage() {
         <Alert severity="info" data-testid="page-feature-unavailable">
           {t('pages.pests.notConfigured')}
         </Alert>
-      ) : !canEdit ? (
+      ) : roleRestricted ? (
         <Alert severity="info" data-testid="pest-identification-role-restricted">
           {t('pages.pests.roleRestricted')}
         </Alert>

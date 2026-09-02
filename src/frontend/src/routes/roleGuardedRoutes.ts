@@ -118,6 +118,9 @@ export const ACTION_GATED_ROUTES: readonly string[] = [
   'standorte/tanks',
   'standorte/tanks/:key',
   'pflanzen/plant-instances',
+  // Also reaches the #1333-gated pest writes through `PestScanButton`; that
+  // button hides itself below grower, so the gate is on the shared component,
+  // not on this route.
   'pflanzen/plant-instances/:key',
   'duengung/fertilizers',
   'duengung/fertilizers/:key',
