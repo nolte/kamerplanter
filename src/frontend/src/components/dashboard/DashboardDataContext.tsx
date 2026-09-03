@@ -27,3 +27,22 @@ export function useWidgetPayload(widgetKey: string): { payload: unknown; loading
   const { payloads, loading } = useContext(DashboardDataContext);
   return { payload: payloads[widgetKey], loading };
 }
+
+/**
+ * "Is the dashboard still fetching?" — the aggregate signal behind the grid's
+ * single loading announcement (`DashboardLoadingRegion`, issue #1337).
+ *
+ * It reads the *same* flag `useWidgetPayload` hands each widget, deliberately:
+ * the announcement and the placeholders it speaks for can then never disagree
+ * about whether the dashboard is loading. The REQ-045 aggregate endpoint fetches
+ * every active widget key in a single round trip, so there is one flag for the
+ * whole batch rather than one per widget (see `dashboardSlice`).
+ *
+ * Widgets that fetch their own data (`weather_forecast`, `winter_protection`)
+ * are *not* represented here. Their placeholders carry neither a dropped name
+ * nor a live region of their own today; folding them into the aggregate needs a
+ * registration mechanism and is a separate decision.
+ */
+export function useDashboardLoading(): boolean {
+  return useContext(DashboardDataContext).loading;
+}

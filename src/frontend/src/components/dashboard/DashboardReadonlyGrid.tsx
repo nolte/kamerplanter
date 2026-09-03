@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import Box from '@mui/material/Box';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import DashboardLoadingRegion from '@/components/dashboard/DashboardLoadingRegion';
 import WidgetFrame from '@/components/dashboard/WidgetFrame';
 import {
   GRID_COLS_BY_BREAKPOINT,
@@ -53,49 +54,56 @@ export default function DashboardReadonlyGrid({
   }, [layout, breakpoint, cols, renderableKeys]);
 
   return (
-    <Box
-      data-testid="dashboard-readonly-grid"
-      sx={{
-        display: 'grid',
-        gap: 2,
-        gridTemplateColumns: isMobile ? '1fr' : `repeat(${cols}, 1fr)`,
-        // Content-driven rows with a small floor. Widgets flow to their natural
-        // height (no fixed h×ROW_HEIGHT box), so short widgets no longer leave
-        // gaps and tall ones are no longer clipped.
-        gridAutoRows: isMobile ? 'auto' : `minmax(${MIN_ROW_HEIGHT}px, min-content)`,
-      }}
-    >
-      {ordered.map(({ placement, widget }) => (
-        <Box
-          key={widget.instance_id}
-          sx={{
-            // Keep the saved column placement; let the row auto-flow so the
-            // widget takes its content height instead of spanning `h` rows.
-            ...(isMobile ? {} : { gridColumn: `${placement.x + 1} / span ${Math.min(placement.w, cols)}` }),
-            // minWidth: 0 is required on every breakpoint (not just desktop): a
-            // `1fr` track's implicit min-width is `auto` (= the item's
-            // min-content size), so a widget with intrinsically wide content
-            // (e.g. a chart or long unbreakable label) would otherwise force
-            // the single mobile column past the viewport width and cause
-            // horizontal page scroll.
-            minWidth: 0,
-          }}
-        >
-          <WidgetFrame
-            instance={widget}
-            editMode={false}
-            hasConfig={dashboardWidgetCatalog[widget.widget_key as WidgetKey]?.hasConfig ?? false}
-            isFirst
-            isLast
-            onMoveUp={() => {}}
-            onMoveDown={() => {}}
-            onGrow={() => {}}
-            onShrink={() => {}}
-            onRemove={() => {}}
-            onConfigure={() => {}}
-          />
-        </Box>
-      ))}
-    </Box>
+    <>
+      {/* The dashboard's single loading announcement (#1337). It lives on the
+          grid, not on a widget: mid-load five widget placeholders stand at once,
+          and a live region per placeholder would announce "loading" five times.
+          Rendered outside the grid Box so it never becomes a grid item. */}
+      <DashboardLoadingRegion />
+      <Box
+        data-testid="dashboard-readonly-grid"
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: isMobile ? '1fr' : `repeat(${cols}, 1fr)`,
+          // Content-driven rows with a small floor. Widgets flow to their natural
+          // height (no fixed h×ROW_HEIGHT box), so short widgets no longer leave
+          // gaps and tall ones are no longer clipped.
+          gridAutoRows: isMobile ? 'auto' : `minmax(${MIN_ROW_HEIGHT}px, min-content)`,
+        }}
+      >
+        {ordered.map(({ placement, widget }) => (
+          <Box
+            key={widget.instance_id}
+            sx={{
+              // Keep the saved column placement; let the row auto-flow so the
+              // widget takes its content height instead of spanning `h` rows.
+              ...(isMobile ? {} : { gridColumn: `${placement.x + 1} / span ${Math.min(placement.w, cols)}` }),
+              // minWidth: 0 is required on every breakpoint (not just desktop): a
+              // `1fr` track's implicit min-width is `auto` (= the item's
+              // min-content size), so a widget with intrinsically wide content
+              // (e.g. a chart or long unbreakable label) would otherwise force
+              // the single mobile column past the viewport width and cause
+              // horizontal page scroll.
+              minWidth: 0,
+            }}
+          >
+            <WidgetFrame
+              instance={widget}
+              editMode={false}
+              hasConfig={dashboardWidgetCatalog[widget.widget_key as WidgetKey]?.hasConfig ?? false}
+              isFirst
+              isLast
+              onMoveUp={() => {}}
+              onMoveDown={() => {}}
+              onGrow={() => {}}
+              onShrink={() => {}}
+              onRemove={() => {}}
+              onConfigure={() => {}}
+            />
+          </Box>
+        ))}
+      </Box>
+    </>
   );
 }

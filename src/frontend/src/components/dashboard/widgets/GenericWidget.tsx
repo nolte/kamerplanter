@@ -199,9 +199,12 @@ export default function GenericWidget({ widgetKey, editMode = false }: WidgetCom
           }}
         >
         {loading ? (
+          // Busy, but deliberately unnamed (#1337): `aria-label` on a role-less
+          // container maps to `generic`, which ARIA prohibits naming, so the name
+          // was dropped and announced nothing. The announcement for the whole
+          // grid lives in DashboardLoadingRegion — one region, not one per widget.
           <Box
             aria-busy="true"
-            aria-label={t('common.loading')}
             data-testid={`widget-${widgetKey}-loading`}
           >
             <Skeleton variant="rounded" height={48} />
