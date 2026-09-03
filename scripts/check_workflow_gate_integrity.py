@@ -133,10 +133,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -186,7 +187,7 @@ _DIRECTORY_PROBE = "__gate_integrity_probe__"
 #: magnitude — ``git ls-files`` over this repository's 4 300 tracked paths takes
 #: single-digit milliseconds — because this runs in the required ``static`` lane
 #: and a hang there costs more than a wrong answer would.
-GIT_TIMEOUT_SECONDS = 30
+GIT_TIMEOUT_SECONDS = 5
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
@@ -486,15 +487,35 @@ def trigger_block_lines(lines: list[str]) -> set[int]:
     return set(range(start + 1, len(lines) + 1))
 
 
-def _run_git(tree_root: Path, *arguments: str) -> str | None:
-    """Run one ``git`` command inside *tree_root*, or ``None`` if it cannot.
+#: Environment variables through which git redirects a command away from the
+#: repository named by ``-C``. A commit hook inherits ``GIT_INDEX_FILE`` (an
+#: absolute temporary index for ``git commit -a`` / ``git commit <path>``) and
+#: ``git -C <other> ls-files`` would then list *this* repository's index while
+#: ``rev-parse`` still reports the other tree — the toplevel guard passes and the
+#: wrong index answers. For this repository's own root the inherited index is
+#: the right one (it is the commit being made); for any other root it is not.
+_GIT_REDIRECTING_VARIABLES = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
 
-    Every way this can go wrong — ``git`` absent from PATH, the directory not
-    being a repository, a hung invocation — means the same thing to the caller:
-    this tree cannot answer "is that path tracked?", so the answer has to come
-    from somewhere else. Collapsing them into one ``None`` is therefore not
-    swallowing an error; the distinction has no consumer.
+
+def _run_git(tree_root: Path, *arguments: str) -> tuple[str | None, str]:
+    """Run one ``git`` command inside *tree_root*.
+
+    Returns:
+        ``(stdout, "")`` on success, or ``(None, reason)`` when git could not
+        answer — absent from PATH, not a repository, refused (``safe.directory``),
+        or hung past :data:`GIT_TIMEOUT_SECONDS`. The reason is what the report
+        prints when the checker has to fall back to the filesystem, so a
+        workstation that is back on the #1340 predicate can see why.
     """
+    env = os.environ
+    if tree_root.resolve() != REPO_ROOT.resolve():
+        env = {key: value for key, value in os.environ.items() if key not in _GIT_REDIRECTING_VARIABLES}
     try:
         completed = subprocess.run(
             ["git", "-C", str(tree_root), *arguments],
@@ -503,12 +524,18 @@ def _run_git(tree_root: Path, *arguments: str) -> str | None:
             errors="surrogateescape",
             timeout=GIT_TIMEOUT_SECONDS,
             check=False,
+            env=env,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None
+    except FileNotFoundError:
+        return None, "git is not on PATH"
+    except subprocess.TimeoutExpired:
+        return None, f"git {arguments[0]} did not answer within {GIT_TIMEOUT_SECONDS}s"
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"git {arguments[0]} could not run: {exc}"
     if completed.returncode != 0:
-        return None
-    return completed.stdout
+        detail = completed.stderr.strip().splitlines()
+        return None, f"git {arguments[0]} exited {completed.returncode}" + (f": {detail[-1]}" if detail else "")
+    return completed.stdout, ""
 
 
 def _implied_directories(files: frozenset[str]) -> frozenset[str]:
@@ -522,10 +549,13 @@ def _implied_directories(files: frozenset[str]) -> frozenset[str]:
     """
     directories: set[str] = set()
     for entry in files:
-        parent = PurePosixPath(entry).parent
-        while str(parent) not in {".", "/"}:
-            directories.add(str(parent))
-            parent = parent.parent
+        parent = entry.rpartition("/")[0]
+        # Stop at the first ancestor already known: every ancestor above it was
+        # added by whichever entry added that one. Measured on this checkout,
+        # the PurePosixPath walk this replaces cost 60 ms of a 65 ms index build.
+        while parent and parent not in directories:
+            directories.add(parent)
+            parent = parent.rpartition("/")[0]
     return frozenset(directories)
 
 
@@ -544,19 +574,24 @@ class TreeIndex:
       ``always_run``, so it blocked unrelated commits. There is no ``paths:``
       entry that *should* cover it: it is an artefact the run produces, and
       adding one would mean "re-run E2E when a report changes".
-    * **Inert where it should bite.** CI checks out only tracked files, so a
-      genuinely uncovered read path that happened not to be tracked could never
-      be reported there at all.
+    * **Two answers for one tree.** CI checks out only tracked files, so a
+      workstation and CI could disagree about the same workflow. Only the
+      false-positive half changes here: a path that is not in the repository
+      cannot appear in a diff, so whether a ``paths:`` filter covers it is not
+      a meaningful question, and such a reference is dropped rather than
+      reported — on the workstation now as in CI before.
 
     Reading the **index** (``git ls-files``) rather than ``HEAD`` is deliberate:
     the pre-commit hook runs while a commit is being made, and a newly added file
     is in the index before it is in any commit. A workflow and the file it starts
     reading are therefore judged together, in the commit that introduces them.
 
-    Known blind spot, stated rather than papered over: a submodule is a gitlink,
-    so ``git ls-files`` reports it as a file and :meth:`is_dir` says no. This
-    repository has no submodules; if it gains one, a reference into it degrades
-    to the file case, which reports less rather than more.
+    Known blind spots, stated rather than papered over: a submodule is a
+    gitlink and a symlink is a mode-120000 entry, so ``git ls-files`` reports
+    both as files — :meth:`is_dir` says no, and a reference *through* them is
+    not tracked. This repository has neither today; the :meth:`exists` reading
+    then reports less rather than more, and :attr:`resolution` says which
+    predicate answered so a surprising verdict can be traced.
     """
 
     root: Path
@@ -564,6 +599,10 @@ class TreeIndex:
     #: :meth:`for_root` for what that fallback is and who reaches it.
     tracked_files: frozenset[str] | None
     tracked_directories: frozenset[str]
+    #: ``"index"`` when git answered, ``"filesystem"`` on the fallback.
+    resolution: str
+    #: Why the fallback was taken; empty on the index path.
+    reason: str
 
     @classmethod
     def for_root(cls, root: Path) -> TreeIndex:
@@ -575,31 +614,55 @@ class TreeIndex:
         * **The tree is not a git checkout at all** — a ``git archive`` export or
           a source tarball. There "on disk" and "tracked" coincide, so the
           fallback is not an approximation.
-        * **The tree root is not itself the root of a work tree.** A directory
-          *inside* a repository would otherwise be handed that repository's
-          tracked listing, which names nothing below this root — every reference
-          would resolve to "does not exist" and the whole shape would pass
-          vacuously. That is the failure mode this file exists to refuse, so the
-          toplevel is compared rather than assumed.
+        * **The tree root is not itself the root of a work tree.** ``git -C
+          <subdir> ls-files`` answers relative to the subdirectory, so a root
+          *inside* a repository would get a listing whose names do not match the
+          repo-relative references the workflows use; the toplevel is compared
+          so that "tracked" always means "tracked at this root".
 
-        Measured, no caller in this repository reaches the fallback in anger: the
-        pre-commit hook, ``task check`` and the backend suite's real-tree test all
-        run inside the checkout, and CI's required ``static`` lane uses
-        ``actions/checkout``, so all four get a work tree with an index.
+        Every other failure — ``git`` absent, ``safe.directory`` refusing the
+        checkout, a hung invocation — takes the fallback too, and *that* one is
+        the #1340 predicate coming back on a workstation. It is therefore never
+        silent: :attr:`reason` names it, the report prints it, and the JSON
+        carries the resolution.
+
+        Raises:
+            WorkflowIntegrityCheckError: the root is a work tree with **nothing
+                tracked** (a fresh ``git init`` over an export). Every reference
+                would then resolve to "not tracked" and the shape would pass
+                without measuring anything — the vacuity this file refuses.
         """
-        toplevel = _run_git(root, "rev-parse", "--show-toplevel")
+        toplevel, reason = _run_git(root, "rev-parse", "--show-toplevel")
         if toplevel is None or not toplevel.strip():
-            return cls(root=root, tracked_files=None, tracked_directories=frozenset())
+            return cls._fallback(root, reason or "not a git work tree")
         if Path(toplevel.strip()).resolve() != root.resolve():
-            return cls(root=root, tracked_files=None, tracked_directories=frozenset())
-        listing = _run_git(root, "ls-files", "-z")
+            return cls._fallback(root, f"{root} is inside the work tree {toplevel.strip()}, not its root")
+        listing, reason = _run_git(root, "ls-files", "-z")
         if listing is None:
-            return cls(root=root, tracked_files=None, tracked_directories=frozenset())
+            return cls._fallback(root, reason)
         files = frozenset(entry for entry in listing.split("\0") if entry)
+        if not files:
+            raise WorkflowIntegrityCheckError(
+                f"{root} is a git work tree with nothing tracked — every path reference would "
+                "resolve to 'not tracked' and the check would pass without measuring anything; "
+                "add the files, or point --tree-root at a plain export"
+            )
         return cls(
             root=root,
             tracked_files=files,
             tracked_directories=_implied_directories(files),
+            resolution="index",
+            reason="",
+        )
+
+    @classmethod
+    def _fallback(cls, root: Path, reason: str) -> TreeIndex:
+        return cls(
+            root=root,
+            tracked_files=None,
+            tracked_directories=frozenset(),
+            resolution="filesystem",
+            reason=reason,
         )
 
     def exists(self, reference: str) -> bool:
@@ -655,9 +718,10 @@ def path_references(lines: list[str], tree: TreeIndex) -> dict[str, int]:
             continue
         for match in _PATH_CANDIDATE.finditer(_strip_comment(line)):
             candidate = match.group(1)
-            while candidate.startswith("./"):
-                candidate = candidate[2:]
-            parts = candidate.split("/")
+            # `a/./b` is `a/b` to the filesystem and was to the old predicate;
+            # the index is an exact-string set, so normalise before looking up.
+            parts = [part for part in candidate.split("/") if part != "."]
+            candidate = "/".join(parts)
             if len(parts) < 2 or ".." in parts or "" in parts:
                 continue
             if not tree.exists(candidate):
@@ -835,19 +899,16 @@ def scan_needs(path: Path, lines: list[str], document: Any) -> list[Finding]:
     return findings
 
 
-def scan_file(path: Path, tree: TreeIndex | None = None) -> list[Finding]:
+def scan_file(path: Path, tree: TreeIndex) -> list[Finding]:
     """Every finding in one workflow file.
 
     Args:
         path: The workflow file.
         tree: The indexed checkout the workflow's path references are resolved
-            against. Defaults to this script's own repository root; the
-            selftests point it at a constructed tree instead. It is passed in
-            rather than built here because building it shells out to ``git``,
-            and doing that once per workflow file would be two dozen
-            subprocesses per run.
+            against. Passed in rather than built here because building it
+            shells out to ``git``, and doing that once per workflow file would
+            be two dozen subprocesses per run.
     """
-    tree = TreeIndex.for_root(REPO_ROOT) if tree is None else tree
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -867,7 +928,9 @@ def scan_file(path: Path, tree: TreeIndex | None = None) -> list[Finding]:
     return sorted(findings, key=lambda finding: (finding.line, finding.kind))
 
 
-def collect(scan_root: Path, tree_root: Path | None = None) -> list[Finding]:
+def collect(
+    scan_root: Path, tree_root: Path | None = None, *, tree: TreeIndex | None = None
+) -> list[Finding]:
     """Every finding below *scan_root*, justified or not.
 
     Args:
@@ -875,6 +938,8 @@ def collect(scan_root: Path, tree_root: Path | None = None) -> list[Finding]:
         tree_root: The checkout path references are resolved against. Indexed
             once here and shared by every file, so one ``git`` call answers for
             the whole run.
+        tree: An already built index; ``main`` builds it first so it can say
+            which predicate answered.
     """
     if not scan_root.exists():
         raise WorkflowIntegrityCheckError(f"scan root does not exist: {scan_root}")
@@ -883,23 +948,39 @@ def collect(scan_root: Path, tree_root: Path | None = None) -> list[Finding]:
     )
     if not paths:
         raise WorkflowIntegrityCheckError(f"no workflow files under {scan_root}")
-    tree = TreeIndex.for_root(REPO_ROOT if tree_root is None else tree_root)
+    if tree is None:
+        tree = TreeIndex.for_root(REPO_ROOT if tree_root is None else tree_root)
     findings: list[Finding] = []
     for path in paths:
         findings.extend(scan_file(path, tree))
     return findings
 
 
-def report(findings: list[Finding], *, list_all: bool, as_json: bool) -> int:
-    """Print the outcome and return the process exit code."""
+def report(
+    findings: list[Finding], *, list_all: bool, as_json: bool, tree: TreeIndex | None = None
+) -> int:
+    """Print the outcome and return the process exit code.
+
+    When *tree* resolved against the filesystem, say so — on stderr for the
+    human report and as ``resolution`` in the JSON — because that is the #1340
+    predicate, and a verdict that depends on untracked files must be
+    recognisable as one.
+    """
     unjustified = [finding for finding in findings if not finding.justified]
     justified = [finding for finding in findings if finding.justified]
+    if tree is not None and tree.resolution != "index":
+        print(
+            "check_workflow_gate_integrity: path references resolved against the FILESYSTEM, "
+            f"not the git index ({tree.reason}); untracked files can change this verdict",
+            file=sys.stderr,
+        )
 
     if as_json:
         print(
             json.dumps(
                 {
                     "sites": len(findings),
+                    "resolution": tree.resolution if tree is not None else "index",
                     "justified": [
                         {
                             "file": finding.relative(),
@@ -1017,12 +1098,13 @@ def main(argv: list[str] | None = None) -> int:
     tree_root = Path(args.tree_root).resolve() if args.tree_root else REPO_ROOT
 
     try:
-        findings = collect(scan_root, tree_root)
+        tree = TreeIndex.for_root(tree_root)
+        findings = collect(scan_root, tree=tree)
     except WorkflowIntegrityCheckError as exc:
         print(f"check_workflow_gate_integrity: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
-    return report(findings, list_all=args.list_all, as_json=args.json)
+    return report(findings, list_all=args.list_all, as_json=args.json, tree=tree)
 
 
 if __name__ == "__main__":

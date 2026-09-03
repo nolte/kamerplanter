@@ -35,6 +35,7 @@ Traces to #1313 (no TC-ID: a source-tree gate is not a user-facing case).
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import textwrap
@@ -55,7 +56,21 @@ checker = load_repo_script("check_workflow_gate_integrity")
 #: assert nothing. The identity variables replace the ``user.name``/``user.email``
 #: those same two lines just took away.
 _GIT_ENV = {
-    **os.environ,
+    # Not the whole of os.environ: a commit hook exports GIT_INDEX_FILE (absolute
+    # for `git commit -a` / `git commit <path>`), and `git -C <tmp> add` would
+    # then write the fixture's files into the developer's commit index.
+    **{
+        key: value
+        for key, value in os.environ.items()
+        if key
+        not in {
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        }
+    },
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_CONFIG_SYSTEM": os.devnull,
     "GIT_AUTHOR_NAME": "gate integrity selftest",
@@ -1060,6 +1075,19 @@ class TestTheRealTree:
     def test_every_referenced_path_is_covered_or_explained(self) -> None:
         assert checker.main([]) == checker.EXIT_OK
 
+    def test_the_real_checkout_is_resolved_against_the_index(self) -> None:
+        """The tripwire for the production root.
+
+        The fixture trees under `tmp_path` always index; the real checkout is
+        the one root that can silently take the filesystem fallback (git
+        missing, `safe.directory` refusing a bind-mounted repo) — and then the
+        required lane is back on the #1340 predicate while every other test
+        here stays green.
+        """
+        index = checker.TreeIndex.for_root(checker.REPO_ROOT)
+        assert index.resolution == "index", index.reason
+        assert index.tracked_files
+
     def test_no_marker_was_written_for_the_e2e_report_directory(self) -> None:
         """#1340 was not closed by justifying the false positive away.
 
@@ -1074,3 +1102,68 @@ class TestTheRealTree:
         reasons = checker._comment_block_reasons(source.splitlines())
         assert reasons, "the file carries markers; an empty list would make the assertion below vacuous"
         assert not any("test-reports" in reason for reason in reasons)
+
+
+class TestTheFallbackIsVisible:
+    """A verdict from the filesystem predicate must say so (NFR-018 §2)."""
+
+    _LANE = _PIN_LANE % "      - 'tests/security/nuclei-templates/**'"
+
+    def test_a_plain_export_names_the_fallback(
+        self,
+        workflows: Callable[..., Path],
+        plain_tree: Callable[..., Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = workflows(nuclei=self._LANE)
+        export = plain_tree("tests/security/nuclei-templates/x.yaml", ".github/renovate-pins.yaml")
+
+        checker.main(["--scan-root", str(root), "--tree-root", str(export), "--json"])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out)["resolution"] == "filesystem"
+        assert "FILESYSTEM" in captured.err
+
+    def test_an_indexed_checkout_reports_the_index(
+        self,
+        workflows: Callable[..., Path],
+        tree: Callable[..., Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = workflows(nuclei=self._LANE)
+        checkout = tree("tests/security/nuclei-templates/x.yaml", ".github/renovate-pins.yaml")
+
+        checker.main(["--scan-root", str(root), "--tree-root", str(checkout), "--json"])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out)["resolution"] == "index"
+        assert "FILESYSTEM" not in captured.err
+
+    def test_a_work_tree_with_nothing_tracked_is_refused_not_passed(
+        self,
+        workflows: Callable[..., Path],
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """`git init` over an export: every reference would be 'not tracked'."""
+        root = workflows(nuclei=self._LANE)
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        _git(empty, "init", "--quiet")
+        _materialise(empty, ("tests/security/nuclei-templates/x.yaml", ".github/renovate-pins.yaml"))
+
+        code = checker.main(["--scan-root", str(root), "--tree-root", str(empty)])
+
+        assert code == checker.EXIT_USAGE
+        assert "nothing tracked" in capsys.readouterr().err
+
+
+class TestCandidateNormalisation:
+    def test_a_dot_segment_does_not_hide_a_reference(self, tree: Callable[..., Path]) -> None:
+        """`scripts/./ci/x.sh` is `scripts/ci/x.sh`; the old on-disk predicate
+        normalised it implicitly, an exact-string index must do so explicitly."""
+        checkout = tree("scripts/ci/x.sh")
+        index = checker.TreeIndex.for_root(checkout)
+        lines = ["      - run: bash scripts/./ci/x.sh"]
+
+        assert list(checker.path_references(lines, index)) == ["scripts/ci/x.sh"]
