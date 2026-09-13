@@ -13,13 +13,29 @@ from app.api.v1.plant_instances.schemas import PlantResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_phase_service, get_plant_instance_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.plant_ownership import require_owned_plant
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
 
+# GATED ON PLANT OWNERSHIP, AT THE ROUTER (#1402 group C).
+#
+# Every operation here takes a plant key from the path and, until this, handed it
+# to a by-key lookup with no tenant anywhere: `PhaseService.transition_phase` takes
+# no `tenant_key`, and resolution ends in `BaseArangoRepository.get_or_raise`. Any
+# authenticated caller could transition another tenant's plant — `force: true`
+# included, firing the post-transition callbacks — read its phase history, edit a
+# history entry's dates, or delete one.
+#
+# All FIVE operations, not the two #1402 names: the reads leak another tenant's
+# phase history just as the writes change it.
+#
+# On the router rather than per handler, because eleven signatures across two
+# routers is the opt-in drift this repository keeps paying for. See
+# `app/common/plant_ownership.py`.
 router = APIRouter(
     prefix="/plant-instances/{plant_key}/phases",
     tags=["phases"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(get_current_user), Depends(require_owned_plant)],
     responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE},
 )
 

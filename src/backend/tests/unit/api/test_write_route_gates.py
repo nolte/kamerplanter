@@ -251,6 +251,13 @@ _AUTHORISATION: frozenset[str] = frozenset(
         "require_admin_scope.<locals>._check",
         "require_attachment_permission.<locals>._dependency",
         "get_mcp_principal",
+        # #1402 group C. Refuses a caller whose ACTIVE TENANT does not own the plant
+        # named in the path, on the two global routers that address one by key.
+        # Classified because this guard demanded it: added to the app without an
+        # entry in either set, it turned
+        # `test_every_auth_shaped_dependency_is_classified` red one session after
+        # that test was written. That is the vocabulary drift the rule exists for.
+        "require_owned_plant",
     }
 )
 
@@ -263,6 +270,10 @@ _ROLE_GATES: frozenset[str] = frozenset(
         "require_platform_admin",
         "_require_platform_admin",
         "require_attachment_permission.<locals>._dependency",
+        # More than "is authenticated" and more than "is a member": it gates on
+        # ownership of the addressed resource, which is a different axis from role
+        # and strictly narrower than either. A route carrying it is not bare.
+        "require_owned_plant",
     }
 )
 
