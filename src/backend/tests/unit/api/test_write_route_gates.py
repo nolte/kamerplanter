@@ -411,6 +411,51 @@ def _resolves_bare_user(operation: Operation) -> bool:
     return "get_current_user" in names and not (names & _ROLE_GATES)
 
 
+#: THE FOURTH QUESTION (#1402 group B): installation-wide master data.
+#:
+#: These routers are mounted globally and every row in them is shared by the whole
+#: installation — one `GrowthPhase` is the phase REQ-003's state machine runs on,
+#: for everyone. They carried `APIRouter(dependencies=[Depends(get_current_user)])`
+#: and no role gate, so any authenticated member of any tenant could create, change
+#: or delete them. Their immediate siblings `companion_planting` and
+#: `family_relationships` gated every write on `require_platform_admin` all along,
+#: which is what made the omission visible rather than arguable.
+#:
+#: The third question passes them: `get_current_user` *is* authorisation, just not
+#: enough of it. This one asks the narrower thing.
+#:
+#: **Scoped to a named set of modules, deliberately.** Measured on this tree, 133
+#: write operations lie outside both the tenant and the admin prefix, and 117 of
+#: them resolve only `get_current_user`. Most are legitimately member-writable — a
+#: caller creates their own tenant, exercises their own data-subject rights, edits
+#: their own profile — so a blanket rule here would be wrong in more places than it
+#: is right. The remaining triage is #1402's own follow-up.
+#:
+#: What this does close is the per-route drift: a new write route added to any of
+#: these seven inherits nothing, and this test names it. A new *module* of the same
+#: kind is not covered, which is a rarer event than a new route and is said out
+#: loud rather than implied.
+_INSTALLATION_WIDE_MODULES: dict[str, str] = {
+    "growth_phases": "the phases REQ-003's state machine runs on, installation-wide",
+    "location_types": "the location vocabulary every tenant picks from",
+    "profiles": "requirement and nutrient profiles shared by every tenant",
+    "lifecycle_configs": "per-species lifecycle overrides, one row per species for everyone",
+    "activities": "the activity catalogue every tenant's plans reference",
+    "crop_rotation": "the rotation rules every bed plan is validated against",
+    "enrichment": "external-source enrichment configuration for the installation",
+}
+
+_PLATFORM_ADMIN_GATES = frozenset({"require_platform_admin", "_require_platform_admin"})
+
+
+def _module_of(operation: Operation) -> str:
+    return operation.module.removeprefix("app.api.v1.").split(".")[0]
+
+
+def _installation_wide_write_operations() -> list[Operation]:
+    return [op for op in mounted_write_operations() if _module_of(op) in _INSTALLATION_WIDE_MODULES]
+
+
 def _tenant_write_operations() -> list[Operation]:
     return [op for op in mounted_write_operations() if TENANT_PREFIX in op.path]
 
@@ -989,4 +1034,76 @@ class TestTheClassificationItselfCannotDrift:
             "These _NOT_AUTHORISATION names appear on no mounted write route. Either the dependency "
             "is gone and the entry should go with it, or it moved to a read route and needs a reason "
             "saying so:\n  " + "\n  ".join(stale)
+        )
+
+
+class TestInstallationWideMasterDataIsPlatformAdminOnly:
+    """The fourth question (#1402 group B): who may change a row everyone shares?"""
+
+    def test_every_write_resolves_platform_admin(self):
+        offenders = [
+            op
+            for op in _installation_wide_write_operations()
+            if not (set(_authorisation_chain(op)) & _PLATFORM_ADMIN_GATES)
+        ]
+        assert not offenders, (
+            "These routes write INSTALLATION-WIDE master data behind authentication alone, so any "
+            "member of any tenant may change them for everyone. Gate them on "
+            "`require_platform_admin` like their `companion_planting` siblings:\n  " + _format(offenders)
+        )
+
+    def test_the_reads_are_not_gated(self):
+        """The control, and it is the #706 direction.
+
+        These catalogues must stay readable by every member — a rotation rule
+        nobody can read is as broken as one anybody can edit. A gate applied to the
+        whole ROUTER instead of to its writes would satisfy the test above and
+        break the product, which is exactly how an over-rejecting guard ships
+        looking correct.
+        """
+        gated_reads: list[str] = []
+
+        def walk(router: Any, prefix: str = "") -> None:
+            for route in getattr(router, "routes", []):
+                included = getattr(route, "original_router", None)
+                if included is not None:
+                    context = getattr(route, "include_context", None)
+                    walk(included, prefix + (getattr(context, "prefix", "") or ""))
+                    continue
+                endpoint = getattr(route, "endpoint", None)
+                if endpoint is None or "GET" not in (getattr(route, "methods", ()) or ()):
+                    continue
+                module = endpoint.__module__.removeprefix("app.api.v1.").split(".")[0]
+                if module not in _INSTALLATION_WIDE_MODULES:
+                    continue
+                probe = Operation("GET", prefix + (getattr(route, "path", "") or ""), endpoint, route)
+                if set(_authorisation_chain(probe)) & _PLATFORM_ADMIN_GATES:
+                    gated_reads.append(probe.path)
+
+        walk(api_router)
+
+        assert not gated_reads, (
+            "These reads now require platform admin. The rows are shared catalogue data every "
+            "member consults:\n  " + "\n  ".join(sorted(gated_reads))
+        )
+
+    def test_the_module_set_still_matches_the_tree(self):
+        """Obsolescence, both directions — an entry naming a module that is gone, and
+        a module in the set that no longer writes anything."""
+        stale = []
+        by_module = {_module_of(op) for op in mounted_write_operations()}
+        for module in _INSTALLATION_WIDE_MODULES:
+            if module not in by_module:
+                stale.append(f"{module}: mounts no write operation any more")
+        assert not stale, "Obsolete _INSTALLATION_WIDE_MODULES entries:\n  " + "\n  ".join(stale)
+
+    def test_every_reason_is_written_out(self):
+        for module, reason in _INSTALLATION_WIDE_MODULES.items():
+            assert len(reason) >= 12, f"{module} carries no usable reason: {reason!r}"
+
+    def test_the_set_is_not_empty(self):
+        """A set emptied by a careless edit would make the first test vacuous."""
+        assert len(_installation_wide_write_operations()) >= 15, (
+            "fewer installation-wide write operations than expected; the module set has drifted "
+            "away from the tree and the gate assertion covers almost nothing"
         )

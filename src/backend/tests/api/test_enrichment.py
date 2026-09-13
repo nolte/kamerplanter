@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_enrichment_service
 from app.common.enums import AuthType, SyncStatus, SyncTrigger
 from app.domain.models.enrichment import (
@@ -31,14 +31,29 @@ def _mock_user():
 
 @pytest.fixture
 def client(mock_service, _mock_user):
+    """A PLATFORM-ADMIN caller, because the writes here changed installation-wide rows.
+
+    Enrichment configuration belongs to the installation, not to a tenant: one
+    external-source mapping is what every tenant's species enrichment runs on.
+    Until #1402 these routes carried `get_current_user` alone, so any authenticated
+    member of any tenant could trigger a sync, accept an enrichment, or edit a
+    mapping for everyone. They are gated like their `companion_planting` siblings
+    now, and this fixture supplies the caller that gate expects.
+
+    `TestTheWritesAreRefusedWithoutPlatformAdmin` below drives the same routes
+    WITHOUT the override — a suite that only ever calls through one is a suite that
+    cannot tell a gate from its absence.
+    """
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
         app.dependency_overrides[get_enrichment_service] = lambda: mock_service
         app.dependency_overrides[get_current_user] = lambda: _mock_user
+        app.dependency_overrides[require_platform_admin] = lambda: _mock_user
         yield TestClient(app, raise_server_exceptions=False)
         app.dependency_overrides.pop(get_enrichment_service, None)
         app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(require_platform_admin, None)
 
 
 @pytest.fixture
@@ -216,3 +231,57 @@ class TestHealth:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 2
+
+
+class TestTheWritesAreRefusedWithoutPlatformAdmin:
+    """The gate itself (#1402 group B), driven without the override that hides it.
+
+    Every other test in this file supplies a platform admin. These do not, and they
+    are the only thing here that goes red if the `require_platform_admin`
+    dependencies are dropped again. `require_platform_admin` resolves through
+    `get_current_user` and a membership lookup, so a caller with neither is
+    refused before any handler runs.
+    """
+
+    @pytest.fixture
+    def member_client(self, mock_service, _mock_user):
+        """Authenticated, no platform-admin membership — the caller #1402 describes."""
+        with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
+            from app.main import app
+
+            app.dependency_overrides[get_enrichment_service] = lambda: mock_service
+            app.dependency_overrides[get_current_user] = lambda: _mock_user
+            app.dependency_overrides.pop(require_platform_admin, None)
+            yield TestClient(app, raise_server_exceptions=False)
+            app.dependency_overrides.pop(get_enrichment_service, None)
+            app.dependency_overrides.pop(get_current_user, None)
+
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [
+            ("POST", "/api/v1/enrichment/sources/gbif/sync"),
+            ("POST", "/api/v1/enrichment/species/sp1/enrichments/e1/accept"),
+            ("POST", "/api/v1/enrichment/species/sp1/enrichments/e1/reject"),
+        ],
+    )
+    def test_a_plain_member_is_refused(self, member_client, method: str, path: str):
+        response = member_client.request(method, path, json={})
+
+        assert response.status_code in (401, 403, 500), (
+            f"{method} {path} answered {response.status_code} for a caller with no platform-admin "
+            "membership; the gate from #1402 is gone or inert"
+        )
+        assert response.status_code != 200
+
+    def test_the_reads_stay_open_to_a_member(self, member_client, mock_service):
+        """The control, and the #706 direction.
+
+        Gating the whole router instead of its writes would satisfy every refusal
+        above and break the product: these catalogues are what every tenant's
+        enrichment consults.
+        """
+        mock_service.list_sources.return_value = []
+
+        response = member_client.get("/api/v1/enrichment/sources")
+
+        assert response.status_code == 200, response.text

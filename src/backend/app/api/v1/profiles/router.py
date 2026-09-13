@@ -10,7 +10,7 @@ from app.api.v1.profiles.schemas import (
     RequirementProfileCreate,
     RequirementProfileResponse,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_phase_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.domain.engines.phase_resource_resolver import nutrient_profile_guidance
@@ -49,7 +49,12 @@ def get_requirement_profile(
     return to_response(p, RequirementProfileResponse)
 
 
-@router.post("/requirements", response_model=RequirementProfileResponse, status_code=201)
+@router.post(
+    "/requirements",
+    response_model=RequirementProfileResponse,
+    status_code=201,
+    dependencies=[Depends(require_platform_admin)],
+)
 def create_requirement_profile(body: RequirementProfileCreate, service: PhaseService = Depends(get_phase_service)):
     """Create an environmental requirement profile."""
     profile = RequirementProfile(**body.model_dump())
@@ -67,7 +72,12 @@ def get_nutrient_profile(
     return _nutrient_response_with_guidance(p)
 
 
-@router.post("/nutrients", response_model=NutrientProfileResponse, status_code=201)
+@router.post(
+    "/nutrients",
+    response_model=NutrientProfileResponse,
+    status_code=201,
+    dependencies=[Depends(require_platform_admin)],
+)
 def create_nutrient_profile(body: NutrientProfileCreate, service: PhaseService = Depends(get_phase_service)):
     """Create a nutrient profile."""
     profile = NutrientProfile(**body.model_dump())
@@ -75,7 +85,11 @@ def create_nutrient_profile(body: NutrientProfileCreate, service: PhaseService =
     return _nutrient_response_with_guidance(created)
 
 
-@router.put("/requirements/{key}", response_model=RequirementProfileResponse)
+@router.put(
+    "/requirements/{key}",
+    response_model=RequirementProfileResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def update_requirement_profile(
     key: Annotated[str, Path(description="Document key of the requirement profile.")],
     body: RequirementProfileCreate,
@@ -87,7 +101,11 @@ def update_requirement_profile(
     return to_response(updated, RequirementProfileResponse)
 
 
-@router.put("/nutrients/{key}", response_model=NutrientProfileResponse)
+@router.put(
+    "/nutrients/{key}",
+    response_model=NutrientProfileResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def update_nutrient_profile(
     key: Annotated[str, Path(description="Document key of the nutrient profile.")],
     body: NutrientProfileCreate,
@@ -99,7 +117,11 @@ def update_nutrient_profile(
     return _nutrient_response_with_guidance(updated)
 
 
-@router.post("/generate-defaults/{phase_key}", response_model=GenerateDefaultProfilesResponse)
+@router.post(
+    "/generate-defaults/{phase_key}",
+    response_model=GenerateDefaultProfilesResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def generate_default_profiles(
     phase_key: Annotated[str, Path(description="Document key of the phase.")],
     service: PhaseService = Depends(get_phase_service),

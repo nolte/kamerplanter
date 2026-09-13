@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.lifecycle_configs.schemas import LifecycleCreate, LifecycleResponse
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_phase_service
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.domain.models.lifecycle import LifecycleConfig
@@ -28,7 +28,12 @@ def get_lifecycle(
     return to_response(lc, LifecycleResponse)
 
 
-@router.post("", response_model=LifecycleResponse, status_code=201)
+@router.post(
+    "",
+    response_model=LifecycleResponse,
+    status_code=201,
+    dependencies=[Depends(require_platform_admin)],
+)
 def create_lifecycle(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     body: LifecycleCreate,
@@ -43,7 +48,11 @@ def create_lifecycle(
     return to_response(created, LifecycleResponse)
 
 
-@router.put("/{key}", response_model=LifecycleResponse)
+@router.put(
+    "/{key}",
+    response_model=LifecycleResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def update_lifecycle(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     key: Annotated[str, Path(description="Document key of the lifecycle configuration.")],

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.growth_phases.schemas import PhaseCreate, PhaseResponse
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_phase_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.domain.models.lifecycle import GrowthPhase
@@ -38,7 +38,12 @@ def get_phase(
     return to_response(p, PhaseResponse)
 
 
-@router.post("", response_model=PhaseResponse, status_code=201)
+@router.post(
+    "",
+    response_model=PhaseResponse,
+    status_code=201,
+    dependencies=[Depends(require_platform_admin)],
+)
 def create_phase(body: PhaseCreate, service: PhaseService = Depends(get_phase_service)):
     """Create a new growth phase."""
     phase = GrowthPhase(**body.model_dump())
@@ -46,7 +51,11 @@ def create_phase(body: PhaseCreate, service: PhaseService = Depends(get_phase_se
     return to_response(created, PhaseResponse)
 
 
-@router.put("/{key}", response_model=PhaseResponse)
+@router.put(
+    "/{key}",
+    response_model=PhaseResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def update_phase(
     key: Annotated[str, Path(description="Document key of the growth phase.")],
     body: PhaseCreate,
@@ -58,7 +67,11 @@ def update_phase(
     return to_response(updated, PhaseResponse)
 
 
-@router.delete("/{key}", status_code=204)
+@router.delete(
+    "/{key}",
+    status_code=204,
+    dependencies=[Depends(require_platform_admin)],
+)
 def delete_phase(
     key: Annotated[str, Path(description="Document key of the growth phase.")],
     service: PhaseService = Depends(get_phase_service),
