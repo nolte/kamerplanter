@@ -173,13 +173,32 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
 
     service = get_attachment_service()
     deleted = 0
+    failed = 0
     for attachment_id in attachment_ids:
         # Idempotent by contract: an unknown id returns False rather than raising,
         # which is what lets this task be retried and lets a task deletion race a
         # manual one without either failing.
-        if await service.delete(attachment_id, tenant_key):
-            deleted += 1
-    return {"requested": len(attachment_ids), "deleted": deleted, "tenant_key": tenant_key}
+        #
+        # Isolated per row: one unreachable storage object must not abort the batch.
+        # Without this a single bad row takes its siblings down with it on every
+        # retry, and they are never collected.
+        try:
+            if await service.delete(attachment_id, tenant_key):
+                deleted += 1
+        except Exception as exc:  # noqa: BLE001 — one bad row, not a bad batch
+            failed += 1
+            logger.warning(
+                "delete_attachment_failed",
+                tenant_key=tenant_key,
+                attachment_id=attachment_id,
+                error=str(exc),
+            )
+    return {
+        "requested": len(attachment_ids),
+        "deleted": deleted,
+        "failed": failed,
+        "tenant_key": tenant_key,
+    }
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[misc]
@@ -197,7 +216,7 @@ def delete_attachments(self, attachment_ids: list[str], tenant_key: str) -> dict
     it certain.
     """
     if not attachment_ids:
-        return {"requested": 0, "deleted": 0, "tenant_key": tenant_key}
+        return {"requested": 0, "deleted": 0, "failed": 0, "tenant_key": tenant_key}
     try:
         return asyncio.run(_delete_attachments(list(attachment_ids), tenant_key))
     except Exception as exc:  # noqa: BLE001 — retry on any transient failure
@@ -218,16 +237,32 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
 
     service = get_attachment_service()
     deleted = 0
+    failed = 0
     freed_bytes = 0
     for attachment in orphans:
         if attachment.key is None:
             continue
-        if await service.delete(attachment.key, attachment.tenant_key):
-            deleted += 1
-            freed_bytes += attachment.byte_size
+        # Isolated per row, and this one matters more than the batch above.
+        # The query is ``SORT att.created_at ASC``, so a retry re-fetches the same
+        # head rows: one permanently unhealthy attachment would starve every younger
+        # orphan behind it for ever, and the sweep would look like it was merely
+        # retrying while it had in fact stopped working.
+        try:
+            if await service.delete(attachment.key, attachment.tenant_key):
+                deleted += 1
+                freed_bytes += attachment.byte_size
+        except Exception as exc:  # noqa: BLE001 — keep the batch draining
+            failed += 1
+            logger.warning(
+                "orphan_photo_delete_failed",
+                attachment_id=attachment.key,
+                tenant_key=attachment.tenant_key,
+                error=str(exc),
+            )
     return {
         "found": len(orphans),
         "deleted": deleted,
+        "failed": failed,
         "freed_bytes": freed_bytes,
         "cutoff": cutoff.isoformat(),
     }
@@ -254,7 +289,7 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
     hours = settings.storage_task_photo_orphan_hours
     if hours <= 0:
         logger.info("cleanup_orphaned_task_photos_disabled")
-        return {"found": 0, "deleted": 0, "freed_bytes": 0, "disabled": True}
+        return {"found": 0, "deleted": 0, "failed": 0, "freed_bytes": 0, "disabled": True}
 
     try:
         result = asyncio.run(_cleanup_orphaned_task_photos(hours, limit))

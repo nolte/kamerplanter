@@ -731,6 +731,7 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 | `STORAGE_STRIP_EXIF` | `true` | No | Strips EXIF/GPS metadata from image uploads globally at save time (NFR-013 §5.1). There is **no** per-category override variable — unlike the MIME whitelists, this is a single global switch. |
 | `STORAGE_TENANT_QUOTA_MB` | `2048` | No | Storage quota per tenant, in megabytes. `0` disables the quota (unlimited). |
 | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | `50` | No | Maximum number of gallery photos per plant instance (REQ-034). `0` disables the limit. |
+| `STORAGE_TASK_PHOTO_ORPHAN_HOURS` | `48` | No | How long a task photo may sit unreferenced before the nightly sweep **deletes** it (#1393). Every upload is briefly unreferenced — the attachment row is written before the form that links it is submitted — so this is a wide safety margin rather than a tuning knob: lowering it towards 0 deletes photos out from under users still filling in the form. `0` disables the sweep. |
 
 **Default MIME whitelist per category:**
 

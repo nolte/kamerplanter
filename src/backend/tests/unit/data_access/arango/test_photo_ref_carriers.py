@@ -22,7 +22,10 @@ import ast
 import pathlib
 
 from app.data_access.arango import collections as col
-from app.data_access.arango.attachment_repository import PHOTO_REF_COLLECTIONS
+from app.data_access.arango.attachment_repository import (
+    ATTACHMENT_REF_FIELDS,
+    PHOTO_REF_COLLECTIONS,
+)
 
 _MODELS_ROOT = pathlib.Path(__file__).resolve().parents[4] / "app" / "domain" / "models"
 
@@ -119,3 +122,91 @@ def test_the_set_is_not_empty():
     """A map emptied by a careless edit would make all four assertions above vacuous."""
     assert len(_MODEL_TO_COLLECTION) >= 6
     assert len(PHOTO_REF_COLLECTIONS) >= 6
+
+
+# ── Every field shaped like an attachment reference, not just ``photo_refs`` ──
+#
+# The sweep originally checked ``photo_refs`` alone, and review pointed out that the
+# principle behind it ("a destructive query may not rest on a category assumption")
+# was being applied to one field name. Three others hold attachment ids, and a
+# scan for the *shape* is what stops a fourth appearing unnoticed.
+
+#: Fields that look like an attachment reference and are not one. Each names why,
+#: so the list cannot quietly grow into "everything the scan complained about".
+_NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
+    "Task.source_run_ref": "points at a PlantingRun, not an attachment",
+    "Task.external_ref": "an external system's identifier (InvenTree et al.), not a document key",
+    "WeatherSourcePublicConfig.api_key_ref": "names a secret in the key store, not an attachment",
+}
+
+#: Fields the sweep resolves through ``ATTACHMENT_REF_FIELDS`` rather than through
+#: ``photo_refs``.
+_RESOLVED_BY_FIELD_TUPLE = {
+    "PlantInstance.cover_photo_ref",
+    "PestImageContribution.attachment_id",
+    "Pest.reference_image_refs",
+}
+
+
+def _reference_shaped_fields() -> set[str]:
+    """``<Class>.<field>`` for every annotation that reads like an attachment ref."""
+    found: set[str] = set()
+    for path in sorted(_MODELS_ROOT.glob("*.py")):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for statement in node.body:
+                if not (isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name)):
+                    continue
+                name = statement.target.id
+                if name.endswith(("_ref", "_refs")) or name == "attachment_id":
+                    found.add(f"{node.name}.{name}")
+    return found
+
+
+def test_every_reference_shaped_field_is_accounted_for():
+    """A new ``*_ref`` field fails here until someone says which kind it is.
+
+    Three answers are allowed: it is ``photo_refs`` on a mapped carrier, it is in
+    ``ATTACHMENT_REF_FIELDS``, or it is listed above as not an attachment reference
+    *with a reason*. Anything else is a field the sweep might be deleting around.
+    """
+    photo_ref_fields = {f"{model}.photo_refs" for model in _MODEL_TO_COLLECTION}
+    accounted = photo_ref_fields | _RESOLVED_BY_FIELD_TUPLE | set(_NOT_AN_ATTACHMENT_REFERENCE)
+
+    unaccounted = sorted(_reference_shaped_fields() - accounted)
+
+    assert not unaccounted, (
+        "these fields look like attachment references and nothing says what they are:\n  "
+        + "\n  ".join(unaccounted)
+        + "\n\nEither add the field to ATTACHMENT_REF_FIELDS (so the orphan sweep stops "
+        "deleting what it references) or list it in _NOT_AN_ATTACHMENT_REFERENCE with a "
+        "reason (#1393)."
+    )
+
+
+def test_the_field_tuple_and_the_expectation_agree():
+    """The tuple the query uses matches what this file claims it covers."""
+    declared = {field for _collection, field in ATTACHMENT_REF_FIELDS}
+    expected = {name.split(".", 1)[1] for name in _RESOLVED_BY_FIELD_TUPLE}
+
+    assert declared == expected, (
+        f"ATTACHMENT_REF_FIELDS covers {sorted(declared)} while this file expects "
+        f"{sorted(expected)} — one of the two was edited alone"
+    )
+
+
+def test_no_exclusion_outlives_its_field():
+    """An excuse for a field that no longer exists is an excuse nobody is checking."""
+    stale = sorted(set(_NOT_AN_ATTACHMENT_REFERENCE) - _reference_shaped_fields())
+
+    assert not stale, "these are excused but no longer exist:\n  " + "\n  ".join(stale)
+
+
+def test_the_scan_actually_finds_something():
+    """The control: a scan matching nothing would pass all three tests above."""
+    found = _reference_shaped_fields()
+
+    assert len(found) >= 10, f"the reference-shaped scan found only {len(found)} fields"
+    assert "Task.photo_refs" in found

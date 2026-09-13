@@ -57,7 +57,7 @@ from app.api.v1.attachments.tenant_router import _parse_content_length, _read_up
 from app.api.v1.tasks.schemas import TaskPhotoResponse
 from app.common.dependencies import get_attachment_service, get_task_service
 from app.common.enums import AttachmentCategory
-from app.common.exceptions import FileTooLargeError, InvalidFileTypeError
+from app.common.exceptions import AttachmentNotFoundError, FileTooLargeError, InvalidFileTypeError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
@@ -159,5 +159,21 @@ async def delete_task_photo(
     the list.
     """
     task_service.get_task(key, tenant_key=ctx.tenant_key)
+
+    # The category is checked, not assumed. Without it this route is a second door
+    # onto every attachment of the tenant: a caller could pass a plant-gallery id and
+    # destroy it here, bypassing ``PlantPhotoService.delete`` — the path that also
+    # prunes ``plant.photo_refs`` and repairs ``cover_photo_ref``, so the gallery
+    # would be left with a dangling reference and possibly a cover pointing at
+    # nothing. A task-photo route may delete task photos.
+    #
+    # ``get_attachment`` raises ``AttachmentNotFoundError`` (404) for an id of
+    # another tenant, and a wrong-category id answers 404 as well rather than 403 —
+    # the same answer an id that does not exist gets, so the route never confirms
+    # that some other attachment is real (REQ-049 §2.4).
+    attachment = attachment_service.get_attachment(attachment_id, ctx.tenant_key)
+    if attachment.category is not AttachmentCategory.TASK:
+        raise AttachmentNotFoundError(attachment_id)
+
     await attachment_service.delete(attachment_id, ctx.tenant_key)
     return Response(status_code=204)

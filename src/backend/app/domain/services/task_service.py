@@ -1034,6 +1034,22 @@ class TaskService:
                 f"Cannot delete task in status '{task.status}'. "
                 f"Only {', '.join(sorted(allowed))} tasks can be deleted.",
             )
+        # The status alone does not say whether this task was ever completed.
+        # ``reopen_task`` puts a **completed** task back to ``pending`` and leaves
+        # ``photo_refs`` in place, so without this line a reopened task is deletable
+        # while carrying the photographic record of its completion — and #1393 makes
+        # deletion take those photos with it (dispatched below, and the orphan sweep
+        # would collect them anyway once nothing referenced them).
+        #
+        # The gate's own promise is that a completed task's documentation cannot be
+        # lost this way. ``reopen_task`` was a back door through it; this closes it,
+        # so the promise holds rather than merely reading well. A reopened task that
+        # genuinely should go is cancelled, not deleted.
+        if task.reopened_from_status == "completed":
+            raise ValidationError(
+                "Cannot delete a task that was completed and reopened: it still carries the "
+                "photos and record of that completion. Skip or cancel it instead.",
+            )
         deleted = self._repo.delete_task(key)
         if deleted:
             self._dispatch_photo_deletion(task, tenant_key)

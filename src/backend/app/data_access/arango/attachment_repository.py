@@ -38,6 +38,23 @@ PHOTO_REF_COLLECTIONS: tuple[str, ...] = (
     col.STORAGE_OBSERVATIONS,
 )
 
+#: Every other field anywhere that holds an attachment id, with the collection it
+#: sits on. Scalar or list — the query normalises both.
+#:
+#: These do **not** carry ``photo_refs``, and none of them holds a ``task``-category
+#: attachment today, so on paper the sweep could ignore them. That is the same "on
+#: paper" the six-collection design above refuses to accept: the whole point is that
+#: a destructive query does not rest on a category assumption holding. Checking them
+#: costs one more pass in the collect phase and nothing per candidate.
+#:
+#: ``test_photo_ref_carriers.py`` pins this against the models, so a field added
+#: here or there fails the lane rather than widening what may be deleted.
+ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
+    (col.PLANT_INSTANCES, "cover_photo_ref"),
+    (col.PEST_IMAGE_CONTRIBUTIONS, "attachment_id"),
+    (col.PESTS, "reference_image_refs"),
+)
+
 
 class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRepository):
     """ArangoDB-backed repository for ``attachments``."""
@@ -325,19 +342,48 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         through ``AttachmentService``, which is tenant-scoped and therefore gets the
         row's own ``tenant_key`` back from here.
         """
-        references = ",\n".join(
-            f"          LENGTH(FOR d IN @@ref_col_{index} FILTER att._key IN (d.photo_refs || []) LIMIT 1 RETURN 1)"
+        # One pass over each carrier, not one per candidate attachment.
+        #
+        # The first version asked, for every candidate, ``att._key IN d.photo_refs``
+        # inside six subqueries. Nothing indexes ``photo_refs``, so each of those
+        # scanned its collection to completion — and for an orphan, the case with no
+        # match anywhere, all six ran in full. That is O(candidates x documents), and
+        # the outer ``LIMIT`` could not prune it because the reference filter runs
+        # first: a few thousand task photos against tens of thousands of tasks and
+        # plant instances is hundreds of millions of document reads a night.
+        #
+        # Collecting the referenced ids once makes it O(N + M).
+        parts = [
+            f"          (FOR d IN @@ref_col_{index} RETURN d.photo_refs || [])"
             for index in range(len(PHOTO_REF_COLLECTIONS))
-        )
+        ]
+        # ``IS_ARRAY`` so one expression serves both a list field and a scalar one.
+        # The field name is interpolated rather than bound because AQL binds
+        # collections (``@@``) and values (``@``), not attribute names; every name
+        # comes from the module-level tuple above, never from a caller.
+        parts += [
+            f"          (FOR d IN @@extra_col_{index} "
+            f"RETURN IS_ARRAY(d.{field}) ? d.{field} : (d.{field} == null ? [] : [d.{field}]))"
+            for index, (_collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
+        ]
+        collected = ",\n".join(parts)
         query = f"""
+        LET raw_refs = UNIQUE(FLATTEN([
+{collected}
+        ], 2))
+        // ``photo_refs`` is a list of attachment ids (NFR-013 §2.2 / AC-09), but
+        // ``migrate_photo_refs`` exists because historical rows hold
+        // ``/api/v1/t/{{slug}}/attachments/{{id}}`` URIs or storage keys instead — and
+        // that migration is manual, not scheduled. An installation that has not run
+        // it would otherwise have its referenced photos read as orphans and deleted.
+        // Taking the last path segment as well costs one pass and removes the
+        // dependency on an unrun migration.
+        LET referenced = UNION_DISTINCT(raw_refs, (FOR ref IN raw_refs RETURN LAST(SPLIT(ref, "/"))))
         FOR att IN @@collection
           FILTER att.category == @category
             AND att.created_at != null
             AND att.created_at < @cutoff
-          LET reference_count = SUM([
-{references}
-          ])
-          FILTER reference_count == 0
+            AND att._key NOT IN referenced
           SORT att.created_at ASC
           LIMIT @limit
           RETURN att
@@ -350,6 +396,8 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         }
         for index, collection in enumerate(PHOTO_REF_COLLECTIONS):
             bind_vars[f"@ref_col_{index}"] = collection
+        for index, (collection, _field) in enumerate(ATTACHMENT_REF_FIELDS):
+            bind_vars[f"@extra_col_{index}"] = collection
 
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Attachment(**self._from_doc(doc)) for doc in cursor]

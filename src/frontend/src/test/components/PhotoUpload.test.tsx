@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -42,6 +43,34 @@ function blobResponse() {
   return HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
     headers: { 'Content-Type': 'image/jpeg' },
   });
+}
+
+/**
+ * `photoRefs` fed back from `onChange`, as the real caller's form state does.
+ *
+ * Needed because a removal's behaviour depends on whether the id was uploaded in
+ * this session, so a test has to be able to upload *and then* remove against the
+ * same mounted component. Re-rendering by hand loses the Redux provider, and a
+ * fixed prop cannot express "the list the user just changed".
+ */
+function Harness({
+  initial,
+  onChange,
+}: {
+  initial: string[];
+  onChange?: (refs: string[]) => void;
+}) {
+  const [refs, setRefs] = useState<string[]>(initial);
+  return (
+    <PhotoUpload
+      taskKey="tk1"
+      photoRefs={refs}
+      onChange={(next) => {
+        setRefs(next);
+        onChange?.(next);
+      }}
+    />
+  );
 }
 
 describe('PhotoUpload (REQ-006 — task photo upload)', () => {
@@ -129,18 +158,33 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
   /**
    * Removing a photo (#1393).
    *
-   * This used to filter the local array and issue no request — there was no route
-   * to issue one to — so the stored object stayed, counting against the tenant's
-   * storage quota with no surface that reached it for the `task` category. A
-   * control that looked like a delete and was not.
+   * Before this, removal filtered the local array and issued no request — there was
+   * no route to issue one to — so the stored object stayed, counting against the
+   * tenant's quota with no surface that reached it for the `task` category.
    *
-   * `DELETE` on an attachment is the REQ-024 §1a.1 irreversibility boundary and is
-   * granted to **lead** alone, while `CREATE` admits a grower. So a grower can
-   * upload here and cannot remove, and the button has to be absent for them rather
-   * than answering 403 (#1261).
+   * Deleting unconditionally was the over-correction, and it broke two things that
+   * matter more than the leak:
+   *
+   * - a reopened task's completion photos are seeded into `photoRefs` from the
+   *   persisted `task.photo_refs`, so one click destroyed documentation;
+   * - hiding the control from growers (who may not `DELETE`) took away their only
+   *   way to drop a wrong photo before submitting it — so the wrong photo got
+   *   submitted instead.
+   *
+   * The contract is therefore: **de-stage always, destroy only what this session
+   * uploaded, and only for a caller allowed to.** Everything a grower de-stages
+   * becomes unreferenced and is collected by the nightly orphan sweep.
    */
-  describe('removing a staged photo', () => {
-    it('deletes it server-side before dropping it from the list', async () => {
+  describe('removing a photo', () => {
+    async function uploadOne(user: ReturnType<typeof userEvent.setup>) {
+      server.use(
+        http.post('/api/v1/t/:tenant/tasks/:key/photos', () => HttpResponse.json(attachment())),
+      );
+      const input = screen.getByTestId('photo-upload').querySelector('input[type="file"]')!;
+      await user.upload(input as HTMLInputElement, new File(['x'], 'p.jpg', { type: 'image/jpeg' }));
+    }
+
+    it('destroys a photo this session uploaded, before dropping it from the list', async () => {
       const user = userEvent.setup();
       server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
       let deleted: string | null = null;
@@ -152,6 +196,34 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       );
       const onChange = vi.fn();
 
+      // Rendered empty and uploaded here, so the id is *staged* rather than one
+      // the task already carries — which is the whole distinction under test.
+      renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await uploadOne(user);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+
+      await user.click(await screen.findByTestId('photo-remove-0'));
+
+      await waitFor(() => expect(deleted).toBe('att-1'));
+      expect(onChange).toHaveBeenLastCalledWith([]);
+    });
+
+    it('never destroys a photo the task already carried', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      let deleteAttempted = false;
+      server.use(
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () => {
+          deleteAttempted = true;
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      const onChange = vi.fn();
+
+      // Seeded from persisted `task.photo_refs`, the way `TaskDetailPage` does it
+      // for a reopened task: these are the completion record, not staging.
       renderWithProviders(
         <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={onChange} />,
         { store: createStoreWithTenantRole('lead') },
@@ -160,7 +232,34 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       await user.click(await screen.findByTestId('photo-remove-0'));
 
       await waitFor(() => expect(onChange).toHaveBeenCalledWith([]));
-      expect(deleted).toBe('att-1');
+      expect(deleteAttempted).toBe(false);
+    });
+
+    it('lets a grower de-stage, leaving the orphan to the nightly sweep', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      let deleteAttempted = false;
+      server.use(
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () => {
+          deleteAttempted = true;
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      const onChange = vi.fn();
+
+      renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+        store: createStoreWithTenantRole('grower'),
+      });
+      await uploadOne(user);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+
+      // The control is there for them — taking it away meant the wrong photo got
+      // submitted, which is worse than the orphan the sweep collects.
+      await user.click(await screen.findByTestId('photo-remove-0'));
+
+      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith([]));
+      // A grower may not DELETE an attachment (REQ-024 §1a.1), so none is attempted.
+      expect(deleteAttempted).toBe(false);
     });
 
     it('keeps the photo in the list when the delete fails', async () => {
@@ -173,31 +272,19 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       );
       const onChange = vi.fn();
 
-      renderWithProviders(
-        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={onChange} />,
-        { store: createStoreWithTenantRole('lead') },
-      );
+      renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await uploadOne(user);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+      onChange.mockClear();
 
       await user.click(await screen.findByTestId('photo-remove-0'));
 
-      // The whole point of removing *after* the request succeeds: an optimistic
-      // drop would leave the user believing a photo is gone that is still there
-      // and still counted, which is the state this change exists to end.
+      // Removing only after the request succeeds: an optimistic drop would tell the
+      // user a photo is gone while it is still stored and still counted.
       await waitFor(() => expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument());
       expect(onChange).not.toHaveBeenCalled();
-    });
-
-    it('is not offered to a grower, who may upload but not delete', async () => {
-      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
-
-      renderWithProviders(
-        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={vi.fn()} />,
-        { store: createStoreWithTenantRole('grower') },
-      );
-
-      // The read survives — the control is what goes, not the preview.
-      expect(await screen.findByTestId('photo-preview-0')).toBeInTheDocument();
-      expect(screen.queryByTestId('photo-remove-0')).toBeNull();
     });
   });
 });

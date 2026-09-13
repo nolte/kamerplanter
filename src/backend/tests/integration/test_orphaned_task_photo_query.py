@@ -92,6 +92,24 @@ REFERENCED: list[tuple[str, str, dict]] = [
 ]
 
 
+#: The other fields that hold an attachment id, one row each.
+#:
+#: None of these normally holds a ``task``-category attachment — which is exactly
+#: why they are here. The sweep's whole design refuses to rest on "a task-category
+#: row should only ever be referenced by a task", and these cases are that refusal
+#: applied to the three fields review found unchecked: the id is task-category *and*
+#: referenced from one of them, so only an actual check saves it.
+REFERENCED_BY_OTHER_FIELD: list[tuple[str, str, dict]] = [
+    (col.PLANT_INSTANCES, "ref-cover", {"tenant_key": TENANT, "cover_photo_ref": "ref-cover"}),
+    (
+        col.PEST_IMAGE_CONTRIBUTIONS,
+        "ref-pest-image",
+        {"tenant_key": TENANT, "attachment_id": "ref-pest-image"},
+    ),
+    (col.PESTS, "ref-pest-gallery", {"reference_image_refs": ["ref-pest-gallery"]}),
+]
+
+
 @pytest.fixture(scope="module")
 def db():
     client = ArangoClient(hosts=ARANGO_URL)
@@ -106,7 +124,15 @@ def db():
     # breaks the setup instead of demonstrating the defect: measured, the whole
     # module errored rather than failing the one carrier case. A test whose data
     # comes from the code it checks cannot fail the way it is supposed to.
-    for name in (col.ATTACHMENTS, *[collection for collection, _key, _doc in REFERENCED]):
+    # `dict.fromkeys` rather than a set: deduplicated (plant_instances appears in
+    # both lists) while keeping a stable order, so a failure reads the same twice.
+    for name in dict.fromkeys(
+        [
+            col.ATTACHMENTS,
+            *[collection for collection, _key, _doc in REFERENCED],
+            *[collection for collection, _key, _doc in REFERENCED_BY_OTHER_FIELD],
+        ]
+    ):
         database.create_collection(name)
 
     attachments = database.collection(col.ATTACHMENTS)
@@ -136,6 +162,32 @@ def db():
     attachments.insert(_attachment("quota-referenced", created_at=OLD, tenant=QUOTA_TENANT))
     database.collection(col.TASKS).insert(
         {"_key": "quota-task", "tenant_key": QUOTA_TENANT, "photo_refs": ["quota-referenced"]}
+    )
+
+    for collection, key, doc in REFERENCED_BY_OTHER_FIELD:
+        attachments.insert(_attachment(key, created_at=OLD))
+        database.collection(collection).insert({**doc, "_key": f"doc-{key}"})
+
+    # Historical `photo_refs` spellings. `migrate_photo_refs` exists because entries
+    # were once `/api/v1/t/{slug}/attachments/{id}` URIs or storage keys, and that
+    # migration is manual rather than beat-scheduled — so an installation that never
+    # ran it still holds them.
+    attachments.insert(_attachment("ref-by-uri", created_at=OLD))
+    attachments.insert(_attachment("ref-by-storage-key", created_at=OLD))
+    tasks_legacy = database.collection(col.TASKS)
+    tasks_legacy.insert(
+        {
+            "_key": "t-legacy-uri",
+            "tenant_key": TENANT,
+            "photo_refs": [f"/api/v1/t/{TENANT}/attachments/ref-by-uri"],
+        }
+    )
+    tasks_legacy.insert(
+        {
+            "_key": "t-legacy-key",
+            "tenant_key": TENANT,
+            "photo_refs": [f"{TENANT}/task/ref-by-storage-key"],
+        }
     )
 
     # Shapes a real row is in, none of which may be read as a reference.
@@ -188,12 +240,47 @@ class TestWhatTheSweepMustNotTouch:
             "PHOTO_REF_COLLECTIONS is missing it (#1393)"
         )
 
+    @pytest.mark.parametrize(
+        ("collection", "key", "_doc"),
+        REFERENCED_BY_OTHER_FIELD,
+        ids=[row[0] for row in REFERENCED_BY_OTHER_FIELD],
+    )
+    def test_a_photo_referenced_by_another_field_survives(self, repo, collection: str, key: str, _doc: dict):
+        """`cover_photo_ref`, `attachment_id`, `reference_image_refs` (#1424 finding 8).
+
+        These are scalar and list fields outside ``photo_refs``. The row here is
+        deliberately ``category == task`` while being referenced from one of them:
+        if the category assumption ever slips, only the check saves the photo, and
+        that is the assumption this whole design declines to trust.
+        """
+        assert key not in _found(repo), (
+            f"a photo referenced from {collection} was offered for deletion; "
+            "ATTACHMENT_REF_FIELDS is missing that field (#1393)"
+        )
+
     def test_a_young_upload_survives(self, repo):
         """The floor is the whole safety story: every upload is briefly an orphan."""
         assert "young-upload" not in _found(repo)
 
     def test_a_non_task_photo_is_out_of_scope(self, repo):
         assert "diary-photo" not in _found(repo)
+
+    @pytest.mark.parametrize(
+        ("key", "shape"),
+        [
+            ("ref-by-uri", "an /attachments/{id} URI"),
+            ("ref-by-storage-key", "a storage key"),
+        ],
+    )
+    def test_a_legacy_reference_spelling_still_protects_its_photo(self, repo, key: str, shape: str):
+        """The sweep must not depend on a migration nobody ran.
+
+        ``migrate_photo_refs`` normalises these to bare ids, and it is manual — not
+        beat-scheduled. An installation that never ran it would otherwise have every
+        referenced task photo classified as an orphan and deleted, which is the worst
+        possible outcome of a housekeeping job.
+        """
+        assert key not in _found(repo), f"a photo referenced as {shape} was offered for deletion (#1393)"
 
     @pytest.mark.parametrize("shape", ["orphan-empty-refs", "orphan-null-refs", "orphan-no-field"])
     def test_an_absent_photo_refs_list_does_not_crash_the_query(self, repo, shape: str):

@@ -6,11 +6,16 @@ carried outlived it, counting against ``STORAGE_TENANT_QUOTA_MB`` with no surfac
 in the product that reached it for the ``task`` category.
 
 **Why deleting them is safe, and why that argument belongs in a test rather than a
-comment.** A task is deletable only in ``pending``/``skipped``/``dormant`` — a
-completed task's documentation can never be lost this way. That
-status gate is the whole justification, so it is asserted here: if the gate ever
-widens to admit ``completed``, this file goes red and whoever widened it has to
-decide about the photos again, rather than discovering the loss afterwards.
+comment.** A task is deletable only in ``pending``/``skipped``/``dormant``, and —
+since review found the hole — only if it was never completed and reopened. A
+completed task's documentation therefore cannot be lost this way. That gate is the
+whole justification, so it is asserted here: if it ever widens, this file goes red
+and whoever widened it has to decide about the photos again, rather than
+discovering the loss afterwards.
+
+The reopen hole is the reason this paragraph is not just a comment. ``reopen_task``
+puts a completed task back to ``pending`` and leaves ``photo_refs`` in place, so the
+status alone never said what the gate claimed it said.
 
 Asserted on the dispatch, not on the storage backend: the deletion itself is
 `AttachmentService.delete`, which has its own tests. What is new here is that
@@ -170,3 +175,54 @@ class TestTheAllowlistNamesOnlyRealStatuses:
         named = {part.strip().strip('"') for part in line.split("{", 1)[1].rstrip("}").split(",") if part.strip()}
 
         assert "pending" in named and len(named) >= 3
+
+
+class TestATaskThatWasCompletedAndReopenedIsProtected:
+    """The premise of decision 2, which review found false (#1424 finding 1).
+
+    ``reopen_task`` puts a **completed** task back to ``pending`` and leaves
+    ``photo_refs`` in place. The status gate therefore admitted a task carrying the
+    photographic record of its completion, and deleting it destroyed those photos —
+    with or without the dispatch, since the orphan sweep collects whatever the
+    deleted document stopped referencing.
+
+    The gate now reads ``reopened_from_status`` as well, so the promise it makes
+    ("a completed task's documentation cannot be lost this way") is true rather
+    than merely well-phrased.
+    """
+
+    def test_it_cannot_be_deleted(self):
+        service, _repo = _service(_task(status="pending", reopened_from_status="completed"))
+
+        with pytest.raises(ValidationError, match="completed and reopened"):
+            service.delete_task("900001", tenant_key=TENANT)
+
+    def test_its_photos_are_never_dispatched_for_deletion(self):
+        """Asserted separately: a refusal that happened *after* the dispatch would
+        satisfy the test above and still have destroyed the photos."""
+        service, _repo = _service(_task(status="pending", reopened_from_status="completed"))
+
+        with patch("app.tasks.storage_tasks.delete_attachments") as dispatch, pytest.raises(ValidationError):
+            service.delete_task("900001", tenant_key=TENANT)
+
+        dispatch.delay.assert_not_called()
+
+    def test_the_document_itself_survives(self):
+        service, repo = _service(_task(status="pending", reopened_from_status="completed"))
+
+        with pytest.raises(ValidationError):
+            service.delete_task("900001", tenant_key=TENANT)
+
+        assert repo.deleted == []
+
+    def test_a_reopened_skipped_task_is_still_deletable(self):
+        """Only ``completed`` is protected.
+
+        A skipped task was never completed, so its photos are staging rather than a
+        record — widening this to every reopened task would refuse a deletion the
+        user is entitled to, which is the over-rejecting direction (#706).
+        """
+        service, _repo = _service(_task(status="pending", reopened_from_status="skipped"))
+
+        with patch("app.tasks.storage_tasks.delete_attachments"):
+            assert service.delete_task("900001", tenant_key=TENANT) is True

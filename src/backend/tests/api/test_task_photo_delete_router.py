@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.tasks.photo_router import router as photo_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_attachment_service, get_task_service
-from app.common.enums import TenantRole
+from app.common.enums import AttachmentCategory, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.domain.models.tenant_context import TenantContext
@@ -61,6 +61,9 @@ def services():
 
     attachment_service = MagicMock()
     attachment_service.delete = AsyncMock(return_value=True)
+    attachment_service.get_attachment.return_value = SimpleNamespace(
+        key=ATTACHMENT, tenant_key=TENANT, category=AttachmentCategory.TASK
+    )
     return task_service, attachment_service
 
 
@@ -151,4 +154,30 @@ class TestAGrowerIsRefused:
         response = grower_client.delete(_url(OWN_TASK))
 
         assert response.status_code == 403
+        attachment_service.delete.assert_not_awaited()
+
+
+class TestAnAttachmentOfAnotherCategory:
+    """A task-photo route may delete task photos, and nothing else.
+
+    Without the category check this is a second door onto every attachment of the
+    tenant: passing a plant-gallery id here destroys it while bypassing
+    `PlantPhotoService.delete`, the path that also prunes ``plant.photo_refs`` and
+    repairs ``cover_photo_ref``. The gallery would be left with a dangling reference
+    and possibly a cover pointing at nothing.
+
+    Answered 404, not 403: a wrong-category id gets the same answer as one that does
+    not exist, so the route never confirms that some other attachment is real
+    (REQ-049 §2.4).
+    """
+
+    def test_a_plant_photo_is_not_deletable_through_the_task_route(self, client, services):
+        _task_service, attachment_service = services
+        attachment_service.get_attachment.return_value = SimpleNamespace(
+            key=ATTACHMENT, tenant_key=TENANT, category=AttachmentCategory.PLANT
+        )
+
+        response = client.delete(_url(OWN_TASK))
+
+        assert response.status_code == 404
         attachment_service.delete.assert_not_awaited()
