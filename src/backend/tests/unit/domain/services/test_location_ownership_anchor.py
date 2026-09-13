@@ -191,18 +191,42 @@ _ALLOWED: dict[str, str] = {
 #: of hole as the one this sweep exists to close.
 _AQL_TENANT_KEY_READ = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\.tenant_key\b")
 
-#: ``FOR <alias> IN @@<something>location/slot<something>`` — the alias bound to a
-#: locations or slots collection, whatever it is called.
+#: An alias bound to a locations or slots collection, in either spelling AQL offers.
 #:
-#: Name heuristics stop here: ``FOR l IN @@location_col`` gives the document a
-#: one-letter name that no list of plausible names can contain, and
-#: :func:`_holds_location_or_slot` correctly answers "no" for it. Reading the
-#: binding instead of guessing the name closes that by construction, for aliases
-#: nobody has thought of yet.
-_AQL_FOR_BINDING = re.compile(
-    r"\bFOR\s+([A-Za-z_][A-Za-z0-9_]*)\s+IN\s+@@?([A-Za-z_][A-Za-z0-9_]*)",
-    re.IGNORECASE,
+#: Name heuristics stop at ``l``: a one-letter alias is in no list of plausible
+#: names, and :func:`_holds_location_or_slot` correctly answers "no" for it.
+#: Reading what the query binds the alias to closes that for names nobody has
+#: thought of yet.
+#:
+#: **Both forms, because the first version only had the one this repository does
+#: not use.** It matched ``FOR <alias> IN @@<col>`` alone — and ``app/`` contains no
+#: such loop over locations or slots at all; every binding is
+#: ``LET <alias> = … DOCUMENT(@<col>, …)``, usually inside a ternary. Review
+#: measured it: the #1397 defect rewritten as
+#: ``LET l = DOCUMENT(@location_col, …)`` … ``l.tenant_key == @tenant_key`` left
+#: this module entirely green, while the docstring above claimed the mechanism
+#: "closes that by construction". A guard that cannot fire against the shape its
+#: own subject is written in — the failure this sweep exists to catch, one level up.
+_AQL_COLLECTION_BINDINGS = (
+    re.compile(r"\bFOR\s+([A-Za-z_][A-Za-z0-9_]*)\s+IN\s+@@?([A-Za-z_][A-Za-z0-9_]*)", re.IGNORECASE),
+    # ``[^\n]*?`` spans the ternary condition that sits between ``=`` and the call.
+    re.compile(
+        r"\bLET\s+([A-Za-z_][A-Za-z0-9_]*)\s*=[^\n]*?\bDOCUMENT\(\s*@@?([A-Za-z_][A-Za-z0-9_]*)",
+        re.IGNORECASE,
+    ),
 )
+
+
+#: A string constant is scanned only if it reads like a query.
+#:
+#: Without this the sweep reads *every* string in ``app/``, so
+#: ``logger.info("refusing: location.tenant_key mismatch")`` is reported as an
+#: offence — the trap the docstring exclusion was added for, one expression type
+#: further along: prose about the rule read as a breach of it. A log line or error
+#: message naming the forbidden spelling would turn the lane red over a defect that
+#: is not there, and the quickest way to quiet that is to narrow the sweep back to
+#: where it started.
+_LOOKS_LIKE_AQL = re.compile(r"\b(FOR|LET|FILTER|RETURN|INSERT|UPDATE|REMOVE)\s", re.IGNORECASE)
 
 
 def _holds_location_or_slot(identifier: str) -> bool:
@@ -304,11 +328,17 @@ def _ownership_reads(path: pathlib.Path) -> list[str]:
         # comment-in-the-perfect-tense trap this module's own docstring warns about.
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
             body = re.sub(r"//[^\n]*", "", node.value)
+            if not _LOOKS_LIKE_AQL.search(body):
+                continue
             # Aliases this query itself binds to a locations/slots collection count
-            # as location-like however they are spelled, so a one-letter `FOR l IN
-            # @@location_col` is not a way out of the rule.
+            # as location-like however they are spelled, so neither a one-letter
+            # `FOR l IN @@location_col` nor a `LET l = DOCUMENT(@location_col, …)`
+            # is a way out of the rule.
             bound = {
-                alias for alias, collection in _AQL_FOR_BINDING.findall(body) if _holds_location_or_slot(collection)
+                alias
+                for pattern in _AQL_COLLECTION_BINDINGS
+                for alias, collection in pattern.findall(body)
+                if _holds_location_or_slot(collection)
             }
             for match in _AQL_TENANT_KEY_READ.finditer(body):
                 alias = match.group(1)
@@ -380,6 +410,23 @@ _AQL_PROBES: list[tuple[str, bool, str]] = [
         "the same, over slots",
     ),
     (
+        "LET l = DOCUMENT(@location_col, p.location_key) FILTER l.tenant_key == @tenant_key",
+        True,
+        "the binding form this repository actually uses — review measured the sweep green "
+        "against exactly this while its docstring claimed the mechanism closed it",
+    ),
+    (
+        "LET l = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null "
+        "RETURN l.tenant_key == @tenant_key",
+        True,
+        "the same, inside the ternary every real query wraps it in",
+    ),
+    (
+        "LET s = DOCUMENT(@site_col, location.site_key) FILTER s.tenant_key == @tenant_key",
+        False,
+        "an alias bound to the sites collection: that is the anchor, not the defect",
+    ),
+    (
         "location_site.tenant_key == @tenant_key",
         False,
         "the repair: the site the anchor resolves to is where the tenant does live",
@@ -406,7 +453,12 @@ def test_the_aql_branch_sees_what_it_claims_to(aql: str, is_offence: bool, why: 
     until it flags ``location_site`` would report the repair as the defect, and the
     quickest way to silence that is to narrow it back to where it started.
     """
-    bound = {alias for alias, collection in _AQL_FOR_BINDING.findall(aql) if _holds_location_or_slot(collection)}
+    bound = {
+        alias
+        for pattern in _AQL_COLLECTION_BINDINGS
+        for alias, collection in pattern.findall(aql)
+        if _holds_location_or_slot(collection)
+    }
     flagged = [
         match.group(0)
         for match in _AQL_TENANT_KEY_READ.finditer(aql)
@@ -414,3 +466,35 @@ def test_the_aql_branch_sees_what_it_claims_to(aql: str, is_offence: bool, why: 
     ]
 
     assert bool(flagged) is is_offence, f"{aql!r} should {'be flagged' if is_offence else 'be left alone'} — {why}"
+
+
+#: Strings that name the forbidden spelling without being a query.
+#:
+#: The sweep reads string constants, and the first version read *every* one of
+#: them: a log line or error message quoting ``location.tenant_key`` was reported
+#: as an offence — prose about the rule read as a breach of it, the same trap the
+#: docstring exclusion was added for, one expression type further along. A lane
+#: turning red over a defect that is not there invites narrowing the sweep back to
+#: where it started.
+_PROSE_NOT_SCANNED = [
+    "refusing: location.tenant_key mismatch",
+    "the old guard compared location.tenant_key == tenant_key",
+    "slot.tenant_key is persisted empty; use the site anchor",
+]
+
+
+@pytest.mark.parametrize("text", _PROSE_NOT_SCANNED)
+def test_prose_naming_the_forbidden_spelling_is_not_a_query(text: str):
+    assert not _LOOKS_LIKE_AQL.search(text), (
+        f"{text!r} would be scanned as AQL, so a log or error message naming the rule would be reported as breaking it"
+    )
+
+
+def test_a_real_query_is_still_scanned():
+    """The control: a filter narrow enough to exclude prose must not exclude AQL.
+
+    Without this, tightening `_LOOKS_LIKE_AQL` until nothing is scanned would pass
+    every test above and disable the sweep's whole AQL branch.
+    """
+    assert _LOOKS_LIKE_AQL.search("FOR p IN @@col FILTER p.tenant_key == @tenant_key RETURN p")
+    assert _LOOKS_LIKE_AQL.search("LET location = DOCUMENT(@location_col, p.location_key)")
