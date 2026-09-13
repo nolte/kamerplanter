@@ -140,6 +140,11 @@ class TestTheLabelGuardsWalkTheSiteAnchor:
 
             bind_vars = db.aql.bind_vars or {}
             assert bind_vars.get("site_col") == "sites", f"{name} does not bind @site_col"
-            assert "sites" not in (db.aql.query or "").replace("@site_col", ""), (
-                f"{name} interpolates the collection name instead of binding it"
-            )
+            # Comments stripped first. Asserted against the raw text, this passed
+            # only because neither AQL comment happens to contain the word "sites";
+            # one ordinary sentence like "resolved through the sites collection"
+            # would have turned it red with a message naming a defect that is not
+            # there. A check that depends on the wording of a comment is not
+            # checking what it says it checks.
+            body = _strip_comments(db.aql.query or "").replace("@site_col", "")
+            assert "sites" not in body, f"{name} interpolates the collection name instead of binding it"

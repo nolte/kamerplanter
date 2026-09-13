@@ -173,11 +173,51 @@ _ALLOWED: dict[str, str] = {
 }
 
 
-#: The same read, spelled in AQL. Anchored on a word boundary so the repaired
-#: expressions — ``location_site.tenant_key``, ``slot_site.tenant_key`` — do not
-#: match: those name the *site* document the anchor resolves to, which is exactly
-#: where the tenant does live.
-_AQL_OWNERSHIP_READ = re.compile(r"\b(?:location|loc|slot)\.tenant_key\s*(?:==|!=)")
+#: Any ``<identifier>.tenant_key`` in AQL. Which of them is an offence is decided
+#: by :func:`_holds_location_or_slot` below, not by the pattern.
+#:
+#: Deliberately **not** a list of three literal names, which was the first version
+#: and had three blind spots, each verified:
+#:
+#: * ``slot_location.tenant_key`` — an alias *this rule's own repair* introduces,
+#:   holding a ``Location``. ``_`` is a word character, so ``\b`` failed before the
+#:   embedded ``location`` and the read went unseen.
+#: * ``LET t = location.tenant_key`` — a bare read. The Python branch of this sweep
+#:   flags one; the AQL branch did not, because it demanded a comparison operator
+#:   immediately after.
+#: * ``l.tenant_key`` — any alias outside the three literal names.
+#:
+#: A name list that cannot name the aliases in the file it guards is the same shape
+#: of hole as the one this sweep exists to close.
+_AQL_TENANT_KEY_READ = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\.tenant_key\b")
+
+#: ``FOR <alias> IN @@<something>location/slot<something>`` — the alias bound to a
+#: locations or slots collection, whatever it is called.
+#:
+#: Name heuristics stop here: ``FOR l IN @@location_col`` gives the document a
+#: one-letter name that no list of plausible names can contain, and
+#: :func:`_holds_location_or_slot` correctly answers "no" for it. Reading the
+#: binding instead of guessing the name closes that by construction, for aliases
+#: nobody has thought of yet.
+_AQL_FOR_BINDING = re.compile(
+    r"\bFOR\s+([A-Za-z_][A-Za-z0-9_]*)\s+IN\s+@@?([A-Za-z_][A-Za-z0-9_]*)",
+    re.IGNORECASE,
+)
+
+
+def _holds_location_or_slot(identifier: str) -> bool:
+    """Whether an AQL alias plausibly holds a ``Location`` or ``Slot`` document.
+
+    Decided on the name's components rather than on the whole string, so
+    ``slot_location`` is caught and ``location_site`` is not. The trailing component
+    says what the variable holds: ``location_site`` and ``slot_site`` name the
+    **site** the anchor resolves to, which is exactly where the tenant does live, so
+    reading ``tenant_key`` off them is the repair rather than the defect.
+    """
+    parts = identifier.lower().split("_")
+    if parts[-1] == "site":
+        return False
+    return any(part in {"location", "loc", "slot"} for part in parts)
 
 
 #: Names a local variable holding a ``Location`` or ``Slot`` plausibly goes by.
@@ -264,8 +304,16 @@ def _ownership_reads(path: pathlib.Path) -> list[str]:
         # comment-in-the-perfect-tense trap this module's own docstring warns about.
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
             body = re.sub(r"//[^\n]*", "", node.value)
-            for match in re.finditer(_AQL_OWNERSHIP_READ, body):
-                hits.append(f"{path.name}:{node.lineno} (AQL) {match.group(0)}")
+            # Aliases this query itself binds to a locations/slots collection count
+            # as location-like however they are spelled, so a one-letter `FOR l IN
+            # @@location_col` is not a way out of the rule.
+            bound = {
+                alias for alias, collection in _AQL_FOR_BINDING.findall(body) if _holds_location_or_slot(collection)
+            }
+            for match in _AQL_TENANT_KEY_READ.finditer(body):
+                alias = match.group(1)
+                if _holds_location_or_slot(alias) or alias in bound:
+                    hits.append(f"{path.name}:{node.lineno} (AQL) {match.group(0)}")
     return hits
 
 
@@ -302,3 +350,67 @@ def test_every_allowlisted_file_still_contains_what_it_excuses(relative: str):
     assert _EXEMPTION_STILL_APPLIES[relative](path), (
         f"{relative} no longer contains what its entry excuses; drop it ({_ALLOWED[relative]})"
     )
+
+
+#: Every AQL spelling the sweep must see, and every one it must leave alone.
+#:
+#: A table rather than prose, because the AQL branch shipped with three blind spots
+#: that all looked covered: the first version matched three literal names followed
+#: by a comparison operator, and review found it could not see ``slot_location``
+#: (an alias the repair itself introduces, holding a ``Location``), a bare
+#: ``LET t = location.tenant_key``, or any alias the query binds itself.
+_AQL_PROBES: list[tuple[str, bool, str]] = [
+    ("location.tenant_key == @tenant_key", True, "the plain form"),
+    ("slot.tenant_key != @tenant_key", True, "the slot form"),
+    (
+        "slot_location.tenant_key == @tenant_key",
+        True,
+        "an alias holding a Location, spelled with an underscore — the blind spot the "
+        "repair's own `slot_location` variable would have walked into",
+    ),
+    ("LET t = location.tenant_key", True, "a bare read, no comparison operator"),
+    (
+        "FOR l IN @@location_col FILTER l.tenant_key == @tenant_key",
+        True,
+        "an alias no name list can guess, bound to the locations collection",
+    ),
+    (
+        "FOR s IN @@slot_col FILTER s.tenant_key != @tenant_key",
+        True,
+        "the same, over slots",
+    ),
+    (
+        "location_site.tenant_key == @tenant_key",
+        False,
+        "the repair: the site the anchor resolves to is where the tenant does live",
+    ),
+    ("slot_site.tenant_key == @tenant_key", False, "the same, for a slot's site"),
+    (
+        "FOR p IN @@col FILTER p.tenant_key == @tenant_key",
+        False,
+        "an ordinary tenant-scoped filter on a collection that does carry the key",
+    ),
+    (
+        "FOR x IN @@site_col FILTER x.tenant_key == @tenant_key",
+        False,
+        "a site alias bound to the sites collection",
+    ),
+]
+
+
+@pytest.mark.parametrize(("aql", "is_offence", "why"), _AQL_PROBES)
+def test_the_aql_branch_sees_what_it_claims_to(aql: str, is_offence: bool, why: str):
+    """Both directions, per spelling.
+
+    The negative rows carry as much weight as the positive ones: a sweep widened
+    until it flags ``location_site`` would report the repair as the defect, and the
+    quickest way to silence that is to narrow it back to where it started.
+    """
+    bound = {alias for alias, collection in _AQL_FOR_BINDING.findall(aql) if _holds_location_or_slot(collection)}
+    flagged = [
+        match.group(0)
+        for match in _AQL_TENANT_KEY_READ.finditer(aql)
+        if _holds_location_or_slot(match.group(1)) or match.group(1) in bound
+    ]
+
+    assert bool(flagged) is is_offence, f"{aql!r} should {'be flagged' if is_offence else 'be left alone'} — {why}"
