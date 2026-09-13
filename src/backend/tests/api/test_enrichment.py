@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user, require_platform_admin
-from app.common.dependencies import get_enrichment_service
+from app.common.dependencies import get_enrichment_service, get_tenant_service
 from app.common.enums import AuthType, SyncStatus, SyncTrigger
 from app.domain.models.enrichment import (
     ExternalMapping,
@@ -252,9 +252,19 @@ class TestTheWritesAreRefusedWithoutPlatformAdmin:
             app.dependency_overrides[get_enrichment_service] = lambda: mock_service
             app.dependency_overrides[get_current_user] = lambda: _mock_user
             app.dependency_overrides.pop(require_platform_admin, None)
+            # `require_platform_admin` resolves a real `TenantService`, which without
+            # this double reaches for a database and turns every refusal below into a
+            # 500. The assertion used to accept that 500 — and an ungated route
+            # answers 500 here too, so it certified nothing (NFR-018 §1). The double
+            # reports "no platform membership", which is the caller #1402 describes,
+            # and lets the gate answer the 403 the assertion can now demand exactly.
+            tenant_service = MagicMock()
+            tenant_service.get_membership.return_value = None
+            app.dependency_overrides[get_tenant_service] = lambda: tenant_service
             yield TestClient(app, raise_server_exceptions=False)
             app.dependency_overrides.pop(get_enrichment_service, None)
             app.dependency_overrides.pop(get_current_user, None)
+            app.dependency_overrides.pop(get_tenant_service, None)
 
     @pytest.mark.parametrize(
         ("method", "path"),
@@ -262,16 +272,18 @@ class TestTheWritesAreRefusedWithoutPlatformAdmin:
             ("POST", "/api/v1/enrichment/sources/gbif/sync"),
             ("POST", "/api/v1/enrichment/species/sp1/enrichments/e1/accept"),
             ("POST", "/api/v1/enrichment/species/sp1/enrichments/e1/reject"),
+            # The fourth gated write, absent from this list until review round 1.
+            # A sweep that misses one route is how the router half-drifts back.
+            ("POST", "/api/v1/enrichment/search"),
         ],
     )
     def test_a_plain_member_is_refused(self, member_client, method: str, path: str):
         response = member_client.request(method, path, json={})
 
-        assert response.status_code in (401, 403, 500), (
+        assert response.status_code == 403, (
             f"{method} {path} answered {response.status_code} for a caller with no platform-admin "
             "membership; the gate from #1402 is gone or inert"
         )
-        assert response.status_code != 200
 
     def test_the_reads_stay_open_to_a_member(self, member_client, mock_service):
         """The control, and the #706 direction.

@@ -45,8 +45,15 @@ def require_owned_plant(
 ) -> PlantInstance:
     """Resolve the plant and refuse it unless it belongs to the caller's active tenant.
 
-    Returns the plant so a handler that needs it does not fetch it twice; most
-    handlers ignore the return value and take it purely as a gate.
+    Returns the plant, but **this costs a fetch rather than saving one**, and the
+    docstring claimed the opposite until review round 1 of #1421. It is mounted as a
+    router-level dependency, so its return value reaches no handler signature: every
+    one of the eleven operations that needs the plant loads it again. The trade is
+    deliberate — one lookup per request buys a gate that a newly added route on
+    either router inherits without opting in, which is the #948 failure this whole
+    issue is about. A handler that wants the saved fetch can take
+    `plant: PlantInstance = Depends(require_owned_plant)` in its own signature; FastAPI
+    caches the dependency per request, so that costs nothing extra.
 
     **Fails closed as 404, not 403** — `verify_tenant_ownership` raises
     `NotFoundError` for a foreign key. A 403 would confirm that the key names a real

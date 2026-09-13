@@ -262,7 +262,13 @@ _AUTHORISATION: frozenset[str] = frozenset(
 )
 
 #: The subset above that gates on MORE than "is authenticated" or "is a member".
-_ROLE_GATES: frozenset[str] = frozenset(
+#:
+#: Named for that definition rather than for "role", which it is not: the set also
+#: holds `require_owned_plant`, and ownership is a different axis from rank. The
+#: earlier name `_ROLE_GATES` invited the reading that a route carrying any member
+#: here has been rank-checked — `POST /pflanzen/{key}/phases/transition` has not,
+#: and a tenant viewer can still drive it (#1422).
+_MORE_THAN_MEMBERSHIP: frozenset[str] = frozenset(
     {
         "require_permission.<locals>._check",
         "require_tenant_role.<locals>._check",
@@ -402,13 +408,13 @@ def _resolves_bare_tenant_context(operation: Operation) -> bool:
     file exists to catch, relocated one level up.
     """
     names = set(_authorisation_chain(operation))
-    return "get_current_tenant" in names and not (names & _ROLE_GATES)
+    return "get_current_tenant" in names and not (names & _MORE_THAN_MEMBERSHIP)
 
 
 def _resolves_bare_user(operation: Operation) -> bool:
     """Authenticated, with no role or scope gate above it."""
     names = set(_authorisation_chain(operation))
-    return "get_current_user" in names and not (names & _ROLE_GATES)
+    return "get_current_user" in names and not (names & _MORE_THAN_MEMBERSHIP)
 
 
 #: THE FOURTH QUESTION (#1402 group B): installation-wide master data.
@@ -937,7 +943,7 @@ class TestTheClassificationItselfCannotDrift:
         assert not overlap, f"classified as both: {sorted(overlap)}"
 
     def test_role_gates_are_a_subset_of_authorisation(self):
-        assert _ROLE_GATES <= _AUTHORISATION
+        assert _MORE_THAN_MEMBERSHIP <= _AUTHORISATION
 
     def test_every_non_authorisation_reason_is_written_out(self):
         for name, reason in _NOT_AUTHORISATION.items():

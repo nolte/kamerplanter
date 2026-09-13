@@ -92,4 +92,64 @@ describe('global client: X-Active-Tenant', () => {
     await tenantClient.get('/header-probe');
     expect(seen).toBeNull();
   });
+
+  /**
+   * #1402 group C changed what a missing header means for the plant-scoped global
+   * routes. `require_owned_plant` refuses an unresolved tenant outright, so a
+   * request fired during the auth-bootstrap window no longer merely narrows the
+   * answer to personal scope — it 404s on the caller's **own** plant.
+   *
+   * These two cases pin the pattern, not just the behaviour, because the first
+   * version of it was written against `/pflanzen/...` — the frontend route — and
+   * matched no request the client ever sends. A path guard that matches nothing
+   * looks identical to one that works.
+   */
+  describe('paths whose tenant header became load-bearing (#1402 C)', () => {
+    it(
+      'waits out the bootstrap window for a plant-scoped phase route',
+      async () => {
+        server.use(
+          http.get('/api/v1/plant-instances/p1/phases/current', ({ request }) => {
+            seen = request.headers.get(ACTIVE_TENANT_HEADER);
+            return HttpResponse.json({ ok: true });
+          }),
+        );
+        setActiveTenantSlug(null);
+
+        // Started before the slug exists: the interceptor must hold it rather than
+        // send a request the backend now refuses.
+        // Set on a macrotask, not synchronously. The interceptor runs on a
+        // microtask, so a synchronous `setActiveTenantSlug` here would already have
+        // landed by the time it reads the slug — the bootstrap window would never be
+        // open and this test would pass with the wait deleted. It did, in the first
+        // version of this file.
+        const inFlight = client.get('/plant-instances/p1/phases/current');
+        setTimeout(() => setActiveTenantSlug('garten-b'), 150);
+        await inFlight;
+
+        expect(seen).toBe('garten-b');
+      },
+      3000,
+    );
+
+    it(
+      'waits for a care-reminder route as well',
+      async () => {
+        server.use(
+          http.get('/api/v1/care-reminders/plants/p1/history', ({ request }) => {
+            seen = request.headers.get(ACTIVE_TENANT_HEADER);
+            return HttpResponse.json([]);
+          }),
+        );
+        setActiveTenantSlug(null);
+
+        const inFlight = client.get('/care-reminders/plants/p1/history');
+        setTimeout(() => setActiveTenantSlug('garten-b'), 150);
+        await inFlight;
+
+        expect(seen).toBe('garten-b');
+      },
+      3000,
+    );
+  });
 });
