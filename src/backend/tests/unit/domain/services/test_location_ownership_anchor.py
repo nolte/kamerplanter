@@ -19,6 +19,7 @@ Two things are asserted here, and the second is the one that matters in a year:
 
 import ast
 import pathlib
+import re
 from collections.abc import Callable
 
 import pytest
@@ -169,11 +170,14 @@ _APP_ROOT = pathlib.Path(__file__).resolve().parents[4] / "app"
 #: contains the pattern fails below, so this cannot outlive its subject.
 _ALLOWED: dict[str, str] = {
     "domain/models/site.py": "declares the field; the model is where it lives",
-    "data_access/arango/plant_instance_repository.py": (
-        "three AQL projections that null a label instead of deciding ownership — the C-group "
-        "of #1397, tracked and repaired separately because the fix is a different shape"
-    ),
 }
+
+
+#: The same read, spelled in AQL. Anchored on a word boundary so the repaired
+#: expressions — ``location_site.tenant_key``, ``slot_site.tenant_key`` — do not
+#: match: those name the *site* document the anchor resolves to, which is exactly
+#: where the tenant does live.
+_AQL_OWNERSHIP_READ = re.compile(r"\b(?:location|loc|slot)\.tenant_key\s*(?:==|!=)")
 
 
 #: Names a local variable holding a ``Location`` or ``Slot`` plausibly goes by.
@@ -190,9 +194,6 @@ _LOCATION_LIKE = {"location", "loc", "slot"}
 #: the three projections the entry names would have left the guard green.
 _EXEMPTION_STILL_APPLIES: dict[str, Callable[[pathlib.Path], bool]] = {
     "domain/models/site.py": lambda p: "tenant_key: str" in p.read_text(),
-    "data_access/arango/plant_instance_repository.py": (
-        lambda p: "location.tenant_key == @tenant_key" in p.read_text()
-    ),
 }
 
 
@@ -212,6 +213,22 @@ def _ownership_reads(path: pathlib.Path) -> list[str]:
     class is eleven sites, not the nine the first pass found.
     """
     tree = ast.parse(path.read_text())
+    # Docstrings are prose, and in this repository the prose about this very rule
+    # quotes the broken expression: three modules explain why
+    # ``location.tenant_key`` must not be compared. Scanning them reported the
+    # documentation of the fix as the defect — the comment-in-the-perfect-tense
+    # trap named in this module's own docstring, walked into while extending the
+    # sweep to AQL. Collected by identity rather than by position so a module,
+    # class and function docstring are all excluded the same way.
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+        and isinstance(node.body[0].value.value, str)
+    }
     hits = []
     for node in ast.walk(tree):
         # `location.tenant_key`
@@ -232,6 +249,23 @@ def _ownership_reads(path: pathlib.Path) -> list[str]:
             and node.args[1].value == "tenant_key"
         ):
             hits.append(f"{path.name}:{node.lineno} {ast.unparse(node)}")
+            continue
+        # AQL in a string constant. Attribute analysis cannot see inside a query
+        # string, which is why the C-group of #1397 — three label projections
+        # comparing ``location.tenant_key == @tenant_key`` — sat behind an
+        # allowlist entry instead of being caught here. Removing that entry alone
+        # changed nothing: measured, the sweep stayed green with the old
+        # projection restored. This form is what makes the exemption's removal
+        # mean something.
+        #
+        # ``//`` comments are stripped first. Both repaired queries explain the
+        # rule in a comment that names the old expression, and matching those
+        # would report the documentation of the fix as the defect — the
+        # comment-in-the-perfect-tense trap this module's own docstring warns about.
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
+            body = re.sub(r"//[^\n]*", "", node.value)
+            for match in re.finditer(_AQL_OWNERSHIP_READ, body):
+                hits.append(f"{path.name}:{node.lineno} (AQL) {match.group(0)}")
     return hits
 
 
