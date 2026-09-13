@@ -146,3 +146,13 @@ class IAttachmentRepository(ABC):
         not only ``tasks`` — the result feeds a deletion, and a reference missed is
         a photo destroyed.
         """
+
+    @abstractmethod
+    def unreferenced_among(self, attachment_ids: list[str], tenant_key: str) -> list[str]:
+        """Which of *attachment_ids* nothing in the tenant links any more.
+
+        Implementations MUST check every carrier, not only the one the caller has in
+        mind: ``AttachmentService.upload`` deduplicates by sha256 across the whole
+        tenant and across categories, so one stored object can be referenced from a
+        second task or a plant gallery.
+        """

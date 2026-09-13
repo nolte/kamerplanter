@@ -56,20 +56,45 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
 )
 
 
-def aql_normalise_photo_ref(expression: str) -> str:
-    """The AQL that turns one ``photo_refs`` entry into an attachment id.
+def aql_photo_ref_candidates(expression: str) -> str:
+    """AQL yielding **every** id one ``photo_refs`` entry might denote.
 
-    Exposed as a function, and used by both the sweep and its test, so the test
-    cannot certify a transcription of this logic instead of the logic. A guard that
-    re-implements what it checks is how the previous version of this rule shipped
-    with a hole in it.
+    A set, not a single answer, and that is the whole design. This feeds a query
+    whose output gets **deleted**, so the cost of the two directions is not
+    symmetric: protecting an id nothing turns out to reference leaves one photo
+    uncollected until someone removes the stale reference, while failing to protect
+    one destroys a photo a task still shows. The set is therefore deliberately a
+    superset of what ``migrate_photo_refs.normalize_photo_ref`` resolves to.
 
-    Mirrors ``app.migrations.migrate_photo_refs.normalize_photo_ref``:
-    last path segment, then the extension, then a ``_t{size}`` thumbnail suffix.
-    ``tests/integration/test_aql_reference_normalisation.py`` runs both over the same
-    inputs and requires the same answers.
+    Trying to match that function exactly is what the previous two versions did, and
+    both were wrong in a way that deleted photos:
+
+    * the first took ``LAST(SPLIT(ref, "/"))`` and stopped, so a real storage key
+      ``…/{ulid}.{ext}`` yielded ``{ulid}.{ext}`` and matched no document key;
+    * the second stripped the extension and a ``_t{size}`` suffix, which fixed that
+      and then produced the **empty string** for a reference with a trailing slash —
+      unprotected again — while also disagreeing with ``normalize_photo_ref`` on an
+      API URI carrying a thumbnail suffix.
+
+    The candidates, all kept:
+
+    1. the entry verbatim (it may already be an attachment id);
+    2. the last **non-empty** path segment (tolerates a trailing slash);
+    3. that with the extension dropped;
+    4. that with a ``_t{size}`` thumbnail suffix dropped as well.
+
+    ``tests/integration/test_aql_reference_normalisation.py`` asserts that whatever
+    ``normalize_photo_ref`` answers is always among these, which is the property that
+    matters, and that the set never grows to something that would swallow an
+    unrelated id.
     """
-    return f'REGEX_REPLACE(FIRST(SPLIT(LAST(SPLIT({expression}, "/")), ".")), "_t[0-9]+$", "")'
+    # `` (FOR s IN SPLIT(x, "/") FILTER s != "" RETURN s) `` rather than ``LAST``:
+    # ``LAST(SPLIT("a/b/", "/"))`` is the empty string, and an empty candidate
+    # protects nothing.
+    segments = f'(FOR segment IN SPLIT({expression}, "/") FILTER segment != "" RETURN segment)'
+    tail = f"LAST({segments})"
+    stem = f'FIRST(SPLIT({tail}, "."))'
+    return f'[{expression}, {tail}, {stem}, REGEX_REPLACE({stem}, "_t[0-9]+$", "")]'
 
 
 class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRepository):
@@ -335,6 +360,83 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         total = int(next(count_cursor, 0) or 0)
         return items, total
 
+    def _aql_referenced_prelude(self) -> str:
+        """AQL that binds ``referenced`` to every id anything in the tenant links.
+
+        Shared by the orphan sweep and :meth:`unreferenced_among`, because the two
+        must agree about what "referenced" means. They did not when the eager
+        deletion was written: ``TaskService.delete_task`` forwarded every id in the
+        task's ``photo_refs`` verbatim, and ``AttachmentService.upload``
+        **deduplicates by sha256 across the whole tenant and across categories** — so
+        a photo whose bytes were also uploaded to another task, or to a plant
+        gallery, was destroyed with the task and left a dangling reference behind.
+
+        ``photo_refs`` entries may be ids, API URIs or storage keys (``migrate_photo_refs``
+        exists for that, and is manual), so every candidate spelling is resolved
+        through :func:`aql_photo_ref_candidates`.
+        """
+        parts = [
+            f"          (FOR d IN @@ref_col_{index} RETURN d.photo_refs || [])"
+            for index in range(len(PHOTO_REF_COLLECTIONS))
+        ]
+        # ``IS_ARRAY`` so one expression serves both a list field and a scalar one.
+        # The field name is interpolated rather than bound because AQL binds
+        # collections (``@@``) and values (``@``), not attribute names; every name
+        # comes from the module-level tuple above, never from a caller.
+        parts += [
+            f"          (FOR d IN @@extra_col_{index} "
+            f"RETURN IS_ARRAY(d.{field}) ? d.{field} : (d.{field} == null ? [] : [d.{field}]))"
+            for index, (_collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
+        ]
+        collected = ",\n".join(parts)
+        return f"""        LET raw_refs = UNIQUE(FLATTEN([
+{collected}
+        ], 2))
+        LET referenced = UNIQUE(FLATTEN([
+          raw_refs,
+          (FOR ref IN raw_refs RETURN {aql_photo_ref_candidates("ref")})
+        ], 2))"""
+
+    def _reference_bind_vars(self) -> dict[str, Any]:
+        """The collection bindings :meth:`_aql_referenced_prelude` needs."""
+        bind_vars: dict[str, Any] = {}
+        for index, collection in enumerate(PHOTO_REF_COLLECTIONS):
+            bind_vars[f"@ref_col_{index}"] = collection
+        for index, (collection, _field) in enumerate(ATTACHMENT_REF_FIELDS):
+            bind_vars[f"@extra_col_{index}"] = collection
+        return bind_vars
+
+    def unreferenced_among(self, attachment_ids: list[str], tenant_key: str) -> list[str]:
+        """Which of *attachment_ids* nothing in the tenant links any more (#1393).
+
+        Asked before the eager deletion that follows a task deletion. Deleting a
+        task's ``photo_refs`` outright destroys a photo that sha256 deduplication
+        gave to a second task or a plant gallery as well — the reference survives,
+        the bytes do not.
+
+        Returns the ids safe to delete. An id nothing references is safe by
+        definition; anything still linked is left to whoever owns that link, and the
+        nightly sweep picks it up if that link goes away later.
+        """
+        if not attachment_ids:
+            return []
+        query = f"""
+{self._aql_referenced_prelude()}
+        FOR att IN @@collection
+          FILTER att._key IN @candidates
+            AND att.tenant_key == @tenant_key
+            AND att._key NOT IN referenced
+          RETURN att._key
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "candidates": list(attachment_ids),
+            "tenant_key": tenant_key,
+            **self._reference_bind_vars(),
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return list(cursor)
+
     def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
         """Task-category attachments older than *older_than* that nothing references.
 
@@ -369,46 +471,8 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # plant instances is hundreds of millions of document reads a night.
         #
         # Collecting the referenced ids once makes it O(N + M).
-        parts = [
-            f"          (FOR d IN @@ref_col_{index} RETURN d.photo_refs || [])"
-            for index in range(len(PHOTO_REF_COLLECTIONS))
-        ]
-        # ``IS_ARRAY`` so one expression serves both a list field and a scalar one.
-        # The field name is interpolated rather than bound because AQL binds
-        # collections (``@@``) and values (``@``), not attribute names; every name
-        # comes from the module-level tuple above, never from a caller.
-        parts += [
-            f"          (FOR d IN @@extra_col_{index} "
-            f"RETURN IS_ARRAY(d.{field}) ? d.{field} : (d.{field} == null ? [] : [d.{field}]))"
-            for index, (_collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
-        ]
-        collected = ",\n".join(parts)
         query = f"""
-        LET raw_refs = UNIQUE(FLATTEN([
-{collected}
-        ], 2))
-        // ``photo_refs`` is a list of attachment ids (NFR-013 §2.2 / AC-09), but
-        // ``migrate_photo_refs`` exists because historical rows hold
-        // ``/api/v1/t/{{slug}}/attachments/{{id}}`` URIs or storage keys instead — and
-        // that migration is manual, not scheduled. An installation that has not run
-        // it would otherwise have its referenced photos read as orphans and deleted.
-        //
-        // This mirrors ``app/migrations/migrate_photo_refs.normalize_photo_ref``
-        // step by step, and it has to: the first version took the last path segment
-        // and stopped there, while the real writer emits
-        // ``t/{{tenant}}/{{cat}}/{{yyyy}}/{{mm}}/{{ulid}}.{{ext}}``. That left
-        // ``{{ulid}}.{{ext}}``, which is not the document key — so a referenced photo
-        // was classified as an orphan and destroyed, by the very line whose comment
-        // promised it would not be. ``test_aql_reference_normalisation.py`` pins the
-        // two against each other so they cannot drift again.
-        //
-        //   1. last path segment            ->  LAST(SPLIT(ref, "/"))
-        //   2. drop the extension           ->  FIRST(SPLIT(tail, "."))
-        //   3. drop a _t{{size}} thumbnail  ->  REGEX_REPLACE(stem, "_t[0-9]+$", "")
-        LET referenced = UNION_DISTINCT(
-          raw_refs,
-          (FOR ref IN raw_refs RETURN {aql_normalise_photo_ref("ref")})
-        )
+{self._aql_referenced_prelude()}
         FOR att IN @@collection
           FILTER att.category == @category
             AND att.created_at != null
@@ -424,10 +488,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             "cutoff": older_than.isoformat(),
             "limit": int(limit),
         }
-        for index, collection in enumerate(PHOTO_REF_COLLECTIONS):
-            bind_vars[f"@ref_col_{index}"] = collection
-        for index, (collection, _field) in enumerate(ATTACHMENT_REF_FIELDS):
-            bind_vars[f"@extra_col_{index}"] = collection
+        bind_vars.update(self._reference_bind_vars())
 
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Attachment(**self._from_doc(doc)) for doc in cursor]

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.data_access.arango.attachment_repository import aql_normalise_photo_ref
+from app.data_access.arango.attachment_repository import aql_photo_ref_candidates
 from app.migrations.migrate_photo_refs import normalize_photo_ref
 
 ARANGO_URL = "http://localhost:8529"
@@ -64,6 +64,12 @@ REFERENCES: list[tuple[str, str]] = [
     (f"t/mein-garten/task/2026/01/{ULID}.webp", "the same with another extension"),
     (f"t/mein-garten/task/2026/01/{ULID}_t320.webp", "a thumbnail rendition of it"),
     (f"s3://bucket/t/mein-garten/task/2026/01/{ULID}.jpg", "an s3 URL"),
+    # The three shapes review found missing, each of which the previous
+    # single-answer normaliser got wrong — the trailing slash destructively, by
+    # resolving to the empty string.
+    (f"/api/v1/t/mein-garten/attachments/{ULID}_t320.webp", "an API URI carrying a thumbnail suffix"),
+    (f"t/mein-garten/task/2026/01/{ULID}.jpg?v=2", "a key with a query string"),
+    (f"t/mein-garten/task/2026/01/{ULID}.jpg/", "a key with a trailing slash"),
 ]
 
 
@@ -79,29 +85,60 @@ def db():
     client.close()
 
 
-def _normalise_in_aql(db, reference: str) -> str:
+def _candidates_in_aql(db, reference: str) -> list[str]:
     """Run the sweep's own expression over one reference."""
-    query = f"RETURN {aql_normalise_photo_ref('@ref')}"
+    query = f"RETURN {aql_photo_ref_candidates('@ref')}"
     cursor = db.aql.execute(query, bind_vars={"ref": reference})
-    return next(cursor)
+    return list(next(cursor))
 
 
 @pytest.mark.parametrize(("reference", "shape"), REFERENCES, ids=[row[1] for row in REFERENCES])
-def test_the_aql_agrees_with_the_production_normaliser(db, reference: str, shape: str):
-    """Same input, same answer, or the sweep deletes what a task references."""
-    assert _normalise_in_aql(db, reference) == normalize_photo_ref(reference), (
-        f"the sweep and migrate_photo_refs disagree about {shape} ({reference!r}); "
-        "a reference the sweep cannot resolve is a photo it deletes (#1393)"
+def test_the_production_answer_is_among_the_candidates(db, reference: str, shape: str):
+    """The property that matters: the sweep protects what the normaliser resolves to.
+
+    Not equality. The sweep's output is **deleted**, so the two directions cost
+    different things: an extra candidate leaves one photo uncollected, a missing one
+    destroys a photo a task still shows. Demanding equality is what the two previous
+    versions did, and both were wrong in the destroying direction.
+    """
+    candidates = _candidates_in_aql(db, reference)
+
+    assert normalize_photo_ref(reference) in candidates, (
+        f"the sweep does not protect what migrate_photo_refs resolves {shape} to "
+        f"({reference!r} -> {normalize_photo_ref(reference)!r}, candidates {candidates}); "
+        "a reference it cannot resolve is a photo it deletes (#1393)"
     )
 
 
 @pytest.mark.parametrize(("reference", "shape"), REFERENCES, ids=[row[1] for row in REFERENCES])
-def test_every_spelling_resolves_to_the_id(db, reference: str, shape: str):
+def test_the_attachment_id_is_among_the_candidates(db, reference: str, shape: str):
     """The control.
 
-    Without it, a normaliser that returned its input unchanged — and an AQL
-    expression that did the same — would agree perfectly and resolve nothing. The
-    two tests fail for different reasons: this one catches "both are wrong the same
-    way", the one above catches "they drifted apart".
+    Without it, a candidate list that simply returned its input would contain the
+    normaliser's answer for the already-an-id row and nothing useful for any other,
+    and the test above would still pass on most rows.
     """
-    assert _normalise_in_aql(db, reference) == ULID, f"{shape} did not resolve to the attachment id"
+    assert ULID in _candidates_in_aql(db, reference), f"{shape} does not resolve to the attachment id"
+
+
+@pytest.mark.parametrize(("reference", "shape"), REFERENCES, ids=[row[1] for row in REFERENCES])
+def test_no_candidate_is_empty(db, reference: str, shape: str):
+    """An empty candidate protects nothing and matches no document key.
+
+    The previous version produced exactly that for a trailing slash — ``LAST(SPLIT())``
+    of ``"a/b/"`` is ``""`` — so the photo went unprotected while the expression
+    looked like it had an answer.
+    """
+    assert "" not in _candidates_in_aql(db, reference), f"{shape} produced an empty candidate"
+
+
+def test_the_candidate_set_stays_small(db):
+    """A superset is the point; a set that swallows unrelated ids is not.
+
+    Four candidates per reference is the design. If this grows, someone widened the
+    expression rather than fixing a specific shape, and a wide candidate set protects
+    photos nothing references — the sweep would stop collecting anything.
+    """
+    for reference, shape in REFERENCES:
+        candidates = _candidates_in_aql(db, reference)
+        assert len(set(candidates)) <= 4, f"{shape} produced {len(set(candidates))} distinct candidates"

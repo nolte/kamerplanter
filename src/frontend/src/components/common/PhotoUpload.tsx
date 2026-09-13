@@ -9,6 +9,7 @@ import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { ApiError } from '@/api/errors';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import AuthImage from '@/components/common/AuthImage';
 import * as taskApi from '@/api/endpoints/tasks';
@@ -54,16 +55,32 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
       setUploading(true);
       const newRefs = [...photoRefs];
       try {
+        //: Ids this upload round produced that were not already in the list.
+        //:
+        //: `AttachmentService.upload` **deduplicates by sha256** across the whole
+        //: tenant and across categories (`attachment_service.py`), so uploading the
+        //: same bytes again returns the *existing* attachment — which may already be
+        //: in `photoRefs`, may belong to another task, or may be a plant-gallery
+        //: photo. Two things follow, and the first version got both wrong:
+        //:
+        //: - pushing the id unconditionally duplicates it in the list (duplicate
+        //:   React keys, and a `photo_refs` entry repeated on submit);
+        //: - marking `newRefs.slice(photoRefs.length)` as staged marks a **persisted**
+        //:   id as staged, which puts the destroy control back on a reopened task's
+        //:   completion photo — the exact thing that control was withdrawn from.
+        const freshlyStaged: string[] = [];
         for (const file of Array.from(files)) {
           const result = await taskApi.uploadTaskPhoto(taskKey, file);
           // The bare attachment id, never `result.uri`: `photo_refs` is a list
           // of attachment ids (NFR-013 §2.2 / AC-09), and a stored URI would
           // bake in the tenant slug — which a rename re-derives (#1339 review).
+          if (newRefs.includes(result.attachment_id)) continue;
           newRefs.push(result.attachment_id);
+          freshlyStaged.push(result.attachment_id);
         }
         setStagedIds((current) => {
           const next = new Set(current);
-          for (const ref of newRefs.slice(photoRefs.length)) next.add(ref);
+          for (const ref of freshlyStaged) next.add(ref);
           return next;
         });
         onChange(newRefs);
@@ -126,7 +143,24 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
         await taskApi.deleteTaskPhoto(taskKey, attachmentId);
         onChange(photoRefs.filter((_, i) => i !== index));
       } catch (err) {
-        handleError(err);
+        // A 404 means the server will not destroy this one — it is gone already, or
+        // it is not a task photo at all. The latter is reachable: uploads are
+        // deduplicated by sha256 across categories, so staging a file whose bytes
+        // already exist as a plant-gallery photo hands back *that* attachment, and
+        // the route rightly refuses to destroy it through a task endpoint.
+        //
+        // De-stage anyway. The user's intent — "not this one" — is honoured, the
+        // photo stays where it belongs, and leaving the entry in the list instead
+        // would give them a control that can never do anything.
+        //
+        // Every other failure keeps the photo: it may well still be stored and still
+        // linked, and telling someone it is gone when it is not is the state this
+        // whole change set out to end.
+        if (err instanceof ApiError && err.statusCode === 404) {
+          onChange(photoRefs.filter((_, i) => i !== index));
+        } else {
+          handleError(err);
+        }
       } finally {
         setRemovingIndex(null);
       }

@@ -280,4 +280,123 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       expect(onChange).not.toHaveBeenCalled();
     });
   });
+
+  /**
+   * sha256 deduplication (#1424 review round 3).
+   *
+   * `AttachmentService.upload` returns the **existing** attachment when the bytes
+   * already exist in the tenant — across categories, not just within one. So an
+   * upload can hand back an id the task already carries, and treating that as a
+   * fresh staging put the destroy control back on a photo it had been withdrawn
+   * from, and duplicated the id in the list.
+   */
+  describe('an upload that deduplicates to an existing attachment', () => {
+    it('does not mark a photo the task already carries as staged', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      // Dedup: the upload answers with the id already in `photoRefs`.
+      server.use(
+        http.post('/api/v1/t/:tenant/tasks/:key/photos', () => HttpResponse.json(attachment())),
+      );
+
+      renderWithProviders(<Harness initial={['att-1']} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await screen.findByTestId('photo-preview-0');
+      const input = screen.getByTestId('photo-upload').querySelector('input[type="file"]')!;
+      await user.upload(input as HTMLInputElement, new File(['x'], 'p.jpg', { type: 'image/jpeg' }));
+
+      // Still no destroy control: the id was persisted before this upload, and an
+      // upload that merely resolved to it does not make it staging.
+      await waitFor(() => expect(screen.queryByTestId('photo-remove-0')).toBeNull());
+    });
+
+    it('does not add the id twice', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      server.use(
+        http.post('/api/v1/t/:tenant/tasks/:key/photos', () => HttpResponse.json(attachment())),
+      );
+      const onChange = vi.fn();
+
+      renderWithProviders(<Harness initial={['att-1']} onChange={onChange} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await screen.findByTestId('photo-preview-0');
+      const input = screen.getByTestId('photo-upload').querySelector('input[type="file"]')!;
+      await user.upload(input as HTMLInputElement, new File(['x'], 'p.jpg', { type: 'image/jpeg' }));
+
+      // A duplicate would give two previews with the same React key and submit the
+      // id twice in `photo_refs`.
+      await waitFor(() => expect(screen.queryByTestId('photo-preview-1')).toBeNull());
+      for (const call of onChange.mock.calls) {
+        expect(new Set(call[0]).size).toBe(call[0].length);
+      }
+    });
+  });
+
+  /**
+   * A staged photo the server refuses to destroy (#1424 review round 3).
+   *
+   * Reachable through sha256 deduplication: staging a file whose bytes already exist
+   * as a plant-gallery photo hands back *that* attachment, and the task route rightly
+   * refuses to destroy a gallery photo. Before this the button stayed dead — the
+   * error surfaced and the entry never left the list.
+   */
+  describe('when the server refuses to destroy a staged photo', () => {
+    async function stageOne(user: ReturnType<typeof userEvent.setup>) {
+      server.use(
+        http.post('/api/v1/t/:tenant/tasks/:key/photos', () => HttpResponse.json(attachment())),
+      );
+      const input = screen.getByTestId('photo-upload').querySelector('input[type="file"]')!;
+      await user.upload(input as HTMLInputElement, new File(['x'], 'p.jpg', { type: 'image/jpeg' }));
+    }
+
+    it('de-stages it on a 404 rather than leaving a dead control', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      server.use(
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () =>
+          HttpResponse.json(
+            { error_id: 'e1', error_code: 'NOT_FOUND', message: 'attachment not found' },
+            { status: 404 },
+          ),
+        ),
+      );
+      const onChange = vi.fn();
+
+      renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await stageOne(user);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+
+      await user.click(await screen.findByTestId('photo-remove-0'));
+
+      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith([]));
+    });
+
+    it('keeps it on any other failure, because it may still be there', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      server.use(
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+      const onChange = vi.fn();
+
+      renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await stageOne(user);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+      onChange.mockClear();
+
+      await user.click(await screen.findByTestId('photo-remove-0'));
+
+      await waitFor(() => expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument());
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
 });

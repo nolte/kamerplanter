@@ -168,8 +168,23 @@ def migrate_photo_refs(self, *, dry_run: bool = False) -> dict:  # type: ignore[
 
 
 async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dict:
-    """Delete each id through the tenant-scoped service, tolerating the already-gone."""
-    from app.common.dependencies import get_attachment_service
+    """Delete each id through the tenant-scoped service, tolerating the already-gone.
+
+    **Only the ids nothing still references.** ``AttachmentService.upload``
+    deduplicates by sha256 across the whole tenant and across categories, so the same
+    stored object can sit in a second task's ``photo_refs`` or be a plant gallery's
+    cover. Deleting a task's list verbatim destroyed those too and left the other
+    references dangling — the shared-object case the caller cannot see from where it
+    stands.
+
+    An id that is still linked is simply left alone: whoever holds that link owns it,
+    and the nightly sweep collects the photo if the link later goes away.
+    """
+    from app.common.dependencies import get_attachment_repo, get_attachment_service
+
+    requested = list(attachment_ids)
+    attachment_ids = get_attachment_repo().unreferenced_among(requested, tenant_key)
+    still_referenced = len(requested) - len(attachment_ids)
 
     service = get_attachment_service()
     deleted = 0
@@ -201,10 +216,11 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
                 error=str(exc),
             )
     return {
-        "requested": len(attachment_ids),
+        "requested": len(requested),
         "deleted": deleted,
         "failed": failed,
         "skipped": skipped,
+        "still_referenced": still_referenced,
         "tenant_key": tenant_key,
     }
 
@@ -224,7 +240,14 @@ def delete_attachments(self, attachment_ids: list[str], tenant_key: str) -> dict
     it certain.
     """
     if not attachment_ids:
-        return {"requested": 0, "deleted": 0, "failed": 0, "skipped": 0, "tenant_key": tenant_key}
+        return {
+            "requested": 0,
+            "deleted": 0,
+            "failed": 0,
+            "skipped": 0,
+            "still_referenced": 0,
+            "tenant_key": tenant_key,
+        }
     try:
         return asyncio.run(_delete_attachments(list(attachment_ids), tenant_key))
     except Exception as exc:  # noqa: BLE001 — retry on any transient failure

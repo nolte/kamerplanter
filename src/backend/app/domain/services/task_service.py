@@ -1072,10 +1072,22 @@ class TaskService:
         counting against ``STORAGE_TENANT_QUOTA_MB`` with no surface that reaches
         them for the ``task`` category.
 
-        **Safe because of the status gate above**: a task is deletable only in
-        ``pending``/``skipped``/``cancelled``/``dormant``, so a completed task's
-        documentation can never be lost this way. The photos that go are staged or
-        abandoned ones, which is what the user deleting the task means to discard.
+        **Safe because of the two gates above**: a task is deletable only in
+        ``pending``/``skipped``/``dormant`` **and** only if it was never completed and
+        reopened. So a completed task's documentation cannot be lost this way. The
+        photos that go are staged or abandoned ones, which is what the user deleting
+        the task means to discard.
+
+        That sentence was wrong twice before it was right. It named ``cancelled``,
+        a status ``TaskStatus`` does not have, and it rested on the status alone —
+        while ``reopen_task`` puts a completed task back to ``pending`` and leaves
+        ``photo_refs`` in place. Both are closed now; the docstring says what the code
+        does rather than what it was meant to do.
+
+        **Not every id is deleted.** ``delete_attachments`` asks the repository which
+        of them nothing still references before destroying anything: sha256
+        deduplication can hand the same stored object to a second task or a plant
+        gallery, and this list is only *this* task's view of it.
 
         Out of band, because this service is synchronous and attachment deletion is
         not — the lazy-import-and-``delay`` shape

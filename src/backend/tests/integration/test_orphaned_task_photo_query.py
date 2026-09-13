@@ -372,3 +372,37 @@ class TestTheQuotaIsActuallyReclaimed:
         remaining = repo.sum_bytes_by_tenant(QUOTA_TENANT)
 
         assert remaining > 0, "every photo of the tenant was swept, referenced ones included"
+
+
+class TestWhatMayBeDeletedEagerly:
+    """`unreferenced_among`, asked before a deleted task's photos are destroyed.
+
+    ``AttachmentService.upload`` deduplicates by sha256 across the whole tenant and
+    across categories, so one stored object can sit in two tasks' ``photo_refs`` or
+    be a plant gallery's photo as well. ``TaskService.delete_task`` forwards *its*
+    view of the list, which is why the deletion has to ask rather than assume:
+    destroying a shared object leaves every other reference dangling.
+
+    Shares the sweep's reference prelude on purpose — the two answering differently
+    about "referenced" is the drift that would put this defect back.
+    """
+
+    def test_a_photo_nothing_references_may_be_deleted(self, repo):
+        assert repo.unreferenced_among(["orphan-abandoned"], TENANT) == ["orphan-abandoned"]
+
+    @pytest.mark.parametrize(("_collection", "key", "_doc"), REFERENCED, ids=[r[0] for r in REFERENCED])
+    def test_a_photo_another_carrier_references_may_not(self, repo, _collection: str, key: str, _doc: dict):
+        assert repo.unreferenced_among([key], TENANT) == []
+
+    def test_it_filters_rather_than_refusing_the_whole_batch(self, repo):
+        """A task's list mixes both; the shared one is spared, the rest still go."""
+        result = repo.unreferenced_among(["orphan-abandoned", "ref-task", "orphan-unstaged"], TENANT)
+
+        assert set(result) == {"orphan-abandoned", "orphan-unstaged"}
+
+    def test_another_tenant_id_is_not_returned(self, repo):
+        """Tenant-scoped, so a deletion dispatched for one tenant cannot reach another."""
+        assert repo.unreferenced_among(["orphan-other-tenant"], TENANT) == []
+
+    def test_an_empty_request_asks_nothing(self, repo):
+        assert repo.unreferenced_among([], TENANT) == []
