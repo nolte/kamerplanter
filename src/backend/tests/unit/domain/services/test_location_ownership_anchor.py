@@ -165,11 +165,19 @@ class TestFindOwnedLocation:
 
 _APP_ROOT = pathlib.Path(__file__).resolve().parents[4] / "app"
 
-#: Reading the field is legitimate in two places, each for a reason that is not
-#: an ownership decision. Every entry names *why*; an entry whose file no longer
-#: contains the pattern fails below, so this cannot outlive its subject.
-_ALLOWED: dict[str, str] = {
-    "domain/models/site.py": "declares the field; the model is where it lives",
+#: Files allowed to read the field, each with *why* and with the predicate that
+#: says when that reason stops holding. One structure rather than two parallel
+#: dicts: an entry added to only one of them used to kill
+#: :func:`test_every_allowlisted_file_still_contains_what_it_excuses` with a bare
+#: ``KeyError`` instead of the message it was written to give.
+#:
+#: One entry, since this PR retired the repository's. The comment above said "two
+#: places" for one commit after that.
+_ALLOWED: dict[str, tuple[str, Callable[[pathlib.Path], bool]]] = {
+    "domain/models/site.py": (
+        "declares the field; the model is where it lives",
+        lambda p: "tenant_key: str" in p.read_text(),
+    ),
 }
 
 
@@ -226,7 +234,26 @@ _AQL_COLLECTION_BINDINGS = (
 #: message naming the forbidden spelling would turn the lane red over a defect that
 #: is not there, and the quickest way to quiet that is to narrow the sweep back to
 #: where it started.
-_LOOKS_LIKE_AQL = re.compile(r"\b(FOR|LET|FILTER|RETURN|INSERT|UPDATE|REMOVE)\s", re.IGNORECASE)
+_AQL_KEYWORD = re.compile(r"\b(FOR|LET|FILTER|RETURN|INSERT|UPDATE|REMOVE)\s", re.IGNORECASE)
+_AQL_BIND_PARAMETER = re.compile(r"@@?[A-Za-z_]")
+
+
+def _looks_like_aql(text: str) -> bool:
+    """Whether a string constant is a query rather than prose about one.
+
+    **A keyword alone is not enough**, which is what the first version required:
+    ``FOR``, ``RETURN`` and ``UPDATE`` are ordinary English words, so
+    ``log.warning("no site found for location.tenant_key anchoring")`` was scanned
+    and reported — precisely the false alarm this gate exists to prevent. The three
+    probes in `_PROSE_NOT_SCANNED` happened to contain none of those words, so the
+    table certified a protection that did not hold for the most natural phrasing;
+    the probes now include both spellings that break it.
+
+    A bind parameter as well. Every query in this repository binds something, and
+    the offence being looked for compares against ``@tenant_key`` by definition, so
+    requiring one costs no detection.
+    """
+    return bool(_AQL_KEYWORD.search(text) and _AQL_BIND_PARAMETER.search(text))
 
 
 def _holds_location_or_slot(identifier: str) -> bool:
@@ -249,16 +276,11 @@ def _holds_location_or_slot(identifier: str) -> bool:
 #: much larger one, and this list is checked by the two-direction falsification
 #: below rather than trusted.
 _LOCATION_LIKE = {"location", "loc", "slot"}
-
-
-#: What each exemption actually excuses, as a predicate. An entry is stale when its
-#: predicate stops holding — not when the word ``tenant_key`` stops appearing, which
-#: was the first version and could never fail: the allowlisted repository file
-#: contains that word a dozen times for ordinary tenant-scoped filters, so repairing
-#: the three projections the entry names would have left the guard green.
-_EXEMPTION_STILL_APPLIES: dict[str, Callable[[pathlib.Path], bool]] = {
-    "domain/models/site.py": lambda p: "tenant_key: str" in p.read_text(),
-}
+#: Kept as the seed of :func:`_holds_location_or_slot`, which is what both branches
+#: of the sweep now ask. They did not always: the component check was introduced for
+#: AQL only, so ``slot_location.tenant_key`` — the alias this very repair
+#: introduces, and one `_AQL_PROBES` pins as an offence — was a violation inside a
+#: query string and invisible in Python. One spelling, two answers, in one sweep.
 
 
 def _ownership_reads(path: pathlib.Path) -> list[str]:
@@ -298,7 +320,7 @@ def _ownership_reads(path: pathlib.Path) -> list[str]:
         # `location.tenant_key`
         if isinstance(node, ast.Attribute) and node.attr == "tenant_key":
             target = node.value
-            if isinstance(target, ast.Name) and target.id in _LOCATION_LIKE:
+            if isinstance(target, ast.Name) and _holds_location_or_slot(target.id):
                 hits.append(f"{path.name}:{node.lineno} {ast.unparse(node)}")
             continue
         # `getattr(location, "tenant_key", …)` — the form the first pass missed.
@@ -308,7 +330,7 @@ def _ownership_reads(path: pathlib.Path) -> list[str]:
             and node.func.id == "getattr"
             and len(node.args) >= 2
             and isinstance(node.args[0], ast.Name)
-            and node.args[0].id in _LOCATION_LIKE
+            and _holds_location_or_slot(node.args[0].id)
             and isinstance(node.args[1], ast.Constant)
             and node.args[1].value == "tenant_key"
         ):
@@ -328,7 +350,7 @@ def _ownership_reads(path: pathlib.Path) -> list[str]:
         # comment-in-the-perfect-tense trap this module's own docstring warns about.
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
             body = re.sub(r"//[^\n]*", "", node.value)
-            if not _LOOKS_LIKE_AQL.search(body):
+            if not _looks_like_aql(body):
                 continue
             # Aliases this query itself binds to a locations/slots collection count
             # as location-like however they are spelled, so neither a one-letter
@@ -376,10 +398,9 @@ def test_every_allowlisted_file_still_contains_what_it_excuses(relative: str):
     check — the shape that lets the next drift in.
     """
     path = _APP_ROOT / relative
-    assert path.exists(), f"{relative} is allowlisted but does not exist: {_ALLOWED[relative]}"
-    assert _EXEMPTION_STILL_APPLIES[relative](path), (
-        f"{relative} no longer contains what its entry excuses; drop it ({_ALLOWED[relative]})"
-    )
+    reason, still_applies = _ALLOWED[relative]
+    assert path.exists(), f"{relative} is allowlisted but does not exist: {reason}"
+    assert still_applies(path), f"{relative} no longer contains what its entry excuses; drop it ({reason})"
 
 
 #: Every AQL spelling the sweep must see, and every one it must leave alone.
@@ -480,12 +501,18 @@ _PROSE_NOT_SCANNED = [
     "refusing: location.tenant_key mismatch",
     "the old guard compared location.tenant_key == tenant_key",
     "slot.tenant_key is persisted empty; use the site anchor",
+    # The two that broke the keyword-only gate. `FOR`, `RETURN` and `UPDATE` are
+    # ordinary English words, and the three probes above avoided all of them by
+    # chance — so the table certified a protection that did not hold for the most
+    # natural way to phrase either message.
+    "no site found for location.tenant_key anchoring; key=%s",
+    "we return null when location.tenant_key is empty",
 ]
 
 
 @pytest.mark.parametrize("text", _PROSE_NOT_SCANNED)
 def test_prose_naming_the_forbidden_spelling_is_not_a_query(text: str):
-    assert not _LOOKS_LIKE_AQL.search(text), (
+    assert not _looks_like_aql(text), (
         f"{text!r} would be scanned as AQL, so a log or error message naming the rule would be reported as breaking it"
     )
 
@@ -496,5 +523,5 @@ def test_a_real_query_is_still_scanned():
     Without this, tightening `_LOOKS_LIKE_AQL` until nothing is scanned would pass
     every test above and disable the sweep's whole AQL branch.
     """
-    assert _LOOKS_LIKE_AQL.search("FOR p IN @@col FILTER p.tenant_key == @tenant_key RETURN p")
-    assert _LOOKS_LIKE_AQL.search("LET location = DOCUMENT(@location_col, p.location_key)")
+    assert _looks_like_aql("FOR p IN @@col FILTER p.tenant_key == @tenant_key RETURN p")
+    assert _looks_like_aql("LET location = DOCUMENT(@location_col, p.location_key)")
