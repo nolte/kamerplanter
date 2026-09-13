@@ -61,6 +61,11 @@ class TestCropRotationView:
         count = rotation_page.get_successor_count()
         assert count >= 0, "TC-REQ-001-071 FAIL: Successor list should render"
 
+    # Opens the add-successor dialog, which `POST /crop-rotation/successors`
+    # made platform-admin-only (#1402 C). `test_empty_state_when_no_successors`
+    # deliberately keeps no marker: it only reads, and it is the case that
+    # proves an ordinary member still sees the page.
+    @pytest.mark.platform_admin
     @pytest.mark.core_crud
     def test_add_rotation_successor(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
@@ -167,6 +172,11 @@ class TestCropRotationView:
 class TestCropRotationDialogUX:
     """Dialog UX validation (Spec: TC-001-050)."""
 
+    # Opens the add-successor dialog, which `POST /crop-rotation/successors`
+    # made platform-admin-only (#1402 C). `test_empty_state_when_no_successors`
+    # deliberately keeps no marker: it only reads, and it is the case that
+    # proves an ordinary member still sees the page.
+    @pytest.mark.platform_admin
     @pytest.mark.core_crud
     def test_current_family_excluded_from_target_dropdown(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
@@ -193,6 +203,11 @@ class TestCropRotationDialogUX:
 
         rotation_page.click_dialog_cancel()
 
+    # Opens the add-successor dialog, which `POST /crop-rotation/successors`
+    # made platform-admin-only (#1402 C). `test_empty_state_when_no_successors`
+    # deliberately keeps no marker: it only reads, and it is the case that
+    # proves an ordinary member still sees the page.
+    @pytest.mark.platform_admin
     @pytest.mark.core_crud
     def test_create_button_disabled_without_target(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]

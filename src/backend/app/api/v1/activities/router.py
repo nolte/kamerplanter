@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.activities.schemas import ActivityCreate, ActivityResponse, ActivityUpdate
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_activity_service
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
@@ -41,7 +41,12 @@ def list_activities(
     return [to_response(a, ActivityResponse) for a in items]
 
 
-@router.post("", response_model=ActivityResponse, status_code=201)
+@router.post(
+    "",
+    response_model=ActivityResponse,
+    status_code=201,
+    dependencies=[Depends(require_platform_admin)],
+)
 def create_activity(
     body: ActivityCreate,
     service: ActivityService = Depends(get_activity_service),
@@ -61,7 +66,11 @@ def get_activity(
     return to_response(service.get_activity(key), ActivityResponse)
 
 
-@router.put("/{key}", response_model=ActivityResponse)
+@router.put(
+    "/{key}",
+    response_model=ActivityResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def update_activity(
     key: Annotated[str, Path(description="Document key of the activity.")],
     body: ActivityUpdate,
@@ -73,7 +82,11 @@ def update_activity(
     return to_response(updated, ActivityResponse)
 
 
-@router.delete("/{key}", status_code=204)
+@router.delete(
+    "/{key}",
+    status_code=204,
+    dependencies=[Depends(require_platform_admin)],
+)
 def delete_activity(
     key: Annotated[str, Path(description="Document key of the activity.")],
     service: ActivityService = Depends(get_activity_service),

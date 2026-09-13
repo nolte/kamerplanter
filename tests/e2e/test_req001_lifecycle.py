@@ -60,7 +60,7 @@ def _navigate_to_lifecycle_tab(
         pytest.skip(f"Lifecycle tab not found among {tabs}")
     species_detail.click_tab(lifecycle_tab)
     species_detail.wait_for_content(
-        SpeciesDetailPage.LIFECYCLE_FORM_SUBMIT, "lifecycle configuration tab panel"
+        SpeciesDetailPage.LIFECYCLE_SECTION, "lifecycle configuration tab panel"
     )
 
 
@@ -115,7 +115,7 @@ def _provision_species_with_phase(
         pytest.skip(f"Lifecycle tab not found among {tabs}")
     species_detail.click_tab(lifecycle_tab)
     species_detail.wait_for_content(
-        SpeciesDetailPage.LIFECYCLE_FORM_SUBMIT,
+        SpeciesDetailPage.LIFECYCLE_SECTION,
         "provisioned species lifecycle configuration tab panel",
     )
 
@@ -147,6 +147,7 @@ def _provision_species_with_phase(
     return phase_display_name
 
 
+@pytest.mark.platform_admin
 class TestLifecycleConfigSection:
     """Lifecycle config CRUD (Spec: TC-001-047)."""
 
@@ -231,6 +232,7 @@ class TestLifecycleConfigSection:
         )
 
 
+@pytest.mark.platform_admin
 class TestGrowthPhaseManagement:
     """Growth phase CRUD (Spec: TC-001-048)."""
 
@@ -399,6 +401,7 @@ class TestGrowthPhaseManagement:
         )
 
 
+@pytest.mark.platform_admin
 class TestGrowthPhaseProfiles:
     """Growth phase profiles (Spec: TC-001-047)."""
 

@@ -19,6 +19,7 @@ import OriginChip from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchActivities } from '@/store/slices/activitiesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import type { Activity } from '@/api/types';
 import ActivityCreateDialog from './ActivityCreateDialog';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
@@ -36,6 +37,7 @@ export default function ActivityListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const canEdit = useCanEditInstallationCatalogue();
   const { items, loading } = useAppSelector((s) => s.activities);
   const [createOpen, setCreateOpen] = useState(false);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
@@ -127,9 +129,15 @@ export default function ActivityListPage() {
       <PageTitle
         title={t('pages.activities.title')}
         action={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            {t('pages.activities.create')}
-          </Button>
+          // `POST /activities` is platform-admin-gated like the edit and delete on
+          // the detail page (#1402 C). Gating one half of the same catalogue and
+          // not the other is how this drifts back — which it did: the detail page
+          // was gated in this PR and the list was not, until review round 2.
+          canEdit ? (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+              {t('pages.activities.create')}
+            </Button>
+          ) : undefined
         }
       />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

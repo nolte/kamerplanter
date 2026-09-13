@@ -14,13 +14,30 @@ from app.common.auth import get_current_user
 from app.common.dependencies import get_care_reminder_service
 from app.common.enums import ReminderType
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.plant_ownership import require_owned_plant
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.user import User
 from app.domain.services.care_reminder_service import CareReminderService
 
 router = APIRouter(
     prefix="/care-reminders",
     tags=["care-reminders"],
-    dependencies=[Depends(get_current_user)],
+    # GATED ON PLANT OWNERSHIP, AT THE ROUTER (#1402 group C).
+    #
+    # Every one of the six operations here keys on a plant from the path, and none
+    # resolved a tenant. `CareReminderService.confirm_reminder` *has* an ownership
+    # check — `if tenant_key and self._plant_repo is not None:` — and the REST
+    # router called it without a `tenant_key`, so the check never ran. An opt-in
+    # guard that the one production caller does not opt into is the #1042 shape:
+    # documented as enforced, wired nowhere. Its own comment says "when a caller
+    # passes its `tenant_key` (the MCP path always does)"; the REST path did not.
+    #
+    # A confirmation then wrote a `WateringLog` stamped into the victim's tenant.
+    #
+    # Every route under this prefix carries `{plant_key}`, so the router-level
+    # dependency binds on all six. See `app/common/plant_ownership.py` for why it
+    # is here rather than in six signatures.
+    dependencies=[Depends(get_current_user), Depends(require_owned_plant)],
     responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE},
 )
 
@@ -63,6 +80,15 @@ def confirm_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: ConfirmRequest,
     user: User = Depends(get_current_user),
+    # Taken into the signature rather than left to the router-level gate alone.
+    # `CareReminderService.confirm_reminder` carries its own SEC-001 ownership
+    # re-check, guarded by `if tenant_key and ...` — and this, its only REST
+    # caller, passed no `tenant_key`, so that check ran for the MCP path and never
+    # here: a guard present in the service and inert on the route it was written
+    # beside (the #1042 shape this issue exists to end). FastAPI caches the
+    # dependency per request, so the plant is already resolved and this costs no
+    # second lookup.
+    plant: PlantInstance = Depends(require_owned_plant),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Confirm a due care reminder and record the performed care."""
@@ -75,6 +101,7 @@ def confirm_reminder(
         fertilizers_used=fertilizers,
         measured_ec=body.measured_ec,
         measured_ph=body.measured_ph,
+        tenant_key=plant.tenant_key,
         user_key=user.key or "",
     )
     return _confirmation_to_response(confirmation)

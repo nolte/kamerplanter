@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import i18n from 'i18next';
@@ -24,7 +24,18 @@ vi.mock('@/api/endpoints/activities', () => ({
 }));
 
 import ActivityDetailPage from '@/pages/stammdaten/ActivityDetailPage';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, renderWithProviders } from '../helpers';
+
+/**
+ * Every case below drives or inspects an installation-wide catalogue whose writes
+ * carry `require_platform_admin` since #1402 C, so the suite acts as a platform
+ * admin. The non-admin half of the contract — reads still render, write
+ * affordances are gone — is asserted in this same file, beside its admin
+ * counterpart, so the pair cannot drift apart.
+ */
+const renderAsAdmin = (ui: Parameters<typeof renderWithProviders>[0]) =>
+  renderWithProviders(ui, { store: createPlatformAdminStore() });
+
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -84,7 +95,7 @@ describe('ActivityDetailPage', () => {
   });
 
   it('renders the loaded activity with its German display name', async () => {
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     expect(await screen.findByTestId('activity-detail-page')).toBeInTheDocument();
     // German display name (name_de) is shown in the page title.
     expect(screen.getByText('Entspitzen')).toBeInTheDocument();
@@ -93,21 +104,21 @@ describe('ActivityDetailPage', () => {
   it('shows a loading skeleton while the activity is being fetched', () => {
     // Never-resolving promise keeps the page in its loading state.
     getActivity.mockReturnValue(new Promise(() => {}));
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
     expect(screen.queryByTestId('activity-detail-page')).toBeNull();
   });
 
   it('renders an error display when the fetch fails', async () => {
     getActivity.mockRejectedValue(new Error('boom'));
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     expect(await screen.findByTestId('error-display')).toBeInTheDocument();
     expect(screen.getByText('boom')).toBeInTheDocument();
   });
 
   it('falls back to the English name when the German name is empty', async () => {
     getActivity.mockResolvedValue(makeActivity({ name_de: '' }));
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     await screen.findByTestId('activity-detail-page');
     // German locale, but name_de is empty -> falls back to activity.name.
     expect(screen.getAllByText('Topping').length).toBeGreaterThan(0);
@@ -115,13 +126,13 @@ describe('ActivityDetailPage', () => {
 
   it('uses the English name as the display name in the English locale', async () => {
     i18n.changeLanguage('en');
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     await screen.findByTestId('activity-detail-page');
     expect(screen.getByText('Topping')).toBeInTheDocument();
   });
 
   it('shows the universal-scope alert when no species are restricted', async () => {
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     await screen.findByTestId('activity-detail-page');
     expect(
       screen.getByText(i18n.t('pages.activities.scopeUniversalInfo')),
@@ -130,7 +141,7 @@ describe('ActivityDetailPage', () => {
 
   it('shows the restricted-scope alert when species are compatible', async () => {
     getActivity.mockResolvedValue(makeActivity({ species_compatible: ['sp-1', 'sp-2'] }));
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     await screen.findByTestId('activity-detail-page');
     expect(
       screen.getByText(i18n.t('pages.activities.scopeRestrictedInfo', { count: 2 })),
@@ -139,7 +150,7 @@ describe('ActivityDetailPage', () => {
 
   it('saves edits through the update endpoint once the form is dirty', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     await screen.findByTestId('activity-detail-page');
 
     // Editing the pre-filled name field makes the form dirty and enables submit.
@@ -159,7 +170,7 @@ describe('ActivityDetailPage', () => {
   it('keeps the page mounted when saving fails', async () => {
     updateActivity.mockRejectedValue(new Error('save failed'));
     const user = userEvent.setup();
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     await screen.findByTestId('activity-detail-page');
 
     const nameField = screen.getByDisplayValue('Topping');
@@ -172,7 +183,7 @@ describe('ActivityDetailPage', () => {
 
   it('navigates to the list when the form is cancelled', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
     await screen.findByTestId('activity-detail-page');
 
     await user.click(screen.getByTestId('form-cancel-button'));
@@ -200,7 +211,7 @@ describe('ActivityDetailPage — delete flow', () => {
 
   it('deletes the activity through the confirm dialog and navigates back to the list', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
 
     await screen.findByTestId('activity-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -214,7 +225,7 @@ describe('ActivityDetailPage — delete flow', () => {
     const gate = deferred<void>();
     deleteActivity.mockReturnValue(gate.promise);
     const user = userEvent.setup();
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
 
     await screen.findByTestId('activity-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -234,7 +245,7 @@ describe('ActivityDetailPage — delete flow', () => {
 
   it('cancels the deletion without calling the delete endpoint', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
 
     await screen.findByTestId('activity-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -249,7 +260,7 @@ describe('ActivityDetailPage — delete flow', () => {
   it('does not navigate when the delete request fails', async () => {
     deleteActivity.mockRejectedValue(new Error('boom'));
     const user = userEvent.setup();
-    renderWithProviders(<ActivityDetailPage />);
+    renderAsAdmin(<ActivityDetailPage />);
 
     await screen.findByTestId('activity-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -261,9 +272,47 @@ describe('ActivityDetailPage — delete flow', () => {
 
   it('hides the delete action for system activities', async () => {
     getActivity.mockResolvedValue(makeActivity({ is_system: true }));
+    renderAsAdmin(<ActivityDetailPage />);
+
+    await screen.findByTestId('activity-detail-page');
+    expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).toBeNull();
+  });
+
+  /**
+   * `PUT`/`DELETE /activities/{key}` are installation-wide and platform-admin-gated
+   * since #1402 C. A non-admin keeps the detail read; what goes is the delete
+   * button and the save/cancel bar. The form fields stay mounted but disabled —
+   * `useForm({ disabled })` turns them off in one place, so a field added later
+   * cannot quietly stay editable.
+   */
+  it('renders the activity read-only for a non-admin', async () => {
     renderWithProviders(<ActivityDetailPage />);
 
     await screen.findByTestId('activity-detail-page');
     expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).toBeNull();
+    expect(screen.queryByTestId('form-submit-button')).toBeNull();
+
+    // Greyed-out fields with no save bar and no reason are indistinguishable from a
+    // broken page. `LifecycleConfigSection` says why for the same situation, and
+    // this page did not until review round 3.
+    expect(screen.getByTestId('activity-readonly-notice')).toBeInTheDocument();
+
+    // The read is intact and the field is present-but-disabled, not absent.
+    expect(screen.getByDisplayValue('Topping')).toBeDisabled();
+
+    // Every field, not just the ones built from `Form*Field`. Review round 2 found
+    // three `FormChipInput`s and a hand-rolled `Controller` + `Autocomplete` still
+    // fully editable here: the chip fields because the fix globbed `Form*Field.tsx`
+    // and `FormChipInput` is not named that, the autocomplete because it never
+    // forwarded `field.disabled` at all. A caller was able to add and delete chips
+    // on a form with no save button.
+    for (const field of ['tools_required', 'forbidden_phases', 'restricted_sub_phases', 'tags']) {
+      const input = within(screen.getByTestId(`form-field-${field}`)).getByRole('textbox');
+      expect(input, `${field} stayed editable`).toBeDisabled();
+    }
+    expect(
+      screen.getByLabelText(i18n.t('pages.activities.speciesCompatible')),
+      'species_compatible stayed editable',
+    ).toBeDisabled();
   });
 });

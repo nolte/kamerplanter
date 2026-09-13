@@ -30,7 +30,9 @@ export default function FormSwitchField<T extends FieldValues>({
               <Switch
                 checked={!!field.value}
                 onChange={field.onChange}
-                disabled={disabled}
+                // `?? field.disabled` honours `useForm({ disabled })` / `<Controller disabled>`;
+                // a bare `disabled={disabled}` overwrites RHF's value with `undefined` (#1402 C).
+                disabled={disabled ?? field.disabled}
               />
             }
             label={label}

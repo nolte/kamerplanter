@@ -640,7 +640,8 @@
       "sectionAdvancedDesc": "Phase restrictions, tags, and sort order.",
       "editIntro": "Edit the properties of this activity. Changes affect future tasks.",
       "listIntro": "Activities define actions that can be performed on plants (e.g. pruning, transplanting, training). System activities are pre-populated.",
-      "noActivities": "No activities created yet."
+      "noActivities": "No activities created yet.",
+      "installationWideReadOnly": "Activities apply installation-wide and are maintained by the platform administration. You can see every detail but cannot change it here."
     },
     "auth": {
       "login": "Log in",
@@ -2071,7 +2072,8 @@
       "photoperiodType": "Photoperiod Type",
       "photoperiodTypeHelper": "Short-day: <12 h, Long-day: >12 h",
       "criticalDayLength": "Critical Day Length (h)",
-      "criticalDayLengthHelper": "Day length that triggers flowering (0–24 h)"
+      "criticalDayLengthHelper": "Day length that triggers flowering (0–24 h)",
+      "installationWideReadOnly": "The lifecycle applies installation-wide for this species and is maintained by the platform administration. You can see the values but cannot change them here."
     },
     "growthPhases": {
       "title": "Growth Phases",

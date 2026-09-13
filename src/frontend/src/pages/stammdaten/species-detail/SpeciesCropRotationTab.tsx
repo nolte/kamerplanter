@@ -21,6 +21,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import * as rotationApi from '@/api/endpoints/cropRotation';
 import type { BotanicalFamily, RotationSuccessor } from '@/api/types';
@@ -44,6 +45,11 @@ export default function SpeciesCropRotationTab({
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // Same installation-wide write as CropRotationPage: `POST
+  // /crop-rotation/successors`, platform-admin-gated since #1402 C. This tab is
+  // the second entry point to it, and a gate on only one of them is the drift
+  // #1402 exists to close.
+  const canEdit = useCanEditInstallationCatalogue();
 
   const [currentFamily, setCurrentFamily] = useState<BotanicalFamily | null>(null);
   const [rotationSuccessors, setRotationSuccessors] = useState<RotationSuccessor[]>([]);
@@ -184,23 +190,25 @@ export default function SpeciesCropRotationTab({
                     <Chip label={rotationSuccessors.length} size="small" variant="outlined" />
                   )}
                 </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={openRotationDialog}
-                  data-testid="add-successor-button"
-                >
-                  {t('pages.cropRotation.addSuccessor')}
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={openRotationDialog}
+                    data-testid="add-successor-button"
+                  >
+                    {t('pages.cropRotation.addSuccessor')}
+                  </Button>
+                )}
               </Box>
 
               {rotationSuccessors.length === 0 ? (
                 <EmptyState
                   illustration={kamiMasterdata}
                   message={t('pages.cropRotation.noSuccessors')}
-                  actionLabel={t('pages.cropRotation.addSuccessor')}
-                  onAction={openRotationDialog}
+                  actionLabel={canEdit ? t('pages.cropRotation.addSuccessor') : undefined}
+                  onAction={canEdit ? openRotationDialog : undefined}
                 />
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>

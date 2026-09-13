@@ -282,6 +282,8 @@ class TestCropRotationCycle:
             "(REQ-028 §6.4 Familien-Level Seed-Daten)"
         )
 
+    # Drives the add-successor dialog, platform-admin-only since #1402 C.
+    @pytest.mark.platform_admin
     @pytest.mark.core_crud
     def test_rotation_dialog_supports_four_year_wait(
         self,
