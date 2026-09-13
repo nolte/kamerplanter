@@ -114,6 +114,12 @@ def db():
     database.collection(col.SLOTS).insert(
         {"_key": "slot-foreign", "tenant_key": "", "location_key": "loc-foreign", "slot_id": "Z9"}
     )
+    # A location whose site is gone. `delete_site` does not cascade to its locations
+    # (`site_service.py`), so this state is reachable, and `v0004` may have stamped
+    # such a row's `tenant_key` before its site was deleted.
+    database.collection(col.LOCATIONS).insert(
+        {"_key": "loc-orphan", "tenant_key": TENANT, "site_key": "site-deleted", "name": "Verwaistes Beet"}
+    )
 
     database.collection(col.PHASE_DEFINITIONS).insert({"_key": PHASE_DEFINITION, "name": "vegetative"})
     database.collection(col.PHASE_SEQUENCE_ENTRIES).insert(
@@ -136,6 +142,20 @@ def db():
             "current_phase_started_at": "2026-08-01T00:00:00+00:00",
             "location_key": "loc-own",
             "slot_key": "slot-own",
+        }
+    )
+    plants.insert(
+        {
+            "_key": "plant-orphan",
+            "tenant_key": TENANT,
+            "species_key": "sp-1",
+            "instance_id": "P-3",
+            "plant_name": "Tomate 3",
+            "removed_on": None,
+            "current_phase_key": PHASE_ENTRY,
+            "current_phase_started_at": "2026-08-03T00:00:00+00:00",
+            "location_key": "loc-orphan",
+            "slot_key": None,
         }
     )
     # The honesty control: a row of the caller's own tenant pointing at another
@@ -216,3 +236,29 @@ class TestListActiveForTenant:
         rows = _by_key(repo.list_active_for_tenant(TENANT, limit=50), field="_key")
 
         assert rows["plant-misplaced"]["location_name"] is None
+
+
+class TestALocationWhoseSiteIsGone:
+    """An observable change the anchor brings, recorded rather than discovered later.
+
+    `delete_site` does not cascade to its locations, so a location can outlive its
+    site. Such a row used to project its name whenever ``v0004_backfill_tenant_key``
+    had stamped its ``tenant_key`` before the deletion; anchored on the site it now
+    resolves ``null``, and the label is withheld.
+
+    That is the right answer — ownership genuinely cannot be established for an
+    orphan, and the alternative is trusting a field the write path does not
+    maintain — but it is a behaviour change, and a dashboard row quietly losing its
+    location name is the kind of thing that gets reported as a fresh bug a month
+    later if nobody wrote it down.
+    """
+
+    def test_its_label_is_withheld_rather_than_read_from_the_stale_field(self, repo):
+        rows = _by_key(repo.list_active_for_tenant(TENANT, limit=50), field="_key")
+
+        orphan = rows["plant-orphan"]
+        assert orphan["location_name"] is None, (
+            "an orphaned location's name was projected; the tenant_key on it is stale data, not an ownership fact"
+        )
+        # The key is still reported, so the row still says where it points.
+        assert orphan["location_key"] == "loc-orphan"

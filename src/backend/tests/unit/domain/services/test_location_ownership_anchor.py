@@ -235,7 +235,11 @@ _AQL_COLLECTION_BINDINGS = (
 #: is not there, and the quickest way to quiet that is to narrow the sweep back to
 #: where it started.
 _AQL_KEYWORD = re.compile(r"\b(FOR|LET|FILTER|RETURN|INSERT|UPDATE|REMOVE)\s", re.IGNORECASE)
-_AQL_BIND_PARAMETER = re.compile(r"@@?[A-Za-z_]")
+#: ``(?<![A-Za-z0-9_])`` so an e-mail address is not a bind parameter: review
+#: measured ``"contact support@kamerplanter.local"`` satisfying the old pattern,
+#: which — paired with an ordinary English "for" — put prose back through the
+#: gate that exists to keep it out.
+_AQL_BIND_PARAMETER = re.compile(r"(?<![A-Za-z0-9_])@@?[A-Za-z_]")
 
 
 def _looks_like_aql(text: str) -> bool:
@@ -411,15 +415,15 @@ def test_every_allowlisted_file_still_contains_what_it_excuses(relative: str):
 #: (an alias the repair itself introduces, holding a ``Location``), a bare
 #: ``LET t = location.tenant_key``, or any alias the query binds itself.
 _AQL_PROBES: list[tuple[str, bool, str]] = [
-    ("location.tenant_key == @tenant_key", True, "the plain form"),
-    ("slot.tenant_key != @tenant_key", True, "the slot form"),
+    ("FOR p IN @@col FILTER location.tenant_key == @tenant_key RETURN p", True, "the plain form"),
+    ("FOR p IN @@col FILTER slot.tenant_key != @tenant_key RETURN p", True, "the slot form"),
     (
-        "slot_location.tenant_key == @tenant_key",
+        "FOR p IN @@col FILTER slot_location.tenant_key == @tenant_key RETURN p",
         True,
         "an alias holding a Location, spelled with an underscore — the blind spot the "
         "repair's own `slot_location` variable would have walked into",
     ),
-    ("LET t = location.tenant_key", True, "a bare read, no comparison operator"),
+    ("FOR p IN @@col LET t = location.tenant_key RETURN t", True, "a bare read, no comparison operator"),
     (
         "FOR l IN @@location_col FILTER l.tenant_key == @tenant_key",
         True,
@@ -448,11 +452,11 @@ _AQL_PROBES: list[tuple[str, bool, str]] = [
         "an alias bound to the sites collection: that is the anchor, not the defect",
     ),
     (
-        "location_site.tenant_key == @tenant_key",
+        "FOR p IN @@col FILTER location_site.tenant_key == @tenant_key RETURN p",
         False,
         "the repair: the site the anchor resolves to is where the tenant does live",
     ),
-    ("slot_site.tenant_key == @tenant_key", False, "the same, for a slot's site"),
+    ("FOR p IN @@col FILTER slot_site.tenant_key == @tenant_key RETURN p", False, "the same, for a slot's site"),
     (
         "FOR p IN @@col FILTER p.tenant_key == @tenant_key",
         False,
@@ -467,24 +471,29 @@ _AQL_PROBES: list[tuple[str, bool, str]] = [
 
 
 @pytest.mark.parametrize(("aql", "is_offence", "why"), _AQL_PROBES)
-def test_the_aql_branch_sees_what_it_claims_to(aql: str, is_offence: bool, why: str):
-    """Both directions, per spelling.
+def test_the_aql_branch_sees_what_it_claims_to(aql: str, is_offence: bool, why: str, tmp_path: pathlib.Path):
+    """Both directions, per spelling, **through the real function**.
 
-    The negative rows carry as much weight as the positive ones: a sweep widened
-    until it flags ``location_site`` would report the repair as the defect, and the
-    quickest way to silence that is to narrow it back to where it started.
+    Driven over a module written to disk instead of re-implementing the detection
+    here. The first version transcribed the body, and a transcription certifies
+    itself: review deleted the whole AQL branch of :func:`_ownership_reads` and
+    every test in this file stayed green, this one included. The mechanism built to
+    make the allowlist removal enforcement rather than bookkeeping was the one thing
+    nothing checked.
+
+    Going through :func:`_ownership_reads` also puts each row through
+    :func:`_looks_like_aql`, which is why the rows are whole queries: as bare
+    fragments four of them could never have reached the sweep, so the table was
+    green about spellings it never tested.
+
+    Both directions matter. A sweep widened until it flags ``location_site`` reports
+    the repair as the defect, and the quickest way to silence that is to narrow it
+    straight back to where it started.
     """
-    bound = {
-        alias
-        for pattern in _AQL_COLLECTION_BINDINGS
-        for alias, collection in pattern.findall(aql)
-        if _holds_location_or_slot(collection)
-    }
-    flagged = [
-        match.group(0)
-        for match in _AQL_TENANT_KEY_READ.finditer(aql)
-        if _holds_location_or_slot(match.group(1)) or match.group(1) in bound
-    ]
+    module = tmp_path / "probe.py"
+    module.write_text(f'QUERY = """{aql}"""\n')
+
+    flagged = _ownership_reads(module)
 
     assert bool(flagged) is is_offence, f"{aql!r} should {'be flagged' if is_offence else 'be left alone'} — {why}"
 
@@ -507,6 +516,11 @@ _PROSE_NOT_SCANNED = [
     # natural way to phrase either message.
     "no site found for location.tenant_key anchoring; key=%s",
     "we return null when location.tenant_key is empty",
+    # And the two that broke the keyword+bind-parameter gate: an ``@`` inside a word
+    # is an e-mail address, not a bind parameter, and paired with an ordinary
+    # English "for" it put prose straight back through.
+    "no site found for location.tenant_key; contact support@kamerplanter.local",
+    "e-mail admin@example.com if location.tenant_key stays empty for this record",
 ]
 
 
