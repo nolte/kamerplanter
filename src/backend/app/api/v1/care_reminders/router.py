@@ -15,6 +15,7 @@ from app.common.dependencies import get_care_reminder_service
 from app.common.enums import ReminderType
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.common.plant_ownership import require_owned_plant
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.user import User
 from app.domain.services.care_reminder_service import CareReminderService
 
@@ -79,6 +80,15 @@ def confirm_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: ConfirmRequest,
     user: User = Depends(get_current_user),
+    # Taken into the signature rather than left to the router-level gate alone.
+    # `CareReminderService.confirm_reminder` carries its own SEC-001 ownership
+    # re-check, guarded by `if tenant_key and ...` — and this, its only REST
+    # caller, passed no `tenant_key`, so that check ran for the MCP path and never
+    # here: a guard present in the service and inert on the route it was written
+    # beside (the #1042 shape this issue exists to end). FastAPI caches the
+    # dependency per request, so the plant is already resolved and this costs no
+    # second lookup.
+    plant: PlantInstance = Depends(require_owned_plant),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Confirm a due care reminder and record the performed care."""
@@ -91,6 +101,7 @@ def confirm_reminder(
         fertilizers_used=fertilizers,
         measured_ec=body.measured_ec,
         measured_ph=body.measured_ph,
+        tenant_key=plant.tenant_key,
         user_key=user.key or "",
     )
     return _confirmation_to_response(confirmation)

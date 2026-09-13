@@ -640,7 +640,8 @@
       "sectionAdvancedDesc": "Phasenbeschränkungen, Tags und Sortierreihenfolge.",
       "editIntro": "Bearbeiten Sie die Eigenschaften dieser Tätigkeit. Änderungen wirken sich auf zukünftige Aufgaben aus.",
       "listIntro": "Tätigkeiten definieren Aktionen, die an Pflanzen ausgeführt werden können (z. B. Schnitt, Umpflanzen, Trainingsmaßnahmen). System-Tätigkeiten werden automatisch befüllt.",
-      "noActivities": "Noch keine Tätigkeiten angelegt."
+      "noActivities": "Noch keine Tätigkeiten angelegt.",
+      "installationWideReadOnly": "Aktivitäten gelten installationsweit und werden von der Plattform-Administration gepflegt. Du siehst alle Angaben, kannst sie hier aber nicht ändern."
     },
     "auth": {
       "login": "Anmelden",

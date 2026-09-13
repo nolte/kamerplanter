@@ -292,6 +292,11 @@ describe('ActivityDetailPage — delete flow', () => {
     expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).toBeNull();
     expect(screen.queryByTestId('form-submit-button')).toBeNull();
 
+    // Greyed-out fields with no save bar and no reason are indistinguishable from a
+    // broken page. `LifecycleConfigSection` says why for the same situation, and
+    // this page did not until review round 3.
+    expect(screen.getByTestId('activity-readonly-notice')).toBeInTheDocument();
+
     // The read is intact and the field is present-but-disabled, not absent.
     expect(screen.getByDisplayValue('Topping')).toBeDisabled();
 

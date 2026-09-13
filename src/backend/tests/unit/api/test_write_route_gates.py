@@ -1107,9 +1107,44 @@ class TestInstallationWideMasterDataIsPlatformAdminOnly:
         for module, reason in _INSTALLATION_WIDE_MODULES.items():
             assert len(reason) >= 12, f"{module} carries no usable reason: {reason!r}"
 
-    def test_the_set_is_not_empty(self):
-        """A set emptied by a careless edit would make the first test vacuous."""
-        assert len(_installation_wide_write_operations()) >= 15, (
-            "fewer installation-wide write operations than expected; the module set has drifted "
-            "away from the tree and the gate assertion covers almost nothing"
+    def test_no_module_quietly_loses_its_write_operations(self):
+        """A per-module ratchet, because one number over the whole set cannot fire.
+
+        This assertion used to read ``>= 15`` against an actual 21. Deleting
+        ``"profiles"`` from :data:`_INSTALLATION_WIDE_MODULES` along with its five
+        ``require_platform_admin`` dependencies left 16 — above the floor — so every
+        test in this class stayed green while five installation-wide writes became
+        member-writable again. A threshold with six routes of slack is the NFR-018 §1
+        shape: it fires only for a mistake nobody makes.
+
+        The floor is per module and a **minimum**, not an equality: adding a route to
+        a gated module is normal and is already checked for its gate by
+        :meth:`test_every_installation_wide_write_is_platform_admin_gated`. Removing
+        one is the direction that needs a witness. Lowering a number here is a
+        deliberate act with a diff line to explain.
+        """
+        expected = {
+            "profiles": 5,
+            "enrichment": 4,
+            "growth_phases": 3,
+            "location_types": 3,
+            "activities": 3,
+            "lifecycle_configs": 2,
+            "crop_rotation": 1,
+        }
+        assert set(expected) == set(_INSTALLATION_WIDE_MODULES), (
+            "the floor map and the module set disagree; a module was added or removed in one of the two places only"
+        )
+
+        actual: dict[str, int] = {}
+        for operation in _installation_wide_write_operations():
+            actual[_module_of(operation)] = actual.get(_module_of(operation), 0) + 1
+
+        shrunk = [
+            f"{module}: {actual.get(module, 0)} write operations, expected at least {floor}"
+            for module, floor in expected.items()
+            if actual.get(module, 0) < floor
+        ]
+        assert not shrunk, "installation-wide write operations disappeared from the gated set:\n  " + "\n  ".join(
+            shrunk
         )

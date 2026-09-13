@@ -212,6 +212,15 @@ export default function ActivityDetailPage() {
   return (
     <Box data-testid="activity-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
+      {/* Without this a non-admin sees every field greyed out, no save bar and no
+          reason - indistinguishable from a broken page. LifecycleConfigSection
+          renders the same notice for the same situation; a read-only form that does
+          not say why is its own kind of affordance answering a refusal (#1261). */}
+      {!canEdit && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="activity-readonly-notice">
+          {t('pages.activities.installationWideReadOnly')}
+        </Alert>
+      )}
       <PageTitle
         title={displayName}
         meta={<OriginChip isSystem={activity.is_system} />}

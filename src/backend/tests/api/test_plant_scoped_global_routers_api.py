@@ -367,3 +367,53 @@ class TestACallerWhoseTenantDoesNotResolveIsRefused:
 
         assert own.status_code == 200, own.text
         assert foreign.status_code == 404
+
+
+class TestTheServiceOwnCheckIsReachedOnTheRestPath:
+    """The half of the #1042 shape this module's docstring names.
+
+    `CareReminderService.confirm_reminder` carries its own SEC-001 ownership
+    re-check, written `if tenant_key and self._plant_repo is not None:`. Its only
+    REST caller passed no `tenant_key`, so that branch ran for MCP and never here:
+    a guard sitting in the service, beside the route it was written for, doing
+    nothing on it.
+
+    The router-level `require_owned_plant` already refuses a foreign plant, so this
+    is defence in depth rather than the only line — which is exactly why it needs a
+    witness. A second layer nobody asserts is a second layer nobody notices losing.
+
+    Asserted on the argument the service receives, not on the status code: a 201
+    is returned either way, which is what let this sit unnoticed.
+    """
+
+    def test_confirm_passes_the_resolved_tenant_to_the_service(self):
+        app = FastAPI()
+        app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+        app.include_router(care_router, prefix="/api/v1")
+
+        plant_service = PlantInstanceService(
+            _FakePlantRepo(),  # type: ignore[arg-type]
+            site_repo=MagicMock(),
+            rotation_validator=MagicMock(),
+            companion_engine=MagicMock(),
+        )
+        _, care_service = _doubled_services()
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=_USER, account_type="user")
+        app.dependency_overrides[get_tenant_service] = _FakeTenantService
+        app.dependency_overrides[get_plant_instance_service] = lambda: plant_service
+        app.dependency_overrides[get_care_reminder_service] = lambda: care_service
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            f"/api/v1/care-reminders/plants/{OWN_PLANT}/confirm",
+            json={"reminder_type": "watering"},
+            headers=_OWN_HEADER,
+        )
+
+        assert response.status_code == 201, response.text
+        care_service.confirm_reminder.assert_called_once()
+        passed = care_service.confirm_reminder.call_args.kwargs.get("tenant_key")
+        assert passed == _OWN.key, (
+            f"the service received tenant_key={passed!r}; its own ownership branch is "
+            "guarded by `if tenant_key` and therefore does not run"
+        )
