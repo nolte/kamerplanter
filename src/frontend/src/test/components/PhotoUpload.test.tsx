@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
-import { renderWithProviders } from '@/test/helpers';
+import { createStoreWithTenantRole, renderWithProviders } from '@/test/helpers';
 import PhotoUpload from '@/components/common/PhotoUpload';
 
 /**
@@ -126,17 +126,78 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('removes a staged photo locally', async () => {
-    const user = userEvent.setup();
-    server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
-    const onChange = vi.fn();
+  /**
+   * Removing a photo (#1393).
+   *
+   * This used to filter the local array and issue no request — there was no route
+   * to issue one to — so the stored object stayed, counting against the tenant's
+   * storage quota with no surface that reached it for the `task` category. A
+   * control that looked like a delete and was not.
+   *
+   * `DELETE` on an attachment is the REQ-024 §1a.1 irreversibility boundary and is
+   * granted to **lead** alone, while `CREATE` admits a grower. So a grower can
+   * upload here and cannot remove, and the button has to be absent for them rather
+   * than answering 403 (#1261).
+   */
+  describe('removing a staged photo', () => {
+    it('deletes it server-side before dropping it from the list', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      let deleted: string | null = null;
+      server.use(
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', ({ params }) => {
+          deleted = params.id as string;
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      const onChange = vi.fn();
 
-    renderWithProviders(
-      <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={onChange} />,
-    );
+      renderWithProviders(
+        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={onChange} />,
+        { store: createStoreWithTenantRole('lead') },
+      );
 
-    await user.click(await screen.findByTestId('photo-remove-0'));
+      await user.click(await screen.findByTestId('photo-remove-0'));
 
-    expect(onChange).toHaveBeenCalledWith([]);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith([]));
+      expect(deleted).toBe('att-1');
+    });
+
+    it('keeps the photo in the list when the delete fails', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      server.use(
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+      const onChange = vi.fn();
+
+      renderWithProviders(
+        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={onChange} />,
+        { store: createStoreWithTenantRole('lead') },
+      );
+
+      await user.click(await screen.findByTestId('photo-remove-0'));
+
+      // The whole point of removing *after* the request succeeds: an optimistic
+      // drop would leave the user believing a photo is gone that is still there
+      // and still counted, which is the state this change exists to end.
+      await waitFor(() => expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument());
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('is not offered to a grower, who may upload but not delete', async () => {
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+
+      renderWithProviders(
+        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={vi.fn()} />,
+        { store: createStoreWithTenantRole('grower') },
+      );
+
+      // The read survives — the control is what goes, not the preview.
+      expect(await screen.findByTestId('photo-preview-0')).toBeInTheDocument();
+      expect(screen.queryByTestId('photo-remove-0')).toBeNull();
+    });
   });
 });

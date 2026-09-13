@@ -681,6 +681,13 @@ class Settings(BaseSettings):
     storage_tenant_quota_mb: int = 2048
     # NFR-013 §5.1 step 7 — strip image EXIF/GPS on upload by default.
     storage_strip_exif: bool = True
+    # #1393 — how long a task photo may sit unreferenced before the orphan sweep
+    # collects it. Every upload is briefly an orphan by design: the attachment row
+    # is written before the form that will reference it is submitted, so this is a
+    # deliberately wide margin over the longest plausible form-filling session, not
+    # a tuning knob. Lowering it towards zero deletes photos out from under users
+    # who are still filling in the form. 0 disables the sweep.
+    storage_task_photo_orphan_hours: int = 48
     # REQ-034 §3 (SR-004) — max gallery photos per plant instance (0 = unlimited).
     storage_max_photos_per_instance: int = 50
     # REQ-034 §4.3 (SR-005a) — per-tenant cap on open ``pending_review``

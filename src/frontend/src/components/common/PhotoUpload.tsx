@@ -9,6 +9,7 @@ import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import AuthImage from '@/components/common/AuthImage';
 import * as taskApi from '@/api/endpoints/tasks';
 
@@ -23,7 +24,16 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `DELETE` on an attachment is the REQ-024 §1a.1 irreversibility boundary and is
+  // granted to lead alone, while `CREATE` admits a grower too. So a grower can
+  // upload a photo here and cannot remove it, and showing the button anyway would
+  // make it a control that answers a refusal (#1261) — the very thing this change
+  // set out to fix. An upload a grower abandons is collected by the nightly orphan
+  // sweep instead (#1393).
+  const { canDelete } = useTenantPermissions();
   const [uploading, setUploading] = useState(false);
+  //: Which row is mid-delete, so its button can show it and not be clicked twice.
+  const [removingIndex, setRemovingIndex] = useState<number | null>(null);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,12 +62,35 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
     [taskKey, photoRefs, onChange, notification, handleError, t],
   );
 
+  /**
+   * Remove a staged photo — from the server as well as from local state (#1393).
+   *
+   * This used to filter the local array and issue no request, because there was no
+   * route to issue one to. The stored object stayed, counting against the tenant's
+   * storage quota, with no surface in the product that reached it for the `task`
+   * category: a control that looked like a delete and was not.
+   *
+   * The local state is updated **after** the request succeeds, not before. An
+   * optimistic removal would leave the user believing a photo is gone that is
+   * still there and still counted, which is the state this change exists to end.
+   * On failure the list is untouched and the error surfaces.
+   */
   const handleRemove = useCallback(
-    (index: number) => {
-      const updated = photoRefs.filter((_, i) => i !== index);
-      onChange(updated);
+    async (index: number) => {
+      const attachmentId = photoRefs[index];
+      if (attachmentId === undefined) return;
+
+      setRemovingIndex(index);
+      try {
+        await taskApi.deleteTaskPhoto(taskKey, attachmentId);
+        onChange(photoRefs.filter((_, i) => i !== index));
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setRemovingIndex(null);
+      }
     },
-    [photoRefs, onChange],
+    [taskKey, photoRefs, onChange, handleError],
   );
 
   return (
@@ -99,22 +132,24 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
                 alt={t('pages.tasks.photoAlt', { index: i + 1 })}
                 data-testid={`photo-preview-${i}`}
               />
-              <IconButton
-                size="small"
-                onClick={() => handleRemove(i)}
-                disabled={disabled}
-                aria-label={t('pages.tasks.photoRemove', { index: i + 1 })}
-                data-testid={`photo-remove-${i}`}
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  bgcolor: 'background.paper',
-                  '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' },
-                }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
+              {canDelete && (
+                <IconButton
+                  size="small"
+                  onClick={() => void handleRemove(i)}
+                  disabled={disabled || removingIndex !== null}
+                  aria-label={t('pages.tasks.photoRemove', { index: i + 1 })}
+                  data-testid={`photo-remove-${i}`}
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    bgcolor: 'background.paper',
+                    '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' },
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              )}
             </Box>
           ))}
         </Box>

@@ -1,7 +1,7 @@
 """NFR-013 §2.2 — repository interface for the ``attachments`` collection."""
 
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, datetime
 from typing import Final
 
 from app.common.enums import AttachmentCategory
@@ -132,4 +132,17 @@ class IAttachmentRepository(ABC):
 
         When ``category`` is given the listing is restricted to that category.
         Returns ``(items, total)`` where ``total`` ignores pagination.
+        """
+
+    @abstractmethod
+    def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
+        """Task-category attachments older than *older_than* that nothing references.
+
+        Installation-wide, across tenants: the caller is a housekeeping sweep, and
+        each returned row carries its own ``tenant_key`` for the tenant-scoped
+        delete that follows.
+
+        Implementations MUST check every collection that can carry ``photo_refs``,
+        not only ``tasks`` — the result feeds a deletion, and a reference missed is
+        a photo destroyed.
         """

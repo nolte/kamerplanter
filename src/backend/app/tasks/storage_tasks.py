@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 
 import structlog
 
 from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
     can_render,
@@ -162,4 +164,103 @@ def migrate_photo_refs(self, *, dry_run: bool = False) -> dict:  # type: ignore[
 
     result = report.as_dict()
     logger.info("migrate_photo_refs_audit", **result)
+    return result
+
+
+async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dict:
+    """Delete each id through the tenant-scoped service, tolerating the already-gone."""
+    from app.common.dependencies import get_attachment_service
+
+    service = get_attachment_service()
+    deleted = 0
+    for attachment_id in attachment_ids:
+        # Idempotent by contract: an unknown id returns False rather than raising,
+        # which is what lets this task be retried and lets a task deletion race a
+        # manual one without either failing.
+        if await service.delete(attachment_id, tenant_key):
+            deleted += 1
+    return {"requested": len(attachment_ids), "deleted": deleted, "tenant_key": tenant_key}
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[misc]
+def delete_attachments(self, attachment_ids: list[str], tenant_key: str) -> dict:  # type: ignore[no-untyped-def]
+    """Delete a known set of attachments, storage objects and thumbnails included (#1393).
+
+    Dispatched by ``TaskService.delete_task`` so a deleted task does not leave its
+    photos behind, counting against the tenant's quota with no surface that reaches
+    them. Out of band because the service is synchronous and deletion is not: the
+    same lazy-import-and-``delay`` shape ``AttachmentService._dispatch_thumbnails``
+    already uses.
+
+    If the dispatch or the task is lost, ``cleanup_orphaned_task_photos`` collects
+    the same rows on its next run — this makes the deletion prompt, the sweep makes
+    it certain.
+    """
+    if not attachment_ids:
+        return {"requested": 0, "deleted": 0, "tenant_key": tenant_key}
+    try:
+        return asyncio.run(_delete_attachments(list(attachment_ids), tenant_key))
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error(
+            "delete_attachments_failed",
+            tenant_key=tenant_key,
+            count=len(attachment_ids),
+            error=str(exc),
+        )
+        raise self.retry(exc=exc) from exc
+
+
+async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> dict:
+    from app.common.dependencies import get_attachment_repo, get_attachment_service
+
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    orphans = get_attachment_repo().find_orphaned_task_photos(older_than=cutoff, limit=limit)
+
+    service = get_attachment_service()
+    deleted = 0
+    freed_bytes = 0
+    for attachment in orphans:
+        if attachment.key is None:
+            continue
+        if await service.delete(attachment.key, attachment.tenant_key):
+            deleted += 1
+            freed_bytes += attachment.byte_size
+    return {
+        "found": len(orphans),
+        "deleted": deleted,
+        "freed_bytes": freed_bytes,
+        "cutoff": cutoff.isoformat(),
+    }
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[misc]
+def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ignore[no-untyped-def]
+    """Collect task photos that nothing references any more (#1393).
+
+    Three paths produce them, and this covers all three: an upload whose form was
+    never submitted, a photo removed from the staging area before submitting (the
+    remove button drops local state), and a photo whose task was deleted.
+
+    They are not an exposure — every orphan stays tenant-scoped, permission-gated
+    and inside the NFR-011 retention scope — but ``AttachmentService._enforce_quota``
+    counts every attachment row against ``STORAGE_TENANT_QUOTA_MB``, linked or not.
+    So the bytes accumulate in exactly the installations that use task photos most,
+    and no UI reaches them for the ``task`` category.
+
+    **Disabled by setting ``STORAGE_TASK_PHOTO_ORPHAN_HOURS`` to 0**, which returns
+    without querying rather than sweeping with a zero-hour floor — a floor of zero
+    would delete the photo a user is at that moment filling a form around.
+    """
+    hours = settings.storage_task_photo_orphan_hours
+    if hours <= 0:
+        logger.info("cleanup_orphaned_task_photos_disabled")
+        return {"found": 0, "deleted": 0, "freed_bytes": 0, "disabled": True}
+
+    try:
+        result = asyncio.run(_cleanup_orphaned_task_photos(hours, limit))
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("cleanup_orphaned_task_photos_failed", error=str(exc))
+        raise self.retry(exc=exc) from exc
+
+    logger.info("cleanup_orphaned_task_photos_audit", **result)
     return result

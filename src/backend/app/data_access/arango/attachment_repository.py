@@ -16,6 +16,28 @@ from app.domain.models.attachment import Attachment, QualityAssessment
 # ``user_diary_attachments``). Must match the spec marker exactly (AK-OS-02).
 ANONYMIZED_MARKER = "_anonymized"
 
+#: Every collection whose documents can reference an attachment through
+#: ``photo_refs``.
+#:
+#: The orphan sweep below deletes what nothing in this list references, so a
+#: collection missing here means **deleting a referenced photo**. It is therefore
+#: the full set, not just ``tasks``: the sweep only considers ``category == task``
+#: attachments, and a task-category row *should* only ever be referenced by a task,
+#: but "should" is not a property a destructive query may rest on. Checking all six
+#: costs a daily subquery; being wrong costs a photo.
+#:
+#: ``test_photo_ref_carriers_match_the_models`` pins this against the models that
+#: actually declare ``photo_refs``, so a seventh carrier fails the lane rather than
+#: silently widening what the sweep may delete.
+PHOTO_REF_COLLECTIONS: tuple[str, ...] = (
+    col.TASKS,
+    col.PLANT_INSTANCES,
+    col.PLANT_DIARY_ENTRIES,
+    col.HARVEST_OBSERVATIONS,
+    col.INSPECTIONS,
+    col.STORAGE_OBSERVATIONS,
+)
+
 
 class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRepository):
     """ArangoDB-backed repository for ``attachments``."""
@@ -279,3 +301,55 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = int(next(count_cursor, 0) or 0)
         return items, total
+
+    def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
+        """Task-category attachments older than *older_than* that nothing references.
+
+        The three ways a task photo is orphaned (#1393), all of which this covers:
+        an upload whose form was never submitted, a photo removed from the staging
+        area before submitting, and a photo whose task was deleted.
+
+        **The age floor is what makes this safe.** An upload is written to the
+        attachment catalogue before the form that will reference it is submitted, so
+        every photo is briefly an orphan by design. Sweeping without a floor would
+        delete the photo a user is still filling in the form around; the floor is a
+        wide margin over the longest plausible form-filling session, and it is
+        configurable.
+
+        **Reference-checked against every carrier, not just tasks** — see
+        :data:`PHOTO_REF_COLLECTIONS` for why a destructive query does not rest on
+        "a task-category row should only be referenced by a task".
+
+        Installation-wide on purpose: the sweep is housekeeping, not a tenant
+        operation, and it returns rows of every tenant. The caller deletes them
+        through ``AttachmentService``, which is tenant-scoped and therefore gets the
+        row's own ``tenant_key`` back from here.
+        """
+        references = ",\n".join(
+            f"          LENGTH(FOR d IN @@ref_col_{index} FILTER att._key IN (d.photo_refs || []) LIMIT 1 RETURN 1)"
+            for index in range(len(PHOTO_REF_COLLECTIONS))
+        )
+        query = f"""
+        FOR att IN @@collection
+          FILTER att.category == @category
+            AND att.created_at != null
+            AND att.created_at < @cutoff
+          LET reference_count = SUM([
+{references}
+          ])
+          FILTER reference_count == 0
+          SORT att.created_at ASC
+          LIMIT @limit
+          RETURN att
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "category": AttachmentCategory.TASK.value,
+            "cutoff": older_than.isoformat(),
+            "limit": int(limit),
+        }
+        for index, collection in enumerate(PHOTO_REF_COLLECTIONS):
+            bind_vars[f"@ref_col_{index}"] = collection
+
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [Attachment(**self._from_doc(doc)) for doc in cursor]

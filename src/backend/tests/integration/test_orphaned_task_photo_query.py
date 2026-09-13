@@ -1,0 +1,265 @@
+"""#1393 — the query that decides which task photos get deleted, against a real ArangoDB.
+
+`cleanup_orphaned_task_photos` deletes every row this query returns. That makes it
+the most dangerous line in the change: a reference the query fails to see is a
+photo destroyed, and no amount of care in the Celery task around it can recover
+one.
+
+**Why a real database and not a captured query string.** The unit tier can pin
+that the AQL mentions the right collections; it cannot say what
+``att._key IN (d.photo_refs || [])`` answers when ``photo_refs`` is missing, null,
+empty, or holds a URI from before the #1339 normalisation. Those are the shapes
+real rows are in, and they decide whether a photo lives.
+
+**Every carrier is exercised, not just tasks.** ``PHOTO_REF_COLLECTIONS`` lists six
+collections because a destructive query may not rest on "a task-category
+attachment should only ever be referenced by a task". Each of the six gets a row
+here, and each must protect its photo — a collection dropped from the tuple turns
+exactly one of these red, which is the point of having six cases rather than one
+parametrised over a list the code also supplies.
+
+Skipped when no ArangoDB answers on ``localhost:8529``. Run it with::
+
+    docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    pytest tests/integration/test_orphaned_task_photo_query.py -v
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from app.data_access.arango import collections as col
+from app.data_access.arango.attachment_repository import (
+    ArangoAttachmentRepository,
+)
+
+ARANGO_URL = "http://localhost:8529"
+ARANGO_PASSWORD = "rootpassword"
+TEST_DATABASE = "kamerplanter_orphan_photo_test"
+
+TENANT = "tenant-a"
+OTHER_TENANT = "tenant-b"
+#: The quota measurement deletes what it finds, so it gets a tenant nothing else
+#: reads. Sharing one would make every other case depend on test order — and the
+#: order that happens to work today is not a property anyone is maintaining.
+QUOTA_TENANT = "tenant-quota"
+
+NOW = datetime(2026, 9, 13, 12, 0, tzinfo=UTC)
+OLD = NOW - timedelta(hours=72)
+RECENT = NOW - timedelta(hours=1)
+CUTOFF = NOW - timedelta(hours=48)
+
+ARANGO_AVAILABLE = False
+try:  # pragma: no cover - probe, not behaviour
+    from arango import ArangoClient
+
+    _probe = ArangoClient(hosts=ARANGO_URL)
+    _probe.db("_system", username="root", password=ARANGO_PASSWORD).version()
+    ARANGO_AVAILABLE = True
+    _probe.close()
+except Exception:  # noqa: BLE001 - any failure means "not available"
+    pass
+
+pytestmark = pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available on localhost:8529")
+
+
+def _attachment(key: str, *, created_at: datetime, category: str = "task", tenant: str = TENANT) -> dict:
+    return {
+        "_key": key,
+        "tenant_key": tenant,
+        "mime_type": "image/jpeg",
+        "byte_size": 1000,
+        "sha256": f"sha-{key}",
+        "original_filename": f"{key}.jpg",
+        "created_by": "user-1",
+        "category": category,
+        "storage_key": f"{tenant}/{category}/{key}.jpg",
+        "created_at": created_at.isoformat(),
+    }
+
+
+#: One row per carrier, so a collection dropped from ``PHOTO_REF_COLLECTIONS``
+#: fails exactly one case and names it.
+REFERENCED: list[tuple[str, str, dict]] = [
+    (col.TASKS, "ref-task", {"tenant_key": TENANT, "title": "Giessen"}),
+    (col.PLANT_INSTANCES, "ref-plant", {"tenant_key": TENANT, "instance_id": "P-1"}),
+    (col.PLANT_DIARY_ENTRIES, "ref-diary", {"tenant_key": TENANT, "plant_key": "p1"}),
+    (col.HARVEST_OBSERVATIONS, "ref-harvest", {"tenant_key": TENANT}),
+    (col.INSPECTIONS, "ref-inspection", {"tenant_key": TENANT}),
+    (col.STORAGE_OBSERVATIONS, "ref-storage", {"tenant_key": TENANT}),
+]
+
+
+@pytest.fixture(scope="module")
+def db():
+    client = ArangoClient(hosts=ARANGO_URL)
+    system = client.db("_system", username="root", password=ARANGO_PASSWORD)
+    if system.has_database(TEST_DATABASE):
+        system.delete_database(TEST_DATABASE)
+    system.create_database(TEST_DATABASE)
+    database = client.db(TEST_DATABASE, username="root", password=ARANGO_PASSWORD)
+
+    # From this file's own list, deliberately **not** from `PHOTO_REF_COLLECTIONS`.
+    # Building the fixture out of the constant under test means dropping an entry
+    # breaks the setup instead of demonstrating the defect: measured, the whole
+    # module errored rather than failing the one carrier case. A test whose data
+    # comes from the code it checks cannot fail the way it is supposed to.
+    for name in (col.ATTACHMENTS, *[collection for collection, _key, _doc in REFERENCED]):
+        database.create_collection(name)
+
+    attachments = database.collection(col.ATTACHMENTS)
+
+    # The three orphan paths #1393 names.
+    attachments.insert(_attachment("orphan-abandoned", created_at=OLD))
+    attachments.insert(_attachment("orphan-unstaged", created_at=OLD))
+    attachments.insert(_attachment("orphan-task-deleted", created_at=OLD))
+    # Another tenant's orphan: the sweep is installation-wide, so it belongs here.
+    attachments.insert(_attachment("orphan-other-tenant", created_at=OLD, tenant=OTHER_TENANT))
+
+    # Too young to judge: an upload is an orphan by design until its form is submitted.
+    attachments.insert(_attachment("young-upload", created_at=RECENT))
+
+    # Not a task photo at all.
+    attachments.insert(_attachment("diary-photo", created_at=OLD, category="diary"))
+
+    # One referenced photo per carrier.
+    for collection, key, doc in REFERENCED:
+        attachments.insert(_attachment(key, created_at=OLD))
+        database.collection(collection).insert({**doc, "_key": f"doc-{key}", "photo_refs": [key]})
+
+    # The quota measurement's own rows: two orphans and one referenced photo, so
+    # both directions can be measured without touching another tenant's fixture.
+    attachments.insert(_attachment("quota-orphan-1", created_at=OLD, tenant=QUOTA_TENANT))
+    attachments.insert(_attachment("quota-orphan-2", created_at=OLD, tenant=QUOTA_TENANT))
+    attachments.insert(_attachment("quota-referenced", created_at=OLD, tenant=QUOTA_TENANT))
+    database.collection(col.TASKS).insert(
+        {"_key": "quota-task", "tenant_key": QUOTA_TENANT, "photo_refs": ["quota-referenced"]}
+    )
+
+    # Shapes a real row is in, none of which may be read as a reference.
+    attachments.insert(_attachment("orphan-empty-refs", created_at=OLD))
+    attachments.insert(_attachment("orphan-null-refs", created_at=OLD))
+    attachments.insert(_attachment("orphan-no-field", created_at=OLD))
+    tasks = database.collection(col.TASKS)
+    tasks.insert({"_key": "t-empty", "tenant_key": TENANT, "photo_refs": []})
+    tasks.insert({"_key": "t-null", "tenant_key": TENANT, "photo_refs": None})
+    tasks.insert({"_key": "t-missing", "tenant_key": TENANT})
+
+    yield database
+
+    system.delete_database(TEST_DATABASE)
+    client.close()
+
+
+@pytest.fixture
+def repo(db):
+    return ArangoAttachmentRepository(db)
+
+
+def _found(repo) -> set[str]:
+    return {a.key for a in repo.find_orphaned_task_photos(older_than=CUTOFF)}
+
+
+class TestWhatTheSweepCollects:
+    def test_the_three_orphan_paths_are_found(self, repo):
+        found = _found(repo)
+
+        assert {"orphan-abandoned", "orphan-unstaged", "orphan-task-deleted"} <= found
+
+    def test_another_tenant_orphan_is_found_too(self, repo):
+        """The sweep is housekeeping, not a tenant operation."""
+        assert "orphan-other-tenant" in _found(repo)
+
+    def test_the_row_carries_its_own_tenant(self, repo):
+        """The caller deletes tenant-scoped, so it needs the row's tenant back."""
+        by_key = {a.key: a for a in repo.find_orphaned_task_photos(older_than=CUTOFF)}
+
+        assert by_key["orphan-other-tenant"].tenant_key == OTHER_TENANT
+
+
+class TestWhatTheSweepMustNotTouch:
+    @pytest.mark.parametrize(("collection", "key", "_doc"), REFERENCED, ids=[r[0] for r in REFERENCED])
+    def test_a_photo_referenced_by_each_carrier_survives(self, repo, collection: str, key: str, _doc: dict):
+        """One case per carrier. Dropping a collection from the tuple fails exactly this one."""
+        assert key not in _found(repo), (
+            f"a photo referenced from {collection} was offered for deletion; "
+            "PHOTO_REF_COLLECTIONS is missing it (#1393)"
+        )
+
+    def test_a_young_upload_survives(self, repo):
+        """The floor is the whole safety story: every upload is briefly an orphan."""
+        assert "young-upload" not in _found(repo)
+
+    def test_a_non_task_photo_is_out_of_scope(self, repo):
+        assert "diary-photo" not in _found(repo)
+
+    @pytest.mark.parametrize("shape", ["orphan-empty-refs", "orphan-null-refs", "orphan-no-field"])
+    def test_an_absent_photo_refs_list_does_not_crash_the_query(self, repo, shape: str):
+        """``photo_refs`` missing, null or empty are all real shapes.
+
+        They must read as "references nothing" rather than erroring — an exception
+        here would leave the sweep never running, which is a silent failure of the
+        whole feature rather than a loud one.
+        """
+        assert shape in _found(repo)
+
+
+class TestTheFloorIsHonoured:
+    def test_nothing_is_returned_when_the_cutoff_predates_every_row(self, repo):
+        ancient = NOW - timedelta(days=3650)
+
+        assert repo.find_orphaned_task_photos(older_than=ancient) == []
+
+    def test_the_limit_bounds_the_batch(self, repo):
+        """A large backlog drains over several runs rather than in one transaction."""
+        assert len(repo.find_orphaned_task_photos(older_than=CUTOFF, limit=2)) == 2
+
+
+class TestTheQuotaIsActuallyReclaimed:
+    """#1393's last acceptance criterion: a before/after measurement.
+
+    The leak is not an exposure — every orphan stays tenant-scoped and
+    permission-gated — it is a **quota** problem, because
+    ``AttachmentService._enforce_quota`` counts every attachment row of the tenant
+    against ``STORAGE_TENANT_QUOTA_MB``, linked or not. So the claim worth proving
+    is not "rows disappear" but "the bytes the user could not reclaim come back".
+
+    Measured through ``sum_bytes_by_tenant``, which is the function the quota gate
+    itself calls, rather than by counting the rows this test deleted. Counting its
+    own deletions would pass even if the quota read a different set of rows — and
+    that divergence is precisely the kind of thing that makes a quota bug survive.
+
+    The rows are removed with ``repo.delete``: this tier has ArangoDB and no object
+    storage, so it measures the catalogue half of the sweep. The storage half is
+    ``AttachmentService.delete``, which has its own tests.
+    """
+
+    def test_deleting_what_the_sweep_finds_frees_the_bytes_it_held(self, repo, db):
+        before = repo.sum_bytes_by_tenant(QUOTA_TENANT)
+        orphans = [a for a in repo.find_orphaned_task_photos(older_than=CUTOFF) if a.tenant_key == QUOTA_TENANT]
+        assert orphans, "no orphans to measure — the fixture stopped exercising the leak"
+
+        held_by_orphans = sum(a.byte_size for a in orphans)
+        for attachment in orphans:
+            assert attachment.key is not None
+            repo.delete(attachment.key, QUOTA_TENANT)
+
+        after = repo.sum_bytes_by_tenant(QUOTA_TENANT)
+
+        assert after == before - held_by_orphans, (
+            f"the tenant's counted bytes went {before} -> {after}, expected "
+            f"{before - held_by_orphans}: the quota did not release what the sweep removed"
+        )
+        assert after < before, "the sweep freed nothing at all"
+
+    def test_the_photos_that_survive_still_count(self, repo):
+        """The control, and the direction that would be a disaster.
+
+        A sweep that freed *everything* would also satisfy "after < before". What
+        must remain counted is every referenced photo, because it is still stored.
+        """
+        remaining = repo.sum_bytes_by_tenant(QUOTA_TENANT)
+
+        assert remaining > 0, "every photo of the tenant was swept, referenced ones included"

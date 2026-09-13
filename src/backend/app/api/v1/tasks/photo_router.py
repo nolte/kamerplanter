@@ -49,7 +49,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request, UploadFile
+from fastapi import APIRouter, Depends, Path, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.schemas import ThumbnailUris
@@ -127,3 +127,37 @@ async def upload_task_photo(
         category=AttachmentCategory.TASK,
     )
     return _photo_response(attachment, ctx.tenant_slug)
+
+
+@router.delete("/{attachment_id}", status_code=204)
+async def delete_task_photo(
+    key: Annotated[str, Path(description="Document key of the task.")],
+    attachment_id: Annotated[str, Path(description="Attachment id of the task photo.")],
+    ctx: TenantContext = Depends(require_attachment_permission(Action.DELETE)),
+    task_service: TaskService = Depends(get_task_service),
+    attachment_service: AttachmentService = Depends(get_attachment_service),
+) -> Response:
+    """Delete a task photo, storage object and thumbnails included (#1393).
+
+    **The route the remove button needed.** ``PhotoUpload`` dropped the reference
+    from local state and issued no request, because there was nothing to issue it
+    to — so a control that looks like a delete left the bytes behind, counting
+    against the tenant quota with no surface that reached them.
+
+    The task is resolved tenant-scoped first, exactly as on the upload above, so an
+    unknown and a foreign task answer the same 404 and neither reaches storage.
+    Deletion itself is idempotent: removing an id that is already gone answers 204
+    rather than 404, so a double click, a retry, or a race with the orphan sweep is
+    not an error the user has to understand.
+
+    This does **not** rewrite ``task.photo_refs``. The single-writer rule from
+    #1388 stands — ``TaskService.complete_task`` owns that list, and the staged
+    photos this route deletes are not in it yet. A photo already referenced by a
+    completed task is deleted here too, and its id then dangles in ``photo_refs``;
+    that is the same state a manual ``DELETE /attachments/{id}`` has always
+    produced, and the readers resolve ids against the catalogue rather than trusting
+    the list.
+    """
+    task_service.get_task(key, tenant_key=ctx.tenant_key)
+    await attachment_service.delete(attachment_id, ctx.tenant_key)
+    return Response(status_code=204)

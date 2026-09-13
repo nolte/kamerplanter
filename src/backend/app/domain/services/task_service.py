@@ -1022,7 +1022,13 @@ class TaskService:
         # deleted, so ``self._repo.delete_task`` below is only ever reached after
         # a tenant-checked load (GHSA-h5wp-r68x-97g8).
         task = self.get_task(key, tenant_key=tenant_key)
-        allowed = {"pending", "skipped", "cancelled", "dormant"}
+        # No "cancelled": `TaskStatus` has no such member (pending, in_progress,
+        # completed, skipped, failed, dormant), so that entry could never match a
+        # status Pydantic would accept — an allowlist row that cannot fire. Dropping
+        # it changes no behaviour and stops the set from describing a state machine
+        # this one does not have. `failed` stays out deliberately: its photos may be
+        # the record of what went wrong.
+        allowed = {"pending", "skipped", "dormant"}
         if task.status not in allowed:
             raise ValidationError(
                 f"Cannot delete task in status '{task.status}'. "
@@ -1030,13 +1036,47 @@ class TaskService:
             )
         deleted = self._repo.delete_task(key)
         if deleted:
+            self._dispatch_photo_deletion(task, tenant_key)
             self._propagate(lambda p: p.on_task_deleted(task))
         return deleted
 
-    def add_photo_ref(self, key: str, url: str, *, tenant_key: str) -> Task:
-        task = self.get_task(key, tenant_key=tenant_key)
-        task.photo_refs.append(url)
-        return self._repo.update_task(key, task)
+    def _dispatch_photo_deletion(self, task: Task, tenant_key: str) -> None:
+        """Delete the task's photos along with it (#1393, decision 2).
+
+        Deleting the document used to leave every attachment it referenced behind,
+        counting against ``STORAGE_TENANT_QUOTA_MB`` with no surface that reaches
+        them for the ``task`` category.
+
+        **Safe because of the status gate above**: a task is deletable only in
+        ``pending``/``skipped``/``cancelled``/``dormant``, so a completed task's
+        documentation can never be lost this way. The photos that go are staged or
+        abandoned ones, which is what the user deleting the task means to discard.
+
+        Out of band, because this service is synchronous and attachment deletion is
+        not — the lazy-import-and-``delay`` shape
+        ``AttachmentService._dispatch_thumbnails`` already uses. A lost dispatch is
+        not a leak either: ``cleanup_orphaned_task_photos`` finds the same rows on
+        its next run, since deleting the document is exactly what makes them
+        unreferenced. This makes it prompt; the sweep makes it certain.
+
+        Failure to dispatch must not fail the deletion: the document is already gone
+        at this point, and raising here would answer 500 for an operation that
+        succeeded.
+        """
+        if not task.photo_refs:
+            return
+        try:
+            from app.tasks.storage_tasks import delete_attachments
+
+            delete_attachments.delay(list(task.photo_refs), tenant_key)
+        except Exception as exc:  # noqa: BLE001 — the sweep is the backstop
+            logger.warning(
+                "task_photo_deletion_dispatch_failed",
+                task_key=task.key,
+                tenant_key=tenant_key,
+                count=len(task.photo_refs),
+                error=str(exc),
+            )
 
     def start_task(self, key: str, *, tenant_key: str) -> Task:
         task = self.get_task(key, tenant_key=tenant_key)
