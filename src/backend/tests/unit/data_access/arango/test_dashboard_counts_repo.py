@@ -132,9 +132,16 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert "@@task_col" in q
     assert "tsk.tenant_key == @tenant_key" in q
     assert "tsk.entity_key == p._key" in q
-    # location name is surfaced only for the caller's own-tenant location
+    # The location name is surfaced only for the caller's own-tenant location
     # (defence-in-depth: a foreign location_key never leaks another tenant's name).
-    assert "location.tenant_key == @tenant_key" in q
+    #
+    # The rule was right and the expression was wrong: this line used to assert
+    # ``location.tenant_key == @tenant_key``, pinning a comparison that is false for
+    # every location the write path has ever created — ``LocationCreate`` may not
+    # carry a tenant key (#1000), so the field is stored ``""``. A test asserting the
+    # defect is why it went unquestioned. The tenant lives on the parent site (#1397).
+    assert "location_site.tenant_key == @tenant_key" in q
+    assert "DOCUMENT(@site_col, location.site_key)" in q
     bv = db.aql.bind_vars or {}
     assert bv["@col"] == "plant_instances"
     assert bv["@task_col"] == "tasks"
