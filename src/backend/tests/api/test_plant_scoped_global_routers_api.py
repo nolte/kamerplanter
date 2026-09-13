@@ -33,7 +33,7 @@ existed and nothing drove it.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
@@ -51,13 +51,16 @@ from app.common.dependencies import (
     get_plant_instance_service,
     get_tenant_service,
 )
-from app.common.enums import AdminScope, TenantRole
+from app.common.enums import AdminScope, ConfirmAction, ReminderType, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
+from app.domain.models.care_reminder import CareConfirmation, CareProfile
+from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_instance_service import PlantInstanceService
 
 _USER = "user_1"
+_SERVICE = "svc_1"
 _OWN = SimpleNamespace(key="tenant_own", slug="my-garden")
 _FOREIGN = SimpleNamespace(key="tenant_foreign", slug="other-garden")
 
@@ -89,10 +92,15 @@ class _FakeTenantService:
 
     def __init__(self) -> None:
         self._by_slug = {t.slug: t for t in (_OWN, _FOREIGN)}
+        member = SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[AdminScope.MANAGEMENT], is_active=True)
         self._memberships = {
-            (_USER, _OWN.key): SimpleNamespace(
-                role=TenantRole.LEAD, admin_scopes=[AdminScope.MANAGEMENT], is_active=True
-            ),
+            (_USER, _OWN.key): member,
+            # A service account bound to a tenant holds a membership there like any
+            # other principal: with a header, `_membership_for_slug` runs the same
+            # validated route a `/t/{slug}/` segment takes, for every account type.
+            # Without one it resolves `""` by design (auth.py:251), which is the case
+            # `TestACallerWhoseTenantDoesNotResolveIsRefused` drives.
+            (_SERVICE, _OWN.key): member,
         }
 
     def get_personal_tenant(self, user_key: str) -> SimpleNamespace | None:
@@ -136,6 +144,66 @@ class _FakePlantRepo:
         return plant
 
 
+def _doubled_services() -> tuple[Any, Any]:
+    """Phase and care services that answer what the response schemas accept.
+
+    Shallow doubles were not enough once the admission control demanded a 2xx
+    rather than merely "not 401/403/404". Two things bit:
+
+    * `app.dependency_overrides[dep] = MagicMock` passes the CLASS, so FastAPI
+      introspects `MagicMock.__init__` and demands query parameters named `args`
+      and `kw` — every call answered 422 and the loose control read that as
+      admitted. It has to be `lambda: MagicMock()`.
+    * a `MagicMock` return value does not serialise through a response model, so
+      the handlers answered 500 — also invisible to the loose control.
+
+    Both are harness defects, and both were hidden by an assertion that only
+    excluded the refusal codes. That is the shape this file exists to catch, one
+    level down.
+    """
+    phase = MagicMock()
+    phase.get_current_phase.return_value = {
+        "phase": "Vegetative",
+        "phase_key": "gp_veg",
+        "days_in_phase": 3,
+        "next_phase": "Flowering",
+    }
+    phase.get_phase_history.return_value = []
+    plant = PlantInstance(
+        _key=OWN_PLANT,
+        instance_id="own-1",
+        species_key="sp",
+        planted_on=date(2026, 1, 1),
+        tenant_key=_OWN.key,
+    )
+    phase.transition_phase.return_value = plant
+    phase.update_phase_history_dates.return_value = PhaseHistory(
+        _key="h1",
+        plant_key=OWN_PLANT,
+        phase_key="gp_veg",
+        entered_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    phase.delete_phase_history.return_value = None
+
+    care = MagicMock()
+    profile = CareProfile(_key="cp1", plant_key=OWN_PLANT)
+    care.get_or_create_profile.return_value = profile
+    care.update_profile.return_value = profile
+    care.reset_profile.return_value = profile
+    confirmation = CareConfirmation(
+        _key="cc1",
+        plant_key=OWN_PLANT,
+        care_profile_key="cp1",
+        reminder_type=ReminderType.WATERING,
+        action=ConfirmAction.CONFIRMED,
+        confirmed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    care.confirm_reminder.return_value = confirmation
+    care.snooze_reminder.return_value = confirmation
+    care.get_confirmation_history.return_value = []
+    return phase, care
+
+
 def _app() -> TestClient:
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
@@ -152,18 +220,13 @@ def _app() -> TestClient:
         companion_engine=MagicMock(),
     )
 
-    # The handlers themselves are doubled: this file is about the GATE, and a real
-    # PhaseService would need a phase repository, a sequence repository and a
-    # transition engine to answer at all — none of which decides who may call.
-    phase_service = MagicMock()
-    phase_service.get_current_phase.return_value = {"phase_key": "gp_veg", "phase_name": "Vegetative"}
-    phase_service.get_phase_history.return_value = []
+    phase_service, care_service = _doubled_services()
 
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=_USER, account_type="user")
     app.dependency_overrides[get_tenant_service] = _FakeTenantService
     app.dependency_overrides[get_plant_instance_service] = lambda: plant_service
     app.dependency_overrides[get_phase_service] = lambda: phase_service
-    app.dependency_overrides[get_care_reminder_service] = MagicMock
+    app.dependency_overrides[get_care_reminder_service] = lambda: care_service
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -209,8 +272,8 @@ class TestAForeignPlantIsRefusedOnEveryRoute:
         """
         response = _call(_app(), method, template.format(k=OWN_PLANT), body)
 
-        assert response.status_code not in (401, 403, 404), (
-            f"{method} {template} refused the caller's OWN plant with {response.status_code}: {response.text}"
+        assert response.status_code < 400, (
+            f"{method} {template} did not admit the caller's OWN plant: {response.status_code} {response.text}"
         )
 
 
@@ -228,3 +291,79 @@ class TestTheTableCoversTheWholeSurface:
 
         missing = sorted(mounted - tabled)
         assert not missing, "These operations are mounted and untested:\n  " + "\n  ".join(map(str, missing))
+
+
+class TestACallerWhoseTenantDoesNotResolveIsRefused:
+    """The class the first version of this gate admitted, and it is the whole point.
+
+    `_resolve_active_tenant` answers `""` for a **service account** with no
+    `X-Active-Tenant` header — pinned deliberately at `auth.py:251` so a header-less
+    M2M call cannot silently act inside a tenant — and for any user without a
+    personal tenant. `PlantInstanceService.get_plant` reads a falsy `tenant_key` as
+    *skip the check*, because its own service makes unscoped system-context reads
+    through it.
+
+    So the same value meant "narrow to global-only" at one end and "do not narrow"
+    at the other, and delegating the decision made `require_owned_plant` **inert**
+    for those callers: measured, a service principal with no header answered 200
+    with a foreign tenant's phase data.
+
+    The suite above could not see it — its fake tenant service hands the test user a
+    personal tenant, and the user is `account_type="user"`. Both properties are what
+    this class varies.
+    """
+
+    def _client_for(self, principal: SimpleNamespace, *, header: bool) -> TestClient:
+        app = FastAPI()
+        app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+        app.include_router(phases_router, prefix="/api/v1")
+        app.include_router(care_router, prefix="/api/v1")
+
+        plant_service = PlantInstanceService(
+            _FakePlantRepo(),  # type: ignore[arg-type]
+            site_repo=MagicMock(),
+            rotation_validator=MagicMock(),
+            companion_engine=MagicMock(),
+        )
+        phase_service, care_service = _doubled_services()
+
+        app.dependency_overrides[get_current_user] = lambda: principal
+        app.dependency_overrides[get_tenant_service] = _FakeTenantService
+        app.dependency_overrides[get_plant_instance_service] = lambda: plant_service
+        app.dependency_overrides[get_phase_service] = lambda: phase_service
+        app.dependency_overrides[get_care_reminder_service] = lambda: care_service
+        client = TestClient(app, raise_server_exceptions=False)
+        if header:
+            client.headers[ACTIVE_TENANT_HEADER] = _OWN.slug
+        return client
+
+    @pytest.mark.parametrize(
+        ("principal", "header", "what"),
+        [
+            (SimpleNamespace(key=_SERVICE, account_type="service"), False, "a service account with no header"),
+            (SimpleNamespace(key="nobody", account_type="user"), False, "a user with no personal tenant"),
+        ],
+    )
+    def test_an_unresolvable_tenant_reaches_no_plant(self, principal: SimpleNamespace, header: bool, what: str):
+        client = self._client_for(principal, header=header)
+
+        for target in (OWN_PLANT, FOREIGN_PLANT):
+            response = client.get(f"/api/v1/plant-instances/{target}/phases/current")
+            assert response.status_code == 404, (
+                f"{what} read plant {target} with {response.status_code}; the gate resolved an "
+                "empty tenant key and `get_plant` treated that as 'skip the check'"
+            )
+
+    def test_a_service_account_that_does_send_a_header_is_still_scoped(self):
+        """The control: refusing the empty key must not refuse a resolvable one.
+
+        A service account that names its tenant is a legitimate M2M caller, and a
+        gate that refused it would break the MCP surface REQ-033 exists for.
+        """
+        client = self._client_for(SimpleNamespace(key=_SERVICE, account_type="service"), header=True)
+
+        own = client.get(f"/api/v1/plant-instances/{OWN_PLANT}/phases/current")
+        foreign = client.get(f"/api/v1/plant-instances/{FOREIGN_PLANT}/phases/current")
+
+        assert own.status_code == 200, own.text
+        assert foreign.status_code == 404

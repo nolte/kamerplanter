@@ -33,6 +33,7 @@ from fastapi import Depends, Path
 
 from app.common.auth import get_active_tenant_key
 from app.common.dependencies import get_plant_instance_service
+from app.common.exceptions import NotFoundError
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_instance_service import PlantInstanceService
 
@@ -47,10 +48,31 @@ def require_owned_plant(
     Returns the plant so a handler that needs it does not fetch it twice; most
     handlers ignore the return value and take it purely as a gate.
 
-    **Fails closed as 404, not 403** — `PlantInstanceService.get_plant` delegates to
-    `verify_tenant_ownership`, which raises `NotFoundError` for a foreign key. A 403
-    would confirm that the key names a real plant somewhere, which is the ownership
-    oracle REQ-049 §2.4 closes; a caller who may not see it is told the same thing as
-    a caller who asked for nothing.
+    **Fails closed as 404, not 403** — `verify_tenant_ownership` raises
+    `NotFoundError` for a foreign key. A 403 would confirm that the key names a real
+    plant somewhere, which is the ownership oracle REQ-049 §2.4 closes; a caller who
+    may not see it is told the same thing as a caller who asked for nothing.
+
+    **An empty tenant key is refused here, not passed on**, and that line is the
+    whole gate. `_resolve_active_tenant` answers `""` for a service account with no
+    `X-Active-Tenant` header (`auth.py:251`, pinned deliberately so a header-less M2M
+    call cannot silently act inside a tenant) and for any user without a personal
+    tenant. `PlantInstanceService.get_plant` reads a falsy `tenant_key` as *skip the
+    check* — its `if tenant_key:` is there for the unscoped system-context reads its
+    own service makes.
+
+    The same value therefore means "narrow to global-only" at one end and "do not
+    narrow at all" at the other, and delegating the decision would have made this
+    dependency **inert for exactly those callers**: measured before this guard, a
+    service principal with no header read a foreign tenant's phase history with a
+    200 and could `POST /transition` against it. A gate that admits everything for
+    one class of caller is the failure this whole change exists to close, so the
+    decision is made here rather than inherited.
+
+    There is no plant that belongs to "no tenant": every `PlantInstance` carries a
+    real `tenant_key`, unlike `Location` and `Slot` (#1397). So refusing is not a
+    trade-off — an unresolvable tenant cannot own anything.
     """
+    if not tenant_key:
+        raise NotFoundError("PlantInstance", plant_key)
     return plant_service.get_plant(plant_key, tenant_key=tenant_key)
