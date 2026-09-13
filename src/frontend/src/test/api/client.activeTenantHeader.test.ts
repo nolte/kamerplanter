@@ -151,5 +151,29 @@ describe('global client: X-Active-Tenant', () => {
       },
       3000,
     );
+
+    it(
+      'gives up promptly when no slug is ever going to arrive',
+      async () => {
+        // `loadMyTenants` failed, or the session expired: the slug never comes.
+        // Before the bound, every plant-scoped request sat for the helper's 10 s
+        // default and the plant detail page fires several — a dead page where the
+        // old behaviour was a prompt error.
+        server.use(
+          http.get('/api/v1/plant-instances/p2/phases/current', ({ request }) => {
+            seen = request.headers.get(ACTIVE_TENANT_HEADER);
+            return HttpResponse.json({ ok: true });
+          }),
+        );
+        setActiveTenantSlug(null);
+
+        const started = Date.now();
+        await client.get('/plant-instances/p2/phases/current');
+
+        expect(Date.now() - started).toBeLessThan(5000);
+        expect(seen).toBeNull();
+      },
+      8000,
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import i18n from 'i18next';
@@ -30,8 +30,8 @@ import { createPlatformAdminStore, renderWithProviders } from '../helpers';
  * Every case below drives or inspects an installation-wide catalogue whose writes
  * carry `require_platform_admin` since #1402 C, so the suite acts as a platform
  * admin. The non-admin half of the contract — reads still render, write
- * affordances are gone — is asserted in
- * `src/test/pages/InstallationCatalogueGating.test.tsx`.
+ * affordances are gone — is asserted in this same file, beside its admin
+ * counterpart, so the pair cannot drift apart.
  */
 const renderAsAdmin = (ui: Parameters<typeof renderWithProviders>[0]) =>
   renderWithProviders(ui, { store: createPlatformAdminStore() });
@@ -294,5 +294,20 @@ describe('ActivityDetailPage — delete flow', () => {
 
     // The read is intact and the field is present-but-disabled, not absent.
     expect(screen.getByDisplayValue('Topping')).toBeDisabled();
+
+    // Every field, not just the ones built from `Form*Field`. Review round 2 found
+    // three `FormChipInput`s and a hand-rolled `Controller` + `Autocomplete` still
+    // fully editable here: the chip fields because the fix globbed `Form*Field.tsx`
+    // and `FormChipInput` is not named that, the autocomplete because it never
+    // forwarded `field.disabled` at all. A caller was able to add and delete chips
+    // on a form with no save button.
+    for (const field of ['tools_required', 'forbidden_phases', 'restricted_sub_phases', 'tags']) {
+      const input = within(screen.getByTestId(`form-field-${field}`)).getByRole('textbox');
+      expect(input, `${field} stayed editable`).toBeDisabled();
+    }
+    expect(
+      screen.getByLabelText(i18n.t('pages.activities.speciesCompatible')),
+      'species_compatible stayed editable',
+    ).toBeDisabled();
   });
 });

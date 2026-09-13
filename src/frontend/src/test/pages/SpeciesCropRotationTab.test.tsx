@@ -12,8 +12,8 @@ import type { BotanicalFamily, RotationSuccessor } from '@/api/types';
  * Every case below drives or inspects an installation-wide catalogue whose writes
  * carry `require_platform_admin` since #1402 C, so the suite acts as a platform
  * admin. The non-admin half of the contract — reads still render, write
- * affordances are gone — is asserted in
- * `src/test/pages/InstallationCatalogueGating.test.tsx`.
+ * affordances are gone — is asserted in this same file, beside its admin
+ * counterpart, so the pair cannot drift apart.
  */
 const renderAsAdmin = (ui: Parameters<typeof renderWithProviders>[0]) =>
   renderWithProviders(ui, { store: createPlatformAdminStore() });

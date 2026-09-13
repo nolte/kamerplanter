@@ -276,12 +276,23 @@ const client = axios.create({
  * some of them run *before* a tenant can exist. The wait is owed exactly where the
  * header became load-bearing.
  */
+/** How long a plant-scoped request waits out the auth-bootstrap window. */
+const TENANT_HEADER_BOOTSTRAP_TIMEOUT_MS = 2000;
+
 const TENANT_HEADER_REQUIRED = [/^\/plant-instances\/[^/]+\/phases(\/|$)/, /^\/care-reminders\/plants\//];
 
 client.interceptors.request.use(async (config) => {
   let slug = getActiveTenantSlug();
   if (!slug && !isLightMode && TENANT_HEADER_REQUIRED.some((re) => re.test(config.url ?? ''))) {
-    slug = await waitForTenantSlug();
+    // Bounded well below `waitForTenantSlug`'s 10 s default. The wait exists for
+    // the bootstrap window, which closes in well under a second; the 10 s is sized
+    // for `tenantClient`, where the alternative is a request to a URL that cannot
+    // exist. Here the alternative is a header-less request that fails immediately,
+    // so when there will never be a slug — `loadMyTenants` failed, the session
+    // expired, the stale-slug reload failed — the caller is told promptly instead
+    // of staring at a dead page for ten seconds. Overshooting the bootstrap by a
+    // second costs one retry; undershooting the failure case costs the page.
+    slug = await waitForTenantSlug(TENANT_HEADER_BOOTSTRAP_TIMEOUT_MS);
   }
   if (slug) {
     config.headers.set(ACTIVE_TENANT_HEADER, slug);

@@ -50,6 +50,9 @@ def rotation_page(browser: WebDriver, base_url: str) -> CropRotationPage:
     return CropRotationPage(browser, base_url)
 
 
+# Drives the lifecycle config and a growth-phase create, both installation-wide
+# and platform-admin-gated since #1402 C.
+@pytest.mark.platform_admin
 class TestCompleteWorkflow:
     """Complete workflow — create family, species, cultivar, lifecycle, and phases (Spec: TC-001-006, TC-001-025, TC-001-037, TC-001-047, TC-001-048)."""
 

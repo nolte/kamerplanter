@@ -380,6 +380,11 @@ export default function ActivityDetailPage() {
                   freeSolo
                   options={[]}
                   value={field.value}
+                  // Hand-rolled `Controller`, so it does not inherit the
+                  // `disabled ?? field.disabled` contract the `Form*` components
+                  // carry: without this the chips stay addable and removable for a
+                  // caller whose save bar is hidden (#1402 C, review round 2).
+                  disabled={field.disabled}
                   onChange={(_, newValue) => field.onChange(newValue)}
                   renderValue={(value: string[], getItemProps) =>
                     value.map((option, index) => {
