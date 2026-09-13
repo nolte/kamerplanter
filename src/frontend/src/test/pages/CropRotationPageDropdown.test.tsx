@@ -4,8 +4,19 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import CropRotationPage from '@/pages/stammdaten/CropRotationPage';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+
+/**
+ * Every case below drives or inspects an installation-wide catalogue whose writes
+ * carry `require_platform_admin` since #1402 C, so the suite acts as a platform
+ * admin. The non-admin half of the contract — reads still render, write
+ * affordances are gone — is asserted in
+ * `src/test/pages/InstallationCatalogueGating.test.tsx`.
+ */
+const renderAsAdmin = (ui: Parameters<typeof renderWithProviders>[0]) =>
+  renderWithProviders(ui, { store: createPlatformAdminStore() });
+
 
 // Three families spanning the filter dimensions:
 //  - Solanaceae: heavy feeder, not N-fixing, frost-sensitive, 2 successors
@@ -78,7 +89,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('renders a successor-count chip per family option, including an explicit 0', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
 
     await screen.findByTestId('family-option-fam-solanaceae');
@@ -91,7 +102,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('de-emphasizes families with no rotation data (still selectable)', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
 
     const solanaceae = await screen.findByTestId('family-option-fam-solanaceae');
@@ -101,7 +112,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('carries the successor count in the option accessible name, not colour alone', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
 
     const option = await screen.findByRole('option', { name: /Solanaceae/ });
@@ -111,7 +122,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('filters to families that have rotation data', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await screen.findByTestId('filter-has-rotation');
     await userEvent.click(screen.getByTestId('filter-has-rotation'));
     await openDropdown();
@@ -124,7 +135,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('filters to nitrogen-fixing families', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await screen.findByTestId('filter-nitrogen-fixing');
     await userEvent.click(screen.getByTestId('filter-nitrogen-fixing'));
     await openDropdown();
@@ -134,7 +145,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('filters by nutrient demand (Zehrer / rotation category)', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     const select = await screen.findByTestId('filter-nutrient-demand');
     // MUI select renders a combobox button inside the TextField.
     await userEvent.click(within(select).getByRole('combobox'));
@@ -146,7 +157,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('favoriting a family scopes the favorites filter without selecting it', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
 
     const favBtn = await screen.findByTestId('family-favorite-fam-fabaceae');
@@ -167,7 +178,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
     // keeps real DOM focus on the input the whole time (aria-activedescendant
     // model), so the per-option star button is never Tab-reachable. Shift+F is
     // the keyboard-only path to the same toggle, driven by arrow-key highlight.
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
     await screen.findByTestId('family-option-fam-solanaceae');
 
@@ -190,7 +201,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
     // clause is a no-op and deliberately does NOT swallow the keystroke — "F"
     // must still reach the input so normal search typing (e.g. "Fabaceae")
     // keeps working.
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
     await screen.findByTestId('family-option-fam-solanaceae');
 
@@ -209,7 +220,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
         ]),
       ),
     );
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
     await userEvent.click(await screen.findByRole('option', { name: /Solanaceae/ }));
 
@@ -233,7 +244,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
       }),
     );
 
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
     await userEvent.click(await screen.findByRole('option', { name: /Solanaceae/ }));
 
@@ -280,7 +291,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
       ),
     );
 
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await openDropdown();
 
     // German family common name leads, scientific name is secondary.
@@ -299,18 +310,59 @@ describe('CropRotationPage family dropdown counts + filters', () => {
   });
 
   it('explains the Zehrer classes through an inline info affordance (#567)', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     const info = await screen.findByTestId('zehrer-info');
     expect(info).toHaveAccessibleName(i18n.t('pages.cropRotation.zehrerLegendTitle'));
   });
 
   it('clears all active filters with the reset button', async () => {
-    renderWithProviders(<CropRotationPage />);
+    renderAsAdmin(<CropRotationPage />);
     await userEvent.click(await screen.findByTestId('filter-nitrogen-fixing'));
     await userEvent.click(screen.getByTestId('clear-filters'));
     await openDropdown();
 
     const names = await optionNames();
     expect(names).toHaveLength(3);
+  });
+
+  /**
+   * The page's two write affordances for `POST /crop-rotation/successors` (#1402 C):
+   * the toolbar button, and the empty state's action, which offers the same write
+   * through `actionLabel`/`onAction`. Both are asserted, because gating one of a
+   * pair is the drift this issue closes.
+   */
+  describe('a caller who is not a platform admin', () => {
+    it('reads the successors of a family but is offered no way to add one', async () => {
+      server.use(
+        http.get('/api/v1/crop-rotation/families/fam-solanaceae/successors', () =>
+          HttpResponse.json([
+            { family_key: 'fam-fabaceae', name: 'Fabaceae', wait_years: 3, benefit_score: 0.8, benefit_reason: '' },
+          ]),
+        ),
+      );
+      renderWithProviders(<CropRotationPage />);
+      await openDropdown();
+      await userEvent.click(await screen.findByRole('option', { name: /Solanaceae/ }));
+
+      // The read is the control: the successor actually rendered.
+      expect(await screen.findByText('Fabaceae')).toBeInTheDocument();
+      expect(screen.queryByTestId('add-successor-button')).toBeNull();
+    });
+
+    it('offers no action on the empty state either', async () => {
+      server.use(
+        http.get('/api/v1/crop-rotation/families/fam-solanaceae/successors', () =>
+          HttpResponse.json([]),
+        ),
+      );
+      renderWithProviders(<CropRotationPage />);
+      await openDropdown();
+      await userEvent.click(await screen.findByRole('option', { name: /Solanaceae/ }));
+
+      await screen.findByText(i18n.t('pages.cropRotation.noSuccessors'));
+      expect(
+        screen.queryByRole('button', { name: i18n.t('pages.cropRotation.addSuccessor') }),
+      ).toBeNull();
+    });
   });
 });

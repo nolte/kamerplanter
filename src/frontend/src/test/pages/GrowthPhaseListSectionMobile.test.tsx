@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 
 // Force the mobile breakpoint so DataTable uses the mobileCardRenderer branch.
@@ -11,6 +11,17 @@ vi.mock('@mui/material/useMediaQuery', () => ({ default: () => true }));
 
 // Import after the mock so the mocked useMediaQuery is picked up.
 import GrowthPhaseListSection from '@/pages/pflanzen/GrowthPhaseListSection';
+
+/**
+ * Every case below drives or inspects an installation-wide catalogue whose writes
+ * carry `require_platform_admin` since #1402 C, so the suite acts as a platform
+ * admin. The non-admin half of the contract — reads still render, write
+ * affordances are gone — is asserted in
+ * `src/test/pages/InstallationCatalogueGating.test.tsx`.
+ */
+const renderAsAdmin = (ui: Parameters<typeof renderWithProviders>[0]) =>
+  renderWithProviders(ui, { store: createPlatformAdminStore() });
+
 
 const managedSequence = {
   key: 'seq-1',
@@ -73,7 +84,7 @@ describe('GrowthPhaseListSection — mobile card actions', () => {
   });
 
   it('offers the profile and delete actions on the mobile card', async () => {
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     const cards = await screen.findByTestId('data-table-cards');
     const firstRow = within(cards).getAllByTestId('data-table-row')[0];
@@ -95,7 +106,7 @@ describe('GrowthPhaseListSection — mobile card actions', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     await screen.findByTestId('data-table-cards');
     await user.click(screen.getByTestId('phase-delete-gp-veg'));
@@ -110,7 +121,7 @@ describe('GrowthPhaseListSection — mobile card actions', () => {
 
   it('opens the phase profile from the mobile card', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     await screen.findByTestId('data-table-cards');
     await user.click(screen.getByTestId('phase-profile-gp-veg'));
@@ -128,7 +139,7 @@ describe('GrowthPhaseListSection — mobile card actions', () => {
     server.use(
       http.get('/api/v1/phase-sequences/:key', () => HttpResponse.json(managedSequence)),
     );
-    renderWithProviders(
+    renderAsAdmin(
       <GrowthPhaseListSection lifecycleKey="lc-sp-1" phaseSequenceKey="seq-1" phaseSequenceName="Mein Ablauf" />,
     );
 
@@ -136,5 +147,18 @@ describe('GrowthPhaseListSection — mobile card actions', () => {
     // Managed phases are read-only in both views.
     expect(screen.queryByTestId('phase-delete-entry-veg')).toBeNull();
     expect(screen.queryByTestId('phase-profile-entry-veg')).toBeNull();
+  });
+
+  /**
+   * The mobile card is the sibling of the desktop actions column, and UI-NFR-010
+   * requires the pair to offer the same row actions. Gating one of the two is
+   * exactly the drift #1402 exists to close, so the card carries its own case.
+   */
+  it('drops the delete action from the card for a non-admin but keeps the profile action', async () => {
+    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+
+    await screen.findByText('Vegetativ');
+    expect(screen.getAllByTestId(/^phase-profile-/).length).toBeGreaterThan(0);
+    expect(screen.queryAllByLabelText(i18n.t('common.delete'))).toHaveLength(0);
   });
 });

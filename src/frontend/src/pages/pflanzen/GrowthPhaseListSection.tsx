@@ -19,6 +19,7 @@ import GrowthPhaseDialog from './GrowthPhaseDialog';
 import ProfilesSection from './ProfilesSection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { GrowthPhase, PhaseSequenceEntry } from '@/api/types';
@@ -96,6 +97,16 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
   const tableState = useTableLocalState({ defaultSort: { column: 'order', direction: 'asc' } });
 
   const isManaged = !!phaseSequenceKey;
+  // Growth phases hang off the installation-wide lifecycle config, and
+  // `POST/PUT/DELETE /growth-phases` carries `require_platform_admin` since
+  // #1402 C. Everyone else keeps the read: the table, and the "profile" button
+  // that opens the (read-only) profile view beside it. Only create, edit and
+  // delete go away — they answer 403 (#1261).
+  //
+  // Both action renderers below are gated, not just the desktop one. They are
+  // the sibling pair UI-NFR-010 requires to stay in step, and gating one of two
+  // is the drift this whole issue is about.
+  const canEdit = useCanEditInstallationCatalogue();
 
   const load = async () => {
     setLoading(true);
@@ -192,14 +203,16 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
           >
             {t('entities.profile')}
           </Button>
-          <IconButton
-            size="small"
-            aria-label={t('common.delete')}
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteTarget(r); }}
-            data-testid={`phase-delete-${r.key}`}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          {canEdit && (
+            <IconButton
+              size="small"
+              aria-label={t('common.delete')}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteTarget(r); }}
+              data-testid={`phase-delete-${r.key}`}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
       ),
     } as Column<PhaseRow>] : []),
@@ -220,14 +233,16 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
       >
         {t('entities.profile')}
       </Button>
-      <IconButton
-        aria-label={t('common.delete')}
-        onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteTarget(r); }}
-        sx={{ minWidth: 48, minHeight: 48 }}
-        data-testid={`phase-delete-${r.key}`}
-      >
-        <DeleteIcon fontSize="small" />
-      </IconButton>
+      {canEdit && (
+        <IconButton
+          aria-label={t('common.delete')}
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteTarget(r); }}
+          sx={{ minWidth: 48, minHeight: 48 }}
+          data-testid={`phase-delete-${r.key}`}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      )}
     </Box>
   );
 
@@ -245,7 +260,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
       )}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">{t('pages.growthPhases.title')}</Typography>
-        {!isManaged && (
+        {!isManaged && canEdit && (
           <Button startIcon={<AddIcon />} onClick={() => { setEditPhase(null); setDialogOpen(true); }}>
             {t('pages.growthPhases.create')}
           </Button>
@@ -256,7 +271,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
         columns={columns}
         rows={rows}
         loading={loading}
-        onRowClick={isManaged ? undefined : (r) => { if (r.growthPhase) { setEditPhase(r.growthPhase); setDialogOpen(true); } }}
+        onRowClick={isManaged || !canEdit ? undefined : (r) => { if (r.growthPhase) { setEditPhase(r.growthPhase); setDialogOpen(true); } }}
         getRowKey={(r) => r.key}
         tableState={tableState}
         ariaLabel={t('pages.growthPhases.title')}
@@ -336,6 +351,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
         <ProfilesSection
           phaseKey={selectedPhase.growthPhase.key}
           phaseName={selectedPhase.displayName}
+          readOnly={!canEdit}
         />
       )}
     </Box>

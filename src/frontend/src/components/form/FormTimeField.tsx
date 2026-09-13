@@ -29,7 +29,9 @@ export default function FormTimeField<T extends FieldValues>({
           type="time"
           label={label}
           required={required}
-          disabled={disabled}
+          // `?? field.disabled` honours `useForm({ disabled })` / `<Controller disabled>`;
+          // a bare `disabled={disabled}` overwrites RHF's value with `undefined` (#1402 C).
+          disabled={disabled ?? field.disabled}
           error={!!error}
           helperText={error?.message ?? helperText}
           fullWidth

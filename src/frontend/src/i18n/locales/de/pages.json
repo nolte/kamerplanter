@@ -2071,7 +2071,8 @@
       "photoperiodType": "Photoperioden-Typ",
       "photoperiodTypeHelper": "Kurztagspflanze: <12 h, Langtagspflanze: >12 h",
       "criticalDayLength": "Kritische Tageslänge (h)",
-      "criticalDayLengthHelper": "Tageslänge, ab der die Blütenbildung ausgelöst wird (0–24 h)"
+      "criticalDayLengthHelper": "Tageslänge, ab der die Blütenbildung ausgelöst wird (0–24 h)",
+      "installationWideReadOnly": "Der Lebenszyklus gilt installationsweit für diese Art und wird von der Plattform-Administration gepflegt. Du siehst die Werte, kannst sie hier aber nicht ändern."
     },
     "growthPhases": {
       "title": "Wachstumsphasen",

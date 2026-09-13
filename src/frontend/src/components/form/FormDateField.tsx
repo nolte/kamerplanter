@@ -33,7 +33,9 @@ export default function FormDateField<T extends FieldValues>({
           type="date"
           label={label}
           required={required}
-          disabled={disabled}
+          // `?? field.disabled` honours `useForm({ disabled })` / `<Controller disabled>`;
+          // a bare `disabled={disabled}` overwrites RHF's value with `undefined` (#1402 C).
+          disabled={disabled ?? field.disabled}
           error={!!fieldError || !!error}
           helperText={fieldError?.message ?? helperText}
           fullWidth

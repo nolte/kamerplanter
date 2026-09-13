@@ -2071,7 +2071,8 @@
       "photoperiodType": "Photoperiod Type",
       "photoperiodTypeHelper": "Short-day: <12 h, Long-day: >12 h",
       "criticalDayLength": "Critical Day Length (h)",
-      "criticalDayLengthHelper": "Day length that triggers flowering (0–24 h)"
+      "criticalDayLengthHelper": "Day length that triggers flowering (0–24 h)",
+      "installationWideReadOnly": "The lifecycle applies installation-wide for this species and is maintained by the platform administration. You can see the values but cannot change them here."
     },
     "growthPhases": {
       "title": "Growth Phases",

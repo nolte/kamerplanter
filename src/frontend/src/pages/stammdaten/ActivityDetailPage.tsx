@@ -28,6 +28,7 @@ import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as api from '@/api/endpoints/activities';
 import type { Activity } from '@/api/types';
 
@@ -65,6 +66,7 @@ export default function ActivityDetailPage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const canEdit = useCanEditInstallationCatalogue();
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +81,10 @@ export default function ActivityDetailPage() {
     watch,
     formState: { isDirty },
   } = useForm<FormData>({
+    // The activity catalogue is installation-wide: `PUT`/`DELETE /activities/{key}`
+    // carries `require_platform_admin` since #1402 C. Everyone else reads it, so
+    // the form is disabled at the `useForm` level rather than per field (#1261).
+    disabled: !canEdit,
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -210,7 +216,7 @@ export default function ActivityDetailPage() {
         title={displayName}
         meta={<OriginChip isSystem={activity.is_system} />}
         action={
-          !activity.is_system ? (
+          !activity.is_system && canEdit ? (
             <Button color="error" onClick={() => setDeleteOpen(true)}>
               {t('common.delete')}
             </Button>
@@ -443,11 +449,13 @@ export default function ActivityDetailPage() {
           * {t('common.required')}
         </Typography>
 
-        <FormActions
-          onCancel={() => navigate('/stammdaten/activities')}
-          loading={saving}
-          disabled={!isDirty}
-        />
+        {canEdit && (
+          <FormActions
+            onCancel={() => navigate('/stammdaten/activities')}
+            loading={saving}
+            disabled={!isDirty}
+          />
+        )}
       </Box>
 
       <ConfirmDialog

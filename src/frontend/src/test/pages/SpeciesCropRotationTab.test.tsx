@@ -4,9 +4,20 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import SpeciesCropRotationTab from '@/pages/stammdaten/species-detail/SpeciesCropRotationTab';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type { BotanicalFamily, RotationSuccessor } from '@/api/types';
+
+/**
+ * Every case below drives or inspects an installation-wide catalogue whose writes
+ * carry `require_platform_admin` since #1402 C, so the suite acts as a platform
+ * admin. The non-admin half of the contract — reads still render, write
+ * affordances are gone — is asserted in
+ * `src/test/pages/InstallationCatalogueGating.test.tsx`.
+ */
+const renderAsAdmin = (ui: Parameters<typeof renderWithProviders>[0]) =>
+  renderWithProviders(ui, { store: createPlatformAdminStore() });
+
 
 const FAMILY_URL = '/api/v1/botanical-families/fam-1';
 const SUCCESSORS_URL = '/api/v1/crop-rotation/families/fam-1/successors';
@@ -56,7 +67,7 @@ beforeEach(() => {
 
 describe('SpeciesCropRotationTab', () => {
   it('shows the no-family alert when the species has no family', () => {
-    renderWithProviders(<SpeciesCropRotationTab familyKey={null} fullScreen={false} />);
+    renderAsAdmin(<SpeciesCropRotationTab familyKey={null} fullScreen={false} />);
     expect(screen.getByTestId('no-family-alert')).toBeInTheDocument();
     expect(screen.getByText(i18n.t('pages.species.noFamilyForCropRotation'))).toBeInTheDocument();
   });
@@ -72,7 +83,7 @@ describe('SpeciesCropRotationTab', () => {
         ]),
       ),
     );
-    renderWithProviders(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
+    renderAsAdmin(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
 
     // Family name from the loaded family.
     expect(await screen.findByText('Solanaceae')).toBeInTheDocument();
@@ -92,7 +103,7 @@ describe('SpeciesCropRotationTab', () => {
       http.get(FAMILY_URL, () => HttpResponse.json(makeFamily())),
       http.get(SUCCESSORS_URL, () => HttpResponse.json([])),
     );
-    renderWithProviders(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
+    renderAsAdmin(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
 
     expect(await screen.findByText(i18n.t('pages.cropRotation.noSuccessors'))).toBeInTheDocument();
   });
@@ -113,7 +124,7 @@ describe('SpeciesCropRotationTab', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderWithProviders(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
+    renderAsAdmin(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
 
     await screen.findByText(i18n.t('pages.cropRotation.noSuccessors'));
     await userEvent.click(screen.getByTestId('add-successor-button'));
@@ -138,7 +149,7 @@ describe('SpeciesCropRotationTab', () => {
         HttpResponse.json([makeFamily({ key: 'fam-2', name: 'Fabaceae' })]),
       ),
     );
-    renderWithProviders(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
+    renderAsAdmin(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
 
     await screen.findByText(i18n.t('pages.cropRotation.noSuccessors'));
     await userEvent.click(screen.getByTestId('add-successor-button'));
@@ -148,5 +159,24 @@ describe('SpeciesCropRotationTab', () => {
 
     await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('common.cancel') }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  /**
+   * Both entry points to `POST /crop-rotation/successors` are asserted, the
+   * toolbar button and the empty state's action (#1402 C). The empty state is the
+   * one that gets forgotten: it offers the same write through a different prop,
+   * and a gate on the button alone leaves it reachable.
+   */
+  it('offers a non-admin neither add affordance while the successor read stays', async () => {
+    renderWithProviders(<SpeciesCropRotationTab familyKey="fam-1" fullScreen={false} />);
+
+    // Control: the tab rendered and did its read. Without this the two absence
+    // assertions below would also hold on a failed render.
+    await screen.findByText(i18n.t('pages.cropRotation.noSuccessors'));
+
+    expect(screen.queryByTestId('add-successor-button')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('pages.cropRotation.addSuccessor') }),
+    ).toBeNull();
   });
 });
