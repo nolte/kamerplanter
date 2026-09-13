@@ -174,6 +174,7 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
     service = get_attachment_service()
     deleted = 0
     failed = 0
+    skipped = 0
     for attachment_id in attachment_ids:
         # Idempotent by contract: an unknown id returns False rather than raising,
         # which is what lets this task be retried and lets a task deletion race a
@@ -185,6 +186,12 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
         try:
             if await service.delete(attachment_id, tenant_key):
                 deleted += 1
+            else:
+                # Already gone, or an id that never resolved — a legacy URI still
+                # sitting in `photo_refs` on an un-migrated installation reaches here
+                # verbatim. Counted so the audit line adds up rather than quietly
+                # losing rows between `requested` and `deleted`.
+                skipped += 1
         except Exception as exc:  # noqa: BLE001 — one bad row, not a bad batch
             failed += 1
             logger.warning(
@@ -197,6 +204,7 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
         "requested": len(attachment_ids),
         "deleted": deleted,
         "failed": failed,
+        "skipped": skipped,
         "tenant_key": tenant_key,
     }
 
@@ -216,7 +224,7 @@ def delete_attachments(self, attachment_ids: list[str], tenant_key: str) -> dict
     it certain.
     """
     if not attachment_ids:
-        return {"requested": 0, "deleted": 0, "failed": 0, "tenant_key": tenant_key}
+        return {"requested": 0, "deleted": 0, "failed": 0, "skipped": 0, "tenant_key": tenant_key}
     try:
         return asyncio.run(_delete_attachments(list(attachment_ids), tenant_key))
     except Exception as exc:  # noqa: BLE001 — retry on any transient failure
@@ -239,8 +247,13 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
     deleted = 0
     failed = 0
     freed_bytes = 0
+    skipped = 0
     for attachment in orphans:
         if attachment.key is None:
+            # Counted, not silently dropped: `found` and `deleted + failed + skipped`
+            # have to add up, or a row the sweep can never process leaves no trace in
+            # the audit line and the job looks like it did more than it did.
+            skipped += 1
             continue
         # Isolated per row, and this one matters more than the batch above.
         # The query is ``SORT att.created_at ASC``, so a retry re-fetches the same
@@ -263,6 +276,7 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
         "found": len(orphans),
         "deleted": deleted,
         "failed": failed,
+        "skipped": skipped,
         "freed_bytes": freed_bytes,
         "cutoff": cutoff.isoformat(),
     }
@@ -289,7 +303,7 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
     hours = settings.storage_task_photo_orphan_hours
     if hours <= 0:
         logger.info("cleanup_orphaned_task_photos_disabled")
-        return {"found": 0, "deleted": 0, "failed": 0, "freed_bytes": 0, "disabled": True}
+        return {"found": 0, "deleted": 0, "failed": 0, "skipped": 0, "freed_bytes": 0, "disabled": True}
 
     try:
         result = asyncio.run(_cleanup_orphaned_task_photos(hours, limit))

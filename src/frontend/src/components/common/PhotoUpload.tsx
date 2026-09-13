@@ -94,9 +94,14 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
    * - hiding the control from growers (who may not `DELETE`) removed their only way
    *   to drop a wrong photo before submitting it.
    *
-   * So: de-stage always, destroy only a photo uploaded in this session by someone
-   * allowed to. A grower's de-staged upload becomes unreferenced and the nightly
-   * orphan sweep collects it — which is exactly what that sweep is for.
+   * So: a staged photo can be removed — destroyed server-side when the caller may,
+   * de-staged otherwise, with the nightly sweep collecting what a grower leaves
+   * behind. A photo the task already carries offers no remove control at all, and
+   * that is the honest answer rather than a cheap one: **neither meaning works for
+   * it.** Destroying it loses the record of a completion; de-staging it does
+   * nothing, because `TaskService.complete_task` merges `photo_refs` append-only and
+   * never prunes — the photo would silently come back on the next completion, which
+   * is worse than no control.
    *
    * The list is updated **after** the request, never optimistically: a user told a
    * photo is gone while it is still stored and still counted is the state this
@@ -106,9 +111,12 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
     async (index: number) => {
       const attachmentId = photoRefs[index];
       if (attachmentId === undefined) return;
+      // Unreachable from the UI — the control is not rendered for a persisted photo
+      // — and kept as a guard because the alternative is a silent no-op that looks
+      // like it worked.
+      if (!stagedIds.has(attachmentId)) return;
 
-      const isStaged = stagedIds.has(attachmentId);
-      if (!isStaged || !canDelete) {
+      if (!canDelete) {
         onChange(photoRefs.filter((_, i) => i !== index));
         return;
       }
@@ -168,7 +176,7 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
                 alt={t('pages.tasks.photoAlt', { index: i + 1 })}
                 data-testid={`photo-preview-${i}`}
               />
-              {(
+              {stagedIds.has(ref) && (
                 <IconButton
                   size="small"
                   onClick={() => void handleRemove(i)}

@@ -1056,6 +1056,15 @@ class TaskService:
             self._propagate(lambda p: p.on_task_deleted(task))
         return deleted
 
+    def task_keys_referencing_attachment(self, attachment_id: str, *, tenant_key: str) -> list[str]:
+        """Keys of this tenant's tasks whose ``photo_refs`` link *attachment_id* (#1393).
+
+        Thin passthrough, but it belongs in the service rather than letting the
+        router reach the repository directly (NFR-001's layering). Empty for a
+        staged photo, which is in no ``photo_refs`` until completion writes it.
+        """
+        return self._repo.task_keys_referencing_attachment(attachment_id, tenant_key)
+
     def _dispatch_photo_deletion(self, task: Task, tenant_key: str) -> None:
         """Delete the task's photos along with it (#1393, decision 2).
 

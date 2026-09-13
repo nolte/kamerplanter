@@ -160,6 +160,16 @@ async def delete_task_photo(
     """
     task_service.get_task(key, tenant_key=ctx.tenant_key)
 
+    # Already gone is success, not an error. The docstring promises idempotence and
+    # the client relies on it: ``get_attachment`` raises 404 for a missing row, so
+    # without this the nightly sweep collecting the photo minutes earlier — or a
+    # double click — answered an error toast, and `handleRemove` then skipped its
+    # `onChange`, leaving the deleted photo in the list for ever.
+    try:
+        attachment = attachment_service.get_attachment(attachment_id, ctx.tenant_key)
+    except AttachmentNotFoundError:
+        return Response(status_code=204)
+
     # The category is checked, not assumed. Without it this route is a second door
     # onto every attachment of the tenant: a caller could pass a plant-gallery id and
     # destroy it here, bypassing ``PlantPhotoService.delete`` — the path that also
@@ -167,12 +177,22 @@ async def delete_task_photo(
     # would be left with a dangling reference and possibly a cover pointing at
     # nothing. A task-photo route may delete task photos.
     #
-    # ``get_attachment`` raises ``AttachmentNotFoundError`` (404) for an id of
-    # another tenant, and a wrong-category id answers 404 as well rather than 403 —
-    # the same answer an id that does not exist gets, so the route never confirms
-    # that some other attachment is real (REQ-049 §2.4).
-    attachment = attachment_service.get_attachment(attachment_id, ctx.tenant_key)
+    # 404 rather than 403, so a refused id gets the same answer as one that does not
+    # exist and the route never confirms that some other attachment is real
+    # (REQ-049 §2.4).
     if attachment.category is not AttachmentCategory.TASK:
+        raise AttachmentNotFoundError(attachment_id)
+
+    # The task key in the path has to mean something. On its own it proves only that
+    # the caller owns *some* task, so a lead could pass any pending task of theirs
+    # plus a completed task's photo id and destroy documentation — undoing the very
+    # invariant ``delete_task``'s status gate protects.
+    #
+    # An unlinked photo is the normal case (a staged upload is in no ``photo_refs``
+    # until completion writes it, #1388), so absence is permitted; what is refused is
+    # a photo linked to a *different* task.
+    linked_to = task_service.task_keys_referencing_attachment(attachment_id, tenant_key=ctx.tenant_key)
+    if linked_to and key not in linked_to:
         raise AttachmentNotFoundError(attachment_id)
 
     await attachment_service.delete(attachment_id, ctx.tenant_key)

@@ -210,29 +210,22 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       expect(onChange).toHaveBeenLastCalledWith([]);
     });
 
-    it('never destroys a photo the task already carried', async () => {
-      const user = userEvent.setup();
+    it('offers no remove control at all for a photo the task already carried', async () => {
       server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
-      let deleteAttempted = false;
-      server.use(
-        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () => {
-          deleteAttempted = true;
-          return new HttpResponse(null, { status: 204 });
-        }),
-      );
-      const onChange = vi.fn();
 
       // Seeded from persisted `task.photo_refs`, the way `TaskDetailPage` does it
       // for a reopened task: these are the completion record, not staging.
       renderWithProviders(
-        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={onChange} />,
+        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={vi.fn()} />,
         { store: createStoreWithTenantRole('lead') },
       );
 
-      await user.click(await screen.findByTestId('photo-remove-0'));
-
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith([]));
-      expect(deleteAttempted).toBe(false);
+      // The photo is shown — only the control is withheld.
+      expect(await screen.findByTestId('photo-preview-0')).toBeInTheDocument();
+      // Neither meaning of "remove" works here: destroying loses the record of a
+      // completion, and de-staging is a silent no-op because `complete_task` merges
+      // `photo_refs` append-only and never prunes — the photo would come back.
+      expect(screen.queryByTestId('photo-remove-0')).toBeNull();
     });
 
     it('lets a grower de-stage, leaving the orphan to the nightly sweep', async () => {

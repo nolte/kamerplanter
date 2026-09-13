@@ -56,6 +56,22 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
 )
 
 
+def aql_normalise_photo_ref(expression: str) -> str:
+    """The AQL that turns one ``photo_refs`` entry into an attachment id.
+
+    Exposed as a function, and used by both the sweep and its test, so the test
+    cannot certify a transcription of this logic instead of the logic. A guard that
+    re-implements what it checks is how the previous version of this rule shipped
+    with a hole in it.
+
+    Mirrors ``app.migrations.migrate_photo_refs.normalize_photo_ref``:
+    last path segment, then the extension, then a ``_t{size}`` thumbnail suffix.
+    ``tests/integration/test_aql_reference_normalisation.py`` runs both over the same
+    inputs and requires the same answers.
+    """
+    return f'REGEX_REPLACE(FIRST(SPLIT(LAST(SPLIT({expression}, "/")), ".")), "_t[0-9]+$", "")'
+
+
 class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRepository):
     """ArangoDB-backed repository for ``attachments``."""
 
@@ -376,9 +392,23 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         // ``/api/v1/t/{{slug}}/attachments/{{id}}`` URIs or storage keys instead — and
         // that migration is manual, not scheduled. An installation that has not run
         // it would otherwise have its referenced photos read as orphans and deleted.
-        // Taking the last path segment as well costs one pass and removes the
-        // dependency on an unrun migration.
-        LET referenced = UNION_DISTINCT(raw_refs, (FOR ref IN raw_refs RETURN LAST(SPLIT(ref, "/"))))
+        //
+        // This mirrors ``app/migrations/migrate_photo_refs.normalize_photo_ref``
+        // step by step, and it has to: the first version took the last path segment
+        // and stopped there, while the real writer emits
+        // ``t/{{tenant}}/{{cat}}/{{yyyy}}/{{mm}}/{{ulid}}.{{ext}}``. That left
+        // ``{{ulid}}.{{ext}}``, which is not the document key — so a referenced photo
+        // was classified as an orphan and destroyed, by the very line whose comment
+        // promised it would not be. ``test_aql_reference_normalisation.py`` pins the
+        // two against each other so they cannot drift again.
+        //
+        //   1. last path segment            ->  LAST(SPLIT(ref, "/"))
+        //   2. drop the extension           ->  FIRST(SPLIT(tail, "."))
+        //   3. drop a _t{{size}} thumbnail  ->  REGEX_REPLACE(stem, "_t[0-9]+$", "")
+        LET referenced = UNION_DISTINCT(
+          raw_refs,
+          (FOR ref IN raw_refs RETURN {aql_normalise_photo_ref("ref")})
+        )
         FOR att IN @@collection
           FILTER att.category == @category
             AND att.created_at != null

@@ -172,21 +172,42 @@ def db():
     # were once `/api/v1/t/{slug}/attachments/{id}` URIs or storage keys, and that
     # migration is manual rather than beat-scheduled — so an installation that never
     # ran it still holds them.
+    # **The shapes the writer actually produces**, not a simplified stand-in.
+    #
+    # The first version of this fixture planted `f"{TENANT}/task/ref-by-storage-key"`
+    # — no extension — while `_attachment()` gave the same row a `storage_key`
+    # ending in `.jpg`. The fixture contradicted its own data: it asserted protection
+    # for a shape that cannot occur and stayed green while the real one was deleted.
+    # That is the #947 / #1155 class this module's own docstring names as the reason
+    # the original defect went unseen.
+    #
+    # `StorageKeyBuilder` emits `t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.{ext}`, and
+    # `normalize_photo_ref` resolves a reference to the **ULID stem** of the last
+    # segment — extension and `_t{size}` thumbnail suffix stripped. Every row below
+    # carries an extension for that reason.
     attachments.insert(_attachment("ref-by-uri", created_at=OLD))
     attachments.insert(_attachment("ref-by-storage-key", created_at=OLD))
+    attachments.insert(_attachment("ref-by-thumb-suffix", created_at=OLD))
     tasks_legacy = database.collection(col.TASKS)
     tasks_legacy.insert(
         {
             "_key": "t-legacy-uri",
             "tenant_key": TENANT,
-            "photo_refs": [f"/api/v1/t/{TENANT}/attachments/ref-by-uri"],
+            "photo_refs": [f"/api/v1/t/{TENANT}/attachments/ref-by-uri.jpg"],
         }
     )
     tasks_legacy.insert(
         {
             "_key": "t-legacy-key",
             "tenant_key": TENANT,
-            "photo_refs": [f"{TENANT}/task/ref-by-storage-key"],
+            "photo_refs": [f"t/{TENANT}/task/2026/01/ref-by-storage-key.jpg"],
+        }
+    )
+    tasks_legacy.insert(
+        {
+            "_key": "t-legacy-thumb",
+            "tenant_key": TENANT,
+            "photo_refs": [f"t/{TENANT}/task/2026/01/ref-by-thumb-suffix_t320.webp"],
         }
     )
 
@@ -268,8 +289,9 @@ class TestWhatTheSweepMustNotTouch:
     @pytest.mark.parametrize(
         ("key", "shape"),
         [
-            ("ref-by-uri", "an /attachments/{id} URI"),
-            ("ref-by-storage-key", "a storage key"),
+            ("ref-by-uri", "an /attachments/{id}.{ext} URI"),
+            ("ref-by-storage-key", "a storage key t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.{ext}"),
+            ("ref-by-thumb-suffix", "a thumbnail key carrying the _t{size} suffix"),
         ],
     )
     def test_a_legacy_reference_spelling_still_protects_its_photo(self, repo, key: str, shape: str):

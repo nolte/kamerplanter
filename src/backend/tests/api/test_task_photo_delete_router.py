@@ -30,7 +30,7 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import get_attachment_service, get_task_service
 from app.common.enums import AttachmentCategory, TenantRole
 from app.common.error_handlers import app_error_handler
-from app.common.exceptions import KamerplanterError, NotFoundError
+from app.common.exceptions import AttachmentNotFoundError, KamerplanterError, NotFoundError
 from app.domain.models.tenant_context import TenantContext
 
 OWN_TASK = "task-own"
@@ -58,6 +58,9 @@ def services():
         return SimpleNamespace(key=key, tenant_key=tenant_key, photo_refs=[ATTACHMENT])
 
     task_service.get_task.side_effect = _get_task
+    # No task links the photo: the normal case, because a staged upload is in no
+    # `photo_refs` until the completion request writes it (#1388).
+    task_service.task_keys_referencing_attachment.return_value = []
 
     attachment_service = MagicMock()
     attachment_service.delete = AsyncMock(return_value=True)
@@ -113,19 +116,68 @@ class TestAForeignTaskNeverReachesStorage:
 
 
 class TestDeletingWhatIsAlreadyGone:
-    def test_it_still_answers_204(self, client, services):
-        """Idempotent by contract.
+    """Idempotent by contract, driven through the path production takes.
 
-        The nightly orphan sweep may have collected the same row minutes earlier,
-        and a user who clicks twice should not see an error either. The service
-        returns ``False`` for an unknown id rather than raising, and the route does
-        not turn that into a 404 — the caller asked for the photo to be gone, and it
-        is gone.
-        """
+    The first version of this test flipped only ``delete`` to return ``False`` and
+    left ``get_attachment`` returning a live attachment — so it never reached the
+    production path, where ``get_attachment`` raises ``AttachmentNotFoundError``
+    **first** and the route answered 404. It certified idempotence the route did not
+    have, while the docstring and the client both promised it.
+
+    It matters in practice: the nightly sweep may collect the row minutes before the
+    user clicks remove, and `PhotoUpload.handleRemove` skips its `onChange` on
+    error — so a 404 left the already-deleted photo in the list for ever.
+    """
+
+    def test_an_attachment_that_no_longer_exists_answers_204(self, client, services):
+        _task_service, attachment_service = services
+        attachment_service.get_attachment.side_effect = AttachmentNotFoundError(ATTACHMENT)
+
+        assert client.delete(_url(OWN_TASK)).status_code == 204
+
+    def test_it_does_not_try_to_delete_what_is_gone(self, client, services):
+        _task_service, attachment_service = services
+        attachment_service.get_attachment.side_effect = AttachmentNotFoundError(ATTACHMENT)
+
+        client.delete(_url(OWN_TASK))
+
+        attachment_service.delete.assert_not_awaited()
+
+    def test_a_delete_that_reports_nothing_removed_is_still_204(self, client, services):
+        """The other race: the row vanished between the read and the delete."""
         _task_service, attachment_service = services
         attachment_service.delete = AsyncMock(return_value=False)
 
         assert client.delete(_url(OWN_TASK)).status_code == 204
+
+
+class TestAPhotoBelongingToAnotherTask:
+    """The task key in the path has to mean something (#1424 finding 6).
+
+    On its own it proves only that the caller owns *some* task. Without this check a
+    lead could pass any pending task of theirs plus a **completed** task's photo id
+    and destroy documentation — undoing the invariant ``delete_task``'s status gate
+    exists to protect — and leave a dangling id in that task's ``photo_refs``.
+
+    An *unlinked* photo stays deletable: that is the staged upload this route
+    normally serves, and it is in no ``photo_refs`` at all.
+    """
+
+    def test_a_photo_linked_to_a_different_task_is_refused(self, client, services):
+        task_service, attachment_service = services
+        task_service.task_keys_referencing_attachment.return_value = ["some-other-task"]
+
+        response = client.delete(_url(OWN_TASK))
+
+        assert response.status_code == 404
+        attachment_service.delete.assert_not_awaited()
+
+    def test_a_photo_linked_to_this_task_is_deletable(self, client, services):
+        task_service, attachment_service = services
+        task_service.task_keys_referencing_attachment.return_value = [OWN_TASK]
+
+        assert client.delete(_url(OWN_TASK)).status_code == 204
+        attachment_service.delete.assert_awaited_once()
 
 
 class TestAGrowerIsRefused:
@@ -135,10 +187,11 @@ class TestAGrowerIsRefused:
     lead-and-grower. So a grower can upload a task photo and cannot remove it, which
     is a deliberate spec decision and not an oversight of this route.
 
-    It has a UI consequence: the remove button must be hidden for a grower, or it is
-    a control that answers a refusal (#1261). `PhotoUpload` gates it on `canDelete`
-    for exactly this reason, and an abandoned upload is what the nightly orphan
-    sweep exists to collect.
+    Its UI consequence changed in review round 1: hiding the button from growers
+    took away their only way to de-stage a wrong photo, so it got submitted
+    instead. `PhotoUpload` now shows the control to everyone and only *destroys*
+    for a caller who may — a grower de-stages, and the nightly orphan sweep
+    collects what they left behind.
     """
 
     def test_the_route_refuses_a_grower(self, services):
