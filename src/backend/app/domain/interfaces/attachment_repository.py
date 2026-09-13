@@ -156,3 +156,7 @@ class IAttachmentRepository(ABC):
         tenant and across categories, so one stored object can be referenced from a
         second task or a plant gallery.
         """
+
+    @abstractmethod
+    def by_keys(self, attachment_ids: list[str], tenant_key: str) -> list[Attachment]:
+        """The tenant's attachments among *attachment_ids*, skipping what does not exist."""

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -14,14 +14,40 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import AuthImage from '@/components/common/AuthImage';
 import * as taskApi from '@/api/endpoints/tasks';
 
+/** Stable default, so an omitted prop does not remount-thrash the memo below. */
+const EMPTY_REFS: readonly string[] = [];
+
 interface Props {
   taskKey: string;
   photoRefs: string[];
+  /**
+   * What the task already carried when the page loaded.
+   *
+   * Everything in `photoRefs` that is not in here was staged in this form, and only
+   * a staged photo may be removed: a persisted one is the record of a completed task
+   * that was reopened, where "remove" can neither destroy (that loses the record)
+   * nor de-stage (`complete_task` merges `photo_refs` append-only, so it comes back).
+   *
+   * A **prop**, not component state. The completion form is conditionally rendered,
+   * so this component unmounts on a tab switch — mount-scoped state made a staged
+   * photo unremovable after one trip to the Comments tab, and it was then submitted
+   * with the completion.
+   *
+   * Defaults to empty, which reads as "everything here was staged" — the right
+   * answer for a caller that has no persisted list, and the pre-#1393 behaviour.
+   */
+  persistedRefs?: readonly string[];
   onChange: (refs: string[]) => void;
   disabled?: boolean;
 }
 
-export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: Props) {
+export default function PhotoUpload({
+  taskKey,
+  photoRefs,
+  persistedRefs = EMPTY_REFS,
+  onChange,
+  disabled,
+}: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -32,17 +58,22 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
   // took away their only way to drop a wrong photo before submitting, so the wrong
   // photo was submitted instead: a worse outcome than the leak being fixed.
   const { canDelete } = useTenantPermissions();
-  //: Attachment ids uploaded in *this* session, i.e. not yet part of the task's
-  //: persisted `photo_refs`.
+  //: Attachment ids staged in this form — everything in `photoRefs` the task did
+  //: not already carry.
+  //:
+  //: Derived from props rather than accumulated in state, which is what survives the
+  //: unmount a tab switch causes. The previous version tracked uploads as they
+  //: happened and lost the set on remount, leaving a staged photo with no remove
+  //: control at all.
   //:
   //: The distinction is what keeps removal safe. A staged id is the user's own
-  //: upload from seconds ago, so destroying it is the obvious reading of "remove".
-  //: A persisted id is the photographic record of a completed task that was
-  //: reopened — `TaskDetailPage` seeds `photoRefs` from `task.photo_refs` — and
-  //: there "remove" can only mean "don't submit this one", never "destroy the
-  //: documentation". Treating both alike deleted a completion record on a click
-  //: the user could reasonably read as de-staging.
-  const [stagedIds, setStagedIds] = useState<ReadonlySet<string>>(() => new Set());
+  //: upload, so destroying it is the obvious reading of "remove". A persisted id is
+  //: the record of a completed task that was reopened — `TaskDetailPage` seeds both
+  //: lists from `task.photo_refs` — and there neither meaning works.
+  const stagedIds = useMemo(
+    () => new Set(photoRefs.filter((ref) => !persistedRefs.includes(ref))),
+    [photoRefs, persistedRefs],
+  );
   const [uploading, setUploading] = useState(false);
   //: Which row is mid-delete, so its button can show it and not be clicked twice.
   const [removingIndex, setRemovingIndex] = useState<number | null>(null);
@@ -78,11 +109,6 @@ export default function PhotoUpload({ taskKey, photoRefs, onChange, disabled }: 
           newRefs.push(result.attachment_id);
           freshlyStaged.push(result.attachment_id);
         }
-        setStagedIds((current) => {
-          const next = new Set(current);
-          for (const ref of freshlyStaged) next.add(ref);
-          return next;
-        });
         onChange(newRefs);
         notification.success(t('pages.tasks.photoUploaded'));
       } catch (err) {

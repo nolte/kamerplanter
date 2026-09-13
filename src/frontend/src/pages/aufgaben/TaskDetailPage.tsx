@@ -246,6 +246,16 @@ export default function TaskDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [photoRefs, setPhotoRefs] = useState<string[]>([]);
+  //: What the task already carried when it was loaded, as opposed to what has been
+  //: staged since.
+  //:
+  //: Lives here rather than inside `PhotoUpload` because the completion form is
+  //: conditionally rendered (`{tab === 1 && isActionable && …}`), so the component
+  //: unmounts on any tab switch. Holding "which of these are staged" in its own
+  //: state meant a switch to Comments and back left a staged photo with no remove
+  //: control at all — not merely undestroyable but un-de-stageable, so it was
+  //: submitted with the completion (#1424 review round 4).
+  const [persistedPhotoRefs, setPersistedPhotoRefs] = useState<string[]>([]);
 
   // Comments state
   const [comments, setComments] = useState<TaskComment[]>([]);
@@ -311,6 +321,7 @@ export default function TaskDetailPage() {
       const fetched = await taskApi.getTask(key);
       setTask(fetched);
       setPhotoRefs(fetched.photo_refs ?? []);
+      setPersistedPhotoRefs(fetched.photo_refs ?? []);
       if (fetched.entity_type === 'plant_instance' && fetched.entity_key) {
         plantApi.getPlantInstance(fetched.entity_key)
           .then(async (p) => {
@@ -1155,6 +1166,7 @@ export default function TaskDetailPage() {
               <PhotoUpload
                 taskKey={key!}
                 photoRefs={photoRefs}
+                persistedRefs={persistedPhotoRefs}
                 onChange={setPhotoRefs}
               />
             </CardContent>

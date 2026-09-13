@@ -110,6 +110,19 @@ REFERENCED_BY_OTHER_FIELD: list[tuple[str, str, dict]] = [
 ]
 
 
+#: One per review round, each a shape that used to be deleted.
+#:
+#: ``{key}`` is the attachment id, ``{tenant}`` the tenant slug. The last entry is
+#: the one `_photo_response` hands to every client as `thumbnail_uris`, so it is not
+#: a hypothetical at all.
+SPELLINGS_THAT_COST_A_PHOTO: list[str] = [
+    "t/{tenant}/task/2026/01/{key}.jpg",
+    "t/{tenant}/task/2026/01/{key}.jpg/",
+    "/api/v1/t/{tenant}/attachments/{key}?download=1",
+    "/api/v1/t/{tenant}/attachments/{key}/thumbnails/320",
+]
+
+
 @pytest.fixture(scope="module")
 def db():
     client = ArangoClient(hosts=ARANGO_URL)
@@ -211,6 +224,35 @@ def db():
         }
     )
 
+    # **Every spelling that has cost a photo, one row each.**
+    #
+    # Four review rounds each found one the candidate list did not know. They are
+    # here not because the list now knows them — it does, for the first three — but
+    # because the sweep no longer depends on knowing: a reference that *mentions* the
+    # key protects the photo, whatever shape it is in. These rows are what proves
+    # that, and the last of them is the one the product builds itself.
+    for index, spelling in enumerate(SPELLINGS_THAT_COST_A_PHOTO):
+        key = f"ref-spelling-{index}"
+        attachments.insert(_attachment(key, created_at=OLD))
+        database.collection(col.TASKS).insert(
+            {
+                "_key": f"t-spelling-{index}",
+                "tenant_key": TENANT,
+                "photo_refs": [spelling.format(key=key, tenant=TENANT)],
+            }
+        )
+
+    # A shape nobody has enumerated, and deliberately unlike every branch of the
+    # candidate list: wrapped in text, with the id neither first nor last.
+    attachments.insert(_attachment("ref-exotic", created_at=OLD))
+    database.collection(col.TASKS).insert(
+        {
+            "_key": "t-exotic",
+            "tenant_key": TENANT,
+            "photo_refs": ["see attachment ref-exotic (uploaded 2026-01-02) for details"],
+        }
+    )
+
     # Shapes a real row is in, none of which may be read as a reference.
     attachments.insert(_attachment("orphan-empty-refs", created_at=OLD))
     attachments.insert(_attachment("orphan-null-refs", created_at=OLD))
@@ -278,6 +320,33 @@ class TestWhatTheSweepMustNotTouch:
             f"a photo referenced from {collection} was offered for deletion; "
             "ATTACHMENT_REF_FIELDS is missing that field (#1393)"
         )
+
+    @pytest.mark.parametrize(
+        ("index", "spelling"),
+        list(enumerate(SPELLINGS_THAT_COST_A_PHOTO)),
+        ids=SPELLINGS_THAT_COST_A_PHOTO,
+    )
+    def test_no_spelling_that_ever_cost_a_photo_costs_one_again(self, repo, index: int, spelling: str):
+        """One case per review round (#1424).
+
+        The point is not that the candidate list has grown to cover these. It is that
+        the sweep stopped depending on the list: a reference mentioning the key
+        protects the photo whatever shape it takes, so the next unenumerated spelling
+        is a missed collection rather than a destroyed photo.
+        """
+        assert f"ref-spelling-{index}" not in _found(repo), (
+            f"a photo referenced as {spelling!r} was offered for deletion — the sweep is "
+            "back to enumerating spellings (#1393)"
+        )
+
+    def test_a_spelling_nobody_has_thought_of_yet_is_also_safe(self, repo):
+        """The class, not its four instances.
+
+        A shape invented here on purpose, matching no branch of the candidate list.
+        If this ever fails, someone removed the substring net and the sweep is one
+        unusual reference away from destroying a photo again.
+        """
+        assert "ref-exotic" not in _found(repo)
 
     def test_a_young_upload_survives(self, repo):
         """The floor is the whole safety story: every upload is briefly an orphan."""
@@ -406,3 +475,35 @@ class TestWhatMayBeDeletedEagerly:
 
     def test_an_empty_request_asks_nothing(self, repo):
         assert repo.unreferenced_among([], TENANT) == []
+
+
+class TestWhatTheTaskRouteMayDestroy:
+    """`unreferenced_among(..., ignoring_task_key=...)`, behind the DELETE route.
+
+    The route discounts the task it is called on — a photo only that task links may
+    be deleted through it — and nothing else. Review found the first version asking a
+    tasks-only, exact-match question, which destroyed a photo a **plant gallery**
+    referenced: sha256 deduplication hands the same stored row to both, and the
+    gallery was left with a dangling ref and possibly a cover pointing at nothing.
+    """
+
+    def test_a_photo_only_the_calling_task_links_may_go(self, repo):
+        assert repo.unreferenced_among(["ref-task"], TENANT, ignoring_task_key="doc-ref-task") == ["ref-task"]
+
+    def test_the_same_photo_may_not_go_through_a_different_task(self, repo):
+        assert repo.unreferenced_among(["ref-task"], TENANT, ignoring_task_key="some-other-task") == []
+
+    @pytest.mark.parametrize(
+        ("_collection", "key", "_doc"),
+        REFERENCED_BY_OTHER_FIELD,
+        ids=[row[0] for row in REFERENCED_BY_OTHER_FIELD],
+    )
+    def test_a_photo_a_non_task_carrier_links_never_goes(self, repo, _collection: str, key: str, _doc: dict):
+        """Discounting a task cannot discount a gallery — the finding, pinned."""
+        assert repo.unreferenced_among([key], TENANT, ignoring_task_key="doc-ref-task") == []
+
+    def test_a_staged_photo_is_deletable_either_way(self, repo):
+        """The normal case: nothing links it at all."""
+        assert repo.unreferenced_among(["orphan-abandoned"], TENANT, ignoring_task_key="doc-ref-task") == [
+            "orphan-abandoned"
+        ]

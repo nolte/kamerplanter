@@ -61,10 +61,14 @@ function Harness({
   onChange?: (refs: string[]) => void;
 }) {
   const [refs, setRefs] = useState<string[]>(initial);
+  // `initial` is what the task carried at load, exactly as `TaskDetailPage` seeds
+  // both lists from `task.photo_refs`. Passing it as `persistedRefs` is what makes
+  // "staged" survive a remount — the tab switch that used to lose it.
   return (
     <PhotoUpload
       taskKey="tk1"
       photoRefs={refs}
+      persistedRefs={initial}
       onChange={(next) => {
         setRefs(next);
         onChange?.(next);
@@ -216,7 +220,12 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       // Seeded from persisted `task.photo_refs`, the way `TaskDetailPage` does it
       // for a reopened task: these are the completion record, not staging.
       renderWithProviders(
-        <PhotoUpload taskKey="tk1" photoRefs={['att-1']} onChange={vi.fn()} />,
+        <PhotoUpload
+          taskKey="tk1"
+          photoRefs={['att-1']}
+          persistedRefs={['att-1']}
+          onChange={vi.fn()}
+        />,
         { store: createStoreWithTenantRole('lead') },
       );
 
@@ -398,5 +407,47 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       await waitFor(() => expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument());
       expect(onChange).not.toHaveBeenCalled();
     });
+  });
+
+  /**
+   * The completion form is conditionally rendered (`{tab === 1 && isActionable && …}`),
+   * so this component unmounts on a tab switch while `photoRefs` lives on in the
+   * page. Tracking "staged" in component state lost it on that remount, and the
+   * staged photo then had no remove control at all — not merely undestroyable but
+   * un-de-stageable, so it was submitted with the completion (#1424 round 4).
+   */
+  it('keeps the remove control after the component is unmounted and remounted', async () => {
+    const user = userEvent.setup();
+    server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+    server.use(
+      http.post('/api/v1/t/:tenant/tasks/:key/photos', () => HttpResponse.json(attachment())),
+    );
+
+    function TabSwitcher() {
+      const [refs, setRefs] = useState<string[]>([]);
+      const [shown, setShown] = useState(true);
+      return (
+        <>
+          <button type="button" onClick={() => setShown((v) => !v)} data-testid="toggle-tab">
+            toggle
+          </button>
+          {shown && (
+            <PhotoUpload taskKey="tk1" photoRefs={refs} persistedRefs={[]} onChange={setRefs} />
+          )}
+        </>
+      );
+    }
+
+    renderWithProviders(<TabSwitcher />, { store: createStoreWithTenantRole('lead') });
+    const input = screen.getByTestId('photo-upload').querySelector('input[type="file"]')!;
+    await user.upload(input as HTMLInputElement, new File(['x'], 'p.jpg', { type: 'image/jpeg' }));
+    expect(await screen.findByTestId('photo-remove-0')).toBeInTheDocument();
+
+    // Away and back — the unmount that used to erase "staged".
+    await user.click(screen.getByTestId('toggle-tab'));
+    await waitFor(() => expect(screen.queryByTestId('photo-upload')).toBeNull());
+    await user.click(screen.getByTestId('toggle-tab'));
+
+    expect(await screen.findByTestId('photo-remove-0')).toBeInTheDocument();
   });
 });

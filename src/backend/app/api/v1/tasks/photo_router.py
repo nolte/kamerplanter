@@ -183,16 +183,20 @@ async def delete_task_photo(
     if attachment.category is not AttachmentCategory.TASK:
         raise AttachmentNotFoundError(attachment_id)
 
-    # The task key in the path has to mean something. On its own it proves only that
-    # the caller owns *some* task, so a lead could pass any pending task of theirs
-    # plus a completed task's photo id and destroy documentation — undoing the very
-    # invariant ``delete_task``'s status gate protects.
+    # The task key in the path has to mean something, and "no *task* links it" is
+    # not enough to say. sha256 deduplication makes one stored object shared across
+    # carriers, so a photo staged here can be the same row a plant gallery links as
+    # its cover — destroying it there leaves a dangling reference and possibly a
+    # cover pointing at nothing.
     #
-    # An unlinked photo is the normal case (a staged upload is in no ``photo_refs``
-    # until completion writes it, #1388), so absence is permitted; what is refused is
-    # a photo linked to a *different* task.
-    linked_to = task_service.task_keys_referencing_attachment(attachment_id, tenant_key=ctx.tenant_key)
-    if linked_to and key not in linked_to:
+    # The question is therefore "does anything **other than this task** reference
+    # it", asked through the same repository query the deletion path uses, so the two
+    # cannot disagree — and so the answer survives legacy reference spellings, which
+    # a tasks-only exact match did not.
+    #
+    # An unreferenced photo is the normal case: a staged upload is in no
+    # ``photo_refs`` until completion writes it (#1388).
+    if not attachment_service.deletable_from_task(attachment_id, key, ctx.tenant_key):
         raise AttachmentNotFoundError(attachment_id)
 
     await attachment_service.delete(attachment_id, ctx.tenant_key)

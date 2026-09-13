@@ -183,8 +183,16 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
     from app.common.dependencies import get_attachment_repo, get_attachment_service
 
     requested = list(attachment_ids)
-    attachment_ids = get_attachment_repo().unreferenced_among(requested, tenant_key)
-    still_referenced = len(requested) - len(attachment_ids)
+    repo = get_attachment_repo()
+    attachment_ids = repo.unreferenced_among(requested, tenant_key)
+    # Two different outcomes, reported separately. ``unreferenced_among`` drops an id
+    # for either reason, and a single difference-count conflated them: an un-migrated
+    # installation's unresolvable references were reported as "shared with another
+    # carrier", which is the opposite diagnosis and would send whoever reads the audit
+    # line looking for a sharing problem that does not exist.
+    known = {row.key for row in repo.by_keys(requested, tenant_key)}
+    unresolved = [ref for ref in requested if ref not in known]
+    still_referenced = len(requested) - len(attachment_ids) - len(unresolved)
 
     service = get_attachment_service()
     deleted = 0
@@ -202,10 +210,14 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
             if await service.delete(attachment_id, tenant_key):
                 deleted += 1
             else:
-                # Already gone, or an id that never resolved — a legacy URI still
-                # sitting in `photo_refs` on an un-migrated installation reaches here
-                # verbatim. Counted so the audit line adds up rather than quietly
-                # losing rows between `requested` and `deleted`.
+                # Already gone: a manual delete, or a concurrent run of this task.
+                # Counted so the audit line adds up rather than quietly losing rows
+                # between ``requested`` and ``deleted``.
+                #
+                # An unresolvable legacy URI does **not** reach here — it never
+                # matches ``att._key`` in ``unreferenced_among``, so it is filtered
+                # upstream and lands in ``unresolved`` below instead. The comment
+                # that used to claim otherwise described a branch nothing could take.
                 skipped += 1
         except Exception as exc:  # noqa: BLE001 — one bad row, not a bad batch
             failed += 1
@@ -221,6 +233,7 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
         "failed": failed,
         "skipped": skipped,
         "still_referenced": still_referenced,
+        "unresolved": len(unresolved),
         "tenant_key": tenant_key,
     }
 
@@ -246,6 +259,7 @@ def delete_attachments(self, attachment_ids: list[str], tenant_key: str) -> dict
             "failed": 0,
             "skipped": 0,
             "still_referenced": 0,
+            "unresolved": 0,
             "tenant_key": tenant_key,
         }
     try:
@@ -287,6 +301,13 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
             if await service.delete(attachment.key, attachment.tenant_key):
                 deleted += 1
                 freed_bytes += attachment.byte_size
+            else:
+                # Gone between the query and the delete — a manual
+                # ``DELETE /attachments/{id}``, or a concurrent ``delete_attachments``.
+                # Counted, so ``found`` and ``deleted + failed + skipped`` keep adding
+                # up; the sibling task upholds the same invariant and the comment
+                # above claims it.
+                skipped += 1
         except Exception as exc:  # noqa: BLE001 — keep the batch draining
             failed += 1
             logger.warning(

@@ -58,12 +58,13 @@ def services():
         return SimpleNamespace(key=key, tenant_key=tenant_key, photo_refs=[ATTACHMENT])
 
     task_service.get_task.side_effect = _get_task
-    # No task links the photo: the normal case, because a staged upload is in no
-    # `photo_refs` until the completion request writes it (#1388).
-    task_service.task_keys_referencing_attachment.return_value = []
-
     attachment_service = MagicMock()
     attachment_service.delete = AsyncMock(return_value=True)
+    # Nothing but this task references the photo: the normal case, because a staged
+    # upload is in no `photo_refs` at all until the completion request writes it
+    # (#1388). Asked through the attachment service, which consults every carrier —
+    # a tasks-only question missed a plant gallery holding the same deduplicated row.
+    attachment_service.deletable_from_task.return_value = True
     attachment_service.get_attachment.return_value = SimpleNamespace(
         key=ATTACHMENT, tenant_key=TENANT, category=AttachmentCategory.TASK
     )
@@ -151,30 +152,36 @@ class TestDeletingWhatIsAlreadyGone:
         assert client.delete(_url(OWN_TASK)).status_code == 204
 
 
-class TestAPhotoBelongingToAnotherTask:
-    """The task key in the path has to mean something (#1424 finding 6).
+class TestAPhotoAnotherCarrierReferences:
+    """The task key in the path has to mean something (#1424 findings 6 and, later, 2).
 
-    On its own it proves only that the caller owns *some* task. Without this check a
-    lead could pass any pending task of theirs plus a **completed** task's photo id
-    and destroy documentation — undoing the invariant ``delete_task``'s status gate
-    exists to protect — and leave a dangling id in that task's ``photo_refs``.
+    On its own it proves only that the caller owns *some* task. A lead could pass any
+    pending task of theirs plus a **completed** task's photo id and destroy
+    documentation — undoing the invariant ``delete_task``'s status gate exists to
+    protect.
 
-    An *unlinked* photo stays deletable: that is the staged upload this route
-    normally serves, and it is in no ``photo_refs`` at all.
+    The first version asked a tasks-only, exact-match question, which review found
+    wrong twice over: sha256 deduplication makes one stored object shared with a
+    *plant gallery* too, and a legacy reference spelling matched nothing. It now asks
+    the attachment service, which consults every carrier through the same query the
+    deletion path uses.
+
+    An unreferenced photo stays deletable: that is the staged upload this route
+    normally serves.
     """
 
-    def test_a_photo_linked_to_a_different_task_is_refused(self, client, services):
-        task_service, attachment_service = services
-        task_service.task_keys_referencing_attachment.return_value = ["some-other-task"]
+    def test_a_photo_another_carrier_references_is_refused(self, client, services):
+        _task_service, attachment_service = services
+        attachment_service.deletable_from_task.return_value = False
 
         response = client.delete(_url(OWN_TASK))
 
         assert response.status_code == 404
         attachment_service.delete.assert_not_awaited()
 
-    def test_a_photo_linked_to_this_task_is_deletable(self, client, services):
-        task_service, attachment_service = services
-        task_service.task_keys_referencing_attachment.return_value = [OWN_TASK]
+    def test_a_photo_only_this_task_references_is_deletable(self, client, services):
+        _task_service, attachment_service = services
+        attachment_service.deletable_from_task.return_value = True
 
         assert client.delete(_url(OWN_TASK)).status_code == 204
         attachment_service.delete.assert_awaited_once()

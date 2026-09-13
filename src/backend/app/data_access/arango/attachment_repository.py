@@ -83,10 +83,21 @@ def aql_photo_ref_candidates(expression: str) -> str:
     3. that with the extension dropped;
     4. that with a ``_t{size}`` thumbnail suffix dropped as well.
 
+    **This is the fast path, not the safety net.** Enumerating spellings was tried
+    four times and was wrong four times, each round finding one the list did not
+    know — most recently ``/attachments/{ulid}/thumbnails/320``, which
+    ``_photo_response`` builds and hands to clients itself, and which resolves here
+    to ``"320"``. The set of spellings that have ever reached ``photo_refs`` is not
+    closed: it depends on what every client version ever wrote.
+
+    So the sweep does **not** rely on this. It also asks whether any reference string
+    *contains* the attachment's key (:meth:`_aql_mentions_key`), which no spelling can
+    escape, and this function only spares that pass for the overwhelming majority of
+    rows. Getting a candidate wrong now costs a little work, not a photo.
+
     ``tests/integration/test_aql_reference_normalisation.py`` asserts that whatever
-    ``normalize_photo_ref`` answers is always among these, which is the property that
-    matters, and that the set never grows to something that would swallow an
-    unrelated id.
+    ``normalize_photo_ref`` answers is always among these, and that the set never
+    grows to something that would swallow an unrelated id.
     """
     # `` (FOR s IN SPLIT(x, "/") FILTER s != "" RETURN s) `` rather than ``LAST``:
     # ``LAST(SPLIT("a/b/", "/"))`` is the empty string, and an empty candidate
@@ -360,7 +371,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         total = int(next(count_cursor, 0) or 0)
         return items, total
 
-    def _aql_referenced_prelude(self) -> str:
+    def _aql_referenced_prelude(self, *, ignore_task_key: bool = False) -> str:
         """AQL that binds ``referenced`` to every id anything in the tenant links.
 
         Shared by the orphan sweep and :meth:`unreferenced_among`, because the two
@@ -375,8 +386,14 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         exists for that, and is manual), so every candidate spelling is resolved
         through :func:`aql_photo_ref_candidates`.
         """
+        # ``@ignored_task_key`` discounts one task's own references, for the route
+        # that deletes a photo *from* that task. Applied to the tasks collection
+        # only; every other carrier still protects the photo.
+        skip = " FILTER d._key != @ignored_task_key" if ignore_task_key else ""
         parts = [
-            f"          (FOR d IN @@ref_col_{index} RETURN d.photo_refs || [])"
+            f"          (FOR d IN @@ref_col_{index}"
+            f"{skip if PHOTO_REF_COLLECTIONS[index] == col.TASKS else ''}"
+            f" RETURN d.photo_refs || [])"
             for index in range(len(PHOTO_REF_COLLECTIONS))
         ]
         # ``IS_ARRAY`` so one expression serves both a list field and a scalar one.
@@ -397,6 +414,33 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
           (FOR ref IN raw_refs RETURN {aql_photo_ref_candidates("ref")})
         ], 2))"""
 
+    @staticmethod
+    def _aql_mentions_key(refs_expression: str, key_expression: str) -> str:
+        """AQL: does any reference string mention this attachment key at all?
+
+        The safety net under :func:`aql_photo_ref_candidates`, and the reason the
+        sweep stopped being one spelling away from destroying a photo.
+
+        Four review rounds each found a reference shape the candidate list did not
+        know — a storage key with an extension, a trailing slash, a query string, a
+        ``/thumbnails/{size}`` path the product builds itself. Every fix enumerated
+        one more shape, and the next round found another, because the set of things
+        that have ever been written into ``photo_refs`` is open: it spans every
+        client version and an unrun manual migration.
+
+        A substring test closes the class instead of its fourth instance. Any
+        reference that mentions the key — however it is spelled, wrapped or
+        suffixed — protects the photo. A ULID is 26 characters from Crockford's
+        alphabet, so an incidental match is not a practical concern, and the
+        direction of the residual error is the safe one: an attachment is kept, not
+        destroyed.
+
+        Runs only for rows the fast path did not already clear, which are the
+        orphans — a handful per night — so the cost is a string scan over an
+        in-memory array rather than anything touching a collection.
+        """
+        return f"LENGTH(FOR ref IN {refs_expression} FILTER CONTAINS(ref, {key_expression}) LIMIT 1 RETURN 1) == 0"
+
     def _reference_bind_vars(self) -> dict[str, Any]:
         """The collection bindings :meth:`_aql_referenced_prelude` needs."""
         bind_vars: dict[str, Any] = {}
@@ -406,7 +450,34 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             bind_vars[f"@extra_col_{index}"] = collection
         return bind_vars
 
-    def unreferenced_among(self, attachment_ids: list[str], tenant_key: str) -> list[str]:
+    def by_keys(self, attachment_ids: list[str], tenant_key: str) -> list[Attachment]:
+        """The tenant's attachments among *attachment_ids*, skipping what does not exist.
+
+        Lets a caller tell "this id is shared with another carrier" apart from "this
+        id resolves to nothing at all" — an un-migrated installation's ``photo_refs``
+        holds URIs and storage keys, and reporting those as *shared* sends whoever
+        reads the audit line hunting a problem that is not there.
+        """
+        if not attachment_ids:
+            return []
+        query = """
+        FOR att IN @@collection
+          FILTER att._key IN @keys AND att.tenant_key == @tenant_key
+          RETURN att
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": self._collection_name,
+                "keys": list(attachment_ids),
+                "tenant_key": tenant_key,
+            },
+        )
+        return [Attachment(**self._from_doc(doc)) for doc in cursor]
+
+    def unreferenced_among(
+        self, attachment_ids: list[str], tenant_key: str, *, ignoring_task_key: str | None = None
+    ) -> list[str]:
         """Which of *attachment_ids* nothing in the tenant links any more (#1393).
 
         Asked before the eager deletion that follows a task deletion. Deleting a
@@ -414,18 +485,24 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         gave to a second task or a plant gallery as well — the reference survives,
         the bytes do not.
 
-        Returns the ids safe to delete. An id nothing references is safe by
-        definition; anything still linked is left to whoever owns that link, and the
-        nightly sweep picks it up if that link goes away later.
+        ``ignoring_task_key`` discounts one task's own references, which is what the
+        task-photo DELETE route needs: a photo *this* task links may be deleted
+        through it, one another carrier links may not. Without it that route asked a
+        tasks-only, exact-match question and so missed both a plant gallery holding
+        the same deduplicated object and any legacy spelling of the reference.
+
+        Returns the ids safe to delete. Anything still linked is left to whoever owns
+        that link, and the nightly sweep picks it up if that link goes away later.
         """
         if not attachment_ids:
             return []
         query = f"""
-{self._aql_referenced_prelude()}
+{self._aql_referenced_prelude(ignore_task_key=ignoring_task_key is not None)}
         FOR att IN @@collection
           FILTER att._key IN @candidates
             AND att.tenant_key == @tenant_key
             AND att._key NOT IN referenced
+            AND {self._aql_mentions_key("raw_refs", "att._key")}
           RETURN att._key
         """
         bind_vars: dict[str, Any] = {
@@ -434,6 +511,8 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             "tenant_key": tenant_key,
             **self._reference_bind_vars(),
         }
+        if ignoring_task_key is not None:
+            bind_vars["ignored_task_key"] = ignoring_task_key
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)
 
@@ -478,6 +557,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             AND att.created_at != null
             AND att.created_at < @cutoff
             AND att._key NOT IN referenced
+            AND {self._aql_mentions_key("raw_refs", "att._key")}
           SORT att.created_at ASC
           LIMIT @limit
           RETURN att

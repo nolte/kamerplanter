@@ -1119,26 +1119,3 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         query = f"FOR t IN {col.TASKS} FILTER t._key IN @keys RETURN t"
         cursor = self._db.aql.execute(query, bind_vars={"keys": task_keys})
         return [Task(**self._from_doc(doc)) for doc in cursor]
-
-    def task_keys_referencing_attachment(self, attachment_id: str, tenant_key: str) -> list[str]:
-        """Keys of this tenant's tasks whose ``photo_refs`` link *attachment_id* (#1393).
-
-        Used by ``DELETE /tasks/{key}/photos/{attachment_id}`` to refuse deleting a
-        photo that belongs to a **different** task. Without it the task key in the
-        path proves only that the caller owns *some* task, and a lead could pass any
-        pending task of theirs plus a completed task's photo id — destroying
-        documentation and leaving a dangling id behind.
-
-        Returns an empty list for a photo no task links, which is the normal case:
-        a staged upload is not in any ``photo_refs`` until the completion request
-        writes it (#1388's single-writer rule), and staged photos are exactly what
-        that route usually deletes.
-        """
-        query = f"""
-        FOR t IN {col.TASKS}
-          FILTER t.tenant_key == @tenant_key
-            AND @attachment_id IN (t.photo_refs || [])
-          RETURN t._key
-        """
-        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key, "attachment_id": attachment_id})
-        return list(cursor)

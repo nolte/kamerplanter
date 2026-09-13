@@ -377,6 +377,16 @@ class AttachmentService:
         )
         return deleted
 
+    def deletable_from_task(self, attachment_id: str, task_key: str, tenant_key: str) -> bool:
+        """Whether this task's photo route may destroy *attachment_id* (#1393).
+
+        True when nothing but that task references it. sha256 deduplication makes one
+        stored object shared across tasks, plant galleries and diary entries, so
+        "it is a task photo and no *task* links it" — which this route used to ask —
+        cheerfully destroyed a gallery's cover.
+        """
+        return bool(self._repo.unreferenced_among([attachment_id], tenant_key, ignoring_task_key=task_key))
+
     # --- List --------------------------------------------------------
 
     def list(
