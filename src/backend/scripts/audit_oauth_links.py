@@ -46,8 +46,14 @@ usually "one, your own", and that ends the question.
 
 Usage::
 
-    python scripts/audit_oauth_links.py
-        [--gate-cutoff 2026-09-11T15:20:10Z] [--autolink-cutoff 2026-09-12T08:00:10Z]
+    python scripts/audit_oauth_links.py            # the defaults below are the answer
+    python scripts/audit_oauth_links.py --gate-cutoff 2026-09-11T15:20:10Z
+
+The defaults are derived from the merge commits and are not repeated here with a
+second set of digits: the previous version of this example still showed the
+superseded `--autolink-cutoff 2026-09-12T08:00:10Z`, twelve hours early, so an
+operator who copy-pasted the documented invocation reproduced the very undercount
+two commits had just been spent removing.
 """
 
 from __future__ import annotations
@@ -96,7 +102,13 @@ def _parse(value: str | None) -> datetime | None:
     carried `+00:00` and hid it. The same applies in reverse to a stored timestamp
     written without an offset by an older schema version.
     """
-    if not value:
+    if not value or not isinstance(value, str):
+        # `isinstance` and not just truthiness: a row whose `linked_at` was written
+        # as an epoch int by an older schema version raised
+        # `AttributeError: 'int' object has no attribute 'replace'` and aborted the
+        # whole audit — in a script whose premise is reading defensively across
+        # schema versions. A value this cannot read is treated as absent, which
+        # `classify` already handles pessimistically.
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -166,6 +178,54 @@ def _unreachable(settings, exc: Exception) -> str:
         f"Check ARANGODB_DATABASE / host / port / credentials. This script does not "
         f"create anything."
     )
+
+
+def provider_configs_aql(oidc_provider_configs: str) -> str:
+    """The registrations themselves, which are what #1399 actually let anyone create.
+
+    The gate defect was that any authenticated member could REGISTER an identity
+    provider; the artifact of that is a row in ``oidc_provider_configs``, not a link
+    in ``auth_providers``. Auditing only the links answers a narrower question and
+    misses the worse case entirely: a provider registered before the gate that
+    nobody has signed in through yet reports zero links, reads as an all-clear, and
+    is **still enabled** — so every link it mints from now on is after both cut-offs
+    and lands in neither window.
+
+    This module's own docstring made that argument — "gating the route removed the
+    way IN, not what was already there" — and then did not run the query.
+    """
+    return f"""
+    FOR cfg IN {oidc_provider_configs}
+      RETURN {{
+        key: cfg._key,
+        slug: cfg.slug,
+        display_name: cfg.display_name,
+        issuer_url: cfg.issuer_url,
+        enabled: cfg.enabled,
+        created_at: cfg.created_at
+      }}
+    """
+
+
+def classify_providers(rows: list[dict], gate_cutoff: datetime) -> tuple[list[dict], list[dict], int]:
+    """``(registered_before_gate, of_those_still_enabled, undated)``.
+
+    Same pessimism as ``classify``: a registration with no ``created_at`` counts as
+    predating the gate. ``still_enabled`` is the list that needs an answer today —
+    a disabled rogue provider mints nothing; an enabled one keeps going.
+    """
+    before_gate: list[dict] = []
+    undated = 0
+
+    for row in rows:
+        stamp = _parse(row.get("created_at"))
+        if stamp is None:
+            undated += 1
+        if stamp is None or stamp < gate_cutoff:
+            before_gate.append(row)
+
+    still_enabled = [row for row in before_gate if row.get("enabled") is True]
+    return before_gate, still_enabled, undated
 
 
 def build_queries(auth_providers: str, users: str) -> tuple[str, str]:
@@ -287,9 +347,34 @@ def main() -> int:
     try:
         rows = list(db.aql.execute(query))
         local_rows = next(iter(db.aql.execute(local_query)), 0)
+        provider_rows = (
+            list(db.aql.execute(provider_configs_aql(col.OIDC_PROVIDER_CONFIGS)))
+            if db.has_collection(col.OIDC_PROVIDER_CONFIGS)
+            else []
+        )
     except (ArangoError, OSError) as exc:
         print(_unreachable(settings, exc), file=sys.stderr)
         return 1
+
+    registered_before, still_enabled, undated_providers = classify_providers(provider_rows, gate_cutoff)
+
+    print(f"identity providers registered:   {len(provider_rows)}")
+    print(
+        f"  before the #1399 gate:         {len(registered_before)}  "
+        f"({undated_providers} of them undated, counted as before)"
+    )
+    print(f"  of those, STILL ENABLED:       {len(still_enabled)}")
+    if still_enabled:
+        print()
+        print("  These are the rows that still matter today — an enabled provider")
+        print("  registered before the gate keeps minting links, and those links are")
+        print("  after both cut-offs, so they appear in neither window below:")
+        for cfg in still_enabled:
+            print(
+                f"    {cfg.get('slug')}  issuer={cfg.get('issuer_url')}  "
+                f"created={cfg.get('created_at') or 'no timestamp'}"
+            )
+    print()
 
     if not rows:
         print(
@@ -321,11 +406,14 @@ def main() -> int:
     if at_risk:
         print()
         print("keys (for a manual look, newest first):")
-        ordered = sorted(
-            at_risk,
-            key=lambda r: (stamp_of(r) is not None, stamp_of(r) or _parse(DEFAULT_GATE_CUTOFF)),
-            reverse=True,
-        )
+        # Undated FIRST, not last. `classify` calls them the most suspicious rows
+        # ("a row written by an older schema version is exactly the kind that
+        # predates both fixes"), and sorting them to the bottom meant the listing
+        # cap withheld precisely those on any installation with more than
+        # KEY_LISTING_LIMIT of them.
+        dated = [row for row in at_risk if stamp_of(row) is not None]
+        undated_rows = [row for row in at_risk if stamp_of(row) is None]
+        ordered = undated_rows + sorted(dated, key=stamp_of, reverse=True)
         for row in ordered[:KEY_LISTING_LIMIT]:
             when = stamp_of(row)
             print(

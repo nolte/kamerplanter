@@ -27,11 +27,11 @@ assert _spec and _spec.loader
 audit = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(audit)
 
-#: #1399's admin gate and #1403's auto-link fix are SEVENTEEN HOURS apart, and the
+#: #1399's admin gate and #1403's auto-link fix are 29 HOURS apart, and the
 #: audit reports two different numbers against them. Held apart here so a test that
 #: means "after the gate" cannot accidentally also mean "after the auto-link fix".
 GATE_CUTOFF = datetime(2026, 9, 11, 15, 20, 10, tzinfo=UTC)
-AUTOLINK_CUTOFF = datetime(2026, 9, 12, 8, 0, 10, tzinfo=UTC)
+AUTOLINK_CUTOFF = datetime(2026, 9, 12, 20, 19, 6, tzinfo=UTC)
 
 
 def _row(**overrides) -> dict:
@@ -139,7 +139,7 @@ def test_the_two_windows_are_independent_not_nested():
 
     Gating `/admin/oidc-providers` (#1399, 2026-09-11 15:20 UTC) removed the way to
     REGISTER a rogue provider; it did not unconfigure one already registered, and
-    the callback kept passing the literal `True` until 2026-09-12 08:00 UTC. The
+    the callback kept passing the literal `True` until 2026-09-12 20:19 UTC. The
     first version of this audit computed `at_risk` INSIDE the before-gate branch, so
     every row in those 29 hours was dropped from the number the operator is
     asked to act on — the wrong direction for a security audit to be wrong in.
@@ -150,7 +150,7 @@ def test_the_two_windows_are_independent_not_nested():
 
     assert before == [], "it was created after the gate"
     assert [r["key"] for r in at_risk] == ["l-between"], (
-        "and it is still reachable: the auto-link branch was live for another 17 hours"
+        "and it is still reachable: the auto-link branch was live for another 29 hours"
     )
 
 
@@ -371,3 +371,80 @@ class TestUnreachableDatabase:
 
         assert code == 1
         assert "does not create anything" in capsys.readouterr().err
+
+
+class TestProviderRegistrations:
+    """The #1399 window is about REGISTRATIONS, and they live in another collection.
+
+    Auditing only `auth_providers` answers "who signed in through a provider" and
+    misses the worse case: a provider registered before the gate that nobody has
+    used yet reports zero links, reads as an all-clear, and is still enabled — so
+    every link it mints from here on is after both cut-offs and appears in neither
+    window. The module docstring made that argument before the query existed.
+    """
+
+    @staticmethod
+    def _cfg(**overrides) -> dict:
+        return {
+            "key": "c1",
+            "slug": "rogue",
+            "display_name": "Rogue",
+            "issuer_url": "https://evil.example/",
+            "enabled": True,
+            "created_at": "2026-09-09T00:00:00+00:00",
+            **overrides,
+        }
+
+    def test_a_provider_registered_before_the_gate_is_reported(self):
+        before, still_enabled, undated = audit.classify_providers([self._cfg()], GATE_CUTOFF)
+
+        assert [c["slug"] for c in before] == ["rogue"]
+        assert [c["slug"] for c in still_enabled] == ["rogue"]
+        assert undated == 0
+
+    def test_a_disabled_one_is_counted_but_not_flagged(self):
+        """A disabled provider mints nothing; an enabled one keeps going."""
+        before, still_enabled, _undated = audit.classify_providers([self._cfg(enabled=False)], GATE_CUTOFF)
+
+        assert len(before) == 1
+        assert still_enabled == []
+
+    def test_a_provider_registered_after_the_gate_is_not_counted(self):
+        """The control: without it, "report everything" satisfies the case above."""
+        before, still_enabled, _undated = audit.classify_providers(
+            [self._cfg(created_at="2026-09-20T00:00:00+00:00")], GATE_CUTOFF
+        )
+
+        assert before == []
+        assert still_enabled == []
+
+    def test_an_undated_registration_counts_as_before_the_gate(self):
+        before, still_enabled, undated = audit.classify_providers([self._cfg(created_at=None)], GATE_CUTOFF)
+
+        assert len(before) == 1
+        assert len(still_enabled) == 1
+        assert undated == 1
+
+    def test_the_provider_query_reads_the_configs_collection(self):
+        query = audit.provider_configs_aql("oidc_provider_configs")
+
+        assert "FOR cfg IN oidc_provider_configs" in query
+        for field in ("slug", "issuer_url", "enabled", "created_at"):
+            assert field in query, f"the operator needs {field} to act on a row"
+
+
+def test_a_non_string_timestamp_is_treated_as_absent_not_as_a_crash():
+    """An epoch int from an older schema version used to abort the whole audit.
+
+    `value.replace("Z", …)` raises `AttributeError` on an int, which nothing caught
+    — in a script whose stated premise is reading defensively across schema
+    versions. `test_an_unparseable_timestamp_does_not_crash_the_audit` claimed this
+    invariant and only covered the `str` spelling of it.
+    """
+    rows = [_row(linked_at=1757604010, created_at=None)]
+
+    _by_provider, before, at_risk, undated = audit.classify(rows, GATE_CUTOFF, AUTOLINK_CUTOFF)
+
+    assert undated == 1, "unreadable is absent, and absent is pessimistic"
+    assert len(before) == 1
+    assert len(at_risk) == 1
