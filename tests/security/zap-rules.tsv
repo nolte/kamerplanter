@@ -4,7 +4,12 @@
 # Format (tab-separated, exactly four fields):
 #   <PluginID>	<THRESHOLD>	<Confidence>	<Note>
 #
-# Confidence ∈ {LOW, MEDIUM, HIGH}
+# Confidence ∈ {LOW, MEDIUM, HIGH} — POSITIONAL AND READ BY NOBODY. The column is
+# kept so the file stays shaped like ZAP's own rule files, but neither `zap_gate.py`
+# nor ZAP acts on it: `zap_common.load_config` unpacks it into a variable literally
+# named `ignore` and keeps only the note after it. A suppression is bounded by its
+# `scope=`, not by this value, and `40018 IGNORE LOW` suppresses a High-confidence
+# instance exactly as `MEDIUM` does.
 #
 # THRESHOLD: **only IGNORE is honoured.** ZAP's own vocabulary is
 # {PASS, IGNORE, INFO, WARN, FAIL} — note that "OFF", which an earlier version of
@@ -37,15 +42,22 @@
 # running and a genuine finding at another URL still blocks.
 #
 # Every IGNORE row MUST carry, in the Note column:
-#   * `# expires YYYY-MM-DD — approved by <role>` — expired is a CI warning;
-#     after 30 days of grace it fails the build and stops applying, so the finding
-#     it was covering reappears in the run that goes red.
-#   * `scope=<url regex>` — the URLs the suppression covers, matched with
-#     `re.search` and therefore UNANCHORED: `scope=/api/v1/auth/` is a prefix that
-#     also covers `/api/v1/auth/anything`, and `scope=/x/confirm` would cover
+#   * `# expires YYYY-MM-DD — approved by <role> (YYYY-MM-DD)` — the expiry, the
+#     approver, AND the date of that approval. Expired is a CI warning; after 30
+#     days of grace it fails the build and stops applying, so the finding it was
+#     covering reappears in the run that goes red. The approval date is not
+#     decoration: it bounds the row's life at twelve months (366 days) WITHOUT a
+#     clock, so the check means the same on every day and in every lane. Deriving
+#     the span from "today" would put a calendar dependency into a required lane,
+#     which is how a ZAP rule ends up blocking every merge in the repository.
+#   * EXACTLY ONE `scope=<url regex>` — the URLs the suppression covers, matched
+#     with `re.search` and therefore UNANCHORED: `scope=/api/v1/auth/` is a prefix
+#     that also covers `/api/v1/auth/anything`, and `scope=/x/confirm` would cover
 #     `/x/confirm-v2` too. Anchor it (`^…$` against the full URL) when that
 #     matters. `scope=.*` means rule-wide and has to be written out; there is no
-#     implicit rule-wide.
+#     implicit rule-wide. Exactly one, because the note is prose and the first
+#     match wins: a note that MENTIONS `scope=.*` while explaining why it did not
+#     use it would silence the rule everywhere. Two candidates is rejected.
 #
 # `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` enforces the file
 # format and the absence of `-c`/`-u` in the workflows; `test_zap_gate.py` enforces

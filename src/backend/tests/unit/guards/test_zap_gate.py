@@ -89,9 +89,21 @@ def _rules(tmp_path: Path, note: str, *, plugin: str = "40018") -> Path:
     return path
 
 
-def _valid_note(*, expires: date | None = None, scope: str | None = _CONFIRM) -> str:
+def _valid_note(
+    *,
+    expires: date | None = None,
+    scope: str | None = _CONFIRM,
+    approved: date | None = None,
+) -> str:
+    """A note in the documented form.
+
+    The approval date is part of it: the span between approval and expiry is what
+    bounds a suppression's life, and deriving that from `date.today()` would make
+    the check a function of when it runs.
+    """
     expires = expires or (date.today() + timedelta(days=180))
-    parts = [f"# expires {expires.isoformat()} — approved by operator."]
+    approved = approved or (expires - timedelta(days=180))
+    parts = [f"# expires {expires.isoformat()} — approved by operator ({approved.isoformat()})."]
     if scope is not None:
         parts.append(f"scope={scope}")
     parts.append("Measured false positive.")
@@ -182,6 +194,65 @@ class TestSuppressionValidity:
 
         assert code == 1
         assert json.loads(emit.read_text()), "the finding it was hiding must reappear"
+
+    def test_a_note_with_two_scopes_does_not_apply(self, tmp_path, monkeypatch):
+        """The first `scope=` in the prose wins, so two of them is ambiguous.
+
+        Measured hazard rather than a hypothetical: the header, the README and
+        NFR-015 §6.1 all tell an author to write `scope=.*` for the rule-wide case,
+        so a note explaining itself — "rule-wide would be scope=.* but here
+        scope=/api/… only" — parsed to the rule-wide off switch this design exists
+        to prevent.
+        """
+        note = (
+            f"# expires {(date.today() + timedelta(days=90)).isoformat()} — approved by "
+            f"operator ({date.today().isoformat()}). Rule-wide would be scope=.* but here "
+            f"scope={_CONFIRM} only."
+        )
+        rules = _rules(tmp_path, note)
+
+        code, _ = _run(tmp_path, _report(_ELSEWHERE), rules, monkeypatch)
+
+        assert code == 1, "the ambiguous note must not silence anything"
+
+    def test_an_ignore_without_an_approval_date_does_not_apply(self, tmp_path, monkeypatch):
+        """`approved by operator` with no date leaves the span uncheckable."""
+        note = f"# expires 2099-01-01 — approved by operator. scope={_CONFIRM}"
+        rules = _rules(tmp_path, note)
+
+        code, _ = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
+
+        assert code == 1
+
+    def test_a_suppression_longer_than_a_year_does_not_apply(self, tmp_path, monkeypatch):
+        """`tests/security/README.md` caps a suppression at twelve months.
+
+        Checked against the row's OWN two dates, not the clock, so it means the same
+        in the required lane as in the ZAP lane and cannot become a dated landmine:
+        a row that satisfies it today satisfies it forever.
+        """
+        approved = date(2026, 1, 1)
+        rules = _rules(tmp_path, _valid_note(expires=date(2030, 1, 1), approved=approved))
+
+        code, _ = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
+
+        assert code == 1
+
+    def test_a_suppression_expiring_before_its_approval_does_not_apply(self, tmp_path, monkeypatch):
+        rules = _rules(tmp_path, _valid_note(expires=date(2026, 1, 1), approved=date(2026, 6, 1)))
+
+        code, _ = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
+
+        assert code == 1
+
+    def test_a_year_to_the_day_is_still_inside_the_cap(self, tmp_path, monkeypatch):
+        """The boundary, because 365 vs 366 decides whether a leap year is a violation."""
+        approved = date(2026, 3, 1)
+        rules = _rules(tmp_path, _valid_note(expires=approved + timedelta(days=365), approved=approved))
+
+        code, _ = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
+
+        assert code == 0
 
     def test_an_ignore_without_a_scope_does_not_apply(self, tmp_path, monkeypatch):
         rules = _rules(tmp_path, _valid_note(scope=None))
@@ -306,7 +377,12 @@ class TestStaleSuppression:
         code, _ = _run(tmp_path, _report(_ELSEWHERE), rules, monkeypatch)
 
         assert code == 1
-        assert "matched no finding in this report" in capsys.readouterr().out
+        out = capsys.readouterr().out
+        assert "matched no finding in the api report" in out, (
+            "the note names the profile: the same rule file serves the baseline and the "
+            "full scan, so 'this report' read as 'anywhere' and made a row that is live "
+            "in one profile look dead in the other."
+        )
 
     def test_a_broader_suppression_over_the_same_finding_is_not_called_stale(self, tmp_path, monkeypatch, capsys):
         """Two rows covering one URL: both are doing work, neither is stale.

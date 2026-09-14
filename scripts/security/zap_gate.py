@@ -61,6 +61,17 @@ MIN_BLOCKING_CONFIDENCE = 2  # Medium
 IGNORE_EXPIRY = re.compile(r"expires\s+(\d{4}-\d{2}-\d{2})")
 IGNORE_SCOPE = re.compile(r"scope=(\S+)")
 
+# `approved by <role> (YYYY-MM-DD)`. The approval DATE is what makes the 12-month
+# cap below checkable without a clock: the row carries its own reference point, so
+# the answer is the same in every lane and on every day. Deriving the span from
+# `date.today()` instead would put a calendar dependency back into a required lane.
+IGNORE_APPROVAL = re.compile(r"approved by\s+(\S+)\s+\((\d{4}-\d{2}-\d{2})\)")
+
+# `tests/security/README.md` states a suppression may run at most twelve months.
+# 366 rather than 365 so a leap year does not turn a year-to-the-day renewal into
+# a violation.
+MAX_SPAN_DAYS = 366
+
 # The grace `tests/security/zap-rules.tsv` promises between an expiry and a red
 # build: past the date is a warning the reviewer sees, past the grace is a
 # failure. `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` asserts the
@@ -178,14 +189,23 @@ def load_rules(
             )
             continue
 
-        scope_match = IGNORE_SCOPE.search(note)
-        if not scope_match:
+        # EXACTLY one. `IGNORE_SCOPE` searches the whole free-text note and the
+        # first match wins, so a note that mentions the rule-wide form while
+        # explaining itself — "rule-wide would be scope=.* but here
+        # scope=/api/v1/… only" — parses to `scope=.*` and silences the rule
+        # everywhere. The note is prose, the scope is a control; two candidates
+        # means nobody can tell which one is the control.
+        scope_candidates = IGNORE_SCOPE.findall(note)
+        if len(scope_candidates) != 1:
             problems.append(
-                f"{where}: IGNORE for rule {plugin_id} has no `scope=<url regex>` in its "
-                f"note. A suppression with no scope would silence the rule across the "
-                f"whole target; say so explicitly with `scope=.*` if that is the intent."
+                f"{where}: IGNORE for rule {plugin_id} needs exactly one "
+                f"`scope=<url regex>` in its note, found {len(scope_candidates)}: "
+                f"{scope_candidates or 'none'}. A suppression with no scope would silence "
+                f"the rule across the whole target — say so explicitly with `scope=.*` if "
+                f"that is the intent — and with two, the first one silently wins."
             )
             continue
+        scope_match = IGNORE_SCOPE.search(note)
         try:
             scope = re.compile(scope_match.group(1))
         except re.error as exc:
@@ -195,8 +215,18 @@ def load_rules(
             )
             continue
 
+        approval_match = IGNORE_APPROVAL.search(note)
+        if not approval_match:
+            problems.append(
+                f"{where}: IGNORE for rule {plugin_id} has no "
+                f"`approved by <role> (YYYY-MM-DD)` note. The approval date is what makes "
+                f"the {MAX_SPAN_DAYS // 30}-month cap checkable without a clock."
+            )
+            continue
+
         try:
             expires = date.fromisoformat(expiry_match.group(1))
+            approved = date.fromisoformat(approval_match.group(2))
         except ValueError as exc:
             # `IGNORE_EXPIRY` matches the SHAPE. `2026-02-30` has the shape and no
             # day; unguarded, that ends the process before a single alert is read,
@@ -204,10 +234,29 @@ def load_rules(
             # file, which the issue-opening step cannot distinguish from a profile
             # that simply had nothing to report.
             problems.append(
-                f"{where}: IGNORE for rule {plugin_id} has an impossible expiry "
-                f"{expiry_match.group(1)!r}: {exc}"
+                f"{where}: IGNORE for rule {plugin_id} has an impossible date "
+                f"({expiry_match.group(1)!r} / {approval_match.group(2)!r}): {exc}"
             )
             continue
+
+        # Clock-free, so it is safe in the required lane: a row that satisfies this
+        # today satisfies it forever, because neither date moves.
+        span = (expires - approved).days
+        if span <= 0:
+            problems.append(
+                f"{where}: IGNORE for rule {plugin_id} expires {expires.isoformat()}, "
+                f"on or before its approval {approved.isoformat()}."
+            )
+            continue
+        if span > MAX_SPAN_DAYS:
+            problems.append(
+                f"{where}: IGNORE for rule {plugin_id} runs {span} days "
+                f"({approved.isoformat()} → {expires.isoformat()}), past the "
+                f"{MAX_SPAN_DAYS}-day maximum. A suppression nobody revisits within a year "
+                f"stops being a decision and becomes a fixture."
+            )
+            continue
+
         overdue = (today - expires).days
         if overdue > GRACE_DAYS:
             problems.append(
@@ -230,7 +279,7 @@ def load_rules(
 
 
 def apply_suppressions(
-    alerts: list[dict[str, Any]], suppressions: list[Suppression]
+    alerts: list[dict[str, Any]], suppressions: list[Suppression], profile: str = "this"
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Drop suppressed INSTANCES; return the surviving alerts and what happened.
 
@@ -287,8 +336,10 @@ def apply_suppressions(
         if hits[suppression.source] == 0:
             notes.append(
                 f"{suppression.source}: suppression for rule {suppression.plugin_id} "
-                f"matched no finding in this report. Either the finding is gone — remove "
-                f"the row — or its scope no longer matches what ZAP reports."
+                f"matched no finding in the {profile} report. Expected when this rule file "
+                f"is shared by several profiles and the finding belongs to another one "
+                f"(zap-rules.tsv serves both baseline and full). Otherwise the finding is "
+                f"gone — remove the row — or its scope no longer matches what ZAP reports."
             )
 
     return survivors, notes
@@ -341,7 +392,7 @@ def main() -> int:
     suppressions, rule_problems, rule_warnings = (
         load_rules(args.rules) if args.rules else ([], [], [])
     )
-    alerts, suppression_notes = apply_suppressions(alerts, suppressions)
+    alerts, suppression_notes = apply_suppressions(alerts, suppressions, args.profile)
 
     def is_blocking(a: dict[str, Any]) -> bool:
         return (

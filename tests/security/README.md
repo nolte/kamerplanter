@@ -51,11 +51,17 @@ Daraus folgen drei Pflichten für jede `IGNORE`-Zeile, die
 `src/backend/tests/unit/guards/` in der **required** Lane `Write-route and tree
 guards` durchsetzt:
 
-1. `# expires YYYY-MM-DD — approved by <rolle>`;
-2. `scope=<URL-Regex>`, unverankert (`re.search`) und ohne impliziten Standard —
-   regelweit heisst ausgeschrieben `scope=.*`;
+1. `# expires YYYY-MM-DD — approved by <rolle> (YYYY-MM-DD)` — Ablauf, Genehmiger
+   und Genehmigungsdatum. Aus den beiden Daten folgt die Laufzeit, und nur deshalb
+   ist die 12-Monats-Grenze **ohne Uhr** prüfbar: eine Zeile, die heute passt,
+   passt für immer;
+2. **genau ein** `scope=<URL-Regex>`, unverankert (`re.search`) und ohne impliziten
+   Standard — regelweit heisst ausgeschrieben `scope=.*`. Genau eines, weil die
+   Notiz Fliesstext ist und der erste Treffer gewinnt: eine Notiz, die `scope=.*`
+   nur *erwähnt*, würde die Regel überall abschalten;
 3. als THRESHOLD nur `IGNORE`; `WARN`/`FAIL`/`INFO`/`PASS` wären wirkungslos und
-   werden mit Meldung zurückgewiesen.
+   werden mit Meldung zurückgewiesen. Die Confidence-Spalte ist rein positionell
+   und wird von niemandem gelesen — auch ZAP selbst verwirft sie.
 
 Das Ablaufdatum selbst prüft die required Lane bewusst **nicht** — sie läuft bei
 jedem Push in jedem Branch, und eine kalenderabhängige Zusicherung dort würde ab

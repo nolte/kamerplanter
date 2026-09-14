@@ -623,13 +623,13 @@ Tabelle.
 # tests/security/zap-rules.tsv
 # Format: <PluginID> <THRESHOLD> <Confidence> <Note>
 # Nur IGNORE wird ausgewertet (siehe unten); Confidence ∈ {LOW, MEDIUM, HIGH}
-10038	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer scope=.* CSP-Report-Only — bewusst gewaehlt fuer Migrationsphase
-10054	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer scope=/api/v1/auth/ Cookie-Same-Site auf "Lax" — bewusst gesetzt fuer OAuth-Redirects
+10038	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer (2026-02-14) scope=.* CSP-Report-Only — bewusst gewaehlt fuer Migrationsphase
+10054	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer (2026-02-14) scope=/api/v1/auth/ Cookie-Same-Site auf "Lax" — bewusst gesetzt fuer OAuth-Redirects
 ```
 
-**MUSS**: Jede `IGNORE`-Regel hat ein Ablaufdatum als Kommentar (z. B. `# expires 2026-12-31 — approved by security-officer`).
+**MUSS**: Jede `IGNORE`-Regel hat ein Ablaufdatum, einen Genehmiger und dessen Genehmigungsdatum als Kommentar: `# expires 2026-12-31 — approved by security-officer (2026-01-05)`. Aus Genehmigungs- und Ablaufdatum folgt die Laufzeit, und die 12-Monats-Grenze (366 Tage) ist damit **ohne Uhr** prüfbar — eine Zeile, die die Prüfung heute besteht, besteht sie für immer. Eine von `date.today()` abgeleitete Laufzeit hätte eine Kalenderabhängigkeit in eine required Lane gebracht.
 
-**MUSS**: Jede `IGNORE`-Regel trägt zusätzlich `scope=<URL-Regex>` im Note-Feld. Es gibt keinen impliziten Standard: eine regelweite Unterdrückung wird als `scope=.*` ausgeschrieben. Der Gate verwirft nur die *Instanzen*, deren URL passt — ein Fund derselben Regel an einer anderen URL blockiert weiterhin. Der Ausdruck wird mit `re.search` geprüft und ist damit **nicht verankert**: `scope=/api/v1/auth/` deckt jeden längeren Pfad darunter mit ab. Wo das zählt, gehört `^…$` gegen die vollständige URL hinein.
+**MUSS**: Jede `IGNORE`-Regel trägt zusätzlich **genau ein** `scope=<URL-Regex>` im Note-Feld — genau eines, weil die Notiz Fliesstext ist und der erste Treffer gewinnt; eine Notiz, die `scope=.*` nur erwähnt, während sie etwas anderes begründet, würde die Regel überall abschalten. Es gibt keinen impliziten Standard: eine regelweite Unterdrückung wird als `scope=.*` ausgeschrieben. Der Gate verwirft nur die *Instanzen*, deren URL passt — ein Fund derselben Regel an einer anderen URL blockiert weiterhin. Der Ausdruck wird mit `re.search` geprüft und ist damit **nicht verankert**: `scope=/api/v1/auth/` deckt jeden längeren Pfad darunter mit ab. Wo das zählt, gehört `^…$` gegen die vollständige URL hinein.
 
 **MUSS**: Als THRESHOLD wird **nur `IGNORE`** ausgewertet. ZAPs Vokabular kennt zusätzlich `PASS`, `INFO`, `WARN` und `FAIL` (nicht dagegen `OFF`), aber ZAP liest diese Dateien nicht mehr und `zap_gate.py` implementiert keine Schwellwert-Überschreibung — die Severity-Policy steht in §5.1/§5.2 und im Gate selbst. Eine `WARN`- oder `FAIL`-Zeile wäre also wirkungslos; der Gate **weist sie mit Meldung zurück**, statt sie stumm zu übergehen. Das obige Beispiel führte bis 2026-09-14 eine solche Zeile (`40012 WARN HIGH`) und hätte damit genau diese Erwartung erzeugt.
 
