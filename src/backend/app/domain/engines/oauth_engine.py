@@ -334,7 +334,7 @@ class OAuthEngine:
         decision on them is: measure first (operator, 2026-09-14).
         ``scripts/audit_oauth_links.py`` counts the ``auth_providers`` rows in two
         separate windows — those predating #1399's admin gate, and those the
-        defective auto-link branch could have created, which ran seventeen hours
+        defective auto-link branch could have created, which reached `develop` 29 hours
         longer — read-only, because a forged link and a legitimate one are
         indistinguishable at the data layer, so acting without the number would be
         guessing.

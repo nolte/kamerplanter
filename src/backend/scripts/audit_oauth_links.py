@@ -25,13 +25,13 @@ this reports rather than acts.
 
 The two defects closed at different times, and a row can fall in either window:
 
-* **The admin gate** (#1399, commit ``5e9c8662b``, 2026-09-11 15:20 UTC) stopped an
+* **The admin gate** (#1399, PR #1400, merged 2026-09-11 15:20 UTC) stopped an
   ordinary member registering an identity provider. A provider planted before it
   stays configured afterwards — gating the route removed the way IN, not what was
   already there.
-* **The auto-link branch** (#1403, literal finally gone in ``be551a3e6``,
-  2026-09-12 08:00 UTC) kept passing ``True`` for the provider's ``email_verified``
-  claim for a further seventeen hours.
+* **The auto-link branch** (#1403, PR #1413, merged 2026-09-12 20:19 UTC) kept
+  passing ``True`` for the provider's ``email_verified`` claim for a further
+  **29 hours**.
 
 So ``before_gate`` and ``at_risk`` are computed against SEPARATE cut-offs and
 neither is nested inside the other. An earlier version used one cut-off for both,
@@ -62,16 +62,27 @@ from arango.exceptions import ArangoError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-#: `5e9c8662b`, the commit that gated `/admin/oidc-providers` (#1399). Its author
-#: date is 2026-09-11 17:20:10 +0200; recorded here in UTC so the comparison needs
-#: no timezone reasoning at the call site.
+#: WHEN THE FIX REACHED `develop`, not when it was written. Both defaults are the
+#: MERGE time of the pull request that shipped the fix, because that is when the
+#: defect stopped being reachable by anyone. An earlier version of this file dated
+#: the auto-link boundary from `be551a3e6`, a commit on the unmerged feature branch
+#: — twelve hours before the squash actually landed, so every row in between was
+#: dropped from the count. Same error, same direction, as the one the commit before
+#: it fixed.
+#:
+#: Each value is the named commit's COMMITTER date, which is what a clone can check
+#: offline; GitHub's `mergedAt` for the same pull request is one second later, a
+#: difference with no bearing on any row. `test_the_cutoffs_match_the_commits_they_name`
+#: resolves both against git rather than against a literal copied from here.
+#:
+#: PR #1400, merge commit `5e9c8662b` — gated `/admin/oidc-providers` (#1399).
+GATE_COMMIT = "5e9c8662b"
 DEFAULT_GATE_CUTOFF = "2026-09-11T15:20:10+00:00"
 
-#: `be551a3e6` (#1403), which removed the LAST literal `True` from the auto-link
-#: branch — `57221530c` seventeen minutes earlier removed the first and missed one.
-#: The later commit is the honest boundary: until it landed the branch could still
-#: fire.
-DEFAULT_AUTOLINK_CUTOFF = "2026-09-12T08:00:10+00:00"
+#: PR #1413, merge commit `ce0ec3288` — replaced the literal `True` with the
+#: provider's `email_verified` claim (#1403). Roughly 29 hours after the gate.
+AUTOLINK_COMMIT = "ce0ec3288"
+DEFAULT_AUTOLINK_CUTOFF = "2026-09-12T20:19:06+00:00"
 
 
 def _parse(value: str | None) -> datetime | None:
@@ -110,7 +121,7 @@ def classify(
     **The two lists use different cut-offs and are computed independently.** Gating
     `/admin/oidc-providers` removed the way to register a rogue provider; it did not
     unconfigure one already registered, and the auto-link branch kept firing for a
-    further seventeen hours. A row can therefore be after the gate and still
+    further 29 hours. A row can therefore be after the gate and still
     reachable by the defective path. Nesting `at_risk` inside `before_gate` — which
     an earlier version did — silently drops exactly those rows.
 
@@ -148,6 +159,54 @@ def classify(
 KEY_LISTING_LIMIT = 50
 
 
+def _unreachable(settings, exc: Exception) -> str:
+    return (
+        f"cannot read database {settings.arangodb_database!r} at "
+        f"{settings.arangodb_host}:{settings.arangodb_port}: {exc}\n"
+        f"Check ARANGODB_DATABASE / host / port / credentials. This script does not "
+        f"create anything."
+    )
+
+
+def build_queries(auth_providers: str, users: str) -> tuple[str, str]:
+    """The two AQL queries, at module level so a unit test can read the FILTER.
+
+    ``FILTER LOWER(link.provider) != "local"`` is NOT cosmetic, and dropping it is
+    not a small regression. ``auth_providers`` is not a table of federated links:
+    ``AuthService`` writes a ``provider=LOCAL`` row for EVERY locally registered
+    account (``auth_service.py:283``, and again at ``:690`` when a local password is
+    first set), each with its own ``linked_at``. Counting those made ``at_risk``
+    approximately "every email-verified user" — an alarming number the defective
+    auto-link branch could never have produced. On a single-operator installation
+    the "one, your own" that reads like a correct answer IS that local row rather
+    than a federated link, which is exactly what hid this.
+
+    A string assertion is the right level here: the filter runs in ArangoDB, and a
+    unit test has no database. What it can do is notice the clause leaving.
+    """
+    federated = f"""
+    FOR link IN {auth_providers}
+      FILTER LOWER(link.provider) != "local"
+      LET user = FIRST(FOR u IN {users} FILTER u._key == link.user_key RETURN u)
+      RETURN {{
+        key: link._key,
+        provider: link.provider,
+        linked_at: link.linked_at,
+        created_at: link.created_at,
+        user_key: link.user_key,
+        user_exists: user != null,
+        user_email_verified: user.email_verified
+      }}
+    """
+    local_count = f"""
+    FOR link IN {auth_providers}
+      FILTER LOWER(link.provider) == "local"
+      COLLECT WITH COUNT INTO n
+      RETURN n
+    """
+    return federated, local_count
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -172,6 +231,19 @@ def main() -> int:
             print(f"unparseable {name}: {value!r}", file=sys.stderr)
             return 2
 
+    if autolink_cutoff < gate_cutoff:
+        # The two-window reasoning in classify() assumes the gate came first, which
+        # it did. Swapped flags would relabel both counts and nothing in the output
+        # would say so.
+        print(
+            f"--autolink-cutoff ({autolink_cutoff.isoformat()}) is before "
+            f"--gate-cutoff ({gate_cutoff.isoformat()}). The admin gate shipped "
+            f"first; if you meant to swap them, the labels in the report would be "
+            f"wrong.",
+            file=sys.stderr,
+        )
+        return 2
+
     from arango import ArangoClient
 
     from app.config.settings import settings
@@ -190,13 +262,12 @@ def main() -> int:
 
     try:
         has_links = db.has_collection(col.AUTH_PROVIDERS)
-    except ArangoError as exc:
-        print(
-            f"cannot read database {settings.arangodb_database!r}: {exc}\n"
-            f"Check ARANGODB_DATABASE / host / credentials. This script does not "
-            f"create anything.",
-            file=sys.stderr,
-        )
+    except (ArangoError, OSError) as exc:
+        # OSError as well as ArangoError: when every configured host fails,
+        # python-arango raises the BUILT-IN `ConnectionAbortedError`, an OSError
+        # subclass that is not an ArangoError. A mistyped ARANGODB_HOST or _PORT —
+        # the failure this message exists for — produced a raw traceback instead.
+        print(_unreachable(settings, exc), file=sys.stderr)
         return 1
 
     if not has_links:
@@ -211,29 +282,27 @@ def main() -> int:
         )
         return 1
 
-    query = f"""
-    FOR link IN {col.AUTH_PROVIDERS}
-      LET user = FIRST(FOR u IN {col.USERS} FILTER u._key == link.user_key RETURN u)
-      RETURN {{
-        key: link._key,
-        provider: link.provider,
-        linked_at: link.linked_at,
-        created_at: link.created_at,
-        user_key: link.user_key,
-        user_exists: user != null,
-        user_email_verified: user.email_verified
-      }}
-    """
-    rows = list(db.aql.execute(query))
+    query, local_query = build_queries(col.AUTH_PROVIDERS, col.USERS)
+
+    try:
+        rows = list(db.aql.execute(query))
+        local_rows = next(iter(db.aql.execute(local_query)), 0)
+    except (ArangoError, OSError) as exc:
+        print(_unreachable(settings, exc), file=sys.stderr)
+        return 1
 
     if not rows:
-        print("auth_providers is empty — no federated link has ever been created.")
+        print(
+            f"no federated links: {col.AUTH_PROVIDERS} holds {local_rows} local "
+            f"password row(s) and nothing else. Nothing has ever been linked to an "
+            f"external identity provider, so neither window has anything in it."
+        )
         return 0
 
     by_provider, before_gate, at_risk, undated = classify(rows, gate_cutoff, autolink_cutoff)
     orphaned = [row for row in rows if not row.get("user_exists")]
 
-    print(f"auth_providers rows:             {len(rows)}")
+    print(f"federated links:                 {len(rows)}  ({local_rows} local password row(s) excluded)")
     print(f"  by provider:                   {dict(by_provider)}")
     print(f"  without a timestamp:           {undated}  (counted as inside BOTH windows)")
     print(f"  pointing at a deleted user:    {len(orphaned)}")
@@ -242,7 +311,7 @@ def main() -> int:
     print()
     print("The two windows are separate on purpose: gating /admin/oidc-providers removed")
     print("the way to REGISTER a rogue provider, not one already registered, and the")
-    print("auto-link branch kept firing for a further seventeen hours. A row can be after")
+    print("auto-link branch kept firing for a further 29 hours. A row can be after")
     print("the gate and still reachable.")
     print()
     print("'reachable' is NOT evidence that any of these was forged — the data layer")

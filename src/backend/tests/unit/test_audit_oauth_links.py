@@ -15,8 +15,11 @@ which is why the script reports and does not act.
 from __future__ import annotations
 
 import importlib.util
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 _SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "audit_oauth_links.py"
 _spec = importlib.util.spec_from_file_location("audit_oauth_links", _SCRIPT)
@@ -138,7 +141,7 @@ def test_the_two_windows_are_independent_not_nested():
     REGISTER a rogue provider; it did not unconfigure one already registered, and
     the callback kept passing the literal `True` until 2026-09-12 08:00 UTC. The
     first version of this audit computed `at_risk` INSIDE the before-gate branch, so
-    every row in those seventeen hours was dropped from the number the operator is
+    every row in those 29 hours was dropped from the number the operator is
     asked to act on — the wrong direction for a security audit to be wrong in.
     """
     between = _row(key="l-between", linked_at="2026-09-11T20:00:00+00:00")
@@ -219,16 +222,152 @@ def test_an_unparseable_cutoff_is_refused_rather_than_guessed():
     assert audit._parse(None) is None
 
 
-def test_the_shipped_defaults_are_the_dates_they_claim_to_be():
-    """The constants name two commits; this pins the values against drift.
+def test_the_cutoffs_match_the_commits_they_name():
+    """Resolved against git, because the version this replaces was circular.
 
-    The first version dated the gate 2026-09-10, a day and a half before the commit
-    it named, and nothing said so — the docstring asserted the figure was that
-    commit's, so the under-count was invisible in the output.
+    It asserted `_parse(DEFAULT_GATE_CUTOFF) == GATE_CUTOFF`, i.e. the constant
+    against a literal copied from the constant. Both constants were wrong when it
+    was green: the gate was dated a day and a half early, and the auto-link boundary
+    came from `be551a3e6` — a commit on the unmerged feature branch, twelve hours
+    before the squash reached `develop`. A test that reads the same number twice
+    cannot see either.
+
+    What matters about these dates is when the fix became reachable by everyone, so
+    the check is: the named commit exists, it is an ancestor of `develop`, and its
+    committer date is the constant. A shallow CI checkout cannot answer that, hence
+    the skip — the value is at authoring time, which is when the mistake was made.
     """
-    assert audit._parse(audit.DEFAULT_GATE_CUTOFF) == GATE_CUTOFF
-    assert audit._parse(audit.DEFAULT_AUTOLINK_CUTOFF) == AUTOLINK_CUTOFF
+    import subprocess
+
+    repo = Path(__file__).resolve()
+    for _ in range(8):
+        repo = repo.parent
+        if (repo / ".git").exists():
+            break
+    else:  # pragma: no cover - only outside a checkout
+        pytest.skip("not inside a git checkout")
+
+    def _git(*args: str) -> str | None:
+        result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=False)
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    for commit, cutoff, what in (
+        (audit.GATE_COMMIT, audit.DEFAULT_GATE_CUTOFF, "the #1399 admin gate"),
+        (audit.AUTOLINK_COMMIT, audit.DEFAULT_AUTOLINK_CUTOFF, "the #1403 auto-link fix"),
+    ):
+        committed = _git("show", "-s", "--format=%cI", commit)
+        if committed is None:  # pragma: no cover - shallow clone
+            pytest.skip(f"{commit} is not in this checkout (shallow clone?)")
+
+        on_develop = subprocess.run(
+            ["git", "-C", str(repo), "merge-base", "--is-ancestor", commit, "origin/develop"],
+            capture_output=True,
+            check=False,
+        )
+        if on_develop.returncode not in (0, 1):  # pragma: no cover - no origin/develop
+            pytest.skip("origin/develop is not available in this checkout")
+
+        assert on_develop.returncode == 0, (
+            f"{commit} ({what}) is not an ancestor of origin/develop. A fix that never "
+            f"landed cannot be the moment the defect stopped being reachable — this is "
+            f"exactly how the auto-link cut-off ended up twelve hours early."
+        )
+        assert datetime.fromisoformat(committed) == datetime.fromisoformat(cutoff), (
+            f"{what}: {commit} was committed {committed}, the constant says {cutoff}"
+        )
+
+
+def test_the_gate_precedes_the_autolink_fix():
+    """The ordering `classify()`'s two-window reasoning depends on."""
     assert audit._parse(audit.DEFAULT_GATE_CUTOFF) < audit._parse(audit.DEFAULT_AUTOLINK_CUTOFF), (
         "the auto-link branch outlived the admin gate; if these ever invert, the "
         "two-window reasoning in classify() is wrong"
     )
+
+
+def test_the_federated_query_excludes_local_password_rows():
+    """The Critical one, and it is invisible without knowing what the table holds.
+
+    `auth_providers` is not a federated-links table: `AuthService` writes a
+    `provider=LOCAL` row for every locally registered account, with its own
+    `linked_at`. Without the filter, `at_risk` counted approximately every
+    email-verified user — a number the defective auto-link branch could never have
+    produced, presented to the operator as links to review.
+
+    A string assertion because the filter runs in ArangoDB and a unit test has no
+    database. It cannot prove the query is right; it can notice the clause leaving,
+    which is the regression that matters.
+    """
+    federated, local_count = audit.build_queries("auth_providers", "users")
+
+    assert 'FILTER LOWER(link.provider) != "local"' in federated, "the federated query must exclude local password rows"
+    assert 'FILTER LOWER(link.provider) == "local"' in local_count
+    assert "COLLECT WITH COUNT INTO n" in local_count
+
+
+def test_the_two_queries_disagree_about_local_and_agree_about_the_collection():
+    """The control: one filter is the negation of the other, over the same table.
+
+    Written because the pair is easy to get half-right — filtering the federated
+    query while counting everything in the other would report a local total larger
+    than the table.
+    """
+    federated, local_count = audit.build_queries("ap_col", "users_col")
+
+    assert "FOR link IN ap_col" in federated
+    assert "FOR link IN ap_col" in local_count
+    assert "FOR u IN users_col" in federated
+    assert federated.count("FILTER LOWER(link.provider)") == 1
+    assert local_count.count("FILTER LOWER(link.provider)") == 1
+
+
+class TestUnreachableDatabase:
+    """A mistyped host or database must produce a sentence, not a traceback.
+
+    This is the failure an operator actually hits — the script is run by hand,
+    against production, by someone who exported the wrong variable — so the
+    behaviour is pinned rather than the source text. An earlier check of mine read
+    the source for the word `OSError` and reported success against a file it had
+    just mutated; reading behaviour cannot go wrong that way.
+    """
+
+    @staticmethod
+    def _run(monkeypatch, raising: Exception):
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def db(self, *args, **kwargs):
+                return _Db()
+
+        class _Db:
+            def has_collection(self, _name):
+                raise raising
+
+        import arango
+
+        monkeypatch.setattr(arango, "ArangoClient", _Client)
+        monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py"])
+        return audit.main()
+
+    def test_a_refused_connection_is_reported_not_raised(self, monkeypatch, capsys):
+        """python-arango raises the BUILT-IN `ConnectionAbortedError` when every host
+        fails — an `OSError`, not an `ArangoError`. Catching only `ArangoError` left
+        a mistyped `ARANGODB_HOST` printing a traceback, which is the one case the
+        message exists for.
+        """
+        code = self._run(monkeypatch, ConnectionAbortedError("cannot connect to any host"))
+
+        assert code == 1
+        err = capsys.readouterr().err
+        assert "does not create anything" in err
+        assert "ARANGODB_DATABASE / host / port / credentials" in err
+
+    def test_an_arango_error_is_reported_the_same_way(self, monkeypatch, capsys):
+        """Bad credentials come through as an `ArangoError`; same message, same exit."""
+        from arango.exceptions import ArangoError
+
+        code = self._run(monkeypatch, ArangoError("not authorized"))
+
+        assert code == 1
+        assert "does not create anything" in capsys.readouterr().err
