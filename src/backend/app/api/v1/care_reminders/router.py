@@ -13,7 +13,11 @@ from app.api.v1.care_reminders.schemas import (
 from app.common.auth import get_current_user, require_active_tenant_role
 from app.common.dependencies import get_care_reminder_service
 from app.common.enums import ReminderType, TenantRole
-from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import (
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    UNAUTHORIZED_RESPONSE,
+)
 from app.common.plant_ownership import require_owned_plant
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.user import User
@@ -50,28 +54,26 @@ def _confirmation_to_response(c) -> CareConfirmationResponse:
     return to_response(c, CareConfirmationResponse)
 
 
-# A GET that WRITES: `get_or_create_profile` persists a `CareProfile` and a profile
-# edge when the plant has none, seeded from caller-supplied query parameters. So it
-# carries the same rank gate as the six routes whose method says so (#1422 review
-# round 1) — a viewer calling it on an unprofiled plant was writing a document of
-# their choosing.
-#
-# The name is the honest part and the method is not; renaming the operation or
-# splitting read from create is a bigger change than this gate and is not needed to
-# close the permission hole.
-@router.get(
-    "/plants/{plant_key}/profile",
-    response_model=CareProfileResponse,
-    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
-)
+@router.get("/plants/{plant_key}/profile", response_model=CareProfileResponse)
 def get_or_create_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     species_name: str | None = Query(None, description="Species name used to seed a new profile's presets."),
     botanical_family: str | None = Query(None, description="Botanical family used to seed a new profile's presets."),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
-    """Return the plant's care profile, creating it from presets if absent."""
-    profile = service.get_or_create_profile(plant_key, species_name, botanical_family)
+    """Return the plant's care profile, generating presets if absent — without storing them.
+
+    A read. `may_create=False` is what makes that true: an absent profile is
+    generated and returned, and nothing is written, so every member may call this
+    including a viewer (#1422 round 2).
+    """
+    # `may_create=False`: this is a read, and a read does not write. Round 1 of the
+    # #1422 review gated the whole operation instead, which took the *read* away from
+    # viewers — `get_or_create_profile` returns an existing profile untouched, so a
+    # viewer opening the care tab of an already-profiled plant got a 403 and the
+    # frontend a permanently spinning skeleton. The gate belonged on the write, and
+    # the write is now simply not performed.
+    profile = service.get_or_create_profile(plant_key, species_name, botanical_family, may_create=False)
     return _profile_to_response(profile)
 
 
@@ -79,6 +81,7 @@ def get_or_create_profile(
     "/plants/{plant_key}/profile",
     response_model=CareProfileResponse,
     dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
 )
 def update_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
@@ -97,6 +100,7 @@ def update_profile(
     response_model=CareConfirmationResponse,
     status_code=201,
     dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
 )
 def confirm_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
@@ -134,6 +138,7 @@ def confirm_reminder(
     response_model=CareConfirmationResponse,
     status_code=201,
     dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
 )
 def snooze_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
@@ -161,6 +166,7 @@ def get_confirmation_history(
     "/plants/{plant_key}/reset-profile",
     response_model=CareProfileResponse,
     dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
 )
 def reset_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],

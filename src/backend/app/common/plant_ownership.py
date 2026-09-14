@@ -22,9 +22,12 @@ for (#948, #1385, #1399): ten would be correct and the eleventh, added next mont
 would not. Mounted on the ROUTER, a new operation inherits the check without anyone
 remembering.
 
-`get_active_tenant_context` is the resolver ADR-009 built for this case and
-`companion_planting` and `botanical_families` already use; the frontend's global
-client attaches `X-Active-Tenant` on every request, so no client change is needed.
+ADR-009's header resolution is what this case needs, and `companion_planting` and
+`botanical_families` already use it through `get_active_tenant_key`; the frontend's
+global client attaches `X-Active-Tenant` on every request, so no client change is
+needed. This gate takes the `get_active_tenant_context` form of the same resolution
+because the routes it guards also need the *role* (#1422), and two callables would
+mean two `_resolve_active_tenant` runs FastAPI cannot dedupe.
 """
 
 from typing import Annotated
@@ -81,12 +84,17 @@ def require_owned_plant(
     real `tenant_key`, unlike `Location` and `Slot` (#1397). So refusing is not a
     trade-off — an unresolvable tenant cannot own anything.
     """
-    # Read off the shared context rather than resolved a second time. Both this gate
-    # and `require_active_tenant_role` need the active tenant, and until #1422's review
-    # they reached it through two different callables — `get_active_tenant_key` and
-    # `get_active_tenant_context` — which FastAPI cannot dedupe, so every gated write
-    # paid for two `_resolve_active_tenant` runs and their repository reads. Same value
-    # either way: both are `_resolve_active_tenant(...).key`.
+    # Read off the shared context, so this gate and `require_active_tenant_role` share
+    # one resolution. Two different callables — `get_active_tenant_key` here and
+    # `get_active_tenant_context` there — are not deduped by FastAPI's per-request
+    # cache, so each gated route would run `_resolve_active_tenant` twice. (That never
+    # shipped: the rank gate and this line arrived in the same change, #1422.)
+    #
+    # Same value either way: both are `_resolve_active_tenant(...).key`. The cost is
+    # not free in one direction — on the three read-only routes, which carry no rank
+    # gate, the context form eagerly resolves the membership that the key-only form
+    # skips. With the `X-Active-Tenant` header, the normal case, that membership has
+    # already been fetched and validated, so it is one lookup either way.
     tenant_key = ctx.tenant_key
     if not tenant_key:
         raise NotFoundError("PlantInstance", plant_key)

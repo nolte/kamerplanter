@@ -13,7 +13,11 @@ from app.api.v1.plant_instances.schemas import PlantResponse
 from app.common.auth import get_current_user, require_active_tenant_role
 from app.common.dependencies import get_phase_service, get_plant_instance_service
 from app.common.enums import TenantRole
-from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import (
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    UNAUTHORIZED_RESPONSE,
+)
 from app.common.plant_ownership import require_owned_plant
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
@@ -52,7 +56,10 @@ def get_current_phase(
 
 
 @router.post(
-    "/transition", response_model=PlantResponse, dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))]
+    "/transition",
+    response_model=PlantResponse,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
 )
 def transition_phase(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
@@ -80,6 +87,7 @@ def get_phase_history(
     "/history/{history_key}",
     response_model=PhaseHistoryResponse,
     dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
 )
 def update_phase_history_dates(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
@@ -98,7 +106,10 @@ def update_phase_history_dates(
 
 
 @router.delete(
-    "/history/{history_key}", status_code=204, dependencies=[Depends(require_active_tenant_role(TenantRole.LEAD))]
+    "/history/{history_key}",
+    status_code=204,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.LEAD))],
+    responses=FORBIDDEN_RESPONSE,
 )
 def delete_phase_history(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],

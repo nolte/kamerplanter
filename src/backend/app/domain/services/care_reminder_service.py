@@ -251,8 +251,24 @@ class CareReminderService:
         plant_key: str,
         species_name: str | None = None,
         botanical_family: str | None = None,
+        *,
+        may_create: bool,
     ) -> CareProfile:
-        """Get existing profile or auto-generate one."""
+        """Return the plant's care profile, persisting a generated one only if allowed.
+
+        **``may_create`` is keyword-only and has no default**, so every call site
+        states whether it is a read or a write. A default would have been an opt-in,
+        and an opt-in on a persisting call is the #948 shape: the two paths that must
+        not write would have inherited the permissive answer by saying nothing.
+
+        Reads get the generated profile **without it being stored**. That is the
+        behaviour change and it is the point: until #1422's second review,
+        ``GET .../profile`` and the tenant care dashboard both persisted a
+        ``CareProfile`` and a profile edge for any plant that had none — the dashboard
+        for *every* plant of the tenant, on a plain read, by any member including a
+        viewer. A read that writes is the defect; refusing the write while still
+        answering with the presets keeps the UI working and leaves the database alone.
+        """
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is not None:
             return profile
@@ -262,6 +278,10 @@ class CareReminderService:
             botanical_family=botanical_family,
             plant_key=plant_key,
         )
+        if not may_create:
+            # Generated, not stored. The caller is reading.
+            return new_profile
+
         created = self._repo.create_profile(new_profile)
         if created.key:
             self._repo.create_profile_edge(plant_key, created.key)
@@ -504,7 +524,7 @@ class CareReminderService:
 
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
         now = datetime.now(UTC)
         watering_log_key: str | None = None
@@ -1012,7 +1032,7 @@ class CareReminderService:
     ) -> CareConfirmation:
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
         confirmation = CareConfirmation(
             plant_key=plant_key,
@@ -1042,10 +1062,17 @@ class CareReminderService:
 
         for plant in plant_data:
             plant_key = plant["plant_key"]
+            # `may_create=False`: the dashboard is a READ. Until #1422's second review
+            # it persisted a `CareProfile` and a profile edge for *every* plant of the
+            # tenant that had none — on a plain GET, for any member including a viewer,
+            # and it thereby also pre-empted the narrower route's refusal by making the
+            # profile exist. The generated presets are what the dashboard needs; storing
+            # them was never part of that.
             profile = self.get_or_create_profile(
                 plant_key,
                 species_name=plant.get("species_name"),
                 botanical_family=plant.get("botanical_family"),
+                may_create=False,
             )
 
             # REQ-022 §3.2 — the winter-protection reminder types are gated by the
@@ -1199,7 +1226,9 @@ class CareReminderService:
         if plant is None or plant.removed_on is not None:
             return []
 
-        profile = self._repo.get_profile_by_plant_key(plant_key) or self.get_or_create_profile(plant_key)
+        profile = self._repo.get_profile_by_plant_key(plant_key) or self.get_or_create_profile(
+            plant_key, may_create=True
+        )
         overwintering_profile = self._resolve_overwintering_profile(plant_key)
         species = self._resolve_species(plant.species_key, {})
         frost_sensitivity = species.frost_sensitivity if species else None

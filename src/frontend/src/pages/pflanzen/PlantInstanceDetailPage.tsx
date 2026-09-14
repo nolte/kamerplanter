@@ -75,6 +75,7 @@ import PestScanButton from '@/components/pests/PestScanButton';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
 import CareProfileForm from '@/pages/pflege/components/CareProfileForm';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { DosagePreset } from '@/pages/pflege/components/CareConfirmDialog';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
@@ -537,6 +538,16 @@ export default function PlantInstanceDetailPage() {
       })
       .catch(() => setRecommendedRoMap(new Map()));
   }, [assignedPlan?.key, editSiteKey]);
+
+  // #1422 gave the phase-transition and care-confirm routes a rank gate, so a viewer
+  // now gets a 403 from them. Without this the page still offered the controls and
+  // the refusal arrived only on submit — the shape corrected on the task page in
+  // #1393 round 8, where a permanently-refused Delete button was offered
+  // unconditionally and answered with an error toast that led nowhere.
+  //
+  // Disabled rather than hidden, for the same reason as there: a control that
+  // vanishes explains nothing, while a disabled one with a tooltip names the rule.
+  const { canEdit } = useTenantPermissions();
 
   const handleConfirmWatering = async (options?: ConfirmReminderOptions) => {
     if (!key) return;
@@ -1105,7 +1116,7 @@ export default function PlantInstanceDetailPage() {
             primary={{
               label: t('pages.phases.transition'),
               icon: <SwapHorizIcon />,
-              disabled: !!plant?.removed_on,
+              disabled: !!plant?.removed_on || !canEdit,
               testId: 'transition-button',
               onClick: () => setTransitionOpen(true),
             }}
@@ -1483,7 +1494,7 @@ export default function PlantInstanceDetailPage() {
                     color="success"
                     startIcon={<CheckCircleOutlineIcon />}
                     onClick={() => setWateringDialogOpen(true)}
-                    disabled={confirmingWatering}
+                    disabled={confirmingWatering || !canEdit}
                     data-testid="confirm-watering-button"
                   >
                     {t('pages.plantInstances.confirmWatering')}
@@ -1950,7 +1961,7 @@ export default function PlantInstanceDetailPage() {
                 variant="outlined"
                 size="small"
                 onClick={() => setTransitionOpen(true)}
-                disabled={!!plant.removed_on}
+                disabled={!!plant.removed_on || !canEdit}
               >
                 {t('pages.phases.transition')}
               </Button>

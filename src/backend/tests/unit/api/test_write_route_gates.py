@@ -41,6 +41,22 @@ from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
 
+#: What this sweep treats as a write — and the limit of that, stated rather than
+#: assumed.
+#:
+#: A method is a convention, not a behaviour. Two routes in this codebase were
+#: measured writing on a ``GET`` (#1422 review): ``GET /care-reminders/plants/{key}/profile``
+#: and ``GET /t/{slug}/care-reminders/dashboard`` both reached
+#: ``get_or_create_profile``, which persisted a ``CareProfile`` and an edge — the
+#: dashboard for every plant of the tenant, on a plain read, for any member. Both are
+#: fixed at the source (the read paths no longer create), so nothing is being hidden
+#: here today.
+#:
+#: But this sweep could not have found either, and cannot find the next one. Deciding
+#: whether a handler writes needs the call graph, not the decorator, and that detector
+#: does not exist yet — #1443. Until it does, a reviewer noticing a persisting read is
+#: the only thing that catches this class, which is exactly the position #948 was
+#: about.
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 TENANT_PREFIX = "/t/{tenant_slug}"
 ADMIN_PREFIX = "/api/v1/admin"

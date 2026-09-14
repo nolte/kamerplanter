@@ -462,8 +462,6 @@ WRITE_ROUTES_WITH_RANK: list[tuple[str, str, dict[str, Any] | None, TenantRole]]
         TenantRole.GROWER,
     ),
     ("POST", "/api/v1/care-reminders/plants/{k}/reset-profile", None, TenantRole.GROWER),
-    # The write that does not look like one — see the note above.
-    ("GET", "/api/v1/care-reminders/plants/{k}/profile", None, TenantRole.GROWER),
 ]
 
 
@@ -481,6 +479,10 @@ READ_ONLY_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/plant-instances/{k}/phases/current"): "reads the current phase",
     ("GET", "/api/v1/plant-instances/{k}/phases/history"): "reads recorded history",
     ("GET", "/api/v1/care-reminders/plants/{k}/history"): "reads confirmations",
+    ("GET", "/api/v1/care-reminders/plants/{k}/profile"): (
+        "reads; `may_create=False` means an absent profile is generated and returned "
+        "without being stored, so no viewer write remains to gate (#1422 round 2)"
+    ),
 }
 
 
@@ -542,7 +544,42 @@ def test_the_gate_scan_actually_finds_the_gated_routes():
     """
     gated = _rank_gated_routes()
 
-    assert len(gated) == 8, f"expected eight gated routes, found {sorted(gated)}"
+    assert len(gated) == 7, f"expected seven gated routes, found {sorted(gated)}"
+
+
+def test_the_gate_and_the_documented_403_agree():
+    """A route that can answer 403 says so in its schema, and only such a route does.
+
+    403 became a first-class outcome on seven operations, and until this check it
+    appeared in no generated OpenAPI — so a client generated from the spec, and every
+    contract test reading it, learned nothing about the refusal. Measured before the
+    fix: all eleven operations documented ``401/404/422`` and success, nothing else.
+
+    Asserted as an equivalence rather than a presence. Documenting 403 on the four
+    read routes would be the opposite error: they stay open to every member, which is
+    the claim this whole change rests on, and a schema saying otherwise would make
+    that claim unreadable from the outside.
+    """
+    from app.api.v1.care_reminders.router import router as care
+    from app.api.v1.phases.router import router as phases
+
+    app = FastAPI()
+    app.include_router(phases, prefix="/api/v1")
+    app.include_router(care, prefix="/api/v1")
+    spec = app.openapi()
+
+    documents_403 = {
+        (method.upper(), path)
+        for path, operations in spec["paths"].items()
+        for method, operation in operations.items()
+        if "403" in operation.get("responses", {})
+    }
+    gated = _rank_gated_routes()
+
+    assert documents_403 == gated, (
+        f"gated but undocumented: {sorted(gated - documents_403)}; "
+        f"documented but ungated: {sorted(documents_403 - gated)}"
+    )
 
 
 def test_a_route_claimed_read_only_carries_no_rank_gate():
