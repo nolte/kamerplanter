@@ -823,3 +823,148 @@ def test_the_excluded_count_is_the_exclusion_it_is_printed_under(monkeypatch, ca
     assert "excluded as registrations:     1" in out, (
         "only the in-window registration was excluded from that 1; the three after the cut-off were never candidates"
     )
+
+
+class TestEmailVerifiedSpellings:
+    """The decision the previous test of this name could not see leave.
+
+    `test_at_risk_needs_a_verified_account_not_a_truthy_one` fed only `True`,
+    `False` and `None` — indistinguishable under `is True` and under plain
+    truthiness. Measured: rewriting the predicate to bare truthiness left all 39
+    tests green. The separating input is a truthy NON-`True` value, and this project
+    ships one: `EmailVerificationStatus.VERIFIED`.
+    """
+
+    def test_the_verified_literal_matches_the_enum(self):
+        """Cross-checked against the enum, not against a copy of itself.
+
+        The script cannot import from `app` at module scope, so it spells the value
+        out. This is the check that keeps the two from drifting — and it reads the
+        enum rather than a second literal, which is the mistake this pull request
+        made twice.
+        """
+        from app.common.enums import EmailVerificationStatus
+
+        assert EmailVerificationStatus.VERIFIED.value == audit.VERIFIED_STATUS
+
+    def test_the_string_spelling_counts_as_verified(self):
+        """`is True` alone dropped it — an UNDERCOUNT, the dangerous direction."""
+        assert audit.is_email_verified("verified") is True
+        assert audit.is_email_verified("VERIFIED") is True
+
+    def test_a_pending_status_does_not(self):
+        """And bare truthiness accepted it — an overcount. Neither spelling was right."""
+        assert audit.is_email_verified("pending") is False
+
+    def test_the_boolean_spellings_behave(self):
+        assert audit.is_email_verified(True) is True
+        assert audit.is_email_verified(False) is False
+        assert audit.is_email_verified(None) is False
+
+    def test_a_string_valued_row_reaches_at_risk(self):
+        """End to end through `classify`, so the predicate is wired and not just correct."""
+        rows = [_row(user_email_verified="verified", user_created_at="2020-01-01T00:00:00+00:00")]
+
+        _by_provider, _before, at_risk, _undated = audit.classify(rows, GATE_CUTOFF, AUTOLINK_CUTOFF)
+
+        assert len(at_risk) == 1
+
+    def test_a_pending_row_does_not(self):
+        rows = [_row(user_email_verified="pending", user_created_at="2020-01-01T00:00:00+00:00")]
+
+        _by_provider, _before, at_risk, _undated = audit.classify(rows, GATE_CUTOFF, AUTOLINK_CUTOFF)
+
+        assert at_risk == []
+
+
+def test_an_orphaned_link_is_a_finding(monkeypatch):
+    """A link pointing at a deleted user is the most suspicious shape available.
+
+    Its `user_email_verified` is null, so the verification test drops it from
+    `at_risk` — and it was printed as an anomaly while the run exited 0, so
+    `audit_oauth_links.py && echo clean` printed `clean` over it. That is the trap
+    `EXIT_FINDINGS` was introduced to close for providers, left open for links.
+    """
+
+    class _Client:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def db(self, *args, **kwargs):
+            return _Db()
+
+    class _Db:
+        def has_collection(self, _name):
+            return True
+
+        @property
+        def aql(self):
+            return _Aql()
+
+    class _Aql:
+        def execute(self, query):
+            if "user_email_verified" in query:
+                return iter(
+                    [
+                        {
+                            "key": "l1",
+                            "provider": "github",
+                            "linked_at": "2026-01-01T00:00:00+00:00",
+                            "created_at": None,
+                            "user_key": "gone",
+                            "user_exists": False,
+                            "user_email_verified": None,
+                            "user_created_at": None,
+                        }
+                    ]
+                )
+            return iter(())
+
+    import arango
+
+    monkeypatch.setattr(arango, "ArangoClient", _Client)
+    monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py"])
+
+    code = audit.main()
+
+    assert code != 0, "an orphaned federated link is not an all-clear"
+    assert code == audit.EXIT_FINDINGS
+
+
+def test_the_floor_note_compares_instants_not_spellings(monkeypatch, capsys):
+    """`--gate-cutoff 2026-09-11T15:20:10Z` is the default, spelled with a Z.
+
+    A string comparison read that as the operator's own deploy time and fell silent
+    about a cut-off that was still the develop-merge floor.
+    """
+
+    class _Client:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def db(self, *args, **kwargs):
+            return _Db()
+
+    class _Db:
+        def has_collection(self, _name):
+            return True
+
+        @property
+        def aql(self):
+            return _Aql()
+
+    class _Aql:
+        def execute(self, _query):
+            return iter(())
+
+    import arango
+
+    monkeypatch.setattr(arango, "ArangoClient", _Client)
+    monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py", "--gate-cutoff", "2026-09-11T15:20:10Z"])
+
+    audit.main()
+
+    out = capsys.readouterr().out
+    assert "--gate-cutoff" in out.split("NOTE:")[1].split("\n")[0], (
+        "the Z spelling is the same instant as the default and must still be called a floor"
+    )

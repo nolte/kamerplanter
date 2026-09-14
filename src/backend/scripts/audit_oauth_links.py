@@ -191,7 +191,7 @@ def classify(
 
         if (
             (stamp is None or stamp < autolink_cutoff)
-            and row.get("user_email_verified") is True
+            and is_email_verified(row.get("user_email_verified"))
             and not was_created_through_the_provider(row)
         ):
             at_risk.append(row)
@@ -210,6 +210,35 @@ KEY_LISTING_LIMIT = 50
 #: clean` printed `clean` over a rogue-provider listing. 0 now means nothing found,
 #: 1 means the audit could not run, and 3 means it ran and found rows.
 EXIT_FINDINGS = 3
+
+#: `app.common.enums.EmailVerificationStatus.VERIFIED`. Spelled as a literal because
+#: this module deliberately imports nothing from `app` until `main()` runs;
+#: `test_the_verified_literal_matches_the_enum` checks the two against each other.
+VERIFIED_STATUS = "verified"
+
+
+def is_email_verified(value: object) -> bool:
+    """Whether a stored ``email_verified`` means verified, across its spellings.
+
+    Neither `is True` nor plain truthiness is right here, and the difference is a
+    count the operator acts on:
+
+    * `is True` drops a row storing the string ``"verified"`` — an UNDERCOUNT, the
+      dangerous direction, and exactly the shape a script whose premise is reading
+      across schema versions should expect;
+    * truthiness accepts ``"pending"``, which is an overcount.
+
+    So the value is read for what it says. Recorded because the test named for this
+    decision could not see it leave: with only `True`/`False`/`None` as inputs the
+    two spellings are indistinguishable, and rewriting `is True` to truthiness left
+    all 39 tests green.
+    """
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() == VERIFIED_STATUS
+    return False
+
 
 #: How close a link's timestamp has to be to its user's creation before the pair is
 #: read as "this account was CREATED through the provider" rather than "an existing
@@ -255,18 +284,23 @@ def _print_floor_note(args) -> None:
     calls the worse case. Same reasoning, same file, applied to one sibling and not
     the other.
     """
+    # Compared as INSTANTS, not as strings: `--gate-cutoff 2026-09-11T15:20:10Z` is
+    # the default spelled with a `Z`, and a string comparison read it as the
+    # operator's own deploy time — so the note fell silent about a cut-off that was
+    # still the floor.
     stale = [
         flag
         for flag, value, default in (
             ("--gate-cutoff", args.gate_cutoff, DEFAULT_GATE_CUTOFF),
             ("--autolink-cutoff", args.autolink_cutoff, DEFAULT_AUTOLINK_CUTOFF),
         )
-        if value == default
+        if _parse(value) == _parse(default)
     ]
     if not stale:
         return
+    verb = "holds" if len(stale) == 1 else "hold"
     print()
-    print(f"NOTE: {' and '.join(stale)} still hold the develop-merge time, a FLOOR.")
+    print(f"NOTE: {' and '.join(stale)} still {verb} the develop-merge time, a FLOOR.")
     print("Your installation ran the defective image until its next rollout. Rows")
     print("created in that gap fall outside the window and are NOT counted. Re-run")
     print("with your own deploy timestamp for the number that applies here.")
@@ -283,6 +317,13 @@ def _unreachable(settings, exc: Exception) -> str:
 
 def provider_configs_aql(oidc_provider_configs: str) -> str:
     """The registrations themselves, which are what #1399 actually let anyone create.
+
+    ``updated_at`` matters as much as ``created_at``. All six operations on
+    ``/admin/oidc-providers`` were ungated, `PUT /{key}` included, so a member could
+    REPOINT a legitimate provider's ``issuer_url`` instead of registering a new one.
+    Such a row predates the gate on ``created_at`` like any long-standing provider;
+    only ``updated_at`` separates "created years ago and untouched" from "created
+    years ago, repointed during the window".
 
     The gate defect was that any authenticated member could REGISTER an identity
     provider; the artifact of that is a row in ``oidc_provider_configs``, not a link
@@ -303,7 +344,8 @@ def provider_configs_aql(oidc_provider_configs: str) -> str:
         display_name: cfg.display_name,
         issuer_url: cfg.issuer_url,
         enabled: cfg.enabled,
-        created_at: cfg.created_at
+        created_at: cfg.created_at,
+        updated_at: cfg.updated_at
       }}
     """
 
@@ -492,16 +534,23 @@ def main() -> int:
         f"({undated_providers} of them undated, counted as before)"
     )
     print(f"  of those, STILL ENABLED:       {len(still_enabled)}")
-    if still_enabled:
+    if registered_before:
         print()
-        print("  These are the rows that still matter today — an enabled provider")
-        print("  registered before the gate keeps minting links, and those links are")
-        print("  after both cut-offs, so they appear in neither window below:")
-        for cfg in still_enabled:
+        print("  Every registration inside the window, enabled or not. A disabled one")
+        print("  mints nothing today, which is why it does not change the exit code —")
+        print("  but it is indistinguishable from a legitimate provider someone turned")
+        print("  off, so withholding its slug would leave the review incomplete:")
+        for cfg in sorted(registered_before, key=lambda c: not c.get("enabled")):
+            state = "ENABLED " if cfg.get("enabled") is True else "disabled"
+            touched = cfg.get("updated_at")
             print(
-                f"    {cfg.get('slug')}  issuer={cfg.get('issuer_url')}  "
-                f"created={cfg.get('created_at') or 'no timestamp'}"
+                f"    [{state}] {cfg.get('slug')}  issuer={cfg.get('issuer_url')}  "
+                f"created={cfg.get('created_at') or 'no timestamp'}" + (f"  updated={touched}" if touched else "")
             )
+        print()
+        print("  `updated` is the field to read on a provider you recognise: all six")
+        print("  /admin/oidc-providers operations were ungated, so an existing entry")
+        print("  could be REPOINTED rather than a new one added.")
     print()
 
     if not rows:
@@ -517,9 +566,10 @@ def main() -> int:
             )
             _print_floor_note(args)
             return EXIT_FINDINGS
+        # `still_enabled` is provably empty here — the branch above returns on it.
         print("Nothing has ever been linked to an external identity provider.")
         _print_floor_note(args)
-        return EXIT_FINDINGS if still_enabled else 0
+        return 0
 
     by_provider, before_gate, at_risk, undated = classify(rows, gate_cutoff, autolink_cutoff)
     orphaned = [row for row in rows if not row.get("user_exists")]
@@ -527,7 +577,10 @@ def main() -> int:
     print(f"federated links:                 {len(rows)}  ({local_rows} local password row(s) excluded)")
     print(f"  by provider:                   {dict(by_provider)}")
     print(f"  without a timestamp:           {undated}  (counted as inside BOTH windows)")
-    print(f"  pointing at a deleted user:    {len(orphaned)}")
+    print(
+        f"  pointing at a deleted user:    {len(orphaned)}  "
+        f"(its user_email_verified is null, so it is NOT in the count below)"
+    )
     print(f"created before the #1399 gate:   {len(before_gate)}  (< {gate_cutoff.isoformat()})")
     # The SAME three conditions `classify` uses, minus the registration rule itself:
     # this line is printed as the exclusion applied to `at_risk`, so counting every
@@ -540,7 +593,7 @@ def main() -> int:
         row
         for row in rows
         if (stamp_of(row) is None or stamp_of(row) < autolink_cutoff)
-        and row.get("user_email_verified") is True
+        and is_email_verified(row.get("user_email_verified"))
         and was_created_through_the_provider(row)
     ]
     print(f"reachable by the auto-link path: {len(at_risk)}  (< {autolink_cutoff.isoformat()}, account email-verified)")
@@ -558,6 +611,13 @@ def main() -> int:
     print("'reachable' is NOT evidence that any of these was forged — the data layer")
     print("cannot tell a forged link from a legitimate one, which is the reason this")
     print("script reports instead of acting (#1403).")
+    print()
+    print("The `provider=` column below is AuthProviderType (google/github/apple/oidc),")
+    print("not the registration's slug, so it cannot attribute a link to the provider")
+    print("that minted it — and `provider_type` is an unconstrained string on the")
+    print('create request, so a rogue registration declaring "google" produces links')
+    print("that read as ordinary Google links here. Cross-reference the registrations")
+    print("listed above by issuer rather than trusting this column.")
 
     if at_risk:
         print()
@@ -582,7 +642,7 @@ def main() -> int:
             print("  A manual review that stops here is incomplete — query the collection")
             print("  directly for the full set.")
 
-    if still_enabled or at_risk:
+    if still_enabled or at_risk or orphaned:
         print()
         print(
             f"Exit {EXIT_FINDINGS}: this audit found rows to look at. Nothing here is "
