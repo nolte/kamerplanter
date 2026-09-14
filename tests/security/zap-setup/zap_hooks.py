@@ -33,7 +33,7 @@ SCRIPTS = [
 # 2026-08/09 ran until the runner died (exit 143, "lost communication"), with no
 # report and therefore no verdict. This is the only place the bound can live.
 # The workflow's ``-m`` and ``timeout-minutes`` must leave room for it
-# (``src/backend/tests/unit/test_zap_hooks_scan_budget.py`` holds them together).
+# (``src/backend/tests/unit/guards/test_zap_hooks_scan_budget.py`` holds them together).
 ACTIVE_SCAN_MAX_MINUTES = 60
 
 

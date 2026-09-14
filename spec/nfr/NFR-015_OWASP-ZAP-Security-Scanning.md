@@ -426,7 +426,6 @@ jobs:
         uses: zaproxy/action-baseline@v0.13.0
         with:
           target: "http://localhost:5173"
-          rules_file_name: "tests/security/zap-rules.tsv"
           cmd_options: "-a -j -m 5 -T 15"
           allow_issue_writing: true
           fail_action: true
@@ -454,7 +453,6 @@ jobs:
   with:
     target: "openapi.json"
     format: openapi
-    rules_file_name: "tests/security/zap-api-rules.tsv"
     cmd_options: "-a -j -T 15"
     fail_action: true
 ```
@@ -514,7 +512,6 @@ jobs:
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: ${{ secrets.STAGING_BASE_URL }}
-          rules_file_name: "tests/security/zap-rules.tsv"
           # Auth-Header + HttpSender-/Passive-Skripte werden zentral
           # in tests/security/zap-context.xml registriert. Replacer- oder
           # Token-Konfiguration NICHT als CLI-Override — siehe §3.2 / §3.3.
@@ -637,6 +634,16 @@ Tabelle.
 **MUSS**: Als THRESHOLD wird **nur `IGNORE`** ausgewertet. ZAPs Vokabular kennt zusätzlich `PASS`, `INFO`, `WARN` und `FAIL` (nicht dagegen `OFF`), aber ZAP liest diese Dateien nicht mehr und `zap_gate.py` implementiert keine Schwellwert-Überschreibung — die Severity-Policy steht in §5.1/§5.2 und im Gate selbst. Eine `WARN`- oder `FAIL`-Zeile wäre also wirkungslos; der Gate **weist sie mit Meldung zurück**, statt sie stumm zu übergehen. Das obige Beispiel führte bis 2026-09-14 eine solche Zeile (`40012 WARN HIGH`) und hätte damit genau diese Erwartung erzeugt.
 
 **SOLL**: Abgelaufene IGNORE-Einträge führen in CI zunächst zu einem Warning, nach 30 Tagen zu einem Fail.
+
+!!! warning "Kein `rules_file_name` / `cmd_options: -c` in den Referenz-Designs"
+
+    Die §4-Blöcke führten bis 2026-09-14 `rules_file_name:` auf den `zaproxy/action-*`-Schritten.
+    Die Action reicht die Datei als `-c` an dasselbe `zap-api-scan.py` weiter, und ein nicht
+    leerer `config_dict` ersetzt dort `API-Minimal` durch `Default Policy` (§6.1). Wer ein
+    Referenz-Design abschreibt, hätte damit genau die Ausweitung wieder eingebaut, die §6.1
+    ausschließt. Die Regeldateien gehen ausschließlich an `zap_gate.py --rules`;
+    `tests/unit/guards/test_zap_rule_suppressions.py` weist beide Schlüssel in jedem
+    ZAP-Workflow zurück.
 
 **Wer die Dateien liest (Stand 2026-09-14, #1376/#1389).** Beide Dateien werden **ausschließlich** von `scripts/security/zap_gate.py` über `--rules` gelesen und **nicht** per `-c` an die ZAP-Wrapper übergeben. Grund, gemessen an `/zap/zap-api-scan.py` im digest-gepinnten Image:
 

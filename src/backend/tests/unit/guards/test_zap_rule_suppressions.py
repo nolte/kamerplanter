@@ -46,10 +46,10 @@ if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
 
 _SECURITY = _REPO_ROOT / "tests" / "security"
 _RULE_FILES = ("zap-rules.tsv", "zap-api-rules.tsv")
-_WORKFLOWS = (
-    _REPO_ROOT / ".github" / "workflows" / "security-zap-postmerge.yml",
-    _REPO_ROOT / ".github" / "workflows" / "security-zap-nightly.yml",
-)
+#: DISCOVERED, not listed. A hard-coded pair passes over nothing the moment a
+#: workflow is renamed or a third ZAP lane is added, and a scan over an empty list
+#: reports green — the vacuity the row scan already has a control for.
+_WORKFLOWS = sorted((_REPO_ROOT / ".github" / "workflows").glob("*zap*.yml"))
 
 #: ZAP's own vocabulary, read off `zap_common.py` in the pinned image rather than
 #: off the file header — an earlier header listed `OFF`, which is not a level at
@@ -170,6 +170,20 @@ _ZAP_WRAPPERS = re.compile(r"zap-(baseline|api-scan|full-scan)\.py")
 #: on the OPTION, anywhere in the logical command line.
 _CONFIG_OPTION = re.compile(r"(?:^|\s)(-c|-u|--config|--config-url)(?:[=\s]|$)")
 
+#: The FIFTH spelling, and the one NFR-015 §4 used to prescribe: the `zaproxy/action-*`
+#: wrappers take the same file as `rules_file_name:` and hand it to the same
+#: `zap-api-scan.py` as `-c`. The key names no script, so the patterns above cannot
+#: see it, and `rules_file_name` has no meaning other than that config — so it is
+#: refused outright.
+_ACTION_RULES_FILE = re.compile(r"rules_file_name\s*:")
+
+#: `cmd_options:` is the action's raw-flag passthrough and reaches the same place,
+#: but it is ALSO where `-a -j -T 15` legitimately lives. Judging the key alone
+#: would reject a valid step and teach the next reader to work around the guard,
+#: so the value is what is read — with `_CONFIG_OPTION`, the same predicate as on
+#: a `docker run` line.
+_ACTION_CMD_OPTIONS = re.compile(r"cmd_options\s*:")
+
 
 def _logical_lines(text: str) -> list[tuple[int, str]]:
     """Join shell backslash-continuations, so one invocation is one line.
@@ -203,18 +217,35 @@ def test_no_workflow_hands_a_config_to_zap():
     """
     offenders = []
     for path in _WORKFLOWS:
-        if not path.is_file():
-            continue
         for number, command in _logical_lines(path.read_text(encoding="utf-8")):
             if command.lstrip().startswith("#"):
                 continue  # a shell comment inside a `run:` block, e.g. the one saying why
-            if _ZAP_WRAPPERS.search(command) and _CONFIG_OPTION.search(command):
+            handed_on_a_command_line = _ZAP_WRAPPERS.search(command) and _CONFIG_OPTION.search(command)
+            handed_through_the_action = _ACTION_RULES_FILE.search(command) or (
+                _ACTION_CMD_OPTIONS.search(command) and _CONFIG_OPTION.search(command)
+            )
+            if handed_on_a_command_line or handed_through_the_action:
                 offenders.append(f"{path.name}:{number}")
 
     assert not offenders, (
         f"ZAP is being handed a config at {offenders}. Suppression belongs to "
         f"zap_gate.py --rules: giving it to the scanner swaps the API scan's policy "
         f"for the full active rule set and can only express 'off everywhere'."
+    )
+
+
+def test_the_workflow_scan_covers_the_zap_workflows_that_exist():
+    """The control for the scan above, which is otherwise green over an empty list.
+
+    Discovery is by glob, so this asserts the glob still finds the lanes rather
+    than that two names still resolve — a rename is then covered automatically and
+    a third ZAP workflow is picked up without anyone remembering.
+    """
+    names = {path.name for path in _WORKFLOWS}
+
+    assert {"security-zap-postmerge.yml", "security-zap-nightly.yml"} <= names, (
+        f"the ZAP workflow glob found {sorted(names)}. If a lane was renamed, the "
+        f"guard above is now scanning fewer files than it thinks."
     )
 
 
@@ -242,6 +273,21 @@ def test_this_guard_would_see_a_config_option_it_is_looking_for():
             if _ZAP_WRAPPERS.search(command) and _CONFIG_OPTION.search(command)
         ]
         assert hits, f"the guard does not see {evasion!r}"
+
+    # The action form names no script at all, so it needs its own pattern — and
+    # this is the shape NFR-015 §4 prescribed until this change.
+    def _caught(line: str) -> bool:
+        return bool(
+            _ACTION_RULES_FILE.search(line) or (_ACTION_CMD_OPTIONS.search(line) and _CONFIG_OPTION.search(line))
+        )
+
+    assert _caught('          rules_file_name: "tests/security/zap-api-rules.tsv"')
+    assert _caught('          cmd_options: "-a -c zap-api-rules.tsv"')
+
+    # And the negative half, which is why the key alone is not the test: a guard
+    # that rejects every `cmd_options:` would reject the flags §4 legitimately
+    # passes, and a guard people route around stops guarding.
+    assert not _caught('          cmd_options: "-a -j -m 5 -T 15"')
 
 
 def test_the_row_scan_is_not_vacuous():

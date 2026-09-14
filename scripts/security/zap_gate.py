@@ -63,7 +63,7 @@ IGNORE_SCOPE = re.compile(r"scope=(\S+)")
 
 # The grace `tests/security/zap-rules.tsv` promises between an expiry and a red
 # build: past the date is a warning the reviewer sees, past the grace is a
-# failure. `src/backend/tests/unit/test_zap_rule_suppressions.py` asserts the
+# failure. `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` asserts the
 # same number, so the two enforcement points cannot drift into disagreeing about
 # when a suppression has lapsed.
 GRACE_DAYS = 30
