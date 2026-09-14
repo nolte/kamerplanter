@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 """Read-only audit of `auth_providers` rows that predate the #1399 gate (#1403).
 
-**Reads only.** No write, no delete, no argument that could become one — the point
-is to answer "how many, and which?" before anyone decides what to do about them.
+**Reads only**, and it connects that way too: it opens the configured database
+directly rather than through ``ArangoConnection``, whose ``connect()`` calls
+``sys_db.create_database(...)`` when the database is absent. An audit that can
+create its own empty target is an audit that can report "nothing was ever linked"
+about a database it just made.
 
 ## Why this exists
 
@@ -18,19 +21,33 @@ now on and touch no row created earlier. A link forged during that window is
 indistinguishable, at the data layer, from a legitimate one — which is exactly why
 this reports rather than acts.
 
-## What the numbers mean
+## Two windows, not one
 
-`at_risk` is not "compromised". It counts links that *could* have been created by
-the defective path: the local account is email-verified (so auto-link would have
-fired) and the row predates the cut-off. In a single-operator installation the
-answer is usually "one, your own", and that ends the question.
+The two defects closed at different times, and a row can fall in either window:
+
+* **The admin gate** (#1399, commit ``5e9c8662b``, 2026-09-11 15:20 UTC) stopped an
+  ordinary member registering an identity provider. A provider planted before it
+  stays configured afterwards — gating the route removed the way IN, not what was
+  already there.
+* **The auto-link branch** (#1403, literal finally gone in ``be551a3e6``,
+  2026-09-12 08:00 UTC) kept passing ``True`` for the provider's ``email_verified``
+  claim for a further seventeen hours.
+
+So ``before_gate`` and ``at_risk`` are computed against SEPARATE cut-offs and
+neither is nested inside the other. An earlier version used one cut-off for both,
+dated 2026-09-10 — a day and a half before the gate it claimed to name — which
+dropped every row in a two-day window from the number the operator is asked to act
+on. For a security audit that is the wrong direction to be wrong in.
+
+`at_risk` is still not "compromised". It counts links the defective path *could*
+have created: the local account is email-verified, so auto-link would have fired,
+and the row predates the fix. In a single-operator installation the answer is
+usually "one, your own", and that ends the question.
 
 Usage::
 
-    python scripts/audit_oauth_links.py [--cutoff 2026-09-10T00:00:00Z]
-
-The default cut-off is the merge of PR #1400, which shipped #1399's gate. Rows
-newer than it were created under the gate; rows older than it were not.
+    python scripts/audit_oauth_links.py
+        [--gate-cutoff 2026-09-11T15:20:10Z] [--autolink-cutoff 2026-09-12T08:00:10Z]
 """
 
 from __future__ import annotations
@@ -39,33 +56,68 @@ import argparse
 import os
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import UTC, datetime
+
+from arango.exceptions import ArangoError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-#: PR #1400 (`5e9c8662b`) — the commit that gated `/admin/oidc-providers`.
-DEFAULT_CUTOFF = "2026-09-10T00:00:00+00:00"
+#: `5e9c8662b`, the commit that gated `/admin/oidc-providers` (#1399). Its author
+#: date is 2026-09-11 17:20:10 +0200; recorded here in UTC so the comparison needs
+#: no timezone reasoning at the call site.
+DEFAULT_GATE_CUTOFF = "2026-09-11T15:20:10+00:00"
+
+#: `be551a3e6` (#1403), which removed the LAST literal `True` from the auto-link
+#: branch — `57221530c` seventeen minutes earlier removed the first and missed one.
+#: The later commit is the honest boundary: until it landed the branch could still
+#: fire.
+DEFAULT_AUTOLINK_CUTOFF = "2026-09-12T08:00:10+00:00"
 
 
 def _parse(value: str | None) -> datetime | None:
+    """Parse an ISO timestamp, reading a missing offset as UTC.
+
+    The offset is not optional to the caller even though it looks it: every value
+    compared here is UTC, and a naive datetime raises
+    ``TypeError: can't compare offset-naive and offset-aware datetimes`` against an
+    aware one. `--cutoff 2026-09-10` — a date, which the help text's "ISO timestamp"
+    invites — therefore crashed the audit on its first dated row, while the default
+    carried `+00:00` and hid it. The same applies in reverse to a stored timestamp
+    written without an offset by an older schema version.
+    """
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def classify(rows: list[dict], cutoff: datetime) -> tuple[Counter[str], list[dict], list[dict], int]:
+def stamp_of(row: dict) -> datetime | None:
+    """The row's effective timestamp: ``linked_at``, else ``created_at``."""
+    return _parse(row.get("linked_at")) or _parse(row.get("created_at"))
+
+
+def classify(
+    rows: list[dict], gate_cutoff: datetime, autolink_cutoff: datetime
+) -> tuple[Counter[str], list[dict], list[dict], int]:
     """Split the links into ``(by_provider, before_gate, at_risk, undated)``.
 
-    Extracted from ``main`` so the two decisions it encodes are testable without a
+    Extracted from ``main`` so the decisions it encodes are testable without a
     database — they are decisions, not plumbing:
 
-    **An undated row counts as before the gate.** Absence of a timestamp is not
+    **The two lists use different cut-offs and are computed independently.** Gating
+    `/admin/oidc-providers` removed the way to register a rogue provider; it did not
+    unconfigure one already registered, and the auto-link branch kept firing for a
+    further seventeen hours. A row can therefore be after the gate and still
+    reachable by the defective path. Nesting `at_risk` inside `before_gate` — which
+    an earlier version did — silently drops exactly those rows.
+
+    **An undated row counts as inside BOTH windows.** Absence of a timestamp is not
     evidence of being recent, and for a question about a security window the
     pessimistic reading is the right one. A row written by an older schema version
-    is exactly the kind that predates the gate.
+    is exactly the kind that predates both fixes.
 
     **``at_risk`` requires ``user_email_verified is True``, not truthiness.** The
     defective auto-link branch fired on the victim's account being verified; a
@@ -79,38 +131,85 @@ def classify(rows: list[dict], cutoff: datetime) -> tuple[Counter[str], list[dic
 
     for row in rows:
         by_provider[row.get("provider") or "?"] += 1
-        stamp = _parse(row.get("linked_at")) or _parse(row.get("created_at"))
+        stamp = stamp_of(row)
+
         if stamp is None:
             undated += 1
+
+        if stamp is None or stamp < gate_cutoff:
             before_gate.append(row)
-        elif stamp < cutoff:
-            before_gate.append(row)
-        else:
-            continue
-        if row.get("user_email_verified") is True:
+
+        if (stamp is None or stamp < autolink_cutoff) and row.get("user_email_verified") is True:
             at_risk.append(row)
 
     return by_provider, before_gate, at_risk, undated
 
 
+KEY_LISTING_LIMIT = 50
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cutoff", default=DEFAULT_CUTOFF, help="ISO timestamp of the #1399 gate")
+    parser.add_argument(
+        "--gate-cutoff",
+        default=DEFAULT_GATE_CUTOFF,
+        help="ISO timestamp of #1399's admin gate (assumed UTC if no offset)",
+    )
+    parser.add_argument(
+        "--autolink-cutoff",
+        default=DEFAULT_AUTOLINK_CUTOFF,
+        help="ISO timestamp of #1403's auto-link fix (assumed UTC if no offset)",
+    )
     args = parser.parse_args()
 
-    cutoff = _parse(args.cutoff)
-    if cutoff is None:
-        print(f"unparseable cutoff: {args.cutoff!r}", file=sys.stderr)
-        return 2
+    gate_cutoff = _parse(args.gate_cutoff)
+    autolink_cutoff = _parse(args.autolink_cutoff)
+    for name, value, parsed in (
+        ("--gate-cutoff", args.gate_cutoff, gate_cutoff),
+        ("--autolink-cutoff", args.autolink_cutoff, autolink_cutoff),
+    ):
+        if parsed is None:
+            print(f"unparseable {name}: {value!r}", file=sys.stderr)
+            return 2
+
+    from arango import ArangoClient
 
     from app.config.settings import settings
     from app.data_access.arango import collections as col
-    from app.data_access.arango.connection import ArangoConnection
 
-    db = ArangoConnection(settings).db
-    if not db.has_collection(col.AUTH_PROVIDERS):
-        print("no auth_providers collection — nothing has ever been linked")
-        return 0
+    # NOT `ArangoConnection`: its `connect()` creates the database when absent, so
+    # a mistyped ARANGODB_DATABASE would leave this script reporting "nothing was
+    # ever linked" about an empty database it had just created. A read-only audit
+    # opens what is there and says so when it is not.
+    client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
+    db = client.db(
+        settings.arangodb_database,
+        username=settings.arangodb_username,
+        password=settings.arangodb_password,
+    )
+
+    try:
+        has_links = db.has_collection(col.AUTH_PROVIDERS)
+    except ArangoError as exc:
+        print(
+            f"cannot read database {settings.arangodb_database!r}: {exc}\n"
+            f"Check ARANGODB_DATABASE / host / credentials. This script does not "
+            f"create anything.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not has_links:
+        # `AUTH_PROVIDERS` is in DOCUMENT_COLLECTIONS and is created unconditionally
+        # at bootstrap, so its absence cannot mean "nothing has ever been linked" —
+        # it means this database was never initialised, i.e. the wrong target.
+        print(
+            f"{col.AUTH_PROVIDERS} does not exist in {settings.arangodb_database!r}. "
+            f"That collection is created at bootstrap, so this is an uninitialised "
+            f"database rather than an empty one — check ARANGODB_DATABASE.",
+            file=sys.stderr,
+        )
+        return 1
 
     query = f"""
     FOR link IN {col.AUTH_PROVIDERS}
@@ -131,25 +230,44 @@ def main() -> int:
         print("auth_providers is empty — no federated link has ever been created.")
         return 0
 
-    by_provider, before_gate, at_risk, undated = classify(rows, cutoff)
+    by_provider, before_gate, at_risk, undated = classify(rows, gate_cutoff, autolink_cutoff)
+    orphaned = [row for row in rows if not row.get("user_exists")]
 
-    print(f"auth_providers rows:            {len(rows)}")
-    print(f"  by provider:                  {dict(by_provider)}")
-    print(f"created before the #1399 gate:  {len(before_gate)}  (cut-off {cutoff.isoformat()})")
-    print(f"  of those, without a timestamp: {undated}  (counted as before, pessimistically)")
-    print(f"reachable by the auto-link path: {len(at_risk)}")
+    print(f"auth_providers rows:             {len(rows)}")
+    print(f"  by provider:                   {dict(by_provider)}")
+    print(f"  without a timestamp:           {undated}  (counted as inside BOTH windows)")
+    print(f"  pointing at a deleted user:    {len(orphaned)}")
+    print(f"created before the #1399 gate:   {len(before_gate)}  (< {gate_cutoff.isoformat()})")
+    print(f"reachable by the auto-link path: {len(at_risk)}  (< {autolink_cutoff.isoformat()}, account email-verified)")
     print()
-    print("'reachable' means the local account is email-verified, so the defective")
-    print("auto-link branch would have fired for it. It is NOT evidence that any of")
-    print("these was forged — the data layer cannot tell the two apart, which is the")
-    print("reason this script reports instead of acting (#1403).")
+    print("The two windows are separate on purpose: gating /admin/oidc-providers removed")
+    print("the way to REGISTER a rogue provider, not one already registered, and the")
+    print("auto-link branch kept firing for a further seventeen hours. A row can be after")
+    print("the gate and still reachable.")
+    print()
+    print("'reachable' is NOT evidence that any of these was forged — the data layer")
+    print("cannot tell a forged link from a legitimate one, which is the reason this")
+    print("script reports instead of acting (#1403).")
 
     if at_risk:
         print()
         print("keys (for a manual look, newest first):")
-        for row in sorted(at_risk, key=lambda r: r.get("linked_at") or "", reverse=True)[:50]:
-            stamp = row.get("linked_at") or row.get("created_at") or "no timestamp"
-            print(f"  {row['key']}  user={row['user_key']}  provider={row.get('provider')}  {stamp}")
+        ordered = sorted(
+            at_risk,
+            key=lambda r: (stamp_of(r) is not None, stamp_of(r) or _parse(DEFAULT_GATE_CUTOFF)),
+            reverse=True,
+        )
+        for row in ordered[:KEY_LISTING_LIMIT]:
+            when = stamp_of(row)
+            print(
+                f"  {row['key']}  user={row['user_key']}  provider={row.get('provider')}  "
+                f"{when.isoformat() if when else 'no timestamp'}"
+            )
+        withheld = len(ordered) - KEY_LISTING_LIMIT
+        if withheld > 0:
+            print(f"  … and {withheld} more not shown (listing caps at {KEY_LISTING_LIMIT}).")
+            print("  A manual review that stops here is incomplete — query the collection")
+            print("  directly for the full set.")
 
     return 0
 
