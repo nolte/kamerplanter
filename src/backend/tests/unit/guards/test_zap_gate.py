@@ -304,7 +304,11 @@ class TestSuppressionValidity:
         run", sees the other one, and reports no blocking findings for a scan that
         was never judged.
         """
-        rules = _rules(tmp_path, "# expires 2026-02-30 — approved by operator. scope=.*")
+        # The approval date is part of the note for a reason that bit this very
+        # test: without it `load_rules` rejects the row at the approval check and
+        # `continue`s, so the `try/except ValueError` this test exists to pin down
+        # was never reached — deleting that except clause left the test green.
+        rules = _rules(tmp_path, "# expires 2026-02-30 — approved by operator (2026-01-01). scope=.*")
 
         code, emit = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
 

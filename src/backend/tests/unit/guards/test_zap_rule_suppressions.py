@@ -47,10 +47,8 @@ if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
 
 _SECURITY = _REPO_ROOT / "tests" / "security"
 _RULE_FILES = ("zap-rules.tsv", "zap-api-rules.tsv")
-#: DISCOVERED, not listed. A hard-coded pair passes over nothing the moment a
-#: workflow is renamed or a third ZAP lane is added, and a scan over an empty list
-#: reports green — the vacuity the row scan already has a control for.
-_WORKFLOWS = sorted((_REPO_ROOT / ".github" / "workflows").glob("*zap*.yml"))
+#: Discovered by CONTENT — see `_zap_yaml_files` below, which needs the patterns
+#: defined further down and therefore reads them at call time.
 
 #: ZAP's own vocabulary, read off `zap_common.py` in the pinned image rather than
 #: off the file header — an earlier header listed `OFF`, which is not a level at
@@ -61,7 +59,13 @@ _WORKFLOWS = sorted((_REPO_ROOT / ".github" / "workflows").glob("*zap*.yml"))
 _THRESHOLDS = {"PASS", "IGNORE", "INFO", "WARN", "FAIL"}
 _CONFIDENCE = {"LOW", "MEDIUM", "HIGH"}
 
-_APPROVER = re.compile(r"#\s*expires\s+\d{4}-\d{2}-\d{2}\s+—\s+approved by\s+(\S+)")
+# `_APPROVER` used to live here and required a literal em dash between the expiry
+# and the approver, which `zap_gate.py` never looks at. An ASCII hyphen therefore
+# produced a working suppression AND a red REQUIRED lane, with a message that said
+# "no approved by note" and never mentioned the character. The approver is required
+# by `load_rules` itself — `IGNORE_APPROVAL`, separator-agnostic — and
+# `test_the_gate_accepts_the_structure_of_every_shipped_row` runs it over both
+# shipped files, so the second, stricter copy was pure divergence risk.
 
 
 def _load_gate() -> ModuleType:
@@ -156,22 +160,6 @@ def test_the_gate_accepts_the_structure_of_every_shipped_row(name: str):
     assert not problems, "\n".join(problems)
 
 
-@pytest.mark.parametrize(("name", "number", "fields"), _rows(), ids=lambda v: str(v)[:40])
-def test_every_ignore_names_who_approved_it(name: str, number: int, fields: list[str]):
-    """An IGNORE with no named approver is a hole nobody owns.
-
-    The gate checks the date and the scope, because those change what it does. It
-    does not check the approver, because that changes nothing at runtime — which
-    is exactly why it needs a check of its own.
-    """
-    if len(fields) < 4 or fields[1] != "IGNORE":
-        pytest.skip("only well-formed IGNORE rows carry the approval requirement")
-
-    assert _APPROVER.search(fields[3]), (
-        f'{name}:{number} is an IGNORE with no "# expires YYYY-MM-DD — approved by <role>" note (NFR-015 §6.1).'
-    )
-
-
 #: The ZAP wrapper scripts whose invocations must carry no config option.
 _ZAP_WRAPPERS = re.compile(r"zap-(baseline|api-scan|full-scan)\.py")
 
@@ -195,10 +183,39 @@ _CONFIG_OPTION = re.compile(r"(?:^|\s)(-c|-u|--config|--config-url)(?:[=\s]|$)")
 #: to it has to come through this test and decide what happens to suppression.
 _ACTION_USE = re.compile(r"uses:\s*zaproxy/action-")
 
+
+def _zap_yaml_files() -> list[Path]:
+    """Every YAML under `.github/` that invokes ZAP, found by reading them.
+
+    Globbing `*zap*.yml` was the previous version and it read the NAME rather than
+    the file: a DAST lane called `security-dast-nightly.yml`, or a ZAP invocation
+    moved into a composite action under `.github/actions/`, was not scanned at all
+    while the coverage control stayed green.
+    """
+    root = _REPO_ROOT / ".github"
+    found: list[Path] = []
+    for path in sorted(root.rglob("*.yml")) + sorted(root.rglob("*.yaml")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if _ZAP_WRAPPERS.search(text) or _ACTION_USE.search(text):
+            found.append(path)
+    return found
+
+
 #: Kept alongside it because `rules_file_name` has no meaning other than that
 #: config: it catches the key even if it ever appears without the `uses:` line
 #: this scan can see (a composite action, a reusable workflow).
 _ACTION_RULES_FILE = re.compile(r"rules_file_name\s*:")
+
+#: A second, independent net for the same thing, because the positional rule only
+#: sees an option on the same logical line as the wrapper. Shell indirection splits
+#: those: `OPTS="-c zap-api-rules.tsv"` on one line and `zap-api-scan.py … $OPTS` on
+#: the next. Neither pattern is complete alone; this one keys on the FILE, which a
+#: rules argument always names, wherever the command is assembled.
+#: The leading class includes the QUOTES, which the first draft of this pattern
+#: omitted: the very indirection it was written for is `OPTS="-c zap-api-rules.tsv"`,
+#: where the option is preceded by `"` and not by whitespace. It stayed green on
+#: its own motivating case until the case was actually run.
+_RULES_ARGUMENT = re.compile("(?:^|[\\s\"'=])(?:-c|-u|--config|--config-url)[=\\s]+[^\\s\"']*rules\\.tsv")
 
 
 def _logical_lines(text: str) -> list[tuple[int, str]]:
@@ -253,11 +270,11 @@ def test_no_workflow_hands_a_config_to_zap():
     rule starts, and both happen as a side effect of adding one suppression line.
     """
     offenders = []
-    for path in _WORKFLOWS:
+    for path in _zap_yaml_files():
         for number, command in _logical_lines(path.read_text(encoding="utf-8")):
             if command.lstrip().startswith("#"):
                 continue  # a shell comment inside a `run:` block, e.g. the one saying why
-            handed_on_a_command_line = _CONFIG_OPTION.search(_zap_arguments(command))
+            handed_on_a_command_line = _CONFIG_OPTION.search(_zap_arguments(command)) or _RULES_ARGUMENT.search(command)
             handed_through_the_action = _ACTION_USE.search(command) or _ACTION_RULES_FILE.search(command)
             if handed_on_a_command_line or handed_through_the_action:
                 offenders.append(f"{path.name}:{number}")
@@ -276,7 +293,7 @@ def test_the_workflow_scan_covers_the_zap_workflows_that_exist():
     than that two names still resolve — a rename is then covered automatically and
     a third ZAP workflow is picked up without anyone remembering.
     """
-    names = {path.name for path in _WORKFLOWS}
+    names = {path.name for path in _zap_yaml_files()}
 
     assert {"security-zap-postmerge.yml", "security-zap-nightly.yml"} <= names, (
         f"the ZAP workflow glob found {sorted(names)}. If a lane was renamed, the "
@@ -301,6 +318,16 @@ def test_this_guard_would_see_a_config_option_it_is_looking_for():
     prefix = "            zap-full-scan.py \\\n"
 
     evasions.append("# staged for the scan \\\n            zap-api-scan.py -t o.json -c r.tsv")
+
+    # Shell indirection: the option never shares a line with the wrapper, so only
+    # `_RULES_ARGUMENT` can see it. Asserted here rather than trusted — the first
+    # version of that pattern missed this exact string.
+    for indirect in (
+        '          OPTS="-c zap-api-rules.tsv"',
+        "          OPTS='-u zap-rules.tsv'",
+        "          OPTS=--config=zap-rules.tsv",
+    ):
+        assert _RULES_ARGUMENT.search(indirect), f"the guard does not see {indirect!r}"
 
     for evasion in evasions:
         text = prefix + evasion if not _ZAP_WRAPPERS.search(evasion) else evasion
