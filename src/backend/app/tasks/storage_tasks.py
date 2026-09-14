@@ -340,9 +340,19 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
     So the bytes accumulate in exactly the installations that use task photos most,
     and no UI reaches them for the ``task`` category.
 
-    **Disabled by setting ``STORAGE_TASK_PHOTO_ORPHAN_HOURS`` to 0**, which returns
-    without querying rather than sweeping with a zero-hour floor — a floor of zero
-    would delete the photo a user is at that moment filling a form around.
+    **Off unless ``STORAGE_TASK_PHOTO_ORPHAN_HOURS`` is set to a positive number of
+    hours, and 0 is the shipped default.** Four review rounds on #1424 each found a
+    way this job destroyed a photo something still referenced, every one of them a
+    ``photo_refs`` spelling the resolver did not know. The resolver now protects any
+    photo whose key is *mentioned* by any reference, which closes the class rather
+    than its fourth instance — but a job that deletes data over a reference history
+    spanning every client version and a manual migration does not go live in its
+    first release. Everything else in #1393 works with it off; what stays is the
+    quota leak, which is where it already was.
+
+    A disabled sweep returns without querying rather than sweeping with a zero-hour
+    floor: that floor would delete the photo a user is at that moment filling a form
+    around.
     """
     hours = settings.storage_task_photo_orphan_hours
     if hours <= 0:

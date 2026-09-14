@@ -682,12 +682,28 @@ class Settings(BaseSettings):
     # NFR-013 §5.1 step 7 — strip image EXIF/GPS on upload by default.
     storage_strip_exif: bool = True
     # #1393 — how long a task photo may sit unreferenced before the orphan sweep
-    # collects it. Every upload is briefly an orphan by design: the attachment row
-    # is written before the form that will reference it is submitted, so this is a
-    # deliberately wide margin over the longest plausible form-filling session, not
-    # a tuning knob. Lowering it towards zero deletes photos out from under users
-    # who are still filling in the form. 0 disables the sweep.
-    storage_task_photo_orphan_hours: int = 48
+    # **deletes** it. ``0`` disables the sweep, and that is the shipped default.
+    #
+    # Off by default deliberately, not by oversight. Four review rounds on #1424 each
+    # found a way this job destroyed a photo something still referenced, every one of
+    # them a ``photo_refs`` spelling the resolver did not know — most sharply
+    # ``/attachments/{ulid}/thumbnails/{size}``, which the product builds itself. The
+    # sweep now protects any photo whose key is *mentioned* by any reference, which
+    # closes the class rather than a fourth instance of it; but a background job that
+    # deletes data, over a reference history spanning every client version and a
+    # manual migration, does not earn its first release switched on.
+    #
+    # Nothing else in #1393 depends on it: the delete route, the task-deletion
+    # cleanup and the staged/persisted split all work with the sweep off. What an
+    # installation keeps without it is the leak itself — abandoned uploads counting
+    # against ``STORAGE_TENANT_QUOTA_MB`` — which is where it already was.
+    #
+    # Switching it on: any positive number of hours. Every upload is briefly an
+    # orphan by design (the attachment row is written before the form that will
+    # reference it is submitted), so a value is a wide margin over the longest
+    # plausible form-filling session, never a tuning knob — 48 was the figure this
+    # change was built and tested around.
+    storage_task_photo_orphan_hours: int = 0
     # REQ-034 §3 (SR-004) — max gallery photos per plant instance (0 = unlimited).
     storage_max_photos_per_instance: int = 50
     # REQ-034 §4.3 (SR-005a) — per-tenant cap on open ``pending_review``
