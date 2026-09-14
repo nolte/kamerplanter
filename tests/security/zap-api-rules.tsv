@@ -1,7 +1,14 @@
 # OWASP ZAP rule tuning for the API-Scan profile.
 # Spec: spec/nfr/NFR-015_OWASP-ZAP-Security-Scanning.md §6.1
 #
-# Format and conventions: see zap-rules.tsv
+# Format, conventions, and WHO READS THIS FILE: see zap-rules.tsv. In short —
+# `scripts/security/zap_gate.py` reads it, ZAP does not, only IGNORE is honoured,
+# and every IGNORE needs an expiry with an approver plus an explicit
+# `scope=<url regex>` (unanchored: it is matched with `re.search`).
 #
 # This file is intentionally empty in Phase 1. Tuning entries are added
 # alongside their motivating findings in Phase 3.
+#
+# Phase 3 entries follow.
+
+40018	IGNORE	MEDIUM	# expires 2027-03-14 — approved by operator (2026-09-14). scope=/api/v1/privacy/email-change/confirm False positive, measured rather than judged: PrivacyService.confirm_email_change hashes `token` with sha256().hexdigest() BEFORE any lookup, so no attacker-controlled character reaches a query; the lookup is AQL with a bind parameter against ArangoDB; and the only SQL in the codebase (TimescaleDB) is static module constants executed with params. Reported by runs 34504023147 (#1376) and 34528880950 (#1389) — same endpoint, same parameter, same rule, twice. ZAP fires because every invalid token yields the identical error, so its boolean probe sees no difference between the true and false payloads; that uniformity is the endpoint's own no-oracle property (REQ-049 §2.4), not a symptom. The scope is this one path: rule 40018 keeps running everywhere else, and a finding at any other URL still blocks. If the nightly full-scan ever reports the same instance — it targets frontend:8080, whose nginx proxies /api/ to the backend — this row belongs in zap-rules.tsv as well; the scope is a path and matches either host. It is not pre-emptively added there, because a suppression is justified by a finding and the gate reports one that matches nothing.

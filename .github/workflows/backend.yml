@@ -42,6 +42,19 @@ on:
       - '.github/workflows/release-lag.yml'
       - '.github/workflows/release-assets-complete.yml'
       - '.github/workflows/backend.yml'
+      # Same shape for the ZAP lane: tests/unit/guards/ asserts on files that live
+      # nowhere near src/backend — the rule TSVs, the gate script, the nightly's
+      # hook, and the two workflows' own flags. A pull request that only adds a
+      # suppression row, only edits the gate, or only drops `-m`/`-T` from a scan
+      # invocation ran none of those tests. These entries let the FULL suite see
+      # such a change; what actually BLOCKS it is `backend-guards.yml`, which runs
+      # tests/unit/guards/ unfiltered and is required — this lane is advisory, so
+      # the entries alone would have widened the report and not the gate.
+      # (#1376/#1389)
+      - 'tests/security/**'
+      - 'scripts/security/**'
+      - '.github/workflows/security-zap-postmerge.yml'
+      - '.github/workflows/security-zap-nightly.yml'
       # The Taskfile holds the lock-compiling invocation itself — the
       # `Lock staleness` job runs `task deps:check`, and every backend job
       # above runs `task lint:backend` / `task test:backend:*`. Without these
@@ -75,6 +88,19 @@ on:
       - '.github/workflows/release-lag.yml'
       - '.github/workflows/release-assets-complete.yml'
       - '.github/workflows/backend.yml'
+      # Same shape for the ZAP lane: tests/unit/guards/ asserts on files that live
+      # nowhere near src/backend — the rule TSVs, the gate script, the nightly's
+      # hook, and the two workflows' own flags. A pull request that only adds a
+      # suppression row, only edits the gate, or only drops `-m`/`-T` from a scan
+      # invocation ran none of those tests. These entries let the FULL suite see
+      # such a change; what actually BLOCKS it is `backend-guards.yml`, which runs
+      # tests/unit/guards/ unfiltered and is required — this lane is advisory, so
+      # the entries alone would have widened the report and not the gate.
+      # (#1376/#1389)
+      - 'tests/security/**'
+      - 'scripts/security/**'
+      - '.github/workflows/security-zap-postmerge.yml'
+      - '.github/workflows/security-zap-nightly.yml'
       # The Taskfile holds the lock-compiling invocation itself — the
       # `Lock staleness` job runs `task deps:check`, and every backend job
       # above runs `task lint:backend` / `task test:backend:*`. Without these
