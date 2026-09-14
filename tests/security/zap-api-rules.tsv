@@ -5,3 +5,7 @@
 #
 # This file is intentionally empty in Phase 1. Tuning entries are added
 # alongside their motivating findings in Phase 3.
+#
+# Phase 3 entries follow.
+
+40018	IGNORE	MEDIUM	# expires 2027-03-14 — approved by operator (2026-09-14). False positive: POST /api/v1/privacy/email-change/confirm hashes `token` with sha256().hexdigest() BEFORE any lookup, so no attacker-controlled character reaches a query; the lookup is AQL with a bind parameter against ArangoDB; and the only SQL in the codebase (TimescaleDB) is static module constants executed with params. Measured on the reports of runs 34504023147 (#1376) and 34528880950 (#1389) — same endpoint, same parameter, same rule, twice. ZAP fires because every invalid token yields the identical error, so its boolean probe sees no difference between the true and false payloads — that uniformity is the endpoint's own no-oracle property (REQ-049 §2.4), not a symptom. Re-verify at expiry: the suppression is scoped to this rule across the API profile, so genuine SQL injection elsewhere would also be hidden by it.
