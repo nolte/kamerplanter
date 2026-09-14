@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   refresh_presentation_branch:
-    uses: nolte/gh-plumbing/.github/workflows/reusable-release-cd-refresh-master.yml@6eeab5f407a63c182d82290dbf78faca18b2af3b # v2.0.1
+    uses: nolte/gh-plumbing/.github/workflows/reusable-release-cd-refresh-master.yml@3fccbb333146cd2a65902afd7394db870ae6a978 # v2.1.0
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
     with:
