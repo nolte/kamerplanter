@@ -112,6 +112,16 @@ def _importorskip_targets() -> list[tuple[Path, int, str]]:
       which an attribute-only scan does not see at all;
     * ``pytest.importorskip(modname="x")`` — ``modname`` is the real parameter name,
       and a positional-only scan skips it.
+
+    A non-literal target (``importorskip(MODNAME)``) cannot be resolved statically and
+    is *reported*, not dropped — quietly losing the hit is how a guard walks past the
+    check meant to find it.
+
+    Still not covered, and named here rather than left to be discovered: an aliased
+    import, ``from pytest import importorskip as _skip``. The ``ast.Name`` branch
+    compares on the bound name, so a rename escapes it. Following aliases means
+    tracking imports per module, which is more machinery than the one spelling that
+    caused #1435 warrants — but it is a hole, not a decision that there is none.
     """
     found: list[tuple[Path, int, str]] = []
     for root in _module._SCAN_ROOTS:
@@ -143,6 +153,16 @@ def _importorskip_targets() -> list[tuple[Path, int, str]]:
                             literal = value if isinstance(value, str) else None
                 if literal is not None:
                     found.append((path, node.lineno, literal))
+                else:
+                    # A non-literal target — ``pytest.importorskip(MODNAME)`` — cannot
+                    # be resolved statically. Reported rather than dropped: silently
+                    # losing the hit is how a guard walks past the check that exists
+                    # to find it, which is what review round 1 found twice.
+                    pytest.fail(
+                        f"{path}:{node.lineno}: importorskip with a non-literal module "
+                        f"cannot be checked against the lock. Spell the module out, or "
+                        f"add it to the exemptions in this file with a reason (#1435)."
+                    )
     return found
 
 
@@ -238,26 +258,76 @@ def test_a_guard_in_a_conftest_is_not_invisible(tmp_path, monkeypatch):
     assert len(_offenders()) == 1
 
 
-def test_a_marker_gated_lock_entry_is_not_treated_as_guaranteed():
+#: A sample of distributions the ``dev`` extra installs, and the import name each
+#: provides. Load-bearing for the precondition below, not for the rule.
+_EXPECTED_DEV_IMPORTS: dict[str, str] = {
+    "yaml": "pyyaml",
+    "jsonschema": "jsonschema",
+    "moto": "moto",
+    "arango": "python-arango",
+}
+
+
+def test_this_environment_can_judge_the_rule_at_all():
+    """The precondition, and the reason it has to exist.
+
+    ``_providers_of`` resolves against what is **installed**, which is deliberate —
+    it is how a marker-gated lock entry (``colorama`` off Windows, ``uvloop`` on it)
+    is correctly treated as not-guaranteed. The cost is that the rule goes quiet in
+    an environment where nothing is installed: every guard resolves to no provider,
+    ``_offenders()`` returns ``[]``, and the check reports a pass.
+
+    That is the failure mode this file exists to catch, aimed at itself for the
+    fourth time — and the environment in question is not hypothetical. Running
+    ``python3 -m pytest`` instead of ``.venv/bin/python -m pytest`` produces exactly
+    it (#1434), and review round 3 reached this file that way.
+
+    So: refuse rather than pass. If the packages the ``dev`` extra guarantees are not
+    importable, the environment cannot judge the rule and says so.
+    """
+    missing = sorted(
+        f"{module} (from {distribution})"
+        for module, distribution in _EXPECTED_DEV_IMPORTS.items()
+        if distribution not in _providers_of(module)
+    )
+
+    assert not missing, (
+        "this interpreter is not the environment `uv sync --locked --extra dev` "
+        f"builds — {', '.join(missing)} cannot be resolved. Every check in this file "
+        "would pass vacuously here, because a guard on an absent package resolves to "
+        "no provider. Run `.venv/bin/python -m pytest`, not the global interpreter "
+        "(#1434)."
+    )
+
+
+def test_a_marker_gated_lock_entry_is_not_reported(tmp_path, monkeypatch):
     """``uv.lock`` pins packages that install only under a platform marker.
 
-    ``uvloop`` (not Windows), ``colorama`` and ``tzdata`` (Windows only). They are in
-    the lock and legitimately absent here, so a guard on them is correct and the plain
-    import this rule demands would hard-fail the suite on the platform where the
-    package rightly is not installed.
+    ``colorama`` and ``tzdata`` on Windows, ``uvloop`` off it, ``psycopg-binary``,
+    ``brotlicffi``. They are in the lock and legitimately absent on the other
+    platform, so a guard on them is correct — and the plain import this rule demands
+    would hard-fail the suite exactly where the package rightly is not installed.
 
-    Asserted through the resolver rather than the lock, because that is where the
-    distinction lives: nothing provides the import, so nothing is guaranteed.
+    Driven over planted input against a name that is in the lock and not installed
+    here, because the previous version of this test was a tautology: it collected the
+    names with no provider and then asserted that their (empty) provider set did not
+    intersect the lock. ``set() & locked`` is empty by construction, so it could not
+    fail in any environment.
     """
     locked = _locked_distributions()
-    gated = [name for name in ("uvloop", "colorama", "tzdata") if name in locked]
-    assert gated, "none of the expected marker-gated entries is in the lock any more"
-
-    absent = [name for name in gated if not _providers_of(name)]
+    absent = [
+        name for name in ("colorama", "tzdata", "uvloop", "brotlicffi") if name in locked and not _providers_of(name)
+    ]
     if not absent:
-        pytest.skip("every expected marker-gated package happens to be installed here")
-    for name in absent:
-        assert not (_providers_of(name) & locked), f"{name} counted as guaranteed"
+        pytest.skip("every marker-gated candidate happens to be installed on this platform")
+
+    (tmp_path / "conftest.py").write_text(f"import pytest\n\npytest.importorskip({absent[0]!r})\n", encoding="utf-8")
+    monkeypatch.setattr(_module, "_SCAN_ROOTS", (tmp_path,))
+
+    assert _offenders() == [], (
+        f"{absent[0]!r} is in the lock but not installed here, so a guard on it is "
+        f"correct; reporting it would demand an import that crashes on this platform"
+    )
 
 
 def test_an_import_name_resolves_to_its_distribution():
@@ -272,8 +342,6 @@ def test_an_import_name_resolves_to_its_distribution():
     assert _providers_of("PIL") == {"pillow"}
     assert _providers_of("dateutil") == {"python-dateutil"}
     assert _providers_of("attr") == {"attrs"}
-    # Same name on both sides: the case the first version got right by accident.
-    assert _providers_of("moto") == {"moto"}
     # A submodule resolves through its top-level package.
     assert _providers_of("yaml.parser") == {"pyyaml"}
     # Installed nowhere: no provider, so not guaranteed, so genuinely optional.
@@ -287,11 +355,23 @@ def test_the_lock_parser_still_reads_this_lock_format():
     stops matching, every comparison above silently compares against an empty set —
     which is how review found the rule inert.
     """
+    text = _LOCK.read_text(encoding="utf-8")
     locked = _locked_distributions()
-    blocks = _LOCK.read_text(encoding="utf-8").count("[[package]]")
+    blocks = text.count("[[package]]")
 
-    assert len(locked) == blocks, (
-        f"the lock parser found {len(locked)} names for {blocks} [[package]] blocks; "
-        f"uv.lock's format changed and this regex no longer reads it"
+    # ``>=`` on a *distinct* count, not ``==`` on the block count: uv may record the
+    # same distribution twice at different versions when resolution forks under
+    # divergent markers. That is a correct lock, and the previous equality would have
+    # reported it as "uv.lock's format changed" — a false alarm arriving precisely
+    # when someone adds a platform-dependent dependency.
+    assert locked, "the lock parser found no names at all; uv.lock's format changed"
+    assert len(locked) <= blocks, (
+        f"the parser found {len(locked)} distinct names for {blocks} [[package]] "
+        f"blocks, which cannot happen — the regex is matching something else"
+    )
+    assert len(locked) >= blocks * 0.9, (
+        f"the parser found only {len(locked)} distinct names for {blocks} blocks; "
+        f"either uv.lock's format changed or an implausible number of duplicates "
+        f"appeared"
     )
     assert {"pyyaml", "jsonschema", "referencing", "moto"} <= locked
