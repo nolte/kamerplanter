@@ -329,6 +329,15 @@ class OAuthEngine:
         password, then link" path that already exists. It is a behaviour change
         for any installation whose provider is silent, which is why it is
         written here and not only in the issue.
+
+        **Links created before the gate are not touched by any of this**, and the
+        decision on them is: measure first (operator, 2026-09-14).
+        ``scripts/audit_oauth_links.py`` counts the ``auth_providers`` rows that
+        predate #1399's gate and how many of those the defective branch could have
+        created — read-only, because a forged link and a legitimate one are
+        indistinguishable at the data layer, so acting without the number would be
+        guessing. Run against the dev database on 2026-09-14 the collection did not
+        exist at all; the number that matters is the production one.
         """
         return existing_email_verified and oauth_email_verified is True
 
