@@ -448,3 +448,111 @@ def test_a_non_string_timestamp_is_treated_as_absent_not_as_a_crash():
     assert undated == 1, "unreadable is absent, and absent is pessimistic"
     assert len(before) == 1
     assert len(at_risk) == 1
+
+
+class TestPartiallyInitialisedDatabase:
+    """A collection that is absent must stop the run, not report zero.
+
+    `auth_providers` already did. `oidc_provider_configs` did not: it fell back to
+    an empty list, so the report printed "identity providers registered: 0 … STILL
+    ENABLED: 0" — a clean bill of health, about the half this script calls the worse
+    case, over a collection it never read. The same reasoning twenty lines apart,
+    applied to one sibling and not the other.
+    """
+
+    @staticmethod
+    def _run(monkeypatch, present: set[str]):
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def db(self, *args, **kwargs):
+                return _Db()
+
+        class _Db:
+            def has_collection(self, name):
+                return name in present
+
+            @property
+            def aql(self):
+                return _Aql()
+
+        class _Aql:
+            def execute(self, _query):
+                return iter(())
+
+        import arango
+
+        monkeypatch.setattr(arango, "ArangoClient", _Client)
+        monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py"])
+        return audit.main()
+
+    def test_a_missing_provider_config_collection_stops_the_run(self, monkeypatch, capsys):
+        code = self._run(monkeypatch, present={"auth_providers"})
+
+        assert code == 1
+        err = capsys.readouterr().err
+        assert "oidc_provider_configs does not exist" in err
+        assert "Refusing to report zero providers" in err
+
+    def test_a_missing_auth_providers_collection_stops_the_run(self, monkeypatch, capsys):
+        """The control: the sibling branch this one was modelled on still behaves."""
+        code = self._run(monkeypatch, present={"oidc_provider_configs"})
+
+        assert code == 1
+        assert "auth_providers does not exist" in capsys.readouterr().err
+
+
+def test_the_default_run_says_the_cutoff_is_a_floor(monkeypatch, capsys):
+    """Merged to `develop` is not deployed, and the operator has to be told.
+
+    This repository ships by dispatching `docker-publish` and restarting the
+    rollout, so a cluster runs the defective image until then. Links forged in that
+    gap sit after both cut-offs and appear in neither window — the same undercount
+    the file warns about twice, one layer further out. The script cannot know the
+    deploy time, so it names the assumption on every default run instead of
+    presenting the number as the answer.
+    """
+
+    class _Client:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def db(self, *args, **kwargs):
+            return _Db()
+
+    class _Db:
+        def has_collection(self, _name):
+            return True
+
+        @property
+        def aql(self):
+            return _Aql()
+
+    class _Aql:
+        def execute(self, query):
+            if "user_email_verified" in query:
+                return iter(
+                    [
+                        {
+                            "key": "l1",
+                            "provider": "github",
+                            "linked_at": "2026-01-01T00:00:00+00:00",
+                            "created_at": None,
+                            "user_key": "u1",
+                            "user_exists": True,
+                            "user_email_verified": True,
+                        }
+                    ]
+                )
+            return iter(())
+
+    import arango
+
+    monkeypatch.setattr(arango, "ArangoClient", _Client)
+    monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py"])
+
+    assert audit.main() == 0
+    out = capsys.readouterr().out
+    assert "is the develop-merge time, which is a FLOOR" in out
+    assert "--autolink-cutoff <your deploy timestamp>" in out

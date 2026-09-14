@@ -46,8 +46,12 @@ usually "one, your own", and that ends the question.
 
 Usage::
 
-    python scripts/audit_oauth_links.py            # the defaults below are the answer
-    python scripts/audit_oauth_links.py --gate-cutoff 2026-09-11T15:20:10Z
+    python scripts/audit_oauth_links.py                        # develop-merge floor
+    python scripts/audit_oauth_links.py --autolink-cutoff 2026-09-13T06:30:00Z
+
+The second form is the one to use on a deployed installation: the defaults are when
+each fix reached `develop`, and a cluster runs the defective image until the next
+rollout. Pass the time YOUR deployment picked the fix up.
 
 The defaults are derived from the merge commits and are not repeated here with a
 second set of digits: the previous version of this example still showed the
@@ -68,6 +72,16 @@ from arango.exceptions import ArangoError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+#: WHEN THE FIX REACHED `develop` — which is NOT when it reached your installation.
+#: This repository deploys by dispatching `docker-publish` and restarting the
+#: rollout, so a cluster keeps running the defective image until that happens. Rows
+#: forged in the gap have `linked_at >= DEFAULT_AUTOLINK_CUTOFF` and fall outside
+#: both windows: the same undercount this file spends two paragraphs warning about,
+#: one layer further out. The defaults are therefore a FLOOR, not the answer — pass
+#: your own deploy timestamp with `--autolink-cutoff` and the report says so on
+#: every run. The script cannot know your deploy time, so it asks rather than
+#: guessing at one.
+#:
 #: WHEN THE FIX REACHED `develop`, not when it was written. Both defaults are the
 #: MERGE time of the pull request that shipped the fix, because that is when the
 #: defect stopped being reachable by anyone. An earlier version of this file dated
@@ -347,11 +361,23 @@ def main() -> int:
     try:
         rows = list(db.aql.execute(query))
         local_rows = next(iter(db.aql.execute(local_query)), 0)
-        provider_rows = (
-            list(db.aql.execute(provider_configs_aql(col.OIDC_PROVIDER_CONFIGS)))
-            if db.has_collection(col.OIDC_PROVIDER_CONFIGS)
-            else []
-        )
+        # Same hard-fail as `auth_providers` twenty lines up, for the same reason:
+        # `OIDC_PROVIDER_CONFIGS` is in DOCUMENT_COLLECTIONS and created at
+        # bootstrap, so its absence is an uninitialised database, not an empty one.
+        # Defaulting to `[]` printed "identity providers registered: 0 … STILL
+        # ENABLED: 0" — a clean bill of health about the half this script calls the
+        # worse case, over a collection it never read.
+        if not db.has_collection(col.OIDC_PROVIDER_CONFIGS):
+            print(
+                f"{col.OIDC_PROVIDER_CONFIGS} does not exist in "
+                f"{settings.arangodb_database!r}. It is created at bootstrap beside "
+                f"{col.AUTH_PROVIDERS}, so this database is uninitialised — check "
+                f"ARANGODB_DATABASE. Refusing to report zero providers for a "
+                f"collection that was never read.",
+                file=sys.stderr,
+            )
+            return 1
+        provider_rows = list(db.aql.execute(provider_configs_aql(col.OIDC_PROVIDER_CONFIGS)))
     except (ArangoError, OSError) as exc:
         print(_unreachable(settings, exc), file=sys.stderr)
         return 1
@@ -377,11 +403,18 @@ def main() -> int:
     print()
 
     if not rows:
-        print(
-            f"no federated links: {col.AUTH_PROVIDERS} holds {local_rows} local "
-            f"password row(s) and nothing else. Nothing has ever been linked to an "
-            f"external identity provider, so neither window has anything in it."
-        )
+        print(f"no federated links: {col.AUTH_PROVIDERS} holds {local_rows} local password row(s) and nothing else.")
+        if still_enabled:
+            # Never "so there is nothing to do" while an enabled pre-gate provider
+            # is listed above — that combination IS the trap this script was
+            # extended to catch, and closing with an all-clear would undo it.
+            print(
+                "That is NOT an all-clear: the enabled provider(s) listed above were "
+                "registered before the gate and have simply not been used yet. Every "
+                "link they mint from now on lands after both cut-offs."
+            )
+            return 0
+        print("Nothing has ever been linked to an external identity provider.")
         return 0
 
     by_provider, before_gate, at_risk, undated = classify(rows, gate_cutoff, autolink_cutoff)
@@ -393,6 +426,13 @@ def main() -> int:
     print(f"  pointing at a deleted user:    {len(orphaned)}")
     print(f"created before the #1399 gate:   {len(before_gate)}  (< {gate_cutoff.isoformat()})")
     print(f"reachable by the auto-link path: {len(at_risk)}  (< {autolink_cutoff.isoformat()}, account email-verified)")
+    if args.autolink_cutoff == DEFAULT_AUTOLINK_CUTOFF:
+        print()
+        print("NOTE: --autolink-cutoff is the develop-merge time, which is a FLOOR.")
+        print("Your installation ran the defective image until its next rollout, and")
+        print("links forged in that gap fall outside both windows. Re-run with")
+        print("--autolink-cutoff <your deploy timestamp> for the number that applies")
+        print("to this installation.")
     print()
     print("The two windows are separate on purpose: gating /admin/oidc-providers removed")
     print("the way to REGISTER a rogue provider, not one already registered, and the")
@@ -405,7 +445,7 @@ def main() -> int:
 
     if at_risk:
         print()
-        print("keys (for a manual look, newest first):")
+        print("keys (for a manual look — most suspicious first: undated, then newest):")
         # Undated FIRST, not last. `classify` calls them the most suspicious rows
         # ("a row written by an older schema version is exactly the kind that
         # predates both fixes"), and sorting them to the bottom meant the listing
