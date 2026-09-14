@@ -43,6 +43,7 @@ def _row(**overrides) -> dict:
         "user_key": "u1",
         "user_exists": True,
         "user_email_verified": True,
+        "user_created_at": None,
         **overrides,
     }
 
@@ -554,5 +555,75 @@ def test_the_default_run_says_the_cutoff_is_a_floor(monkeypatch, capsys):
 
     assert audit.main() == 0
     out = capsys.readouterr().out
-    assert "is the develop-merge time, which is a FLOOR" in out
-    assert "--autolink-cutoff <your deploy timestamp>" in out
+    assert "--gate-cutoff and --autolink-cutoff still hold the develop-merge time" in out, (
+        "BOTH defaults are floors. The first version of this note covered the "
+        "auto-link one only, leaving the gate window — which the script calls the "
+        "worse case — to read as an answer rather than a lower bound."
+    )
+    assert "with your own deploy timestamp" in out
+
+
+class TestRegistrationsAreNotAutoLinks:
+    """`at_risk` must not count accounts the defective branch could never reach.
+
+    `_register_oauth_user` sets `email_verified` from the provider's own claim
+    (`auth_service.py:908`), so a user who has only ever signed in with Google has a
+    verified account and a federated link. Auto-link needs a pre-existing LOCAL
+    account to attach to, so it never ran for them — yet they were counted, and on
+    an OAuth-first installation that made `at_risk` approach "every federated link".
+    The same alarming-and-wrong number the `local` filter removed, one population
+    over.
+    """
+
+    def test_a_link_made_with_the_account_is_a_registration(self):
+        row = _row(
+            linked_at="2026-01-01T10:00:00+00:00",
+            user_created_at="2026-01-01T10:00:02+00:00",
+        )
+
+        _by_provider, before, at_risk, _undated = audit.classify([row], GATE_CUTOFF, AUTOLINK_CUTOFF)
+
+        assert len(before) == 1, "it is still a link that predates the gate"
+        assert at_risk == [], "but auto-link cannot have produced it"
+
+    def test_a_link_made_long_after_the_account_stays_counted(self):
+        """The control. Without it, excluding everything would satisfy the case above."""
+        row = _row(
+            linked_at="2026-06-01T10:00:00+00:00",
+            user_created_at="2026-01-01T10:00:00+00:00",
+        )
+
+        _by_provider, _before, at_risk, _undated = audit.classify([row], GATE_CUTOFF, AUTOLINK_CUTOFF)
+
+        assert len(at_risk) == 1
+
+    def test_a_missing_user_creation_time_keeps_the_row(self):
+        """Unknown keeps the row, like every other unknown here.
+
+        Excluding a row that should have been counted is the dangerous error in a
+        security audit; including one that need not be is noise. The heuristic is
+        therefore allowed to fire only when both timestamps are present.
+        """
+        row = _row(linked_at="2026-01-01T10:00:00+00:00", user_created_at=None)
+
+        _by_provider, _before, at_risk, _undated = audit.classify([row], GATE_CUTOFF, AUTOLINK_CUTOFF)
+
+        assert len(at_risk) == 1
+
+    def test_the_window_boundary_is_inclusive(self):
+        row = _row(
+            linked_at="2026-01-01T10:00:00+00:00",
+            user_created_at="2026-01-01T10:01:00+00:00",
+        )
+
+        assert audit.was_created_through_the_provider(row) is True, (
+            f"exactly {audit.REGISTRATION_WINDOW_SECONDS}s apart is still one flow"
+        )
+
+    def test_one_second_past_the_window_is_not_a_registration(self):
+        row = _row(
+            linked_at="2026-01-01T10:00:00+00:00",
+            user_created_at="2026-01-01T10:01:01+00:00",
+        )
+
+        assert audit.was_created_through_the_provider(row) is False

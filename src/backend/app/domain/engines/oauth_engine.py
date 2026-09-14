@@ -332,12 +332,16 @@ class OAuthEngine:
 
         **Links created before the fix are not touched by any of this**, and the
         decision on them is: measure first (operator, 2026-09-14).
-        ``scripts/audit_oauth_links.py`` counts the ``auth_providers`` rows in two
-        separate windows — those predating #1399's admin gate, and those the
-        defective auto-link branch could have created, which reached `develop` 29 hours
-        longer — read-only, because a forged link and a legitimate one are
-        indistinguishable at the data layer, so acting without the number would be
-        guessing.
+        ``scripts/audit_oauth_links.py`` reports two things, read-only, because a forged
+        link and a legitimate one are indistinguishable at the data layer and acting
+        without the numbers would be guessing:
+
+        1. the ``oidc_provider_configs`` REGISTRATIONS that predate #1399's gate, and
+           which of them are still enabled — the worse case, because a provider
+           nobody has signed in through yet produces no links at all and reads as an
+           all-clear while it keeps minting them;
+        2. the ``auth_providers`` links in two separate windows, the gate's and the
+           auto-link branch's, which reached ``develop`` 29 hours apart.
 
         No number has been taken yet. A first run against the dev database reported
         no ``auth_providers`` collection, which was read as "nothing has ever been

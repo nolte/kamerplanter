@@ -136,6 +136,19 @@ def stamp_of(row: dict) -> datetime | None:
     return _parse(row.get("linked_at")) or _parse(row.get("created_at"))
 
 
+def was_created_through_the_provider(row: dict) -> bool:
+    """True when the link and its user were made together, i.e. a registration.
+
+    See ``REGISTRATION_WINDOW_SECONDS`` for why this exists and why it errs towards
+    keeping rows.
+    """
+    linked = stamp_of(row)
+    registered = _parse(row.get("user_created_at"))
+    if linked is None or registered is None:
+        return False
+    return abs((linked - registered).total_seconds()) <= REGISTRATION_WINDOW_SECONDS
+
+
 def classify(
     rows: list[dict], gate_cutoff: datetime, autolink_cutoff: datetime
 ) -> tuple[Counter[str], list[dict], list[dict], int]:
@@ -176,13 +189,65 @@ def classify(
         if stamp is None or stamp < gate_cutoff:
             before_gate.append(row)
 
-        if (stamp is None or stamp < autolink_cutoff) and row.get("user_email_verified") is True:
+        if (
+            (stamp is None or stamp < autolink_cutoff)
+            and row.get("user_email_verified") is True
+            and not was_created_through_the_provider(row)
+        ):
             at_risk.append(row)
 
     return by_provider, before_gate, at_risk, undated
 
 
 KEY_LISTING_LIMIT = 50
+
+#: How close a link's timestamp has to be to its user's creation before the pair is
+#: read as "this account was CREATED through the provider" rather than "an existing
+#: account was linked to one".
+#:
+#: The distinction matters because `at_risk` otherwise over-counts by a whole
+#: population. `_register_oauth_user` sets `email_verified` from the provider's own
+#: claim (`auth_service.py:908`), so someone who has only ever signed in with Google
+#: has a verified account and a federated link — and the defective auto-link branch
+#: could never have produced it, because auto-link requires a pre-existing LOCAL
+#: account to attach to. On an OAuth-first installation that made `at_risk`
+#: approach "every federated link": the same alarming-and-wrong number the `local`
+#: filter was added to remove, one population over.
+#:
+#: Sixty seconds is a heuristic and is deliberately SMALL. Excluding a row that
+#: should have been counted is the dangerous error here; including one that need not
+#: be is merely noise. So the exclusion applies only when BOTH timestamps are
+#: present and close — a missing one keeps the row, like every other unknown in this
+#: script.
+REGISTRATION_WINDOW_SECONDS = 60
+
+
+def _print_floor_note(args) -> None:
+    """Both defaults are develop-merge times, and both are floors.
+
+    The first version of this note covered `--autolink-cutoff` only. The gate window
+    has the identical deploy lag: a cluster that rolled out #1399's gate a day after
+    the merge let a member register a provider in between, and that registration's
+    `created_at` is after the default — so it lands in neither `before_gate` nor
+    `still_enabled`, and the report prints an all-clear for the half this script
+    calls the worse case. Same reasoning, same file, applied to one sibling and not
+    the other.
+    """
+    stale = [
+        flag
+        for flag, value, default in (
+            ("--gate-cutoff", args.gate_cutoff, DEFAULT_GATE_CUTOFF),
+            ("--autolink-cutoff", args.autolink_cutoff, DEFAULT_AUTOLINK_CUTOFF),
+        )
+        if value == default
+    ]
+    if not stale:
+        return
+    print()
+    print(f"NOTE: {' and '.join(stale)} still hold the develop-merge time, a FLOOR.")
+    print("Your installation ran the defective image until its next rollout. Rows")
+    print("created in that gap fall outside the window and are NOT counted. Re-run")
+    print("with your own deploy timestamp for the number that applies here.")
 
 
 def _unreachable(settings, exc: Exception) -> str:
@@ -269,7 +334,8 @@ def build_queries(auth_providers: str, users: str) -> tuple[str, str]:
         created_at: link.created_at,
         user_key: link.user_key,
         user_exists: user != null,
-        user_email_verified: user.email_verified
+        user_email_verified: user.email_verified,
+        user_created_at: user.created_at
       }}
     """
     local_count = f"""
@@ -413,8 +479,10 @@ def main() -> int:
                 "registered before the gate and have simply not been used yet. Every "
                 "link they mint from now on lands after both cut-offs."
             )
+            _print_floor_note(args)
             return 0
         print("Nothing has ever been linked to an external identity provider.")
+        _print_floor_note(args)
         return 0
 
     by_provider, before_gate, at_risk, undated = classify(rows, gate_cutoff, autolink_cutoff)
@@ -425,14 +493,13 @@ def main() -> int:
     print(f"  without a timestamp:           {undated}  (counted as inside BOTH windows)")
     print(f"  pointing at a deleted user:    {len(orphaned)}")
     print(f"created before the #1399 gate:   {len(before_gate)}  (< {gate_cutoff.isoformat()})")
+    registrations = [row for row in rows if was_created_through_the_provider(row)]
     print(f"reachable by the auto-link path: {len(at_risk)}  (< {autolink_cutoff.isoformat()}, account email-verified)")
-    if args.autolink_cutoff == DEFAULT_AUTOLINK_CUTOFF:
-        print()
-        print("NOTE: --autolink-cutoff is the develop-merge time, which is a FLOOR.")
-        print("Your installation ran the defective image until its next rollout, and")
-        print("links forged in that gap fall outside both windows. Re-run with")
-        print("--autolink-cutoff <your deploy timestamp> for the number that applies")
-        print("to this installation.")
+    print(
+        f"  excluded as registrations:     {len(registrations)}  (account created "
+        f"through the provider, so auto-link never ran for it)"
+    )
+    _print_floor_note(args)
     print()
     print("The two windows are separate on purpose: gating /admin/oidc-providers removed")
     print("the way to REGISTER a rogue provider, not one already registered, and the")
