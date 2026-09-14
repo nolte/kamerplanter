@@ -132,13 +132,28 @@ def test_no_candidate_is_empty(db, reference: str, shape: str):
     assert "" not in _candidates_in_aql(db, reference), f"{shape} produced an empty candidate"
 
 
-def test_the_candidate_set_stays_small(db):
-    """A superset is the point; a set that swallows unrelated ids is not.
+def test_the_candidate_set_stays_proportional_to_the_reference(db):
+    """A superset is the point; a set that grows without bound is not.
 
-    Four candidates per reference is the design. If this grows, someone widened the
-    expression rather than fixing a specific shape, and a wide candidate set protects
-    photos nothing references — the sweep would stop collecting anything.
+    The bound used to be a flat four, because only the *last* path segment was
+    resolved. Round 7 resolves **every** segment — the identifier sits in the middle
+    of ``/attachments/{id}/thumbnails/{size}``, which is the shape ``_photo_response``
+    hands to every client, and the previous design reached it only through a substring
+    test that turned out to be unusable against numeric document keys.
+
+    So the invariant is no longer a constant but a proportion: at most three
+    candidates per path segment (the segment, its extension-stripped stem, that stem
+    without a ``_t{size}`` suffix), plus the whole reference. Asserted as a
+    relationship rather than a number, so it cannot be "fixed" by raising a literal
+    when someone widens the expression.
     """
     for reference, shape in REFERENCES:
-        candidates = _candidates_in_aql(db, reference)
-        assert len(set(candidates)) <= 4, f"{shape} produced {len(set(candidates))} distinct candidates"
+        candidates = set(_candidates_in_aql(db, reference))
+        segments = [part for part in reference.split("?")[0].split("/") if part]
+        ceiling = 3 * len(segments) + 1
+        assert len(candidates) <= ceiling, (
+            f"{shape} produced {len(candidates)} distinct candidates for "
+            f"{len(segments)} segments (ceiling {ceiling}); the expression widened "
+            f"beyond per-segment resolution, and a wide candidate set protects photos "
+            f"nothing references — the sweep then collects nothing"
+        )

@@ -164,6 +164,11 @@ async def delete_task_photo(
     rather than 404, so a double click, a retry, or a race with the orphan sweep is
     not an error the user has to understand.
 
+    Known gap (#1437): when a lead deletes a photo the task itself references, the
+    entry stays in ``task.photo_refs`` and the gallery renders a broken image with
+    no surface that repairs it. The orphan sweep is the general reconciliation and
+    ships disabled.
+
     This does **not** rewrite ``task.photo_refs``. The single-writer rule from
     #1388 stands — ``TaskService.complete_task`` owns that list, and the staged
     photos this route deletes are not in it yet. A photo already referenced by a

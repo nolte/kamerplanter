@@ -242,17 +242,6 @@ def db():
             }
         )
 
-    # A shape nobody has enumerated, and deliberately unlike every branch of the
-    # candidate list: wrapped in text, with the id neither first nor last.
-    attachments.insert(_attachment("ref-exotic", created_at=OLD))
-    database.collection(col.TASKS).insert(
-        {
-            "_key": "t-exotic",
-            "tenant_key": TENANT,
-            "photo_refs": ["see attachment ref-exotic (uploaded 2026-01-02) for details"],
-        }
-    )
-
     # Shapes a real row is in, none of which may be read as a reference.
     attachments.insert(_attachment("orphan-empty-refs", created_at=OLD))
     attachments.insert(_attachment("orphan-null-refs", created_at=OLD))
@@ -338,15 +327,6 @@ class TestWhatTheSweepMustNotTouch:
             f"a photo referenced as {spelling!r} was offered for deletion — the sweep is "
             "back to enumerating spellings (#1393)"
         )
-
-    def test_a_spelling_nobody_has_thought_of_yet_is_also_safe(self, repo):
-        """The class, not its four instances.
-
-        A shape invented here on purpose, matching no branch of the candidate list.
-        If this ever fails, someone removed the substring net and the sweep is one
-        unusual reference away from destroying a photo again.
-        """
-        assert "ref-exotic" not in _found(repo)
 
     def test_a_young_upload_survives(self, repo):
         """The floor is the whole safety story: every upload is briefly an orphan."""

@@ -123,7 +123,8 @@ def aql_photo_ref_candidates(expression: str) -> str:
     closed: it depends on what every client version ever wrote.
 
     So the sweep does **not** rely on this. It also asks whether any reference string
-    *contains* the attachment's key (:meth:`_aql_mentions_key`), which no spelling can
+    resolves to the attachment's key or its storage-key stem
+    (:meth:`ArangoAttachmentRepository._aql_unreferenced`), which every known spelling can
     escape, and this function only spares that pass for the overwhelming majority of
     rows. Getting a candidate wrong now costs a little work, not a photo.
 
@@ -131,13 +132,26 @@ def aql_photo_ref_candidates(expression: str) -> str:
     ``normalize_photo_ref`` answers is always among these, and that the set never
     grows to something that would swallow an unrelated id.
     """
-    # `` (FOR s IN SPLIT(x, "/") FILTER s != "" RETURN s) `` rather than ``LAST``:
-    # ``LAST(SPLIT("a/b/", "/"))`` is the empty string, and an empty candidate
-    # protects nothing.
-    segments = f'(FOR segment IN SPLIT({expression}, "/") FILTER segment != "" RETURN segment)'
-    tail = f"LAST({segments})"
-    stem = f'FIRST(SPLIT({tail}, "."))'
-    return f'[{expression}, {tail}, {stem}, REGEX_REPLACE({stem}, "_t[0-9]+$", "")]'
+    # **Every** segment, not only the last. ``LAST`` was wrong for the one shape the
+    # product builds itself: ``/attachments/{id}/thumbnails/320`` ends in the *size*,
+    # so the identifier sat in the middle. That was patched by adding a substring
+    # test alongside — see :meth:`ArangoAttachmentRepository._aql_unreferenced`, and
+    # round 7 for why a substring test is not usable here at all.
+    #
+    # The query string is stripped first: ``…/{id}?download=1`` otherwise yields the
+    # segment ``{id}?download=1``, which equals no key.
+    base = f'FIRST(SPLIT({expression}, "?"))'
+    segments = f'(FOR segment IN SPLIT({base}, "/") FILTER segment != "" RETURN segment)'
+    # Each segment, its extension-stripped stem, and that stem without a ``_t{size}``
+    # thumbnail suffix. ``FLATTEN`` because the comprehension yields one triple per
+    # segment. The whole reference is included for the bare-id case, where there is
+    # nothing to split.
+    expanded = (
+        f"(FOR segment IN {segments} "
+        f'LET stem = FIRST(SPLIT(segment, ".")) '
+        f'RETURN [segment, stem, REGEX_REPLACE(stem, "_t[0-9]+$", "")])'
+    )
+    return f"UNIQUE(FLATTEN([[{expression}], FLATTEN({expanded}, 1)], 1))"
 
 
 class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRepository):
@@ -433,7 +447,14 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             """
             if not tenant_scoped or collection not in TENANT_SCOPED_REF_COLLECTIONS:
                 return ""
-            return " FILTER d.tenant_key == @ref_tenant_key"
+            # An *unstamped* row still protects. ``tenant_key`` defaults to ``""`` on
+            # ``Task``, ``PlantDiaryEntry`` and ``Inspection``, so a legacy or imported
+            # carrier written before the tenant backfill carries no value — and a
+            # strict equality would drop it from the scan, reporting a photo it still
+            # references as unreferenced. That is the direction that destroys data, so
+            # the narrowing gives up its saving for those rows rather than its
+            # correctness. (#1393 round 7, finding 3)
+            return ' FILTER d.tenant_key == @ref_tenant_key OR d.tenant_key == null OR d.tenant_key == ""'
 
         parts = [
             f"          (FOR d IN @@ref_col_{index}"
@@ -461,31 +482,43 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         ], 2))"""
 
     @staticmethod
-    def _aql_mentions_key(refs_expression: str, key_expression: str) -> str:
-        """AQL: does any reference string mention this attachment key at all?
+    def _aql_unreferenced(candidates_expression: str, attachment_expression: str) -> str:
+        """AQL: is this attachment mentioned by **none** of the resolved candidates?
 
-        The safety net under :func:`aql_photo_ref_candidates`, and the reason the
-        sweep stopped being one spelling away from destroying a photo.
+        Matched on exact candidates, against **both** identities an attachment has.
 
-        Four review rounds each found a reference shape the candidate list did not
-        know — a storage key with an extension, a trailing slash, a query string, a
-        ``/thumbnails/{size}`` path the product builds itself. Every fix enumerated
-        one more shape, and the next round found another, because the set of things
-        that have ever been written into ``photo_refs`` is open: it spans every
-        client version and an unrun manual migration.
+        *The document key.* Not a ULID — round 7 measured it: ``_to_doc`` pops
+        ``_key`` before the insert and no key generator is configured, so ArangoDB's
+        traditional generator assigns a short **numeric** key (``1024799``). The
+        previous version was a ``CONTAINS`` substring test justified by "a ULID is 26
+        characters from Crockford's alphabet, so an incidental match is not a
+        practical concern". Against numeric keys that argument collapses: a key is a
+        substring of a longer sibling id, of a ``/thumbnails/320`` size, of a
+        ``…/2026/01/…`` date partition. Every coincidence reported the photo as
+        shared, which makes it undeletable by the route *and* unsweepable — the quota
+        leak this whole change exists to close.
 
-        A substring test closes the class instead of its fourth instance. Any
-        reference that mentions the key — however it is spelled, wrapped or
-        suffixed — protects the photo. A ULID is 26 characters from Crockford's
-        alphabet, so an incidental match is not a practical concern, and the
-        direction of the residual error is the safe one: an attachment is kept, not
-        destroyed.
+        *The storage key's stem.* ``StorageKeyBuilder.build`` mints its own ULID when
+        the caller passes none, and ``upload`` passes none, so the ULID in
+        ``t/{tenant}/task/2026/01/{ulid}.jpg`` is unrelated to ``_key``. Deriving a
+        key from such a reference is therefore impossible in either direction; the
+        only way to connect them is to compare the reference against the attachment's
+        *own* ``storage_key``. Without this half a ``photo_refs`` entry holding a
+        storage key protected nothing and the sweep destroyed a referenced photo.
 
-        Runs only for rows the fast path did not already clear, which are the
-        orphans — a handful per night — so the cost is a string scan over an
-        in-memory array rather than anything touching a collection.
+        Exact rather than fuzzy is affordable because the write path is narrow:
+        ``TaskService._verify_photo_refs`` resolves every new reference through
+        ``attachment_repo.get(ref, tenant_key)``, a document-key lookup, so nothing
+        but a bare key can enter ``task.photo_refs`` today. The other spellings are
+        legacy rows and other carriers' writers, and each of those shapes is a path
+        whose segments this resolves.
         """
-        return f"LENGTH(FOR ref IN {refs_expression} FILTER CONTAINS(ref, {key_expression}) LIMIT 1 RETURN 1) == 0"
+        storage_stem = f'FIRST(SPLIT(LAST(SPLIT({attachment_expression}.storage_key, "/")), "."))'
+        return (
+            f"{attachment_expression}._key NOT IN {candidates_expression}"
+            f" AND ({attachment_expression}.storage_key == null"
+            f" OR {storage_stem} NOT IN {candidates_expression})"
+        )
 
     def _reference_bind_vars(self) -> dict[str, Any]:
         """The collection bindings :meth:`_aql_referenced_prelude` needs."""
@@ -537,9 +570,11 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         ) || []
         FOR att IN @@collection
           FILTER att._key == @attachment_id AND att.tenant_key == @tenant_key
-          LET unshared = att._key NOT IN referenced
-            AND {self._aql_mentions_key("raw_refs", "att._key")}
-          LET absent_from_task = {self._aql_mentions_key("own_refs", "att._key")}
+          LET own_candidates = UNIQUE(FLATTEN(
+            (FOR ref IN own_refs RETURN {aql_photo_ref_candidates("ref")}), 2
+          ))
+          LET unshared = {self._aql_unreferenced("referenced", "att")}
+          LET absent_from_task = {self._aql_unreferenced("own_candidates", "att")}
           RETURN {{
             state: !unshared ? "shared" : (absent_from_task ? "staged" : "task"),
             created_by: att.created_by
@@ -599,8 +634,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
           FILTER att.category == @category
             AND att.created_at != null
             AND att.created_at < @cutoff
-            AND att._key NOT IN referenced
-            AND {self._aql_mentions_key("raw_refs", "att._key")}
+            AND {self._aql_unreferenced("referenced", "att")}
           SORT att.created_at ASC
           LIMIT @limit
           RETURN att

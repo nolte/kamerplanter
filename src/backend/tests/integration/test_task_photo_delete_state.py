@@ -183,15 +183,23 @@ def test_every_carrier_makes_it_shared(db, repo, collection: str, document: dict
         "t/tenant-a/task/2026/01/att-1.jpg/",
         "/api/v1/t/tenant-a/attachments/att-1?download=1",
         "/api/v1/t/tenant-a/attachments/att-1/thumbnails/320",
-        "see attachment att-1 (uploaded 2026-01-02) for details",
     ],
 )
 def test_legacy_reference_spellings_still_protect(db, repo, spelling: str):
     """Every shape a `photo_refs` entry has ever had, on the shared path.
 
     Four review rounds each found one the resolver did not know, and each cost a
-    photo. The substring net closed the class; this pins that the *new* query carries
-    it too, rather than reintroducing the enumeration it replaced.
+    photo. Resolving *every* path segment — rather than only the last — covers them
+    all, including ``/attachments/{id}/thumbnails/{size}``, where the identifier is in
+    the middle and the last segment is the size.
+
+    A free-prose entry ("see attachment att-1 (uploaded …) for details") was listed
+    here until round 7 and is gone, because it cannot occur and never could:
+    ``TaskService._verify_photo_refs`` and ``PlantDiaryService`` both resolve each new
+    reference through ``attachment_repo.get(ref, tenant_key)``, a document-key lookup
+    that refuses anything else with a 422. That case was invented to justify a
+    substring test, and the substring test is what round 7 removed — against numeric
+    document keys it reported unrelated photos as shared, making them undeletable.
     """
     db.collection(col.ATTACHMENTS).insert(_attachment("att-1"))
     db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": TENANT, "photo_refs": []})
@@ -246,3 +254,125 @@ def test_a_foreign_tenants_task_does_not_count_as_the_named_task(db, repo):
     db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": OTHER_TENANT, "photo_refs": ["att-1"]})
 
     assert _ask(repo, "att-1") == ("staged", UPLOADER)
+
+
+class TestTheKeyIsNumericAndStorageKeysCarryTheirOwnUlid:
+    """Round 7 — the two premises the reference resolver was built on, both false.
+
+    The resolver's safety argument read: "A ULID is 26 characters from Crockford's
+    alphabet, so an incidental match is not a practical concern." Measured against a
+    real ArangoDB, an attachment's ``_key`` is a **7-digit number** (``1024799``):
+    ``BaseArangoRepository._to_doc`` pops ``_key`` before the insert and nothing
+    configures a key generator, so ArangoDB's traditional generator assigns it.
+
+    The second premise was that a storage key embeds the document key.
+    ``StorageKeyBuilder.build`` mints its *own* ULID when the caller passes none, and
+    ``AttachmentService.upload`` passes none — so ``t/{tenant}/task/2026/01/{ulid}.jpg``
+    holds a ULID that has no relation to ``_key`` at all.
+
+    Both premises were encoded in the fixtures, which is why seven review rounds
+    could not see them: ``_attachment()`` built ``storage_key`` out of the very
+    ``_key`` it was testing, a shape production never produces.
+    """
+
+    def test_a_thumbnail_size_segment_cannot_collide_with_a_key(self, db, repo):
+        """Why the resolver may compare whole segments rather than parse known shapes.
+
+        A ``/thumbnails/320`` size *is* a path segment, so segment matching would
+        report an attachment keyed ``320`` as referenced. Measured against a real
+        ArangoDB, no such key exists: two fresh databases assigned ``1024799`` and
+        ``1034686``, seven digits, because the traditional generator starts from a
+        large server tick. The first version of this case planted ``_key="320"`` — my
+        own fixture inventing an impossible value for the fourth time in this PR, the
+        same way ``_attachment()`` built ``storage_key`` out of the key it was testing.
+
+        So this asserts the reachable half: a size segment does not protect an
+        attachment whose key merely *looks* related.
+        """
+        db.collection(col.ATTACHMENTS).insert(_attachment("1024799"))
+        db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": TENANT, "photo_refs": []})
+        db.collection(col.TASKS).insert(
+            {
+                "_key": OTHER_TASK,
+                "tenant_key": TENANT,
+                "photo_refs": ["/api/v1/t/tenant-a/attachments/2048888/thumbnails/1024"],
+            }
+        )
+
+        assert _ask(repo, "1024799")[0] == "staged", (
+            "a reference to a different attachment protected this one — under the old "
+            "substring test every digit coincidence did (#1393 round 7, finding 1)"
+        )
+
+    def test_a_numeric_key_that_prefixes_a_newer_key_is_not_falsely_shared(self, db, repo):
+        """The same class, in the shape a long-lived installation actually reaches.
+
+        Keys are assigned monotonically, so an installation eventually holds both
+        ``1234567`` and ``12345678``. A reference to the newer one then "mentions" the
+        older one under substring matching, and the older one becomes undeletable.
+        """
+        db.collection(col.ATTACHMENTS).insert(_attachment("1234567"))
+        db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": TENANT, "photo_refs": []})
+        db.collection(col.TASKS).insert({"_key": OTHER_TASK, "tenant_key": TENANT, "photo_refs": ["12345678"]})
+
+        assert _ask(repo, "1234567")[0] == "staged"
+
+    def test_a_real_storage_key_reference_still_protects_the_photo(self, db, repo):
+        """Finding 2, and this is the direction that destroys data.
+
+        The stored ``storage_key`` carries its own ULID. A ``photo_refs`` entry holding
+        that storage key resolves to no document key at all, so the photo is reported
+        unreferenced — and the sweep deletes a photo a carrier still shows.
+        """
+        storage_key = "t/tenant-a/task/2026/01/01JQ8ZK4Y7N3M5P6R8T9V0W1X2.jpg"
+        db.collection(col.ATTACHMENTS).insert({**_attachment("1024799"), "storage_key": storage_key})
+        db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": TENANT, "photo_refs": []})
+        db.collection(col.TASKS).insert({"_key": OTHER_TASK, "tenant_key": TENANT, "photo_refs": [storage_key]})
+
+        assert _ask(repo, "1024799")[0] == "shared", (
+            "a storage-key reference protected nothing, so the sweep would destroy a "
+            "photo another carrier still references (#1393 round 7, finding 2)"
+        )
+
+    def test_the_same_storage_key_reference_seen_by_the_named_task(self, db, repo):
+        """And it must resolve to ``task``, not ``staged``, for the delete route.
+
+        Otherwise the route treats the task's own completion photo as a staged upload
+        and lets its uploader — any grower — destroy the completion record.
+        """
+        storage_key = "t/tenant-a/task/2026/01/01JQ8ZK4Y7N3M5P6R8T9V0W1X2.jpg"
+        db.collection(col.ATTACHMENTS).insert({**_attachment("1024799"), "storage_key": storage_key})
+        db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": TENANT, "photo_refs": [storage_key]})
+
+        assert _ask(repo, "1024799")[0] == "task"
+
+    def test_a_carrier_row_without_a_tenant_stamp_still_protects(self, db, repo):
+        """Finding 3. ``tenant_key`` defaults to ``""`` on Task, DiaryEntry and Inspection.
+
+        The interactive query narrows its reference scan to the caller's tenant. A
+        legacy or imported carrier row written before the tenant backfill carries no
+        stamp, and a strict equality would drop it — reporting a photo it still
+        references as staged, so its uploader (any grower) could destroy it and leave
+        the dangling reference this whole design exists to prevent.
+
+        Asserted on the unstamped row alone, not alongside a stamped one, so a fix
+        that merely widened the filter to "any tenant" would not pass by accident.
+        """
+        db.collection(col.ATTACHMENTS).insert(_attachment("1024799"))
+        db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": TENANT, "photo_refs": []})
+        db.collection(col.TASKS).insert({"_key": OTHER_TASK, "tenant_key": "", "photo_refs": ["1024799"]})
+
+        assert _ask(repo, "1024799")[0] == "shared"
+
+    def test_a_foreign_tenants_carrier_still_does_not_protect(self, db, repo):
+        """The control for the case above: tolerating "" must not tolerate everything.
+
+        Without this, widening the filter to drop the tenant condition entirely would
+        satisfy the previous test and quietly undo the narrowing that finding 3 of
+        round 5 added.
+        """
+        db.collection(col.ATTACHMENTS).insert(_attachment("1024799"))
+        db.collection(col.TASKS).insert({"_key": OWN_TASK, "tenant_key": TENANT, "photo_refs": []})
+        db.collection(col.TASKS).insert({"_key": OTHER_TASK, "tenant_key": OTHER_TENANT, "photo_refs": ["1024799"]})
+
+        assert _ask(repo, "1024799")[0] == "staged"

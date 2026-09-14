@@ -186,6 +186,15 @@ export default function PhotoUpload({
         // Every other failure keeps the photo: it may well still be stored and still
         // linked, and telling someone it is gone when it is not is the state this
         // whole change set out to end.
+        //
+        // Known limitation. The route also answers 404 when the *task* is gone or
+        // foreign, and that 404 is indistinguishable here: `NotFoundError` and
+        // `AttachmentNotFoundError` both carry `ENTITY_NOT_FOUND` and differ only in
+        // their human-readable message, which is not something a client may parse.
+        // In that case nothing was deleted and the entry still de-stages, so the
+        // attachment orphans. The window is narrow — the task must vanish between
+        // page load and this click — and separating the two needs a change to the
+        // shared error contract rather than to this branch. Tracked as #1437.
         if (err instanceof ApiError && err.statusCode === 404) {
           onChange(photoRefs.filter((_, i) => i !== index));
         } else {
