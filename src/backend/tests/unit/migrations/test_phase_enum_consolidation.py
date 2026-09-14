@@ -6,10 +6,15 @@ The 53-value phase vocabulary lives in exactly one place —
 ``$ref`` instead of inline-duplicating it. The reduced task-phase subset in
 ``activities`` / ``workflows`` is intentionally left inline (out of scope).
 
-The structural assertions are dependency-free (PyYAML only) so they always run in
-CI; the runtime ``$ref``-resolution check uses ``jsonschema`` + ``referencing``
-via ``importorskip`` so it adds value where those are installed without making
-them a hard test dependency.
+The structural assertions are dependency-free (PyYAML only); the runtime
+``$ref``-resolution check imports ``jsonschema`` and ``referencing`` directly.
+
+That used to read "via ``importorskip`` so it adds value where those are installed
+without making them a hard test dependency" — and the consequence of *not* making
+them a hard dependency was that neither package was ever installed by CI, so the
+check never ran, in any run, since it was written (#1435). Both are declared in the
+``dev`` extra and pinned in ``uv.lock`` now, and their absence is a broken
+environment that should fail loudly rather than a feature to skip past.
 """
 
 from pathlib import Path
