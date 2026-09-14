@@ -261,6 +261,7 @@ def get_plant_instance_service() -> PlantInstanceService:
         species_repo=get_species_repo(),
         planting_run_repo=get_planting_run_repo(),
         photo_cleanup=_cascade_plant_photo_cleanup,
+        care_profile_bootstrap=_bootstrap_care_profile,
         propagation_service=get_propagation_service(),
         overwintering_materializer=get_overwintering_materializer(),
         overwintering_service=get_overwintering_profile_service(),
@@ -271,6 +272,19 @@ def get_plant_instance_service() -> PlantInstanceService:
         substrate_service=get_substrate_service(),
         species_service=get_species_service(),
     )
+
+
+def _bootstrap_care_profile(plant) -> None:  # type: ignore[no-untyped-def]
+    """REQ-022 — give a newly created plant its care profile (#1422 round 3).
+
+    `may_create=True` because this *is* the write path. The read paths pass `False`
+    since round 2, which is what made this bootstrap necessary: they used to create
+    the profile as a side effect of being read, and the nightly task generator — which
+    iterates stored profiles — silently depended on that.
+    """
+    if not plant.key:
+        return
+    get_care_reminder_service().get_or_create_profile(plant.key, may_create=True)
 
 
 def _cascade_plant_photo_cleanup(plant) -> None:  # type: ignore[no-untyped-def]

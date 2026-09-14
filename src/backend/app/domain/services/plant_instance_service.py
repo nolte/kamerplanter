@@ -65,6 +65,7 @@ class PlantInstanceService:
         species_repo: ISpeciesRepository | None = None,
         planting_run_repo: IPlantingRunRepository | None = None,
         photo_cleanup: Callable[[PlantInstance], None] | None = None,
+        care_profile_bootstrap: Callable[[PlantInstance], None] | None = None,
         propagation_service: PropagationService | None = None,
         overwintering_materializer: OverwinteringMaterializer | None = None,
         overwintering_service: OverwinteringProfileService | None = None,
@@ -99,6 +100,10 @@ class PlantInstanceService:
         # is removed. Injected to avoid a service→service import cycle; no-op
         # when unwired (keeps the service usable in photo-less contexts).
         self._photo_cleanup = photo_cleanup
+        #: REQ-022 — gives a new plant its care profile. A callable rather than the
+        #: service, for the same reason ``photo_cleanup`` is one: importing
+        #: ``CareReminderService`` here would close an import cycle.
+        self._care_profile_bootstrap = care_profile_bootstrap
         # #1335 — the resolvers for the caller-supplied catalogue references a plant
         # carries. Optional, like every other collaborator here, so the service stays
         # constructible in pure-domain contexts; the production wiring supplies both
@@ -540,6 +545,24 @@ class PlantInstanceService:
         # waiting for the lazy growing→pre_winter season transition. Best-effort: a
         # failure here must never fail plant creation.
         self._sync_overwintering_for_site(created)
+
+        # REQ-022 — the plant's care profile, created with the plant.
+        #
+        # Until #1422 review round 3 nothing created one at this point: the profile
+        # appeared the first time somebody *read* it, through `GET .../profile` or the
+        # tenant care dashboard, both of which persisted on a plain GET. Removing that
+        # write — a read must not write — exposed the dependency it had been hiding:
+        # the nightly generator iterates **stored profiles**, the first confirmation
+        # needs a task the generator produces, and the task needs a profile. A circle,
+        # broken until now by a side effect of viewing a page.
+        #
+        # Best-effort, like the overwintering materialisation above: a plant is created
+        # whether or not its care profile could be.
+        if self._care_profile_bootstrap is not None:
+            try:
+                self._care_profile_bootstrap(created)
+            except Exception:  # noqa: BLE001 — never fail plant creation for this
+                logger.warning("care_profile_bootstrap_failed", plant_key=created.key)
 
         return created
 

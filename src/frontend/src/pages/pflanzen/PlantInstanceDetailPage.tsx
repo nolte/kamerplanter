@@ -547,7 +547,13 @@ export default function PlantInstanceDetailPage() {
   //
   // Disabled rather than hidden, for the same reason as there: a control that
   // vanishes explains nothing, while a disabled one with a tooltip names the rule.
-  const { canEdit } = useTenantPermissions();
+  // `hasTenant &&`, matching `PestScanButton` and `useCanCreateCatalogEntry`:
+  // `canEdit` is false whenever the active tenant is not resolved yet, so a bare
+  // `!canEdit` disables these for a lead while the tenant list loads — and for ever
+  // if that load fails. Absence of a tenant is not a refusal; the backend resolves
+  // the personal tenant, where the caller is lead.
+  const { canEdit, hasTenant } = useTenantPermissions();
+  const roleRestricted = hasTenant && !canEdit;
 
   const handleConfirmWatering = async (options?: ConfirmReminderOptions) => {
     if (!key) return;
@@ -1116,7 +1122,7 @@ export default function PlantInstanceDetailPage() {
             primary={{
               label: t('pages.phases.transition'),
               icon: <SwapHorizIcon />,
-              disabled: !!plant?.removed_on || !canEdit,
+              disabled: !!plant?.removed_on || roleRestricted,
               testId: 'transition-button',
               onClick: () => setTransitionOpen(true),
             }}
@@ -1494,7 +1500,7 @@ export default function PlantInstanceDetailPage() {
                     color="success"
                     startIcon={<CheckCircleOutlineIcon />}
                     onClick={() => setWateringDialogOpen(true)}
-                    disabled={confirmingWatering || !canEdit}
+                    disabled={confirmingWatering || roleRestricted}
                     data-testid="confirm-watering-button"
                   >
                     {t('pages.plantInstances.confirmWatering')}
@@ -1961,7 +1967,7 @@ export default function PlantInstanceDetailPage() {
                 variant="outlined"
                 size="small"
                 onClick={() => setTransitionOpen(true)}
-                disabled={!!plant.removed_on || !canEdit}
+                disabled={!!plant.removed_on || roleRestricted}
               >
                 {t('pages.phases.transition')}
               </Button>

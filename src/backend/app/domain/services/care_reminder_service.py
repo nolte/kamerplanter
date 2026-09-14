@@ -12,7 +12,7 @@ from app.common.enums import (
     TaskPriority,
     TaskStatus,
 )
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.exceptions import DuplicateError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
@@ -316,9 +316,14 @@ class CareReminderService:
         adaptive-learned interval, so the edited base value — not a stale learned
         value — drives the new schedule.
         """
+        # Bootstrap rather than refuse. `GET .../profile` stopped materialising a
+        # profile in #1422 round 2 — reads do not write — so a plant that has never
+        # been confirmed or snoozed has no stored profile, and this path used to
+        # answer 404 for it. That is a write path: creating what it is about to edit
+        # is exactly what it may do, and it is what the read path may not.
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            raise NotFoundError("CareProfile", plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
         # Which task-interval fields actually change (a no-op write is not a change).
         changed_reminders = {
@@ -1316,9 +1321,14 @@ class CareReminderService:
         botanical_family: str | None = None,
     ) -> CareProfile:
         """Reset profile to species/family defaults."""
+        # Bootstrap rather than refuse. `GET .../profile` stopped materialising a
+        # profile in #1422 round 2 — reads do not write — so a plant that has never
+        # been confirmed or snoozed has no stored profile, and this path used to
+        # answer 404 for it. That is a write path: creating what it is about to edit
+        # is exactly what it may do, and it is what the read path may not.
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            raise NotFoundError("CareProfile", plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
         new_profile = self._engine.auto_generate_profile(
             species_name=species_name,
