@@ -377,6 +377,69 @@ class AttachmentService:
         )
         return deleted
 
+    def deletable_from_task(
+        self, attachment_id: str, task_key: str, tenant_key: str, *, actor_key: str, is_lead: bool
+    ) -> bool:
+        """Whether this task's photo route may destroy *attachment_id* (#1393).
+
+        Two questions, because one does not cover both photos this route sees.
+
+        **Is it shared?** sha256 deduplication makes one stored object shared across
+        tasks, plant galleries and diary entries, so "it is a task photo and no
+        *task* links it" — which this route used to ask — cheerfully destroyed a
+        gallery's cover. Anything referencing it other than the named task refuses.
+
+        **Does the task key in the path mean anything?** For a photo the named task
+        references, yes: it is that task's documentation, and whoever may delete the
+        tenant's attachments may delete it. For a *staged* photo it does not. A
+        staged upload is in no ``photo_refs`` at all until completion writes it
+        (#1388), so the first question is vacuously satisfied for it through **any**
+        task key of the tenant — one the caller has no involvement with, one another
+        member is filling in right now. The path segment reads like a scope and was
+        not one.
+
+        So a photo nothing references belongs to whoever uploaded it, and only they
+        may destroy it through this route. That is the staging area's own owner, and
+        it is the same person the control is rendered for: ``PhotoUpload`` shows the
+        remove button only for ids staged in the current session. A lead who genuinely
+        needs to remove someone else's attachment has ``DELETE /attachments/{id}``.
+
+        **Which role reaches which half.** The route admits anyone who may *create* an
+        attachment — lead and grower — and the split lives here instead. Growers are
+        the role that completes tasks and uploads the photos, and gating the whole
+        route on ``ATTACHMENT``/``DELETE`` meant a grower's remove button removed the
+        photo from their form and left the stored object behind for ever: the leak
+        #1393 exists to close, on its most common path, with the sweep that would
+        collect it shipped disabled. Undoing one's own not-yet-submitted upload is not
+        the irreversible destruction of a record that REQ-024 §1a.1 reserves to leads,
+        and the ``"task"`` branch above keeps that reservation exactly where it is.
+
+        One consequence is worth naming, because it reads like a bug and is not.
+        ``upload`` deduplicates by sha256, so a second member staging the *same
+        bytes* is handed the first member's row, ``created_by`` and all — and their
+        remove button then answers 404. That is the correct outcome: the object is
+        still staged by someone else and must survive. The client de-stages on 404,
+        so the photo leaves the second member's form, which is what they asked for;
+        only the bytes stay, for the member who also holds them.
+        """
+        # One repository call, not three. The two questions differ only in whether the
+        # named task counts as a reference, and asking them separately re-ran the whole
+        # nine-collection scan for each — inside an interactive request.
+        state, created_by = self._repo.task_photo_delete_state(attachment_id, tenant_key, task_key=task_key)
+        if state == "task":
+            # The task's completion record. REQ-024 §1a.1 makes destroying a record the
+            # irreversibility boundary, so this half stays lead-only.
+            return is_lead
+        if state == "staged":
+            # Not a record yet: nothing references it, and abandoning the form leaves
+            # it for the orphan sweep. Withdrawing it is the undo of the CREATE the
+            # uploader was already permitted to make, so their own role does not need
+            # to reach further than that — but it must be *their* upload.
+            return created_by == actor_key
+        # "shared" — another carrier holds it — or "missing". No role overrides this:
+        # sha256 deduplication means destroying it would strand a reference elsewhere.
+        return False
+
     # --- List --------------------------------------------------------
 
     def list(

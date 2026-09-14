@@ -14,6 +14,13 @@ against paths that exist. Every test here therefore builds a workflow directory
 **and** a checkout for it to reference, and the fixture pair would sit awkwardly
 in a file whose other classes never need it.
 
+**The constructed checkout is a real git repository** (#1340). "Exists" means
+"tracked", not "is on disk", so a bare directory would put this whole file on the
+checker's *fallback* branch and leave the production predicate measured by
+nothing — a suite exercising a path the product never takes, which is the
+positive-vacuity class this repository has paid for twice. ``TestTheNonGitFallback``
+owns the other branch, and it is the only class that uses ``plain_tree``.
+
 **Red first, and by construction.** Every positive case here writes a workflow
 that violates the invariant and asserts the checker reports it; every one is
 paired with the compliant variant, so the fix the message asks for is proven to
@@ -28,8 +35,11 @@ Traces to #1313 (no TC-ID: a source-tree gate is not a user-facing case).
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import textwrap
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import pytest
@@ -39,25 +49,116 @@ from tests.support.repo_scripts import load_repo_script
 checker = load_repo_script("check_workflow_gate_integrity")
 
 
+#: Environment for every ``git`` call below. The two ``/dev/null`` config paths
+#: make the constructed repositories independent of the developer's own git
+#: configuration — a global ``core.excludesFile`` ignoring, say, ``*.md`` would
+#: otherwise silently drop a file a test needs tracked, and the test would then
+#: assert nothing. The identity variables replace the ``user.name``/``user.email``
+#: those same two lines just took away.
+_GIT_ENV = {
+    # Not the whole of os.environ: a commit hook exports GIT_INDEX_FILE (absolute
+    # for `git commit -a` / `git commit <path>`), and `git -C <tmp> add` would
+    # then write the fixture's files into the developer's commit index.
+    **{
+        key: value
+        for key, value in os.environ.items()
+        if key
+        not in {
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        }
+    },
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_SYSTEM": os.devnull,
+    "GIT_AUTHOR_NAME": "gate integrity selftest",
+    "GIT_AUTHOR_EMAIL": "selftest@example.invalid",
+    "GIT_COMMITTER_NAME": "gate integrity selftest",
+    "GIT_COMMITTER_EMAIL": "selftest@example.invalid",
+}
+
+
+def _git(root: Path, *arguments: str) -> None:
+    """Run one git command in *root*, loudly."""
+    subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=_GIT_ENV,
+    )
+
+
+def _materialise(root: Path, paths: Iterable[str]) -> None:
+    """Create every entry below *root*; a trailing ``/`` means a directory.
+
+    A directory gets a ``.gitkeep`` inside it, because git tracks files and an
+    empty directory would not survive :func:`_commit` — and after #1340 "exists"
+    means "tracked". No test references a ``.gitkeep``, so the placeholder is
+    invisible to the checker.
+    """
+    for entry in paths:
+        target = root / entry
+        if entry.endswith("/"):
+            target.mkdir(parents=True, exist_ok=True)
+            (target / ".gitkeep").write_text("", encoding="utf-8")
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("", encoding="utf-8")
+
+
 @pytest.fixture
 def tree(tmp_path: Path) -> Callable[..., Path]:
-    """Return a helper that materialises a checkout for references to resolve in.
+    """Return a helper that materialises a **git checkout** to resolve against.
 
     Coverage is only asked about paths that exist, so a test that forgets to
     create the file it references would pass vacuously — the exact shape this
     whole checker is about. Every test below creates what it references.
+
+    A real repository rather than a bare directory since #1340: "exists" now
+    means "tracked by git", so a plain directory would put the entire file on
+    the checker's *fallback* branch and leave the production predicate measured
+    by nothing. ``plain_tree`` below is the fixture for the fallback's own tests.
+
+    Args:
+        paths: Entries to create and commit. A trailing ``/`` makes a directory.
+        name: Directory name under ``tmp_path``, so one test can build two
+            checkouts and compare their verdicts.
+        untracked: Entries created but deliberately **not** committed — build
+            output, a local report directory, anything ``.gitignore``d.
     """
 
-    def _build(*paths: str) -> Path:
-        root = tmp_path / "tree"
-        root.mkdir(exist_ok=True)
-        for entry in paths:
-            target = root / entry
-            if entry.endswith("/"):
-                target.mkdir(parents=True, exist_ok=True)
-            else:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text("", encoding="utf-8")
+    def _build(*paths: str, name: str = "tree", untracked: Iterable[str] = ()) -> Path:
+        root = tmp_path / name
+        first = not root.exists()
+        root.mkdir(parents=True, exist_ok=True)
+        if first:
+            _git(root, "init", "--quiet")
+        _materialise(root, paths)
+        _git(root, "add", "--all", "--force")
+        _git(root, "commit", "--quiet", "--allow-empty", "-m", "selftest tree")
+        _materialise(root, untracked)
+        return root
+
+    return _build
+
+
+@pytest.fixture
+def plain_tree(tmp_path: Path) -> Callable[..., Path]:
+    """Return a helper materialising a checkout that is **not** a git work tree.
+
+    A ``git archive`` export or a source tarball, which is the one shape where
+    "on disk" and "tracked" coincide and the checker's filesystem fallback is
+    exact rather than approximate.
+    """
+
+    def _build(*paths: str, name: str = "export") -> Path:
+        root = tmp_path / name
+        root.mkdir(parents=True, exist_ok=True)
+        _materialise(root, paths)
         return root
 
     return _build
@@ -794,6 +895,175 @@ class TestTheEscapeHatch:
         assert "docs/security/nuclei-triage.md is quoted" in capsys.readouterr().out
 
 
+class TestTrackedRatherThanPresent:
+    """#1340: what "exists" means, and why it cannot mean "is on disk".
+
+    The predicate was ``(tree_root / candidate).exists()``, so the verdict was a
+    function of *untracked* state. `test-reports/e2e/` is gitignored E2E output:
+    the same workflows scanned green on a fresh CI checkout and red on every
+    workstation that had run the suite once — and the hook is `always_run`, so it
+    blocked unrelated commits. The other direction is worse and quieter: in CI
+    nothing untracked exists, so a genuinely uncovered read path that was not
+    tracked could never be reported there at all.
+
+    Every test here pairs the two states of one path, so what is measured is the
+    trackedness and nothing else.
+    """
+
+    #: `e2e-smoke.yml`'s reporter step, reduced to the two lines that matter. The
+    #: report path is an artefact the run *produces*; no `paths:` entry should
+    #: cover it, because that would mean "re-run E2E when a report changes".
+    _REPORTER_LANE = """
+    name: E2E smoke
+    on:
+      pull_request:
+        paths:
+          - 'src/backend/**'
+    jobs:
+      smoke:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+            with:
+              name: E2E smoke report
+              path: test-reports/e2e/**/junit-*.xml
+    """
+
+    def test_an_untracked_artefact_cannot_change_the_verdict(
+        self, workflows: Callable[..., Path], tree: Callable[..., Path]
+    ) -> None:
+        """Two checkouts, identical but for one untracked directory, one verdict.
+
+        This is the acceptance criterion of #1340 and it fails against the old
+        predicate: `pristine` reported nothing, `working` reported
+        `test-reports/e2e`, from the same workflow file.
+        """
+        root = workflows(smoke=self._REPORTER_LANE)
+        pristine = tree("src/backend/app.py", name="pristine")
+        working = tree(
+            "src/backend/app.py",
+            name="working",
+            untracked=("test-reports/e2e/run-1/",),
+        )
+        assert _references(root, pristine) == []
+        assert _references(root, working) == _references(root, pristine)
+
+    def test_the_untracked_report_directory_produces_no_finding_at_all(
+        self,
+        workflows: Callable[..., Path],
+        tree: Callable[..., Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Not merely "the two agree" — the working checkout has to be green.
+
+        Two wrong verdicts also agree. The one that blocked commits was the
+        non-empty one, so it is asserted by name.
+        """
+        root = workflows(smoke=self._REPORTER_LANE)
+        working = tree(
+            "src/backend/app.py",
+            name="working",
+            untracked=("test-reports/e2e/run-1/",),
+        )
+        code = checker.main(["--scan-root", str(root), "--tree-root", str(working)])
+        assert code == checker.EXIT_OK
+        assert "test-reports" not in capsys.readouterr().out
+
+    def test_tracking_the_same_directory_makes_it_a_finding_again(
+        self, workflows: Callable[..., Path], tree: Callable[..., Path]
+    ) -> None:
+        """The fix must not buy silence — same workflow, same path, tracked.
+
+        If a directory of that name were ever committed, the workflow would read
+        a repository input its filter excludes, and that is a real finding. What
+        changed is the question the checker asks, not how loudly it answers.
+        """
+        root = workflows(smoke=self._REPORTER_LANE)
+        checkout = tree("src/backend/app.py", "test-reports/e2e/run-1/")
+        assert _references(root, checkout) == ["test-reports/e2e"]
+
+    def test_a_tracked_uncovered_path_is_still_reported(
+        self, workflows: Callable[..., Path], tree: Callable[..., Path]
+    ) -> None:
+        """#1302 itself, re-measured under the tracked predicate.
+
+        The whole rule would be worthless if resolving against the index made
+        the real defect invisible too.
+        """
+        root = workflows(nuclei=_PIN_LANE % "      - 'tests/security/nuclei-templates/**'")
+        checkout = tree("tests/security/nuclei-templates/", ".github/renovate-pins.yaml")
+        assert _references(root, checkout) == [".github/renovate-pins.yaml"]
+
+    def test_a_path_staged_but_not_yet_committed_already_counts(
+        self, workflows: Callable[..., Path], tree: Callable[..., Path]
+    ) -> None:
+        """The index, not `HEAD` — because the hook runs *during* a commit.
+
+        A pull request that adds a workflow and the file it reads stages both
+        before either is committed. Resolving against `HEAD` would let exactly
+        that change through unmeasured, which is the shape #1313 is about.
+        """
+        root = workflows(nuclei=_PIN_LANE % "      - 'tests/security/nuclei-templates/**'")
+        checkout = tree("tests/security/nuclei-templates/")
+        _materialise(checkout, (".github/renovate-pins.yaml",))
+        _git(checkout, "add", "--all", "--force")
+        assert _references(root, checkout) == [".github/renovate-pins.yaml"]
+
+    def test_the_index_names_tracked_files_and_the_directories_they_imply(self, tree: Callable[..., Path]) -> None:
+        """Git tracks files; a directory exists only because something is in it."""
+        index = checker.TreeIndex.for_root(tree("src/backend/app/main.py"))
+        assert index.tracked_files == frozenset({"src/backend/app/main.py"})
+        assert index.exists("src/backend/app/main.py")
+        assert index.is_dir("src/backend/app")
+        assert index.exists("src/backend")
+        assert not index.is_dir("src/backend/app/main.py")
+
+
+class TestTheNonGitFallback:
+    """What happens when the tree root cannot answer "is that tracked?".
+
+    Measured before it was written: no caller in this repository reaches this
+    branch in anger. The pre-commit hook, `task check` and `TestTheRealTree`
+    below all run inside the checkout, and CI's required `static` lane uses
+    `actions/checkout`, so every one of them gets a work tree with an index. The
+    branch exists for the export case the issue named — and, more importantly,
+    so that a tree root which is *not* a work-tree root cannot pass vacuously.
+    """
+
+    def test_an_export_resolves_against_the_filesystem(
+        self, workflows: Callable[..., Path], plain_tree: Callable[..., Path]
+    ) -> None:
+        """A `git archive` tarball has no index, and needs none.
+
+        There "on disk" and "tracked" coincide exactly, so falling back to the
+        filesystem is not an approximation — it is the same answer by another
+        route, and the alternative (report nothing) would be a silent green.
+        """
+        root = workflows(nuclei=_PIN_LANE % "      - 'tests/security/nuclei-templates/**'")
+        export = plain_tree("tests/security/nuclei-templates/", ".github/renovate-pins.yaml")
+        assert checker.TreeIndex.for_root(export).tracked_files is None
+        assert _references(root, export) == [".github/renovate-pins.yaml"]
+
+    def test_a_directory_inside_a_repository_is_not_indexed_as_that_repository(
+        self, workflows: Callable[..., Path], tree: Callable[..., Path]
+    ) -> None:
+        """The vacuous-pass guard, and the reason the toplevel is compared.
+
+        `git -C <dir> ls-files` answers for the *repository*, not for the
+        directory: pointed at a subdirectory holding nothing tracked it returns
+        an empty listing, every reference resolves to "does not exist", and the
+        whole shape reports clean while measuring nothing. That is the failure
+        mode this file exists to refuse, so a root that is not itself the root
+        of a work tree drops to the filesystem instead.
+        """
+        outer = tree("src/backend/app.py", name="outer")
+        inner = outer / "export"
+        _materialise(inner, ("tests/security/nuclei-templates/", ".github/renovate-pins.yaml"))
+        root = workflows(nuclei=_PIN_LANE % "      - 'tests/security/nuclei-templates/**'")
+        assert checker.TreeIndex.for_root(inner).tracked_files is None
+        assert _references(root, inner) == [".github/renovate-pins.yaml"]
+
+
 class TestTheRealTree:
     """What the pre-commit hook asserts, asserted here too.
 
@@ -804,3 +1074,96 @@ class TestTheRealTree:
 
     def test_every_referenced_path_is_covered_or_explained(self) -> None:
         assert checker.main([]) == checker.EXIT_OK
+
+    def test_the_real_checkout_is_resolved_against_the_index(self) -> None:
+        """The tripwire for the production root.
+
+        The fixture trees under `tmp_path` always index; the real checkout is
+        the one root that can silently take the filesystem fallback (git
+        missing, `safe.directory` refusing a bind-mounted repo) — and then the
+        required lane is back on the #1340 predicate while every other test
+        here stays green.
+        """
+        index = checker.TreeIndex.for_root(checker.REPO_ROOT)
+        assert index.resolution == "index", index.reason
+        assert index.tracked_files
+
+    def test_no_marker_was_written_for_the_e2e_report_directory(self) -> None:
+        """#1340 was not closed by justifying the false positive away.
+
+        A `gate-integrity-ok:` naming `test-reports/e2e` would record a reason
+        for something that was never a violation, and it would go on recording
+        it after the predicate was fixed — a pardon left behind, which reads to
+        the next person as evidence that the trigger *should* watch build
+        output. Asked through the checker's own reason parser, so this cannot
+        drift from what the hook actually accepts.
+        """
+        source = (checker.REPO_ROOT / ".github/workflows/e2e-smoke.yml").read_text(encoding="utf-8")
+        reasons = checker._comment_block_reasons(source.splitlines())
+        assert reasons, "the file carries markers; an empty list would make the assertion below vacuous"
+        assert not any("test-reports" in reason for reason in reasons)
+
+
+class TestTheFallbackIsVisible:
+    """A verdict from the filesystem predicate must say so (NFR-018 §2)."""
+
+    _LANE = _PIN_LANE % "      - 'tests/security/nuclei-templates/**'"
+
+    def test_a_plain_export_names_the_fallback(
+        self,
+        workflows: Callable[..., Path],
+        plain_tree: Callable[..., Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = workflows(nuclei=self._LANE)
+        export = plain_tree("tests/security/nuclei-templates/x.yaml", ".github/renovate-pins.yaml")
+
+        checker.main(["--scan-root", str(root), "--tree-root", str(export), "--json"])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out)["resolution"] == "filesystem"
+        assert "FILESYSTEM" in captured.err
+
+    def test_an_indexed_checkout_reports_the_index(
+        self,
+        workflows: Callable[..., Path],
+        tree: Callable[..., Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = workflows(nuclei=self._LANE)
+        checkout = tree("tests/security/nuclei-templates/x.yaml", ".github/renovate-pins.yaml")
+
+        checker.main(["--scan-root", str(root), "--tree-root", str(checkout), "--json"])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out)["resolution"] == "index"
+        assert "FILESYSTEM" not in captured.err
+
+    def test_a_work_tree_with_nothing_tracked_is_refused_not_passed(
+        self,
+        workflows: Callable[..., Path],
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """`git init` over an export: every reference would be 'not tracked'."""
+        root = workflows(nuclei=self._LANE)
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        _git(empty, "init", "--quiet")
+        _materialise(empty, ("tests/security/nuclei-templates/x.yaml", ".github/renovate-pins.yaml"))
+
+        code = checker.main(["--scan-root", str(root), "--tree-root", str(empty)])
+
+        assert code == checker.EXIT_USAGE
+        assert "nothing tracked" in capsys.readouterr().err
+
+
+class TestCandidateNormalisation:
+    def test_a_dot_segment_does_not_hide_a_reference(self, tree: Callable[..., Path]) -> None:
+        """`scripts/./ci/x.sh` is `scripts/ci/x.sh`; the old on-disk predicate
+        normalised it implicitly, an exact-string index must do so explicitly."""
+        checkout = tree("scripts/ci/x.sh")
+        index = checker.TreeIndex.for_root(checkout)
+        lines = ["      - run: bash scripts/./ci/x.sh"]
+
+        assert list(checker.path_references(lines, index)) == ["scripts/ci/x.sh"]

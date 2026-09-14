@@ -1,8 +1,8 @@
-import { type ReactElement } from 'react';
+import { Children, isValidElement, type ElementType, type ReactElement, type ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
 import { ThemeContextProvider } from '@/theme';
 import uiReducer from '@/store/slices/uiSlice';
@@ -29,6 +29,7 @@ import postHarvestReducer from '@/store/slices/postHarvestSlice';
 import careRemindersReducer from '@/store/slices/careRemindersSlice';
 import wateringLogsReducer from '@/store/slices/wateringLogsSlice';
 import fertilizersReducer from '@/store/slices/fertilizersSlice';
+import activitiesReducer from '@/store/slices/activitiesSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -55,6 +56,7 @@ const rootReducer = combineReducers({
   careReminders: careRemindersReducer,
   wateringLogs: wateringLogsReducer,
   fertilizers: fertilizersReducer,
+  activities: activitiesReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need
@@ -82,8 +84,13 @@ export function createStoreWithExpertise(
   // Issue #587: sensor/monitoring surfaces (e.g. the monitoring widget category)
   // only appear when smart home is on. Defaults to false (pre-#587 behaviour).
   smartHomeEnabled = false,
+  // #1402 C: a suite driving an installation-wide catalogue write also has to
+  // declare whether its caller is a platform admin. Defaults to false, which is
+  // the pre-#1402 behaviour of every existing caller.
+  { platformAdmin = false }: { platformAdmin?: boolean } = {},
 ): TestStore {
   return createTestStore({
+    ...authState({ platformAdmin }),
     userPreferences: {
       preferences: {
         key: 'pref-1',
@@ -100,6 +107,47 @@ export function createStoreWithExpertise(
       error: null,
     },
   });
+}
+
+/**
+ * The auth slice seeded with a signed-in user, optionally a platform admin.
+ *
+ * Seven catalogue routers are installation-wide and carry `require_platform_admin`
+ * since #1402 C — growth phases, location types, profiles, lifecycle configs,
+ * activities, crop-rotation successors, enrichment. `useCanEditInstallationCatalogue`
+ * reads `is_platform_admin` off this slice, so a suite that drives one of those
+ * writes has to say which caller it is acting as.
+ *
+ * One definition, not one per suite. The pattern already existed inline in
+ * `AccountSettingsInstanceGating` and was about to be copied into eight more files;
+ * a second copy is what drifts when the auth slice gains a field.
+ */
+export function authState({ platformAdmin = false }: { platformAdmin?: boolean } = {}): PreloadedState {
+  return {
+    auth: {
+      user: {
+        key: 'user-1',
+        display_name: 'Tester',
+        email: 'tester@example.org',
+        locale: 'de',
+        timezone: 'Europe/Berlin',
+        is_platform_admin: platformAdmin,
+      },
+      accessToken: 'tok',
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      initialized: true,
+    },
+  };
+}
+
+/**
+ * Store whose acting user is a platform admin, so installation-wide catalogue
+ * writes are offered. Extra preloaded slices are merged on top.
+ */
+export function createPlatformAdminStore(preloadedState?: PreloadedState): TestStore {
+  return createTestStore({ ...authState({ platformAdmin: true }), ...(preloadedState ?? {}) });
 }
 
 type ModuleVisibilityState = 'enabled' | 'disabled';
@@ -207,4 +255,55 @@ export function renderWithProviders(
       </Provider>,
     ),
   };
+}
+
+/** One addressable route of the constructed router tree. */
+export interface FlatRoute {
+  path: string;
+  element: ReactNode;
+}
+
+/**
+ * Every addressable route of a router tree, depth-first (#1261, #1336).
+ *
+ * Lives here rather than in each route test because two suites assert route
+ * decisions from two tables, and a second copy of the traversal is the thing
+ * that drifts: the platform-admin suite would keep walking a tree the
+ * domain-role suite had learned to walk differently.
+ */
+export function flattenRoutes(routes: RouteObject[]): FlatRoute[] {
+  const flat: FlatRoute[] = [];
+  for (const route of routes) {
+    if (route.path) flat.push({ path: route.path, element: route.element });
+    if (route.children) flat.push(...flattenRoutes(route.children));
+  }
+  return flat;
+}
+
+/** The flattened route registered at `path`, or a failure naming it. */
+export function findFlatRoute(routes: FlatRoute[], path: string): FlatRoute {
+  const match = routes.find((route) => route.path === path);
+  if (!match) throw new Error(`Route "${path}" is not registered in AppRoutes.tsx`);
+  return match;
+}
+
+/**
+ * The first element of type `type` anywhere in `node`'s subtree, or `null`.
+ *
+ * Deliberately **not** "is the outermost element this type": a route may nest
+ * guards (`<RequirePlatformAdmin><RequireRole …>`), and a check that read only
+ * the outer one reported the inner as absent — measured on
+ * `scripts/check_route_role_guards.py`, whose text scan had the same hole and
+ * passed a route wrapped in one axis while the table declared the other. Both
+ * measurements of that rule now walk the whole subtree.
+ */
+export function findElementOfType(node: ReactNode, type: ElementType): ReactElement | null {
+  if (!isValidElement(node)) return null;
+  if (node.type === type) return node;
+  const { children } = node.props as { children?: ReactNode };
+  for (const child of Children.toArray(children)) {
+    const found = findElementOfType(child, type);
+    if (found) return found;
+  }
+  return null;
 }

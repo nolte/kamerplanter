@@ -260,8 +260,40 @@ const client = axios.create({
  * `tenantClient` gets no such interceptor: its routes bind their tenant from the
  * `/t/{slug}/` path, which is authoritative there.
  */
-client.interceptors.request.use((config) => {
-  const slug = getActiveTenantSlug();
+/**
+ * Global routes that resolve their tenant from the header alone, and now refuse
+ * the request outright when it is missing (#1402 group C).
+ *
+ * Until that change, a request sent during the bootstrap window merely *narrowed*
+ * what the caller saw: the backend read an unresolved tenant as "personal scope"
+ * and answered. `require_owned_plant` closed that reading — an empty tenant key is
+ * refused — so for these paths the same window now produces a 404 on the caller's
+ * **own** plant, which is a regression rather than a narrowing.
+ *
+ * Matched by path rather than made unconditional on purpose. Awaiting the slug for
+ * every global request would delay the genuinely global ones — the species
+ * catalogue, `/mode`, the auth surface itself — by up to the bootstrap timeout, and
+ * some of them run *before* a tenant can exist. The wait is owed exactly where the
+ * header became load-bearing.
+ */
+/** How long a plant-scoped request waits out the auth-bootstrap window. */
+const TENANT_HEADER_BOOTSTRAP_TIMEOUT_MS = 2000;
+
+const TENANT_HEADER_REQUIRED = [/^\/plant-instances\/[^/]+\/phases(\/|$)/, /^\/care-reminders\/plants\//];
+
+client.interceptors.request.use(async (config) => {
+  let slug = getActiveTenantSlug();
+  if (!slug && !isLightMode && TENANT_HEADER_REQUIRED.some((re) => re.test(config.url ?? ''))) {
+    // Bounded well below `waitForTenantSlug`'s 10 s default. The wait exists for
+    // the bootstrap window, which closes in well under a second; the 10 s is sized
+    // for `tenantClient`, where the alternative is a request to a URL that cannot
+    // exist. Here the alternative is a header-less request that fails immediately,
+    // so when there will never be a slug — `loadMyTenants` failed, the session
+    // expired, the stale-slug reload failed — the caller is told promptly instead
+    // of staring at a dead page for ten seconds. Overshooting the bootstrap by a
+    // second costs one retry; undershooting the failure case costs the page.
+    slug = await waitForTenantSlug(TENANT_HEADER_BOOTSTRAP_TIMEOUT_MS);
+  }
   if (slug) {
     config.headers.set(ACTIVE_TENANT_HEADER, slug);
   }

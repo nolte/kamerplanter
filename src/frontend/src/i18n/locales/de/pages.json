@@ -640,7 +640,8 @@
       "sectionAdvancedDesc": "Phasenbeschränkungen, Tags und Sortierreihenfolge.",
       "editIntro": "Bearbeiten Sie die Eigenschaften dieser Tätigkeit. Änderungen wirken sich auf zukünftige Aufgaben aus.",
       "listIntro": "Tätigkeiten definieren Aktionen, die an Pflanzen ausgeführt werden können (z. B. Schnitt, Umpflanzen, Trainingsmaßnahmen). System-Tätigkeiten werden automatisch befüllt.",
-      "noActivities": "Noch keine Tätigkeiten angelegt."
+      "noActivities": "Noch keine Tätigkeiten angelegt.",
+      "installationWideReadOnly": "Aktivitäten gelten installationsweit und werden von der Plattform-Administration gepflegt. Du siehst alle Angaben, kannst sie hier aber nicht ändern."
     },
     "auth": {
       "login": "Anmelden",
@@ -853,7 +854,8 @@
         "providerError": "Der Anbieter hat einen Fehler gemeldet. Bitte versuche es später erneut.",
         "accountDisabled": "Dieses Konto ist deaktiviert.",
         "sessionFailed": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte melde dich erneut an.",
-        "generic": "Bei der Anmeldung ist ein Fehler aufgetreten."
+        "generic": "Bei der Anmeldung ist ein Fehler aufgetreten.",
+        "linkRequiresPassword": "Diese E-Mail-Adresse gehört bereits zu einem Konto hier und lässt sich nicht automatisch verknüpfen. Melde dich stattdessen mit E-Mail und Passwort an."
       },
       "profileSection": "Persönliche Daten",
       "profileSectionDesc": "Anzeigename und E-Mail-Adresse deines Kontos.",
@@ -2070,7 +2072,8 @@
       "photoperiodType": "Photoperioden-Typ",
       "photoperiodTypeHelper": "Kurztagspflanze: <12 h, Langtagspflanze: >12 h",
       "criticalDayLength": "Kritische Tageslänge (h)",
-      "criticalDayLengthHelper": "Tageslänge, ab der die Blütenbildung ausgelöst wird (0–24 h)"
+      "criticalDayLengthHelper": "Tageslänge, ab der die Blütenbildung ausgelöst wird (0–24 h)",
+      "installationWideReadOnly": "Der Lebenszyklus gilt installationsweit für diese Art und wird von der Plattform-Administration gepflegt. Du siehst die Werte, kannst sie hier aber nicht ändern."
     },
     "growthPhases": {
       "title": "Wachstumsphasen",
@@ -3175,6 +3178,7 @@
       "photoRequired": "Foto erforderlich",
       "noPhotos": "Keine Fotos vorhanden.",
       "photoRemove": "Foto {{index}} entfernen",
+      "photoAlt": "Foto {{index}}",
       "photos": "Fotos",
       "timerDuration": "Timer-Dauer (Sek.)",
       "timerDurationHelper": "Countdown-Dauer in Sekunden",
@@ -3321,7 +3325,8 @@
         "tank": "Tank"
       },
       "instantiateError": "Workflow-Instanziierung für alle Pflanzen fehlgeschlagen.",
-      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen."
+      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen.",
+      "cannotDeleteReopened": "Diese Aufgabe war abgeschlossen und wurde wiedereröffnet. Sie trägt die Fotos und den Nachweis dieses Abschlusses und lässt sich deshalb nicht löschen — überspringe sie, um sie aus der Liste zu nehmen."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",

@@ -443,14 +443,6 @@ Before it is reported, the value is checked against `^[0-9a-f]{7,40}$` (after st
 
 ---
 
-## Uploads
-
-| Variable | Default | Required | Description |
-|----------|---------|---------|-------------|
-| `UPLOAD_DIR` | `uploads/tasks` | No | Directory for file uploads (relative to backend working directory) |
-
----
-
 ## Nested Configuration (GBIF)
 
 GBIF settings can be passed using the double-underscore delimiter for nesting:
@@ -739,6 +731,7 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 | `STORAGE_STRIP_EXIF` | `true` | No | Strips EXIF/GPS metadata from image uploads globally at save time (NFR-013 §5.1). There is **no** per-category override variable — unlike the MIME whitelists, this is a single global switch. |
 | `STORAGE_TENANT_QUOTA_MB` | `2048` | No | Storage quota per tenant, in megabytes. `0` disables the quota (unlimited). |
 | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | `50` | No | Maximum number of gallery photos per plant instance (REQ-034). `0` disables the limit. |
+| `STORAGE_TASK_PHOTO_ORPHAN_HOURS` | `0` | No | How long a task photo may sit unreferenced before the nightly sweep **deletes** it (#1393). `0` disables it, and is the shipped default: the job deletes data over a reference history spanning every client version and a manual migration, and does not go live in its first release. To switch it on, set a positive number of hours; every upload is briefly unreferenced (the attachment row is written before the form links it), so the value is a wide safety margin rather than a tuning knob — `48` is the figure this change was built and tested around. |
 
 **Default MIME whitelist per category:**
 

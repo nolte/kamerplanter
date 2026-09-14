@@ -75,6 +75,7 @@ import PestScanButton from '@/components/pests/PestScanButton';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
 import CareProfileForm from '@/pages/pflege/components/CareProfileForm';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { DosagePreset } from '@/pages/pflege/components/CareConfirmDialog';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
@@ -538,6 +539,22 @@ export default function PlantInstanceDetailPage() {
       .catch(() => setRecommendedRoMap(new Map()));
   }, [assignedPlan?.key, editSiteKey]);
 
+  // #1422 gave the phase-transition and care-confirm routes a rank gate, so a viewer
+  // now gets a 403 from them. Without this the page still offered the controls and
+  // the refusal arrived only on submit — the shape corrected on the task page in
+  // #1393 round 8, where a permanently-refused Delete button was offered
+  // unconditionally and answered with an error toast that led nowhere.
+  //
+  // Disabled rather than hidden, for the same reason as there: a control that
+  // vanishes explains nothing, while a disabled one with a tooltip names the rule.
+  // `hasTenant &&`, matching `PestScanButton` and `useCanCreateCatalogEntry`:
+  // `canEdit` is false whenever the active tenant is not resolved yet, so a bare
+  // `!canEdit` disables these for a lead while the tenant list loads — and for ever
+  // if that load fails. Absence of a tenant is not a refusal; the backend resolves
+  // the personal tenant, where the caller is lead.
+  const { canEdit, hasTenant } = useTenantPermissions();
+  const roleRestricted = hasTenant && !canEdit;
+
   const handleConfirmWatering = async (options?: ConfirmReminderOptions) => {
     if (!key) return;
     try {
@@ -636,6 +653,11 @@ export default function PlantInstanceDetailPage() {
         instance_id: plant.instance_id,
         species_key: plant.species_key,
         ...payload,
+        // The "—" option on every key select carries value '', so an unset
+        // reference reaches here as an empty string. '' is not a key: the API
+        // refuses it with 422 (min_length=1) precisely because it used to be
+        // stored as a dangling reference. null is how this API says "none".
+        cultivar_key: payload.cultivar_key || null,
         site_key: payload.site_key || null,
         location_key: payload.location_key || null,
         slot_key: payload.slot_key || null,
@@ -1100,7 +1122,7 @@ export default function PlantInstanceDetailPage() {
             primary={{
               label: t('pages.phases.transition'),
               icon: <SwapHorizIcon />,
-              disabled: !!plant?.removed_on,
+              disabled: !!plant?.removed_on || roleRestricted,
               testId: 'transition-button',
               onClick: () => setTransitionOpen(true),
             }}
@@ -1478,7 +1500,7 @@ export default function PlantInstanceDetailPage() {
                     color="success"
                     startIcon={<CheckCircleOutlineIcon />}
                     onClick={() => setWateringDialogOpen(true)}
-                    disabled={confirmingWatering}
+                    disabled={confirmingWatering || roleRestricted}
                     data-testid="confirm-watering-button"
                   >
                     {t('pages.plantInstances.confirmWatering')}
@@ -1945,7 +1967,7 @@ export default function PlantInstanceDetailPage() {
                 variant="outlined"
                 size="small"
                 onClick={() => setTransitionOpen(true)}
-                disabled={!!plant.removed_on}
+                disabled={!!plant.removed_on || roleRestricted}
               >
                 {t('pages.phases.transition')}
               </Button>

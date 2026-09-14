@@ -54,7 +54,7 @@ describe('LifecycleConfigSection — Phase A fields', () => {
 
   it('renders cultivation_cycle_type and flowering_strategy for an expert', async () => {
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('expert'),
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
     });
 
     // cultivation_cycle_type (intermediate)
@@ -68,7 +68,7 @@ describe('LifecycleConfigSection — Phase A fields', () => {
 
   it('hides the expert-only flowering_strategy field from a beginner', async () => {
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('beginner'),
+      store: createStoreWithExpertise('beginner', false, { platformAdmin: true }),
     });
 
     // cycle_type is always present (ungated)
@@ -80,7 +80,7 @@ describe('LifecycleConfigSection — Phase A fields', () => {
   it('carries a newly selected flowering_strategy value into the submit payload', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('expert'),
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
     });
 
     const fs = within(await screen.findByTestId('form-field-flowering_strategy')).getByRole(
@@ -103,7 +103,7 @@ describe('LifecycleConfigSection — Phase A fields', () => {
   it('carries a newly selected growth_determinacy value into the submit payload', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('expert'),
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
     });
 
     const gd = within(await screen.findByTestId('form-field-growth_determinacy')).getByRole(
@@ -125,7 +125,7 @@ describe('LifecycleConfigSection — Phase A fields', () => {
 
   it('hides the expert-only growth_determinacy field from a beginner', async () => {
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('beginner'),
+      store: createStoreWithExpertise('beginner', false, { platformAdmin: true }),
     });
 
     await screen.findByTestId('form-field-cycle_type');
@@ -135,7 +135,7 @@ describe('LifecycleConfigSection — Phase A fields', () => {
   it('normalises a cleared optional lifecycle select to null on submit', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('expert'),
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
     });
 
     // The mock starts with cultivation_cycle_type = 'annual'; clearing it to the
@@ -153,5 +153,31 @@ describe('LifecycleConfigSection — Phase A fields', () => {
       'lc-1',
       expect.objectContaining({ cultivation_cycle_type: null }),
     );
+  });
+
+  /**
+   * The lifecycle config is installation-wide — one record per species, read by
+   * every tenant — and `POST/PUT /species/{key}/lifecycle` carries
+   * `require_platform_admin` since #1402 C.
+   *
+   * The disabled assertion is the load-bearing one. `useForm({ disabled })` was
+   * inert here until the same change taught `src/components/form/Form*Field` to
+   * stop overwriting `field.disabled` with an absent explicit prop, so a test that
+   * only checked for the missing save bar would have passed over an editable form.
+   */
+  describe('a caller who is not a platform admin', () => {
+    it('shows the values, explains why, and offers no way to save them', async () => {
+      renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
+        store: createStoreWithExpertise('expert'),
+      });
+
+      // Control: the read happened and the value is on screen.
+      const cct = await screen.findByTestId('form-field-cultivation_cycle_type');
+      expect(within(cct).getByDisplayValue('annual')).toBeInTheDocument();
+
+      expect(screen.getByTestId('lifecycle-readonly-notice')).toBeInTheDocument();
+      expect(screen.queryByTestId('form-submit-button')).toBeNull();
+      expect(within(cct).getByDisplayValue('annual')).toBeDisabled();
+    });
   });
 });

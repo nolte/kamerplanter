@@ -64,6 +64,16 @@ class SpeciesDetailPage(BasePage):
         By.CSS_SELECTOR,
         "[data-testid='lifecycle-config-section'] [data-testid='form-submit-button']",
     )
+    #: The lifecycle tab's own container, and the right anchor for "the tab is
+    #: ready".
+    #:
+    #: The submit button used to serve as that anchor, which stopped being safe in
+    #: #1402 C: the lifecycle config is installation-wide, so `FormActions` renders
+    #: only for a platform admin and a non-admin run waits for an element that will
+    #: never appear. The section renders for everyone, admin or not, which is what a
+    #: readiness anchor has to do — a wait may only depend on what the caller's own
+    #: intent requires (#1341).
+    LIFECYCLE_SECTION = (By.CSS_SELECTOR, "[data-testid='lifecycle-config-section']")
 
     # Growth phase locators
     #: The growth-phase dialog on its own. `CREATE_DIALOG` above is a selector

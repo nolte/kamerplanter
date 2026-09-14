@@ -92,14 +92,24 @@ class _FakeDb:
 
 
 def _db_with_diary(docs: dict[str, dict]) -> _FakeDb:
-    from app.data_access.arango import collections as col
+    """A fake holding every carrier the migration walks, with the docs in the diary.
 
-    collections = {
-        col.PLANT_DIARY_ENTRIES: _FakeCollection(docs),
-        col.HARVEST_BATCHES: _FakeCollection({}),
-        col.INSPECTIONS: _FakeCollection({}),
-        col.TASKS: _FakeCollection({}),
-    }
+    Built from ``migrate_photo_refs``' own list rather than a hand-kept copy. The copy
+    this replaces named the four collections the migration used to walk — including
+    ``HARVEST_BATCHES``, which has no ``photo_refs`` at all — so it could not have
+    noticed that the migration was skipping ``plant_instances``,
+    ``harvest_observations`` and ``storage_observations``. A fake that mirrors a wrong
+    list certifies the wrong list.
+
+    Deriving it here is safe in a way it would not be for the carrier list itself:
+    what this file tests is *normalisation*, and the membership of that list is pinned
+    against the models in ``tests/unit/data_access/arango/test_photo_ref_carriers.py``.
+    """
+    from app.data_access.arango import collections as col
+    from app.migrations.migrate_photo_refs import _PHOTO_REF_COLLECTIONS
+
+    collections = {name: _FakeCollection({}) for name in _PHOTO_REF_COLLECTIONS}
+    collections[col.PLANT_DIARY_ENTRIES] = _FakeCollection(docs)
     return _FakeDb(collections)
 
 
@@ -145,3 +155,27 @@ class TestRun:
         report = run(db, dry_run=False)
         assert report.scanned_documents == 0
         assert report.as_dict()["noop"] is True
+
+
+def test_the_migration_walks_every_pinned_carrier():
+    """The migration and the sweep must agree on where photo references live.
+
+    They did not. The migration kept its own four-entry list, which named
+    ``harvest_batches`` — a collection with no ``photo_refs`` — and omitted
+    ``plant_instances``, ``harvest_observations`` and ``storage_observations``, all
+    three of which carry it. So it reported success while leaving every legacy
+    reference in the plant gallery unnormalised, and #1393's safety story names this
+    migration as part of the reference history the orphan sweep has to survive.
+
+    Asserted as *identity* with the pinned list rather than as a superset: a migration
+    that walked more collections than the sweep protects would be writing to rows
+    nothing checks, which is the same divergence in the other direction.
+    """
+    from app.data_access.arango.attachment_repository import PHOTO_REF_COLLECTIONS
+    from app.migrations.migrate_photo_refs import _PHOTO_REF_COLLECTIONS
+
+    assert tuple(_PHOTO_REF_COLLECTIONS) == tuple(PHOTO_REF_COLLECTIONS), (
+        "the migration's carrier list drifted from the one the orphan sweep scans; "
+        "the two must name the same collections or one of them is silently skipping "
+        "rows the other protects (#1393)"
+    )

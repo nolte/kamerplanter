@@ -640,7 +640,8 @@
       "sectionAdvancedDesc": "Phase restrictions, tags, and sort order.",
       "editIntro": "Edit the properties of this activity. Changes affect future tasks.",
       "listIntro": "Activities define actions that can be performed on plants (e.g. pruning, transplanting, training). System activities are pre-populated.",
-      "noActivities": "No activities created yet."
+      "noActivities": "No activities created yet.",
+      "installationWideReadOnly": "Activities apply installation-wide and are maintained by the platform administration. You can see every detail but cannot change it here."
     },
     "auth": {
       "login": "Log in",
@@ -853,7 +854,8 @@
         "providerError": "The provider reported an error. Please try again later.",
         "accountDisabled": "This account is disabled.",
         "sessionFailed": "Sign-in could not be completed. Please sign in again.",
-        "generic": "An error occurred during sign-in."
+        "generic": "An error occurred during sign-in.",
+        "linkRequiresPassword": "This email address already belongs to an account here, and it cannot be linked automatically. Sign in with your email and password instead."
       },
       "profileSection": "Personal Details",
       "profileSectionDesc": "Display name and email address of your account.",
@@ -2070,7 +2072,8 @@
       "photoperiodType": "Photoperiod Type",
       "photoperiodTypeHelper": "Short-day: <12 h, Long-day: >12 h",
       "criticalDayLength": "Critical Day Length (h)",
-      "criticalDayLengthHelper": "Day length that triggers flowering (0–24 h)"
+      "criticalDayLengthHelper": "Day length that triggers flowering (0–24 h)",
+      "installationWideReadOnly": "The lifecycle applies installation-wide for this species and is maintained by the platform administration. You can see the values but cannot change them here."
     },
     "growthPhases": {
       "title": "Growth Phases",
@@ -3175,6 +3178,7 @@
       "photoRequired": "Photo required",
       "noPhotos": "No photos available.",
       "photoRemove": "Remove photo {{index}}",
+      "photoAlt": "Photo {{index}}",
       "photos": "Photos",
       "timerDuration": "Timer Duration (sec)",
       "timerDurationHelper": "Countdown duration in seconds",
@@ -3321,7 +3325,8 @@
         "tank": "Tank"
       },
       "instantiateError": "Workflow instantiation failed for all plants.",
-      "instantiatePartial": "{{success}} succeeded, {{failed}} failed."
+      "instantiatePartial": "{{success}} succeeded, {{failed}} failed.",
+      "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",

@@ -2,12 +2,13 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
-from app.common.enums import TaskOrigin
+from app.common.enums import AttachmentCategory, TaskOrigin
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.recurrence_engine import RecurrenceEngine
+from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import (
     ChecklistItem,
@@ -198,8 +199,14 @@ class TaskService:
         dependency_resolver: DependencyResolver,
         recurrence: RecurrenceEngine | None = None,
         notification_propagation: NotificationPropagationService | None = None,
+        attachment_repo: IAttachmentRepository | None = None,
     ) -> None:
         self._repo = repo
+        # Resolves the `photo_refs` a completion carries (#1339 review). Optional
+        # only so the many existing constructions of this service keep working;
+        # the DI factory always supplies it, and `_verify_photo_refs` fails
+        # closed rather than waving a reference through when it is absent.
+        self._attachment_repo = attachment_repo
         self._hst = hst_validator
         self._deps = dependency_resolver
         self._recurrence = recurrence or RecurrenceEngine()
@@ -1015,21 +1022,62 @@ class TaskService:
         # deleted, so ``self._repo.delete_task`` below is only ever reached after
         # a tenant-checked load (GHSA-h5wp-r68x-97g8).
         task = self.get_task(key, tenant_key=tenant_key)
-        allowed = {"pending", "skipped", "cancelled", "dormant"}
+        # No "cancelled": `TaskStatus` has no such member (pending, in_progress,
+        # completed, skipped, failed, dormant), so that entry could never match a
+        # status Pydantic would accept — an allowlist row that cannot fire. Dropping
+        # it changes no behaviour and stops the set from describing a state machine
+        # this one does not have. `failed` stays out deliberately: its photos may be
+        # the record of what went wrong.
+        allowed = {"pending", "skipped", "dormant"}
         if task.status not in allowed:
             raise ValidationError(
                 f"Cannot delete task in status '{task.status}'. "
                 f"Only {', '.join(sorted(allowed))} tasks can be deleted.",
             )
+        # The status alone does not say whether this task was ever completed.
+        # ``reopen_task`` puts a **completed** task back to ``pending`` and leaves
+        # ``photo_refs`` in place, so without this line a reopened task is deletable
+        # while carrying the photographic record of its completion — and #1393 makes
+        # deletion take those photos with it (dispatched below, and the orphan sweep
+        # would collect them anyway once nothing referenced them).
+        #
+        # The gate's own promise is that a completed task's documentation cannot be
+        # lost this way. ``reopen_task`` was a back door through it; this closes it,
+        # so the promise holds rather than merely reading well.
+        #
+        # The marker is durable because ``reopen_task`` refuses to downgrade it, not
+        # because nothing writes it — an earlier version of this comment claimed the
+        # latter ("never cleared — not by completing again, not by skipping"), which
+        # was true of ``skip_task`` and false of the *reopen after* the skip. That
+        # sequence overwrote the marker and made this refusal escapable; the claim had
+        # been written from reading one method instead of running the sequence, and it
+        # is why nobody looked again for four review rounds.
+        #
+        # The message names only what is actually possible: ``skip_task`` takes the
+        # task out of the queue. It used to advise cancelling, an operation
+        # ``TaskStatus`` has no member for. Whether a re-completed task should become
+        # deletable again is a product question, not one this gate can answer.
+        if task.reopened_from_status == "completed":
+            raise ValidationError(
+                "Cannot delete a task that was completed and reopened: it still carries the "
+                "photos and record of that completion. Skip it to take it out of the queue.",
+            )
+        # No photo cleanup here, and that is a measured decision rather than an
+        # omission: ``complete_task`` is the only writer of ``photo_refs``, nothing
+        # ever removes an entry, and the gate above refuses every task that was once
+        # completed — so a task that reaches this line carries no photos to clean up.
+        # ``tests/unit/domain/services/test_deletable_task_carries_no_photos.py`` pins
+        # that invariant and fails if the gate is ever relaxed.
+        #
+        # An eager ``delete_attachments`` call stood here through five review rounds.
+        # It could not run, because of the invariant above — except through the reopen
+        # hole round 6 found, where it would have destroyed exactly the completion
+        # photos this gate exists to protect. A background call that deletes
+        # attachments is not worth carrying for a path that cannot execute.
         deleted = self._repo.delete_task(key)
         if deleted:
             self._propagate(lambda p: p.on_task_deleted(task))
         return deleted
-
-    def add_photo_ref(self, key: str, url: str, *, tenant_key: str) -> Task:
-        task = self.get_task(key, tenant_key=tenant_key)
-        task.photo_refs.append(url)
-        return self._repo.update_task(key, task)
 
     def start_task(self, key: str, *, tenant_key: str) -> Task:
         task = self.get_task(key, tenant_key=tenant_key)
@@ -1038,6 +1086,61 @@ class TaskService:
         task.status = "in_progress"
         task.started_at = datetime.now(UTC)
         return self._repo.update_task(key, task)
+
+    def _verify_photo_refs(
+        self,
+        refs: list[str],
+        already_attached: list[str],
+        *,
+        tenant_key: str,
+    ) -> None:
+        """Refuse a photo reference that is not this tenant's task attachment.
+
+        ``TaskCompleteRequest.photo_refs`` is a bare ``list[str]`` and was
+        forwarded verbatim, so ``['x']`` satisfied a ``requires_photo`` task and
+        a foreign attachment id could be pinned onto one's own task. The diary
+        sibling has resolved every reference through the attachment catalogue
+        since REQ-050; this is the same rule for REQ-006.
+
+        A reference already stored on the task is not re-checked: it passed once,
+        and re-validating it would make an unrelated completion fail after a
+        legitimate attachment was later erased under NFR-011 retention.
+
+        Unknown, foreign and wrong-category all raise the **same**
+        ``ValidationError`` (422): distinguishing them would confirm that an id
+        exists somewhere else in the installation.
+
+        Args:
+            refs: The references the caller sent.
+            already_attached: References the task already carries.
+            tenant_key: Owning tenant of the task.
+
+        Raises:
+            ValidationError: If a new reference does not resolve to a
+                ``TASK``-category attachment of this tenant, or if no attachment
+                catalogue is configured to judge it.
+        """
+        known = set(already_attached)
+        added = [ref for ref in dict.fromkeys(refs) if ref not in known]
+        if not added:
+            return
+
+        if self._attachment_repo is None:
+            # Fail closed. A service assembled without the resolver cannot judge
+            # a reference, and accepting it "for now" is how a guard ends up
+            # inert in production while every test still passes.
+            raise ValidationError(
+                "Task photo references cannot be validated: no attachment catalogue is configured.",
+                details=[{"field": "photo_refs", "message": "attachment lookup unavailable"}],
+            )
+
+        for ref in added:
+            attachment = self._attachment_repo.get(ref, tenant_key)
+            if attachment is None or attachment.category != AttachmentCategory.TASK:
+                raise ValidationError(
+                    f"'{ref}' is not a task photo of this tenant.",
+                    details=[{"field": "photo_refs", "message": f"unknown task attachment '{ref}'"}],
+                )
 
     def complete_task(
         self,
@@ -1058,7 +1161,14 @@ class TaskService:
             raise ValidationError("This task requires at least one photo before completion.")
 
         if photo_refs:
-            task.photo_refs.extend(photo_refs)
+            self._verify_photo_refs(photo_refs, task.photo_refs, tenant_key=tenant_key)
+            # Order-preserving dedup across what is already stored and what
+            # arrives. The completion form seeds its list from the task's own
+            # `photo_refs`, so reopening a completed task and completing it again
+            # used to append every existing ref a second time — `[a, a, b]` in the
+            # document and duplicate React keys in the gallery (#1339 review).
+            known = set(task.photo_refs)
+            task.photo_refs.extend(ref for ref in dict.fromkeys(photo_refs) if ref not in known)
 
         task.status = "completed"
         task.completed_at = datetime.now(UTC)
@@ -1239,7 +1349,25 @@ class TaskService:
             raise ValidationError(
                 f"Cannot reopen task in status '{task.status}'. Only completed or skipped tasks can be reopened.",
             )
-        task.reopened_from_status = task.status
+        # Never downgraded once it says ``"completed"``. ``delete_task`` reads this
+        # field to refuse destroying a task that still carries the ``photo_refs``
+        # completion wrote, and the plain assignment made that refusal escapable with
+        # four ordinary clicks: complete → reopen (marker "completed") → skip
+        # (``skip_task`` accepts ``pending``) → reopen (marker overwritten with
+        # "skipped"). ``photo_refs`` is untouched throughout, so the photos were still
+        # there and the gate was not.
+        #
+        # The two obvious alternative anchors do not work. ``completed_at`` is set to
+        # ``None`` three lines below, by this very method. Gating on non-empty
+        # ``photo_refs`` would be unbypassable — nothing ever removes an entry — but it
+        # narrows the rule to "carries photos" where the decision taken was "was ever
+        # completed", and a completion without photos is still a completion.
+        #
+        # The field's meaning becomes "the status this task was reopened from, with a
+        # completion remembered in preference to a later skip". ``delete_task`` is its
+        # only production reader; the API exposes it and no client reads it.
+        if task.reopened_from_status != "completed":
+            task.reopened_from_status = task.status
         task.reopened_at = datetime.now(UTC)
         task.status = "pending"
         task.completed_at = None

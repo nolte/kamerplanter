@@ -8,7 +8,7 @@ from app.api.v1.location_types.schemas import (
     LocationTypeResponse,
     LocationTypeUpdate,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_location_type_service
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.domain.models.location_type import LocationType
@@ -39,7 +39,12 @@ def get_location_type(
     return to_response(lt, LocationTypeResponse)
 
 
-@router.post("", response_model=LocationTypeResponse, status_code=201)
+@router.post(
+    "",
+    response_model=LocationTypeResponse,
+    status_code=201,
+    dependencies=[Depends(require_platform_admin)],
+)
 def create_location_type(body: LocationTypeCreate, service: LocationTypeService = Depends(get_location_type_service)):
     """Create a new location type."""
     lt = LocationType(**body.model_dump())
@@ -47,7 +52,11 @@ def create_location_type(body: LocationTypeCreate, service: LocationTypeService 
     return to_response(created, LocationTypeResponse)
 
 
-@router.put("/{key}", response_model=LocationTypeResponse)
+@router.put(
+    "/{key}",
+    response_model=LocationTypeResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def update_location_type(
     key: Annotated[str, Path(description="Document key of the location type.")],
     body: LocationTypeUpdate,
@@ -59,7 +68,11 @@ def update_location_type(
     return to_response(updated, LocationTypeResponse)
 
 
-@router.delete("/{key}", status_code=204)
+@router.delete(
+    "/{key}",
+    status_code=204,
+    dependencies=[Depends(require_platform_admin)],
+)
 def delete_location_type(
     key: Annotated[str, Path(description="Document key of the location type.")],
     service: LocationTypeService = Depends(get_location_type_service),

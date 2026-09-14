@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 
 import structlog
 
 from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
     can_render,
@@ -162,4 +164,99 @@ def migrate_photo_refs(self, *, dry_run: bool = False) -> dict:  # type: ignore[
 
     result = report.as_dict()
     logger.info("migrate_photo_refs_audit", **result)
+    return result
+
+
+async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> dict:
+    from app.common.dependencies import get_attachment_repo, get_attachment_service
+
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    orphans = get_attachment_repo().find_orphaned_task_photos(older_than=cutoff, limit=limit)
+
+    service = get_attachment_service()
+    deleted = 0
+    failed = 0
+    freed_bytes = 0
+    skipped = 0
+    for attachment in orphans:
+        if attachment.key is None:
+            # Counted, not silently dropped: `found` and `deleted + failed + skipped`
+            # have to add up, or a row the sweep can never process leaves no trace in
+            # the audit line and the job looks like it did more than it did.
+            skipped += 1
+            continue
+        # Isolated per row, and this one matters more than the batch above.
+        # The query is ``SORT att.created_at ASC``, so a retry re-fetches the same
+        # head rows: one permanently unhealthy attachment would starve every younger
+        # orphan behind it for ever, and the sweep would look like it was merely
+        # retrying while it had in fact stopped working.
+        try:
+            if await service.delete(attachment.key, attachment.tenant_key):
+                deleted += 1
+                freed_bytes += attachment.byte_size
+            else:
+                # Gone between the query and the delete — a manual
+                # ``DELETE /attachments/{id}``, or a concurrent sweep.
+                # Counted, so ``found`` and ``deleted + failed + skipped`` keep adding
+                # up; the sibling task upholds the same invariant and the comment
+                # above claims it.
+                skipped += 1
+        except Exception as exc:  # noqa: BLE001 — keep the batch draining
+            failed += 1
+            logger.warning(
+                "orphan_photo_delete_failed",
+                attachment_id=attachment.key,
+                tenant_key=attachment.tenant_key,
+                error=str(exc),
+            )
+    return {
+        "found": len(orphans),
+        "deleted": deleted,
+        "failed": failed,
+        "skipped": skipped,
+        "freed_bytes": freed_bytes,
+        "cutoff": cutoff.isoformat(),
+    }
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[misc]
+def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ignore[no-untyped-def]
+    """Collect task photos that nothing references any more (#1393).
+
+    Three paths produce them, and this covers all three: an upload whose form was
+    never submitted, a photo removed from the staging area before submitting (the
+    remove button drops local state), and a photo whose task was deleted.
+
+    They are not an exposure — every orphan stays tenant-scoped, permission-gated
+    and inside the NFR-011 retention scope — but ``AttachmentService._enforce_quota``
+    counts every attachment row against ``STORAGE_TENANT_QUOTA_MB``, linked or not.
+    So the bytes accumulate in exactly the installations that use task photos most,
+    and no UI reaches them for the ``task`` category.
+
+    **Off unless ``STORAGE_TASK_PHOTO_ORPHAN_HOURS`` is set to a positive number of
+    hours, and 0 is the shipped default.** Four review rounds on #1424 each found a
+    way this job destroyed a photo something still referenced, every one of them a
+    ``photo_refs`` spelling the resolver did not know. The resolver now protects any
+    photo whose key is *mentioned* by any reference, which closes the class rather
+    than its fourth instance — but a job that deletes data over a reference history
+    spanning every client version and a manual migration does not go live in its
+    first release. Everything else in #1393 works with it off; what stays is the
+    quota leak, which is where it already was.
+
+    A disabled sweep returns without querying rather than sweeping with a zero-hour
+    floor: that floor would delete the photo a user is at that moment filling a form
+    around.
+    """
+    hours = settings.storage_task_photo_orphan_hours
+    if hours <= 0:
+        logger.info("cleanup_orphaned_task_photos_disabled")
+        return {"found": 0, "deleted": 0, "failed": 0, "skipped": 0, "freed_bytes": 0, "disabled": True}
+
+    try:
+        result = asyncio.run(_cleanup_orphaned_task_photos(hours, limit))
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("cleanup_orphaned_task_photos_failed", error=str(exc))
+        raise self.retry(exc=exc) from exc
+
+    logger.info("cleanup_orphaned_task_photos_audit", **result)
     return result

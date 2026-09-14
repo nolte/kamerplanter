@@ -45,8 +45,13 @@ def adapter(request, tmp_path):
         )
         return
 
-    moto = pytest.importorskip("moto")
+    # Plain imports. ``moto[s3]`` and ``boto3`` are both declared and pinned, so
+    # their absence is a broken environment, not an optional feature — and
+    # ``importorskip`` reported exactly that as a pass. Measured on 2026-09-14: run
+    # against an interpreter without them, this file and its two siblings dropped 28
+    # cases into the skip count while the summary stayed green (#1435, #1434).
     import boto3
+    import moto
 
     with moto.mock_aws():
         boto3.client("s3", region_name="eu-central-1").create_bucket(

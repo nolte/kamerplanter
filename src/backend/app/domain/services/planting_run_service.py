@@ -1,4 +1,8 @@
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import structlog
 
 from app.common.datetimes import today_utc
 from app.common.enums import PlantingRunStatus
@@ -17,6 +21,9 @@ from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
+from app.domain.services.location_ownership import resolve_owned_location
+
+logger = structlog.get_logger()
 
 
 class PlantingRunService:
@@ -31,6 +38,7 @@ class PlantingRunService:
         phase_repo: IPhaseRepository | None = None,
         site_repo: ISiteRepository | None = None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
+        care_profile_bootstrap: Callable[[Any], None] | None = None,
         rotation_validator: CropRotationValidator | None = None,
         companion_engine: CompanionPlantingEngine | None = None,
     ) -> None:
@@ -43,6 +51,7 @@ class PlantingRunService:
         self._phase_repo = phase_repo
         self._site_repo = site_repo
         self._phase_seq_repo = phase_seq_repo
+        self._care_profile_bootstrap = care_profile_bootstrap
         # REQ-028/REQ-013 — the batch-creation path runs the same rotation +
         # companion checks as the single-plant path (PlantInstanceService).
         # Optional so solitary run tests can omit them; when unwired the checks
@@ -99,6 +108,14 @@ class PlantingRunService:
         run.status = PlantingRunStatus.PLANNED
         if run.clone_from_run_key:
             entries = self._apply_clone_config(run, entries)
+        # After the clone config, not before it. `_apply_clone_config` verifies the
+        # *template's* tenant and then copies `template.location_key` onto this run
+        # (`:138`) — and that stored key is not verified by anything, because rows
+        # written before #1372 were deliberately not migrated. Checking first left
+        # the clone path resolving a key nobody had looked at: clone a legacy run of
+        # your own tenant that points at a foreign location, and the new run
+        # inherits it. Here the check sees whichever key the run ends up with.
+        self._require_owned_location(run)
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
@@ -157,10 +174,51 @@ class PlantingRunService:
             ]
         return entries
 
+    def _require_owned_location(self, run: PlantingRun) -> None:
+        """Refuse a ``location_key`` that is not under the run's own tenant (#1372).
+
+        Nothing verified this, and everything downstream reads the location
+        **unscoped**: ``create_plants`` asks ``get_existing_ids_at_location`` and
+        ``_get_available_slots`` for the foreign location's plants and slots, writes
+        each batch instance with ``self._plant_repo.create`` — bypassing
+        :meth:`PlantInstanceService.create_plant` and therefore the #1349 resolution
+        entirely — and then sets ``currently_occupied`` on the other tenant's slot.
+
+        The rotation and companion guards do not catch it: they read the slot's
+        neighbourhood tenant-scoped, so a foreign slot yields no findings and
+        **passes**. The reference has to be refused before it is interpreted, which
+        is the same ordering #1349 records for the single-plant path.
+
+        Anchored on the parent site, never on ``Location.tenant_key`` (#1397): that
+        field is persisted empty, and a guard written against it refuses every
+        location — the over-rejecting failure #1352 measured.
+
+        Skipped for a run with no tenant (seeds, migrations, light mode) and for a
+        run with no location, matching the rest of this service.
+        """
+        self._require_owned_location_key(run.location_key, run.tenant_key)
+
+    def _require_owned_location_key(self, location_key: str | None, tenant_key: str) -> None:
+        """The same rule, applied to a value rather than to a built run.
+
+        ``update_run`` needs it before it assigns, and ``create_run`` after it has
+        a run — one predicate either way, so the two entry points cannot drift.
+        """
+        if not tenant_key or not location_key or self._site_repo is None:
+            return
+        resolve_owned_location(self._site_repo, location_key, tenant_key)
+
     def update_run(self, key: PlantingRunKey, data: dict) -> PlantingRun:
         run = self.get_run(key)
         old_location_key = run.location_key
         allowed_fields = {"name", "notes", "planned_start_date", "location_key"}
+        # Resolved from the incoming value, before the model is touched (#1372).
+        # Checking the mutated ``run`` instead would be correct against the
+        # repository — which deserialises a fresh model per read — and would leave
+        # the caller's in-memory run carrying a key that was refused. Refusing the
+        # value itself has no such seam.
+        if "location_key" in data:
+            self._require_owned_location_key(data["location_key"], run.tenant_key)
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(run, field, value)
@@ -385,6 +443,20 @@ class PlantingRunService:
                 current_phase_started_at=now,
             )
             created = self._plant_repo.create(plant)
+            # REQ-022 — every plant this run creates gets its care profile, exactly as
+            # a plant created through `PlantInstanceService.create_plant` does. This
+            # path writes straight to the repository (the bypass documented in
+            # `plant_instance_service`'s module docstring since #1349), so the
+            # bootstrap added in #1422 round 3 did not reach it: a run of forty plants
+            # produced forty plants that would never have received a care reminder.
+            #
+            # Best-effort per plant: one profile that could not be written must not
+            # abort a batch the user already committed to.
+            if self._care_profile_bootstrap is not None and created.key:
+                try:
+                    self._care_profile_bootstrap(created)
+                except Exception:  # noqa: BLE001
+                    logger.error("care_profile_bootstrap_failed", plant_key=created.key, exc_info=True)
             if created.key:
                 self._repo.link_run_to_plant(run_key, created.key)
                 # Create initial phase history per plant

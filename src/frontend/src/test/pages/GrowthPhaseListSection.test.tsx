@@ -4,8 +4,19 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import GrowthPhaseListSection from '@/pages/pflanzen/GrowthPhaseListSection';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+
+/**
+ * Every case below drives or inspects an installation-wide catalogue whose writes
+ * carry `require_platform_admin` since #1402 C, so the suite acts as a platform
+ * admin. The non-admin half of the contract — reads still render, write
+ * affordances are gone — is asserted in this same file, beside its admin
+ * counterpart, so the pair cannot drift apart.
+ */
+const renderAsAdmin = (ui: Parameters<typeof renderWithProviders>[0]) =>
+  renderWithProviders(ui, { store: createPlatformAdminStore() });
+
 
 function phaseDefinition(name: string, displayNameDe: string) {
   return {
@@ -86,7 +97,7 @@ describe('GrowthPhaseListSection', () => {
   });
 
   it('renders legacy growth phases with a create button and a helper legend', async () => {
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     expect(
       await screen.findByText(i18n.t('pages.growthPhases.title')),
@@ -109,7 +120,7 @@ describe('GrowthPhaseListSection', () => {
 
   it('opens the create dialog when the create button is clicked', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     await screen.findByText('Vegetativ');
     await user.click(
@@ -122,7 +133,7 @@ describe('GrowthPhaseListSection', () => {
 
   it('opens the edit dialog when a legacy row is clicked', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     await screen.findByText('Vegetativ');
     await user.click(screen.getAllByTestId('data-table-row')[0]);
@@ -132,7 +143,7 @@ describe('GrowthPhaseListSection', () => {
 
   it('filters the legacy rows via the table search', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     await screen.findByText('Vegetativ');
     const search = screen
@@ -155,7 +166,7 @@ describe('GrowthPhaseListSection', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     await screen.findByText('Vegetativ');
     // First delete icon belongs to the vegetative row (sorted by order).
@@ -181,7 +192,7 @@ describe('GrowthPhaseListSection', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     await screen.findByText('Vegetativ');
     await user.click(screen.getAllByLabelText(i18n.t('common.delete'))[0]);
@@ -202,7 +213,7 @@ describe('GrowthPhaseListSection', () => {
         HttpResponse.json(managedSequence),
       ),
     );
-    renderWithProviders(
+    renderAsAdmin(
       <GrowthPhaseListSection
         lifecycleKey="lc-sp-1"
         phaseSequenceKey="seq-1"
@@ -241,12 +252,46 @@ describe('GrowthPhaseListSection', () => {
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     );
-    renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+    renderAsAdmin(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
 
     // Title still renders; the table falls back to its empty state.
     expect(
       await screen.findByText(i18n.t('pages.growthPhases.title')),
     ).toBeTruthy();
     await waitFor(() => expect(screen.queryByText('Vegetativ')).toBeNull());
+  });
+
+  /**
+   * The non-admin half of #1402 C, asserted beside its admin counterpart rather
+   * than in a file of its own so the pair cannot drift apart.
+   *
+   * `POST/PUT/DELETE /growth-phases` answers 403 for everyone below platform
+   * admin, so the affordances that call it are gone. What must NOT be gone is the
+   * read — the table and the profile button beside it — which is why every case
+   * here asserts a surviving read in the same breath as the missing write. An
+   * assertion that only counted absences would also pass on a blank render.
+   */
+  describe('a caller who is not a platform admin', () => {
+    it('still reads the phase table but is offered no create, edit or delete', async () => {
+      renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+
+      // The read survives — this is the control that makes the absences mean something.
+      expect(await screen.findByText('Vegetativ')).toBeTruthy();
+      expect(screen.getAllByTestId(/^phase-profile-/).length).toBeGreaterThan(0);
+
+      expect(screen.queryByText(i18n.t('pages.growthPhases.create'))).toBeNull();
+      expect(screen.queryAllByLabelText(i18n.t('common.delete'))).toHaveLength(0);
+    });
+
+    it('does not open the edit dialog when a row is clicked', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<GrowthPhaseListSection lifecycleKey="lc-sp-1" />);
+
+      await user.click(await screen.findByText('Vegetativ'));
+
+      // Asserted on the dialog, not on a mutation spy: the dialog is what a
+      // non-admin would otherwise fill in before the save answers 403.
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    });
   });
 });

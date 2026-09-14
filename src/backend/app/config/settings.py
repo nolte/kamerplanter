@@ -305,9 +305,6 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@kamerplanter.example"
     smtp_use_tls: bool = True
 
-    # File uploads
-    upload_dir: str = "/data/uploads/tasks"
-
     # Home Assistant (optional — for sensor live-query)
     ha_url: str = ""  # e.g. "http://homeassistant.local:8123"
     ha_access_token: str = ""  # Long-Lived Access Token
@@ -510,6 +507,26 @@ class Settings(BaseSettings):
     #: account's address is a rare, deliberate act; a handful of attempts an hour
     #: covers a typo plus a change of mind.
     rate_limit_email_change: str = "5/hour"
+    #: ``POST /api/v1/t/{slug}/notifications/test`` (REQ-030), per client address.
+    #:
+    #: **Why there is a limit at all.** The route's docstring claimed "Rate limited
+    #: to 5 requests per hour per user" while no limiter existed anywhere in the
+    #: module — found by the #1353 write-route sweep. Every call sends a real
+    #: notification out through a configured channel (mail, push, Home Assistant),
+    #: so an unbounded one is outbound volume and provider cost that any member can
+    #: spend in a loop.
+    #:
+    #: **Per address, not per user, and the docstring now says so.** The shared
+    #: ``limiter`` keys on ``resolve_client_ip`` (#1130), and a per-user bucket
+    #: would need the key function to see the authenticated principal, which it
+    #: does not. Bounding the burst from one source is the control that is actually
+    #: implementable here; claiming the other one is how this started.
+    #:
+    #: **Why an hour.** The blast radius is the caller's *own* channel with a fixed
+    #: body, so this is not a spam vector against third parties — it is cost and
+    #: noise. Testing a channel is a rare, deliberate act: a handful of attempts an
+    #: hour covers a misconfigured endpoint plus a retry after fixing it.
+    rate_limit_notification_test: str = "5/hour"
     #: ``POST /api/v1/privacy/email-change/confirm`` (REQ-025 Art. 16), per client IP.
     #:
     #: **Why there is a limit at all** (#990). The endpoint is unauthenticated and
@@ -664,6 +681,29 @@ class Settings(BaseSettings):
     storage_tenant_quota_mb: int = 2048
     # NFR-013 §5.1 step 7 — strip image EXIF/GPS on upload by default.
     storage_strip_exif: bool = True
+    # #1393 — how long a task photo may sit unreferenced before the orphan sweep
+    # **deletes** it. ``0`` disables the sweep, and that is the shipped default.
+    #
+    # Off by default deliberately, not by oversight. Four review rounds on #1424 each
+    # found a way this job destroyed a photo something still referenced, every one of
+    # them a ``photo_refs`` spelling the resolver did not know — most sharply
+    # ``/attachments/{ulid}/thumbnails/{size}``, which the product builds itself. The
+    # sweep now protects any photo whose key is *mentioned* by any reference, which
+    # closes the class rather than a fourth instance of it; but a background job that
+    # deletes data, over a reference history spanning every client version and a
+    # manual migration, does not earn its first release switched on.
+    #
+    # Nothing else in #1393 depends on it: the delete route, the task-deletion
+    # cleanup and the staged/persisted split all work with the sweep off. What an
+    # installation keeps without it is the leak itself — abandoned uploads counting
+    # against ``STORAGE_TENANT_QUOTA_MB`` — which is where it already was.
+    #
+    # Switching it on: any positive number of hours. Every upload is briefly an
+    # orphan by design (the attachment row is written before the form that will
+    # reference it is submitted), so a value is a wide margin over the longest
+    # plausible form-filling session, never a tuning knob — 48 was the figure this
+    # change was built and tested around.
+    storage_task_photo_orphan_hours: int = 0
     # REQ-034 §3 (SR-004) — max gallery photos per plant instance (0 = unlimited).
     storage_max_photos_per_instance: int = 50
     # REQ-034 §4.3 (SR-005a) — per-tenant cap on open ``pending_review``

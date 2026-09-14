@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -22,6 +23,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import GrowthPhaseListSection from './GrowthPhaseListSection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { LifecycleConfig, PhaseSequence } from '@/api/types';
@@ -67,6 +69,12 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exists, setExists] = useState(false);
+  // REQ-003 lifecycle configs are installation-wide: one record per species, read
+  // by every tenant. `POST/PUT /species/{key}/lifecycle` carries
+  // `require_platform_admin` since #1402 C, so for everyone else this form is a
+  // read view — `disabled` on `useForm` turns every registered field off in one
+  // place, which is what keeps a newly added field from staying editable here.
+  const canEdit = useCanEditInstallationCatalogue();
 
   const {
     control,
@@ -74,6 +82,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
     reset,
     formState: { isDirty },
   } = useForm<FormData>({
+    disabled: !canEdit,
     resolver: zodResolver(schema),
     defaultValues: {
       cycle_type: 'annual',
@@ -160,6 +169,11 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
     // first in document order (#778 A5).
     <Box data-testid="lifecycle-config-section">
       <UnsavedChangesGuard dirty={isDirty} />
+      {!canEdit && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="lifecycle-readonly-notice">
+          {t('pages.lifecycle.installationWideReadOnly')}
+        </Alert>
+      )}
       <Form
         onSubmit={handleSubmit(onSubmit)}
         sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
@@ -345,11 +359,13 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
           </CardContent>
         </Card>
 
-        <FormActions
-          onCancel={() => reset()}
-          loading={saving}
-          saveLabel={exists ? t('common.save') : t('common.create')}
-        />
+        {canEdit && (
+          <FormActions
+            onCancel={() => reset()}
+            loading={saving}
+            saveLabel={exists ? t('common.save') : t('common.create')}
+          />
+        )}
       </Form>
 
       {lifecycle && (

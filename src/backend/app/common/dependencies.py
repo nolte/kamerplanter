@@ -151,6 +151,9 @@ def get_actuator_service():
         get_actuator_repo(),
         ha_client_factory=get_ha_client,
         task_repo=get_task_repo(),
+        # #1397: a location's tenant is its site's tenant, and the actuator
+        # repository cannot reach sites.
+        site_repo=get_site_repo(),
     )
 
 
@@ -258,9 +261,50 @@ def get_plant_instance_service() -> PlantInstanceService:
         species_repo=get_species_repo(),
         planting_run_repo=get_planting_run_repo(),
         photo_cleanup=_cascade_plant_photo_cleanup,
+        care_profile_bootstrap=_bootstrap_care_profile,
         propagation_service=get_propagation_service(),
         overwintering_materializer=get_overwintering_materializer(),
         overwintering_service=get_overwintering_profile_service(),
+        # #1335 — the resolvers for the caller-supplied catalogue references a plant
+        # carries (substrate / batch / species). Both are optional on the service so
+        # it stays constructible in pure-domain contexts; they are NOT optional in
+        # production, and an absence check reads this call to keep it that way.
+        substrate_service=get_substrate_service(),
+        species_service=get_species_service(),
+    )
+
+
+def _bootstrap_care_profile(plant) -> None:  # type: ignore[no-untyped-def]
+    """REQ-022 — give a newly created plant its care profile (#1422 round 3).
+
+    `may_create=True` because this *is* the write path. The read paths pass `False`
+    since round 2, which is what made this bootstrap necessary: they used to create
+    the profile as a side effect of being read, and the nightly task generator — which
+    iterates stored profiles — silently depended on that.
+
+    **The species is resolved and passed on**, and leaving it out was a defect the
+    first version shipped with: `auto_generate_profile` derives the care style from
+    the botanical family and falls back to ``TROPICAL`` (7-day watering) when it has
+    none, so every plant created — a Cactaceae included — would have received tropical
+    presets. The profile is created once and read thereafter, so the wrong values
+    would have been the plant's for good.
+    """
+    if not plant.key:
+        return
+
+    species_name = None
+    family_key = None
+    if plant.species_key:
+        species = get_species_repo().get_by_key(plant.species_key)
+        if species is not None:
+            species_name = species.scientific_name
+            family_key = species.family_key
+
+    get_care_reminder_service().get_or_create_profile(
+        plant.key,
+        species_name=species_name,
+        botanical_family=family_key,
+        may_create=True,
     )
 
 
@@ -436,6 +480,7 @@ def get_planting_run_service() -> PlantingRunService:
         nutrient_plan_repo=get_nutrient_plan_repo(),
         watering_repo=get_watering_repo(),
         phase_repo=get_lifecycle_repo(),
+        care_profile_bootstrap=_bootstrap_care_profile,
         site_repo=get_site_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
         rotation_validator=rotation_validator,
@@ -646,6 +691,9 @@ def get_task_service() -> TaskService:
         DependencyResolver(),
         recurrence=get_recurrence_engine(),
         notification_propagation=get_notification_propagation_service(),
+        # So a completion's `photo_refs` are resolved against the attachment
+        # catalogue instead of trusted as strings (#1339 review).
+        attachment_repo=get_attachment_repo(),
     )
 
 
@@ -1271,6 +1319,10 @@ def get_sensor_service():
         get_ha_client(),
         weather_forecast_repo=get_weather_forecast_repo(),
         site_repo=get_site_repo(),
+        # So a deleted sensor takes its TimescaleDB series with it (#1339
+        # review). Resolves to the null repository when TimescaleDB is absent,
+        # which makes the readings step a no-op rather than a failure.
+        observation_repo=get_observation_repo(),
     )
 
 

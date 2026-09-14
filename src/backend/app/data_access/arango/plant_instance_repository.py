@@ -298,6 +298,21 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           LET slot = p.slot_key != null ? DOCUMENT(@slot_col, p.slot_key) : null
+          // The label guards below anchor on the parent SITE, not on
+          // ``location.tenant_key`` / ``slot.tenant_key`` (#1397). Those fields exist
+          // on the documents but the write path never fills them: ``POST
+          // /t/{slug}/locations`` builds ``Location(**body.model_dump())`` and
+          // ``LocationCreate`` may not carry a tenant key (#1000), so every location
+          // created through the API stores "". The comparison was therefore false for
+          // them and both labels came back null for locations the caller owns.
+          //
+          // It was not false for *every* row, which is why this survived review:
+          // migration ``v0004_backfill_tenant_key`` propagated site -> locations ->
+          // slots once, so rows predating it compare true and rows created since do
+          // not. A projection whose correctness depends on the age of the document.
+          LET location_site = location != null ? DOCUMENT(@site_col, location.site_key) : null
+          LET slot_location = slot != null ? DOCUMENT(@location_col, slot.location_key) : null
+          LET slot_site = slot_location != null ? DOCUMENT(@site_col, slot_location.site_key) : null
           RETURN {
             key: p._key,
             instance_id: p.instance_id,
@@ -306,9 +321,9 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             species_scientific_name: species != null ? species.scientific_name : null,
             species_common_names: species != null ? (species.common_names || []) : [],
             location_key: p.location_key,
-            location_name: (location != null AND location.tenant_key == @tenant_key) ? location.name : null,
+            location_name: (location_site != null AND location_site.tenant_key == @tenant_key) ? location.name : null,
             slot_key: p.slot_key,
-            slot_label: (slot != null AND slot.tenant_key == @tenant_key) ? slot.slot_id : null,
+            slot_label: (slot_site != null AND slot_site.tenant_key == @tenant_key) ? slot.slot_id : null,
             current_phase_key: p.current_phase_key,
             current_phase_started_at: p.current_phase_started_at
           }
@@ -323,6 +338,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "species_col": col.SPECIES,
             "location_col": col.LOCATIONS,
             "slot_col": col.SLOTS,
+            "site_col": col.SITES,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)
@@ -417,6 +433,11 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             ? species.common_names[0]
             : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
+          // Anchored on the parent site, for the reason spelled out on the sibling
+          // query above: ``location.tenant_key`` is persisted empty by the write
+          // path, so this label was null for every location created since migration
+          // ``v0004`` (#1397).
+          LET location_site = location != null ? DOCUMENT(@site_col, location.site_key) : null
           LET open_task_due_dates = (
             FOR tsk IN @@task_col
               FILTER tsk.tenant_key == @tenant_key
@@ -450,7 +471,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             phase_definition_key: phase_entry != null ? phase_entry.phase_definition_key : null,
             phase_name: phase != null ? (phase.display_name != "" ? phase.display_name : phase.name) : null,
             location_key: p.location_key,
-            location_name: location != null AND location.tenant_key == @tenant_key ? location.name : null,
+            location_name: location_site != null AND location_site.tenant_key == @tenant_key ? location.name : null,
             has_open_task: has_open_task,
             next_due_date: LENGTH(open_task_due_dates) > 0 ? MIN(open_task_due_dates) : null
           }
@@ -465,6 +486,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "phase_col": col.GROWTH_PHASES,
             "entry_col": col.PHASE_SEQUENCE_ENTRIES,
             "location_col": col.LOCATIONS,
+            "site_col": col.SITES,
             "plant_entity_type": "plant_instance",
             "open_statuses": [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value],
             # UTC, not the local server date (#812): this flag sits next to

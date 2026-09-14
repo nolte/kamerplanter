@@ -36,7 +36,7 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:9-alpine@sha256:a174b894902bd3367e330d47cc2054367dc4917701776aaf336f41d83b65ec7a
+    image: valkey/valkey:9-alpine@sha256:a0dbf4c1d5708782907c10e2c72deff317518518b5288a58416981d9db95d30b
     ports:
       - "6379:6379"
     volumes:
@@ -68,7 +68,7 @@ services:
 
   # ── Ollama (optional — local LLM inference for AI assistant) ──
   ollama:
-    image: ollama/ollama:latest@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
+    image: ollama/ollama:latest@sha256:684d8674b4315fa18f4f0e973a118ec2652ed96f67563277839985175858e0ba
     profiles: ["ollama"]
     environment:
       OLLAMA_MODELS: /models
@@ -87,7 +87,7 @@ services:
 
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
-    image: timescale/timescaledb:2.29.2-pg16@sha256:289d55704b1b3ee8263cd3805c6930f9cd54506835a8f19f9b85dad17d5c5a8a
+    image: timescale/timescaledb:2.30.0-pg16@sha256:75d58b53f3337a6babd3a1cce5e503f2300bdede62dd7d743651deb1a95b6d76
     profiles: ["timescaledb"]
     environment:
       POSTGRES_DB: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}

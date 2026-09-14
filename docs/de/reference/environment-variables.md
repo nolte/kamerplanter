@@ -443,14 +443,6 @@ Der Wert wird vor der Ausgabe gegen `^[0-9a-f]{7,40}$` geprüft (nach dem Abschn
 
 ---
 
-## Uploads
-
-| Variable | Standard | Pflicht | Beschreibung |
-|----------|---------|---------|-------------|
-| `UPLOAD_DIR` | `uploads/tasks` | Nein | Verzeichnis für Datei-Uploads (relativ zum Backend-Arbeitsverzeichnis) |
-
----
-
 ## Verschachtelte Konfiguration (GBIF)
 
 GBIF-Einstellungen können über den Unterstrich-Doppelpunkt-Delimiter verschachtelt werden:
@@ -739,6 +731,7 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 | `STORAGE_STRIP_EXIF` | `true` | Nein | Entfernt EXIF-/GPS-Metadaten aus Bild-Uploads global beim Speichern (NFR-013 §5.1). Es gibt **keine** Kategorie-spezifische Override-Variable — anders als bei den MIME-Whitelists ist dies ein einzelner, globaler Schalter. |
 | `STORAGE_TENANT_QUOTA_MB` | `2048` | Nein | Speicherkontingent pro Mandant in Megabyte. `0` deaktiviert das Kontingent (unbegrenzt). |
 | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | `50` | Nein | Maximale Anzahl Galerie-Fotos je Pflanzeninstanz (REQ-034). `0` deaktiviert das Limit. |
+| `STORAGE_TASK_PHOTO_ORPHAN_HOURS` | `0` | Nein | Wie lange ein Aufgabenfoto unreferenziert liegen darf, bevor der nächtliche Aufräum-Task es **löscht** (#1393). `0` schaltet ihn ab — und ist der Auslieferungswert: Der Job löscht Daten über eine Referenz-Historie, die jede Client-Version und eine manuelle Migration umfasst, und geht in seinem ersten Release bewusst nicht scharf. Zum Einschalten eine positive Stundenzahl setzen; jeder Upload ist kurzzeitig unreferenziert (der Anhang wird geschrieben, bevor das Formular ihn verknüpft), der Wert ist also ein weiter Sicherheitsabstand und kein Feineinstellungs-Regler — `48` ist die Größe, um die herum gebaut und getestet wurde. |
 
 **Standard-MIME-Whitelist pro Kategorie:**
 

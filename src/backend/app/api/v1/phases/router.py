@@ -10,16 +10,37 @@ from app.api.v1.phases.schemas import (
     TransitionRequest,
 )
 from app.api.v1.plant_instances.schemas import PlantResponse
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_active_tenant_role
 from app.common.dependencies import get_phase_service, get_plant_instance_service
-from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.enums import TenantRole
+from app.common.openapi_responses import (
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    UNAUTHORIZED_RESPONSE,
+)
+from app.common.plant_ownership import require_owned_plant
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
 
+# GATED ON PLANT OWNERSHIP, AT THE ROUTER (#1402 group C).
+#
+# Every operation here takes a plant key from the path and, until this, handed it
+# to a by-key lookup with no tenant anywhere: `PhaseService.transition_phase` takes
+# no `tenant_key`, and resolution ends in `BaseArangoRepository.get_or_raise`. Any
+# authenticated caller could transition another tenant's plant — `force: true`
+# included, firing the post-transition callbacks — read its phase history, edit a
+# history entry's dates, or delete one.
+#
+# All FIVE operations, not the two #1402 names: the reads leak another tenant's
+# phase history just as the writes change it.
+#
+# On the router rather than per handler, because eleven signatures across two
+# routers is the opt-in drift this repository keeps paying for. See
+# `app/common/plant_ownership.py`.
 router = APIRouter(
     prefix="/plant-instances/{plant_key}/phases",
     tags=["phases"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(get_current_user), Depends(require_owned_plant)],
     responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE},
 )
 
@@ -34,7 +55,12 @@ def get_current_phase(
     return CurrentPhaseResponse(**result)
 
 
-@router.post("/transition", response_model=PlantResponse)
+@router.post(
+    "/transition",
+    response_model=PlantResponse,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
+)
 def transition_phase(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: TransitionRequest,
@@ -57,7 +83,12 @@ def get_phase_history(
     return [to_response(h, PhaseHistoryResponse) for h in history]
 
 
-@router.patch("/history/{history_key}", response_model=PhaseHistoryResponse)
+@router.patch(
+    "/history/{history_key}",
+    response_model=PhaseHistoryResponse,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+    responses=FORBIDDEN_RESPONSE,
+)
 def update_phase_history_dates(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     history_key: Annotated[str, Path(description="Document key of the phase-history entry.")],
@@ -74,7 +105,12 @@ def update_phase_history_dates(
     return to_response(h, PhaseHistoryResponse)
 
 
-@router.delete("/history/{history_key}", status_code=204)
+@router.delete(
+    "/history/{history_key}",
+    status_code=204,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.LEAD))],
+    responses=FORBIDDEN_RESPONSE,
+)
 def delete_phase_history(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     history_key: Annotated[str, Path(description="Document key of the phase-history entry.")],
