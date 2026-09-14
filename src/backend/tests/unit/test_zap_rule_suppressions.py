@@ -1,39 +1,78 @@
-"""NFR-015 §6.1 — a ZAP suppression may not outlive its review, and this enforces it.
+"""NFR-015 §6.1 — a ZAP suppression may not outlive its review, nor widen the scan.
 
-`tests/security/zap-rules.tsv` states the rule in its own header:
+`tests/security/zap-rules.tsv` states the first half in its own header:
 
     Every IGNORE row MUST include "# expires YYYY-MM-DD — approved by <role>"
     in the Note column. Expired IGNOREs trigger a CI warning; after 30 days
     of grace, they fail the build.
 
-Nothing checked it. Both files were empty until #1376/#1389, so the convention had
-never been exercised — a documented rule with no enforcement, which is the shape
-#1042 catalogues and the one this repository has spent a lot of review time on.
+Nothing performed that arithmetic until #1376/#1389 — both files were empty, so
+the convention had never been exercised, the #1042 shape.
 
-A suppression is a security control turned off. Turning one off on evidence is
-ordinary engineering; leaving it off because nobody noticed the note expired is how
-a real finding gets hidden behind an old false positive. So the grace period is
-arithmetic here, not prose.
+The second half was found by the review of that change and is the sharper one.
+Handing these files to `zap-api-scan.py` with `-c` — the obvious place for them —
+makes that script swap its active scan policy::
+
+    scan_policy = 'API-Minimal'
+    if config_dict:
+        scan_policy = 'Default Policy'
+        zap.ascan.enable_all_scanners(scanpolicyname=scan_policy)
+
+One suppression row would therefore have replaced a 23-rule minimal policy with
+the full active rule set, under a 45-minute job timeout. So the files are read by
+`scripts/security/zap_gate.py` alone, and `test_no_workflow_hands_these_files_to_zap`
+keeps it that way.
+
+This module checks the FILES. `test_zap_gate.py` checks what the gate does with
+them. The validation itself is not reimplemented here — it calls `load_rules`, so
+the format the guard enforces and the format the gate applies cannot drift apart.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import re
-from datetime import UTC, date, datetime
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
-#: The repository root is four levels up from ``src/backend/tests/unit/`` — measured,
-#: not counted by eye: ``parents[3]`` is ``src/``, which has no ``tests/security``,
-#: and the control below caught that immediately.
-_SECURITY = Path(__file__).resolve().parents[4] / "tests" / "security"
+from tests.support.repo_scripts import find_repo_root
+
+_REPO_ROOT = find_repo_root(Path(__file__).resolve())
+if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
+    pytest.skip("checkout root not found", allow_module_level=True)
+
+_SECURITY = _REPO_ROOT / "tests" / "security"
 _RULE_FILES = ("zap-rules.tsv", "zap-api-rules.tsv")
+_WORKFLOWS = (
+    _REPO_ROOT / ".github" / "workflows" / "security-zap-postmerge.yml",
+    _REPO_ROOT / ".github" / "workflows" / "security-zap-nightly.yml",
+)
 
-#: The grace the header promises after an expiry before the build fails.
-_GRACE_DAYS = 30
+#: ZAP's own vocabulary, read off `zap_common.py` in the pinned image rather than
+#: off the file header — an earlier header listed `OFF`, which is not a level and
+#: makes `load_config` raise `Level OFF is not a supported level` before the scan
+#: starts. `OUTOFSCOPE` is a fifth, differently-shaped row type this repository
+#: does not use: it carries a regex instead of a note, so it cannot hold an expiry.
+_THRESHOLDS = {"PASS", "IGNORE", "INFO", "WARN", "FAIL"}
+_CONFIDENCE = {"LOW", "MEDIUM", "HIGH"}
 
-_EXPIRY = re.compile(r"#\s*expires\s+(\d{4}-\d{2}-\d{2})\s+—\s+approved by\s+(\S+)")
+_APPROVER = re.compile(r"#\s*expires\s+\d{4}-\d{2}-\d{2}\s+—\s+approved by\s+(\S+)")
+
+
+def _load_gate() -> ModuleType:
+    path = _REPO_ROOT / "scripts" / "security" / "zap_gate.py"
+    spec = importlib.util.spec_from_file_location("_zap_gate_for_rules", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["_zap_gate_for_rules"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+gate = _load_gate()
 
 
 def _rows() -> list[tuple[str, int, list[str]]]:
@@ -53,9 +92,11 @@ def _rows() -> list[tuple[str, int, list[str]]]:
 def test_the_rule_files_are_where_this_test_thinks_they_are():
     """The control. Both files must exist, or every check below passes over nothing.
 
-    They are copied into the scan by `security-zap-postmerge.yml` and
-    `security-zap-nightly.yml`; a rename there without one here would leave this
-    file agreeing with an empty list.
+    Both ZAP workflows name these paths on the `zap_gate.py --rules` command line,
+    so a rename there without one here would leave this file agreeing with an
+    empty list while the gate agreed with a missing file (`load_rules` returns no
+    problems for a path that does not exist — deliberately, so a profile without a
+    rule file is not an error, which is exactly why the existence check lives here).
     """
     missing = [name for name in _RULE_FILES if not (_SECURITY / name).is_file()]
 
@@ -66,50 +107,72 @@ def test_the_rule_files_are_where_this_test_thinks_they_are():
 def test_every_row_has_the_four_documented_fields(name: str, number: int, fields: list[str]):
     """`<PluginID>\\t<THRESHOLD>\\t<Confidence>\\t<Note>` — tab-separated, as the header says.
 
-    A row split by spaces instead of tabs is read by ZAP as a malformed entry and
-    silently ignored, so the suppression would not apply and nobody would be told.
+    Spaces instead of tabs is not a silent no-op: `zap_common.load_config` raises
+    `Unexpected number of tokens on line`. Loud — but the workflow swallows the
+    wrapper's exit code (`|| echo …`), so the run limps on and dies later at the
+    gate with "report does not exist", which names neither the file nor the line.
     """
     assert len(fields) == 4, f"{name}:{number} has {len(fields)} tab-separated fields, expected 4"
-    assert fields[1] in {"OFF", "IGNORE", "WARN", "FAIL"}, f"{name}:{number} threshold={fields[1]!r}"
-    assert fields[2] in {"LOW", "MEDIUM", "HIGH"}, f"{name}:{number} confidence={fields[2]!r}"
+    assert fields[1] in _THRESHOLDS, (
+        f"{name}:{number} threshold={fields[1]!r} is not one of {sorted(_THRESHOLDS)} — "
+        f"ZAP's zap_conf_lvls, which rejects anything else with a ValueError."
+    )
+    assert fields[2] in _CONFIDENCE, f"{name}:{number} confidence={fields[2]!r}"
+
+
+@pytest.mark.parametrize("name", _RULE_FILES)
+def test_the_gate_accepts_every_row_in_the_shipped_file(name: str):
+    """The production parser on the production file: no expiry past its grace, no
+    missing scope, no unusable regex.
+
+    Delegated rather than reimplemented, so a rule this guard is happy with is by
+    construction a rule the gate will actually apply. The previous version of this
+    file did its own arithmetic and disagreed with `zap_gate.py` about the grace
+    period by 30 days.
+    """
+    path = _SECURITY / name
+
+    _, problems, _ = gate.load_rules(path)
+
+    assert not problems, "\n".join(problems)
 
 
 @pytest.mark.parametrize(("name", "number", "fields"), _rows(), ids=lambda v: str(v)[:40])
-def test_every_ignore_carries_an_expiry_and_an_approver(name: str, number: int, fields: list[str]):
-    """An IGNORE without a dated approval is a permanent hole with no owner."""
-    if fields[1] != "IGNORE":
-        pytest.skip("only IGNORE rows carry the expiry requirement")
+def test_every_ignore_names_who_approved_it(name: str, number: int, fields: list[str]):
+    """An IGNORE with no named approver is a hole nobody owns.
 
-    assert _EXPIRY.search(fields[3]), (
-        f"{name}:{number} is an IGNORE with no "
-        f'"# expires YYYY-MM-DD — approved by <role>" note. The header of '
-        f"zap-rules.tsv requires one (NFR-015 §6.1)."
+    The gate checks the date and the scope, because those change what it does. It
+    does not check the approver, because that changes nothing at runtime — which
+    is exactly why it needs a check of its own.
+    """
+    if len(fields) < 4 or fields[1] != "IGNORE":
+        pytest.skip("only well-formed IGNORE rows carry the approval requirement")
+
+    assert _APPROVER.search(fields[3]), (
+        f'{name}:{number} is an IGNORE with no "# expires YYYY-MM-DD — approved by <role>" note (NFR-015 §6.1).'
     )
 
 
-@pytest.mark.parametrize(("name", "number", "fields"), _rows(), ids=lambda v: str(v)[:40])
-def test_no_ignore_is_past_its_grace_period(name: str, number: int, fields: list[str]):
-    """The arithmetic the header promises, actually performed.
+def test_no_workflow_hands_these_files_to_zap():
+    """`-c` is the switch that widens the API scan; it must stay absent.
 
-    Past the expiry is a warning the reviewer should see; past expiry plus the
-    grace period fails, because by then the suppression has outlived its evidence
-    and nobody has looked.
+    Measured on `/zap/zap-api-scan.py` in the pinned image: a non-empty config
+    file replaces the `API-Minimal` policy with `Default Policy` and calls
+    `enable_all_scanners`. Rule 40018 stops running everywhere, every other active
+    rule starts, and both happen as a side effect of adding one suppression line.
     """
-    if fields[1] != "IGNORE":
-        pytest.skip("only IGNORE rows expire")
+    offenders = [
+        f"{path.name}:{number}"
+        for path in _WORKFLOWS
+        if path.is_file()
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if re.search(r"^\s*-c\s+zap-\S*rules\.tsv", line)
+    ]
 
-    match = _EXPIRY.search(fields[3])
-    assert match, "covered by test_every_ignore_carries_an_expiry_and_an_approver"
-
-    expiry = date.fromisoformat(match.group(1))
-    overdue = (datetime.now(UTC).date() - expiry).days
-
-    assert overdue <= _GRACE_DAYS, (
-        f"{name}:{number} suppresses rule {fields[0]} and expired {overdue} days ago "
-        f"({expiry}, approved by {match.group(2)}) — past the {_GRACE_DAYS}-day grace. "
-        f"Re-verify the finding and either renew the note with a new date and approval "
-        f"or remove the row. A suppression nobody has revisited hides the next real "
-        f"finding behind the last false one."
+    assert not offenders, (
+        f"ZAP is being handed a rule file at {offenders}. Suppression belongs to "
+        f"zap_gate.py --rules: passing it to the scanner swaps the API scan's policy "
+        f"for the full active rule set and can only express 'off everywhere'."
     )
 
 

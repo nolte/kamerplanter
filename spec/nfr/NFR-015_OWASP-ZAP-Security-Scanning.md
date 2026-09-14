@@ -625,14 +625,30 @@ Tabelle.
 ```tsv
 # tests/security/zap-rules.tsv
 # Format: <PluginID> <THRESHOLD> <Confidence> <Note>
-10038	IGNORE	HIGH	CSP-Report-Only — bewusst gewählt fuer Migrationsphase
-10054	IGNORE	HIGH	Cookie-Same-Site auf "Lax" — bewusst gesetzt fuer OAuth-Redirects
+# THRESHOLD ∈ {PASS, IGNORE, INFO, WARN, FAIL} — ZAPs zap_conf_lvls; "OFF" gibt es nicht
+10038	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer scope=.* CSP-Report-Only — bewusst gewaehlt fuer Migrationsphase
+10054	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer scope=/api/v1/auth/ Cookie-Same-Site auf "Lax" — bewusst gesetzt fuer OAuth-Redirects
 40012	WARN	HIGH	Reflected XSS — Confidence-Filter behalten, im Issue triagieren
 ```
 
 **MUSS**: Jede `IGNORE`-Regel hat ein Ablaufdatum als Kommentar (z. B. `# expires 2026-12-31 — approved by security-officer`).
 
+**MUSS**: Jede `IGNORE`-Regel trägt zusätzlich `scope=<URL-Regex>` im Note-Feld. Es gibt keinen impliziten Standard: eine regelweite Unterdrückung wird als `scope=.*` ausgeschrieben. Der Gate verwirft nur die *Instanzen*, deren URL passt — ein Fund derselben Regel an einer anderen URL blockiert weiterhin.
+
 **SOLL**: Abgelaufene IGNORE-Einträge führen in CI zunächst zu einem Warning, nach 30 Tagen zu einem Fail.
+
+**Wer die Dateien liest (Stand 2026-09-14, #1376/#1389).** Beide Dateien werden **ausschließlich** von `scripts/security/zap_gate.py` über `--rules` gelesen und **nicht** per `-c` an die ZAP-Wrapper übergeben. Grund, gemessen an `/zap/zap-api-scan.py` im digest-gepinnten Image:
+
+```python
+scan_policy = 'API-Minimal'
+if config_dict:
+    scan_policy = 'Default Policy'
+    zap.ascan.enable_all_scanners(scanpolicyname=scan_policy)
+```
+
+Der erste Eintrag — gleich welcher — ersetzt damit die 23-Regeln-Policy `API-Minimal` durch den vollständigen aktiven Regelsatz, und die einzige Form, die ZAP ausdrücken kann, ist `alertthreshold='OFF'` für die gesamte Ziel-URL-Menge. Beides ist eine Nebenwirkung, die in der Zeile nicht steht. `zap-baseline.py` (kein Active Scan) und `zap-full-scan.py` (immer `Default Policy`) wären davon nicht betroffen; ihnen wird `-c` trotzdem nicht übergeben, damit die Unterdrückung profilübergreifend **eine** Implementierung hat.
+
+Durchgesetzt von `src/backend/tests/unit/test_zap_rule_suppressions.py` (Dateiformat, Genehmiger, Abwesenheit von `-c` in beiden Workflows) und `test_zap_gate.py` (Verhalten des Gates, inklusive Gnadenfrist und Instanz-Scoping). Die Gnadenfrist aus dem vorstehenden **SOLL** ist damit implementiert; davor brach `zap_gate.py` den Build am Tag nach dem Ablauf ab.
 
 ### 6.2 Triage-Workflow
 

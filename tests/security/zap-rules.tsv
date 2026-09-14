@@ -1,15 +1,39 @@
 # OWASP ZAP rule tuning for Baseline + Full-Scan profiles.
 # Spec: spec/nfr/NFR-015_OWASP-ZAP-Security-Scanning.md §6.1
 #
-# Format (tab-separated):
+# Format (tab-separated, exactly four fields):
 #   <PluginID>	<THRESHOLD>	<Confidence>	<Note>
 #
-# THRESHOLD ∈ {OFF, IGNORE, WARN, FAIL}
+# THRESHOLD ∈ {PASS, IGNORE, INFO, WARN, FAIL}   (zap_common.py: zap_conf_lvls)
 # Confidence ∈ {LOW, MEDIUM, HIGH}
 #
-# Every IGNORE row MUST include "# expires YYYY-MM-DD — approved by <role>"
-# in the Note column. Expired IGNOREs trigger a CI warning; after 30 days
-# of grace, they fail the build.
+# Spaces instead of tabs is NOT a silent no-op: zap_common.load_config raises
+# `ValueError: Unexpected number of tokens on line`, and `OFF` — which an earlier
+# version of this header wrongly listed as a threshold — raises `Level OFF is not
+# a supported level`.
+#
+# WHO READS THIS FILE: `scripts/security/zap_gate.py` alone, via `--rules`. It is
+# deliberately NOT passed to the ZAP wrappers with `-c`, because `zap-api-scan.py`
+# decides its active scan policy from whether that config produced any entries:
+#
+#     scan_policy = 'API-Minimal'
+#     if config_dict:
+#         scan_policy = 'Default Policy'
+#         zap.ascan.enable_all_scanners(scanpolicyname=scan_policy)
+#
+# The first suppression would therefore swap a 23-rule minimal policy for the full
+# active rule set — an unrelated, unbounded widening of a scan that runs under a
+# 45-minute job timeout — and the only shape ZAP can express is "turn this rule
+# off everywhere". The gate drops matching INSTANCES instead, so the rule keeps
+# running and a genuine finding at another URL still blocks.
+#
+# Every IGNORE row MUST carry, in the Note column:
+#   * `# expires YYYY-MM-DD — approved by <role>` — expired is a CI warning;
+#     after 30 days of grace it fails the build and stops applying.
+#   * `scope=<url regex>` — the URLs the suppression covers. `scope=.*` means
+#     rule-wide and has to be written out; there is no implicit rule-wide.
+#
+# `src/backend/tests/unit/test_zap_rule_suppressions.py` enforces all of it.
 #
 # This file is intentionally empty in Phase 1. Tuning entries are added
 # alongside their motivating findings in Phase 3.
