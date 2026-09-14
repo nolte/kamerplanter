@@ -308,6 +308,27 @@ class TestStaleSuppression:
         assert code == 1
         assert "matched no finding in this report" in capsys.readouterr().out
 
+    def test_a_broader_suppression_over_the_same_finding_is_not_called_stale(self, tmp_path, monkeypatch, capsys):
+        """Two rows covering one URL: both are doing work, neither is stale.
+
+        Crediting only the first match reported the second as "matched no finding
+        … remove the row" — the signal that means a suppression has outlived its
+        evidence, aimed at one that had not.
+        """
+        path = tmp_path / "rules.tsv"
+        path.write_text(
+            "\t".join(["40018", "IGNORE", "MEDIUM", _valid_note()])
+            + "\n"
+            + "\t".join(["40018", "IGNORE", "MEDIUM", _valid_note(scope="/api/v1/privacy/")])
+            + "\n",
+            encoding="utf-8",
+        )
+
+        code, _ = _run(tmp_path, _report(_CONFIRM), path, monkeypatch)
+
+        assert code == 0
+        assert "matched no finding" not in capsys.readouterr().out
+
 
 class TestEmittedVerdict:
     def test_the_verdict_file_is_written_even_when_nothing_blocks(self, tmp_path, monkeypatch):

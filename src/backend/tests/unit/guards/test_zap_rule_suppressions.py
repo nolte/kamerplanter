@@ -33,6 +33,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import sys
+from datetime import date
 from pathlib import Path
 from types import ModuleType
 
@@ -76,18 +77,20 @@ def _load_gate() -> ModuleType:
 gate = _load_gate()
 
 
+def _rows_of(path: Path) -> list[tuple[str, int, list[str]]]:
+    """``(file name, line number, fields)`` for every non-comment row in *path*."""
+    if not path.is_file():
+        return []
+    return [
+        (path.name, number, line.split("\t"))
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+
 def _rows() -> list[tuple[str, int, list[str]]]:
-    """``(file, line number, fields)`` for every non-comment row in both files."""
-    found: list[tuple[str, int, list[str]]] = []
-    for name in _RULE_FILES:
-        path = _SECURITY / name
-        if not path.is_file():
-            continue
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if not line.strip() or line.lstrip().startswith("#"):
-                continue
-            found.append((name, number, line.split("\t")))
-    return found
+    """Every row in both shipped files. Legitimately empty — see the control."""
+    return [row for name in _RULE_FILES for row in _rows_of(_SECURITY / name)]
 
 
 def test_the_rule_files_are_where_this_test_thinks_they_are():
@@ -125,18 +128,30 @@ def test_every_row_has_the_four_documented_fields(name: str, number: int, fields
 
 
 @pytest.mark.parametrize("name", _RULE_FILES)
-def test_the_gate_accepts_every_row_in_the_shipped_file(name: str):
-    """The production parser on the production file: no expiry past its grace, no
-    missing scope, no unusable regex.
+def test_the_gate_accepts_the_structure_of_every_shipped_row(name: str):
+    """The production parser on the production file: scope present and usable,
+    threshold honoured, four fields, a parseable date.
 
-    Delegated rather than reimplemented, so a rule this guard is happy with is by
-    construction a rule the gate will actually apply. The previous version of this
-    file did its own arithmetic and disagreed with `zap_gate.py` about the grace
-    period by 30 days.
+    Delegated rather than reimplemented, so a row this guard is happy with is by
+    construction a row the gate will apply. An earlier version did its own
+    arithmetic and disagreed with `zap_gate.py` about the grace by 30 days.
+
+    **Pinned to `date.min`, deliberately.** This test runs in the REQUIRED
+    `Write-route and tree guards` lane, on every push to every branch. Reading the
+    real clock would put a dated landmine under the whole repository: the shipped
+    suppression expires 2027-03-14, so from 2027-04-14 every open pull request
+    would go red — over a ZAP rule that has nothing to do with the change being
+    merged, and with `strict: true` the merge train stops. `.github/settings.yml`
+    refuses to promote `lint-test (3.14)` for exactly this reason.
+
+    Expiry is still enforced, where its blast radius belongs: `zap_gate.py --rules`
+    runs in both ZAP lanes and fails them, and past the grace it also stops applying
+    the row, so the finding it covered reappears. `test_zap_gate.py` owns that
+    arithmetic against a controlled clock.
     """
     path = _SECURITY / name
 
-    _, problems, _ = gate.load_rules(path)
+    _, problems, _ = gate.load_rules(path, today=date.min)
 
     assert not problems, "\n".join(problems)
 
@@ -170,19 +185,20 @@ _ZAP_WRAPPERS = re.compile(r"zap-(baseline|api-scan|full-scan)\.py")
 #: on the OPTION, anywhere in the logical command line.
 _CONFIG_OPTION = re.compile(r"(?:^|\s)(-c|-u|--config|--config-url)(?:[=\s]|$)")
 
-#: The FIFTH spelling, and the one NFR-015 §4 used to prescribe: the `zaproxy/action-*`
-#: wrappers take the same file as `rules_file_name:` and hand it to the same
-#: `zap-api-scan.py` as `-c`. The key names no script, so the patterns above cannot
-#: see it, and `rules_file_name` has no meaning other than that config — so it is
-#: refused outright.
-_ACTION_RULES_FILE = re.compile(r"rules_file_name\s*:")
+#: The `zaproxy/action-*` wrappers are refused WHOLESALE rather than inspected.
+#: They accept the config as `rules_file_name:` and as raw flags in `cmd_options:`,
+#: the latter commonly written as a YAML block scalar whose value sits on later
+#: lines — so a per-key value check has a gap by construction, and the round-3
+#: version of this guard had exactly that gap. This repository invokes ZAP through
+#: `docker run` for reasons NFR-015 §4.1 records (compose networking, HttpSender
+#: scripts), so the action has no legitimate use here; anyone deliberately moving
+#: to it has to come through this test and decide what happens to suppression.
+_ACTION_USE = re.compile(r"uses:\s*zaproxy/action-")
 
-#: `cmd_options:` is the action's raw-flag passthrough and reaches the same place,
-#: but it is ALSO where `-a -j -T 15` legitimately lives. Judging the key alone
-#: would reject a valid step and teach the next reader to work around the guard,
-#: so the value is what is read — with `_CONFIG_OPTION`, the same predicate as on
-#: a `docker run` line.
-_ACTION_CMD_OPTIONS = re.compile(r"cmd_options\s*:")
+#: Kept alongside it because `rules_file_name` has no meaning other than that
+#: config: it catches the key even if it ever appears without the `uses:` line
+#: this scan can see (a composite action, a reusable workflow).
+_ACTION_RULES_FILE = re.compile(r"rules_file_name\s*:")
 
 
 def _logical_lines(text: str) -> list[tuple[int, str]]:
@@ -197,6 +213,14 @@ def _logical_lines(text: str) -> list[tuple[int, str]]:
         if not buffer:
             start = number
         stripped = physical.rstrip()
+        # A comment does not continue. `# note \` + `zap-api-scan.py … -c f.tsv` is
+        # two things to bash: the comment ends at the newline and the command runs
+        # with the config. Joining them produced one line starting with `#`, which
+        # the scan skipped — a way past the guard that bash does not honour.
+        if stripped.lstrip().startswith("#"):
+            joined.append((start, buffer + stripped) if buffer else (number, stripped))
+            buffer = ""
+            continue
         if stripped.endswith("\\"):
             buffer += stripped[:-1] + " "
             continue
@@ -205,6 +229,19 @@ def _logical_lines(text: str) -> list[tuple[int, str]]:
     if buffer:
         joined.append((start, buffer))
     return joined
+
+
+def _zap_arguments(command: str) -> str:
+    """The part of *command* after the ZAP script name, or "" if it names none.
+
+    Options before the script belong to `docker run`, not to ZAP, and they overlap:
+    `docker run -u 1000:1000 … zap-baseline.py` is the documented fix for the bind
+    mount this workflow currently handles with `chmod -R a+rwX`, and ZAP's own `-u`
+    takes a config URL. Reading only what follows the script name tells the two
+    apart by position rather than by guessing at the argument.
+    """
+    match = _ZAP_WRAPPERS.search(command)
+    return command[match.end() :] if match else ""
 
 
 def test_no_workflow_hands_a_config_to_zap():
@@ -220,10 +257,8 @@ def test_no_workflow_hands_a_config_to_zap():
         for number, command in _logical_lines(path.read_text(encoding="utf-8")):
             if command.lstrip().startswith("#"):
                 continue  # a shell comment inside a `run:` block, e.g. the one saying why
-            handed_on_a_command_line = _ZAP_WRAPPERS.search(command) and _CONFIG_OPTION.search(command)
-            handed_through_the_action = _ACTION_RULES_FILE.search(command) or (
-                _ACTION_CMD_OPTIONS.search(command) and _CONFIG_OPTION.search(command)
-            )
+            handed_on_a_command_line = _CONFIG_OPTION.search(_zap_arguments(command))
+            handed_through_the_action = _ACTION_USE.search(command) or _ACTION_RULES_FILE.search(command)
             if handed_on_a_command_line or handed_through_the_action:
                 offenders.append(f"{path.name}:{number}")
 
@@ -265,42 +300,63 @@ def test_this_guard_would_see_a_config_option_it_is_looking_for():
     ]
     prefix = "            zap-full-scan.py \\\n"
 
+    evasions.append("# staged for the scan \\\n            zap-api-scan.py -t o.json -c r.tsv")
+
     for evasion in evasions:
         text = prefix + evasion if not _ZAP_WRAPPERS.search(evasion) else evasion
         hits = [
             command
             for _, command in _logical_lines(text)
-            if _ZAP_WRAPPERS.search(command) and _CONFIG_OPTION.search(command)
+            if not command.lstrip().startswith("#") and _CONFIG_OPTION.search(_zap_arguments(command))
         ]
         assert hits, f"the guard does not see {evasion!r}"
+
+    # And the negative half on the docker side: `-u` BEFORE the script name is
+    # docker's uid option, not ZAP's config URL.
+    docker_uid = (
+        '            docker run --rm -u 1000:1000 -v "$PWD/zapwork:/zap/wrk:rw" \\\n'
+        "              image zap-baseline.py -t http://frontend:8080"
+    )
+    assert not [
+        command for _, command in _logical_lines(docker_uid) if _CONFIG_OPTION.search(_zap_arguments(command))
+    ], "docker run -u <uid> must not read as ZAP's config URL"
 
     # The action form names no script at all, so it needs its own pattern — and
     # this is the shape NFR-015 §4 prescribed until this change.
     def _caught(line: str) -> bool:
-        return bool(
-            _ACTION_RULES_FILE.search(line) or (_ACTION_CMD_OPTIONS.search(line) and _CONFIG_OPTION.search(line))
-        )
+        return bool(_ACTION_USE.search(line) or _ACTION_RULES_FILE.search(line))
 
+    assert _caught("        uses: zaproxy/action-api-scan@v0.9.0")
     assert _caught('          rules_file_name: "tests/security/zap-api-rules.tsv"')
-    assert _caught('          cmd_options: "-a -c zap-api-rules.tsv"')
 
-    # And the negative half, which is why the key alone is not the test: a guard
-    # that rejects every `cmd_options:` would reject the flags §4 legitimately
-    # passes, and a guard people route around stops guarding.
-    assert not _caught('          cmd_options: "-a -j -m 5 -T 15"')
-
-
-def test_the_row_scan_is_not_vacuous():
-    """At least one row exists, or every parametrised check above is empty.
-
-    Both files were empty until #1376/#1389 added the first suppression. If they
-    return to empty this test fails and says so, rather than the file quietly
-    becoming a no-op that still reports green.
-    """
-    rows = _rows()
-
-    assert rows, (
-        "no ZAP rule rows found. If every suppression was legitimately removed, delete "
-        "this test with the same commit — an empty scan makes the checks above assert "
-        "nothing while still passing."
+    # The block-scalar form is why the action is refused wholesale rather than by
+    # reading `cmd_options:`. Here the key and the option are on different lines,
+    # so any per-line value check misses it — the `uses:` line above is what
+    # catches this workflow.
+    block_scalar = (
+        "        uses: zaproxy/action-full-scan@v0.12.0\n"
+        "        with:\n"
+        "          cmd_options: >-\n"
+        "            -a\n"
+        "            -c zap-rules.tsv\n"
     )
+    assert any(_caught(command) for _, command in _logical_lines(block_scalar)), (
+        "the block-scalar form must be caught by the uses: line"
+    )
+
+
+def test_the_row_scan_reads_rows_when_there_are_rows(tmp_path):
+    """The control for the parametrised checks, on a synthetic file.
+
+    They are parametrised over `_rows()`, so if the parser silently stopped
+    returning anything they would all pass over nothing. The obvious control —
+    "the shipped files must contain at least one row" — was the first version of
+    this test, and it is the wrong shape: it makes DELETING a suppression, the
+    security-positive act, turn the required lane red, which is precisely the
+    pressure that produces "just renew it for another year". An empty rule file is
+    a legitimate and desirable state.
+    """
+    path = tmp_path / "zap-rules.tsv"
+    path.write_text("# a comment\n\n40018\tIGNORE\tMEDIUM\tnote\n", encoding="utf-8")
+
+    assert _rows_of(path) == [("zap-rules.tsv", 3, ["40018", "IGNORE", "MEDIUM", "note"])]

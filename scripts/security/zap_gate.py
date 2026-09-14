@@ -255,11 +255,17 @@ def apply_suppressions(
         kept = []
         for inst in instances:
             uri = str(inst.get("uri", ""))
-            covering = next((s for s in suppressions if s.covers(plugin_id, uri)), None)
-            if covering is None:
+            # EVERY covering row is credited, not just the first match. With a
+            # narrow scope and a broader one over the same endpoint, crediting only
+            # the first made the second report "matched no finding … remove the
+            # row" — the designed signal to delete a suppression, pointed at one
+            # that was doing its job.
+            covering = [s for s in suppressions if s.covers(plugin_id, uri)]
+            if not covering:
                 kept.append(inst)
-            else:
-                hits[covering.source] += 1
+                continue
+            for suppression in covering:
+                hits[suppression.source] += 1
         if instances and not kept:
             notes.append(
                 f"suppressed: [{RISK.get(alert.get('riskcode_int', -1), '?')}] "
