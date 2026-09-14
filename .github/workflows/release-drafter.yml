@@ -18,7 +18,7 @@ jobs:
     # Pass the portfolio App so the draft is written under the App identity
     # (consistent audit trail with release-publish). When `vars.PORTFOLIO_APP_ID`
     # is unset, the reusable falls back to `secrets.token` (GITHUB_TOKEN).
-    uses: nolte/gh-plumbing/.github/workflows/reusable-release-drafter.yml@6eeab5f407a63c182d82290dbf78faca18b2af3b # v2.0.1
+    uses: nolte/gh-plumbing/.github/workflows/reusable-release-drafter.yml@3fccbb333146cd2a65902afd7394db870ae6a978 # v2.1.0
     with:
       app-id: ${{ vars.PORTFOLIO_APP_ID }}
     secrets:
