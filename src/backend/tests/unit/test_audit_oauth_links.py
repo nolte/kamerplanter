@@ -553,7 +553,11 @@ def test_the_default_run_says_the_cutoff_is_a_floor(monkeypatch, capsys):
     monkeypatch.setattr(arango, "ArangoClient", _Client)
     monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py"])
 
-    assert audit.main() == 0
+    # The fixture carries one at-risk link, so the run legitimately ends in
+    # EXIT_FINDINGS — see TestExitCodes for why that is not 0.
+    code = audit.main()
+    assert code != 0, "the fixture carries an at-risk link"
+    assert code == audit.EXIT_FINDINGS
     out = capsys.readouterr().out
     assert "--gate-cutoff and --autolink-cutoff still hold the develop-merge time" in out, (
         "BOTH defaults are floors. The first version of this note covered the "
@@ -627,3 +631,195 @@ class TestRegistrationsAreNotAutoLinks:
         )
 
         assert audit.was_created_through_the_provider(row) is False
+
+
+class TestExitCodes:
+    """A finding and an all-clear must not exit the same way.
+
+    The script `return 1`s rather than print a false all-clear for an uninitialised
+    database, which teaches a reader that the exit code carries meaning. It did not:
+    `audit_oauth_links.py && echo clean` printed `clean` over a listing of enabled
+    pre-gate providers.
+    """
+
+    @staticmethod
+    def _run(monkeypatch, *, links: list[dict], providers: list[dict]) -> int:
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def db(self, *args, **kwargs):
+                return _Db()
+
+        class _Db:
+            def has_collection(self, _name):
+                return True
+
+            @property
+            def aql(self):
+                return _Aql()
+
+        class _Aql:
+            def execute(self, query):
+                if "user_email_verified" in query:
+                    return iter(links)
+                if "cfg.slug" in query:
+                    return iter(providers)
+                return iter(())
+
+        import arango
+
+        monkeypatch.setattr(arango, "ArangoClient", _Client)
+        monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py"])
+        return audit.main()
+
+    @staticmethod
+    def _provider(**overrides) -> dict:
+        return {
+            "key": "c1",
+            "slug": "rogue",
+            "display_name": "Rogue",
+            "issuer_url": "https://evil.example/",
+            "enabled": True,
+            "created_at": "2026-09-09T00:00:00+00:00",
+            **overrides,
+        }
+
+    def test_the_findings_code_is_distinguishable_from_every_other_outcome(self):
+        """Asserted as a VALUE, not against the constant.
+
+        The first version of this class asserted `code == audit.EXIT_FINDINGS`
+        throughout — the constant against itself. Setting `EXIT_FINDINGS = 0` left
+        all five tests green while a finding and an all-clear exited identically,
+        which is the whole defect they were written for. This is the second time in
+        this pull request that a guard read the same number twice; the first was
+        `test_the_shipped_defaults_are_the_dates_they_claim_to_be`.
+        """
+        assert audit.EXIT_FINDINGS != 0, "a finding must not exit like an all-clear"
+        assert audit.EXIT_FINDINGS != 1, "1 already means the audit could not run"
+        assert audit.EXIT_FINDINGS != 2, "2 already means the arguments were unusable"
+
+    def test_a_clean_installation_exits_zero(self, monkeypatch):
+        code = self._run(monkeypatch, links=[], providers=[])
+
+        assert code == 0
+
+    def test_an_enabled_pre_gate_provider_exits_with_findings(self, monkeypatch):
+        """Zero links and a rogue provider is the trap, and it used to exit 0."""
+        code = self._run(monkeypatch, links=[], providers=[self._provider()])
+
+        assert code != 0, "an enabled pre-gate provider is not an all-clear"
+        assert code == audit.EXIT_FINDINGS
+
+    def test_a_disabled_pre_gate_provider_alone_is_clean(self, monkeypatch):
+        """The control: a disabled provider mints nothing, so it is not a finding."""
+        code = self._run(monkeypatch, links=[], providers=[self._provider(enabled=False)])
+
+        assert code == 0
+
+    def test_an_at_risk_link_exits_with_findings(self, monkeypatch):
+        code = self._run(
+            monkeypatch,
+            links=[
+                {
+                    "key": "l1",
+                    "provider": "github",
+                    "linked_at": "2026-01-01T00:00:00+00:00",
+                    "created_at": None,
+                    "user_key": "u1",
+                    "user_exists": True,
+                    "user_email_verified": True,
+                    "user_created_at": "2025-01-01T00:00:00+00:00",
+                }
+            ],
+            providers=[],
+        )
+
+        assert code != 0, "a reachable link is not an all-clear"
+        assert code == audit.EXIT_FINDINGS
+
+    def test_links_that_are_all_out_of_window_exit_zero(self, monkeypatch):
+        """The control for the case above: links exist, none of them reachable."""
+        code = self._run(
+            monkeypatch,
+            links=[
+                {
+                    "key": "l1",
+                    "provider": "github",
+                    "linked_at": "2026-09-20T00:00:00+00:00",
+                    "created_at": None,
+                    "user_key": "u1",
+                    "user_exists": True,
+                    "user_email_verified": True,
+                    "user_created_at": "2025-01-01T00:00:00+00:00",
+                }
+            ],
+            providers=[],
+        )
+
+        assert code == 0
+
+
+def test_the_excluded_count_is_the_exclusion_it_is_printed_under(monkeypatch, capsys):
+    """It is printed beneath `reachable by the auto-link path` as that count's
+    exclusion, so it has to be scoped the same way.
+
+    Counting every registration in the table instead reported rows that were never
+    in the window: measured on 200 post-cutoff Google registrations plus one real
+    auto-link, it printed "1 reachable, 200 excluded" — 201 rows presented as
+    examined when 200 were out of scope.
+    """
+
+    def _link(key, linked_at, user_created_at):
+        return {
+            "key": key,
+            "provider": "google",
+            "linked_at": linked_at,
+            "created_at": None,
+            "user_key": f"u-{key}",
+            "user_exists": True,
+            "user_email_verified": True,
+            "user_created_at": user_created_at,
+        }
+
+    links = [
+        # Registrations AFTER the auto-link cut-off: out of the window entirely.
+        _link(f"after-{n}", "2026-09-20T10:00:00+00:00", "2026-09-20T10:00:00+00:00")
+        for n in range(3)
+    ]
+    links.append(
+        # A registration INSIDE the window: this one is genuinely excluded by the rule.
+        _link("inside", "2026-01-01T10:00:00+00:00", "2026-01-01T10:00:00+00:00")
+    )
+    links.append(_link("real", "2026-01-01T10:00:00+00:00", "2025-01-01T00:00:00+00:00"))
+
+    class _Client:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def db(self, *args, **kwargs):
+            return _Db()
+
+    class _Db:
+        def has_collection(self, _name):
+            return True
+
+        @property
+        def aql(self):
+            return _Aql()
+
+    class _Aql:
+        def execute(self, query):
+            return iter(links) if "user_email_verified" in query else iter(())
+
+    import arango
+
+    monkeypatch.setattr(arango, "ArangoClient", _Client)
+    monkeypatch.setattr(sys, "argv", ["audit_oauth_links.py"])
+    audit.main()
+
+    out = capsys.readouterr().out
+    assert "reachable by the auto-link path: 1" in out
+    assert "excluded as registrations:     1" in out, (
+        "only the in-window registration was excluded from that 1; the three after the cut-off were never candidates"
+    )

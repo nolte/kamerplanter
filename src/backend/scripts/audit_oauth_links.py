@@ -201,6 +201,16 @@ def classify(
 
 KEY_LISTING_LIMIT = 50
 
+#: Exit code when the audit found something an operator has to look at — an enabled
+#: provider registered before the gate, or a link reachable by the defective branch.
+#:
+#: Distinct from 0 because this file goes to some length to `return 1` rather than
+#: print a false all-clear for an uninitialised database, which teaches the reader
+#: that the exit code means something. It did not: `audit_oauth_links.py && echo
+#: clean` printed `clean` over a rogue-provider listing. 0 now means nothing found,
+#: 1 means the audit could not run, and 3 means it ran and found rows.
+EXIT_FINDINGS = 3
+
 #: How close a link's timestamp has to be to its user's creation before the pair is
 #: read as "this account was CREATED through the provider" rather than "an existing
 #: account was linked to one".
@@ -208,11 +218,23 @@ KEY_LISTING_LIMIT = 50
 #: The distinction matters because `at_risk` otherwise over-counts by a whole
 #: population. `_register_oauth_user` sets `email_verified` from the provider's own
 #: claim (`auth_service.py:908`), so someone who has only ever signed in with Google
-#: has a verified account and a federated link — and the defective auto-link branch
-#: could never have produced it, because auto-link requires a pre-existing LOCAL
-#: account to attach to. On an OAuth-first installation that made `at_risk`
-#: approach "every federated link": the same alarming-and-wrong number the `local`
-#: filter was added to remove, one population over.
+#: has a verified account and a federated link. That link was written by the
+#: REGISTRATION path (`_register_oauth_user` followed by `_create_oauth_provider`),
+#: not by the auto-link branch — which is why its timestamp coincides with the
+#: user's creation, and that coincidence is the only evidence available here. On an
+#: OAuth-first installation, counting them made `at_risk` approach "every federated
+#: link": the same alarming-and-wrong number the `local` filter was added to remove,
+#: one population over.
+#:
+#: NOT because auto-link needs a local password — it does not. `handle_oauth_callback`
+#: finds the account with `get_by_email` (`user_repository.py:44`), which filters on
+#: the address alone, so a Google-registered account is auto-linkable by a SECOND,
+#: rogue provider. That second link has its own later timestamp, so the rule below
+#: keeps it, which is correct and is the case that matters. The tempting
+#: "simplification" — exclude users with no `provider=local` row — would drop exactly
+#: those rows. Recorded here because an earlier version of this comment gave the
+#: local-password reason, and a wrong reason next to right code is how the next
+#: reader breaks it.
 #:
 #: Sixty seconds is a heuristic and is deliberately SMALL. Excluding a row that
 #: should have been counted is the dangerous error here; including one that need not
@@ -375,13 +397,27 @@ def main() -> int:
         # The two-window reasoning in classify() assumes the gate came first, which
         # it did. Swapped flags would relabel both counts and nothing in the output
         # would say so.
+        # The likely cause is NOT a transposition: an installation that rolled both
+        # fixes out in one deploy has one timestamp, and passing it for the gate
+        # alone leaves the auto-link flag at its default floor — which is earlier.
+        # Saying "you swapped them" sends the operator looking for a mistake they
+        # did not make.
+        left_at_default = args.autolink_cutoff == DEFAULT_AUTOLINK_CUTOFF
         print(
             f"--autolink-cutoff ({autolink_cutoff.isoformat()}) is before "
-            f"--gate-cutoff ({gate_cutoff.isoformat()}). The admin gate shipped "
-            f"first; if you meant to swap them, the labels in the report would be "
-            f"wrong.",
+            f"--gate-cutoff ({gate_cutoff.isoformat()}), and the admin gate shipped "
+            f"first.",
             file=sys.stderr,
         )
+        if left_at_default:
+            print(
+                "--autolink-cutoff is still at its develop-merge default. If you are "
+                "passing your deploy time, pass it for BOTH cut-offs: one deploy "
+                "carried both fixes.",
+                file=sys.stderr,
+            )
+        else:
+            print("Check whether the two values are the wrong way round.", file=sys.stderr)
         return 2
 
     from arango import ArangoClient
@@ -480,10 +516,10 @@ def main() -> int:
                 "link they mint from now on lands after both cut-offs."
             )
             _print_floor_note(args)
-            return 0
+            return EXIT_FINDINGS
         print("Nothing has ever been linked to an external identity provider.")
         _print_floor_note(args)
-        return 0
+        return EXIT_FINDINGS if still_enabled else 0
 
     by_provider, before_gate, at_risk, undated = classify(rows, gate_cutoff, autolink_cutoff)
     orphaned = [row for row in rows if not row.get("user_exists")]
@@ -493,7 +529,20 @@ def main() -> int:
     print(f"  without a timestamp:           {undated}  (counted as inside BOTH windows)")
     print(f"  pointing at a deleted user:    {len(orphaned)}")
     print(f"created before the #1399 gate:   {len(before_gate)}  (< {gate_cutoff.isoformat()})")
-    registrations = [row for row in rows if was_created_through_the_provider(row)]
+    # The SAME three conditions `classify` uses, minus the registration rule itself:
+    # this line is printed as the exclusion applied to `at_risk`, so counting every
+    # registration in the table instead reported rows that were never in the window.
+    # Measured on a fake table of 200 post-cutoff Google registrations plus one real
+    # auto-link, it printed "1 reachable, 200 excluded" — 201 rows presented as
+    # examined when 200 were out of scope. The same failure class as the count one
+    # line above, in the line explaining it.
+    registrations = [
+        row
+        for row in rows
+        if (stamp_of(row) is None or stamp_of(row) < autolink_cutoff)
+        and row.get("user_email_verified") is True
+        and was_created_through_the_provider(row)
+    ]
     print(f"reachable by the auto-link path: {len(at_risk)}  (< {autolink_cutoff.isoformat()}, account email-verified)")
     print(
         f"  excluded as registrations:     {len(registrations)}  (account created "
@@ -532,6 +581,15 @@ def main() -> int:
             print(f"  … and {withheld} more not shown (listing caps at {KEY_LISTING_LIMIT}).")
             print("  A manual review that stops here is incomplete — query the collection")
             print("  directly for the full set.")
+
+    if still_enabled or at_risk:
+        print()
+        print(
+            f"Exit {EXIT_FINDINGS}: this audit found rows to look at. Nothing here is "
+            f"proof of a forged link — the data layer cannot tell one from a "
+            f"legitimate one — but none of it is an all-clear either."
+        )
+        return EXIT_FINDINGS
 
     return 0
 
