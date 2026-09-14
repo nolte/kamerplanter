@@ -47,6 +47,7 @@ from __future__ import annotations
 import ast
 import re
 import sys
+import tomllib
 from importlib import metadata
 from pathlib import Path
 
@@ -55,12 +56,31 @@ import pytest
 _BACKEND = Path(__file__).resolve().parents[2]
 _LOCK = _BACKEND / "uv.lock"
 
-#: The tree this rule governs — see "Scope" above for why it is only this one.
-#:
-#: Every ``*.py``, not ``test_*.py``: a guard moved into a ``conftest.py`` fixture is
-#: exactly where the three ``moto`` guards this change converted used to live, and
-#: five conftest files under here were never opened by the narrower glob.
-_SCAN_ROOTS: tuple[Path, ...] = (_BACKEND / "tests",)
+
+def _testpaths() -> tuple[Path, ...]:
+    """The tree this rule governs, read from ``pyproject.toml``.
+
+    Not a literal. ``Path.rglob`` on a directory that does not exist yields nothing
+    **silently**, so a hard-coded root that stops being right — the tree renamed,
+    this file moved a level deeper — turns the whole rule into a scan over zero
+    files: ``_offenders()`` returns ``[]`` and the check reports a pass. Measured in
+    review round 4: changing the root to a typo left 10 passed, 0 failed, because
+    every control monkeypatches ``_SCAN_ROOTS`` to a temp directory and never touches
+    the real one.
+
+    That is the fifth time this file has been the failure mode it exists to catch.
+    Round 2 closed it for the lock parser and left it open here.
+
+    See "Scope" above for why this is only the backend tree. Every ``*.py``, not
+    ``test_*.py``: a guard moved into a ``conftest.py`` fixture is exactly where the
+    three ``moto`` guards this change converted used to live.
+    """
+    data = tomllib.loads((_BACKEND / "pyproject.toml").read_text(encoding="utf-8"))
+    paths = data["tool"]["pytest"]["ini_options"]["testpaths"]
+    return tuple(_BACKEND / path for path in paths)
+
+
+_SCAN_ROOTS: tuple[Path, ...] = _testpaths()
 
 #: This module, so a control can repoint ``_SCAN_ROOTS`` at a temp directory.
 #: Rebinding a module global from inside one of its own functions would not be seen
@@ -128,7 +148,10 @@ def _importorskip_targets() -> list[tuple[Path, int, str]]:
         for path in sorted(root.rglob("*.py")):
             try:
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            except (SyntaxError, UnicodeDecodeError) as exc:
+            # ``ValueError`` for a NUL byte in the source, ``OSError`` for a broken
+            # symlink ending in ``.py`` — ``rglob`` yields both, and either escaped
+            # as the raw traceback the comment below says it replaced.
+            except (SyntaxError, ValueError, OSError, UnicodeDecodeError) as exc:
                 # Named, not swallowed. A deliberately-broken fixture file is ordinary
                 # in a test tree, and letting this raise would take the rule offline
                 # behind a traceback that never says which file did it.
@@ -268,6 +291,28 @@ _EXPECTED_DEV_IMPORTS: dict[str, str] = {
 }
 
 
+def test_the_scan_root_actually_contains_the_test_tree():
+    """The rule scans real files, not an empty directory.
+
+    ``Path.rglob`` on a missing directory yields nothing and raises nothing, so a
+    scan root that stops being right makes ``_offenders()`` return ``[]`` and the
+    check report a pass. Measured in review round 4: pointing the root at a typo left
+    all ten tests green, because every control repoints ``_SCAN_ROOTS`` at a temp
+    directory and none of them touches the real one.
+
+    Reading the root from ``testpaths`` removes the chance to mistype it; this
+    removes the chance that the tree it names is empty. A floor rather than an exact
+    count — 766 files today, and the number is nobody's business but this assertion's.
+    """
+    scanned = [path for root in _SCAN_ROOTS for path in root.rglob("*.py")]
+
+    assert len(scanned) > 100, (
+        f"the scan covers {len(scanned)} Python files under {[str(r) for r in _SCAN_ROOTS]}, "
+        f"which cannot be the backend test tree. Every check in this file would pass "
+        f"over an empty scan (#1435)."
+    )
+
+
 def test_this_environment_can_judge_the_rule_at_all():
     """The precondition, and the reason it has to exist.
 
@@ -315,6 +360,12 @@ def test_a_marker_gated_lock_entry_is_not_reported(tmp_path, monkeypatch):
     fail in any environment.
     """
     locked = _locked_distributions()
+    # Asserted before the skip below, because an empty ``locked`` makes ``absent``
+    # empty too — so a broken lock parser reported this case as *skipped*, not
+    # failed. Observed in review while mutating the regex: a skip-to-green inside the
+    # file whose whole thesis is that a skip is indistinguishable from a pass.
+    assert locked, "the lock parser returned nothing; this test cannot judge anything"
+
     absent = [
         name for name in ("colorama", "tzdata", "uvloop", "brotlicffi") if name in locked and not _providers_of(name)
     ]
