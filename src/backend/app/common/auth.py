@@ -484,7 +484,8 @@ def require_tenant_role(min_role: TenantRole) -> Callable:
 def require_active_tenant_role(min_role: TenantRole) -> Callable:
     """The same rank gate, for a global route whose tenant comes from the header.
 
-    ``/api/v1/pflanzen/{key}/phases/...`` and ``/api/v1/care-reminders/plants/{key}/...``
+    ``/api/v1/plant-instances/{key}/phases/...`` and
+    ``/api/v1/care-reminders/plants/{key}/...``
     carry no ``{slug}`` segment, so :func:`require_tenant_role` has no tenant to rank
     against — its :func:`get_current_tenant` binds on a path parameter that is not
     there. Those routers were therefore gated on :func:`require_owned_plant` alone,

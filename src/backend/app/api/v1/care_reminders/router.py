@@ -50,7 +50,20 @@ def _confirmation_to_response(c) -> CareConfirmationResponse:
     return to_response(c, CareConfirmationResponse)
 
 
-@router.get("/plants/{plant_key}/profile", response_model=CareProfileResponse)
+# A GET that WRITES: `get_or_create_profile` persists a `CareProfile` and a profile
+# edge when the plant has none, seeded from caller-supplied query parameters. So it
+# carries the same rank gate as the six routes whose method says so (#1422 review
+# round 1) — a viewer calling it on an unprofiled plant was writing a document of
+# their choosing.
+#
+# The name is the honest part and the method is not; renaming the operation or
+# splitting read from create is a bigger change than this gate and is not needed to
+# close the permission hole.
+@router.get(
+    "/plants/{plant_key}/profile",
+    response_model=CareProfileResponse,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+)
 def get_or_create_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     species_name: str | None = Query(None, description="Species name used to seed a new profile's presets."),

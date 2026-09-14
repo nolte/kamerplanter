@@ -22,7 +22,7 @@ for (#948, #1385, #1399): ten would be correct and the eleventh, added next mont
 would not. Mounted on the ROUTER, a new operation inherits the check without anyone
 remembering.
 
-`get_active_tenant_key` is the resolver ADR-009 built for this case and
+`get_active_tenant_context` is the resolver ADR-009 built for this case and
 `companion_planting` and `botanical_families` already use; the frontend's global
 client attaches `X-Active-Tenant` on every request, so no client change is needed.
 """
@@ -31,16 +31,17 @@ from typing import Annotated
 
 from fastapi import Depends, Path
 
-from app.common.auth import get_active_tenant_key
+from app.common.auth import get_active_tenant_context
 from app.common.dependencies import get_plant_instance_service
 from app.common.exceptions import NotFoundError
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.tenant_context import TenantContext
 from app.domain.services.plant_instance_service import PlantInstanceService
 
 
 def require_owned_plant(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
-    tenant_key: str = Depends(get_active_tenant_key),
+    ctx: TenantContext = Depends(get_active_tenant_context),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
 ) -> PlantInstance:
     """Resolve the plant and refuse it unless it belongs to the caller's active tenant.
@@ -80,6 +81,13 @@ def require_owned_plant(
     real `tenant_key`, unlike `Location` and `Slot` (#1397). So refusing is not a
     trade-off — an unresolvable tenant cannot own anything.
     """
+    # Read off the shared context rather than resolved a second time. Both this gate
+    # and `require_active_tenant_role` need the active tenant, and until #1422's review
+    # they reached it through two different callables — `get_active_tenant_key` and
+    # `get_active_tenant_context` — which FastAPI cannot dedupe, so every gated write
+    # paid for two `_resolve_active_tenant` runs and their repository reads. Same value
+    # either way: both are `_resolve_active_tenant(...).key`.
+    tenant_key = ctx.tenant_key
     if not tenant_key:
         raise NotFoundError("PlantInstance", plant_key)
     return plant_service.get_plant(plant_key, tenant_key=tenant_key)

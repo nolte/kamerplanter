@@ -422,12 +422,22 @@ class TestTheServiceOwnCheckIsReachedOnTheRestPath:
         )
 
 
-#: The seven write routes, with the rank REQ-049 §2.3 puts on each.
+#: Every route that WRITES, with the rank REQ-049 §2.3 puts on each.
 #:
-#: Spelled out rather than filtered out of ``ROUTES`` by HTTP method: the whole point
-#: of #1422 is that ``DELETE`` sits at a different rank from the other six, and a
-#: derivation that computed the rank from the method would encode that rule in the
-#: test instead of checking it.
+#: Eight, not seven, and the eighth is the interesting one. ``GET
+#: /care-reminders/plants/{key}/profile`` persists: ``get_or_create_profile``
+#: creates a ``CareProfile`` and a profile edge when none exists
+#: (``care_reminder_service.py``), with ``species_name`` taken from caller-supplied
+#: query parameters. A tenant viewer calling it on an unprofiled plant therefore
+#: wrote a document of their choosing — the same axis #1422 closes on the other
+#: seven, reached through a method nobody reads as a write.
+#:
+#: Spelled out rather than filtered out of ``ROUTES``: the previous version derived
+#: the write surface as ``method != "GET"`` and so could not see this route at all,
+#: while its own docstring promised that a forgotten write route would fail. The
+#: rank is spelled out for the same reason — ``DELETE`` sits at a different rank
+#: from the rest, and computing it from the method would put that rule in the test
+#: instead of checking it.
 WRITE_ROUTES_WITH_RANK: list[tuple[str, str, dict[str, Any] | None, TenantRole]] = [
     (
         "POST",
@@ -452,24 +462,113 @@ WRITE_ROUTES_WITH_RANK: list[tuple[str, str, dict[str, Any] | None, TenantRole]]
         TenantRole.GROWER,
     ),
     ("POST", "/api/v1/care-reminders/plants/{k}/reset-profile", None, TenantRole.GROWER),
+    # The write that does not look like one — see the note above.
+    ("GET", "/api/v1/care-reminders/plants/{k}/profile", None, TenantRole.GROWER),
 ]
 
 
-def test_the_rank_table_covers_every_write_route_in_the_route_table():
-    """The two tables must not drift, or a new write route is checked by nothing.
+#: Routes in ``ROUTES`` that genuinely only read, each with the reason.
+#:
+#: The inverse of ``WRITE_ROUTES_WITH_RANK``, spelled out rather than derived,
+#: because "writes" is not a property of the HTTP method. Review round 1 measured
+#: the cost of pretending otherwise: ``GET .../profile`` persists, and a
+#: ``method != "GET"`` selector reported the rank table as complete while that route
+#: was covered by nothing.
+#:
+#: A route added to ``ROUTES`` must land in one of the two, with a reason if it
+#: lands here — "I could not think of a write" is not one.
+READ_ONLY_ROUTES: dict[tuple[str, str], str] = {
+    ("GET", "/api/v1/plant-instances/{k}/phases/current"): "reads the current phase",
+    ("GET", "/api/v1/plant-instances/{k}/phases/history"): "reads recorded history",
+    ("GET", "/api/v1/care-reminders/plants/{k}/history"): "reads confirmations",
+}
 
-    ``ROUTES`` is the file's inventory of every route on both routers;
-    ``WRITE_ROUTES_WITH_RANK`` is the subset that must carry a rank gate. Derived
-    here rather than trusted: a route added to ``ROUTES`` with a write method and
-    forgotten below would otherwise be covered by no rank test at all — the opt-in
-    drift #948 is about, one level up in the test suite.
+
+def test_every_route_is_classified_as_reading_or_writing():
+    """No route may be in neither table, and none in both.
+
+    ``ROUTES`` is the file's inventory of every route on both routers. Each entry
+    must be claimed by exactly one of ``WRITE_ROUTES_WITH_RANK`` (and therefore
+    rank-tested) or ``READ_ONLY_ROUTES`` (and therefore argued for). Anything else
+    is a route covered by nothing — the opt-in drift #948 is about, one level up in
+    the test suite.
+
+    The earlier version of this check derived the write set as ``method != "GET"``,
+    which is a guess about naming rather than about behaviour, and it was wrong for
+    a route already sitting in the table.
     """
-    writes_in_inventory = {(method, template) for method, template, _body in ROUTES if method != "GET"}
+    inventory = {(method, template) for method, template, _body in ROUTES}
     ranked = {(method, template) for method, template, _body, _rank in WRITE_ROUTES_WITH_RANK}
+    read_only = set(READ_ONLY_ROUTES)
 
-    assert writes_in_inventory == ranked, (
-        f"write routes with no rank expectation: {sorted(writes_in_inventory - ranked)}; "
-        f"ranked routes that are not in ROUTES: {sorted(ranked - writes_in_inventory)}"
+    assert not (ranked & read_only), f"claimed by both tables: {sorted(ranked & read_only)}"
+    unclassified = inventory - ranked - read_only
+    assert not unclassified, (
+        f"routes classified as neither reading nor writing: {sorted(unclassified)}. "
+        f"Add each to WRITE_ROUTES_WITH_RANK with its rank, or to READ_ONLY_ROUTES "
+        f"with the reason it writes nothing."
+    )
+    stale = (ranked | read_only) - inventory
+    assert not stale, f"classified but not in ROUTES any more: {sorted(stale)}"
+
+
+def _rank_gated_routes() -> set[tuple[str, str]]:
+    """``(method, path)`` for every route on the two routers carrying a rank gate.
+
+    One scan, used by both checks below. Two copies would mean the control can prove
+    only one of them still sees anything — measured: neutering one loop left the
+    other's control green, so the vacuity guard covered half of what it claimed.
+    """
+    from app.api.v1.care_reminders.router import router as care
+    from app.api.v1.phases.router import router as phases
+
+    gated: set[tuple[str, str]] = set()
+    for router in (phases, care):
+        for route in router.routes:
+            names = {
+                getattr(dependency.dependency, "__qualname__", "") for dependency in getattr(route, "dependencies", [])
+            }
+            if any("require_active_tenant_role" in name for name in names):
+                for method in route.methods:
+                    gated.add((method, f"/api/v1{route.path}"))
+    return gated
+
+
+def test_the_gate_scan_actually_finds_the_gated_routes():
+    """The control. Every check below intersects with this scan, so an empty one agrees.
+
+    A scan that stopped seeing the dependencies would report agreement it never
+    checked — the failure mode this file keeps finding elsewhere, aimed at itself.
+    """
+    gated = _rank_gated_routes()
+
+    assert len(gated) == 8, f"expected eight gated routes, found {sorted(gated)}"
+
+
+def test_a_route_claimed_read_only_carries_no_rank_gate():
+    """The claim has to agree with the code, or the classification is self-serving.
+
+    ``READ_ONLY_ROUTES`` holds prose reasons, and prose is exactly what nothing
+    checks — moving a route there silences its rank test with no other consequence.
+    Measured: relabelling the writing ``GET .../profile`` as read-only left the suite
+    green even though the gate was still on it.
+
+    This does not prove a route writes nothing; that needs call-graph analysis. It
+    proves the two statements agree: a route the file calls read-only must not carry
+    a rank gate, because if it does, either the label is wrong or the gate is
+    pointless — and both need a person, not a green lane.
+
+    The same shape one level out is #1441: an allowlist entry justifying an exemption
+    with an inline role gate that does not exist.
+    """
+    # `ROUTES` spells `{k}`; the router spells the real parameter name.
+    claimed = {(method, template.replace("{k}", "{plant_key}")) for method, template in READ_ONLY_ROUTES}
+
+    contradictions = sorted(claimed & _rank_gated_routes())
+
+    assert not contradictions, (
+        f"these routes are labelled read-only and carry a rank gate: {contradictions}. "
+        f"Either the label is wrong — the route writes — or the gate is unnecessary."
     )
 
 

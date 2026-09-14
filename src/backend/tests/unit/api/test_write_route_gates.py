@@ -249,7 +249,7 @@ _AUTHORISATION: frozenset[str] = frozenset(
         "require_permission.<locals>._check",
         "require_tenant_role.<locals>._check",
         # The header-resolved sibling of the line above (#1422). The routers under
-        # `/pflanzen/{key}/phases` and `/care-reminders/plants/{key}` carry no
+        # `/plant-instances/{key}/phases` and `/care-reminders/plants/{key}` carry no
         # `/t/{slug}/` segment, so `require_tenant_role` has no tenant to rank
         # against; this one reads the tenant `require_owned_plant` already resolved.
         "require_active_tenant_role.<locals>._check",
@@ -285,7 +285,7 @@ _MORE_THAN_MEMBERSHIP: frozenset[str] = frozenset(
         "require_permission.<locals>._check",
         "require_tenant_role.<locals>._check",
         # The header-resolved sibling of the line above (#1422). The routers under
-        # `/pflanzen/{key}/phases` and `/care-reminders/plants/{key}` carry no
+        # `/plant-instances/{key}/phases` and `/care-reminders/plants/{key}` carry no
         # `/t/{slug}/` segment, so `require_tenant_role` has no tenant to rank
         # against; this one reads the tenant `require_owned_plant` already resolved.
         "require_active_tenant_role.<locals>._check",
