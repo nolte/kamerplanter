@@ -271,6 +271,13 @@ export default function TaskDetailPage() {
   const [newChecklistText, setNewChecklistText] = useState('');
 
   const isActionable = task?.status === 'pending' || task?.status === 'in_progress';
+
+  // `delete_task` refuses a task that was completed and reopened: it still carries
+  // the `photo_refs` that completion wrote (#1393). Derived from the same field the
+  // service gates on, so the two cannot say different things — the alternative is a
+  // client rule that drifts from the server's and starts either hiding a working
+  // control or offering one that always 400s.
+  const cannotDelete = task?.reopened_from_status === 'completed';
   const tabSlugs = useMemo(
     () => isActionable
       ? ['details', 'complete', 'comments', 'history', 'edit'] as const
@@ -715,16 +722,42 @@ export default function TaskDetailPage() {
           >
             {t('pages.tasks.cloneTask')}
           </Button>
+          {/*
+            Disabled rather than hidden when the task was completed and reopened.
+            `TaskService.delete_task` refuses such a task outright — it still carries
+            the `photo_refs` completion wrote, and deleting it would destroy that
+            record irreversibly (#1393). The button used to render unconditionally,
+            so the only way to learn the rule was to click, confirm, and read a 400
+            in an error toast that offers no way forward.
+
+            Hiding it would be worse: the control simply vanishing tells the reader
+            nothing, and this is a permanent state — `reopened_from_status` is never
+            downgraded once it says "completed". The tooltip names the rule and the
+            operation that does work, which is the same wording the API returns.
+
+            The span is required: MUI does not fire pointer events on a disabled
+            button, so a Tooltip wrapping it directly never opens.
+          */}
+          <Tooltip
+            arrow
+            enterTouchDelay={0}
+            leaveTouchDelay={5000}
+            title={cannotDelete ? t('pages.tasks.cannotDeleteReopened') : ''}
+          >
+            <span>
           <Button
             variant="outlined"
             size="small"
             color="error"
             startIcon={<DeleteIcon />}
             onClick={() => setDeleteOpen(true)}
+            disabled={cannotDelete}
             data-testid="delete-task-button"
           >
             {t('common.delete')}
           </Button>
+            </span>
+          </Tooltip>
         </Stack>
       </Box>
 

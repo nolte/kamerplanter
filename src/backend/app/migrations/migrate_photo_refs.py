@@ -32,22 +32,46 @@ from typing import Any
 
 import structlog
 
-from app.data_access.arango import collections as col
+from app.data_access.arango.attachment_repository import PHOTO_REF_COLLECTIONS
 
 logger = structlog.get_logger()
 
 # Collections (and the field) that carry photo references.
-_PHOTO_REF_COLLECTIONS: tuple[str, ...] = (
-    col.PLANT_DIARY_ENTRIES,
-    col.HARVEST_BATCHES,
-    col.INSPECTIONS,
-    col.TASKS,
-)
+#
+# Taken from the pinned carrier list rather than repeated here. The local copy this
+# replaces was **wrong in both directions**, measured: it named ``HARVEST_BATCHES``,
+# which has no ``photo_refs`` at all (the field is on ``HarvestObservation``), and it
+# omitted ``PLANT_INSTANCES``, ``HARVEST_OBSERVATIONS`` and ``STORAGE_OBSERVATIONS``,
+# all three of which carry it. So the migration reported success while leaving every
+# legacy reference in the plant gallery and the harvest/storage observations
+# untouched — and this migration is named in #1393's safety story as part of the
+# reference history the orphan sweep has to survive.
+#
+# ``PHOTO_REF_COLLECTIONS`` is pinned against the models by
+# ``tests/unit/data_access/arango/test_photo_ref_carriers.py``, so consuming it means
+# a seventh carrier reaches this migration without anyone remembering it exists.
+_PHOTO_REF_COLLECTIONS: tuple[str, ...] = PHOTO_REF_COLLECTIONS
 _FIELD = "photo_refs"
 
-# An attachment id is a 26-char Crockford-base32 ULID (NFR-013 §4.3). We accept
-# the canonical ULID shape; anything else is treated as a raw reference to be
-# parsed.
+# !!! This module's central premise is false, and it is why running it can make
+# references *worse* rather than better. Tracked as #1438; read that before running
+# this task, which writes by default (``dry_run=False``).
+#
+# Measured against a real ArangoDB in #1393 round 7: an attachment's ``_key`` is a
+# short **numeric** key assigned by ArangoDB (``1024799``), not a ULID —
+# ``BaseArangoRepository._to_doc`` pops ``_key`` before the insert and no key
+# generator is configured. And ``StorageKeyBuilder.build`` mints its *own* ULID when
+# the caller passes none, which ``AttachmentService.upload`` does, so the ULID inside
+# ``t/{tenant}/task/2026/01/{ulid}.jpg`` is unrelated to the document key.
+#
+# The consequence for rule 4 below: normalising a storage-key reference yields that
+# foreign ULID, which resolves to no attachment at all. The reference resolver in
+# ``ArangoAttachmentRepository`` handles such an entry correctly today by comparing it
+# against the attachment's own ``storage_key``; rewriting it here would replace a
+# working reference with a broken one.
+#
+# The regex below still describes the ULID shape, and is kept only because rule 2
+# returning such a value unchanged is harmless.
 _ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$", re.IGNORECASE)
 # Matches a stored ``.../attachments/{id}`` API URI tail.
 _API_URI_RE = re.compile(r"/attachments/(?P<id>[^/?#]+)")

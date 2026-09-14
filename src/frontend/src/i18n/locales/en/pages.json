@@ -3325,7 +3325,8 @@
         "tank": "Tank"
       },
       "instantiateError": "Workflow instantiation failed for all plants.",
-      "instantiatePartial": "{{success}} succeeded, {{failed}} failed."
+      "instantiatePartial": "{{success}} succeeded, {{failed}} failed.",
+      "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",
