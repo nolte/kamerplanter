@@ -148,20 +148,17 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
-    def unreferenced_among(
-        self, attachment_ids: list[str], tenant_key: str, *, ignoring_task_key: str | None = None
-    ) -> list[str]:
-        """Which of *attachment_ids* nothing in the tenant links any more.
+    def task_photo_delete_state(self, attachment_id: str, tenant_key: str, *, task_key: str) -> tuple[str, str | None]:
+        """``(state, created_by)`` for the task-photo delete route (#1393).
 
-        ``ignoring_task_key`` discounts one task's own references, for the caller that
-        is deleting a photo *from* that task.
+        *state* is ``"shared"`` (some carrier other than *task_key* references it),
+        ``"task"`` (only the named task does), ``"staged"`` (nothing anywhere does) or
+        ``"missing"``.
 
-        Implementations MUST check every carrier, not only the one the caller has in
-        mind: ``AttachmentService.upload`` deduplicates by sha256 across the whole
-        tenant and across categories, so one stored object can be referenced from a
-        second task or a plant gallery.
+        Implementations MUST check every carrier, not only tasks: ``upload``
+        deduplicates by sha256 across the whole tenant and across categories, so one
+        stored object can be referenced from a plant gallery or a diary entry as well.
+
+        Answering all three in one query is the point — the caller runs inside an
+        interactive request, and the reference scan has no index to lean on.
         """
-
-    @abstractmethod
-    def by_keys(self, attachment_ids: list[str], tenant_key: str) -> list[Attachment]:
-        """The tenant's attachments among *attachment_ids*, skipping what does not exist."""

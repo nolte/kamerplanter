@@ -167,118 +167,6 @@ def migrate_photo_refs(self, *, dry_run: bool = False) -> dict:  # type: ignore[
     return result
 
 
-async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dict:
-    """Delete each id through the tenant-scoped service, tolerating the already-gone.
-
-    **Only the ids nothing still references.** ``AttachmentService.upload``
-    deduplicates by sha256 across the whole tenant and across categories, so the same
-    stored object can sit in a second task's ``photo_refs`` or be a plant gallery's
-    cover. Deleting a task's list verbatim destroyed those too and left the other
-    references dangling — the shared-object case the caller cannot see from where it
-    stands.
-
-    An id that is still linked is simply left alone: whoever holds that link owns it,
-    and the nightly sweep collects the photo if the link later goes away.
-    """
-    from app.common.dependencies import get_attachment_repo, get_attachment_service
-
-    # Deduplicated first. ``task.photo_refs`` is not unique server-side — ``complete_task``
-    # merges append-only — while ``unreferenced_among`` returns distinct keys, so a list
-    # holding the same id twice reported one copy as "shared with another carrier".
-    # That is precisely the misdiagnosis splitting ``unresolved`` from
-    # ``still_referenced`` was meant to prevent, reintroduced by arithmetic.
-    requested = list(dict.fromkeys(attachment_ids))
-    repo = get_attachment_repo()
-    attachment_ids = repo.unreferenced_among(requested, tenant_key)
-    # Two different outcomes, reported separately. ``unreferenced_among`` drops an id
-    # for either reason, and a single difference-count conflated them: an un-migrated
-    # installation's unresolvable references were reported as "shared with another
-    # carrier", which is the opposite diagnosis and would send whoever reads the audit
-    # line looking for a sharing problem that does not exist.
-    known = {row.key for row in repo.by_keys(requested, tenant_key)}
-    unresolved = [ref for ref in requested if ref not in known]
-    still_referenced = len(requested) - len(attachment_ids) - len(unresolved)
-
-    service = get_attachment_service()
-    deleted = 0
-    failed = 0
-    skipped = 0
-    for attachment_id in attachment_ids:
-        # Idempotent by contract: an unknown id returns False rather than raising,
-        # which is what lets this task be retried and lets a task deletion race a
-        # manual one without either failing.
-        #
-        # Isolated per row: one unreachable storage object must not abort the batch.
-        # Without this a single bad row takes its siblings down with it on every
-        # retry, and they are never collected.
-        try:
-            if await service.delete(attachment_id, tenant_key):
-                deleted += 1
-            else:
-                # Already gone: a manual delete, or a concurrent run of this task.
-                # Counted so the audit line adds up rather than quietly losing rows
-                # between ``requested`` and ``deleted``.
-                #
-                # An unresolvable legacy URI does **not** reach here — it never
-                # matches ``att._key`` in ``unreferenced_among``, so it is filtered
-                # upstream and lands in ``unresolved`` below instead. The comment
-                # that used to claim otherwise described a branch nothing could take.
-                skipped += 1
-        except Exception as exc:  # noqa: BLE001 — one bad row, not a bad batch
-            failed += 1
-            logger.warning(
-                "delete_attachment_failed",
-                tenant_key=tenant_key,
-                attachment_id=attachment_id,
-                error=str(exc),
-            )
-    return {
-        "requested": len(requested),
-        "deleted": deleted,
-        "failed": failed,
-        "skipped": skipped,
-        "still_referenced": still_referenced,
-        "unresolved": len(unresolved),
-        "tenant_key": tenant_key,
-    }
-
-
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[misc]
-def delete_attachments(self, attachment_ids: list[str], tenant_key: str) -> dict:  # type: ignore[no-untyped-def]
-    """Delete a known set of attachments, storage objects and thumbnails included (#1393).
-
-    Dispatched by ``TaskService.delete_task`` so a deleted task does not leave its
-    photos behind, counting against the tenant's quota with no surface that reaches
-    them. Out of band because the service is synchronous and deletion is not: the
-    same lazy-import-and-``delay`` shape ``AttachmentService._dispatch_thumbnails``
-    already uses.
-
-    If the dispatch or the task is lost, ``cleanup_orphaned_task_photos`` collects
-    the same rows on its next run — this makes the deletion prompt, the sweep makes
-    it certain.
-    """
-    if not attachment_ids:
-        return {
-            "requested": 0,
-            "deleted": 0,
-            "failed": 0,
-            "skipped": 0,
-            "still_referenced": 0,
-            "unresolved": 0,
-            "tenant_key": tenant_key,
-        }
-    try:
-        return asyncio.run(_delete_attachments(list(attachment_ids), tenant_key))
-    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
-        logger.error(
-            "delete_attachments_failed",
-            tenant_key=tenant_key,
-            count=len(attachment_ids),
-            error=str(exc),
-        )
-        raise self.retry(exc=exc) from exc
-
-
 async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> dict:
     from app.common.dependencies import get_attachment_repo, get_attachment_service
 
@@ -308,7 +196,7 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
                 freed_bytes += attachment.byte_size
             else:
                 # Gone between the query and the delete — a manual
-                # ``DELETE /attachments/{id}``, or a concurrent ``delete_attachments``.
+                # ``DELETE /attachments/{id}``, or a concurrent sweep.
                 # Counted, so ``found`` and ``deleted + failed + skipped`` keep adding
                 # up; the sibling task upholds the same invariant and the comment
                 # above claims it.

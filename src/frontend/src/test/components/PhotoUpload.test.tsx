@@ -28,9 +28,9 @@ import PhotoUpload from '@/components/common/PhotoUpload';
 const TENANT = 'test-tenant';
 const ATTACHMENT_URI = `/api/v1/t/${TENANT}/attachments/att-1`;
 
-function attachment() {
+function attachment(attachmentId = 'att-1') {
   return {
-    attachment_id: 'att-1',
+    attachment_id: attachmentId,
     uri: ATTACHMENT_URI,
     thumbnail_uris: null,
     mime_type: 'image/jpeg',
@@ -237,7 +237,7 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       expect(screen.queryByTestId('photo-remove-0')).toBeNull();
     });
 
-    it('lets a grower de-stage, leaving the orphan to the nightly sweep', async () => {
+    it('issues the delete for a grower too, instead of only de-staging', async () => {
       const user = userEvent.setup();
       server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
       let deleteAttempted = false;
@@ -255,13 +255,20 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       await uploadOne(user);
       await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
 
-      // The control is there for them — taking it away meant the wrong photo got
-      // submitted, which is worse than the orphan the sweep collects.
       await user.click(await screen.findByTestId('photo-remove-0'));
 
       await waitFor(() => expect(onChange).toHaveBeenLastCalledWith([]));
-      // A grower may not DELETE an attachment (REQ-024 §1a.1), so none is attempted.
-      expect(deleteAttempted).toBe(false);
+      // This assertion is the whole point and it used to read `toBe(false)`, with a
+      // comment explaining that a grower may not DELETE an attachment and that the
+      // nightly sweep would collect what they left behind. The sweep then shipped
+      // disabled, so what the old behaviour actually produced was a stored object
+      // nothing would ever reach — for the role that uploads most of these photos.
+      //
+      // The server now decides per photo rather than per role: a staged upload may
+      // be withdrawn by whoever made it, the task's completion record stays
+      // lead-only. So the request goes out, and a refusal comes back as a 404 that
+      // de-stages without pretending the bytes are gone.
+      expect(deleteAttempted).toBe(true);
     });
 
     it('keeps the photo in the list when the delete fails', async () => {
@@ -479,5 +486,44 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
     // state would make it an orphan counting against the tenant quota — and with the
     // sweep shipped disabled, nothing would ever collect it.
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+  });
+
+  it('does not offer to remove a photo while the rest of the batch is still uploading', async () => {
+    const user = userEvent.setup();
+    server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+    let release: (() => void) | undefined;
+    const secondFileHangs = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let call = 0;
+    server.use(
+      http.post('/api/v1/t/:tenant/tasks/:key/photos', async () => {
+        call += 1;
+        if (call === 1) return HttpResponse.json(attachment());
+        // Still in flight: this is the window the per-file `onChange` opened.
+        await secondFileHangs;
+        return HttpResponse.json(attachment('att-2'));
+      }),
+    );
+    const onChange = vi.fn();
+
+    renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+      store: createStoreWithTenantRole('lead'),
+    });
+    const input = screen.getByTestId('photo-upload').querySelector('input[type="file"]')!;
+    await user.upload(input as HTMLInputElement, [
+      new File(['a'], 'a.jpg', { type: 'image/jpeg' }),
+      new File(['b'], 'b.jpg', { type: 'image/jpeg' }),
+    ]);
+
+    // File 1 has been handed to the parent, so its remove control now renders — but
+    // clicking it mid-batch deletes the attachment while the loop still holds
+    // `att-1` in its own snapshot, and the loop's next `onChange` puts the deleted id
+    // straight back. The list then shows a broken image and `complete` answers 422.
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+    const remove = await screen.findByRole('button', { name: /entfernen|remove/i });
+    expect(remove).toBeDisabled();
+
+    release!();
   });
 });

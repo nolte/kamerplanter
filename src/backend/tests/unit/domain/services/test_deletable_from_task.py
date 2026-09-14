@@ -22,8 +22,6 @@ service, so a rule asserted only there would be asserting the double.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from app.domain.services.attachment_service import AttachmentService
@@ -39,27 +37,32 @@ SOMEONE_ELSE = "user-other"
 class _Repo:
     """A repository whose reference answers come from an explicit reference map.
 
-    ``references`` maps a task key to the photos it links, so the two
-    ``unreferenced_among`` forms are *derived* from one fact rather than stubbed
-    independently — stubbing them apart is how a double ends up describing a state
-    the database cannot be in (a photo simultaneously referenced by nothing and by
-    the named task), and such a state makes either branch pass for the wrong reason.
+    ``references`` maps a task key to the photos it links, and the state is *derived*
+    from it rather than stubbed per case — stubbing the branches apart is how a double
+    ends up describing a state the database cannot be in (a photo simultaneously
+    referenced by nothing and by the named task), and such a state makes a branch pass
+    for the wrong reason.
+
+    The real query is exercised against ArangoDB in
+    ``tests/integration/test_task_photo_delete_state.py``; this file pins what the
+    *service* does with each answer.
     """
 
     def __init__(self, references: dict[str, list[str]], created_by: str = UPLOADER):
         self.references = references
         self.created_by = created_by
 
-    def unreferenced_among(self, ids, tenant_key, *, ignoring_task_key=None):
+    def task_photo_delete_state(self, attachment_id, tenant_key, *, task_key):
         assert tenant_key == TENANT
-        linked = {photo for task, photos in self.references.items() if task != ignoring_task_key for photo in photos}
-        return [photo for photo in ids if photo not in linked]
-
-    def by_keys(self, ids, tenant_key):
-        assert tenant_key == TENANT
-        return [
-            SimpleNamespace(key=photo, tenant_key=TENANT, created_by=self.created_by) for photo in ids if photo == PHOTO
-        ]
+        if attachment_id != PHOTO:
+            return "missing", None
+        elsewhere = {photo for task, photos in self.references.items() if task != task_key for photo in photos}
+        if attachment_id in elsewhere:
+            return "shared", self.created_by
+        own = set(self.references.get(task_key, ()))
+        if attachment_id in own:
+            return "task", self.created_by
+        return "staged", self.created_by
 
 
 def _service(repo) -> AttachmentService:
@@ -76,7 +79,7 @@ def test_the_uploader_may_delete_their_own_staged_photo():
     stayed green.
     """
     service = _service(_Repo(references={}))
-    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=UPLOADER) is True
+    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=UPLOADER, is_lead=True) is True
 
 
 def test_another_member_may_not_delete_a_staged_photo_through_an_unrelated_task():
@@ -87,7 +90,7 @@ def test_another_member_may_not_delete_a_staged_photo_through_an_unrelated_task(
     admitted the deletion of a photo another member had just staged.
     """
     service = _service(_Repo(references={}))
-    assert service.deletable_from_task(PHOTO, OTHER_TASK, TENANT, actor_key=SOMEONE_ELSE) is False
+    assert service.deletable_from_task(PHOTO, OTHER_TASK, TENANT, actor_key=SOMEONE_ELSE, is_lead=True) is False
 
 
 def test_a_photo_the_named_task_references_is_deletable_by_a_non_uploader():
@@ -98,7 +101,7 @@ def test_a_photo_the_named_task_references_is_deletable_by_a_non_uploader():
     leave a predicate that demands uploadership everywhere looking correct.
     """
     service = _service(_Repo(references={OWN_TASK: [PHOTO]}))
-    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=SOMEONE_ELSE) is True
+    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=SOMEONE_ELSE, is_lead=True) is True
 
 
 @pytest.mark.parametrize("actor", [UPLOADER, SOMEONE_ELSE])
@@ -110,7 +113,7 @@ def test_a_photo_another_carrier_references_is_never_deletable(actor: str):
     it here. The uploader check is an *additional* condition, not an override.
     """
     service = _service(_Repo(references={OTHER_TASK: [PHOTO]}))
-    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=actor) is False
+    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=actor, is_lead=True) is False
 
 
 def test_a_photo_that_resolves_to_nothing_is_refused():
@@ -122,4 +125,42 @@ def test_a_photo_that_resolves_to_nothing_is_refused():
     the two reads.
     """
     service = _service(_Repo(references={}))
-    assert service.deletable_from_task("att-unknown", OWN_TASK, TENANT, actor_key=UPLOADER) is False
+    assert service.deletable_from_task("att-unknown", OWN_TASK, TENANT, actor_key=UPLOADER, is_lead=True) is False
+
+
+@pytest.mark.parametrize("is_lead", [True, False])
+def test_the_uploader_may_withdraw_their_staged_photo_whatever_their_role(is_lead: bool):
+    """Finding 4. Growers upload the photos, so they must be able to take one back.
+
+    Gating the whole route on the lead-only DELETE grant made a grower's remove
+    button a local no-op: the reference vanished from the form and the stored object
+    stayed, counted against the tenant quota, with the sweep that would collect it
+    shipped disabled.
+    """
+    service = _service(_Repo(references={}))
+    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=UPLOADER, is_lead=is_lead) is True
+
+
+def test_a_grower_may_not_destroy_the_tasks_completion_record():
+    """The half REQ-024 §1a.1 reserves to leads, and the reason the split exists.
+
+    A photo the task references is its documentation. Losing the staged/record
+    distinction in either direction is a defect: admitting growers here would make
+    the deletion of a completion record a grower operation, and refusing them above
+    would leave the leak open.
+    """
+    service = _service(_Repo(references={OWN_TASK: [PHOTO]}))
+
+    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=UPLOADER, is_lead=False) is False
+    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=UPLOADER, is_lead=True) is True
+
+
+def test_no_role_may_destroy_a_photo_another_carrier_holds():
+    """`shared` is not a permission question. Lead included.
+
+    sha256 deduplication gives one stored object to several carriers, so destroying
+    it strands a reference no matter who asked.
+    """
+    service = _service(_Repo(references={OTHER_TASK: [PHOTO]}))
+
+    assert service.deletable_from_task(PHOTO, OWN_TASK, TENANT, actor_key=UPLOADER, is_lead=True) is False

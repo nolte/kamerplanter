@@ -1045,73 +1045,39 @@ class TaskService:
         # lost this way. ``reopen_task`` was a back door through it; this closes it,
         # so the promise holds rather than merely reading well.
         #
-        # ``reopened_from_status`` is never cleared — not by completing again, not by
-        # skipping — so this is permanent for such a task, and the message says only
-        # what is actually possible: ``skip_task`` takes it out of the queue. It used
-        # to advise cancelling, an operation ``TaskStatus`` has no member for and this
-        # service does not expose, which left the reader with no way to act on the
-        # refusal at all. Whether a re-completed task should become deletable again is
-        # a product question, not one this gate can answer.
+        # The marker is durable because ``reopen_task`` refuses to downgrade it, not
+        # because nothing writes it — an earlier version of this comment claimed the
+        # latter ("never cleared — not by completing again, not by skipping"), which
+        # was true of ``skip_task`` and false of the *reopen after* the skip. That
+        # sequence overwrote the marker and made this refusal escapable; the claim had
+        # been written from reading one method instead of running the sequence, and it
+        # is why nobody looked again for four review rounds.
+        #
+        # The message names only what is actually possible: ``skip_task`` takes the
+        # task out of the queue. It used to advise cancelling, an operation
+        # ``TaskStatus`` has no member for. Whether a re-completed task should become
+        # deletable again is a product question, not one this gate can answer.
         if task.reopened_from_status == "completed":
             raise ValidationError(
                 "Cannot delete a task that was completed and reopened: it still carries the "
                 "photos and record of that completion. Skip it to take it out of the queue.",
             )
+        # No photo cleanup here, and that is a measured decision rather than an
+        # omission: ``complete_task`` is the only writer of ``photo_refs``, nothing
+        # ever removes an entry, and the gate above refuses every task that was once
+        # completed — so a task that reaches this line carries no photos to clean up.
+        # ``tests/unit/domain/services/test_deletable_task_carries_no_photos.py`` pins
+        # that invariant and fails if the gate is ever relaxed.
+        #
+        # An eager ``delete_attachments`` call stood here through five review rounds.
+        # It could not run, because of the invariant above — except through the reopen
+        # hole round 6 found, where it would have destroyed exactly the completion
+        # photos this gate exists to protect. A background call that deletes
+        # attachments is not worth carrying for a path that cannot execute.
         deleted = self._repo.delete_task(key)
         if deleted:
-            self._dispatch_photo_deletion(task, tenant_key)
             self._propagate(lambda p: p.on_task_deleted(task))
         return deleted
-
-    def _dispatch_photo_deletion(self, task: Task, tenant_key: str) -> None:
-        """Delete the task's photos along with it (#1393, decision 2).
-
-        Deleting the document used to leave every attachment it referenced behind,
-        counting against ``STORAGE_TENANT_QUOTA_MB`` with no surface that reaches
-        them for the ``task`` category.
-
-        **Safe because of the two gates above**: a task is deletable only in
-        ``pending``/``skipped``/``dormant`` **and** only if it was never completed and
-        reopened. So a completed task's documentation cannot be lost this way. The
-        photos that go are staged or abandoned ones, which is what the user deleting
-        the task means to discard.
-
-        That sentence was wrong twice before it was right. It named ``cancelled``,
-        a status ``TaskStatus`` does not have, and it rested on the status alone —
-        while ``reopen_task`` puts a completed task back to ``pending`` and leaves
-        ``photo_refs`` in place. Both are closed now; the docstring says what the code
-        does rather than what it was meant to do.
-
-        **Not every id is deleted.** ``delete_attachments`` asks the repository which
-        of them nothing still references before destroying anything: sha256
-        deduplication can hand the same stored object to a second task or a plant
-        gallery, and this list is only *this* task's view of it.
-
-        Out of band, because this service is synchronous and attachment deletion is
-        not — the lazy-import-and-``delay`` shape
-        ``AttachmentService._dispatch_thumbnails`` already uses. A lost dispatch is
-        not a leak either: ``cleanup_orphaned_task_photos`` finds the same rows on
-        its next run, since deleting the document is exactly what makes them
-        unreferenced. This makes it prompt; the sweep makes it certain.
-
-        Failure to dispatch must not fail the deletion: the document is already gone
-        at this point, and raising here would answer 500 for an operation that
-        succeeded.
-        """
-        if not task.photo_refs:
-            return
-        try:
-            from app.tasks.storage_tasks import delete_attachments
-
-            delete_attachments.delay(list(task.photo_refs), tenant_key)
-        except Exception as exc:  # noqa: BLE001 — the sweep is the backstop
-            logger.warning(
-                "task_photo_deletion_dispatch_failed",
-                task_key=task.key,
-                tenant_key=tenant_key,
-                count=len(task.photo_refs),
-                error=str(exc),
-            )
 
     def start_task(self, key: str, *, tenant_key: str) -> Task:
         task = self.get_task(key, tenant_key=tenant_key)
@@ -1383,7 +1349,25 @@ class TaskService:
             raise ValidationError(
                 f"Cannot reopen task in status '{task.status}'. Only completed or skipped tasks can be reopened.",
             )
-        task.reopened_from_status = task.status
+        # Never downgraded once it says ``"completed"``. ``delete_task`` reads this
+        # field to refuse destroying a task that still carries the ``photo_refs``
+        # completion wrote, and the plain assignment made that refusal escapable with
+        # four ordinary clicks: complete → reopen (marker "completed") → skip
+        # (``skip_task`` accepts ``pending``) → reopen (marker overwritten with
+        # "skipped"). ``photo_refs`` is untouched throughout, so the photos were still
+        # there and the gate was not.
+        #
+        # The two obvious alternative anchors do not work. ``completed_at`` is set to
+        # ``None`` three lines below, by this very method. Gating on non-empty
+        # ``photo_refs`` would be unbypassable — nothing ever removes an entry — but it
+        # narrows the rule to "carries photos" where the decision taken was "was ever
+        # completed", and a completion without photos is still a completion.
+        #
+        # The field's meaning becomes "the status this task was reopened from, with a
+        # completion remembered in preference to a later skip". ``delete_task`` is its
+        # only production reader; the API exposes it and no client reads it.
+        if task.reopened_from_status != "completed":
+            task.reopened_from_status = task.status
         task.reopened_at = datetime.now(UTC)
         task.status = "pending"
         task.completed_at = None

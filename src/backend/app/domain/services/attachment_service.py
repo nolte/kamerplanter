@@ -377,7 +377,9 @@ class AttachmentService:
         )
         return deleted
 
-    def deletable_from_task(self, attachment_id: str, task_key: str, tenant_key: str, *, actor_key: str) -> bool:
+    def deletable_from_task(
+        self, attachment_id: str, task_key: str, tenant_key: str, *, actor_key: str, is_lead: bool
+    ) -> bool:
         """Whether this task's photo route may destroy *attachment_id* (#1393).
 
         Two questions, because one does not cover both photos this route sees.
@@ -399,9 +401,18 @@ class AttachmentService:
         So a photo nothing references belongs to whoever uploaded it, and only they
         may destroy it through this route. That is the staging area's own owner, and
         it is the same person the control is rendered for: ``PhotoUpload`` shows the
-        remove button only for ids staged in the current session. The nightly sweep
-        still collects a staged photo nobody submits, and a lead who genuinely needs
-        to remove someone else's attachment has ``DELETE /attachments/{id}``.
+        remove button only for ids staged in the current session. A lead who genuinely
+        needs to remove someone else's attachment has ``DELETE /attachments/{id}``.
+
+        **Which role reaches which half.** The route admits anyone who may *create* an
+        attachment — lead and grower — and the split lives here instead. Growers are
+        the role that completes tasks and uploads the photos, and gating the whole
+        route on ``ATTACHMENT``/``DELETE`` meant a grower's remove button removed the
+        photo from their form and left the stored object behind for ever: the leak
+        #1393 exists to close, on its most common path, with the sweep that would
+        collect it shipped disabled. Undoing one's own not-yet-submitted upload is not
+        the irreversible destruction of a record that REQ-024 §1a.1 reserves to leads,
+        and the ``"task"`` branch above keeps that reservation exactly where it is.
 
         One consequence is worth naming, because it reads like a bug and is not.
         ``upload`` deduplicates by sha256, so a second member staging the *same
@@ -411,15 +422,23 @@ class AttachmentService:
         so the photo leaves the second member's form, which is what they asked for;
         only the bytes stay, for the member who also holds them.
         """
-        if not self._repo.unreferenced_among([attachment_id], tenant_key, ignoring_task_key=task_key):
-            return False
-        if not self._repo.unreferenced_among([attachment_id], tenant_key):
-            # Something still references it, and the query above established that the
-            # something is the named task. Task documentation — the path scope holds.
-            return True
-        # Referenced by nothing anywhere: a staged upload. Its uploader only.
-        owned = self._repo.by_keys([attachment_id], tenant_key)
-        return bool(owned) and owned[0].created_by == actor_key
+        # One repository call, not three. The two questions differ only in whether the
+        # named task counts as a reference, and asking them separately re-ran the whole
+        # nine-collection scan for each — inside an interactive request.
+        state, created_by = self._repo.task_photo_delete_state(attachment_id, tenant_key, task_key=task_key)
+        if state == "task":
+            # The task's completion record. REQ-024 §1a.1 makes destroying a record the
+            # irreversibility boundary, so this half stays lead-only.
+            return is_lead
+        if state == "staged":
+            # Not a record yet: nothing references it, and abandoning the form leaves
+            # it for the orphan sweep. Withdrawing it is the undo of the CREATE the
+            # uploader was already permitted to make, so their own role does not need
+            # to reach further than that — but it must be *their* upload.
+            return created_by == actor_key
+        # "shared" — another carrier holds it — or "missing". No role overrides this:
+        # sha256 deduplication means destroying it would strand a reference elsewhere.
+        return False
 
     # --- List --------------------------------------------------------
 

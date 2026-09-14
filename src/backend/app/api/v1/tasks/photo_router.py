@@ -56,7 +56,7 @@ from app.api.v1.attachments.schemas import ThumbnailUris
 from app.api.v1.attachments.tenant_router import _parse_content_length, _read_upload_bounded
 from app.api.v1.tasks.schemas import TaskPhotoResponse
 from app.common.dependencies import get_attachment_service, get_task_service
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, TenantRole
 from app.common.exceptions import AttachmentNotFoundError, FileTooLargeError, InvalidFileTypeError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.core.permissions import Action
@@ -133,7 +133,21 @@ async def upload_task_photo(
 async def delete_task_photo(
     key: Annotated[str, Path(description="Document key of the task.")],
     attachment_id: Annotated[str, Path(description="Attachment id of the task photo.")],
-    ctx: TenantContext = Depends(require_attachment_permission(Action.DELETE)),
+    # ``Action.CREATE``, not ``DELETE``, and the split moved into the service.
+    #
+    # Growers are the role that completes tasks and uploads their photos, and gating
+    # the whole route on the lead-only ``ATTACHMENT``/``DELETE`` grant made a grower's
+    # remove button a local no-op: the client dropped the reference and issued no
+    # request, so the stored object stayed for ever, counted against the tenant quota,
+    # with the sweep that would collect it shipped disabled. That is the leak #1393
+    # exists to close, still open on its most common path.
+    #
+    # ``deletable_from_task`` now decides per state: a photo the task references is
+    # its completion record and stays lead-only (REQ-024 §1a.1), while a *staged*
+    # upload — referenced by nothing, made moments ago — may be withdrawn by whoever
+    # made it. Undoing one's own not-yet-submitted CREATE is not the irreversible
+    # destruction the boundary reserves to leads.
+    ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
     task_service: TaskService = Depends(get_task_service),
     attachment_service: AttachmentService = Depends(get_attachment_service),
 ) -> Response:
@@ -199,7 +213,13 @@ async def delete_task_photo(
     # goes in as well. For such a photo the task key in the path constrains nothing
     # (it is in no task's list, so "no *other* task references it" holds for every
     # task of the tenant), and the predicate falls back to the uploader instead.
-    if not attachment_service.deletable_from_task(attachment_id, key, ctx.tenant_key, actor_key=ctx.user_key):
+    if not attachment_service.deletable_from_task(
+        attachment_id,
+        key,
+        ctx.tenant_key,
+        actor_key=ctx.user_key,
+        is_lead=ctx.role is TenantRole.LEAD,
+    ):
         raise AttachmentNotFoundError(attachment_id)
 
     await attachment_service.delete(attachment_id, ctx.tenant_key)

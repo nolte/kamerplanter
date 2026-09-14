@@ -83,12 +83,8 @@ def _run_all() -> list[tuple[str, str, dict[str, Any]]]:
     captured += [("find_orphaned_task_photos", q, b) for q, b in db.aql.calls]
 
     repo, db = _repo()
-    repo.unreferenced_among(["att-1"], "tenant-a")
-    captured += [("unreferenced_among", q, b) for q, b in db.aql.calls]
-
-    repo, db = _repo()
-    repo.unreferenced_among(["att-1"], "tenant-a", ignoring_task_key="task-1")
-    captured += [("unreferenced_among(ignoring)", q, b) for q, b in db.aql.calls]
+    repo.task_photo_delete_state("att-1", "tenant-a", task_key="task-1")
+    captured += [("task_photo_delete_state", q, b) for q, b in db.aql.calls]
 
     return captured
 
@@ -100,7 +96,7 @@ def test_the_queries_were_actually_captured():
     early return would leave ``calls`` empty and each parametrized case vacuous.
     """
     captured = _run_all()
-    assert len(captured) == 3, [name for name, _q, _b in captured]
+    assert len(captured) == 2, [name for name, _q, _b in captured]
     for name, query, _binds in captured:
         assert "FOR" in query and "@@collection" in query, name
 
@@ -141,7 +137,6 @@ def test_the_tenant_narrowing_reaches_the_interactive_query_only():
     assert "@ref_tenant_key" not in sweep_query
     assert "ref_tenant_key" not in sweep_binds
 
-    for name in ("unreferenced_among", "unreferenced_among(ignoring)"):
-        query, binds = by_name[name]
-        assert "@ref_tenant_key" in query, name
-        assert binds.get("ref_tenant_key") == "tenant-a", name
+    query, binds = by_name["task_photo_delete_state"]
+    assert "@ref_tenant_key" in query
+    assert binds.get("ref_tenant_key") == "tenant-a"

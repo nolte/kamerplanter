@@ -10,7 +10,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { ApiError } from '@/api/errors';
-import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import AuthImage from '@/components/common/AuthImage';
 import * as taskApi from '@/api/endpoints/tasks';
 
@@ -57,7 +56,6 @@ export default function PhotoUpload({
   // what this control primarily does (#1393 review). Hiding the button from growers
   // took away their only way to drop a wrong photo before submitting, so the wrong
   // photo was submitted instead: a worse outcome than the leak being fixed.
-  const { canDelete } = useTenantPermissions();
   //: Attachment ids staged in this form — everything in `photoRefs` the task did
   //: not already carry.
   //:
@@ -159,11 +157,17 @@ export default function PhotoUpload({
       // like it worked.
       if (!stagedIds.has(attachmentId)) return;
 
-      if (!canDelete) {
-        onChange(photoRefs.filter((_, i) => i !== index));
-        return;
-      }
-
+      // No role branch here any more. This used to return early for a non-lead,
+      // de-staging locally and issuing no request — so a grower's remove button
+      // dropped the photo from the form and left the stored object behind for ever.
+      // Growers are the role that completes tasks and uploads these photos, so that
+      // was the leak #1393 exists to close, on its most common path, and the sweep
+      // named as the backstop ships disabled.
+      //
+      // The server now decides per photo instead of per role: a staged upload may be
+      // withdrawn by whoever made it, a photo the task already references stays
+      // lead-only (REQ-024 §1a.1). A grower who somehow reaches the second case gets
+      // the 404 handled below, which de-stages without claiming the bytes are gone.
       setRemovingIndex(index);
       try {
         await taskApi.deleteTaskPhoto(taskKey, attachmentId);
@@ -191,7 +195,7 @@ export default function PhotoUpload({
         setRemovingIndex(null);
       }
     },
-    [taskKey, photoRefs, stagedIds, canDelete, onChange, handleError],
+    [taskKey, photoRefs, stagedIds, onChange, handleError],
   );
 
   return (
@@ -240,7 +244,16 @@ export default function PhotoUpload({
                 <IconButton
                   size="small"
                   onClick={() => void handleRemove(i)}
-                  disabled={disabled || removingIndex !== null}
+                  // `uploading` too, matching the upload button above: the two
+                  // handlers must stay mutually exclusive. Handing each file to the
+                  // parent as it lands (rather than once after the loop) makes file
+                  // 1's remove control render while file 2 is still in flight, and a
+                  // click there deletes the attachment while the loop still holds
+                  // `att-1` in its own `newRefs` snapshot — whose next `onChange`
+                  // puts the deleted id straight back. The gallery then shows a
+                  // broken image and `complete` answers 422 for an id the catalogue
+                  // no longer has.
+                  disabled={disabled || uploading || removingIndex !== null}
                   aria-label={t('pages.tasks.photoRemove', { index: i + 1 })}
                   data-testid={`photo-remove-${i}`}
                   sx={{

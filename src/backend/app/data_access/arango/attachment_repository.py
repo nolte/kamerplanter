@@ -58,10 +58,10 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
 #: Which of the collections above are tenant-scoped, and may therefore have their
 #: reference scan narrowed to one tenant.
 #:
-#: The narrowing exists because :meth:`unreferenced_among` runs **synchronously
+#: The narrowing exists because :meth:`task_photo_delete_state` runs **synchronously
 #: inside the interactive photo-delete handler**, and the unfiltered prelude reads
 #: every ``photo_refs`` array in nine collections installation-wide to answer a
-#: question about a handful of ids. Restricting the scan to the caller's tenant is
+#: question about one id. Restricting the scan to the caller's tenant is
 #: sound because an attachment belongs to exactly one tenant (REQ-024): a document
 #: of another tenant referencing it would itself be the defect, not a reference
 #: worth honouring.
@@ -496,77 +496,68 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             bind_vars[f"@extra_col_{index}"] = collection
         return bind_vars
 
-    def by_keys(self, attachment_ids: list[str], tenant_key: str) -> list[Attachment]:
-        """The tenant's attachments among *attachment_ids*, skipping what does not exist.
+    def task_photo_delete_state(self, attachment_id: str, tenant_key: str, *, task_key: str) -> tuple[str, str | None]:
+        """What ``DELETE /tasks/{task_key}/photos/{attachment_id}`` needs to know (#1393).
 
-        Lets a caller tell "this id is shared with another carrier" apart from "this
-        id resolves to nothing at all" — an un-migrated installation's ``photo_refs``
-        holds URIs and storage keys, and reporting those as *shared* sends whoever
-        reads the audit line hunting a problem that is not there.
+        Returns ``(state, created_by)`` where *state* is one of:
+
+        ``"shared"``
+            Some carrier other than the named task references it. Never deletable
+            here — sha256 deduplication gives one stored object to several carriers,
+            and destroying it would leave a plant gallery or another task pointing at
+            nothing.
+        ``"task"``
+            The named task references it and nothing else does. This is the task's
+            own documentation; whoever may delete the tenant's attachments may delete
+            it.
+        ``"staged"``
+            Nothing anywhere references it — an upload whose form has not been
+            submitted. The task key in the path constrains nothing for such a photo
+            (it is in no task's list, so "no *other* task references it" is true
+            through every task of the tenant), so the caller falls back to
+            ``created_by``.
+        ``"missing"``
+            No such attachment in this tenant; *created_by* is ``None``.
+
+        **One round trip, one prelude.** The service used to ask
+        :meth:`unreferenced_among` twice — once ignoring the task and once not — and
+        then call :meth:`by_keys`. The two questions differ only in whether the named
+        task counts, but each call re-ran the whole nine-collection reference scan, so
+        a single click on "remove photo" cost roughly eighteen collection scans inside
+        an interactive request. Here the expensive half runs once, with the task
+        excluded, and the task's own list is fetched by primary key — a lookup, not a
+        scan — which is what makes the second question nearly free.
         """
-        if not attachment_ids:
-            return []
-        query = """
-        FOR att IN @@collection
-          FILTER att._key IN @keys AND att.tenant_key == @tenant_key
-          RETURN att
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": self._collection_name,
-                "keys": list(attachment_ids),
-                "tenant_key": tenant_key,
-            },
-        )
-        return [Attachment(**self._from_doc(doc)) for doc in cursor]
-
-    def unreferenced_among(
-        self, attachment_ids: list[str], tenant_key: str, *, ignoring_task_key: str | None = None
-    ) -> list[str]:
-        """Which of *attachment_ids* nothing in the tenant links any more (#1393).
-
-        Asked before the eager deletion that follows a task deletion. Deleting a
-        task's ``photo_refs`` outright destroys a photo that sha256 deduplication
-        gave to a second task or a plant gallery as well — the reference survives,
-        the bytes do not.
-
-        ``ignoring_task_key`` discounts one task's own references, which is what the
-        task-photo DELETE route needs: a photo *this* task links may be deleted
-        through it, one another carrier links may not. Without it that route asked a
-        tasks-only, exact-match question and so missed both a plant gallery holding
-        the same deduplicated object and any legacy spelling of the reference.
-
-        Returns the ids safe to delete. Anything still linked is left to whoever owns
-        that link, and the nightly sweep picks it up if that link goes away later.
-        """
-        if not attachment_ids:
-            return []
-        # ``tenant_scoped=True``: unlike the nightly sweep, this runs inside an
-        # interactive request. Unnarrowed it reads every ``photo_refs`` array in the
-        # installation to decide about a handful of ids belonging to one tenant.
-        # See :data:`TENANT_SCOPED_REF_COLLECTIONS` for why that narrowing is sound
-        # and why the collections without a ``tenant_key`` stay unfiltered.
         query = f"""
-{self._aql_referenced_prelude(ignore_task_key=ignoring_task_key is not None, tenant_scoped=True)}
+{self._aql_referenced_prelude(ignore_task_key=True, tenant_scoped=True)}
+        LET own_refs = FIRST(
+          FOR t IN @@task_collection
+            FILTER t._key == @ignored_task_key AND t.tenant_key == @ref_tenant_key
+            RETURN t.photo_refs || []
+        ) || []
         FOR att IN @@collection
-          FILTER att._key IN @candidates
-            AND att.tenant_key == @tenant_key
-            AND att._key NOT IN referenced
+          FILTER att._key == @attachment_id AND att.tenant_key == @tenant_key
+          LET unshared = att._key NOT IN referenced
             AND {self._aql_mentions_key("raw_refs", "att._key")}
-          RETURN att._key
+          LET absent_from_task = {self._aql_mentions_key("own_refs", "att._key")}
+          RETURN {{
+            state: !unshared ? "shared" : (absent_from_task ? "staged" : "task"),
+            created_by: att.created_by
+          }}
         """
         bind_vars: dict[str, Any] = {
             "@collection": self._collection_name,
-            "candidates": list(attachment_ids),
+            "@task_collection": col.TASKS,
+            "attachment_id": attachment_id,
             "tenant_key": tenant_key,
             "ref_tenant_key": tenant_key,
+            "ignored_task_key": task_key,
             **self._reference_bind_vars(),
         }
-        if ignoring_task_key is not None:
-            bind_vars["ignored_task_key"] = ignoring_task_key
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return list(cursor)
+        row = next(iter(self._db.aql.execute(query, bind_vars=bind_vars)), None)
+        if row is None:
+            return "missing", None
+        return str(row["state"]), row.get("created_by")
 
     def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
         """Task-category attachments older than *older_than* that nothing references.

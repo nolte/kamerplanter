@@ -194,34 +194,72 @@ class TestAPhotoAnotherCarrierReferences:
         attachment_service.delete.assert_awaited_once()
 
 
-class TestAGrowerIsRefused:
-    """The boundary, asserted rather than discovered.
+class TestWhichRoleReachesWhichHalf:
+    """The route admits a grower; the *state* of the photo decides what happens.
 
-    ``DELETE`` on ``ATTACHMENT`` is lead-only (REQ-024 §1a.1); ``CREATE`` is
-    lead-and-grower. So a grower can upload a task photo and cannot remove it, which
-    is a deliberate spec decision and not an oversight of this route.
+    This class used to be ``TestAGrowerIsRefused`` and asserted a 403, because the
+    route was gated on ``ATTACHMENT``/``DELETE`` — lead-only per REQ-024 §1a.1. Its
+    own docstring then explained the UI consequence: "a grower de-stages, and the
+    nightly orphan sweep collects what they left behind."
 
-    Its UI consequence changed in review round 1: hiding the button from growers
-    took away their only way to de-stage a wrong photo, so it got submitted
-    instead. `PhotoUpload` now shows the control to everyone and only *destroys*
-    for a caller who may — a grower de-stages, and the nightly orphan sweep
-    collects what they left behind.
+    That backstop stopped existing when the sweep shipped disabled. What was left was
+    a remove button that growers see, that drops the photo from their form, and that
+    leaves the stored object in place for ever — the leak #1393 exists to close, on
+    the path most travelled, since growers are the role that completes tasks and
+    uploads the photos in the first place.
+
+    So the boundary moved from the route to the state. A photo the task references is
+    its completion record and is still lead-only. A *staged* upload — referenced by
+    nothing, made moments ago by this caller — may be withdrawn by whoever made it,
+    which is the undo of the ``CREATE`` they were already granted.
     """
 
-    def test_the_route_refuses_a_grower(self, services):
+    def _client(self, services, role: TenantRole) -> TestClient:
         task_service, attachment_service = services
         app = FastAPI()
         app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
         app.include_router(photo_router, prefix="/api/v1/t/{tenant_slug}")
-        app.dependency_overrides[get_current_tenant] = lambda: _ctx(TenantRole.GROWER)
+        app.dependency_overrides[get_current_tenant] = lambda: _ctx(role)
         app.dependency_overrides[get_task_service] = lambda: task_service
         app.dependency_overrides[get_attachment_service] = lambda: attachment_service
-        grower_client = TestClient(app, raise_server_exceptions=False)
+        return TestClient(app, raise_server_exceptions=False)
 
-        response = grower_client.delete(_url(OWN_TASK))
+    def test_a_grower_now_reaches_the_route(self, services):
+        """No 403 before the predicate runs — otherwise the state can never decide."""
+        _task_service, attachment_service = services
+        response = self._client(services, TenantRole.GROWER).delete(_url(OWN_TASK))
+
+        assert response.status_code == 204
+        attachment_service.delete.assert_awaited_once()
+
+    def test_a_viewer_is_still_refused(self, services):
+        """The control. ``CREATE`` is lead-and-grower, so a viewer must still bounce.
+
+        Without this, relaxing the dependency could have opened the route to every
+        member and the two cases above would not have noticed.
+        """
+        _task_service, attachment_service = services
+        response = self._client(services, TenantRole.VIEWER).delete(_url(OWN_TASK))
 
         assert response.status_code == 403
         attachment_service.delete.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("role", "expected"),
+        [(TenantRole.LEAD, True), (TenantRole.GROWER, False)],
+        ids=["lead", "grower"],
+    )
+    def test_the_role_is_handed_to_the_predicate(self, services, role: TenantRole, expected: bool):
+        """``is_lead`` must reflect the caller, or the state split decides nothing.
+
+        Asserted on the argument rather than on the outcome: the service is doubled
+        here, so an outcome assertion would only be checking the double's stub. What
+        this route owes the service is the caller's role, and that is what is pinned.
+        """
+        _task_service, attachment_service = services
+        self._client(services, role).delete(_url(OWN_TASK))
+
+        assert attachment_service.deletable_from_task.call_args.kwargs["is_lead"] is expected
 
 
 class TestAnAttachmentOfAnotherCategory:
