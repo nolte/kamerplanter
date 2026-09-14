@@ -41,6 +41,22 @@ from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
 
+#: What this sweep treats as a write — and the limit of that, stated rather than
+#: assumed.
+#:
+#: A method is a convention, not a behaviour. Two routes in this codebase were
+#: measured writing on a ``GET`` (#1422 review): ``GET /care-reminders/plants/{key}/profile``
+#: and ``GET /t/{slug}/care-reminders/dashboard`` both reached
+#: ``get_or_create_profile``, which persisted a ``CareProfile`` and an edge — the
+#: dashboard for every plant of the tenant, on a plain read, for any member. Both are
+#: fixed at the source (the read paths no longer create), so nothing is being hidden
+#: here today.
+#:
+#: But this sweep could not have found either, and cannot find the next one. Deciding
+#: whether a handler writes needs the call graph, not the decorator, and that detector
+#: does not exist yet — #1443. Until it does, a reviewer noticing a persisting read is
+#: the only thing that catches this class, which is exactly the position #948 was
+#: about.
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 TENANT_PREFIX = "/t/{tenant_slug}"
 ADMIN_PREFIX = "/api/v1/admin"
@@ -248,6 +264,11 @@ _AUTHORISATION: frozenset[str] = frozenset(
         "_require_platform_admin",
         "require_permission.<locals>._check",
         "require_tenant_role.<locals>._check",
+        # The header-resolved sibling of the line above (#1422). The routers under
+        # `/plant-instances/{key}/phases` and `/care-reminders/plants/{key}` carry no
+        # `/t/{slug}/` segment, so `require_tenant_role` has no tenant to rank
+        # against; this one reads the tenant `require_owned_plant` already resolved.
+        "require_active_tenant_role.<locals>._check",
         "require_admin_scope.<locals>._check",
         "require_attachment_permission.<locals>._dependency",
         "get_mcp_principal",
@@ -266,12 +287,24 @@ _AUTHORISATION: frozenset[str] = frozenset(
 #: Named for that definition rather than for "role", which it is not: the set also
 #: holds `require_owned_plant`, and ownership is a different axis from rank. The
 #: earlier name `_ROLE_GATES` invited the reading that a route carrying any member
-#: here has been rank-checked — `POST /pflanzen/{key}/phases/transition` has not,
-#: and a tenant viewer can still drive it (#1422).
+#: here has been rank-checked.
+#:
+#: That reading was wrong for seven routes until #1422: they carried
+#: `require_owned_plant` and no rank check, so a tenant *viewer* could drive a phase
+#: transition accepting `force: bool` and an irreversible `DELETE` on recorded
+#: history. They now carry `require_active_tenant_role` too, and
+#: `tests/api/test_plant_scoped_global_routers_api.py` asserts the refusal per route.
+#: Membership in this set still does not imply a rank check, which is why the name
+#: says what it says.
 _MORE_THAN_MEMBERSHIP: frozenset[str] = frozenset(
     {
         "require_permission.<locals>._check",
         "require_tenant_role.<locals>._check",
+        # The header-resolved sibling of the line above (#1422). The routers under
+        # `/plant-instances/{key}/phases` and `/care-reminders/plants/{key}` carry no
+        # `/t/{slug}/` segment, so `require_tenant_role` has no tenant to rank
+        # against; this one reads the tenant `require_owned_plant` already resolved.
+        "require_active_tenant_role.<locals>._check",
         "require_admin_scope.<locals>._check",
         "require_platform_admin",
         "_require_platform_admin",

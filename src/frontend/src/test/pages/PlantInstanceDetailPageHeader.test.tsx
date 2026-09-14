@@ -27,7 +27,7 @@ vi.mock('@/components/pests/PestScanButton', () => ({ default: () => null }));
 vi.mock('@/pages/aufgaben/TaskCreateDialog', () => ({ default: () => null }));
 
 import PlantInstanceDetailPage from '@/pages/pflanzen/PlantInstanceDetailPage';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithTenantRole } from '../helpers';
 import { server } from '../mocks/server';
 
 function makePlant(): PlantInstance {
@@ -93,5 +93,32 @@ describe('PlantInstanceDetailPage — header action zone (mobile overflow)', () 
 
     // …and the slot that holds it must be shrinkable too (UI-NFR-021 R-023).
     expect(window.getComputedStyle(slot).flexShrink).not.toBe('0');
+  });
+
+  it('offers the phase transition to a grower (#1422)', async () => {
+    // The control, and it comes first: the refusal below would also pass for a page
+    // that disabled this unconditionally, which would take the work away from the
+    // role that does it.
+    seedPlant(makePlant());
+    renderWithProviders(<PlantInstanceDetailPage />, {
+      route: '/pflanzen/plant-instances/pi-1',
+      store: createStoreWithTenantRole('grower'),
+    });
+
+    expect(await screen.findByTestId('transition-button', {}, { timeout: 5000 })).toBeEnabled();
+  });
+
+  it('disables it for a viewer instead of letting the 403 arrive on submit (#1422)', async () => {
+    // #1422 gave `POST /phases/transition` a rank gate, so it now answers 403 for a
+    // viewer. Offering the control anyway is the shape corrected on the task page in
+    // #1393 round 8: the refusal reached the user as an error toast with no way
+    // forward, and the only way to learn the rule was to try.
+    seedPlant(makePlant());
+    renderWithProviders(<PlantInstanceDetailPage />, {
+      route: '/pflanzen/plant-instances/pi-1',
+      store: createStoreWithTenantRole('viewer'),
+    });
+
+    expect(await screen.findByTestId('transition-button', {}, { timeout: 5000 })).toBeDisabled();
   });
 });
