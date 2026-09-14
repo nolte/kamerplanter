@@ -86,30 +86,30 @@ export default function PhotoUpload({
       setUploading(true);
       const newRefs = [...photoRefs];
       try {
-        //: Ids this upload round produced that were not already in the list.
-        //:
-        //: `AttachmentService.upload` **deduplicates by sha256** across the whole
-        //: tenant and across categories (`attachment_service.py`), so uploading the
-        //: same bytes again returns the *existing* attachment — which may already be
-        //: in `photoRefs`, may belong to another task, or may be a plant-gallery
-        //: photo. Two things follow, and the first version got both wrong:
-        //:
-        //: - pushing the id unconditionally duplicates it in the list (duplicate
-        //:   React keys, and a `photo_refs` entry repeated on submit);
-        //: - marking `newRefs.slice(photoRefs.length)` as staged marks a **persisted**
-        //:   id as staged, which puts the destroy control back on a reopened task's
-        //:   completion photo — the exact thing that control was withdrawn from.
-        const freshlyStaged: string[] = [];
         for (const file of Array.from(files)) {
           const result = await taskApi.uploadTaskPhoto(taskKey, file);
           // The bare attachment id, never `result.uri`: `photo_refs` is a list
           // of attachment ids (NFR-013 §2.2 / AC-09), and a stored URI would
           // bake in the tenant slug — which a rename re-derives (#1339 review).
+          //
+          // Skipped when already present: `AttachmentService.upload` deduplicates by
+          // sha256 across the whole tenant and across categories, so re-uploading the
+          // same bytes returns the *existing* attachment. Pushing it again would
+          // duplicate a React key and repeat the entry on submit.
           if (newRefs.includes(result.attachment_id)) continue;
           newRefs.push(result.attachment_id);
-          freshlyStaged.push(result.attachment_id);
+          // Handed over per file, not once after the loop. Each iteration has already
+          // stored an attachment server-side, so a failure on file 2 of 3 used to
+          // discard file 1 from local state — leaving exactly the orphaned,
+          // quota-counted photo this change exists to eliminate, and with the sweep
+          // shipped disabled nothing would collect it.
+          //
+          // A copy, because later iterations keep mutating `newRefs` and the caller
+          // stores the array it is handed. `stagedIds` derives from the list the
+          // parent holds, so each handover also makes that file's remove control
+          // appear — which is what the staged/persisted split means by staged.
+          onChange([...newRefs]);
         }
-        onChange(newRefs);
         notification.success(t('pages.tasks.photoUploaded'));
       } catch (err) {
         handleError(err);

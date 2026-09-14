@@ -450,4 +450,34 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
 
     expect(await screen.findByTestId('photo-remove-0')).toBeInTheDocument();
   });
+
+  it('keeps the photos that did upload when a later file in the batch fails', async () => {
+    const user = userEvent.setup();
+    server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+    let call = 0;
+    server.use(
+      http.post('/api/v1/t/:tenant/tasks/:key/photos', () => {
+        call += 1;
+        // First file stored, second rejected — a quota, MIME or network failure
+        // partway through a multi-file selection.
+        if (call === 1) return HttpResponse.json(attachment());
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const onChange = vi.fn();
+
+    renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+      store: createStoreWithTenantRole('lead'),
+    });
+    const input = screen.getByTestId('photo-upload').querySelector('input[type="file"]')!;
+    await user.upload(input as HTMLInputElement, [
+      new File(['a'], 'a.jpg', { type: 'image/jpeg' }),
+      new File(['b'], 'b.jpg', { type: 'image/jpeg' }),
+    ]);
+
+    // The first attachment is stored server-side either way. Dropping it from local
+    // state would make it an orphan counting against the tenant quota — and with the
+    // sweep shipped disabled, nothing would ever collect it.
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+  });
 });

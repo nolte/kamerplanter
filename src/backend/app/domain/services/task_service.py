@@ -1043,12 +1043,19 @@ class TaskService:
         #
         # The gate's own promise is that a completed task's documentation cannot be
         # lost this way. ``reopen_task`` was a back door through it; this closes it,
-        # so the promise holds rather than merely reading well. A reopened task that
-        # genuinely should go is cancelled, not deleted.
+        # so the promise holds rather than merely reading well.
+        #
+        # ``reopened_from_status`` is never cleared — not by completing again, not by
+        # skipping — so this is permanent for such a task, and the message says only
+        # what is actually possible: ``skip_task`` takes it out of the queue. It used
+        # to advise cancelling, an operation ``TaskStatus`` has no member for and this
+        # service does not expose, which left the reader with no way to act on the
+        # refusal at all. Whether a re-completed task should become deletable again is
+        # a product question, not one this gate can answer.
         if task.reopened_from_status == "completed":
             raise ValidationError(
                 "Cannot delete a task that was completed and reopened: it still carries the "
-                "photos and record of that completion. Skip or cancel it instead.",
+                "photos and record of that completion. Skip it to take it out of the queue.",
             )
         deleted = self._repo.delete_task(key)
         if deleted:

@@ -182,7 +182,12 @@ async def _delete_attachments(attachment_ids: list[str], tenant_key: str) -> dic
     """
     from app.common.dependencies import get_attachment_repo, get_attachment_service
 
-    requested = list(attachment_ids)
+    # Deduplicated first. ``task.photo_refs`` is not unique server-side — ``complete_task``
+    # merges append-only — while ``unreferenced_among`` returns distinct keys, so a list
+    # holding the same id twice reported one copy as "shared with another carrier".
+    # That is precisely the misdiagnosis splitting ``unresolved`` from
+    # ``still_referenced`` was meant to prevent, reintroduced by arithmetic.
+    requested = list(dict.fromkeys(attachment_ids))
     repo = get_attachment_repo()
     attachment_ids = repo.unreferenced_among(requested, tenant_key)
     # Two different outcomes, reported separately. ``unreferenced_among`` drops an id

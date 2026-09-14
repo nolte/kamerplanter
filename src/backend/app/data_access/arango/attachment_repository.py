@@ -55,6 +55,38 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
     (col.PESTS, "reference_image_refs"),
 )
 
+#: Which of the collections above are tenant-scoped, and may therefore have their
+#: reference scan narrowed to one tenant.
+#:
+#: The narrowing exists because :meth:`unreferenced_among` runs **synchronously
+#: inside the interactive photo-delete handler**, and the unfiltered prelude reads
+#: every ``photo_refs`` array in nine collections installation-wide to answer a
+#: question about a handful of ids. Restricting the scan to the caller's tenant is
+#: sound because an attachment belongs to exactly one tenant (REQ-024): a document
+#: of another tenant referencing it would itself be the defect, not a reference
+#: worth honouring.
+#:
+#: **Membership here is load-bearing in the destructive direction, which is why it
+#: is pinned.** ArangoDB is schemaless: ``FILTER d.tenant_key == @ref_tenant_key`` over
+#: a collection whose documents have no such field compares ``null`` and matches
+#: nothing, so naming a collection here that does not carry the field would make it
+#: protect *no* photo at all — silently, and only for rows it alone protects.
+#: ``test_tenant_scoped_ref_collections_match_the_models`` reads the field off the
+#: models, so that mistake fails the lane instead of deleting a photo.
+#:
+#: ``harvest_observations``, ``storage_observations`` and ``pests`` are absent
+#: because they genuinely have no ``tenant_key`` — they stay unfiltered and keep
+#: protecting across the whole installation, which is the safe direction.
+TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
+    {
+        col.TASKS,
+        col.PLANT_INSTANCES,
+        col.PLANT_DIARY_ENTRIES,
+        col.INSPECTIONS,
+        col.PEST_IMAGE_CONTRIBUTIONS,
+    }
+)
+
 
 def aql_photo_ref_candidates(expression: str) -> str:
     """AQL yielding **every** id one ``photo_refs`` entry might denote.
@@ -371,7 +403,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         total = int(next(count_cursor, 0) or 0)
         return items, total
 
-    def _aql_referenced_prelude(self, *, ignore_task_key: bool = False) -> str:
+    def _aql_referenced_prelude(self, *, ignore_task_key: bool = False, tenant_scoped: bool = False) -> str:
         """AQL that binds ``referenced`` to every id anything in the tenant links.
 
         Shared by the orphan sweep and :meth:`unreferenced_among`, because the two
@@ -390,8 +422,22 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # that deletes a photo *from* that task. Applied to the tasks collection
         # only; every other carrier still protects the photo.
         skip = " FILTER d._key != @ignored_task_key" if ignore_task_key else ""
+
+        def tenant(collection: str) -> str:
+            """The tenant narrowing, for the collections that can carry it.
+
+            Emitted only when the caller passes a tenant (the interactive delete
+            route). The nightly sweep is installation-wide and passes none, so it
+            keeps reading every tenant's references — it has no tenant to narrow to
+            and no interactive latency to answer for.
+            """
+            if not tenant_scoped or collection not in TENANT_SCOPED_REF_COLLECTIONS:
+                return ""
+            return " FILTER d.tenant_key == @ref_tenant_key"
+
         parts = [
             f"          (FOR d IN @@ref_col_{index}"
+            f"{tenant(PHOTO_REF_COLLECTIONS[index])}"
             f"{skip if PHOTO_REF_COLLECTIONS[index] == col.TASKS else ''}"
             f" RETURN d.photo_refs || [])"
             for index in range(len(PHOTO_REF_COLLECTIONS))
@@ -401,9 +447,9 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # collections (``@@``) and values (``@``), not attribute names; every name
         # comes from the module-level tuple above, never from a caller.
         parts += [
-            f"          (FOR d IN @@extra_col_{index} "
+            f"          (FOR d IN @@extra_col_{index}{tenant(collection)} "
             f"RETURN IS_ARRAY(d.{field}) ? d.{field} : (d.{field} == null ? [] : [d.{field}]))"
-            for index, (_collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
+            for index, (collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
         ]
         collected = ",\n".join(parts)
         return f"""        LET raw_refs = UNIQUE(FLATTEN([
@@ -496,8 +542,13 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         """
         if not attachment_ids:
             return []
+        # ``tenant_scoped=True``: unlike the nightly sweep, this runs inside an
+        # interactive request. Unnarrowed it reads every ``photo_refs`` array in the
+        # installation to decide about a handful of ids belonging to one tenant.
+        # See :data:`TENANT_SCOPED_REF_COLLECTIONS` for why that narrowing is sound
+        # and why the collections without a ``tenant_key`` stay unfiltered.
         query = f"""
-{self._aql_referenced_prelude(ignore_task_key=ignoring_task_key is not None)}
+{self._aql_referenced_prelude(ignore_task_key=ignoring_task_key is not None, tenant_scoped=True)}
         FOR att IN @@collection
           FILTER att._key IN @candidates
             AND att.tenant_key == @tenant_key
@@ -509,6 +560,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             "@collection": self._collection_name,
             "candidates": list(attachment_ids),
             "tenant_key": tenant_key,
+            "ref_tenant_key": tenant_key,
             **self._reference_bind_vars(),
         }
         if ignoring_task_key is not None:

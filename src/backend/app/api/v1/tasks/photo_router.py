@@ -195,8 +195,11 @@ async def delete_task_photo(
     # a tasks-only exact match did not.
     #
     # An unreferenced photo is the normal case: a staged upload is in no
-    # ``photo_refs`` until completion writes it (#1388).
-    if not attachment_service.deletable_from_task(attachment_id, key, ctx.tenant_key):
+    # ``photo_refs`` until completion writes it (#1388) — which is why ``actor_key``
+    # goes in as well. For such a photo the task key in the path constrains nothing
+    # (it is in no task's list, so "no *other* task references it" holds for every
+    # task of the tenant), and the predicate falls back to the uploader instead.
+    if not attachment_service.deletable_from_task(attachment_id, key, ctx.tenant_key, actor_key=ctx.user_key):
         raise AttachmentNotFoundError(attachment_id)
 
     await attachment_service.delete(attachment_id, ctx.tenant_key)

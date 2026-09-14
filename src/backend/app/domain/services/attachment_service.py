@@ -377,15 +377,49 @@ class AttachmentService:
         )
         return deleted
 
-    def deletable_from_task(self, attachment_id: str, task_key: str, tenant_key: str) -> bool:
+    def deletable_from_task(self, attachment_id: str, task_key: str, tenant_key: str, *, actor_key: str) -> bool:
         """Whether this task's photo route may destroy *attachment_id* (#1393).
 
-        True when nothing but that task references it. sha256 deduplication makes one
-        stored object shared across tasks, plant galleries and diary entries, so
-        "it is a task photo and no *task* links it" — which this route used to ask —
-        cheerfully destroyed a gallery's cover.
+        Two questions, because one does not cover both photos this route sees.
+
+        **Is it shared?** sha256 deduplication makes one stored object shared across
+        tasks, plant galleries and diary entries, so "it is a task photo and no
+        *task* links it" — which this route used to ask — cheerfully destroyed a
+        gallery's cover. Anything referencing it other than the named task refuses.
+
+        **Does the task key in the path mean anything?** For a photo the named task
+        references, yes: it is that task's documentation, and whoever may delete the
+        tenant's attachments may delete it. For a *staged* photo it does not. A
+        staged upload is in no ``photo_refs`` at all until completion writes it
+        (#1388), so the first question is vacuously satisfied for it through **any**
+        task key of the tenant — one the caller has no involvement with, one another
+        member is filling in right now. The path segment reads like a scope and was
+        not one.
+
+        So a photo nothing references belongs to whoever uploaded it, and only they
+        may destroy it through this route. That is the staging area's own owner, and
+        it is the same person the control is rendered for: ``PhotoUpload`` shows the
+        remove button only for ids staged in the current session. The nightly sweep
+        still collects a staged photo nobody submits, and a lead who genuinely needs
+        to remove someone else's attachment has ``DELETE /attachments/{id}``.
+
+        One consequence is worth naming, because it reads like a bug and is not.
+        ``upload`` deduplicates by sha256, so a second member staging the *same
+        bytes* is handed the first member's row, ``created_by`` and all — and their
+        remove button then answers 404. That is the correct outcome: the object is
+        still staged by someone else and must survive. The client de-stages on 404,
+        so the photo leaves the second member's form, which is what they asked for;
+        only the bytes stay, for the member who also holds them.
         """
-        return bool(self._repo.unreferenced_among([attachment_id], tenant_key, ignoring_task_key=task_key))
+        if not self._repo.unreferenced_among([attachment_id], tenant_key, ignoring_task_key=task_key):
+            return False
+        if not self._repo.unreferenced_among([attachment_id], tenant_key):
+            # Something still references it, and the query above established that the
+            # something is the named task. Task documentation — the path scope holds.
+            return True
+        # Referenced by nothing anywhere: a staged upload. Its uploader only.
+        owned = self._repo.by_keys([attachment_id], tenant_key)
+        return bool(owned) and owned[0].created_by == actor_key
 
     # --- List --------------------------------------------------------
 

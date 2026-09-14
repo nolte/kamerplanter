@@ -19,7 +19,7 @@ What is asserted here is the route's *contract*, not the storage mechanics —
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, create_autospec
 
 import pytest
 from fastapi import FastAPI
@@ -32,6 +32,7 @@ from app.common.enums import AttachmentCategory, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import AttachmentNotFoundError, KamerplanterError, NotFoundError
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.attachment_service import AttachmentService
 
 OWN_TASK = "task-own"
 FOREIGN_TASK = "task-foreign"
@@ -58,7 +59,13 @@ def services():
         return SimpleNamespace(key=key, tenant_key=tenant_key, photo_refs=[ATTACHMENT])
 
     task_service.get_task.side_effect = _get_task
-    attachment_service = MagicMock()
+    # ``create_autospec``, not a bare ``MagicMock``: this file's whole job is to pin
+    # what the handler asks the service, and a bare mock accepts a call the real
+    # service would reject — a renamed parameter, a dropped argument, an argument
+    # added to the service and not to the handler. Every assertion below would stay
+    # green while the route raised ``TypeError`` in production. The autospec binds
+    # each method's real signature, so the drift fails here instead.
+    attachment_service = create_autospec(AttachmentService, instance=True)
     attachment_service.delete = AsyncMock(return_value=True)
     # Nothing but this task references the photo: the normal case, because a staged
     # upload is in no `photo_refs` at all until the completion request writes it

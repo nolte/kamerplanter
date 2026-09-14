@@ -148,8 +148,13 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
-    def unreferenced_among(self, attachment_ids: list[str], tenant_key: str) -> list[str]:
+    def unreferenced_among(
+        self, attachment_ids: list[str], tenant_key: str, *, ignoring_task_key: str | None = None
+    ) -> list[str]:
         """Which of *attachment_ids* nothing in the tenant links any more.
+
+        ``ignoring_task_key`` discounts one task's own references, for the caller that
+        is deleting a photo *from* that task.
 
         Implementations MUST check every carrier, not only the one the caller has in
         mind: ``AttachmentService.upload`` deduplicates by sha256 across the whole

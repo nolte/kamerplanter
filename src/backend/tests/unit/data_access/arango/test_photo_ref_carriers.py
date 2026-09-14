@@ -54,8 +54,12 @@ def _models_declaring_photo_refs() -> set[str]:
     named in a docstring — this repository has several such comments, and a sweep
     reporting prose as a finding is a failure mode it has paid for before.
     """
+    # ``rglob``, not ``glob``: there are no subpackages under ``models/`` today, so
+    # the two behave alike — and the first model added in one would have gained
+    # ``photo_refs`` without turning this lane red, which is the single failure mode
+    # this file exists to prevent.
     found: set[str] = set()
-    for path in sorted(_MODELS_ROOT.glob("*.py")):
+    for path in sorted(_MODELS_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
@@ -151,7 +155,7 @@ _RESOLVED_BY_FIELD_TUPLE = {
 def _reference_shaped_fields() -> set[str]:
     """``<Class>.<field>`` for every annotation that reads like an attachment ref."""
     found: set[str] = set()
-    for path in sorted(_MODELS_ROOT.glob("*.py")):
+    for path in sorted(_MODELS_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
