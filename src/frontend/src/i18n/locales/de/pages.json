@@ -3325,7 +3325,8 @@
         "tank": "Tank"
       },
       "instantiateError": "Workflow-Instanziierung für alle Pflanzen fehlgeschlagen.",
-      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen."
+      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen.",
+      "cannotDeleteReopened": "Diese Aufgabe war abgeschlossen und wurde wiedereröffnet. Sie trägt die Fotos und den Nachweis dieses Abschlusses und lässt sich deshalb nicht löschen — überspringe sie, um sie aus der Liste zu nehmen."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",

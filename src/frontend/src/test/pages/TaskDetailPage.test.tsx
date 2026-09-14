@@ -735,6 +735,31 @@ describe('TaskDetailPage — header action group', () => {
     await user.click(deleteButton);
     expect(await screen.findByTestId('confirm-dialog-confirm')).toBeInTheDocument();
   });
+
+  it('refuses the delete up front for a task that was completed and reopened', async () => {
+    // `TaskService.delete_task` answers 400 for such a task: it still carries the
+    // `photo_refs` completion wrote, and deleting it would destroy that record
+    // irreversibly (#1393). The button rendered unconditionally, so the only way to
+    // learn the rule was to click, confirm, and read an error toast that offers no
+    // way forward — and the state is permanent, since `reopened_from_status` is never
+    // downgraded once it says "completed".
+    useTaskHandlers(spy, { task: makeTask({ reopened_from_status: 'completed' }) });
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    expect(screen.getByTestId('delete-task-button')).toBeDisabled();
+  });
+
+  it('still offers the delete for a task reopened from skipped', async () => {
+    // The control: the refusal is about a *completion* being lost, not about having
+    // been reopened. A task reopened from `skipped` carries no completion record and
+    // stays deletable — gating on `reopened_at` instead would have taken that away.
+    useTaskHandlers(spy, { task: makeTask({ reopened_from_status: 'skipped' }) });
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    expect(screen.getByTestId('delete-task-button')).toBeEnabled();
+  });
 });
 
 describe('TaskDetailPage — FreeStyle provenance (#1082)', () => {
