@@ -288,14 +288,18 @@ jobs:
             // This step used to re-derive `riskcode >= 3 && confidence >= 2` from
             // the raw report — a second copy of the policy that knew nothing about
             // suppressions, so a suppressed finding was filed as an issue anyway.
-            // A missing file means the gate never ran; that is a failure, never a
-            // clean result. An empty file means it ran and found nothing.
-            const verdicts = ['zapwork/blocking-baseline.json', 'zapwork/blocking-api.json']
-              .filter(f => fs.existsSync(f));
-            if (verdicts.length === 0) {
-              core.setFailed('zap_gate.py produced no verdict file — the scan or the gate did not run. This is a failure, not a clean result.');
+            // A missing file means that profile was never judged; that is a failure,
+            // never a clean result. An empty file means it ran and found nothing.
+            // BOTH are required, not at-least-one: a lane where the baseline wrote a
+            // verdict and the API scan died would otherwise report "no blocking
+            // findings" for a profile nothing looked at.
+            const expected = ['zapwork/blocking-baseline.json', 'zapwork/blocking-api.json'];
+            const missing = expected.filter(f => !fs.existsSync(f));
+            if (missing.length > 0) {
+              core.setFailed(`zap_gate.py produced no verdict for ${missing.join(', ')} — that scan or the gate did not run. This is a failure, not a clean result.`);
               return;
             }
+            const verdicts = expected;
             const blocking = [];
             for (const f of verdicts) {
               let data;

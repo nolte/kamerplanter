@@ -625,15 +625,16 @@ Tabelle.
 ```tsv
 # tests/security/zap-rules.tsv
 # Format: <PluginID> <THRESHOLD> <Confidence> <Note>
-# THRESHOLD ∈ {PASS, IGNORE, INFO, WARN, FAIL} — ZAPs zap_conf_lvls; "OFF" gibt es nicht
+# Nur IGNORE wird ausgewertet (siehe unten); Confidence ∈ {LOW, MEDIUM, HIGH}
 10038	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer scope=.* CSP-Report-Only — bewusst gewaehlt fuer Migrationsphase
 10054	IGNORE	HIGH	# expires 2026-12-31 — approved by security-officer scope=/api/v1/auth/ Cookie-Same-Site auf "Lax" — bewusst gesetzt fuer OAuth-Redirects
-40012	WARN	HIGH	Reflected XSS — Confidence-Filter behalten, im Issue triagieren
 ```
 
 **MUSS**: Jede `IGNORE`-Regel hat ein Ablaufdatum als Kommentar (z. B. `# expires 2026-12-31 — approved by security-officer`).
 
-**MUSS**: Jede `IGNORE`-Regel trägt zusätzlich `scope=<URL-Regex>` im Note-Feld. Es gibt keinen impliziten Standard: eine regelweite Unterdrückung wird als `scope=.*` ausgeschrieben. Der Gate verwirft nur die *Instanzen*, deren URL passt — ein Fund derselben Regel an einer anderen URL blockiert weiterhin.
+**MUSS**: Jede `IGNORE`-Regel trägt zusätzlich `scope=<URL-Regex>` im Note-Feld. Es gibt keinen impliziten Standard: eine regelweite Unterdrückung wird als `scope=.*` ausgeschrieben. Der Gate verwirft nur die *Instanzen*, deren URL passt — ein Fund derselben Regel an einer anderen URL blockiert weiterhin. Der Ausdruck wird mit `re.search` geprüft und ist damit **nicht verankert**: `scope=/api/v1/auth/` deckt jeden längeren Pfad darunter mit ab. Wo das zählt, gehört `^…$` gegen die vollständige URL hinein.
+
+**MUSS**: Als THRESHOLD wird **nur `IGNORE`** ausgewertet. ZAPs Vokabular kennt zusätzlich `PASS`, `INFO`, `WARN` und `FAIL` (nicht dagegen `OFF`), aber ZAP liest diese Dateien nicht mehr und `zap_gate.py` implementiert keine Schwellwert-Überschreibung — die Severity-Policy steht in §5.1/§5.2 und im Gate selbst. Eine `WARN`- oder `FAIL`-Zeile wäre also wirkungslos; der Gate **weist sie mit Meldung zurück**, statt sie stumm zu übergehen. Das obige Beispiel führte bis 2026-09-14 eine solche Zeile (`40012 WARN HIGH`) und hätte damit genau diese Erwartung erzeugt.
 
 **SOLL**: Abgelaufene IGNORE-Einträge führen in CI zunächst zu einem Warning, nach 30 Tagen zu einem Fail.
 
@@ -648,7 +649,7 @@ if config_dict:
 
 Der erste Eintrag — gleich welcher — ersetzt damit die 23-Regeln-Policy `API-Minimal` durch den vollständigen aktiven Regelsatz, und die einzige Form, die ZAP ausdrücken kann, ist `alertthreshold='OFF'` für die gesamte Ziel-URL-Menge. Beides ist eine Nebenwirkung, die in der Zeile nicht steht. `zap-baseline.py` (kein Active Scan) und `zap-full-scan.py` (immer `Default Policy`) wären davon nicht betroffen; ihnen wird `-c` trotzdem nicht übergeben, damit die Unterdrückung profilübergreifend **eine** Implementierung hat.
 
-Durchgesetzt von `src/backend/tests/unit/test_zap_rule_suppressions.py` (Dateiformat, Genehmiger, Abwesenheit von `-c` in beiden Workflows) und `test_zap_gate.py` (Verhalten des Gates, inklusive Gnadenfrist und Instanz-Scoping). Die Gnadenfrist aus dem vorstehenden **SOLL** ist damit implementiert; davor brach `zap_gate.py` den Build am Tag nach dem Ablauf ab.
+Durchgesetzt von `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` (Dateiformat, Genehmiger, Abwesenheit von `-c`/`-u` in beiden Workflows) und `test_zap_gate.py` (Verhalten des Gates, inklusive Gnadenfrist und Instanz-Scoping). Beide laufen in der **required** Lane `Write-route and tree guards`; `backend.yml` ist pfadgefiltert und beratend und hätte eine abgelaufene Unterdrückung rot gemeldet, ohne den Merge zu verhindern. Die Gnadenfrist aus dem vorstehenden **SOLL** ist damit implementiert; davor brach `zap_gate.py` den Build am Tag nach dem Ablauf ab.
 
 ### 6.2 Triage-Workflow
 

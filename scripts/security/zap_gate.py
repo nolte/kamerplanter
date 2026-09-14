@@ -141,11 +141,35 @@ def load_rules(
             continue
         parts = raw.split("\t")
         where = f"{path}:{lineno}"
-        if len(parts) < 2 or parts[1].strip().upper() != "IGNORE":
+
+        # No `continue` without a message. A row split by spaces instead of tabs
+        # arrives here as a single field and used to be skipped in silence, so the
+        # suppression simply did not apply and nobody was told — the failure mode
+        # this whole file exists to prevent, reached through the parser.
+        if len(parts) != 4:
+            problems.append(
+                f"{where}: expected 4 tab-separated fields "
+                f"(<PluginID>\\t<THRESHOLD>\\t<Confidence>\\t<Note>), found {len(parts)}. "
+                f"Spaces instead of tabs look identical in a diff and parse to one field."
+            )
             continue
 
         plugin_id = parts[0].strip()
-        note = parts[3] if len(parts) > 3 else ""
+        threshold = parts[1].strip().upper()
+        note = parts[3]
+
+        if threshold != "IGNORE":
+            # WARN / FAIL / INFO / PASS are ZAP's vocabulary, and ZAP no longer
+            # reads these files (see the module docstring). Accepting such a row
+            # would mean accepting a threshold override that changes nothing —
+            # someone following NFR-015 §6.1's own example would expect a rule to
+            # start blocking and get silence.
+            problems.append(
+                f"{where}: threshold {threshold!r} is not honoured. This gate implements "
+                f"IGNORE only; a WARN/FAIL/INFO/PASS row would be inert because the files "
+                f"are no longer passed to ZAP. Express the severity policy in zap_gate.py."
+            )
+            continue
 
         expiry_match = IGNORE_EXPIRY.search(note)
         if not expiry_match:
@@ -171,7 +195,19 @@ def load_rules(
             )
             continue
 
-        expires = date.fromisoformat(expiry_match.group(1))
+        try:
+            expires = date.fromisoformat(expiry_match.group(1))
+        except ValueError as exc:
+            # `IGNORE_EXPIRY` matches the SHAPE. `2026-02-30` has the shape and no
+            # day; unguarded, that ends the process before a single alert is read,
+            # and — since --emit-blocking writes at the end — leaves no verdict
+            # file, which the issue-opening step cannot distinguish from a profile
+            # that simply had nothing to report.
+            problems.append(
+                f"{where}: IGNORE for rule {plugin_id} has an impossible expiry "
+                f"{expiry_match.group(1)!r}: {exc}"
+            )
+            continue
         overdue = (today - expires).days
         if overdue > GRACE_DAYS:
             problems.append(
@@ -183,7 +219,7 @@ def load_rules(
         if overdue > 0:
             warnings.append(
                 f"{where}: IGNORE for rule {plugin_id} expired on {expires.isoformat()} "
-                f"and fails the build in {GRACE_DAYS - overdue} day(s)."
+                f"and fails the build in {GRACE_DAYS - overdue + 1} day(s)."
             )
 
         suppressions.append(

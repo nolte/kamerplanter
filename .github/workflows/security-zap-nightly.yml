@@ -129,7 +129,7 @@ jobs:
       # the report); the active scan has no flag in zap-full-scan.py and is
       # capped inside zap_hooks.py (ACTIVE_SCAN_MAX_MINUTES). Unbounded, the
       # scan ran until the runner died on four of eight nights — with no report,
-      # and so no verdict. The unit test test_zap_hooks_scan_budget.py keeps
+      # and so no verdict. tests/unit/guards/test_zap_hooks_scan_budget.py keeps
       # `-m`, `-T`, the hook's cap and `timeout-minutes` consistent.
       - name: ZAP Full-Scan (authenticated, AjaxSpider)
         env:

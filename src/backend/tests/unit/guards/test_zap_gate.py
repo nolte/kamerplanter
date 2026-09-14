@@ -198,13 +198,76 @@ class TestSuppressionValidity:
         assert code == 1
 
     def test_an_expiry_inside_the_grace_still_applies_and_warns(self, tmp_path, monkeypatch, capsys):
+        """The countdown is asserted as a literal, and the literal is derived here.
+
+        The row fails once `overdue > GRACE_DAYS`, so the first failing day is
+        `overdue == 31`. Expiring yesterday is `overdue == 1`, which leaves 30 days.
+        Computing the expected value with the same expression the gate uses would
+        have reproduced the off-by-one this assertion was written to pin down: the
+        first version said 29, matching a message that counted one day short.
+        """
         yesterday = date.today() - timedelta(days=1)
         rules = _rules(tmp_path, _valid_note(expires=yesterday))
 
         code, _ = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
 
         assert code == 0, "inside the grace the suppression still holds"
-        assert "fails the build in 29 day(s)" in capsys.readouterr().out
+        assert "fails the build in 30 day(s)" in capsys.readouterr().out
+
+    def test_the_last_day_of_the_grace_counts_one(self, tmp_path, monkeypatch, capsys):
+        """`overdue == GRACE_DAYS` is the final day it applies, so the message is 1."""
+        edge = date.today() - timedelta(days=gate.GRACE_DAYS)
+        rules = _rules(tmp_path, _valid_note(expires=edge))
+
+        code, _ = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
+
+        assert code == 0
+        assert "fails the build in 1 day(s)" in capsys.readouterr().out
+
+    def test_an_impossible_date_is_reported_and_does_not_kill_the_run(self, tmp_path, monkeypatch):
+        """`# expires 2026-02-30` has the right shape and no such day.
+
+        Unguarded, `date.fromisoformat` raised before a single alert was read —
+        and because the verdict file is written at the end, the profile produced
+        none. The issue-opening step reads a missing file as "this profile did not
+        run", sees the other one, and reports no blocking findings for a scan that
+        was never judged.
+        """
+        rules = _rules(tmp_path, "# expires 2026-02-30 — approved by operator. scope=.*")
+
+        code, emit = _run(tmp_path, _report(_CONFIRM), rules, monkeypatch)
+
+        assert code == 1
+        assert emit.is_file(), "a bad rule row must not cost the verdict file"
+        assert [f["plugin"] for f in json.loads(emit.read_text())] == ["40018"]
+
+    def test_a_threshold_other_than_ignore_is_rejected_rather_than_ignored(self, tmp_path, monkeypatch):
+        """WARN/FAIL/INFO/PASS are ZAP's vocabulary and this gate implements none.
+
+        Since ZAP no longer reads these files, such a row changes nothing. NFR-015
+        §6.1 ships `40012 WARN HIGH` as an example, so someone will write one and
+        expect reflected XSS to start blocking. Silence would be the worst answer.
+        """
+        path = tmp_path / "rules.tsv"
+        path.write_text("40012\tWARN\tHIGH\tReflected XSS — triage in the issue\n", encoding="utf-8")
+
+        _, problems, _ = gate.load_rules(path)
+
+        assert problems and "not honoured" in problems[0]
+
+    def test_a_row_split_by_spaces_is_reported_rather_than_skipped(self, tmp_path):
+        """Tabs and spaces look identical in a diff, and the row parses to one field.
+
+        The parser used to `continue` past it without a word, so the suppression
+        did not apply and nobody was told — the same silence this file exists to
+        prevent, reached through the parser instead of through the scanner.
+        """
+        path = tmp_path / "rules.tsv"
+        path.write_text("40018 IGNORE MEDIUM # expires 2099-01-01 — approved by x scope=.*\n", encoding="utf-8")
+
+        _, problems, _ = gate.load_rules(path)
+
+        assert problems and "tab-separated" in problems[0]
 
     def test_an_expiry_past_the_grace_fails_and_stops_applying(self, tmp_path, monkeypatch):
         """Past the grace, the finding comes back in the same run that goes red.

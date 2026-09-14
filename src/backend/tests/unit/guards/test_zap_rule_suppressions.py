@@ -52,10 +52,11 @@ _WORKFLOWS = (
 )
 
 #: ZAP's own vocabulary, read off `zap_common.py` in the pinned image rather than
-#: off the file header — an earlier header listed `OFF`, which is not a level and
-#: makes `load_config` raise `Level OFF is not a supported level` before the scan
-#: starts. `OUTOFSCOPE` is a fifth, differently-shaped row type this repository
-#: does not use: it carries a regex instead of a note, so it cannot hold an expiry.
+#: off the file header — an earlier header listed `OFF`, which is not a level at
+#: all. This is the STRUCTURAL check: a row outside this set is malformed by any
+#: reading. Whether a well-formed non-IGNORE row is HONOURED is a separate and
+#: stricter question, and `load_rules` answers it with a rejection — see
+#: test_zap_gate.py::test_a_threshold_other_than_ignore_is_rejected_rather_than_ignored.
 _THRESHOLDS = {"PASS", "IGNORE", "INFO", "WARN", "FAIL"}
 _CONFIDENCE = {"LOW", "MEDIUM", "HIGH"}
 
@@ -107,10 +108,13 @@ def test_the_rule_files_are_where_this_test_thinks_they_are():
 def test_every_row_has_the_four_documented_fields(name: str, number: int, fields: list[str]):
     """`<PluginID>\\t<THRESHOLD>\\t<Confidence>\\t<Note>` — tab-separated, as the header says.
 
-    Spaces instead of tabs is not a silent no-op: `zap_common.load_config` raises
-    `Unexpected number of tokens on line`. Loud — but the workflow swallows the
-    wrapper's exit code (`|| echo …`), so the run limps on and dies later at the
-    gate with "report does not exist", which names neither the file nor the line.
+    Tabs and spaces are indistinguishable in a diff, and a space-separated row
+    parses to one field. `load_rules` now reports that itself, so this is the
+    second of two checks — kept because it names the file and the line before
+    anything runs, and because it also pins the confidence column, which the gate
+    does not read. (An earlier version of this docstring justified the check by
+    what `zap_common.load_config` raises. That was true of ZAP's parser, and ZAP
+    no longer reads these files at all.)
     """
     assert len(fields) == 4, f"{name}:{number} has {len(fields)} tab-separated fields, expected 4"
     assert fields[1] in _THRESHOLDS, (
@@ -153,27 +157,91 @@ def test_every_ignore_names_who_approved_it(name: str, number: int, fields: list
     )
 
 
-def test_no_workflow_hands_these_files_to_zap():
-    """`-c` is the switch that widens the API scan; it must stay absent.
+#: The ZAP wrapper scripts whose invocations must carry no config option.
+_ZAP_WRAPPERS = re.compile(r"zap-(baseline|api-scan|full-scan)\.py")
 
-    Measured on `/zap/zap-api-scan.py` in the pinned image: a non-empty config
-    file replaces the `API-Minimal` policy with `Default Policy` and calls
+#: Every spelling that populates ZAP's `config_dict`: `-c <file>` and `-u <url>`,
+#: plus their long forms. The first version of this guard matched only
+#: `^\s*-c\s+zap-\S*rules\.tsv` — anchored at line start, and requiring the
+#: argument to begin with `zap-`. Four ways past it were demonstrated in review:
+#: reflowing the invocation onto one line, staging the file under another name,
+#: quoting the argument, and using `-u` instead. A guard that a rename walks
+#: around is the failure mode this repository keeps paying for, so the match is
+#: on the OPTION, anywhere in the logical command line.
+_CONFIG_OPTION = re.compile(r"(?:^|\s)(-c|-u|--config|--config-url)(?:[=\s]|$)")
+
+
+def _logical_lines(text: str) -> list[tuple[int, str]]:
+    """Join shell backslash-continuations, so one invocation is one line.
+
+    Returns `(line number of the first physical line, joined text)`.
+    """
+    joined: list[tuple[int, str]] = []
+    buffer = ""
+    start = 0
+    for number, physical in enumerate(text.splitlines(), 1):
+        if not buffer:
+            start = number
+        stripped = physical.rstrip()
+        if stripped.endswith("\\"):
+            buffer += stripped[:-1] + " "
+            continue
+        joined.append((start, buffer + stripped))
+        buffer = ""
+    if buffer:
+        joined.append((start, buffer))
+    return joined
+
+
+def test_no_workflow_hands_a_config_to_zap():
+    """`-c` / `-u` is the switch that widens the API scan; it must stay absent.
+
+    Measured on `/zap/zap-api-scan.py` in the pinned image: a non-empty
+    `config_dict` replaces the `API-Minimal` policy with `Default Policy` and calls
     `enable_all_scanners`. Rule 40018 stops running everywhere, every other active
     rule starts, and both happen as a side effect of adding one suppression line.
     """
-    offenders = [
-        f"{path.name}:{number}"
-        for path in _WORKFLOWS
-        if path.is_file()
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-        if re.search(r"^\s*-c\s+zap-\S*rules\.tsv", line)
-    ]
+    offenders = []
+    for path in _WORKFLOWS:
+        if not path.is_file():
+            continue
+        for number, command in _logical_lines(path.read_text(encoding="utf-8")):
+            if command.lstrip().startswith("#"):
+                continue  # a shell comment inside a `run:` block, e.g. the one saying why
+            if _ZAP_WRAPPERS.search(command) and _CONFIG_OPTION.search(command):
+                offenders.append(f"{path.name}:{number}")
 
     assert not offenders, (
-        f"ZAP is being handed a rule file at {offenders}. Suppression belongs to "
-        f"zap_gate.py --rules: passing it to the scanner swaps the API scan's policy "
+        f"ZAP is being handed a config at {offenders}. Suppression belongs to "
+        f"zap_gate.py --rules: giving it to the scanner swaps the API scan's policy "
         f"for the full active rule set and can only express 'off everywhere'."
     )
+
+
+def test_this_guard_would_see_a_config_option_it_is_looking_for():
+    """The guard's own control, because the guard is a text match.
+
+    Its predecessor passed on four real spellings of the thing it forbids. A
+    pattern that matches nothing looks exactly like a workflow that is clean, so
+    the shapes are asserted directly rather than trusted.
+    """
+    evasions = [
+        "            zap-api-scan.py -t openapi.json -c zap-api-rules.tsv",
+        "              -c zapwork/staged-rules.tsv \\\n              -J api-report.json",
+        '              -c "zap-api-rules.tsv"',
+        "              -u https://example.invalid/rules.conf",
+        "              --config=rules.tsv",
+    ]
+    prefix = "            zap-full-scan.py \\\n"
+
+    for evasion in evasions:
+        text = prefix + evasion if not _ZAP_WRAPPERS.search(evasion) else evasion
+        hits = [
+            command
+            for _, command in _logical_lines(text)
+            if _ZAP_WRAPPERS.search(command) and _CONFIG_OPTION.search(command)
+        ]
+        assert hits, f"the guard does not see {evasion!r}"
 
 
 def test_the_row_scan_is_not_vacuous():

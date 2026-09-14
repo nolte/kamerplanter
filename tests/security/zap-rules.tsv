@@ -4,17 +4,26 @@
 # Format (tab-separated, exactly four fields):
 #   <PluginID>	<THRESHOLD>	<Confidence>	<Note>
 #
-# THRESHOLD ∈ {PASS, IGNORE, INFO, WARN, FAIL}   (zap_common.py: zap_conf_lvls)
 # Confidence ∈ {LOW, MEDIUM, HIGH}
 #
-# Spaces instead of tabs is NOT a silent no-op: zap_common.load_config raises
-# `ValueError: Unexpected number of tokens on line`, and `OFF` — which an earlier
-# version of this header wrongly listed as a threshold — raises `Level OFF is not
-# a supported level`.
+# THRESHOLD: **only IGNORE is honoured.** ZAP's own vocabulary is
+# {PASS, IGNORE, INFO, WARN, FAIL} — note that "OFF", which an earlier version of
+# this header listed, is not among them and makes `zap_common.load_config` raise
+# `Level OFF is not a supported level`. But ZAP does not read this file at all
+# (see below), and `zap_gate.py` implements no threshold overrides, so a WARN or
+# FAIL row would change nothing. It is rejected with a message rather than
+# accepted and left inert; the severity policy lives in `zap_gate.py` itself
+# (NFR-015 §5.1/§5.2).
+#
+# Tabs, not spaces: a space-separated row parses to a single field. `zap_gate.py`
+# reports that with the file and line rather than skipping it, because the two
+# are indistinguishable in a diff and the silent skip would leave the suppression
+# not applied with nobody told.
 #
 # WHO READS THIS FILE: `scripts/security/zap_gate.py` alone, via `--rules`. It is
-# deliberately NOT passed to the ZAP wrappers with `-c`, because `zap-api-scan.py`
-# decides its active scan policy from whether that config produced any entries:
+# deliberately NOT passed to the ZAP wrappers with `-c` (or `-u`), because
+# `zap-api-scan.py` decides its active scan policy from whether that config
+# produced any entries:
 #
 #     scan_policy = 'API-Minimal'
 #     if config_dict:
@@ -29,11 +38,19 @@
 #
 # Every IGNORE row MUST carry, in the Note column:
 #   * `# expires YYYY-MM-DD — approved by <role>` — expired is a CI warning;
-#     after 30 days of grace it fails the build and stops applying.
-#   * `scope=<url regex>` — the URLs the suppression covers. `scope=.*` means
-#     rule-wide and has to be written out; there is no implicit rule-wide.
+#     after 30 days of grace it fails the build and stops applying, so the finding
+#     it was covering reappears in the run that goes red.
+#   * `scope=<url regex>` — the URLs the suppression covers, matched with
+#     `re.search` and therefore UNANCHORED: `scope=/api/v1/auth/` is a prefix that
+#     also covers `/api/v1/auth/anything`, and `scope=/x/confirm` would cover
+#     `/x/confirm-v2` too. Anchor it (`^…$` against the full URL) when that
+#     matters. `scope=.*` means rule-wide and has to be written out; there is no
+#     implicit rule-wide.
 #
-# `src/backend/tests/unit/test_zap_rule_suppressions.py` enforces all of it.
+# `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` enforces the file
+# format and the absence of `-c`/`-u` in the workflows; `test_zap_gate.py` enforces
+# what the gate does with a row. Both run in the REQUIRED `Write-route and tree
+# guards` lane.
 #
 # This file is intentionally empty in Phase 1. Tuning entries are added
 # alongside their motivating findings in Phase 3.

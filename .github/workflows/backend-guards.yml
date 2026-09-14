@@ -24,6 +24,15 @@ name: Backend Guards
 # is silently ungated (#1402). A directory is enumerated by the runner, so a new
 # guard test placed beside its siblings is picked up without anyone remembering.
 #
+# `src/backend/tests/unit/guards/` — guards over CI configuration that lives
+# outside the backend package: the ZAP rule TSVs and the gate that reads them,
+# the nightly's scan budget, the workflow flags themselves (#1376/#1389). Added
+# as a DIRECTORY for the same reason, not as three file names. They were in
+# `tests/unit/` before, which meant only `backend.yml` ran them — path-filtered
+# and advisory — so a pull request that added an expired suppression, or put `-c`
+# back on the API scan (which silently swaps `API-Minimal` for the full active
+# rule set), turned Backend CI red and merged regardless. Measured 0.4 s.
+#
 # WHY NOT THE WHOLE UNIT SUITE. Measured 2026-09-12 on this tree:
 #
 #   tests/unit/api/          271 tests    15 s
@@ -109,5 +118,7 @@ jobs:
 
       - name: Mechanical guards
         env:
+          # Read by tests/unit/api only — see the header. tests/unit/guards reads
+          # files off disk and is indifferent to the mode.
           KAMERPLANTER_MODE: full
-        run: pytest tests/unit/api -q
+        run: pytest tests/unit/api tests/unit/guards -q
