@@ -90,9 +90,12 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
 class _FakeTenantService:
     """Slug→tenant and membership, without ArangoDB. Same contract as the header suite."""
 
-    def __init__(self) -> None:
+    def __init__(self, role: TenantRole = TenantRole.LEAD) -> None:
+        # The role is a parameter because #1422 is about rank, and a fake that hard-codes
+        # `LEAD` can only ever demonstrate that a lead is admitted. Every pre-existing
+        # case keeps the default and is unaffected.
         self._by_slug = {t.slug: t for t in (_OWN, _FOREIGN)}
-        member = SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[AdminScope.MANAGEMENT], is_active=True)
+        member = SimpleNamespace(role=role, admin_scopes=[AdminScope.MANAGEMENT], is_active=True)
         self._memberships = {
             (_USER, _OWN.key): member,
             # A service account bound to a tenant holds a membership there like any
@@ -204,7 +207,7 @@ def _doubled_services() -> tuple[Any, Any]:
     return phase, care
 
 
-def _app() -> TestClient:
+def _app(role: TenantRole = TenantRole.LEAD) -> TestClient:
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.include_router(phases_router, prefix="/api/v1")
@@ -223,7 +226,7 @@ def _app() -> TestClient:
     phase_service, care_service = _doubled_services()
 
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=_USER, account_type="user")
-    app.dependency_overrides[get_tenant_service] = _FakeTenantService
+    app.dependency_overrides[get_tenant_service] = lambda: _FakeTenantService(role)
     app.dependency_overrides[get_plant_instance_service] = lambda: plant_service
     app.dependency_overrides[get_phase_service] = lambda: phase_service
     app.dependency_overrides[get_care_reminder_service] = lambda: care_service
@@ -417,3 +420,111 @@ class TestTheServiceOwnCheckIsReachedOnTheRestPath:
             f"the service received tenant_key={passed!r}; its own ownership branch is "
             "guarded by `if tenant_key` and therefore does not run"
         )
+
+
+#: The seven write routes, with the rank REQ-049 §2.3 puts on each.
+#:
+#: Spelled out rather than filtered out of ``ROUTES`` by HTTP method: the whole point
+#: of #1422 is that ``DELETE`` sits at a different rank from the other six, and a
+#: derivation that computed the rank from the method would encode that rule in the
+#: test instead of checking it.
+WRITE_ROUTES_WITH_RANK: list[tuple[str, str, dict[str, Any] | None, TenantRole]] = [
+    (
+        "POST",
+        "/api/v1/plant-instances/{k}/phases/transition",
+        {"target_phase_key": "gp_veg", "force": True},
+        TenantRole.GROWER,
+    ),
+    (
+        "PATCH",
+        "/api/v1/plant-instances/{k}/phases/history/h1",
+        {"entered_at": "2026-01-01T00:00:00Z"},
+        TenantRole.GROWER,
+    ),
+    # The irreversibility boundary REQ-049 §2.3 names explicitly.
+    ("DELETE", "/api/v1/plant-instances/{k}/phases/history/h1", None, TenantRole.LEAD),
+    ("PATCH", "/api/v1/care-reminders/plants/{k}/profile", {}, TenantRole.GROWER),
+    ("POST", "/api/v1/care-reminders/plants/{k}/confirm", {"reminder_type": "watering"}, TenantRole.GROWER),
+    (
+        "POST",
+        "/api/v1/care-reminders/plants/{k}/snooze",
+        {"reminder_type": "watering", "snooze_days": 1},
+        TenantRole.GROWER,
+    ),
+    ("POST", "/api/v1/care-reminders/plants/{k}/reset-profile", None, TenantRole.GROWER),
+]
+
+
+def test_the_rank_table_covers_every_write_route_in_the_route_table():
+    """The two tables must not drift, or a new write route is checked by nothing.
+
+    ``ROUTES`` is the file's inventory of every route on both routers;
+    ``WRITE_ROUTES_WITH_RANK`` is the subset that must carry a rank gate. Derived
+    here rather than trusted: a route added to ``ROUTES`` with a write method and
+    forgotten below would otherwise be covered by no rank test at all — the opt-in
+    drift #948 is about, one level up in the test suite.
+    """
+    writes_in_inventory = {(method, template) for method, template, _body in ROUTES if method != "GET"}
+    ranked = {(method, template) for method, template, _body, _rank in WRITE_ROUTES_WITH_RANK}
+
+    assert writes_in_inventory == ranked, (
+        f"write routes with no rank expectation: {sorted(writes_in_inventory - ranked)}; "
+        f"ranked routes that are not in ROUTES: {sorted(ranked - writes_in_inventory)}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("method", "template", "body", "min_role"),
+    WRITE_ROUTES_WITH_RANK,
+    ids=[f"{m}:{t.split('/')[-1]}" for m, t, _b, _r in WRITE_ROUTES_WITH_RANK],
+)
+class TestRankIsCheckedOnEveryWriteRoute:
+    """#1422 — ownership was checked, rank was not.
+
+    ``require_owned_plant`` closed the cross-tenant axis and left this one open: any
+    member of the owning tenant, **a viewer included**, could drive all seven. Among
+    them a phase transition accepting ``force: bool`` — which bypasses the transition
+    rules — and an irreversible ``DELETE`` on recorded history.
+
+    Asserted per route rather than per router, deliberately. A router-level assertion
+    would pass for a route that inherited the gate from a sibling, which is exactly
+    how the gap survived: the routers *do* carry a shared dependency, and it is the
+    wrong one for this axis.
+    """
+
+    def test_a_viewer_of_the_owning_tenant_is_refused(
+        self, method: str, template: str, body: dict[str, Any] | None, min_role: TenantRole
+    ):
+        client = _app(TenantRole.VIEWER)
+
+        response = _call(client, method, template.format(k=OWN_PLANT), body)
+
+        assert response.status_code == 403, (
+            f"a viewer drove {method} {template} — ownership is checked here, rank is not (#1422)"
+        )
+
+    def test_a_lead_is_admitted(self, method: str, template: str, body: dict[str, Any] | None, min_role: TenantRole):
+        """The control. Without it every refusal above passes for a gate that refuses everyone."""
+        client = _app(TenantRole.LEAD)
+
+        response = _call(client, method, template.format(k=OWN_PLANT), body)
+
+        assert response.status_code < 400, response.text
+
+    def test_a_grower_is_admitted_unless_the_route_needs_a_lead(
+        self, method: str, template: str, body: dict[str, Any] | None, min_role: TenantRole
+    ):
+        """The rank actually differs per route, and this is where that is asserted.
+
+        Six routes admit a grower; ``DELETE /phases/history/{key}`` does not. Gating
+        all seven at ``lead`` would satisfy the viewer refusals above and quietly take
+        six operations away from the role that does the work.
+        """
+        client = _app(TenantRole.GROWER)
+
+        response = _call(client, method, template.format(k=OWN_PLANT), body)
+
+        if min_role is TenantRole.LEAD:
+            assert response.status_code == 403, f"a grower drove {method} {template} (REQ-049 §2.3 delete)"
+        else:
+            assert response.status_code < 400, response.text

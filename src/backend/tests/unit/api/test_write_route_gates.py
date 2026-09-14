@@ -248,6 +248,11 @@ _AUTHORISATION: frozenset[str] = frozenset(
         "_require_platform_admin",
         "require_permission.<locals>._check",
         "require_tenant_role.<locals>._check",
+        # The header-resolved sibling of the line above (#1422). The routers under
+        # `/pflanzen/{key}/phases` and `/care-reminders/plants/{key}` carry no
+        # `/t/{slug}/` segment, so `require_tenant_role` has no tenant to rank
+        # against; this one reads the tenant `require_owned_plant` already resolved.
+        "require_active_tenant_role.<locals>._check",
         "require_admin_scope.<locals>._check",
         "require_attachment_permission.<locals>._dependency",
         "get_mcp_principal",
@@ -266,12 +271,24 @@ _AUTHORISATION: frozenset[str] = frozenset(
 #: Named for that definition rather than for "role", which it is not: the set also
 #: holds `require_owned_plant`, and ownership is a different axis from rank. The
 #: earlier name `_ROLE_GATES` invited the reading that a route carrying any member
-#: here has been rank-checked — `POST /pflanzen/{key}/phases/transition` has not,
-#: and a tenant viewer can still drive it (#1422).
+#: here has been rank-checked.
+#:
+#: That reading was wrong for seven routes until #1422: they carried
+#: `require_owned_plant` and no rank check, so a tenant *viewer* could drive a phase
+#: transition accepting `force: bool` and an irreversible `DELETE` on recorded
+#: history. They now carry `require_active_tenant_role` too, and
+#: `tests/api/test_plant_scoped_global_routers_api.py` asserts the refusal per route.
+#: Membership in this set still does not imply a rank check, which is why the name
+#: says what it says.
 _MORE_THAN_MEMBERSHIP: frozenset[str] = frozenset(
     {
         "require_permission.<locals>._check",
         "require_tenant_role.<locals>._check",
+        # The header-resolved sibling of the line above (#1422). The routers under
+        # `/pflanzen/{key}/phases` and `/care-reminders/plants/{key}` carry no
+        # `/t/{slug}/` segment, so `require_tenant_role` has no tenant to rank
+        # against; this one reads the tenant `require_owned_plant` already resolved.
+        "require_active_tenant_role.<locals>._check",
         "require_admin_scope.<locals>._check",
         "require_platform_admin",
         "_require_platform_admin",

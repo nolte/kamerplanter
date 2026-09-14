@@ -10,9 +10,9 @@ from app.api.v1.care_reminders.schemas import (
     ConfirmRequest,
     SnoozeRequest,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_active_tenant_role
 from app.common.dependencies import get_care_reminder_service
-from app.common.enums import ReminderType
+from app.common.enums import ReminderType, TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.common.plant_ownership import require_owned_plant
 from app.domain.models.plant_instance import PlantInstance
@@ -62,7 +62,11 @@ def get_or_create_profile(
     return _profile_to_response(profile)
 
 
-@router.patch("/plants/{plant_key}/profile", response_model=CareProfileResponse)
+@router.patch(
+    "/plants/{plant_key}/profile",
+    response_model=CareProfileResponse,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+)
 def update_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: CareProfileUpdate,
@@ -75,7 +79,12 @@ def update_profile(
     return _profile_to_response(updated)
 
 
-@router.post("/plants/{plant_key}/confirm", response_model=CareConfirmationResponse, status_code=201)
+@router.post(
+    "/plants/{plant_key}/confirm",
+    response_model=CareConfirmationResponse,
+    status_code=201,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+)
 def confirm_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: ConfirmRequest,
@@ -107,7 +116,12 @@ def confirm_reminder(
     return _confirmation_to_response(confirmation)
 
 
-@router.post("/plants/{plant_key}/snooze", response_model=CareConfirmationResponse, status_code=201)
+@router.post(
+    "/plants/{plant_key}/snooze",
+    response_model=CareConfirmationResponse,
+    status_code=201,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+)
 def snooze_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: SnoozeRequest,
@@ -130,7 +144,11 @@ def get_confirmation_history(
     return [_confirmation_to_response(c) for c in history]
 
 
-@router.post("/plants/{plant_key}/reset-profile", response_model=CareProfileResponse)
+@router.post(
+    "/plants/{plant_key}/reset-profile",
+    response_model=CareProfileResponse,
+    dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
+)
 def reset_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     species_name: str | None = Query(None, description="Species name used to re-seed the profile's presets."),

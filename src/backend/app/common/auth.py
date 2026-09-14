@@ -445,6 +445,19 @@ def require_platform_admin(
     return user
 
 
+#: The domain-role ranking, shared by every rank gate.
+#:
+#: Module level rather than a local in each factory: two copies of an ordering are
+#: two things that can drift, and the thing they would drift about is who may write.
+#: An unknown role maps to 0 — the least privilege — so a role added to the enum and
+#: forgotten here is refused rather than admitted.
+_ROLE_ORDER: dict[TenantRole, int] = {
+    TenantRole.VIEWER: 0,
+    TenantRole.GROWER: 1,
+    TenantRole.LEAD: 2,
+}
+
+
 def require_tenant_role(min_role: TenantRole) -> Callable:
     """Dependency factory for axis 1: a minimum domain role (REQ-049 §2.3).
 
@@ -453,11 +466,47 @@ def require_tenant_role(min_role: TenantRole) -> Callable:
     axis 2 and use :func:`require_admin_scope` instead. The two branches are
     disjoint on purpose: an action reachable through both is exactly the
     conflation REQ-049 was written to end.
+
+    Resolves through :func:`get_current_tenant`, so it only works where the tenant
+    comes from a ``/t/{slug}/`` path segment. For a **global** route that resolves
+    its tenant from the ``X-Active-Tenant`` header, use
+    :func:`require_active_tenant_role` — same ranking, different resolver.
     """
-    role_order = {TenantRole.VIEWER: 0, TenantRole.GROWER: 1, TenantRole.LEAD: 2}
 
     def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
-        if role_order.get(ctx.role, 0) < role_order[min_role]:
+        if _ROLE_ORDER.get(ctx.role, 0) < _ROLE_ORDER[min_role]:
+            raise ForbiddenError(f"Requires at least {min_role.value} role.")
+        return ctx
+
+    return _check
+
+
+def require_active_tenant_role(min_role: TenantRole) -> Callable:
+    """The same rank gate, for a global route whose tenant comes from the header.
+
+    ``/api/v1/pflanzen/{key}/phases/...`` and ``/api/v1/care-reminders/plants/{key}/...``
+    carry no ``{slug}`` segment, so :func:`require_tenant_role` has no tenant to rank
+    against — its :func:`get_current_tenant` binds on a path parameter that is not
+    there. Those routers were therefore gated on :func:`require_owned_plant` alone,
+    which closes the *ownership* axis and leaves *rank* open: any member of the owning
+    tenant, **a viewer included**, could drive all seven write routes — among them a
+    phase transition accepting ``force: bool`` (which bypasses the transition rules)
+    and an irreversible ``DELETE`` on recorded history (#1422).
+
+    Rooted in :func:`get_active_tenant_context`, which resolves the acting tenant
+    through ``_resolve_active_tenant`` — the same function behind
+    :func:`get_active_tenant_key`, and therefore behind ``require_owned_plant``. The
+    two cannot disagree about *which* tenant is being ranked, which was the first
+    thing #1422 asked for: a rank check reading one tenant while the ownership check
+    reads another would be worse than no rank check, because it would look right.
+
+    Fails closed the same way its root does: a caller with no resolvable active
+    membership arrives as :attr:`TenantRole.VIEWER` and is refused for anything above
+    it.
+    """
+
+    def _check(ctx: TenantContext = Depends(get_active_tenant_context)) -> TenantContext:
+        if _ROLE_ORDER.get(ctx.role, 0) < _ROLE_ORDER[min_role]:
             raise ForbiddenError(f"Requires at least {min_role.value} role.")
         return ctx
 
