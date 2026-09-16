@@ -230,7 +230,6 @@ class TestGetOrRaise:
         assert "Gadget with key 'w1'" in exc.value.message
 
 
-
 class TestEveryNotFoundNamesTheSameThing:
     """``details[0].entity`` is a contract, so one repository must answer one word (O-3).
 
@@ -327,6 +326,7 @@ class TestEveryNotFoundNamesTheSameThing:
             "a NotFoundError in the base repository must name the entity "
             f"(self._require_entity_name()), not the collection: {offenders}"
         )
+
 
 # ── create / update / delete ─────────────────────────────────────────────────
 

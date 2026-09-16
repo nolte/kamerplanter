@@ -122,7 +122,6 @@ class TestPlanReference:
         assert plan_reference(ATTACHMENT_KEY, ATTACHMENT_KEY, TENANT, index).verdict == "canonical"
 
 
-
 class TestAStemMayOnlyAnswerForAStorageKey:
     """The stem of a *reference* must never be looked up as a document key.
 
@@ -175,9 +174,7 @@ class TestAStemMayOnlyAnswerForAStorageKey:
     def test_a_plain_api_uri_is_still_rewritten_onto_the_key_it_carries(self) -> None:
         """The control — the anchored rewrite must survive the narrowing."""
         index = _index(AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID))
-        verdict = plan_reference(
-            f"/api/v1/t/{TENANT}/attachments/{ATTACHMENT_KEY}", ATTACHMENT_KEY, TENANT, index
-        )
+        verdict = plan_reference(f"/api/v1/t/{TENANT}/attachments/{ATTACHMENT_KEY}", ATTACHMENT_KEY, TENANT, index)
 
         assert verdict.verdict == "repaired"
         assert verdict.matches == (ATTACHMENT_KEY,)
@@ -195,9 +192,8 @@ class TestAStemMayOnlyAnswerForAStorageKey:
         index = _index(AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID))
 
         assert normalize_photo_ref(thumbnail_uri) == ATTACHMENT_KEY
-        assert plan_reference(thumbnail_uri, "320", TENANT, index).matches == (
-            normalize_photo_ref(thumbnail_uri),
-        )
+        assert plan_reference(thumbnail_uri, "320", TENANT, index).matches == (normalize_photo_ref(thumbnail_uri),)
+
 
 # ── the migration against a fake ArangoDB ─────────────────────────────────────
 
