@@ -48,7 +48,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.v1.notifications.tenant_router import _CARE_CONFIRM_ACTIONS
+from app.api.v1.notifications.tenant_router import _CARE_CONFIRM_ACTIONS, _CARE_TYPE_PREFIX
 from app.api.v1.notifications.tenant_router import router as notifications_router
 from app.common import auth as auth_mod
 from app.common.dependencies import get_care_reminder_service, get_notification_service
@@ -236,6 +236,45 @@ class TestAViewerMayNotConfirmThroughTheNotification:
 
         assert "viewer" in response.text.lower()
 
+    def test_a_care_notification_without_a_plant_key_is_refused_too(self) -> None:
+        """Fail-closed on the rank alone, before the payload is read (SEC-007).
+
+        This row would confirm nothing — the branch needs a `plant_key` and a
+        `reminder_type` and has neither — so a gate placed after the resolution
+        would answer 200 here. That is the version this pins against: the response
+        would then depend on the CONTENTS of the notification, a 200 would tell the
+        caller the row carries no plant, and the boundary would be only as strong as
+        its weakest payload. The cost of refusing is one row a viewer cannot stamp
+        through `/act`; `mark_read` still clears it.
+
+        Not a behaviour change — the handler has ordered it this way since #1441.
+        It was undocumented and unasserted, which is how an ordering gets "tidied"
+        later by someone who reads the resolution as the precondition it looks like.
+        """
+        harness = _Harness(
+            role=TenantRole.VIEWER,
+            notification=_notification(notification_type="care.watering", data={}),
+        )
+
+        response = harness.act()
+
+        assert response.status_code == 403, response.text
+        assert harness.care_writes == 0
+        assert harness.notification_service.acted_calls == []
+
+    def test_a_grower_acts_on_that_same_payload_free_notification(self) -> None:
+        """The control. A route that refused everyone would pass the case above."""
+        harness = _Harness(
+            role=TenantRole.GROWER,
+            notification=_notification(notification_type="care.watering", data={}),
+        )
+
+        response = harness.act()
+
+        assert response.status_code == 200, response.text
+        assert harness.care_writes == 0, "nothing to confirm, so nothing may be written"
+        assert harness.notification_service.acted_calls != []
+
     def test_the_notification_is_not_stamped_either(self) -> None:
         """The refusal happens before the per-user stamping, so the badge does not lie.
 
@@ -354,4 +393,31 @@ def test_the_frontend_mirrors_the_same_confirm_action_ids() -> None:
         "the frontend's confirm-action ids and the handler's _CARE_CONFIRM_ACTIONS drifted apart:\n"
         f"  only in frontend: {sorted(frontend_ids - set(_CARE_CONFIRM_ACTIONS))}\n"
         f"  only in backend:  {sorted(set(_CARE_CONFIRM_ACTIONS) - frontend_ids)}"
+    )
+
+
+def test_the_frontend_mirrors_the_same_care_type_prefix() -> None:
+    """The other half of the branch condition, checked the same way (SEC-006).
+
+    `isCareConfirmAction` is `startsWith(prefix) && ids.includes(id)`, and only the
+    ids were ever compared against the backend. A rename of the prefix on one side
+    alone moves the UI's idea of "this button writes" away from the handler's, in
+    whichever direction the rename went: a viewer offered a button that can only
+    answer 403, or a grower refused one the backend would have allowed.
+
+    Same non-emptiness precondition as the id comparison above: a regex that stopped
+    matching would otherwise compare two empty strings and report green.
+    """
+    source = (_repo_root() / "src/frontend/src/utils/careConfirmActions.ts").read_text(encoding="utf-8")
+
+    match = re.search(r"CARE_NOTIFICATION_TYPE_PREFIX\s*=\s*'(?P<prefix>[^']*)'", source)
+    assert match is not None, "CARE_NOTIFICATION_TYPE_PREFIX is no longer a string literal this test can read"
+    frontend_prefix = match.group("prefix")
+
+    assert frontend_prefix, "the literal parsed empty — the parse, not the frontend, is what broke"
+    assert _CARE_TYPE_PREFIX, "the handler's prefix is empty; every notification type would match"
+    assert frontend_prefix == _CARE_TYPE_PREFIX, (
+        "the frontend's care-notification prefix and the handler's _CARE_TYPE_PREFIX drifted apart:\n"
+        f"  frontend: {frontend_prefix!r}\n"
+        f"  backend:  {_CARE_TYPE_PREFIX!r}"
     )

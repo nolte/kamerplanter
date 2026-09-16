@@ -11,8 +11,12 @@ persistence writes — a call to a python-arango collection primitive
 (``insert``/``update``/``replace``/``delete``/…) on a collection receiver, or a
 query string whose shape is an ``INSERT``/``UPDATE``/``REPLACE``/``REMOVE``/
 ``UPSERT`` (AQL) or an ``INSERT INTO``/``DELETE FROM``/``CREATE TABLE`` (the
-TimescaleDB migrations). Everything else is derived: a function writes if it can
-reach one of those through the call graph.
+TimescaleDB migrations). A query literal counts whether it is spelled out in the
+function body or bound to a **module-level constant** the body merely references
+— ``data_access/timescale/observation_repository.py`` holds its ``INSERT INTO
+sensor_readings`` that way, and until SEC-004 of the #1443 review this docstring
+claimed a coverage the scan did not have. Everything else is derived: a function
+writes if it can reach one of those through the call graph.
 
 **How it resolves a call.** By receiver type, not by method name. ``self.X`` is
 resolved through the enclosing class and the type its ``__init__`` annotates for
@@ -36,7 +40,9 @@ than it says:
 * **Celery tasks.** ``some_task.delay(...)`` enqueues; the write happens in a
   worker, in a different process, outside any request. That is not a write *on
   the request path* and is intentionally not reported — a route that only
-  enqueues is gated on the task, not here.
+  enqueues is gated on the task, not here. ``BackgroundTasks.add_task(fn, ...)``
+  is **not** this case and is followed (SEC-005): Starlette runs ``fn`` in this
+  process, under the same request, once the response body is on the wire.
 * **Writes through a receiver this module could not type.** Every one of those is
   counted and exposed as :func:`unresolved_call_count`; the sweep asserts a
   ceiling on it, so the blind spot cannot grow silently. For the subset that
@@ -156,6 +162,13 @@ _BUILTIN_CONTAINER_FACTORIES = frozenset(
     {"dict", "list", "set", "tuple", "frozenset", "bytearray", "defaultdict", "Counter", "OrderedDict", "deque"}
 )
 
+#: Methods whose FIRST POSITIONAL ARGUMENT is a callable this process will run,
+#: on the request path. The call itself resolves to nothing in this tree (the
+#: method belongs to Starlette), so without an edge to that argument the work it
+#: schedules is invisible. `Celery.delay`/`apply_async` are deliberately NOT here
+#: — those really do hand the work to another process.
+_CALLABLE_ARGUMENT_SINKS = frozenset({"add_task"})
+
 _MAX_TYPE_DEPTH = 6
 
 
@@ -245,6 +258,26 @@ def _base_names(annotation: ast.expr | None, depth: int = 0) -> set[str]:
     return set()
 
 
+def _is_query_write(value: ast.expr | None) -> bool:
+    """Is this bound expression a query string whose shape is a write? (SEC-004)
+
+    Only a literal — a plain string, an implicit concatenation of them, or an
+    f-string's constant parts. A query assembled at run time out of values is not
+    decidable here and is covered by the same statement of limits the module
+    docstring makes for every other dynamic construction.
+    """
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        return bool(_QUERY_WRITE.search(value.value))
+    if isinstance(value, ast.JoinedStr):
+        literal = "FMT".join(
+            part.value for part in value.values if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        )
+        return bool(_QUERY_WRITE.search(literal))
+    if isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add):
+        return _is_query_write(value.left) or _is_query_write(value.right)
+    return False
+
+
 class CallGraph:
     """The parsed app tree, its typed call graph, and write reachability over it."""
 
@@ -265,6 +298,16 @@ class CallGraph:
         #: decorator is an untyped receiver calling a name in the repository
         #: write vocabulary, which was measured producing 160 spurious edges.
         self.module_globals: dict[str, dict[str, ast.expr]] = defaultdict(dict)
+        #: Per module: the module-level names bound to a query string whose shape
+        #: is a write. `data_access/timescale/observation_repository.py` holds its
+        #: `INSERT INTO sensor_readings` as `_INSERT_SQL` at module level and
+        #: `insert()` only REFERENCES the name, so a scan looking for literals
+        #: inside function bodies alone saw the whole TimescaleDB write surface as
+        #: read-only — while this module's docstring named `INSERT INTO` a sink.
+        #: SEC-004 of the #1443 review. A function that mentions one of these
+        #: names is a direct writer, on the same terms as one that spells the
+        #: query out in its own body.
+        self.query_write_globals: dict[str, set[str]] = defaultdict(set)
         self.subclasses: dict[str, list[ClassNode]] = defaultdict(list)
         self.modules_parsed = 0
         self.unresolved_calls = 0
@@ -297,10 +340,14 @@ class CallGraph:
                 symbols[node.name] = f"{module}::{node.name}"
             elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
                 self.module_globals[module][node.target.id] = node.annotation
+                if _is_query_write(node.value):
+                    self.query_write_globals[module].add(node.target.id)
             elif isinstance(node, ast.Assign) and node.value is not None:
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         self.module_globals[module].setdefault(target.id, node.value)
+                        if _is_query_write(node.value):
+                            self.query_write_globals[module].add(target.id)
 
         def visit(node: ast.AST, prefix: str, owner: ClassNode | None) -> None:
             for child in ast.iter_child_nodes(node):
@@ -308,7 +355,7 @@ class CallGraph:
                     function = FunctionNode(
                         module, prefix + child.name, child.name, child.lineno, owner.name if owner else None
                     )
-                    self._scan_function(child, function, docstrings)
+                    self._scan_function(child, function, docstrings, self.query_write_globals[module])
                     self.functions.append(function)
                     self.by_id[function.id] = function
                     self.by_name[function.name].append(function)
@@ -334,7 +381,11 @@ class CallGraph:
         visit(tree, "", None)
 
     def _scan_function(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef, fn: FunctionNode, docstrings: set[int]
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        fn: FunctionNode,
+        docstrings: set[int],
+        query_write_globals: set[str],
     ) -> None:
         fn._return_annotation = node.returns
         for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
@@ -365,6 +416,12 @@ class CallGraph:
                 )
                 if _QUERY_WRITE.search(literal):
                     fn.direct_write = f"raw query write (f-string) at {fn.module}:{inner.lineno}"
+            elif isinstance(inner, ast.Name) and not fn.direct_write and inner.id in query_write_globals:
+                # SEC-004: the query lives at module level and the body only names
+                # it. `ArangoObservationRepository.insert` is `cursor.execute(
+                # _INSERT_SQL, ...)` and nothing else, so without this the whole
+                # TimescaleDB write surface reads as clean.
+                fn.direct_write = f"module-level query write {inner.id} at {fn.module}:{inner.lineno}"
 
     # ── type resolution ────────────────────────────────────────────────────
 
@@ -530,7 +587,34 @@ class CallGraph:
         for owner in self._types_of(callee.value, scope, depth + 1):
             for klass in self._related_classes(owner):
                 targets.extend(klass.methods.get(callee.attr, ()))
+        if callee.attr in _CALLABLE_ARGUMENT_SINKS and call.args:
+            # SEC-005. `background_tasks.add_task(fn, ...)` is NOT the Celery case
+            # this module excludes: Starlette runs the callable in THIS process,
+            # under the same request, after the response body is sent. A handler
+            # that hands a writer to it writes on the request path, and the edge
+            # from the handler to `fn` is the only thing that says so — the
+            # `add_task` call itself resolves to a library method with no body
+            # here.
+            targets.extend(self._callable_targets(call.args[0], scope, depth + 1))
         return targets
+
+    def _callable_targets(self, expression: ast.expr, scope: FunctionNode, depth: int = 0) -> list[FunctionNode]:
+        """The definitions a callable REFERENCE denotes — `fn`, not `fn()` (SEC-005)."""
+        if isinstance(expression, ast.Name):
+            local = f"{scope.module}::{expression.id}"
+            if local in self.by_id:
+                return [self.by_id[local]]
+            imported = self.module_symbols.get(scope.module, {}).get(expression.id)
+            if imported and imported in self.by_id:
+                return [self.by_id[imported]]
+            return []
+        if isinstance(expression, ast.Attribute):
+            targets: list[FunctionNode] = []
+            for owner in self._types_of(expression.value, scope, depth + 1):
+                for klass in self._related_classes(owner):
+                    targets.extend(klass.methods.get(expression.attr, ()))
+            return targets
+        return []
 
     def _method_by_name(self, name: str) -> list[FunctionNode]:
         return list(self.by_name.get(name, ()))
@@ -613,6 +697,33 @@ class CallGraph:
         if self._writers is None:
             self._writers = self._reachable_writers(use_declared_callees=True)
         return self._writers
+
+    def write_sinks(self, entry: FunctionNode) -> set[str]:
+        """EVERY direct write reachable from `entry`, not just the nearest one.
+
+        :meth:`write_path` answers with the SHORTEST chain, so a function with two
+        writes reports one and the other never appears anywhere. That is the hole
+        SEC-002 of the #1443 review found in the exemption list: a witness naming
+        the argument that forbids ONE write leaves a second, unguarded write in the
+        same handler invisible — the route is out of the sweep either way. An
+        exemption checked against this set goes red on the second sink whichever
+        one a breadth-first search would have reached first.
+        """
+        writers = self.writers()
+        if entry.id not in writers:
+            return set()
+        sinks: set[str] = set()
+        seen = {entry.id}
+        queue: deque[FunctionNode] = deque([entry])
+        while queue:
+            current = queue.popleft()
+            if current.direct_write:
+                sinks.add(current.direct_write)
+            for callee in current.callees:
+                if callee.id not in seen and callee.id in writers:
+                    seen.add(callee.id)
+                    queue.append(callee)
+        return sinks
 
     def write_path(self, entry: FunctionNode) -> list[str] | None:
         """The shortest handler→…→write chain, or `None` if the handler writes nothing.
@@ -708,6 +819,14 @@ def write_path_of(endpoint: Any) -> list[str] | None:
 
 def persists(endpoint: Any) -> bool:
     return write_path_of(endpoint) is not None
+
+
+def write_sinks_of(endpoint: Any) -> set[str]:
+    """Every direct write a mounted handler can reach. See :meth:`CallGraph.write_sinks`."""
+    entry = function_for(endpoint)
+    if entry is None:
+        return set()
+    return call_graph().write_sinks(entry)
 
 
 def reachable_keyword_arguments(endpoint: Any, callee_name: str, keyword: str) -> list[tuple[str, Any]]:
