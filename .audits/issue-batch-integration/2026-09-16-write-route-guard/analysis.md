@@ -232,6 +232,20 @@ Vom Spezialisten gemeldet, nicht von mir wiederholt: `tests/unit tests/api` →
 
 **Nebenbefund**, kein Defekt: `canEdit` ist im Auth-Bootstrap-Fenster (`activeTenant: null`) `false`, anders als `<RequireRole>` es hält. Folgenlos, weil ohne aktiven Mandanten keine Benachrichtigungen geladen werden; bewusst fail-closed, weil das Backend die Grenze ist.
 
+**UI-Review (Pflichtkette nach Frontend-Änderung), `nolte-engineering:frontend-usability-optimizer`:**
+keine Änderung nötig. `vitest` 18/18 grün, `tsc` 0 Fehler, ESLint 0 Fehler / 1
+vorbestehende Warnung (`NotificationDrawer.tsx:144`, `set-state-in-effect`, seit #752).
+Stille beim fehlenden Knopf ist spec-gebunden (REQ-030 §7:1527-1528) und deckt sich mit
+dem einzigen anderen rollen-gegateten Knopf (`PestScanButton.tsx:48-50`). Zwei
+Beobachtungen, beide **Low**, bewusst nicht in diesem Bündel:
+- Die 403-Meldung ist generisch („bitte versuche es erneut"), obwohl `useApiError.ts:80-83`
+  einen `errors.forbidden`-Pfad hat; bei permanentem Rollenverlust ist „erneut" nutzlos.
+- `useTenantPermissions` liefert im Auth-Bootstrap-Fenster `canEdit=false` für **jeden**
+  Consumer (`PlantDiaryTab`, `PestScanButton`, `SpeciesListPage` …), nicht nur hier; ein
+  Grower sieht den Knopf für < 1 s nicht. Sauberer Fix (`isLoading` aus dem Hook, Slot
+  skelettieren) ändert `useTenantPermissions.ts` — außerhalb der Gruppe. Kandidat für ein
+  Folge-Issue, entschieden beim Bündel.
+
 ### Scheibe 2 — #1443
 
 *(in Arbeit)*
