@@ -44,7 +44,7 @@ def test_uncontended_create_returns_the_created_task():
     created = SimpleNamespace(key="task-1")
     repo.create_task.return_value = created
 
-    assert create_care_reminder_task(repo, _task()) is created
+    assert create_care_reminder_task(repo, _task(), reminder_type=ReminderType.WATERING) is created
     repo.create_task.assert_called_once()
 
 
@@ -53,7 +53,7 @@ def test_rejected_insert_resolves_to_none_instead_of_raising():
     repo = MagicMock()
     repo.create_task.side_effect = DuplicateError("tasks", "care_dedup_key", "")
 
-    assert create_care_reminder_task(repo, _task()) is None
+    assert create_care_reminder_task(repo, _task(), reminder_type=ReminderType.WATERING) is None
 
 
 def test_unrelated_repository_errors_still_propagate():
@@ -62,7 +62,7 @@ def test_unrelated_repository_errors_still_propagate():
     repo.create_task.side_effect = ValidationError("nope")
 
     with pytest.raises(ValidationError):
-        create_care_reminder_task(repo, _task())
+        create_care_reminder_task(repo, _task(), reminder_type=ReminderType.WATERING)
 
 
 def test_service_watering_path_returns_none_when_it_loses_the_race():

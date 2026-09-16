@@ -12,7 +12,7 @@ from app.common.enums import (
     TaskPriority,
     TaskStatus,
 )
-from app.common.exceptions import DuplicateError
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
@@ -144,7 +144,12 @@ def build_care_reminder_task(
     )
 
 
-def create_care_reminder_task(task_repo: ITaskRepository, task: Task) -> Task | None:
+def create_care_reminder_task(
+    task_repo: ITaskRepository,
+    task: Task,
+    *,
+    reminder_type: ReminderType,
+) -> Task | None:
     """Insert a care-reminder task, resolving a lost creation race to ``None`` (#1301).
 
     The single insertion point for every care-reminder producer — the seasonal
@@ -157,23 +162,51 @@ def create_care_reminder_task(task_repo: ITaskRepository, task: Task) -> Task | 
     ``POST /t/{slug}/tasks/generate-care-reminders``, or two E2E workers) both
     read "none open" and both insert.
 
-    The ``tasks`` collection now carries a **unique sparse index over the open
+    The ``tasks`` collection carries a **unique sparse index over the open
     care-reminder dedup key** (``ensure_care_task_dedup_index``), so exactly one
-    of the two inserts lands and the other is rejected with ArangoDB error code
-    ``1210``, which the repository already surfaces as :class:`DuplicateError`.
+    of the two inserts lands and the other is rejected. ``reminder_type`` is
+    keyword-only and has no default because it is what the rejected insert has to
+    be re-read by: it is not a first-class ``Task`` field (audit P5), so the
+    caller is the only one who still knows it without re-parsing the task name.
 
-    The loser wanted to know one thing — "does an equivalent open task already
-    exist?" — and the rejection *is* that answer, so this returns ``None``: the
-    same outcome as the ``existing is not None`` branch the racing read missed by
-    microseconds. It is never an error, and never a 409 leaking out of a
-    generation endpoint.
+    **The rejection arrives as one of two different answers, and they do not mean
+    the same thing** (#1436). Both are HTTP 409 from ArangoDB and both are easy to
+    mistake for each other:
 
-    Why the exception is not narrowed further: ``tasks`` carries exactly one
-    unique index, this one, so on this collection code ``1210`` can only be it.
-    That assumption is pinned by
-    ``tests/integration/test_care_task_dedup_concurrency.py::test_tasks_carries_exactly_one_unique_index``
-    — add a second unique index to ``tasks`` and it reddens rather than letting a
-    genuinely different conflict be swallowed as "already exists".
+    ``1210`` — *unique constraint violated*, surfaced as :class:`DuplicateError`.
+        A statement about the **data**: the winner is committed and visible, so
+        an equivalent open task demonstrably exists. That is precisely the
+        question the loser was asking, so the answer is ``None`` — the same
+        outcome as the ``existing is not None`` branch its racing read missed by
+        microseconds. Never an error, and never a 409 leaking out of a generation
+        endpoint.
+
+        Why this one is not narrowed further: ``tasks`` carries exactly one unique
+        index, this one, so on this collection code ``1210`` can only be it. That
+        assumption is pinned by
+        ``tests/integration/test_care_task_dedup_concurrency.py::test_tasks_carries_exactly_one_unique_index``
+        — add a second unique index to ``tasks`` and it reddens rather than
+        letting a genuinely different conflict be swallowed as "already exists".
+
+    ``1200`` — *write-write conflict*, surfaced as :class:`WriteConflictError`.
+        A statement about **timing**, not about the data: a concurrent
+        transaction held the same unique-index entry and this insert could not be
+        serialized against it. It says nothing about whether that transaction
+        committed — it may have rolled back — so the "tasks carries exactly one
+        unique index" argument above does **not** carry over: it establishes
+        *which* index was contended, not that anything is now stored in it.
+        Swallowing it blind would report "an equivalent task already exists" for
+        a task that may exist nowhere, and the plant would silently never be
+        watered. So this branch re-reads through the very predicate the index
+        mirrors and decides on what it finds: an open task → the loser's answer,
+        ``None``; nothing → re-raise, because an unexplained 1200 is a real
+        failure.
+
+    The re-read passes ``include_completed_today=False`` deliberately. The
+    default recency rule also matches a task *completed today*, which the sparse
+    index does not count (its computed value is null unless the task is
+    pending/in_progress) — accepting one as "the winner" would absorb a genuine
+    conflict.
     """
     try:
         return task_repo.create_task(task)
@@ -183,6 +216,24 @@ def create_care_reminder_task(task_repo: ITaskRepository, task: Task) -> Task | 
             entity_key=task.entity_key,
             tenant_key=task.tenant_key,
             task_name=task.name,
+            conflict="unique_constraint",
+        )
+        return None
+    except WriteConflictError:
+        winner = task_repo.find_open_care_task(
+            task.entity_key or "",
+            reminder_type,
+            task.tenant_key,
+            include_completed_today=False,
+        )
+        if winner is None:
+            raise
+        logger.info(
+            "care_reminder_task_dedup_race_lost",
+            entity_key=task.entity_key,
+            tenant_key=task.tenant_key,
+            task_name=task.name,
+            conflict="write_write",
         )
         return None
 
@@ -1277,7 +1328,7 @@ class CareReminderService:
             reminder_type=reminder_type,
             due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
         )
-        return create_care_reminder_task(self._task_repo, task)
+        return create_care_reminder_task(self._task_repo, task, reminder_type=reminder_type)
 
     def _resolve_overwintering_profile(self, plant_key: str) -> OverwinteringProfile | None:
         """Load the plant's overwintering profile (one lookup per subject, B1).
@@ -1451,7 +1502,7 @@ class CareReminderService:
             due_date=due_dt,
             instruction=f"Water {plant_label} (every {interval} days).",
         )
-        return create_care_reminder_task(self._task_repo, task)
+        return create_care_reminder_task(self._task_repo, task, reminder_type=ReminderType.WATERING)
 
     def _next_watering_due_date(
         self,
