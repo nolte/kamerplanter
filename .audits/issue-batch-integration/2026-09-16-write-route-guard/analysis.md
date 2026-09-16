@@ -170,7 +170,22 @@ Spalten abgeleitet aus dem Repository: `src/backend/pyproject.toml` und
 - #1425 (Galerie-Delete im Frontend) hat dieselbe Form, ist aber eine andere Komponente und ein anderes Prädikat — Einzellauf, nicht Mitglied dieser Gruppe.
 - Die übrigen Allowlist-Einträge werden **nicht** gegen den Code geprüft. Dass #1441s Eintrag unwahr war, legt nahe, dass andere es auch sind; das ist ein eigener Sweep und ein eigenes Issue, sobald #1443s Detektor existiert.
 
-## Offene Fragen an den Operator
+## Operator-Entscheidungen (2026-09-16, vor der Umsetzung)
 
-1. **Welcher Rang darf über die Benachrichtigung bestätigen?** Die direkte Route verlangt `require_permission('watering-log', CREATE)`, was nach `MembershipEngine.can_edit_resource` **lead oder grower** bedeutet. Soll `mark_acted` denselben Rang verlangen (konsistent, aber ein Viewer verliert den Ein-Tipp-Weg vollständig), oder soll der Bestätigungszweig für einen Viewer still übersprungen werden, während Lesen/Acted-Stempeln weiterhin funktioniert (mildere Degradation, aber zwei Verhalten für denselben Knopf)?
-2. **Welche Form soll der Detektor in #1443 haben?** Statische Aufrufgraph-Analyse über die Handler (AST, findet auch indirekte Pfade, aufwendiger) oder eine Laufzeit-Instrumentierung der Repository-Schreibmethoden während des bestehenden Routen-Sweeps (präziser, braucht aber eine laufende App)?
+1. **Rang für `mark_acted`:** *derselbe wie die Direktroute.* Der Bestätigungszweig
+   verlangt `require_permission('watering-log', CREATE)` — nach
+   `MembershipEngine.can_edit_resource` also **lead oder grower**. Ein Viewer erhält
+   403. Begründung: eine prüfbare Grenze, konsistent mit
+   `watering_logs/tenant_router.py:57`; die stille Variante hätte denselben Knopf für
+   zwei Rollen Verschiedenes tun lassen, ohne dass der Viewer es merkt.
+2. **Detektorform für #1443:** *statische Aufrufgraph-Analyse (AST).* Sie braucht keine
+   laufende App, läuft damit in der bestehenden `backend-guards`-Lane und ist nicht von
+   dem Integration-Tier abhängig, das laut #1432 in keinem CI-Gate läuft. Der Preis —
+   mögliche Falsch-Positive — wird durch einen Lauf gegen den vollständigen heutigen
+   Routenbestand vor dem Scharfschalten kontrolliert.
+
+Das Artefakt wurde am 2026-09-16 freigegeben; die Umsetzung beginnt mit Scheibe 1.
+
+## Ergebnisse je Scheibe
+
+*(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
