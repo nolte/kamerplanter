@@ -22,6 +22,7 @@ import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { isApiError } from '@/api/errors';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
@@ -62,7 +63,8 @@ interface PlantPhotoGalleryProps {
  * original is loaded exclusively in the lightbox. Upload reuses the recognition
  * capture flow; each photo can be set as cover or deleted (with confirmation).
  * Write actions are hidden for viewers (AC-13) — the backend additionally
- * enforces a 403.
+ * enforces a 403. Deleting is narrower still: it is offered to a `lead` only,
+ * matching the backend's `Action.DELETE` grant (#1425).
  */
 export default function PlantPhotoGallery({
   plantInstanceKey,
@@ -74,8 +76,15 @@ export default function PlantPhotoGallery({
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
-  const { canEdit } = useTenantPermissions();
+  const { canEdit, canDelete } = useTenantPermissions();
   const canWrite = canEdit && !readOnly;
+  // Deleting is *not* the same question as editing: the backend gates
+  // `DELETE /photos/{id}` on `Action.DELETE`, granted to a `lead` alone — the
+  // REQ-024 §1a.1 / REQ-049 §2.3 irreversibility boundary. Upload, cover, assess
+  // and edit are `CREATE`/`UPDATE` and stay open to a grower. Deriving all five
+  // controls from `canWrite` offered a grower a button that could only answer
+  // 403 (#1425); the role rule itself stays in `useTenantPermissions`.
+  const canDeletePhoto = canDelete && !readOnly;
 
   // External CC-BY/CC0 example images of the species (read-only, own section).
   // Only fetched when the instance has an assigned species; an empty result
@@ -174,7 +183,15 @@ export default function PlantPhotoGallery({
       await load();
       onCoverChange?.();
     } catch (err) {
-      handleError(err);
+      // Residual path: a stale client (or a role changed mid-session) can still
+      // reach the refusal. Name the role that may delete instead of the generic
+      // "no permission for this action" — the control is gone, the explanation
+      // must say why it would have been refused.
+      if (isApiError(err) && err.statusCode === 403) {
+        notification.error(t('pages.plantPhotos.deleteForbidden'));
+      } else {
+        handleError(err);
+      }
     } finally {
       setDeleting(false);
     }
@@ -387,23 +404,26 @@ export default function PlantPhotoGallery({
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title={t('pages.plantPhotos.deletePhoto')}>
-                      <span>
-                        <IconButton
-                          size="medium"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteTarget(photo);
-                          }}
-                          disabled={isBusy}
-                          aria-label={t('pages.plantPhotos.deletePhoto')}
-                          sx={{ color: 'common.white', p: 0.75 }}
-                          data-testid="plant-photo-delete"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
+                    {/* Lead only — see `canDeletePhoto` above (#1425). */}
+                    {canDeletePhoto && (
+                      <Tooltip title={t('pages.plantPhotos.deletePhoto')}>
+                        <span>
+                          <IconButton
+                            size="medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(photo);
+                            }}
+                            disabled={isBusy}
+                            aria-label={t('pages.plantPhotos.deletePhoto')}
+                            sx={{ color: 'common.white', p: 0.75 }}
+                            data-testid="plant-photo-delete"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    )}
                   </Box>
                 )}
 
@@ -486,6 +506,7 @@ export default function PlantPhotoGallery({
         photo={lightboxPhoto}
         onClose={() => setLightboxPhoto(null)}
         canWrite={canWrite}
+        canDelete={canDeletePhoto}
         onSetCover={handleSetCover}
         onEdit={(photo) => setEditTarget(photo)}
         onAssess={(photo) => setAssessTarget(photo)}

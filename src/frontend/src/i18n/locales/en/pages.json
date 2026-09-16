@@ -1766,6 +1766,7 @@
       "deleteTitle": "Delete photo",
       "deletePhoto": "Delete photo",
       "deleteConfirm": "Do you really want to delete this photo? It will be permanently removed and cannot be restored.",
+      "deleteForbidden": "Only the \"Lead\" role may permanently delete photos in this tenant. Ask someone with that role to remove the photo.",
       "emptyTitle": "No photos yet",
       "emptyDescriptionWrite": "Add the first photo of your plant – so you can track its growth and recognise it at a glance in the overview.",
       "emptyDescriptionRead": "No photos have been added for this plant yet.",
