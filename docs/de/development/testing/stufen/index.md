@@ -5,7 +5,7 @@ Kamerplanter organisiert seine automatisierten Tests in vier **Teststufen**. Jed
 | Stufe | Fokus | Werkzeug | Ort | Läuft in CI |
 |-------|-------|----------|-----|-------------|
 | [Unit](unit.md) | Einzelne Funktionen/Klassen isoliert | pytest / vitest | `src/backend/tests/unit/`, `src/frontend/src/test/{store,hooks}/` | Ja |
-| [Integration](integration.md) | Zusammenspiel mit echter Datenbank/API | pytest | `src/backend/tests/integration/`, `…/api/` | Ja (DB-abhängig übersprungen) |
+| [Integration](integration.md) | Zusammenspiel mit echter Datenbank/API | pytest | `src/backend/tests/integration/`, `…/api/` | Ja — Pflicht, gegen einen ArangoDB-Service-Container |
 | [Component](component.md) | React-Komponenten im gerenderten DOM | vitest + Testing Library | `src/frontend/src/test/components/` | Ja |
 | [E2E](e2e.md) | Komplette Nutzer-Workflows im echten Browser | Selenium | `tests/e2e/` | Nein (lokal / auf Abruf) |
 

@@ -261,8 +261,13 @@ tasks:
   #   * `test:backend:api` and `test:backend:contracts` — both are CI gates, but
   #     this target is the fast local loop; the unit tier plus the static gates
   #     is what fits inside one. Run them explicitly before a pull request.
-  #   * `tests/integration/` — needs a real ArangoDB and self-skips without one,
-  #     which is precisely the vacuous green this target refuses to produce.
+  #   * `tests/integration/` — needs a real ArangoDB, which this fast local loop
+  #     does not start. Since #1432 it no longer self-skips into a vacuous green:
+  #     without a server it FAILS under `CI` and skips loudly elsewhere, and
+  #     `task test:backend:integration` declares `--max-skipped 0`, so even the
+  #     local skip is red. It runs in CI in its own job with a service container
+  #     (`Integration tests (ArangoDB)`); run it locally against `task dev:core`
+  #     before changing repositories or AQL.
   #   * backend mypy — the backend declares `strict = true` and ships no mypy
   #     step anywhere; the four sibling packages have pre-commit hooks, the
   #     backend does not. A documented gap, not something to paper over with a

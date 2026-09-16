@@ -53,21 +53,12 @@ import threading
 from datetime import UTC, datetime
 
 import pytest
+from arango import ArangoClient
 
-ARANGO_AVAILABLE = False
-try:
-    from arango import ArangoClient
-
-    _probe = ArangoClient(hosts="http://localhost:8529")
-    _probe.db("_system", username="root", password="rootpassword").version()
-    ARANGO_AVAILABLE = True
-    _probe.close()
-except Exception:
-    pass
-
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
 pytestmark = [
-    pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available"),
+    pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("#1301 concurrency guarantee is only observable against a real ArangoDB"),
 ]
 
@@ -201,7 +192,7 @@ def db():
     ensure_collections(database)
     yield database
     conn.close()
-    system = ArangoClient(hosts="http://localhost:8529").db("_system", username="root", password="rootpassword")
+    system = ArangoClient(hosts=ARANGO_URL).db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if system.has_database(_DB_NAME):
         system.delete_database(_DB_NAME)
 
