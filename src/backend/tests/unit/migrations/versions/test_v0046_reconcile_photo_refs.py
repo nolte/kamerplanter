@@ -187,6 +187,10 @@ class _FakeDb:
         self.collections = collections
         self.aql = _FakeAql(collections)
 
+    def has_collection(self, name: str) -> bool:
+        """Only the seeded collections exist — a partially bootstrapped database."""
+        return name in self.collections
+
 
 def _attachment(key: str = ATTACHMENT_KEY, *, tenant: str = TENANT, storage_key: str = STORAGE_KEY):
     return {"_key": key, "tenant_key": tenant, "storage_key": storage_key, "category": "task"}
