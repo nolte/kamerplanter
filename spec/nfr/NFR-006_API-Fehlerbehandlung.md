@@ -72,8 +72,7 @@ Jede Fehlerantwort folgt diesem Schema:
     {
       "field": "species_key",
       "reason": "Kein Eintrag mit Key 'xyz-123' gefunden.",
-      "code": "ENTITY_NOT_FOUND",
-      "entity": "species"
+      "code": "ENTITY_NOT_FOUND"
     }
   ],
   "timestamp": "2026-02-26T14:30:00.000Z",
@@ -81,6 +80,11 @@ Jede Fehlerantwort folgt diesem Schema:
   "method": "POST"
 }
 ```
+
+`entity` fehlt hier bewusst: Das Feld setzt ausschließlich `NotFoundError` (HTTP
+404), siehe § 2.2a. Ein Validierungsfehler, der einen nicht auflösbaren Fremd-Key
+als Detail meldet, trägt es nicht — sonst hinge der Wert daran, welcher Code-Pfad
+die Prüfung zufällig ausgelöst hat.
 
 ### 2.2 Pydantic-Schema
 
@@ -219,13 +223,29 @@ class AppError(Exception):
         super().__init__(message)
 
 
+def normalise_entity_name(entity: str) -> str:
+    """Faltet "Task" / "PlantInstance" / "memberships" nach snake_case (§ 2.2a).
+
+    Idempotent — ein bereits normalisierter Name kommt unverändert zurück.
+    """
+    ...
+
+
 class NotFoundError(AppError):
     def __init__(self, entity: str, key: str):
         super().__init__(
             message=f"{entity} mit Key '{key}' nicht gefunden.",
             error_code="ENTITY_NOT_FOUND",
             status_code=404,
-            details=[{"field": "key", "reason": f"Kein {entity} mit Key '{key}'.", "code": "ENTITY_NOT_FOUND"}],
+            details=[
+                {
+                    "field": "key",
+                    "reason": f"Kein {entity} mit Key '{key}'.",
+                    "code": "ENTITY_NOT_FOUND",
+                    # § 2.2a: normalisiert, für *jede* Unterklasse, additiv.
+                    "entity": normalise_entity_name(entity),
+                }
+            ],
         )
 
 
