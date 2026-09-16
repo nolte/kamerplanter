@@ -113,8 +113,10 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 |---|---|---|
 | Node.js (Frontend) | `package-lock.json` | `npm install` |
 | Python (Backend, inkl. Dev-Extra) | `uv.lock` (mit Hashes) | `uv lock` |
+| Python (Side-Services: inference, knowledge, embedding, reranker) | `uv.lock` (mit Hashes) | `uv lock` |
 
 **MUSS**: `package-lock.json` wird bei jedem Dependency-Update mit aktualisiert.
+**MUSS**: Es gibt keine Ausnahme von dieser Pflicht — jeder Python-Baum im Repository ist ein PEP-621-Projekt mit eigenem `uv.lock` daneben. Bis #1374 installierten die vier Side-Service-Images aus einer `requirements.txt` ohne Hashes (zwei davon neben einer `pyproject.toml`, die nur der `poetry`-Manager las und die kein Image konsumierte), und fünf weitere `pip install`-Zeilen in Build-Stufen (ONNX-/Optimum-Modellexport, `watchfiles`) liefen ganz ohne Lock. Diese Dateien sind gelöscht; die Build-Stufen installieren aus demselben Lock über PEP-735-Dependency-Gruppen (`build`, `dev`). Je Service ein Lock — bewusst keine Workspace-Lock über alle fünf Bäume, die fünf Release-Zyklen aneinanderkoppeln würde.
 **MUSS**: `uv.lock` wird über `uv lock` aus `pyproject.toml` generiert — manuelle Bearbeitung ist nicht erlaubt. Die Version von uv ist in `[tool.uv].required-version` verankert; Dockerfile, CI und Renovate lesen dieselbe Untergrenze.
 **MUSS**: CI prüft die Integrität der Lockfiles (`npm ci` statt `npm install`; für Python beides: `uv lock --check` gegen `pyproject.toml` UND `uv sync --locked`, das jedes Artefakt gegen den im Lock hinterlegten Hash verifiziert — `uv lock --check` allein erkennt einen von Hand geänderten Hash nicht).
 
@@ -682,13 +684,23 @@ dependencies = [
 ```json5
 // renovate.json5 — Python-spezifisch (in packageRules)
 {
+  // Repository-weit, nicht pro Pfad: seit #1374 gibt es keine Datei mehr,
+  // die einer dieser Manager legitim lesen dürfte.
   matchManagers: ['poetry', 'pip_requirements', 'pip-compile'],
-  matchFileNames: ['src/backend/**'],
   enabled: false,
 },
 {
   matchManagers: ['pep621'],
   matchFileNames: ['src/backend/**'],
+  rangeStrategy: 'update-lockfile',
+},
+// Je Side-Service eine eigene Gruppe (vier Regeln nach diesem Muster),
+// damit ein Update nicht den Rebuild aller vier Images in dieselbe
+// Pull Request zieht.
+{
+  groupName: 'python embedding-service',
+  matchManagers: ['pep621'],
+  matchFileNames: ['docker/embedding-service/**'],
   rangeStrategy: 'update-lockfile',
 }
 ```

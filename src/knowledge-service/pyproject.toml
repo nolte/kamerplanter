@@ -17,6 +17,11 @@ dependencies = [
     "pydantic-settings>=2.7.0",
     "pyyaml>=6.0",
     "structlog>=24.0.0",
+    # #777 — optional error tracking; no-op without SENTRY_DSN. It was installed
+    # into both images through requirements.txt while being absent from this
+    # table (#1374 measured the drift); with the lock generated from here, the
+    # declaration is the only way it reaches the image.
+    "sentry-sdk[fastapi]>=2.20.0",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +30,16 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+]
+
+# Dockerfile build-stage inputs, locked with everything else (#1374). The `dev`
+# group carries the hot-reload watcher the `dev` image target installs; it is a
+# PEP 735 dependency group rather than an entry in the `dev` extra above so the
+# dev image does not also drag pytest/ruff/mypy in. `uv sync --no-dev` in the
+# prod stage leaves it out.
+[dependency-groups]
+dev = [
+    "watchfiles",
 ]
 
 [tool.ruff]
@@ -65,3 +80,12 @@ module = [
     "yaml.*",
 ]
 ignore_missing_imports = true
+
+[tool.uv]
+# The lock toolchain (NFR-009 section 2.3), pinned EXACT to the same value as
+# src/backend/pyproject.toml: Renovate's pep621 processor resolves the uv it
+# relocks with from here, the Dockerfile copies `ghcr.io/astral-sh/uv:<same>`
+# and CI installs `uv==<same>`. renovate.json5 groups all references into one
+# `uv toolchain` pull request, so the reading and the relocking side never age
+# apart (#1296 class).
+required-version = "==0.12.15"
