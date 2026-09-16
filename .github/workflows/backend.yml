@@ -184,6 +184,11 @@ jobs:
         run: python app/migrations/seed_steckbrief_consistency.py --verbose
 
       - name: Unit tests
+        # The tier targets invoked here carry their measured skip floor
+        # (`--max-skipped N`, #1434): unit 1, contracts 0, api 0. The numbers live
+        # in .taskfiles/backend.yaml, so this lane and a contributor's local run
+        # enforce the identical contract — which is the reason these steps call
+        # the target rather than inlining pytest.
         run: task test:backend:unit
 
       - name: Contract tests
@@ -198,7 +203,9 @@ jobs:
         # The router tier, which ran in no gate at all until 2026-08-05 although
         # it needs no service: it drives the FastAPI app through TestClient
         # against fakes. Measured with no ArangoDB, Valkey or S3 reachable: 480
-        # passed, 0 skipped, ~60 s. It carries acceptance coverage nothing else
+        # passed, 0 skipped, ~60 s — and since #1434 the "0 skipped" half of that
+        # sentence is enforced by the target's `--max-skipped 0` instead of being
+        # prose nothing checked. It carries acceptance coverage nothing else
         # here does — among it the cross-tenant negative tests on the diary
         # endpoints (tests/api/test_plant_diary_router.py) and the MCP
         # error-envelope wire test. `tests/integration/` is deliberately still

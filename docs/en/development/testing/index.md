@@ -27,6 +27,23 @@ source .venv/bin/activate
 
 This installs exactly the production and development dependencies recorded in `uv.lock` (hash-verified), including pytest, pytest-asyncio, and pytest-cov. Install uv from <https://docs.astral.sh/uv/>.
 
+!!! warning "The activation step is mandatory — the suite enforces it"
+
+    `src/backend/tests/conftest.py` aborts the session at start-up when the
+    interpreter does not belong to this checkout (#1434). Two things are checked:
+
+    - **`import app` comes from this tree.** Another checkout's editable install
+      must not answer the import — otherwise the run measures a working tree
+      other than the one you are editing.
+    - **The interpreter is a virtual environment** (`sys.prefix != sys.base_prefix`).
+      The system interpreter does not carry the lock's hash-verified package set.
+
+    The abort is an **error naming both paths and the expectation** — not a skip
+    and not a warning: a run on the wrong interpreter used to skip tests without
+    saying so and still report green. `uv run --locked python -m pytest …` is
+    equivalent to activating: it points `sys.prefix` at `src/backend/.venv` and is
+    not rejected.
+
 ### Running Tests
 
 ```bash
@@ -111,6 +128,22 @@ docker-compose up -d arangodb
 # Integration tests only
 pytest tests/integration/ -v
 ```
+
+### Per-Tier Skip Floor
+
+A skipped test exits pytest with the same code as a passing one. A tier that quietly stopped running therefore reports green. Every tier target consequently declares its **measured** skip count:
+
+```bash
+pytest tests/unit/ --max-skipped 1        # task test:backend:unit
+pytest tests/contracts/ --max-skipped 0   # task test:backend:contracts
+pytest tests/api/ --max-skipped 0         # task test:backend:api
+```
+
+When more tests are skipped than declared, the run goes red and names **every** skip reason — so the new skip is identifiable and the number is not raised blindly.
+
+Today's `1` in the unit tier is `tests/unit/migrations/test_e2e_admin_env_containment.py`: the test runs over every configuration file in the repository and skips exactly the one file that is allowed to set `E2E_PLATFORM_ADMIN_*`. That skip is the allowlist itself and therefore permanent.
+
+Raise the number in `.taskfiles/backend.yaml` for a new, justified skip — in the same commit that introduces it. The skip thereby becomes a visible decision.
 
 ### Code Coverage
 
