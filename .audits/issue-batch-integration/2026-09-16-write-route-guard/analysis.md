@@ -353,3 +353,43 @@ zurück aus dem Quelltext und fällt um, sobald einer nicht literal `False` übe
 und `TypeScript check (frontend)` — `src/frontend/node_modules` fehlt im Worktree —
 sowie `Nuclei template validate` — `nuclei` nicht auf PATH. Der Diff ist reiner
 Backend-Testcode; keine Frontend- und keine Template-Datei berührt.
+
+## Gate und Verifikationsdurchgang auf dem Integrationsbranch-Kopf (`eb43c76c3`)
+
+**Quality-Gate, im Integrations-Worktree (frisches venv, `app` → dieser Baum):**
+
+```
+ruff check / format --check          All checks passed! / 1718 files already formatted
+pytest tests/unit tests/api          9995 passed, 1 skipped in 372.59s
+tsc -p tsconfig.build.json --noEmit  OK
+eslint .                             OK
+vitest run                           409 files, 4085 passed
+```
+
+**Security-Review (`nolte-engineering:code-security-reviewer`, fremder Kontext,
+read-only):** die Autorisierungsreparatur (#1441) ist fail-closed und ohne Oracle —
+jeder benannte Umgehungsweg einzeln gemessen (andere `action_id`, andere
+`notification_type`-Schreibweise, fehlender `plant_key`, HA-Rückruf, Reihenfolge vor
+jedem Stempeln). Kein Bypass. Ownership-Prüfung vor Rang-Check ist die richtige
+Reihenfolge (REQ-049 §2.4 erfüllt, das 403 ist nur für den Adressaten seiner eigenen
+Zeile erreichbar).
+
+**Vier Warnings am Wächter (#1443), keine Critical — als lokale Anpassung in das
+Bündel aufgenommen (Aufnahme, Modus, Reihenfolge unberührt):**
+
+| # | Befund | Entscheidung |
+|---|---|---|
+| SEC-001 | Ratsche `len(...) <= 10` erlaubt einen *Austausch* (eine repariert, eine neue) | `frozenset` der gemessenen IDs statt Länge; Hinzufügen unmöglich, Entfernen frei |
+| SEC-002 | `_GUARDED_PERSISTING_READS` ohne Deckel; der Zeuge muss nicht der Grund des Treffers sein — ein zweiter Schreibvorgang im selben Handler bliebe unsichtbar | Eintrag trägt zusätzlich die gemessene **Senke**; Deckel `<= 3` |
+| SEC-003 | `_TENANT_ALLOWLIST`: 27 Einträge bleiben Prosa ohne Deckel — exakt die Form, die #1441 erzeugt hat | Deckel; die 11 „computation, no write"-Einträge werden mit `not persists(endpoint)` **gemessen** statt geglaubt |
+| SEC-004 | Detektor sieht Modul-Level-Query-Literale nicht (gesamte TimescaleDB-Schreibfläche), Docstring behauptet das Gegenteil | Modul-Level-`Assign` gegen `_QUERY_WRITE` prüfen, Alias als Senke führen; mindestens: Blindfleck ehrlich benennen |
+
+Suggestions SEC-005 (`BackgroundTasks.add_task` als unbenannter Blindfleck), SEC-006
+(Frontend-Parität deckt das Typ-Präfix nicht), SEC-007 (`care.*` ohne `plant_key` für
+einen Viewer unquittierbar — fail-closed, Docstring sagt es nicht) werden mit erledigt.
+
+**Die zehn Befunde sind angelegt:** #1460 (anonymer Glossar-Schreibpfad, vom Review
+auf *Warning* korrigiert — kuratierter Katalog + Ratenlimit deckeln die Zeilenzahl;
+der Detektor-Befundtext „writes a row per unseen slug" überzeichnete) und #1461
+(Klassen-Issue mit allen zehn, Schwere je Route). Die Nummern gehören in
+`_PERSISTING_READ_FINDINGS`.
