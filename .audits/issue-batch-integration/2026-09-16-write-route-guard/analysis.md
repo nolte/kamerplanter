@@ -246,6 +246,110 @@ Beobachtungen, beide **Low**, bewusst nicht in diesem Bündel:
   skelettieren) ändert `useTenantPermissions.ts` — außerhalb der Gruppe. Kandidat für ein
   Folge-Issue, entschieden beim Bündel.
 
-### Scheibe 2 — #1443
+### Scheibe 2 — #1443 (Sub-Branch `fix/1443-write-route-detector`)
 
-*(in Arbeit)*
+Dispatchter Spezialist: `nolte-engineering:fullstack-developer`.
+
+**Detektorform:** statische Aufrufgraph-Analyse (AST), wie in Operator-Entscheidung 2
+festgelegt. Neues Modul `src/backend/tests/unit/api/_write_call_graph.py`; läuft in der
+bestehenden `backend-guards`-Lane, keine Workflow-Änderung.
+
+**Auflösung nach Empfängertyp, nicht nach Namen.** Vier Messungen haben die Form
+bestimmt, jede davon war zuerst ein untauglicher Entwurf:
+
+| Entwurf | Messung |
+|---|---|
+| Auflösung allein über den Methodennamen | **356 von 356** Leseoperationen als schreibend gemeldet (`api.mapping.to_response` kollidiert mit `BaseArangoRepository.update` auf `update`) |
+| AQL-Erkennung über das Schlüsselwort | `BaseArangoRepository._to_doc` aus dem eigenen **Docstring** als Senke gesät → 2585 von 6047 Funktionen „schreibend" |
+| Untypisierter Namens-Fallback ohne Einschränkung | `dict.update` machte `to_response` zum Schreiber → 181 Treffer |
+| Modulglobale ignoriert | `router = APIRouter(...)` untypisiert → 160 Kanten aus `@router.delete(...)` |
+| Aufwärts zur Basis und wieder abwärts | `create_profile` löste zu `ArangoWateringRepository.create` auf — jeder Pfad nannte die falsche Kollektion |
+
+**Rot zuerst, zwei Beweise, beide per `cp`-Sicherung zurückgenommen:**
+
+1. *Der Wandel selbst.* Mit auf die Methodenform zurückgesetztem Walk
+   (`elif False:` statt der Erkennung):
+
+```
+E  AssertionError: the sweep's read half and the detector disagree:
+E      in the sweep, not detected: []
+E      detected, not in the sweep: ['auth.router.oauth_callback',
+E      'dashboard.tenant_router.get_widget_catalog', 'glossar.public_router.public_get_term',
+E      'glossar.router.get_term', 'ki_assistent.tenant_router.get_daily_tip',
+E      'ki_assistent.tenant_router.get_tips', 'onboarding.tenant_router.get_onboarding_state',
+E      'privacy.router.download_export', 'season.tenant_router.get_site_season_state',
+E      'user_preferences.tenant_router.get_preferences']
+1 failed, 8 passed
+```
+
+2. *Mutation des Detektors.* Senkenliste geleert (`_COLLECTION_MUTATORS = frozenset()`,
+   `_QUERY_WRITE` trifft nichts) — **6 Tests rot**, darunter die künstliche schreibende
+   `GET`, die `TestTheDetectorCanFail` als eigenen Mini-Baum auf die Platte schreibt und
+   mit einem frischen Graphen parst:
+
+```
+FAILED TestTheDetectorCanFail::test_a_writing_get_is_found_although_nothing_lists_it
+FAILED TestTheDetectorCanFail::test_a_detector_with_no_sinks_finds_nothing
+FAILED TestPersistingReadsAreSweptLikeWrites::test_the_detector_agrees_with_the_method_convention_where_it_applies
+FAILED TestPersistingReadsAreSweptLikeWrites::test_every_finding_is_still_a_persisting_read
+FAILED TestPersistingReadsAreSweptLikeWrites::test_every_guarded_read_really_passes_its_guard
+FAILED TestPersistingReadsAreSweptLikeWrites::test_a_guarded_read_would_be_reported_without_its_guard
+6 failed, 104 passed
+```
+
+3. *Die historische Form.* `git archive c883367da^` (der Stand vor #1422) in einen
+   Temp-Baum, Detektor darüber: beide Routen gefunden, mit Pfad —
+   `care_reminders.router::get_or_create_profile` → `CareReminderService.get_or_create_profile`
+   → `ArangoCareReminderRepository.create_profile` → `insert()`, und
+   `care_reminders.tenant_router::get_care_dashboard` über
+   `get_care_dashboard_for_tenant` auf denselben Schreibvorgang. Der Detektor **hätte**
+   die Lücke von #1422 gefunden.
+
+**Grün danach:** `tests/unit/api/test_write_route_gates.py` 110 passed in 8,3 s;
+die Lane `tests/unit/api tests/unit/guards` 355 passed in **14,5 s** (Detektor baut den
+Graphen einmal pro Session, ~3,3 s für 935 Module / 6047 Funktionen);
+`tests/unit tests/api` 9995 passed, 1 skipped.
+
+**Trefferliste gegen den heutigen Bestand: 13 von 356 Leseoperationen.**
+
+*Zehn echte Schreibvorgänge auf einer `GET`* — gemeldet, **nicht** repariert (außerhalb
+des Scopes dieser Scheibe), festgehalten in `_PERSISTING_READ_FINDINGS` als offene
+Befunde mit Ratsche (≤ 10) und Obsoleszenzregel:
+
+| Route | Schreibvorgang |
+|---|---|
+| `GET /api/v1/public/glossary/term/{slug}` | **anonym** — schreibt pro ungesehenem Slug eine `GlossaryTermCacheEntry` |
+| `GET /api/v1/t/{slug}/glossary/term/{slug}` | dasselbe `_store_cache`, mandantengebunden |
+| `GET /api/v1/t/{slug}/user-preferences` | legt das `UserPreference`-Singleton beim Kaltlesen an |
+| `GET /api/v1/t/{slug}/dashboard/widgets/catalog` | erreicht dieselbe Auto-Anlage |
+| `GET /api/v1/t/{slug}/onboarding/state` | legt das `OnboardingState`-Singleton an |
+| `GET /api/v1/t/{slug}/ai/tips` | invalidiert den Tipp-Cache, legt die Karte an, schreibt einen Audit-Eintrag |
+| `GET /api/v1/t/{slug}/ai/daily-tip` | dieselbe Form |
+| `GET /api/v1/t/{slug}/sites/{key}/season-state` | `upsert` des berechneten `SeasonState` |
+| `GET /api/v1/privacy/export/{key}/download` | erhöht und persistiert `download_count` |
+| `GET /api/v1/auth/oauth/{slug}/callback` | legt User, AuthProvider-Verknüpfung und Refresh-Token an (OAuth2-Redirect kann nur `GET` sein) |
+
+Sieben davon hängen an blankem `get_current_tenant`, zwei sind **ohne jede
+Autorisierung** erreichbar — die Sweeps haben sie beim Scharfschalten sofort gemeldet.
+
+*Drei Falsch-Positive*, und die Ausnahme ist **prüfbar statt Prosa**: der Detektor ist
+pfadinsensitiv und kann `may_create=False` nicht auswerten.
+`_GUARDED_PERSISTING_READS` trägt je Eintrag den Zeugen `(callee, keyword)`, und
+`test_every_guarded_read_really_passes_its_guard` liest **jeden erreichbaren Aufruf**
+zurück aus dem Quelltext und fällt um, sobald einer nicht literal `False` übergibt:
+`care_reminders.router.get_or_create_profile`,
+`care_reminders.tenant_router.get_care_dashboard`,
+`print.tenant_router.export_care_checklist_pdf`.
+
+**Was geändert wurde:**
+- `src/backend/tests/unit/api/_write_call_graph.py` (neu, 769 Zeilen) — Detektor, Grenzen im Modul-Docstring benannt (dynamischer Dispatch, Celery-Tasks, untypisierte Empfänger, Argumentwerte, alles außerhalb von `app`).
+- `src/backend/tests/unit/api/test_write_route_gates.py` — Kommentar `:42-59` ersetzt; `mounted_operations()` als **eine** Aufzählung, `mounted_write_operations()` filtert darüber; zwei neue Testklassen; Befund- und Ausnahmetabelle.
+
+**Lokale Anpassungen:**
+1. Der Auftrag nannte `mounted_write_operations()` als Enumerationsmechanismus. Der Walk musste trotzdem angefasst werden, weil er Leserouten gar nicht erst erzeugte — aufgeteilt in `mounted_operations()` (Walk) und `mounted_write_operations()` (Filter), *ein* Walker wie gefordert.
+2. Eine Ceiling-Prüfung auf untypisierte Empfänger (9245 gemessen, Grenze 11000) ist hinzugekommen: der blinde Fleck des Detektors ist die einzige Stelle, über die er nicht selbst berichten kann.
+
+**Umgebungsbedingt rot in `task precommit`** (48 Hooks, 45 grün): `ESLint (frontend)`
+und `TypeScript check (frontend)` — `src/frontend/node_modules` fehlt im Worktree —
+sowie `Nuclei template validate` — `nuclei` nicht auf PATH. Der Diff ist reiner
+Backend-Testcode; keine Frontend- und keine Template-Datei berührt.

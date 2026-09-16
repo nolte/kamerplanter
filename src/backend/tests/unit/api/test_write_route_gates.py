@@ -31,6 +31,8 @@ longer matches a route fails — the obsolescence rule `check_layer_imports` and
 """
 
 import inspect
+import pathlib
+import re
 from typing import Any
 
 import pytest
@@ -40,24 +42,65 @@ from app.api.v1.router import api_router
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
+from tests.unit.api._write_call_graph import (
+    call_graph,
+    persists,
+    reachable_keyword_arguments,
+    unresolved_call_count,
+    write_path_of,
+)
 
-#: What this sweep treats as a write — and the limit of that, stated rather than
-#: assumed.
+#: The methods that are a write *by convention*. This comment used to end by
+#: saying the real detector did not exist; it does now, and this is what it does.
 #:
 #: A method is a convention, not a behaviour. Two routes in this codebase were
 #: measured writing on a ``GET`` (#1422 review): ``GET /care-reminders/plants/{key}/profile``
 #: and ``GET /t/{slug}/care-reminders/dashboard`` both reached
 #: ``get_or_create_profile``, which persisted a ``CareProfile`` and an edge — the
-#: dashboard for every plant of the tenant, on a plain read, for any member. Both are
-#: fixed at the source (the read paths no longer create), so nothing is being hidden
-#: here today.
+#: dashboard for every plant of the tenant, on a plain read, for any member.
 #:
-#: But this sweep could not have found either, and cannot find the next one. Deciding
-#: whether a handler writes needs the call graph, not the decorator, and that detector
-#: does not exist yet — #1443. Until it does, a reviewer noticing a persisting read is
-#: the only thing that catches this class, which is exactly the position #948 was
-#: about.
+#: Deciding whether a handler writes needs the call graph, not the decorator.
+#: :mod:`tests.unit.api._write_call_graph` is that detector (#1443), and
+#: :func:`mounted_write_operations` now admits a read whose handler reaches a
+#: persistence write on exactly the terms it admits a ``POST``: no list, no
+#: opt-in, no method name. Run against this head it reported **13** of 356 mounted
+#: read operations — ten of them real writes on a ``GET``, recorded in
+#: :data:`_PERSISTING_READ_FINDINGS`, and three guarded by an argument the
+#: detector cannot evaluate, recorded in :data:`_GUARDED_PERSISTING_READS`.
+#:
+#: **What the detector sees.** Every module under the imported ``app`` package,
+#: parsed once per session. Within it, calls to python-arango collection mutators
+#: on a collection receiver, and query strings shaped like an AQL or SQL write,
+#: are the sinks; everything else is reachability over a call graph resolved by
+#: RECEIVER TYPE — ``self`` through the enclosing class, an attribute through the
+#: type its ``__init__`` annotates, a local through its annotation or its
+#: constructor — with the method then looked up on that type's ancestors and on
+#: its implementors, because the services here are annotated against
+#: ``I*Repository`` interfaces whose method bodies are ``...``.
+#:
+#: **What it does not see.** Stated, because a guard whose blind spots are
+#: implicit is read as having none:
+#:
+#: * **dynamic dispatch** — ``getattr(obj, name)()``, a handler pulled out of a
+#:   registry or a dict, anything whose target is a value at run time;
+#: * **writes performed by a Celery task** the route enqueues. Those happen in
+#:   another process, off the request path, and are gated on the task;
+#: * **a write behind a receiver nothing annotates.** Those fall back to matching
+#:   by NAME, bounded to the repository write vocabulary, which over-reports
+#:   rather than missing — the count of unresolved receivers is asserted against a
+#:   ceiling below so the blind spot cannot grow in silence;
+#: * **the value of an argument.** The detector is path-insensitive: a write the
+#:   callee performs only when a flag allows it counts as reachable. That is what
+#:   :data:`_GUARDED_PERSISTING_READS` is for, and why each of its entries carries
+#:   a witness this file checks rather than a sentence nobody holds against the
+#:   code — the failure #1441 had just been paid for;
+#: * **anything outside the ``app`` package.**
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+#: The methods a read is mounted under. A handler mounted on one of these that
+#: nevertheless persists is the class #1443 exists to surface.
+READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+
 TENANT_PREFIX = "/t/{tenant_slug}"
 ADMIN_PREFIX = "/api/v1/admin"
 
@@ -99,18 +142,28 @@ class Operation:
         return f"{self.method} {self.path} ({self.id})"
 
 
-def mounted_write_operations() -> list[Operation]:
-    """Every write operation the v1 router mounts, with its cumulative path.
+def _operation_id(endpoint: Any) -> str:
+    """:attr:`Operation.id` without building an Operation. The same key, one source."""
+    return f"{endpoint.__module__.removeprefix('app.api.v1.')}.{endpoint.__name__}"
+
+
+def mounted_operations() -> list[tuple[str, str, Any, Any]]:
+    """Every `(method, cumulative path, endpoint, route)` the v1 router mounts.
 
     `include_router` does **not** flatten: it leaves `_IncludedRouter` wrappers
     that carry no `path` attribute at all, and whose prefix lives in
     `include_context.prefix`. A flat read of `api_router.routes` therefore finds
-    ~50 routes instead of ~440, and every path comes out relative — the mistake
+    ~50 routes instead of ~796, and every path comes out relative — the mistake
     `scripts/check_frontend_calls_served.py` documents at length after making it.
     `test_the_walk_sees_what_a_flat_read_cannot` below pins that this walk does
     not repeat it.
+
+    Reads are returned alongside writes and the filtering happens above, because
+    #1443's question — which of these reads persists? — is asked of the same walk.
+    A second walker for the read half would be the shape this file's own docstring
+    warns about: two enumerations of one surface, drifting.
     """
-    found: list[Operation] = []
+    found: list[tuple[str, str, Any, Any]] = []
 
     def walk(router: Any, prefix: str = "") -> None:
         for route in getattr(router, "routes", []):
@@ -124,11 +177,107 @@ def mounted_write_operations() -> list[Operation]:
                 continue
             path = prefix + (getattr(route, "path", "") or "")
             for method in getattr(route, "methods", ()) or ():
-                if method in WRITE_METHODS:
-                    found.append(Operation(method, path, endpoint, route))
+                found.append((method, path, endpoint, route))
 
     walk(api_router)
     return found
+
+
+def mounted_write_operations() -> list[Operation]:
+    """Every operation that WRITES — by method, or because the detector says so.
+
+    The second half is #1443. A read whose handler reaches a persistence write is
+    a write route from here on, answered by the same three questions and the same
+    allowlists as a `POST`, without having been listed anywhere first.
+    """
+    found: list[Operation] = []
+    for method, path, endpoint, route in mounted_operations():
+        detected_read = (
+            method in READ_METHODS and _operation_id(endpoint) not in _GUARDED_PERSISTING_READS and persists(endpoint)
+        )
+        if method in WRITE_METHODS or detected_read:
+            found.append(Operation(method, path, endpoint, route))
+    return found
+
+
+#: Reads the detector reports, whose write is unreachable because of an ARGUMENT.
+#:
+#: The detector is path-insensitive by construction: it answers "can this handler
+#: reach a write", not "does it, with these values". `CareReminderService.
+#: get_or_create_profile` takes `may_create` keyword-only and without a default —
+#: #1422's fix — and persists only when it is true. Every one of the three routes
+#: here reaches it with `may_create=False`.
+#:
+#: **Each entry is a witness, not a sentence.** The value is `(callee, keyword)`
+#: and `test_every_guarded_read_really_passes_its_guard` re-parses every reachable
+#: call to `callee` and fails unless all of them pass `keyword=False` as a
+#: literal. Flip one to `True`, add a new caller that omits it, rename the
+#: parameter — the entry goes red and the route returns to the sweep. The reason
+#: #1441 cost a whole slice is that its allowlist entry was prose that had never
+#: been true; an exemption nobody can check is worse than no exemption.
+_GUARDED_PERSISTING_READS: dict[str, tuple[str, str]] = {
+    "care_reminders.router.get_or_create_profile": ("get_or_create_profile", "may_create"),
+    "care_reminders.tenant_router.get_care_dashboard": ("get_or_create_profile", "may_create"),
+    "print.tenant_router.export_care_checklist_pdf": ("get_or_create_profile", "may_create"),
+}
+
+
+#: Reads that really do persist. **Open findings, not approvals.**
+#:
+#: This dict is not an allowlist and must not be read as one. Every entry is a
+#: route that answers a ``GET`` and writes to the database while doing it —
+#: measured on 2026-09-16 by the detector this file now carries, reported out of
+#: the `2026-09-16-write-route-guard` group, and deliberately **not** fixed there:
+#: repairing ten handlers is a different change from building the detector, and
+#: mixing them would have made neither reviewable.
+#:
+#: They are listed for one reason only: so the detector can go live today instead
+#: of after the repairs. A read that persists and is **not** listed here turns the
+#: sweeps red immediately, which is the property #1443 asked for.
+#:
+#: Two rules keep this from becoming the thing it replaces.
+#: `test_every_finding_is_still_a_persisting_read` deletes the excuse the moment a
+#: route stops writing, and `test_the_finding_list_only_shrinks` is a ratchet: it
+#: may never hold more than the ten measured entries, so the cheapest way out —
+#: adding the next one — is not available.
+_PERSISTING_READ_FINDINGS: dict[str, str] = {
+    "auth.router.oauth_callback": (
+        "AuthService.complete_oauth creates or updates the User, the AuthProvider link and the "
+        "refresh token. A browser redirect can only be a GET, so this one is arguably inherent to "
+        "OAuth2 rather than a defect — it still needs the decision written down somewhere other "
+        "than here"
+    ),
+    "privacy.router.download_export": (
+        "PrivacyService.prepare_export_download increments download_count and persists the "
+        "DataExportRequest before streaming (privacy_service.py:225-227)"
+    ),
+    "glossar.public_router.public_get_term": (
+        "GlossaryService.get_term stores a GlossaryTermCacheEntry through _store_cache on a miss — "
+        "and this route is ANONYMOUS, so an unauthenticated caller writes a row per unseen slug"
+    ),
+    "glossar.router.get_term": "the tenant-scoped sibling of the route above, same _store_cache write",
+    "ki_assistent.tenant_router.get_daily_tip": (
+        "AiAssistantService.get_daily_tip persists the generated card to the AI tip cache and writes an AI audit record"
+    ),
+    "ki_assistent.tenant_router.get_tips": (
+        "AiAssistantService.get_tips invalidates the tip cache, creates the generated card and "
+        "records an audit entry (ai_assistant_service.py:153, 208-210)"
+    ),
+    "onboarding.tenant_router.get_onboarding_state": (
+        "OnboardingService.get_state auto-creates the OnboardingState singleton on a cold read "
+        "(onboarding_service.py:45-47)"
+    ),
+    "user_preferences.tenant_router.get_preferences": (
+        "UserPreferenceService.get_preferences auto-creates the UserPreference singleton on a cold "
+        "read (user_preference_service.py:92-94)"
+    ),
+    "dashboard.tenant_router.get_widget_catalog": (
+        "reaches the same UserPreferenceService.get_preferences auto-create as the route above"
+    ),
+    "season.tenant_router.get_site_season_state": (
+        "SeasonStateService.evaluate_site_detailed upserts the SeasonState it computed (season_state_service.py:126)"
+    ),
+}
 
 
 #: Tenant-scoped write routes that may resolve `ctx` through bare
@@ -497,6 +646,17 @@ _INSTALLATION_WIDE_MODULES: dict[str, str] = {
 _PLATFORM_ADMIN_GATES = frozenset({"require_platform_admin", "_require_platform_admin"})
 
 
+def _excused_as_an_open_finding(operation: Operation) -> bool:
+    """A detected persisting read whose repair is tracked in :data:`_PERSISTING_READ_FINDINGS`.
+
+    **Not an approval and not an allowlist.** The four sweeps below skip these so
+    the detector could go live on the day it was built rather than on the day ten
+    unrelated handlers were repaired. Every one of them is a measured defect, the
+    entry dies the moment the route stops writing, and the list may not grow.
+    """
+    return operation.method in READ_METHODS and operation.id in _PERSISTING_READ_FINDINGS
+
+
 def _module_of(operation: Operation) -> str:
     return operation.module.removeprefix("app.api.v1.").split(".")[0]
 
@@ -573,7 +733,9 @@ class TestTenantWriteGates:
         offenders = [
             op
             for op in _tenant_write_operations()
-            if _resolves_bare_tenant_context(op) and op.id not in _TENANT_ALLOWLIST
+            if _resolves_bare_tenant_context(op)
+            and op.id not in _TENANT_ALLOWLIST
+            and not _excused_as_an_open_finding(op)
         ]
         assert not offenders, (
             "These tenant-scoped write routes resolve `ctx` through bare `get_current_tenant`, "
@@ -608,7 +770,9 @@ class TestTenantWriteGates:
 class TestAdminWriteGates:
     def test_no_admin_write_route_resolves_its_caller_through_bare_get_current_user(self):
         offenders = [
-            op for op in _admin_write_operations() if _resolves_bare_user(op) and op.id not in _ADMIN_ALLOWLIST
+            op
+            for op in _admin_write_operations()
+            if _resolves_bare_user(op) and op.id not in _ADMIN_ALLOWLIST and not _excused_as_an_open_finding(op)
         ]
         assert not offenders, (
             "These routes write installation-wide configuration behind `get_current_user` alone, "
@@ -843,7 +1007,9 @@ class TestEveryWriteOperationResolvesSomeAuthorisation:
         offenders = [
             op
             for op in mounted_write_operations()
-            if not _resolves_authorisation(op) and op.id not in _PUBLIC_ALLOWLIST
+            if not _resolves_authorisation(op)
+            and op.id not in _PUBLIC_ALLOWLIST
+            and not _excused_as_an_open_finding(op)
         ]
         assert not offenders, (
             "These write operations resolve no authorisation dependency anywhere in their "
@@ -1093,7 +1259,7 @@ class TestInstallationWideMasterDataIsPlatformAdminOnly:
         offenders = [
             op
             for op in _installation_wide_write_operations()
-            if not (set(_authorisation_chain(op)) & _PLATFORM_ADMIN_GATES)
+            if not (set(_authorisation_chain(op)) & _PLATFORM_ADMIN_GATES) and not _excused_as_an_open_finding(op)
         ]
         assert not offenders, (
             "These routes write INSTALLATION-WIDE master data behind authentication alone, so any "
@@ -1190,4 +1356,325 @@ class TestInstallationWideMasterDataIsPlatformAdminOnly:
         ]
         assert not shrunk, "installation-wide write operations disappeared from the gated set:\n  " + "\n  ".join(
             shrunk
+        )
+
+
+# ── #1443: the read half of the write surface ──────────────────────────────────
+
+#: A synthetic app tree for the detector's own controls. It is written to disk and
+#: parsed by a FRESH `CallGraph`, not by the cached one over the real app: a probe
+#: that can only be built out of the thing it is probing proves nothing about it.
+#:
+#: The shape is the shape the real tree has — handler → injected service →
+#: repository → collection primitive — because a probe that skips the middle would
+#: pass while the resolution this file credits with seeing through services was
+#: broken.
+_SYNTHETIC_TREE = {
+    "__init__.py": "",
+    "data_access/__init__.py": "",
+    "data_access/invented_repository.py": '''
+class InventedRepository:
+    """A repository of the shape the real ones have."""
+
+    def __init__(self, db) -> None:
+        self._db = db
+
+    @property
+    def collection(self):
+        return self._db.collection("invented")
+
+    def get_by_key(self, key: str):
+        return self.collection.get(key)
+
+    def create(self, document: dict) -> dict:
+        return self.collection.insert(document)
+''',
+    "domain/__init__.py": "",
+    "domain/invented_service.py": """
+from app.data_access.invented_repository import InventedRepository
+
+
+class InventedService:
+    def __init__(self, repo: InventedRepository) -> None:
+        self._repo = repo
+
+    def read_only(self, key: str):
+        return self._repo.get_by_key(key)
+
+    def touch(self, key: str):
+        return self._repo.create({"key": key})
+""",
+    "api/__init__.py": "",
+    "api/invented_router.py": '''
+from app.domain.invented_service import InventedService
+
+
+def get_invented(key: str, service: InventedService):
+    """A GET that persists. No method name says so."""
+    return service.touch(key)
+
+
+def read_invented(key: str, service: InventedService):
+    """A GET that does not persist. The control."""
+    return service.read_only(key)
+''',
+}
+
+
+def _write_synthetic_tree(root):
+    for relative, source in _SYNTHETIC_TREE.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source, encoding="utf-8")
+    return root
+
+
+def _synthetic_graph(root):
+    from tests.unit.api._write_call_graph import CallGraph
+
+    graph = CallGraph()
+    graph.parse_tree(root)
+    graph.link()
+    return graph
+
+
+class TestTheDetectorCanFail:
+    """The detector is a guard over a guard, and those certify themselves (#1443 risk 1).
+
+    `TestTheGuardCanFail` does this for the dependency sweeps. This class does it
+    for the question those sweeps now depend on — *is this a write route at all* —
+    against a handler built for the purpose, so the control cannot be satisfied by
+    the real tree happening to contain something.
+    """
+
+    def test_a_writing_get_is_found_although_nothing_lists_it(self, tmp_path):
+        """The proof that the detector measures something.
+
+        Run against the sweep as it stood before #1443 this handler is invisible:
+        it is mounted on a `GET`, `WRITE_METHODS` does not contain `GET`, and no
+        list names it. That is the whole defect, reproduced in eleven lines.
+        """
+        graph = _synthetic_graph(_write_synthetic_tree(tmp_path))
+        handler = graph.by_id["app.api.invented_router::get_invented"]
+
+        path = graph.write_path(handler)
+
+        assert path is not None, "the detector did not find a GET that calls a repository create()"
+        assert path[0] == "app.api.invented_router::get_invented"
+        assert "app.domain.invented_service::InventedService.touch" in path, (
+            f"the chain skipped the service layer: {path}"
+        )
+        assert "app.data_access.invented_repository::InventedRepository.create" in path
+        assert path[-1].endswith("insert() at app.data_access.invented_repository:16")
+
+    def test_a_reading_get_is_not_found(self, tmp_path):
+        """The control. A detector that reports everything is as useless as one that reports nothing.
+
+        `read_invented` differs from `get_invented` in one call — `get_by_key`
+        instead of `create` — and reaches the same repository, the same
+        `self.collection`, through the same service.
+        """
+        graph = _synthetic_graph(_write_synthetic_tree(tmp_path))
+
+        assert graph.write_path(graph.by_id["app.api.invented_router::read_invented"]) is None
+
+    def test_a_detector_with_no_sinks_finds_nothing(self, tmp_path, monkeypatch):
+        """The mutation, and it is the load-bearing one.
+
+        Empty the sink vocabulary — the collection mutators and the query-write
+        shape — and rebuild. Everything else stays: the same tree, the same type
+        resolution, the same reachability. If the handler is still reported, the
+        report is not coming from the writes, and the whole detector is a
+        `return True` with a docstring.
+        """
+        from tests.unit.api import _write_call_graph as detector
+
+        root = _write_synthetic_tree(tmp_path)
+        assert _synthetic_graph(root).write_path(
+            _synthetic_graph(root).by_id["app.api.invented_router::get_invented"]
+        ), "the pre-condition failed: the unmutated detector must find the probe"
+
+        monkeypatch.setattr(detector, "_COLLECTION_MUTATORS", frozenset())
+        monkeypatch.setattr(detector, "_QUERY_WRITE", re.compile(r"(?!x)x"))
+
+        mutated = _synthetic_graph(root)
+
+        assert not [fn for fn in mutated.functions if fn.direct_write], "the mutation did not empty the sinks"
+        assert mutated.write_path(mutated.by_id["app.api.invented_router::get_invented"]) is None
+
+    def test_the_real_tree_is_the_imported_one(self):
+        """The editable-install trap: parsing one checkout while the app walk mounts another.
+
+        A worktree without its own virtualenv resolves `app` through an editable
+        install pointing at the primary checkout. Deriving the source root from
+        this file's location would then measure a different tree from the one the
+        route walk enumerates, and the two would disagree without saying so.
+        """
+        import app
+        from tests.unit.api._write_call_graph import APP_ROOT
+
+        assert pathlib.Path(app.__file__).resolve().parent == APP_ROOT
+        assert call_graph().modules_parsed > 500
+
+
+class TestPersistingReadsAreSweptLikeWrites:
+    """The acceptance condition of #1443: a writing GET is gated like a POST.
+
+    Not "is reported". The three questions above — bare tenant context, bare user,
+    no authorisation at all — are what a `POST` has to answer, and a read that
+    persists now answers them too, without appearing in any list first.
+    """
+
+    def test_the_sweep_admits_exactly_the_reads_the_detector_reports(self):
+        """The change itself, asserted as an equality rather than as a presence.
+
+        A presence check (`some read is in the sweep`) goes vacuous the day the
+        last finding is repaired. An equality stays meaningful at zero: it says the
+        sweep's read half *is* the detector's answer, minus the guarded three, for
+        any number of them.
+        """
+        admitted = {op.id for op in mounted_write_operations() if op.method in READ_METHODS}
+
+        detected = set()
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS and persists(endpoint):
+                detected.add(_operation_id(endpoint))
+
+        assert admitted == detected - set(_GUARDED_PERSISTING_READS), (
+            "the sweep's read half and the detector disagree:\n"
+            f"  in the sweep, not detected: {sorted(admitted - detected)}\n"
+            f"  detected, not in the sweep: {sorted(detected - set(_GUARDED_PERSISTING_READS) - admitted)}"
+        )
+
+    def test_the_detector_agrees_with_the_method_convention_where_it_applies(self):
+        """A floor on the other direction, and it is the control for the whole detector.
+
+        If the detector reported reads but could not see the writes everybody
+        already agrees are writes, its resolution would be broken in a way no
+        assertion above would catch — `mounted_write_operations` would still be
+        full, of `POST`s. Measured at this head: 396 of 440 method-writes are also
+        detected as persisting. The rest are computations, validations and routes
+        whose write is a Celery task, which the detector states it cannot see.
+        """
+        method_writes = [op for op in mounted_write_operations() if op.method in WRITE_METHODS]
+        agreeing = [op for op in method_writes if persists(op.route.endpoint)]
+
+        assert len(agreeing) > len(method_writes) * 0.8, (
+            f"the detector only recognises {len(agreeing)} of {len(method_writes)} routes that carry a "
+            "write method. Its receiver-type resolution has regressed, and the read half is reporting "
+            "from a call graph that no longer reaches the repositories."
+        )
+
+    def test_every_finding_is_still_a_persisting_read(self):
+        """Obsolescence, the direction that rots: a repaired route keeps its excuse.
+
+        The entry stops being true the moment the handler stops writing, and an
+        entry that outlives its finding is exactly the artefact #1441 spent a slice
+        removing.
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        stale = []
+        for route_id, reason in _PERSISTING_READ_FINDINGS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                stale.append(f"{route_id}: no such read route any more ({reason})")
+            elif not persists(endpoint):
+                stale.append(f"{route_id}: no longer persists — delete the entry ({reason})")
+        assert not stale, (
+            "Obsolete _PERSISTING_READ_FINDINGS entries. These are open findings, not approvals; a "
+            "repaired one must be removed, not kept:\n  " + "\n  ".join(stale)
+        )
+
+    def test_the_finding_list_only_shrinks(self):
+        """A ratchet, because the cheapest way past this sweep is to add an entry.
+
+        Ten was the measurement on 2026-09-16. Lowering this number as they are
+        repaired is a one-line diff with an obvious reason; raising it is not
+        available, which is the point — a NEW writing GET has to be gated or
+        argued, not listed.
+        """
+        assert len(_PERSISTING_READ_FINDINGS) <= 10, (
+            f"_PERSISTING_READ_FINDINGS has grown to {len(_PERSISTING_READ_FINDINGS)} entries. "
+            "It is a record of ten measured defects, not a place to put the eleventh."
+        )
+
+    def test_every_finding_reason_is_written_out(self):
+        for route_id, reason in _PERSISTING_READ_FINDINGS.items():
+            assert len(reason) >= 12, f"{route_id} carries no usable reason: {reason!r}"
+
+    def test_a_finding_is_not_also_an_exemption(self):
+        overlap = set(_PERSISTING_READ_FINDINGS) & set(_GUARDED_PERSISTING_READS)
+        assert not overlap, f"recorded both as an open finding and as guarded: {sorted(overlap)}"
+
+    def test_every_guarded_read_really_passes_its_guard(self):
+        """The witness, read back out of the source (#1443, and the lesson of #1441).
+
+        Each entry claims a read reaches a persisting helper only with the write
+        forbidden by an argument. This finds every reachable call to that helper
+        and fails unless all of them pass the keyword as a literal `False`. Flip
+        one, drop it, rename the parameter — the exemption dies and the route goes
+        back into the sweep.
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        problems = []
+        for route_id, (callee, keyword) in _GUARDED_PERSISTING_READS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                problems.append(f"{route_id}: no such read route any more")
+                continue
+            if not persists(endpoint):
+                problems.append(f"{route_id}: no longer reaches a write at all — drop the entry")
+                continue
+            passed = reachable_keyword_arguments(endpoint, callee, keyword)
+            if not passed:
+                problems.append(f"{route_id}: no reachable call to {callee}() — the witness names nothing")
+                continue
+            for site, value in passed:
+                if value is not False:
+                    problems.append(f"{route_id}: {site} calls {callee}({keyword}={value!r}), not False")
+        assert not problems, (
+            "These reads are excused because an argument forbids the write, and the source no longer "
+            "agrees:\n  " + "\n  ".join(problems)
+        )
+
+    def test_a_guarded_read_would_be_reported_without_its_guard(self):
+        """The exemptions are not decoration: each one really is a detector hit.
+
+        An entry naming a route the detector never reported would sit here forever
+        suppressing nothing, and would be indistinguishable from one that
+        suppresses a real finding.
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        for route_id in _GUARDED_PERSISTING_READS:
+            endpoint = by_id.get(route_id)
+            assert endpoint is not None, f"{route_id} is no longer a mounted read route"
+            assert write_path_of(endpoint) is not None, (
+                f"{route_id} is excused from a report the detector does not make. Drop the entry."
+            )
+
+    def test_the_unresolved_receiver_count_does_not_grow(self):
+        """The blind spot, bounded — the one thing this detector cannot report on itself.
+
+        A call whose receiver carries no type is where a write can hide. Measured
+        at this head: 9245 of them across the tree, and only those whose name is in
+        the repository write vocabulary are followed. The ceiling is not a quality
+        target; it is a tripwire, so that a refactor which un-annotates a layer
+        shows up here instead of as a quietly shrinking set of findings.
+        """
+        assert unresolved_call_count() < 11000, (
+            f"{unresolved_call_count()} attribute calls resolve to no receiver type, up from the 9245 "
+            "measured on 2026-09-16. The detector is guessing on more of the tree than it was; check "
+            "what stopped carrying annotations before trusting a green run."
         )
