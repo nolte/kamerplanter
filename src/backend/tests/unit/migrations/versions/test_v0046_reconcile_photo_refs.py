@@ -201,6 +201,12 @@ class TestAStemMayOnlyAnswerForAStorageKey:
 
 # ── the migration against a fake ArangoDB ─────────────────────────────────────
 
+#: The carrier scan, as it has to be spelled: filtered and projected in the database.
+_CARRIER_RE = re.compile(
+    r"^FOR d IN (\w+)\s+FILTER d\.(\w+) != null\s+"
+    r"RETURN \{_key: d\._key, tenant_key: d\.tenant_key, value: d\.(\w+)\}$"
+)
+
 #: Reads the reduction out of the query rather than knowing it.
 _STEM_RE = re.compile(r'FIRST\(SPLIT\(LAST\(SPLIT\(\s*([^,]+?)\s*,\s*"([^"]*)"\s*\)\)\s*,\s*"([^"]*)"\s*\)\)')
 
@@ -224,10 +230,12 @@ class _FakeAql:
     def __init__(self, collections: dict[str, list[dict[str, Any]]]) -> None:
         self._collections = collections
         self.writes: list[tuple[str, dict[str, Any]]] = []
+        self.queries: list[str] = []
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
         bind_vars = bind_vars or {}
         stripped = query.strip()
+        self.queries.append(stripped)
 
         if stripped.startswith("UPDATE"):
             self.writes.append((query, dict(bind_vars)))
@@ -253,8 +261,21 @@ class _FakeAql:
                 ]
             )
 
-        collection = stripped.split(" IN ", 1)[1].split(" ", 1)[0].strip()
-        return iter(list(self._collections.get(collection, [])))
+        match = _CARRIER_RE.match(stripped)
+        if match is None:
+            raise AssertionError(
+                "the carrier scan must project and filter server-side — it runs under "
+                "the migration lock in the startup path, where pulling whole documents "
+                "of every carrier collection into memory times the other replicas out "
+                f"(B-2). Query was: {stripped!r}"
+            )
+        collection, filtered_field, projected_field = match.groups()
+        assert filtered_field == projected_field, "the filter and the projection must name one field"
+        return (
+            {"_key": doc["_key"], "tenant_key": doc.get("tenant_key"), "value": doc[projected_field]}
+            for doc in self._collections.get(collection, [])
+            if doc.get(projected_field) is not None
+        )
 
 
 class _FakeDb:
@@ -422,6 +443,41 @@ class TestUp:
 
         assert report.scanned == 0
         assert report.changed == 0
+
+    def test_a_document_without_references_never_reaches_python(self) -> None:
+        """The scan runs under the migration lock in the startup path (B-2).
+
+        Pulling whole documents of every carrier collection into the migrating
+        replica's memory is what times the *other* replicas out
+        (``MigrationBarrierTimeoutError``), and on the overwhelmingly common
+        installation almost none of those documents carry a photo at all. So the
+        filter belongs in the database: an installation without photos costs O(0)
+        rows, not O(all tasks).
+        """
+        db = _FakeDb(
+            {
+                col.ATTACHMENTS: [_attachment()],
+                col.TASKS: [{"_key": "task-1", "tenant_key": TENANT, "title": "no photo here"}],
+            }
+        )
+
+        report = migration.up(db)
+
+        assert report.scanned == 0
+        assert col.TASKS not in report.details["per_collection"]
+        carrier_queries = [q for q in db.aql.queries if q.startswith(f"FOR d IN {col.TASKS}")]
+        assert carrier_queries, "the carrier was not scanned at all"
+        assert all("FILTER" in q and "RETURN d\n" not in q and not q.endswith("RETURN d") for q in carrier_queries)
+
+    def test_the_attachment_catalogue_is_projected_too(self) -> None:
+        """Three fields per row, not the whole attachment document."""
+        db = _FakeDb(_seeded(photo_refs=[ULID]))
+
+        migration.up(db)
+
+        catalogue = [q for q in db.aql.queries if q.startswith(f"FOR a IN {col.ATTACHMENTS}")]
+        assert catalogue, "the catalogue was not read"
+        assert all(q.endswith("}") and "RETURN {key: a._key" in q for q in catalogue)
 
     def test_down_refuses(self) -> None:
         with pytest.raises(IrreversibleMigrationError):
