@@ -473,3 +473,33 @@ Jede Zelle mit „Prüfung: …", mit der tatsächlich gelaufenen Ausgabe:
 | `spec/nfr/NFR-006*.md` §2.1/§2.2 | Spezifikation | ja, plus neuer §2.2a |
 | `spec/e2e-testcases/TC-NFR-006.md:564` | zitiert `details: list[ErrorDetail]` als Requirement-Referenz, nicht als Form | unverändert |
 | `docs/{de,en}/api/error-handling.md` | veröffentlichte Feldtabelle | ja, beide |
+
+### Schlussläufe nach Scheibe 3
+
+| Lauf | Ergebnis |
+|---|---|
+| `pytest tests/unit tests/api tests/contracts` (über `.venv/bin/python`) | `10028 passed, 1 skipped in 1172.98s` |
+| `vitest run --coverage --maxWorkers=4 --retry=1` | `Test Files 409 passed (409)`, `Tests 4084 passed (4084)`, **0 Retries verbraucht** (`grep -c "retry x"` → 0) |
+| Coverage-Gate (`vitest.config.ts`: statements/functions/lines 80, branches 75) | `All files 84.72 / 77.18 / 81.41 / 87.07` — **über allen vier Schwellen**. Geänderte Dateien: `api/errors.ts` 100 % Lines, `PhotoUpload.tsx` 100 % Lines / 93.47 % Statements |
+| `tsc --noEmit` | exit 0, keine Ausgabe |
+| `task precommit` | 47 Hooks **Passed**, 1 **Failed**: `Nuclei template validate` — `nuclei is not on PATH`. Umgebungsbedingt, der Hook filtert auf `tests/security/nuclei-templates/**`, woran diese Gruppe nichts geändert hat. Kein Auto-Fixer hat eine Datei angefasst (`git status` danach leer) |
+
+**Abweichung ehrlich vermerkt — die Vitest-Vollsuite ist unter Last flaky.** Drei
+Vollläufe mit der Default-Worker-Zahl fielen mit je **anderen** Dateien um:
+
+```
+Lauf 1: FertilizerListPageCatalogueReach.test.tsx        (1 failed | 4083 passed)
+Lauf 2: WorkflowInstantiateDialog.test.tsx               (1 failed | 4083 passed)
+Lauf 3 (--retry=2): FertilizerListPageCatalogueReach + AccountSettingsPageFlows
+        — 90 791 ms für einen Test, also Timeout unter Last, nicht Korrektheit
+```
+
+Gegenprobe statt Vermutung: jede der Dateien läuft **einzeln grün**
+(`FertilizerListPageCatalogueReach` 5 passed, `WorkflowInstantiateDialog`
+12 passed), keine von ihnen rendert `PhotoUpload`, und `grep -c
+"details\|ApiError"` ergibt in `FertilizerListPageCatalogueReach` **0** —
+in `WorkflowInstantiateDialog` nur Envelopes mit bereits gesetztem `details: []`,
+auf die der neue `?? []`-Default wirkungslos ist. Mit `--maxWorkers=4` lief die
+Suite ohne einen einzigen Retry vollständig grün. Die Flakes sind Lastartefakte
+dieser Maschine, kein Regress dieser Scheibe — als Beobachtung notiert, nicht
+als grün verkauft.
