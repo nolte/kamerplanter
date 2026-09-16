@@ -230,6 +230,104 @@ class TestGetOrRaise:
         assert "Gadget with key 'w1'" in exc.value.message
 
 
+
+class TestEveryNotFoundNamesTheSameThing:
+    """``details[0].entity`` is a contract, so one repository must answer one word (O-3).
+
+    ``get_or_raise`` raises with the *model* name (``Widget``), while the two update
+    paths raised with the *collection* name (``widgets``) — the same missing row
+    answering ``entity: "widget"`` or ``entity: "widgets"`` depending on which method
+    the caller happened to use. A client branching on the value (``PhotoUpload``
+    de-stages only on ``entity == "attachment"``) then has to know the call path,
+    which is precisely what the structured field was added to avoid (#1437).
+    """
+
+    @staticmethod
+    def _entity_of(error: NotFoundError) -> str:
+        assert error.details, "a NotFoundError must carry its entity (NFR-006 §2.2a)"
+        return error.details[0]["entity"]
+
+    def _missing_on_update(self, mock_db):
+        from arango.exceptions import DocumentUpdateError
+
+        err = DocumentUpdateError.__new__(DocumentUpdateError)
+        err.error_code = 1202
+        mock_db.collection.return_value.update.side_effect = err
+
+    def test_get_or_raise_names_the_model(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = None
+
+        with pytest.raises(NotFoundError) as exc:
+            repo.get_or_raise("w1")
+
+        assert self._entity_of(exc.value) == "widget"
+
+    def test_a_full_update_of_a_missing_row_names_the_model_too(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        self._missing_on_update(mock_db)
+
+        with pytest.raises(NotFoundError) as exc:
+            repo.update("missing", Widget(name="Hammer"))
+
+        assert self._entity_of(exc.value) == "widget"
+
+    def test_a_partial_update_of_a_missing_row_names_the_model_too(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        self._missing_on_update(mock_db)
+
+        with pytest.raises(NotFoundError) as exc:
+            repo.update_fields("missing", {"color": "red"})
+
+        assert self._entity_of(exc.value) == "widget"
+
+    def test_the_entity_name_override_wins_on_every_path(self, mock_db):
+        """A repository that names itself must be believed by all three raisers."""
+        repo = NamedRepo(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = None
+        self._missing_on_update(mock_db)
+
+        entities = set()
+        for call in (
+            lambda: repo.get_or_raise("w1"),
+            lambda: repo.update("missing", Widget(name="Hammer")),
+            lambda: repo.update_fields("missing", {"color": "red"}),
+        ):
+            with pytest.raises(NotFoundError) as exc:
+                call()
+            entities.add(self._entity_of(exc.value))
+
+        assert entities == {"gadget"}
+
+    def test_no_raiser_in_the_base_passes_the_collection_name(self):
+        """The absence guard: the drift is a *spelling* at the call site.
+
+        Three behavioural tests above cover today's three raisers; a fourth added
+        later would not be covered by them. This reads the source instead, so the
+        next ``NotFoundError(self._collection_name, …)`` is red the moment it is
+        written.
+        """
+        import ast
+        import inspect
+
+        from app.data_access.arango import base_repository
+
+        tree = ast.parse(inspect.getsource(base_repository))
+        offenders = [
+            ast.unparse(node)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "NotFoundError"
+            and node.args
+            and ast.unparse(node.args[0]) == "self._collection_name"
+        ]
+
+        assert offenders == [], (
+            "a NotFoundError in the base repository must name the entity "
+            f"(self._require_entity_name()), not the collection: {offenders}"
+        )
+
 # ── create / update / delete ─────────────────────────────────────────────────
 
 
