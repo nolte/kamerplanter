@@ -187,15 +187,19 @@ export default function PhotoUpload({
         // linked, and telling someone it is gone when it is not is the state this
         // whole change set out to end.
         //
-        // Known limitation. The route also answers 404 when the *task* is gone or
-        // foreign, and that 404 is indistinguishable here: `NotFoundError` and
-        // `AttachmentNotFoundError` both carry `ENTITY_NOT_FOUND` and differ only in
-        // their human-readable message, which is not something a client may parse.
-        // In that case nothing was deleted and the entry still de-stages, so the
-        // attachment orphans. The window is narrow — the task must vanish between
-        // page load and this click — and separating the two needs a change to the
-        // shared error contract rather than to this branch. Tracked as #1437.
-        if (err instanceof ApiError && err.statusCode === 404) {
+        // Which 404, though. The route resolves the task first, so it answers 404
+        // for the *task* being gone or foreign as well — and there nothing was
+        // deleted at all, so de-staging would drop the entry while the object stays
+        // stored and quota-counted, with the orphan sweep shipped disabled and no
+        // surface left that reaches it.
+        //
+        // Both cases carry `ENTITY_NOT_FOUND`; `details[0].entity` is what separates
+        // them (NFR-006 §2.2a, #1437). Only `attachment` de-stages. Anything else —
+        // `task`, or a 404 that names no entity at all, which is what an older
+        // backend or a proxy's own error page sends — keeps the photo and surfaces
+        // the error, the same conservative answer as any other failure.
+        const missing = err instanceof ApiError && err.statusCode === 404 ? err.details[0]?.entity : undefined;
+        if (missing === 'attachment') {
           onChange(photoRefs.filter((_, i) => i !== index));
         } else {
           handleError(err);
