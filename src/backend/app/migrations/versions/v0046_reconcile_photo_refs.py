@@ -52,12 +52,19 @@ classified ``canonical`` — a re-run reports ``changed=0``. **Dry-run (M-5):** 
 report is computed and nothing is written; that is the mode this migration was first
 run in against the dev cluster.
 
-**Irreversible (M-6), and safe anyway.** The prior spelling is not retained, so there
-is no honest inverse. What makes that acceptable is the narrowness of the write: the
-only value ever written is the ``_key`` of an attachment that *exists*, belongs to
-the same tenant, and is the *unique* attachment the reference denotes. Nothing is
-deleted, no document without a matching reference is touched, and the value replaced
-was — by construction of rule 1 — one that resolved to no document key.
+**Irreversible (M-6) — and the report is what stands in for the inverse.** The prior
+spelling is not retained *in the document*, so there is no automatic ``down()``. Two
+things make that acceptable. First, the narrowness of the write: the only value ever
+written is the ``_key`` of an attachment that *exists*, belongs to the same tenant,
+and is the *unique* attachment the reference denotes; nothing is deleted, no document
+without a matching reference is touched, and the value replaced was — by construction
+of rule 1 — one that named no live document. Second, every rewrite is itemised in
+``details["repaired"]`` as ``{collection, document, field, tenant_key, before,
+after}`` (counts exact in ``repaired_total``, the list capped at
+:data:`_REPORT_SAMPLE_LIMIT`), and the **dry-run fills that list identically**. So an
+operator can check the proposed rewrite position by position before it runs, and can
+reconstruct each one afterwards from the log — which is what an irreversible repair
+owes its reader, rather than the claim that it is safe.
 """
 
 from __future__ import annotations
@@ -97,7 +104,7 @@ REFERENCE_FIELDS: tuple[tuple[str, str], ...] = tuple(
 #: How many references are reduced to their stem in one AQL round trip.
 _STEM_BATCH = 1000
 
-#: How many ``ambiguous`` / ``unresolved`` rows the report carries verbatim.
+#: How many ``repaired`` / ``ambiguous`` / ``unresolved`` rows the report carries verbatim.
 #:
 #: The counts are always exact (``*_total``); only the itemised lists are capped, so a
 #: pathological installation cannot turn one report document into a memory problem.
@@ -311,7 +318,8 @@ class ReconcilePhotoRefsMigration(Migration):
 
         scanned = 0
         changed = 0
-        repaired = 0
+        repaired_total = 0
+        repaired: list[dict[str, Any]] = []
         ambiguous: list[dict[str, Any]] = []
         unresolved: list[dict[str, Any]] = []
         ambiguous_total = 0
@@ -360,8 +368,17 @@ class ReconcilePhotoRefsMigration(Migration):
                         # canonical keeps them exactly where the carrier wrote them.
                         rewritten.append(verdict.matches[0])
                         document_changed = True
-                        repaired += 1
+                        repaired_total += 1
                         stats["repaired"] += 1
+                        self._record_repair(
+                            repaired,
+                            collection,
+                            field,
+                            document,
+                            tenant_key,
+                            before=reference,
+                            after=verdict.matches[0],
+                        )
                         continue
 
                     rewritten.append(reference)
@@ -399,7 +416,7 @@ class ReconcilePhotoRefsMigration(Migration):
             "reconcile_photo_refs",
             scanned=scanned,
             changed=changed,
-            repaired=repaired,
+            repaired=repaired_total,
             ambiguous=ambiguous_total,
             unresolved=unresolved_total,
             dry_run=dry_run,
@@ -412,12 +429,46 @@ class ReconcilePhotoRefsMigration(Migration):
             dry_run=dry_run,
             details={
                 "repaired": repaired,
+                "repaired_total": repaired_total,
                 "ambiguous": ambiguous,
                 "ambiguous_total": ambiguous_total,
                 "unresolved": unresolved,
                 "unresolved_total": unresolved_total,
                 "per_collection": per_collection,
             },
+        )
+
+    @staticmethod
+    def _record_repair(
+        sink: list[dict[str, Any]],
+        collection: str,
+        field: str,
+        document: Mapping[str, Any],
+        tenant_key: str | None,
+        *,
+        before: str,
+        after: str,
+    ) -> None:
+        """Append one *rewrite* row, up to :data:`_REPORT_SAMPLE_LIMIT`.
+
+        The third list, and the one that matters most (B-3): this migration's write
+        is irreversible, so a report that only counts repairs lets an operator read a
+        dry-run for plausibility but never check it position by position — against a
+        migration that exists precisely because an earlier one rewrote references
+        onto the wrong thing. ``before``/``after`` name both ends, and the dry-run
+        fills the list identically, so what the operator approved is what runs.
+        """
+        if len(sink) >= _REPORT_SAMPLE_LIMIT:
+            return
+        sink.append(
+            {
+                "collection": collection,
+                "document": document.get("_key"),
+                "field": field,
+                "tenant_key": tenant_key,
+                "before": before,
+                "after": after,
+            }
         )
 
     @staticmethod

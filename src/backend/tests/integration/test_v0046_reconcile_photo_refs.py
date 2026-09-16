@@ -98,7 +98,7 @@ def test_the_ulid_stem_v0003_wrote_is_rewritten_onto_the_document_key(db) -> Non
     report = migration.up(db)
 
     assert db.collection(col.TASKS).get("task-1")["photo_refs"] == [key]
-    assert report.details["repaired"] == 1
+    assert report.details["repaired_total"] == 1
     assert report.changed == 1
 
 
@@ -113,6 +113,69 @@ def test_a_full_storage_key_reduces_through_the_same_expression(db) -> None:
     migration.up(db)
 
     assert db.collection(col.TASKS).get("task-1")["photo_refs"] == [key]
+
+
+def test_a_thumbnail_uri_is_not_repaired_onto_the_attachment_its_size_names(db) -> None:
+    """B-1 against a real server, where the numeric keys are ArangoDB's own.
+
+    ``_photo_response`` hands clients
+    ``/api/v1/t/{slug}/attachments/{id}/thumbnails/320``. Reduced by
+    ``aql_storage_key_stem`` that is ``"320"`` — and a document key of exactly that
+    shape is what ArangoDB assigns. The one here is set explicitly because the test
+    has to *have* the collision, not wait for it; ``test_the_two_identities_are_really_two``
+    is the control that real keys look like this.
+    """
+    from app.data_access.arango import collections as col
+    from app.migrations.versions.v0046_reconcile_photo_refs import migration
+
+    key = _insert_attachment(db, tenant=TENANT, ulid=ULID)
+    db.collection(col.ATTACHMENTS).insert(
+        {
+            "_key": "320",
+            "tenant_key": TENANT,
+            "category": "task",
+            "storage_key": f"t/{TENANT}/task/2026/01/{STRANGER_ULID}.jpg",
+        }
+    )
+    uri = f"/api/v1/t/{TENANT}/attachments/{key}/thumbnails/320"
+    db.collection(col.TASKS).insert({"_key": "task-1", "tenant_key": TENANT, "photo_refs": [uri]})
+
+    report = migration.up(db)
+
+    assert db.collection(col.TASKS).get("task-1")["photo_refs"] == [key]
+    assert report.details["repaired"] == [
+        {
+            "collection": col.TASKS,
+            "document": "task-1",
+            "field": "photo_refs",
+            "tenant_key": TENANT,
+            "before": uri,
+            "after": key,
+        }
+    ]
+
+
+def test_a_thumbnail_uri_naming_no_live_key_is_reported_not_guessed(db) -> None:
+    """The same URI without its attachment: report it, never fall back to the size."""
+    from app.data_access.arango import collections as col
+    from app.migrations.versions.v0046_reconcile_photo_refs import migration
+
+    db.collection(col.ATTACHMENTS).insert(
+        {
+            "_key": "320",
+            "tenant_key": TENANT,
+            "category": "task",
+            "storage_key": f"t/{TENANT}/task/2026/01/{ULID}.jpg",
+        }
+    )
+    uri = f"/api/v1/t/{TENANT}/attachments/9999999/thumbnails/320"
+    db.collection(col.TASKS).insert({"_key": "task-1", "tenant_key": TENANT, "photo_refs": [uri]})
+
+    report = migration.up(db)
+
+    assert db.collection(col.TASKS).get("task-1")["photo_refs"] == [uri]
+    assert report.changed == 0
+    assert report.details["unresolved_total"] == 1
 
 
 def test_an_unresolvable_entry_stays_verbatim(db) -> None:
@@ -140,7 +203,7 @@ def test_a_foreign_tenants_attachment_does_not_repair(db) -> None:
     report = migration.up(db)
 
     assert db.collection(col.TASKS).get("task-1")["photo_refs"] == [ULID]
-    assert report.details["repaired"] == 0
+    assert report.details["repaired_total"] == 0
 
 
 def test_dry_run_then_apply_then_re_run(db) -> None:
@@ -154,16 +217,16 @@ def test_dry_run_then_apply_then_re_run(db) -> None:
     )
 
     dry = migration.up(db, dry_run=True)
-    assert dry.details["repaired"] == 2
+    assert dry.details["repaired_total"] == 2
     assert db.collection(col.PLANT_INSTANCES).get("plant-1")["photo_refs"] == [ULID]
     assert db.collection(col.PLANT_INSTANCES).get("plant-1")["cover_photo_ref"] == ULID
 
     applied = migration.up(db)
-    assert applied.details["repaired"] == 2
+    assert applied.details["repaired_total"] == 2
     assert db.collection(col.PLANT_INSTANCES).get("plant-1")["photo_refs"] == [key]
     assert db.collection(col.PLANT_INSTANCES).get("plant-1")["cover_photo_ref"] == key
 
     again = migration.up(db)
     assert again.changed == 0
-    assert again.details["repaired"] == 0
+    assert again.details["repaired_total"] == 0
     assert again.details["unresolved"] == []
