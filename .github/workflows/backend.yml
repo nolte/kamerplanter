@@ -263,7 +263,7 @@ jobs:
         ports:
           - 8529:8529
         options: >-
-          --health-cmd "arangosh --server.endpoint tcp://127.0.0.1:8529 --server.password rootpassword --javascript.execute-string 'return db._version()'"
+          --health-cmd "arangosh --server.endpoint tcp://127.0.0.1:8529 --server.password rootpassword --javascript.execute-string 'db._version()'"
           --health-interval 10s
           --health-timeout 10s
           --health-retries 12
