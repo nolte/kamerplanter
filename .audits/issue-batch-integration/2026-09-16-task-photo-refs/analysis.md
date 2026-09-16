@@ -1,6 +1,6 @@
 # Gruppe `2026-09-16-task-photo-refs`
 
-Status: wartet auf Operator-Freigabe (Write-Gate nach `spec/project/issue-batch-integration/` §D)
+Status: freigegeben 2026-09-16 · Umsetzung startet nach Abschluss von Gruppe `write-route-guard`
 
 Gemessen gegen `origin/develop` @ `87c82ae25` (2026-09-16).
 
@@ -189,20 +189,16 @@ Spalten wie in Gruppe `write-route-guard` aus dem Repository abgeleitet.
 - Das Messen des tatsächlichen Schadens auf **Produktion** ist ein Betreiberlauf der
   Migration im `dry_run`, kein Teil dieses PR-Strangs.
 
-## Offene Fragen an den Operator
+## Operator-Entscheidungen (2026-09-16, vor der Umsetzung)
 
-1. **Wie werden Task-404 und Attachment-404 unterscheidbar?**
-   (a) *Additiv im Envelope:* `NotFoundError` trägt `details[0].entity = "attachment"`
-   bzw. `"Task"` strukturiert; `error_code` bleibt `ENTITY_NOT_FOUND`. Kein Client
-   bricht, der Client liest ein neues Feld.
-   (b) *Eigener Code:* `AttachmentNotFoundError` bekommt `error_code="ATTACHMENT_NOT_FOUND"`.
-   Klarer, aber jeder Client, der heute auf `ENTITY_NOT_FOUND` matcht, sieht Attachments
-   nicht mehr als „nicht gefunden".
-2. **Darf die Reconcile-Migration nicht auflösbare Einträge entfernen?** Empfehlung:
-   **nein** — melden, nicht löschen. Ein Eintrag, der heute zu nichts auflöst, kann
-   morgen zu etwas auflösen (Storage-Restore), und die Galerie zeigt ein kaputtes Bild,
-   nicht einen Datenverlust. Wer löschen will, tut es mit dem Orphan-Sweep und dessen
-   eigener Freigabe.
-3. **Soll Scheibe 2 vor dem Scharfschalten gegen den kind-Cluster im `dry_run` laufen**
-   und der Report ins Artefakt? Empfehlung: ja; ohne diese Zahl ist „repariert, was
-   v0003 zerstört hat" eine Behauptung.
+1. **404-Signal: additiv.** `NotFoundError` trägt den Entitätsnamen strukturiert in
+   `details[0].entity`; `error_code` bleibt `ENTITY_NOT_FOUND`. Kein Client bricht;
+   `PhotoUpload` de-staged nur bei `entity == "attachment"`.
+2. **Nicht auflösbare Einträge: melden, nie löschen.** Dieselbe Regel wie
+   `test_never_drops_values`. Löschen bleibt dem Orphan-Sweep mit eigener Freigabe.
+3. **Dry-Run gegen kind vor dem Scharfschalten: ja.** Der Report der Reconcile-Migration
+   wird unter „Ergebnisse je Scheibe" festgehalten, bevor Scheibe 2 als abgeschlossen gilt.
+
+## Ergebnisse je Scheibe
+
+*(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
