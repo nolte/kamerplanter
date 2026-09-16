@@ -163,6 +163,25 @@ tasks:
     cmds:
       - uv lock --check
 
+  deps:verify:
+    desc: |
+      Falsify the hash claim the lock gates make — the second half of what CI
+      runs (backend.yml "Falsify the hash claim this job just made" invokes this
+      task). `task deps:check` and `task deps:sync` can only tell you that THIS
+      lock passes; neither can tell you the verification works at all, and a
+      `uv sync` that stopped checking hashes would keep exiting 0 forever. This
+      runs the permanent falsifier: it tampers with a COPY of the lock, requires
+      `uv sync --locked` to refuse it, and pins down as a measured fact that
+      `uv lock --check` alone does NOT notice the same tamper.
+
+      The Taskfile is the only copy of the invocation, so the lane and the local
+      command cannot disagree — the same reason `deps:check` moved here. Set
+      CI=true to make a skip (no matching uv on PATH) a hard failure instead of
+      a green run that measured nothing.
+    dir: src/backend
+    cmds:
+      - uv run --locked --extra dev python -m pytest tests/unit/guards/test_lock_hash_verification.py -q {{.CLI_ARGS}}
+
   deps:sync:
     desc: |
       Create or update src/backend/.venv from the lock, dev extra included —

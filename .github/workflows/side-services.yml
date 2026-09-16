@@ -36,6 +36,15 @@ on:
       - 'src/inference-service/**'
       - 'src/libs/kp_vectordb/**'
       - '.github/workflows/side-services.yml'
+      # The Taskfile now holds the install and test invocations this workflow
+      # runs (`task deps:sync:<service>`, `task test:<service>`), the same shape
+      # backend.yml records for `.taskfiles/backend.yaml`. Without these entries
+      # a pull request that changes `uv sync --locked --extra dev` into
+      # something weaker, or that rewires the include, triggers no job here at
+      # all — the gate's own definition would be the one input the gate does not
+      # watch.
+      - '.taskfiles/libs.yaml'
+      - 'Taskfile.yaml'
   pull_request:
     branches: [develop]
     paths:
@@ -43,6 +52,15 @@ on:
       - 'src/inference-service/**'
       - 'src/libs/kp_vectordb/**'
       - '.github/workflows/side-services.yml'
+      # The Taskfile now holds the install and test invocations this workflow
+      # runs (`task deps:sync:<service>`, `task test:<service>`), the same shape
+      # backend.yml records for `.taskfiles/backend.yaml`. Without these entries
+      # a pull request that changes `uv sync --locked --extra dev` into
+      # something weaker, or that rewires the include, triggers no job here at
+      # all — the gate's own definition would be the one input the gate does not
+      # watch.
+      - '.taskfiles/libs.yaml'
+      - 'Taskfile.yaml'
 
 # Least privilege: these jobs only read the checkout. No packages, no PRs, no
 # checks are written (github-actions-best-practices).
@@ -100,9 +118,12 @@ jobs:
         # working tree. httpx is a runtime dependency here, so the TestClient tier
         # works out of the box. The environment goes on PATH because the Taskfile
         # target below calls a bare `python -m pytest`.
+        # Through the Taskfile, so this lane and `task deps:sync:knowledge-service`
+        # are one invocation rather than two that can drift. Only the PATH export
+        # stays here — it is a runner fact, not part of the install.
         working-directory: src/knowledge-service
         run: |
-          uv sync --locked --extra dev
+          task deps:sync:knowledge-service
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run knowledge-service suite
@@ -150,9 +171,12 @@ jobs:
         # an httpx transport; it is not a runtime dep of the service itself). The
         # environment goes on PATH because the Taskfile target below calls a bare
         # `python -m pytest`.
+        # Through the Taskfile, so this lane and `task deps:sync:inference-service`
+        # are one invocation rather than two that can drift. Only the PATH export
+        # stays here — it is a runner fact, not part of the install.
         working-directory: src/inference-service
         run: |
-          uv sync --locked --extra dev
+          task deps:sync:inference-service
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run inference-service suite
@@ -186,6 +210,14 @@ jobs:
         # from. Switching this job would mean introducing a fifth lock, which is a
         # decision about the library's release shape rather than a CI change, so
         # it is recorded here instead of made in passing (follow-up to #1383).
+        #
+        # THE CHANGE THIS INTERIM IS WAITING FOR IS **#1464** — "lockless libs +
+        # tests/e2e behind `:ignoreModulesAndTests`". Until it is decided, this
+        # install is not hash-verified and `src/libs/kp_errortracking` /
+        # `src/libs/kp_vectordb` stay on the allowance list in
+        # scripts/ci/check_renovate_dashboard.py (LOCKLESS_PYTHON_PROJECTS). An
+        # interim that names no issue is how a workaround becomes the design
+        # (CI spec §H), so it names one.
         working-directory: src/libs/kp_vectordb
         run: |
           python -m pip install --upgrade pip

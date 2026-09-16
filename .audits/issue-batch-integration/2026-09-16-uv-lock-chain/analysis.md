@@ -853,3 +853,189 @@ Konfiguration vor dem Merge beweisen" samt der gemessenen Inventur-Tabelle und
 der Begründung für die Mount-Maskierung; die Health-Lane-Beschreibung ist auf
 die korrigierte Regel nachgezogen (inklusive der Admonition, warum sie **nicht**
 „`poetry` darf nicht auftauchen" lautet).
+
+## Review-Nacharbeit (2026-09-17)
+
+Ein read-only CI/CD-Review am Diff lieferte acht Suggestions, keine blockierend.
+Alle acht umgesetzt. Rot-zuerst überall dort, wo eine Behauptung von einem Test
+getragen wird; Sicherung der Originale per `cp` in ein Scratchpad, nie per
+`git stash` (die Falle, die sonst die Reparatur aus dem Commit unstaged).
+
+Umgebung der Messungen: Worktree `uv-lock-chain`, `src/backend/.venv`,
+uv 0.12.15 auf dem PATH, `CI=true` (sonst *überspringt* der Hash-Falsifizierer
+und die Läufe unten hätten weniger gemessen, als sie behaupten).
+
+### S-1 — Berechtigungen auf Job-Ebene
+
+`renovate-health.yml`: Workflow-Ebene nur noch `contents: read`, `issues: write`
+unter `jobs.check-dashboard.permissions` (Hausmuster `release-lag.yml`). Kein
+Test trägt die Aussage; die Gegenprobe ist der geparste Baum:
+
+```
+{'contents': 'read'}   {'contents': 'read', 'issues': 'write'}
+```
+
+### S-2 — Der Dashboard-Body geht als DATEI, nicht als Env-String
+
+`RENOVATE_DASHBOARD_BODY="$(cat …)"` legte den ~900-Zeilen-Body in **eine**
+Zeichenkette. `MAX_ARG_STRLEN` deckelt ein einzelnes Argument unter Linux bei
+128 KiB; der Body ist heute ~30 KiB und wächst mit jeder Paketdatei, die
+Renovate dazulernt. Die Lane wäre also an einem Tag mit `E2BIG` rot geworden, an
+dem sich hier nichts geändert hat — in genau der Lane, deren Zweck es ist,
+Stille zu bemerken.
+
+`scripts/ci/check_renovate_dashboard.py` bekommt `--body-file <pfad>` (argparse);
+Reihenfolge der Auflösung: `body=`-Injektion (Tests) → `--body-file` (CI) →
+`$RENOVATE_DASHBOARD_BODY` (lokaler Ad-hoc-Fallback). Eine unlesbare Body-Datei
+wirft `DashboardError` und schreibt **keinen** Report — sonst öffnete die Lane
+ein Alert-Issue aus einem fehlgeschlagenen Download.
+
+Vier neue Tests in `test_renovate_dashboard_parser.py`
+(`TestTheBodyArrivesThroughAFile`), darunter einer, der den Body über die
+Env-Decke hinaus auf >128 KiB auffüllt, und einer, der nachliest, dass die
+**Lane** das Skript wirklich so aufruft (sonst zertifizierten die anderen drei
+eine Tür, durch die niemand geht).
+
+Rot zuerst, gegen die `cp`-Kopie von Skript **und** Workflow:
+
+```
+4 failed, 34 deselected
+  test_body_file_is_read_and_the_report_is_written          AssertionError: assert 2 == 0
+  test_a_body_far_past_the_env_ceiling_still_goes_through   AssertionError: assert 2 == 0
+  test_an_unreadable_body_file_is_undetermined…             Failed: DID NOT RAISE DashboardError
+  test_the_workflow_really_invokes_the_script_that_way      '--body-file dashboard-body.md' not in …
+```
+
+Grün nach dem Zurückkopieren: `38 passed`.
+
+### S-3 — `dashboard_issue` wird validiert, bevor `gh api` es sieht
+
+Freitext-`workflow_dispatch`-Input, der als Pfadsegment in eine API-URL geht.
+Jetzt `[[ "$DASHBOARD_ISSUE" =~ ^[0-9]+$ ]]` mit `::error::` und `exit 1` davor.
+Trägt kein Test; `actionlint` inkl. shellcheck läuft grün darüber.
+
+### S-4 — Drei Kleinigkeiten am selben Workflow
+
+* `if: always() && hashFiles(…)` → `if: ${{ !cancelled() && hashFiles(…) }}`.
+  `always()` hätte den Issue-Schritt auch durch einen Abbruch hindurch laufen
+  lassen — genau das halb-aktualisierte Issue, gegen das der `concurrency`-Block
+  drei Zeilen weiter oben argumentiert.
+* `env: GITHUB_WORKSPACE: ${{ github.workspace }}` entfernt. Das ist eine
+  Default-Variable jedes Runners; die Neusetzung war eine zweite Stelle, die von
+  der ersten wegdriften kann.
+* Kommentar „The listForRepo lookup **above**" → „**BELOW**" — der Lookup steht
+  unter dem Kommentar.
+
+### S-5 — Die Begründung in `renovate.json5` behauptete mehr, als gemessen ist
+
+Alter Text: „Renovate bumping the action alone would silently install a
+different uv release". Das ist **falsch**: mit
+`version-file: src/backend/pyproject.toml` bestimmt allein
+`[tool.uv].required-version`, welches uv installiert wird; ein Action-Bump
+bewegt den Resolver nicht. Neu formuliert auf das, was zutrifft — beide Hälften
+werden *gemeinsam gelesen*, weil die Action der Code ist, der den Pin liest,
+cached und installiert, und der Pin das ist, was sie installiert. Wer eine
+Hälfte isoliert reviewt, sieht die Hälfte des Mechanismus, der fünf Lock-Dateien
+erzeugt.
+
+`renovate-config-validator` (renovate 41): `INFO: Config validated successfully`.
+
+### S-6 — Der Pin-Guard prüfte nur „nicht leer"
+
+Gemessene Lücke zuerst: `required-version` in `src/backend/pyproject.toml` auf
+`>=0.12.15` gesetzt (Original per `cp` gesichert) →
+
+```
+10 passed in 3.60s
+```
+
+Der Guard bleibt grün, während **drei** Leser still degradieren und keiner davon
+von selbst rot wird:
+
+1. der customManager `uv toolchain` in `renovate.json5` matcht
+   `required-version = "==(?<currentValue>…)"` und **hört auf, den Pin zu
+   tracken**;
+2. die `install-command` der Coverage-Lane in `backend.yml` hängt den Specifier
+   an den Paketnamen — aus einem Floor wird „das neueste uv des Tages";
+3. `_required_uv_version()` im Hash-Falsifizierer gibt `None` zurück, also prüft
+   der Falsifizierer nicht mehr, ob das uv auf dem PATH das gelockte ist.
+
+Jetzt: `assert pin.startswith("==")` in `test_uv_pin_is_single.py` (pro
+`version-file`, also über alle fünf Bäume) und als eigene Klasse
+`TestTheRequiredVersionIsStillAnExactPin` in `test_lock_hash_verification.py`.
+Beide Meldungen nennen die drei Stellen namentlich. Rot mit dem gelockerten Pin:
+
+```
+2 failed, 9 passed
+  test_every_setup_uv_step_is_digest_pinned_and_reads_a_real_version_file
+  test_required_version_is_an_exact_equality_specifier
+```
+
+Grün nach `cp`-Restore des Originals: `11 passed`.
+
+Dazu die dritte Stelle am Ort des Gebrauchs: `backend.yml`s Coverage-Lane
+verweigert den Dienst statt das falsche uv zu installieren.
+
+```
+case "$UV_SPEC" in "=="*) ;; *) echo "::error::… not an exact == pin …" >&2; exit 1;; esac
+```
+
+Beide Zweige gemessen (`bash -n` plus Ausführung): `>=0.12.15` → „refused as
+expected", `==0.12.15` → „accepted as expected".
+
+### S-7 — `side-services.yml` in die „muss gelesen worden sein"-Liste
+
+`test_the_sweep_sees_the_workflows_that_install_uv` kannte vier Dateien.
+`side-services.yml` trägt seit #1374/#1383 **zwei** eigene `setup-uv`-Schritte;
+ein Sweep, der sie nie geöffnet hätte, verlöre ein Drittel der uv-Installationen
+und sähe dabei vollständig aus. Jetzt fünf Einträge.
+
+### S-8 — Task-Ziele statt Inline-Befehlen (umgesetzt)
+
+Kostenabschätzung vor der Umsetzung war „~30 Zeilen"; gemessen sind es **43
+hinzugefügte Zeilen in den beiden Taskfiles** (19 in `backend.yaml`, 24 in
+`libs.yaml`), davon der Löwenanteil `desc:`-Blöcke im Hausstil. Damit innerhalb
+der Größenordnung, also umgesetzt statt gelassen:
+
+* `deps:verify` (`.taskfiles/backend.yaml`) — der Hash-Falsifizierer.
+  `backend.yml:318` ruft jetzt `task deps:verify`, wie die Zeile darüber schon
+  `task deps:check` ruft. Lokal gemessen: `CI=true task deps:verify` → `7 passed`.
+* `deps:sync:knowledge-service` / `deps:sync:inference-service`
+  (`.taskfiles/libs.yaml`) — `side-services.yml` ruft sie statt inline
+  `uv sync --locked --extra dev`. Nur der `$GITHUB_PATH`-Export bleibt im
+  Workflow, weil er eine Runner-Tatsache ist und nicht Teil der Installation.
+  Beide Ziele ausgeführt; `src/{knowledge,inference}-service/.venv` entstehen und
+  importieren (`fastapi`, `onnxruntime`).
+
+**Befund beim Verdrahten, nicht gesucht:** `side-services.yml` filterte auf
+`paths:` **ohne** `.taskfiles/libs.yaml`. Mit der Delegation wäre die Definition
+des Gates der eine Input gewesen, den das Gate nicht beobachtet — dieselbe
+Klasse, die `backend.yml` für `.taskfiles/backend.yaml` schon ausbuchstabiert.
+`.taskfiles/libs.yaml` und `Taskfile.yaml` in beide `paths:`-Listen ergänzt.
+
+### #1464 in die Interimslösungen eingetragen
+
+Die zwei vorbestehenden Warnungen sind als #1463 (inference-service Build-Job)
+und #1464 (lockless libs + `tests/e2e` hinter `:ignoreModulesAndTests`) angelegt.
+#1464 steht jetzt dort, wo auf es gewartet wird — im pip-Install-Kommentar in
+`side-services.yml` und über `LOCKLESS_PYTHON_PROJECTS` in
+`scripts/ci/check_renovate_dashboard.py`. Eine Interimslösung, die keine
+Änderung benennt, auf die sie wartet, wird per Default zur Bauart (CI-Spec §H).
+
+### Gates nach der Nacharbeit
+
+| Gate | Ergebnis |
+|---|---|
+| `CI=true .venv/bin/python -m pytest tests/unit/guards -q` | **85 passed** (vorher 80) |
+| `pre-commit run actionlint-docker --all-files` | Passed |
+| `pre-commit run workflow-gate-integrity --all-files` | Passed |
+| `task lint:backend` (ruff check) | All checks passed |
+| `task format:backend` (ruff format --check) | 1722 files already formatted |
+| `renovate-config-validator renovate.json5` | Config validated successfully |
+| `task precommit` | 45 Hooks Passed, 3 Failed |
+
+Die drei roten Hooks sind umgebungsbedingt und berühren keine Datei dieser
+Nacharbeit: `ESLint (frontend)` und `TypeScript check (frontend)` melden
+`src/frontend/node_modules is missing`, `Nuclei template validate` meldet
+`nuclei is not on PATH`. Alle drei verweigern ausdrücklich den Dienst, statt
+grün zu melden (#814) — das ist ihr korrektes Verhalten, nicht ihr Defekt.
