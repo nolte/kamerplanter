@@ -39,13 +39,16 @@ per-user stamping is the third statement's subject and not the write under test.
 
 from __future__ import annotations
 
+import re
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api.v1.notifications.tenant_router import _CARE_CONFIRM_ACTIONS
 from app.api.v1.notifications.tenant_router import router as notifications_router
 from app.common import auth as auth_mod
 from app.common.dependencies import get_care_reminder_service, get_notification_service
@@ -313,3 +316,42 @@ def test_the_rank_the_route_demands_is_the_one_the_direct_route_demands(role: Te
 
     expected = 200 if MembershipEngine.can_edit_resource(role) else 403
     assert response.status_code == expected, response.text
+
+
+def _repo_root() -> Path:
+    """The checkout root, found by walking up to the directory that holds `src/frontend`.
+
+    Not `parents[N]`: a hard-coded depth is what turned a module import into a
+    container CrashLoop once already, and it breaks the moment this file moves.
+    """
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / "src" / "frontend").is_dir():
+            return candidate
+    raise AssertionError("no checkout root above this test holds src/frontend")
+
+
+def test_the_frontend_mirrors_the_same_confirm_action_ids() -> None:
+    """The UI hides the button for exactly the actions this handler refuses (#1441).
+
+    `src/frontend/src/utils/careConfirmActions.ts` carries the list a second time —
+    TypeScript cannot import the Python set — so the copy is read and compared here
+    rather than trusted. A new confirming action added on one side only would leave
+    a viewer either offered a button that can only answer 403, or refused one the
+    backend would have allowed.
+
+    The parse is asserted non-empty first: a regex that stopped matching (a
+    reformat, a rename) would otherwise compare two empty sets and pass while
+    measuring nothing.
+    """
+    source = (_repo_root() / "src/frontend/src/utils/careConfirmActions.ts").read_text(encoding="utf-8")
+
+    match = re.search(r"CARE_CONFIRM_ACTION_IDS\s*=\s*\[(?P<items>[^\]]*)\]", source)
+    assert match is not None, "CARE_CONFIRM_ACTION_IDS is no longer an array literal this test can read"
+    frontend_ids = set(re.findall(r"'([^']+)'", match.group("items")))
+
+    assert frontend_ids, "the array literal parsed empty — the parse, not the frontend, is what broke"
+    assert frontend_ids == set(_CARE_CONFIRM_ACTIONS), (
+        "the frontend's confirm-action ids and the handler's _CARE_CONFIRM_ACTIONS drifted apart:\n"
+        f"  only in frontend: {sorted(frontend_ids - set(_CARE_CONFIRM_ACTIONS))}\n"
+        f"  only in backend:  {sorted(set(_CARE_CONFIRM_ACTIONS) - frontend_ids)}"
+    )
