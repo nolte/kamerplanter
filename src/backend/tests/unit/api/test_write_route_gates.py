@@ -140,12 +140,22 @@ _TENANT_ALLOWLIST: dict[str, str] = {
     "favorites.tenant_router.add_favorite": "per-user favourite",
     "favorites.tenant_router.remove_favorite": "per-user favourite",
     "notifications.tenant_router.mark_read": "per-user notification state",
+    # This entry used to read "that branch is gated inline on the domain role".
+    # It was prose, nothing held it against the code, and it was never true (#1441):
+    # the whole module carried no `require_*` at all, so a viewer confirmed a care
+    # reminder with one tap and produced the two writes the direct route refuses
+    # them. The reason now names the call site and the test that reads it, because a
+    # reason nobody can check is worse than no entry — it is what kept this sweep
+    # walking past the route.
     "notifications.tenant_router.mark_acted": (
         "per-user notification state — and, for a care.* notification with a confirm "
-        "action, a CareConfirmation and a WateringLog. That branch is gated inline on "
-        "the domain role, because the notification is addressed to this user while the "
-        "write it triggers is the one require_permission('watering-log', CREATE) gates "
-        "on the direct route"
+        "action, a CareConfirmation and a WateringLog. That one branch is rank-gated "
+        "inside the handler at app/api/v1/notifications/tenant_router.py::mark_acted, "
+        "on MembershipEngine.can_edit_resource — the same authority "
+        "require_permission('watering-log', CREATE) resolves through on the direct "
+        "route. tests/api/test_notification_act_role_gate.py asserts both directions "
+        "against recording repositories, so this sentence is checked and not merely "
+        "written down"
     ),
     "notifications.tenant_router.update_preferences": "per-user notification preferences",
     "notifications.tenant_router.subscribe_pwa": "per-user push subscription",

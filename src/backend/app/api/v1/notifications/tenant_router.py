@@ -26,10 +26,11 @@ from app.api.v1.notifications.schemas import (
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_care_reminder_service, get_notification_service
 from app.common.enums import ReminderType
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import ForbiddenError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.models.notification import NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.care_reminder_service import CareReminderService
@@ -155,6 +156,19 @@ def mark_acted(
     marks the notification acted+read — in a single step. Ownership is verified
     fail-closed first; a foreign/missing notification yields 404 without disclosing
     which. Non-care notifications simply stamp acted+read.
+
+    **The confirming branch is rank-gated, the rest of the route is not** (#1441).
+    Stamping read/acted is per-user state that belongs to the addressee whatever
+    their rank, so gating the whole route would take a viewer's own inbox away from
+    them. But the confirmation this branch performs persists a ``CareConfirmation``
+    and a ``WateringLog`` — precisely the write ``require_permission('watering-log',
+    CREATE)`` refuses a viewer on the direct route — so the branch carries the same
+    rank condition, resolved through the same authority
+    (:meth:`MembershipEngine.can_edit_resource`) rather than a second role list that
+    could drift from it. An under-privileged caller is refused explicitly with 403
+    and nothing is stamped: silently skipping the confirmation while dropping the
+    reminder out of the unread badge would leave the plant unwatered and say so
+    nowhere.
     """
     notif = service.get_notification(notification_key, ctx.tenant_key, user_key=ctx.user_key)
     if notif is None:
@@ -162,6 +176,8 @@ def mark_acted(
 
     # §4.2 — confirm the source care reminder for an actionable care notification.
     if notif.notification_type.startswith("care.") and action_id in _CARE_CONFIRM_ACTIONS:
+        if not MembershipEngine.can_edit_resource(ctx.role):
+            raise ForbiddenError(f"Your role '{ctx.role.value}' may not confirm a care reminder in this tenant.")
         plant_key = notif.data.get("plant_key")
         raw_reminder_type = notif.data.get("reminder_type")
         if plant_key and raw_reminder_type:
