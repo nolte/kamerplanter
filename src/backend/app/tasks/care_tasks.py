@@ -204,7 +204,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
             # DuplicateError (#1301). It also routes through ``create_task``, so
             # this producer finally writes the ``has_task`` edge the service paths
             # have always written — it was the one care-task producer that did not.
-            if create_care_reminder_task(task_repo, task) is None:
+            if create_care_reminder_task(task_repo, task, reminder_type=rt) is None:
                 skipped_count += 1
                 continue
             created_count += 1

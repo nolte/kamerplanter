@@ -99,7 +99,9 @@ class QuarterClimateService:
         # (#1301) — the same "an equivalent open task already exists" outcome as
         # the ``find_open_care_task`` guard above, reported as ``task_created`` so
         # the log does not claim a task this run did not write.
-        created = create_care_reminder_task(self._task_repo, task)
+        created = create_care_reminder_task(
+            self._task_repo, task, reminder_type=ReminderType.QUARTER_CLIMATE_CHECK
+        )
         logger.info(
             "quarter_climate_violation",
             plant_key=plant_key,
