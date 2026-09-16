@@ -16,7 +16,7 @@ import pytest
 from arango.exceptions import DocumentInsertError
 from pydantic import BaseModel, Field
 
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango.base_repository import BaseArangoRepository
 
 
@@ -692,6 +692,61 @@ class TestUniqueConflictExtraction:
 
         with pytest.raises(DocumentInsertError):
             repo.create(Widget(name="Hammer"))
+
+
+# ── write-write conflict → WriteConflictError (issue #1436) ──────────────────
+
+
+def _conflict_error() -> DocumentInsertError:
+    """Build a bare ``DocumentInsertError`` carrying ArangoDB's 1200 (``CONFLICT``).
+
+    Message copied from the failure measured in issue #1436, so the test is
+    anchored to the real wire shape: a *write-write conflict* reported against a
+    unique index — which is emphatically not the same server answer as 1210.
+    """
+    err = DocumentInsertError.__new__(DocumentInsertError)
+    err.error_code = 1200
+    err.error_message = (
+        "write-write conflict - in index care_dedup_open_unique of type persistent "
+        "over 'care_dedup_key'; document key: 800067; "
+        'indexed values: ["tenant-alpha/plant-basil-1/watering"]'
+    )
+    return err
+
+
+class TestWriteConflictMapping:
+    """1200 must reach the domain as its own type, not as a raw driver error.
+
+    Before #1436 ``_insert_doc`` mapped **only** 1210, so a concurrent insert that
+    lost on a unique index was handed to the service layer as a bare
+    ``DocumentInsertError`` — a 500 for what is, at worst, a retryable condition.
+    """
+
+    def test_insert_maps_write_conflict_to_domain_error(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.insert.side_effect = _conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.create(Widget(name="Hammer"))
+
+        assert exc.value.error_code == "WRITE_CONFLICT"
+        assert exc.value.status_code == 409
+        assert "widgets" in exc.value.message
+
+    def test_write_conflict_is_not_a_duplicate_error(self, mock_db):
+        """The two codes must stay distinguishable at the type level.
+
+        Collapsing 1200 into ``DuplicateError`` would let every existing
+        ``except DuplicateError`` swallow a timing failure as "it already
+        exists" — a claim 1200 does not support.
+        """
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.insert.side_effect = _conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.create(Widget(name="Hammer"))
+
+        assert not isinstance(exc.value, DuplicateError)
 
 
 # ── delete_edges (DUP-B10) ───────────────────────────────────────────────────
