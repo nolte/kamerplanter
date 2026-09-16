@@ -212,4 +212,106 @@ abgeleitet.
 
 ## Ergebnisse je Scheibe
 
-*(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
+### Scheibe 1 — #1374 (Sub-Branch `chore/1374-side-service-locks`, 2026-09-16)
+
+**Ergebnis: alle vier Images bauen. Keine Herauslösung nötig.** Insbesondere löst uv
+sowohl `optimum[onnxruntime]` (reranker) als auch `torch`/`onnxscript` (inference) auf
+Python 3.14 auf; das Risiko „ONNX/Optimum unter uv" hat sich nicht materialisiert.
+
+#### Image-Builds (lokal, Kontext und Dockerfile-Pfad aus `docker-lint-build.yml`)
+
+| Image | Kommando | Exit | Größe vorher | Größe nachher |
+|---|---|---|---|---|
+| knowledge-service | `docker build -f src/knowledge-service/Dockerfile src/knowledge-service` | **0** | 198 MB | 243 MB |
+| knowledge-service (`--target dev`) | dito `--target dev` | **0** | — | 243 MB |
+| inference-service | `docker build -f src/inference-service/Dockerfile src/inference-service` | **0** | 520 MB | 565 MB |
+| inference-service (`--target dev`) | dito `--target dev` | **0** | — | 565 MB |
+| embedding-service | `docker build -f docker/embedding-service/Dockerfile docker/embedding-service` | **0** | 927 MB | 972 MB |
+| reranker-service | `docker build -f docker/reranker-service/Dockerfile docker/reranker-service --target bge-reranker-v2-m3` | **0** | nicht gemessen | 2660 MB |
+
+Die „vorher"-Werte stammen aus einem Build des `HEAD`-Standes derselben Bäume
+(`git archive HEAD <service> | tar -x` in ein Scratch-Verzeichnis). Für den Reranker
+wurde darauf verzichtet: seine Download-Stufe zieht über `optimum` die CUDA-Wheels
+(mehrere GB) ein zweites Mal, und der Wert ist aus den anderen dreien ableitbar.
+
+**Gemessener Mehraufwand: +45 MB je Runtime-Image, in allen drei Messungen derselbe
+Wert.** Er ist kein Abhängigkeitszuwachs, sondern das Backend-Muster: die statische
+`uv`-Binary (`COPY --from=ghcr.io/astral-sh/uv:…`) liegt in der Runtime-Stufe und
+`UV_COMPILE_BYTECODE=1` legt `.pyc` neben jede Datei. `src/backend/Dockerfile` trägt
+denselben Aufschlag; die Vorgabe war, exakt diesem Muster zu folgen, statt eine zweite
+Form zu erfinden. Wer die 45 MB wegoptimieren will (uv nur in einer Builder-Stufe, venv
+per `COPY --from`), muss das für alle fünf Images gemeinsam entscheiden — sonst entsteht
+genau die Divergenz, die dieses Mitglied schließt.
+
+`hadolint` (lokal, dieselbe Version wie die Lane): alle vier Dockerfiles Exit 0.
+
+#### Hash-Nachweis je Lock
+
+`uv lock --check` in jedem Verzeichnis Exit 0; Zahl der Artefakt-URLs gleich der Zahl
+der `hash = "sha256:…"`-Einträge, d. h. **kein Artefakt ohne Hash**:
+
+| Lock | Pakete | URLs | Hashes |
+|---|---|---|---|
+| `src/inference-service/uv.lock` | 115 | 1094 | 1094 |
+| `src/knowledge-service/uv.lock` | 44 | 438 | 438 |
+| `docker/embedding-service/uv.lock` | 45 | 446 | 446 |
+| `docker/reranker-service/uv.lock` | 70 | 639 | 639 |
+
+Auch die `torch`-Wheels vom expliziten CPU-Index (`download.pytorch.org/whl/cpu`, per
+`[tool.uv.sources]` nur für `torch`/`torchvision`) tragen Hashes; der Build-Log zeigt
+`+ torch==2.14.0+cpu` aus dem Lock.
+
+#### `grep -rn requirements.txt` — was übrig bleibt und warum
+
+Alle vier Side-Service-Dateien sind gelöscht; **keine** Fundstelle zeigt mehr auf eine
+von ihnen (`grep -rn "\(inference\|knowledge\|embedding\|reranker\)-service/requirements"`
+ist leer). Die verbleibenden Treffer gehören zu anderen Bäumen und bleiben bewusst:
+
+- `docs/requirements.txt` + `.taskfiles/docs.yaml`, `release-cd-deliver-docs.yml`,
+  `.claude/…` — die MkDocs-Umgebung, ein eigener Baum, nicht Teil dieser Migration.
+- `tests/e2e/requirements.txt` (+ `tests/e2e/Dockerfile`, `tests/e2e_selftest/README.md`,
+  `.pre-commit-config.yaml`, `docs/*/development/testing/index.md`) — die E2E-Suite,
+  ebenfalls ein eigener Baum; #1374 nennt sie nicht.
+- `tools/rag-eval/README.md` — Anleitung eines Tool-Verzeichnisses ohne eigenes Image.
+- `backend.yml:281-291` — `uv export --format requirements.txt` in eine **temporäre**
+  Datei für `pip-audit`; das ist eine Ausgabe des Locks, kein Install-Eingang.
+- `spec/analysis/*`, `project/requirements/*`, `.audits/*` — historische Analysen, die
+  den alten Zustand beschreiben; sie werden nicht rückwirkend umgeschrieben.
+
+#### Weitere Messungen und Abweichungen
+
+1. **Die in der Vollständigkeitsmatrix erwartete „Ausnahmeliste" in NFR-009 §2.3
+   existierte nicht.** §2.3 listete nur `Python (Backend, inkl. Dev-Extra)`; die vier
+   Side-Services waren nirgends als Ausnahme benannt — genau der §E-Befund („Ausnahme
+   ohne Ausnahmeliste"). Statt eine Liste zu leeren, wurde die Tabellenzeile um die
+   Side-Services ergänzt und ein MUSS aufgenommen, das ausdrücklich sagt, dass es
+   **keine** Ausnahme gibt, samt der bisherigen Lücke.
+2. **`sentry-sdk[fastapi]` war in `requirements.txt` beider `src/`-Services deklariert,
+   in ihrer `pyproject.toml` aber nicht.** Der `poetry`-Manager las also eine
+   Dependency-Menge, die kein Image installierte, und das Image installierte eine, die
+   Renovate nicht sah. Mit dem Lock aus der `pyproject.toml` wäre das Paket aus beiden
+   Images verschwunden; es ist jetzt in `[project].dependencies` deklariert.
+3. **Kein Doku-Treffer.** Keine Seite unter `docs/` nennt die Side-Service-Abhängigkeiten
+   oder ihre `requirements.txt`; die uv-Beschreibungen in `docs/*/deployment/ci-cd.md`
+   sprechen ausschließlich vom Backend. Doku-Spalte der Matrix: *nicht zutreffend*
+   (gemessen, nicht angenommen).
+4. **`renovate.json5`: die `poetry`-Regel fällt nicht weg, sie wird entgrenzt.**
+   `matchFileNames: ['src/backend/**']` entfernt → `poetry` ist repository-weit
+   deaktiviert. Eine pfad-gebundene Abschaltung ist genau das, was die Side-Services
+   monatelang unter einem zweiten Manager ohne Lock ließ. Zusätzlich musste der
+   **Custom-Manager für `required-version`** (`renovate.json5`, `managerFilePatterns`)
+   um die vier neuen `pyproject.toml` erweitert werden — sonst hätten sie den uv-Pin
+   getragen, ohne je von der Gruppe `uv toolchain` gehoben zu werden (#1296-Klasse).
+   Das ist eine Fläche, die Scheibe 4 mitprüfen sollte.
+5. **`inference-service` hat weiterhin keinen Build-Job in `docker-lint-build.yml`** (nur
+   Lint; gebaut wird es in `docker-publish.yml`). Sein Lock/Dockerfile-Regress fiele also
+   erst beim Publish auf. Unverändert gelassen — außerhalb dieser Scheibe, aber als
+   Beobachtung festgehalten.
+6. **`side-services.yml` installiert weiter `pip install -e '.[dev]'`.** Das Test-Toolchain
+   liegt im `dev`-**Extra**, nicht in der `dev`-Dependency-Gruppe (die nur `watchfiles`
+   für das Image trägt). Nur der Kommentar, der behauptete, der Service habe „no
+   hash-locked dev requirements file", wurde korrigiert; die Umstellung auf
+   `uv sync --locked` gehört zu #1383.
+7. **Konsequenz für Scheibe 4:** die Inventur-Erwartung gilt in ihrer *starken* Form —
+   `pep621` liest fünf `pyproject.toml` + `uv.lock`, `poetry` erscheint nicht mehr. Die in
+   „Bekannte lokale Anpassung" beschriebene Abschwächung entfällt.

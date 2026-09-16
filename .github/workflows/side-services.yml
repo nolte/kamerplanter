@@ -81,11 +81,12 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install knowledge-service (with dev extra)
-        # The service declares no hash-locked dev requirements file (unlike the
-        # backend); its pyproject [project.optional-dependencies].dev is the
-        # source of the test toolchain, so install the editable package with that
-        # extra. httpx is a runtime dependency here, so the TestClient tier works
-        # out of the box.
+        # The test toolchain lives in the pyproject's
+        # [project.optional-dependencies].dev EXTRA, not in the uv.lock `dev`
+        # dependency group (#1374) — that group carries only the image's
+        # hot-reload watcher. So this job installs the editable package with the
+        # extra; moving it onto `uv sync --locked` is #1383's slice. httpx is a
+        # runtime dependency here, so the TestClient tier works out of the box.
         working-directory: src/knowledge-service
         run: |
           python -m pip install --upgrade pip

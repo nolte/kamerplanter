@@ -97,15 +97,18 @@
     // showed `WARN: pip-compile error`, and the `poetry` manager picked the
     // pyproject up instead and opened source-only pull requests that left the
     // locks stale (#1371). Poetry 2 reads PEP 621 `[project]` tables, so that
-    // manager is disabled for the backend and exactly one manager reads the
-    // file. (The side services' pyproject files are still read by `poetry`
-    // today; #1374 moves them to uv locks and this rule with them.)
+    // manager is disabled and exactly one manager reads the file.
+    //
+    // Disabled repository-wide, not per directory: since #1374 every Python
+    // tree here — the backend and the four side services — is a PEP 621 project
+    // with a uv.lock beside it, so there is no file left that `poetry` may
+    // legitimately own. Scoping the rule to a path is what let the side
+    // services keep a poetry-managed pyproject without a lock for months; a
+    // repository-wide `enabled: false` means a newly added pyproject cannot
+    // quietly acquire a second manager either.
     {
       matchManagers: [
         'poetry',
-      ],
-      matchFileNames: [
-        'src/backend/**',
       ],
       enabled: false,
     },
@@ -201,6 +204,63 @@
       matchUpdateTypes: [
         'major',
       ],
+    },
+    // ── Python side services (#1374) ────────────────────────────────────────
+    // The four service images used to install from a plain `requirements.txt`
+    // (two of them beside a pyproject.toml that only `poetry` read and nothing
+    // consumed). Each is now a PEP 621 project with its own hash-bearing
+    // uv.lock — one lock per service, deliberately not a workspace lock over
+    // all five trees, which would couple five release cycles.
+    //
+    // One group per image, as the backend groups are per tree: a bump to the
+    // embedding service must not drag the reranker image's rebuild into the
+    // same pull request. `update-lockfile` is what makes these rules fire at
+    // all — the service ranges are open (`>=x`, no upper bound), so every
+    // release is in range and the default strategy would propose nothing while
+    // the lock aged.
+    {
+      groupName: 'python inference-service',
+      // DINOv2 ONNX runtime plus the torch/onnx export toolchain in the `build` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'src/inference-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
+    },
+    {
+      groupName: 'python knowledge-service',
+      // RAG assistant runtime plus the watchfiles reloader in the `dev` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'src/knowledge-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
+    },
+    {
+      groupName: 'python embedding-service',
+      // embedding runtime plus the huggingface-hub download toolchain in the `build` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'docker/embedding-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
+    },
+    {
+      groupName: 'python reranker-service',
+      // reranker runtime plus the optimum export toolchain in the `build` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'docker/reranker-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
     },
     // ── jsdom held at 29 until Testing Library catches up (#827) ─────────────
     // jsdom 30 reimplemented its CSS engine, and the new `getComputedStyle`
@@ -351,6 +411,15 @@
       description: 'Age the uv version pinned in [tool.uv].required-version and the build backend pinned in build-constraint-dependencies.',
       managerFilePatterns: [
         '/^src/backend/pyproject\\.toml$/',
+        // The four side-service projects (#1374) pin the same uv EXACTly, so
+        // they belong to the same `uv toolchain` pull request as the backend
+        // pin, the workflow `uv==` lines and the Dockerfile image digest. A
+        // pyproject missing from this list would age apart silently — that is
+        // the #1296 class the group exists to prevent.
+        '/^src/inference-service/pyproject\\.toml$/',
+        '/^src/knowledge-service/pyproject\\.toml$/',
+        '/^docker/embedding-service/pyproject\\.toml$/',
+        '/^docker/reranker-service/pyproject\\.toml$/',
       ],
       matchStrings: [
         'required-version = "==(?<currentValue>[0-9][^"]*)"',
