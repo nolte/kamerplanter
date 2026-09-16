@@ -1,6 +1,6 @@
 # Gruppe `2026-09-16-uv-lock-chain`
 
-Status: wartet auf Operator-Freigabe (Write-Gate nach `spec/project/issue-batch-integration/` §D)
+Status: freigegeben 2026-09-16 · Umsetzung startet, sobald ein Entwickler-Slot frei ist
 
 Gemessen gegen `origin/develop` @ `87c82ae25` (2026-09-16).
 
@@ -199,15 +199,17 @@ abgeleitet.
 - **#1321** (Docker-Hub-Login der static-Lane) teilt die Fläche `.github/workflows/`,
   aber keine Capability; blockiert auf ein Secret.
 
-## Offene Fragen an den Operator
+## Operator-Entscheidungen (2026-09-16, vor der Umsetzung)
 
-1. **Darf #1374 Builder-Abhängigkeiten in Dependency-Gruppen des Locks ziehen** (`onnx`,
-   `optimum[onnxruntime]`, `huggingface-hub`, `sentencepiece`, `watchfiles`)? Das ist
-   mehr als das Issue verlangt, aber ohne sie bleibt „installs from a hash-bearing lock"
-   für fünf Zeilen unwahr. Empfehlung: ja.
-2. **Soll die Renovate-Health-Lane bei Drift ein Issue öffnen (wie `release-lag.yml`)
-   oder den Lauf röten?** Ein roter Scheduled-Run sieht niemand; ein Issue landet im
-   Backlog. Empfehlung: Issue, dedupliziert per Marker im Body, wie die Vorlage.
-3. **Soll Scheibe 5 `uv run --locked` oder einen expliziten `.venv/bin`-Prefix nutzen?**
-   `uv run --locked` prüft bei jedem Aufruf die Lock-Aktualität (langsamer um ~0,3 s,
-   dafür kann kein veraltetes venv still weiterlaufen). Empfehlung: `uv run --locked`.
+1. **Builder-Abhängigkeiten in den Lock: ja.** `onnx`, `onnxscript`, `optimum[onnxruntime]`,
+   `huggingface-hub`, `sentencepiece` werden Dependency-Gruppen des jeweiligen
+   Service-Locks, `watchfiles` eine Dev-Gruppe. Ein Image, das darunter nicht baut,
+   löst das Mitglied heraus (Modus B), statt den Lock zu lockern.
+2. **Health-Lane öffnet ein dedupliziertes Issue**, nach dem Muster von `release-lag.yml`,
+   per Body-Marker dedupliziert. Kein bloßes Röten des Scheduled-Runs.
+3. **Taskfile über `uv run --locked`.** Die ~0,3 s je Aufruf sind der Preis dafür, dass
+   ein veraltetes venv nicht still weiterlaufen kann (#1434-Klasse).
+
+## Ergebnisse je Scheibe
+
+*(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
