@@ -338,6 +338,75 @@ class TestInjectedInventoryDrift:
         assert report["locks_verified_on_disk"] == list(check.EXPECTED_PEP621_FILES[1:])
 
 
+class TestTheBodyArrivesThroughAFile:
+    """The ~900-line body is passed by PATH, not as one env/argv string.
+
+    ``MAX_ARG_STRLEN`` caps a single argument (and, in practice, a single
+    environment entry) at 128 KiB on Linux. The dashboard body is ~30 KiB today
+    and grows with every package file Renovate learns about, so the env route
+    has a ceiling that would be reached on a day nothing in this repository
+    changed — an ``E2BIG`` in a lane whose whole purpose is to notice silence.
+    """
+
+    def test_body_file_is_read_and_the_report_is_written(self, tmp_path: Path) -> None:
+        body_file = tmp_path / "dashboard-body.md"
+        body_file.write_text(_HEALTHY.read_text(), encoding="utf-8")
+        report_path = tmp_path / "report.json"
+
+        assert check.main(["--body-file", str(body_file), str(report_path)], repo_root=_REPO_ROOT) == 0
+
+        written = json.loads(report_path.read_text())
+        assert written["alert"] is False, f"the healthy fixture read from a file alerted: {written['findings']}"
+        assert written["pep621_files"] == list(check.EXPECTED_PEP621_FILES)
+
+    def test_a_body_far_past_the_env_ceiling_still_goes_through(self, tmp_path: Path) -> None:
+        """The ceiling the file route exists to clear, exercised rather than asserted in prose.
+
+        The padding is plain prose placed BEFORE the first heading, so the parser
+        sees the same sections — the point under test is the transport, not the
+        grammar.
+        """
+        padding = ("Renovate prose that is not a heading and carries no WARN or ERROR token.\n") * 2000
+        body = padding + _HEALTHY.read_text()
+        assert len(body.encode()) > 128 * 1024, (
+            "the padded body is smaller than MAX_ARG_STRLEN, so this test would pass through the env "
+            "route as well and prove nothing about the file route"
+        )
+
+        body_file = tmp_path / "huge-dashboard-body.md"
+        body_file.write_text(body, encoding="utf-8")
+        report_path = tmp_path / "report.json"
+
+        assert check.main(["--body-file", str(body_file), str(report_path)], repo_root=_REPO_ROOT) == 0
+        assert json.loads(report_path.read_text())["alert"] is False
+
+    def test_an_unreadable_body_file_is_undetermined_and_writes_no_report(self, tmp_path: Path) -> None:
+        report_path = tmp_path / "report.json"
+        with pytest.raises(check.DashboardError, match="could not be read"):
+            check.main(["--body-file", str(tmp_path / "never-fetched.md"), str(report_path)], repo_root=_REPO_ROOT)
+        assert not report_path.exists(), (
+            "a report was written although the body file was never fetched — the workflow's issue step "
+            "keys on that file's existence, so this would open an alert issue off a failed download"
+        )
+
+    def test_the_workflow_really_invokes_the_script_that_way(self) -> None:
+        """The lane and this suite must reach the script through the SAME door.
+
+        Without this, the tests above could certify a ``--body-file`` path that
+        the workflow does not use — the recurring failure class here (a test that
+        reaches the rule by a route production never takes).
+        """
+        workflow = (_REPO_ROOT / ".github" / "workflows" / "renovate-health.yml").read_text()
+        assert "--body-file dashboard-body.md" in workflow, (
+            "renovate-health.yml does not hand the body to check_renovate_dashboard.py by file path; the "
+            "--body-file tests above would then measure a door nobody walks through"
+        )
+        assert "RENOVATE_DASHBOARD_BODY=" not in workflow, (
+            "renovate-health.yml still builds RENOVATE_DASHBOARD_BODY from the body — that is the "
+            "MAX_ARG_STRLEN route this change removed"
+        )
+
+
 class TestUndeterminedIsNeverClean:
     """NFR-018 §2 — a check that cannot decide must go red, not green."""
 

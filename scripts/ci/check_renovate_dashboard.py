@@ -75,6 +75,7 @@ issue, exactly as ``release-lag.yml`` does it.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -118,7 +119,11 @@ EXPECTED_PEP621_FILES: tuple[str, ...] = (
 #: The two entries are shared LIBRARIES with no image of their own, so there is
 #: nothing that "installs from a lock"; giving them one is a decision about the
 #: libraries' release shape, not a CI change (the same reason side-services.yml
-#: still pip-installs kp_vectordb). Enumerating them keeps the expectation EXACT
+#: still pip-installs kp_vectordb). That decision is tracked as **#1464**; when
+#: it lands, these two entries move into :data:`EXPECTED_PEP621_FILES` and this
+#: allowance disappears — naming the issue is what keeps the interim from
+#: becoming permanent by default (CI spec §H). Enumerating them keeps the
+#: expectation EXACT
 #: — these two are allowed under either manager, an unknown file is not —
 #: instead of relaxing the rule to "pep621 lists at least the five", which would
 #: have stayed green through the whole #1371 episode.
@@ -356,26 +361,76 @@ def render(report: dict[str, Any]) -> str:
     return "Renovate dashboard drift:\n" + "\n".join(f"  - {finding}" for finding in report["findings"])
 
 
+def _read_body_file(path: str) -> str:
+    """The dashboard body from *path*, or a loud :class:`DashboardError`.
+
+    A missing or unreadable body file is an UNDETERMINED run, never a clean one:
+    returning "" here would parse as an empty dashboard and, worse, a caller that
+    swallowed the error would report "no drift" having read nothing.
+    """
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise DashboardError(
+            f"--body-file {path} could not be read ({exc.strerror or exc}). The dashboard body was never "
+            "fetched, so nothing was measured."
+        ) from exc
+
+
+def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="check_renovate_dashboard.py",
+        description="Compare Renovate's Dependency Dashboard against the expected manager inventory.",
+    )
+    parser.add_argument(
+        "report_path",
+        nargs="?",
+        default=REPORT_PATH,
+        help=f"where to write the JSON report (default: {REPORT_PATH})",
+    )
+    parser.add_argument(
+        "--body-file",
+        dest="body_file",
+        default=None,
+        help=(
+            "read the dashboard body from this file instead of $RENOVATE_DASHBOARD_BODY. This is how CI "
+            "passes it: the body is ~900 lines and grows, and a single argv/env string is capped by "
+            "MAX_ARG_STRLEN (128 KiB per argument on Linux), so the env route would start failing with "
+            "E2BIG on a day nothing here changed."
+        ),
+    )
+    return parser.parse_args(sys.argv[1:] if argv is None else argv)
+
+
 def main(argv: list[str] | None = None, *, body: str | None = None, repo_root: Path | None = None) -> int:
     """Read the dashboard body, write the report, and exit 0 on a determined result.
 
     Args:
-        argv: Optional ``[report_path]``; defaults to :data:`REPORT_PATH`.
+        argv: Optional ``[--body-file PATH] [report.json]``; defaults to
+            :data:`REPORT_PATH` for the report.
         body: Injection point for the dashboard body (tests pass a fixture).
-            Falls back to ``$RENOVATE_DASHBOARD_BODY``.
+            Takes precedence over both ``--body-file`` and the environment.
         repo_root: Injection point for the checkout root.
 
     Returns:
         0 on a determined result — including a drifted one, which is reported
         through the issue rather than through the run status.
-    """
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if len(arguments) > 1:
-        print("usage: check_renovate_dashboard.py [report.json]", file=sys.stderr)
-        return 2
-    report_path = arguments[0] if arguments else REPORT_PATH
 
-    resolved_body = body if body is not None else os.environ.get("RENOVATE_DASHBOARD_BODY", "")
+    Raises:
+        DashboardError: ``--body-file`` names a file that cannot be read, or the
+            body that was resolved cannot be parsed.
+    """
+    arguments = _parse_arguments(argv)
+    report_path = arguments.report_path
+
+    # Precedence: explicit injection (tests) > --body-file (CI) > environment
+    # (the ad-hoc local fallback the CI lane no longer uses).
+    if body is not None:
+        resolved_body = body
+    elif arguments.body_file is not None:
+        resolved_body = _read_body_file(arguments.body_file)
+    else:
+        resolved_body = os.environ.get("RENOVATE_DASHBOARD_BODY", "")
     resolved_root = repo_root or Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().parents[2])
 
     report = build_report(resolved_body, repo_root=resolved_root)

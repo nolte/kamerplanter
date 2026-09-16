@@ -49,12 +49,12 @@ on:
         required: false
         type: string
 
-# `issues: write` opens and updates the alert issue. `contents: read` is enough
-# for the checkout: unlike release-lag.yml this job reads no draft releases, so
-# it does NOT need `contents: write`.
+# Workflow-level default is READ-ONLY, and the write scope is granted per job —
+# the house pattern release-lag.yml follows. It costs nothing today, when there
+# is one job, and is the difference between "the second job someone adds here
+# inherits issue-write" and "it does not".
 permissions:
   contents: read
-  issues: write
 
 # An alerting job: serialise a scheduled run against a manual one so two runs
 # cannot both act on the alert issue, and never cancel — a cancelled run could
@@ -69,6 +69,13 @@ jobs:
     name: Read the Dependency Dashboard and compare the manager inventory
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # `issues: write` opens and updates the alert issue; it is granted HERE and
+    # not at workflow level. `contents: read` is enough for the checkout: unlike
+    # release-lag.yml this job reads no draft releases, so it does NOT need
+    # `contents: write`.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -93,24 +100,48 @@ jobs:
         # invites a quoting accident that silently truncates the very section
         # being measured. `--jq .body` fails loudly on a missing issue.
         run: |
+          # `dashboard_issue` is a free-text workflow_dispatch input. It reaches
+          # `gh api` as part of a URL path, so it is validated to be a bare
+          # decimal issue number BEFORE it is used: anything else is a typo or a
+          # path-traversal attempt, and either way the run must say so rather
+          # than silently query some other endpoint and then report on it.
+          if ! [[ "$DASHBOARD_ISSUE" =~ ^[0-9]+$ ]]; then
+            echo "::error::dashboard_issue must be a bare issue number, got '${DASHBOARD_ISSUE}'"
+            exit 1
+          fi
           gh api "repos/${REPOSITORY}/issues/${DASHBOARD_ISSUE}" --jq .body > dashboard-body.md
           echo "bytes=$(wc -c < dashboard-body.md)" >> "$GITHUB_OUTPUT"
 
       - name: Compare the manager inventory against the expectation
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
         # Hard errors exit non-zero here => the run goes red and the issue step
         # below no-ops (no report file). A determined result writes the report
         # and exits 0, whether or not it found drift.
+        #
+        # `--body-file`, not an environment variable. The body is ~900 lines and
+        # grows with the repository; handing it over as a single argv/env string
+        # puts it under `MAX_ARG_STRLEN` (128 KiB on Linux for one argument, and
+        # the whole environment shares `ARG_MAX`), so the lane would start
+        # failing with E2BIG on a day nothing in this repository changed. Reading
+        # the file has no such ceiling. The env var stays supported in the script
+        # as a fallback for ad-hoc local runs.
+        #
+        # `$GITHUB_WORKSPACE` is a default variable on every runner; the script
+        # reads it for the checkout root and it is deliberately NOT re-declared
+        # here — a re-declaration is a second place that can drift from the one
+        # that matters.
         run: |
-          RENOVATE_DASHBOARD_BODY="$(cat dashboard-body.md)" \
-            python3 scripts/ci/check_renovate_dashboard.py renovate-health-report.json
+          python3 scripts/ci/check_renovate_dashboard.py \
+            --body-file dashboard-body.md renovate-health-report.json
 
       - name: Open, update or close the Renovate-health issue
         # Runs only when the check DETERMINED a result (report exists). On a hard
         # error the report is absent, this step is skipped, and the red run is
         # the signal — deliberately NOT an issue.
-        if: always() && hashFiles('renovate-health-report.json') != ''
+        # `!cancelled()`, not `always()`: a cancelled run must not act on the
+        # alert issue at all (the concurrency block above says the same thing
+        # about half-updated issues). `always()` would keep this step running
+        # through a cancellation.
+        if: ${{ !cancelled() && hashFiles('renovate-health-report.json') != '' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           # Read via process.env, never interpolated into the script body.
@@ -122,7 +153,7 @@ jobs:
             const report = JSON.parse(fs.readFileSync('renovate-health-report.json', 'utf8'));
             // The label need not pre-exist: GitHub creates an unknown label on
             // `issues.create`, which is how `release-lag` came into being. The
-            // listForRepo lookup above simply returns [] until then, so the first
+            // listForRepo lookup BELOW simply returns [] until then, so the first
             // alert opens an issue and every later one updates it.
             const LABEL = 'renovate-health';
             const TITLE = 'Renovate manager inventory drifted or the dashboard reports a problem (#1383)';
