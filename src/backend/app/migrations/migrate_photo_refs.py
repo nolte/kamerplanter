@@ -82,8 +82,17 @@ _FIELD = "photo_refs"
 # id. The rule keyed on it therefore only trims and passes the value through; it is
 # not evidence that the reference resolves (#1438).
 _ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$", re.IGNORECASE)
-# Matches a stored ``.../attachments/{id}`` API URI tail.
-_API_URI_RE = re.compile(r"/attachments/(?P<id>[^/?#]+)")
+# Matches a stored API URI of the form ``…/api/v{n}/[…/]attachments/{id}[…]``.
+#
+# **Anchored on the API prefix on purpose.** The bare tail ``/attachments/{id}``
+# matches any string carrying that segment, and two real shapes do so without being
+# routes: a storage key whose *category* is ``attachments``
+# (``t/{tenant}/attachments/{yyyy}/{mm}/{ulid}.{ext}`` — ``StorageKeyBuilder.build``
+# puts the category in the third segment) and the same behind an ``s3://`` bucket
+# prefix. The unanchored pattern read ``{yyyy}`` out of those as "the attachment id",
+# i.e. rewrote a resolvable reference to the string ``"2026"`` — a plausible numeric
+# ``_key`` (#1438 review, O-5).
+_API_URI_RE = re.compile(r"(?:^|/)api/v\d+/(?:.*?/)?attachments/(?P<id>[^/?#]+)")
 
 
 def normalize_photo_ref(ref: str) -> str:
@@ -96,9 +105,12 @@ def normalize_photo_ref(ref: str) -> str:
        value is an attachment id (a ``_key`` is numeric); it is a foreign id this
        function has no catalogue to resolve, and leaving it alone is the same
        answer rule 3 gives — minus surrounding whitespace.
-    3. ``/api/v1/.../attachments/{id}`` API URI → the ``{id}`` tail. The only
+    3. ``/api/v{n}/…/attachments/{id}`` API URI → the ``{id}`` segment. The only
        rewrite left, and it is sound because the URI is built *from* the document
-       key, so the key can be read back out of it.
+       key, so the key can be read back out of it. The match is anchored on the
+       ``api/v{n}/`` prefix: ``/attachments/`` alone also occurs inside a storage
+       key whose category happens to be ``attachments``, and reading the year out
+       of that is a rewrite onto a foreign document (O-5).
     4. Anything else — a storage key, an ``s3://`` URL, a thumbnail rendition, an
        unparseable legacy value → returned unchanged (never dropped; reported by
        the caller as an unchanged entry).
