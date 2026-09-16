@@ -246,3 +246,116 @@ der Änderung falsch waren (`normalize_photo_ref` reduziere auf den ULID-Stamm)
 und zwei, die schon vorher falsch waren (`migrate_photo_refs` sei „manual" —
 `v0003` läuft über `run_pending_migrations` beim Start jeder Installation,
 `app/main.py:112`).
+
+### Scheibe 2 — umgesetzt 2026-09-16
+
+Neue Migration **`v0046_reconcile_photo_refs`** (`src/backend/app/migrations/versions/`).
+`v0003` bleibt unangetastet im Ledger.
+
+**Rot zuerst** (`05d4774c7`, nur die Testdatei — der Besitzer existiert noch nicht):
+
+```
+ImportError while importing test module '.../tests/unit/migrations/versions/test_v0046_reconcile_photo_refs.py'.
+tests/unit/migrations/versions/test_v0046_reconcile_photo_refs.py:30: in <module>
+    from app.migrations.versions.v0046_reconcile_photo_refs import (
+E   ModuleNotFoundError: No module named 'app.migrations.versions.v0046_reconcile_photo_refs'
+1 error in 1.07s
+```
+
+**Grün danach** (`f9f8a1ca2`):
+
+```
+tests/unit/migrations/versions/test_v0046_reconcile_photo_refs.py  18 passed
+tests/unit/migrations/versions/ tests/unit/migrations/framework/ tests/unit/data_access/arango/  1022 passed
+tests/integration/  149 passed   (gegen arangodb:3.12, eigens gestartet, danach gestoppt)
+```
+
+**Mutationsbeweis — drei Schnitte, jeder gegen den gesicherten Stand (`cp`, nicht `git stash`):**
+
+| Mutation | Ergebnis |
+|---|---|
+| `aql_storage_key_stem` gibt den Ausdruck unreduziert zurück (`return f"{expression}"`) | `9 failed, 9 passed` — u. a. `test_the_stem_v0003_wrote_is_rewritten_onto_the_document_key`, `test_re_running_changes_nothing` |
+| Separatoren vertauscht (`SPLIT(…, ".")` / `SPLIT(…, "/")`) | `6 failed, 12 passed` — `repaired=0`, der reparierte Eintrag wird als `unresolved` gemeldet |
+| Reparaturregel entfernt (`ReferenceVerdict("repaired", …)` → `"unresolved"`) | `7 failed, 11 passed` — inkl. des reinen `plan_reference`-Tests |
+
+Der erste Schnitt wirkt, weil das Unit-Double den Stamm **nicht kennt**: `_FakeAql`
+liest die beiden Trenner per Regex aus dem Query-Text, den die Migration ihm
+übergibt. Ein Double mit eigener Kopie der Regel wäre bei Mutation 1 und 2 grün
+geblieben — genau die Klasse „Prüfung leistet weniger, als sie behauptet".
+
+**Beim Bauen gemessen, Vorgabe korrigiert:** eine fehlende Trägerkollektion ließ die
+Migration mit `AQL 1203 collection or view not found: plant_diary_entries` abbrechen
+statt zu melden — auf einer teilbootstrapten oder restaurierten Datenbank wäre das ein
+Startup-Abbruch. Jeder Scan hängt jetzt an `db.has_collection(...)` (Vorbild `v0010`).
+
+**Dry-Run gegen den kind-Dev-Cluster** (`kind-kamerplanter`, ArangoDB 3.12.10, über
+`kubectl port-forward svc/kamerplanter-arangodb 18529:8529` mit dem Code **dieses**
+Worktrees — das Pod-Image ist älter als `v0043` und kennt `aql_storage_key_stem` nicht,
+ein Pipe in den Pod hätte also eine zweite Kopie des Ausdrucks gebraucht, was genau die
+Grundursache ist). Wörtlich:
+
+```
+server version: 3.12.10
+2026-09-16 22:00:02 [info     ] reconcile_photo_refs  ambiguous=0 changed=0 dry_run=True repaired=0 scanned=3 unresolved=0
+{
+  "changed": 0,
+  "details": {
+    "ambiguous": [],
+    "ambiguous_total": 0,
+    "per_collection": {
+      "plant_diary_entries": {
+        "ambiguous": 0,
+        "changed": 0,
+        "repaired": 0,
+        "scanned": 1,
+        "unresolved": 0
+      },
+      "plant_instances": {
+        "ambiguous": 0,
+        "changed": 0,
+        "repaired": 0,
+        "scanned": 2,
+        "unresolved": 0
+      }
+    },
+    "repaired": 0,
+    "unresolved": [],
+    "unresolved_total": 0
+  },
+  "dry_run": true,
+  "duration_ms": 0.0,
+  "name": "reconcile_photo_refs",
+  "precondition_unmet": false,
+  "scanned": 3,
+  "version": "0046"
+}
+```
+
+**Der Nullbefund ist nicht vakuös** — die Gegenprobe im selben Lauf, lesend:
+
+```
+attachments: 3
+ att: {'key': '219600',  'storage_key': 't/system-tenant/plant/2026/07/01KXAJS5WZ2AG6C1GMVYF1PQ14.jpg'}
+ att: {'key': '1868160', 'storage_key': 't/system-tenant/diary/2026/08/01KZ94PZEXK8RCYA8XV47SDAGT.jpg'}
+ att: {'key': '1903568', 'storage_key': 't/system-tenant/diary/2026/08/01KZ9PFWSPB6Y97DJZ5RAVJK5W.jpg'}
+ ref:   {'col': 'plant_instances',     'key': '219579',  'refs': ['219600']}
+ cover: {'col': 'plant_instances',     'key': '219579',  'cover': '219600'}
+ ref:   {'col': 'plant_diary_entries', 'key': '1903596', 'refs': ['1903568']}
+```
+
+Die drei gezählten Träger sind genau diese drei Referenzen, und alle drei stehen
+bereits als numerischer `_key` da. Damit ist auch die „Zwei Identitäten"-Prämisse auf
+Echtdaten bestätigt: numerische Dokumentschlüssel neben unabhängigen ULID-Storage-Keys.
+**Auf dem Dev-Cluster hat `v0003` keinen Schaden hinterlassen** — dort existierte keine
+Storage-Key-Referenz, als `v0003` lief. Über Produktionsbestand sagt das nichts; das
+bleibt ein Betreiberlauf im `dry_run` (bewusst außerhalb des Scopes).
+
+Im Cluster wurde nichts geschrieben (`dry_run=True`, `changed=0`, ausschließlich
+lesende Gegenprobe).
+
+**Prosa nachgezogen:** `migrate_photo_refs.py`-Modulkopf und NFR-013 §2.2 nennen jetzt
+`v0046_reconcile_photo_refs` samt beider Regeln und des geteilten
+`aql_storage_key_stem`; die Docstring von `photo_router.py` sagt nicht mehr, der
+deaktivierte Orphan-Sweep sei die Reconciliation — die Referenz-Versöhnung hat einen
+Besitzer, der Sweep beantwortet die Gegenfrage und lässt eine Referenz auf eine
+gelöschte Zeile bewusst stehen.

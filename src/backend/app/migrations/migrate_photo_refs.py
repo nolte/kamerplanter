@@ -21,8 +21,10 @@ entry is now returned **verbatim**.
 
 Reconciling a reference against the attachment catalogue — the only way to map
 a storage key to a document key — needs the catalogue, which a pure text
-transformation does not have. That is owned by the separate reconcile
-migration (#1438 part 2), not by this module.
+transformation does not have. That is owned by
+``versions/v0046_reconcile_photo_refs.py`` (#1438 part 2), not by this module:
+v0046 rewrites an entry onto the ``_key`` of the single attachment it denotes
+and reports every entry that denotes nothing.
 
 It is:
 
