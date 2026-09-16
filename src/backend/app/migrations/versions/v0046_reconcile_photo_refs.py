@@ -162,13 +162,22 @@ def build_identity_index(
 def _belongs_to(attachment: AttachmentIdentity, tenant_key: str | None) -> bool:
     """May *attachment* answer for a carrier document of *tenant_key*?
 
-    A carrier that carries no ``tenant_key`` at all (``harvest_observations``,
+    A carrier that carries no ``tenant_key`` (``harvest_observations``,
     ``storage_observations``, ``pests`` — measured, not assumed: the field is read
     off the document, so a carrier gaining one later needs no edit here) accepts an
     attachment of any tenant, which makes the uniqueness demand of rule 1
     installation-wide for those rows rather than per tenant. That is the strict
     direction: it reports ``ambiguous`` where a tenant-scoped question would have
     rewritten.
+
+    **"No tenant" means falsy, not "attribute absent"** — a row left unstamped by a
+    backfill carries ``tenant_key == ""`` and takes this same branch. That is
+    deliberate and it does not leak: the branch never *widens* what a reference may
+    denote beyond "exactly one attachment in the whole installation", and an
+    unstamped carrier has no tenant to be isolated from in the first place. What it
+    can do is refuse — two same-stem attachments in different tenants make such a row
+    ``ambiguous`` — which is the direction this migration is allowed to err in. The
+    readers resolve the resulting ``_key`` tenant-bound as before (O-2).
     """
     if not tenant_key:
         return True
