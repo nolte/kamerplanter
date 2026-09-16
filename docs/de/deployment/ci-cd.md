@@ -42,6 +42,7 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 | `release-cd-deliver-docs.yml` | Veröffentlichtes Release | MkDocs-Dokumentation auf GitHub Pages deployen |
 | `release-cd-refresh-master.yml` | Veröffentlichtes Release | `main`-Branch auf den Release-Stand aktualisieren |
 | `release-lag.yml` | Zeitplan, täglich 09:00 UTC (+ manuell) | Meldet, wenn `develop` Commits trägt, die kein **veröffentlichtes** Release enthält |
+| `renovate-health.yml` | Zeitplan, täglich 09:20 UTC (+ manuell) | Liest das Dependency Dashboard (#12) und meldet, wenn Renovate ein Problem berichtet oder die Manager-Inventur abweicht |
 
 ---
 
@@ -104,6 +105,24 @@ Die Backend-Abhängigkeiten werden aus `uv.lock` installiert, dem Hash-tragenden
 ```bash
 uv sync --locked --extra dev
 ```
+
+---
+
+## Renovate-Gesundheit (`renovate-health.yml`)
+
+Renovate meldet seine eigenen Fehlschläge **nur** im Dependency Dashboard (Issue #12) — nicht als roten Lauf, nicht als fehlende Pull Request. Ein Manager, der nichts mehr findet, sieht genauso aus wie „es gibt nichts zu aktualisieren".
+
+Genau das passierte zwischen dem 02.08.2026 und dem 10.09.2026: Renovates `pip-compile`-Manager extrahierte sechs Wochen lang **nichts**, die Backend-Locks alterten unangetastet, und alle Lanes blieben grün. Das einzige Signal war eine Zeile `⚠️ WARN: pip-compile error` im Dashboard.
+
+Der Workflow liest deshalb täglich den Body von #12 und vergleicht:
+
+* **Repository-Probleme** — jede `WARN`/`ERROR`-Zeile unter `## Repository problems` ist ein Befund und wird wörtlich zitiert.
+* **Die Manager-Inventur** — `pep621` muss aus allen fünf gelockten PEP-621-Bäumen lesen (Backend + vier Service-Images), `poetry` und `pip-compile` dürfen gar nicht auftauchen, und `pip_requirements` darf keine Datei aus einem dieser Bäume führen.
+* **Das Lock neben jeder Paketdatei** — das Dashboard listet *keine* Lockdateien, deshalb wird diese eine Tatsache aus dem Checkout gelesen. Der Bericht sagt das ausdrücklich.
+
+Bei einem Befund öffnet bzw. aktualisiert der Lauf **ein einziges, dedupliziertes Issue** (Label `renovate-health`) statt nur rot zu werden — ein roter Zeitplan-Lauf ist nach einer Woche roter Zeitplan-Läufe unsichtbar. Umgekehrt gilt: Kann der Lauf *nicht entscheiden* (Issue unerreichbar, Body leer, Dashboard unparsbar), wird **der Lauf rot und es entsteht kein Issue** — ein unbestimmtes Ergebnis darf nicht wie ein sauberes aussehen (NFR-018 §2).
+
+Die Erwartung selbst steht in `scripts/ci/check_renovate_dashboard.py` (`EXPECTED_PEP621_FILES`, `KNOWN_LOCKLESS_PEP621_FILES`); ein neuer Python-Baum wird dort eingetragen, statt die Regel stillschweigend aufzuweichen.
 
 ---
 

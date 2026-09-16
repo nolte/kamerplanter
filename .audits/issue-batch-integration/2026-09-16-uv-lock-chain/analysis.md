@@ -572,3 +572,130 @@ nicht durch `ruff format` und war unformatiert — `task format:backend` (der
 CI-Gate-Befehl) hätte sie rot gemacht. Aufgefallen erst, als sie committet war.
 Konsequenz für künftige Scheiben: neue Dateien vor dem `pre-commit`-Lauf
 `git add`en, oder `ruff format --check .` separat fahren.
+
+### Scheibe 4 — #1383 Punkt 1: die Renovate-Health-Lane (2026-09-16)
+
+**Ergebnis: Lane, Skript, zwei echte Fixtures, 31 Unit-Tests, vier Mutationen
+nachgewiesen.** Die Scheibe hat zusätzlich eine Annahme der Analyse **widerlegt**
+(siehe „Was die Messung kippte").
+
+Neu: `.github/workflows/renovate-health.yml`, `scripts/ci/check_renovate_dashboard.py`,
+`src/backend/tests/unit/guards/test_renovate_dashboard_parser.py`,
+zwei Fixtures unter `src/backend/tests/unit/guards/fixtures/`.
+
+#### Was die Messung kippte
+
+Die Analyse (und `renovate.json5:101-105`) hielten fest, der `poetry`-Manager
+lese **genau die zwei** Side-Service-`pyproject.toml`. Der echte Body von #12
+vom 2026-09-16 zeigt **vier**:
+
+```
+poetry (4)
+  src/inference-service/pyproject.toml
+  src/knowledge-service/pyproject.toml
+  src/libs/kp_errortracking/pyproject.toml     ← in keiner Analyse genannt
+  src/libs/kp_vectordb/pyproject.toml          ← in keiner Analyse genannt
+```
+
+Mit `poetry` repository-weit abgeschaltet (Scheibe 1) erbt `pep621` diese zwei
+Bibliotheken. Die „starke Erwartung" in ihrer geplanten Form (`pep621` liest
+**genau** die fünf gelockten Bäume) hätte also auf einem **korrekten**
+Repository gerötet. Konsequenz: `KNOWN_LOCKLESS_PEP621_FILES` — eine benannte,
+begründete Liste der PEP-621-Bäume ohne Lock (beide sind geteilte Libraries ohne
+eigenes Image; derselbe Grund, aus dem `side-services.yml` `kp_vectordb` weiter
+mit pip installiert). Die Erwartung bleibt damit **exakt** — eine unbekannte
+Datei rötet weiterhin —, statt auf „mindestens die fünf" aufgeweicht zu werden,
+was die ganze #1371-Episode hindurch grün geblieben wäre.
+`test_the_known_lockless_trees_really_have_no_lock` rötet, sobald einer der
+beiden doch ein Lock bekommt, damit der Eintrag seinen Grund nicht überlebt.
+
+**Zweite Messung, die die Aufgabenstellung korrigiert:** Das Dashboard listet
+**keine Lockdateien**. Die `pep621`-Sektion nennt ausschließlich Paketdateien
+(`src/backend/pyproject.toml (42)`), es gibt keine `uv.lock`-Spalte. Die
+Forderung „`pep621` listet … je mit `uv.lock`" ist am Dashboard nicht prüfbar.
+Das Skript liest diese eine Tatsache deshalb **vom Checkout** und sagt das im
+Bericht ausdrücklich, statt dem Dashboard eine Aussage zuzuschreiben, die es nie
+getragen hat.
+
+#### Die Fixtures
+
+| Datei | Herkunft | Rolle |
+|---|---|---|
+| `renovate_dashboard_2026-09-16.md` | wörtlich `gh issue view 12 --json body` | **Drift-Fall.** #1374 ist noch nicht auf `develop`, Renovate hat nicht neu gescannt — der Body zeigt weiter `poetry (4)` und vier Side-Service-`requirements.txt`. Das ist, was die Lane heute sagen würde, und es zu sagen wäre richtig |
+| `renovate_dashboard_expected_after_1374.md` | daraus mechanisch abgeleitet | **Positivkontrolle.** `poetry`-Block entfernt, seine Dateien unter `pep621` einsortiert, die gelöschten `requirements.txt` entfernt |
+
+`TestTheFixturesAreTheRealThing` bindet die Positivkontrolle an den Arbeitsbaum:
+jede `pyproject.toml`, die sie unter `pep621` nennt, **muss** im Checkout
+existieren, jeder erwartete Baum muss ein `uv.lock` daneben haben. Das ist die
+Gegenmaßnahme gegen die teuerste Fixture-Falle dieses Repositories (eine Fixture
+erfindet eine unmögliche Form, der Positivtest zertifiziert nichts).
+
+**Abweichung von der Vorgabe:** „unverändert → grün" ist mit dem *heutigen*
+Body nicht erfüllbar — der heutige Body **ist** der Driftfall. Deshalb zwei
+Fixtures statt einer, und `TestTodaysRealBodyIsCorrectlyRed` schreibt fest,
+woran der echte Body scheitert.
+
+#### Rot/Grün und Mutationen
+
+```
+$ pytest tests/unit/guards/test_renovate_dashboard_parser.py -q
+31 passed in 2.54s
+```
+
+| Mutation im Skript | Ergebnis |
+|---|---|
+| A — `problems = []` (WARN/ERROR-Scan vergessen) | **3 failed** (`test_a_warn_line_alerts`, `..._an_error_line_alerts`, `..._quoted_verbatim`) |
+| B — `missing = []` (schwache Erwartung: „pep621 ist da") | **6 failed**, darunter alle fünf parametrisierten `test_a_missing_side_service_file_alerts[…]` |
+| C — `for manager in ()` (verbotene Manager nicht mehr prüfen) | **2 failed** (`test_a_poetry_entry_alerts`, `test_it_names_poetry_and_the_missing_trees`) |
+| D — `locks_missing = []` (Lock auf Platte nicht mehr suchen) | **1 failed** (`test_a_missing_lock_on_disk_alerts`) |
+| unverändert | **31 passed** |
+
+Mutation B ist die wichtigste: sie stellt genau die Abschwächung nach, die #1371
+sechs Wochen lang überlebt hätte.
+
+Zusätzlich vier Fälle für „unbestimmt ≠ sauber" (`DashboardError` bei leerem
+Body, fehlender `## Detected Dependencies`-Sektion, leerer Inventur) und einer,
+der nachweist, dass ein unbestimmter Lauf **keinen Bericht schreibt** — die
+Issue-Stufe des Workflows hängt an `hashFiles(...)`, ein Bericht aus einem
+Parse-Fehler würde also ein Alert-Issue aus dem Nichts öffnen.
+
+#### Die Lane
+
+Nach dem Muster von `release-lag.yml`: Zeitplan `20 9 * * *` (20 Minuten nach
+der Release-Lag-Lane), `workflow_dispatch` mit optionaler Issue-Nummer,
+`permissions: contents: read` + `issues: write` (**nicht** `contents: write` —
+anders als `release-lag.yml` liest diese Lane keine Draft-Releases),
+`concurrency`-Gruppe ohne `cancel-in-progress`, dedupliziertes Issue über das
+Label `renovate-health` (Operator-Entscheidung 2). Der Body wird in eine **Datei**
+geschrieben, nicht in `$GITHUB_OUTPUT`: ~900 Zeilen Markdown mit Backticks,
+`<details>`-Tags und Renovates eigenen `<!-- -->`-Steuerkommentaren durch ein
+Step-Output zu schleusen lädt genau den Quoting-Unfall ein, der die gemessene
+Sektion still abschneidet. `github.repository` läuft über `env:`, nicht als
+`${{ }}` im Shell-Body.
+
+`actionlint` (pre-commit): **Passed**.
+
+#### Nicht selbst gestartet — was der Operator dispatchen soll
+
+Die Lane wurde **nicht** per `workflow_dispatch` gefahren (kein Push aus diesem
+Worktree, und der Workflow existiert auf `develop` noch nicht). Nach dem Merge:
+
+```bash
+gh workflow run renovate-health.yml
+gh run watch "$(gh run list --workflow=renovate-health.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+**Erwartung beim ersten Lauf:** Solange Renovate nach dem Merge von #1374 noch
+nicht neu gescannt hat, meldet die Lane genau die Befunde des Drift-Fixtures
+(`poetry` mit vier Dateien, vier fehlende `pep621`-Einträge, vier
+Side-Service-`requirements.txt`) und öffnet ein Issue. Das ist **richtig** und
+kein Fehlalarm — es ist derselbe Zustand, den das Fixture festhält. Erst der
+nächste Renovate-Lauf macht die Lane grün, und der schließt das Issue selbst.
+Wer das nicht abwarten will, dispatcht erst, nachdem #12 neu geschrieben wurde.
+
+#### Befund am Werkzeug
+
+`end-of-file-fixer` (pre-commit) hat beiden Fixtures ein abschließendes `\n`
+angehängt — die Kopie ist also nicht mehr byte-identisch mit der API-Antwort.
+Ohne Wirkung auf den Parser, hier aber festgehalten, statt „wörtlich" zu
+behaupten, was um ein Byte abweicht.

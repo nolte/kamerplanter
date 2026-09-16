@@ -1,0 +1,212 @@
+name: Renovate Health
+
+# Issue #1383, point 1 — nothing in this repository read Renovate's own output.
+#
+# THE INCIDENT. From 2026-08-02 to 2026-09-10 Renovate's `pip-compile` manager
+# extracted NOTHING here: it rejects lock-header options outside its allowlist,
+# and both locks needed `--no-strip-extras` and `--no-build-isolation` (#906,
+# #1303). For six weeks the backend locks aged untouched while every lane stayed
+# green, because a manager that extracts nothing opens no pull requests and
+# breaks no build — it is indistinguishable from "nothing to update". The only
+# signal was a `⚠️ WARN: pip-compile error` line in the Dependency Dashboard
+# issue (#12), which nobody reads on a schedule. In the same window the `poetry`
+# manager quietly picked up the two side-service pyproject.toml files and opened
+# source-only pull requests that left their locks stale (#1371).
+#
+# Nothing would notice the identical thing happening to `pep621` tomorrow. This
+# lane is that notice.
+#
+# WHY SCHEDULED AND NOT A PULL-REQUEST GATE, for the same reason release-lag.yml
+# is: manager drift is a fact that changes with NO COMMIT here. Renovate re-scans
+# on its own cadence, and a manager can start failing because Renovate shipped a
+# new version, or because a transitive config preset moved — neither is a push to
+# this repository, so a PR gate could never observe it. What a PR gate CAN see —
+# "does renovate.json5 still parse and produce the expected inventory" — is
+# `task renovate:dry-run`, which is the other half of this issue.
+#
+# FAIL-LOUD CONTRACT (NFR-018 §2): an unreachable API, an empty issue body or an
+# unparseable dashboard makes THIS RUN RED and opens NO issue — an undetermined
+# check is not a clean check, and a transient blip must not spam the tracker. A
+# determined result (drift or none) writes renovate-health-report.json and exits
+# 0; the alert then lives in a single deduplicated issue, not in the run status.
+# That deduplication is a deliberate operator decision (2026-09-16), not an
+# accident of shape: a red scheduled run is invisible after a week of red
+# scheduled runs, while an issue carries the history and can be answered.
+
+on:
+  schedule:
+    # 09:20 UTC daily — twenty minutes after release-lag.yml, so the two alerting
+    # jobs do not contend for the same API window, and clear of the 00:00 Nuclei
+    # nightly and the 01:00/01:17/01:30 security+E2E block. Daily is the right
+    # cadence: Renovate itself runs hourly at most, and the drift this observes
+    # (a manager falling silent) persists until someone fixes it — sampling more
+    # often only adds noise.
+    - cron: "20 9 * * *"
+  workflow_dispatch:
+    inputs:
+      dashboard_issue:
+        description: "Dependency Dashboard issue number to read (default 12)."
+        required: false
+        type: string
+
+# `issues: write` opens and updates the alert issue. `contents: read` is enough
+# for the checkout: unlike release-lag.yml this job reads no draft releases, so
+# it does NOT need `contents: write`.
+permissions:
+  contents: read
+  issues: write
+
+# An alerting job: serialise a scheduled run against a manual one so two runs
+# cannot both act on the alert issue, and never cancel — a cancelled run could
+# leave the issue half-updated. Fixed group (not github.ref) because this only
+# ever runs on the default branch.
+concurrency:
+  group: renovate-health
+  cancel-in-progress: false
+
+jobs:
+  check-dashboard:
+    name: Read the Dependency Dashboard and compare the manager inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Fetch the Dependency Dashboard body
+        id: dashboard
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DASHBOARD_ISSUE: ${{ inputs.dashboard_issue || '12' }}
+          # Via env, never interpolated into the shell body — a `${{ }}` inside a
+          # `run:` is a template substitution, not a shell variable, and is the
+          # standard expression-injection surface.
+          REPOSITORY: ${{ github.repository }}
+        # Written to a FILE, not to $GITHUB_OUTPUT: the body is ~900 lines of
+        # Markdown containing backticks, `<details>` tags and Renovate's own
+        # `<!-- -->` control comments. Round-tripping that through a step output
+        # invites a quoting accident that silently truncates the very section
+        # being measured. `--jq .body` fails loudly on a missing issue.
+        run: |
+          gh api "repos/${REPOSITORY}/issues/${DASHBOARD_ISSUE}" --jq .body > dashboard-body.md
+          echo "bytes=$(wc -c < dashboard-body.md)" >> "$GITHUB_OUTPUT"
+
+      - name: Compare the manager inventory against the expectation
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        # Hard errors exit non-zero here => the run goes red and the issue step
+        # below no-ops (no report file). A determined result writes the report
+        # and exits 0, whether or not it found drift.
+        run: |
+          RENOVATE_DASHBOARD_BODY="$(cat dashboard-body.md)" \
+            python3 scripts/ci/check_renovate_dashboard.py renovate-health-report.json
+
+      - name: Open, update or close the Renovate-health issue
+        # Runs only when the check DETERMINED a result (report exists). On a hard
+        # error the report is absent, this step is skipped, and the red run is
+        # the signal — deliberately NOT an issue.
+        if: always() && hashFiles('renovate-health-report.json') != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Read via process.env, never interpolated into the script body.
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DASHBOARD_ISSUE: ${{ inputs.dashboard_issue || '12' }}
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('renovate-health-report.json', 'utf8'));
+            // The label need not pre-exist: GitHub creates an unknown label on
+            // `issues.create`, which is how `release-lag` came into being. The
+            // listForRepo lookup above simply returns [] until then, so the first
+            // alert opens an issue and every later one updates it.
+            const LABEL = 'renovate-health';
+            const TITLE = 'Renovate manager inventory drifted or the dashboard reports a problem (#1383)';
+            const runUrl = process.env.RUN_URL;
+            const dashboardIssue = process.env.DASHBOARD_ISSUE;
+
+            // Dedup anchor: the single open issue carrying our label. A good
+            // alerting job updates one issue; it does not open a new one daily.
+            const open = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: LABEL,
+            })).data.filter(i => !i.pull_request);
+            const existing = open[0];
+
+            if (!report.alert) {
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `Resolved: the dashboard reports no repository problems and \`pep621\` extracts from all ${report.expected_pep621_files.length} locked trees again, as of ${runUrl}. Closing.`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number, state: 'closed',
+                });
+                core.notice(`Renovate health restored — closed alert issue #${existing.number}.`);
+              } else {
+                core.notice(`Renovate dashboard healthy (managers: ${report.managers.join(', ')}).`);
+              }
+              return;
+            }
+
+            // Built by pushing, not by filtering a sparse array — the same
+            // mistake release-lag.yml records: a `.filter(l => l !== '')` drops
+            // the deliberate blank lines and collapses the Markdown.
+            const measured = [];
+            for (const finding of report.findings) {
+              measured.push(`- ${finding}`);
+            }
+
+            const body = [
+              `The scheduled Renovate-health check found **${report.findings.length}** problem(s) while reading the Dependency Dashboard (#${dashboardIssue}).`,
+              '',
+              'This is the check that would have caught the six weeks (2026-08-02 – 2026-09-10) in which the `pip-compile` manager extracted nothing at all. A manager that extracts nothing opens no pull requests and breaks no build; it is indistinguishable from "nothing to update" unless somebody enumerates the inventory.',
+              '',
+              '## Findings',
+              '',
+              ...measured,
+              '',
+              '## Inventory as read',
+              '',
+              `- Managers present: ${report.managers.map(m => `\`${m}\``).join(', ')}`,
+              `- \`pep621\` package files: ${report.pep621_files.length ? report.pep621_files.map(f => `\`${f}\``).join(', ') : '**none**'}`,
+              `- Expected (locked) trees: ${report.expected_pep621_files.map(f => `\`${f}\``).join(', ')}`,
+              `- Known lock-less PEP 621 trees (allowed): ${report.known_lockless_pep621_files.map(f => `\`${f}\``).join(', ')}`,
+              `- \`uv.lock\` found beside: ${report.locks_verified_on_disk.length}/${report.expected_pep621_files.length} expected trees — read from the CHECKOUT, not from the dashboard, which lists package files only`,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '## Triage',
+              '',
+              `1. Open the dashboard itself (#${dashboardIssue}) and read the \`## Repository problems\` section. Renovate writes it only when it has something to say.`,
+              '2. If a manager disappeared, the usual cause is a config change here: a `matchManagers` rule that disabled more than intended, or a package file whose shape a manager stopped accepting (that is exactly what happened to `pip-compile`).',
+              '3. Prove the fix before merging it with `task renovate:dry-run`, which runs Renovate against this checkout and prints the same inventory this check compares.',
+              '4. If the change is intended — a new Python tree, or a tree that deliberately has no lock — update `EXPECTED_PEP621_FILES` / `KNOWN_LOCKLESS_PEP621_FILES` in `scripts/ci/check_renovate_dashboard.py` in the same pull request, so the expectation stays exact instead of being widened later from memory.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Still drifting as of ${runUrl}: ${report.findings.length} finding(s).`,
+              });
+              core.notice(`Updated existing alert issue #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body, labels: [LABEL, 'dependencies'],
+              });
+              core.notice(`Opened alert issue #${created.data.number}.`);
+            }

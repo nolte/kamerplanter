@@ -42,6 +42,7 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-cd-deliver-docs.yml` | Published release | Deploy MkDocs documentation to GitHub Pages |
 | `release-cd-refresh-master.yml` | Published release | Update `main` branch to release state |
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
+| `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
 
 ---
 
@@ -104,6 +105,24 @@ Backend dependencies are installed from `uv.lock`, the hash-bearing lock resolve
 ```bash
 uv sync --locked --extra dev
 ```
+
+---
+
+## Renovate health (`renovate-health.yml`)
+
+Renovate reports its own failures **only** in the Dependency Dashboard (issue #12) — not as a red run, not as a missing pull request. A manager that finds nothing any more looks exactly like "there is nothing to update".
+
+That is what happened between 2026-08-02 and 2026-09-10: Renovate's `pip-compile` manager extracted **nothing** for six weeks, the backend locks aged untouched, and every lane stayed green. The only signal was a `⚠️ WARN: pip-compile error` line in the dashboard.
+
+So this workflow reads the body of #12 daily and compares:
+
+* **Repository problems** — every `WARN`/`ERROR` line under `## Repository problems` is a finding and is quoted verbatim.
+* **The manager inventory** — `pep621` must extract from all five locked PEP 621 trees (backend + four service images), `poetry` and `pip-compile` must not appear at all, and `pip_requirements` must list no file from any of those trees.
+* **The lock beside each package file** — the dashboard lists *no* lock files, so this one fact is read from the checkout. The report says so explicitly.
+
+On a finding the run opens or updates **a single deduplicated issue** (label `renovate-health`) instead of merely going red — a red scheduled run is invisible after a week of red scheduled runs. Conversely, when the run *cannot decide* (issue unreachable, empty body, unparseable dashboard) **the run goes red and no issue is opened** — an undetermined check must not read as a clean one (NFR-018 §2).
+
+The expectation itself lives in `scripts/ci/check_renovate_dashboard.py` (`EXPECTED_PEP621_FILES`, `KNOWN_LOCKLESS_PEP621_FILES`); a new Python tree is added there rather than the rule being quietly widened.
 
 ---
 
