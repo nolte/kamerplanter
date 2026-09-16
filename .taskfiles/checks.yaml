@@ -8,7 +8,74 @@
 
 version: "3"
 
+vars:
+  # The Renovate CLI used by `renovate:dry-run`, pinned by tag AND digest.
+  # A floating `:latest` here would make the dry-run's verdict a function of
+  # whatever Renovate shipped that morning — the same reproducibility defect the
+  # nuclei binary pin records (#1177), where the meaning of "validated" changed
+  # under an unchanged repository. Aged by the Taskfile custom manager in
+  # renovate.json5 (added with this target), so the pin cannot rot either.
+  # renovate: datasource=docker depName=renovate/renovate
+  RENOVATE_IMAGE: renovate/renovate:44.94.1@sha256:009fd964cff7a42b1f0a90207250f9dc89affa28cc9a8c086f15fac74c28d803
+
 tasks:
+  renovate:dry-run:
+    desc: |
+      Run Renovate against THIS checkout and print what it would do — the
+      manager inventory it extracts, the updates it would propose, and any
+      config error — without touching the platform (#1383).
+
+      Why this exists as a target. renovate.json5 is the one configuration file
+      in the repository that nothing verifies before merge: a rule that matches
+      nothing, a manager accidentally disabled, a `managerFilePatterns` typo —
+      all of them parse fine and are only discovered on the next Renovate run,
+      hours later and on develop. That is precisely how the pip-compile manager
+      went silent for six weeks (#1303). The dry-run that proved the #1377
+      config was a one-off shell command nobody could repeat.
+
+      `--platform=local` reads the working tree instead of the GitHub API, so it
+      also sees UNCOMMITTED changes — which is the point: prove the edit before
+      committing it.
+
+      WHAT IS EXCLUDED, AND WHY THIS WAY. The one-off run also scanned
+      `src/backend/.venv/**` (the local platform has no git filter, and
+      config:recommended's ignorePaths covers `node_modules` but not a Python
+      virtualenv). The exclusion is done by MASKING those paths with anonymous
+      volumes, not by overriding `ignorePaths` through RENOVATE_IGNORE_PATHS:
+      overriding the setting would mean the dry-run proves a configuration that
+      is not the one CI uses, which defeats the purpose. Masking changes only
+      what the container can see.
+
+      GITHUB_TOKEN is passed through when set. Without it the datasource lookups
+      run anonymously and hit the rate limit quickly — the manager inventory is
+      still correct, the "would propose" half is not.
+
+      READING THE OUTPUT. The manager inventory is the `Dependency extraction
+      complete` / `packageFiles with updates` block; at LOG_LEVEL=debug each
+      extracted file is listed individually. `LOG_LEVEL=debug task renovate:dry-run`
+      is what you compare against `EXPECTED_PEP621_FILES` in
+      scripts/ci/check_renovate_dashboard.py before merging a renovate.json5
+      edit, instead of after the next Renovate run.
+
+      Requires Docker.
+    cmds:
+      - |
+        set -euo pipefail
+        printf 'renovate dry-run using %s\n\n' '{{.RENOVATE_IMAGE}}'
+        docker run --rm \
+          -v "$PWD:/repo" \
+          -v /repo/src/backend/.venv \
+          -v /repo/src/frontend/node_modules \
+          -v /repo/node_modules \
+          -w /repo \
+          -e LOG_LEVEL="${LOG_LEVEL:-info}" \
+          -e RENOVATE_CONFIG_FILE=/repo/renovate.json5 \
+          -e RENOVATE_PLATFORM=local \
+          -e RENOVATE_DRY_RUN=full \
+          -e RENOVATE_TOKEN="${GITHUB_TOKEN:-}" \
+          -e GITHUB_COM_TOKEN="${GITHUB_TOKEN:-}" \
+          '{{.RENOVATE_IMAGE}}' {{.CLI_ARGS}}
+
   check:schema-examples:
     desc: |
       Count the request/response schemas without an OpenAPI example against the

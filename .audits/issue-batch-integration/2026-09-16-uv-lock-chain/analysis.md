@@ -315,3 +315,541 @@ ist leer). Die verbleibenden Treffer gehören zu anderen Bäumen und bleiben bew
 7. **Konsequenz für Scheibe 4:** die Inventur-Erwartung gilt in ihrer *starken* Form —
    `pep621` liest fünf `pyproject.toml` + `uv.lock`, `poetry` erscheint nicht mehr. Die in
    „Bekannte lokale Anpassung" beschriebene Abschwächung entfällt.
+
+### Scheibe 2 — #1383 Punkte 3 + 4 (Sub-Branch `chore/1383-uv-chain-self-verifying`, 2026-09-16)
+
+**Ergebnis: beide Akzeptanzkriterien erfüllt und beide dauerhaft geprüft.**
+
+#### AK-Nachweis
+
+```
+$ grep -rn "uv==" .github/workflows/ ; echo "exit=$?"
+exit=1
+
+$ grep -n "pip install" src/backend/Dockerfile ; echo "exit=$?"
+exit=1
+```
+
+Beide Greps waren **vor** der Scheibe nicht leer (acht bzw. zwei Treffer). Damit
+die Greps nach dieser Scheibe nicht bloß Tatsachen über einen Nachmittag sind,
+ist `src/backend/tests/unit/guards/test_uv_pin_is_single.py` dazugekommen: vier
+Fälle, die (a) jede ausführbare Workflow-Zeile mit einer literalen uv-Version
+roten lassen, (b) sicherstellen, dass der Sweep die vier interessanten Dateien
+überhaupt liest (Absence-Checks fallen sonst offen auf), (c) verlangen, dass
+mindestens ein `setup-uv`-Step existiert, und (d) prüfen, dass jeder davon
+digest-gepinnt ist und auf eine `pyproject.toml` zeigt, die wirklich ein
+`[tool.uv].required-version` trägt.
+
+**Rot zuerst** (Vorzustand per `cp` wiederhergestellt, nicht `git stash`):
+
+```
+$ git show HEAD:.github/workflows/backend.yml > .github/workflows/backend.yml
+$ pytest tests/unit/guards/test_uv_pin_is_single.py -q
+E   AssertionError: A workflow names a uv version itself. … Offending lines:
+E       .github/workflows/backend.yml:161: python -m pip install 'uv==0.12.15'
+E       .github/workflows/backend.yml:231: run: python -m pip install 'uv==0.12.15'
+E       .github/workflows/backend.yml:274: run: python -m pip install 'uv==0.12.15' 'pip-audit==2.10.1'
+E       .github/workflows/backend.yml:319: python -m pip install 'uv==0.12.15'
+E       .github/workflows/backend.yml:357: install-command: python -m pip install 'uv==0.12.15' && …
+1 failed, 3 passed in 0.91s
+```
+
+**Mutationen** (je eine Zeile in `api-docs.yml`, danach per `cp` zurück):
+
+| Mutation | Ergebnis |
+|---|---|
+| `version-file:` entfernt | rot — „no `version-file:` — the action would install the LATEST uv" |
+| Digest-Pin durch `@v10` ersetzt | rot — „not pinned to a 40-character commit SHA" |
+| unverändert | 4 passed |
+
+#### Der Pin
+
+`astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0` (Tag-Ref
+über `gh api repos/astral-sh/setup-uv/git/ref/tags/v10.1.0` aufgelöst, Objekttyp
+`commit`), mit `version-file: src/backend/pyproject.toml`, `enable-cache: true`
+und `cache-dependency-glob: src/backend/uv.lock`. Sieben Stellen ersetzt
+(`backend.yml` 4×, `backend-guards.yml`, `api-docs.yml`, `release-publish.yml`),
+zwei weitere neu in `side-services.yml` — macht **sieben** `uses:`-Stellen im
+Repository (die vier alten Backend-Stellen sind zu vier Steps geworden, die zwei
+Side-Service-Steps sind neu).
+
+Der Cache-Glob ist bewusst eng: die Default-Globs der Action wären
+`**/pyproject.toml` + `**/uv.lock`, und seit #1374 gibt es fünf Locks, von denen
+vier mit dem jeweiligen Job nichts zu tun haben.
+
+#### Die achte Stelle — Repository-Grenze, gemessen statt behauptet
+
+`backend.yml:357` ist der `install-command`-Input des Reusable-Workflows
+`nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml`. Ein
+`uses:`-Step lässt sich dort nicht einfügen; der Aufrufer kann nur einen
+Shell-Befehl übergeben. Der Befehl **liest** die Version jetzt, statt sie zu
+wiederholen — `[tool.uv].required-version` ist bereits der exakte Specifier
+`==<version>` und wird an den Paketnamen angehängt:
+
+```
+UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && python -m pip install "uv$UV_SPEC" && …
+```
+
+Lokal gegen `src/backend/pyproject.toml` ausgeführt: `resolved package spec:
+uv==0.12.15` — bitgleich mit dem vorherigen Literal. Ein uv-Modus für
+`reusable-python-coverage.yaml` bleibt ausdrücklich außerhalb des Scopes
+(eigenes Repository); wer ihn will, öffnet dort ein Issue.
+
+#### `debugpy`
+
+`"debugpy>=1.8.0,<2.0.0"` im Dev-**Extra** von `src/backend/pyproject.toml`
+(nicht in einer eigenen Gruppe: das eine `uv sync --locked --extra dev`, das CI,
+`task deps:sync` und die Dev-Stufe des Images ohnehin fahren, installiert es
+dann mit, ohne einen zweiten Selektor). `uv lock` → `Added debugpy v1.8.22`.
+Die Dockerfile-Zeile `uv pip install debugpy` ist weg.
+
+```
+$ docker build --target dev -t kp-backend-dev-1383 .   # 1:07 min
+EXIT=0
+$ docker run --rm --entrypoint python kp-backend-dev-1383 -c "import debugpy; print(debugpy.__version__, debugpy.__file__)"
+1.8.22 /opt/venv/lib/python3.14/site-packages/debugpy/__init__.py
+```
+
+#### `side-services.yml` (Scheibe-1-Befund 6)
+
+`knowledge-service` und `inference-service` installieren jetzt mit
+`uv sync --locked --extra dev` plus `$GITHUB_PATH`-Prepend (die Taskfile-Ziele in
+`.taskfiles/libs.yaml` rufen ein blankes `python -m pytest`). Lokal gemessen:
+`uv sync --locked --extra dev` Exit 0 in beiden Bäumen, danach
+`pytest tests/ -p no:cacheprovider` → **47 passed** (knowledge) bzw. **105
+passed** (inference). Das `build`-Dependency-Group des inference-service
+(torch/onnx) ist keine Default-Group und wird dabei nicht installiert — der Job
+zahlt keinen torch-Download.
+
+**Abweichung: `kp_vectordb` bleibt bei `pip install -e '.[dev]'`.** Der dritte
+Job in dieser Datei ist keiner der vier Side-Services aus #1374 — `src/libs/
+kp_vectordb/` ist eine geteilte Library und hat **kein** `uv.lock`. Es gibt also
+nichts, wovon `--locked` synchronisieren könnte; einen fünften Lock anzulegen ist
+eine Entscheidung über die Release-Form der Library, keine CI-Änderung. Im
+Workflow-Kommentar festgehalten statt nebenbei gemacht.
+
+#### `renovate.json5`
+
+Der Action-Pin ist in dieselbe Gruppe `uv toolchain` gewandert
+(`matchDatasources` um `github-tags`, `matchPackageNames` um
+`astral-sh/setup-uv` erweitert). Das war **nötig**, nicht kosmetisch: die
+Workflows tragen keine eigene uv-Version mehr, also würde ein separater
+Action-Bump eine andere uv-Release installieren als die, die die Gruppe bewegt.
+Die generische `github-actions`-Regel steht früher im Array, diese später — sie
+gewinnt daher auf `groupName`; `automerge: false` steht explizit dabei, weil die
+generische Regel minor/patch/digest automerged und hier der **Resolver** bewegt
+wird, der fünf Lockfiles erzeugt.
+
+Der Kommentar „referenced three times" war falsch und ist nachgezählt ersetzt:
+**drei Arten von Stelle, 17 Stellen** — fünf `[tool.uv].required-version`, fünf
+`ghcr.io/astral-sh/uv` in Dockerfiles, sieben `astral-sh/setup-uv@`.
+
+Im Workflow-Regex-Manager ist die Alternative `uv` aus
+`'(?<depName>pip-audit|pip-licenses|uv)=='` entfernt — sie kann nichts mehr
+treffen, und eine tote Alternative hätte suggeriert, ein wiedereingeführtes
+Literal sei weiterhin abgedeckt.
+
+#### Doku
+
+`docs/de/deployment/ci-cd.md` + EN-Spiegel und das `pip-audit`-Beispiel in
+NFR-009 §4.1 zeigten noch `pip install 'uv==0.12.12'` — eine Version, die seit
+#1447 nirgends mehr im Repository steht. Alle drei auf die neue Form umgestellt.
+
+#### Gates
+
+`pre-commit run actionlint-docker --all-files`: **Passed**.
+`pre-commit run --all-files`: alles grün außer `nuclei-validate`, das mit
+„nuclei is not on PATH" abbricht — eine Lücke der lokalen Umgebung, kein Befund
+(der Hook verweigert bewusst ein grünes Ergebnis ohne Werkzeug).
+`uv lock --check` Exit 0. `pytest tests/unit/guards` → 40 passed.
+
+### Scheibe 3 — #1383 Punkt 2: der dauerhafte Hash-Falsifizierer (2026-09-16)
+
+**Ergebnis: die Vakuumfalle aus #1377 ist reproduziert, gemessen und dauerhaft
+verschlossen.** Neu: `src/backend/tests/unit/guards/test_lock_hash_verification.py`
+(6 Fälle).
+
+#### Rot zuerst — die gemessene Vakuumfalle
+
+Kopie von `pyproject.toml` + `uv.lock` in ein tmp-Verzeichnis, der Wheel-Hash von
+`structlog` durch 64 Nullen ersetzt, uv 0.12.15:
+
+```
+$ uv lock --check
+Using CPython 3.14.2
+Resolved 133 packages in 1ms
+uv lock --check EXIT=0          ← erkennt die Manipulation NICHT
+
+$ uv sync --locked --no-install-project
+error: Failed to download `structlog==26.1.0`
+  cause: Hash mismatch for `structlog==26.1.0`
+         Expected:
+           sha256:0000000000000000000000000000000000000000000000000000000000000000
+         Computed:
+           sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e
+EXIT=1
+```
+
+Beides ist jetzt als Test festgeschrieben — `TestUvLockCheckAloneIsNotTheGuard`
+verlangt ausdrücklich **Exit 0** von `uv lock --check` und begründet im
+Fehlertext, warum ein künftiges Rot dort gute Nachricht ist, die drei
+Kommentarstellen im Repository mitziehen muss.
+
+#### Die Mutation, die die #1377-Falle nachstellt
+
+`_tamper()` so verändert, dass es statt des Wheel-Eintrags die **sdist**-Zeile
+manipuliert — genau der Fehler der ersten Fassung:
+
+```
+=== MUTATION: tamper the sdist hash (the #1377 vacuum) — expect RED ===
+E   AssertionError: `uv sync --locked` INSTALLED a lock whose wheel hash had been
+    replaced by zeroes. …
+E     Resolved 133 packages in 2ms
+E     Installed 103 packages in 322ms
+```
+
+Der Falsifizierer wird also rot, wenn die Manipulation inert ist. Die
+Positivkontrolle `test_the_target_package_is_actually_installed_from_its_wheel`
+ist die stehende Version davon: sie verlangt, dass `structlog` in der
+`+ …`-Installationsliste von `uv sync` auftaucht (103 Pakete), statt das
+anzunehmen. Dazu drei Struktur-Asserts, die das Ziel prüfen statt ihm zu
+vertrauen: genau ein Wheel, kein `marker =`, direkte Dependency in
+`pyproject.toml`.
+
+#### Skip-Verhalten
+
+| Lage | Ergebnis |
+|---|---|
+| uv 0.11.33 auf PATH (≠ `required-version`), `$CI` ungesetzt | `1 passed, 5 skipped`, Grund wörtlich ausgeschrieben |
+| dieselbe Lage mit `CI=true` | **rot**: „The hash-verification falsifier skipped ON A RUNNER, so this lane reports green without having measured the claim it exists for." |
+| uv 0.12.15 auf PATH, `CI=true` | `6 passed` |
+
+Die Versions-Skipbedingung ist nötig, weil `uv sync` in der Kopie sonst an
+`required-version` scheitern würde — rot aus dem falschen Grund, und ein echter
+Hash-Defekt wäre von einem Toolchain-Mismatch nicht zu unterscheiden. Der Test
+prüft zusätzlich, dass die stderr des Tamper-Laufs **keinen** der Marker
+`required-version` / `No interpreter found` / `Network` / `offline` enthält.
+
+#### Laufzeit und Netz
+
+Gemessen mit warmem gemeinsamem uv-Cache (`~/.cache/uv`):
+
+| Lauf | Wall | Bemerkung |
+|---|---|---|
+| Positivkontrolle `uv sync --locked --no-install-project` | **0,09 s** | 103 Pakete installiert (Hardlinks aus dem Cache) |
+| Tamper-Lauf | **0,02 s** | uv bricht ab, bevor irgendetwas installiert wird |
+| ganze Datei unter pytest | **1,9 s** (6 Fälle), davon 1,5 s Fixture-Setup | |
+| exakt der CI-Befehl `uv run --locked --extra dev python -m pytest …` | **2,06 s** | |
+
+**Netz:** nicht erforderlich, solange der Cache warm ist — die Positivkontrolle
+wurde zur Gegenprobe zusätzlich mit `--offline` gefahren und lief mit Exit 0
+durch. `--offline` wird im Test **bewusst nicht** gesetzt: auf einem kalten Cache
+(frischer Runner, bevor die vorherigen Schritte des Jobs ihn gefüllt haben) würde
+daraus ein harter Fehlschlag, der „offline" sagt statt zu sagen, was falsch ist.
+Alle Lanes, die die Datei fahren, synchronisieren dasselbe Lock in einem
+früheren Schritt.
+
+#### Verdrahtung
+
+Der Job `Lock staleness` führte **kein** `tests/unit/guards` aus (nur
+`task deps:check` + `uv sync --locked --no-install-project`). Neuer Schritt
+„Falsify the hash claim this job just made" nach dem Verify-Schritt, über
+`uv run --locked --extra dev python -m pytest tests/unit/guards/test_lock_hash_verification.py -q`.
+Die Datei läuft zusätzlich in `task test:backend:unit` (backend.yml `lint-test`)
+und in `backend-guards.yml` — beide haben seit Scheibe 2 ein passendes uv, sonst
+würde dort jetzt `test_the_hash_falsifier_is_never_merely_skipped_in_ci` röten.
+
+Doku mitgezogen: NFR-009 §2.3 (MUSS: die Behauptung trägt einen Falsifizierer)
+und §6.1 (die Messtabelle `uv lock --check` 0 / `uv sync --locked` 1, plus die
+sdist-Vakuum-Historie), sowie die `deps:check`-Beschreibung in
+`.taskfiles/backend.yaml`.
+
+#### Befund am Messwerkzeug (nicht am Produkt)
+
+`pre-commit run --all-files` prüft **nur von git verfolgte Dateien**. Die neue
+Guard-Datei aus Scheibe 2 war zum Zeitpunkt des Laufs untracked, lief deshalb
+nicht durch `ruff format` und war unformatiert — `task format:backend` (der
+CI-Gate-Befehl) hätte sie rot gemacht. Aufgefallen erst, als sie committet war.
+Konsequenz für künftige Scheiben: neue Dateien vor dem `pre-commit`-Lauf
+`git add`en, oder `ruff format --check .` separat fahren.
+
+### Scheibe 4 — #1383 Punkt 1: die Renovate-Health-Lane (2026-09-16)
+
+**Ergebnis: Lane, Skript, zwei echte Fixtures, 31 Unit-Tests, vier Mutationen
+nachgewiesen.** Die Scheibe hat zusätzlich eine Annahme der Analyse **widerlegt**
+(siehe „Was die Messung kippte").
+
+Neu: `.github/workflows/renovate-health.yml`, `scripts/ci/check_renovate_dashboard.py`,
+`src/backend/tests/unit/guards/test_renovate_dashboard_parser.py`,
+zwei Fixtures unter `src/backend/tests/unit/guards/fixtures/`.
+
+#### Was die Messung kippte
+
+Die Analyse (und `renovate.json5:101-105`) hielten fest, der `poetry`-Manager
+lese **genau die zwei** Side-Service-`pyproject.toml`. Der echte Body von #12
+vom 2026-09-16 zeigt **vier**:
+
+```
+poetry (4)
+  src/inference-service/pyproject.toml
+  src/knowledge-service/pyproject.toml
+  src/libs/kp_errortracking/pyproject.toml     ← in keiner Analyse genannt
+  src/libs/kp_vectordb/pyproject.toml          ← in keiner Analyse genannt
+```
+
+Mit `poetry` repository-weit abgeschaltet (Scheibe 1) erbt `pep621` diese zwei
+Bibliotheken. Die „starke Erwartung" in ihrer geplanten Form (`pep621` liest
+**genau** die fünf gelockten Bäume) hätte also auf einem **korrekten**
+Repository gerötet. Konsequenz: `KNOWN_LOCKLESS_PEP621_FILES` — eine benannte,
+begründete Liste der PEP-621-Bäume ohne Lock (beide sind geteilte Libraries ohne
+eigenes Image; derselbe Grund, aus dem `side-services.yml` `kp_vectordb` weiter
+mit pip installiert). Die Erwartung bleibt damit **exakt** — eine unbekannte
+Datei rötet weiterhin —, statt auf „mindestens die fünf" aufgeweicht zu werden,
+was die ganze #1371-Episode hindurch grün geblieben wäre.
+`test_the_known_lockless_trees_really_have_no_lock` rötet, sobald einer der
+beiden doch ein Lock bekommt, damit der Eintrag seinen Grund nicht überlebt.
+
+**Zweite Messung, die die Aufgabenstellung korrigiert:** Das Dashboard listet
+**keine Lockdateien**. Die `pep621`-Sektion nennt ausschließlich Paketdateien
+(`src/backend/pyproject.toml (42)`), es gibt keine `uv.lock`-Spalte. Die
+Forderung „`pep621` listet … je mit `uv.lock`" ist am Dashboard nicht prüfbar.
+Das Skript liest diese eine Tatsache deshalb **vom Checkout** und sagt das im
+Bericht ausdrücklich, statt dem Dashboard eine Aussage zuzuschreiben, die es nie
+getragen hat.
+
+#### Die Fixtures
+
+| Datei | Herkunft | Rolle |
+|---|---|---|
+| `renovate_dashboard_2026-09-16.md` | wörtlich `gh issue view 12 --json body` | **Drift-Fall.** #1374 ist noch nicht auf `develop`, Renovate hat nicht neu gescannt — der Body zeigt weiter `poetry (4)` und vier Side-Service-`requirements.txt`. Das ist, was die Lane heute sagen würde, und es zu sagen wäre richtig |
+| `renovate_dashboard_expected_after_1374.md` | daraus mechanisch abgeleitet | **Positivkontrolle.** `poetry`-Block entfernt, seine Dateien unter `pep621` einsortiert, die gelöschten `requirements.txt` entfernt |
+
+`TestTheFixturesAreTheRealThing` bindet die Positivkontrolle an den Arbeitsbaum:
+jede `pyproject.toml`, die sie unter `pep621` nennt, **muss** im Checkout
+existieren, jeder erwartete Baum muss ein `uv.lock` daneben haben. Das ist die
+Gegenmaßnahme gegen die teuerste Fixture-Falle dieses Repositories (eine Fixture
+erfindet eine unmögliche Form, der Positivtest zertifiziert nichts).
+
+**Abweichung von der Vorgabe:** „unverändert → grün" ist mit dem *heutigen*
+Body nicht erfüllbar — der heutige Body **ist** der Driftfall. Deshalb zwei
+Fixtures statt einer, und `TestTodaysRealBodyIsCorrectlyRed` schreibt fest,
+woran der echte Body scheitert.
+
+#### Rot/Grün und Mutationen
+
+```
+$ pytest tests/unit/guards/test_renovate_dashboard_parser.py -q
+31 passed in 2.54s
+```
+
+| Mutation im Skript | Ergebnis |
+|---|---|
+| A — `problems = []` (WARN/ERROR-Scan vergessen) | **3 failed** (`test_a_warn_line_alerts`, `..._an_error_line_alerts`, `..._quoted_verbatim`) |
+| B — `missing = []` (schwache Erwartung: „pep621 ist da") | **6 failed**, darunter alle fünf parametrisierten `test_a_missing_side_service_file_alerts[…]` |
+| C — `for manager in ()` (verbotene Manager nicht mehr prüfen) | **2 failed** (`test_a_poetry_entry_alerts`, `test_it_names_poetry_and_the_missing_trees`) |
+| D — `locks_missing = []` (Lock auf Platte nicht mehr suchen) | **1 failed** (`test_a_missing_lock_on_disk_alerts`) |
+| unverändert | **31 passed** |
+
+Mutation B ist die wichtigste: sie stellt genau die Abschwächung nach, die #1371
+sechs Wochen lang überlebt hätte.
+
+Zusätzlich vier Fälle für „unbestimmt ≠ sauber" (`DashboardError` bei leerem
+Body, fehlender `## Detected Dependencies`-Sektion, leerer Inventur) und einer,
+der nachweist, dass ein unbestimmter Lauf **keinen Bericht schreibt** — die
+Issue-Stufe des Workflows hängt an `hashFiles(...)`, ein Bericht aus einem
+Parse-Fehler würde also ein Alert-Issue aus dem Nichts öffnen.
+
+#### Die Lane
+
+Nach dem Muster von `release-lag.yml`: Zeitplan `20 9 * * *` (20 Minuten nach
+der Release-Lag-Lane), `workflow_dispatch` mit optionaler Issue-Nummer,
+`permissions: contents: read` + `issues: write` (**nicht** `contents: write` —
+anders als `release-lag.yml` liest diese Lane keine Draft-Releases),
+`concurrency`-Gruppe ohne `cancel-in-progress`, dedupliziertes Issue über das
+Label `renovate-health` (Operator-Entscheidung 2). Der Body wird in eine **Datei**
+geschrieben, nicht in `$GITHUB_OUTPUT`: ~900 Zeilen Markdown mit Backticks,
+`<details>`-Tags und Renovates eigenen `<!-- -->`-Steuerkommentaren durch ein
+Step-Output zu schleusen lädt genau den Quoting-Unfall ein, der die gemessene
+Sektion still abschneidet. `github.repository` läuft über `env:`, nicht als
+`${{ }}` im Shell-Body.
+
+`actionlint` (pre-commit): **Passed**.
+
+#### Nicht selbst gestartet — was der Operator dispatchen soll
+
+Die Lane wurde **nicht** per `workflow_dispatch` gefahren (kein Push aus diesem
+Worktree, und der Workflow existiert auf `develop` noch nicht). Nach dem Merge:
+
+```bash
+gh workflow run renovate-health.yml
+gh run watch "$(gh run list --workflow=renovate-health.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+**Erwartung beim ersten Lauf:** Solange Renovate nach dem Merge von #1374 noch
+nicht neu gescannt hat, meldet die Lane genau die Befunde des Drift-Fixtures
+(`poetry` mit vier Dateien, vier fehlende `pep621`-Einträge, vier
+Side-Service-`requirements.txt`) und öffnet ein Issue. Das ist **richtig** und
+kein Fehlalarm — es ist derselbe Zustand, den das Fixture festhält. Erst der
+nächste Renovate-Lauf macht die Lane grün, und der schließt das Issue selbst.
+Wer das nicht abwarten will, dispatcht erst, nachdem #12 neu geschrieben wurde.
+
+#### Befund am Werkzeug
+
+`end-of-file-fixer` (pre-commit) hat beiden Fixtures ein abschließendes `\n`
+angehängt — die Kopie ist also nicht mehr byte-identisch mit der API-Antwort.
+Ohne Wirkung auf den Parser, hier aber festgehalten, statt „wörtlich" zu
+behaupten, was um ein Byte abweicht.
+
+### Scheibe 5 — #1383 Punkte 5 + 6: ein Interpreter, ein Dry-Run (2026-09-16)
+
+**Ergebnis: beide Punkte umgesetzt — und der Dry-Run hat Scheibe 4 widerlegt.**
+Das ist die im Plan vorgesehene „erste Messung, die beweist, dass die Erwartung
+stimmt"; sie bewies, dass sie **nicht** stimmte.
+
+#### Ein Interpreter
+
+`.taskfiles/backend.yaml`: `lint:backend`, `format:backend`, `test:backend` und
+die drei Tier-Ziele laufen über `uv run --locked --extra dev …`. Nur das
+Interpreter-Präfix wurde angefasst; die pytest-Argumente (`-v --tb=short
+{{.CLI_ARGS}}`) sind unverändert, damit die Fläche zur Gruppe
+`backend-lane-execution` (die `--max-skipped` ergänzt) so klein wie möglich
+bleibt — dieselbe Zeile, aber disjunkte Teile davon.
+
+`backend.yml` ruft im Job `lint-test` jetzt `task deps:sync` statt
+`uv sync --locked --extra dev` zu inlinen. Geprüft: `deps:sync` ist **exakt**
+dieser Befehl mit `dir: src/backend`, nichts sonst. Der `$GITHUB_PATH`-Prepend
+bleibt — nicht aus Trägheit: der Schritt
+`python app/migrations/seed_steckbrief_consistency.py` ist kein Taskfile-Ziel und
+löst weiterhin ein blankes `python` auf.
+
+**Messung, ohne aktiviertes venv** (`env -u VIRTUAL_ENV`, PATH ohne `.venv`):
+
+```
+$ uv run --locked python -c 'import sys; print(sys.prefix)'
+/home/nolte/repos/.worktrees/kamerplanter/g4-1383/src/backend/.venv
+
+$ task test:backend:unit -- -q -x --co
+=================== 8671 tests collected in 78.51s (0:01:18) ===================
+real  1m25,081s
+```
+
+`task lint:backend` / `task format:backend` ebenso grün („1721 files already
+formatted"), `task deps:sync` Exit 0.
+
+**Der Preis, gemessen statt geschätzt.** Die Operator-Entscheidung veranschlagte
+„~0,3 s je Aufruf". Gemessen (Median aus 5 Läufen, warme Umgebung):
+
+| | Median |
+|---|---|
+| `uv run --locked --extra dev python -c pass` | **0,045 s** |
+| `.venv/bin/python -c pass` | 0,026 s |
+
+Aufschlag also **~19 ms**, nicht 300 ms.
+
+`docs/*/development/testing/index.md`: der Aktivierungsschritt
+`source .venv/bin/activate` ist weg; stattdessen `task deps:sync` plus die
+Taskfile-Ziele, mit einer Admonition, die sagt, **warum** (die #1434-Klasse: 28
+lautlos übersprungene Tests unter einem fremden Interpreter).
+
+#### Der Dry-Run — und was er kippte
+
+`task renovate:dry-run` in `.taskfiles/checks.yaml`, Image **gepinnt nach Tag und
+Digest** (`renovate/renovate:44.94.1@sha256:009fd964…`). Ausschluss von
+`.venv`/`node_modules` per **Mount-Maskierung** (anonyme Volumes), ausdrücklich
+**nicht** per `RENOVATE_IGNORE_PATHS`-Override: ein Override würde eine *andere*
+Konfiguration beweisen als die, die in Produktion läuft — und genau das Beweisen
+der echten Konfiguration ist der Zweck.
+
+Einmal ausgeführt (`LOG_LEVEL=debug`, mit `GITHUB_TOKEN`), Exit 0, 14 597 Zeilen,
+kein `ERROR`, kein `WARN`. **Manager-Inventur:**
+
+```
+asdf              1/1     helmv3            1/3      pre-commit        1/20
+docker-compose    5/17    npm               1/48     renovate-config   1/1
+dockerfile        8/20    pep621            5/106    regex            20/28
+github-actions   25/267   pip_requirements  2/15
+helm-values       4/15    poetry            2/10
+                                                     total           76/551
+```
+
+`pep621` = die fünf gelockten Bäume, **jeder mit seiner `uv.lock` als
+`lockFiles`** — der Teil der Erwartung, den das Dashboard nicht ausdrücken kann,
+ist hier direkt sichtbar:
+
+```
+pep621 files: 5
+   docker/embedding-service/pyproject.toml
+   docker/reranker-service/pyproject.toml
+   src/backend/pyproject.toml
+   src/inference-service/pyproject.toml
+   src/knowledge-service/pyproject.toml
+lockFiles: docker/embedding-service/uv.lock, docker/reranker-service/uv.lock,
+           src/backend/uv.lock, src/inference-service/uv.lock,
+           src/knowledge-service/uv.lock
+```
+
+**Aber `poetry` ist mit fileCount 2 weiterhin da** —
+`src/libs/kp_errortracking/pyproject.toml` und
+`src/libs/kp_vectordb/pyproject.toml`. Damit sind **zwei** Annahmen aus Scheibe 4
+widerlegt:
+
+1. **`enabled: false` schaltet die Abhängigkeiten eines Managers ab, nicht seine
+   Extraktion.** Der Manager bleibt in der Inventur. Die geplante Regel
+   „`poetry` darf gar nicht auftauchen" hätte auf einem **korrekten**
+   Repository **täglich** Alarm geschlagen — ein Fehlalarm pro Tag, und damit
+   nach einer Woche eine Lane, die niemand mehr liest.
+2. **`pep621` erbt die zwei Bibliotheken NICHT.** Scheibe 4 hatte das
+   angenommen; `KNOWN_LOCKLESS_PEP621_FILES` war in dieser Form inert („umgesetzt,
+   aber wirkungslos").
+
+**Korrektur in Scheibe 5** (deshalb ändert dieser Commit auch Scheibe-4-Dateien):
+
+* `FORBIDDEN_MANAGERS` = nur noch `('pip-compile',)` — der Manager, der gar nicht
+  mehr konfiguriert ist.
+* Neu `MANAGERS_BANNED_FROM_LOCKED_TREES = ('poetry', 'pip_requirements',
+  'pip-compile')` mit `LOCKLESS_PYTHON_PROJECTS` als benannter Ausnahme. Die
+  Regel, die die Messung überlebt, lautet: **kein zweiter Manager innerhalb eines
+  gelockten Baums** — das ist #1371 wörtlich, und es ist prüfbar.
+* Die Positivkontroll-Fixture ist neu aus dem echten Body gebaut, **nach der
+  Messung**: `pep621 (5)`, `poetry (2)`, `pip_requirements (2)`.
+  `test_the_healthy_fixture_matches_the_dry_run_measurement` schreibt diese drei
+  Zahlen fest, damit die Fixture nicht wieder von der Messung wegdriften kann.
+
+Mutationen gegen das korrigierte Skript (je einzeln, danach `cp` zurück):
+
+| Mutation | Ergebnis |
+|---|---|
+| A — WARN/ERROR-Scan vergessen | 3 failed |
+| B — schwache Erwartung („pep621 ist da") | 6 failed |
+| C — zweiten Manager auf gelockten Bäumen nicht mehr prüfen | 4 failed |
+| D — Ausnahmeliste auf „alles" geweitet | 4 failed |
+| E — Lock auf Platte nicht mehr suchen | 1 failed |
+| F — `pip-compile` nicht mehr ablehnen | 1 failed |
+| unverändert | **34 passed** |
+
+#### Nebenbefund des neuen Werkzeugs
+
+Der Image-Pin des Dry-Runs braucht selbst einen Manager, sonst altert er
+unbeobachtet — die Klasse, um die es in dieser ganzen Gruppe geht. Der
+customManager „Container images pinned in workflow env: values" wurde um
+`/^\.taskfiles/[^/]+\.ya?ml$/` erweitert. Der zweite Dry-Run zeigt `regex`
+**20 → 24** Dateien, und die neuen Treffer sind nicht nur der eigene Pin:
+
+```
+.taskfiles/deploy.yaml:21  # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+.taskfiles/deploy.yaml:22  HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac941…
+```
+
+Dieser Pin **trug bereits einen `# renovate:`-Kommentar und wurde von keinem
+Manager gelesen** — er alterte seit seiner Entstehung unbeobachtet. Ein
+Kommentar, der aussieht, als sei etwas verdrahtet, während nichts ihn liest: die
+Klasse aus #1296/#1303 in einer weiteren Ausprägung, gefunden vom neuen
+Werkzeug, nicht gesucht.
+
+#### Doku
+
+`docs/de+en/deployment/ci-cd.md`: Abschnitt „`task renovate:dry-run` — die
+Konfiguration vor dem Merge beweisen" samt der gemessenen Inventur-Tabelle und
+der Begründung für die Mount-Maskierung; die Health-Lane-Beschreibung ist auf
+die korrigierte Regel nachgezogen (inklusive der Admonition, warum sie **nicht**
+„`poetry` darf nicht auftauchen" lautet).

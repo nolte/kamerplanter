@@ -112,21 +112,48 @@
       ],
       enabled: false,
     },
-    // The uv toolchain is referenced three times — `[tool.uv].required-version`
-    // in pyproject.toml (what Renovate relocks with), `uv==` in the workflows
-    // (regex manager below) and `ghcr.io/astral-sh/uv` in the Dockerfile — and
-    // the three are only meaningful together: a relock by a newer uv than the
-    // readers is the #1296 class. One pull request moves all of them.
+    // The uv toolchain is referenced in three KINDS of place, 17 times in total
+    // as of #1383 (counted, not remembered — `grep -rn 'required-version = "=='`,
+    // `grep -rn ghcr.io/astral-sh/uv --include=Dockerfile`, `grep -rn
+    // astral-sh/setup-uv@ .github/workflows/`):
+    //
+    //   * `[tool.uv].required-version` in five pyproject.toml — the backend and
+    //     the four side services (#1374). This is what Renovate itself relocks
+    //     with (its pep621 uv processor falls back to it when `constraints.uv`
+    //     is unset), read via the custom regex manager below.
+    //   * `ghcr.io/astral-sh/uv` in five Dockerfiles (dockerfile manager).
+    //   * `astral-sh/setup-uv` in seven workflow steps (github-actions manager).
+    //
+    // They are only meaningful together: a relock by a newer uv than the readers
+    // is the #1296 class. One pull request moves all of them.
+    //
+    // The ACTION had to join this group, not just sit in the generic
+    // `github-actions` one: the workflows no longer carry a uv version of their
+    // own — `setup-uv` reads it from `version-file: src/backend/pyproject.toml`
+    // (#1383) — so Renovate bumping the action alone would silently install a
+    // different uv release than the one this group moves, and bumping
+    // `required-version` alone could name a uv the pinned action cannot resolve.
+    // The generic `github-actions` rule above would otherwise have claimed it;
+    // this rule is later in the array and therefore wins on `groupName`.
+    //
+    // `automerge: false` is explicit for the same reason. The generic
+    // `github-actions` rule automerges minor/patch/digest, and everything else in
+    // this group changes the RESOLVER that produces five lock files — a change
+    // whose blast radius is every Python image here. It gets read before it
+    // lands.
     {
       groupName: 'uv toolchain',
       matchDatasources: [
         'pypi',
         'docker',
+        'github-tags',
       ],
       matchPackageNames: [
         'uv',
         'ghcr.io/astral-sh/uv',
+        'astral-sh/setup-uv',
       ],
+      automerge: false,
     },
     // The build backend uv is constrained to for the two sdist-only backend
     // dependencies (`[tool.uv].build-constraint-dependencies`), read by the
@@ -450,8 +477,16 @@
         '/^\\.github/workflows/[^/]+\\.ya?ml$/',
       ],
       matchStrings: [
-        // pip-style: 'pip-audit==2.10.1', 'uv==0.12.12'
-        "'(?<depName>pip-audit|pip-licenses|uv)==(?<currentValue>[0-9][^']*)'",
+        // pip-style: 'pip-audit==2.10.1', 'pip-licenses==5.5.5'
+        //
+        // `uv` was an alternative here until #1383. It is gone because the thing
+        // it matched is gone: no workflow carries a literal uv version any more
+        // (`astral-sh/setup-uv` reads `[tool.uv].required-version` instead), and
+        // tests/unit/guards/test_uv_pin_is_single.py fails the build if one comes
+        // back. Keeping a dead alternative would have suggested a reintroduced
+        // literal was still covered — it would be, but only until someone trusted
+        // that and skipped the guard.
+        "'(?<depName>pip-audit|pip-licenses)==(?<currentValue>[0-9][^']*)'",
         // npx-style: @stoplight/spectral-cli@6.16.2
         'npx --yes (?<depName>@[^@\\s]+/[^@\\s]+)@(?<currentValue>[0-9]\\S*)',
       ],
@@ -468,9 +503,15 @@
       //
       // Captures tag AND digest, so Renovate bumps them together. A tag bumped
       // without its digest would leave the workflow silently on the old image.
-      description: 'Update container images pinned in workflow env: values.',
+      description: 'Update container images pinned in workflow env: values and in Taskfile vars.',
       managerFilePatterns: [
         '/^\\.github/workflows/[^/]+\\.ya?ml$/',
+        // `.taskfiles/checks.yaml` pins the renovate/renovate CLI that
+        // `task renovate:dry-run` runs (#1383). Without this the pin would be
+        // immutable and unmaintained — the same half of the reproducibility
+        // problem the workflow env: pins were added for, and the shape #1177
+        // records: a floating tool silently changes what a check MEANS.
+        '/^\\.taskfiles/[^/]+\\.ya?ml$/',
       ],
       matchStrings: [
         'renovate: datasource=docker depName=(?<depName>\\S+)\\s*\\n\\s*[A-Z_]+:\\s*\\S+:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',
