@@ -47,6 +47,11 @@ component that answers "what does this reference mean",
 differently — the normaliser taking the *first* segment after ``/attachments/``,
 this migration the *last* — is precisely the root cause of #1438.
 
+**One precondition:** the ``attachments`` collection. Without it there is no
+catalogue to answer from, so a run that still finds references reports
+``precondition_unmet`` and stays pending rather than declaring every live reference
+unresolvable and being recorded applied.
+
 **Idempotent (M-3):** a repaired entry equals a live ``_key`` on the next run and is
 classified ``canonical`` — a re-run reports ``changed=0``. **Dry-run (M-5):** the full
 report is computed and nothing is written; that is the mode this migration was first
@@ -246,6 +251,22 @@ class ReconcilePhotoRefsMigration(Migration):
 
     # ── reads (AQL-only, no-op-safe on an empty database) ─────────────────────
 
+    def _carriers_with_references(self, db: StandardDatabase) -> int:
+        """How many carrier documents hold at least one reference — nothing more.
+
+        Used only when the catalogue is missing, to tell "there is work this run
+        cannot do" from "there is nothing to do" (the shape ``v0004`` established).
+        """
+        total = 0
+        for collection, field in REFERENCE_FIELDS:
+            if not db.has_collection(collection):
+                continue
+            for row in db.aql.execute(self._carrier_query(collection, field)):
+                references, _is_list = self._references_of(row.get("value"))
+                if references:
+                    total += 1
+        return total
+
     def _attachments(self, db: StandardDatabase) -> list[AttachmentIdentity]:
         """Project every attachment onto ``(key, tenant, storage-key stem)``.
 
@@ -253,8 +274,6 @@ class ReconcilePhotoRefsMigration(Migration):
         sweep compares against, so the migration never holds a second definition of
         what a storage key reduces to.
         """
-        if not db.has_collection(col.ATTACHMENTS):
-            return []
         query = (
             f"FOR a IN {col.ATTACHMENTS} "
             f"RETURN {{key: a._key, tenant_key: a.tenant_key, "
@@ -313,7 +332,54 @@ class ReconcilePhotoRefsMigration(Migration):
 
     # ── entry point ───────────────────────────────────────────────────────────
 
+    def _catalogue_missing(self, db: StandardDatabase, *, dry_run: bool) -> MigrationReport | None:
+        """The one precondition: the catalogue this migration answers *from* (O-1).
+
+        ``ensure_collections`` creates it before the runner on a normal boot, so its
+        absence means a partially bootstrapped or restored database — exactly the
+        state a repair migration meets. Answering from an empty catalogue would
+        classify every live reference as ``unresolved``, report a clean run and be
+        recorded ``applied``, after which no later boot would look again. Reported
+        unmet instead, the runner leaves it (and every later version) pending
+        (``framework/runner.py``, M-1).
+
+        With no reference anywhere there is genuinely nothing to do, and the
+        migration is safely recorded applied — the same distinction ``v0004`` draws.
+        """
+        if db.has_collection(col.ATTACHMENTS):
+            return None
+        pending = self._carriers_with_references(db)
+        logger.warning(
+            "reconcile_photo_refs_no_attachment_catalogue",
+            carriers_with_references=pending,
+            precondition_unmet=bool(pending),
+        )
+        return MigrationReport(
+            version=self.version,
+            name=self.name,
+            scanned=pending,
+            changed=0,
+            dry_run=dry_run,
+            precondition_unmet=bool(pending),
+            details={
+                # The lists stay empty on purpose: without the catalogue, "unresolved"
+                # would be a finding this run cannot support.
+                "reason": "attachments_collection_missing",
+                "repaired": [],
+                "repaired_total": 0,
+                "ambiguous": [],
+                "ambiguous_total": 0,
+                "unresolved": [],
+                "unresolved_total": 0,
+                "per_collection": {},
+            },
+        )
+
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
+        unmet = self._catalogue_missing(db, dry_run=dry_run)
+        if unmet is not None:
+            return unmet
+
         index = build_identity_index(self._attachments(db))
 
         scanned = 0
