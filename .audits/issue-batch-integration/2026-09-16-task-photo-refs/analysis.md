@@ -359,3 +359,117 @@ lesende Gegenprobe).
 deaktivierte Orphan-Sweep sei die Reconciliation — die Referenz-Versöhnung hat einen
 Besitzer, der Sweep beantwortet die Gegenfrage und lässt eine Referenz auf eine
 gelöschte Zeile bewusst stehen.
+
+### Scheibe 3 — umgesetzt 2026-09-16
+
+Operator-Entscheidung 1 umgesetzt: additiv. `error_code` bleibt `ENTITY_NOT_FOUND`,
+HTTP-Status bleibt 404, `details[0].entity` kommt hinzu — für **jeden**
+`NotFoundError`, nicht nur für `AttachmentNotFoundError`.
+
+**Rot zuerst, Backend** (`7e91bf9fa`, nur die Testdatei):
+
+```
+FAILED tests/api/test_task_photo_delete_router.py::TestTheTwoNotFoundCasesAreDistinguishable::test_a_missing_task_names_the_task
+FAILED tests/api/test_task_photo_delete_router.py::TestTheTwoNotFoundCasesAreDistinguishable::test_a_refused_attachment_names_the_attachment
+FAILED tests/api/test_task_photo_delete_router.py::TestTheTwoNotFoundCasesAreDistinguishable::test_the_two_cases_are_not_the_same_answer
+FAILED tests/api/test_task_photo_delete_router.py::TestTheTwoNotFoundCasesAreDistinguishable::test_the_entity_name_does_not_depend_on_how_the_raiser_spelled_it
+FAILED tests/api/test_task_photo_delete_router.py::TestTheTwoNotFoundCasesAreDistinguishable::test_normalisation_is_idempotent
+5 failed, 15 passed
+```
+
+Zwei der sieben Assertions sind **Kontrollen** und waren schon rot-lauf grün:
+`test_the_prose_reason_is_untouched` (additiv heißt additiv) und die Hälfte von
+`test_the_two_cases_are_not_the_same_answer`, die den gemeinsamen `error_code`
+festhält.
+
+**Grün danach** (`aa790f7de`):
+
+```
+tests/api/test_task_photo_delete_router.py                       20 passed
+tests/api tests/unit/api tests/unit/common tests/unit/mcp_server  2331 passed
+```
+
+**Rot zuerst, Frontend** (`f0484c146`, nur die Testdatei):
+
+```
+× keeps the photo when it is the task that is gone, and says so
+  TestingLibraryElementError: Unable to find an element with the text:
+  The requested resource was not found.
+× keeps the photo on a 404 that names no entity
+  TestingLibraryElementError: Unable to find an element by: [data-testid="photo-remove-0"]
+Tests  2 failed | 14 passed (16)
+```
+
+Beide roten Ausgaben sind der Defekt selbst: der Eintrag ist weg (kein
+`photo-remove-0` mehr) und es wurde keine Meldung gezeigt.
+
+**Grün danach** (`f12dc795e`): `PhotoUpload.test.tsx` **16 passed**,
+`errors.test.ts` + `PhotoUpload.test.tsx` zusammen **23 passed**, `tsc --noEmit`
+ohne Ausgabe (exit 0).
+
+**Mutationsbeweis Backend** (gesichert per `cp`, nicht `git stash`):
+
+| Mutation | Ergebnis |
+|---|---|
+| `"entity": entity` statt `normalise_entity_name(entity)` | `2 failed, 18 passed` — `test_a_missing_task_names_the_task` (der Raiser schreibt `"Task"`) und `test_the_entity_name_does_not_depend_on_how_the_raiser_spelled_it`; danach zurückgesichert → `20 passed` |
+
+Der Schnitt trifft, weil der Attachment-Raiser zufällig schon kleingeschrieben
+ist (`AttachmentNotFoundError` ruft `super().__init__("attachment", …)`). Ein
+Test, der nur den Attachment-Fall prüft, wäre bei dieser Mutation grün geblieben
+— deshalb prüft der Task-Fall den Raiser, der `"Task"` schreibt.
+
+**Beim Bauen gemessen, Vorgabe erweitert (zwei Abweichungen):**
+
+1. **`ApiError.details` kann zur Laufzeit `undefined` sein**, obwohl
+   `ApiErrorResponse.details` im Typ **required** ist. Der Interceptor baut den
+   Fehler aus dem Body, der ankam — ein Proxy-Fehlerdokument oder ein älteres
+   Deployment trägt kein `details`. Gefunden durch den Test „404 ohne `entity`":
+   Vitest meldete eine **Unhandled Rejection** `TypeError: Cannot read properties
+   of undefined (reading '0')` aus dem `catch`-Block, während der Test selbst grün
+   war. Das ist die Klasse „Prüfung leistet weniger, als sie behauptet": der
+   Nutzer hätte gar keine Meldung gesehen. Repariert an **einer** Stelle
+   (`ApiError`-Konstruktor, `?? []`), mit eigenem rot-zuerst-Test in
+   `src/test/api/errors.test.ts` — dort waren auch `getFieldErrors` und
+   `getFieldViolations` betroffen, die heute über `undefined` laufen würden.
+2. **Die Matrixzelle „Doku: *nicht zutreffend* — kein Endnutzerdokument
+   beschreibt Fehlercodes" war falsch.** `docs/de/api/error-handling.md` und der
+   EN-Spiegel dokumentieren den Envelope inklusive `details[]`-Beispiel und
+   Feldtabelle. Beide nachgezogen (DE kanonisch, EN Spiegel, DOCS.md).
+
+**Ein 404 ohne `entity` de-staged nicht.** Die billige Alternative — „kein
+`entity` heißt Attachment" — hätte den Fix gegen genau das Deployment inert
+gemacht, das ihn noch nicht ausgeliefert hat.
+
+**Prosa nachgezogen:** der `Known limitation`-Kommentar in `PhotoUpload.tsx`
+(eine der vier #1456-Fundstellen) ist ersetzt durch die Regel, die jetzt gilt;
+die Docstring von `photo_router.py` nennt das unterscheidbare Signal.
+
+## Vollständigkeitsmatrix — Abgleich nach Scheibe 3
+
+Jede Zelle mit „Prüfung: …", mit der tatsächlich gelaufenen Ausgabe:
+
+| Zelle | Prüfung | Ausgabe |
+|---|---|---|
+| #1438 Backend | `pytest tests/unit/migrations/` | Scheibe 1: `946 passed, 32 skipped` (mit `tests/unit/tasks/`); Scheibe 2: `1022 passed` |
+| #1438 Spec (NFR-013) | `task precommit` | siehe Schlusslauf unten |
+| #1438 Tests | derselbe pytest-Lauf + Mutationsbeweis | Scheibe 1: 3 Mutationen je 1 gezielter Fehlschlag; Scheibe 2: 3 Schnitte mit 9/6/7 Fehlschlägen |
+| #1438 Doku | `docs/de/deployment/` nennt `v0003`? | **gemessen: nein.** `grep -rln "v0003\|migrate_photo_refs" docs/` → leer. Zelle bleibt *nicht zutreffend*, jetzt belegt statt vermutet |
+| #1437 Backend | `pytest tests/unit/api/ tests/api/` | `2331 passed` (zusammen mit `tests/unit/common`, `tests/unit/mcp_server`) |
+| #1437 Frontend | `vitest run …/PhotoUpload.test.tsx` | `16 passed`; zusätzlich `errors.test.ts` (neu berührt) → zusammen `23 passed`; `tsc --noEmit` exit 0 |
+| #1437 Spec (NFR-006) | Envelope erweitert? | **ja** — neuer §2.2a plus `entity` in Beispiel und `ErrorDetail`-Schema |
+| #1437 Tests | rot zuerst beidseitig | oben wörtlich |
+| #1437 Doku | „kein Endnutzerdokument beschreibt Fehlercodes" | **widerlegt** — `docs/{de,en}/api/error-handling.md` beschreiben ihn; beide nachgezogen |
+| #1437 Config/Workflows | OpenAPI-Export im Gate (`api-docs.yml`) | `python -m scripts.export_openapi` läuft (`588 paths`); der exportierte Envelope ist `openapi_responses.ErrorResponse` mit `details: list[dict[str, Any]]` — **frei**, also kein Schema-Nachzug nötig. `openapi.json` bleibt uneingecheckt (Build-Artefakt), der Probelauf ging in den Scratchpad |
+
+**Was die `details`-Form pinnt — vollständig durchgesehen:**
+
+| Ort | Wirkung | Nachgezogen |
+|---|---|---|
+| `app/common/error_schemas.py` `ErrorDetail` | das in NFR-006 §2.2 dokumentierte Schema; im Code **von nichts importiert** (`grep -rn "error_schemas" app/ tests/` → leer) | ja, `entity: str \| None = None` |
+| `app/common/openapi_responses.py` `ErrorResponse` | *das* Schema im OpenAPI-Export; `details: list[dict[str, Any]]` | nicht nötig — trägt jede Form |
+| `tests/api/test_error_handling.py:127` | prüft pro Detail nur `field`/`reason`/`code` **in** dem Eintrag, nicht Gleichheit | unverändert grün |
+| `app/mcp_server/base.py:157` | projiziert MCP-`error_details` in die NFR-006-Liste, setzt kein `entity` | unverändert; `tests/unit/mcp_server` grün |
+| `src/frontend/src/api/types.ts` `ApiErrorDetail` | die Client-Seite des Vertrags | ja, `entity?: string` |
+| `spec/nfr/NFR-006*.md` §2.1/§2.2 | Spezifikation | ja, plus neuer §2.2a |
+| `spec/e2e-testcases/TC-NFR-006.md:564` | zitiert `details: list[ErrorDetail]` als Requirement-Referenz, nicht als Form | unverändert |
+| `docs/{de,en}/api/error-handling.md` | veröffentlichte Feldtabelle | ja, beide |
