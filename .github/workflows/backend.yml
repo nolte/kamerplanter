@@ -172,14 +172,23 @@ jobs:
           cache-dependency-glob: src/backend/uv.lock
 
       - name: Install dependencies
-        # Install from the hash-verified lock (single source of install truth,
-        # NFR-009 §2.3): `uv sync --locked` refuses a lock that no longer
+        # Through the Taskfile, like every other command in this job (#1383).
+        # `task deps:sync` is `uv sync --locked --extra dev` and nothing else, so
+        # this is not indirection for its own sake: the invocation now exists
+        # ONCE, and a contributor running `task deps:sync` cannot end up with a
+        # different environment than the gate. Inlining it is how the two drift.
+        #
+        # `uv sync --locked` (NFR-009 §2.3) refuses a lock that no longer
         # satisfies pyproject.toml and verifies every artifact against the hash
-        # the lock records, then installs the app package itself editable. The
-        # project environment is put on PATH so the Taskfile targets below run
-        # the locked ruff/pytest.
+        # the lock records, then installs the app package itself editable.
+        #
+        # The PATH prepend stays even though the Taskfile targets now run through
+        # `uv run --locked` and no longer need it: the steps below that are NOT
+        # Taskfile targets — `python app/migrations/seed_steckbrief_consistency.py`
+        # — still resolve a bare `python`, and removing the prepend would send
+        # them to the runner's interpreter.
         run: |
-          uv sync --locked --extra dev
+          task deps:sync
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       # Invoked through the Taskfile so the pipeline and a contributor run the

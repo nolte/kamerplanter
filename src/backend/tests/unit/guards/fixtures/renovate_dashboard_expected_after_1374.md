@@ -565,7 +565,7 @@ The following updates have all been created. To force a retry/rebase of any, cli
 </blockquote>
 </details>
 
-<details><summary>pep621 (7)</summary>
+<details><summary>pep621 (5)</summary>
 <blockquote>
 
 <details><summary>src/backend/pyproject.toml (42)</summary>
@@ -657,6 +657,9 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
  - `fastapi >=0.115.0`
  - `uvicorn >=0.32.0`
+ - `onnxruntime >=1.20.0`
+ - `transformers >=4.46.0`
+ - `huggingface-hub >=0.26.0`
 
 </details>
 
@@ -664,21 +667,10 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
  - `fastapi >=0.115.0`
  - `uvicorn >=0.32.0`
-
-</details>
-
-<details><summary>src/libs/kp_errortracking/pyproject.toml (2)</summary>
-
- - `sentry-sdk >=2.20.0`
- - `structlog >=24.0.0`
-
-</details>
-
-<details><summary>src/libs/kp_vectordb/pyproject.toml (3)</summary>
-
- - `psycopg >=3.2.0`
- - `psycopg-pool >=3.2.0`
- - `structlog >=24.0.0`
+ - `onnxruntime >=1.20.0`
+ - `transformers >=4.46.0`
+ - `optimum >=1.23.0`
+ - `sentencepiece >=0.2.0`
 
 </details>
 
@@ -720,6 +712,33 @@ The following updates have all been created. To force a retry/rebase of any, cli
 </blockquote>
 </details>
 
+<details><summary>poetry (2)</summary>
+<blockquote>
+
+
+
+<details><summary>src/libs/kp_errortracking/pyproject.toml (4)</summary>
+
+ - `pytest >=8.0`
+ - `ruff >=0.8.0`
+ - `mypy >=1.13.0`
+ - `sentry-sdk >=2.20.0`
+
+</details>
+
+<details><summary>src/libs/kp_vectordb/pyproject.toml (6)</summary>
+
+ - `psycopg >=3.2.0`
+ - `psycopg-pool >=3.2.0`
+ - `structlog >=24.0.0`
+ - `pytest >=8.0`
+ - `ruff >=0.8.0`
+ - `mypy >=1.13.0`
+
+</details>
+
+</blockquote>
+</details>
 
 <details><summary>pre-commit (1)</summary>
 <blockquote>

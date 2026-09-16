@@ -39,10 +39,18 @@ WHAT IT CHECKS
      lock-less shared libraries named in
      :data:`KNOWN_LOCKLESS_PEP621_FILES`, which are enumerated rather than
      waved through;
-   * ``poetry`` does not appear at all (it is disabled repository-wide; a
-     path-scoped disable is what let the side services keep a second manager
-     without a lock for months);
-   * ``pip_requirements`` lists no file under any of the five trees.
+   * no second manager (``poetry``, ``pip_requirements``, ``pip-compile``)
+     reads anything inside one of those five LOCKED trees — a path-scoped
+     disable is what let the side services keep a second manager without a lock
+     for months;
+   * ``pip-compile`` does not appear at all.
+
+   Note what is deliberately NOT asserted: that ``poetry`` is absent. Measured
+   with ``task renovate:dry-run`` (Renovate 44.94.1, 2026-09-16), ``poetry``
+   still extracts the two lock-less shared libraries, because
+   ``enabled: false`` disables a manager's dependencies without stopping its
+   extraction. "``poetry`` must not appear" would have alerted daily on a
+   correct repository.
 
    A weak expectation ("pep621 is present") would have stayed green through the
    whole #1371 episode, because ``pep621`` *was* present — it simply was not the
@@ -87,28 +95,55 @@ EXPECTED_PEP621_FILES: tuple[str, ...] = (
     "docker/reranker-service/pyproject.toml",
 )
 
-#: PEP 621 projects that legitimately have NO uv.lock, and why. Measured, not
-#: assumed: the 2026-09-16 dashboard showed the ``poetry`` manager reading FOUR
-#: pyproject.toml files, not the two side-service ones the #1383 analysis named —
-#: ``src/libs/kp_errortracking`` and ``src/libs/kp_vectordb`` were in there too.
-#: With ``poetry`` disabled repository-wide (#1374), ``pep621`` inherits them.
+#: PEP 621 projects that legitimately have NO uv.lock, and why.
 #:
-#: They are shared LIBRARIES with no image of their own, so there is nothing that
-#: "installs from a lock"; giving them one is a decision about the libraries'
-#: release shape, not a CI change (the same reason side-services.yml still
-#: pip-installs kp_vectordb). Listing them here keeps the expectation EXACT —
-#: their appearance is allowed, an unknown file's is not — instead of relaxing
-#: the rule to "pep621 lists at least the five", which would have stayed green
-#: through the whole #1371 episode.
-KNOWN_LOCKLESS_PEP621_FILES: tuple[str, ...] = (
+#: MEASURED, and the measurement corrected this file twice. The #1383 analysis
+#: said ``poetry`` read "exactly the two side-service pyproject.toml"; the real
+#: #12 body of 2026-09-16 showed FOUR, with ``src/libs/kp_errortracking`` and
+#: ``src/libs/kp_vectordb`` in there too. The first version of this check then
+#: assumed those two would move under ``pep621`` once ``poetry`` was disabled
+#: repository-wide (#1374). ``task renovate:dry-run`` against this checkout
+#: (Renovate 44.94.1, 2026-09-16) says otherwise::
+#:
+#:     pep621            fileCount 5   ← exactly EXPECTED_PEP621_FILES, each with its uv.lock
+#:     poetry            fileCount 2   ← src/libs/kp_errortracking, src/libs/kp_vectordb
+#:     pip_requirements  fileCount 2   ← docs/, tools/rag-eval/ only
+#:
+#: So ``pep621`` claims a ``pyproject.toml`` that has a ``uv.lock`` beside it and
+#: ``poetry`` keeps the ones that do not, and ``enabled: false`` disables a
+#: manager's DEPENDENCIES without stopping its EXTRACTION — the manager stays in
+#: the inventory. A rule of the form "``poetry`` must not appear at all" would
+#: therefore have alerted on a correct repository every single day.
+#:
+#: The two entries are shared LIBRARIES with no image of their own, so there is
+#: nothing that "installs from a lock"; giving them one is a decision about the
+#: libraries' release shape, not a CI change (the same reason side-services.yml
+#: still pip-installs kp_vectordb). Enumerating them keeps the expectation EXACT
+#: — these two are allowed under either manager, an unknown file is not —
+#: instead of relaxing the rule to "pep621 lists at least the five", which would
+#: have stayed green through the whole #1371 episode.
+LOCKLESS_PYTHON_PROJECTS: tuple[str, ...] = (
     "src/libs/kp_errortracking/pyproject.toml",
     "src/libs/kp_vectordb/pyproject.toml",
 )
 
-#: Managers that must not appear in the inventory at all. ``poetry`` is disabled
-#: repository-wide since #1374; ``pip-compile`` is the manager whose six silent
-#: weeks this whole check exists for and is no longer configured.
-FORBIDDEN_MANAGERS: tuple[str, ...] = ("poetry", "pip-compile")
+#: Backwards-compatible alias: these files are also the ones allowed to appear
+#: under ``pep621`` without a lock, should Renovate's manager assignment change.
+KNOWN_LOCKLESS_PEP621_FILES: tuple[str, ...] = LOCKLESS_PYTHON_PROJECTS
+
+#: Managers that must not appear in the inventory AT ALL. ``pip-compile`` is the
+#: manager whose six silent weeks this whole check exists for; it is no longer
+#: configured, and its reappearance would mean a lock reverted to pip-tools.
+#:
+#: ``poetry`` is deliberately NOT here — see LOCKLESS_PYTHON_PROJECTS for the
+#: measurement. It is handled by :data:`MANAGERS_BANNED_FROM_LOCKED_TREES`
+#: instead, which is the rule that actually matters: no second manager on a tree
+#: that has a lock, because that manager opens source-only pull requests and
+#: leaves the lock stale (#1371).
+FORBIDDEN_MANAGERS: tuple[str, ...] = ("pip-compile",)
+
+#: Managers that must not read any file inside a LOCKED tree.
+MANAGERS_BANNED_FROM_LOCKED_TREES: tuple[str, ...] = ("poetry", "pip_requirements", "pip-compile")
 
 #: Trees that must not be read by ``pip_requirements``. The four service images
 #: had their ``requirements.txt`` deleted in #1374; a file reappearing under one
@@ -252,7 +287,7 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
     if missing:
         findings.append("`pep621` does not list: " + ", ".join(missing))
 
-    known = set(EXPECTED_PEP621_FILES) | set(KNOWN_LOCKLESS_PEP621_FILES)
+    known = set(EXPECTED_PEP621_FILES) | set(LOCKLESS_PYTHON_PROJECTS)
     unexpected = [seen for seen in pep621 if seen not in known]
     if unexpected:
         findings.append(
@@ -268,17 +303,20 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
             findings.append(
                 f"`{manager}` appears in the inventory, reading "
                 + ", ".join(inventory[manager] or ["(no files listed)"])
-                + ". It is disabled repository-wide; its presence means some file acquired a second "
-                "manager that does not move the lock (#1371)."
+                + ". It is not configured here at all; its presence means a lock reverted to a toolchain "
+                "this repository left behind (#1303)."
             )
 
-    for package_file in inventory.get("pip_requirements", []):
-        if any(package_file.startswith(tree) for tree in LOCKED_PYTHON_TREES):
-            findings.append(
-                f"`pip_requirements` reads {package_file}, which lives in a tree that installs from a "
-                "hash-bearing uv.lock (#1374). A requirements file there means an image is installing "
-                "outside the lock again."
-            )
+    for manager in MANAGERS_BANNED_FROM_LOCKED_TREES:
+        for package_file in inventory.get(manager, []):
+            if package_file in LOCKLESS_PYTHON_PROJECTS:
+                continue
+            if any(package_file.startswith(tree) for tree in LOCKED_PYTHON_TREES):
+                findings.append(
+                    f"`{manager}` reads {package_file}, which lives in a tree that installs from a "
+                    "hash-bearing uv.lock (#1374). A second manager on a locked tree opens source-only "
+                    "pull requests and leaves the lock stale — that is #1371 verbatim."
+                )
 
     # Measured on disk, NOT read from the dashboard — the dashboard lists package
     # files only. Said out loud in the report so nobody credits the dashboard
@@ -302,7 +340,7 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         "pep621_files": pep621,
         "pip_requirements_files": inventory.get("pip_requirements", []),
         "expected_pep621_files": list(EXPECTED_PEP621_FILES),
-        "known_lockless_pep621_files": list(KNOWN_LOCKLESS_PEP621_FILES),
+        "known_lockless_pep621_files": list(LOCKLESS_PYTHON_PROJECTS),
         "locks_verified_on_disk": [f for f in EXPECTED_PEP621_FILES if f not in locks_missing],
     }
 

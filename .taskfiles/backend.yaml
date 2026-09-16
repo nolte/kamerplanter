@@ -5,6 +5,26 @@
 #
 # Included from the root Taskfile.yaml with `flatten: true` — task names here
 # are global and MUST NOT collide with other .taskfiles/*.yaml.
+#
+# ONE INTERPRETER (#1383). The lint/format/test targets run through
+# `uv run --locked`, not through whatever `ruff`/`python` the host PATH happens
+# to offer. Before this they called the bare tools while CI prepended
+# `src/backend/.venv/bin` to PATH, so a contributor and the gate could run
+# different toolchains — and the way that fails is silent: #1434 recorded 28
+# backend tests SKIPPING without a word under a global interpreter that lacked
+# the optional dependencies, while only three failed loudly. A green local run
+# meant nothing.
+#
+# `--locked` is the half that makes it a guarantee rather than a habit: it
+# refuses to re-resolve, so a pyproject.toml edit that was never re-locked fails
+# here instead of quietly installing something the lock does not describe. The
+# cost is ~0.3 s per invocation for uv to confirm the environment — the price of
+# a stale venv never running on silently (operator decision, 2026-09-16).
+#
+# Consequence, stated out loud because it changes local behaviour: an activated
+# venv of your own no longer wins. `task test:backend:unit` runs the locked
+# pytest from src/backend/.venv regardless of what is on PATH, which is the
+# point. `uv` itself must be on PATH; `[tool.uv].required-version` says which.
 
 version: "3"
 
@@ -13,19 +33,19 @@ tasks:
     desc: Run ruff linter on backend code
     dir: src/backend
     cmds:
-      - ruff check .
+      - uv run --locked --extra dev ruff check .
 
   format:backend:
     desc: Check backend formatting with ruff (no rewrite) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - ruff format --check .
+      - uv run --locked --extra dev ruff format --check .
 
   test:backend:
     desc: Run the full backend pytest suite — the three CI tiers plus tests/integration/, which needs a local ArangoDB
     dir: src/backend
     cmds:
-      - python -m pytest tests/ {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/ {{.CLI_ARGS}}
 
   # The tiers CI runs, as their own targets. `test:backend` above stays the full
   # local suite; these are what the pipeline invokes, so the pipeline and a
@@ -68,19 +88,19 @@ tasks:
     desc: Backend unit tests — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/unit/ -v --tb=short {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/unit/ -v --tb=short {{.CLI_ARGS}}
 
   test:backend:contracts:
     desc: Backend contract tests (enum sync, i18n completeness) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
 
   test:backend:api:
     desc: Backend API tests (routers via TestClient against fakes, no services) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/api/ -v --tb=short {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/api/ -v --tb=short {{.CLI_ARGS}}
 
   openapi:export:
     desc: |

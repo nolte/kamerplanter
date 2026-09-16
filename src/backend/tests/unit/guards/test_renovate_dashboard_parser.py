@@ -17,18 +17,27 @@ working tree no longer contains. That makes it the most honest drift fixture
 available — it is what the lane really would say today, and saying it would be
 correct.
 
-``renovate_dashboard_expected_after_1374.md`` is derived from it mechanically
-(the ``poetry`` block removed, its files moved under ``pep621``, the deleted
-requirements files dropped) and is the healthy state the lane must accept in
-silence.
+``renovate_dashboard_expected_after_1374.md`` is derived from it mechanically —
+the two service ``pyproject.toml`` moved from ``poetry`` to ``pep621``, the four
+deleted ``requirements.txt`` dropped, the two lock-less libraries left where
+``task renovate:dry-run`` measured them — and is the healthy state the lane must
+accept in silence.
 
-**A measurement that corrected the plan.** The #1383 analysis said ``poetry``
-read "exactly the two side-service pyproject.toml". The real body shows **four**:
-``src/libs/kp_errortracking`` and ``src/libs/kp_vectordb`` were in there too.
-With ``poetry`` disabled repository-wide those two land under ``pep621`` — which
-would have made the "strong expectation" fire on a correct repository. They are
-enumerated in ``KNOWN_LOCKLESS_PEP621_FILES`` with the reason they carry no lock,
-rather than the expectation being loosened to "at least the five".
+**Two measurements corrected the plan, in this order.** The #1383 analysis said
+``poetry`` read "exactly the two side-service pyproject.toml". The real body
+shows **four**: ``src/libs/kp_errortracking`` and ``src/libs/kp_vectordb`` were
+in there too. The first version of this file then assumed those two would move
+under ``pep621`` once ``poetry`` was disabled repository-wide. ``task
+renovate:dry-run`` (Renovate 44.94.1, 2026-09-16) says they do not —
+``enabled: false`` disables a manager's dependencies without stopping its
+extraction, so ``poetry`` keeps extracting exactly those two and ``pep621``
+claims exactly the five trees that have a ``uv.lock``. A rule of the form
+"``poetry`` must not appear" would have alerted on a correct repository every
+day. The rule that survives the measurement is "no second manager inside a
+LOCKED tree", with the two lock-less libraries enumerated in
+``LOCKLESS_PYTHON_PROJECTS``.
+
+The healthy fixture is built to that measurement, not to the guess.
 
 **What is NOT under test here.** Whether Renovate's dashboard format is stable —
 that is upstream's. This file pins the parser against one real body and against
@@ -118,9 +127,22 @@ class TestTheFixturesAreTheRealThing:
                 "unsatisfiable against this checkout"
             )
 
+    def test_the_healthy_fixture_matches_the_dry_run_measurement(self, healthy_body: str) -> None:
+        """`task renovate:dry-run`, Renovate 44.94.1, 2026-09-16 — the numbers this fixture encodes."""
+        inventory = check.manager_inventory(healthy_body)
+        assert inventory["pep621"] == list(check.EXPECTED_PEP621_FILES), (
+            "the dry-run measured pep621 extracting exactly the five locked trees, in this order; "
+            f"the fixture says {inventory['pep621']}"
+        )
+        assert inventory["poetry"] == list(check.LOCKLESS_PYTHON_PROJECTS), (
+            "the dry-run measured poetry still extracting the two lock-less libraries — `enabled: false` "
+            f"disables dependencies, not extraction; the fixture says {inventory.get('poetry')}"
+        )
+        assert inventory["pip_requirements"] == ["docs/requirements.txt", "tools/rag-eval/requirements.txt"]
+
     def test_the_known_lockless_trees_really_have_no_lock(self) -> None:
         """An allowlist entry that is no longer needed must not sit there unnoticed."""
-        for package_file in check.KNOWN_LOCKLESS_PEP621_FILES:
+        for package_file in check.LOCKLESS_PYTHON_PROJECTS:
             assert (_REPO_ROOT / package_file).is_file(), f"{package_file} does not exist"
             assert not (_REPO_ROOT / package_file).with_name("uv.lock").is_file(), (
                 f"{package_file} now HAS a uv.lock, so it belongs in EXPECTED_PEP621_FILES, not in the "
@@ -140,7 +162,12 @@ class TestTheUnchangedHealthyBodyIsGreen:
         """Green because it looked, not because it found nothing to look at."""
         report = _report(healthy_body)
         assert set(report["pep621_files"]) >= set(check.EXPECTED_PEP621_FILES)
-        assert "poetry" not in report["managers"]
+        assert "pip-compile" not in report["managers"]
+        assert "poetry" in report["managers"], (
+            "the healthy state still HAS a poetry manager (over the two lock-less libraries). If this "
+            "fixture ever drops it, the green verdict below stops proving that a tolerated poetry is "
+            "tolerated for the right reason."
+        )
         assert len(report["managers"]) > 5, f"only {report['managers']} — suspiciously few managers parsed"
 
     def test_the_render_says_so(self, healthy_body: str) -> None:
@@ -154,11 +181,20 @@ class TestTodaysRealBodyIsCorrectlyRed:
         report = _report(todays_body)
         assert report["alert"] is True
 
-    def test_it_names_poetry_and_the_missing_trees(self, todays_body: str) -> None:
+    def test_it_names_poetry_on_the_locked_trees_and_the_missing_ones(self, todays_body: str) -> None:
         findings = "\n".join(_report(todays_body)["findings"])
-        assert "`poetry` appears in the inventory" in findings
-        assert "src/inference-service/pyproject.toml" in findings
+        assert "`poetry` reads src/inference-service/pyproject.toml" in findings
+        assert "`poetry` reads src/knowledge-service/pyproject.toml" in findings
         assert "docker/reranker-service/pyproject.toml" in findings
+
+    def test_it_does_not_blame_poetry_for_the_two_lock_less_libraries(self, todays_body: str) -> None:
+        """Measured tolerance, not an oversight — see LOCKLESS_PYTHON_PROJECTS."""
+        findings = "\n".join(_report(todays_body)["findings"])
+        for library in check.LOCKLESS_PYTHON_PROJECTS:
+            assert library not in findings, (
+                f"{library} is a shared library with no image and no lock; poetry reading it is the "
+                "measured healthy state (task renovate:dry-run, 2026-09-16), not a finding"
+            )
 
     def test_it_names_the_side_service_requirements_files(self, todays_body: str) -> None:
         findings = "\n".join(_report(todays_body)["findings"])
@@ -221,19 +257,31 @@ class TestInjectedRepositoryProblems:
 class TestInjectedInventoryDrift:
     """One injected defect at a time, each red for its own reason."""
 
-    def test_a_poetry_entry_alerts(self, healthy_body: str) -> None:
+    def test_poetry_reaching_into_a_locked_tree_alerts(self, healthy_body: str) -> None:
+        """#1371 verbatim: a second manager on a tree that has a lock."""
+        body = healthy_body.replace(
+            "<details><summary>src/libs/kp_errortracking/pyproject.toml (4)</summary>",
+            "<details><summary>src/backend/pyproject.toml (1)</summary>\n\n - `fastapi >=0.115.0`\n\n"
+            "</details>\n\n<details><summary>src/libs/kp_errortracking/pyproject.toml (4)</summary>",
+            1,
+        )
+        report = _report(body)
+        assert report["alert"] is True
+        assert any("`poetry` reads src/backend/pyproject.toml" in f for f in report["findings"])
+
+    def test_pip_compile_reappearing_alerts(self, healthy_body: str) -> None:
+        """The manager whose six silent weeks this whole lane exists for."""
         body = healthy_body.replace(
             "<details><summary>pre-commit (1)</summary>",
-            "<details><summary>poetry (1)</summary>\n<blockquote>\n\n"
-            "<details><summary>src/backend/pyproject.toml (1)</summary>\n\n - `fastapi >=0.115.0`\n\n"
+            "<details><summary>pip-compile (1)</summary>\n<blockquote>\n\n"
+            "<details><summary>src/backend/requirements.txt (1)</summary>\n\n - `fastapi ==0.115.0`\n\n"
             "</details>\n\n</blockquote>\n</details>\n\n"
             "<details><summary>pre-commit (1)</summary>",
             1,
         )
         report = _report(body)
         assert report["alert"] is True
-        assert "poetry" in report["managers"]
-        assert any("`poetry` appears in the inventory" in f for f in report["findings"])
+        assert any("`pip-compile` appears in the inventory" in f for f in report["findings"])
 
     @pytest.mark.parametrize("dropped", check.EXPECTED_PEP621_FILES)
     def test_a_missing_side_service_file_alerts(self, healthy_body: str, dropped: str) -> None:
@@ -268,7 +316,7 @@ class TestInjectedInventoryDrift:
 
     def test_pep621_vanishing_entirely_alerts_loudly(self, healthy_body: str) -> None:
         """The exact shape of the six silent weeks."""
-        body = healthy_body.replace("<summary>pep621 (7)</summary>", "<summary>pep666 (7)</summary>", 1)
+        body = healthy_body.replace("<summary>pep621 (5)</summary>", "<summary>pep666 (5)</summary>", 1)
         report = _report(body)
         assert report["alert"] is True
         assert any("absent from the inventory entirely" in f for f in report["findings"])

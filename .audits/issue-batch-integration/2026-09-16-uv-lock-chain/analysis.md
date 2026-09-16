@@ -699,3 +699,157 @@ Wer das nicht abwarten will, dispatcht erst, nachdem #12 neu geschrieben wurde.
 angehängt — die Kopie ist also nicht mehr byte-identisch mit der API-Antwort.
 Ohne Wirkung auf den Parser, hier aber festgehalten, statt „wörtlich" zu
 behaupten, was um ein Byte abweicht.
+
+### Scheibe 5 — #1383 Punkte 5 + 6: ein Interpreter, ein Dry-Run (2026-09-16)
+
+**Ergebnis: beide Punkte umgesetzt — und der Dry-Run hat Scheibe 4 widerlegt.**
+Das ist die im Plan vorgesehene „erste Messung, die beweist, dass die Erwartung
+stimmt"; sie bewies, dass sie **nicht** stimmte.
+
+#### Ein Interpreter
+
+`.taskfiles/backend.yaml`: `lint:backend`, `format:backend`, `test:backend` und
+die drei Tier-Ziele laufen über `uv run --locked --extra dev …`. Nur das
+Interpreter-Präfix wurde angefasst; die pytest-Argumente (`-v --tb=short
+{{.CLI_ARGS}}`) sind unverändert, damit die Fläche zur Gruppe
+`backend-lane-execution` (die `--max-skipped` ergänzt) so klein wie möglich
+bleibt — dieselbe Zeile, aber disjunkte Teile davon.
+
+`backend.yml` ruft im Job `lint-test` jetzt `task deps:sync` statt
+`uv sync --locked --extra dev` zu inlinen. Geprüft: `deps:sync` ist **exakt**
+dieser Befehl mit `dir: src/backend`, nichts sonst. Der `$GITHUB_PATH`-Prepend
+bleibt — nicht aus Trägheit: der Schritt
+`python app/migrations/seed_steckbrief_consistency.py` ist kein Taskfile-Ziel und
+löst weiterhin ein blankes `python` auf.
+
+**Messung, ohne aktiviertes venv** (`env -u VIRTUAL_ENV`, PATH ohne `.venv`):
+
+```
+$ uv run --locked python -c 'import sys; print(sys.prefix)'
+/home/nolte/repos/.worktrees/kamerplanter/g4-1383/src/backend/.venv
+
+$ task test:backend:unit -- -q -x --co
+=================== 8671 tests collected in 78.51s (0:01:18) ===================
+real  1m25,081s
+```
+
+`task lint:backend` / `task format:backend` ebenso grün („1721 files already
+formatted"), `task deps:sync` Exit 0.
+
+**Der Preis, gemessen statt geschätzt.** Die Operator-Entscheidung veranschlagte
+„~0,3 s je Aufruf". Gemessen (Median aus 5 Läufen, warme Umgebung):
+
+| | Median |
+|---|---|
+| `uv run --locked --extra dev python -c pass` | **0,045 s** |
+| `.venv/bin/python -c pass` | 0,026 s |
+
+Aufschlag also **~19 ms**, nicht 300 ms.
+
+`docs/*/development/testing/index.md`: der Aktivierungsschritt
+`source .venv/bin/activate` ist weg; stattdessen `task deps:sync` plus die
+Taskfile-Ziele, mit einer Admonition, die sagt, **warum** (die #1434-Klasse: 28
+lautlos übersprungene Tests unter einem fremden Interpreter).
+
+#### Der Dry-Run — und was er kippte
+
+`task renovate:dry-run` in `.taskfiles/checks.yaml`, Image **gepinnt nach Tag und
+Digest** (`renovate/renovate:44.94.1@sha256:009fd964…`). Ausschluss von
+`.venv`/`node_modules` per **Mount-Maskierung** (anonyme Volumes), ausdrücklich
+**nicht** per `RENOVATE_IGNORE_PATHS`-Override: ein Override würde eine *andere*
+Konfiguration beweisen als die, die in Produktion läuft — und genau das Beweisen
+der echten Konfiguration ist der Zweck.
+
+Einmal ausgeführt (`LOG_LEVEL=debug`, mit `GITHUB_TOKEN`), Exit 0, 14 597 Zeilen,
+kein `ERROR`, kein `WARN`. **Manager-Inventur:**
+
+```
+asdf              1/1     helmv3            1/3      pre-commit        1/20
+docker-compose    5/17    npm               1/48     renovate-config   1/1
+dockerfile        8/20    pep621            5/106    regex            20/28
+github-actions   25/267   pip_requirements  2/15
+helm-values       4/15    poetry            2/10
+                                                     total           76/551
+```
+
+`pep621` = die fünf gelockten Bäume, **jeder mit seiner `uv.lock` als
+`lockFiles`** — der Teil der Erwartung, den das Dashboard nicht ausdrücken kann,
+ist hier direkt sichtbar:
+
+```
+pep621 files: 5
+   docker/embedding-service/pyproject.toml
+   docker/reranker-service/pyproject.toml
+   src/backend/pyproject.toml
+   src/inference-service/pyproject.toml
+   src/knowledge-service/pyproject.toml
+lockFiles: docker/embedding-service/uv.lock, docker/reranker-service/uv.lock,
+           src/backend/uv.lock, src/inference-service/uv.lock,
+           src/knowledge-service/uv.lock
+```
+
+**Aber `poetry` ist mit fileCount 2 weiterhin da** —
+`src/libs/kp_errortracking/pyproject.toml` und
+`src/libs/kp_vectordb/pyproject.toml`. Damit sind **zwei** Annahmen aus Scheibe 4
+widerlegt:
+
+1. **`enabled: false` schaltet die Abhängigkeiten eines Managers ab, nicht seine
+   Extraktion.** Der Manager bleibt in der Inventur. Die geplante Regel
+   „`poetry` darf gar nicht auftauchen" hätte auf einem **korrekten**
+   Repository **täglich** Alarm geschlagen — ein Fehlalarm pro Tag, und damit
+   nach einer Woche eine Lane, die niemand mehr liest.
+2. **`pep621` erbt die zwei Bibliotheken NICHT.** Scheibe 4 hatte das
+   angenommen; `KNOWN_LOCKLESS_PEP621_FILES` war in dieser Form inert („umgesetzt,
+   aber wirkungslos").
+
+**Korrektur in Scheibe 5** (deshalb ändert dieser Commit auch Scheibe-4-Dateien):
+
+* `FORBIDDEN_MANAGERS` = nur noch `('pip-compile',)` — der Manager, der gar nicht
+  mehr konfiguriert ist.
+* Neu `MANAGERS_BANNED_FROM_LOCKED_TREES = ('poetry', 'pip_requirements',
+  'pip-compile')` mit `LOCKLESS_PYTHON_PROJECTS` als benannter Ausnahme. Die
+  Regel, die die Messung überlebt, lautet: **kein zweiter Manager innerhalb eines
+  gelockten Baums** — das ist #1371 wörtlich, und es ist prüfbar.
+* Die Positivkontroll-Fixture ist neu aus dem echten Body gebaut, **nach der
+  Messung**: `pep621 (5)`, `poetry (2)`, `pip_requirements (2)`.
+  `test_the_healthy_fixture_matches_the_dry_run_measurement` schreibt diese drei
+  Zahlen fest, damit die Fixture nicht wieder von der Messung wegdriften kann.
+
+Mutationen gegen das korrigierte Skript (je einzeln, danach `cp` zurück):
+
+| Mutation | Ergebnis |
+|---|---|
+| A — WARN/ERROR-Scan vergessen | 3 failed |
+| B — schwache Erwartung („pep621 ist da") | 6 failed |
+| C — zweiten Manager auf gelockten Bäumen nicht mehr prüfen | 4 failed |
+| D — Ausnahmeliste auf „alles" geweitet | 4 failed |
+| E — Lock auf Platte nicht mehr suchen | 1 failed |
+| F — `pip-compile` nicht mehr ablehnen | 1 failed |
+| unverändert | **34 passed** |
+
+#### Nebenbefund des neuen Werkzeugs
+
+Der Image-Pin des Dry-Runs braucht selbst einen Manager, sonst altert er
+unbeobachtet — die Klasse, um die es in dieser ganzen Gruppe geht. Der
+customManager „Container images pinned in workflow env: values" wurde um
+`/^\.taskfiles/[^/]+\.ya?ml$/` erweitert. Der zweite Dry-Run zeigt `regex`
+**20 → 24** Dateien, und die neuen Treffer sind nicht nur der eigene Pin:
+
+```
+.taskfiles/deploy.yaml:21  # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+.taskfiles/deploy.yaml:22  HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac941…
+```
+
+Dieser Pin **trug bereits einen `# renovate:`-Kommentar und wurde von keinem
+Manager gelesen** — er alterte seit seiner Entstehung unbeobachtet. Ein
+Kommentar, der aussieht, als sei etwas verdrahtet, während nichts ihn liest: die
+Klasse aus #1296/#1303 in einer weiteren Ausprägung, gefunden vom neuen
+Werkzeug, nicht gesucht.
+
+#### Doku
+
+`docs/de+en/deployment/ci-cd.md`: Abschnitt „`task renovate:dry-run` — die
+Konfiguration vor dem Merge beweisen" samt der gemessenen Inventur-Tabelle und
+der Begründung für die Mount-Maskierung; die Health-Lane-Beschreibung ist auf
+die korrigierte Regel nachgezogen (inklusive der Admonition, warum sie **nicht**
+„`poetry` darf nicht auftauchen" lautet).

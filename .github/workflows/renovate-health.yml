@@ -187,7 +187,7 @@ jobs:
               '## Triage',
               '',
               `1. Open the dashboard itself (#${dashboardIssue}) and read the \`## Repository problems\` section. Renovate writes it only when it has something to say.`,
-              '2. If a manager disappeared, the usual cause is a config change here: a `matchManagers` rule that disabled more than intended, or a package file whose shape a manager stopped accepting (that is exactly what happened to `pip-compile`).',
+              '2. If a manager disappeared, the usual cause is a config change here: a `matchManagers` rule that disabled more than intended, or a package file whose shape a manager stopped accepting (that is exactly what happened to `pip-compile`). Note that `enabled: false` disables a manager\'s DEPENDENCIES and not its extraction — a disabled manager still shows up, which is why the rule is "no second manager inside a locked tree" and not "this manager must be absent".',
               '3. Prove the fix before merging it with `task renovate:dry-run`, which runs Renovate against this checkout and prints the same inventory this check compares.',
               '4. If the change is intended — a new Python tree, or a tree that deliberately has no lock — update `EXPECTED_PEP621_FILES` / `KNOWN_LOCKLESS_PEP621_FILES` in `scripts/ci/check_renovate_dashboard.py` in the same pull request, so the expectation stays exact instead of being widened later from memory.',
             ].join('\n');
