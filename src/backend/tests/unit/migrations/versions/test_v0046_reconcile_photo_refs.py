@@ -1,0 +1,355 @@
+"""Tests for v0046_reconcile_photo_refs (#1438 part 2).
+
+The fixture carries the shape v0003 actually produced: an attachment whose ``_key``
+is a short **numeric** id and whose ``storage_key`` ends in an unrelated ULID, and a
+task whose ``photo_refs`` holds that ULID — a reference that resolves to no document
+key anywhere (NFR-013 §2.2, "two identities").
+
+**What makes the fake honest.** The migration reduces a storage key through the AQL
+expression exported by the repository, and a fake that re-implemented that reduction
+would certify its own copy — the failure class that shipped the previous guard. So
+``_FakeAql`` does not know what a stem is: it reads the two separators **out of the
+query text** it is handed and applies exactly those. Emptying or swapping the
+expression in ``aql_storage_key_stem`` therefore turns these tests red instead of
+leaving them green against a private copy.
+
+What the fake cannot certify is what ArangoDB's ``SPLIT``/``FIRST``/``LAST`` really do
+to these strings; ``tests/integration/test_v0046_reconcile_photo_refs.py`` runs the
+same migration against a real server for that.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+import pytest
+
+from app.data_access.arango import collections as col
+from app.migrations.framework.report import IrreversibleMigrationError
+from app.migrations.versions.v0046_reconcile_photo_refs import (
+    AttachmentIdentity,
+    build_identity_index,
+    migration,
+    plan_reference,
+)
+
+#: The ULID ``StorageKeyBuilder`` minted for the object — unrelated to ``_key``.
+ULID = "01J0ABCDEFGHJKMNPQRSTVWXYZ"
+OTHER_ULID = "01J0ZYXWVUTSRQPNMKJHGFEDCB"
+
+#: The numeric document key ArangoDB assigns (measured in #1393 round 7).
+ATTACHMENT_KEY = "1024799"
+OTHER_ATTACHMENT_KEY = "1024800"
+
+TENANT = "mein-garten"
+OTHER_TENANT = "volkspark"
+
+STORAGE_KEY = f"t/{TENANT}/task/2026/01/{ULID}.jpg"
+
+
+# ── the pure rule ─────────────────────────────────────────────────────────────
+
+
+def _index(*attachments: AttachmentIdentity):
+    return build_identity_index(attachments)
+
+
+class TestPlanReference:
+    def test_a_document_key_is_already_the_target_form(self) -> None:
+        index = _index(AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID))
+
+        assert plan_reference(ATTACHMENT_KEY, ATTACHMENT_KEY, TENANT, index).verdict == "canonical"
+
+    def test_a_storage_key_stem_resolves_to_the_single_owner(self) -> None:
+        index = _index(AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID))
+        verdict = plan_reference(ULID, ULID, TENANT, index)
+
+        assert verdict.verdict == "repaired"
+        assert verdict.matches == (ATTACHMENT_KEY,)
+
+    def test_two_owners_are_ambiguous_and_carry_both_keys(self) -> None:
+        """The branch the upload path cannot produce — pinned here, purely.
+
+        Measured before writing it: ``AttachmentService.upload`` deduplicates by
+        sha256 *within* a tenant and returns the existing row, so two same-tenant
+        attachments never share one storage-key stem. Two of them can only arrive
+        through a restore or an import, and the rule still has to refuse to guess,
+        which is what this asserts without inventing a fixture the product cannot
+        reach.
+        """
+        index = _index(
+            AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID),
+            AttachmentIdentity(OTHER_ATTACHMENT_KEY, TENANT, ULID),
+        )
+        verdict = plan_reference(ULID, ULID, TENANT, index)
+
+        assert verdict.verdict == "ambiguous"
+        assert verdict.matches == (ATTACHMENT_KEY, OTHER_ATTACHMENT_KEY)
+
+    def test_a_foreign_tenants_attachment_does_not_answer(self) -> None:
+        index = _index(AttachmentIdentity(ATTACHMENT_KEY, OTHER_TENANT, ULID))
+
+        assert plan_reference(ULID, ULID, TENANT, index).verdict == "unresolved"
+
+    def test_a_tenantless_carrier_demands_installation_wide_uniqueness(self) -> None:
+        """``harvest_observations`` carries no ``tenant_key``, so both rows answer."""
+        index = _index(
+            AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID),
+            AttachmentIdentity(OTHER_ATTACHMENT_KEY, OTHER_TENANT, ULID),
+        )
+
+        assert plan_reference(ULID, ULID, None, index).verdict == "ambiguous"
+
+    def test_nothing_matching_is_unresolved(self) -> None:
+        index = _index(AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID))
+
+        assert plan_reference(OTHER_ULID, OTHER_ULID, TENANT, index).verdict == "unresolved"
+
+    def test_a_key_match_outranks_a_stem_coincidence(self) -> None:
+        """Idempotency depends on it: a repaired entry must stay ``canonical``.
+
+        Numeric document keys are short, so one of them colliding with another
+        attachment's stem is not an exotic worry — and if that promoted the entry to
+        ``ambiguous``, the second run would report the repair it just made as a
+        problem for ever.
+        """
+        index = _index(
+            AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID),
+            AttachmentIdentity(OTHER_ATTACHMENT_KEY, TENANT, ATTACHMENT_KEY),
+        )
+
+        assert plan_reference(ATTACHMENT_KEY, ATTACHMENT_KEY, TENANT, index).verdict == "canonical"
+
+
+# ── the migration against a fake ArangoDB ─────────────────────────────────────
+
+#: Reads the reduction out of the query rather than knowing it.
+_STEM_RE = re.compile(r'FIRST\(SPLIT\(LAST\(SPLIT\(\s*([^,]+?)\s*,\s*"([^"]*)"\s*\)\)\s*,\s*"([^"]*)"\s*\)\)')
+
+
+def _stem_from_query(query: str, value: str | None) -> str | None:
+    match = _STEM_RE.search(query)
+    if match is None:
+        raise AssertionError(
+            "the migration no longer reduces a storage key through the repository's "
+            f"stem expression; query was: {query!r}"
+        )
+    _field, outer, inner = match.groups()
+    if not value or not outer or not inner:
+        return None
+    return value.split(outer)[-1].split(inner)[0] or None
+
+
+class _FakeAql:
+    """Interprets exactly the four queries the migration issues."""
+
+    def __init__(self, collections: dict[str, list[dict[str, Any]]]) -> None:
+        self._collections = collections
+        self.writes: list[tuple[str, dict[str, Any]]] = []
+
+    def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
+        bind_vars = bind_vars or {}
+        stripped = query.strip()
+
+        if stripped.startswith("UPDATE"):
+            self.writes.append((query, dict(bind_vars)))
+            collection = stripped.rsplit(" IN ", 1)[1].strip()
+            field = stripped.split("@key,", 1)[1].split(":", 1)[0].strip()
+            for doc in self._collections.get(collection, []):
+                if doc["_key"] == bind_vars["key"]:
+                    doc[field] = bind_vars["value"]
+            return iter([])
+
+        if stripped.startswith("FOR ref IN @refs"):
+            return iter(
+                [{"ref": ref, "stem": _stem_from_query(query, ref)} for ref in bind_vars["refs"]]
+            )
+
+        if stripped.startswith(f"FOR a IN {col.ATTACHMENTS}"):
+            return iter(
+                [
+                    {
+                        "key": doc["_key"],
+                        "tenant_key": doc.get("tenant_key"),
+                        "stem": _stem_from_query(query, doc.get("storage_key")),
+                    }
+                    for doc in self._collections.get(col.ATTACHMENTS, [])
+                ]
+            )
+
+        collection = stripped.split(" IN ", 1)[1].split(" ", 1)[0].strip()
+        return iter(list(self._collections.get(collection, [])))
+
+
+class _FakeDb:
+    def __init__(self, collections: dict[str, list[dict[str, Any]]]) -> None:
+        self.collections = collections
+        self.aql = _FakeAql(collections)
+
+
+def _attachment(key: str = ATTACHMENT_KEY, *, tenant: str = TENANT, storage_key: str = STORAGE_KEY):
+    return {"_key": key, "tenant_key": tenant, "storage_key": storage_key, "category": "task"}
+
+
+def _seeded(*, photo_refs: list[str], attachments: list[dict[str, Any]] | None = None):
+    return {
+        col.ATTACHMENTS: attachments if attachments is not None else [_attachment()],
+        col.TASKS: [{"_key": "task-1", "tenant_key": TENANT, "photo_refs": list(photo_refs)}],
+    }
+
+
+@pytest.fixture
+def db_with_broken_reference() -> _FakeDb:
+    """Exactly what v0003 left behind: the ULID stem instead of the document key."""
+    return _FakeDb(_seeded(photo_refs=[ULID]))
+
+
+class TestUp:
+    def test_the_stem_v0003_wrote_is_rewritten_onto_the_document_key(
+        self, db_with_broken_reference: _FakeDb
+    ) -> None:
+        report = migration.up(db_with_broken_reference)
+
+        assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
+        assert report.details["repaired"] == 1
+        assert report.changed == 1
+        assert report.details["unresolved"] == []
+        assert report.details["per_collection"][col.TASKS]["repaired"] == 1
+
+    def test_a_full_storage_key_is_rewritten_too(self) -> None:
+        """The spelling v0003 was *supposed* to leave alone still names its owner."""
+        db = _FakeDb(_seeded(photo_refs=[STORAGE_KEY]))
+
+        report = migration.up(db)
+
+        assert db.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
+        assert report.details["repaired"] == 1
+
+    def test_an_unresolvable_entry_is_kept_verbatim_and_reported(self) -> None:
+        db = _FakeDb(_seeded(photo_refs=[OTHER_ULID]))
+
+        report = migration.up(db)
+
+        assert db.collections[col.TASKS][0]["photo_refs"] == [OTHER_ULID]
+        assert report.changed == 0
+        assert report.details["unresolved_total"] == 1
+        assert report.details["unresolved"] == [
+            {
+                "collection": col.TASKS,
+                "document": "task-1",
+                "field": "photo_refs",
+                "tenant_key": TENANT,
+                "reference": OTHER_ULID,
+            }
+        ]
+
+    def test_a_foreign_tenants_attachment_never_repairs_the_reference(self) -> None:
+        db = _FakeDb(_seeded(photo_refs=[ULID], attachments=[_attachment(tenant=OTHER_TENANT)]))
+
+        report = migration.up(db)
+
+        assert db.collections[col.TASKS][0]["photo_refs"] == [ULID]
+        assert report.details["repaired"] == 0
+        assert report.details["unresolved_total"] == 1
+
+    def test_an_ambiguous_entry_is_reported_and_left_alone(self) -> None:
+        """A tenant-less carrier: uniqueness is installation-wide, two rows answer."""
+        db = _FakeDb(
+            {
+                col.ATTACHMENTS: [
+                    _attachment(),
+                    _attachment(
+                        OTHER_ATTACHMENT_KEY,
+                        tenant=OTHER_TENANT,
+                        storage_key=f"t/{OTHER_TENANT}/task/2026/01/{ULID}.jpg",
+                    ),
+                ],
+                col.HARVEST_OBSERVATIONS: [{"_key": "obs-1", "photo_refs": [ULID]}],
+            }
+        )
+
+        report = migration.up(db)
+
+        assert db.collections[col.HARVEST_OBSERVATIONS][0]["photo_refs"] == [ULID]
+        assert report.changed == 0
+        assert report.details["ambiguous"] == [
+            {
+                "collection": col.HARVEST_OBSERVATIONS,
+                "document": "obs-1",
+                "field": "photo_refs",
+                "tenant_key": None,
+                "reference": ULID,
+                "matches": [ATTACHMENT_KEY, OTHER_ATTACHMENT_KEY],
+            }
+        ]
+
+    def test_a_canonical_entry_beside_a_broken_one_survives_in_place(self) -> None:
+        db = _FakeDb(
+            {
+                col.ATTACHMENTS: [
+                    _attachment(),
+                    _attachment(
+                        OTHER_ATTACHMENT_KEY,
+                        storage_key=f"t/{TENANT}/task/2026/01/{OTHER_ULID}.jpg",
+                    ),
+                ],
+                col.TASKS: [
+                    {
+                        "_key": "task-1",
+                        "tenant_key": TENANT,
+                        "photo_refs": [OTHER_ATTACHMENT_KEY, ULID],
+                    }
+                ],
+            }
+        )
+
+        migration.up(db)
+
+        assert db.collections[col.TASKS][0]["photo_refs"] == [OTHER_ATTACHMENT_KEY, ATTACHMENT_KEY]
+
+    def test_the_scalar_cover_photo_ref_is_reconciled_too(self) -> None:
+        db = _FakeDb(
+            {
+                col.ATTACHMENTS: [_attachment()],
+                col.PLANT_INSTANCES: [
+                    {"_key": "plant-1", "tenant_key": TENANT, "cover_photo_ref": ULID}
+                ],
+            }
+        )
+
+        report = migration.up(db)
+
+        assert db.collections[col.PLANT_INSTANCES][0]["cover_photo_ref"] == ATTACHMENT_KEY
+        assert report.details["per_collection"][col.PLANT_INSTANCES]["repaired"] == 1
+
+    def test_re_running_changes_nothing(self, db_with_broken_reference: _FakeDb) -> None:
+        migration.up(db_with_broken_reference)
+
+        second = migration.up(db_with_broken_reference)
+
+        assert second.changed == 0
+        assert second.details["repaired"] == 0
+        assert second.details["unresolved"] == []
+        assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
+
+    def test_dry_run_reports_the_repair_and_writes_nothing(
+        self, db_with_broken_reference: _FakeDb
+    ) -> None:
+        report = migration.up(db_with_broken_reference, dry_run=True)
+
+        assert report.dry_run is True
+        assert report.changed == 1
+        assert report.details["repaired"] == 1
+        assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ULID]
+        assert db_with_broken_reference.aql.writes == []
+
+    def test_an_empty_database_is_a_no_op(self) -> None:
+        report = migration.up(_FakeDb({}))
+
+        assert report.scanned == 0
+        assert report.changed == 0
+
+    def test_down_refuses(self) -> None:
+        with pytest.raises(IrreversibleMigrationError):
+            migration.down(_FakeDb({}))
