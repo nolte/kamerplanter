@@ -192,6 +192,12 @@ export default function PlantPhotoGallery({
       } else {
         handleError(err);
       }
+      // Close like every other delete-confirm flow in the app (e.g.
+      // LocationDetailPage/SiteDetailPage/TaskDetailPage/PlantingRunDetailPage):
+      // the error is already surfaced as a snackbar above, so leaving the modal
+      // open adds a second, redundant "close" click on top of an action the
+      // user cannot retry into success.
+      setDeleteTarget(null);
     } finally {
       setDeleting(false);
     }

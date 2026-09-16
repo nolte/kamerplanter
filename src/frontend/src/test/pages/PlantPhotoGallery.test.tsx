@@ -485,6 +485,9 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
       // Understandable and actionable: it names the role that may delete rather
       // than the generic "no permission for this action".
       expect(await screen.findByText(/Leitung/)).toBeInTheDocument();
+      // Closes like every other delete-confirm flow in the app instead of
+      // leaving a modal open on top of an action the user cannot retry.
+      await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument());
     });
   });
 
