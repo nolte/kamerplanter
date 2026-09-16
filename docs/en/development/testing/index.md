@@ -111,23 +111,31 @@ Available fixtures: `sample_species_data`, `sample_site_data`, `sample_location_
 
 ### Integration Tests
 
-Integration tests under `tests/integration/` require a running ArangoDB instance. They are automatically skipped when no connection is available:
+Integration tests under `tests/integration/` need a running ArangoDB instance — they are the only check of the repository and AQL layer against a real database. In CI they run as a required lane (`Integration tests (ArangoDB)` in `backend.yml`) against a service container.
+
+Whether a database is there is decided in **one** place: `tests/integration/conftest.py`. Modules attach to that session fixture with a marker:
 
 ```python
-@pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available")
-class TestArangoSetup:
-    ...
+pytestmark = pytest.mark.usefixtures("arango_db")
 ```
+
+!!! warning "A missing database is a failure in CI, not a skip"
+    When `CI` is set and no database answers, the run **fails** and names the address it tried. Locally it skips instead — with the same reason. Because `task test:backend:integration` declares the skip floor `--max-skipped 0`, even that local skip goes red. That is deliberate: before this rule the tier reported `7 passed, 136 skipped` and exit code 0 on a runner — green, having measured nothing.
 
 To run them explicitly:
 
 ```bash
-# Start ArangoDB (e.g. via Docker Compose)
-docker-compose up -d arangodb
+# Start ArangoDB (the dev stack or a throwaway container)
+task dev:core
+# or:
+docker run -d --rm --name kp-it-arango -p 8529:8529 \
+  -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 
-# Integration tests only
-pytest tests/integration/ -v
+# Integration tests only — the same invocation CI runs
+task test:backend:integration
 ```
+
+If your database lives elsewhere, set `ARANGODB_HOST`, `ARANGODB_PORT`, `ARANGODB_USERNAME` and `ARANGODB_PASSWORD` — the same variables the application reads. No test module hard-codes an address any more.
 
 ### Per-Tier Skip Floor
 
@@ -137,6 +145,7 @@ A skipped test exits pytest with the same code as a passing one. A tier that qui
 pytest tests/unit/ --max-skipped 1        # task test:backend:unit
 pytest tests/contracts/ --max-skipped 0   # task test:backend:contracts
 pytest tests/api/ --max-skipped 0         # task test:backend:api
+pytest tests/integration/ --max-skipped 0 # task test:backend:integration (needs a DB)
 ```
 
 When more tests are skipped than declared, the run goes red and names **every** skip reason — so the new skip is identifiable and the number is not raised blindly.

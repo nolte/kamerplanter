@@ -102,7 +102,7 @@ Praktisches Beispiel:
 | Stufe | Werkzeuge | Coverage-Ziel | Ausführung |
 |---|---|---|---|
 | **Unit-Tests** | pytest (Backend), vitest (Frontend) | ≥80% Line / ≥75% Branch (gesamt); ≥85% Line für Business-Logic-Layer (`services/`, `engines/`) | Lokal + CI |
-| **Integrationstests** | pytest + testcontainers (ArangoDB, Redis), vitest + MSW | ≥70% kritische Pfade (Service-Public-API, Engine-Public-API) | Lokal + CI |
+| **Integrationstests** | pytest gegen echte ArangoDB (Service-Container in CI, `docker run`/Dev-Stack lokal), vitest + MSW | ≥70% kritische Pfade (Service-Public-API, Engine-Public-API) | Lokal + **CI: ja, Pflicht** (Job `Integration tests (ArangoDB)`, #1432) |
 | **API-/Contract-Tests** | pytest + httpx (TestClient), Pydantic-Schema-Validation | 100% der öffentlichen Endpunkte (mind. Happy-Path + 1 Error-Path je Endpunkt) | Lokal + CI |
 | **E2E-Tests (Selenium)** | Selenium WebDriver, pytest-selenium, pytest-html | Kernfunktionen pro REQ (siehe NFR-008a §3.3 Liste) | Lokal |
 
@@ -983,6 +983,19 @@ gehoben statt geprüft.
 Commit, der ihn einführt. Der Skip wird damit eine sichtbare Entscheidung statt
 einer stillen Reduktion des Testumfangs.
 
+**MUSS**: Eine Teststufe, die einen Dienst braucht, entscheidet die Verfügbarkeit
+dieses Dienstes **zentral** — nicht je Modul — und wertet sie umgebungsabhängig:
+in CI (`CI` gesetzt) ist ein fehlender Dienst ein **Fehler mit der versuchten
+Verbindungsadresse**, lokal darf es ein Skip mit demselben Grund sein. Ein
+modul-lokaler `skipif` verbietet sich: er macht die Stufe in CI grün, ohne dass
+sie etwas gemessen hat. Gemessen am 2026-09-16 für `tests/integration/`:
+neun Module mit eigener Probe ergaben auf einem Runner `7 passed, 136 skipped`
+und Exit-Code 0; mit der zentralen Regel ergibt derselbe Lauf 136 Fehler (#1432).
+
+**MUSS**: Die Adresse des Dienstes ist konfigurierbar (dieselben
+Umgebungsvariablen, die die Anwendung liest), nicht literal im Testmodul. Sonst
+kann keine Lane die Stufe auf ihren eigenen Container zeigen lassen.
+
 Stand 2026-09-16 (`pytest <Stufe> -q -rs`):
 
 | Teststufe | Deklarierte Skip-Zahl | Begründung |
@@ -991,7 +1004,7 @@ Stand 2026-09-16 (`pytest <Stufe> -q -rs`):
 | `tests/contracts/` | 0 | keine Skips |
 | `tests/api/` | 0 | keine Skips |
 | `tests/unit/api` + `tests/unit/guards` (Pflicht-Lane `backend-guards.yml`) | 0 | keine Skips |
-| `tests/integration/` | kein Vertrag | die Skip-Zahl ist ohne ArangoDB eine Funktion der Umgebung (136 Skips ohne DB gemessen); der Vertrag entsteht mit der CI-Lane des Tiers |
+| `tests/integration/` | 0 | seit #1432 in CI Pflicht (Job `Integration tests (ArangoDB)` in `backend.yml`, ArangoDB als Service-Container): **mit** Datenbank 0 Skips (143 bestanden, gemessen 2026-09-16). Ohne Datenbank bricht `tests/integration/conftest.py` den Lauf ab, sobald `CI` gesetzt ist; lokal skippt es laut — und die deklarierte 0 rötet auch diesen Skip |
 
 ---
 

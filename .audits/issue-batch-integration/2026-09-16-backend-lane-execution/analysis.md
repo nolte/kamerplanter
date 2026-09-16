@@ -374,3 +374,173 @@ Gemessen (`grep -n "pytest\|task test" .github/workflows/*.yml .taskfiles/*.yaml
 - **`backend.yml` Coverage-Lane** (`reusable-python-coverage`) ruft `pytest` bar
   aus dem gesyncten `.venv` — venv, also vom Guard unberührt; ohne `--max-skipped`,
   weil sie die gesamte `testpaths` inkl. `tests/integration/` fährt.
+
+### Scheibe 3 — die Integration-Lane (#1432)
+
+Umgesetzt auf `fix/1432-integration-lane` (Modus B), auf dem PR #1459 (#1436)
+enthalten ist.
+
+#### Die neun Proben werden eine Regel
+
+Gemessen, nicht übernommen: es sind **neun** Module mit eigener
+`ARANGO_AVAILABLE`-Probe (`grep -rln ARANGO_AVAILABLE tests/integration/`), nicht
+dreizehn wie oben geschätzt — verteilt auf 143 Fälle. Das zehnte Modul der Stufe,
+`test_perennial_cycle_loop.py`, braucht **keinen** Server (reale Engines gegen
+In-Memory-Repositories) und läuft heute wie morgen ungegatet; deshalb hängt das
+Gate per `pytestmark = pytest.mark.usefixtures("arango_db")` an den Modulen, die
+verbinden, und ist **nicht** autouse über dem Verzeichnis.
+
+Die Adresse war in jeder Kopie ein Literal (`http://localhost:8529`,
+`password="rootpassword"`). Jetzt liest `tests/support/arango_integration.py`
+`ARANGODB_HOST` / `ARANGODB_PORT` / `ARANGODB_USERNAME` / `ARANGODB_PASSWORD` —
+**die Namen von `Settings`** (`env_prefix: ""`), weil ein Teil der Module über ein
+echtes `Settings(arangodb_database=…)` + `ArangoConnection` verbindet und der
+andere Teil einen `ArangoClient` direkt öffnet. Nur mit denselben Namen zeigen
+beide Wege auf denselben Server, wenn CI ihn verschiebt.
+
+`tests/integration/conftest.py` hält die Semantik: `CI` gesetzt → **Fehler** mit
+der versuchten Adresse; sonst Skip mit demselben Grund (und `--max-skipped 0` im
+Target rötet auch den).
+
+#### Rot zuerst
+
+Vorher, heutiger Code ohne Datenbank (`pytest tests/integration/ -q -rs`,
+`exit=0`):
+
+```
+7 passed, 136 skipped in 172.27s (0:02:52)
+```
+
+Nachher, derselbe Zustand mit `CI=1` (`exit≠0`):
+
+```
+7 passed, 136 errors in 23.66s
+```
+
+Jeder dieser Fehler trägt die Adresse:
+
+```
+ArangoDB did not answer at http://localhost:8529 (database '_system', user 'root'):
+ConnectionAbortedError: Can't connect to host(s) within limit (3)
+The integration tier measures the repository and AQL layer against a real server;
+without one it measures nothing.
+Start one with the digest the dev stack and the CI lane share:
+    docker run -d --rm --name kp-it-arango -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+or run the dev stack (`task dev:core`). Point the tier elsewhere with
+ARANGODB_HOST / ARANGODB_PORT / ARANGODB_USERNAME / ARANGODB_PASSWORD.
+```
+
+Nebenbefund, ungeplant und nützlich: der Lauf ohne DB kostet **23 s statt 172 s**.
+Die alten Proben liefen zur **Importzeit**, einmal pro Modul, mit je drei
+Verbindungs-Retries; die neue Prüfung läuft einmal pro Session.
+
+Lokal ohne `CI` bleibt es ein Skip — gemessen an einem Modul: `1 skipped in 18.39s`
+(`exit=0`), mit `CI=1` `1 error in 18.87s`.
+
+#### Drei lokale Läufe gegen eine echte ArangoDB
+
+Container: `arangodb:3.12@sha256:39bbca489179ea03f2b24b7ea4e4c4cb5258f6474f8c1c4d9bd65f7cd6d211a5`
+(derselbe Digest wie `docker-compose.yml:24`), `ARANGO_ROOT_PASSWORD=rootpassword`,
+`-p 8529:8529`. Aufruf je Lauf: `pytest tests/integration/ -q --max-skipped 0`.
+
+```
+Lauf 1:  143 passed, 3216 warnings in 107.09s (0:01:47)   exit=0
+Lauf 2:  143 passed, 3216 warnings in 107.03s (0:01:47)   exit=0
+Lauf 3:  143 passed, 3216 warnings in  90.88s (0:01:30)   exit=0
+```
+
+Skips = 0 in allen drei Läufen (pytest nennt Skips in der Zusammenfassung; hier
+steht keine, und `--max-skipped 0` hätte jeden gerötet). **Kein Flake** — auch
+nicht in `test_care_task_dedup_concurrency.py`, dem timing-sensitiven Modul, das
+#1436 gemessen hat. Das entlastet die Lane auf einem Runner nicht (Projektgedächtnis:
+„lokal grün entlastet timing-sensitive Tests nicht"); genau dafür sind die drei
+`workflow_dispatch`-Läufe da.
+
+Zusätzlich über das neue Target, das CI aufruft:
+
+```
+task test:backend:integration  →  143 passed, 3216 warnings in 44.45s   exit=0
+```
+
+Und die Gegenprobe, dass eine vorhandene DB unter `CI` grün bleibt (gegatetes und
+ungegatetes Modul zusammen): `8 passed, 169 warnings in 7.15s`, `exit=0`.
+
+#### Die Lane
+
+`backend.yml` bekommt den Job `integration` mit
+`name: Integration tests (ArangoDB)` — das ist der Status-Check-Kontext für die
+Branch-Protection. Eigener Job statt eines Schritts in `lint-test`: ein
+Service-Container, den die anderen drei Tiers nicht brauchen, würde jeden von
+ihnen verlangsamen. Schritte wie die Nachbarn (digest-gepinntes Checkout,
+`setup-python`, `setup-task`, `python -m pip install 'uv==0.12.15'` +
+`uv sync --locked --extra dev` — die **heutige** Form, nicht die von der Gruppe
+`uv-lock-chain` geplante), dazu ein begrenztes „Wait for ArangoDB" (60 × 2 s), das
+den Fall „Container oben, antwortet nicht" benennt, statt ihn als 136 gleiche
+Verbindungsfehler in pytest erscheinen zu lassen.
+
+`workflow_dispatch:` war **nicht** vorhanden (`on:` trug nur `push`,
+`pull_request`, `schedule`) und ist ergänzt — ohne das gibt es die drei Läufe vor
+dem Scharfschalten nicht.
+
+`paths:`-Filter: `tests/integration/**` und `app/data_access/**` liegen beide
+unter dem bestehenden `src/backend/**`; die Lane wird also ausgelöst. Kein
+Eintrag nötig, `.github/workflows/backend.yml` steht ohnehin schon in beiden
+Filtern.
+
+`actionlint` (pre-commit-Pin `v1.7.12`, `docker.io/rhysd/actionlint`): `exit=0`.
+
+#### Renovate: gemessen statt angenommen
+
+Die Gruppe `{{depName}} image` in `renovate.json5` matcht auf **Paketidentität
+allein** (`matchDatasources: ['docker']` + `matchPackageNames: [… 'arangodb' …]`),
+ohne `matchManagers` und ohne Dateifilter — genau deshalb wurde sie am 2026-09-10
+umgebaut. Ob der Service-Container des Workflows überhaupt extrahiert wird, war
+die offene Frage; sie ist jetzt beantwortet:
+
+```
+$ npx renovate@41 --platform=local --dry-run=extract
+github-actions | .github/workflows/backend.yml | docker | 3.12 | sha256:39bbca489179ea03f2 | service
+```
+
+Der eingebaute `github-actions`-Manager liest `jobs.<id>.services.<id>.image`
+inklusive Digest (`depType: service`). Der Lane-Digest landet damit im selben
+Pull Request wie der compose-Digest; **eine Regel-Ergänzung in `renovate.json5`
+war nicht nötig** — ergänzt ist nur der Kommentar, der diese Messung festhält
+(`renovate-config-validator`: `Config validated successfully`). Der zunächst
+gesetzte Marker-Kommentar `# renovate: datasource=docker depName=arangodb` ist
+wieder **entfernt**: er gehört zum Custom-Regex-Manager für Image-Strings in
+Workflow-`env:`-Werten und hätte einen Mechanismus behauptet, der hier nicht
+arbeitet.
+
+#### Falsifizierbarkeit der neuen Regel
+
+`tests/unit/guards/test_integration_tier_gate.py` (16 Fälle, läuft in der
+Pflicht-Lane `backend-guards.yml`, weil sie `tests/unit/guards/` ungefiltert
+fährt):
+
+- `CI`-Diskriminator über `true` / `1` / `TRUE` / `yes` und über beide
+  Schreibweisen von „kein Build-Agent" (leer, nicht gesetzt);
+- das Gate **end to end als Subprozess** gegen `127.0.0.1:1` (ein Port, auf dem
+  nie etwas lauscht, damit der Lauf nicht davon abhängt, ob der Dev-Stack läuft):
+  mit `CI` rot, ohne `CI` genau ein Skip mit der Adresse im Grund, mit
+  `--max-skipped 0` auch dieser Skip rot, und das serverfreie Modul der Stufe
+  bleibt ungegatet. Ein Gate, das implementiert, aber an keinem Modul verdrahtet
+  wäre, rötet hier;
+- zwei Absenz-Wächter gegen das Zurückkriechen der Kopien (kein Modul bindet
+  `ARANGO_AVAILABLE`; kein Modul trägt die Adresse in einem **ausführbaren**
+  String).
+
+Das Messwerkzeug der beiden Absenz-Wächter liest den **Syntaxbaum**, nicht den
+Text — und das ist nicht Kosmetik: die erste, substring-basierte Fassung meldete
+`test_care_task_dedup_concurrency.py` als Verstoß, weil dessen **Docstring**
+`localhost:8529` erklärt. Ein Wächter, der Prosa als Fund zählt, wird beim ersten
+Fehlalarm aufgeweicht. Docstrings werden jetzt per Knoten-Identität
+ausgeschlossen, f-Strings dagegen erfasst; `test_both_sweeps_can_see_a_violation_at_all`
+pflanzt beide Formen und prüft zusätzlich, dass ein reines Prosa-Modul **kein**
+Fund ist.
+
+#### Offen für den Operator
+
+Die Aufnahme in `required_status_checks.contexts` (Branch-Protection `develop`)
+steht aus — sie folgt auf drei grüne `workflow_dispatch`-Läufe des Jobs
+`Integration tests (ArangoDB)`, wie in den Operator-Entscheidungen festgelegt.
