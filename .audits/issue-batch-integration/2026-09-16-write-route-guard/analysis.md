@@ -393,3 +393,58 @@ auf *Warning* korrigiert — kuratierter Katalog + Ratenlimit deckeln die Zeilen
 der Detektor-Befundtext „writes a row per unseen slug" überzeichnete) und #1461
 (Klassen-Issue mit allen zehn, Schwere je Route). Die Nummern gehören in
 `_PERSISTING_READ_FINDINGS`.
+
+### Review-Nacharbeit — Sub-Branch `fix/1443-review-followups`
+
+Dispatchter Spezialist: `nolte-engineering:fullstack-developer`. Die sieben Punkte
+des Security-Reviews (SEC-001..007), jeder mit Mutation zuerst.
+
+| # | Mutation (rot) | Grün danach |
+|---|---|---|
+| **SEC-001** | eine Befund-ID ausgetauscht (`dashboard…get_widget_catalog` → `…get_dashboard`, Anzahl bleibt 10) → `test_the_finding_list_only_shrinks`: *„These reads were added to _PERSISTING_READ_FINDINGS after the 2026-09-16 measurement: dashboard.tenant_router.get_dashboard"*. Nachgemessen: die ersetzte Regel `len(...) <= 10` ist bei derselben Mutation **True** | Ratsche gegen `_MEASURED_2026_09_16: frozenset[str]` (zehn IDs) statt gegen die Länge; zweite Prüfung `len(_MEASURED_2026_09_16) == 10`, damit auch das Aufweiten des Sets eine eigene Zeile kostet |
+| **SEC-002** | im Stub-Handler `guarded_get` (`may_create=False`) zusätzlich `service.record(key)` → *„the guarded probe reaches more than the one write: {…invented_repository:16, …audit_repository:13}"* | Eintrag ist `(callee, keyword, sinks)`; `write_sinks_of()` liefert **alle** erreichbaren Senken statt der nächsten; Deckel `<= 3`. **Diese Prüfung war beim ersten Schreiben gegen den heutigen Baum rot**: alle drei Einträge erreichen *zwei* Schreibvorgänge (Profil-Kante **und** Profil-Dokument), `write_path_of` hatte immer nur die nähere gezeigt. Beide liegen hinter demselben `may_create`, also wurde die Messung verbreitert, nicht ein Befund angelegt — die Lücke war aber real |
+| **SEC-003** | `favorites…add_favorite` auf `Reason.COMPUTATION` gesetzt → *„These routes are allowlisted as COMPUTATION … and the call graph says they persist"* mit vollem Pfad bis `…favorites_service:135` | `Reason`-Flag (`PER_USER` / `DATA_SUBJECT_RIGHT` / `COMPUTATION` / `RANK_GATED_INLINE`) statt Prosa-Parsing; Deckel `<= 28`; Kontrolle `>= 13` gegen einen leeren Selektor |
+| **SEC-004** | `_is_query_write` auf `return False` → *„a module-level INSERT constant is not a sink"* | Modul-Level-`Assign`/`AnnAssign` gegen `_QUERY_WRITE`, gebundener Name als Senken-Alias; Modul-Docstring und der `WRITE_METHODS`-Kommentar behaupten nicht mehr mehr, als gemessen wird. Kontrolle: ein `SELECT`-Konstante bleibt clean |
+| **SEC-005** | `_CALLABLE_ARGUMENT_SINKS = frozenset()` → *„a handler whose write is scheduled through add_task is reported clean"* | erstes Positionsargument von `*.add_task(...)` ist eine Aufrufziel-Kante; Celery (`delay`/`apply_async`) bleibt ausdrücklich draußen |
+| **SEC-006** | `_CARE_TYPE_PREFIX = "care_"` → *„the frontend's care-notification prefix and the handler's _CARE_TYPE_PREFIX drifted apart: frontend: 'care.' / backend: 'care_'"* | Literal `"care."` wird Modulkonstante; Paritätstest gegen `CARE_NOTIFICATION_TYPE_PREFIX` mit derselben Nichtleere-Vorprüfung wie der ID-Vergleich |
+| **SEC-007** | Rang-Check hinter die `plant_key`-Auflösung verschoben → `test_a_care_notification_without_a_plant_key_is_refused_too`: `assert 200 == 403` | Verhalten **unverändert**; Docstring benennt den fail-closed-Fall und warum die Reihenfolge so bleibt (sonst hinge die Antwort am Inhalt der Zeile). Zwei Tests halten sie jetzt fest, samt Grower-Kontrolle |
+
+**Was der Detektor nach SEC-004/005 zusätzlich meldet — gegen den heutigen Bestand
+gemessen, nicht geschätzt:** **0** zusätzliche Leserouten (13 von 356, unverändert),
+**4** zusätzliche Schreibrouten, die er vorher nicht als persistierend erkannte:
+`observations.tenant_router.record_sensor_reading`,
+`observations.tenant_router.record_sensor_readings_batch`,
+`phase_sequences.router.create_phase_definition`,
+`tasks.tenant_router.create_workflow`. Alle vier sind `POST`s und lagen bereits im
+Sweep; es entsteht keine neue Gate-Pflicht. Die Übereinstimmung mit der
+Methodenkonvention steigt von 396 auf **400 von 440**. Nur zwei Module tragen
+überhaupt Modul-Level-Schreibliterale (`timescale/observation_repository.py`,
+`timescale/schema.py`, drei Namen) — die Erkennung ist eng, nicht breit.
+
+**Keine neuen Befunde aus SEC-003:** alle **13** Einträge, die „no write" behaupten
+(der Review sagte 11 — nachgezählt sind es 13), sind mit dem Detektor gemessen und
+schreiben tatsächlich nichts. `_TENANT_ALLOWLIST` hat **27** Einträge (nicht 28);
+der Deckel steht bei 28 nach demselben Muster wie `_PUBLIC_ALLOWLIST` (11 Einträge,
+Deckel 12).
+
+**Befundtexte korrigiert:** `_PERSISTING_READ_FINDINGS` nennt **#1461** als
+Klassen-Issue im Dict-Docstring, und der Eintrag `glossar.public_router.public_get_term`
+trägt **#1460** samt der gemessenen Korrektur — der Slug läuft über
+`_resolve_or_404` gegen einen kuratierten Katalog mit Whitelist-Zeichensatz
+(`glossary_service.py:147-159`), ein unbekannter Slug ist ein 404 und nie eine Zeile,
+`@limiter.limit("30/minute")` gilt; die verbleibende Sorge ist der anonym ausgelöste
+RAG/LLM-Aufruf hinter dem Cache-Miss und die Verletzung der GET-Safe-Method, nicht
+„a row per unseen slug".
+
+**Laufzeit.** Rücken an Rücken im selben Maschinenzustand, feste Reihenfolge
+(`-p no:randomly`): `tests/unit/api tests/unit/guards` **25,00 s** auf dem
+Basisstand (355 Tests) gegen **21,27 s** danach (367 Tests). Die Lane ist also
+nicht teurer geworden. Die 14,5 s aus Scheibe 2 sind ein anderer
+Maschinenzustand und nicht mit einer Einzelmessung vergleichbar — genau deshalb
+die Rücken-an-Rücken-Messung.
+
+Der Graphbau ist unverändert: **3,56 s** nach der Änderung gegen **3,68 s**
+davor, weiterhin einmal pro Session (`lru_cache`), 935 Module. SEC-004 parst
+nichts zusätzlich — die Modul-Level-Zuweisungen liefen ohnehin schon durch
+`_parse_module`. Die sechs neuen Detektor-Proben bauen je einen eigenen kleinen
+Synthese-Baum (< 10 Dateien), nicht den App-Baum.
