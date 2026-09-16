@@ -39,6 +39,17 @@ from app.domain.services.notification_service import NotificationService
 #: Actionable ``action_id`` values that confirm the source care reminder (§4.2).
 _CARE_CONFIRM_ACTIONS: frozenset[str] = frozenset({"confirm", "confirm_watering", "done"})
 
+#: Notification types whose confirm action reaches the care writes (§4.2).
+#:
+#: A named constant rather than a literal in the branch, because the frontend holds
+#: the same prefix in ``src/frontend/src/utils/careConfirmActions.ts`` and
+#: ``tests/api/test_notification_act_role_gate.py`` compares the two. The
+#: action-id half of that pair was checked from the day it was written; the prefix
+#: half was not, so a rename on either side moved the branch condition apart from
+#: the condition the UI shows the button on — a viewer offered a button that can
+#: only answer 403, or a grower refused one (SEC-006 of the #1443 review).
+_CARE_TYPE_PREFIX = "care."
+
 router = APIRouter(prefix="/notifications", tags=["notifications"], responses=NOT_FOUND_RESPONSE)
 
 
@@ -169,13 +180,24 @@ def mark_acted(
     and nothing is stamped: silently skipping the confirmation while dropping the
     reminder out of the unread badge would leave the plant unwatered and say so
     nowhere.
+
+    **A `care.*` notification without a usable `plant_key` is unacknowledgeable for
+    a viewer, and that is deliberate** (SEC-007 of the #1443 review). The rank check
+    runs *before* `plant_key` and `reminder_type` are read, so such a row answers 403
+    for an under-privileged addressee even though the branch would then have
+    confirmed nothing at all. Ordering it the other way — resolve first, refuse only
+    when a confirmation would really happen — would make the response depend on the
+    *contents* of the row: a 200 would tell the caller the notification carries no
+    plant, and the gate would be as good as its weakest payload. Fail-closed on the
+    rank alone is the cheaper contract, and the cost is one stuck row in an inbox,
+    which `mark_read` still clears.
     """
     notif = service.get_notification(notification_key, ctx.tenant_key, user_key=ctx.user_key)
     if notif is None:
         raise NotFoundError(entity="Notification", key=notification_key)
 
     # §4.2 — confirm the source care reminder for an actionable care notification.
-    if notif.notification_type.startswith("care.") and action_id in _CARE_CONFIRM_ACTIONS:
+    if notif.notification_type.startswith(_CARE_TYPE_PREFIX) and action_id in _CARE_CONFIRM_ACTIONS:
         if not MembershipEngine.can_edit_resource(ctx.role):
             raise ForbiddenError(f"Your role '{ctx.role.value}' may not confirm a care reminder in this tenant.")
         plant_key = notif.data.get("plant_key")
