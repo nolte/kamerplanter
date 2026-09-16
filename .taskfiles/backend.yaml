@@ -64,23 +64,44 @@ tasks:
   # `tests/contracts/` has no guard: it compares enums and JSON, builds no
   # service, and measured zero connection attempts. `tests/integration/` must
   # connect and is deliberately untouched.
+  #
+  # Each tier below declares its SKIP FLOOR with `--max-skipped N` (#1434,
+  # src/backend/tests/conftest.py). pytest's exit code treats a skipped test
+  # exactly like a passed one, so a tier whose cases quietly stopped executing
+  # stays green — which is how the api tier could hold "480 passed, 0 skipped"
+  # as prose for months with nothing checking it. The numbers are measured, not
+  # guessed (2026-09-16, `pytest <tier> -q -rs`):
+  #
+  #   tests/unit/       1 skip   tests/unit/migrations/test_e2e_admin_env_containment.py:86
+  #                             — `test_no_other_configuration_file_sets_the_e2e_admin_credentials`
+  #                               is parametrised over every configuration file in the repo and
+  #                               skips the ONE file that is allowed to set E2E_PLATFORM_ADMIN_*.
+  #                               The skip is the allowlist, so it is permanent by design.
+  #   tests/contracts/  0 skips
+  #   tests/api/        0 skips
+  #
+  # Raising a number is the intended response to a new, justified skip — the
+  # failure lists every skip reason so the new one is identifiable, and the raise
+  # lands in the same commit that introduces it. `test:backend` above carries no
+  # floor: it includes tests/integration/, whose skip count is a function of
+  # whether a local ArangoDB is up (136 skips without one, measured the same day).
   test:backend:unit:
     desc: Backend unit tests — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/unit/ -v --tb=short {{.CLI_ARGS}}
+      - python -m pytest tests/unit/ -v --tb=short --max-skipped 1 {{.CLI_ARGS}}
 
   test:backend:contracts:
     desc: Backend contract tests (enum sync, i18n completeness) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
+      - python -m pytest tests/contracts/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   test:backend:api:
     desc: Backend API tests (routers via TestClient against fakes, no services) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/api/ -v --tb=short {{.CLI_ARGS}}
+      - python -m pytest tests/api/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   openapi:export:
     desc: |

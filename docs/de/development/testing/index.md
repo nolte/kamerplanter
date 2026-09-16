@@ -27,6 +27,23 @@ source .venv/bin/activate
 
 Das installiert exakt die in `uv.lock` festgehaltenen Produktions- und Entwicklungsabhängigkeiten (hash-verifiziert), einschließlich pytest, pytest-asyncio und pytest-cov. uv installieren: <https://docs.astral.sh/uv/>.
 
+!!! warning "Der Aktivierungsschritt ist Pflicht — die Suite erzwingt ihn"
+
+    `src/backend/tests/conftest.py` bricht die Session beim Start ab, wenn der
+    Interpreter nicht zu diesem Checkout gehört (#1434). Geprüft wird zweierlei:
+
+    - **`import app` kommt aus diesem Baum.** Das Editable-Install eines anderen
+      Checkouts darf den Import nicht beantworten — sonst misst der Lauf einen
+      anderen Arbeitsbaum, als du gerade bearbeitest.
+    - **Der Interpreter ist ein venv** (`sys.prefix != sys.base_prefix`). Der
+      System-Interpreter hat nicht den hash-verifizierten Paketstand des Locks.
+
+    Der Abbruch ist ein **Fehler mit beiden Pfaden und der Erwartung**, kein Skip
+    und keine Warnung: Ein Lauf im falschen Interpreter hat vorher ohne Hinweis
+    Tests übersprungen und trotzdem grün gemeldet. `uv run --locked python -m
+    pytest …` ist gleichwertig zur Aktivierung — es zeigt `sys.prefix` auf
+    `src/backend/.venv` und wird nicht abgelehnt.
+
 ### Tests ausführen
 
 ```bash
@@ -111,6 +128,22 @@ docker-compose up -d arangodb
 # Nur Integrationstests
 pytest tests/integration/ -v
 ```
+
+### Skip-Floor je Tier
+
+Ein übersprungener Test beendet pytest mit demselben Exit-Code wie ein bestandener. Ein Tier, das still aufgehört hat zu laufen, meldet deshalb grün. Jedes Tier-Target deklariert darum seine **gemessene** Skip-Zahl:
+
+```bash
+pytest tests/unit/ --max-skipped 1        # task test:backend:unit
+pytest tests/contracts/ --max-skipped 0   # task test:backend:contracts
+pytest tests/api/ --max-skipped 0         # task test:backend:api
+```
+
+Werden mehr Tests übersprungen als deklariert, wird der Lauf rot und nennt **jeden** Skip-Grund — so ist der neue Skip erkennbar und die Zahl wird nicht blind gehoben.
+
+Die heutige `1` im Unit-Tier ist `tests/unit/migrations/test_e2e_admin_env_containment.py`: Der Test läuft über jede Konfigurationsdatei des Repositories und überspringt genau die eine Datei, die `E2E_PLATFORM_ADMIN_*` setzen darf. Dieser Skip ist die Allowlist selbst und damit dauerhaft.
+
+Einen neuen, begründeten Skip hebst du in `.taskfiles/backend.yaml` — im selben Commit, der ihn einführt. Der Skip wird damit eine sichtbare Entscheidung.
 
 ### Code Coverage
 

@@ -954,6 +954,47 @@ pytest tests/e2e/ --generate-protocol
 #     └── ...
 ```
 
+### 6.4 Ausführungs-Zusicherung je Teststufe
+
+Ein Teststufen-Lauf MUSS belegen, dass er tatsächlich ausgeführt hat. Ein grüner
+Exit-Code allein belegt das nicht: pytest beendet sich nach einem übersprungenen
+Test mit demselben Code wie nach einem bestandenen, und ein Lauf im falschen
+Interpreter misst einen anderen Paketstand — oder einen anderen Arbeitsbaum — als
+den, über den er berichtet. Beide Formen sind am 2026-09-16 an dieser Suite
+gemessen worden (#1434).
+
+**MUSS**: `src/backend/tests/conftest.py` bricht die Session beim Start ab, wenn
+`import app` nicht aus dem Checkout kommt, zu dem die conftest gehört (Aufwärtssuche
+nach `pyproject.toml`), oder wenn `sys.prefix == sys.base_prefix` gilt. Der Abbruch
+ist ein Fehler mit beiden Pfaden und der Erwartung — kein Skip und keine Warnung.
+Die Prüfung hängt bewusst nicht an `VIRTUAL_ENV`: `uv run --locked` setzt die
+Variable nicht und wäre sonst abgelehnt.
+
+**MUSS**: Jede Teststufe deklariert ihre **gemessene** Skip-Zahl als Vertrag über
+`--max-skipped N`, und zwar dort, wo die Stufe aufgerufen wird
+(`.taskfiles/backend.yaml`; für eine in einem Workflow inline aufgerufene Stufe
+in derselben Zeile). Überschreitet ein Lauf die Zahl, wird er rot.
+
+**MUSS**: Die Fehlermeldung nennt **jeden** Skip-Grund, nicht nur die Anzahl. Ohne
+die Gründe ist nicht erkennbar, welcher Skip neu ist, und die Zahl wird blind
+gehoben statt geprüft.
+
+**MUSS**: Ein neuer, begründeter Skip hebt die deklarierte Zahl in demselben
+Commit, der ihn einführt. Der Skip wird damit eine sichtbare Entscheidung statt
+einer stillen Reduktion des Testumfangs.
+
+Stand 2026-09-16 (`pytest <Stufe> -q -rs`):
+
+| Teststufe | Deklarierte Skip-Zahl | Begründung |
+|---|---|---|
+| `tests/unit/` | 1 | `test_e2e_admin_env_containment.py:86` — der parametrisierte Guard überspringt die eine Konfigurationsdatei, die `E2E_PLATFORM_ADMIN_*` setzen darf; der Skip **ist** die Allowlist |
+| `tests/contracts/` | 0 | keine Skips |
+| `tests/api/` | 0 | keine Skips |
+| `tests/unit/api` + `tests/unit/guards` (Pflicht-Lane `backend-guards.yml`) | 0 | keine Skips |
+| `tests/integration/` | kein Vertrag | die Skip-Zahl ist ohne ArangoDB eine Funktion der Umgebung (136 Skips ohne DB gemessen); der Vertrag entsteht mit der CI-Lane des Tiers |
+
+---
+
 ---
 
 ## 7. Akzeptanzkriterien

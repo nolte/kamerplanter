@@ -185,4 +185,192 @@ Spalten wie in den anderen Gruppen aus dem Repository abgeleitet.
 
 ## Ergebnisse je Scheibe
 
-*(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
+### Scheibe 1 — Interpreter-Guard (#1434 Punkt 1)
+
+Umgesetzt auf `fix/1434-tier-execution-guards`. Prädikate in
+`src/backend/tests/support/execution_guards.py`, Verdrahtung in
+`src/backend/tests/conftest.py` (`pytest_configure` → `pytest.UsageError`).
+Die Wurzel wird per Aufwärtssuche nach `pyproject.toml` bestimmt, nicht per
+`parents[N]`.
+
+**Rot zuerst — globaler Interpreter, vor dem Guard** (`python3 -m pytest tests/unit -q -rs`,
+`sys.prefix == sys.base_prefix == /home/nolte/.asdf/installs/python/3.14.6`):
+
+```
+5 failed, 8596 passed, 1 skipped, 28 warnings, 27 errors in 440.32s (0:07:20)
+SKIPPED [1] tests/unit/migrations/test_e2e_admin_env_containment.py:86: the file that is allowed to set them
+```
+
+**Befund, der die Issue-Diagnose korrigiert:** die im Issue und in dieser Analyse
+zitierten „28 lautlos übersprungenen Tests" sind heute **nicht mehr
+reproduzierbar**. #1435/PR #1439 hat die betroffenen `importorskip`-Aufrufe in
+harte Importe überführt; der globale Interpreter fällt deshalb inzwischen laut
+aus (27 Setup-Errors + 5 Failures, sämtlich `moto`/`boto3` fehlt), und es bleibt
+**genau 1** Skip übrig — derselbe, den auch das Projekt-venv hat. Der verbleibende
+Schaden ist damit nicht „stille Skips", sondern 7:20 min Laufzeit für ein
+Ergebnis über den falschen Paketstand. Der Guard bleibt trotzdem richtig: er
+beendet dasselbe Szenario **sofort** und benennt die Ursache, statt sie über 32
+Einzelfehler zu verteilen.
+
+**Grün danach — derselbe Aufruf, nach dem Guard** (Abbruch nach ~1 s, `exit=4`):
+
+```
+ERROR: This pytest session is running on the wrong interpreter (#1434).
+
+  sys.executable    : /home/nolte/.asdf/installs/python/3.14.6/bin/python3
+
+  1. the interpreter is not a virtual environment, so its packages are not
+    the hash-verified set the lock installs.
+    sys.prefix      : /home/nolte/.asdf/installs/python/3.14.6
+    sys.base_prefix : /home/nolte/.asdf/installs/python/3.14.6
+    Expected these to differ (any project virtual environment).
+
+Run the suite from this checkout's own environment:
+    cd src/backend
+    uv sync --locked --extra dev      # or: task deps:sync
+    .venv/bin/python -m pytest <tier>
+`uv run --locked python -m pytest <tier>` is equivalent — measured on 2026-09-16,
+it points sys.prefix at this project's .venv.
+```
+
+**Der zweite vorgesehene Rot-Fall trat nicht ein — gemessen, nicht angenommen.**
+Die Erwartung war, dass das Primär-venv aus diesem Worktree per Editable-Install
+den **fremden** Baum importiert. Unter pytest passiert das nicht: weil `tests/`
+ein Paket ist, legt pytest die Paketwurzel `src/backend` **dieses** Worktrees auf
+`sys.path[0]`, bevor die conftest importiert wird, und beschattet damit den
+Editable-Finder. Gemessen mit einer Sonde in `tests/unit/`:
+
+```
+$ cd <worktree>; /home/nolte/repos/github/kamerplanter/src/backend/.venv/bin/python \
+      -m pytest src/backend/tests/unit/test_zz_tmp_probe.py -q -s
+APP: /home/nolte/repos/.worktrees/kamerplanter/g3-1434/src/backend/app/__init__.py
+PREFIX: /home/nolte/repos/github/kamerplanter/src/backend/.venv
+```
+
+Der fremde Baum wird nur **außerhalb** von pytest importiert
+(`cd /tmp && <primär-venv>/bin/python -c "import app"` →
+`/home/nolte/repos/github/kamerplanter/src/backend/app/__init__.py`). Die
+Baum-Prüfung des Guards ist damit korrekt, aber in der heutigen Pytest-Konfiguration
+nicht die Prüfung, die das Primär-venv fängt; was es fängt, ist der #1435-Wächter
+`test_this_environment_can_judge_the_rule_at_all`, der dort laut auf fehlendes
+`jsonschema` fällt (das Primär-venv ist veraltet). Eine Prüfung „`sys.prefix`
+liegt unter der Repo-Wurzel" wäre der Griff, der auch diesen Fall fängt — sie ist
+**bewusst nicht** gebaut, weil sie genau die von den Risiken verbotene Form hätte
+(„ein bestimmter Aktivierungsmechanismus") und ein legitimes venv außerhalb des
+Baums abweisen würde. Offen als eigene Entscheidung.
+
+**`uv run` bleibt zugelassen — gemessen, nicht angenommen:**
+
+```
+$ uvx --from 'uv==0.12.15' uv run --locked python -c "import sys, app; ..."
+prefix: <worktree>/src/backend/.venv
+base:   /home/nolte/.local/share/uv/python/cpython-3.14.2-linux-x86_64-gnu
+app:    <worktree>/src/backend/app/__init__.py
+$ uv run --locked python -m pytest tests/contracts -q --max-skipped 0   →  exit=0
+```
+
+**Mutationsbeweis** (Bedingungen in `interpreter_violation` invertiert:
+`if resolved_app.is_relative_to(root)` und `if ... != ...`): die Session bricht
+mit genau der Guard-Meldung ab, d. h. `tests/unit/guards/` wird als Ganzes rot.
+Zweite Mutation (`pytest_configure` erhebt keinen `UsageError` mehr):
+
+```
+FAILED tests/unit/guards/test_execution_guards.py::TestInterpreterGuardIsWired::test_faked_system_prefix_aborts_the_session
+FAILED tests/unit/guards/test_execution_guards.py::TestInterpreterGuardIsWired::test_faked_foreign_app_file_aborts_the_session
+2 failed, 17 passed
+```
+
+### Scheibe 2 — Skip-Floor (#1434 Punkt 3)
+
+`--max-skipped N` in `tests/conftest.py` (`pytest_addoption` +
+`pytest_sessionfinish`, das `session.exitstatus` setzt); die Meldung bettet die
+`-rs`-Zeilen gruppiert mit Zähler ein.
+
+**Gemessene Skip-Zahlen je Tier** (2026-09-16, Projekt-venv, `pytest <tier> -q -rs`):
+
+| Tier | Ausgabe | Skips | Grund |
+|---|---|---|---|
+| `tests/unit/` | `8628 passed, 1 skipped in 279.17s` | **1** | `tests/unit/migrations/test_e2e_admin_env_containment.py:86` — `test_no_other_configuration_file_sets_the_e2e_admin_credentials` ist über jede Konfigurationsdatei parametrisiert und überspringt die eine erlaubte (`the file that is allowed to set them`). Der Skip **ist** die Allowlist → dauerhaft |
+| `tests/contracts/` | `27 passed in 0.95s` | **0** | — |
+| `tests/api/` | `1342 passed in 176.25s` | **0** | — (die Prosa in `backend.yml` nannte 480 — der Tier ist seitdem gewachsen) |
+| `tests/unit/api` + `tests/unit/guards` (Pflicht-Lane) | `361 passed in 17.82s` | **0** | — |
+| `tests/integration/` ohne DB | `7 passed, 136 skipped in 162.76s` | **136** | 13 kopierte `ARANGO_AVAILABLE`-Proben |
+
+**Rot zuerst — `tests/integration/` ohne DB mit `--max-skipped 0`** (`exit=1`,
+vorher `exit=0`):
+
+```
+============================= skip floor exceeded ==============================
+This run skipped 136 tests; the tier declares at most 0 (--max-skipped 0).
+A skipped test reports like a passed one, so a tier that quietly stopped executing would otherwise be green (#1434).
+
+  SKIPPED [10] .../tests/integration/test_aql_reference_normalisation.py:113: ArangoDB not available on localhost:8529
+  SKIPPED [10] .../tests/integration/test_aql_reference_normalisation.py:124: ArangoDB not available on localhost:8529
+  SKIPPED [1]  .../tests/integration/test_aql_reference_normalisation.py:135: ArangoDB not available on localhost:8529
+  ...
+
+If a skip above is new and justified, raise the number where the tier declares it
+(.taskfiles/backend.yaml) in the same change that introduces it — that keeps the
+skip a visible decision. If it is not justified, the tier stopped running
+something it is meant to run.
+
+7 passed, 136 skipped in 162.65s (0:02:42)
+```
+
+**Grün danach — die drei Tier-Targets mit ihrer deklarierten Zahl:**
+
+```
+task test:backend:unit       → 8647 passed, 1 skipped in 1054.07s   exit=0
+task test:backend:contracts  →   27 passed in 1.91s                 exit=0
+task test:backend:api        → 1342 passed in 190.00s               exit=0
+KAMERPLANTER_MODE=full pytest tests/unit/api tests/unit/guards -q --max-skipped 0
+                             →  361 passed in 16.77s                exit=0
+```
+
+**Mutationsbeweis** (in `skip_floor_violation`):
+
+```
+# `>` → `>=`  (d. h. `len(reasons) <= max_skipped` → `< max_skipped`)
+FAILED ...TestSkipFloorViolation::test_no_skips_at_all_passes
+FAILED ...TestSkipFloorViolation::test_exactly_the_declared_number_passes
+FAILED ...TestSkipFloorEndToEnd::test_the_declared_number_keeps_the_run_green
+3 failed, 16 passed
+
+# Floor feuert nie
+FAILED ...TestSkipFloorViolation::test_one_above_the_declared_number_fails
+FAILED ...TestSkipFloorViolation::test_every_reason_is_named_so_the_new_skip_is_identifiable
+FAILED ...TestSkipFloorViolation::test_identical_reasons_are_grouped_with_a_count_like_rs
+FAILED ...TestSkipFloorEndToEnd::test_a_skip_above_the_floor_reddens_the_run_and_prints_the_reason
+4 failed, 15 passed
+
+# `session.exitstatus` wird nicht gesetzt (Verdrahtung statt Prädikat)
+FAILED ...TestSkipFloorEndToEnd::test_a_skip_above_the_floor_reddens_the_run_and_prints_the_reason
+1 failed, 18 passed
+```
+
+Die beiden Endpunkte der Vergleichsgrenze sind damit beidseitig festgenagelt:
+Floor 1 bei genau 1 Skip muss **grün** bleiben, Floor 0 bei 1 Skip **rot** werden.
+
+### Ruft CI die Targets oder inlined es pytest?
+
+Gemessen (`grep -n "pytest\|task test" .github/workflows/*.yml .taskfiles/*.yaml`):
+
+- **`backend.yml` ruft die Targets** (`task test:backend:unit` / `:contracts` /
+  `:api`, Zeilen 187/195/208). Die Zahlen leben deshalb an **einer** Stelle,
+  `.taskfiles/backend.yaml`; eine Umstellung ist nicht nötig.
+- **`backend-guards.yml` inlined** (`pytest tests/unit/api tests/unit/guards -q`,
+  Zeile 124) — die Pflicht-Lane. Dort ist `--max-skipped 0` in dieselbe Zeile
+  gesetzt (gemessen 0 Skips). Eine Umstellung auf ein Target wäre möglich, ist
+  hier aber **nicht** gemacht: die Lane ruft bewusst *Verzeichnisse* statt einer
+  gepflegten Liste und mischt zwei Tier-Teilmengen mit eigener `KAMERPLANTER_MODE`-
+  Umgebung; ein eigenes Target dafür wäre eine dritte Deklaration derselben
+  Grenze. Falls der Operator die Zahl lieber im Taskfile hätte, ist das ein
+  Einzeiler — ich habe es nicht ungefragt getan.
+- **`.taskfiles/checks.yaml:341`** (`task check`, die schnelle lokale Schleife)
+  inlined `python -m pytest tests/unit/ -q` **ohne** Floor. Bewusst gelassen:
+  `task check` ist kein Gate, und eine vierte Kopie der Zahl wäre genau die
+  Drift-Fläche, die der Vertrag vermeiden soll. Der Interpreter-Guard greift dort
+  trotzdem.
+- **`backend.yml` Coverage-Lane** (`reusable-python-coverage`) ruft `pytest` bar
+  aus dem gesyncten `.venv` — venv, also vom Guard unberührt; ohne `--max-skipped`,
+  weil sie die gesamte `testpaths` inkl. `tests/integration/` fährt.
