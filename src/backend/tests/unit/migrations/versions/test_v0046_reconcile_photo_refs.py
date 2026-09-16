@@ -122,6 +122,83 @@ class TestPlanReference:
         assert plan_reference(ATTACHMENT_KEY, ATTACHMENT_KEY, TENANT, index).verdict == "canonical"
 
 
+
+class TestAStemMayOnlyAnswerForAStorageKey:
+    """The stem of a *reference* must never be looked up as a document key.
+
+    ``aql_storage_key_stem`` reduces a string to its last path segment without the
+    extension. Applied to the attachment's ``storage_key`` that is the ULID
+    ``StorageKeyBuilder`` minted — the second identity, which is what rule 1 is for.
+    Applied to a *reference*, the same reduction happily produces a short numeric
+    string: ``/…/attachments/{id}/thumbnails/320`` — a URI the product builds itself
+    (``_photo_response``) — reduces to ``"320"``, and ``"320"`` is a perfectly
+    plausible ArangoDB ``_key``. Matching that against the key index rewrites the
+    reference onto a **different, existing** photo, irreversibly (#1438 review, B-1).
+
+    So: verbatim against ``_key``, stem against ``storage_stem`` only.
+    """
+
+    def test_a_thumbnail_uri_does_not_borrow_a_key_from_its_size_segment(self) -> None:
+        thumbnail_uri = f"/api/v1/t/{TENANT}/attachments/{ATTACHMENT_KEY}/thumbnails/320"
+        index = _index(
+            AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID),
+            # The trap: an unrelated attachment whose numeric key *is* the size.
+            AttachmentIdentity("320", TENANT, OTHER_ULID),
+        )
+
+        verdict = plan_reference(thumbnail_uri, "320", TENANT, index)
+
+        assert verdict.matches != ("320",)
+        assert verdict.verdict == "repaired"
+        assert verdict.matches == (ATTACHMENT_KEY,)
+
+    def test_a_thumbnail_uri_that_names_no_live_key_is_unresolved(self) -> None:
+        """No live ``_key`` in the URI means *report*, never fall back to the size."""
+        thumbnail_uri = f"/api/v1/t/{TENANT}/attachments/{OTHER_ULID}/thumbnails/320"
+        index = _index(
+            AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID),
+            AttachmentIdentity("320", TENANT, OTHER_ULID),
+        )
+
+        assert plan_reference(thumbnail_uri, "320", TENANT, index).verdict == "unresolved"
+
+    def test_a_reference_stem_equal_to_another_attachments_key_does_not_repair(self) -> None:
+        """The same trap without a URI: a path whose last segment is a live key."""
+        reference = f"t/{TENANT}/task/2026/01/{OTHER_ATTACHMENT_KEY}.jpg"
+        index = _index(
+            AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID),
+            AttachmentIdentity(OTHER_ATTACHMENT_KEY, TENANT, OTHER_ULID),
+        )
+
+        assert plan_reference(reference, OTHER_ATTACHMENT_KEY, TENANT, index).verdict == "unresolved"
+
+    def test_a_plain_api_uri_is_still_rewritten_onto_the_key_it_carries(self) -> None:
+        """The control — the anchored rewrite must survive the narrowing."""
+        index = _index(AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID))
+        verdict = plan_reference(
+            f"/api/v1/t/{TENANT}/attachments/{ATTACHMENT_KEY}", ATTACHMENT_KEY, TENANT, index
+        )
+
+        assert verdict.verdict == "repaired"
+        assert verdict.matches == (ATTACHMENT_KEY,)
+
+    def test_the_two_consumers_read_one_uri_the_same_way(self) -> None:
+        """v0046 and ``normalize_photo_ref`` must not disagree on what a URI denotes.
+
+        They did: the normaliser took the **first** segment after ``/attachments/``,
+        v0046 the **last** one. One string, two answers, and the one that wrote was
+        the one that was wrong.
+        """
+        from app.migrations.migrate_photo_refs import normalize_photo_ref
+
+        thumbnail_uri = f"/api/v1/t/{TENANT}/attachments/{ATTACHMENT_KEY}/thumbnails/320"
+        index = _index(AttachmentIdentity(ATTACHMENT_KEY, TENANT, ULID))
+
+        assert normalize_photo_ref(thumbnail_uri) == ATTACHMENT_KEY
+        assert plan_reference(thumbnail_uri, "320", TENANT, index).matches == (
+            normalize_photo_ref(thumbnail_uri),
+        )
+
 # ── the migration against a fake ArangoDB ─────────────────────────────────────
 
 #: Reads the reduction out of the query rather than knowing it.
