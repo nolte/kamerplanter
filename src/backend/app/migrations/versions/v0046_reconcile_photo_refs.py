@@ -275,9 +275,31 @@ class ReconcilePhotoRefsMigration(Migration):
         return stems
 
     @staticmethod
-    def _references_of(document: Mapping[str, Any], field: str) -> tuple[list[str], bool]:
-        """Return the document's references and whether the field is list-valued."""
-        value = document.get(field)
+    def _carrier_query(collection: str, field: str) -> str:
+        """The scan of one carrier: filtered **and** projected in the database.
+
+        This runs under the migration lock in the startup path, so every document it
+        pulls across is memory the migrating replica holds while the others wait on
+        the barrier (:class:`~app.migrations.framework.report.MigrationBarrierTimeoutError`).
+        ``FOR d IN <carrier> RETURN d`` handed the whole of ``tasks``,
+        ``plant_instances`` and five more collections to Python to then discard the
+        overwhelming majority — on an installation without photos, *all* of them.
+        Filtered here, that installation costs zero rows; projected, a carrier with
+        photos costs three fields per row instead of a whole document.
+
+        The collection and the attribute name are interpolated because AQL binds
+        collections and values, not attribute names. Both come from the pinned
+        module-level tuples, never from a caller.
+        """
+        return (
+            f"FOR d IN {collection} "
+            f"FILTER d.{field} != null "
+            f"RETURN {{_key: d._key, tenant_key: d.tenant_key, value: d.{field}}}"
+        )
+
+    @staticmethod
+    def _references_of(value: Any) -> tuple[list[str], bool]:
+        """Return the projected field's references and whether it is list-valued."""
         is_list = isinstance(value, list)
         raw = value if is_list else [value]
         return [item for item in raw if isinstance(item, str) and item], is_list
@@ -303,15 +325,16 @@ class ReconcilePhotoRefsMigration(Migration):
             # AQL 1203 there would fail startup instead of reporting.
             if not db.has_collection(collection):
                 continue
-            documents = list(db.aql.execute(f"FOR d IN {collection} RETURN d"))
 
-            carriers: list[tuple[dict[str, Any], list[str], bool]] = []
+            carriers: list[tuple[Mapping[str, Any], list[str], bool]] = []
             distinct: set[str] = set()
-            for document in documents:
-                references, is_list = self._references_of(document, field)
+            # Streamed, not ``list(...)``-ed: only the rows that actually carry a
+            # reference are kept, and the filter above already dropped the rest.
+            for row in db.aql.execute(self._carrier_query(collection, field)):
+                references, is_list = self._references_of(row.get("value"))
                 if not references:
                     continue
-                carriers.append((document, references, is_list))
+                carriers.append((row, references, is_list))
                 distinct.update(references)
             if not carriers:
                 continue
@@ -366,10 +389,7 @@ class ReconcilePhotoRefsMigration(Migration):
                 if dry_run:
                     continue
 
-                # The collection and the attribute name are interpolated because AQL
-                # binds collections (``@@``) and values (``@``) but not attribute
-                # names. Both come from the module-level tuples above — pinned against
-                # the models — never from a caller.
+                # Interpolated for the same reason as the scan above.
                 db.aql.execute(
                     f"UPDATE {{_key: @key, {field}: @value}} IN {collection}",
                     bind_vars={"key": document["_key"], "value": rewritten if is_list else rewritten[0]},
