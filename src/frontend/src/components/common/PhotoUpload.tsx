@@ -194,13 +194,19 @@ export default function PhotoUpload({
         // surface left that reaches it.
         //
         // Both cases carry `ENTITY_NOT_FOUND`; `details[0].entity` is what separates
-        // them (NFR-006 §2.2a, #1437). Only `attachment` de-stages. Anything else —
-        // `task`, or a 404 that names no entity at all, which is what an older
-        // backend or a proxy's own error page sends — keeps the photo and surfaces
-        // the error, the same conservative answer as any other failure.
+        // them (NFR-006 §2.2a, #1437). Only `attachment` de-stages. A `task` 404 keeps
+        // the photo *and* says so explicitly: the generic "resource not found" toast
+        // (`errors.notFound`, `useApiError`'s default for this code) is what the user
+        // would already read as "the photo is gone", which is the exact
+        // misunderstanding this change exists to end — so this one case gets its own
+        // message instead of going through the generic handler. A 404 that names no
+        // entity at all (older backend, proxy error page) still falls through to
+        // `handleError`, since there is nothing specific to say about it.
         const missing = err instanceof ApiError && err.statusCode === 404 ? err.details[0]?.entity : undefined;
         if (missing === 'attachment') {
           onChange(photoRefs.filter((_, i) => i !== index));
+        } else if (missing === 'task') {
+          notification.error(t('pages.tasks.photoRemoveTaskGone'));
         } else {
           handleError(err);
         }
@@ -208,7 +214,7 @@ export default function PhotoUpload({
         setRemovingIndex(null);
       }
     },
-    [taskKey, photoRefs, stagedIds, onChange, handleError],
+    [taskKey, photoRefs, stagedIds, onChange, handleError, notification, t],
   );
 
   return (

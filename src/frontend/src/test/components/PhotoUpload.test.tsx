@@ -332,6 +332,12 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
      *
      * Both 404s carry `ENTITY_NOT_FOUND`; `details[0].entity` is what separates
      * them, which is why the backend now sets it for every `NotFoundError`.
+     *
+     * The generic `errors.notFound` toast ("resource not found") is what a user
+     * would read as "the photo is gone" — the exact misunderstanding this whole
+     * change exists to end. So this case gets its own message
+     * (`pages.tasks.photoRemoveTaskGone`) naming what actually happened: the task,
+     * not the photo.
      */
     it('keeps the photo when it is the task that is gone, and says so', async () => {
       const user = userEvent.setup();
@@ -348,7 +354,7 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
 
       await user.click(await screen.findByTestId('photo-remove-0'));
 
-      expect(await screen.findByText(i18n.t('errors.notFound'))).toBeInTheDocument();
+      expect(await screen.findByText(i18n.t('pages.tasks.photoRemoveTaskGone'))).toBeInTheDocument();
       expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument();
       expect(onChange).not.toHaveBeenCalled();
     });
