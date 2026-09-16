@@ -133,7 +133,12 @@ tasks:
       `uv lock --check` reads pyproject.toml and the lock's own metadata, not
       the artifacts. `uv sync --locked` does (it verifies every recorded hash
       on install), which is why the CI job runs both and `deps:sync` below is
-      the local equivalent. On failure run `task deps:compile` and commit.
+      the local equivalent. That difference is not folklore: it is measured on
+      every run by
+      src/backend/tests/unit/guards/test_lock_hash_verification.py, which
+      tampers with a copy of the lock and requires `uv lock --check` to MISS it
+      and `uv sync --locked` to catch it. On failure run `task deps:compile`
+      and commit.
     dir: src/backend
     cmds:
       - uv lock --check

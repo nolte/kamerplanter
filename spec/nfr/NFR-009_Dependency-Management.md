@@ -119,6 +119,7 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 **MUSS**: Es gibt keine Ausnahme von dieser Pflicht — jeder Python-Baum im Repository ist ein PEP-621-Projekt mit eigenem `uv.lock` daneben. Bis #1374 installierten die vier Side-Service-Images aus einer `requirements.txt` ohne Hashes (zwei davon neben einer `pyproject.toml`, die nur der `poetry`-Manager las und die kein Image konsumierte), und fünf weitere `pip install`-Zeilen in Build-Stufen (ONNX-/Optimum-Modellexport, `watchfiles`) liefen ganz ohne Lock. Diese Dateien sind gelöscht; die Build-Stufen installieren aus demselben Lock über PEP-735-Dependency-Gruppen (`build`, `dev`). Je Service ein Lock — bewusst keine Workspace-Lock über alle fünf Bäume, die fünf Release-Zyklen aneinanderkoppeln würde.
 **MUSS**: `uv.lock` wird über `uv lock` aus `pyproject.toml` generiert — manuelle Bearbeitung ist nicht erlaubt. Die Version von uv ist in `[tool.uv].required-version` verankert; Dockerfile, CI und Renovate lesen dieselbe Untergrenze.
 **MUSS**: CI prüft die Integrität der Lockfiles (`npm ci` statt `npm install`; für Python beides: `uv lock --check` gegen `pyproject.toml` UND `uv sync --locked`, das jedes Artefakt gegen den im Lock hinterlegten Hash verifiziert — `uv lock --check` allein erkennt einen von Hand geänderten Hash nicht).
+**MUSS**: Die Aussage „hash-verifiziert" trägt einen dauerhaften Falsifizierer: `src/backend/tests/unit/guards/test_lock_hash_verification.py` kopiert `pyproject.toml` + `uv.lock` in ein temporäres Verzeichnis, ersetzt den sha256 eines Wheels und verlangt, dass `uv sync --locked --no-install-project` mit einem Hash-Verdikt abbricht (#1383). Eine Behauptung über ein Sicherheitsmerkmal ohne einen Test, der sie widerlegen *könnte*, ist keine Prüfung (NFR-018 §1).
 
 ```bash
 # Python: Lockfile generieren bzw. prüfen
@@ -713,6 +714,17 @@ dependencies = [
 > **Warum uv und nicht mehr pip-tools (2026-09-10):** Renovates `pip-compile`-Manager akzeptiert nur eine feste Liste von Header-Optionen; die hier nötigen `--no-strip-extras` und `--no-build-isolation` gehörten nicht dazu, sodass der Manager ab 2026-08-02 still nichts extrahierte und die Locks sechs Wochen nicht regeneriert wurden. Zudem ließ sich die Toolchain des Renovate-Sidecars (pip, click) nicht auf die Versionen festhalten, die pip-tools überlebte. uv ist eine statische Binary mit einer Version, die alle drei Konsumenten (Dockerfile, CI, Renovate) aus `[tool.uv].required-version` lesen.
 
 **MUSS**: Kompatibilität mit Ruff und mypy wird durch CI sichergestellt (vgl. NFR-003). Ein Dependency-Update, das Ruff- oder mypy-Fehler verursacht, kann nicht auto-gemergt werden.
+
+**MUSS**: Die Hash-Verifikation wird gemessen, nicht angenommen. Gemessen mit uv 0.12.15 (2026-09-16) gegen ein Lock, in dem der Wheel-Hash von `structlog` durch Nullen ersetzt wurde:
+
+| Kommando | Exit | Bedeutung |
+|---|---|---|
+| `uv lock --check` | **0** | erkennt die Manipulation **nicht** — es liest nur `pyproject.toml` und die Lock-Metadaten |
+| `uv sync --locked --no-install-project` | **1** | `error: Hash mismatch for structlog==26.1.0` |
+
+Deshalb laufen im Job „Lock staleness" beide Kommandos, und deshalb liegt der Falsifizierer in `tests/unit/guards/`: Die erste Fassung dieses Tests (#1377) veränderte den **sdist**-Hash eines Pakets, das aus seinem **Wheel** installiert wird — sie war grün und prüfte nichts. Die Positivkontrolle verlangt jetzt ausdrücklich, dass das manipulierte Paket in der Installationsliste von `uv sync` auftaucht.
+
+**MUSS**: Fehlt `uv` auf dem PATH, wird der Falsifizierer mit lautem Grund übersprungen — aber `test_the_hash_falsifier_is_never_merely_skipped_in_ci` lässt einen solchen Skip **in CI** rot werden. Ein grüner Lauf ohne Messung ist die Form, die NFR-018 §2 ausschließt.
 
 ### 6.2 Node.js (Frontend)
 

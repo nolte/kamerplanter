@@ -462,3 +462,113 @@ NFR-009 §4.1 zeigten noch `pip install 'uv==0.12.12'` — eine Version, die sei
 „nuclei is not on PATH" abbricht — eine Lücke der lokalen Umgebung, kein Befund
 (der Hook verweigert bewusst ein grünes Ergebnis ohne Werkzeug).
 `uv lock --check` Exit 0. `pytest tests/unit/guards` → 40 passed.
+
+### Scheibe 3 — #1383 Punkt 2: der dauerhafte Hash-Falsifizierer (2026-09-16)
+
+**Ergebnis: die Vakuumfalle aus #1377 ist reproduziert, gemessen und dauerhaft
+verschlossen.** Neu: `src/backend/tests/unit/guards/test_lock_hash_verification.py`
+(6 Fälle).
+
+#### Rot zuerst — die gemessene Vakuumfalle
+
+Kopie von `pyproject.toml` + `uv.lock` in ein tmp-Verzeichnis, der Wheel-Hash von
+`structlog` durch 64 Nullen ersetzt, uv 0.12.15:
+
+```
+$ uv lock --check
+Using CPython 3.14.2
+Resolved 133 packages in 1ms
+uv lock --check EXIT=0          ← erkennt die Manipulation NICHT
+
+$ uv sync --locked --no-install-project
+error: Failed to download `structlog==26.1.0`
+  cause: Hash mismatch for `structlog==26.1.0`
+         Expected:
+           sha256:0000000000000000000000000000000000000000000000000000000000000000
+         Computed:
+           sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e
+EXIT=1
+```
+
+Beides ist jetzt als Test festgeschrieben — `TestUvLockCheckAloneIsNotTheGuard`
+verlangt ausdrücklich **Exit 0** von `uv lock --check` und begründet im
+Fehlertext, warum ein künftiges Rot dort gute Nachricht ist, die drei
+Kommentarstellen im Repository mitziehen muss.
+
+#### Die Mutation, die die #1377-Falle nachstellt
+
+`_tamper()` so verändert, dass es statt des Wheel-Eintrags die **sdist**-Zeile
+manipuliert — genau der Fehler der ersten Fassung:
+
+```
+=== MUTATION: tamper the sdist hash (the #1377 vacuum) — expect RED ===
+E   AssertionError: `uv sync --locked` INSTALLED a lock whose wheel hash had been
+    replaced by zeroes. …
+E     Resolved 133 packages in 2ms
+E     Installed 103 packages in 322ms
+```
+
+Der Falsifizierer wird also rot, wenn die Manipulation inert ist. Die
+Positivkontrolle `test_the_target_package_is_actually_installed_from_its_wheel`
+ist die stehende Version davon: sie verlangt, dass `structlog` in der
+`+ …`-Installationsliste von `uv sync` auftaucht (103 Pakete), statt das
+anzunehmen. Dazu drei Struktur-Asserts, die das Ziel prüfen statt ihm zu
+vertrauen: genau ein Wheel, kein `marker =`, direkte Dependency in
+`pyproject.toml`.
+
+#### Skip-Verhalten
+
+| Lage | Ergebnis |
+|---|---|
+| uv 0.11.33 auf PATH (≠ `required-version`), `$CI` ungesetzt | `1 passed, 5 skipped`, Grund wörtlich ausgeschrieben |
+| dieselbe Lage mit `CI=true` | **rot**: „The hash-verification falsifier skipped ON A RUNNER, so this lane reports green without having measured the claim it exists for." |
+| uv 0.12.15 auf PATH, `CI=true` | `6 passed` |
+
+Die Versions-Skipbedingung ist nötig, weil `uv sync` in der Kopie sonst an
+`required-version` scheitern würde — rot aus dem falschen Grund, und ein echter
+Hash-Defekt wäre von einem Toolchain-Mismatch nicht zu unterscheiden. Der Test
+prüft zusätzlich, dass die stderr des Tamper-Laufs **keinen** der Marker
+`required-version` / `No interpreter found` / `Network` / `offline` enthält.
+
+#### Laufzeit und Netz
+
+Gemessen mit warmem gemeinsamem uv-Cache (`~/.cache/uv`):
+
+| Lauf | Wall | Bemerkung |
+|---|---|---|
+| Positivkontrolle `uv sync --locked --no-install-project` | **0,09 s** | 103 Pakete installiert (Hardlinks aus dem Cache) |
+| Tamper-Lauf | **0,02 s** | uv bricht ab, bevor irgendetwas installiert wird |
+| ganze Datei unter pytest | **1,9 s** (6 Fälle), davon 1,5 s Fixture-Setup | |
+| exakt der CI-Befehl `uv run --locked --extra dev python -m pytest …` | **2,06 s** | |
+
+**Netz:** nicht erforderlich, solange der Cache warm ist — die Positivkontrolle
+wurde zur Gegenprobe zusätzlich mit `--offline` gefahren und lief mit Exit 0
+durch. `--offline` wird im Test **bewusst nicht** gesetzt: auf einem kalten Cache
+(frischer Runner, bevor die vorherigen Schritte des Jobs ihn gefüllt haben) würde
+daraus ein harter Fehlschlag, der „offline" sagt statt zu sagen, was falsch ist.
+Alle Lanes, die die Datei fahren, synchronisieren dasselbe Lock in einem
+früheren Schritt.
+
+#### Verdrahtung
+
+Der Job `Lock staleness` führte **kein** `tests/unit/guards` aus (nur
+`task deps:check` + `uv sync --locked --no-install-project`). Neuer Schritt
+„Falsify the hash claim this job just made" nach dem Verify-Schritt, über
+`uv run --locked --extra dev python -m pytest tests/unit/guards/test_lock_hash_verification.py -q`.
+Die Datei läuft zusätzlich in `task test:backend:unit` (backend.yml `lint-test`)
+und in `backend-guards.yml` — beide haben seit Scheibe 2 ein passendes uv, sonst
+würde dort jetzt `test_the_hash_falsifier_is_never_merely_skipped_in_ci` röten.
+
+Doku mitgezogen: NFR-009 §2.3 (MUSS: die Behauptung trägt einen Falsifizierer)
+und §6.1 (die Messtabelle `uv lock --check` 0 / `uv sync --locked` 1, plus die
+sdist-Vakuum-Historie), sowie die `deps:check`-Beschreibung in
+`.taskfiles/backend.yaml`.
+
+#### Befund am Messwerkzeug (nicht am Produkt)
+
+`pre-commit run --all-files` prüft **nur von git verfolgte Dateien**. Die neue
+Guard-Datei aus Scheibe 2 war zum Zeitpunkt des Laufs untracked, lief deshalb
+nicht durch `ruff format` und war unformatiert — `task format:backend` (der
+CI-Gate-Befehl) hätte sie rot gemacht. Aufgefallen erst, als sie committet war.
+Konsequenz für künftige Scheiben: neue Dateien vor dem `pre-commit`-Lauf
+`git add`en, oder `ruff format --check .` separat fahren.

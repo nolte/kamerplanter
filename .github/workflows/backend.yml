@@ -281,6 +281,33 @@ jobs:
         # image ships, and `--locked` refuses to re-resolve.
         run: uv sync --locked --no-install-project
 
+      - name: Falsify the hash claim this job just made
+        # The step above verifies THIS lock. It cannot tell you whether the
+        # verification works at all — a `uv sync` that stopped checking hashes
+        # would keep exiting 0 here forever, and the first hash-tamper test
+        # written for #1377 was itself vacuous (it altered an sdist hash for a
+        # package the backend installs from its wheel, so nothing ever read the
+        # line it changed). This runs the permanent falsifier: it tampers with a
+        # COPY of the lock and requires `uv sync --locked` to refuse it, with a
+        # positive control that asserts the tampered package really is among the
+        # packages installed. It also pins down, as a measured fact, that
+        # `uv lock --check` alone does NOT notice the same tamper — which is why
+        # this job runs two commands instead of one.
+        #
+        # Here rather than only in the unit tier because this is the job that
+        # makes the claim. The tier runs it too (`task test:backend:unit` covers
+        # tests/unit/guards), so a defect in the falsifier itself is visible on
+        # the backend lane as well.
+        #
+        # `uv run --locked` brings up the dev environment from the same lock; its
+        # artifacts are already in the cache the steps above warmed, so this
+        # costs seconds. Measured locally on 2026-09-16 with a warm cache: 1.9 s
+        # for all six cases, of which 1.5 s is the positive control's full
+        # install. GitHub sets $CI, so
+        # `test_the_hash_falsifier_is_never_merely_skipped_in_ci` turns a skip
+        # here into a RED run rather than a green one.
+        run: uv run --locked --extra dev python -m pytest tests/unit/guards/test_lock_hash_verification.py -q
+
   pip-audit:
     name: Dependency CVE audit
     runs-on: ubuntu-latest
