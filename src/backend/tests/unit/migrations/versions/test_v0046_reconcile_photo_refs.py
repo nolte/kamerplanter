@@ -162,9 +162,7 @@ class _FakeAql:
             return iter([])
 
         if stripped.startswith("FOR ref IN @refs"):
-            return iter(
-                [{"ref": ref, "stem": _stem_from_query(query, ref)} for ref in bind_vars["refs"]]
-            )
+            return iter([{"ref": ref, "stem": _stem_from_query(query, ref)} for ref in bind_vars["refs"]])
 
         if stripped.startswith(f"FOR a IN {col.ATTACHMENTS}"):
             return iter(
@@ -210,9 +208,7 @@ def db_with_broken_reference() -> _FakeDb:
 
 
 class TestUp:
-    def test_the_stem_v0003_wrote_is_rewritten_onto_the_document_key(
-        self, db_with_broken_reference: _FakeDb
-    ) -> None:
+    def test_the_stem_v0003_wrote_is_rewritten_onto_the_document_key(self, db_with_broken_reference: _FakeDb) -> None:
         report = migration.up(db_with_broken_reference)
 
         assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
@@ -316,9 +312,7 @@ class TestUp:
         db = _FakeDb(
             {
                 col.ATTACHMENTS: [_attachment()],
-                col.PLANT_INSTANCES: [
-                    {"_key": "plant-1", "tenant_key": TENANT, "cover_photo_ref": ULID}
-                ],
+                col.PLANT_INSTANCES: [{"_key": "plant-1", "tenant_key": TENANT, "cover_photo_ref": ULID}],
             }
         )
 
@@ -337,9 +331,7 @@ class TestUp:
         assert second.details["unresolved"] == []
         assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
 
-    def test_dry_run_reports_the_repair_and_writes_nothing(
-        self, db_with_broken_reference: _FakeDb
-    ) -> None:
+    def test_dry_run_reports_the_repair_and_writes_nothing(self, db_with_broken_reference: _FakeDb) -> None:
         report = migration.up(db_with_broken_reference, dry_run=True)
 
         assert report.dry_run is True
