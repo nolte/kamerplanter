@@ -45,6 +45,7 @@ from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
 from tests.unit.api._write_call_graph import (
     call_graph,
+    direct_writers,
     persists,
     reachable_keyword_arguments,
     unresolved_call_count,
@@ -241,10 +242,17 @@ def mounted_write_operations() -> list[Operation]:
 #: :func:`write_path_of` returns the SHORTEST chain and the document insert sits one
 #: hop further along. That is SEC-002 in one line: a witness that names a route says
 #: nothing about how many writes the route reaches.
+#:
+#: A sink names the enclosing FUNCTION and carries no line number. It used to carry
+#: one, and #1436 — which inserted lines above ``create_edge`` in
+#: ``base_repository.py`` — turned this frozenset red without a single write
+#: moving, changing or appearing. A witness that goes red on an unrelated edit is
+#: lifted blind the third time, which is the drift this file exists to prevent. The
+#: line survives for humans in the path :func:`write_path_of` prints.
 _CARE_PROFILE_SINKS = frozenset(
     {
-        "col.insert() at app.data_access.arango.base_repository:891",
-        "self.collection.insert() at app.data_access.arango.base_repository:582",
+        "col.insert() in app.data_access.arango.base_repository::BaseArangoRepository.create_edge",
+        "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
     }
 )
 
@@ -1810,7 +1818,9 @@ class TestTheDetectorCanFail:
             f"the chain skipped the service layer: {path}"
         )
         assert "app.data_access.invented_repository::InventedRepository.create" in path
-        assert path[-1].endswith("insert() at app.data_access.invented_repository:16")
+        assert path[-1].startswith(
+            "self.collection.insert() in app.data_access.invented_repository::InventedRepository.create"
+        )
 
     def test_a_reading_get_is_not_found(self, tmp_path):
         """The control. A detector that reports everything is as useless as one that reports nothing.
@@ -1870,10 +1880,12 @@ class TestTheDetectorCanFail:
 
         guarded_sinks = graph.write_sinks(guarded)
         assert len(guarded_sinks) == 1, f"the guarded probe reaches more than the one write: {guarded_sinks}"
-        assert guarded_sinks == {"self.collection.insert() at app.data_access.invented_repository:16"}
+        assert guarded_sinks == {
+            "self.collection.insert() in app.data_access.invented_repository::InventedRepository.create"
+        }
 
         assert graph.write_sinks(both) == guarded_sinks | {
-            "self.collection.insert() at app.data_access.audit_repository:13"
+            "self.collection.insert() in app.data_access.audit_repository::AuditRepository.create"
         }
 
     def test_a_module_level_query_constant_is_a_sink(self, tmp_path):
@@ -1893,7 +1905,7 @@ class TestTheDetectorCanFail:
 
         path = graph.write_path(graph.by_id["app.api.timeseries_router::record_reading"])
         assert path is not None, "the handler that reaches it is still reported clean"
-        assert path[-1] == writer.direct_write
+        assert path[-1] == writer.write_site
 
     def test_a_module_level_constant_that_is_not_a_write_is_not_a_sink(self, tmp_path):
         """The control: `_QUERY_RAW_SQL` next to `_INSERT_SQL` must not report.
@@ -1956,7 +1968,9 @@ class TestTheDetectorCanFail:
 
         assert path is not None, "a handler whose write is scheduled through add_task is reported clean"
         assert "app.api.background_router::_persist" in path, f"the edge skipped the scheduled callable: {path}"
-        assert path[-1].endswith("insert() at app.data_access.invented_repository:16")
+        assert path[-1].startswith(
+            "self.collection.insert() in app.data_access.invented_repository::InventedRepository.create"
+        )
 
     def test_without_the_add_task_edge_the_background_write_disappears(self, tmp_path, monkeypatch):
         """The mutation for SEC-005. Empty the set, and the probe goes back to clean."""
@@ -1967,6 +1981,100 @@ class TestTheDetectorCanFail:
         mutated = _synthetic_graph(root)
 
         assert mutated.write_path(mutated.by_id["app.api.background_router::enqueue_get"]) is None
+
+    # ── #1443 follow-up: the identity an exemption pins must not move on its own ──
+
+    @staticmethod
+    def _shift_the_sink_down(root):
+        """Insert a comment and three blank lines ABOVE the sink, changing nothing else.
+
+        This is #1436 in miniature: that merge added lines to
+        ``base_repository.py`` above `create_edge`, and every witness in
+        `_GUARDED_PERSISTING_READS` went red although no write moved, changed or
+        appeared.
+        """
+        target = root / "data_access" / "invented_repository.py"
+        source = target.read_text(encoding="utf-8")
+        marker = "    def create(self, document: dict) -> dict:"
+        assert marker in source, "the probe no longer contains the sink it claims to shift"
+        target.write_text(
+            source.replace(marker, "    # a comment nobody asked about the write below\n\n\n\n" + marker),
+            encoding="utf-8",
+        )
+        return root
+
+    def test_a_sink_identity_survives_lines_inserted_above_it(self, tmp_path):
+        """The reason the line number left the identity (#1443 follow-up).
+
+        Build the probe, read the sinks, push the write four lines down without
+        touching it, parse again from scratch. The identity set must be the SAME
+        set — that is what makes an exemption that pins it go red on a real change
+        and only on a real change.
+        """
+        root = _write_synthetic_tree(tmp_path)
+        before = _synthetic_graph(root)
+        handler = "app.api.invented_router::get_invented"
+        sinks_before = before.write_sinks(before.by_id[handler])
+        writer_before = before.by_id["app.data_access.invented_repository::InventedRepository.create"]
+
+        after = _synthetic_graph(self._shift_the_sink_down(root))
+        writer_after = after.by_id["app.data_access.invented_repository::InventedRepository.create"]
+
+        assert writer_after.direct_write_lineno != writer_before.direct_write_lineno, (
+            "the probe is vacuous: the edit did not move the write, so identical sinks prove nothing "
+            f"(line {writer_before.direct_write_lineno} both times)"
+        )
+        assert sinks_before, "the precondition failed: the unedited probe reaches no sink at all"
+        assert after.write_sinks(after.by_id[handler]) == sinks_before, (
+            "the sink identity moved when a comment was inserted above it:\n"
+            f"  before: {sorted(sinks_before)}\n"
+            f"  after:  {sorted(after.write_sinks(after.by_id[handler]))}"
+        )
+        assert {fn.direct_write for fn in after.functions if fn.direct_write} == {
+            fn.direct_write for fn in before.functions if fn.direct_write
+        }
+
+    def test_an_identity_carrying_the_line_number_would_not_have_survived_it(self, tmp_path):
+        """The mutation for the test above, and it is the whole defect.
+
+        Rebuild the OLD identity — the one that carried `module:lineno` — out of the
+        two fields the detector now keeps apart, and run the same edit past it. If
+        this set also came out identical, the test above would be green for a
+        format that never had the problem, and the change would be decoration.
+        """
+        root = _write_synthetic_tree(tmp_path)
+
+        def with_the_line_number(graph):
+            return {
+                f"{fn.direct_write} at {fn.module}:{fn.direct_write_lineno}"
+                for fn in graph.functions
+                if fn.direct_write
+            }
+
+        before = with_the_line_number(_synthetic_graph(root))
+        after = with_the_line_number(_synthetic_graph(self._shift_the_sink_down(root)))
+
+        assert before != after, (
+            "the mutation did not bite: an identity containing the line number survived an edit above "
+            "the sink, so the test above proves nothing about the identity having lost it"
+        )
+
+    def test_the_human_path_still_says_which_line(self, tmp_path):
+        """Dropping the line from the IDENTITY must not drop it from the report.
+
+        #1443 exists because a finding nobody can trace is a finding nobody can
+        triage. The line moved to `write_site`, which is what `write_path` emits;
+        it must still be there, and it must still be right.
+        """
+        graph = _synthetic_graph(_write_synthetic_tree(tmp_path))
+        writer = graph.by_id["app.data_access.invented_repository::InventedRepository.create"]
+
+        path = graph.write_path(graph.by_id["app.api.invented_router::get_invented"])
+
+        assert path[-1] == f"{writer.direct_write}   [line {writer.direct_write_lineno}]"
+        assert path[-1] not in graph.write_sinks(graph.by_id["app.api.invented_router::get_invented"]), (
+            "the human form leaked into the identity set; a pin could latch onto the line number again"
+        )
 
     def test_the_real_tree_is_the_imported_one(self):
         """The editable-install trap: parsing one checkout while the app walk mounts another.
@@ -2197,6 +2305,31 @@ class TestPersistingReadsAreSweptLikeWrites:
             f"_GUARDED_PERSISTING_READS has grown to {len(_GUARDED_PERSISTING_READS)} entries. Each one "
             "removes a persisting read from every sweep in this file; say why in the issue, not only here."
         )
+
+    def test_no_two_writes_share_a_sink_identity(self):
+        """The price of dropping the line number, paid over the real tree.
+
+        The identity is `<what> in <module>::<qualname>`, and it is unique only
+        because at most ONE sink is recorded per function. If two functions ever
+        produced the same string, two different writes would be one entry in every
+        sink set and an exemption naming one would silently excuse the other —
+        which is the failure `write_sinks` was built to prevent. Measured here
+        rather than argued: 116 sinks, 116 distinct names, on 2026-09-16.
+
+        Note what this does NOT claim: 26 functions in the tree contain more than
+        one write, 13 of them two that a line-free label could not tell apart. The
+        detector reports only the first of them and always did, so no identity
+        format can separate them; that limitation belongs to `direct_write` being
+        single-valued and is stated in the module docstring, not hidden here.
+        """
+        sinks = [fn.direct_write for fn in direct_writers()]
+        duplicated = sorted({name for name in sinks if sinks.count(name) > 1})
+
+        assert not duplicated, (
+            "two functions produced the same sink identity, so one exemption now excuses both:\n  "
+            + "\n  ".join(duplicated)
+        )
+        assert len(sinks) > 100, f"only {len(sinks)} sinks found; the detector stopped seeing the write surface"
 
     def test_the_unresolved_receiver_count_does_not_grow(self):
         """The blind spot, bounded — the one thing this detector cannot report on itself.
