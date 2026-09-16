@@ -443,6 +443,31 @@ class TestUp:
 
         assert report.scanned == 0
         assert report.changed == 0
+        # Nothing to reconcile, so this one *is* genuinely applied (cf. v0004).
+        assert report.precondition_unmet is False
+
+    def test_a_missing_catalogue_with_references_around_leaves_the_migration_pending(self) -> None:
+        """Without the catalogue the question has no answer — so do not claim one (O-1).
+
+        ``ensure_collections`` runs before the migration runner on a normal boot, but
+        a partially bootstrapped or restored database is exactly the state a repair
+        migration meets. Returning an empty catalogue there made every reference look
+        ``unresolved``, reported a clean run and was recorded ``applied`` — after
+        which no later boot would ever look again. ``precondition_unmet`` leaves it
+        pending instead (``framework/runner.py``), and the references are *not*
+        classified, because "unresolved" would be a finding this run cannot support.
+        """
+        db = _FakeDb({col.TASKS: [{"_key": "task-1", "tenant_key": TENANT, "photo_refs": [ULID]}]})
+
+        report = migration.up(db)
+
+        assert report.precondition_unmet is True
+        assert report.changed == 0
+        assert report.scanned == 1
+        assert report.details["reason"] == "attachments_collection_missing"
+        assert report.details["unresolved"] == []
+        assert db.collections[col.TASKS][0]["photo_refs"] == [ULID]
+        assert db.aql.writes == []
 
     def test_a_document_without_references_never_reaches_python(self) -> None:
         """The scan runs under the migration lock in the startup path (B-2).
