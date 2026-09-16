@@ -1,6 +1,6 @@
 # Gruppe `2026-09-16-write-route-guard`
 
-Status: wartet auf Operator-Freigabe (Write-Gate nach `spec/project/issue-batch-integration/` §D)
+Status: freigegeben 2026-09-16 · Scheibe 1 verifiziert und gemergt · Scheibe 2 in Arbeit
 
 Gemessen gegen `origin/develop` @ `234a032bf` (2026-09-16).
 
@@ -105,9 +105,9 @@ erkannter Defekt wird im Code kommentiert statt behoben oder an einen Guard gebu
 (`# SELF-REVOKED: #NNNN`), den eine Lane zählt und die rot wird, wenn ein Marker ohne
 offenes Issue oder ohne fehlschlagenden `xfail` existiert.
 
-Dieser Befund gilt **nicht** als erledigt, wenn #1441 und #1443 repariert sind. Er wird
-als eigenes Issue gegen `spec/project/defect-class-guards/` angelegt, mit Verweis auf
-diese Gruppen-Id, und speist die Klasse in den `continuous-improvement`-Loop.
+Dieser Befund gilt **nicht** als erledigt, wenn #1441 und #1443 repariert sind. Er ist
+als **#1456** gegen `spec/project/defect-class-guards/` angelegt, mit Verweis auf diese
+Gruppen-Id, und speist die Klasse in den `continuous-improvement`-Loop.
 
 ## Stufe und Scheiben
 
@@ -188,4 +188,50 @@ Das Artefakt wurde am 2026-09-16 freigegeben; die Umsetzung beginnt mit Scheibe 
 
 ## Ergebnisse je Scheibe
 
-*(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
+### Scheibe 1 — #1441 (Sub-Branch `fix/1441-notification-act-rank`, Merge `5de0dcd0b`)
+
+Dispatchter Spezialist: `nolte-engineering:fullstack-developer`.
+
+**Rot zuerst, gegen den unveränderten Handler** (`src/backend/.venv/bin/python -m pytest
+tests/api/test_notification_act_role_gate.py -q`):
+
+```
+E       AssertionError: a CareConfirmation reached the repository
+E       assert [CareConfirma...ated_at=None)] == []
+E         Left contains one more item: CareConfirmation(key='confirmation1', plant_key='plant1',
+E         ... watering_log_key='log1', ...)
+E       assert 200 == 403
+5 failed, 6 passed in 5.99s
+```
+
+Der Rekorder zeigt die **ausgeführte** Ausnutzung: ein `viewer` erzeugte
+`CareConfirmation(…, watering_log_key='log1')` — Bestätigung und Gießprotokoll.
+
+**Grün danach**, nachgemessen im Integrations-Worktree nach dem Merge:
+
+```
+tests/api/test_notification_act_role_gate.py tests/unit/api/test_write_route_gates.py
+109 passed in 5.57s
+```
+
+Vom Spezialisten gemeldet, nicht von mir wiederholt: `tests/unit tests/api` →
+9982 passed, 1 skipped; `vitest run` → 4085 passed; `tsc` 0 Fehler; `task precommit`
+47 Hooks grün, 1 umgebungsbedingt rot (`nuclei` nicht auf PATH, Templates unberührt).
+
+**Was geändert wurde:**
+- `app/api/v1/notifications/tenant_router.py:179-180` — `MembershipEngine.can_edit_resource(ctx.role)` im Bestätigungszweig, **vor** jedem Stempeln; dieselbe Prädikatsquelle, die `require_permission(…, CREATE)` auswertet (`app/common/auth.py:554-567`). Keine neue Rollenliste.
+- `tests/api/test_notification_act_role_gate.py` (neu, 12 Fälle) — echter `CareReminderService` mit aufzeichnenden Repositories, damit „kein Schreibvorgang" ein abwesender Repository-Aufruf ist. Enthält einen Parity-Guard Backend↔Frontend für `_CARE_CONFIRM_ACTIONS`, per Mutation als nicht-vakuös nachgewiesen.
+- `tests/unit/api/test_write_route_gates.py` — Allowlist-Begründung ersetzt; benennt jetzt Datei::Funktion, Prädikat und prüfende Testdatei.
+- `src/frontend/src/utils/careConfirmActions.ts` (neu), `NotificationDrawer.tsx` — Bestätigungsknopf an `useTenantPermissions().canEdit`; 403-Pfad bleibt intakt.
+- `spec/req/REQ-030_Benachrichtigungssystem.md` §7 — normative Regel; §3.11 und §4.2 verweisen darauf.
+
+**Lokale Anpassungen (Aufnahme, Modus, Reihenfolge unberührt):**
+1. Die Matrix nannte `spec/req/REQ-030.md §4.2`; die Datei heißt `REQ-030_Benachrichtigungssystem.md`, und §4.2 ist der HA-Rückruf. Die Regel liegt jetzt in §7 (Autorisierungstabelle), wo sie hingehört.
+2. `pre-commit run check-section-refs` existiert in diesem Repository nicht (0 Treffer in 48 Hook-IDs). Ersatz: vollständiger `task precommit`.
+3. Der Modus-B-Preis (Konflikt in `test_write_route_gates.py`) ist nicht eingetreten; die Zeilennummern des `WRITE_METHODS`-Blocks für Scheibe 2 sind unverändert, der Allowlist-Eintrag liegt jetzt bei `:143-166`.
+
+**Nebenbefund**, kein Defekt: `canEdit` ist im Auth-Bootstrap-Fenster (`activeTenant: null`) `false`, anders als `<RequireRole>` es hält. Folgenlos, weil ohne aktiven Mandanten keine Benachrichtigungen geladen werden; bewusst fail-closed, weil das Backend die Grenze ist.
+
+### Scheibe 2 — #1443
+
+*(in Arbeit)*
