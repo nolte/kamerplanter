@@ -72,7 +72,8 @@ Jede Fehlerantwort folgt diesem Schema:
     {
       "field": "species_key",
       "reason": "Kein Eintrag mit Key 'xyz-123' gefunden.",
-      "code": "ENTITY_NOT_FOUND"
+      "code": "ENTITY_NOT_FOUND",
+      "entity": "species"
     }
   ],
   "timestamp": "2026-02-26T14:30:00.000Z",
@@ -94,6 +95,7 @@ class ErrorDetail(BaseModel):
     field: str | None = None
     reason: str
     code: str
+    entity: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -111,6 +113,43 @@ class ErrorResponse(BaseModel):
     path: str
     method: str
 ```
+
+### 2.2a `entity` — welche Ressource fehlt (optional)
+
+`ENTITY_NOT_FOUND` allein sagt nicht, **was** fehlt. Eine Route, die erst eine
+Elternressource und dann eine Kindressource auflöst, antwortet in beiden Fällen
+mit demselben `error_code` und demselben HTTP-Status; unterschieden haben sie
+sich bislang nur in der englischsprachigen `message` — und die darf ein Client
+nicht parsen (NFR-003: API-Texte Englisch, UI übersetzt).
+
+Deshalb trägt jeder `NotFoundError` — einschließlich aller Unterklassen wie
+`AttachmentNotFoundError` — den Entitätsnamen **strukturiert** in
+`details[0].entity`:
+
+| Fehlerquelle | `error_code` | `details[0].entity` |
+|---|---|---|
+| `NotFoundError("Task", key)` | `ENTITY_NOT_FOUND` | `task` |
+| `AttachmentNotFoundError(id)` | `ENTITY_NOT_FOUND` | `attachment` |
+
+Regeln:
+
+- **Additiv.** `error_code` und Status bleiben unverändert; ein Client, der auf
+  `ENTITY_NOT_FOUND` matcht, bricht nicht. Das Feld ist optional — es fehlt bei
+  jedem Detail, das kein Nicht-gefunden beschreibt (Validierungsfehler etwa).
+- **Normalisiert, nicht durchgereicht.** Die Aufrufstellen schreiben den Namen
+  uneinheitlich (`"Task"`, `"attachment"`, `"PlantInstance"`, `"memberships"`,
+  `"nutrient plan phase entry"`). `NotFoundError.__init__` faltet ihn über
+  `normalise_entity_name()` nach `snake_case`, damit der Wert nicht davon abhängt,
+  wie ein Raiser formuliert ist, und idempotent bleibt.
+- **Für alle, nicht für eine Unterklasse.** Ein Feld, das nur ein Zweig setzt,
+  wird zur Ausnahme, die jeder Client gesondert behandeln muss.
+
+Gegenbeispiel aus der Praxis (#1437): `PhotoUpload` entfernte einen Fotoeintrag
+bei **jedem** 404 aus der Liste. War die *Aufgabe* verschwunden, wurde nichts
+gelöscht, der Eintrag verschwand trotzdem, und das Attachment verwaiste. Der
+Client de-staged jetzt nur noch bei `entity === "attachment"`.
+
+---
 
 ### 2.3 Error-ID-Format
 

@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from app.common.error_ids import new_error_id
@@ -21,13 +22,57 @@ class KamerplanterError(Exception):
         super().__init__(message)
 
 
+def normalise_entity_name(entity: str) -> str:
+    """Fold an entity name into the stable, machine-readable form ``details[0].entity`` carries.
+
+    The ~150 raisers spell the same kind of thing every which way — ``"Task"``,
+    ``"attachment"``, ``"PlantInstance"``, ``"memberships"``,
+    ``"nutrient plan phase entry"``. Echoing that verbatim would hand a client a
+    value that changes whenever someone re-words a raiser, and would make
+    ``entity == "attachment"`` depend on a capital letter. Normalising here, once,
+    is what makes the field a contract rather than a debug string.
+
+    ``snake_case`` because that is the spelling the rest of the wire uses
+    (NFR-006 §2.1 fields, every payload key). Idempotent: feeding an already
+    normalised name back through returns it unchanged.
+    """
+    spaced = re.sub(r"[\s\-]+", "_", entity.strip())
+    # Two boundaries, so acronyms fold the way a reader expects:
+    # ``OidcProviderConfig`` -> ``oidc_provider_config``, not ``o_idc_…``.
+    spaced = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", spaced)
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", spaced)
+    return re.sub(r"_+", "_", spaced).strip("_").lower()
+
+
 class NotFoundError(KamerplanterError):
+    """404 with a machine-readable ``entity``, so two 404s can be told apart (#1437).
+
+    Every subclass of this one — ``AttachmentNotFoundError`` among them — carries
+    ``error_code="ENTITY_NOT_FOUND"``, so a route that resolves a parent and then a
+    child answers the *same* code for "the parent is gone" and "the child is gone",
+    differing only in the English ``message``. A client that has to act differently
+    on the two (``PhotoUpload`` must de-stage a photo only when the **attachment**
+    is the missing thing, never when the task is) had nothing to branch on.
+
+    The signal is therefore additive: the code and the status are unchanged, and
+    ``details[0]["entity"]`` names the missing entity in normalised form. Set here
+    for *every* ``NotFoundError`` rather than on one subclass — a field only one
+    branch populates is the exception a client then has to special-case.
+    """
+
     def __init__(self, entity: str, key: str) -> None:
         super().__init__(
             message=f"{entity} with key '{key}' not found.",
             error_code="ENTITY_NOT_FOUND",
             status_code=404,
-            details=[{"field": "key", "reason": f"No {entity} with key '{key}'.", "code": "ENTITY_NOT_FOUND"}],
+            details=[
+                {
+                    "field": "key",
+                    "reason": f"No {entity} with key '{key}'.",
+                    "code": "ENTITY_NOT_FOUND",
+                    "entity": normalise_entity_name(entity),
+                }
+            ],
         )
 
 

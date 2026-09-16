@@ -159,7 +159,12 @@ async def delete_task_photo(
     against the tenant quota with no surface that reached them.
 
     The task is resolved tenant-scoped first, exactly as on the upload above, so an
-    unknown and a foreign task answer the same 404 and neither reaches storage.
+    unknown and a foreign task answer the same 404 and neither reaches storage. That
+    404 is distinguishable from an attachment-level one: both keep
+    ``error_code="ENTITY_NOT_FOUND"``, and ``details[0].entity`` says ``task`` or
+    ``attachment`` (#1437). The client needs it — de-staging a photo is only right
+    when the *attachment* is the missing thing; if the task vanished, nothing was
+    deleted and dropping the entry would orphan the stored object.
     Deletion itself is idempotent: removing an id that is already gone answers 204
     rather than 404, so a double click, a retry, or a race with the orphan sweep is
     not an error the user has to understand.
