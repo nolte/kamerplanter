@@ -65,6 +65,29 @@ class TestNormalizePhotoRef:
         reference = f"t/x/diary/2026/04/{ULID}_t512.webp"
         assert normalize_photo_ref(reference) == reference
 
+    def test_a_storage_key_whose_category_segment_is_attachments_is_kept_verbatim(self):
+        """The rewrite rule must recognise the *API URI*, not the word "attachments".
+
+        ``StorageKeyBuilder.build`` puts the attachment category into the third
+        segment (``t/{tenant}/{category}/{yyyy}/{mm}/{ulid}.{ext}``). A layout whose
+        category reads ``attachments`` therefore contains ``/attachments/`` without
+        being an API URI at all, and the unanchored pattern read the *year* out of it
+        as the attachment id — replacing a reference the resolver resolves through
+        ``Attachment.storage_key`` with the string ``"2026"``, which is a plausible
+        numeric document key (#1438 review, O-5).
+        """
+        reference = f"t/personal_max/attachments/2026/04/{ULID}.jpg"
+        assert normalize_photo_ref(reference) == reference
+
+    def test_an_s3_url_containing_attachments_is_kept_verbatim(self):
+        """Same hazard behind a scheme: a bucket prefix is not an API route."""
+        reference = f"s3://kamerplanter/attachments/2026/04/{ULID}.jpg"
+        assert normalize_photo_ref(reference) == reference
+
+    def test_the_api_uri_is_recognised_with_an_absolute_host(self):
+        """The anchor must not cost the spellings that really are API URIs."""
+        assert normalize_photo_ref(f"https://garten.example/api/v1/t/max/attachments/{ULID}") == ULID
+
     def test_empty_is_unchanged(self):
         assert normalize_photo_ref("") == ""
         assert normalize_photo_ref("   ") == "   "
