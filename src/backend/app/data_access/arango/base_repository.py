@@ -9,7 +9,7 @@ from arango.exceptions import DocumentInsertError, DocumentUpdateError
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango import tenant_ownership
 from app.data_access.arango.query_builder import AQLBuilder
 
@@ -584,6 +584,18 @@ class BaseArangoRepository[TModel: BaseModel]:
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
+            if e.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # A *different answer* from 1210, not a variant of it (#1436): the
+                # server could not serialize this insert against a concurrent
+                # transaction holding the same document key or unique-index entry.
+                # It does not say that transaction committed, so this is never
+                # "the record already exists" — a caller that wants that answer
+                # has to re-read. Mapped anyway so it reaches the domain as a
+                # typed, 409-shaped condition instead of a raw driver exception
+                # that every caller turns into a 500. The driver's message is
+                # deliberately not forwarded: it names the index and a document
+                # key, and this error's ``details`` are client-visible.
+                raise WriteConflictError(self._collection_name) from e
             raise
         return self._from_doc(result["new"])
 

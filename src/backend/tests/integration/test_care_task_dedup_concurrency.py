@@ -29,6 +29,21 @@ an unconstrained ``tasks`` collection produced **3 or 4 open watering tasks in
 produced **exactly one in 25/25 rounds**, with the three losers returning ``None``
 and raising nothing.
 
+**#1436 — the rejection has two codes, and only one was handled.** The burst above
+was measured to fail intermittently under machine load with
+
+    [HTTP 409][ERR 1200] write-write conflict - in index care_dedup_open_unique
+    of type persistent over 'care_dedup_key'
+
+``1200`` is ``arango.errno.CONFLICT`` (a serialization failure), not ``1210``
+(``UNIQUE_CONSTRAINT_VIOLATED``), so it never reached ``DuplicateError`` and the
+losing racer surfaced a raw ``DocumentInsertError``. The ``errors == []``
+assertion below is therefore load-dependent and was the thing that caught it.
+Both codes are now resolved — 1210 directly, 1200 via a re-read of the same
+predicate the index mirrors — and the branch behaviour is pinned solitarily in
+``tests/unit/domain/services/test_care_reminder_task_write_conflict.py``, which,
+unlike this file, runs in a CI gate (#1432).
+
 Run with: pytest tests/integration/ -v   (requires docker compose up arangodb)
 """
 
@@ -231,6 +246,11 @@ def test_tasks_carries_exactly_one_unique_index(db):
     which is only sound while the care dedup index is the collection's sole unique
     one. Add a second and this reddens, instead of a genuinely different conflict
     being silently reported as "a task already exists".
+
+    Scope: this argument covers the ``1210`` branch only. The ``1200``
+    (write-write conflict) branch added for #1436 does **not** rest on it — a
+    serialization failure says which index was contended, not that anything is
+    stored in it — so that branch re-reads instead of trusting this invariant.
     """
     from app.data_access.arango import collections as col
 
@@ -305,7 +325,13 @@ def test_completing_a_task_releases_the_slot(db, plant):
 
 
 def test_concurrent_generation_yields_exactly_one_pending_watering_task(db, plant):
-    """AC-1: overlapping ``ensure_next_watering_task`` calls produce **one** open task."""
+    """AC-1: overlapping ``ensure_next_watering_task`` calls produce **one** open task.
+
+    The first assertion covers both rejection codes: ``1210`` and — since #1436 —
+    ``1200``. It only fails when the racers really collide, which needs a
+    contended machine; a green run here is not evidence that either branch was
+    exercised.
+    """
     errors = _race_ensure_next_watering_task(plant)
 
     assert errors == [], f"racers must not surface an error; got {errors!r}"

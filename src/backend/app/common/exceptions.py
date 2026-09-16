@@ -86,6 +86,41 @@ class DuplicateError(KamerplanterError):
         )
 
 
+class WriteConflictError(KamerplanterError):
+    """ArangoDB refused a write as a write-write conflict (error code ``1200``).
+
+    Strictly distinct from :class:`DuplicateError` (code ``1210``), and the
+    distinction is the whole point of having a second type:
+
+    * ``1210`` — *unique constraint violated* — is a statement **about the
+      data**: a committed, visible document already occupies the unique key. A
+      caller may safely read it as "an equivalent record exists".
+    * ``1200`` — *conflict* — is a statement **about timing**: a concurrent
+      transaction holds the same document key or unique-index entry and this
+      write could not be serialized against it. It says nothing about whether
+      that other transaction went on to commit or to roll back, so it must
+      **never** be read as "an equivalent record exists". A caller that wants
+      that answer has to re-read and see for itself.
+
+    ``python-arango`` keeps the same separation: :data:`arango.errno.CONFLICT`
+    (1200) is a different constant from
+    :data:`arango.errno.UNIQUE_CONSTRAINT_VIOLATED` (1210), and the driver's own
+    bulk paths turn a per-document ``1200`` into ``DocumentRevisionError`` — a
+    revision/serialization failure — never into a uniqueness verdict.
+
+    409 like :class:`DuplicateError`, because the request is well-formed and
+    conflicts with the current state; a retry is the appropriate reaction.
+    """
+
+    def __init__(self, entity: str, reason: str = "a concurrent write held the same key") -> None:
+        super().__init__(
+            message=f"Write on '{entity}' conflicted with a concurrent write: {reason}.",
+            error_code="WRITE_CONFLICT",
+            status_code=409,
+            details=[{"field": "key", "reason": reason, "code": "WRITE_CONFLICT"}],
+        )
+
+
 class PhaseTransitionError(KamerplanterError):
     def __init__(self, message: str) -> None:
         super().__init__(
