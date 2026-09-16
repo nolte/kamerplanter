@@ -310,7 +310,7 @@ class TestUp:
         report = migration.up(db_with_broken_reference)
 
         assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
-        assert report.details["repaired"] == 1
+        assert report.details["repaired_total"] == 1
         assert report.changed == 1
         assert report.details["unresolved"] == []
         assert report.details["per_collection"][col.TASKS]["repaired"] == 1
@@ -322,7 +322,7 @@ class TestUp:
         report = migration.up(db)
 
         assert db.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
-        assert report.details["repaired"] == 1
+        assert report.details["repaired_total"] == 1
 
     def test_an_unresolvable_entry_is_kept_verbatim_and_reported(self) -> None:
         db = _FakeDb(_seeded(photo_refs=[OTHER_ULID]))
@@ -348,7 +348,7 @@ class TestUp:
         report = migration.up(db)
 
         assert db.collections[col.TASKS][0]["photo_refs"] == [ULID]
-        assert report.details["repaired"] == 0
+        assert report.details["repaired_total"] == 0
         assert report.details["unresolved_total"] == 1
 
     def test_an_ambiguous_entry_is_reported_and_left_alone(self) -> None:
@@ -425,7 +425,7 @@ class TestUp:
         second = migration.up(db_with_broken_reference)
 
         assert second.changed == 0
-        assert second.details["repaired"] == 0
+        assert second.details["repaired_total"] == 0
         assert second.details["unresolved"] == []
         assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ATTACHMENT_KEY]
 
@@ -434,7 +434,7 @@ class TestUp:
 
         assert report.dry_run is True
         assert report.changed == 1
-        assert report.details["repaired"] == 1
+        assert report.details["repaired_total"] == 1
         assert db_with_broken_reference.collections[col.TASKS][0]["photo_refs"] == [ULID]
         assert db_with_broken_reference.aql.writes == []
 
@@ -478,6 +478,65 @@ class TestUp:
         catalogue = [q for q in db.aql.queries if q.startswith(f"FOR a IN {col.ATTACHMENTS}")]
         assert catalogue, "the catalogue was not read"
         assert all(q.endswith("}") and "RETURN {key: a._key" in q for q in catalogue)
+
+    def test_the_report_names_every_rewrite_it_made(self) -> None:
+        """An irreversible write has to leave a record of *what* it wrote (B-3).
+
+        Counters alone say a repair happened, not which reference became which key,
+        so the operator's dry-run could be read for plausibility but never checked
+        position by position — against a migration whose whole reason for existing is
+        that an earlier one rewrote references onto the wrong thing.
+        """
+        db = _FakeDb(_seeded(photo_refs=[ULID]))
+
+        report = migration.up(db)
+
+        assert report.details["repaired"] == [
+            {
+                "collection": col.TASKS,
+                "document": "task-1",
+                "field": "photo_refs",
+                "tenant_key": TENANT,
+                "before": ULID,
+                "after": ATTACHMENT_KEY,
+            }
+        ]
+        assert report.details["repaired_total"] == 1
+
+    def test_the_dry_run_report_is_the_document_the_apply_would_write(self) -> None:
+        """Otherwise the dry-run cannot be what the operator decides on."""
+        dry = migration.up(_FakeDb(_seeded(photo_refs=[ULID])), dry_run=True)
+        applied = migration.up(_FakeDb(_seeded(photo_refs=[ULID])))
+
+        assert dry.details["repaired"] == applied.details["repaired"]
+        assert dry.details["repaired_total"] == applied.details["repaired_total"] == 1
+
+    def test_the_itemised_lists_are_capped_while_the_counts_stay_exact(self) -> None:
+        """A pathological installation must not turn one report into a memory problem."""
+        refs = [f"01J0{index:022d}" for index in range(501)]
+        db = _FakeDb(_seeded(photo_refs=refs))
+
+        report = migration.up(db)
+
+        assert report.details["unresolved_total"] == 501
+        assert len(report.details["unresolved"]) == 500
+
+    def test_the_repair_list_is_capped_the_same_way(self) -> None:
+        ulids = [f"01J0{index:022d}" for index in range(501)]
+        db = _FakeDb(
+            _seeded(
+                photo_refs=ulids,
+                attachments=[
+                    _attachment(str(1024799 + index), storage_key=f"t/{TENANT}/task/2026/01/{ulid}.jpg")
+                    for index, ulid in enumerate(ulids)
+                ],
+            )
+        )
+
+        report = migration.up(db)
+
+        assert report.details["repaired_total"] == 501
+        assert len(report.details["repaired"]) == 500
 
     def test_down_refuses(self) -> None:
         with pytest.raises(IrreversibleMigrationError):
