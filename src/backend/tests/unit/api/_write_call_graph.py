@@ -52,6 +52,19 @@ than it says:
 * **Anything outside the ``app`` package.** A write performed by a library on the
   application's behalf is invisible.
 
+**How a sink is named.** ``<receiver>.<method>() in <module>::<qualname>`` for a
+collection primitive, ``raw query write in <module>::<qualname>`` (and its
+``(f-string)`` variant) for a literal, ``module-level query write <NAME> in
+<module>::<qualname>`` for a bound constant. Deliberately **without a line
+number**: the identity is what exemptions in ``test_write_route_gates.py`` pin,
+and #1436 — which inserted lines above two sinks in ``base_repository.py`` —
+turned every one of those pins red without a single write moving. A witness that
+goes red on an unrelated edit is lifted blind the third time, which is the exact
+drift this detector exists to prevent. At most one sink is recorded per function
+(the first the walk reaches), so the enclosing function id makes the name unique
+by construction; the line number is preserved for humans in
+:attr:`FunctionNode.write_site`, which only :meth:`CallGraph.write_path` emits.
+
 The residual risk is stated rather than implied: this is a conservative
 over-approximation of the *typed* call graph, and an exact one only where the
 types are written down.
@@ -182,6 +195,7 @@ class FunctionNode:
         "lineno",
         "owner",
         "direct_write",
+        "direct_write_lineno",
         "_call_nodes",
         "_assignments",
         "_annotations",
@@ -197,6 +211,7 @@ class FunctionNode:
         self.lineno = lineno
         self.owner = owner
         self.direct_write: str | None = None
+        self.direct_write_lineno: int | None = None
         self._call_nodes: list[ast.Call] = []
         self._assignments: dict[str, list[ast.expr]] = defaultdict(list)
         self._annotations: dict[str, ast.expr] = {}
@@ -207,6 +222,26 @@ class FunctionNode:
     @property
     def id(self) -> str:
         return f"{self.module}::{self.qualname}"
+
+    @property
+    def write_site(self) -> str | None:
+        """:attr:`direct_write` plus the source line — for HUMANS, never for identity.
+
+        The line number used to sit inside :attr:`direct_write` itself, and #1443
+        measured what that costs: #1436 inserted lines above two sinks in
+        ``base_repository.py`` and every pinned witness in
+        ``_GUARDED_PERSISTING_READS`` went red without a single write moving,
+        changing or appearing. An exemption that goes red on unrelated edits is
+        lifted blind the third time. So the identity names the enclosing function
+        — ``<receiver>.<method>() in <module>::<qualname>`` — which only moves when
+        the write itself moves, and the line is carried here, where nothing
+        compares it.
+        """
+        if self.direct_write is None:
+            return None
+        if self.direct_write_lineno is None:  # pragma: no cover - set together
+            return self.direct_write
+        return f"{self.direct_write}   [line {self.direct_write_lineno}]"
 
     def __repr__(self) -> str:  # pragma: no cover - diagnostics only
         return f"<FunctionNode {self.id}>"
@@ -404,10 +439,12 @@ class CallGraph:
                 if isinstance(callee, ast.Attribute) and callee.attr in _COLLECTION_MUTATORS and not fn.direct_write:
                     receiver = ast.unparse(callee.value)
                     if _COLLECTION_RECEIVER.search(receiver):
-                        fn.direct_write = f"{receiver}.{callee.attr}() at {fn.module}:{inner.lineno}"
+                        fn.direct_write = f"{receiver}.{callee.attr}() in {fn.id}"
+                        fn.direct_write_lineno = inner.lineno
             elif isinstance(inner, ast.Constant) and isinstance(inner.value, str) and id(inner) not in docstrings:
                 if not fn.direct_write and _QUERY_WRITE.search(inner.value):
-                    fn.direct_write = f"raw query write at {fn.module}:{inner.lineno}"
+                    fn.direct_write = f"raw query write in {fn.id}"
+                    fn.direct_write_lineno = inner.lineno
             elif isinstance(inner, ast.JoinedStr) and not fn.direct_write:
                 literal = "FMT".join(
                     part.value
@@ -415,13 +452,15 @@ class CallGraph:
                     if isinstance(part, ast.Constant) and isinstance(part.value, str)
                 )
                 if _QUERY_WRITE.search(literal):
-                    fn.direct_write = f"raw query write (f-string) at {fn.module}:{inner.lineno}"
+                    fn.direct_write = f"raw query write (f-string) in {fn.id}"
+                    fn.direct_write_lineno = inner.lineno
             elif isinstance(inner, ast.Name) and not fn.direct_write and inner.id in query_write_globals:
                 # SEC-004: the query lives at module level and the body only names
                 # it. `ArangoObservationRepository.insert` is `cursor.execute(
                 # _INSERT_SQL, ...)` and nothing else, so without this the whole
                 # TimescaleDB write surface reads as clean.
-                fn.direct_write = f"module-level query write {inner.id} at {fn.module}:{inner.lineno}"
+                fn.direct_write = f"module-level query write {inner.id} in {fn.id}"
+                fn.direct_write_lineno = inner.lineno
 
     # ── type resolution ────────────────────────────────────────────────────
 
@@ -708,6 +747,11 @@ class CallGraph:
         same handler invisible — the route is out of the sweep either way. An
         exemption checked against this set goes red on the second sink whichever
         one a breadth-first search would have reached first.
+
+        A sink is identified by ``<what> in <module>::<qualname of the enclosing
+        function>`` and carries **no line number** — see :attr:`FunctionNode.
+        write_site` for why, and :meth:`CallGraph.write_path` for the human-facing
+        form that does carry one.
         """
         writers = self.writers()
         if entry.id not in writers:
@@ -730,7 +774,9 @@ class CallGraph:
 
         The path is the deliverable, not the boolean: a hit nobody can trace is a
         hit nobody can triage, and #1443 exists because the last such finding was
-        traced by hand in a review.
+        traced by hand in a review. Its last element is therefore the *human* form
+        :attr:`FunctionNode.write_site` — the sink identity plus ``[line N]`` — and
+        not the identity :meth:`write_sinks` compares. Nothing may pin this string.
         """
         writers = self.writers()
         if entry.id not in writers:
@@ -740,7 +786,7 @@ class CallGraph:
         while queue:
             current, path = queue.popleft()
             if current.direct_write:
-                return [*path, current.direct_write]
+                return [*path, current.write_site]
             for callee in current.callees:
                 if callee.id in seen or callee.id not in writers:
                     continue
