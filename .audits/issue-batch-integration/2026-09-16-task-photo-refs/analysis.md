@@ -202,3 +202,47 @@ Spalten wie in Gruppe `write-route-guard` aus dem Repository abgeleitet.
 ## Ergebnisse je Scheibe
 
 *(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
+
+### Scheibe 1 — umgesetzt 2026-09-16
+
+**Rot zuerst** (`78d01441d`, nur Tests, Produktionscode unverändert):
+
+```
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestNormalizePhotoRef::test_s3_url_is_kept_verbatim
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestNormalizePhotoRef::test_storage_key_is_kept_verbatim
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestNormalizePhotoRef::test_thumbnail_storage_key_is_kept_verbatim
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestNormalizeRefs::test_a_storage_key_entry_is_not_counted_as_changed
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestCliDryRunDefault::test_no_argument_means_dry_run
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestCliDryRunDefault::test_write_flag_turns_writing_on
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestCliDryRunDefault::test_explicit_dry_run_wins_over_write
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestRun::test_run_writes_nothing_unless_asked_to
+FAILED tests/unit/migrations/test_migrate_photo_refs.py::TestRun::test_a_storage_key_document_is_left_alone
+FAILED tests/unit/tasks/test_storage_tasks.py::test_migrate_photo_refs_task_defaults_to_dry_run
+10 failed, 14 passed
+```
+
+**Grün danach:** `tests/unit/migrations/ tests/unit/tasks/` → `946 passed, 32 skipped`.
+
+**Mutationsbeweis der drei `dry_run`-Defaults** (je zurück auf den alten Wert, dann
+zurückgesichert per `cp`):
+
+| Mutation | Ergebnis |
+|---|---|
+| `run(..., dry_run=False)` | `FAILED ...::TestRun::test_run_writes_nothing_unless_asked_to` — `1 failed, 19 passed` |
+| Celery `migrate_photo_refs(..., dry_run=False)` | `FAILED ...::test_migrate_photo_refs_task_defaults_to_dry_run` — `1 failed, 3 passed` |
+| CLI-Polarität zurück auf `return "--dry-run" in args` | `FAILED ...::TestCliDryRunDefault::test_no_argument_means_dry_run` — `1 failed, 19 passed` |
+
+**Gegenprobe der Superset-Eigenschaft gemessen statt argumentiert.** Die Aussage
+„`aql_photo_ref_candidates` enthält immer, was `normalize_photo_ref` antwortet"
+(`tests/integration/test_aql_reference_normalisation.py`) überspringt sich ohne
+ArangoDB lautlos. Gegen eine eigens gestartete `arangodb:3.12`: `31 passed`; die
+gesamte `tests/integration/` → `143 passed`.
+
+**Nicht geändert, weil nachgemessen wahr:** die Prosa in
+`PhotoUpload.test.tsx:21`, `api/endpoints/tasks.ts:261` und
+`photo_router.py:30` behauptet, der Job schreibe *die URI-Form* auf Ids zurück —
+genau die Regel, die bleibt. Korrigiert wurden dagegen zwei Stellen, die nach
+der Änderung falsch waren (`normalize_photo_ref` reduziere auf den ULID-Stamm)
+und zwei, die schon vorher falsch waren (`migrate_photo_refs` sei „manual" —
+`v0003` läuft über `run_pending_migrations` beim Start jeder Installation,
+`app/main.py:112`).

@@ -182,9 +182,10 @@ def db():
         database.collection(collection).insert({**doc, "_key": f"doc-{key}"})
 
     # Historical `photo_refs` spellings. `migrate_photo_refs` exists because entries
-    # were once `/api/v1/t/{slug}/attachments/{id}` URIs or storage keys, and that
-    # migration is manual rather than beat-scheduled — so an installation that never
-    # ran it still holds them.
+    # were once `/api/v1/t/{slug}/attachments/{id}` URIs or storage keys. It runs on
+    # every installation at startup (`v0003`), and these shapes survive it anyway:
+    # since #1438 it rewrites only the URI shape, because a storage key's ULID is not
+    # a document key and cannot be resolved without the attachment catalogue.
     # **The shapes the writer actually produces**, not a simplified stand-in.
     #
     # The first version of this fixture planted `f"{TENANT}/task/ref-by-storage-key"`
@@ -194,10 +195,13 @@ def db():
     # That is the #947 / #1155 class this module's own docstring names as the reason
     # the original defect went unseen.
     #
-    # `StorageKeyBuilder` emits `t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.{ext}`, and
-    # `normalize_photo_ref` resolves a reference to the **ULID stem** of the last
-    # segment — extension and `_t{size}` thumbnail suffix stripped. Every row below
-    # carries an extension for that reason.
+    # `StorageKeyBuilder` emits `t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.{ext}`, so every
+    # row below carries an extension: that is what the writer produces, and what the
+    # sweep has to survive. `normalize_photo_ref` used to reduce such a reference to
+    # the ULID stem of its last segment; #1438 retired that rule, because the stem is
+    # the object id and the attachment `_key` is numeric, so the "normalised" value
+    # named no document. The stored key is the working reference, and the sweep
+    # protects it by comparing it against the attachment's own `storage_key`.
     attachments.insert(_attachment("ref-by-uri", created_at=OLD))
     attachments.insert(_attachment("ref-by-storage-key", created_at=OLD))
     attachments.insert(_attachment("ref-by-thumb-suffix", created_at=OLD))
@@ -344,12 +348,14 @@ class TestWhatTheSweepMustNotTouch:
         ],
     )
     def test_a_legacy_reference_spelling_still_protects_its_photo(self, repo, key: str, shape: str):
-        """The sweep must not depend on a migration nobody ran.
+        """The sweep must not depend on a migration to collapse the spellings.
 
-        ``migrate_photo_refs`` normalises these to bare ids, and it is manual — not
-        beat-scheduled. An installation that never ran it would otherwise have every
-        referenced task photo classified as an orphan and deleted, which is the worst
-        possible outcome of a housekeeping job.
+        ``migrate_photo_refs`` does not: it rewrites the ``/attachments/{id}`` URI
+        shape and leaves a storage key verbatim, because that key's ULID is not a
+        document key (#1438). So these shapes are live in the data even on an
+        installation that has run every migration, and a sweep that could not resolve
+        them would classify every referenced task photo as an orphan and delete it —
+        the worst possible outcome of a housekeeping job.
         """
         assert key not in _found(repo), f"a photo referenced as {shape} was offered for deletion (#1393)"
 

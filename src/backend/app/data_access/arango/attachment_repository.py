@@ -428,9 +428,15 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         a photo whose bytes were also uploaded to another task, or to a plant
         gallery, was destroyed with the task and left a dangling reference behind.
 
-        ``photo_refs`` entries may be ids, API URIs or storage keys (``migrate_photo_refs``
-        exists for that, and is manual), so every candidate spelling is resolved
-        through :func:`aql_photo_ref_candidates`.
+        ``photo_refs`` entries may be ids, API URIs or storage keys, so every candidate
+        spelling is resolved through :func:`aql_photo_ref_candidates`. Note that
+        ``migrate_photo_refs`` does **not** collapse those spellings into one:
+        ``v0003`` runs it on every installation at startup, but since #1438 it only
+        rewrites the ``/attachments/{id}`` URI shape and leaves a storage key
+        verbatim — because the storage key's ULID is not a document key, so mapping
+        it needs this very catalogue. A storage-key entry therefore reaches this
+        query unchanged and is resolved here, by the ``storage_key`` comparison in
+        :meth:`_aql_unreferenced`.
         """
         # ``@ignored_task_key`` discounts one task's own references, for the route
         # that deletes a photo *from* that task. Applied to the tasks collection
