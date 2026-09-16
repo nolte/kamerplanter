@@ -93,14 +93,44 @@ def _uv_version() -> str | None:
     return match.group(1) if match else None
 
 
+def _raw_required_version() -> object:
+    """``[tool.uv].required-version`` exactly as pyproject.toml spells it."""
+    return tomllib.loads(_PYPROJECT.read_text()).get("tool", {}).get("uv", {}).get("required-version")
+
+
 def _required_uv_version() -> str | None:
-    """``[tool.uv].required-version`` as a bare version, when it is an ``==`` pin."""
-    pin = tomllib.loads(_PYPROJECT.read_text()).get("tool", {}).get("uv", {}).get("required-version")
+    """``[tool.uv].required-version`` as a bare version, when it is an ``==`` pin.
+
+    Returning None for anything else is a SILENT degradation of this whole file:
+    the version gate in :func:`_why_the_falsifier_cannot_run` stops comparing,
+    and the tamper run can then execute under a uv that is not the one the
+    repository installs from. It is tolerated here only because
+    :class:`TestTheRequiredVersionIsStillAnExactPin` turns the same condition
+    into a RED test with the full consequence spelled out — see
+    ``tests/unit/guards/test_uv_pin_is_single.py`` for the two other readers that
+    degrade at the same moment.
+    """
+    pin = _raw_required_version()
     if isinstance(pin, str) and pin.startswith("=="):
         return pin[2:].strip()
-    # A floor or a range: uv itself will decide whether the uv on PATH is
-    # acceptable, and this file has no business second-guessing it.
     return None
+
+
+class TestTheRequiredVersionIsStillAnExactPin:
+    """A floor instead of an ``==`` pin switches three readers off at once."""
+
+    def test_required_version_is_an_exact_equality_specifier(self) -> None:
+        pin = _raw_required_version()
+        assert isinstance(pin, str) and pin.startswith("=="), (
+            f"src/backend/pyproject.toml pins [tool.uv].required-version to {pin!r}, which is not an exact "
+            "`==` specifier. Three readers degrade silently on anything else and NONE of them goes red on "
+            "its own: (1) the `uv toolchain` customManager in renovate.json5 matches "
+            '`required-version = "==(?<currentValue>...)"` and stops tracking the pin; (2) the coverage '
+            "lane's install-command in backend.yml appends the specifier to the package name, so a floor "
+            "installs the newest release of the day instead of the pinned one; (3) _required_uv_version() "
+            "above returns None, so this falsifier stops checking that the uv on PATH is the uv the "
+            "repository locks with. Loosen this only together with all three."
+        )
 
 
 def _why_the_falsifier_cannot_run() -> str | None:

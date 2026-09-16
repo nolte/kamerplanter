@@ -127,12 +127,16 @@
     // They are only meaningful together: a relock by a newer uv than the readers
     // is the #1296 class. One pull request moves all of them.
     //
-    // The ACTION had to join this group, not just sit in the generic
-    // `github-actions` one: the workflows no longer carry a uv version of their
-    // own — `setup-uv` reads it from `version-file: src/backend/pyproject.toml`
-    // (#1383) — so Renovate bumping the action alone would silently install a
-    // different uv release than the one this group moves, and bumping
-    // `required-version` alone could name a uv the pinned action cannot resolve.
+    // The ACTION joins this group rather than sitting in the generic
+    // `github-actions` one so that both halves of the resolver path are READ
+    // TOGETHER — not because either half silently changes the other. What is
+    // actually true, and all that is claimed here: with
+    // `version-file: src/backend/pyproject.toml` (#1383) the installed uv is
+    // decided by `[tool.uv].required-version` ALONE, so an action bump does not
+    // move the resolver. The reason to review them in one pull request is that
+    // the action is the code that reads, caches and installs that pin, and the
+    // pin is what it installs; a reviewer looking at either one in isolation is
+    // looking at half of the mechanism that produces five lock files.
     // The generic `github-actions` rule above would otherwise have claimed it;
     // this rule is later in the array and therefore wins on `groupName`.
     //

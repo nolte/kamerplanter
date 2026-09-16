@@ -315,7 +315,11 @@ jobs:
         # install. GitHub sets $CI, so
         # `test_the_hash_falsifier_is_never_merely_skipped_in_ci` turns a skip
         # here into a RED run rather than a green one.
-        run: uv run --locked --extra dev python -m pytest tests/unit/guards/test_lock_hash_verification.py -q
+        #
+        # Through the Taskfile, like `deps:check` above: one copy of the
+        # invocation, so what CI runs and what a contributor runs locally
+        # (`task deps:verify`) cannot drift apart.
+        run: task deps:verify
 
   pip-audit:
     name: Dependency CVE audit
@@ -449,6 +453,15 @@ jobs:
       #
       # Failure mode to expect: a typo in this expression breaks the COVERAGE
       # lane, not the backend lane — visible, but in a different place.
-      install-command: UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && python -m pip install "uv$UV_SPEC" && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      #
+      # The `case` is the one thing this expression cannot read from the guard:
+      # appending the specifier verbatim is only correct while it IS an exact
+      # `==` pin. Loosened to a floor, `pip install "uv>=x.y.z"` resolves to the
+      # newest release of the day and this lane silently leaves the pinned
+      # toolchain — so it refuses instead. The same condition is a red test in
+      # tests/unit/guards/test_uv_pin_is_single.py and
+      # tests/unit/guards/test_lock_hash_verification.py; this is the third
+      # reader saying so at the point of use.
+      install-command: UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && case "$UV_SPEC" in "=="*) ;; *) echo "::error::[tool.uv].required-version is $UV_SPEC, which is not an exact == pin, so this lane would install the newest uv of the day instead of the pinned one" >&2; exit 1;; esac && python -m pip install "uv$UV_SPEC" && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       coverage-source: app
       fail-under: 60

@@ -103,7 +103,17 @@ class TestNoWorkflowNamesAUvVersion:
         hitting (a measuring tool with a gap that looks complete).
         """
         names = {p.name for p in _workflow_files()}
-        for expected in ("backend.yml", "backend-guards.yml", "api-docs.yml", "release-publish.yml"):
+        # side-services.yml is in this list since #1374/#1383: it carries two
+        # `setup-uv` steps of its own (knowledge-service, inference-service), so
+        # a sweep that never opened it would miss a third of the uv installs
+        # while looking complete.
+        for expected in (
+            "backend.yml",
+            "backend-guards.yml",
+            "api-docs.yml",
+            "release-publish.yml",
+            "side-services.yml",
+        ):
             assert expected in names, f"{expected} is not under {_WORKFLOW_DIR} — the uv sweep lost its subject"
 
 
@@ -152,5 +162,17 @@ class TestEverySetupUvStepReadsThePin:
                 pin = tomllib.loads(target.read_text()).get("tool", {}).get("uv", {}).get("required-version")
                 if not pin:
                     problems.append(f"{where}: {version_file} carries no [tool.uv].required-version to read")
+                elif not str(pin).startswith("=="):
+                    problems.append(
+                        f"{where}: {version_file} pins [tool.uv].required-version to {pin!r}, which is not an "
+                        "exact `==` specifier. THREE readers degrade silently on anything else, and none of "
+                        "them goes red: (1) the `uv toolchain` customManager in renovate.json5 matches "
+                        '`required-version = "==(?<currentValue>...)"` and simply stops tracking the pin; '
+                        "(2) the coverage lane's install-command in backend.yml appends the specifier to the "
+                        "package name, so a floor installs whatever release is newest that day; (3) "
+                        "tests/unit/guards/test_lock_hash_verification.py's _required_uv_version() returns "
+                        "None and the hash falsifier stops checking that the uv on PATH is the pinned one. "
+                        "Loosen this only together with all three."
+                    )
 
         assert not problems, "setup-uv steps that do not resolve the pin (#1383):\n  " + "\n  ".join(problems)
