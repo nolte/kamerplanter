@@ -511,7 +511,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
-      - run: pip install pip-audit 'uv==0.12.12'
+      - uses: astral-sh/setup-uv@<sha>
+        with:
+          # Die uv-Version steht ausschliesslich in [tool.uv].required-version;
+          # kein Workflow nennt sie selbst (#1383).
+          version-file: src/backend/pyproject.toml
+      - run: pip install pip-audit
       - run: uv export --locked --no-emit-project --format requirements.txt -o /tmp/requirements.txt
       - run: pip-audit --strict --desc --no-deps -r /tmp/requirements.txt
 ```

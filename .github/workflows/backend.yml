@@ -149,16 +149,36 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # THE uv pin (#1383). `version-file` makes the action read
+        # `[tool.uv].required-version` out of src/backend/pyproject.toml, so the
+        # uv this job runs cannot differ from the uv Renovate relocks with or the
+        # one the Dockerfile copies. It replaces a `python -m pip install` line
+        # carrying a literal uv version — the same value written out eight times
+        # across four workflows, held together only by the `uv toolchain`
+        # Renovate group.
+        # That group is a promise, not a mechanism: a ninth copy added without it
+        # would age unnoticed, which is the #1296 class (toolchain halves aging
+        # apart). tests/unit/guards/test_uv_pin_is_single.py is the permanent
+        # absence check that no such copy comes back.
+        #
+        # The cache key is src/backend/uv.lock rather than the action's default
+        # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
+        # five locks, and four of them have nothing to do with this job.
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
       - name: Install dependencies
         # Install from the hash-verified lock (single source of install truth,
         # NFR-009 §2.3): `uv sync --locked` refuses a lock that no longer
         # satisfies pyproject.toml and verifies every artifact against the hash
-        # the lock records, then installs the app package itself editable.
-        # uv is pinned like every other tool here; the pin is tracked by the
-        # workflow regex manager in renovate.json5. The project environment is
-        # put on PATH so the Taskfile targets below run the locked ruff/pytest.
+        # the lock records, then installs the app package itself editable. The
+        # project environment is put on PATH so the Taskfile targets below run
+        # the locked ruff/pytest.
         run: |
-          python -m pip install 'uv==0.12.15'
           uv sync --locked --extra dev
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
@@ -228,7 +248,13 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
-        run: python -m pip install 'uv==0.12.15'
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
       - name: Check the lock against pyproject.toml
         # `task deps:check` is the first half of this gate: `uv lock --check`
         # fails when src/backend/uv.lock does not satisfy pyproject.toml,
@@ -267,11 +293,21 @@ jobs:
           python-version: '3.14'
           allow-prereleases: true
 
-      - name: Install uv and pip-audit
-        # Both pinned. An unpinned scanner is a floating input: the same commit
-        # can pass today and fail tomorrow because the tool changed, which makes
-        # a red run unattributable (continuous-integration §C).
-        run: python -m pip install 'uv==0.12.15' 'pip-audit==2.10.1'
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
+      - name: Install pip-audit
+        # Pinned. An unpinned scanner is a floating input: the same commit can
+        # pass today and fail tomorrow because the tool changed, which makes a
+        # red run unattributable (continuous-integration §C). uv is pinned the
+        # same way, one step above, via the version file.
+        run: python -m pip install 'pip-audit==2.10.1'
       - name: Export the locks in the format pip-audit reads
         # pip-audit has no uv.lock reader, so the lock is exported — versions and
         # hashes verbatim, the project itself omitted — into requirements files
@@ -312,11 +348,19 @@ jobs:
           python-version: '3.14'
           allow-prereleases: true
 
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
       - name: Install dependencies and pip-licenses
         # The license scanner reads installed package metadata, so the pinned set
         # must be installed first (NFR-009 §4.3).
         run: |
-          python -m pip install 'uv==0.12.15'
           uv sync --locked --no-install-project
           uv pip install 'pip-licenses==5.5.5'
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
@@ -351,9 +395,24 @@ jobs:
     with:
       python-version: '3.14'
       working-directory: src/backend
-      # Same install as lint-test above. `$GITHUB_PATH` persists across the
-      # steps of the reusable job, so the bare `pytest` and `coverage` it runs
-      # afterwards resolve to the synced project environment.
-      install-command: python -m pip install 'uv==0.12.15' && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      # Same install as lint-test above, minus the action. `$GITHUB_PATH`
+      # persists across the steps of the reusable job, so the bare `pytest` and
+      # `coverage` it runs afterwards resolve to the synced project environment.
+      #
+      # This is the ONE place that still installs uv with pip, and it cannot be
+      # an `astral-sh/setup-uv` step: the steps of this job belong to
+      # `nolte/gh-plumbing`'s reusable workflow and a caller can only hand it a
+      # shell command. So the command READS the pin instead of repeating it —
+      # `[tool.uv].required-version` is already the exact specifier `==<version>`
+      # and is appended to the package name verbatim. No workflow file therefore
+      # carries a literal uv version any more — the absence guard
+      # tests/unit/guards/test_uv_pin_is_single.py asserts exactly that — and
+      # this lane stays on the same uv as every other one without a second
+      # literal to maintain. A uv mode for the reusable workflow is a gh-plumbing change
+      # (repository boundary) and deliberately out of scope here.
+      #
+      # Failure mode to expect: a typo in this expression breaks the COVERAGE
+      # lane, not the backend lane — visible, but in a different place.
+      install-command: UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && python -m pip install "uv$UV_SPEC" && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       coverage-source: app
       fail-under: 60

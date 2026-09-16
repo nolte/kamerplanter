@@ -65,9 +65,17 @@ jobs:
           python-version: '3.14'
           allow-prereleases: true
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@<sha>
+        with:
+          # Reads the uv version from [tool.uv].required-version. No workflow
+          # spells out a uv version of its own.
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
       - name: Install dependencies
         run: |
-          python -m pip install 'uv==0.12.12'
           uv sync --locked --extra dev
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 

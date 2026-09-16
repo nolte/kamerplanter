@@ -315,3 +315,150 @@ ist leer). Die verbleibenden Treffer gehören zu anderen Bäumen und bleiben bew
 7. **Konsequenz für Scheibe 4:** die Inventur-Erwartung gilt in ihrer *starken* Form —
    `pep621` liest fünf `pyproject.toml` + `uv.lock`, `poetry` erscheint nicht mehr. Die in
    „Bekannte lokale Anpassung" beschriebene Abschwächung entfällt.
+
+### Scheibe 2 — #1383 Punkte 3 + 4 (Sub-Branch `chore/1383-uv-chain-self-verifying`, 2026-09-16)
+
+**Ergebnis: beide Akzeptanzkriterien erfüllt und beide dauerhaft geprüft.**
+
+#### AK-Nachweis
+
+```
+$ grep -rn "uv==" .github/workflows/ ; echo "exit=$?"
+exit=1
+
+$ grep -n "pip install" src/backend/Dockerfile ; echo "exit=$?"
+exit=1
+```
+
+Beide Greps waren **vor** der Scheibe nicht leer (acht bzw. zwei Treffer). Damit
+die Greps nach dieser Scheibe nicht bloß Tatsachen über einen Nachmittag sind,
+ist `src/backend/tests/unit/guards/test_uv_pin_is_single.py` dazugekommen: vier
+Fälle, die (a) jede ausführbare Workflow-Zeile mit einer literalen uv-Version
+roten lassen, (b) sicherstellen, dass der Sweep die vier interessanten Dateien
+überhaupt liest (Absence-Checks fallen sonst offen auf), (c) verlangen, dass
+mindestens ein `setup-uv`-Step existiert, und (d) prüfen, dass jeder davon
+digest-gepinnt ist und auf eine `pyproject.toml` zeigt, die wirklich ein
+`[tool.uv].required-version` trägt.
+
+**Rot zuerst** (Vorzustand per `cp` wiederhergestellt, nicht `git stash`):
+
+```
+$ git show HEAD:.github/workflows/backend.yml > .github/workflows/backend.yml
+$ pytest tests/unit/guards/test_uv_pin_is_single.py -q
+E   AssertionError: A workflow names a uv version itself. … Offending lines:
+E       .github/workflows/backend.yml:161: python -m pip install 'uv==0.12.15'
+E       .github/workflows/backend.yml:231: run: python -m pip install 'uv==0.12.15'
+E       .github/workflows/backend.yml:274: run: python -m pip install 'uv==0.12.15' 'pip-audit==2.10.1'
+E       .github/workflows/backend.yml:319: python -m pip install 'uv==0.12.15'
+E       .github/workflows/backend.yml:357: install-command: python -m pip install 'uv==0.12.15' && …
+1 failed, 3 passed in 0.91s
+```
+
+**Mutationen** (je eine Zeile in `api-docs.yml`, danach per `cp` zurück):
+
+| Mutation | Ergebnis |
+|---|---|
+| `version-file:` entfernt | rot — „no `version-file:` — the action would install the LATEST uv" |
+| Digest-Pin durch `@v10` ersetzt | rot — „not pinned to a 40-character commit SHA" |
+| unverändert | 4 passed |
+
+#### Der Pin
+
+`astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0` (Tag-Ref
+über `gh api repos/astral-sh/setup-uv/git/ref/tags/v10.1.0` aufgelöst, Objekttyp
+`commit`), mit `version-file: src/backend/pyproject.toml`, `enable-cache: true`
+und `cache-dependency-glob: src/backend/uv.lock`. Sieben Stellen ersetzt
+(`backend.yml` 4×, `backend-guards.yml`, `api-docs.yml`, `release-publish.yml`),
+zwei weitere neu in `side-services.yml` — macht **sieben** `uses:`-Stellen im
+Repository (die vier alten Backend-Stellen sind zu vier Steps geworden, die zwei
+Side-Service-Steps sind neu).
+
+Der Cache-Glob ist bewusst eng: die Default-Globs der Action wären
+`**/pyproject.toml` + `**/uv.lock`, und seit #1374 gibt es fünf Locks, von denen
+vier mit dem jeweiligen Job nichts zu tun haben.
+
+#### Die achte Stelle — Repository-Grenze, gemessen statt behauptet
+
+`backend.yml:357` ist der `install-command`-Input des Reusable-Workflows
+`nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml`. Ein
+`uses:`-Step lässt sich dort nicht einfügen; der Aufrufer kann nur einen
+Shell-Befehl übergeben. Der Befehl **liest** die Version jetzt, statt sie zu
+wiederholen — `[tool.uv].required-version` ist bereits der exakte Specifier
+`==<version>` und wird an den Paketnamen angehängt:
+
+```
+UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && python -m pip install "uv$UV_SPEC" && …
+```
+
+Lokal gegen `src/backend/pyproject.toml` ausgeführt: `resolved package spec:
+uv==0.12.15` — bitgleich mit dem vorherigen Literal. Ein uv-Modus für
+`reusable-python-coverage.yaml` bleibt ausdrücklich außerhalb des Scopes
+(eigenes Repository); wer ihn will, öffnet dort ein Issue.
+
+#### `debugpy`
+
+`"debugpy>=1.8.0,<2.0.0"` im Dev-**Extra** von `src/backend/pyproject.toml`
+(nicht in einer eigenen Gruppe: das eine `uv sync --locked --extra dev`, das CI,
+`task deps:sync` und die Dev-Stufe des Images ohnehin fahren, installiert es
+dann mit, ohne einen zweiten Selektor). `uv lock` → `Added debugpy v1.8.22`.
+Die Dockerfile-Zeile `uv pip install debugpy` ist weg.
+
+```
+$ docker build --target dev -t kp-backend-dev-1383 .   # 1:07 min
+EXIT=0
+$ docker run --rm --entrypoint python kp-backend-dev-1383 -c "import debugpy; print(debugpy.__version__, debugpy.__file__)"
+1.8.22 /opt/venv/lib/python3.14/site-packages/debugpy/__init__.py
+```
+
+#### `side-services.yml` (Scheibe-1-Befund 6)
+
+`knowledge-service` und `inference-service` installieren jetzt mit
+`uv sync --locked --extra dev` plus `$GITHUB_PATH`-Prepend (die Taskfile-Ziele in
+`.taskfiles/libs.yaml` rufen ein blankes `python -m pytest`). Lokal gemessen:
+`uv sync --locked --extra dev` Exit 0 in beiden Bäumen, danach
+`pytest tests/ -p no:cacheprovider` → **47 passed** (knowledge) bzw. **105
+passed** (inference). Das `build`-Dependency-Group des inference-service
+(torch/onnx) ist keine Default-Group und wird dabei nicht installiert — der Job
+zahlt keinen torch-Download.
+
+**Abweichung: `kp_vectordb` bleibt bei `pip install -e '.[dev]'`.** Der dritte
+Job in dieser Datei ist keiner der vier Side-Services aus #1374 — `src/libs/
+kp_vectordb/` ist eine geteilte Library und hat **kein** `uv.lock`. Es gibt also
+nichts, wovon `--locked` synchronisieren könnte; einen fünften Lock anzulegen ist
+eine Entscheidung über die Release-Form der Library, keine CI-Änderung. Im
+Workflow-Kommentar festgehalten statt nebenbei gemacht.
+
+#### `renovate.json5`
+
+Der Action-Pin ist in dieselbe Gruppe `uv toolchain` gewandert
+(`matchDatasources` um `github-tags`, `matchPackageNames` um
+`astral-sh/setup-uv` erweitert). Das war **nötig**, nicht kosmetisch: die
+Workflows tragen keine eigene uv-Version mehr, also würde ein separater
+Action-Bump eine andere uv-Release installieren als die, die die Gruppe bewegt.
+Die generische `github-actions`-Regel steht früher im Array, diese später — sie
+gewinnt daher auf `groupName`; `automerge: false` steht explizit dabei, weil die
+generische Regel minor/patch/digest automerged und hier der **Resolver** bewegt
+wird, der fünf Lockfiles erzeugt.
+
+Der Kommentar „referenced three times" war falsch und ist nachgezählt ersetzt:
+**drei Arten von Stelle, 17 Stellen** — fünf `[tool.uv].required-version`, fünf
+`ghcr.io/astral-sh/uv` in Dockerfiles, sieben `astral-sh/setup-uv@`.
+
+Im Workflow-Regex-Manager ist die Alternative `uv` aus
+`'(?<depName>pip-audit|pip-licenses|uv)=='` entfernt — sie kann nichts mehr
+treffen, und eine tote Alternative hätte suggeriert, ein wiedereingeführtes
+Literal sei weiterhin abgedeckt.
+
+#### Doku
+
+`docs/de/deployment/ci-cd.md` + EN-Spiegel und das `pip-audit`-Beispiel in
+NFR-009 §4.1 zeigten noch `pip install 'uv==0.12.12'` — eine Version, die seit
+#1447 nirgends mehr im Repository steht. Alle drei auf die neue Form umgestellt.
+
+#### Gates
+
+`pre-commit run actionlint-docker --all-files`: **Passed**.
+`pre-commit run --all-files`: alles grün außer `nuclei-validate`, das mit
+„nuclei is not on PATH" abbricht — eine Lücke der lokalen Umgebung, kein Befund
+(der Hook verweigert bewusst ein grünes Ergebnis ohne Werkzeug).
+`uv lock --check` Exit 0. `pytest tests/unit/guards` → 40 passed.

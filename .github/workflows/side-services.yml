@@ -80,17 +80,30 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/knowledge-service/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/knowledge-service/uv.lock
+
       - name: Install knowledge-service (with dev extra)
-        # The test toolchain lives in the pyproject's
+        # From the hash-verified lock (#1383), like every other Python install in
+        # this repository. The test toolchain lives in the pyproject's
         # [project.optional-dependencies].dev EXTRA, not in the uv.lock `dev`
-        # dependency group (#1374) — that group carries only the image's
-        # hot-reload watcher. So this job installs the editable package with the
-        # extra; moving it onto `uv sync --locked` is #1383's slice. httpx is a
-        # runtime dependency here, so the TestClient tier works out of the box.
+        # dependency GROUP (#1374) — that group carries only the image's
+        # hot-reload watcher, which `uv sync` adds as well because it is a default
+        # group. Both are in the lock, so `--locked` verifies both.
+        # `uv sync` installs the project itself editable, so the suite imports the
+        # working tree. httpx is a runtime dependency here, so the TestClient tier
+        # works out of the box. The environment goes on PATH because the Taskfile
+        # target below calls a bare `python -m pytest`.
         working-directory: src/knowledge-service
         run: |
-          python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          uv sync --locked --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run knowledge-service suite
         # task target carries the fail-on-empty-collection guard (NFR-018 §2) and
@@ -115,18 +128,32 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/inference-service/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/inference-service/uv.lock
+
       - name: Install inference-service (with dev extra)
-        # Installs onnxruntime + numpy + pillow from PyPI (the base runtime) plus
-        # the dev extra. The optional `cv` extra (plantcv/OpenCV, REQ-038) is
-        # deliberately NOT installed: the whole suite runs on fakes and exercises
-        # PlantCV only through its absence path. httpx is in the dev extra (added
-        # for this suite — the tests drive the FastAPI app through Starlette's
-        # TestClient, which needs an httpx transport; it is not a runtime dep of
-        # the service itself).
+        # From the hash-verified lock (#1383): onnxruntime + numpy + pillow (the
+        # base runtime) plus the dev extra, every artifact checked against the
+        # hash uv.lock records. The optional `cv` extra (plantcv/OpenCV, REQ-038)
+        # is deliberately NOT installed: the whole suite runs on fakes and
+        # exercises PlantCV only through its absence path. Neither is the `build`
+        # dependency group (torch/onnx, the model-export toolchain) — it is not a
+        # default group, so `uv sync` leaves it out and this job does not pay for
+        # a torch download. httpx is in the dev extra (added for this suite — the
+        # tests drive the FastAPI app through Starlette's TestClient, which needs
+        # an httpx transport; it is not a runtime dep of the service itself). The
+        # environment goes on PATH because the Taskfile target below calls a bare
+        # `python -m pytest`.
         working-directory: src/inference-service
         run: |
-          python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          uv sync --locked --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run inference-service suite
         run: task test:inference-service
@@ -152,6 +179,13 @@ jobs:
       - name: Install kp_vectordb (with dev extra)
         # Light package: psycopg + psycopg-pool + structlog. The suite uses fakes,
         # so no real PostgreSQL is required.
+        #
+        # STILL pip, deliberately, and the only Python install in this repository
+        # that is: kp_vectordb is a shared LIBRARY, not one of the four service
+        # images #1374 locked, so `src/libs/kp_vectordb/` has no uv.lock to sync
+        # from. Switching this job would mean introducing a fifth lock, which is a
+        # decision about the library's release shape rather than a CI change, so
+        # it is recorded here instead of made in passing (follow-up to #1383).
         working-directory: src/libs/kp_vectordb
         run: |
           python -m pip install --upgrade pip
