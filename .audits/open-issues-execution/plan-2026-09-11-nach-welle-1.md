@@ -714,3 +714,99 @@ allgemeiner Sorgfalt.
 Ein Grep liefert Kandidaten, keine Zählung, und die Definition, was als Verstoß
 zählt, steht noch aus (W-2). Eine hier erfundene Grundlinie wäre die erste
 Instanz des Fehlers, den Phase 4 verhindern soll.
+
+---
+---
+
+# Fortschreibung — 2026-09-16
+
+**Gemessen gegen `origin/develop` @ `d2c81332b` / `234a032bf`.** Der Plan oben ist
+vom 2026-09-11; `develop` ist seither um ~20 Commits weitergerückt. Die Abschnitte
+0–7 bleiben unverändert stehen: Sie halten fest, was **am 11.09.** gemessen wurde,
+und dieses Protokoll zu überschreiben würde genau die Nachvollziehbarkeit zerstören,
+wegen der der Plan existiert. Was heute anders ist, steht hier.
+
+## 8. Was seit dem 11.09. gekippt ist
+
+| Posten | Der Plan sagt | Heute gemessen |
+|---|---|---|
+| **#1361** | P3.1, Release zurückgehalten | **Erledigt und geschlossen.** `v0.4.0` seit 2026-09-13T15:42:38Z `Latest`, `isDraft=false`; `release-lag.yml` am 14./15./16.09. je `success`. Die Abbruchbedingung des Issues — „bis der nächste Lauf die Lücke bestätigt" — ist dreimal erfüllt |
+| **#1403** | P2.2, `email_verified` durch Modell und drei Bauplätze ziehen | **Im Code erledigt** (PR #1413), Audit-Werkzeug ergänzt (`2239b23c3`, PR #1442). Der Rest ist eine Betreiber-Messung gegen eine laufende Installation, kein PR-Strang |
+| **#1406** | P4.1, „16 von 36 Seed-Dateien ungedeckt" | **Halbiert durch #1435** (`35f13c2a8`). 32 von 36 tragen eine `$schema`-Direktive, `test_seed_schema_conformance.py:124` leitet die Parametrisierung aus dem Baum ab, die vier ohne Direktive sind fail-closed in `NO_SCHEMA_DECLARED` registriert. Offen bleibt nur die **pre-commit-Hook-Ebene** (neun `files:`-Muster mit benannter Einzeldatei ab `.pre-commit-config.yaml:715`) |
+| **#1434** | (nicht im Plan, Nachzügler) | **Halb erledigt.** Punkt 2 (`importorskip` nur für echt optionale Deps) ist durch #1435/#1439 erledigt, inklusive repo-weitem AST-Guard. Offen bleiben Punkt 1 (Interpreter-Selbstprüfung) und 3 (Skip-Floor) |
+| **#1292** | F-2, „feuerte zweimal, wartet auf Triage" | **Drei** Fehlschläge (11./12./14.09.), und zwei davon nennen den HTTP-Status: `could not create a care profile for '522789' (status=500)` und `generate-care-reminders returned status=500`. Der Create-Pfad ist benannt, nicht mehr nur der Zweig |
+| **#1321** | W-5, „aus diesem Repository nicht umsetzbar" | **Überholt.** `nolte/gh-plumbing#417` ist gemergt; `reusable-pre-commit.yaml@v2.1.0` führt `inputs.dockerhub-username` (`:49`) und `secrets.dockerhub-token` (`:69`). Dieses Repository pinnt v2.1.0 bereits (`build-static-tests.yaml:58`) und übergibt keines von beidem. Restarbeit: drei Zeilen plus ein Repo-Secret — blockiert auf eine **Zugangsdaten-Eingabe**, nicht mehr auf Upstream-Arbeit |
+
+**Die Lehre, die sich wiederholt:** Fünf der sechs Kippungen sind Posten, die der
+Plan am 11.09. korrekt gemessen hatte. Nicht der Plan war falsch — er ist gealtert.
+Ein Plan über einen bewegten `develop` braucht eine Nachmessung **vor** jedem Paket,
+nicht nur bei seiner Erstellung. Das ist ein Verfahrensbefund, kein Einzelfehler.
+
+## 9. Welle 8 — die Nachzügler
+
+Zehn Issues sind nach dem 11.09. entstanden, neun davon als Ausgründung aus PR
+#1424 (#1393) und PR #1440 (#1422) oder aus deren Reviews. Sie stehen in keinem
+Abschnitt oben.
+
+#1416, #1425, #1432, #1434, #1436, #1437, #1438, #1441, #1443, #1444
+
+**Der Bestand ist damit nicht geschrumpft, obwohl neun Plan-Posten erledigt wurden.**
+Diese Zahl gehört in jede Fortschrittsaussage, sonst liest sich ein Sweep als
+Abbau, während er Bestand umschichtet.
+
+### Prozessbefund über Welle 8 hinweg
+
+Vier Stellen widerrufen sich selbst im Kommentar, statt behoben oder an einen Guard
+gebunden zu werden:
+
+| Fundstelle | Selbst-Widerruf |
+|---|---|
+| `src/backend/tests/unit/api/test_write_route_gates.py:42-59` | „that detector does not exist yet" |
+| `src/backend/app/migrations/migrate_photo_refs.py:55` | „This module's central premise is false" |
+| `src/frontend/src/components/common/PhotoUpload.tsx:190` | „Known limitation" |
+| `.github/workflows/backend.yml:204` | „deliberately still absent" |
+
+**Vorbeugende Änderung:** ein Marker, den eine Lane zählt und die rot wird, wenn er
+ohne offenes Issue oder ohne fehlschlagenden `xfail` existiert. Ein ehrlicher
+Kommentar ist besser als Schweigen und ersetzt trotzdem kein Gate. Wird als eigenes
+Issue gegen `spec/project/defect-class-guards/` angelegt.
+
+## 10. Umstellung auf die Gruppen-Schicht
+
+Ab hier steuert nicht mehr die Wellen-Tabelle, sondern
+`spec/project/issue-batch-integration/`. Gründe: Die Wellen ordnen nach Abhängigkeit,
+sagen aber nichts darüber, welche Issues **eine** Änderung sind; und ein Issue je PR
+zahlt bei `strict: true` je einen Rebase und ein Gate.
+
+Von 27 offenen Issues sind **9 keine Arbeitsposten** — erledigt (#1361, #1403),
+extern blockiert (#618, #1236, #1347, #1321-Secret), bewusste Nicht-Entscheidung
+(#1223, Abbruchbedingung nachgemessen: 0 von 30 Läufen `failure`/`cancelled`),
+unbeschränkt und bereits in der formalen Pipeline (#779, #1061) oder kein
+Arbeitsposten (#12). Sie sind dokumentiert stillgelegt, nicht vergessen.
+
+### Gruppen
+
+| Gruppen-Id | Mitglieder | Prädikat | Art | Modus |
+|---|---|---|---|---|
+| `2026-09-16-write-route-guard` | #1441, #1443 | geteilte Berührungsfläche (`test_write_route_gates.py`) | Klassen-Cluster | **B** — #1441 ist `security` und muss herauslösbar bleiben |
+| `task-photo-refs` | #1437, #1438 | thematische Kopplung (Resolver-Semantik `photo_refs`) | Symptom-Cluster | offen |
+| `backend-lane-execution` | #1432, #1434-Rest | thematische Kopplung (Ausführungs-Zusicherung der Test-Tiers) | Klassen-Cluster | offen |
+| `uv-lock-chain` | #1383, #1374 | Abhängigkeitskette (`renovate.json5:101-105` führt die vier Side-Service-pyprojects noch unter `poetry`) | Symptom-Cluster | offen |
+
+### Einzelläufer
+
+| Issue | Warum allein |
+|---|---|
+| **#1436** | `base_repository.py:584` mappt nur `error_code == 1210`; die gemessene Ausgabe ist `ERR 1200`. **Muss vor `backend-lane-execution` landen**, sonst schaltet das neue Gate einen bekannten intermittierenden Roten scharf |
+| **#1368** | Betreiberentscheidung 2026-09-16: Einzellauf statt Gruppe mit #1175, damit der bereits offene Draft-PR #1348 erhalten bleibt und danach aufgefrischt wird |
+| **#1416**, **#1425**, **#1444**, **#1292**, **#1405**, **#1406** | keine geteilte Fläche und keine gemeinsame Capability mit einem anderen Posten |
+
+**#1175** ist kein eigener Posten: Sein Restinhalt liegt in PR #1348, der nach #1368
+aufgefrischt und fertiggestellt wird.
+
+### Zwei Issue-Körper müssen vor der Bearbeitung schrumpfen
+
+**#1434** und **#1406** beschreiben beide mehr Arbeit, als es gibt (siehe Abschnitt 8).
+Wer sie nach Aktenlage startet, findet die Arbeit von #1435 vor — genau die Falle, die
+F-1 dieses Plans für #1397 beschreibt. Das Schrumpfen ist der erste Schritt des
+jeweiligen Laufs, nicht eine Aufräumarbeit danach.
