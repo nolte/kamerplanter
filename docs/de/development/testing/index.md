@@ -111,23 +111,31 @@ Verfügbare Fixtures: `sample_species_data`, `sample_site_data`, `sample_locatio
 
 ### Integrationstests
 
-Integrationstests unter `tests/integration/` erfordern eine laufende ArangoDB-Instanz. Sie werden automatisch übersprungen, wenn keine Verbindung besteht:
+Integrationstests unter `tests/integration/` brauchen eine laufende ArangoDB-Instanz — sie sind die einzige Prüfung der Repository- und AQL-Schicht gegen eine echte Datenbank. In CI laufen sie als Pflicht-Lane (`Integration tests (ArangoDB)` in `backend.yml`) gegen einen Service-Container.
+
+Ob eine Datenbank da ist, entscheidet **eine** Stelle: `tests/integration/conftest.py`. Module hängen sich mit einem Marker an dieses Session-Fixture:
 
 ```python
-@pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available")
-class TestArangoSetup:
-    ...
+pytestmark = pytest.mark.usefixtures("arango_db")
 ```
+
+!!! warning "Fehlende Datenbank ist in CI ein Fehler, kein Skip"
+    Ist `CI` gesetzt und antwortet keine Datenbank, **scheitert** der Lauf und nennt die versuchte Adresse. Lokal wird stattdessen übersprungen — mit demselben Grund. Weil `task test:backend:integration` den Skip-Floor `--max-skipped 0` deklariert, wird aber auch dieser lokale Skip rot. Das ist Absicht: Vor dieser Regel meldete das Tier auf einem Runner `7 passed, 136 skipped` und Exit-Code 0, also grün, ohne etwas gemessen zu haben.
 
 Um sie gezielt auszuführen:
 
 ```bash
-# ArangoDB starten (z. B. via Docker Compose)
-docker-compose up -d arangodb
+# ArangoDB starten (Dev-Stack oder ein Wegwerf-Container)
+task dev:core
+# oder:
+docker run -d --rm --name kp-it-arango -p 8529:8529 \
+  -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 
-# Nur Integrationstests
-pytest tests/integration/ -v
+# Nur Integrationstests — dieselbe Invocation wie in CI
+task test:backend:integration
 ```
+
+Zeigt deine Datenbank woandershin, setzt du `ARANGODB_HOST`, `ARANGODB_PORT`, `ARANGODB_USERNAME` und `ARANGODB_PASSWORD` — dieselben Variablen, die die Anwendung liest. Eine Adresse steht in keinem Testmodul mehr fest verdrahtet.
 
 ### Skip-Floor je Tier
 
@@ -137,6 +145,7 @@ Ein übersprungener Test beendet pytest mit demselben Exit-Code wie ein bestande
 pytest tests/unit/ --max-skipped 1        # task test:backend:unit
 pytest tests/contracts/ --max-skipped 0   # task test:backend:contracts
 pytest tests/api/ --max-skipped 0         # task test:backend:api
+pytest tests/integration/ --max-skipped 0 # task test:backend:integration (braucht eine DB)
 ```
 
 Werden mehr Tests übersprungen als deklariert, wird der Lauf rot und nennt **jeden** Skip-Grund — so ist der neue Skip erkennbar und die Zahl wird nicht blind gehoben.

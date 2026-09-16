@@ -31,42 +31,35 @@ The one row that keeps the guard honest is `loc-foreign`: a location under anoth
 tenant's site, still reachable by key. Its label must stay ``null``, or the repair
 has traded a missing name for a cross-tenant leak.
 
-Skipped when no ArangoDB answers on ``localhost:8529``. Run it with::
+Runs in CI against a service container; locally it needs a database of its own
+(a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one
+with::
 
     docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_location_label_projection.py -v
 
-`tests/integration/` is deliberately absent from CI (see `.github/workflows/backend.yml`):
-without a database it self-skips and would report green having tested nothing. The
-CI-visible guard for this rule lives in the unit tier.
+`tests/integration/` runs in CI since #1432 (the `Integration tests (ArangoDB)` job in
+`.github/workflows/backend.yml`); before that it was absent, because without a database
+it self-skipped and would have reported green having tested nothing. A second,
+statically-checkable guard for this rule lives in the unit tier.
 """
 
 from __future__ import annotations
 
 import pytest
+from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
-ARANGO_URL = "http://localhost:8529"
-ARANGO_PASSWORD = "rootpassword"
 TEST_DATABASE = "kamerplanter_location_label_test"
 
 TENANT = "tenant-a"
 FOREIGN_TENANT = "tenant-b"
 
-ARANGO_AVAILABLE = False
-try:  # pragma: no cover - probe, not behaviour
-    from arango import ArangoClient
 
-    _probe = ArangoClient(hosts=ARANGO_URL)
-    _probe.db("_system", username="root", password=ARANGO_PASSWORD).version()
-    ARANGO_AVAILABLE = True
-    _probe.close()
-except Exception:  # noqa: BLE001 - any failure means "not available"
-    pass
-
-pytestmark = pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available on localhost:8529")
+pytestmark = pytest.mark.usefixtures("arango_db")
 
 PHASE_DEFINITION = "pd-veg"
 PHASE_ENTRY = "pse-veg"
@@ -75,11 +68,11 @@ PHASE_ENTRY = "pse-veg"
 @pytest.fixture(scope="module")
 def db():
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username="root", password=ARANGO_PASSWORD)
+    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if system.has_database(TEST_DATABASE):
         system.delete_database(TEST_DATABASE)
     system.create_database(TEST_DATABASE)
-    database = client.db(TEST_DATABASE, username="root", password=ARANGO_PASSWORD)
+    database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
 
     for name in (
         col.PLANT_INSTANCES,

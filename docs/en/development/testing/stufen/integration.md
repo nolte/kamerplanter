@@ -25,14 +25,17 @@ Integration tests verify the **interplay of several building blocks with real ex
 
 ## Running
 
-Integration tests are **automatically skipped** when no database is reachable (`@pytest.mark.skipif(not ARANGO_AVAILABLE, …)`) — so the suite stays green even without a DB.
+This level needs a database, and a missing one is **not** passed over in silence: in CI the run fails and names the address it tried, locally it skips with the same reason — and because the target declares the skip floor `--max-skipped 0`, even that skip is red.
 
 ```bash
-# Start ArangoDB (e.g. via Docker Compose)
-docker-compose up -d arangodb
+# Start ArangoDB (the dev stack or a throwaway container)
+task dev:core
+# or:
+docker run -d --rm --name kp-it-arango -p 8529:8529 \
+  -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 
-# Integration tests only
-cd src/backend && pytest tests/integration/ -v
+# Integration tests only — the same invocation CI runs
+task test:backend:integration
 ```
 
 Details in the [testing concept → Integration Tests](../index.md#integration-tests).
@@ -40,4 +43,6 @@ Details in the [testing concept → Integration Tests](../index.md#integration-t
 ## Conventions
 
 - Integration tests may change the state of the test database — they clean up after themselves or use isolated collections.
-- In CI they run with a provided ArangoDB; locally without a DB they are cleanly skipped rather than failing.
+- In CI they run against an ArangoDB service container; without a database the run there fails deliberately instead of reporting green.
+- The connection is checked **once**, centrally (`tests/integration/conftest.py`, session fixture `arango_db`); a module attaches to it with `pytestmark = pytest.mark.usefixtures("arango_db")` and brings no probe of its own.
+- No module hard-codes the address: `ARANGODB_HOST` / `ARANGODB_PORT` / `ARANGODB_USERNAME` / `ARANGODB_PASSWORD` point the level at any server.
