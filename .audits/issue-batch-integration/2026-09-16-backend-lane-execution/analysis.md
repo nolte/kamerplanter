@@ -1,6 +1,6 @@
 # Gruppe `2026-09-16-backend-lane-execution`
 
-Status: wartet auf Operator-Freigabe (Write-Gate nach `spec/project/issue-batch-integration/` §D)
+Status: freigegeben 2026-09-16 · Scheibe 1+2 (#1434-Rest) startbar · Scheibe 3 (#1432) nach Merge von PR #1459
 
 Gemessen gegen `origin/develop` @ `87c82ae25` (2026-09-16).
 
@@ -171,15 +171,18 @@ Spalten wie in den anderen Gruppen aus dem Repository abgeleitet.
   dieselbe Klasse, eigenes Issue, nicht hier.
 - #1405 und #1406 — dieselbe Defektklasse, disjunkte Fläche; Einzelläufer.
 
-## Offene Fragen an den Operator
+## Operator-Entscheidungen (2026-09-16, vor der Umsetzung)
 
-1. **Darf die Integration-Lane ein Pflicht-Check werden**, oder bleibt sie advisory
-   wie Nuclei/ZAP? Die Branch-Protection verlangt heute genau zwei Checks (`static /
-   Static CI Tests`, `lint-test-build (22)`); ein dritter verlängert bei
-   `strict: true` jeden Merge-Zug. Empfehlung: **advisory für zwei Wochen**, dann auf
-   gemessener Historie entscheiden (NFR-018 §4), wie bei Nuclei.
-2. **Skip-Floor als harte Zahl je Tier oder als `0` überall mit Marker-Ausnahmen?**
-   Eine harte Zahl ist ehrlich über den Ist-Zustand (unit: 1); `0` mit
-   `@pytest.mark.skip(reason=…)` als einziger legitimer Skip-Form zwingt jeden Skip an
-   einen Grund. Empfehlung: harte Zahl **und** `-rs` im Fehler — die Zahl ist
-   nachprüfbar, der Grund lesbar.
+1. **Die Integration-Lane wird sofort Pflicht-Check** — gegen die Empfehlung
+   „advisory für zwei Wochen". Konsequenz: die drei `workflow_dispatch`-Läufe vor dem
+   Scharfschalten sind nicht optional, und die Aufnahme in
+   `required_status_checks.contexts` (Branch-Protection `develop`) ist Teil von
+   Scheibe 3 — sie wird **nach** grünen Dispatch-Läufen gesetzt, nicht davor, und der
+   `gh api`-Aufruf samt Antwort steht im Artefakt. Ein Flake im nie gelaufenen Tier
+   blockiert damit sofort jeden Merge; das ist die bewusst akzeptierte Kante.
+2. **Skip-Floor: harte gemessene Zahl je Tier + Skip-Gründe im Fehler.** Jeder neue
+   Skip hebt die Zahl im Taskfile sichtbar; die Fehlermeldung nennt den neuen Grund.
+
+## Ergebnisse je Scheibe
+
+*(wird während der Umsetzung gefüllt — tatsächliche Prüfausgaben, nicht Behauptungen)*
