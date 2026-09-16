@@ -472,4 +472,14 @@ jobs:
       # afterwards resolve to the synced project environment.
       install-command: python -m pip install 'uv==0.12.15' && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       coverage-source: app
+      # This lane runs the WHOLE of testpaths (`tests`) and has no ArangoDB, so
+      # it must say out loud which tier it does not run. Before #1432 it did not
+      # have to: tests/integration/ self-skipped here and contributed nothing to
+      # the number anyway. Now a missing database is a failure whenever `CI` is
+      # set — correctly, for the gate — which would have turned this lane red for
+      # a reason that is not about coverage. The tier's own gate is the
+      # `Integration tests (ArangoDB)` job above, with a service container; the
+      # measured coverage is unchanged by this line, because skipped tests cover
+      # nothing either.
+      pytest-args: --ignore=tests/integration
       fail-under: 60

@@ -544,3 +544,20 @@ Fund ist.
 Die Aufnahme in `required_status_checks.contexts` (Branch-Protection `develop`)
 steht aus — sie folgt auf drei grüne `workflow_dispatch`-Läufe des Jobs
 `Integration tests (ArangoDB)`, wie in den Operator-Entscheidungen festgelegt.
+
+#### Nachtrag: die Coverage-Lane war die zweite Konsumentin des Self-Skips
+
+Beim Durchsehen der übrigen Lanes gefunden, nicht gemeldet bekommen: der Job
+`Coverage` (`reusable-python-coverage`) fährt **die gesamte** `testpaths`
+(`tests`) ohne ArangoDB und mit gesetztem `CI`. Vor dieser Änderung skippte sich
+`tests/integration/` dort weg und trug nichts zur Zahl bei; danach wären es 136
+Fehler gewesen — die Lane wäre aus einem Grund rot geworden, der nichts mit
+Coverage zu tun hat.
+
+Behoben über den vorhandenen Eingang `pytest-args: --ignore=tests/integration`,
+mit der Begründung im Workflow. Die gemessene Coverage ändert sich dadurch
+nicht: übersprungene Tests decken genauso wenig ab wie nicht gesammelte.
+Gegenprobe lokal: `CI=1 pytest --ignore=tests/integration --collect-only -q`
+→ `10042 tests collected`, kein Fehler.
+
+`backend-guards.yml` ist nicht betroffen (`pytest tests/unit/api tests/unit/guards`).
