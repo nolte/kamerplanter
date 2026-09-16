@@ -444,6 +444,181 @@ gemacht, das ihn noch nicht ausgeliefert hat.
 (eine der vier #1456-Fundstellen) ist ersetzt durch die Regel, die jetzt gilt;
 die Docstring von `photo_router.py` nennt das unterscheidbare Signal.
 
+### Review-Nacharbeit — umgesetzt 2026-09-17
+
+Der Stufe-3-Verifikationsdurchgang (`code-review`, fremder Kontext) lieferte vier
+blockierende und sechs weitere Befunde. Jeder Punkt rot zuerst, Sicherung per `cp`.
+
+**B-1 — v0046 konnte eine Referenz auf ein FALSCHES Attachment umschreiben.**
+
+Rot (`plan_reference` wendete den Stamm der *Referenz* auf einen Index an, der
+Attachments unter `_key` **und** `storage_stem` führt):
+
+```
+>       assert verdict.matches != ("320",)
+E       AssertionError: assert ('320',) != ('320',)
+E        +  where ('320',) = ReferenceVerdict(verdict='repaired', matches=('320',)).matches
+>       assert plan_reference(thumbnail_uri, "320", TENANT, index).verdict == "unresolved"
+E       AssertionError: assert 'repaired' == 'unresolved'
+>       assert plan_reference(reference, OTHER_ATTACHMENT_KEY, TENANT, index).verdict == "unresolved"
+E       AssertionError: assert 'repaired' == 'unresolved'
+4 failed, 19 passed
+```
+
+Die erste Zeile **ist** der Defekt: die Thumbnail-URI, die das Produkt selbst baut
+(`_photo_response`), wird auf das fremde Attachment mit `_key == "320"` umgeschrieben.
+
+Fix: Regel 1 dreiteilig — Referenz verbatim gegen `_key`; API-URI über
+`migrate_photo_refs.normalize_photo_ref` (der *andere* Konsument derselben Frage)
+und ihr `{id}`-Segment verbatim gegen `_key`, ohne Rückfall auf den Stamm; jede
+andere Schreibweise reduziert und **ausschließlich** gegen `storage_stem`.
+
+Grün: `tests/unit/migrations/versions/test_v0046_reconcile_photo_refs.py` → `23 passed`.
+
+Mutationsbeweis (gesichert per `cp`, danach zurückgesichert):
+
+| Mutation | Ergebnis |
+|---|---|
+| URI-Zweig abgeschaltet **und** `storage_stem`-Bedingung im Stamm-Zweig entfernt (= der alte Zustand) | `6 failed, 31 passed` — die vier neuen Unit-Fälle plus **beide neuen Integrationsfälle**; zurückgesichert → `37 passed` |
+
+**B-2 — v0046 lud jede Trägerkollektion vollständig in den Speicher.**
+
+Rot (das Double verlangt jetzt Projektion + serverseitigen Filter und liest den
+Collection-/Feldnamen aus der Query, statt sie zu kennen):
+
+```
+E  AssertionError: the carrier scan must project and filter server-side — it runs under
+   the migration lock in the startup path, where pulling whole documents of every carrier
+   collection into memory times the other replicas out (B-2). Query was: 'FOR d IN tasks RETURN d'
+11 failed, 14 passed
+```
+
+Fix: `FOR d IN {collection} FILTER d.{field} != null RETURN {_key, tenant_key, value}`,
+Cursor gestreamt statt `list(...)`. Eine Installation ohne Fotos kostet damit O(0)
+Zeilen statt O(alle Aufgaben). Der Attachment-Katalog war bereits projiziert; das ist
+jetzt als Kontrolle festgehalten (`test_the_attachment_catalogue_is_projected_too`).
+
+Grün: `25 passed`.
+
+**B-3 — die irreversible Reparatur hinterließ keinen Nachweis, WAS sie schrieb.**
+
+Rot:
+
+```
+FAILED ...::TestUp::test_the_report_names_every_rewrite_it_made
+FAILED ...::TestUp::test_the_dry_run_report_is_the_document_the_apply_would_write
+FAILED ...::TestUp::test_the_repair_list_is_capped_the_same_way
+(+ 5 Bestandstests, die den Zähler unter `details["repaired"]` lasen)
+8 failed, 21 passed
+```
+
+Fix: `details["repaired"]` ist eine gedeckelte Liste
+`{collection, document, field, tenant_key, before, after}`, die exakte Zahl steht in
+`repaired_total`; der Dry-Run füllt sie identisch. Die `reversible = False`-Begründung
+im Modulkopf sagt jetzt, dass der Report an die Stelle des fehlenden Inversen tritt,
+statt die Schreibung nur für „schmal genug" zu erklären.
+
+Grün: `29 passed`. Deckel-Test (O-7): 501 unauflösbare Einträge → `len(unresolved) == 500`,
+`unresolved_total == 501`; dasselbe für `repaired`.
+
+**O-1 — fehlende `attachments`-Kollektion → stiller No-Op, trotzdem `applied`.**
+
+Rot:
+
+```
+FAILED ...::TestUp::test_a_missing_catalogue_with_references_around_leaves_the_migration_pending
+[info] reconcile_photo_refs  ambiguous=0 changed=0 repaired=0 scanned=1 unresolved=1
+1 failed, 29 passed
+```
+
+Die Logzeile ist der Defekt: die lebende Referenz wird als `unresolved` gemeldet und
+der Lauf als sauber verbucht. Fix nach dem Vorbild `v0004`: fehlt der Katalog **und**
+existiert mindestens ein Träger mit Referenz → `precondition_unmet=True`, Listen
+bewusst leer (ohne Katalog ist „unresolved" ein Befund, den dieser Lauf nicht tragen
+kann); existiert keine Referenz, ist es ein echter No-Op und wird verbucht.
+
+**O-3 — `details[0].entity` war nicht ein Wort pro Repository.**
+
+Rot (`base_repository.py:618`/`:649` warfen mit dem *Kollektions*namen):
+
+```
+FAILED ...::TestEveryNotFoundNamesTheSameThing::test_a_full_update_of_a_missing_row_names_the_model_too
+FAILED ...::TestEveryNotFoundNamesTheSameThing::test_a_partial_update_of_a_missing_row_names_the_model_too
+FAILED ...::TestEveryNotFoundNamesTheSameThing::test_the_entity_name_override_wins_on_every_path
+FAILED ...::TestEveryNotFoundNamesTheSameThing::test_no_raiser_in_the_base_passes_the_collection_name
+4 failed, 62 passed
+```
+
+Fix: `self._require_entity_name()` an beiden Stellen. Dazu ein AST-Absenz-Guard über
+`base_repository.py` — der nächste `NotFoundError(self._collection_name, …)` ist rot,
+sobald er geschrieben wird. Grün: `66 passed`.
+
+**Vokabular-Test über ALLE `NotFoundError`-Aufrufstellen: gemessen, nicht gebaut.**
+`ast`-Zählung über `app/`: **146** Aufrufstellen mit String-Literal, **59 verschiedene**
+Namen, darunter Prosa (`"LifecycleConfig for species"`, `"favorite target"`,
+`"nutrient plan phase entry"`, `"MCP tool"`) und Plurale (`"tenants"`,
+`"memberships"`, `"invitations"`, `"location_assignments"`), dazu **9** Aufrufstellen
+mit nicht-literalem ersten Argument (`target_collection`, `entity_collection`,
+`entity_type`, …), die zur Laufzeit einen Kollektionsnamen einsetzen. Ein geschlossenes
+Vokabular über diese Menge ist kein billiger Test, sondern eine eigene Gruppe: es
+verlangt erst die Festlegung des Vokabulars und dann Änderungen in ~30 Dateien quer
+durch die Service-Schicht. **Nicht gebaut; als Kandidat notiert.**
+
+**O-5 — `_API_URI_RE` nicht verankert.**
+
+Rot:
+
+```
+E  AssertionError: assert '2026' == 't/personal_max/attachments/2026/04/01HQ…jpg'
+E  AssertionError: assert '2026' == 's3://kamerplanter/attachments/2026/04/01HQ…jpg'
+2 failed, 21 passed
+```
+
+Ein Storage-Key, dessen **Kategorie** `attachments` heißt, wurde auf sein
+Jahressegment `"2026"` reduziert — ein plausibler numerischer `_key`. Fix:
+`(?:^|/)api/v\d+/(?:.*?/)?attachments/(?P<id>[^/?#]+)`. Kontrolle mitgeprüft: eine
+URI mit absolutem Host (`https://garten.example/api/v1/…`) wird weiterhin erkannt.
+Grün: `23 passed`.
+
+**O-4 — NFR-006 war intern uneinheitlich.** §2.1 zeigte `entity` in einem
+`VALIDATION_ERROR`-Envelope, §4.1 zeigte `NotFoundError` ganz ohne `entity`.
+Angeglichen: `entity` aus dem Validierungsbeispiel entfernt (mit Begründung, warum es
+dort nicht hingehört), §4.1-Snippet setzt es über `normalise_entity_name`.
+**Gemessen statt angenommen:** `docs/{de,en}/api/error-handling.md` sagten mit „nur bei
+404" bereits das Richtige — inkonsistent war die Spezifikation, nicht die Doku; die
+Dokumentseiten bleiben daher unverändert.
+
+**O-6 — NFR-013 §2.2** beschreibt v0046 jetzt so, wie sie ist: jede Identität
+antwortet nur für sich, mandantenlose Träger verlangen installationsweite
+Eindeutigkeit, fehlender Katalog → `precondition_unmet`, jede Umschreibung einzeln im
+Report. **O-2** — `_belongs_to`-Docstring präzisiert: „kein Mandant" heißt *falsy*,
+also auch der ungestempelte Träger mit `tenant_key == ""`; Verhalten unverändert und
+begründet.
+
+**Integrationslauf** (`arangodb:3.12` eigens gestartet, danach gestoppt), mit dem neuen
+Thumbnail-Fall:
+
+```
+tests/integration/test_v0046_reconcile_photo_refs.py   8 passed
+tests/integration/                                   151 passed in 49.77s
+```
+
+**Schlussläufe der Nacharbeit**
+
+| Lauf | Ergebnis |
+|---|---|
+| `pytest tests/unit/migrations tests/unit/data_access tests/api/test_task_photo_delete_router.py` | `1760 passed, 1 skipped in 410.57s` |
+| `pytest tests/unit/data_access tests/unit/domain/services` (nach O-3) | `2970 passed` |
+| `pytest tests/integration/` (gegen `arangodb:3.12`) | `151 passed` |
+| `pytest tests/unit tests/api tests/contracts` | `10057 passed, 1 skipped in 352.78s` |
+| `task precommit` | 47 Hooks **Passed**, 1 **Failed**: `Nuclei template validate` — `nuclei is not on PATH`, umgebungsbedingt und unverändert gegenüber Scheibe 3. Zweiter Lauf nach dem `ruff format`-Commit: nur noch dieser eine Fehlschlag, `git status` danach leer |
+
+**Kein erneuter kind-Dry-Run.** Der Report hat eine Feldänderung erfahren
+(`repaired` Liste + `repaired_total`); der Nullbefund aus Scheibe 2 (`scanned=3`,
+alle drei Referenzen bereits numerische `_key`) wird davon nicht berührt, und auf
+dem Dev-Cluster existiert keine Referenz, die einen der geänderten Zweige erreicht.
+Der Betreiberlauf gegen Produktionsbestand bleibt wie zuvor außerhalb des Scopes.
+
 ## Vollständigkeitsmatrix — Abgleich nach Scheibe 3
 
 Jede Zelle mit „Prüfung: …", mit der tatsächlich gelaufenen Ausgabe:
