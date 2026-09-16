@@ -21,21 +21,31 @@ field in :data:`~app.data_access.arango.attachment_repository.ATTACHMENT_REF_FIE
 (``cover_photo_ref`` and friends — the same pinned lists the sweep reads, so a
 seventh carrier reaches this migration without anyone remembering it exists):
 
-1. **Repair.** An entry that is no attachment ``_key`` of the same tenant, but whose
-   storage-key stem is that of **exactly one** attachment of the same tenant, is
-   rewritten to that attachment's ``_key``. Matching several is reported as
-   ``ambiguous`` and left alone — a rewrite that picks one of two candidates is a
-   silent, irreversible guess.
+1. **Repair.** An entry that is no attachment ``_key`` of the same tenant, but names
+   **exactly one** attachment of the same tenant, is rewritten to that attachment's
+   ``_key``. Matching several is reported as ``ambiguous`` and left alone — a rewrite
+   that picks one of two candidates is a silent, irreversible guess.
+
+   "Names" is deliberately narrow, and each identity answers only for itself: an API
+   URI is read through ``migrate_photo_refs.normalize_photo_ref`` and its ``{id}``
+   segment compared **verbatim** against ``_key``; any other spelling is reduced to
+   its storage-key stem and compared against ``storage_key``'s stem — never against
+   ``_key``. Document keys are short numeric strings, so the stem of a reference
+   (``…/attachments/{id}/thumbnails/320`` reduces to ``"320"``, a storage layout's
+   year segment to ``"2026"``) collides with a live key routinely, and accepting such
+   a hit would rewrite the reference onto a *different, existing* photo.
 2. **Report, never drop.** An entry that resolves to nothing is left **verbatim** and
    counted as ``unresolved`` (with collection, document key and tenant). Deleting a
    reference is the orphan sweep's question and needs its own release decision; the
    same never-drop rule ``migrate_photo_refs.test_never_drops_values`` pins.
 
-**The resolver expression is not duplicated.** Both halves of the comparison run
-through :func:`~app.data_access.arango.attachment_repository.aql_storage_key_stem`,
-the expression the orphan sweep itself uses — applied to the attachment's
-``storage_key`` *and* to the reference. The two identities meet at one point that is
-written down once, which is precisely what the root cause of #1438 was missing.
+**Neither answer is duplicated.** The stem comparison runs both its halves through
+:func:`~app.data_access.arango.attachment_repository.aql_storage_key_stem`, the
+expression the orphan sweep itself uses, and the URI is read by the only other
+component that answers "what does this reference mean",
+:func:`~app.migrations.migrate_photo_refs.normalize_photo_ref`. Those two answering
+differently — the normaliser taking the *first* segment after ``/attachments/``,
+this migration the *last* — is precisely the root cause of #1438.
 
 **Idempotent (M-3):** a repaired entry equals a live ``_key`` on the next run and is
 classified ``canonical`` — a re-run reports ``changed=0``. **Dry-run (M-5):** the full
@@ -67,6 +77,7 @@ from app.data_access.arango.attachment_repository import (
 )
 from app.migrations.framework.base import Migration
 from app.migrations.framework.report import MigrationReport
+from app.migrations.migrate_photo_refs import normalize_photo_ref
 
 logger = structlog.get_logger()
 
@@ -122,6 +133,11 @@ def build_identity_index(
 
     One attachment is reachable under its ``_key`` and under its storage-key stem;
     an attachment without a ``storage_key`` contributes only the former.
+
+    The index is deliberately *not* the decision: a lookup hit says "some attachment
+    answers to this string", never "under which identity". :func:`plan_reference`
+    re-checks that, because the two identities must not be interchangeable — a
+    reference's stem may match a ``storage_stem`` and never a ``_key`` (B-1).
     """
     index: dict[str, list[AttachmentIdentity]] = {}
     for attachment in attachments:
@@ -147,6 +163,18 @@ def _belongs_to(attachment: AttachmentIdentity, tenant_key: str | None) -> bool:
     return attachment.tenant_key == tenant_key
 
 
+def _matching_key(
+    lookup: str,
+    tenant_key: str | None,
+    index: Mapping[str, list[AttachmentIdentity]],
+) -> str | None:
+    """The attachment whose **document key** is *lookup*, if this tenant owns it."""
+    for attachment in index.get(lookup, ()):
+        if attachment.key == lookup and _belongs_to(attachment, tenant_key):
+            return attachment.key
+    return None
+
+
 def plan_reference(
     reference: str,
     stem: str | None,
@@ -155,20 +183,41 @@ def plan_reference(
 ) -> ReferenceVerdict:
     """Decide what one reference denotes — the whole rule, free of any database.
 
-    The document key wins outright: an entry that *is* an attachment key of this
-    tenant is already the target form, and no stem coincidence may promote it to
-    ``ambiguous`` and stall a re-run's idempotency.
+    Three ways a reference can name an attachment, and **each identity is compared
+    only against its own counterpart** (B-1):
+
+    a. the entry *is* a document key of this tenant → ``canonical``. It wins
+       outright: no stem coincidence may promote the target form to ``ambiguous``
+       and stall a re-run's idempotency.
+    b. the entry is an API URI → the ``{id}`` segment
+       :func:`~app.migrations.migrate_photo_refs.normalize_photo_ref` reads out of
+       it, compared **verbatim against ``_key``**. That function is the other
+       consumer of "what does this reference mean", and the two disagreeing on one
+       string is the root cause this migration exists for, so the answer is taken
+       from it rather than re-derived. A URI whose id names no live row is
+       ``unresolved`` — deliberately *not* falling through to (c), because the stem
+       of ``…/attachments/{id}/thumbnails/320`` is the **size**.
+    c. the entry's storage-key stem matches ``storage_stem`` — and only
+       ``storage_stem``, never ``_key``. Document keys are short numeric strings, so
+       a stem such as ``"320"`` or a year segment equals a live key routinely; a hit
+       there would rewrite the reference onto a *different, existing* photo,
+       irreversibly.
     """
-    for attachment in index.get(reference, ()):
-        if attachment.key == reference and _belongs_to(attachment, tenant_key):
-            return ReferenceVerdict("canonical", (attachment.key,))
+    canonical = _matching_key(reference, tenant_key, index)
+    if canonical is not None:
+        return ReferenceVerdict("canonical", (canonical,))
+
+    carried = normalize_photo_ref(reference)
+    if carried != reference.strip():
+        # An API URI, and nothing else — ``normalize_photo_ref`` leaves every other
+        # spelling (storage key, s3 URL, ULID, unparseable legacy value) untouched.
+        key = _matching_key(carried, tenant_key, index)
+        return ReferenceVerdict("repaired", (key,)) if key else ReferenceVerdict("unresolved")
 
     matched: dict[str, AttachmentIdentity] = {}
-    for lookup in (reference, stem):
-        if not lookup:
-            continue
-        for attachment in index.get(lookup, ()):
-            if _belongs_to(attachment, tenant_key):
+    if stem:
+        for attachment in index.get(stem, ()):
+            if attachment.storage_stem == stem and _belongs_to(attachment, tenant_key):
                 matched[attachment.key] = attachment
 
     keys = tuple(sorted(matched))
