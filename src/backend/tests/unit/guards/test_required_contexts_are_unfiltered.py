@@ -187,6 +187,29 @@ def required_contexts() -> list[str]:
     return sorted(set(fixture["branch_protection"]) | set(fixture["rulesets"]))
 
 
+def declared_ruleset_contexts(settings: Any) -> set[str]:
+    """Every status-check context the ``rulesets:`` block of *settings* requires.
+
+    Reads the ruleset shape the GitHub API defines (and the Probot Settings App
+    mirrors): ``rulesets[].rules[]`` entries of type ``required_status_checks``
+    carry them under ``parameters.required_status_checks[].context``. A repository
+    without a ``rulesets:`` block yields the empty set rather than raising — that
+    is the state this guard was written against (#1491), and it has to be a
+    finding, not a crash.
+    """
+    contexts: set[str] = set()
+    rulesets = settings.get("rulesets") if isinstance(settings, dict) else None
+    for ruleset in rulesets or []:
+        for rule in (ruleset or {}).get("rules") or []:
+            if (rule or {}).get("type") != "required_status_checks":
+                continue
+            for check in ((rule.get("parameters") or {}).get("required_status_checks")) or []:
+                context = (check or {}).get("context")
+                if context:
+                    contexts.add(str(context))
+    return contexts
+
+
 class TestEveryRequiredContextCanReport:
     """The property, over the real tree."""
 
@@ -218,8 +241,12 @@ class TestEveryRequiredContextCanReport:
             )
 
 
-class TestTheFixtureIsHeldToTheVersionedHalf:
-    """A hand-copied fixture goes stale silently; this is the tripwire."""
+class TestTheFixtureIsHeldToItsVersionedSources:
+    """A hand-copied fixture goes stale silently; this is the tripwire.
+
+    Both halves are versioned since #1491: the protection block and the ruleset
+    overlay each have a declaration in ``.github/settings.yml`` to be held to.
+    """
 
     def test_every_protected_context_is_declared_in_settings_yml(self) -> None:
         """`.github/settings.yml` is what the Settings App syncs FROM, so it must agree."""
@@ -236,6 +263,63 @@ class TestTheFixtureIsHeldToTheVersionedHalf:
             "a commit is the gap this catches. Refresh the fixture from `gh api` (its header "
             "carries the commands) and reconcile settings.yml."
         )
+
+    def test_every_ruleset_context_is_declared_in_settings_yml(self) -> None:
+        """The ruleset overlay needs a versioned source too (#1491).
+
+        Until this landed, ``default-branch-protection`` (id 17783737) existed only
+        in the GitHub UI. It requires ``chain-bench / Chain Bench`` and
+        ``security / Build`` — two checks that really gate a merge to develop and
+        that no file in this repository mentioned, so nothing could review a change
+        to them and nothing would notice their removal. ``.github/settings.yml`` now
+        declares the ruleset, and this holds the declaration to the fixture copy of
+        the live state.
+        """
+        declared = declared_ruleset_contexts(_load(_SETTINGS))
+        fixture = set(_load(_FIXTURE)["rulesets"])
+
+        assert fixture == declared, (
+            "The fixture copy of the develop ruleset and the `rulesets:` block in "
+            ".github/settings.yml disagree.\n"
+            f"  only in the fixture : {sorted(fixture - declared)}\n"
+            f"  only in settings.yml: {sorted(declared - fixture)}\n"
+            "A ruleset changed in the GitHub UI without a commit is the gap this catches "
+            "(#1491). Refresh the fixture from `gh api repos/nolte/kamerplanter/rulesets/17783737` "
+            "and reconcile settings.yml; editing only the fixture hides the change instead of "
+            "recording it."
+        )
+
+
+class TestTheRulesetReaderCanGoRed:
+    """The extraction itself, over the shapes a settings file can take."""
+
+    _RULESETS = {
+        "rulesets": [
+            {
+                "name": "default-branch-protection",
+                "rules": [
+                    {"type": "deletion"},
+                    {
+                        "type": "required_status_checks",
+                        "parameters": {"required_status_checks": [{"context": "security / Build"}]},
+                    },
+                ],
+            }
+        ]
+    }
+
+    def test_a_declared_context_is_read(self) -> None:
+        assert declared_ruleset_contexts(self._RULESETS) == {"security / Build"}
+
+    def test_a_settings_file_without_rulesets_yields_nothing(self) -> None:
+        """The pre-#1491 state — it must be a FINDING, which means empty, not an error."""
+        assert declared_ruleset_contexts({"branches": []}) == set()
+
+    def test_rules_other_than_status_checks_are_ignored(self) -> None:
+        """`deletion` and `non_fast_forward` carry no contexts and must not be mistaken for one."""
+        without_checks = {"rulesets": [{"name": "x", "rules": [{"type": "non_fast_forward"}]}]}
+
+        assert declared_ruleset_contexts(without_checks) == set()
 
 
 class TestTheSweepCanGoRed:
