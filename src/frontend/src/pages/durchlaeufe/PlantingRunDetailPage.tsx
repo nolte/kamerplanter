@@ -46,6 +46,7 @@ import PlantingRunEditDialog from './PlantingRunEditDialog';
 import AdoptPlantsDialog from './AdoptPlantsDialog';
 import { useRunNutrientData } from '@/hooks/useRunNutrientData';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useWateringVolumeSuggestion } from '@/hooks/useWateringVolumeSuggestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -101,6 +102,10 @@ export default function PlantingRunDetailPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // Only `DELETE /planting-runs/{key}` is lead-only
+  // (`require_permission(PLANTING_RUN, DELETE)`); batch-remove, detach and the
+  // nutrient-plan unlink are UPDATE routes and stay grower-writable (#1467).
+  const { canDelete } = useTenantPermissions();
   const [run, setRun] = useState<PlantingRun | null>(null);
   const [entries, setEntries] = useState<PlantingRunEntry[]>([]);
   const [plants, setPlants] = useState<PlantInRun[]>([]);
@@ -563,14 +568,16 @@ export default function PlantingRunDetailPage() {
               >
                 {t('pages.plantingRuns.createPlants')}
               </Button>
-              <Button
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setDeleteOpen(true)}
-                data-testid="delete-button"
-              >
-                {t('common.delete')}
-              </Button>
+              {canDelete && (
+                <Button
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteOpen(true)}
+                  data-testid="delete-button"
+                >
+                  {t('common.delete')}
+                </Button>
+              )}
             </>
           )}
           {(run?.status === 'active' || run?.status === 'harvesting') && (

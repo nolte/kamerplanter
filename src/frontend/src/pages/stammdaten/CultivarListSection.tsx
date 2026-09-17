@@ -15,6 +15,8 @@ import { useTableLocalState } from '@/hooks/useTableState';
 import { useCanCreateCatalogEntry } from '@/hooks/useCanCreateCatalogEntry';
 import CultivarCreateDialog from './CultivarCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/species';
 import type { Cultivar } from '@/api/types';
@@ -28,6 +30,11 @@ export default function CultivarListSection({ speciesKey }: Props) {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `SpeciesService.delete_cultivar` is lead-only for an own row and platform-admin for a
+  // global seed row (REQ-049 §2.3, #808/#1090) — a grower gets neither (#1467).
+  const { canDelete } = useTenantPermissions();
+  const isPlatformAdmin = usePlatformAdmin();
+  const canDeleteCatalogue = canDelete || isPlatformAdmin;
   const [cultivars, setCultivars] = useState<Cultivar[]>([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -97,14 +104,16 @@ export default function CultivarListSection({ speciesKey }: Props) {
       sortable: false,
       searchable: false,
       render: (r) => (
-        <IconButton
-          size="small"
-          aria-label={t('common.delete')}
-          onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
-          data-testid={`cultivar-delete-${r.key}`}
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
+        canDeleteCatalogue ? (
+          <IconButton
+            size="small"
+            aria-label={t('common.delete')}
+            onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+            data-testid={`cultivar-delete-${r.key}`}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        ) : null
       ),
     },
   ];
@@ -113,14 +122,16 @@ export default function CultivarListSection({ speciesKey }: Props) {
    *  column offers. Without it a cultivar cannot be deleted below the `sm`
    *  breakpoint at all. Touch target per UI-NFR-001 R-011 (48x48). */
   const renderRowActions = (r: Cultivar) => (
-    <IconButton
-      aria-label={t('common.delete')}
-      onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
-      sx={{ minWidth: 48, minHeight: 48 }}
-      data-testid={`cultivar-delete-${r.key}`}
-    >
-      <DeleteIcon fontSize="small" />
-    </IconButton>
+    canDeleteCatalogue ? (
+      <IconButton
+        aria-label={t('common.delete')}
+        onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+        sx={{ minWidth: 48, minHeight: 48 }}
+        data-testid={`cultivar-delete-${r.key}`}
+      >
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    ) : null
   );
 
   return (

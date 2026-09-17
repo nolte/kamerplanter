@@ -105,7 +105,8 @@ export default function NutrientPlanDetailPage() {
             </Tooltip>
           )}
           {/* UI-NFR-018 R-012: hide delete button for system data */}
-          {!c.isDeletionProtected && (
+          {/* #1467: the lead-only backend grant is the second gate. */}
+          {!c.isDeletionProtected && c.canDelete && (
             <Button
               variant="outlined"
               color="error"
@@ -154,6 +155,7 @@ export default function NutrientPlanDetailPage() {
           onAddEntry={c.openAddEntry}
           onEditEntry={c.openEditEntry}
           onDeleteEntry={c.openDeleteEntry}
+          canDeletePhaseEntry={c.canDeletePhaseEntry}
           onAddChannel={c.openAddChannel}
           onEditChannel={c.onEditChannel}
           onDeleteChannel={c.openDeleteChannel}

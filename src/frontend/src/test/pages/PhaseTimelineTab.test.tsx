@@ -125,6 +125,8 @@ function baseHandlers() {
     onRemoveFertilizerFromGantt: vi.fn(),
     onEntriesChange: vi.fn(),
     onLogWatering: vi.fn(),
+    // Lead rank — the delete affordance under test is lead-only (#1467).
+    canDeletePhaseEntry: true,
   };
 }
 
@@ -276,6 +278,7 @@ describe('PhaseTimelineTab', () => {
         entries={[e1]}
         fertilizers={fertilizers}
         expandedEntries={new Set(['e1'])}
+        canDeletePhaseEntry
         toggleExpanded={handlers.toggleExpanded}
         onAddEntry={handlers.onAddEntry}
         onEditEntry={handlers.onEditEntry}

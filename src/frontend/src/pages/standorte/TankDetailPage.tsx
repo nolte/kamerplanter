@@ -42,6 +42,7 @@ import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useAppDispatch } from '@/store/hooks';
@@ -165,6 +166,9 @@ export default function TankDetailPage() {
   // Issue #587: tank sensor surfaces (HA/MQTT sensors, history charts) are gated
   // behind the smart-home toggle; the tank itself stays visible.
   const { isSmartHomeEnabled } = useSmartHomeEnabled();
+  // `require_permission(TANK|SENSOR, DELETE)` is lead-only (REQ-049 §2.3) — a grower
+  // gets no destructive control here, only a 403 if it were offered (#1467).
+  const { canDelete } = useTenantPermissions();
 
   const [tank, setTank] = useState<Tank | null>(null);
   const [latestState, setLatestState] = useState<TankState | null>(null);
@@ -433,15 +437,17 @@ export default function TankDetailPage() {
           >
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => { e.stopPropagation(); setDeleteSensorKey(r.key); }}
-            aria-label={t('common.delete')}
-            data-testid={`sensor-delete-${r.key}`}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          {canDelete && (
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => { e.stopPropagation(); setDeleteSensorKey(r.key); }}
+              aria-label={t('common.delete')}
+              data-testid={`sensor-delete-${r.key}`}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
       ), align: 'right',
     },
@@ -468,15 +474,17 @@ export default function TankDetailPage() {
           >
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => { e.stopPropagation(); setDeleteScheduleKey(r.key); }}
-            aria-label={t('common.delete')}
-            data-testid={`schedule-delete-${r.key}`}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          {canDelete && (
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => { e.stopPropagation(); setDeleteScheduleKey(r.key); }}
+              aria-label={t('common.delete')}
+              data-testid={`schedule-delete-${r.key}`}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
       ),
     },
@@ -496,16 +504,18 @@ export default function TankDetailPage() {
       <PageTitle
         title={tank.name}
         action={
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteOpen(true)}
-            data-testid="tank-delete-button"
-            size="small"
-          >
-            {t('common.delete')}
-          </Button>
+          canDelete ? (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              data-testid="tank-delete-button"
+              size="small"
+            >
+              {t('common.delete')}
+            </Button>
+          ) : undefined
         }
       />
 
