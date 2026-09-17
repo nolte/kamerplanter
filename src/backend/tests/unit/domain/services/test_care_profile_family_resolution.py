@@ -149,7 +149,7 @@ class TestTheBootstrapResolvesTheFamily:
 
 
 class TestTheResolverIsOne:
-    """The resolution is a function, not a method, so the v0049 repair migration
+    """The resolution is a function, not a method, so the v0050 repair migration
     (which reads its families in one batched AQL pass) shares it rather than
     growing a fourth copy."""
 

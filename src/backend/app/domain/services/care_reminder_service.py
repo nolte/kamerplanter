@@ -89,7 +89,7 @@ def resolve_care_inputs(
     ``_bootstrap_care_profile`` handed the engine ``species.family_key`` verbatim.
     That is the recurring shape in this repository: the rule exists, the sibling was
     never served. So this is a module-level function taking its catalogue lookup as
-    a callable: the service passes its memoised repository read, and the v0049
+    a callable: the service passes its memoised repository read, and the v0050
     repair migration passes a lookup into the family index it already batched — no
     caller can resolve it a fourth way.
 
@@ -376,7 +376,7 @@ class CareReminderService:
         self._overwintering_template_repo = overwintering_template_repo
         #: ``botanical_families._key`` → name. A callable rather than a repository
         #: because the same lookup serves the AI context builder
-        #: (``dependencies.get_family_name_resolver``) and the v0049 migration, which
+        #: (``dependencies.get_family_name_resolver``) and the v0050 migration, which
         #: reads its families in one batched AQL pass.
         self._family_name_resolver = family_name_resolver
         self._family_name_cache: dict[str, str | None] = {}
@@ -397,7 +397,7 @@ class CareReminderService:
             self._family_name_cache[family_key] = self._family_name_resolver(family_key)
         return self._family_name_cache[family_key]
 
-    def resolve_care_inputs(self, plant_key: str) -> CareInputs:
+    def care_inputs_for_plant(self, plant_key: str) -> CareInputs:
         """The care inputs of a plant, resolved here rather than taken from a caller.
 
         Taken from the caller is what drifted (#1489): the creation bootstrap passed
@@ -440,7 +440,7 @@ class CareReminderService:
         answering with the presets keeps the UI working and leaves the database alone.
 
         **The presets are resolved here, not passed in** (#1489/#1481) — see
-        :meth:`resolve_care_inputs`. The resolution costs two reads and is reached
+        :meth:`care_inputs_for_plant`. The resolution costs two reads and is reached
         only when a profile has to be generated, which after the v0048 backfill and
         the creation bootstrap is the exception rather than the rule.
         """
@@ -448,7 +448,7 @@ class CareReminderService:
         if profile is not None:
             return profile
 
-        inputs = self.resolve_care_inputs(plant_key)
+        inputs = self.care_inputs_for_plant(plant_key)
         new_profile = self._engine.auto_generate_profile(
             botanical_family=inputs.family_name,
             plant_key=plant_key,
@@ -1554,7 +1554,7 @@ class CareReminderService:
         if profile is None:
             profile = self.get_or_create_profile(plant_key, may_create=True)
 
-        inputs = self.resolve_care_inputs(plant_key)
+        inputs = self.care_inputs_for_plant(plant_key)
         new_profile = self._engine.auto_generate_profile(
             botanical_family=inputs.family_name,
             plant_key=plant_key,

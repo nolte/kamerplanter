@@ -228,7 +228,7 @@ class TestTheScannerItself:
         assert scan_source(_THE_FIX) == []
 
     def test_a_lookup_through_the_catalogue_is_not_an_offence(self) -> None:
-        """``families[family_key]`` is the batched resolution v0049 uses: the
+        """``families[family_key]`` is the batched resolution v0050 uses: the
         subscript's *index* is the key, the value is the name."""
         assert scan_source(_A_NAME) == []
 

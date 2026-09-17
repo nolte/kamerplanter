@@ -187,7 +187,7 @@ def get_family_name_resolver() -> Callable[[str], str | None]:
     There were two exemplars of this three-liner and a third place that needed it
     and never got one: the AI context builder had it inline, the v0048 backfill
     batches it in AQL, and the care-profile bootstrap passed the key straight
-    through. The care service and the context builder now share this one; v0049
+    through. The care service and the context builder now share this one; v0050
     passes its batched index into the same ``resolve_care_inputs``.
     """
     family_repo = get_family_repo()
@@ -310,7 +310,8 @@ def _bootstrap_care_profile(plant) -> None:  # type: ignore[no-untyped-def]
     the profile is created once and read thereafter: the wrong values were the
     plant's for good. #1440's own note said "the species is resolved and passed on"
     and it was true — the wrong field of it. Resolution now lives in
-    ``CareReminderService.resolve_care_inputs``, where the read paths and the v0049
+    ``CareReminderService.care_inputs_for_plant`` over the shared ``resolve_care_inputs``,
+    where the read paths and the v0050
     repair migration reach the same answer.
     """
     if not plant.key:
