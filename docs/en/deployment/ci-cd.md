@@ -42,6 +42,7 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-cd-deliver-docs.yml` | Published release | Deploy MkDocs documentation to GitHub Pages |
 | `release-cd-refresh-master.yml` | Published release | Update `main` branch to release state |
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
+| `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
 
 ---
 
@@ -65,9 +66,17 @@ jobs:
           python-version: '3.14'
           allow-prereleases: true
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@<sha>
+        with:
+          # Reads the uv version from [tool.uv].required-version. No workflow
+          # spells out a uv version of its own.
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
       - name: Install dependencies
         run: |
-          python -m pip install 'uv==0.12.12'
           uv sync --locked --extra dev
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
@@ -96,6 +105,51 @@ Backend dependencies are installed from `uv.lock`, the hash-bearing lock resolve
 ```bash
 uv sync --locked --extra dev
 ```
+
+---
+
+## Renovate health (`renovate-health.yml`)
+
+Renovate reports its own failures **only** in the Dependency Dashboard (issue #12) — not as a red run, not as a missing pull request. A manager that finds nothing any more looks exactly like "there is nothing to update".
+
+That is what happened between 2026-08-02 and 2026-09-10: Renovate's `pip-compile` manager extracted **nothing** for six weeks, the backend locks aged untouched, and every lane stayed green. The only signal was a `⚠️ WARN: pip-compile error` line in the dashboard.
+
+So this workflow reads the body of #12 daily and compares:
+
+* **Repository problems** — every `WARN`/`ERROR` line under `## Repository problems` is a finding and is quoted verbatim.
+* **The manager inventory** — `pep621` must extract from all five locked PEP 621 trees (backend + four service images), `pip-compile` must not appear at all, and **no second manager** (`poetry`, `pip_requirements`, `pip-compile`) may read a file inside any of those five trees.
+
+    !!! note "Why the rule is not \"`poetry` must not appear\""
+        Measured with `task renovate:dry-run` (Renovate 44.94.1, 2026-09-16): `enabled: false` disables a manager's **dependencies**, not its **extraction**. `poetry` keeps reading the two lock-less libraries under `src/libs/`. A rule of the form "`poetry` must not appear" would have alerted on a correct repository every day.
+* **The lock beside each package file** — the dashboard lists *no* lock files, so this one fact is read from the checkout. The report says so explicitly.
+
+On a finding the run opens or updates **a single deduplicated issue** (label `renovate-health`) instead of merely going red — a red scheduled run is invisible after a week of red scheduled runs. Conversely, when the run *cannot decide* (issue unreachable, empty body, unparseable dashboard) **the run goes red and no issue is opened** — an undetermined check must not read as a clean one (NFR-018 §2).
+
+The expectation itself lives in `scripts/ci/check_renovate_dashboard.py` (`EXPECTED_PEP621_FILES`, `KNOWN_LOCKLESS_PEP621_FILES`); a new Python tree is added there rather than the rule being quietly widened.
+
+### `task renovate:dry-run` — prove the configuration before merging
+
+`renovate.json5` is the one configuration file in this repository that nothing verifies **before** a merge: a rule that matches nothing, an accidentally disabled manager, a typo in `managerFilePatterns` — all parse cleanly and are only discovered on the next Renovate run, hours later and on `develop`. That is exactly how the `pip-compile` manager went silent for six weeks.
+
+```bash
+task renovate:dry-run                      # manager inventory + proposed updates
+LOG_LEVEL=debug task renovate:dry-run      # plus every extracted file individually
+```
+
+The command runs the pinned `renovate/renovate` CLI in Docker with `--platform=local --dry-run=full` against **this working tree** — including uncommitted changes, which is the point. `src/backend/.venv`, `src/frontend/node_modules` and `node_modules` are hidden by **masking the mount**, not by overriding `ignorePaths`: an override would prove a *different* configuration than the one production runs.
+
+`GITHUB_TOKEN` is passed through when set; without it the datasource lookups run anonymously and hit the rate limit quickly — the manager inventory is still correct, the proposed updates are not.
+
+Measured 2026-09-16 (Renovate 44.94.1) against this state:
+
+| Manager | Files | Note |
+|---|---|---|
+| `pep621` | 5 | backend + four service images, each with its `uv.lock` as `lockFiles` |
+| `poetry` | 2 | `src/libs/kp_errortracking`, `src/libs/kp_vectordb` — libraries without a lock; their dependencies are disabled repository-wide |
+| `pip_requirements` | 2 | `docs/` and `tools/rag-eval/` only |
+| `pip-compile` | — | no longer appears |
+
+That is the measurement `renovate-health.yml` holds the dashboard inventory against.
 
 ---
 
