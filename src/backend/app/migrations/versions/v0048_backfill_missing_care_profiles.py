@@ -111,7 +111,7 @@ import structlog
 from arango.database import StandardDatabase
 from arango.exceptions import ArangoError
 
-from app.common.exceptions import DuplicateError
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_reminder_repository import (
     ArangoCareReminderRepository,
@@ -398,34 +398,37 @@ class BackfillMissingCareProfilesMigration(Migration):
     ) -> str | None:
         """Store profile and edge as the service does; ``None`` when the edge is taken.
 
-        The two calls are ``get_or_create_profile``'s own
-        (``care_reminder_service.py:337-339``). They are not atomic and
-        ``has_care_profile`` is unique on ``_from`` (PR #1486), so a plant that
-        already owns an edge — pointing at a profile whose ``plant_key`` names
-        somebody else, which is exactly how it can sit inside this migration's
-        predicate — refuses the insert. The profile just written is then removed
-        again, so the row is left as it was found instead of leaving a profile the
-        nightly run would treat as a second schedule for the same plant.
+        The call is ``get_or_create_profile``'s own. Since #1292 that is a single
+        transactional write (``create_linked_profile``) rather than a profile insert
+        followed by an edge insert, and this migration follows it for the same reason
+        the service does: ``has_care_profile`` is unique on ``_from`` (PR #1486), so
+        a plant that already owns an edge — pointing at a profile whose ``plant_key``
+        names somebody else, which is exactly how it can sit inside this migration's
+        predicate — refuses the insert.
+
+        The rejection now leaves nothing to undo. Before, the profile document had
+        already been committed and had to be deleted again on the way out; a
+        concurrent nightly run could read it in between through the non-unique
+        ``plant_key`` field. The aborted transaction leaves no document at all, so
+        the row is left exactly as it was found.
         """
-        stored = repository.create_profile(profile)
-        profile_key = stored.key or ""
-        if not profile_key:  # pragma: no cover - the driver always echoes a key back
-            return None
         try:
-            repository.create_profile_edge(plant_key, profile_key)
+            stored = repository.create_linked_profile(profile, plant_key)
         # ``as exc`` is not decoration: ``ruff format`` rewrites a parenthesised
         # tuple in a bare ``except`` into the Python-2 spelling this file went red
         # on once already, and the binding prevents that rewrite.
-        except (DuplicateError, ArangoError) as exc:
+        # ``WriteConflictError`` (ArangoDB ``1200``) belongs here beside ``1210``:
+        # it is the answer a still-open transaction produces on the same unique
+        # ``_from`` index, and it is NOT an ``ArangoError`` — it is a domain type, so
+        # it was falling through this handler and aborting the whole backfill (#1292).
+        except (DuplicateError, WriteConflictError, ArangoError) as exc:
             logger.warning(
                 "backfill_missing_care_profiles_edge_taken",
                 plant_key=plant_key,
-                profile_key=profile_key,
                 exc_info=exc,
             )
-            repository.delete_profile(profile_key)
             return None
-        return profile_key
+        return stored.key or None
 
     # ── report plumbing ───────────────────────────────────────────────────────
 

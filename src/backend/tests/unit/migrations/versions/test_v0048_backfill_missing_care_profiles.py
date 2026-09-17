@@ -69,24 +69,52 @@ def _population(query: str, plants: list[dict[str, Any]], profiles: list[dict[st
     ]
 
 
+class _CollectionState:
+    """Per-collection state the plain handle and a transaction handle must share.
+
+    A transaction writes through its own handle, but it writes into the *same*
+    collection: the unique-index rejection a test arms and the key sequence
+    ArangoDB hands out both belong to the collection, not to the handle. Keeping
+    them here is what stops ``db.collection(X).refuse_insert = ...`` from silently
+    arming a handle the code under test never touches.
+    """
+
+    def __init__(self) -> None:
+        #: Raised by the next ``insert`` — models the unique ``_from`` index.
+        self.refuse_insert: Exception | None = None
+        self.next_key = 1000
+
+
 class _FakeCollection:
-    def __init__(self, name: str, documents: list[dict[str, Any]], writes: list[tuple[str, str, Any]]) -> None:
+    def __init__(
+        self,
+        name: str,
+        documents: list[dict[str, Any]],
+        writes: list[tuple[str, str, Any]],
+        state: _CollectionState,
+    ) -> None:
         self._name = name
         self._documents = documents
         self._writes = writes
-        #: Raised by the next ``insert`` — models the unique ``_from`` index.
-        self.refuse_insert: Exception | None = None
-        self._next_key = 1000
+        self._state = state
+
+    @property
+    def refuse_insert(self) -> Exception | None:
+        return self._state.refuse_insert
+
+    @refuse_insert.setter
+    def refuse_insert(self, error: Exception | None) -> None:
+        self._state.refuse_insert = error
 
     def insert(self, data: dict[str, Any], return_new: bool = False):
-        if self.refuse_insert is not None:
-            raise self.refuse_insert
+        if self._state.refuse_insert is not None:
+            raise self._state.refuse_insert
         document = dict(data)
         # ArangoDB assigns the key; the repository never sends one (``_to_doc``
         # pops ``_key``), so neither does the fake honour one.
         document.pop("_key", None)
-        document["_key"] = str(self._next_key)
-        self._next_key += 1
+        document["_key"] = str(self._state.next_key)
+        self._state.next_key += 1
         document["_id"] = f"{self._name}/{document['_key']}"
         self._documents.append(document)
         self._writes.append(("insert", self._name, document))
@@ -159,20 +187,83 @@ class _FakeAql:
         )
 
 
+class _FakeTransaction:
+    """A stream transaction that really buffers: nothing lands until the commit.
+
+    The migration stores a care profile through
+    ``ArangoCareReminderRepository.create_linked_profile``, whose whole point is
+    that the profile document is invisible until its ``has_care_profile`` edge is
+    in too (#1292). A handle that wrote straight through to the collections would
+    let this file certify that guarantee while the code under test had lost it —
+    the #1155 shape, a double accepting a state the real thing forbids. So a staged
+    document is absent from ``db.collections`` and from ``db.writes`` until
+    :meth:`commit_transaction`, and :meth:`abort_transaction` drops it.
+    """
+
+    def __init__(self, db: _FakeDb, write: list[str]) -> None:
+        self._db = db
+        self._write = list(write)
+        self._staged: dict[str, list[dict[str, Any]]] = {}
+        self._handles: dict[str, _FakeCollection] = {}
+        self.committed = False
+        self.aborted = False
+
+    def collection(self, name: str) -> _FakeCollection:
+        assert name in self._write, (
+            f"{name!r} is written inside the transaction but was not declared in "
+            f"begin_transaction(write={self._write!r}); ArangoDB refuses that"
+        )
+        if name not in self._handles:
+            self._handles[name] = _FakeCollection(
+                name,
+                self._staged.setdefault(name, []),
+                [],
+                self._db.state(name),
+            )
+        return self._handles[name]
+
+    def commit_transaction(self) -> None:
+        self.committed = True
+        for name, documents in self._staged.items():
+            self._db.collections.setdefault(name, []).extend(documents)
+            for document in documents:
+                self._db.writes.append(("insert", name, document))
+        self._staged.clear()
+
+    def abort_transaction(self) -> None:
+        self.aborted = True
+        self._staged.clear()
+
+
 class _FakeDb:
     def __init__(self, collections: dict[str, list[dict[str, Any]]]) -> None:
         self.collections = collections
         self.aql = _FakeAql(collections)
         self.writes: list[tuple[str, str, Any]] = []
         self._handles: dict[str, _FakeCollection] = {}
+        self._states: dict[str, _CollectionState] = {}
+        self.transactions: list[_FakeTransaction] = []
 
     def has_collection(self, name: str) -> bool:
         return name in self.collections
 
+    def state(self, name: str) -> _CollectionState:
+        return self._states.setdefault(name, _CollectionState())
+
     def collection(self, name: str) -> _FakeCollection:
         if name not in self._handles:
-            self._handles[name] = _FakeCollection(name, self.collections.setdefault(name, []), self.writes)
+            self._handles[name] = _FakeCollection(
+                name,
+                self.collections.setdefault(name, []),
+                self.writes,
+                self.state(name),
+            )
         return self._handles[name]
+
+    def begin_transaction(self, write: list[str] | None = None, **_: Any) -> _FakeTransaction:
+        transaction = _FakeTransaction(self, write or [])
+        self.transactions.append(transaction)
+        return transaction
 
 
 def _plant(key: str = PLANT, **overrides: Any) -> dict[str, Any]:
@@ -276,6 +367,8 @@ class TestUp:
         assert report.scanned == 1
         assert report.changed == 1
         assert report.details["created_total"] == 1
+        # One transaction, committed: the document and the edge are one write (#1292).
+        assert [(t.committed, t.aborted) for t in db.transactions] == [(True, False)]
 
     def test_the_family_decides_the_preset_not_the_tropical_fallback(self, db: _FakeDb) -> None:
         """#1440 round 1: without the family every plant is profiled TROPICAL.
@@ -409,6 +502,11 @@ class TestUp:
 
         assert db.collections[col.CARE_PROFILES] == []
         assert db.collections[col.HAS_CARE_PROFILE] == []
+        # "Rolls back" is now literal. The profile used to be committed and then
+        # deleted again, which is the window #1292 round two measured; the refused
+        # edge aborts the transaction it was staged in and nothing is ever visible.
+        assert [(t.committed, t.aborted) for t in db.transactions] == [(False, True)]
+        assert db.writes == []
         assert report.changed == 0
         assert report.details["created_total"] == 0
         assert report.details["already_profiled"] == [

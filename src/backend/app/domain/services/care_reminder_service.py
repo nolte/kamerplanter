@@ -333,20 +333,16 @@ class CareReminderService:
             # Generated, not stored. The caller is reading.
             return new_profile
 
-        created = self._repo.create_profile(new_profile)
-        if not created.key:
-            return created
         try:
-            self._repo.create_profile_edge(plant_key, created.key)
+            return self._repo.create_linked_profile(new_profile, plant_key)
         except DuplicateError, WriteConflictError:
-            winner = self._resolve_lost_profile_race(plant_key, created)
+            winner = self._resolve_lost_profile_race(plant_key)
             if winner is None:
                 # The conflict was not a lost race — keep it propagating (409).
                 raise
             return winner
-        return created
 
-    def _resolve_lost_profile_race(self, plant_key: str, mine: CareProfile) -> CareProfile | None:
+    def _resolve_lost_profile_race(self, plant_key: str) -> CareProfile | None:
         """Answer a profile-creation race this caller lost, or re-raise (#1292).
 
         The ``has_care_profile`` edge carries a unique index over ``_from``, so it
@@ -369,21 +365,25 @@ class CareReminderService:
         re-read below is what settles it, and it is correct for ``1210`` too.
 
         * the edge resolves to a profile → that is the winner, and it is this
-          caller's answer too. The document this call inserted a moment earlier is
-          an orphan that no edge references and that no caller has ever seen; it is
-          removed, because :meth:`ICareReminderRepository.get_profile_by_plant_key`
-          reads the *field* (which has no unique index), so leaving it there would
-          let later reads answer with an unlinked duplicate.
+          caller's answer too.
         * the edge resolves to nothing → the winner did not commit. ``None`` is
           returned and the caller re-raises, because reporting success here would
           hand back a profile whose link does not exist.
+
+        **The loser has nothing to clean up.** It used to: the two writes were not
+        atomic, so a loser had already committed a profile document that no edge
+        referenced, and this method deleted it — after a fourth caller had had the
+        chance to read it through the non-unique ``plant_key`` field and answer with
+        it. That is the defect this whole change removes:
+        :meth:`ICareReminderRepository.create_linked_profile` writes both inside one
+        transaction, an aborted transaction leaves nothing behind, and so there is
+        no orphan to delete and never was a document for anyone to see.
+
+        The read is deliberately :meth:`get_linked_profile` and not
+        ``get_profile_by_plant_key``: the field carries no unique index and cannot
+        say which document is the linked one, the edge can.
         """
-        winner = self._repo.get_linked_profile(plant_key)
-        if winner is None:
-            return None
-        if mine.key and winner.key != mine.key:
-            self._repo.delete_profile(mine.key)
-        return winner
+        return self._repo.get_linked_profile(plant_key)
 
     def _propagate(self, action) -> None:  # noqa: ANN001 — Callable[[NotificationPropagationService], None]
         """Run a notification-propagation ``action`` when the coupling is wired.

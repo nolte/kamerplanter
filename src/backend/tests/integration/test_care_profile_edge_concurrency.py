@@ -27,6 +27,18 @@ Hence the integration tier — never ``tests/unit``/``tests/api``, where a
 developer machine's ``localhost:8529`` turns an accidental connection into a local
 pass and a CI failure (#978).
 
+**The second defect, measured 2026-09-16 (#1292 round two).** The four-way race
+above went red in the required ``Integration tests (ArangoDB)`` lane of PR #1498
+with ``racers answered with different profiles: ['11770', '11772', '11772',
+'11772']`` while the surviving edge *and* the surviving document were both
+``11772``. Storage was consistent; one caller's ANSWER was not. The cause is the
+window between the profile insert and the edge insert: a loser's document was
+committed and readable through the non-unique ``plant_key`` field before its edge
+was refused, so a fourth caller's ``get_profile_by_plant_key`` returned the orphan
+and answered with it — moments before the loser deleted it again.
+``test_a_second_connection_never_sees_a_profile_before_its_edge`` below pins that
+window deterministically instead of waiting for the four-way race to hit it.
+
 **Falsification.** ``test_negative_control_without_the_index_duplicates`` runs the
 identical concurrent driver against the edge collection with the unique index
 *removed*, and asserts that two edges then appear. If the racers did not actually
@@ -250,3 +262,98 @@ def test_negative_control_without_the_index_duplicates(db):
         "without the unique index — the racers are not actually overlapping, so the positive "
         "test proves nothing."
     )
+
+
+# ── the window between the two writes ────────────────────────────────────────
+
+
+def test_a_second_connection_never_sees_a_profile_before_its_edge(db, plant, monkeypatch):
+    """No reader may observe a care profile that is not yet linked (#1292).
+
+    **Deterministic, not timed.** The four-way race above reproduces this only when
+    the interleaving happens to land right; it did on 2026-09-16 and had not for two
+    days before. This test creates the interleaving instead of hoping for it: the
+    writer is suspended *inside* the profile write, at the instant the profile
+    document has been handed to the driver and the edge has not, and a **second
+    connection** then asks the exact question production asks —
+    ``get_profile_by_plant_key``, the non-unique ``plant_key`` field lookup that
+    ``get_or_create_profile`` opens with.
+
+    The suspension point is ``StandardCollection.insert`` on ``care_profiles``,
+    restricted to the writer thread. That is deliberately below the repository API
+    rather than a patch of one of its methods: ``TransactionDatabase.collection()``
+    hands back a ``StandardCollection`` too (measured against python-arango on
+    ArangoDB 3.12.8), so the same hook catches the write whether it goes through a
+    transaction or not, and the test cannot pass merely because the method it used
+    to patch was renamed.
+
+    Against the pre-fix code — ``create_profile`` committing, then
+    ``create_profile_edge`` — the reader sees the unlinked document and this is red.
+    Against the transactional write it sees nothing, because nothing is committed.
+    """
+    from arango.collection import StandardCollection
+
+    from app.data_access.arango import collections as col
+    from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
+
+    original_insert = StandardCollection.insert
+    writer_name = "profile-writer"
+    profile_written = threading.Event()
+    reader_finished = threading.Event()
+
+    def insert(self, document, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
+        result = original_insert(self, document, *args, **kwargs)
+        if self.name == col.CARE_PROFILES and threading.current_thread().name == writer_name:
+            profile_written.set()
+            # Bounded, so a future implementation that never reaches this point
+            # fails the assertion below instead of hanging the suite.
+            reader_finished.wait(timeout=30)
+        return result
+
+    monkeypatch.setattr(StandardCollection, "insert", insert)
+
+    writer_result: list[object] = []
+    observations: list[object] = []
+
+    def write() -> None:
+        conn, writer_db = _connect()
+        try:
+            writer_result.append(
+                _make_service(writer_db).get_or_create_profile(plant, "Ocimum basilicum", may_create=True)
+            )
+        except BaseException as exc:  # noqa: BLE001 — asserted on by the caller
+            writer_result.append(exc)
+        finally:
+            profile_written.set()  # never leave the reader waiting on a failed writer
+            conn.close()
+
+    def read() -> None:
+        try:
+            if not profile_written.wait(timeout=30):
+                observations.append("the writer never inserted a care-profile document")
+                return
+            conn, reader_db = _connect()
+            try:
+                observations.append(ArangoCareReminderRepository(reader_db).get_profile_by_plant_key(plant))
+            finally:
+                conn.close()
+        finally:
+            reader_finished.set()
+
+    writer = threading.Thread(target=write, name=writer_name)
+    reader = threading.Thread(target=read, name="profile-reader")
+    writer.start()
+    reader.start()
+    reader.join(timeout=60)
+    writer.join(timeout=60)
+
+    assert observations, "the reader never ran — the observation this test is built on did not happen"
+    seen = observations[0]
+    assert seen is None, (
+        "a second connection read a care profile while it had no has_care_profile edge: "
+        f"{seen!r}. That document is a loser's orphan the moment the edge insert is refused, "
+        "and answering a request with it is #1292."
+    )
+    assert not isinstance(writer_result[0], BaseException), f"the writer failed: {writer_result[0]!r}"
+    assert len(_profile_docs(db, plant)) == 1
+    assert len(_profile_edges(db, plant)) == 1

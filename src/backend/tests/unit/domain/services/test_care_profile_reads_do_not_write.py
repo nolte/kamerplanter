@@ -18,22 +18,25 @@ the paths that must not write would inherit the permissive answer by saying noth
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 
 import pytest
 
+from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareProfile
 from app.domain.services.care_reminder_service import CareReminderService
 
 
 def _service(existing: CareProfile | None):
     service = CareReminderService.__new__(CareReminderService)
-    repo = MagicMock()
+    # `spec` is the real interface (#1155): since #1292 the profile and its edge are
+    # one transactional write, and a bare MagicMock would happily answer the
+    # `create_profile`/`create_profile_edge` calls the repository no longer offers —
+    # the write control below would then pass against a path production cannot take.
+    repo = MagicMock(spec=ICareReminderRepository)
     repo.get_profile_by_plant_key.return_value = existing
-    # Returns a row WITH a key, as the real repository does — the edge is only
-    # created `if created.key`, so a keyless double would have made the write
-    # control pass for the wrong reason.
-    repo.create_profile.side_effect = lambda profile: profile.model_copy(update={"key": "cp-new"})
+    # Returns a row WITH a key, as the real repository does.
+    repo.create_linked_profile.side_effect = lambda profile, _plant_key: profile.model_copy(update={"key": "cp-new"})
     engine = MagicMock()
     engine.auto_generate_profile.return_value = CareProfile(plant_key="p1", watering_interval_days=7)
     service._repo = repo
@@ -48,8 +51,7 @@ def test_a_read_of_an_absent_profile_stores_nothing():
     profile = service.get_or_create_profile("p1", may_create=False)
 
     assert profile is not None, "the caller still gets presets to render"
-    repo.create_profile.assert_not_called()
-    repo.create_profile_edge.assert_not_called()
+    repo.create_linked_profile.assert_not_called()
 
 
 def test_a_write_path_still_stores_it():
@@ -58,8 +60,7 @@ def test_a_write_path_still_stores_it():
 
     service.get_or_create_profile("p1", may_create=True)
 
-    repo.create_profile.assert_called_once()
-    repo.create_profile_edge.assert_called_once()
+    repo.create_linked_profile.assert_called_once_with(ANY, "p1")
 
 
 def test_an_existing_profile_is_returned_untouched_either_way():
@@ -74,7 +75,7 @@ def test_an_existing_profile_is_returned_untouched_either_way():
         service, repo = _service(existing=existing)
 
         assert service.get_or_create_profile("p1", may_create=may_create) is existing
-        repo.create_profile.assert_not_called()
+        repo.create_linked_profile.assert_not_called()
 
 
 def test_may_create_has_no_default():
