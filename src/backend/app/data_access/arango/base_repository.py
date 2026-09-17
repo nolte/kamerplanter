@@ -906,7 +906,32 @@ class BaseArangoRepository[TModel: BaseModel]:
         if data:
             edge_data.update(data)
         col = self._db.collection(edge_collection)
-        result = col.insert(edge_data, return_new=True)
+        try:
+            result = col.insert(edge_data, return_new=True)
+        except DocumentInsertError as exc:
+            # The same raw-to-domain translation :meth:`_insert_doc` performs for
+            # documents, which this path never inherited: edges are written
+            # through the driver directly, so a rejection from a *unique edge
+            # index* — ``has_care_profile`` over ``_from``, one care profile per
+            # plant — fell through as a bare driver exception and every caller
+            # above turned it into a 500 (#1292).
+            #
+            # Both codes are mapped because both were measured on that one index:
+            # the 2026-09-14 nightly recorded ``1200`` and the concurrency test in
+            # ``tests/integration/test_care_profile_edge_concurrency.py`` records
+            # ``1210`` from the same four-way race. Which one a losing racer gets
+            # is the server's decision about how far the winner had got, so a
+            # caller that handled only one of them would still be flaky.
+            if exc.error_code == 1210:  # unique constraint violated
+                field, value = self._describe_unique_conflict(exc, edge_data)
+                raise DuplicateError(edge_collection, field, value) from exc
+            if exc.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # Not a variant of 1210: it says a concurrent transaction held the
+                # entry, never that that transaction committed. The driver message
+                # is not forwarded — it names an index and a document key, and this
+                # error's ``details`` are client-visible.
+                raise WriteConflictError(edge_collection) from exc
+            raise
         return result["new"]
 
     def get_edges(self, edge_collection: str, vertex_id: str, direction: str = "outbound") -> list[dict[str, Any]]:
