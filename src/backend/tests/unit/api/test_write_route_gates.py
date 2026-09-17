@@ -393,20 +393,6 @@ _PERSISTING_READ_FINDINGS: dict[str, str] = {
         "AiAssistantService.get_tips invalidates the tip cache, creates the generated card and "
         "records an audit entry (ai_assistant_service.py:153, 208-210)"
     ),
-    "onboarding.tenant_router.get_onboarding_state": (
-        "OnboardingService.get_state auto-creates the OnboardingState singleton on a cold read "
-        "(onboarding_service.py:45-47)"
-    ),
-    "user_preferences.tenant_router.get_preferences": (
-        "UserPreferenceService.get_preferences auto-creates the UserPreference singleton on a cold "
-        "read (user_preference_service.py:92-94)"
-    ),
-    "dashboard.tenant_router.get_widget_catalog": (
-        "reaches the same UserPreferenceService.get_preferences auto-create as the route above"
-    ),
-    "season.tenant_router.get_site_season_state": (
-        "SeasonStateService.evaluate_site_detailed upserts the SeasonState it computed (season_state_service.py:126)"
-    ),
 }
 
 #: The ten findings **as measured** on 2026-09-16, by id. The ratchet, and it is

@@ -92,8 +92,41 @@ class SeasonStateService:
         # stances share :meth:`_site_has_frost_exposure` (no second hardcoded site-type
         # set). The per-plant ``Location.frost_exposed`` overrides then narrow the
         # side-effects to the actually-exposed plants (see :meth:`_active_plants`).
-        if not self._site_has_frost_exposure(site) or not site.key:
+        computed = self.compute_site_state(site, on_date)
+        if computed is None:
             return None, False
+        state, transition = computed
+
+        if transition.changed:
+            self._apply_side_effects(site, transition)
+
+        return self._repo.upsert(state), transition.changed
+
+    def compute_site_state(
+        self, site: Site, on_date: date | None = None
+    ) -> tuple[SeasonState, SeasonStateTransition] | None:
+        """Resolve the site's season state **transiently** — no write, no side effect.
+
+        Split out of :meth:`evaluate_site_detailed` for #1461: the read path
+        (:meth:`get_state_for_site`, behind ``GET …/sites/{key}/season-state``)
+        used to fall through to the full evaluation when no state was stored yet,
+        which upserted the computed state *and* ran the transition side effects —
+        materialising overwintering profiles and creating winter/spring care tasks
+        on a plain ``GET``. Entry 10 of the #1443 detector inventory.
+
+        Nothing about the answer needed the write: the state is derived from the
+        site, the signal cascade and the stored state, so recomputing it is cheap
+        and the persisted copy is only a cache with an ``evaluated_at`` stamp. The
+        daily Celery task (``season_tasks.evaluate_all_sites`` → this method's
+        persisting caller) already writes it, on a schedule, where the side
+        effects belong.
+
+        Returns ``None`` for a site with no frost exposure (no season), otherwise
+        the state — **unsaved, and without a ``key`` when nothing is stored yet** —
+        together with the transition the engine computed for it.
+        """
+        if not self._site_has_frost_exposure(site) or not site.key:
+            return None
         if on_date is None:
             on_date = datetime.now(UTC).date()
 
@@ -121,9 +154,8 @@ class SeasonStateService:
         if transition.changed:
             state.phase = transition.to_phase
             state.entered_phase_at = now
-            self._apply_side_effects(site, transition)
 
-        return self._repo.upsert(state), transition.changed
+        return state, transition
 
     def _apply_side_effects(self, site: Site, transition: SeasonStateTransition) -> None:
         """Run the per-transition side effects for every active plant of the site.
@@ -267,12 +299,17 @@ class SeasonStateService:
             raise SeasonStateUnavailableError(site_key)
 
         state = self._repo.get_by_site(site_key, tenant_key)
-        if state is None:
-            evaluated = self.evaluate_site(site)
-            if evaluated is None:
-                raise SeasonStateUnavailableError(site_key)
-            return evaluated
-        return state
+        if state is not None:
+            return state
+        # No state stored yet. This used to fall through to ``evaluate_site``,
+        # which upserts the computed state and fires the transition side effects —
+        # a write, plus overwintering profiles and care tasks, on a plain ``GET``
+        # (#1461). The state is derived data, so it is computed transiently here
+        # and answered unsaved; the daily Celery task is what persists it.
+        computed = self.compute_site_state(site)
+        if computed is None:
+            raise SeasonStateUnavailableError(site_key)
+        return computed[0]
 
     def get_overview(self, tenant_key: str) -> list[SeasonState]:
         """Aggregated season states over all outdoor/greenhouse sites of a tenant."""
