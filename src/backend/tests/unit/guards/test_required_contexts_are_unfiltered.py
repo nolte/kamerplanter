@@ -276,6 +276,48 @@ class TestTheFixtureIsHeldToItsVersionedSources:
             "carries the commands) and reconcile settings.yml."
         )
 
+    def test_the_declared_ruleset_matches_the_live_one_field_for_field(self) -> None:
+        """The App compares the whole object, so the fixture must too (#1491 review).
+
+        `lib/plugins/rulesets.js` diffs with `deepEqual` over the entire ruleset
+        minus the server-owned keys. A declaration that agrees on the context
+        NAMES and differs on the shape — a missing `bypass_actors: []`, a
+        reordered `rules` array, an `integration_id` GitHub started emitting on a
+        status check — passes a name check and makes the App re-PUT the ruleset on
+        every sync. That silently replaces the versioned source with whatever the
+        App computed, which is exactly what #1491 established and would undo.
+
+        Measured on the live ruleset 2026-09-17: the `required_status_checks[]`
+        entries carry only `context`, no `integration_id`. This is the assertion
+        that will notice when that stops being true.
+        """
+        declared = _load(_SETTINGS)["rulesets"]
+        expected = _load(_FIXTURE)["ruleset_object"]
+
+        assert len(declared) == 1, (
+            f"`.github/settings.yml` declares {len(declared)} rulesets; the fixture describes one. The "
+            "Settings App DELETES every repository ruleset the list does not declare, so a second entry "
+            "is a decision that needs its own fixture half, not a silent addition."
+        )
+        assert declared[0] == expected, (
+            "The `rulesets:` block in .github/settings.yml and the fixture copy of the live ruleset differ.\n"
+            f"  declared: {declared[0]}\n"
+            f"  live     : {expected}\n"
+            "Compared field for field INCLUDING array order, because that is how the Probot Settings App "
+            "compares it (deepEqual minus id/_links/created_at/updated_at/source_type/source/node_id/"
+            "current_user_can_bypass). Refresh the fixture with the command in its own header, then "
+            "reconcile settings.yml — editing only the fixture hides the change instead of recording it."
+        )
+
+    def test_the_fixture_ruleset_and_its_context_list_agree(self) -> None:
+        """Two halves of one fixture; a hand-edit to either alone is the drift."""
+        from_object = declared_ruleset_contexts({"rulesets": [_load(_FIXTURE)["ruleset_object"]]})
+
+        assert from_object == set(_load(_FIXTURE)["rulesets"]), (
+            "The fixture's `rulesets:` name list and its `ruleset_object:` disagree. They are copies of "
+            "the same live state; refresh both from `gh api`."
+        )
+
     def test_every_ruleset_context_is_declared_in_settings_yml(self) -> None:
         """The ruleset overlay needs a versioned source too (#1491).
 

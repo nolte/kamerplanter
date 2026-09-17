@@ -66,6 +66,23 @@ _BUILD_ACTION = "docker/build-push-action@"
 #: ``if: needs.changes.outputs.<name> == 'true'`` — the gate every build job uses.
 _GATE = re.compile(r"needs\.changes\.outputs\.(?P<output>[\w-]+)")
 
+#: ``${{ steps.<id>.outputs.<name> }}`` — what a ``changes`` job output is wired to.
+#: The NAME on the right has to be the filter's name; nothing in GitHub checks
+#: that, and a mismatch resolves to the empty string rather than to an error.
+_OUTPUT_SOURCE = re.compile(r"steps\.(?P<step>[\w-]+)\.outputs\.(?P<filter>[\w-]+)")
+
+#: The comparison a gate must make. ``if: needs.changes.outputs.x`` without it is
+#: TRUE for the string ``'false'`` — a non-empty string is truthy in a GitHub
+#: expression — so the job would run on every pull request that starts the
+#: workflow. The opposite failure of an undeclared output, and just as silent.
+_TRUTH_TEST = "== 'true'"
+
+#: The workflow file must be in every filter: a pull request that changes only
+#: HOW a build runs (``context:``, ``file:``, ``target:``, an action pin) starts
+#: the workflow through ``on.paths`` and then matches no filter, so every build
+#: job skips and the change is merged having built nothing.
+_SELF_PATH = ".github/workflows/docker-lint-build.yml"
+
 
 def load(path: Path) -> dict[str, Any]:
     document = yaml.safe_load(path.read_text())
@@ -124,12 +141,56 @@ def coverage_gaps(document: dict[str, Any]) -> dict[str, set[str]]:
     return {"linted but never built": linted - built, "built but never linted": built - linted}
 
 
+def output_wiring_gaps(document: dict[str, Any]) -> dict[str, str]:
+    """``output name -> why it cannot carry a verdict``, over the ``changes`` job.
+
+    Two silent mis-wirings, neither of which GitHub reports (#1491 review):
+
+    * an output whose value reads ``steps.<id>.outputs.<OTHER name>`` — the
+      declaration and the filter drift apart and the output is the empty string,
+      so every job gated on it skips forever;
+    * an output whose value reads a step id that is not the paths-filter step.
+    """
+    changes = jobs_of(document).get("changes", {})
+    outputs = changes.get("outputs") or {}
+    filter_step = next(
+        (
+            str(step.get("id"))
+            for step in steps_of(changes)
+            if isinstance(step.get("with"), dict) and "filters" in step["with"]
+        ),
+        None,
+    )
+    filters = _declared_filters(changes)
+
+    findings: dict[str, str] = {}
+    for name, value in outputs.items():
+        source = _OUTPUT_SOURCE.search(str(value))
+        if source is None:
+            findings[str(name)] = f"value {value!r} does not read a step output at all"
+            continue
+        if filter_step is not None and source.group("step") != filter_step:
+            findings[str(name)] = f"reads step {source.group('step')!r}, but the paths-filter step is {filter_step!r}"
+            continue
+        if source.group("filter") != str(name):
+            findings[str(name)] = (
+                f"reads the filter {source.group('filter')!r}. A `changes` output whose name and filter "
+                "differ resolves to the EMPTY STRING, so every job gated on it skips on every pull "
+                "request — present, green and inert"
+            )
+            continue
+        if filters and str(name) not in filters:
+            findings[str(name)] = f"no filter named {name!r} is declared in the paths-filter step"
+    return findings
+
+
 def gate_gaps(document: dict[str, Any]) -> dict[str, str]:
     """``job id -> why its gate can never be true``, empty when every build job can run."""
     changes = jobs_of(document).get("changes", {})
     declared = set(changes.get("outputs", {}) or {})
     filters = _declared_filters(changes)
     trigger_paths = _pull_request_paths(document)
+    workflow_path = _workflow_path(document)
 
     findings: dict[str, str] = {}
     for job_id, job in jobs_of(document).items():
@@ -145,14 +206,43 @@ def gate_gaps(document: dict[str, Any]) -> dict[str, str]:
         if missing:
             findings[job_id] = f"gated on outputs the `changes` job does not declare: {missing}"
             continue
+        if _TRUTH_TEST not in str(condition):
+            findings[job_id] = (
+                f"gate {str(condition)!r} does not compare {_TRUTH_TEST}. A bare "
+                "`needs.changes.outputs.x` is TRUE for the string 'false' — a non-empty string is truthy "
+                "in a GitHub expression — so the job runs whenever the workflow starts"
+            )
+            continue
         for output in sorted(referenced):
-            uncovered = [pattern for pattern in filters.get(output, []) if not _covered_by(pattern, trigger_paths)]
+            patterns = filters.get(output, [])
+            uncovered = [pattern for pattern in patterns if not _covered_by(pattern, trigger_paths)]
             if uncovered:
                 findings[job_id] = (
                     f"filter {output!r} watches {uncovered}, which `on.pull_request.paths` does not "
                     "carry — the workflow never starts on those changes"
                 )
+                continue
+            if workflow_path is not None and workflow_path not in patterns:
+                findings[job_id] = (
+                    f"filter {output!r} does not watch {workflow_path!r}. A pull request that changes only "
+                    "HOW this job builds — `context:`, `file:`, `target:`, an action pin — starts the "
+                    "workflow through `on.paths` and then matches no filter, so this job skips and the "
+                    "change is merged having built nothing"
+                )
     return findings
+
+
+def _workflow_path(document: dict[str, Any]) -> str | None:
+    """The workflow's own path, as its ``on.paths`` spells it.
+
+    Read from the trigger rather than from ``__file__`` so the synthetic
+    documents in the tests below carry their own answer, and so a renamed
+    workflow is a finding here instead of a silently skipped check.
+    """
+    return next(
+        (path for path in _pull_request_paths(document) if path.endswith(".yml") or path.endswith(".yaml")),
+        None,
+    )
 
 
 def _declared_filters(changes_job: dict[str, Any]) -> dict[str, list[str]]:
@@ -200,6 +290,23 @@ class TestTheRealWorkflow:
     def test_every_build_job_can_actually_run(self) -> None:
         """A job gated on an undeclared output is present, green and inert."""
         assert gate_gaps(load(_WORKFLOW)) == {}, gate_gaps(load(_WORKFLOW))
+
+    def test_every_changes_output_is_wired_to_its_own_filter(self) -> None:
+        """Name and filter must agree; a mismatch is the empty string (#1491 review)."""
+        assert output_wiring_gaps(load(_WORKFLOW)) == {}, output_wiring_gaps(load(_WORKFLOW))
+
+    def test_every_filter_watches_the_workflow_file_itself(self) -> None:
+        """A change to HOW a build runs must run the builds (#1491 review)."""
+        document = load(_WORKFLOW)
+        filters = _declared_filters(jobs_of(document)["changes"])
+
+        assert filters, "no filters read out of the changes job — the assertion below would be vacuous"
+        for name, patterns in filters.items():
+            assert _SELF_PATH in patterns, (
+                f"filter {name!r} does not watch {_SELF_PATH}. A pull request that only edits this "
+                "workflow — a `context:`, a `file:`, a `target:`, an action pin — would start it and skip "
+                f"build-{name}, merging a change to the build having built nothing."
+            )
 
     def test_every_linted_dockerfile_exists(self) -> None:
         """If the path regex misread a line, the sweep shrank — this makes that red."""
@@ -310,3 +417,60 @@ jobs:
 
     def test_an_aligned_workflow_has_no_gate_finding(self) -> None:
         assert gate_gaps(yaml.safe_load(self._ALIGNED)) == {}
+
+    #: The aligned document, plus the two properties the #1491 review added:
+    #: the workflow file in the filter and an `== 'true'` comparison.
+    _COMPLETE = _ALIGNED.replace(
+        "    paths: ['src/lonely/**']",
+        "    paths: ['src/lonely/**', '.github/workflows/x.yml']",
+    ).replace(
+        "            lonely:\n              - 'src/lonely/**'",
+        "            lonely:\n              - 'src/lonely/**'\n              - '.github/workflows/x.yml'",
+    )
+
+    def test_the_complete_shape_has_no_gate_finding(self) -> None:
+        """The positive control for the two properties below."""
+        assert gate_gaps(yaml.safe_load(self._COMPLETE)) == {}
+
+    def test_a_filter_not_watching_the_workflow_file_is_a_finding(self) -> None:
+        """S2: the build would skip on a change to how it builds.
+
+        The mutation keeps the workflow path in ``on.paths`` and removes it from
+        the FILTER, which is the real defect exactly: the workflow starts and
+        every build job skips.
+        """
+        half_wired = self._COMPLETE.replace("\n              - '.github/workflows/x.yml'", "")
+        findings = gate_gaps(yaml.safe_load(half_wired))
+
+        assert "build-lonely" in findings
+        assert "built nothing" in findings["build-lonely"]
+
+    def test_a_gate_without_the_true_comparison_is_a_finding(self) -> None:
+        """S1: a bare output is truthy for the STRING 'false'."""
+        truthy = self._COMPLETE.replace(
+            "if: needs.changes.outputs.lonely == 'true'", "if: needs.changes.outputs.lonely"
+        )
+        findings = gate_gaps(yaml.safe_load(truthy))
+
+        assert "build-lonely" in findings
+        assert "== 'true'" in findings["build-lonely"]
+
+    def test_an_output_wired_to_the_wrong_filter_is_a_finding(self) -> None:
+        """S1: the mis-wiring GitHub resolves to the empty string."""
+        crossed = self._COMPLETE.replace(
+            "lonely: ${{ steps.filter.outputs.lonely }}", "lonely: ${{ steps.filter.outputs.lonley }}"
+        )
+        findings = output_wiring_gaps(yaml.safe_load(crossed))
+
+        assert "lonely" in findings
+        assert "EMPTY STRING" in findings["lonely"]
+
+    def test_an_output_wired_to_the_wrong_step_is_a_finding(self) -> None:
+        crossed = self._COMPLETE.replace("steps.filter.outputs.lonely", "steps.detect.outputs.lonely")
+        findings = output_wiring_gaps(yaml.safe_load(crossed))
+
+        assert "lonely" in findings
+        assert "paths-filter step is 'filter'" in findings["lonely"]
+
+    def test_a_correctly_wired_output_is_not_a_finding(self) -> None:
+        assert output_wiring_gaps(yaml.safe_load(self._COMPLETE)) == {}

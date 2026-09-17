@@ -187,6 +187,92 @@ class TestTheFixturesAreTheRealThing:
             "every Python tree here installs from a hash-bearing lock (NFR-009 §2.3)."
         )
 
+
+class TestTheUnhashedRemainderIsReportedAndNotRed:
+    """The claim and its measuring tool must check the same sentence (#1491 review).
+
+    The wording next to `LOCKLESS_PYTHON_PROJECTS` said "every Python tree
+    installs from a hash-bearing lock" while the sweep beside it only read
+    `pyproject.toml`. Three `requirements.txt` — `tests/e2e/`, `docs/`,
+    `tools/rag-eval/` — installed with neither a lock nor hashes and nothing
+    measured it. The claim is now PEP 621 and the remainder has a number.
+
+    Reported, not red, on purpose: these predate #1464, and reddening the lane
+    for a decision nobody has made would fail a correct repository — the wrong
+    instrument for the observation.
+    """
+
+    def test_the_three_known_lists_are_exactly_what_the_sweep_finds(self) -> None:
+        assert check.unhashed_requirements_installs(_REPO_ROOT) == sorted(check.KNOWN_UNHASHED_REQUIREMENTS)
+
+    def test_they_do_not_alert(self, healthy_body: str) -> None:
+        """A reported category that reddens the lane is a gate, which this is not."""
+        report = _report(healthy_body)
+
+        assert report["alert"] is False
+        assert report["unhashed_requirements_installs"] == sorted(check.KNOWN_UNHASHED_REQUIREMENTS)
+        assert not any("requirements.txt" in finding for finding in report["findings"])
+
+    def test_the_green_render_still_names_them(self, healthy_body: str) -> None:
+        """Otherwise the number lives only in JSON, which is a number nobody reads."""
+        rendered = check.render(_report(healthy_body))
+
+        assert "reported, not a gate" in rendered
+        for requirements in check.KNOWN_UNHASHED_REQUIREMENTS:
+            assert requirements in rendered
+
+    def test_a_hash_bearing_list_is_not_reported(self, tmp_path: Path) -> None:
+        """pip's own `--hash=` form: a pinned list must not read as unpinned."""
+        (tmp_path / "requirements.txt").write_text("fastapi==0.115.0 --hash=sha256:" + "a" * 64 + "\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+    def test_a_list_beside_a_uv_lock_is_not_reported(self, tmp_path: Path) -> None:
+        (tmp_path / "requirements.txt").write_text("fastapi==0.115.0\n")
+        (tmp_path / "uv.lock").write_text("version = 1\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+    def test_an_unhashed_list_is_reported(self, tmp_path: Path) -> None:
+        """The positive control — otherwise the three greens above prove nothing."""
+        (tmp_path / "requirements.txt").write_text("fastapi==0.115.0\n")
+        (tmp_path / "nested").mkdir()
+        (tmp_path / "nested" / "requirements-dev.txt").write_text("ruff\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == [
+            "nested/requirements-dev.txt",
+            "requirements.txt",
+        ]
+
+    def test_a_virtualenv_is_not_swept(self, tmp_path: Path) -> None:
+        """A `.venv` holds other projects' requirement lists by the dozen."""
+        (tmp_path / ".venv").mkdir()
+        (tmp_path / ".venv" / "requirements.txt").write_text("whatever\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+
+class TestTheClaimsAreNoWiderThanTheMeasurement:
+    """#1491 review, W3: a claim wider than its instrument is invisible."""
+
+    def test_the_finding_text_says_pep_621_and_not_every_python_tree(self) -> None:
+        source = Path(check.__file__).read_text()
+
+        assert "Every PEP 621 tree in this repository installs from a hash-bearing lock" in source
+        assert "Every Python tree in this repository installs from a hash-bearing lock" not in source, (
+            "the finding claims more than `lockless_python_trees()` measures: it reads pyproject.toml only, "
+            "so three requirements.txt are outside it. Narrow the claim or widen the sweep — not neither."
+        )
+
+    def test_the_side_services_comment_says_pep_621_too(self) -> None:
+        """The same sentence in the other place it is written down."""
+        workflow = (_REPO_ROOT / ".github" / "workflows" / "side-services.yml").read_text()
+
+        assert "like every other PEP 621 tree in" in workflow
+        assert "like every other Python install in\n        # this repository. Until then" not in workflow
+
+
+class TestTheLocklessRegisterStaysEmpty:
     def test_the_lockless_allowance_is_still_empty(self) -> None:
         """An allowance register is how a workaround becomes the design (CI spec §H)."""
         assert check.LOCKLESS_PYTHON_PROJECTS == (), (

@@ -122,12 +122,21 @@ EXPECTED_PEP621_FILES: tuple[str, ...] = (
 #: on a tree that has a lock — and it now covers seven trees instead of five.
 #:
 #: KEEPING THIS EMPTY IS THE RULE, not an accident of today's tree. An allowance
-#: register is how a workaround becomes the design (CI spec §H): a new Python tree
-#: gets a lock, or the pull request that adds it argues for an entry here in
+#: register is how a workaround becomes the design (CI spec §H): a new PEP 621
+#: tree gets a lock, or the pull request that adds it argues for an entry here in
 #: writing. :func:`lockless_python_trees` measures the same property against the
 #: FILESYSTEM rather than against Renovate's inventory, so a tree Renovate does
 #: not extract at all — the failure mode an inventory check cannot see — is a
 #: finding too.
+#:
+#: THE SCOPE IS PEP 621, AND THAT IS NOW SAID OUT LOUD (#1491 review). The
+#: earlier wording claimed "every Python tree"; the sweep only ever read
+#: ``pyproject.toml``, so three ``requirements.txt`` — ``tests/e2e/``,
+#: ``docs/`` and ``tools/rag-eval/`` — installed with neither a lock nor hashes
+#: and no measurement said so. A claim wider than its measuring tool is the
+#: NFR-018 §1 shape, so both were brought together: the claim was narrowed and
+#: :func:`unhashed_requirements_installs` was added to report the remainder. The
+#: remainder itself is **#1509**.
 LOCKLESS_PYTHON_PROJECTS: tuple[str, ...] = ()
 
 #: Backwards-compatible alias: these files are also the ones allowed to appear
@@ -280,6 +289,58 @@ _SWEEP_EXCLUDED = frozenset(
 )
 
 
+#: ``requirements*.txt`` trees that are INSTALLED without hashes, and which are
+#: known. Reported, never a finding — see :func:`unhashed_requirements_installs`.
+KNOWN_UNHASHED_REQUIREMENTS: tuple[str, ...] = (
+    "docs/requirements.txt",
+    "tests/e2e/requirements.txt",
+    "tools/rag-eval/requirements.txt",
+)
+
+
+def unhashed_requirements_installs(repo_root: Path) -> list[str]:
+    """Every ``requirements*.txt`` with no hash-bearing lock beside it, sorted.
+
+    REPORTED, NOT A FINDING, on purpose. These predate #1464 and reddening the
+    Renovate-health lane for them would fail a correct repository for a decision
+    nobody has made yet — the wrong instrument. What was wrong before was
+    something else: the claim next to :data:`LOCKLESS_PYTHON_PROJECTS` said
+    "every Python tree installs from a hash-bearing lock" while the sweep beside
+    it only read ``pyproject.toml``. A claim wider than the thing that measures it
+    is invisible by construction (NFR-018 §1), so the claim was narrowed to PEP
+    621 and this function was added so the remainder has a number instead of a
+    silence.
+
+    "Hash-bearing lock beside it" means a ``uv.lock`` or a
+    ``requirements*.txt`` whose entries carry ``--hash=`` — pip's own form, so a
+    list that is pinned by hash is not reported as if it were not.
+
+    Args:
+        repo_root: Checkout root to sweep.
+
+    Returns:
+        The requirement lists installed without hash verification, sorted.
+        :data:`KNOWN_UNHASHED_REQUIREMENTS` records the three that exist today;
+        a fourth appearing is visible in the report rather than in nobody's log.
+
+    The decision for the three — lock, hash-pin in place, or record as out of
+    scope — is tracked as **#1509**, with the measured install sites. Naming the
+    issue is what keeps a reported-only category from becoming permanent by
+    default (CI spec §H).
+    """
+    found = []
+    for requirements in repo_root.rglob("requirements*.txt"):
+        relative = requirements.relative_to(repo_root)
+        if _SWEEP_EXCLUDED.intersection(relative.parts):
+            continue
+        if "--hash=" in requirements.read_text(encoding="utf-8", errors="replace"):
+            continue
+        if requirements.with_name("uv.lock").is_file():
+            continue
+        found.append(relative.as_posix())
+    return sorted(found)
+
+
 def lockless_python_trees(repo_root: Path) -> list[str]:
     """Every ``pyproject.toml`` in the checkout with no ``uv.lock`` beside it.
 
@@ -413,7 +474,7 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         findings.append(
             "Python tree without a uv.lock beside its pyproject.toml: "
             + ", ".join(unlocked)
-            + ". Every Python tree in this repository installs from a hash-bearing lock (NFR-009 §2.3); "
+            + ". Every PEP 621 tree in this repository installs from a hash-bearing lock (NFR-009 §2.3); "
             "run `uv lock` in that directory and add the file to EXPECTED_PEP621_FILES. "
             "LOCKLESS_PYTHON_PROJECTS is empty on purpose and an entry there needs the argument in "
             "writing — an allowance register is how a workaround becomes the design (CI spec §H)."
@@ -430,6 +491,11 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         "known_lockless_pep621_files": list(LOCKLESS_PYTHON_PROJECTS),
         "locks_verified_on_disk": [f for f in EXPECTED_PEP621_FILES if f not in locks_missing],
         "lockless_python_trees": lockless_python_trees(repo_root),
+        # Reported, deliberately NOT appended to `findings`: these predate #1464
+        # and are a decision nobody has made, not a regression. The number exists
+        # so the claim above ("every PEP 621 tree") and the measurement agree on
+        # the same sentence.
+        "unhashed_requirements_installs": unhashed_requirements_installs(repo_root),
         "observed_files": {manager: inventory.get(manager, []) for manager in EXPECTED_OBSERVED_FILES},
     }
 
@@ -437,10 +503,18 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
 def render(report: dict[str, Any]) -> str:
     """A run-log summary of *report*, for the workflow's step output."""
     if not report["alert"]:
+        unhashed = report.get("unhashed_requirements_installs") or []
+        # Printed on a GREEN run too, which is the point: a reported-only
+        # category that appears solely in JSON is a number nobody reads.
+        remainder = (
+            f" Installed without hash verification (reported, not a gate): {', '.join(unhashed)}."
+            if unhashed
+            else ""
+        )
         return (
             "Renovate dashboard healthy: no repository problems, "
             f"pep621 extracts from all {len(report['expected_pep621_files'])} expected trees, "
-            f"managers seen: {', '.join(report['managers'])}."
+            f"managers seen: {', '.join(report['managers'])}." + remainder
         )
     return "Renovate dashboard drift:\n" + "\n".join(f"  - {finding}" for finding in report["findings"])
 
