@@ -71,6 +71,15 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 Unter **Admin > OIDC-Provider** konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
 
+!!! warning "GitHub braucht den Scope `user:email`"
+    Ein Provider vom Typ `github`, dessen Scope-Liste weder `user:email` noch den übergeordneten Scope `user` enthält, wird beim Anlegen und beim Ändern mit `422` abgelehnt.
+
+    Grund: GitHub liefert das Merkmal, ob eine Adresse bestätigt ist, ausschließlich über `GET /user/emails`, und dieser Endpunkt antwortet ohne den Scope mit `403`. Ohne ihn gilt bei **jeder** Anmeldung über diesen Provider die Adresse als unbestätigt, und ein bereits vorhandenes Konto wird nie automatisch verknüpft — bisher war das nur an einer Logzeile pro Anmeldung zu erkennen.
+
+    Auf die Schreibweise kommt es an: GitHub kennt nur Kleinbuchstaben, `USER:EMAIL` wird abgelehnt. Mehrere Scopes dürfen in einem Eintrag stehen (`"read:user user:email"`).
+
+    Für Provider, die vor dieser Prüfung gespeichert wurden, meldet `POST /api/v1/admin/oidc-providers/{key}/test` denselben Befund im Feld `scope_check` (`ok`, `missing_scopes`, `detail`). Der Test verlangt kein gültiges Discovery-Dokument — GitHub veröffentlicht keins, der Scope-Befund kommt trotzdem.
+
 Mehr dazu: [Authentifizierung](../api/authentication.md).
 
 ---
