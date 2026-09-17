@@ -19,13 +19,18 @@ Kamerplanter tests across several **test levels** — from fast, isolated unit t
 
 ### Prerequisites
 
+You need **uv** — nothing else. The version lives in `[tool.uv].required-version` in `src/backend/pyproject.toml`; install uv from <https://docs.astral.sh/uv/>.
+
 ```bash
-cd src/backend
-uv sync --locked --extra dev      # or: task deps:sync
-source .venv/bin/activate
+task deps:sync      # = uv sync --locked --extra dev, in src/backend
 ```
 
-This installs exactly the production and development dependencies recorded in `uv.lock` (hash-verified), including pytest, pytest-asyncio, and pytest-cov. Install uv from <https://docs.astral.sh/uv/>.
+This installs exactly the production and development dependencies recorded in `uv.lock` (hash-verified), including pytest, pytest-asyncio, and pytest-cov.
+
+!!! note "No more `source .venv/bin/activate` (#1383)"
+    The activation step used to live here — and **only** here. Forgetting it, or having somebody else's venv active, meant running a different interpreter than the CI lane, and that fails **silently**: #1434 recorded 28 backend tests skipping without a word under a global interpreter that lacked the optional dependencies, while only three failed loudly. A green local run meant nothing.
+
+    The Taskfile targets therefore run through `uv run --locked` and use the locked environment **regardless of what is on PATH**. `--locked` also refuses to re-resolve, so a `pyproject.toml` edit that was never re-locked goes red here instead of quietly installing something else.
 
 !!! warning "The activation step is mandatory — the suite enforces it"
 
@@ -46,22 +51,22 @@ This installs exactly the production and development dependencies recorded in `u
 
 ### Running Tests
 
+Through the Taskfile targets — these are the exact invocations the backend lane runs:
+
 ```bash
-# All tests
-pytest
+task test:backend              # the full local suite (incl. tests/integration/, needs ArangoDB)
+task test:backend:unit         # the CI tier: tests/unit/
+task test:backend:contracts    # tests/contracts/
+task test:backend:api          # tests/api/
+task lint:backend              # ruff check .
+task format:backend            # ruff format --check .
 
-# With verbose output
-pytest -v
-
-# Single test file
-pytest tests/test_onboarding_engine.py -v
-
-# Single test
-pytest tests/test_onboarding_engine.py::TestValidateKitApplication::test_valid_application -v
-
-# Filter tests by name pattern
-pytest -k "substrate" -v
+# Extra pytest arguments after `--`:
+task test:backend:unit -- -k substrate
+task test:backend:unit -- tests/unit/domain/test_calculations.py -v
 ```
+
+Direct invocations still work, but need the locked interpreter — `uv run --locked --extra dev pytest …` or `src/backend/.venv/bin/pytest …`, not a bare `pytest`.
 
 ### Test Structure
 

@@ -63,16 +63,23 @@ FROM base AS dev
 # second adds the project itself — editable, so the bind mount in Skaffold dev
 # is what runs. `--locked` verifies the lock against pyproject.toml and every
 # artifact against its recorded hash; a stale lock or a tampered wheel fails the
-# build instead of installing something else. debugpy goes in last because
-# `uv sync` makes the environment exact and would otherwise remove it again; it
-# is the one package outside the lock, as it was under pip.
+# build instead of installing something else.
+#
+# debugpy — the remote debugger this stage exposes on :5678 — used to be a third
+# layer that installed it with `uv pip`, appended AFTER the sync because
+# `uv sync` makes the environment exact and would otherwise remove it again. That made it
+# the one backend package installed outside the lock: unhashed, unversioned and
+# invisible to the CVE and license gates, which read the lock. Since #1383 it is
+# an entry in the dev extra, so the sync below installs it like everything else
+# and NOTHING here installs outside uv.lock.
 RUN uv sync --locked --extra dev --no-install-project
 COPY . .
-RUN uv sync --locked --extra dev \
-    && uv pip install debugpy
 # Own /app as UID 1000 so the non-root dev pod (values-dev runAsUser:1000) can
-# hot-reload (__pycache__) and receive skaffold file-sync writes.
-RUN chown -R 1000:1000 /app
+# hot-reload (__pycache__) and receive skaffold file-sync writes. One RUN with
+# the sync: the debugpy layer that used to sit between them is gone (#1383),
+# and hadolint DL3059 reads two adjacent RUNs as a consolidation miss.
+RUN uv sync --locked --extra dev \
+    && chown -R 1000:1000 /app
 ENV PYTHONUNBUFFERED=1 \
     WATCHFILES_FORCE_POLLING=true
 EXPOSE 8000 5678
@@ -84,7 +91,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 FROM base AS prod
 # One sync, dependencies only: the application is imported from /app (the
 # working directory, which uvicorn and celery put on sys.path), exactly as it
-# was when `pip install --no-deps .` sat beside `COPY . .`. Not building the
+# was when pip, with `--no-deps`, did that beside `COPY . .`. Not building the
 # project wheel also keeps the build backend out of the prod image build; the
 # two sdist-only dependencies still need one, pinned through
 # `[tool.uv].build-constraint-dependencies` in pyproject.toml. `--locked`
