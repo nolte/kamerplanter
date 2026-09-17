@@ -70,6 +70,12 @@ on:
   # need a `pull_request` trigger, not just this one. Written down so that
   # discovery is a lookup and not a re-derivation.
   push:
+  # Manual runs. Moved here with the integration lane (#1432): a job that has
+  # never run on a runner may not be made a required check on the strength of a
+  # local green — the operator dispatches it three times first, and the outputs
+  # go in the group's artifact. It stays available for a re-measurement after a
+  # change to the service container or the tier's fixtures.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -133,3 +139,173 @@ jobs:
         # would leave the required lane green. The failure names every skip
         # reason; raising the number belongs in the commit that justifies it.
         run: pytest tests/unit/api tests/unit/guards -q --max-skipped 0
+
+  # THE SECOND REQUIRED CHECK IN THIS LANE, AND WHY A 2–3-MINUTE JOB WITH A
+  # SERVICE CONTAINER SITS IN THE "FAST" LANE (#1432).
+  #
+  # `Integration tests (ArangoDB)` became a required context on `develop` on
+  # 2026-09-17. It was defined in `backend.yml`, which is path-filtered to
+  # `src/backend/**` and a handful of scripts — so on a change outside those
+  # paths the workflow does not run, the context is never reported, and GitHub
+  # holds the pull request on "Expected — waiting for status to be reported"
+  # forever. Measured the same day with `gh pr view <n> --json statusCheckRollup`
+  # on three open pull requests, each of which listed every other required
+  # context and not this one: #1470 (frontend only), #1475 (workflow only),
+  # #1410 (documentation only). All three were permanently BLOCKED.
+  #
+  # A required check therefore has to live in a workflow with no `paths:`
+  # filter, which is this one — the argument at the top of this file, applied a
+  # second time. The job carries its own service container and its own `Set up
+  # Task` step, so nothing it needs is inherited from the lane around it.
+  #
+  # THE COST IS REAL AND ACCEPTED. The header above argues this lane stays
+  # cheap because `strict: true` makes a required check's runtime a per-merge
+  # cost, and it is why the full unit suite stays out. This job runs 2–3
+  # minutes against a real ArangoDB, so the lane's wall clock is now that job,
+  # not the 41 s of `guards`. The two run in PARALLEL — they are separate jobs
+  # with no `needs:` between them — so `guards` still reports in well under a
+  # minute and the lane's total is the slower of the two rather than their sum.
+  # The alternative is not "a cheaper lane": it is a required check that does
+  # not report, which blocks every pull request outside `src/backend` outright.
+  #
+  # `concurrency` above cancels this job when the branch is pushed again. That
+  # is correct here for the same reason it is correct for `guards`: branch
+  # protection reads the head commit, and the superseding run covers it.
+  integration:
+    # The repository and AQL tier, against a REAL ArangoDB (#1432). It is a job
+    # of its own, and not a step in `guards` above or in `backend.yml`'s
+    # `lint-test`, because it is the only tier that needs a server: a service
+    # container would slow down every other tier that does not use one.
+    #
+    # Until 2026-09-16 this tier ran in no gate at all. The comment that used to
+    # stand in `backend.yml`'s `API tests` step said why, and it was true: each of its
+    # nine connecting modules probed `localhost:8529` itself and skipped when
+    # nothing answered, so on a runner it reported `7 passed, 136 skipped` with
+    # exit code 0 — green, having tested almost nothing. What changed is not the
+    # runner but the contract: `src/backend/tests/integration/conftest.py` makes
+    # a missing database a FAILURE whenever `CI` is set (Actions always sets it),
+    # and `task test:backend:integration` declares `--max-skipped 0`, so a
+    # session that skipped anything at all is red here.
+    name: Integration tests (ArangoDB)
+    runs-on: ubuntu-latest
+    services:
+      arangodb:
+        # The SAME digest as docker-compose.yml — the dev stack, the local run
+        # and this lane must measure against one server version, or a query that
+        # passes here can fail on a developer machine. Renovate keeps the two in
+        # ONE pull request, and that is measured, not assumed: its built-in
+        # github-actions manager extracts this line as
+        # `depName: arangodb, datasource: docker, depType: service` (verified
+        # 2026-09-16 with `renovate --platform=local --dry-run=extract`), and the
+        # `{{depName}} image` group in renovate.json5 matches on package identity
+        # alone, across managers — which is exactly why that group was rewritten
+        # away from `matchManagers` on 2026-09-10. No `# renovate:` marker
+        # comment here: that belongs to the custom regex manager for image
+        # strings in workflow `env:` values, and adding one would claim a
+        # mechanism that is not the one doing the work.
+        image: arangodb:3.12@sha256:39bbca489179ea03f2b24b7ea4e4c4cb5258f6474f8c1c4d9bd65f7cd6d211a5
+        env:
+          # A throwaway root password for a container that lives for one job and
+          # is reachable from nothing else. It matches the tier's default so the
+          # lane and a local `docker run` are the same thing (NFR-009: no secret
+          # here, because there is no secret here).
+          ARANGO_ROOT_PASSWORD: rootpassword
+        ports:
+          - 8529:8529
+        options: >-
+          --health-cmd "arangosh --server.endpoint tcp://127.0.0.1:8529 --server.password rootpassword --javascript.execute-string 'db._version()'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+          --health-start-period 20s
+    env:
+      # `Settings`' own variable names (env_prefix: ""), read by
+      # tests/support/arango_integration.py. Both routes into the database — a
+      # real `Settings(...)` through `ArangoConnection`, and a bare
+      # `ArangoClient` — therefore point at this service and not at a literal.
+      ARANGODB_HOST: localhost
+      ARANGODB_PORT: '8529'
+      ARANGODB_USERNAME: root
+      ARANGODB_PASSWORD: rootpassword
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Set up Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        # THE uv pin (#1383). `version-file` makes the action read
+        # `[tool.uv].required-version` out of src/backend/pyproject.toml, so the
+        # uv this job runs cannot differ from the uv Renovate relocks with or the
+        # one the Dockerfile copies. It replaces a `python -m pip install` line
+        # carrying a literal uv version — the same value written out eight times
+        # across four workflows, held together only by the `uv toolchain`
+        # Renovate group.
+        # That group is a promise, not a mechanism: a ninth copy added without it
+        # would age unnoticed, which is the #1296 class (toolchain halves aging
+        # apart). tests/unit/guards/test_uv_pin_is_single.py is the permanent
+        # absence check that no such copy comes back.
+        #
+        # The cache key is src/backend/uv.lock rather than the action's default
+        # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
+        # five locks, and four of them have nothing to do with this job.
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
+      - name: Install dependencies
+        # Through the Taskfile, like every other command in this job (#1383).
+        # `task deps:sync` is `uv sync --locked --extra dev` and nothing else, so
+        # this is not indirection for its own sake: the invocation now exists
+        # ONCE, and a contributor running `task deps:sync` cannot end up with a
+        # different environment than the gate. Inlining it is how the two drift.
+        #
+        # `uv sync --locked` (NFR-009 §2.3) refuses a lock that no longer
+        # satisfies pyproject.toml and verifies every artifact against the hash
+        # the lock records, then installs the app package itself editable.
+        #
+        # The PATH prepend is belt and braces here: the only test step below runs
+        # through `task test:backend:integration`, which resolves its own
+        # interpreter via `uv run --locked`. It stays so that a step added later
+        # that spells a bare `python` reaches this environment and not the
+        # runner's interpreter — the shape `backend.yml`'s `lint-test` job needs
+        # for its Steckbrief consistency step.
+        run: |
+          task deps:sync
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Wait for ArangoDB
+        # The service healthcheck already gates the steps, so this normally
+        # returns on the first poll. It exists to make the OTHER outcome legible:
+        # if the container is up but not answering, the failure names that,
+        # instead of surfacing as 136 identical connection errors inside pytest.
+        # Authenticated on purpose: with ARANGO_ROOT_PASSWORD set the server answers
+        # 401 to an anonymous /_api/version, and `-f` turns that into "not answering"
+        # — measured on the pinned image (401 without, 200 with credentials).
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS --max-time 5 -u "root:${ARANGO_ROOT_PASSWORD:-rootpassword}" "http://localhost:8529/_api/version" >/dev/null; then
+              echo "ArangoDB answered after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::ArangoDB did not answer on localhost:8529 within 120 s."
+          docker ps --filter "ancestor=arangodb" --format '{{.Names}} {{.Status}}'
+          exit 1
+
+      - name: Integration tests
+        # Invoked through the Taskfile so the pipeline and a contributor run the
+        # identical thing, including the `--max-skipped 0` floor (#1434).
+        run: task test:backend:integration

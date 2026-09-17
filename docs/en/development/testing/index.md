@@ -116,7 +116,7 @@ Available fixtures: `sample_species_data`, `sample_site_data`, `sample_location_
 
 ### Integration Tests
 
-Integration tests under `tests/integration/` need a running ArangoDB instance — they are the only check of the repository and AQL layer against a real database. In CI they run as a required lane (`Integration tests (ArangoDB)` in `backend.yml`) against a service container.
+Integration tests under `tests/integration/` need a running ArangoDB instance — they are the only check of the repository and AQL layer against a real database. In CI they run as a required lane (`Integration tests (ArangoDB)` in `backend-guards.yml`) against a service container.
 
 Whether a database is there is decided in **one** place: `tests/integration/conftest.py`. Modules attach to that session fixture with a marker:
 
