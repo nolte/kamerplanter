@@ -15,7 +15,8 @@ All API errors follow a consistent JSON format. Every error response contains a 
     {
       "field": "key",
       "reason": "No PlantInstance with key 'pi_xyz'.",
-      "code": "ENTITY_NOT_FOUND"
+      "code": "ENTITY_NOT_FOUND",
+      "entity": "plant_instance"
     }
   ],
   "timestamp": "2026-03-17T10:30:00.000000+00:00",
@@ -33,9 +34,13 @@ All API errors follow a consistent JSON format. Every error response contains a 
 | `details[].field` | String | Field name or path to the invalid value |
 | `details[].reason` | String | Explanation of the specific problem |
 | `details[].code` | String | Machine-readable detail code |
+| `details[].entity` | String | **Optional.** Name of the missing resource in `snake_case` (`task`, `attachment`, `plant_instance`) — set on 404 errors only |
 | `timestamp` | String | Time of the error (ISO 8601, UTC) |
 | `path` | String | URL path of the failed request |
 | `method` | String | HTTP method of the failed request |
+
+!!! tip "Telling two 404s on one route apart"
+    A route that resolves a parent and then a child answers `ENTITY_NOT_FOUND` with HTTP 404 in both cases. What separates them is `details[0].entity` — not `message`, which is English prose and free to be reworded. A client that does not know the field behaves exactly as before: `error_code` and status are unchanged.
 
 !!! tip "Use error_id for support"
     The `error_id` is logged on the server. Always include this ID when debugging or raising support requests — it allows the error to be traced precisely on the server side.

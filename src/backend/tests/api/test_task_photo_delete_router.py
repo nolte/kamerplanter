@@ -286,3 +286,85 @@ class TestAnAttachmentOfAnotherCategory:
 
         assert response.status_code == 404
         attachment_service.delete.assert_not_awaited()
+
+
+class TestTheTwoNotFoundCasesAreDistinguishable:
+    """#1437 — the route answers 404 for two different things, and the client must tell them apart.
+
+    ``task_service.get_task`` raises ``NotFoundError("Task", …)`` and every
+    attachment branch raises ``AttachmentNotFoundError``, which *inherits* from it.
+    Both therefore carry ``error_code="ENTITY_NOT_FOUND"`` and the same HTTP status,
+    and differ only in the human-readable ``message`` — which is English prose a
+    client may not parse (NFR-003 keeps API messages English while the UI renders
+    German).
+
+    The consequence was in ``PhotoUpload.handleRemove``: it de-staged on *every*
+    404. When the **task** was the thing that had vanished, nothing had been
+    deleted, the entry left the list anyway, and the attachment orphaned — with the
+    orphan sweep shipping disabled, for ever.
+
+    So the signal is additive (operator decision 1): ``error_code`` stays
+    ``ENTITY_NOT_FOUND`` so nothing matching on it breaks, and ``details[0].entity``
+    carries the entity name machine-readably. Asserted on the wire, through the real
+    error handler, because that is what the client reads.
+    """
+
+    def test_a_missing_task_names_the_task(self, client):
+        body = client.delete(_url(FOREIGN_TASK)).json()
+
+        assert body["details"][0]["entity"] == "task"
+
+    def test_a_refused_attachment_names_the_attachment(self, client, services):
+        _task_service, attachment_service = services
+        attachment_service.deletable_from_task.return_value = False
+
+        body = client.delete(_url(OWN_TASK)).json()
+
+        assert body["details"][0]["entity"] == "attachment"
+
+    def test_the_two_cases_are_not_the_same_answer(self, client, services):
+        """The point of the change, stated as one assertion.
+
+        Both above could pass against a constant, and both did pass against
+        ``error_code`` before the change — because both cases carry the *same* one.
+        """
+        _task_service, attachment_service = services
+        task_gone = client.delete(_url(FOREIGN_TASK)).json()
+        attachment_service.deletable_from_task.return_value = False
+        attachment_gone = client.delete(_url(OWN_TASK)).json()
+
+        assert task_gone["error_code"] == attachment_gone["error_code"] == "ENTITY_NOT_FOUND"
+        assert task_gone["details"][0]["entity"] != attachment_gone["details"][0]["entity"]
+
+    def test_the_entity_name_does_not_depend_on_how_the_raiser_spelled_it(self):
+        """``NotFoundError("Task", …)`` and ``NotFoundError("task", …)`` both occur.
+
+        The call sites spell entities every which way — ``"PlantInstance"``,
+        ``"attachment"``, ``"memberships"``, ``"nutrient plan phase entry"`` — so a
+        verbatim echo would hand the client a value that changes when someone
+        re-words a raiser. Normalised in the constructor, once, rather than at each
+        of the ~150 call sites.
+        """
+        assert NotFoundError("Task", "k").details[0]["entity"] == "task"
+        assert NotFoundError("task", "k").details[0]["entity"] == "task"
+        assert NotFoundError("PlantInstance", "k").details[0]["entity"] == "plant_instance"
+        assert NotFoundError("nutrient plan phase entry", "k").details[0]["entity"] == "nutrient_plan_phase_entry"
+
+    def test_normalisation_is_idempotent(self):
+        """An already-normalised name survives unchanged, or the contract drifts.
+
+        ``entity`` is what a client branches on; if feeding a normalised name back
+        through produced a *different* one, the value would depend on how many
+        layers had touched it.
+        """
+        once = NotFoundError("PlantDiaryEntry", "k").details[0]["entity"]
+
+        assert NotFoundError(once, "k").details[0]["entity"] == once
+
+    def test_the_prose_reason_is_untouched(self, client):
+        """Additive means additive: ``field``, ``reason`` and ``code`` keep their values."""
+        detail = client.delete(_url(FOREIGN_TASK)).json()["details"][0]
+
+        assert detail["field"] == "key"
+        assert detail["code"] == "ENTITY_NOT_FOUND"
+        assert FOREIGN_TASK in detail["reason"]
