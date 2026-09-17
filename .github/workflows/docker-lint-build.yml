@@ -39,6 +39,7 @@ jobs:
       embedding-service: ${{ steps.filter.outputs.embedding-service }}
       reranker-service: ${{ steps.filter.outputs.reranker-service }}
       knowledge-service: ${{ steps.filter.outputs.knowledge-service }}
+      inference-service: ${{ steps.filter.outputs.inference-service }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -64,6 +65,8 @@ jobs:
               - 'docker/reranker-service/**'
             knowledge-service:
               - 'src/knowledge-service/**'
+            inference-service:
+              - 'src/inference-service/**'
 
   hadolint:
     runs-on: ubuntu-latest
@@ -129,9 +132,11 @@ jobs:
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/knowledge-service/Dockerfile
 
-      # inference-service has no build job here (it is published from
-      # docker-publish.yml), but its Dockerfile must still be linted — it was
-      # the one image escaping this gate entirely.
+      # Until #1463 this Dockerfile was linted here and built NOWHERE before a
+      # merge: `docker-publish.yml` builds it, and that workflow runs on push to
+      # develop — i.e. after the merge that broke it. `build-inference-service`
+      # below closes that; `tests/unit/guards/test_docker_lint_build_coverage.py`
+      # keeps lint and build enumerating the same set of Dockerfiles.
       - name: Lint inference-service Dockerfile
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
@@ -267,6 +272,30 @@ jobs:
         with:
           context: src/knowledge-service
           file: src/knowledge-service/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Same context and file as the publishing build in `docker-publish.yml`
+  # (`context: src/inference-service`, `file: src/inference-service/Dockerfile`),
+  # so a Dockerfile that builds here builds there. No `target:` — the Dockerfile
+  # ships `prod` as its last stage and `docker-publish.yml` names none either;
+  # naming one here would let the published stage break while this stayed green.
+  build-inference-service:
+    needs: [changes, hadolint]
+    if: needs.changes.outputs.inference-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build inference-service image (no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: src/inference-service
+          file: src/inference-service/Dockerfile
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
