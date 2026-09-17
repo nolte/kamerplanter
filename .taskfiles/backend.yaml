@@ -5,6 +5,26 @@
 #
 # Included from the root Taskfile.yaml with `flatten: true` — task names here
 # are global and MUST NOT collide with other .taskfiles/*.yaml.
+#
+# ONE INTERPRETER (#1383). The lint/format/test targets run through
+# `uv run --locked`, not through whatever `ruff`/`python` the host PATH happens
+# to offer. Before this they called the bare tools while CI prepended
+# `src/backend/.venv/bin` to PATH, so a contributor and the gate could run
+# different toolchains — and the way that fails is silent: #1434 recorded 28
+# backend tests SKIPPING without a word under a global interpreter that lacked
+# the optional dependencies, while only three failed loudly. A green local run
+# meant nothing.
+#
+# `--locked` is the half that makes it a guarantee rather than a habit: it
+# refuses to re-resolve, so a pyproject.toml edit that was never re-locked fails
+# here instead of quietly installing something the lock does not describe. The
+# cost is ~0.3 s per invocation for uv to confirm the environment — the price of
+# a stale venv never running on silently (operator decision, 2026-09-16).
+#
+# Consequence, stated out loud because it changes local behaviour: an activated
+# venv of your own no longer wins. `task test:backend:unit` runs the locked
+# pytest from src/backend/.venv regardless of what is on PATH, which is the
+# point. `uv` itself must be on PATH; `[tool.uv].required-version` says which.
 
 version: "3"
 
@@ -13,19 +33,19 @@ tasks:
     desc: Run ruff linter on backend code
     dir: src/backend
     cmds:
-      - ruff check .
+      - uv run --locked --extra dev ruff check .
 
   format:backend:
     desc: Check backend formatting with ruff (no rewrite) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - ruff format --check .
+      - uv run --locked --extra dev ruff format --check .
 
   test:backend:
     desc: Run the full backend pytest suite — the three CI tiers plus tests/integration/, which needs a local ArangoDB
     dir: src/backend
     cmds:
-      - python -m pytest tests/ {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/ {{.CLI_ARGS}}
 
   # The tiers CI runs, as their own targets. `test:backend` above stays the full
   # local suite; these are what the pipeline invokes, so the pipeline and a
@@ -107,25 +127,25 @@ tasks:
     desc: Backend unit tests — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/unit/ -v --tb=short --max-skipped 1 {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/unit/ -v --tb=short --max-skipped 1 {{.CLI_ARGS}}
 
   test:backend:contracts:
     desc: Backend contract tests (enum sync, i18n completeness) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/contracts/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/contracts/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   test:backend:api:
     desc: Backend API tests (routers via TestClient against fakes, no services) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/api/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/api/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   test:backend:integration:
     desc: Backend integration tests (repositories and AQL against a real ArangoDB) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/integration/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/integration/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   openapi:export:
     desc: |
@@ -178,10 +198,34 @@ tasks:
       `uv lock --check` reads pyproject.toml and the lock's own metadata, not
       the artifacts. `uv sync --locked` does (it verifies every recorded hash
       on install), which is why the CI job runs both and `deps:sync` below is
-      the local equivalent. On failure run `task deps:compile` and commit.
+      the local equivalent. That difference is not folklore: it is measured on
+      every run by
+      src/backend/tests/unit/guards/test_lock_hash_verification.py, which
+      tampers with a copy of the lock and requires `uv lock --check` to MISS it
+      and `uv sync --locked` to catch it. On failure run `task deps:compile`
+      and commit.
     dir: src/backend
     cmds:
       - uv lock --check
+
+  deps:verify:
+    desc: |
+      Falsify the hash claim the lock gates make — the second half of what CI
+      runs (backend.yml "Falsify the hash claim this job just made" invokes this
+      task). `task deps:check` and `task deps:sync` can only tell you that THIS
+      lock passes; neither can tell you the verification works at all, and a
+      `uv sync` that stopped checking hashes would keep exiting 0 forever. This
+      runs the permanent falsifier: it tampers with a COPY of the lock, requires
+      `uv sync --locked` to refuse it, and pins down as a measured fact that
+      `uv lock --check` alone does NOT notice the same tamper.
+
+      The Taskfile is the only copy of the invocation, so the lane and the local
+      command cannot disagree — the same reason `deps:check` moved here. Set
+      CI=true to make a skip (no matching uv on PATH) a hard failure instead of
+      a green run that measured nothing.
+    dir: src/backend
+    cmds:
+      - uv run --locked --extra dev python -m pytest tests/unit/guards/test_lock_hash_verification.py -q {{.CLI_ARGS}}
 
   deps:sync:
     desc: |
