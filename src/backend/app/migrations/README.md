@@ -42,7 +42,8 @@ run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
 
    Erzeugt die nächste `versions/vNNNN_<slug>.py` aus der Vorlage (up/down-Stubs,
    `MigrationReport`, Docstring). Versionsnummer = höchste bestehende + 1,
-   nullgepolstert.
+   nullgepolstert — auf **deinem** Branch. Liegt parallel eine zweite Migration
+   im Review, siehe „Zwei Migrationen gleichzeitig im Review" weiter unten.
 
 2. **`up(db, *, dry_run=False)` implementieren.** Pflichten:
    - **Idempotent (M-3):** Nur Dokumente anfassen, die noch geändert werden
@@ -74,6 +75,51 @@ run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
 7. **Test beilegen:** Unter `tests/unit/migrations/versions/` — mindestens ein
    Smoke-Test (up idempotent/No-op, dry-run schreibt nicht, down verhält sich
    gemäß Reversibilität).
+
+## Zwei Migrationen gleichzeitig im Review
+
+**Die Versionsnummer ist die Merge-Reihenfolge, nicht die Erstellungsreihenfolge.**
+`python -m app.migrations create <slug>` vergibt „höchste bestehende + 1" — auf
+*deinem* Branch. Ein parallel offener Branch sieht dieselbe höchste Nummer und
+vergibt dieselbe neue. Das ist kein Randfall: am 16.09.2026 traf es zwei Branches
+mit je `v0046` (siehe Docstring von `v0047_reapply_corrected_substrate_values`,
+Abschnitt „On the version number").
+
+Die Fehlerklasse, wenn der zweite Branch unverändert gemergt wird: zwei Module
+mit `version = "0046"` liegen nebeneinander und `discovery.validate_sequence`
+verwirft die **gesamte** Menge mit
+
+```
+MigrationDiscoveryError: Duplicate migration versions: [... '0046', '0046']
+```
+
+Damit scheitert jede Discovery — auch die im Startup-Pfad. Betroffen ist also
+nicht nur die neue Migration, sondern das Hochfahren der Anwendung.
+
+Vorab höher nummerieren löst es nicht: derselbe Validator verlangt Lückenlosigkeit
+ab `0001` (M-1), ein `0047` ohne `0046` daneben fällt genauso durch.
+
+**Regel:** Wer als Zweiter landet, rebased auf `develop` und benennt **vor** dem
+Merge um. Umzubenennen sind vier Dinge, sonst bleibt eines davon auf der alten
+Nummer stehen:
+
+1. `versions/vNNNN_<slug>.py` (Dateiname),
+2. der `version`-String im Modul,
+3. `tests/unit/migrations/versions/test_vNNNN_<slug>.py` (Dateiname **und** die
+   Importe darin),
+4. ein etwaiges `tests/integration/test_vNNNN_<slug>.py` samt `_DB_NAME`.
+
+Der Discovery-Test ist **kein** Konfliktort mehr: `test_discovery.py` leitet seine
+Erwartung seit #1469 aus dem Verzeichnis `versions/` ab. Die einzige Konstante
+dort, `_HIGHEST_VERSION_FLOOR`, ist eine Ratsche gegen *gelöschte* Migrationen —
+eine hinzugefügte Migration fasst sie nicht an.
+
+**Sicher ist das Umbenennen nur, solange die Migration nirgends angewandt wurde**
+(M-7): `schema_migrations` trackt die *alte* Nummer und der Checksum hängt an ihr.
+Auf einer Dev-Datenbank, die die alte Nummer schon angewandt hat, entweder die DB
+neu aufsetzen oder den Eintrag in `schema_migrations` entfernen, bevor neu
+gestartet wird. Für eine bereits ausgelieferte Migration gilt M-7 unverändert:
+nicht umbenennen, Korrektur als neue Version.
 
 ## Eine neue Seed schreiben
 
