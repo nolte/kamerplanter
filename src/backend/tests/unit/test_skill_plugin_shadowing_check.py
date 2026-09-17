@@ -63,9 +63,7 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
         agents_dir.mkdir(parents=True, exist_ok=True)
         for name in agents:
             (agents_dir / f"{name}.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
-        (root / ".claude" / "plugin-adoption.yml").write_text(
-            yaml.safe_dump(document or {}), encoding="utf-8"
-        )
+        (root / ".claude" / "plugin-adoption.yml").write_text(yaml.safe_dump(document or {}), encoding="utf-8")
         return root
 
     return _make
@@ -86,9 +84,7 @@ def make_checkout(tmp_path: Path) -> Callable[..., Path]:
         checkout = tmp_path / "claude-shared"
         manifest_dir = checkout / ".claude-plugin"
         manifest_dir.mkdir(parents=True, exist_ok=True)
-        (manifest_dir / "marketplace.json").write_text(
-            json.dumps({"metadata": {"version": version}}), encoding="utf-8"
-        )
+        (manifest_dir / "marketplace.json").write_text(json.dumps({"metadata": {"version": version}}), encoding="utf-8")
         for name in hub_skills:
             skill_dir = checkout / "skills" / name
             skill_dir.mkdir(parents=True, exist_ok=True)
@@ -154,16 +150,12 @@ class TestTokenKey:
 class TestItCanFail:
     """Each finding shape, written deliberately and asserted red."""
 
-    def test_reordered_name_is_a_finding(
-        self, make_repo, make_checkout, monkeypatch, capsys
-    ) -> None:
+    def test_reordered_name_is_a_finding(self, make_repo, make_checkout, monkeypatch, capsys) -> None:
         """#1405's own shape: an exact-name guard would report green here."""
         repo = make_repo(skills=("check-test-pyramid",))
         checkout = make_checkout(plugin_skills={"nolte-engineering": ("test-pyramid-check",)})
         monkeypatch.setenv(checker.ENV_VAR, str(checkout))
-        monkeypatch.setattr(
-            checker, "load_adoption", lambda _p: {"inventory": {}, "allowlist": []}, raising=True
-        )
+        monkeypatch.setattr(checker, "load_adoption", lambda _p: {"inventory": {}, "allowlist": []}, raising=True)
         # The snapshot is empty on purpose here, so the drift finding fires too;
         # assert on the shadow line specifically.
         assert checker.run(repo) == 1
@@ -175,9 +167,7 @@ class TestItCanFail:
         agents = {"nolte-engineering": ("fullstack-developer",)}
         repo = make_repo(
             agents=("fullstack-developer",),
-            document={
-                "inventory": {"nolte-engineering": {"skills": [], "agents": ["fullstack-developer"]}}
-            },
+            document={"inventory": {"nolte-engineering": {"skills": [], "agents": ["fullstack-developer"]}}},
         )
         monkeypatch.setenv(checker.ENV_VAR, str(make_checkout(plugin_agents=agents)))
         assert checker.run(repo) == 1
@@ -216,9 +206,7 @@ class TestItCanFail:
 class TestItStaysGreen:
     """The negative half: what must not be flagged."""
 
-    def test_domain_asset_is_not_a_finding(
-        self, make_repo, make_checkout, snapshot_of, monkeypatch
-    ) -> None:
+    def test_domain_asset_is_not_a_finding(self, make_repo, make_checkout, snapshot_of, monkeypatch) -> None:
         document = snapshot_of(plugin_skills={"nolte-engineering": ("quality-gate",)})
         repo = make_repo(skills=("plant-lifecycle", "deploy-ha"), document=document)
         monkeypatch.setenv(
@@ -227,9 +215,7 @@ class TestItStaysGreen:
         )
         assert checker.run(repo) == 0
 
-    def test_partial_token_overlap_is_not_a_finding(
-        self, make_repo, make_checkout, snapshot_of, monkeypatch
-    ) -> None:
+    def test_partial_token_overlap_is_not_a_finding(self, make_repo, make_checkout, snapshot_of, monkeypatch) -> None:
         """`check-seed-data` and `dependency-audit` share a shape, not a capability."""
         document = snapshot_of(plugin_skills={"nolte-engineering": ("guard-coverage-check",)})
         repo = make_repo(skills=("check-seed-data",), document=document)
@@ -246,9 +232,7 @@ class TestItStaysGreen:
         document = snapshot_of(plugin_agents={"nolte-engineering": ("fullstack-developer",)})
         document["inventory"]["nolte-engineering"]["skills"] = ["quality-gate"]
         document["allowlist"] = [{"local": "fullstack-developer", "reason": "parity not yet run"}]
-        repo = make_repo(
-            agents=("fullstack-developer",), skills=("quality-gate",), document=document
-        )
+        repo = make_repo(agents=("fullstack-developer",), skills=("quality-gate",), document=document)
         monkeypatch.setenv(
             checker.ENV_VAR,
             str(
@@ -275,20 +259,14 @@ class TestSnapshotIntegrity:
         repo = make_repo(skills=("plant-lifecycle",), document=document)
         monkeypatch.setenv(
             checker.ENV_VAR,
-            str(
-                make_checkout(
-                    plugin_skills={"nolte-engineering": ("quality-gate", "dependency-audit")}
-                )
-            ),
+            str(make_checkout(plugin_skills={"nolte-engineering": ("quality-gate", "dependency-audit")})),
         )
         assert checker.run(repo) == 1
         err = capsys.readouterr().err
         assert "has drifted from" in err
         assert "nolte-engineering:dependency-audit" in err
 
-    def test_absent_checkout_runs_the_check_and_says_so(
-        self, make_repo, snapshot_of, no_checkout, capsys
-    ) -> None:
+    def test_absent_checkout_runs_the_check_and_says_so(self, make_repo, snapshot_of, no_checkout, capsys) -> None:
         """The CI shape: no checkout, a loud note, and the shadow check still runs."""
         document = snapshot_of(plugin_skills={"nolte-engineering": ("test-pyramid-check",)})
         repo = make_repo(skills=("check-test-pyramid",), document=document)
@@ -297,9 +275,7 @@ class TestSnapshotIntegrity:
         assert "no claude-shared checkout found" in captured.err
         assert "check-test-pyramid shadows" in captured.err
 
-    def test_absent_checkout_and_empty_snapshot_is_a_usage_error(
-        self, make_repo, no_checkout, capsys
-    ) -> None:
+    def test_absent_checkout_and_empty_snapshot_is_a_usage_error(self, make_repo, no_checkout, capsys) -> None:
         """Never green on nothing: a check with no inventory examines nothing."""
         repo = make_repo(skills=("plant-lifecycle",), document={})
         assert checker.run(repo) == 2
