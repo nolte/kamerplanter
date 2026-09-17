@@ -749,6 +749,91 @@ class TestWriteConflictMapping:
         assert not isinstance(exc.value, DuplicateError)
 
 
+# ── create_edge: the same mapping, on the path that never inherited it (#1292) ─
+
+
+def _edge_conflict_error() -> DocumentInsertError:
+    """ArangoDB's 1200 as a *unique edge index* reports it.
+
+    Message copied verbatim from the backend log of ``e2e-nightly`` run
+    34814941664 (2026-09-14, profile ``mobile``), where two overlapping
+    get-or-create requests for the same plant raced for the ``has_care_profile``
+    edge and the loser's 500 failed the suite.
+    """
+    err = DocumentInsertError.__new__(DocumentInsertError)
+    err.error_code = 1200
+    err.error_message = (
+        "write-write conflict - in index idx_1876288907249713152 of type "
+        "persistent over '_from'; document key: 526429; "
+        'indexed values: ["plant_instances/522789"]'
+    )
+    return err
+
+
+class TestEdgeWriteConflictMapping:
+    """Edges bypass ``_insert_doc``, so #1436's mapping did not reach them.
+
+    ``create_edge`` calls ``collection.insert`` on the driver directly. A unique
+    edge index — ``has_care_profile`` over ``_from``, one care profile per plant —
+    therefore rejected a losing racer with a bare ``DocumentInsertError``, which
+    every caller above turns into a 500.
+    """
+
+    def test_edge_insert_maps_write_conflict_to_domain_error(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.insert.side_effect = _edge_conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.create_edge("has_care_profile", "plant_instances/522789", "care_profiles/526429")
+
+        assert exc.value.status_code == 409
+        assert "has_care_profile" in exc.value.message
+
+    def test_the_driver_message_is_not_forwarded_to_the_client(self):
+        """It names an index and a document key, and ``details`` are client-visible."""
+        repo = BoundRepo(MagicMock(), "widgets")
+        repo._db.collection.return_value.insert.side_effect = _edge_conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.create_edge("has_care_profile", "plant_instances/522789", "care_profiles/526429")
+
+        assert "idx_1876288907249713152" not in str(exc.value.details)
+        assert "526429" not in str(exc.value.details)
+
+    def test_edge_insert_maps_a_unique_violation_to_duplicate_error(self, mock_db):
+        """The same index answers ``1210`` too, and that half was missing as well.
+
+        Measured: one four-way race in
+        ``tests/integration/test_care_profile_edge_concurrency.py`` produced a
+        ``1200`` and two ``1210``s against the *same* ``has_care_profile`` index.
+        """
+        repo = BoundRepo(mock_db, "widgets")
+        err = DocumentInsertError.__new__(DocumentInsertError)
+        err.error_code = 1210
+        err.error_message = (
+            "unique constraint violated - in index idx_1876288907249713152 of type "
+            "persistent over '_from'; conflicting key: 526429"
+        )
+        mock_db.collection.return_value.insert.side_effect = err
+
+        with pytest.raises(DuplicateError) as exc:
+            repo.create_edge("has_care_profile", "plant_instances/522789", "care_profiles/526429")
+
+        assert exc.value.status_code == 409
+        assert not isinstance(exc.value, WriteConflictError)
+
+    def test_other_insert_errors_still_propagate_unchanged(self, mock_db):
+        """Only 1200 is translated here; nothing else is reinterpreted."""
+        repo = BoundRepo(mock_db, "widgets")
+        other = DocumentInsertError.__new__(DocumentInsertError)
+        other.error_code = 1203  # collection or view not found
+        other.error_message = "collection or view not found"
+        mock_db.collection.return_value.insert.side_effect = other
+
+        with pytest.raises(DocumentInsertError):
+            repo.create_edge("has_care_profile", "plant_instances/1", "care_profiles/2")
+
+
 # ── delete_edges (DUP-B10) ───────────────────────────────────────────────────
 
 

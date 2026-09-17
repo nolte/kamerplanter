@@ -46,6 +46,9 @@ class ICareReminderRepository(ABC):
     def create_profile_edge(self, plant_key: str, profile_key: str) -> None: ...
 
     @abstractmethod
+    def get_linked_profile(self, plant_key: str) -> CareProfile | None: ...
+
+    @abstractmethod
     def create_confirmation_edges(
         self,
         confirmation_key: str,
