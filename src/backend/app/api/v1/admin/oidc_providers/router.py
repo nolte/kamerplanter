@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, Path
 from app.api.v1.admin.oidc_providers.schemas import (
     OidcProviderCreateRequest,
     OidcProviderResponse,
+    OidcProviderTestResponse,
     OidcProviderUpdateRequest,
 )
-from app.api.v1.auth.schemas import MessageResponse
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_encryption_engine, get_oauth_engine, get_oidc_config_repo
 from app.common.exceptions import DuplicateError, NotFoundError
@@ -71,8 +71,14 @@ def create_provider(
     _current_user: User = Depends(require_platform_admin),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     encryption: EncryptionEngine = Depends(get_encryption_engine),
+    oauth_engine: OAuthEngine = Depends(get_oauth_engine),
 ):
-    """Create a new OIDC/OAuth provider configuration."""
+    """Create a new OIDC/OAuth provider configuration.
+
+    A GitHub provider whose scopes cannot read the address list is refused with
+    422 (#1477) rather than stored and discovered later from one log line per
+    sign-in.
+    """
     existing = repo.get_by_slug(body.slug)
     if existing:
         raise DuplicateError("OidcProviderConfig", "slug", body.slug)
@@ -93,6 +99,7 @@ def create_provider(
         icon_url=body.icon_url,
         default_tenant_key=body.default_tenant_key,
     )
+    oauth_engine.require_supported_scopes(config)
     created = repo.create(config)
     return _response(created)
 
@@ -117,8 +124,15 @@ def update_provider(
     _current_user: User = Depends(require_platform_admin),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     encryption: EncryptionEngine = Depends(get_encryption_engine),
+    oauth_engine: OAuthEngine = Depends(get_oauth_engine),
 ):
-    """Update an existing OIDC/OAuth provider configuration."""
+    """Update an existing OIDC/OAuth provider configuration.
+
+    The scope check (#1477) runs on the MERGED result, not on the request body:
+    a request may switch `provider_type` to `github` without touching `scopes`,
+    or add `user:email` while leaving the type alone, and only the state that
+    would be stored answers whether sign-in can read the address list.
+    """
     config = repo.get_by_key(key)
     if config is None:
         raise NotFoundError("OidcProviderConfig", key)
@@ -130,6 +144,7 @@ def update_provider(
         else:
             setattr(config, field, value)
 
+    oauth_engine.require_supported_scopes(config)
     updated = repo.update(key, config)
     return _response(updated)
 
@@ -147,28 +162,41 @@ def delete_provider(
     repo.delete(key)
 
 
-@router.post("/{key}/test", response_model=MessageResponse)
+@router.post("/{key}/test", response_model=OidcProviderTestResponse)
 def test_provider(
     key: Annotated[str, Path(description="Document key of the OIDC provider configuration.")],
     _current_user: User = Depends(require_platform_admin),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     oauth_engine: OAuthEngine = Depends(get_oauth_engine),
 ):
-    """Fetch and validate the OIDC discovery document for the provider."""
+    """Fetch and validate the OIDC discovery document, and judge the scope list.
+
+    The scope verdict (#1477) is reported on EVERY path, before the discovery
+    fetch. A provider stored before the write gate existed can only learn of the
+    missing `user:email` scope here — and GitHub publishes no
+    `.well-known/openid-configuration` at all, so the discovery step always fails
+    for exactly the provider type the check is about. Computing the verdict after
+    an early return would have left it unreachable for GitHub.
+    """
     config = repo.get_by_key(key)
     if config is None:
         raise NotFoundError("OidcProviderConfig", key)
 
+    scope_check = oauth_engine.check_provider_scopes(config)
+
     try:
         discovery = oauth_engine.fetch_discovery_document(config.issuer_url)
     except Exception as e:
-        return MessageResponse(message=f"Discovery fetch failed: {e}")
+        return OidcProviderTestResponse(message=f"Discovery fetch failed: {e}", scope_check=scope_check)
 
     # Validate required fields
     required = ["authorization_endpoint", "token_endpoint", "issuer"]
     missing = [f for f in required if f not in discovery]
     if missing:
-        return MessageResponse(message=f"Discovery document missing fields: {', '.join(missing)}")
+        return OidcProviderTestResponse(
+            message=f"Discovery document missing fields: {', '.join(missing)}",
+            scope_check=scope_check,
+        )
 
     # Save discovery document
     config.discovery_document = discovery
@@ -177,8 +205,9 @@ def test_provider(
     config.discovery_refreshed_at = datetime.now(UTC)
     repo.update(key, config)
 
-    return MessageResponse(
+    return OidcProviderTestResponse(
         message=f"OIDC discovery for '{config.slug}' validated successfully. "
         f"Endpoints: authorization={discovery.get('authorization_endpoint', 'N/A')}, "
         f"token={discovery.get('token_endpoint', 'N/A')}",
+        scope_check=scope_check,
     )
