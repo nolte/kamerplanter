@@ -52,9 +52,11 @@ nothing and yields ``TROPICAL`` — which is what ``_bootstrap_care_profile`` in
 ``app/common/dependencies.py`` does today, so the very defect #1440 fixed is
 still live on the creation path (reported separately; a backfill repeating it
 would be irreversible for the whole historic population). A ``family_key`` that
-resolves to no document is used verbatim as the family name instead, so an
-installation whose species carry family *names* is served correctly too, and the
-row is reported under ``family_unresolved`` either way.
+resolves to no document is used verbatim as the family name when it is not numeric,
+so an installation whose species carry family *names* is served correctly too; a
+numeric dangling one is dropped (it can only mean ``TROPICAL``, and since #1489 the
+engine refuses a document key outright). The row is reported under
+``family_unresolved`` either way.
 
 ``watering_guide`` is deliberately **not** passed: no production caller passes one
 (#1481), so a backfill that synthesised one would give migrated plants presets no
@@ -309,11 +311,17 @@ class BackfillMissingCareProfilesMigration(Migration):
                 species_name = record["name"] or None
                 family_key = record["family_key"]
                 if family_key:
-                    # A stored key that names no family document is used verbatim:
-                    # it is then either a family NAME (an installation that stores
-                    # it that way) or a dangling reference, and both are better
-                    # served by trying the value than by silently going tropical.
-                    botanical_family = families.get(family_key) or family_key
+                    # A stored value that names no family document is used verbatim
+                    # when it is not numeric: it is then a family NAME (an
+                    # installation that stores it that way), which is better served
+                    # by trying the value than by silently going tropical. A numeric
+                    # one is a dangling reference and is dropped — it could only ever
+                    # mean TROPICAL, and since #1489 the engine refuses it outright
+                    # rather than answer a document key with plausible presets. The
+                    # outcome for such a row is unchanged; what changed is that it no
+                    # longer travels as if it were a name.
+                    verbatim = None if family_key.strip().isdigit() else family_key
+                    botanical_family = families.get(family_key) or verbatim
                     if family_key not in families:
                         family_unresolved_total += 1
                         self._append(

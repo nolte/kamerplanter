@@ -445,11 +445,11 @@ export default function PlantInstanceDetailPage() {
   // Load care profile when switching to Care tab
   useEffect(() => {
     if (tab === 4 && key) {
-      careApi.getOrCreateProfile(key, species?.scientific_name)
+      careApi.getOrCreateProfile(key)
         .then(setCareProfile)
         .catch(() => setCareProfile(null));
     }
-  }, [tab, key, species?.scientific_name]);
+  }, [tab, key]);
 
   // Load every task bound to this plant instance (all categories, all statuses).
   // A dedicated ``loaded``/``error`` state pair replaces the former
