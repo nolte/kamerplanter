@@ -484,4 +484,4 @@ Nach dem Schreiben des Audits gib im Chat eine kompakte Zusammenfassung:
 - Verwandte Skills:
   - `spec-status` — schnelle Tabelle ohne persistentes Audit, ohne Drift-Detection
   - `check-architecture` — NFR-001-Layer-Pruefung pro Modul, fuer Drift-Followups
-  - `pre-pr` — Pre-Merge-Sammelpruefung (kein Coverage)
+  - `/nolte-engineering:quality-gate` — Pre-Merge-Lint/Typecheck/Tests (kein Coverage); loest den mit #1405 entfallenen lokalen `pre-pr`-Skill ab

@@ -24,17 +24,33 @@ import {
   markAllRead,
 } from '@/api/endpoints/notifications';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { isCareConfirmAction } from '@/utils/careConfirmActions';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
 
 /**
  * A notification exposes a one-tap "Done" affordance when it carries an
  * actionable button and has not been acted on yet — REQ-030 §4.2 (Issue #742).
  * Clicking it drives the source-confirmation callback (`POST …/act`).
+ *
+ * `canEdit` withholds the affordance for the confirming actions, which persist a
+ * `CareConfirmation` and a `WateringLog` and are refused to a viewer by the
+ * backend (REQ-030 §4.2, #1441). Comfort, not the boundary: the server refuses
+ * the same call with 403 whatever this returns, and `handleDone` rolls the
+ * optimistic update back and surfaces that refusal. Every other action — read,
+ * acted, snooze — stays open to every member, because that is per-user state.
  */
-function actionableActionId(notification: NotificationResponse): string | null {
+function actionableActionId(
+  notification: NotificationResponse,
+  canEdit: boolean,
+): string | null {
   if (notification.acted_at) return null;
   const action = notification.actions?.[0];
-  return action ? action.action_id : null;
+  if (!action) return null;
+  if (!canEdit && isCareConfirmAction(notification.notification_type, action.action_id)) {
+    return null;
+  }
+  return action.action_id;
 }
 
 const DRAWER_WIDTH = 400;
@@ -87,6 +103,7 @@ export default function NotificationDrawer({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const notify = useNotification();
+  const { canEdit } = useTenantPermissions();
 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -393,7 +410,7 @@ export default function NotificationDrawer({
               </CardContent>
             </CardActionArea>
             {(() => {
-              const actionId = actionableActionId(notification);
+              const actionId = actionableActionId(notification, canEdit);
               if (!actionId) return null;
               return (
                 <CardActions sx={{ pt: 0, px: 2, pb: 1.5, justifyContent: 'flex-end' }}>
