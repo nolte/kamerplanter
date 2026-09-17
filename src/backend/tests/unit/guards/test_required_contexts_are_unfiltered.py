@@ -141,14 +141,26 @@ def job_reports(context: str, job_id: str, label: str) -> bool:
       value in parentheses. Matched on the prefix rather than by expanding the
       matrix, because the expansion is not what branch protection was told;
     * ``static / Static CI Tests`` — a job that ``uses:`` a reusable workflow,
-      reporting as ``<caller job id> / <reusable job name>``. Only the left half
-      belongs to this repository, so only the left half is matched.
+      reporting as ``<caller job LABEL> / <reusable job name>``. Only the left
+      half belongs to this repository, so only the left half is matched.
+
+    THE LEFT HALF IS THE LABEL, NOT THE JOB ID, and this cost a finding. Until
+    the class sweep of #1491 this function matched ``f"{job_id} / "`` alone,
+    which is right for ``static`` only because that job declares no ``name:`` —
+    when it does, GitHub builds the prefix from the name. Measured on the develop
+    head ``3145261cc`` with ``gh api .../check-runs``: the job ``coverage`` in
+    ``backend.yml``/``frontend.yml`` carries ``name: Coverage`` and reports as
+    ``Coverage / Python Coverage``, which the old predicate could not attribute
+    to any workflow in the tree. Nothing was red, because that context is not
+    required — but promoting it would have produced "no job produces this check
+    run" on a repository where one plainly does: a gap in the MEASURING TOOL, in
+    the direction that reads as a defect in the thing measured.
     """
     if context == label:
         return True
     if context.startswith(f"{label} (") and context.endswith(")"):
         return True
-    return context.startswith(f"{job_id} / ")
+    return context.startswith(f"{job_id} / ") or context.startswith(f"{label} / ")
 
 
 def workflows_defining(context: str, workflow_dir: Path) -> list[Path]:
@@ -435,6 +447,10 @@ class TestWhatCountsAsUnfiltered:
             ("Write-route and tree guards", "guards", "Write-route and tree guards", True),
             ("lint-test-build (22)", "lint-test-build", "lint-test-build", True),
             ("static / Static CI Tests", "static", "static", True),
+            # The same shape with a `name:` on the caller — GitHub builds the
+            # left half from the LABEL then, not from the id (#1491 sweep).
+            ("Coverage / Python Coverage", "coverage", "Coverage", True),
+            ("Coverage / Python Coverage", "coverage", "coverage", False),
             ("chain-bench / Chain Bench", "chain-bench", "chain-bench", True),
             ("lint-test-build (22)", "lint-test", "lint-test", False),
             ("Integration tests (ArangoDB)", "coverage", "Coverage", False),
