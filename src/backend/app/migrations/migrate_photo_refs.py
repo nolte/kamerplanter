@@ -1,26 +1,49 @@
-"""NFR-013 §2.2 / AC-09 — normalise legacy ``photo_refs`` to attachment ids.
+"""NFR-013 §2.2 / AC-09 — rewrite ``photo_refs`` API URIs to attachment ids.
 
-Historically the ``photo_refs`` lists on diary entries, harvest batches,
-inspections and tasks stored *raw* references — the REQ-013 spec even used a
-provisional ``s3://kamerplanter/diary/...`` notation. NFR-013 standardises them
-to **attachment ids** (the ULID embedded in the storage key, surfaced to the
-frontend as ``/api/v1/t/{slug}/attachments/{attachment_id}``).
+``photo_refs`` lists (diary entries, plant galleries, inspections, harvest and
+storage observations, tasks) hold **attachment ids** per NFR-013 §2.2 — the
+document key of the row in ``attachments``. Legacy rows hold other spellings,
+and this migration rewrites the one spelling that can be resolved from its own
+text: the ``/api/v1/t/{slug}/attachments/{id}`` API URI, whose ``{id}`` segment
+*is* that document key.
 
-This migration walks the four collections that carry ``photo_refs`` and
-rewrites each list element to its attachment id. It is:
+**What this module deliberately does not do: resolve a storage key.** A storage
+key (``t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.{ext}``, or the same behind
+``s3://``) ends in a ULID that ``StorageKeyBuilder.build`` mints for the object;
+the attachment's ``_key`` is a short **numeric** id ArangoDB assigns
+(``BaseArangoRepository._to_doc`` pops ``_key`` before the insert and no key
+generator is configured). The two identities are unrelated, so the ULID stem
+names no document — measured in #1393 round 7. Until #1438 this module reduced
+such a reference to that stem anyway, turning a reference the readers resolve
+today (``ArangoAttachmentRepository`` compares an entry against the
+attachment's own ``storage_key``) into one that resolves to nothing. Such an
+entry is now returned **verbatim**.
 
-- **idempotent** — a value that is already an attachment id is left untouched,
-  so re-running is a safe no-op (only documents that actually change are
-  written);
-- **non-destructive** — it only normalises existing references, never deletes a
-  photo or drops an unresolvable value (those are kept verbatim and reported);
+Reconciling a reference against the attachment catalogue — the only way to map
+a storage key to a document key — needs the catalogue, which a pure text
+transformation does not have. That is owned by
+``versions/v0046_reconcile_photo_refs.py`` (#1438 part 2), not by this module:
+v0046 rewrites an entry onto the ``_key`` of the single attachment it denotes
+and reports every entry that denotes nothing.
+
+It is:
+
+- **idempotent** — a value it cannot rewrite is left untouched, so re-running is
+  a safe no-op (only documents that actually change are written);
+- **non-destructive** — it never deletes a photo or drops a value it cannot
+  resolve (those are kept verbatim and reported);
 - **reportable** — returns a :class:`PhotoRefMigrationReport` summarising what
   changed, so an empty/already-normalised dataset produces a clear no-op report.
 
+**Writing is an explicit decision** at every entry point (``run``, the Celery
+task and the CLI all default to ``dry_run=True``): the rewrite is irreversible
+(``v0003`` declares ``reversible = False``) and this module's premise has been
+wrong once already.
+
 Run from the backend root::
 
-    python -m app.migrations.migrate_photo_refs            # apply
-    python -m app.migrations.migrate_photo_refs --dry-run  # report only
+    python -m app.migrations.migrate_photo_refs          # report only (default)
+    python -m app.migrations.migrate_photo_refs --write  # apply
 """
 
 from __future__ import annotations
@@ -53,28 +76,23 @@ logger = structlog.get_logger()
 _PHOTO_REF_COLLECTIONS: tuple[str, ...] = PHOTO_REF_COLLECTIONS
 _FIELD = "photo_refs"
 
-# !!! This module's central premise is false, and it is why running it can make
-# references *worse* rather than better. Tracked as #1438; read that before running
-# this task, which writes by default (``dry_run=False``).
-#
-# Measured against a real ArangoDB in #1393 round 7: an attachment's ``_key`` is a
-# short **numeric** key assigned by ArangoDB (``1024799``), not a ULID —
-# ``BaseArangoRepository._to_doc`` pops ``_key`` before the insert and no key
-# generator is configured. And ``StorageKeyBuilder.build`` mints its *own* ULID when
-# the caller passes none, which ``AttachmentService.upload`` does, so the ULID inside
-# ``t/{tenant}/task/2026/01/{ulid}.jpg`` is unrelated to the document key.
-#
-# The consequence for rule 4 below: normalising a storage-key reference yields that
-# foreign ULID, which resolves to no attachment at all. The reference resolver in
-# ``ArangoAttachmentRepository`` handles such an entry correctly today by comparing it
-# against the attachment's own ``storage_key``; rewriting it here would replace a
-# working reference with a broken one.
-#
-# The regex below still describes the ULID shape, and is kept only because rule 2
-# returning such a value unchanged is harmless.
+# A ULID-shaped entry. Note what this shape does **not** prove: an attachment's
+# ``_key`` is numeric, so a ULID here is an object id from a storage key, a thumbnail
+# stem, or an id from some other system — never, by itself, a resolvable attachment
+# id. The rule keyed on it therefore only trims and passes the value through; it is
+# not evidence that the reference resolves (#1438).
 _ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$", re.IGNORECASE)
-# Matches a stored ``.../attachments/{id}`` API URI tail.
-_API_URI_RE = re.compile(r"/attachments/(?P<id>[^/?#]+)")
+# Matches a stored API URI of the form ``…/api/v{n}/[…/]attachments/{id}[…]``.
+#
+# **Anchored on the API prefix on purpose.** The bare tail ``/attachments/{id}``
+# matches any string carrying that segment, and two real shapes do so without being
+# routes: a storage key whose *category* is ``attachments``
+# (``t/{tenant}/attachments/{yyyy}/{mm}/{ulid}.{ext}`` — ``StorageKeyBuilder.build``
+# puts the category in the third segment) and the same behind an ``s3://`` bucket
+# prefix. The unanchored pattern read ``{yyyy}`` out of those as "the attachment id",
+# i.e. rewrote a resolvable reference to the string ``"2026"`` — a plausible numeric
+# ``_key`` (#1438 review, O-5).
+_API_URI_RE = re.compile(r"(?:^|/)api/v\d+/(?:.*?/)?attachments/(?P<id>[^/?#]+)")
 
 
 def normalize_photo_ref(ref: str) -> str:
@@ -83,12 +101,27 @@ def normalize_photo_ref(ref: str) -> str:
     Resolution order:
 
     1. Empty / whitespace → returned unchanged.
-    2. Already an attachment id (ULID shape) → returned unchanged.
-    3. ``/api/v1/.../attachments/{id}`` API URI → the ``{id}`` tail.
-    4. A storage key / URL (``s3://...``, ``t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.ext``,
-       any ``.../{ulid}.{ext}``) → the ULID stem of the last path segment.
-    5. Anything unresolvable → returned unchanged (never dropped; reported by
-       the caller as ``unresolved``).
+    2. ULID shape → trimmed and passed through. This is *not* a claim that the
+       value is an attachment id (a ``_key`` is numeric); it is a foreign id this
+       function has no catalogue to resolve, and leaving it alone is the same
+       answer rule 3 gives — minus surrounding whitespace.
+    3. ``/api/v{n}/…/attachments/{id}`` API URI → the ``{id}`` segment. The only
+       rewrite left, and it is sound because the URI is built *from* the document
+       key, so the key can be read back out of it. The match is anchored on the
+       ``api/v{n}/`` prefix: ``/attachments/`` alone also occurs inside a storage
+       key whose category happens to be ``attachments``, and reading the year out
+       of that is a rewrite onto a foreign document (O-5).
+    4. Anything else — a storage key, an ``s3://`` URL, a thumbnail rendition, an
+       unparseable legacy value → returned unchanged (never dropped; reported by
+       the caller as an unchanged entry).
+
+    Rule 4 used to reduce a storage key to the ULID stem of its last path segment.
+    That stem is the object id ``StorageKeyBuilder`` minted, not the attachment's
+    ``_key``, so the rewrite replaced a reference the readers resolve (via the
+    ``storage_key`` comparison in ``ArangoAttachmentRepository``) with one that
+    resolves to nothing — see the module docstring and #1438. Mapping a storage
+    key onto a document key requires the attachment catalogue and belongs to the
+    reconcile migration, not to a pure string transformation.
     """
     value = ref.strip()
     if not value:
@@ -103,12 +136,7 @@ def normalize_photo_ref(ref: str) -> str:
         candidate = candidate.split(".", 1)[0]
         return candidate
 
-    # Treat as a path/URL: take the last segment, drop any extension.
-    last_segment = value.rstrip("/").split("/")[-1]
-    stem = last_segment.split(".", 1)[0]
-    # Strip a thumbnail suffix (``{ulid}_t512``) back to the base attachment id.
-    stem = re.sub(r"_t\d+$", "", stem)
-    return stem or value
+    return ref
 
 
 def normalize_refs(refs: list[str]) -> tuple[list[str], int]:
@@ -152,10 +180,14 @@ class PhotoRefMigrationReport:
         }
 
 
-def run(db: Any | None = None, *, dry_run: bool = False) -> PhotoRefMigrationReport:
+def run(db: Any | None = None, *, dry_run: bool = True) -> PhotoRefMigrationReport:
     """Walk all ``photo_refs`` collections and normalise their references.
 
-    When ``dry_run`` is set the report is computed but no document is written.
+    Defaults to ``dry_run=True``: the report is computed but no document is
+    written. Writing is irreversible (the original reference is not retained) and
+    this migration's premise was wrong once already (#1438), so a caller that
+    omits the keyword gets the report rather than a rewrite. Pass
+    ``dry_run=False`` to apply.
     """
     if db is None:
         from app.common.dependencies import get_db
@@ -202,12 +234,25 @@ def _migrate_collection(
     return changed_docs
 
 
+def dry_run_from_argv(args: list[str]) -> bool:
+    """Decide from the CLI arguments whether this is a report-only run.
+
+    ``--write`` is the only way to write; ``--dry-run`` is still accepted and wins
+    when both are given, so a script that passed it before this change keeps
+    behaving identically. Before #1438 the polarity was the other way round and an
+    irreversible rewrite was what a bare invocation did.
+    """
+    if "--dry-run" in args:
+        return True
+    return "--write" not in args
+
+
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI glue
     from app.config.logging import setup_logging
 
     setup_logging()
     args = argv if argv is not None else sys.argv[1:]
-    dry_run = "--dry-run" in args
+    dry_run = dry_run_from_argv(args)
     report = run(dry_run=dry_run)
     result = report.as_dict()
     print(  # noqa: T201 — CLI summary output is intentional
