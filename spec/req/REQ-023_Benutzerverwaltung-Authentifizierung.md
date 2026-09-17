@@ -1055,6 +1055,8 @@ class UserService:
 | DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Plattform-Admin |
 | POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Plattform-Admin |
 
+**Scope-Anforderung GitHub (#1477).** Ein Provider mit `provider_type == "github"`, dessen `scopes` weder `user:email` noch den übergeordneten Scope `user` enthalten, wird von `POST` und `PATCH` mit `422` abgelehnt. GitHub liefert das `verified`-Merkmal einer Adresse nur über `GET /user/emails`, das ohne diesen Scope `403` antwortet; ohne ihn ist `email_verified` bei jeder Anmeldung leer und die automatische Kontoverknüpfung (§ REQ-023 OAuth-Callback) bleibt dauerhaft aus. `POST /{slug}/test` meldet denselben Befund für Bestandskonfigurationen im Antwortfeld `scope_check` (`ok`, `provider_type`, `configured_scopes`, `missing_scopes`, `detail`) — unabhängig davon, ob ein Discovery-Dokument abrufbar ist, denn GitHub veröffentlicht keins.
+
 **Gesamtanzahl API-Endpunkte:** ~25
 
 ### 3.4 Middleware
