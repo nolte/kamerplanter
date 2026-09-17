@@ -32,6 +32,7 @@ from selenium.common.exceptions import (
     ElementNotInteractableException,
     StaleElementReferenceException,
     TimeoutException,
+    WebDriverException,
 )
 
 from .pages.base_page import DE_DATE_RE
@@ -325,17 +326,31 @@ def create_care_task(
         if key is not None:
             return key
         time.sleep(1.0)
-    diagnosis = (
-        "the queue was scoped to that plant on at least one pass, so the card is "
-        "genuinely absent — look at the create, not the lookup"
+    # What this message may claim is bounded by what the loop above measured
+    # (#1485). The previous wording concluded from ``filter_took`` alone that the
+    # create step was at fault — an inference, and an unsound one: the
+    # plant filter was a client-side narrowing of a response the server caps at
+    # 200 rows (#1484), so a taken filter did not mean the plant's cards had ever
+    # been in the payload. The scope is a server-side query parameter now, but
+    # the message still states only what it read: whether the filter took, how
+    # many cards the last pass returned, and which keys those were. Naming the
+    # place to look is the reader's job, and it needs these numbers to do it.
+    try:
+        seen_keys = task_queue.get_task_keys()
+        observed = f"the last pass read {len(seen_keys)} task card(s), keys {seen_keys}"
+    except WebDriverException as exc:
+        observed = f"the cards of the last pass could not be read ({type(exc).__name__})"
+    scope = (
+        f"the queue was scoped to plant '{instance_id}' server-side on at least one pass"
         if filter_took
         else "the plant filter never took (its autocomplete offered no option for "
-        "this instance id), so every scan read the unfiltered, shared head of the "
-        "queue — the lookup is what failed here, not necessarily the create"
+        "this instance id), so every scan read the unscoped queue, which the "
+        "server answers with at most 200 rows"
     )
     raise AssertionError(
         f"Self-provisioning failed: care task '{task_name}' did not appear in the "
-        f"queue within 15s after creation, for plant '{instance_id}'. {diagnosis}."
+        f"queue within 15s after creation, for plant '{instance_id}'. "
+        f"{scope}; {observed}."
     )
 
 

@@ -106,3 +106,97 @@ class TestTheWritingStepIsChecked:
         _journey_helpers.provision_watering_care_task(BASE_URL, SEED, PLANT)
 
         assert [method for method, _ in calls] == ["GET", "PATCH", "POST"]
+
+
+class _FakeClock:
+    """A monotonic stand-in for the ``time`` module the poll loop reads.
+
+    ``create_care_task`` polls for 15 wall-clock seconds. Only two names are
+    needed — ``time`` and ``sleep`` — and letting ``sleep`` advance the same
+    clock keeps the loop's iteration count exactly what it is in production
+    (15 passes at 1.0 s), rather than collapsing it to a single pass.
+    """
+
+    def __init__(self) -> None:
+        self.now = 1_000.0
+
+    def time(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _task_queue_double(*, filter_takes: bool, keys: list[str]):
+    """A ``TaskQueuePage`` the create dialog can be driven against, card-free.
+
+    ``create_autospec`` rather than a hand-written stub: the double then rejects
+    every call the real page object would reject, so a message asserted here
+    cannot be produced by a method signature that does not exist (the failure
+    class where the double accepts what the real thing refuses).
+    """
+    from unittest.mock import create_autospec
+
+    from tests.e2e.pages.task_queue_page import TaskQueuePage
+
+    double = create_autospec(TaskQueuePage, instance=True)
+    double.select_task_plant_by_text.return_value = True
+    double.filter_by_plant.return_value = filter_takes
+    double.find_task_key_by_name.return_value = None  # the card never appears
+    double.get_task_keys.return_value = keys
+    return double
+
+
+class TestTheLookupDiagnosisStatesOnlyWhatItMeasured:
+    """The message names the scope, the count and the keys — and infers nothing (#1485).
+
+    Its predecessor concluded "look at the create, not the lookup" from the
+    filter having taken. That conclusion did not follow: until #1484 the filter
+    narrowed a response the queue endpoint caps at 200 rows, so the plant's
+    cards could be absent from the payload no matter how well the filter worked
+    — and the reader was sent after a create that had succeeded.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _fast_clock(self, monkeypatch):
+        monkeypatch.setattr(_journey_helpers, "time", _FakeClock())
+
+    def test_a_taken_scope_reports_the_cards_it_read_and_draws_no_conclusion(self, monkeypatch):
+        queue = _task_queue_double(filter_takes=True, keys=["other-1", "other-2"])
+
+        with pytest.raises(AssertionError) as exc:
+            _journey_helpers.create_care_task(queue, PLANT, "watering task")
+
+        message = str(exc.value)
+        assert "look at the create" not in message, (
+            "that is an inference about a step this loop never observed; the loop "
+            "measured a scope, a count and a set of keys"
+        )
+        assert "scoped to plant '522789' server-side" in message
+        assert "read 2 task card(s)" in message
+        assert "other-1" in message
+
+    def test_a_scope_that_never_took_names_the_cap_that_bounds_the_unscoped_read(self, monkeypatch):
+        queue = _task_queue_double(filter_takes=False, keys=[])
+
+        with pytest.raises(AssertionError) as exc:
+            _journey_helpers.create_care_task(queue, PLANT, "watering task")
+
+        message = str(exc.value)
+        assert "the plant filter never took" in message
+        assert "at most 200 rows" in message, (
+            "an unscoped read is bounded by the endpoint's cap — without that number "
+            "the reader cannot tell a missing card from a truncated answer"
+        )
+        assert "read 0 task card(s)" in message
+
+    def test_an_unreadable_queue_says_so_instead_of_inventing_a_count(self, monkeypatch):
+        from selenium.common.exceptions import StaleElementReferenceException
+
+        queue = _task_queue_double(filter_takes=True, keys=[])
+        queue.get_task_keys.side_effect = StaleElementReferenceException("gone")
+
+        with pytest.raises(AssertionError) as exc:
+            _journey_helpers.create_care_task(queue, PLANT, "watering task")
+
+        assert "could not be read (StaleElementReferenceException)" in str(exc.value)

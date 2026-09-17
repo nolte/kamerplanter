@@ -253,9 +253,17 @@ class TaskQueuePage(BasePage):
         """Scope the queue to a single plant via the ``filter-plant`` autocomplete.
 
         Types *text* (a plant's unique instance id) into the plant filter and
-        picks the first matching option, so the queue renders only that plant's
-        cards. This makes card lookups robust regardless of how many unrelated
-        tasks exist in the tenant. Returns True once a plant was selected.
+        picks the first matching option. Since #1484 the selection re-queries
+        ``GET /tasks/queue`` with ``plant_key``, so what comes back is the
+        plant's cards and nothing else.
+
+        That server round trip is what the robustness claim rests on, and why it
+        is stated with the issue number rather than on its own: while the filter
+        was a client-side narrowing of the answer, the endpoint's 200-row cap
+        could drop the plant's cards before the page ever saw them, and a scoped
+        lookup could still miss a card that existed.
+
+        Returns True once a plant was selected.
         """
         if not self._select_autocomplete_option(self.FILTER_PLANT_INPUT, text):
             return False
