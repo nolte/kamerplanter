@@ -97,25 +97,32 @@ export default function CultivarListSection({ speciesKey }: Props) {
       render: (r) => r.days_to_maturity ?? '—',
       align: 'right',
     },
-    {
-      id: 'actions',
-      label: t('common.actions'),
-      width: 60,
-      sortable: false,
-      searchable: false,
-      render: (r) => (
-        canDeleteCatalogue ? (
-          <IconButton
-            size="small"
-            aria-label={t('common.delete')}
-            onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
-            data-testid={`cultivar-delete-${r.key}`}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        ) : null
-      ),
-    },
+    // The delete icon is this column's only content — unlike every other
+    // actions column in the app (which always keeps an edit/duplicate/apply
+    // icon regardless of role), so gating it in `render` alone would leave a
+    // permanently empty "Aktionen" column, header and all, for a grower. The
+    // whole column is omitted instead (#1467 usability pass).
+    ...(canDeleteCatalogue
+      ? [
+          {
+            id: 'actions',
+            label: t('common.actions'),
+            width: 60,
+            sortable: false,
+            searchable: false,
+            render: (r: Cultivar) => (
+              <IconButton
+                size="small"
+                aria-label={t('common.delete')}
+                onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+                data-testid={`cultivar-delete-${r.key}`}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            ),
+          } as Column<Cultivar>,
+        ]
+      : []),
   ];
 
   /** Row action for the mobile card view — the same delete the desktop actions
