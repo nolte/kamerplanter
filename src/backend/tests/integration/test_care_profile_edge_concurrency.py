@@ -1,0 +1,252 @@
+"""Integration test for #1292 — a lost care-profile race is not a 500.
+
+``CareReminderService.get_or_create_profile(..., may_create=True)`` reads the
+plant's profile and, finding none, inserts a ``CareProfile`` plus a
+``has_care_profile`` edge. Nothing makes the pair atomic. The edge collection
+carries a **unique** persistent index over ``_from`` (``collections.py``) — the
+storage-level statement of "one care profile per plant" — so when two requests
+for the same plant overlap, the loser's edge insert is rejected.
+
+Measured, in the ``e2e-nightly`` of 2026-09-14 (run 34814941664, profile
+``mobile``), on ``GET /api/v1/care-reminders/plants/522789/profile``::
+
+    arango.exceptions.DocumentInsertError: [HTTP 409][ERR 1200] write-write
+    conflict - in index idx_1876288907249713152 of type persistent over '_from';
+    document key: 526429; indexed values: ["plant_instances/522789"]
+
+``1200`` is ``arango.errno.CONFLICT``. ``create_edge`` wrote through the driver
+directly, so it never inherited the ``1200 → WriteConflictError`` mapping
+``_insert_doc`` grew for #1436, and the loser surfaced a raw driver exception —
+a 500 for a condition that is, at worst, retryable.
+
+**Why this file needs a real ArangoDB.** Whether the server answers ``1200`` (a
+serialization failure) or ``1210`` (unique constraint violated) on this index is
+the server's decision under real contention; no double can be trusted to make it.
+A sequential double call passes against the *unfixed* code and certifies nothing.
+Hence the integration tier — never ``tests/unit``/``tests/api``, where a
+developer machine's ``localhost:8529`` turns an accidental connection into a local
+pass and a CI failure (#978).
+
+**Falsification.** ``test_negative_control_without_the_index_duplicates`` runs the
+identical concurrent driver against the edge collection with the unique index
+*removed*, and asserts that two edges then appear. If the racers did not actually
+overlap, that control would see one edge and fail — so the positive test below
+cannot pass for the trivial reason that nothing ever raced.
+
+The branch behaviour (winner found → answer with it; nothing linked → keep
+raising) is pinned solitarily in
+``tests/unit/domain/services/test_care_profile_edge_write_conflict.py``, which,
+unlike this file, runs in a CI gate (#1432).
+
+Run with: pytest tests/integration/ -v   (requires docker compose up arangodb)
+"""
+
+from __future__ import annotations
+
+import threading
+
+import pytest
+from arango import ArangoClient
+
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+
+pytestmark = [
+    pytest.mark.usefixtures("arango_db"),
+    pytest.mark.allow_db_connection("#1292 is a race whose resolution only exists against a real ArangoDB"),
+]
+
+_DB_NAME = "kamerplanter_care_profile_edge_test"
+_TENANT_KEY = "tenant-alpha"
+_PLANT_KEY = "plant-basil-1"
+
+#: How many requests race for the same plant's profile. Four mirrors the E2E
+#: suite's four xdist workers driving one tenant at once.
+_RACERS = 4
+
+#: Independent bursts the negative control may use to observe the race.
+_NEGATIVE_CONTROL_ROUNDS = 5
+
+
+def _settings():
+    from app.config.settings import Settings
+
+    return Settings(arangodb_database=_DB_NAME)
+
+
+def _connect():
+    """Open an **own** connection — each racer gets one, like separate workers do."""
+    from app.data_access.arango.connection import ArangoConnection
+
+    conn = ArangoConnection(_settings())
+    return conn, conn.connect()
+
+
+def _plant_doc(plant_key: str) -> dict:
+    return {
+        "_key": plant_key,
+        "tenant_key": _TENANT_KEY,
+        "instance_id": f"P-{plant_key}",
+        "species_key": "ocimum-basilicum",
+        "plant_name": "Basil",
+        "planted_on": "2026-01-01",
+    }
+
+
+def _make_service(db):
+    """A real service on real Arango repositories — the production write path, unfaked."""
+    from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
+    from app.domain.engines.care_reminder_engine import CareReminderEngine
+    from app.domain.services.care_reminder_service import CareReminderService
+
+    return CareReminderService(ArangoCareReminderRepository(db), CareReminderEngine())
+
+
+def _profile_edges(db, plant_key: str) -> list[dict]:
+    from app.data_access.arango import collections as col
+
+    return list(
+        db.aql.execute(
+            f"FOR e IN {col.HAS_CARE_PROFILE} FILTER e._from == @from RETURN e",
+            bind_vars={"from": f"{col.PLANT_INSTANCES}/{plant_key}"},
+        )
+    )
+
+
+def _profile_docs(db, plant_key: str) -> list[dict]:
+    from app.data_access.arango import collections as col
+
+    return list(
+        db.aql.execute(
+            f"FOR doc IN {col.CARE_PROFILES} FILTER doc.plant_key == @plant_key RETURN doc",
+            bind_vars={"plant_key": plant_key},
+        )
+    )
+
+
+def _race_get_or_create(plant_key: str) -> tuple[list[BaseException], list[str]]:
+    """Fire ``_RACERS`` genuinely overlapping ``get_or_create_profile`` calls.
+
+    Each racer opens its **own** connection and builds its own service, so nothing
+    is shared but the database. A :class:`threading.Barrier` releases them
+    together, so the read-then-create windows actually overlap instead of merely
+    being started in a loop. Returns what the racers raised and which profile key
+    each one answered with.
+    """
+    barrier = threading.Barrier(_RACERS)
+    errors: list[BaseException] = []
+    keys: list[str] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        conn, db = _connect()
+        try:
+            service = _make_service(db)
+            barrier.wait(timeout=30)
+            profile = service.get_or_create_profile(plant_key, "Ocimum basilicum", may_create=True)
+            with lock:
+                keys.append(profile.key or "")
+        except BaseException as exc:  # noqa: BLE001 — recorded and asserted on by the caller
+            with lock:
+                errors.append(exc)
+        finally:
+            conn.close()
+
+    threads = [threading.Thread(target=worker, name=f"racer-{i}") for i in range(_RACERS)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+    return errors, keys
+
+
+@pytest.fixture
+def db():
+    """A bootstrapped test database, dropped afterwards."""
+    from app.data_access.arango.collections import ensure_collections
+
+    conn, database = _connect()
+    ensure_collections(database)
+    yield database
+    conn.close()
+    system = ArangoClient(hosts=ARANGO_URL).db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+    if system.has_database(_DB_NAME):
+        system.delete_database(_DB_NAME)
+
+
+@pytest.fixture
+def plant(db):
+    """Seed one plant *without* a care profile — the state the race starts from."""
+    from app.data_access.arango import collections as col
+
+    db.collection(col.PLANT_INSTANCES).insert(_plant_doc(_PLANT_KEY), overwrite=True)
+    return _PLANT_KEY
+
+
+# ── the constraint itself ────────────────────────────────────────────────────
+
+
+def test_bootstrap_installs_the_unique_from_index_on_the_profile_edge(db):
+    """The invariant the resolution leans on is really in the database.
+
+    ``_resolve_lost_profile_race`` treats the edge as the authority on which of
+    two documents won, which is only sound while ``_from`` is unique here. Drop
+    the constraint and the service would resolve a race that storage no longer
+    prevents.
+    """
+    from app.data_access.arango import collections as col
+
+    unique = [
+        idx
+        for idx in db.collection(col.HAS_CARE_PROFILE).indexes()
+        if isinstance(idx, dict) and idx.get("unique") and idx.get("type") != "primary"
+    ]
+    assert [idx["fields"] for idx in unique] == [["_from"]]
+
+
+# ── the race ─────────────────────────────────────────────────────────────────
+
+
+def test_concurrent_get_or_create_yields_one_profile_and_no_error(db, plant):
+    """Four overlapping requests: one profile, one edge, four quiet answers.
+
+    Before the fix, the losers raised ``DocumentInsertError`` here — the 500 the
+    2026-09-14 nightly reported as ``could not create a care profile for '522789'
+    (status=500)``.
+    """
+    errors, keys = _race_get_or_create(plant)
+
+    assert errors == [], f"racers raised: {[repr(e) for e in errors]}"
+    assert len(_profile_edges(db, plant)) == 1
+    assert len(_profile_docs(db, plant)) == 1, "a loser left an unlinked duplicate profile behind"
+    assert len(set(keys)) == 1, f"racers answered with different profiles: {keys}"
+    assert keys[0] == _profile_edges(db, plant)[0]["_to"].split("/", 1)[-1]
+
+
+def test_negative_control_without_the_index_duplicates(db):
+    """Without the unique ``_from`` index the same driver really does double-write.
+
+    This is what makes the test above non-vacuous: it shows the racers overlap and
+    that the constraint — not the code's ordering, and not luck — is what collapses
+    them to one.
+    """
+    from app.data_access.arango import collections as col
+
+    handle = db.collection(col.HAS_CARE_PROFILE)
+    for idx in handle.indexes():
+        if isinstance(idx, dict) and idx.get("fields") == ["_from"] and idx.get("unique"):
+            handle.delete_index(idx["id"], ignore_missing=True)
+
+    observed_duplicate = False
+    for round_no in range(_NEGATIVE_CONTROL_ROUNDS):
+        plant_key = f"control-plant-{round_no}"
+        db.collection(col.PLANT_INSTANCES).insert(_plant_doc(plant_key), overwrite=True)
+        _race_get_or_create(plant_key)
+        if len(_profile_edges(db, plant_key)) > 1:
+            observed_duplicate = True
+            break
+
+    assert observed_duplicate, (
+        f"{_NEGATIVE_CONTROL_ROUNDS} bursts of {_RACERS} racers never produced a second edge "
+        "without the unique index — the racers are not actually overlapping, so the positive "
+        "test proves nothing."
+    )
