@@ -22,24 +22,17 @@ Run with::
 from __future__ import annotations
 
 import pytest
+from arango import ArangoClient
 
-ARANGO_URL = "http://localhost:8529"
-ARANGO_PASSWORD = "rootpassword"
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, SYSTEM_DATABASE
+
 _DB_NAME = "kamerplanter_v0046_migration_test"
 
-ARANGO_AVAILABLE = False
-try:  # pragma: no cover - probe, not behaviour
-    from arango import ArangoClient
-
-    _probe = ArangoClient(hosts=ARANGO_URL)
-    _probe.db("_system", username="root", password=ARANGO_PASSWORD).version()
-    ARANGO_AVAILABLE = True
-    _probe.close()
-except Exception:  # noqa: BLE001 - any failure means "not available"
-    pass
-
+# The server probe lives in tests/integration/conftest.py (``arango_db``): one
+# probe for the tier, a loud failure under CI, a skip with the address locally.
+# A private ``ARANGO_AVAILABLE`` copy here would be the self-skip #1432 retired.
 pytestmark = [
-    pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available on localhost:8529"),
+    pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("the AQL stem reduction and ArangoDB's own key assignment are the SUT"),
 ]
 
@@ -54,11 +47,11 @@ def db():
     from app.data_access.arango import collections as col
 
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username="root", password=ARANGO_PASSWORD)
+    system = client.db(SYSTEM_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if system.has_database(_DB_NAME):
         system.delete_database(_DB_NAME)
     system.create_database(_DB_NAME)
-    handle = client.db(_DB_NAME, username="root", password=ARANGO_PASSWORD)
+    handle = client.db(_DB_NAME, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     for name in (col.ATTACHMENTS, col.TASKS, col.PLANT_INSTANCES):
         handle.create_collection(name)
     yield handle
