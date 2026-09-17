@@ -28,6 +28,10 @@ on:
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
+      # Loaded by path from tests/unit/migrations/test_seed_schema_conformance.py:
+      # its NO_SCHEMA_DECLARED / SCHEMA_DEBT_CEILING registers live in the script
+      # since #1406, so a change that only raises a ceiling must run that suite.
+      - 'scripts/check_seed_schema.py'
       - 'scripts/check_layer_imports.py'
       - 'scripts/check_tenant_body_field.py'
       - 'scripts/check_workflow_gate_integrity.py'
@@ -74,6 +78,10 @@ on:
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
+      # Loaded by path from tests/unit/migrations/test_seed_schema_conformance.py:
+      # its NO_SCHEMA_DECLARED / SCHEMA_DEBT_CEILING registers live in the script
+      # since #1406, so a change that only raises a ceiling must run that suite.
+      - 'scripts/check_seed_schema.py'
       - 'scripts/check_layer_imports.py'
       - 'scripts/check_tenant_body_field.py'
       - 'scripts/check_workflow_gate_integrity.py'
