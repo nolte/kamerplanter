@@ -1,0 +1,29 @@
+# Route-consumer exemption registry (#1478).
+#
+# scripts/check_route_consumers.py joins every mounted /api/v1 operation against
+# the paths written in src/frontend/src, tests/e2e and src/backend/app/mcp_server.
+# An operation with no hit is *reported*, not condemned: some routes are consumed
+# by something that leaves no string in this checkout — an external MCP client,
+# Home Assistant, Grafana, a device redeeming its own pairing code, a CI job
+# holding a service-account key.
+#
+# This file is where that knowledge is written down once instead of being
+# re-derived by whoever next reads the number. Each entry needs a `reason`; the
+# loader refuses an entry without one, because an exemption that states no reason
+# is indistinguishable from an oversight. `check_route_consumers.py` also reports
+# a *stale* entry — one whose operation is gone or has a consumer again — so the
+# registry cannot quietly outlive the routes it excuses.
+#
+# Entries look like this:
+#
+#   exemptions:
+#     - method: POST
+#       path: /api/v1/mcp
+#       reason: >-
+#         MCP transport endpoint (REQ-033). Addressed by external MCP clients
+#         over stdio/HTTP; no path string for it exists in this tree by design.
+#
+# Deliberately empty. #1478 asks for the triage, and every entry here is a triage
+# decision; seeding it from the tool's own first run would record guesses as
+# findings. The 176 candidates are listed in the issue instead.
+exemptions: []
