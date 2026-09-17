@@ -6,9 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.common.enums import IrrigationStrategy, SubstrateType, WaterRetention
 from app.common.exceptions import NotFoundError
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import WateringVolumeEngine
+from app.domain.models.substrate import Substrate
 from app.domain.services.watering_service import WateringService
 
 #: The caller's tenant. ``suggest_volume`` takes it as a required keyword-only
@@ -291,6 +293,71 @@ class TestTheCallersTenantIsWhatCounts:
 
         with pytest.raises(TypeError):
             svc.suggest_volume("p1")
+
+
+class TestTheSubstrateRecordsEnumDecidesTheRetention:
+    """#1368 — a real catalogue record carries both signals, and they disagree.
+
+    The engine-level test pins the rule; this one pins that the *production* path
+    reaches it. ``suggest_volume`` reads both fields off the stored ``Substrate``
+    and hands them to the engine together, so a rule that only held when the
+    number was absent would still be wrong for every seeded record — which is
+    exactly the state #1368 found: no test was keyed to a seeded record, so the
+    catalogue could flip the modifier by 1.74x without anything going red.
+
+    The fixture is a real ``Substrate`` (not a namespace) so it cannot carry a
+    field shape the model would reject.
+    """
+
+    #: The sphagnum case, verbatim from the catalogue apart from the WHC: the
+    #: record declares ``water_retention: high`` and dried sphagnum's published
+    #: container-capacity figure is 28 vol-% (EN 13041, pF 1), which falls in
+    #: REQ-019's *low* band (< 30 %). Both statements are true of the medium.
+    def _substrate(self, whc: float | None) -> Substrate:
+        return Substrate(
+            type=SubstrateType.SPHAGNUM,
+            name_de="Sphagnum-Moos (getrocknet)",
+            name_en="Sphagnum Moss (Dried)",
+            ph_base=4.2,
+            ec_base_ms=0.05,
+            water_retention=WaterRetention.HIGH,
+            air_porosity_percent=25.0,
+            composition={"sphagnum": 1.0},
+            water_holding_capacity_percent=whc,
+            bulk_density_g_per_l=30.0,
+            irrigation_strategy=IrrigationStrategy.MODERATE,
+        )
+
+    def _svc(self, substrate: Substrate) -> WateringService:
+        return WateringService(
+            repo=SimpleNamespace(),
+            engine=WateringEngine(),
+            site_repo=_SiteRepo(None),
+            volume_engine=WateringVolumeEngine(),
+            plant_repo=_PlantRepo(_plant(substrate_key="sub1")),
+            species_repo=_SpeciesRepo(_species()),
+            substrate_repo=SimpleNamespace(get_substrate_by_key=lambda key: substrate),  # noqa: ARG005
+        )
+
+    def test_the_declared_enum_wins_over_the_records_own_whc(self):
+        result = self._svc(self._substrate(28.0)).suggest_volume("p1", tenant_key=TENANT_KEY)
+
+        # Species guide 200–400 → 300 ml, then the enum's high → *0.80.
+        assert result.volume_ml == 240
+        assert any("retention=high→*0.8" in a for a in result.adjustments)
+
+    def test_the_stored_whc_no_longer_changes_the_answer_at_all(self):
+        """28 and 80 are the two published figures for the same medium.
+
+        Before #1368 they produced *1.22 and *0.70 — a factor of 1.74 decided by
+        which measurement method the catalogue happened to have recorded.
+        """
+        volumes = {
+            whc: self._svc(self._substrate(whc)).suggest_volume("p1", tenant_key=TENANT_KEY).volume_ml
+            for whc in (28.0, 80.0, None)
+        }
+
+        assert len(set(volumes.values())) == 1, volumes
 
 
 if __name__ == "__main__":  # pragma: no cover

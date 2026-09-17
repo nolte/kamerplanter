@@ -272,17 +272,44 @@ class WateringVolumeEngine:
         water_holding_capacity_percent: float | None,
         adjustments: list[str],
     ) -> float:
-        """Adjust volume based on substrate water retention."""
-        # Prefer fine-grained WHC if available
-        if water_holding_capacity_percent is not None:
-            # WHC 50% = baseline (modifier 1.0), lower WHC → more water, higher → less
-            whc_modifier = 1.0 + (50.0 - water_holding_capacity_percent) / 100.0
-            whc_modifier = max(0.5, min(1.5, whc_modifier))  # clamp
-            if abs(whc_modifier - 1.0) > 0.01:
-                volume_ml *= whc_modifier
-                adjustments.append(f"whc={water_holding_capacity_percent}%→*{whc_modifier:.2f}")
-            return volume_ml
+        """Adjust volume by the substrate's **declared** water retention.
 
+        The ``water_retention`` enum decides, and ``water_holding_capacity_percent``
+        is deliberately not read (#1368, operator decision 2026-09-12).
+
+        This inverts the previous rule, which preferred the number whenever it was
+        set. The number is a real measurement — it just is not the one a retention
+        modifier can use, because it does not carry its method. The field is water
+        held at container capacity (pF 1, EN 13041); dried sphagnum at 30 g/L reads
+        28 vol-% there and 85 vol-% saturate-and-drain, so the same medium is "low"
+        under one published figure and "high" under the other. Measured on the
+        seeded record: the modifier was ``*1.22`` for 28 and ``*0.70`` for 80 — a
+        factor of 1.74 on every watering recommendation, decided by which method a
+        catalogue correction happened to record, and both on the far side of the
+        enum's ``*0.80``.
+
+        The enum is a per-type statement (REQ-019) and has no such ambiguity, so it
+        is the only signal this modifier consults. There is no fall-back to the
+        number when the enum is absent either: an unmethodded figure is no better
+        evidence for a record that declares nothing than for one that declares the
+        opposite, and a fall-back would leave the defect in place for exactly the
+        records with the least data.
+
+        ``water_holding_capacity_percent`` stays in the signature — and the service
+        keeps passing the stored value — so the parameter list still describes what
+        the caller holds, and the test that pins "the enum wins when the two
+        disagree" can state the disagreement. The field itself is unaffected
+        elsewhere: ``calculate_mix_properties`` volume-weights it and the MCP
+        substrate summary reports it, both of which are statements about the
+        medium rather than about a per-event volume.
+
+        Args:
+            volume_ml: Volume before the retention modifier.
+            water_retention: The substrate's declared retention band.
+            water_holding_capacity_percent: Stored container-capacity WHC. Accepted
+                and intentionally unused; see above.
+            adjustments: Trace list, appended to when a modifier fires.
+        """
         if water_retention:
             key = str(water_retention).lower()
             modifier = _RETENTION_MODIFIER.get(key, 1.0)
