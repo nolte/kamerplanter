@@ -74,10 +74,12 @@ FROM base AS dev
 # and NOTHING here installs outside uv.lock.
 RUN uv sync --locked --extra dev --no-install-project
 COPY . .
-RUN uv sync --locked --extra dev
 # Own /app as UID 1000 so the non-root dev pod (values-dev runAsUser:1000) can
-# hot-reload (__pycache__) and receive skaffold file-sync writes.
-RUN chown -R 1000:1000 /app
+# hot-reload (__pycache__) and receive skaffold file-sync writes. One RUN with
+# the sync: the debugpy layer that used to sit between them is gone (#1383),
+# and hadolint DL3059 reads two adjacent RUNs as a consolidation miss.
+RUN uv sync --locked --extra dev \
+    && chown -R 1000:1000 /app
 ENV PYTHONUNBUFFERED=1 \
     WATCHFILES_FORCE_POLLING=true
 EXPOSE 8000 5678
