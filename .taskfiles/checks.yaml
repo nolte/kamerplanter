@@ -306,7 +306,7 @@ tasks:
       side-service suites (knowledge-service, inference-service, kp_vectordb),
       the custom source-tree gates (UTC, boundary validation, layer imports,
       tenant body field, workflow gate integrity, seed harvest integrity, seed
-      catalogue page size) and workflow + shell linting (actionlint over
+      catalogue page size, plugin shadowing) and workflow + shell linting (actionlint over
       .github/workflows/, shellcheck over the own *.sh — the #1295 hooks, run
       through pre-commit so their version pins stay in one place).
 
@@ -364,6 +364,7 @@ tasks:
         python3 scripts/check_workflow_gate_integrity.py || gates=1
         python3 scripts/check_seed_harvest_integrity.py || gates=1
         python3 scripts/check_seed_catalogue_page_size.py || gates=1
+        python3 scripts/check_skill_plugin_shadowing.py || gates=1
 
         printf '\n=== workflow + shell lint (actionlint + shellcheck) ===\n'
         shelllint=0
@@ -377,7 +378,7 @@ tasks:
         printf '  %-34s %s\n' 'typecheck (tsc)' "$(verdict $typecheck)"
         printf '  %-34s %s\n' 'test:unit (pytest + vitest)' "$(verdict $tests)"
         printf '  %-34s %s\n' 'side-service tests (pytest)' "$(verdict $sideservices)"
-        printf '  %-34s %s\n' 'custom gates (7)' "$(verdict $gates)"
+        printf '  %-34s %s\n' 'custom gates (8)' "$(verdict $gates)"
         printf '  %-34s %s\n' 'actionlint + shellcheck (#1295)' "$(verdict $shelllint)"
         printf '\n'
 
@@ -388,3 +389,19 @@ tasks:
           exit 1
         fi
         printf 'task check: every category passed.\n\n'
+
+  check:plugin-shadowing:
+    desc: |
+      Refuse a local `.claude/` skill or agent that shadows a portfolio-plugin
+      one (#1405, CLAUDE.md §"Claude Code plugin adoption"). Pass `-- --refresh`
+      to rewrite the names-only plugin inventory in `.claude/plugin-adoption.yml`
+      from a live claude-shared checkout ($NOLTE_CLAUDE_SHARED, default
+      ~/repos/github/claude-shared).
+
+      READ THE SCRIPT HEADER BEFORE TRUSTING A ZERO. The comparison is lexical:
+      exact names plus the token-multiset rung that catches the reordered
+      `check-test-pyramid` / `test-pyramid-check` pair an exact-name guard misses.
+      A shadow under an unrelated name — `pre-pr` over `quality-gate`, the second
+      asset #1405 retired — is invisible here and still needs a reading pass.
+    cmds:
+      - python3 scripts/check_skill_plugin_shadowing.py {{.CLI_ARGS}}
