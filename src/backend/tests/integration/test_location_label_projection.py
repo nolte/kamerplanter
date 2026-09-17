@@ -39,7 +39,7 @@ with::
     pytest tests/integration/test_location_label_projection.py -v
 
 `tests/integration/` runs in CI since #1432 (the `Integration tests (ArangoDB)` job in
-`.github/workflows/backend.yml`); before that it was absent, because without a database
+`.github/workflows/backend-guards.yml`); before that it was absent, because without a database
 it self-skipped and would have reported green having tested nothing. A second,
 statically-checkable guard for this rule lives in the unit tier.
 """

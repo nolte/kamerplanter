@@ -1,0 +1,45 @@
+# The contexts branch protection requires on `develop`, as a FIXTURE.
+#
+# WHY A FIXTURE AND NOT A LIVE QUERY. `tests/unit/guards/` runs on the required
+# `Write-route and tree guards` lane, which has no credentials and must not
+# depend on api.github.com being reachable: a guard that turns red when GitHub
+# has a bad minute blocks every open pull request for a reason no commit
+# introduced.
+#
+# HOW TO REFRESH IT. Both sources, both of which really do gate a merge — the
+# classic branch-protection block and the repository RULESET that overlays it:
+#
+#   gh api repos/nolte/kamerplanter/branches/develop/protection \
+#     --jq '.required_status_checks.contexts'
+#   gh api repos/nolte/kamerplanter/rules/branches/develop \
+#     --jq '[.[] | select(.type == "required_status_checks")
+#            | .parameters.required_status_checks[].context]'
+#
+# THIS FILE IS A COPY AND GOES STALE. Changing branch protection without
+# updating it leaves the guard measuring yesterday's requirement — which is a
+# gap in the MEASURING TOOL, not in the gate, and therefore invisible. The
+# `.github/settings.yml` cross-check in the test beside this file is the
+# tripwire for the half that is versioned here: every context this file lists
+# from the protection block must also appear in `.github/settings.yml`, which is
+# what the Probot Settings App syncs FROM, so a promotion made in the repository
+# without a commit reddens rather than passing unnoticed.
+#
+# Measured 2026-09-17 on nolte/kamerplanter.
+measured_on: '2026-09-17'
+
+# `gh api .../branches/develop/protection --jq .required_status_checks.contexts`
+branch_protection:
+  - static / Static CI Tests
+  - lint-test-build (22)
+  - Write-route and tree guards
+  - Integration tests (ArangoDB)
+
+# `gh api .../rules/branches/develop` — the ruleset overlay. It requires two
+# contexts the protection block does not (`chain-bench / Chain Bench`,
+# `security / Build`), so reading only the first source would leave them
+# unmeasured. Both come from `build-static-tests.yaml`, which carries no
+# `paths:` filter.
+rulesets:
+  - static / Static CI Tests
+  - chain-bench / Chain Bench
+  - security / Build
