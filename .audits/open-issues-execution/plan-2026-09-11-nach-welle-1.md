@@ -810,3 +810,60 @@ aufgefrischt und fertiggestellt wird.
 Wer sie nach Aktenlage startet, findet die Arbeit von #1435 vor — genau die Falle, die
 F-1 dieses Plans für #1397 beschreibt. Das Schrumpfen ist der erste Schritt des
 jeweiligen Laufs, nicht eine Aufräumarbeit danach.
+
+## 11. Welle 9 — die Folge-Issues des ersten Sweeps (Fortschreibung 2026-09-17)
+
+Der erste Sweep über die Gruppen-Schicht ist am 17.09. um 16:24 abgeschlossen: 16 PRs
+gemergt, 15 Issues geschlossen (#1361 #1432 #1434 #1441 #1443 #1437 #1438 #1405 #1406
+#1416 #1368 #1374 #1383 #1436 #1444 #1425), `develop` auf `0b4ce20bf`. Dabei sind
+**19 neue Issues** aus Messungen entstanden — nicht aus Vermutung: jedes trägt die
+Zahl, die es begründet. Sie bilden Welle 9 und laufen wieder über
+`spec/project/issue-batch-integration/`.
+
+Von 30 offenen Issues sind **10 keine Arbeitsposten** — dieselben wie in Abschnitt 10
+(#12, #618, #779, #1061, #1223, #1236, #1347, #1403, #1321-Secret) plus **#1456**, dessen
+eigene Scharfschaltbedingung an `HEAD` unerfüllbar ist: alle vier Fundstellen des
+Seed-Korpus sind repariert (`grep -rn SELF-REVOKED` → 0), und die Regel gehört in die
+Spec, nicht ins Repo (claude-shared#637). **#1494** ist eine Betreiberentscheidung
+(Release), **#1478** ist unbeschränkt (Triage über 175 Routen) — beide bekommen einen
+beschränkten Vorposten, kein Bündel.
+
+### Gruppen
+
+| Gruppen-Id | Mitglieder | Prädikat | Art | Modus / Stufe |
+|---|---|---|---|---|
+| `2026-09-17-persisting-reads` | #1461, #1460, #1458 | #1460: Abhängigkeitskette (Einträge 3+4 des Detektor-Inventars); #1458: geteilte Berührungsfläche (`user_preference_service.py:95`, `onboarding_service.py:48`, `season_state_repository.py:48` = Reparaturorte der Einträge 5–8) | Klassen-Cluster | **B** / 3 |
+| `2026-09-17-care-profile-bootstrap` | #1489, #1481 | geteilte Berührungsfläche (`dependencies.py:303-307`, beide Tiers der Engine-Signatur) | Symptom-Cluster | **B** / 3 |
+| `2026-09-17-task-queue-plant-scope` | #1484, #1485 | Abhängigkeitskette (die Diagnose ist erst nach der Verdrahtung wahr) | Symptom-Cluster | **A** / 2 |
+| `2026-09-17-ci-gate-declaration` | #1463, #1491, #1464 | thematische Kopplung (`continuous-integration` §F/§H; Klasse „Prüfung ohne Quelle im Baum") | Klassen-Cluster | **B** / 2 |
+
+### Einzelläufer
+
+| Issue | Warum allein | Reihenfolge |
+|---|---|---|
+| **#1469** | klein, und es nimmt den drei Migrations-PRs der Welle den Kollisionsort (`test_discovery.py`) | zuerst — PR #1495, gemergt |
+| **#1467** | Klassen-Issue mit eigenem Sweep (31 Dateien) und neuem Frontend-Guard-Verzeichnis; keine Datei mit einem anderen Posten | parallel |
+| **#1477** | beschränkt, Backend-only; Design: Ablehnung an der Konfiguration (kein UI-Konsument gemessen) | parallel — PR #1498 |
+| **#1478** | nur das Messwerkzeug in den Baum (`scripts/check_route_consumers.py`); die Triage ist kein PR-Strang | parallel — PR #1496; Triage-Tabelle im Issue |
+| **#1175** via PR #1348 | bestehender Draft, rebase-fähig; Migration v0050 | nach #1469 |
+| **#1468** | entscheidungsbehaftet (In-place-Rename v0051 inkl. Tenant-Mixes), nur Nummernkollision mit der Care-Gruppe | nach der Care-Gruppe und #1348 |
+| **#1465** | 54 Dateien, veröffentlichtes Vokabular (Stufe 3); berührt per Rebase fast jeden Backend-PR | **zuletzt** |
+| **#1480** | Renovate-eigener Strang (Dashboard-Checkbox gesetzt); `build-reranker-service` ist die Abnahme | wenn Renovate den PR anlegt |
+| **#1292** | nächste Occurrence am 17.09. im Pflicht-Check statt im Nachtlauf; Ursache gemessen: nicht-atomare Paar-Anlage Profil + Kante, der Feld-Read sieht den Waisen | **vor allem anderen**, weil es den Zug blockiert |
+
+### Entscheidungen des Betreibers (2026-09-17)
+
+- #1481: `watering_guide` **verdrahten** (nicht entfernen) → v0049 schreibt Familie und Guide in einem Durchgang.
+- #1468: **Rename-Migration** (v0051), kein Lese-Alias im Modell.
+- #1464: **Lock je Bibliothek** + lokaler `ignorePaths`-Override, kein gh-plumbing-Eingriff.
+- #1494: v0.4.1 **nach Merge der Care-Gruppe**, damit der `family_key`-Defekt aus #1440 nicht erstmals ausgeliefert wird.
+- Migrationsnummern nach Merge-Reihenfolge: v0049 Care, v0050 Substrat-Werte (#1348), v0051 CEC-Rename (#1468). Wer zweiter landet, benennt um (`app/migrations/README.md`, seit #1495).
+
+### Merge-Reihenfolge
+
+#1292-Fix → #1495 ✓ → #1496 → #1498 → G-C → #1467 → G-A → G-B (→ Release v0.4.1) → G-D → #1348 → #1468 → #1465. Kriterium bleibt `mergeStateStatus ∈ {CLEAN, UNSTABLE}`.
+
+### Beobachtungen, keine Posten
+
+- `e2e-nightly` 17.09. (`ca602ad36`): `test_req001_core_lifecycle_journey.py::test_edit_plant_name_persists` (TC-REQ-001-J081) — erstmalig in 10 Nächten. Ein Fehlschlag ist ein Messwert, keine Reparatur; wird zum Posten, wenn er wiederkehrt.
+- Die 5 lokalen Skips in `test_lock_hash_verification.py` (uv 0.11.33 auf PATH statt 0.12.15) sind ein Umgebungsbefund, kein Defekt; in CI läuft die gepinnte Version.
