@@ -71,6 +71,15 @@ The **Admin > Statistics** section provides an overview of:
 
 Under **Admin > OIDC Providers** you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
 
+!!! warning "GitHub requires the `user:email` scope"
+    A provider of type `github` whose scope list contains neither `user:email` nor the parent scope `user` is rejected with `422` on create and on update.
+
+    The reason: GitHub exposes whether an address is verified only through `GET /user/emails`, and that endpoint answers `403` without the scope. Without it **every** sign-in through this provider treats the address as unverified and an existing account is never linked automatically — until now the only trace was one log line per sign-in.
+
+    Spelling matters: GitHub scope names are lower-case, so `USER:EMAIL` is rejected. Several scopes may share one entry (`"read:user user:email"`).
+
+    For providers stored before this check existed, `POST /api/v1/admin/oidc-providers/{key}/test` reports the same finding in its `scope_check` field (`ok`, `missing_scopes`, `detail`). The test does not need a valid discovery document — GitHub publishes none, and the scope verdict is reported anyway.
+
 See [Authentication](../api/authentication.md) for details.
 
 ---
