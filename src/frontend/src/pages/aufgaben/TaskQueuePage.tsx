@@ -246,8 +246,24 @@ export default function TaskQueuePage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
+
+  // The plant filter is a *server-side scope*, not a filter over the answer
+  // (#1484). ``GET /tasks/queue`` returns at most 200 rows and the completed
+  // list at most 100, so a plant whose tasks sit past that cut was absent from
+  // the payload the page filtered — the filter then reported an empty queue for
+  // a plant that had work. Every reload therefore carries the plant key, and
+  // these two callbacks are the single place where a queue/completed refetch is
+  // issued: a new call site cannot forget the scope because there is nothing
+  // else to call.
+  const reloadQueue = useCallback(() => {
+    dispatch(fetchTaskQueue(filterPlantKey ?? undefined));
+  }, [dispatch, filterPlantKey]);
+
+  const reloadCompleted = useCallback(() => {
+    dispatch(fetchCompletedTasks(filterPlantKey ?? undefined));
+  }, [dispatch, filterPlantKey]);
+
   useEffect(() => {
-    dispatch(fetchTaskQueue());
     dispatch(fetchOverdueTasks());
     dispatch(fetchDashboard());
     plantApi
@@ -257,12 +273,19 @@ export default function TaskQueuePage() {
       .finally(() => setPlantsLoading(false));
   }, [dispatch]);
 
-  // Lazily load completed tasks only when the user reveals them.
+  // Runs on mount and again whenever the plant scope changes — selecting a
+  // plant now re-queries the server instead of narrowing a capped answer.
+  useEffect(() => {
+    reloadQueue();
+  }, [reloadQueue]);
+
+  // Lazily load completed tasks only when the user reveals them; re-loaded when
+  // the plant scope changes, for the same reason as the queue.
   useEffect(() => {
     if (showCompleted) {
-      dispatch(fetchCompletedTasks());
+      reloadCompleted();
     }
-  }, [showCompleted, dispatch]);
+  }, [showCompleted, reloadCompleted]);
 
   // ── Task actions ─────────────────────────────────────────────────────
 
@@ -275,7 +298,7 @@ export default function TaskQueuePage() {
       } else {
         notification.info(t('pages.tasks.noNewReminders'));
       }
-      dispatch(fetchTaskQueue());
+      reloadQueue();
       dispatch(fetchOverdueTasks());
       dispatch(fetchDashboard());
     } catch (err) {
@@ -283,7 +306,7 @@ export default function TaskQueuePage() {
     } finally {
       setGenerateLoading(false);
     }
-  }, [dispatch, notification, handleError, t]);
+  }, [dispatch, reloadQueue, notification, handleError, t]);
 
   const handleStart = useCallback(
     async (key: string) => {
@@ -291,14 +314,14 @@ export default function TaskQueuePage() {
         setActionLoading(key);
         await taskApi.startTask(key);
         notification.success(t('pages.tasks.taskStarted'));
-        dispatch(fetchTaskQueue());
+        reloadQueue();
       } catch (err) {
         handleError(err);
       } finally {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t],
+    [reloadQueue, notification, handleError, t],
   );
 
   const handleComplete = useCallback(
@@ -307,15 +330,15 @@ export default function TaskQueuePage() {
         setActionLoading(key);
         await taskApi.completeTask(key, {});
         notification.success(t('pages.tasks.taskCompleted'));
-        dispatch(fetchTaskQueue());
-        if (showCompleted) dispatch(fetchCompletedTasks());
+        reloadQueue();
+        if (showCompleted) reloadCompleted();
       } catch (err) {
         handleError(err);
       } finally {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t, showCompleted],
+    [reloadQueue, reloadCompleted, notification, handleError, t, showCompleted],
   );
 
   const handleSkip = useCallback(
@@ -324,7 +347,7 @@ export default function TaskQueuePage() {
         setActionLoading(key);
         await taskApi.skipTask(key);
         notification.success(t('pages.tasks.taskSkipped'));
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchDashboard());
       } catch (err) {
         handleError(err);
@@ -332,7 +355,7 @@ export default function TaskQueuePage() {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t],
+    [dispatch, reloadQueue, notification, handleError, t],
   );
 
   // ── Care actions ─────────────────────────────────────────────────────
@@ -354,14 +377,14 @@ export default function TaskQueuePage() {
         setConfirmDialogOpen(false);
         setConfirmEntry(null);
         dispatch(fetchDashboard());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
       } catch (err) {
         handleError(err);
       } finally {
         setCareActionLoading(null);
       }
     },
-    [confirmEntry, dispatch, notification, handleError, t],
+    [confirmEntry, dispatch, reloadQueue, notification, handleError, t],
   );
 
   const handleSnooze = useCallback(
@@ -429,12 +452,12 @@ export default function TaskQueuePage() {
       } finally {
         setBulkLoading(false);
         setSelectedKeys(new Set());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchOverdueTasks());
-        if (showCompleted) dispatch(fetchCompletedTasks());
+        if (showCompleted) reloadCompleted();
       }
     },
-    [selectedKeys, dispatch, notification, handleError, t, showCompleted],
+    [selectedKeys, dispatch, reloadQueue, reloadCompleted, notification, handleError, t, showCompleted],
   );
 
   const handleBulkSkip = useCallback(
@@ -456,11 +479,11 @@ export default function TaskQueuePage() {
       } finally {
         setBulkLoading(false);
         setSelectedKeys(new Set());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchOverdueTasks());
       }
     },
-    [selectedKeys, dispatch, notification, handleError, t],
+    [selectedKeys, dispatch, reloadQueue, notification, handleError, t],
   );
 
   const handleBulkDelete = useCallback(
@@ -482,11 +505,11 @@ export default function TaskQueuePage() {
       } finally {
         setBulkLoading(false);
         setSelectedKeys(new Set());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchOverdueTasks());
       }
     },
-    [selectedKeys, dispatch, notification, handleError, t],
+    [selectedKeys, dispatch, reloadQueue, notification, handleError, t],
   );
 
   const exitBulkMode = useCallback(() => {
@@ -515,7 +538,6 @@ export default function TaskQueuePage() {
       if (originFilter === 'machine' && task.origin === 'user') continue;
       if (originFilter === 'user' && task.origin !== 'user') continue;
       const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
-      if (filterPlantKey && taskPlantKey !== filterPlantKey) continue;
       items.push({
         id: `task-${task.key}`,
         source: 'task',
@@ -552,6 +574,8 @@ export default function TaskQueuePage() {
       // The origin filter selects on *task* provenance; care reminders are a
       // distinct source, so any non-"all" origin selection hides them.
       if (originFilter !== 'all') continue;
+      // `GET /care-reminders/dashboard` takes only `hemisphere` — there is no
+      // plant scope to ask for, so this source stays narrowed client-side.
       if (filterPlantKey && entry.plant_key !== filterPlantKey) continue;
 
       // Skip if there's already a care_reminder task for this plant + type
@@ -612,8 +636,6 @@ export default function TaskQueuePage() {
         if (filterCategory && task.category !== filterCategory) return false;
         if (originFilter === 'machine' && task.origin === 'user') return false;
         if (originFilter === 'user' && task.origin !== 'user') return false;
-        const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
-        if (filterPlantKey && taskPlantKey !== filterPlantKey) return false;
         return true;
       })
       .slice()
@@ -625,7 +647,7 @@ export default function TaskQueuePage() {
         if (!db) return -1;
         return new Date(db).getTime() - new Date(da).getTime();
       });
-  }, [showCompleted, sourceFilter, completedTasks, filterCategory, filterPlantKey, originFilter]);
+  }, [showCompleted, sourceFilter, completedTasks, filterCategory, originFilter]);
 
   const allTaskKeys = useMemo(
     () => filtered.filter((i) => i.source === 'task').map((i) => i.task!.key),
@@ -1189,7 +1211,16 @@ export default function TaskQueuePage() {
   // aimed at a card's action row then landed on the container that had moved
   // into place — no handler fires and no error is reported, which is exactly
   // the class of defect a loading indicator exists to prevent.
-  const loading = tasksLoading || careLoading || plantsLoading;
+  //
+  // It is, however, the gate for the *first* paint only. Since #1484 a change of
+  // the plant filter re-queries the server, and a page-wide skeleton on every
+  // query would unmount the combobox the user is still operating — the focus
+  // would jump out mid-selection and the filter bar would flash away on each
+  // pick. `plantsLoading` is a one-shot flag, and a reload that already has rows
+  // on screen keeps them until the new answer replaces them; only a load with
+  // nothing to show falls back to the skeleton.
+  const loading =
+    plantsLoading || ((tasksLoading || careLoading) && taskQueue.length === 0 && careDashboard.length === 0);
   if (loading) return <LoadingSkeleton variant="form" />;
 
   const totalItems =
@@ -1538,7 +1569,7 @@ export default function TaskQueuePage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchTaskQueue());
+          reloadQueue();
         }}
       />
 

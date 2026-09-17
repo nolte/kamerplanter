@@ -116,8 +116,16 @@ export const fetchOverdueTasks = createAsyncThunk(
 
 export const fetchCompletedTasks = createAsyncThunk(
   'tasks/fetchCompleted',
-  async () => {
-    return api.listTasks(0, 100, { status: 'completed' });
+  async (plantKey?: string) => {
+    // The completed list is capped at 100 rows server-side, so a plant scope has
+    // to be part of the query rather than a filter applied to the answer: past
+    // the cap the client had nothing left to filter (#1484). The page's plant
+    // filter selects tasks linked to a plant instance, which is exactly the
+    // ``entity_type``/``entity_key`` pair the list endpoint accepts.
+    return api.listTasks(0, 100, {
+      status: 'completed',
+      ...(plantKey ? { entity_type: 'plant_instance', entity_key: plantKey } : {}),
+    });
   },
 );
 
