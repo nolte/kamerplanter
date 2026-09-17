@@ -239,6 +239,24 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         profile_id = f"{col.CARE_PROFILES}/{profile_key}"
         self.create_edge(col.HAS_CARE_PROFILE, plant_id, profile_id)
 
+    def get_linked_profile(self, plant_key: str) -> CareProfile | None:
+        """Return the profile reachable from *plant_key* over ``has_care_profile``.
+
+        Deliberately **not** the same lookup as :meth:`get_profile_by_plant_key`,
+        which reads the ``plant_key`` field — a field carrying no unique index, so
+        it cannot say which of two documents is the linked one. The edge can: its
+        ``_from`` index is unique (``collections.py``), which is precisely what
+        makes "one care profile per plant" an enforced invariant rather than a
+        convention. After a lost creation race the field query may see both the
+        winner's and the loser's document and answer with either; this one answers
+        with the winner or with ``None``.
+        """
+        edges = self.get_edges(col.HAS_CARE_PROFILE, f"{col.PLANT_INSTANCES}/{plant_key}")
+        if not edges:
+            return None
+        profile_id = edges[0]["edge"]["_to"]
+        return self.get_profile_by_key(profile_id.split("/", 1)[-1])
+
     def create_confirmation_edges(
         self,
         confirmation_key: str,

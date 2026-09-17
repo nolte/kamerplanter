@@ -334,9 +334,56 @@ class CareReminderService:
             return new_profile
 
         created = self._repo.create_profile(new_profile)
-        if created.key:
+        if not created.key:
+            return created
+        try:
             self._repo.create_profile_edge(plant_key, created.key)
+        except DuplicateError, WriteConflictError:
+            winner = self._resolve_lost_profile_race(plant_key, created)
+            if winner is None:
+                # The conflict was not a lost race — keep it propagating (409).
+                raise
+            return winner
         return created
+
+    def _resolve_lost_profile_race(self, plant_key: str, mine: CareProfile) -> CareProfile | None:
+        """Answer a profile-creation race this caller lost, or re-raise (#1292).
+
+        The ``has_care_profile`` edge carries a unique index over ``_from``, so it
+        is the storage-level statement of "one care profile per plant". A ``1200``
+        from that index means a concurrent request held the same entry while this
+        one tried to take it — measured on ``GET /care-reminders/plants/{key}/profile``
+        in the 2026-09-14 nightly, where it surfaced as a raw ``DocumentInsertError``
+        and a 500.
+
+        Both of ArangoDB's rejections reach here, because both were measured on
+        that one index: ``1200`` in the nightly above, ``1210`` (unique constraint
+        violated, surfaced as :class:`DuplicateError`) from the four-way race in
+        ``tests/integration/test_care_profile_edge_concurrency.py``. Which one a
+        loser gets is the server's decision about how far the winner had got, so
+        handling one and not the other would leave the 500 in place half the time.
+
+        Two branches either way, for the reason :class:`WriteConflictError`
+        documents: ``1200`` is about timing, not about data, so it may never be
+        swallowed on its own — the other transaction may have rolled back. The
+        re-read below is what settles it, and it is correct for ``1210`` too.
+
+        * the edge resolves to a profile → that is the winner, and it is this
+          caller's answer too. The document this call inserted a moment earlier is
+          an orphan that no edge references and that no caller has ever seen; it is
+          removed, because :meth:`ICareReminderRepository.get_profile_by_plant_key`
+          reads the *field* (which has no unique index), so leaving it there would
+          let later reads answer with an unlinked duplicate.
+        * the edge resolves to nothing → the winner did not commit. ``None`` is
+          returned and the caller re-raises, because reporting success here would
+          hand back a profile whose link does not exist.
+        """
+        winner = self._repo.get_linked_profile(plant_key)
+        if winner is None:
+            return None
+        if mine.key and winner.key != mine.key:
+            self._repo.delete_profile(mine.key)
+        return winner
 
     def _propagate(self, action) -> None:  # noqa: ANN001 — Callable[[NotificationPropagationService], None]
         """Run a notification-propagation ``action`` when the coupling is wired.

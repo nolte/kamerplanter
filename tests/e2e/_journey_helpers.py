@@ -379,17 +379,29 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
 
     Three steps, each idempotent:
 
-    1. ``GET /care-reminders/plants/{key}/profile`` — the get-or-create route
-       *persists* a default profile (``auto_create_watering_task`` defaults to
-       ``True``) so the generator can see it.
-    2. ``PATCH …/profile`` — assert ``auto_create_watering_task`` is on
-       explicitly (belt-and-suspenders against a future default change).
+    1. ``GET /care-reminders/plants/{key}/profile`` — a **read**. It used to be a
+       get-or-*create* that persisted the default profile, and this docstring said
+       so; #1422 took the write out (a read that writes was the defect, and the
+       tenant dashboard was doing it for every plant of the tenant). Kept because a
+       non-200 here still says the plant or the route is wrong, before the write
+       step muddies the message.
+    2. ``PATCH …/profile`` — sets ``auto_create_watering_task`` explicitly **and,
+       since #1422, is the step that actually persists the profile**
+       (``update_profile`` is a write path, so it passes ``may_create=True``). Its
+       status is therefore checked: an unchecked failure here left the generator
+       with no profile and surfaced two steps later as a card that never appears.
     3. ``POST /t/{slug}/tasks/generate-care-reminders`` — materialise exactly one
        pending ``— watering`` task for the plant (runs the daily producer eagerly
        in-process).
 
     Raising (never skipping) on failure is deliberate: the test's whole point is
     that the cross-view path always runs (NFR-008a self-provisioning).
+
+    Every failure message carries the **response body**. ``_api_request`` already
+    parses it; the messages used to drop it, so the 2026-09-12/14 nightlies
+    reported bare ``status=500`` and the cause could only be recovered by
+    downloading the run's backend log. The body carries the ``error_id`` that
+    indexes straight into that log.
     """
     # Fresh token: the session-seed JWT expires after 15 min — long before a
     # late-scheduled test runs (led to 401 self-provisioning failures here).
@@ -399,25 +411,32 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
     slug = seed.get("tenant_slug", "mein-garten")
     api = base_url.rstrip("/") + "/api/v1"
 
-    status, _ = _api_request(f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token)
+    status, body = _api_request(f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token)
     if status not in (200, 201):
         raise AssertionError(
-            f"Self-provisioning failed: could not create a care profile for "
-            f"'{plant_key}' (status={status})"
+            f"Self-provisioning failed: could not read the care profile of "
+            f"'{plant_key}' (status={status}), body={body!r}"
         )
 
-    _api_request(
+    patch_status, patch_body = _api_request(
         f"{api}/care-reminders/plants/{plant_key}/profile",
         "PATCH",
         token,
         {"auto_create_watering_task": True},
     )
+    if patch_status not in (200, 201):
+        raise AssertionError(
+            f"Self-provisioning failed: could not persist the care profile of "
+            f"'{plant_key}' (status={patch_status}), body={patch_body!r}"
+        )
 
-    gen_status, _ = _api_request(f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {})
+    gen_status, gen_body = _api_request(
+        f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {}
+    )
     if gen_status not in (200, 201):
         raise AssertionError(
             f"Self-provisioning failed: generate-care-reminders returned "
-            f"status={gen_status} for tenant '{slug}'"
+            f"status={gen_status} for tenant '{slug}', body={gen_body!r}"
         )
 
 
