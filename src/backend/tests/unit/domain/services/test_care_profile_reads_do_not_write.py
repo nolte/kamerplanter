@@ -38,6 +38,14 @@ def _service(existing: CareProfile | None):
     engine.auto_generate_profile.return_value = CareProfile(plant_key="p1", watering_interval_days=7)
     service._repo = repo
     service._engine = engine
+    # The collaborators `get_or_create_profile` resolves its presets through since
+    # #1489. `None` is the shape the constructor allows for each of them (every one
+    # is optional), and it is the shape that makes the resolution answer "no species,
+    # no family" — which is what these cases are about: the *write*, not the presets.
+    service._plant_repo = None
+    service._species_repo = None
+    service._family_name_resolver = None
+    service._family_name_cache = {}
     return service, repo
 
 

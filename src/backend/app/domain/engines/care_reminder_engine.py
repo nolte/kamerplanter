@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 
+import structlog
+
 from app.common.datetimes import today_utc
 from app.common.enums import (
     CareStyleType,
@@ -15,6 +17,8 @@ from app.domain.engines.winter_hardiness_engine import map_frost_sensitivity
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.species import SeasonalWateringAdjustment, WateringGuide
+
+logger = structlog.get_logger()
 
 # ── Overwintering / winter reminder wiring (REQ-022 §3.2) ──────────────
 
@@ -576,11 +580,41 @@ class CareReminderEngine:
         1. WateringGuide (species-specific structured data) — highest priority
         2. FAMILY_CARE_MAP → CARE_STYLE_PRESETS (family-level generic)
         3. TROPICAL preset (default fallback)
+
+        ``botanical_family`` is the family **NAME** (``"Cactaceae"``) — what
+        :data:`FAMILY_CARE_MAP` is keyed by — never the ``_key`` of a
+        ``botanical_families`` document. Handing it the key is a type error, and
+        one this method used to answer with plausible tropical presets: every plant
+        created since #1440 received the 7-day ``TROPICAL`` preset for good, because
+        the profile is written once and read thereafter (#1489). A numeric value is
+        therefore refused rather than silently missed.
+
+        ``species_name`` takes part in no decision here (measured 2026-09-17: the
+        presets come from the family and the guide alone). It is kept because the
+        applied v0048 backfill passes it, and removing a parameter a shipped
+        migration names would be a bigger change than the dead argument is worth.
         """
+        if botanical_family is not None and botanical_family.strip().isdigit():
+            raise ValueError(
+                "botanical_family must be the family NAME (e.g. 'Cactaceae'), not the "
+                f"_key of a botanical_families document — got {botanical_family!r}. "
+                "Resolve it through `resolve_care_inputs` (#1489)."
+            )
+
         care_style = CareStyleType.TROPICAL  # default fallback
 
         if botanical_family and botanical_family in FAMILY_CARE_MAP:
             care_style = FAMILY_CARE_MAP[botanical_family]
+        elif botanical_family:
+            # A family the map does not cover is ordinary — the catalogue holds far
+            # more families than the map does — but it is also exactly how #1489
+            # looked from in here, so the fallback is stated instead of silent.
+            logger.info(
+                "care_profile_family_unmapped",
+                botanical_family=botanical_family,
+                plant_key=plant_key,
+                care_style=care_style.value,
+            )
 
         preset = dict(CARE_STYLE_PRESETS[care_style])
 

@@ -42,20 +42,14 @@ describe('careReminders endpoints', () => {
     });
   });
 
-  it('getOrCreateProfile gets without optional params', async () => {
+  it('getOrCreateProfile sends no preset parameters at all (#1489)', async () => {
+    // It used to send `species_name` and accept a `botanical_family` no caller
+    // passed. The server resolves both from the plant now, so a request that
+    // carried them would be asking the server to trust the one input the client
+    // never had.
     client.get.mockResolvedValue({ data: { key: 'cp1' } });
     await care.getOrCreateProfile('pl1');
-    expect(client.get).toHaveBeenCalledWith('/care-reminders/plants/pl1/profile', {
-      params: {},
-    });
-  });
-
-  it('getOrCreateProfile adds species and family params', async () => {
-    client.get.mockResolvedValue({ data: { key: 'cp1' } });
-    await care.getOrCreateProfile('pl1', 'Monstera', 'Araceae');
-    expect(client.get).toHaveBeenCalledWith('/care-reminders/plants/pl1/profile', {
-      params: { species_name: 'Monstera', botanical_family: 'Araceae' },
-    });
+    expect(client.get).toHaveBeenCalledWith('/care-reminders/plants/pl1/profile');
   });
 
   it('updateProfile patches profile updates', async () => {
