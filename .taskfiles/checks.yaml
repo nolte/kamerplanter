@@ -157,6 +157,42 @@ tasks:
     cmds:
       - python3 scripts/check_frontend_calls_served.py {{.CLI_ARGS}}
 
+  check:route-consumers:
+    desc: |
+      The reverse of check:frontend-calls-served (#1478, #1416): join every
+      mounted /api/v1 operation against the paths written in src/frontend/src,
+      tests/e2e and src/backend/app/mcp_server, and name the ones nothing in
+      this tree reaches. 175 of 797 here; #1478 recorded 176 with a script that
+      never landed in the tree, and the script's docstring shows where the two
+      re-implementations agree exactly and where they do not. #1416
+      (`POST /me/providers/{slug}/link`, mounted, documented, gated, called by
+      nothing) was one instance of the class.
+
+      AN INVENTORY, NOT A VERDICT, AND DELIBERATELY NOT A GATE. A zero here
+      means this checkout holds no string for the path; it does not mean the
+      route is dead. Home Assistant, Grafana, external MCP clients and a device
+      redeeming its own pairing code consume routes and leave no trace in the
+      tree. Promoting this to a gate is the triage decision #1478 asks for, so
+      it is neither a pre-commit hook nor part of the `check` aggregate, and no
+      CI job runs it. What makes that promotion possible later is
+      scripts/route_consumer_exemptions.yaml: a declared consumer-outside-the-
+      tree with a stated reason, which the script refuses without one and
+      reports as stale once the operation is gone or consumed again.
+
+      Same operand problem as check:frontend-calls-served, and the same answer:
+      its route side is the *mounted* app, so it needs the backend importable,
+      which the required `static` lane does not have. The extraction and the
+      join are asserted from
+      src/backend/tests/unit/test_route_consumers_check.py, which also pins the
+      two route walks against each other so this one cannot drift from the
+      sibling's.
+
+      Pass --inventory for the full table at exit 0, --json for machine-readable
+      output. Without either it exits 1 while candidates stand, which is its
+      state until the triage lands.
+    cmds:
+      - python3 scripts/check_route_consumers.py {{.CLI_ARGS}}
+
   check:seed-catalogue-page-size:
     desc: |
       Compare the seeded rows of every reference catalogue against the page its

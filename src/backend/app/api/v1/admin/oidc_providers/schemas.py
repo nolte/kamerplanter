@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.domain.models.oidc_config import ProviderScopeCheck
+
 
 class OidcProviderCreateRequest(BaseModel):
     slug: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9-]+$")
@@ -50,3 +52,17 @@ class OidcProviderResponse(BaseModel):
     discovery_refreshed_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
+
+
+class OidcProviderTestResponse(BaseModel):
+    """Result of ``POST /admin/oidc-providers/{key}/test``.
+
+    ``scope_check`` is a field of its own rather than a sentence inside
+    ``message`` (#1477): the scope verdict is the part a client has to act on,
+    and it is reported on every path — a GitHub provider publishes no OIDC
+    discovery document at all, so the discovery step always fails for exactly
+    the provider type the check is about.
+    """
+
+    message: str
+    scope_check: ProviderScopeCheck
