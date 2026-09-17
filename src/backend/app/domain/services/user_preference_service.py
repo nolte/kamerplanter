@@ -77,31 +77,59 @@ class UserPreferenceService:
         # UserPreference themselves, so opt into raw mode (FR-002 A3).
         self._repo = BaseArangoRepository(db, col.USER_PREFERENCES, raw=True)
 
-    def get_preferences(self, user_key: str) -> UserPreference:
+    def _stored(self, user_key: str) -> UserPreference | None:
+        """The user's stored preferences, or ``None`` — the read, with no side effect."""
         from app.data_access.arango import collections as col
 
         docs = self._repo.find_by_field("user_key", user_key)
-        if docs:
-            return UserPreference(**pick_singleton(docs, collection=col.USER_PREFERENCES, user_key=user_key))
-        # Auto-create defaults. Two concurrent cold reads both find the
-        # collection empty and both try to insert; the unique index on
-        # ``user_key`` refuses the loser. Re-read and return the winner's document
-        # instead of surfacing a 409 (upsert semantics) — this is the auto-create
-        # race that used to mint duplicate singletons under parallel load.
-        #
-        # BOTH refusals are caught (#1458). Which one the loser gets is the
-        # server's decision about how far the winner had got: 1210
-        # (DuplicateError) once the winner's unique-index entry is committed and
-        # visible, 1200 (WriteConflictError) while its transaction still holds the
-        # entry. A handler that caught only DuplicateError was still a 500 under
-        # exactly the load the retry exists for — the same pairing
-        # ``care_reminder_service`` made for the profile+edge race (#1292).
-        pref = UserPreference(user_key=user_key)
+        if not docs:
+            return None
+        return UserPreference(**pick_singleton(docs, collection=col.USER_PREFERENCES, user_key=user_key))
+
+    def get_preferences(self, user_key: str) -> UserPreference:
+        """Return the user's preferences, defaults included — **without persisting**.
+
+        This used to auto-create the singleton on a cold read, which made
+        ``GET /t/{slug}/user-preferences`` (and, through it,
+        ``GET …/dashboard/widgets/catalog``) a write on a safe method: entries 8
+        and 9 of the #1443 detector inventory, filed as #1461.
+
+        Nothing needed the row to exist at read time. The response is identical
+        either way — an unmaterialised user gets the same defaults the freshly
+        created document would have carried — with one visible difference: ``key``
+        is ``None`` until a write materialises the row. The row is created by
+        :meth:`update_preferences`, which is where the user first states a
+        preference worth storing.
+        """
+        stored = self._stored(user_key)
+        return stored if stored is not None else UserPreference(user_key=user_key)
+
+    def _materialise(self, user_key: str) -> UserPreference:
+        """Return the stored preferences, creating the singleton if there is none.
+
+        The auto-create that used to sit on the read path (#1461). Two concurrent
+        FIRST WRITES both find the collection empty and both try to insert; the
+        unique index on ``user_key`` refuses the loser. Re-read and return the
+        winner's document instead of surfacing a 409 (upsert semantics).
+
+        BOTH refusals are caught (#1458). Which one the loser gets is the server's
+        decision about how far the winner had got: 1210 (DuplicateError) once the
+        winner's unique-index entry is committed and visible, 1200
+        (WriteConflictError) while its transaction still holds the entry. A caller
+        that caught only DuplicateError was still a 500 under exactly the load the
+        retry exists for — the same pairing ``care_reminder_service`` made for the
+        profile+edge race (#1292).
+        """
+        stored = self._stored(user_key)
+        if stored is not None:
+            return stored
         try:
-            doc = self._repo.create(pref)
+            doc = self._repo.create(UserPreference(user_key=user_key))
         except DuplicateError, WriteConflictError:
-            docs = self._repo.find_by_field("user_key", user_key)
-            return UserPreference(**pick_singleton(docs, collection=col.USER_PREFERENCES, user_key=user_key))
+            winner = self._stored(user_key)
+            if winner is None:  # pragma: no cover - the index refused us; somebody holds the row
+                raise
+            return winner
         return UserPreference(**doc)
 
     def update_preferences(self, user_key: str, updates: dict) -> UserPreference:
@@ -117,7 +145,9 @@ class UserPreferenceService:
         if "dashboard_layout" in updates and updates["dashboard_layout"] is not None:
             layout = DashboardLayout.model_validate(updates["dashboard_layout"])
             updates["dashboard_layout"] = _sanitize_layout(layout).model_dump()
-        pref = self.get_preferences(user_key)
+        # The first write is what creates the row (#1461), so this resolves through
+        # ``_materialise`` rather than through the — now read-only — public getter.
+        pref = self._materialise(user_key)
         data = pref.model_dump()
         data.update(updates)
         # Validate the *merged* model so field-level sanitisation/coercion

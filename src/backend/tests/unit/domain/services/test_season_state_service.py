@@ -520,3 +520,96 @@ class TestActivePlants:
 
         assert len(active) == 1
         assert active[0].key == "p1"
+
+
+class TestReadingTheSeasonStateDoesNotPersist:
+    """#1461 — ``GET …/sites/{key}/season-state`` no longer evaluates and writes.
+
+    ``get_state_for_site`` used to fall through to ``evaluate_site`` when nothing
+    was stored yet. That upserted the computed ``SeasonState`` *and* ran
+    ``_apply_side_effects`` — materialising overwintering profiles and creating
+    winter/spring care tasks — all while answering a plain ``GET``. Entry 10 of
+    the #1443 detector inventory.
+
+    Both halves are asserted here rather than only the upsert: the side effects
+    are the expensive part, and a repair that stopped the upsert while leaving the
+    task creation in place would be green in a test that only counted documents.
+    """
+
+    def _service_for_a_stateless_site(self, care_service: MagicMock, materializer: MagicMock) -> SeasonStateService:
+        from app.common.enums import SeasonTriggerTier
+        from app.domain.services.season_signal_resolver import SeasonSignal
+
+        repo = MagicMock()
+        repo.get_by_site.return_value = None
+
+        site_repo = MagicMock()
+        site_repo.get_site_by_key.return_value = _site()
+        site_repo.get_locations_by_site.return_value = []
+
+        resolver = MagicMock()
+        resolver.resolve.return_value = SeasonSignal(
+            tier=SeasonTriggerTier.CALENDAR,
+            reason_i18n_key="pages.season.trigger.calendar",
+            min_temp_c=None,
+            forecast_first_frost_date=None,
+            estimated_first_frost_md=None,
+            estimated_last_frost_md=None,
+        )
+
+        engine = MagicMock()
+        engine.next_phase.return_value = _transition(SeasonPhase.PRE_WINTER)
+
+        plant_repo = MagicMock()
+        plant_repo.find_by_field.return_value = [_plant()]
+
+        overwintering_repo = MagicMock()
+        overwintering_repo.get_profile_by_plant_key.return_value = None
+
+        return SeasonStateService(
+            repo,
+            resolver,
+            engine,
+            materializer,
+            MagicMock(),
+            care_service,
+            overwintering_repo,
+            plant_repo,
+            site_repo,
+        )
+
+    def test_the_read_answers_a_computed_state_and_upserts_nothing(self) -> None:
+        care_service, materializer = MagicMock(), MagicMock()
+        service = self._service_for_a_stateless_site(care_service, materializer)
+
+        state = service.get_state_for_site("site-1", "tenant-1")
+
+        assert state.site_key == "site-1"
+        assert state.phase == SeasonPhase.PRE_WINTER
+        assert state.key is None, "the answer carries a document key, so something persisted it"
+        service._repo.upsert.assert_not_called()
+
+    def test_the_read_fires_no_transition_side_effects(self) -> None:
+        care_service, materializer = MagicMock(), MagicMock()
+        service = self._service_for_a_stateless_site(care_service, materializer)
+
+        service.get_state_for_site("site-1", "tenant-1")
+
+        materializer.materialize.assert_not_called()
+        care_service.ensure_seasonal_winter_tasks.assert_not_called()
+
+    def test_the_scheduled_evaluation_still_persists_and_still_fires_them(self) -> None:
+        """The control. Without it the two assertions above are satisfied by a
+        service that has simply stopped working — the daily Celery task is the
+        caller the write and the side effects belong to, and it must be unchanged.
+        """
+        care_service, materializer = MagicMock(), MagicMock()
+        service = self._service_for_a_stateless_site(care_service, materializer)
+
+        state, changed = service.evaluate_site_detailed(_site())
+
+        assert changed is True
+        service._repo.upsert.assert_called_once()
+        assert state is service._repo.upsert.return_value
+        materializer.materialize.assert_called_once()
+        care_service.ensure_seasonal_winter_tasks.assert_called_once_with("plant-1", SeasonPhase.PRE_WINTER)

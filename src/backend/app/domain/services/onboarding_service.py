@@ -30,32 +30,58 @@ class OnboardingService:
         self._kit_service = starter_kit_service
         self._engine = OnboardingEngine()
 
-    def get_state(self, user_key: str) -> OnboardingState:
+    def _stored(self, user_key: str) -> OnboardingState | None:
+        """The user's stored wizard state, or ``None`` — the read, with no side effect."""
         from app.data_access.arango import collections as col
 
         docs = self._repo.find_by_field("user_key", user_key)
-        if docs:
-            return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
-        # Auto-create initial state. Two concurrent cold reads both find the
-        # collection empty and both try to insert; the unique index on
-        # ``user_key`` refuses the loser. Re-read and return the winner's document
-        # instead of surfacing a 409 (upsert semantics) — this is the auto-create
-        # race that used to mint duplicate singletons under parallel load.
-        #
-        # BOTH refusals are caught (#1458): 1210 (DuplicateError) once the winner's
-        # unique-index entry is committed and visible, 1200 (WriteConflictError)
-        # while its transaction still holds it. See
-        # :meth:`UserPreferenceService.get_preferences` for the same pairing.
-        state = OnboardingState(user_key=user_key)
+        if not docs:
+            return None
+        return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
+
+    def get_state(self, user_key: str) -> OnboardingState:
+        """Return the caller's wizard state — **without persisting one**.
+
+        This used to auto-create the singleton on a cold read, which made
+        ``GET /t/{slug}/onboarding/state`` a write on a safe method: entry 7 of
+        the #1443 detector inventory, filed as #1461. A user who merely opens the
+        app got a row written for a wizard they had not started.
+
+        The answer is unchanged — an unmaterialised user gets the same initial
+        state the freshly created document would have carried — except that
+        ``key`` is ``None`` until a write materialises the row. Every method below
+        that writes goes through :meth:`_materialise` instead, so the row appears
+        on the first real wizard action.
+        """
+        stored = self._stored(user_key)
+        return stored if stored is not None else OnboardingState(user_key=user_key)
+
+    def _materialise(self, user_key: str) -> OnboardingState:
+        """Return the stored state, creating the singleton if there is none.
+
+        The auto-create that used to sit on the read path (#1461). Two concurrent
+        FIRST WRITES both find the collection empty and both insert; the unique
+        index on ``user_key`` refuses the loser, and the re-read resolves it.
+
+        BOTH refusals are caught (#1458): 1210 (DuplicateError) once the winner's
+        unique-index entry is committed and visible, 1200 (WriteConflictError)
+        while its transaction still holds it. See
+        :meth:`UserPreferenceService._materialise` for the same pairing.
+        """
+        stored = self._stored(user_key)
+        if stored is not None:
+            return stored
         try:
-            doc = self._repo.create(state)
+            doc = self._repo.create(OnboardingState(user_key=user_key))
         except DuplicateError, WriteConflictError:
-            docs = self._repo.find_by_field("user_key", user_key)
-            return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
+            winner = self._stored(user_key)
+            if winner is None:  # pragma: no cover - the index refused us; somebody holds the row
+                raise
+            return winner
         return OnboardingState(**doc)
 
     def save_progress(self, user_key: str, wizard_step: int, **kwargs) -> OnboardingState:
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         data = state.model_dump()
         data["wizard_step"] = wizard_step
         data.update(kwargs)
@@ -81,7 +107,7 @@ class OnboardingService:
         smart_home_enabled: bool | None = None,
     ) -> dict:
         """Complete the onboarding wizard, creating site and plants."""
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         created_entities: dict[str, list[str]] = {}
 
         # Derive plant_count from plant_configs if provided
@@ -320,9 +346,12 @@ class OnboardingService:
         # TODO: REQ-027 — full mode-switch integration
         """
         if takeover_accepted is None:
-            return self.get_state(user_key)
+            # ``ensure``, so this branch materialises too (#1461). The read-only
+            # getter would leave the method's own name untrue for a caller that
+            # passes no takeover decision.
+            return self._materialise(user_key)
 
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         data = state.model_dump()
         if takeover_accepted:
             data.update(
@@ -356,7 +385,7 @@ class OnboardingService:
         edge list and prune by ``source`` to make the reset deterministic.
         Manually added favorites (``source='manual'``) are preserved.
         """
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
 
         from app.domain.services.favorites_service import FavoritesService
 
@@ -395,7 +424,7 @@ class OnboardingService:
         return OnboardingState(**doc)
 
     def skip_wizard(self, user_key: str) -> OnboardingState:
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         data = state.model_dump()
         data["skipped"] = True
         data["completed_at"] = datetime.now(UTC).isoformat()
