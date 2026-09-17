@@ -333,9 +333,11 @@ class TestTheRefusalReachesTheUser:
     def test_the_message_does_not_advise_something_the_ui_cannot_do(self):
         """The earlier wording sent the reader to a control that does not exist.
 
-        `api/endpoints/auth.ts` exports `unlinkProvider` and nothing that calls
-        `POST /users/me/providers/{slug}`; that route has no consumer at all. Advice
-        a reader cannot follow is worse than none.
+        `api/endpoints/auth.ts` exports `unlinkProvider` and nothing that links.
+        The route that would have served a manual link,
+        `POST /users/me/providers/{slug}/link`, had no consumer at all and was
+        removed with #1416 — so there is no link control on either side now.
+        Advice a reader cannot follow is worse than none.
         """
         service, _ = _service(_oauth_user(False))
 
