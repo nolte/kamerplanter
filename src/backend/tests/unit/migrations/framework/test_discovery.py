@@ -65,6 +65,7 @@ class TestLoadMigrations:
             "0043",
             "0044",
             "0045",
+            "0046",
         ]
         # Baseline is the only reversible migration.
         assert migrations[0].reversible is True

@@ -615,7 +615,10 @@ class BaseArangoRepository[TModel: BaseModel]:
             result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=not full_replace)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
-                raise NotFoundError(self._collection_name, key) from e
+                # The entity, not the collection: ``details[0].entity`` is a contract
+                # (NFR-006 §2.2a), so this raiser has to answer the same word
+                # ``get_or_raise`` does for the same missing row (O-3).
+                raise NotFoundError(self._require_entity_name(), key) from e
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
@@ -646,7 +649,10 @@ class BaseArangoRepository[TModel: BaseModel]:
             result = self.collection.update({**data, "_key": key}, return_new=True, keep_none=True)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
-                raise NotFoundError(self._collection_name, key) from e
+                # The entity, not the collection: ``details[0].entity`` is a contract
+                # (NFR-006 §2.2a), so this raiser has to answer the same word
+                # ``get_or_raise`` does for the same missing row (O-3).
+                raise NotFoundError(self._require_entity_name(), key) from e
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e

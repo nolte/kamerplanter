@@ -3178,6 +3178,7 @@
       "photoRequired": "Photo required",
       "noPhotos": "No photos available.",
       "photoRemove": "Remove photo {{index}}",
+      "photoRemoveTaskGone": "The task no longer exists. The photo was not deleted and has been kept.",
       "photoAlt": "Photo {{index}}",
       "photos": "Photos",
       "timerDuration": "Timer Duration (sec)",
