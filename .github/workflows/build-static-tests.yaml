@@ -39,23 +39,31 @@ jobs:
   # `actions/cache` inside `pre-commit/action` cannot hold it. Every run on a
   # fresh runner pulls both images.
   #
-  # AND IT CANNOT BE PREVENTED FROM THIS REPOSITORY, which is why this comment
-  # exists instead of a fix. #1311 proposed three preventions —
-  # `docker/login-action`, an image cache, a GHCR mirror. The first two need a
-  # STEP inside the job, and the job is a reusable workflow owned by
-  # `nolte/gh-plumbing`: `uses:` admits no injected steps. The third would work
-  # by overriding each hook's `entry:`, but that moves the image tag out of
-  # `rev:` in .pre-commit-config.yaml, and that file's own reasoning turns on
-  # `rev:` BEING the tool version so Renovate's pre-commit manager owns the
-  # bumps; a mirrored tag would be a second place to keep in sync, plus a new
-  # mirroring lane that pulls from Docker Hub itself. Prevention belongs
-  # upstream in gh-plumbing, or in a deliberate mirror decision — not here.
+  # Until 2026-09-13 this could not be prevented from this repository: the job is
+  # a reusable workflow owned by `nolte/gh-plumbing`, and `uses:` admits no
+  # injected `docker/login-action` step. gh-plumbing#417 (merged, in v2.1.0)
+  # added `inputs.dockerhub-username` + `secrets.dockerhub-token` with a
+  # fail-soft fallback: with both set the pulls are authenticated (200/6h
+  # instead of 100/6h per IP, and not shared with every other tenant of the
+  # runner's egress); with either absent the lane behaves exactly as before.
+  # First real hit observed 2026-09-13 (run 34743611429, exit 125,
+  # `auth.docker.io` connection reset) on a pull request that touched no shell.
+  # #1321 tracks it; the credential is a repository variable + secret the
+  # operator supplies. A GHCR mirror was rejected: it would move the image tag
+  # out of `rev:` in .pre-commit-config.yaml, which Renovate's pre-commit
+  # manager owns.
   #
   # `task check:workflow-shell-lint` classifies the same failure locally.
   static:
     permissions:
       contents: read
     uses: nolte/gh-plumbing/.github/workflows/reusable-pre-commit.yaml@3fccbb333146cd2a65902afd7394db870ae6a978 # v2.1.0
+    with:
+      # Empty when the variable is unset — the reusable workflow then skips the
+      # login (`if: inputs.dockerhub-username != ''`) and pulls anonymously.
+      dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+    secrets:
+      dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
   security:
     uses: nolte/gh-plumbing/.github/workflows/reusable-trivy.yaml@3fccbb333146cd2a65902afd7394db870ae6a978 # v2.1.0
