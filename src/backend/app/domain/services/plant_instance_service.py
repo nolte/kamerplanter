@@ -235,7 +235,7 @@ class PlantInstanceService:
           ``location_key``, which decides the slots those instances are placed in,
           is never verified against the run's tenant either. Pre-existing and
           deliberately **not** fixed here (issue #1372).
-        * :meth:`_spawn_clonal_pup` in this very class calls ``self._repo.create(pup)``
+        * :meth:`_spawn_pup` in this very class calls ``self._repo.create(pup)``
           for the D10 pup. Its references are copied from the mother, which was
           resolved when *it* was written, so nothing caller-supplied reaches it.
 
