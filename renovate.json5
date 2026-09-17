@@ -406,8 +406,8 @@
     // Workflow SERVICE containers are in here for the same reason: the
     // github-actions manager extracts `jobs.<id>.services.<id>.image` as an
     // ordinary docker dependency (`depType: service`), so the ArangoDB service
-    // of the `Integration tests (ArangoDB)` job in backend.yml lands in the same
-    // branch as the compose reference. Verified 2026-09-16 with
+    // of the `Integration tests (ArangoDB)` job in backend-guards.yml lands in the
+    // same branch as the compose reference. Verified 2026-09-16 with
     // `renovate --platform=local --dry-run=extract`, because a lane digest that
     // drifted from the compose digest would mean CI and the dev stack measure
     // against different servers (#1432).
