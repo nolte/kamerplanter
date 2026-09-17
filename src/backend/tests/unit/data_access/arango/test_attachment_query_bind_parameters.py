@@ -1,12 +1,14 @@
 """#1393 — every bind parameter the attachment queries name is supplied, and vice versa.
 
-**What this covers and what it does not.** ``tests/integration/`` is deliberately
-absent from CI (see the "API tests" step in ``.github/workflows/backend.yml``): it
-needs a real ArangoDB and without one it self-skips, reporting green having tested
-almost nothing. So the two queries below — the orphan sweep and the predicate behind
-the interactive photo delete, both of which decide what gets **deleted** — are
-executed by no gate. A syntax or semantics regression in them ships green and is
-found by the nightly job destroying the wrong row.
+**What this covers and what it does not.** ``tests/integration/`` was absent from
+CI until #1432: it needs a real ArangoDB and without one it self-skipped,
+reporting green having tested almost nothing. At the time this file was written
+the two queries below — the orphan sweep and the predicate behind the interactive
+photo delete, both of which decide what gets **deleted** — were executed by no
+gate, so a syntax or semantics regression in them shipped green and was found by
+the nightly job destroying the wrong row. The tier now runs as the required
+``Integration tests (ArangoDB)`` job (``.github/workflows/backend-guards.yml``);
+this file remains the CI-visible half that needs no server.
 
 Running the integration tier in CI is the real fix and is tracked in #1432; it needs a
 service container and a guard that the tier did not self-skip to green, which is a
