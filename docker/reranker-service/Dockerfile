@@ -8,10 +8,34 @@
 #
 # See ADR-007 for rationale.
 
+# ── Shared uv layer: the toolchain and the environment settings ──────
+# uv is the lock toolchain (NFR-009 §2.3), exactly as in src/backend/Dockerfile:
+# one static binary, copied from its own digest-pinned image so Renovate's
+# dockerfile manager ages it together with `[tool.uv].required-version`. The
+# environment pins uv to the interpreter this image ships (no managed-Python
+# download, no cache layer) and puts the project environment on PATH, so the
+# stages below resolve `python` and `uvicorn` without an activation step. It
+# lives in /opt/venv, OUTSIDE /app, because the runtime stage chowns /app to
+# UID 1000 and a venv inside it would end up writable by the server's UID.
+FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS uv-base
+COPY --from=ghcr.io/astral-sh/uv:0.12.15@sha256:62f8c047d0a0e9ece6b53fc63df902585a67a47a7f318ddec4a37db586edc8e3 /uv /bin/uv
+ENV UV_PYTHON=/usr/local/bin/python3 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_NO_CACHE=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
 # ── Shared base for downloads ────────────────────────────────────────
-FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS dl-base
-# hadolint ignore=DL3013,SC2102
-RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub optimum[onnxruntime] sentencepiece
+
+FROM uv-base AS dl-base
+WORKDIR /src
+COPY pyproject.toml uv.lock ./
+# The download toolchain comes from the same lock as the runtime, through the
+# `build` dependency group: `--only-group` installs that group alone, `--locked`
+# verifies every artifact against its recorded hash.
+RUN uv sync --locked --only-group build
 
 # ── Download stages (cached independently) ───────────────────────────
 
@@ -34,7 +58,7 @@ model.save_pretrained('/model')" && \
 
 # ── Runtime base (shared across all final targets) ───────────────────
 
-FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS runtime
+FROM uv-base AS runtime
 
 LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
       org.opencontainers.image.description="ONNX cross-encoder reranker (BGE reranker v2 m3) that re-scores RAG retrieval hits for Kamerplanter" \
@@ -43,9 +67,11 @@ LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
       org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
-COPY requirements.txt .
-# hadolint ignore=DL3013
-RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
+# The lock is the single source of truth for what gets installed (NFR-009
+# §2.3/§6.1); `--no-dev` leaves the export toolchain (optimum, torch) out of the
+# shipped image — the runtime needs onnxruntime only.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev
 COPY main.py .
 # Create the non-root numeric user; each final target COPYs its model with
 # --chown=1000 and switches to USER 1000 as its last instruction.
