@@ -28,6 +28,10 @@ on:
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
+      # Loaded by path from tests/unit/migrations/test_seed_schema_conformance.py:
+      # its NO_SCHEMA_DECLARED / SCHEMA_DEBT_CEILING registers live in the script
+      # since #1406, so a change that only raises a ceiling must run that suite.
+      - 'scripts/check_seed_schema.py'
       - 'scripts/check_layer_imports.py'
       - 'scripts/check_tenant_body_field.py'
       - 'scripts/check_workflow_gate_integrity.py'
@@ -74,6 +78,10 @@ on:
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
+      # Loaded by path from tests/unit/migrations/test_seed_schema_conformance.py:
+      # its NO_SCHEMA_DECLARED / SCHEMA_DEBT_CEILING registers live in the script
+      # since #1406, so a change that only raises a ceiling must run that suite.
+      - 'scripts/check_seed_schema.py'
       - 'scripts/check_layer_imports.py'
       - 'scripts/check_tenant_body_field.py'
       - 'scripts/check_workflow_gate_integrity.py'
@@ -115,6 +123,15 @@ on:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.
     - cron: '17 5 * * 1'
+  # Manual runs. Added with the integration lane (#1432) so an operator could
+  # dispatch a never-yet-run job before it was promoted to a required check.
+  # That job now lives in `backend-guards.yml` (it had to: this workflow is
+  # path-filtered, and a filtered required check never reports — see the note
+  # in the `API tests` step below), and the dispatch trigger moved with it.
+  # This one stays because the lanes here are worth re-running by hand too: the
+  # weekly `pip-audit` and `pip-licenses` jobs are otherwise reachable only on
+  # the Monday cron.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -136,6 +153,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: tests/unit/test_audit_oauth_links.py asserts that the
+          # audit cutoffs match the commits they name, and a shallow clone made it
+          # skip on every CI run until the skip floor (#1434) surfaced that.
+          fetch-depth: 0
 
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -149,17 +171,46 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # THE uv pin (#1383). `version-file` makes the action read
+        # `[tool.uv].required-version` out of src/backend/pyproject.toml, so the
+        # uv this job runs cannot differ from the uv Renovate relocks with or the
+        # one the Dockerfile copies. It replaces a `python -m pip install` line
+        # carrying a literal uv version — the same value written out eight times
+        # across four workflows, held together only by the `uv toolchain`
+        # Renovate group.
+        # That group is a promise, not a mechanism: a ninth copy added without it
+        # would age unnoticed, which is the #1296 class (toolchain halves aging
+        # apart). tests/unit/guards/test_uv_pin_is_single.py is the permanent
+        # absence check that no such copy comes back.
+        #
+        # The cache key is src/backend/uv.lock rather than the action's default
+        # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
+        # five locks, and four of them have nothing to do with this job.
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
       - name: Install dependencies
-        # Install from the hash-verified lock (single source of install truth,
-        # NFR-009 §2.3): `uv sync --locked` refuses a lock that no longer
+        # Through the Taskfile, like every other command in this job (#1383).
+        # `task deps:sync` is `uv sync --locked --extra dev` and nothing else, so
+        # this is not indirection for its own sake: the invocation now exists
+        # ONCE, and a contributor running `task deps:sync` cannot end up with a
+        # different environment than the gate. Inlining it is how the two drift.
+        #
+        # `uv sync --locked` (NFR-009 §2.3) refuses a lock that no longer
         # satisfies pyproject.toml and verifies every artifact against the hash
         # the lock records, then installs the app package itself editable.
-        # uv is pinned like every other tool here; the pin is tracked by the
-        # workflow regex manager in renovate.json5. The project environment is
-        # put on PATH so the Taskfile targets below run the locked ruff/pytest.
+        #
+        # The PATH prepend stays even though the Taskfile targets now run through
+        # `uv run --locked` and no longer need it: the steps below that are NOT
+        # Taskfile targets — `python app/migrations/seed_steckbrief_consistency.py`
+        # — still resolve a bare `python`, and removing the prepend would send
+        # them to the runner's interpreter.
         run: |
-          python -m pip install 'uv==0.12.13'
-          uv sync --locked --extra dev
+          task deps:sync
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       # Invoked through the Taskfile so the pipeline and a contributor run the
@@ -184,6 +235,11 @@ jobs:
         run: python app/migrations/seed_steckbrief_consistency.py --verbose
 
       - name: Unit tests
+        # The tier targets invoked here carry their measured skip floor
+        # (`--max-skipped N`, #1434): unit 1, contracts 0, api 0. The numbers live
+        # in .taskfiles/backend.yaml, so this lane and a contributor's local run
+        # enforce the identical contract — which is the reason these steps call
+        # the target rather than inlining pytest.
         run: task test:backend:unit
 
       - name: Contract tests
@@ -198,13 +254,25 @@ jobs:
         # The router tier, which ran in no gate at all until 2026-08-05 although
         # it needs no service: it drives the FastAPI app through TestClient
         # against fakes. Measured with no ArangoDB, Valkey or S3 reachable: 480
-        # passed, 0 skipped, ~60 s. It carries acceptance coverage nothing else
+        # passed, 0 skipped, ~60 s — and since #1434 the "0 skipped" half of that
+        # sentence is enforced by the target's `--max-skipped 0` instead of being
+        # prose nothing checked. It carries acceptance coverage nothing else
         # here does — among it the cross-tenant negative tests on the diary
         # endpoints (tests/api/test_plant_diary_router.py) and the MCP
-        # error-envelope wire test. `tests/integration/` is deliberately still
-        # absent: it needs a real ArangoDB, and without one it self-skips and
-        # would report green having tested almost nothing. The Taskfile comment
-        # above these targets carries the full tier map.
+        # error-envelope wire test. `tests/integration/` is NOT here — it needs a
+        # real ArangoDB and has a job of its own, `Integration tests (ArangoDB)`
+        # (#1432). That job is NOT in this workflow, and the reason is the whole
+        # point: it is a REQUIRED context on `develop` since 2026-09-17, this
+        # workflow is path-filtered, and a required check whose workflow the
+        # filter skips never reports at all — measured on #1470, #1475 and #1410,
+        # each permanently blocked on a context that could not arrive. It lives
+        # in `.github/workflows/backend-guards.yml`, the unfiltered lane, which
+        # exists for exactly this. `tests/unit/guards/test_required_contexts_are_unfiltered.py`
+        # is the permanent guard that no required context moves back under a
+        # filter. The integration tier used to be absent from CI entirely,
+        # because without a server it self-skipped and would have reported green
+        # having tested almost nothing. The Taskfile comment above these targets
+        # carries the full tier map.
         run: task test:backend:api
 
   lock-staleness:
@@ -228,7 +296,13 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
-        run: python -m pip install 'uv==0.12.13'
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
       - name: Check the lock against pyproject.toml
         # `task deps:check` is the first half of this gate: `uv lock --check`
         # fails when src/backend/uv.lock does not satisfy pyproject.toml,
@@ -255,6 +329,37 @@ jobs:
         # image ships, and `--locked` refuses to re-resolve.
         run: uv sync --locked --no-install-project
 
+      - name: Falsify the hash claim this job just made
+        # The step above verifies THIS lock. It cannot tell you whether the
+        # verification works at all — a `uv sync` that stopped checking hashes
+        # would keep exiting 0 here forever, and the first hash-tamper test
+        # written for #1377 was itself vacuous (it altered an sdist hash for a
+        # package the backend installs from its wheel, so nothing ever read the
+        # line it changed). This runs the permanent falsifier: it tampers with a
+        # COPY of the lock and requires `uv sync --locked` to refuse it, with a
+        # positive control that asserts the tampered package really is among the
+        # packages installed. It also pins down, as a measured fact, that
+        # `uv lock --check` alone does NOT notice the same tamper — which is why
+        # this job runs two commands instead of one.
+        #
+        # Here rather than only in the unit tier because this is the job that
+        # makes the claim. The tier runs it too (`task test:backend:unit` covers
+        # tests/unit/guards), so a defect in the falsifier itself is visible on
+        # the backend lane as well.
+        #
+        # `uv run --locked` brings up the dev environment from the same lock; its
+        # artifacts are already in the cache the steps above warmed, so this
+        # costs seconds. Measured locally on 2026-09-16 with a warm cache: 1.9 s
+        # for all six cases, of which 1.5 s is the positive control's full
+        # install. GitHub sets $CI, so
+        # `test_the_hash_falsifier_is_never_merely_skipped_in_ci` turns a skip
+        # here into a RED run rather than a green one.
+        #
+        # Through the Taskfile, like `deps:check` above: one copy of the
+        # invocation, so what CI runs and what a contributor runs locally
+        # (`task deps:verify`) cannot drift apart.
+        run: task deps:verify
+
   pip-audit:
     name: Dependency CVE audit
     runs-on: ubuntu-latest
@@ -267,11 +372,21 @@ jobs:
           python-version: '3.14'
           allow-prereleases: true
 
-      - name: Install uv and pip-audit
-        # Both pinned. An unpinned scanner is a floating input: the same commit
-        # can pass today and fail tomorrow because the tool changed, which makes
-        # a red run unattributable (continuous-integration §C).
-        run: python -m pip install 'uv==0.12.13' 'pip-audit==2.10.1'
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
+      - name: Install pip-audit
+        # Pinned. An unpinned scanner is a floating input: the same commit can
+        # pass today and fail tomorrow because the tool changed, which makes a
+        # red run unattributable (continuous-integration §C). uv is pinned the
+        # same way, one step above, via the version file.
+        run: python -m pip install 'pip-audit==2.10.1'
       - name: Export the locks in the format pip-audit reads
         # pip-audit has no uv.lock reader, so the lock is exported — versions and
         # hashes verbatim, the project itself omitted — into requirements files
@@ -312,11 +427,19 @@ jobs:
           python-version: '3.14'
           allow-prereleases: true
 
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
       - name: Install dependencies and pip-licenses
         # The license scanner reads installed package metadata, so the pinned set
         # must be installed first (NFR-009 §4.3).
         run: |
-          python -m pip install 'uv==0.12.13'
           uv sync --locked --no-install-project
           uv pip install 'pip-licenses==5.5.5'
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
@@ -351,9 +474,44 @@ jobs:
     with:
       python-version: '3.14'
       working-directory: src/backend
-      # Same install as lint-test above. `$GITHUB_PATH` persists across the
-      # steps of the reusable job, so the bare `pytest` and `coverage` it runs
-      # afterwards resolve to the synced project environment.
-      install-command: python -m pip install 'uv==0.12.13' && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      # Same install as lint-test above, minus the action. `$GITHUB_PATH`
+      # persists across the steps of the reusable job, so the bare `pytest` and
+      # `coverage` it runs afterwards resolve to the synced project environment.
+      #
+      # This is the ONE place that still installs uv with pip, and it cannot be
+      # an `astral-sh/setup-uv` step: the steps of this job belong to
+      # `nolte/gh-plumbing`'s reusable workflow and a caller can only hand it a
+      # shell command. So the command READS the pin instead of repeating it —
+      # `[tool.uv].required-version` is already the exact specifier `==<version>`
+      # and is appended to the package name verbatim. No workflow file therefore
+      # carries a literal uv version any more — the absence guard
+      # tests/unit/guards/test_uv_pin_is_single.py asserts exactly that — and
+      # this lane stays on the same uv as every other one without a second
+      # literal to maintain. A uv mode for the reusable workflow is a gh-plumbing change
+      # (repository boundary) and deliberately out of scope here.
+      #
+      # Failure mode to expect: a typo in this expression breaks the COVERAGE
+      # lane, not the backend lane — visible, but in a different place.
+      #
+      # The `case` is the one thing this expression cannot read from the guard:
+      # appending the specifier verbatim is only correct while it IS an exact
+      # `==` pin. Loosened to a floor, `pip install "uv>=x.y.z"` resolves to the
+      # newest release of the day and this lane silently leaves the pinned
+      # toolchain — so it refuses instead. The same condition is a red test in
+      # tests/unit/guards/test_uv_pin_is_single.py and
+      # tests/unit/guards/test_lock_hash_verification.py; this is the third
+      # reader saying so at the point of use.
+      install-command: UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && case "$UV_SPEC" in "=="*) ;; *) echo "::error::[tool.uv].required-version is $UV_SPEC, which is not an exact == pin, so this lane would install the newest uv of the day instead of the pinned one" >&2; exit 1;; esac && python -m pip install "uv$UV_SPEC" && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       coverage-source: app
+      # This lane runs the WHOLE of testpaths (`tests`) and has no ArangoDB, so
+      # it must say out loud which tier it does not run. Before #1432 it did not
+      # have to: tests/integration/ self-skipped here and contributed nothing to
+      # the number anyway. Now a missing database is a failure whenever `CI` is
+      # set — correctly, for the gate — which would have turned this lane red for
+      # a reason that is not about coverage. The tier's own gate is the
+      # `Integration tests (ArangoDB)` job in `backend-guards.yml`, with a
+      # service container; the
+      # measured coverage is unchanged by this line, because skipped tests cover
+      # nothing either.
+      pytest-args: --ignore=tests/integration
       fail-under: 60

@@ -17,9 +17,11 @@ does not — a projection whose correctness depends on the age of the row.
 cannot prove what the database answers. The proof of the answer is
 `tests/integration/test_location_label_projection.py`, which builds locations with
 ``tenant_key: ""`` — the shape the write path produces — and asserts the label
-comes back. That file needs a real ArangoDB and is deliberately absent from CI
-(`.github/workflows/backend.yml`), where it would self-skip and report green
-having tested nothing.
+comes back. That file needs a real ArangoDB. It was absent from CI until #1432,
+where it would have self-skipped and reported green having tested nothing; since
+then it runs in the required `Integration tests (ArangoDB)` job
+(`.github/workflows/backend-guards.yml`, the unfiltered lane) against a service
+container, and a missing database is a failure rather than a skip.
 
 So this is the CI-visible half: it pins the *rule* — the anchor is walked, and the
 empty field is not consulted — so the repair cannot be undone without a red lane,

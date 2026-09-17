@@ -6,26 +6,48 @@
 #   prod (default, built by CI):   docker build .
 #   dev  (built by skaffold):      docker build --target dev .
 #
+# Every Python install below comes from uv.lock with hash verification
+# (NFR-009 §2.3/§6.1) — the export toolchain through the `build` dependency
+# group, the reloader through `dev`, the runtime through [project].dependencies.
+#
 # LICENCE: the DINOv2 base backbone is Apache-2.0 (re-verify before release,
 # REQ-029-A 2.3 / 5). Never ship PlantCLEF fine-tuned weights (CC-BY-NC).
 
+# -- Shared uv layer: the toolchain and the environment settings --------------
+# uv is one static binary, copied from its own digest-pinned image so Renovate's
+# dockerfile manager ages it exactly like the base image. The environment pins
+# uv to the interpreter this image ships (no managed-Python download, no cache
+# layer) and puts the project environment on PATH, so the stages below resolve
+# `python` and `uvicorn` without an activation step. It lives in /opt/venv,
+# OUTSIDE the working directory, because the stages below chown that directory
+# to UID 1000 and a venv inside it would end up writable by the server's UID.
+FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS uv-base
+COPY --from=ghcr.io/astral-sh/uv:0.12.15@sha256:62f8c047d0a0e9ece6b53fc63df902585a67a47a7f318ddec4a37db586edc8e3 /uv /bin/uv
+ENV UV_PYTHON=/usr/local/bin/python3 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_NO_CACHE=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
 # -- Export stage: produce model.onnx + modelinfo.json (torch only here) -----
-FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS model-export
+FROM uv-base AS model-export
 
 WORKDIR /export
+COPY pyproject.toml uv.lock ./
 # CPU-only torch: the GPU build pulls multi-GB nvidia/CUDA wheels that are
-# unnecessary for a CPU ONNX export and exhaust the CI runner disk. onnx is not
-# hosted on the PyTorch index, so install it separately from PyPI.
-# hadolint ignore=DL3013
-RUN pip install --no-cache-dir --root-user-action=ignore \
-        torch torchvision --index-url https://download.pytorch.org/whl/cpu \
- && pip install --no-cache-dir --root-user-action=ignore onnx onnxscript
+# unnecessary for a CPU ONNX export and exhaust the CI runner disk. The CPU
+# index is declared per-package in pyproject.toml ([tool.uv.sources]), so the
+# rest of the group still resolves from PyPI. `--only-group build` installs the
+# export toolchain alone — none of the runtime dependencies and not the project.
+RUN uv sync --locked --only-group build --no-install-project
 
 COPY scripts/export_dinov2_onnx.py ./export_dinov2_onnx.py
 RUN python export_dinov2_onnx.py --arch dinov2_vits14 --input-size 224 --output /model
 
 # -- Shared runtime base (onnxruntime + exported model + app code) -----------
-FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS base
+FROM uv-base AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-inference-service" \
       org.opencontainers.image.description="Plant/pest image-recognition service (DINOv2 ONNX embeddings + pgvector matching) for Kamerplanter health assessment" \
@@ -35,8 +57,15 @@ LABEL org.opencontainers.image.title="kamerplanter-inference-service" \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
+# The lock is the single source of truth for what gets installed: `--locked`
+# verifies it against pyproject.toml and every artifact against its recorded
+# hash, so a stale lock or a tampered wheel fails the build instead of
+# installing something else. Copied before the source so the install layer is
+# cached independently of application code. The REQ-038 PlantCV extra stays out
+# of the image on purpose (see [project.optional-dependencies] in
+# pyproject.toml); the service degrades gracefully without it.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev --no-install-project
 
 COPY --from=model-export /model/ /app/models/dinov2/
 COPY app/ ./app/
@@ -45,9 +74,10 @@ ENV MODEL_PATH=/app/models/dinov2
 
 # -- Development target: hot-reload (skaffold dev syncs app/**/*.py) ----------
 FROM base AS dev
-# Own /app as UID 1000 for the non-root dev pod (hot-reload + skaffold sync).
-# hadolint ignore=DL3013
-RUN pip install --no-cache-dir --root-user-action=ignore watchfiles \
+# The `dev` dependency group adds watchfiles (the reload watcher) from the same
+# lock — it used to be an unpinned `pip install` outside any lock. Own /app as
+# UID 1000 for the non-root dev pod (hot-reload + skaffold sync).
+RUN uv sync --locked --no-install-project \
  && chown -R 1000:1000 /app
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

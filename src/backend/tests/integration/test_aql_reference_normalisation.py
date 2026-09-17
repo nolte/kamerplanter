@@ -17,7 +17,9 @@ Two things make this file the guard rather than another way to be wrong:
   `REGEX_REPLACE` and `SPLIT` actually do to these strings, not what they look like
   they do.
 
-Skipped when no ArangoDB answers on ``localhost:8529``. Run it with::
+Runs in CI against a service container; locally it needs a database of its own
+(a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one
+with::
 
     docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_aql_reference_normalisation.py -v
@@ -26,26 +28,16 @@ Skipped when no ArangoDB answers on ``localhost:8529``. Run it with::
 from __future__ import annotations
 
 import pytest
+from arango import ArangoClient
 
 from app.data_access.arango.attachment_repository import aql_photo_ref_candidates
 from app.migrations.migrate_photo_refs import normalize_photo_ref
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
-ARANGO_URL = "http://localhost:8529"
-ARANGO_PASSWORD = "rootpassword"
 TEST_DATABASE = "kamerplanter_ref_normalisation_test"
 
-ARANGO_AVAILABLE = False
-try:  # pragma: no cover - probe, not behaviour
-    from arango import ArangoClient
 
-    _probe = ArangoClient(hosts=ARANGO_URL)
-    _probe.db("_system", username="root", password=ARANGO_PASSWORD).version()
-    ARANGO_AVAILABLE = True
-    _probe.close()
-except Exception:  # noqa: BLE001 - any failure means "not available"
-    pass
-
-pytestmark = pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available on localhost:8529")
+pytestmark = pytest.mark.usefixtures("arango_db")
 
 #: A ULID-shaped id, because `normalize_photo_ref` returns an already-normalised
 #: value unchanged only when it matches that shape.
@@ -76,11 +68,11 @@ REFERENCES: list[tuple[str, str]] = [
 @pytest.fixture(scope="module")
 def db():
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username="root", password=ARANGO_PASSWORD)
+    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if system.has_database(TEST_DATABASE):
         system.delete_database(TEST_DATABASE)
     system.create_database(TEST_DATABASE)
-    yield client.db(TEST_DATABASE, username="root", password=ARANGO_PASSWORD)
+    yield client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     system.delete_database(TEST_DATABASE)
     client.close()
 

@@ -102,3 +102,20 @@ def test_migrate_photo_refs_task_returns_report():
 
     assert result["changed_documents"] == 1
     assert result["noop"] is False
+
+
+def test_migrate_photo_refs_task_defaults_to_dry_run():
+    """#1438 — triggering the task without arguments reports, it does not rewrite.
+
+    The task used to default to ``dry_run=False``, so a manual trigger applied an
+    irreversible rewrite whose premise had already been measured as false. Writing
+    is now an explicit decision at every entry point.
+    """
+    from app.migrations.migrate_photo_refs import PhotoRefMigrationReport
+    from app.tasks import storage_tasks
+
+    report = PhotoRefMigrationReport(dry_run=True)
+    with patch("app.migrations.migrate_photo_refs.run", return_value=report) as run_mock:
+        storage_tasks.migrate_photo_refs.run()
+
+    assert run_mock.call_args.kwargs["dry_run"] is True

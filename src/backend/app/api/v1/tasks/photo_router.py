@@ -159,15 +159,24 @@ async def delete_task_photo(
     against the tenant quota with no surface that reached them.
 
     The task is resolved tenant-scoped first, exactly as on the upload above, so an
-    unknown and a foreign task answer the same 404 and neither reaches storage.
+    unknown and a foreign task answer the same 404 and neither reaches storage. That
+    404 is distinguishable from an attachment-level one: both keep
+    ``error_code="ENTITY_NOT_FOUND"``, and ``details[0].entity`` says ``task`` or
+    ``attachment`` (#1437). The client needs it — de-staging a photo is only right
+    when the *attachment* is the missing thing; if the task vanished, nothing was
+    deleted and dropping the entry would orphan the stored object.
     Deletion itself is idempotent: removing an id that is already gone answers 204
     rather than 404, so a double click, a retry, or a race with the orphan sweep is
     not an error the user has to understand.
 
     Known gap (#1437): when a lead deletes a photo the task itself references, the
-    entry stays in ``task.photo_refs`` and the gallery renders a broken image with
-    no surface that repairs it. The orphan sweep is the general reconciliation and
-    ships disabled.
+    entry stays in ``task.photo_refs`` and the gallery renders a broken image until
+    someone edits the list. Reconciling ``photo_refs`` against the catalogue is owned
+    by ``v0046_reconcile_photo_refs`` — but v0046 repairs a reference that *denotes*
+    an attachment, and this one denotes a row that is gone, so v0046 reports it
+    ``unresolved`` and deliberately leaves it: dropping a reference is the orphan
+    sweep's opposite question ("which attachment does nobody reference"), which
+    ships disabled and carries its own release decision.
 
     This does **not** rewrite ``task.photo_refs``. The single-writer rule from
     #1388 stands — ``TaskService.complete_task`` owns that list, and the staged
@@ -175,7 +184,8 @@ async def delete_task_photo(
     completed task is deleted here too, and its id then dangles in ``photo_refs``;
     that is the same state a manual ``DELETE /attachments/{id}`` has always
     produced, and the readers resolve ids against the catalogue rather than trusting
-    the list.
+    the list — an entry that resolves to nothing renders as a broken image, it does
+    not make some other photo disappear.
     """
     task_service.get_task(key, tenant_key=ctx.tenant_key)
 

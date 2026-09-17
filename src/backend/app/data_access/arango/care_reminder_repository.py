@@ -9,6 +9,96 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
+#: The one predicate for "a stored plant that has no ``CareProfile``" (#1444).
+#:
+#: **The link is the ``plant_key`` FIELD on the profile document, not the
+#: ``has_care_profile`` edge.** Both are written together by
+#: ``CareReminderService.get_or_create_profile``, but only the field is ever read
+#: back: the lookup is ``get_profile_by_plant_key`` →
+#: ``find_one_by_field("plant_key", …)``, and the nightly generator iterates
+#: ``get_all_profiles()`` and reads ``profile.plant_key``. Counting through the edge
+#: would answer a question nothing acts on — a profile with a lost edge still
+#: produces reminders, a profile with an edge and a wrong ``plant_key`` does not.
+#:
+#: ``removed_on == null`` mirrors the generator, which skips a removed plant's
+#: profile (``care_tasks.py``): a removed plant needs no reminder, so counting it as
+#: missing would inflate the figure a migration is sized against.
+#:
+#: Shared as a string rather than duplicated because the audit script, the nightly
+#: warning and the later backfill migration must select the SAME population. A
+#: second copy is a second answer to "how many plants are affected".
+_UNPROFILED_PLANTS = """
+FOR plant IN @@plants
+  FILTER plant.removed_on == null
+  FILTER LENGTH(
+    FOR profile IN @@profiles
+      FILTER profile.plant_key == plant._key
+      LIMIT 1
+      RETURN 1
+  ) == 0
+"""
+
+
+def unprofiled_plants_by_tenant_aql() -> str:
+    """Per-tenant breakdown of plants with no care profile: ``{tenant_key, missing}``.
+
+    Grouped on the plant's own ``tenant_key`` — the plant document is the authority
+    on its tenant, the same rule ``generate_due_care_reminders`` follows, because a
+    ``CareProfile`` carries no ``tenant_key`` at all. Tenantless plants (the stored
+    ``""`` sentinel) collect into their own row instead of being dropped: they are
+    invisible to every scoped run and are exactly the rows an audit must not hide.
+    """
+    return (
+        _UNPROFILED_PLANTS
+        + """
+  COLLECT tenant_key = plant.tenant_key WITH COUNT INTO missing
+  SORT missing DESC, tenant_key
+  RETURN {tenant_key: tenant_key, missing: missing}
+"""
+    )
+
+
+def unprofiled_plant_keys_aql() -> str:
+    """The unprofiled plants themselves, capped by ``@limit``, for a manual look.
+
+    Same predicate as the counts above — deliberately, because a listing built from
+    a second, slightly different FILTER is how an operator ends up spot-checking a
+    population the count never included.
+    """
+    return (
+        _UNPROFILED_PLANTS
+        + """
+  SORT plant.tenant_key, plant._key
+  LIMIT @limit
+  RETURN {
+    key: plant._key,
+    tenant_key: plant.tenant_key,
+    instance_id: plant.instance_id,
+    plant_name: plant.plant_name,
+    planted_on: plant.planted_on,
+    created_at: plant.created_at
+  }
+"""
+    )
+
+
+def unprofiled_plant_count_aql(*, scoped: bool) -> str:
+    """Total count of plants with no care profile, optionally bound to one tenant.
+
+    ``scoped`` is keyword-only and has no default so every call site says whether
+    it is counting one tenant or the whole installation; a default would make the
+    unscoped, cross-tenant read the answer a caller gets by saying nothing.
+    """
+    tenant_filter = "  FILTER plant.tenant_key == @tenant_key\n" if scoped else ""
+    return (
+        _UNPROFILED_PLANTS
+        + tenant_filter
+        + """
+  COLLECT WITH COUNT INTO missing
+  RETURN missing
+"""
+    )
+
 
 class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareReminderRepository):
     _model_cls = CareProfile
@@ -68,6 +158,31 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         results = self.get_confirmations_by_plant(plant_key, reminder_type, limit=1)
         return results[0] if results else None
 
+    # ── Unprofiled plants (#1444) ──────────────────────────────────────
+
+    def count_plants_without_profile(self, *, tenant_key: str | None) -> int:
+        """Count non-removed plants that have no ``CareProfile`` (#1444).
+
+        ``tenant_key`` is keyword-only and has no default. ``None`` means "the whole
+        installation", which is what the nightly beat run needs, and the empty string
+        is refused rather than read as ``None``: the sentinel that a tenantless caller
+        would pass by accident must not silently become a cross-tenant read (SEC-B4).
+
+        The population is the one the nightly generator can never see. It iterates
+        stored profiles, so a plant without one is not "skipped" — it is absent from
+        the iteration, and no counter in that task was reached by it.
+        """
+        if tenant_key is not None:
+            self._require_tenant_key(tenant_key, "count_plants_without_profile")
+        bind_vars: dict = {"@plants": col.PLANT_INSTANCES, "@profiles": col.CARE_PROFILES}
+        if tenant_key is not None:
+            bind_vars["tenant_key"] = tenant_key
+        cursor = self._db.aql.execute(
+            unprofiled_plant_count_aql(scoped=tenant_key is not None),
+            bind_vars=bind_vars,
+        )
+        return int(next(cursor, 0) or 0)
+
     # ── Dashboard count (REQ-009) ──────────────────────────────────────
 
     def count_due_on(self, tenant_key: str, today: date) -> int:
@@ -123,6 +238,24 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         profile_id = f"{col.CARE_PROFILES}/{profile_key}"
         self.create_edge(col.HAS_CARE_PROFILE, plant_id, profile_id)
+
+    def get_linked_profile(self, plant_key: str) -> CareProfile | None:
+        """Return the profile reachable from *plant_key* over ``has_care_profile``.
+
+        Deliberately **not** the same lookup as :meth:`get_profile_by_plant_key`,
+        which reads the ``plant_key`` field — a field carrying no unique index, so
+        it cannot say which of two documents is the linked one. The edge can: its
+        ``_from`` index is unique (``collections.py``), which is precisely what
+        makes "one care profile per plant" an enforced invariant rather than a
+        convention. After a lost creation race the field query may see both the
+        winner's and the loser's document and answer with either; this one answers
+        with the winner or with ``None``.
+        """
+        edges = self.get_edges(col.HAS_CARE_PROFILE, f"{col.PLANT_INSTANCES}/{plant_key}")
+        if not edges:
+            return None
+        profile_id = edges[0]["edge"]["_to"]
+        return self.get_profile_by_key(profile_id.split("/", 1)[-1])
 
     def create_confirmation_edges(
         self,

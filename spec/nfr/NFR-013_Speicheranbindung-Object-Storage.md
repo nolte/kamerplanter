@@ -107,13 +107,34 @@ Jede Binaerdatei wird durch **zwei** Persistenz-Ebenen beschrieben:
 
 Existierende Felder wie `photo_refs: list[str]` (REQ-006, REQ-007, REQ-008, REQ-010, REQ-013) werden als **Liste von `attachment_id`** gefuehrt — nicht mehr als rohe S3-URLs. Die in REQ-013 referenzierte `s3://kamerplanter/diary/...`-Form ist eine **vorlaeufige Notation** und wird durch dieses NFR konkretisiert.
 
+**Zwei Identitaeten, die nicht ineinander umrechenbar sind (gemessen, #1438).** Ein Attachment traegt die `attachment_id` (den Dokumentschluessel der `attachments`-Collection; ArangoDB vergibt ihn **numerisch**) und daneben einen `storage_key`, dessen letztes Pfadsegment eine **eigene ULID** ist, die `StorageKeyBuilder.build` fuer das Objekt praegt. Aus einem Storage-Key laesst sich die `attachment_id` deshalb **nicht** ableiten — nur ueber den Katalog (Vergleich gegen `Attachment.storage_key`).
+
+Daraus folgt fuer die Normalisierung von Bestandsdaten (`app/migrations/migrate_photo_refs.py`, Migration `v0003`):
+
+| Bestandsform eines `photo_refs`-Eintrags | Behandlung |
+|---|---|
+| `attachment_id` | unveraendert (Zielform) |
+| `/api/v1/t/{slug}/attachments/{id}[/thumbnails/{size}]` | wird auf `{id}` zurueckgeschrieben — die URI traegt den Dokumentschluessel. Erkannt wird sie am Praefix `api/v{n}/`, nicht am Segment `/attachments/` allein: Letzteres kommt auch in einem Storage-Key vor, dessen Kategorie `attachments` heisst |
+| `t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.{ext}`, `s3://...`, Thumbnail-Renditionen | **unveraendert**; die Leser loesen sie ueber den `storage_key`-Vergleich auf. Eine Reduktion auf die ULID ergaebe eine Referenz, die auf **kein** Attachment zeigt |
+| alles andere | unveraendert, nie verworfen; im Report gemeldet |
+
+Das Zusammenfuehren einer Storage-Key-Referenz mit ihrem Attachment ist damit eine Katalog-Aufgabe und nicht Teil dieser rein textuellen Normalisierung. Diese Aufgabe hat einen Besitzer: Migration **`v0046_reconcile_photo_refs`** (`app/migrations/versions/v0046_reconcile_photo_refs.py`). Sie schreibt einen Eintrag, der kein `attachment_id` desselben Mandanten ist, aber **genau ein** Attachment desselben Mandanten benennt, auf dessen `attachment_id` um; passt er zu mehreren, bleibt er unveraendert und wird als `ambiguous` gemeldet.
+
+**Jede Identitaet antwortet nur fuer sich.** Ein Eintrag wird woertlich gegen die `attachment_id` geprueft; eine API-URI wird ueber `migrate_photo_refs.normalize_photo_ref` gelesen und ihr `{id}`-Segment woertlich gegen die `attachment_id` geprueft; jede andere Schreibweise wird auf ihren Stamm reduziert und **ausschliesslich** gegen den Stamm des `storage_key` geprueft — nie gegen die `attachment_id`. Der Grund ist die Kuerze der Dokumentschluessel: der Stamm einer Referenz ist haeufig selbst ein plausibler numerischer Schluessel (`/attachments/{id}/thumbnails/320` reduziert auf `"320"`, ein Storage-Layout auf sein Jahressegment `"2026"`), und ein Treffer dort wuerde die Referenz auf ein **fremdes, existierendes** Foto umschreiben.
+
+**Traeger ohne `tenant_key`** (`harvest_observations`, `storage_observations`, `pests`) akzeptieren ein Attachment beliebigen Mandanten; die Eindeutigkeitsforderung ist fuer diese Zeilen also **installationsweit** statt mandantengebunden. Das ist die strenge Richtung: sie meldet `ambiguous`, wo eine mandantengebundene Frage umgeschrieben haette.
+
+**Voraussetzung und Nachweis.** Fehlt die `attachments`-Collection (teilbootstrapte oder wiederhergestellte Datenbank), meldet die Migration `precondition_unmet` und bleibt pending, statt jede lebende Referenz als unaufloesbar zu melden und als `applied` verbucht zu werden. Jede vorgenommene Umschreibung steht einzeln im Report (`repaired`: `collection`, `document`, `field`, `tenant_key`, `before`, `after`; exakte Zahl in `repaired_total`, Liste gedeckelt) — im Dry-Run identisch gefuellt, damit der Betreiberlauf Position fuer Position pruefbar ist. Ein Eintrag, der zu nichts aufloest, bleibt **woertlich** stehen und wird als `unresolved` gemeldet — Verwerfen ist die Gegenfrage des Orphan-Sweeps und braucht eine eigene Freigabe. Der AQL-Ausdruck, der den Stamm bildet, ist als `aql_storage_key_stem` im Repository hinterlegt und wird von Sweep und Migration gemeinsam benutzt, nicht dupliziert. Schreiben ist an jedem Einstiegspunkt (`run()`, Celery-Task, CLI `--write`) eine **ausdrueckliche** Entscheidung; der Default ist `dry_run=True`.
+
 ### 2.3 Tenant-Isolation auf Storage-Ebene
 
 Der Schluessel-Aufbau erzwingt die Tenant-Trennung **physisch** im Storage-Layout:
 
 ```
-t/{tenant_key}/{category}/{yyyy}/{mm}/{attachment_id}.{ext}
+t/{tenant_key}/{category}/{yyyy}/{mm}/{object_ulid}.{ext}
 ```
+
+`{object_ulid}` ist die von `StorageKeyBuilder.build` gepraegte ULID des Objekts — **nicht** die `attachment_id` (siehe Abschnitt 2.2). Frueher stand an dieser Stelle `{attachment_id}`; das war die Annahme, aus der die fehlerhafte Normalisierungsregel folgte (#1438).
 
 Beispiele:
 

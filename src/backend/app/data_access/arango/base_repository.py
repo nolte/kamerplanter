@@ -9,7 +9,7 @@ from arango.exceptions import DocumentInsertError, DocumentUpdateError
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango import tenant_ownership
 from app.data_access.arango.query_builder import AQLBuilder
 
@@ -584,6 +584,18 @@ class BaseArangoRepository[TModel: BaseModel]:
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
+            if e.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # A *different answer* from 1210, not a variant of it (#1436): the
+                # server could not serialize this insert against a concurrent
+                # transaction holding the same document key or unique-index entry.
+                # It does not say that transaction committed, so this is never
+                # "the record already exists" — a caller that wants that answer
+                # has to re-read. Mapped anyway so it reaches the domain as a
+                # typed, 409-shaped condition instead of a raw driver exception
+                # that every caller turns into a 500. The driver's message is
+                # deliberately not forwarded: it names the index and a document
+                # key, and this error's ``details`` are client-visible.
+                raise WriteConflictError(self._collection_name) from e
             raise
         return self._from_doc(result["new"])
 
@@ -603,7 +615,10 @@ class BaseArangoRepository[TModel: BaseModel]:
             result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=not full_replace)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
-                raise NotFoundError(self._collection_name, key) from e
+                # The entity, not the collection: ``details[0].entity`` is a contract
+                # (NFR-006 §2.2a), so this raiser has to answer the same word
+                # ``get_or_raise`` does for the same missing row (O-3).
+                raise NotFoundError(self._require_entity_name(), key) from e
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
@@ -634,7 +649,10 @@ class BaseArangoRepository[TModel: BaseModel]:
             result = self.collection.update({**data, "_key": key}, return_new=True, keep_none=True)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
-                raise NotFoundError(self._collection_name, key) from e
+                # The entity, not the collection: ``details[0].entity`` is a contract
+                # (NFR-006 §2.2a), so this raiser has to answer the same word
+                # ``get_or_raise`` does for the same missing row (O-3).
+                raise NotFoundError(self._require_entity_name(), key) from e
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
@@ -888,7 +906,32 @@ class BaseArangoRepository[TModel: BaseModel]:
         if data:
             edge_data.update(data)
         col = self._db.collection(edge_collection)
-        result = col.insert(edge_data, return_new=True)
+        try:
+            result = col.insert(edge_data, return_new=True)
+        except DocumentInsertError as exc:
+            # The same raw-to-domain translation :meth:`_insert_doc` performs for
+            # documents, which this path never inherited: edges are written
+            # through the driver directly, so a rejection from a *unique edge
+            # index* — ``has_care_profile`` over ``_from``, one care profile per
+            # plant — fell through as a bare driver exception and every caller
+            # above turned it into a 500 (#1292).
+            #
+            # Both codes are mapped because both were measured on that one index:
+            # the 2026-09-14 nightly recorded ``1200`` and the concurrency test in
+            # ``tests/integration/test_care_profile_edge_concurrency.py`` records
+            # ``1210`` from the same four-way race. Which one a losing racer gets
+            # is the server's decision about how far the winner had got, so a
+            # caller that handled only one of them would still be flaky.
+            if exc.error_code == 1210:  # unique constraint violated
+                field, value = self._describe_unique_conflict(exc, edge_data)
+                raise DuplicateError(edge_collection, field, value) from exc
+            if exc.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # Not a variant of 1210: it says a concurrent transaction held the
+                # entry, never that that transaction committed. The driver message
+                # is not forwarded — it names an index and a document key, and this
+                # error's ``details`` are client-visible.
+                raise WriteConflictError(edge_collection) from exc
+            raise
         return result["new"]
 
     def get_edges(self, edge_collection: str, vertex_id: str, direction: str = "outbound") -> list[dict[str, Any]]:
