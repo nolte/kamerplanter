@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -5,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 
 import NotificationDrawer from '@/components/layout/NotificationDrawer';
-import { renderWithProviders } from '../../helpers';
+import { createStoreWithTenantRole, renderWithProviders } from '../../helpers';
 import { server } from '../../mocks/server';
 
 const BASE = '/api/v1/t/test-tenant/notifications';
@@ -89,6 +90,21 @@ function useList(items: ReturnType<typeof makeNotif>[]) {
 
 const noop = () => undefined;
 
+/**
+ * The drawer rendered as a member of a known rank (#1441).
+ *
+ * Every case has to say which rank it acts as, because the one-tap confirm
+ * affordance is rank-bound: it persists a `CareConfirmation` and a `WateringLog`,
+ * which the backend refuses a viewer. `grower` is the default — the rank the
+ * cases written before that gate implicitly assumed.
+ */
+function renderDrawer(
+  ui: ReactElement,
+  role: 'viewer' | 'grower' | 'lead' = 'grower',
+) {
+  return renderWithProviders(ui, { store: createStoreWithTenantRole(role) });
+}
+
 describe('NotificationDrawer', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
@@ -97,7 +113,7 @@ describe('NotificationDrawer', () => {
   it('shows the empty state and reports a zero unread count', async () => {
     useList([]);
     const onCountChange = vi.fn();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
     );
 
@@ -107,7 +123,7 @@ describe('NotificationDrawer', () => {
 
   it('does not render drawer content while closed', () => {
     useList([makeNotif({ key: 'n1' })]);
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open={false} onClose={noop} onCountChange={noop} />,
     );
     expect(screen.queryByTestId('notification-drawer')).toBeNull();
@@ -119,7 +135,7 @@ describe('NotificationDrawer', () => {
       makeNotif({ key: 'n2', title: 'Gelesen', urgency: 'normal', read_at: '2024-01-01T00:00:00Z' }),
     ]);
     const onCountChange = vi.fn();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
     );
 
@@ -139,7 +155,7 @@ describe('NotificationDrawer', () => {
     ]);
     const onCountChange = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
     );
 
@@ -156,7 +172,7 @@ describe('NotificationDrawer', () => {
     ]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
@@ -170,7 +186,7 @@ describe('NotificationDrawer', () => {
     ]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
@@ -199,7 +215,7 @@ describe('NotificationDrawer', () => {
       // No actions → no Done button.
       makeNotif({ key: 'plain', title: 'Info', read_at: null }),
     ]);
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={noop} />,
     );
 
@@ -220,7 +236,7 @@ describe('NotificationDrawer', () => {
     ]);
     const onCountChange = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
     );
 
@@ -247,7 +263,7 @@ describe('NotificationDrawer', () => {
     ]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
@@ -278,7 +294,7 @@ describe('NotificationDrawer', () => {
     );
     const onCountChange = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
     );
 
@@ -295,6 +311,105 @@ describe('NotificationDrawer', () => {
     expect(await screen.findByText('Bestätigung konnte nicht gespeichert werden. Bitte versuche es erneut.')).toBeInTheDocument();
   });
 
+  describe('the confirm affordance is rank-bound (#1441)', () => {
+    const careNotif = () =>
+      makeNotif({
+        key: 'care1',
+        title: 'Monstera',
+        notification_type: 'care.watering',
+        read_at: null,
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      });
+
+    it('withholds the Done button from a viewer on a care notification', async () => {
+      useList([careNotif()]);
+      renderDrawer(
+        <NotificationDrawer open onClose={noop} onCountChange={noop} />,
+        'viewer',
+      );
+
+      // The card itself is still there — a viewer reads their own inbox.
+      expect(await screen.findByTestId('notification-card-care1')).toBeInTheDocument();
+      expect(screen.queryByTestId('notification-action-done-care1')).toBeNull();
+    });
+
+    it('still offers a viewer the non-confirming action of a care notification', async () => {
+      useList([
+        makeNotif({
+          key: 'care1',
+          title: 'Monstera',
+          notification_type: 'care.watering',
+          read_at: null,
+          actions: [{ action_id: 'snooze', title: 'Später', uri: null }],
+        }),
+      ]);
+      renderDrawer(
+        <NotificationDrawer open onClose={noop} onCountChange={noop} />,
+        'viewer',
+      );
+
+      // Snoozing writes no care data, so it is not rank-bound.
+      expect(await screen.findByTestId('notification-action-done-care1')).toBeInTheDocument();
+    });
+
+    it('still offers a viewer the action of a non-care notification', async () => {
+      useList([
+        makeNotif({
+          key: 'task1',
+          title: 'Aufgabe',
+          notification_type: 'task.due',
+          read_at: null,
+          actions: [{ action_id: 'confirm', title: 'Done', uri: null }],
+        }),
+      ]);
+      renderDrawer(
+        <NotificationDrawer open onClose={noop} onCountChange={noop} />,
+        'viewer',
+      );
+
+      // `mark_acted` on a non-care row is per-user state, open to every member.
+      expect(await screen.findByTestId('notification-action-done-task1')).toBeInTheDocument();
+    });
+
+    it('offers it to a lead, so the gate is not a blanket refusal', async () => {
+      useList([careNotif()]);
+      renderDrawer(
+        <NotificationDrawer open onClose={noop} onCountChange={noop} />,
+        'lead',
+      );
+
+      expect(await screen.findByTestId('notification-action-done-care1')).toBeInTheDocument();
+    });
+
+    it('surfaces the backend refusal when the server is the one saying no', async () => {
+      // Hiding the button is comfort, not the boundary: a stale role in the store,
+      // a second tab, or a direct call all reach the same 403. The rollback path
+      // has to tell the user the reminder was NOT confirmed.
+      useList([careNotif()]);
+      server.use(
+        http.post(`${BASE}/:key/act`, () => new HttpResponse(null, { status: 403 })),
+      );
+      const onCountChange = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer(
+        <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
+        'grower',
+      );
+
+      await user.click(await screen.findByTestId('notification-action-done-care1'));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('notification-action-done-care1')).toBeInTheDocument(),
+      );
+      await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(1));
+      expect(
+        await screen.findByText(
+          'Bestätigung konnte nicht gespeichert werden. Bitte versuche es erneut.',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('paginates via load-more, appending the next page', async () => {
     const firstPage = Array.from({ length: 20 }, (_, i) =>
       makeNotif({ key: `p1-${i}`, title: `Seite1-${i}`, read_at: '2024-01-01T00:00:00Z' }),
@@ -303,7 +418,7 @@ describe('NotificationDrawer', () => {
     useList([...firstPage, ...secondPage]);
 
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={noop} />,
     );
 
@@ -326,7 +441,7 @@ describe('NotificationDrawer', () => {
       makeNotif({ key: 'o', title: 'Alt', urgency: 'normal', created_at: new Date(now - 10 * 86_400_000).toISOString() }),
       makeNotif({ key: 'n', title: 'Ohne Datum', urgency: 'normal', created_at: null }),
     ]);
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={noop} onCountChange={noop} />,
     );
 
@@ -345,7 +460,7 @@ describe('NotificationDrawer', () => {
     useList([]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(
+    renderDrawer(
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
