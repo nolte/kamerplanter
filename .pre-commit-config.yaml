@@ -869,3 +869,37 @@ repos:
         language: system
         files: ^tests/security/nuclei-templates/.*\.yaml$
         pass_filenames: false
+
+  # ── Plugin shadowing (#1405) ────────────────────────────────────────────
+  # CLAUDE.md §"Claude Code plugin adoption" forbids a local copy of a
+  # plugin-owned capability. Nothing measured it until this hook: the two shadows
+  # #1405 retired, `check-test-pyramid` over `nolte-engineering:test-pyramid-check`
+  # and `pre-pr` over `nolte-engineering:quality-gate`, were both found by reading.
+  #
+  # always_run, because the finding lives in the *relation* between `.claude/` and
+  # the plugin inventory: a change that touches neither can still make an entry in
+  # `.claude/plugin-adoption.yml` stale, which the script reports as its own
+  # finding.
+  #
+  # `language: python` with PyYAML, not `language: system`: the required `static`
+  # job runs on a bare runner with none of this project's dependencies installed.
+  # That same bareness is why the plugin names are snapshotted in
+  # `.claude/plugin-adoption.yml` -- CI has no claude-shared checkout to read, and
+  # a hook that skipped there would be inert in the only lane that blocks. The
+  # snapshot is names only, not plugin content, and diverging from a reachable
+  # checkout is itself a finding, so it cannot rot unnoticed.
+  #
+  # READ THE SCRIPT HEADER BEFORE TRUSTING A ZERO. The comparison is lexical:
+  # exact names plus the token-multiset rung that catches the reordered
+  # `check-test-pyramid` / `test-pyramid-check` pair. A shadow under an unrelated
+  # name -- `pre-pr` over `quality-gate` -- is invisible to it and still needs a
+  # reading pass.
+  - repo: local
+    hooks:
+      - id: plugin-shadowing
+        name: no local skill/agent shadowing a portfolio plugin (#1405)
+        entry: python3 scripts/check_skill_plugin_shadowing.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
