@@ -54,7 +54,10 @@ export default function FormChipInput<T extends FieldValues>({
             <TextField
               label={label}
               placeholder={placeholder}
-              disabled={disabled}
+              // Same contract as the ten `Form*Field` siblings (#1402 C). Missed there
+          // because the fix globbed `Form*Field.tsx` and this file is not named
+          // that — the sweep, not the rule, had the hole.
+          disabled={disabled ?? field.disabled}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -69,7 +72,7 @@ export default function FormChipInput<T extends FieldValues>({
                   <Chip
                     key={item}
                     label={item}
-                    onDelete={disabled ? undefined : () => handleDelete(item)}
+                    onDelete={(disabled ?? field.disabled) ? undefined : () => handleDelete(item)}
                     size="small"
                   />
                 ))}

@@ -29,6 +29,7 @@ import postHarvestReducer from '@/store/slices/postHarvestSlice';
 import careRemindersReducer from '@/store/slices/careRemindersSlice';
 import wateringLogsReducer from '@/store/slices/wateringLogsSlice';
 import fertilizersReducer from '@/store/slices/fertilizersSlice';
+import activitiesReducer from '@/store/slices/activitiesSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -55,6 +56,7 @@ const rootReducer = combineReducers({
   careReminders: careRemindersReducer,
   wateringLogs: wateringLogsReducer,
   fertilizers: fertilizersReducer,
+  activities: activitiesReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need
@@ -82,8 +84,13 @@ export function createStoreWithExpertise(
   // Issue #587: sensor/monitoring surfaces (e.g. the monitoring widget category)
   // only appear when smart home is on. Defaults to false (pre-#587 behaviour).
   smartHomeEnabled = false,
+  // #1402 C: a suite driving an installation-wide catalogue write also has to
+  // declare whether its caller is a platform admin. Defaults to false, which is
+  // the pre-#1402 behaviour of every existing caller.
+  { platformAdmin = false }: { platformAdmin?: boolean } = {},
 ): TestStore {
   return createTestStore({
+    ...authState({ platformAdmin }),
     userPreferences: {
       preferences: {
         key: 'pref-1',
@@ -100,6 +107,47 @@ export function createStoreWithExpertise(
       error: null,
     },
   });
+}
+
+/**
+ * The auth slice seeded with a signed-in user, optionally a platform admin.
+ *
+ * Seven catalogue routers are installation-wide and carry `require_platform_admin`
+ * since #1402 C — growth phases, location types, profiles, lifecycle configs,
+ * activities, crop-rotation successors, enrichment. `useCanEditInstallationCatalogue`
+ * reads `is_platform_admin` off this slice, so a suite that drives one of those
+ * writes has to say which caller it is acting as.
+ *
+ * One definition, not one per suite. The pattern already existed inline in
+ * `AccountSettingsInstanceGating` and was about to be copied into eight more files;
+ * a second copy is what drifts when the auth slice gains a field.
+ */
+export function authState({ platformAdmin = false }: { platformAdmin?: boolean } = {}): PreloadedState {
+  return {
+    auth: {
+      user: {
+        key: 'user-1',
+        display_name: 'Tester',
+        email: 'tester@example.org',
+        locale: 'de',
+        timezone: 'Europe/Berlin',
+        is_platform_admin: platformAdmin,
+      },
+      accessToken: 'tok',
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      initialized: true,
+    },
+  };
+}
+
+/**
+ * Store whose acting user is a platform admin, so installation-wide catalogue
+ * writes are offered. Extra preloaded slices are merged on top.
+ */
+export function createPlatformAdminStore(preloadedState?: PreloadedState): TestStore {
+  return createTestStore({ ...authState({ platformAdmin: true }), ...(preloadedState ?? {}) });
 }
 
 type ModuleVisibilityState = 'enabled' | 'disabled';

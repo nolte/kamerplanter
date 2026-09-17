@@ -293,6 +293,21 @@ export async function uploadTaskPhoto(
   return data;
 }
 
+/**
+ * Delete a task photo, storage object and thumbnails included (#1393).
+ *
+ * The remove button used to drop the reference from local state and issue no
+ * request, because there was no route to issue one to — a control that looked like
+ * a delete while the bytes stayed, counting against the tenant's storage quota with
+ * no surface that reached them.
+ *
+ * Idempotent server-side: removing an id that is already gone answers 204, so a
+ * double click or a race with the nightly orphan sweep is not an error.
+ */
+export async function deleteTaskPhoto(key: string, attachmentId: string): Promise<void> {
+  await client.delete(`${BASE}/${key}/photos/${attachmentId}`);
+}
+
 export async function startTask(key: string): Promise<TaskItem> {
   const { data } = await client.post<TaskItem>(`${BASE}/${key}/start`);
   return data;

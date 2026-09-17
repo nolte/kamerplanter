@@ -82,7 +82,7 @@ vi.mock('@/api/endpoints/nutrient-plans', async () => {
 });
 
 import SpeciesDetailPage from '@/pages/stammdaten/SpeciesDetailPage';
-import { createTestStore, renderWithProviders } from '../helpers';
+import { authState, createTestStore, renderWithProviders } from '../helpers';
 
 /** Fully-populated species — every nullable field carries a value so the reset
  *  mapping and the onSubmit `|| null` / `?? default` arms take their truthy path. */
@@ -169,8 +169,16 @@ function makeNullSpecies(): Species {
   });
 }
 
-function makeStore(level: 'beginner' | 'intermediate' | 'expert', species: Species | null) {
+function makeStore(
+  level: 'beginner' | 'intermediate' | 'expert',
+  species: Species | null,
+  // The crop-rotation tab's add affordance writes an installation-wide catalogue
+  // and is platform-admin-only since #1402 C. Every other case here is a normal
+  // member, which is why this is opt-in rather than the default.
+  { platformAdmin = false }: { platformAdmin?: boolean } = {},
+) {
   return createTestStore({
+    ...authState({ platformAdmin }),
     userPreferences: {
       preferences: {
         key: 'pref-1',
@@ -283,7 +291,7 @@ describe('SpeciesDetailPage — edit form & actions', () => {
 
   it('renders the crop-rotation tab with the family card and successors (expert)', async () => {
     renderWithProviders(<SpeciesDetailPage />, {
-      store: makeStore('expert', makeFullSpecies()),
+      store: makeStore('expert', makeFullSpecies(), { platformAdmin: true }),
       route: '/#crop-rotation',
     });
 

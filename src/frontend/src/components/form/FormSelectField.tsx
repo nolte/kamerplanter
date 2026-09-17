@@ -85,7 +85,9 @@ export default function FormSelectField<T extends FieldValues>({
           select
           label={label}
           required={required}
-          disabled={disabled}
+          // `?? field.disabled` honours `useForm({ disabled })` / `<Controller disabled>`;
+          // a bare `disabled={disabled}` overwrites RHF's value with `undefined` (#1402 C).
+          disabled={disabled ?? field.disabled}
           autoFocus={autoFocus}
           error={!!error}
           helperText={error?.message ?? helperText}

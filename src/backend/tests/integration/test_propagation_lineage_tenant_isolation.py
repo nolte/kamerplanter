@@ -4,12 +4,12 @@ cross tenant boundaries even when a ``descended_from`` edge links two tenants.
 Builds a real three-vertex chain ``pup (tenant-a) -> mother (tenant-a) ->
 grandmother (tenant-b)`` and asserts every traversal (ancestors / descendants /
 ancestor-paths) is pruned at the tenant boundary — the foreign grandmother is
-never returned. Skipped when no ArangoDB is reachable.
+never returned. Needs a real ArangoDB (see ``conftest.py`` for the contract).
 
 Because every assertion here *executes* a real graph traversal, it also proves
-the AQL parses — the ``PRUNE``-before-``OPTIONS`` clause order (#571). When no
-ArangoDB is reachable this file is skipped, so the clause order is guarded
-statically in ``tests/unit/data_access/test_lineage_aql_clause_order.py``.
+the AQL parses — the ``PRUNE``-before-``OPTIONS`` clause order (#571). A second, static guard for the
+clause order lives in ``tests/unit/data_access/test_lineage_aql_clause_order.py``,
+which runs in every tier that needs no server.
 
 Run with: pytest tests/integration/ -v   (requires docker compose up arangodb)
 """
@@ -17,20 +17,11 @@ Run with: pytest tests/integration/ -v   (requires docker compose up arangodb)
 from __future__ import annotations
 
 import pytest
+from arango import ArangoClient
 
-ARANGO_AVAILABLE = False
-try:
-    from arango import ArangoClient
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
-    _client = ArangoClient(hosts="http://localhost:8529")
-    _client.db("_system", username="root", password="rootpassword").version()
-    ARANGO_AVAILABLE = True
-    _client.close()
-except Exception:
-    pass
-
-
-pytestmark = pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available")
+pytestmark = pytest.mark.usefixtures("arango_db")
 
 
 _DB_NAME = "kamerplanter_lineage_isolation_test"
@@ -85,7 +76,7 @@ def repo():
 
     yield PropagationRepository(db)
 
-    db_sys = ArangoClient(hosts="http://localhost:8529").db("_system", username="root", password="rootpassword")
+    db_sys = ArangoClient(hosts=ARANGO_URL).db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if db_sys.has_database(_DB_NAME):
         db_sys.delete_database(_DB_NAME)
     conn.close()

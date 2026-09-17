@@ -5,6 +5,26 @@
 #
 # Included from the root Taskfile.yaml with `flatten: true` — task names here
 # are global and MUST NOT collide with other .taskfiles/*.yaml.
+#
+# ONE INTERPRETER (#1383). The lint/format/test targets run through
+# `uv run --locked`, not through whatever `ruff`/`python` the host PATH happens
+# to offer. Before this they called the bare tools while CI prepended
+# `src/backend/.venv/bin` to PATH, so a contributor and the gate could run
+# different toolchains — and the way that fails is silent: #1434 recorded 28
+# backend tests SKIPPING without a word under a global interpreter that lacked
+# the optional dependencies, while only three failed loudly. A green local run
+# meant nothing.
+#
+# `--locked` is the half that makes it a guarantee rather than a habit: it
+# refuses to re-resolve, so a pyproject.toml edit that was never re-locked fails
+# here instead of quietly installing something the lock does not describe. The
+# cost is ~0.3 s per invocation for uv to confirm the environment — the price of
+# a stale venv never running on silently (operator decision, 2026-09-16).
+#
+# Consequence, stated out loud because it changes local behaviour: an activated
+# venv of your own no longer wins. `task test:backend:unit` runs the locked
+# pytest from src/backend/.venv regardless of what is on PATH, which is the
+# point. `uv` itself must be on PATH; `[tool.uv].required-version` says which.
 
 version: "3"
 
@@ -13,19 +33,19 @@ tasks:
     desc: Run ruff linter on backend code
     dir: src/backend
     cmds:
-      - ruff check .
+      - uv run --locked --extra dev ruff check .
 
   format:backend:
     desc: Check backend formatting with ruff (no rewrite) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - ruff format --check .
+      - uv run --locked --extra dev ruff format --check .
 
   test:backend:
     desc: Run the full backend pytest suite — the three CI tiers plus tests/integration/, which needs a local ArangoDB
     dir: src/backend
     cmds:
-      - python -m pytest tests/ {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/ {{.CLI_ARGS}}
 
   # The tiers CI runs, as their own targets. `test:backend` above stays the full
   # local suite; these are what the pipeline invokes, so the pipeline and a
@@ -48,13 +68,28 @@ tasks:
   # conftest.py and __init__.py, so a new module cannot silently fall out of CI
   # by being dropped in the wrong place — every test file lives in a tier.
   #
-  # `tests/integration/` stays out and therefore runs LOCALLY ONLY — say that
-  # out loud, or it looks covered. It needs a real ArangoDB on localhost:8529,
-  # which no runner provides. It would not go red without one: every module is
-  # `skipif(not ARANGO_AVAILABLE)`, so on a runner it would report green having
-  # skipped 29 of 36 cases. A green gate that measured nothing is worse than an
-  # absent one. Run it against a dev stack (`task dev:core`, then
-  # `python -m pytest tests/integration/`) before changing repositories or AQL.
+  # `tests/integration/` runs in CI too since #1432, in its own job with an
+  # ArangoDB service container (`Integration tests (ArangoDB)` in backend.yml) —
+  # it is NOT part of the lint-test job above, because it is the one tier that
+  # needs a server.
+  #
+  # It could not be gated before, and the reason is worth keeping: each of its
+  # nine connecting modules carried its own copy of an `ARANGO_AVAILABLE` probe
+  # and skipped itself when nothing answered, so on a runner the tier reported
+  # `7 passed, 136 skipped` and exit code 0 — measured 2026-09-16. A green gate
+  # that measured nothing is worse than an absent one. The nine probes are
+  # now one `tests/integration/conftest.py`, whose rule is: a missing database is
+  # a FAILURE when `CI` is set, and a skip only on a developer machine. The
+  # `--max-skipped 0` below makes even that local skip a red run, so "I ran the
+  # tier" and "the tier ran" cannot come apart in either place.
+  #
+  # Locally it needs a server of its own:
+  #   task dev:core            # the dev stack, or:
+  #   docker run -d --rm --name kp-it-arango -p 8529:8529 \
+  #     -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+  # Point it elsewhere with ARANGODB_HOST / ARANGODB_PORT / ARANGODB_USERNAME /
+  # ARANGODB_PASSWORD (`Settings`' own names — some modules connect through
+  # `Settings`, others open a client directly, and both read these).
   #
   # `tests/unit/` and `tests/api/` carry a datastore guard (#978,
   # src/backend/tests/support/db_guard.py): any ArangoDB, TimescaleDB or Valkey
@@ -64,23 +99,53 @@ tasks:
   # `tests/contracts/` has no guard: it compares enums and JSON, builds no
   # service, and measured zero connection attempts. `tests/integration/` must
   # connect and is deliberately untouched.
+  #
+  # Each tier below declares its SKIP FLOOR with `--max-skipped N` (#1434,
+  # src/backend/tests/conftest.py). pytest's exit code treats a skipped test
+  # exactly like a passed one, so a tier whose cases quietly stopped executing
+  # stays green — which is how the api tier could hold "480 passed, 0 skipped"
+  # as prose for months with nothing checking it. The numbers are measured, not
+  # guessed (2026-09-16, `pytest <tier> -q -rs`):
+  #
+  #   tests/unit/       1 skip   tests/unit/migrations/test_e2e_admin_env_containment.py:86
+  #                             — `test_no_other_configuration_file_sets_the_e2e_admin_credentials`
+  #                               is parametrised over every configuration file in the repo and
+  #                               skips the ONE file that is allowed to set E2E_PLATFORM_ADMIN_*.
+  #                               The skip is the allowlist, so it is permanent by design.
+  #   tests/contracts/  0 skips
+  #   tests/api/        0 skips
+  #   tests/integration/ 0 skips — WITH a database. Without one the number is 136
+  #                      (the gate's whole point), so this floor is what turns a
+  #                      serverless local run from quietly green into red.
+  #
+  # Raising a number is the intended response to a new, justified skip — the
+  # failure lists every skip reason so the new one is identifiable, and the raise
+  # lands in the same commit that introduces it. `test:backend` above carries no
+  # floor: it includes tests/integration/, whose skip count is a function of
+  # whether a local ArangoDB is up (136 skips without one, measured the same day).
   test:backend:unit:
     desc: Backend unit tests — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/unit/ -v --tb=short {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/unit/ -v --tb=short --max-skipped 1 {{.CLI_ARGS}}
 
   test:backend:contracts:
     desc: Backend contract tests (enum sync, i18n completeness) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/contracts/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   test:backend:api:
     desc: Backend API tests (routers via TestClient against fakes, no services) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/api/ -v --tb=short {{.CLI_ARGS}}
+      - uv run --locked --extra dev python -m pytest tests/api/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
+
+  test:backend:integration:
+    desc: Backend integration tests (repositories and AQL against a real ArangoDB) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - uv run --locked --extra dev python -m pytest tests/integration/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   openapi:export:
     desc: |
@@ -133,10 +198,34 @@ tasks:
       `uv lock --check` reads pyproject.toml and the lock's own metadata, not
       the artifacts. `uv sync --locked` does (it verifies every recorded hash
       on install), which is why the CI job runs both and `deps:sync` below is
-      the local equivalent. On failure run `task deps:compile` and commit.
+      the local equivalent. That difference is not folklore: it is measured on
+      every run by
+      src/backend/tests/unit/guards/test_lock_hash_verification.py, which
+      tampers with a copy of the lock and requires `uv lock --check` to MISS it
+      and `uv sync --locked` to catch it. On failure run `task deps:compile`
+      and commit.
     dir: src/backend
     cmds:
       - uv lock --check
+
+  deps:verify:
+    desc: |
+      Falsify the hash claim the lock gates make — the second half of what CI
+      runs (backend.yml "Falsify the hash claim this job just made" invokes this
+      task). `task deps:check` and `task deps:sync` can only tell you that THIS
+      lock passes; neither can tell you the verification works at all, and a
+      `uv sync` that stopped checking hashes would keep exiting 0 forever. This
+      runs the permanent falsifier: it tampers with a COPY of the lock, requires
+      `uv sync --locked` to refuse it, and pins down as a measured fact that
+      `uv lock --check` alone does NOT notice the same tamper.
+
+      The Taskfile is the only copy of the invocation, so the lane and the local
+      command cannot disagree — the same reason `deps:check` moved here. Set
+      CI=true to make a skip (no matching uv on PATH) a hard failure instead of
+      a green run that measured nothing.
+    dir: src/backend
+    cmds:
+      - uv run --locked --extra dev python -m pytest tests/unit/guards/test_lock_hash_verification.py -q {{.CLI_ARGS}}
 
   deps:sync:
     desc: |

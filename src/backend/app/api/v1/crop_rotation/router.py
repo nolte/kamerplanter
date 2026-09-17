@@ -7,7 +7,7 @@ from app.api.v1.crop_rotation.schemas import (
     RotationSuccessorResponse,
     RotationSuccessorSet,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_graph_repo
 from app.common.openapi_responses import UNAUTHORIZED_RESPONSE
 from app.data_access.arango.graph_repository import ArangoGraphRepository
@@ -55,7 +55,12 @@ def get_rotation_successors(
     ]
 
 
-@router.post("/successors", status_code=201, response_model=RotationSuccessorCreatedResponse)
+@router.post(
+    "/successors",
+    status_code=201,
+    response_model=RotationSuccessorCreatedResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def set_rotation_successor(body: RotationSuccessorSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     """Create or update a rotation-successor edge between two botanical families."""
     graph.set_rotation_successor(

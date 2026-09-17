@@ -16,7 +16,7 @@ import pytest
 from arango.exceptions import DocumentInsertError
 from pydantic import BaseModel, Field
 
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango.base_repository import BaseArangoRepository
 
 
@@ -228,6 +228,104 @@ class TestGetOrRaise:
             repo.get_or_raise("w1")
 
         assert "Gadget with key 'w1'" in exc.value.message
+
+
+class TestEveryNotFoundNamesTheSameThing:
+    """``details[0].entity`` is a contract, so one repository must answer one word (O-3).
+
+    ``get_or_raise`` raises with the *model* name (``Widget``), while the two update
+    paths raised with the *collection* name (``widgets``) — the same missing row
+    answering ``entity: "widget"`` or ``entity: "widgets"`` depending on which method
+    the caller happened to use. A client branching on the value (``PhotoUpload``
+    de-stages only on ``entity == "attachment"``) then has to know the call path,
+    which is precisely what the structured field was added to avoid (#1437).
+    """
+
+    @staticmethod
+    def _entity_of(error: NotFoundError) -> str:
+        assert error.details, "a NotFoundError must carry its entity (NFR-006 §2.2a)"
+        return error.details[0]["entity"]
+
+    def _missing_on_update(self, mock_db):
+        from arango.exceptions import DocumentUpdateError
+
+        err = DocumentUpdateError.__new__(DocumentUpdateError)
+        err.error_code = 1202
+        mock_db.collection.return_value.update.side_effect = err
+
+    def test_get_or_raise_names_the_model(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = None
+
+        with pytest.raises(NotFoundError) as exc:
+            repo.get_or_raise("w1")
+
+        assert self._entity_of(exc.value) == "widget"
+
+    def test_a_full_update_of_a_missing_row_names_the_model_too(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        self._missing_on_update(mock_db)
+
+        with pytest.raises(NotFoundError) as exc:
+            repo.update("missing", Widget(name="Hammer"))
+
+        assert self._entity_of(exc.value) == "widget"
+
+    def test_a_partial_update_of_a_missing_row_names_the_model_too(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        self._missing_on_update(mock_db)
+
+        with pytest.raises(NotFoundError) as exc:
+            repo.update_fields("missing", {"color": "red"})
+
+        assert self._entity_of(exc.value) == "widget"
+
+    def test_the_entity_name_override_wins_on_every_path(self, mock_db):
+        """A repository that names itself must be believed by all three raisers."""
+        repo = NamedRepo(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = None
+        self._missing_on_update(mock_db)
+
+        entities = set()
+        for call in (
+            lambda: repo.get_or_raise("w1"),
+            lambda: repo.update("missing", Widget(name="Hammer")),
+            lambda: repo.update_fields("missing", {"color": "red"}),
+        ):
+            with pytest.raises(NotFoundError) as exc:
+                call()
+            entities.add(self._entity_of(exc.value))
+
+        assert entities == {"gadget"}
+
+    def test_no_raiser_in_the_base_passes_the_collection_name(self):
+        """The absence guard: the drift is a *spelling* at the call site.
+
+        Three behavioural tests above cover today's three raisers; a fourth added
+        later would not be covered by them. This reads the source instead, so the
+        next ``NotFoundError(self._collection_name, …)`` is red the moment it is
+        written.
+        """
+        import ast
+        import inspect
+
+        from app.data_access.arango import base_repository
+
+        tree = ast.parse(inspect.getsource(base_repository))
+        offenders = [
+            ast.unparse(node)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "NotFoundError"
+            and node.args
+            and ast.unparse(node.args[0]) == "self._collection_name"
+        ]
+
+        assert offenders == [], (
+            "a NotFoundError in the base repository must name the entity "
+            f"(self._require_entity_name()), not the collection: {offenders}"
+        )
 
 
 # ── create / update / delete ─────────────────────────────────────────────────
@@ -692,6 +790,61 @@ class TestUniqueConflictExtraction:
 
         with pytest.raises(DocumentInsertError):
             repo.create(Widget(name="Hammer"))
+
+
+# ── write-write conflict → WriteConflictError (issue #1436) ──────────────────
+
+
+def _conflict_error() -> DocumentInsertError:
+    """Build a bare ``DocumentInsertError`` carrying ArangoDB's 1200 (``CONFLICT``).
+
+    Message copied from the failure measured in issue #1436, so the test is
+    anchored to the real wire shape: a *write-write conflict* reported against a
+    unique index — which is emphatically not the same server answer as 1210.
+    """
+    err = DocumentInsertError.__new__(DocumentInsertError)
+    err.error_code = 1200
+    err.error_message = (
+        "write-write conflict - in index care_dedup_open_unique of type persistent "
+        "over 'care_dedup_key'; document key: 800067; "
+        'indexed values: ["tenant-alpha/plant-basil-1/watering"]'
+    )
+    return err
+
+
+class TestWriteConflictMapping:
+    """1200 must reach the domain as its own type, not as a raw driver error.
+
+    Before #1436 ``_insert_doc`` mapped **only** 1210, so a concurrent insert that
+    lost on a unique index was handed to the service layer as a bare
+    ``DocumentInsertError`` — a 500 for what is, at worst, a retryable condition.
+    """
+
+    def test_insert_maps_write_conflict_to_domain_error(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.insert.side_effect = _conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.create(Widget(name="Hammer"))
+
+        assert exc.value.error_code == "WRITE_CONFLICT"
+        assert exc.value.status_code == 409
+        assert "widgets" in exc.value.message
+
+    def test_write_conflict_is_not_a_duplicate_error(self, mock_db):
+        """The two codes must stay distinguishable at the type level.
+
+        Collapsing 1200 into ``DuplicateError`` would let every existing
+        ``except DuplicateError`` swallow a timing failure as "it already
+        exists" — a claim 1200 does not support.
+        """
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.insert.side_effect = _conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.create(Widget(name="Hammer"))
+
+        assert not isinstance(exc.value, DuplicateError)
 
 
 # ── delete_edges (DUP-B10) ───────────────────────────────────────────────────

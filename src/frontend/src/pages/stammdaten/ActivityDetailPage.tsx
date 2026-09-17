@@ -28,6 +28,7 @@ import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as api from '@/api/endpoints/activities';
 import type { Activity } from '@/api/types';
 
@@ -65,6 +66,7 @@ export default function ActivityDetailPage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const canEdit = useCanEditInstallationCatalogue();
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +81,10 @@ export default function ActivityDetailPage() {
     watch,
     formState: { isDirty },
   } = useForm<FormData>({
+    // The activity catalogue is installation-wide: `PUT`/`DELETE /activities/{key}`
+    // carries `require_platform_admin` since #1402 C. Everyone else reads it, so
+    // the form is disabled at the `useForm` level rather than per field (#1261).
+    disabled: !canEdit,
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -206,11 +212,20 @@ export default function ActivityDetailPage() {
   return (
     <Box data-testid="activity-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
+      {/* Without this a non-admin sees every field greyed out, no save bar and no
+          reason - indistinguishable from a broken page. LifecycleConfigSection
+          renders the same notice for the same situation; a read-only form that does
+          not say why is its own kind of affordance answering a refusal (#1261). */}
+      {!canEdit && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="activity-readonly-notice">
+          {t('pages.activities.installationWideReadOnly')}
+        </Alert>
+      )}
       <PageTitle
         title={displayName}
         meta={<OriginChip isSystem={activity.is_system} />}
         action={
-          !activity.is_system ? (
+          !activity.is_system && canEdit ? (
             <Button color="error" onClick={() => setDeleteOpen(true)}>
               {t('common.delete')}
             </Button>
@@ -374,6 +389,11 @@ export default function ActivityDetailPage() {
                   freeSolo
                   options={[]}
                   value={field.value}
+                  // Hand-rolled `Controller`, so it does not inherit the
+                  // `disabled ?? field.disabled` contract the `Form*` components
+                  // carry: without this the chips stay addable and removable for a
+                  // caller whose save bar is hidden (#1402 C, review round 2).
+                  disabled={field.disabled}
                   onChange={(_, newValue) => field.onChange(newValue)}
                   renderValue={(value: string[], getItemProps) =>
                     value.map((option, index) => {
@@ -443,11 +463,13 @@ export default function ActivityDetailPage() {
           * {t('common.required')}
         </Typography>
 
-        <FormActions
-          onCancel={() => navigate('/stammdaten/activities')}
-          loading={saving}
-          disabled={!isDirty}
-        />
+        {canEdit && (
+          <FormActions
+            onCancel={() => navigate('/stammdaten/activities')}
+            loading={saving}
+            disabled={!isDirty}
+          />
+        )}
       </Box>
 
       <ConfirmDialog

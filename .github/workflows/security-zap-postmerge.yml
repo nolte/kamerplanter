@@ -161,7 +161,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p zapwork
-          cp tests/security/zap-rules.tsv tests/security/zap-api-rules.tsv zapwork/
+          # The rule files are NOT copied in: they are the gate's input, not the
+          # scanner's. See the scan steps below.
           # The ZAP image runs as uid 1000; the bind mount has to be writable by
           # it or every report write fails silently late in the scan.
           chmod -R a+rwX zapwork
@@ -186,6 +187,12 @@ jobs:
         #     one HTML shell and none of the client-rendered routes.
         # -a  include alpha passive rules.
         # -I  do not fail on warnings; the verdict is zap_gate.py's.
+        # NO `-c <rules>.tsv` HERE, though for a weaker reason than on the
+        # API scan below: `zap-baseline.py` runs no active scan, so a config file
+        # could not swap its policy. It is omitted so that suppression has ONE
+        # implementation across all three profiles — `zap_gate.py --rules` — rather
+        # than a scanner-side mechanism on two of them and a gate-side one on the
+        # third, which is the drift this repository keeps paying for.
         run: |
           set -euo pipefail
           docker run --rm --network "$NET" \
@@ -193,7 +200,6 @@ jobs:
             ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
             zap-baseline.py \
               -t http://frontend:8080 \
-              -c zap-rules.tsv \
               -J baseline-report.json \
               -r baseline-report.html \
               -a -j -I \
@@ -202,6 +208,15 @@ jobs:
       - name: ZAP API scan (OpenAPI-driven)
         env:
           NET: ${{ steps.net.outputs.name }}
+        # NO `-c <rules>.tsv` HERE. `zap-api-scan.py` picks its active scan policy
+        # from whether that config produced any entries — `scan_policy =
+        # 'API-Minimal'; if config_dict: scan_policy = 'Default Policy';
+        # enable_all_scanners(...)` — so the first suppression would silently swap
+        # a 23-rule minimal policy for the full active rule set under a 45-minute
+        # job timeout, and the only shape it can express is "off everywhere".
+        # Suppression lives in `zap_gate.py --rules`, which drops matching
+        # INSTANCES by URL and leaves the scanner alone. Same omission on the
+        # baseline for one mechanism rather than two.
         run: |
           set -euo pipefail
           docker run --rm --network "$NET" \
@@ -210,7 +225,6 @@ jobs:
             zap-api-scan.py \
               -t openapi.json \
               -f openapi \
-              -c zap-api-rules.tsv \
               -J api-report.json \
               -r api-report.html \
               -I \
@@ -224,9 +238,11 @@ jobs:
           set -euo pipefail
           status=0
           python3 scripts/security/zap_gate.py zapwork/baseline-report.json \
-            --profile baseline --rules tests/security/zap-rules.tsv || status=1
+            --profile baseline --rules tests/security/zap-rules.tsv \
+            --emit-blocking zapwork/blocking-baseline.json || status=1
           python3 scripts/security/zap_gate.py zapwork/api-report.json \
-            --profile api --rules tests/security/zap-api-rules.tsv || status=1
+            --profile api --rules tests/security/zap-api-rules.tsv \
+            --emit-blocking zapwork/blocking-api.json || status=1
           exit "$status"
 
       - name: Upload ZAP reports
@@ -237,6 +253,7 @@ jobs:
           path: |
             zapwork/*-report.json
             zapwork/*-report.html
+            zapwork/blocking-*.json
             zapwork/openapi.json
           retention-days: 90
           if-no-files-found: error
@@ -266,29 +283,39 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            // Mirror zap_gate.py's verdict: High risk (riskcode 3) at confidence
-            // >= Medium (2). Both are strings in the ZAP JSON report.
-            const reports = ['zapwork/baseline-report.json', 'zapwork/api-report.json']
-              .filter(f => fs.existsSync(f));
-            if (reports.length === 0) {
-              core.setFailed('No ZAP report produced — the scan did not run. This is a failure, not a clean result.');
+            // The verdict has ONE owner: zap_gate.py, which applies the §5.1/§5.2
+            // matrix AND the rule-file suppressions, then writes what it decided.
+            // This step used to re-derive `riskcode >= 3 && confidence >= 2` from
+            // the raw report — a second copy of the policy that knew nothing about
+            // suppressions, so a suppressed finding was filed as an issue anyway.
+            // A missing file means that profile was never judged; that is a failure,
+            // never a clean result. An empty file means it ran and found nothing.
+            // Both halves matter and neither may swallow the other: the run fails
+            // for the profile that produced nothing, AND the issue still opens for
+            // the profile that did. Returning early on a missing verdict would cost
+            // the completed scan its only channel — this workflow's header calls a
+            // red run in the Actions tab "the alarm that went unnoticed for the
+            // nightly for months", which is the reason this step exists.
+            const expected = ['zapwork/blocking-baseline.json', 'zapwork/blocking-api.json'];
+            const missing = expected.filter(f => !fs.existsSync(f));
+            if (missing.length > 0) {
+              core.setFailed(`zap_gate.py produced no verdict for ${missing.join(', ')} — that scan or the gate did not run. This is a failure, not a clean result.`);
+            }
+            const verdicts = expected.filter(f => fs.existsSync(f));
+            if (verdicts.length === 0) {
               return;
             }
             const blocking = [];
-            for (const f of reports) {
+            for (const f of verdicts) {
               let data;
               try { data = JSON.parse(fs.readFileSync(f, 'utf8')); }
-              catch (e) { core.setFailed(`ZAP report ${f} is not valid JSON: ${e}`); return; }
-              for (const site of (data.site || [])) {
-                for (const a of (site.alerts || [])) {
-                  if (parseInt(a.riskcode, 10) >= 3 && parseInt(a.confidence, 10) >= 2) {
-                    blocking.push({ name: a.alert, plugin: a.pluginid, site: site['@name'], count: (a.instances || []).length });
-                  }
-                }
-              }
+              catch (e) { core.setFailed(`ZAP verdict ${f} is not valid JSON: ${e}`); return; }
+              blocking.push(...data);
             }
             if (blocking.length === 0) {
-              core.notice('No blocking ZAP findings — no issue opened.');
+              core.notice(missing.length > 0
+                ? `No blocking findings in ${verdicts.join(', ')} — no issue opened. ${missing.join(', ')} produced no verdict and the run is failed above.`
+                : 'No blocking ZAP findings — no issue opened.');
               return;
             }
             const summary = blocking.slice(0, 20).map(h =>

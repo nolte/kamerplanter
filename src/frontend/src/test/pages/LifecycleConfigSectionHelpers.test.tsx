@@ -53,7 +53,7 @@ describe('LifecycleConfigSection — helper texts & glossary tooltips (#633)', (
 
   it('renders plain-text helper texts for cycle type and both dormancy toggles', async () => {
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('beginner'),
+      store: createStoreWithExpertise('beginner', false, { platformAdmin: true }),
     });
 
     expect(await screen.findByText(i18n.t('pages.lifecycle.cycleTypeHelper'))).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe('LifecycleConfigSection — helper texts & glossary tooltips (#633)', (
 
   it('renders glossary help tooltips for the domain terms', async () => {
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('beginner'),
+      store: createStoreWithExpertise('beginner', false, { platformAdmin: true }),
     });
 
     expect(await screen.findByTestId('help-tooltip-icon-dormancy')).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('LifecycleConfigSection — helper texts & glossary tooltips (#633)', (
 
   it('keeps both dormancy toggles as switches driven by the form state', async () => {
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
-      store: createStoreWithExpertise('beginner'),
+      store: createStoreWithExpertise('beginner', false, { platformAdmin: true }),
     });
 
     expect(await screen.findByTestId('form-field-dormancy_required')).toBeInTheDocument();

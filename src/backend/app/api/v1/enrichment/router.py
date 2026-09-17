@@ -15,7 +15,7 @@ from app.api.v1.enrichment.schemas import (
     SyncTriggerRequest,
     SyncTriggerResponse,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_enrichment_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.domain.services.enrichment_service import EnrichmentService
@@ -47,7 +47,12 @@ def get_source(
     return SourceResponse(key=s.key or "", **s.model_dump(exclude={"key", "created_at", "updated_at"}))
 
 
-@router.post("/sources/{source_key}/sync", response_model=SyncTriggerResponse, status_code=202)
+@router.post(
+    "/sources/{source_key}/sync",
+    response_model=SyncTriggerResponse,
+    status_code=202,
+    dependencies=[Depends(require_platform_admin)],
+)
 def trigger_sync(
     source_key: Annotated[str, Path(description="Document key of the enrichment source.")],
     body: SyncTriggerRequest | None = None,
@@ -97,7 +102,11 @@ def get_species_enrichments(
     ]
 
 
-@router.post("/species/{species_key}/enrichments/{source_key}/accept", response_model=EnrichmentResponse)
+@router.post(
+    "/species/{species_key}/enrichments/{source_key}/accept",
+    response_model=EnrichmentResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def accept_enrichment(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     source_key: Annotated[str, Path(description="Document key of the enrichment source.")],
@@ -116,7 +125,11 @@ def accept_enrichment(
     )
 
 
-@router.post("/species/{species_key}/enrichments/{source_key}/reject", response_model=EnrichmentResponse)
+@router.post(
+    "/species/{species_key}/enrichments/{source_key}/reject",
+    response_model=EnrichmentResponse,
+    dependencies=[Depends(require_platform_admin)],
+)
 def reject_enrichment(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     source_key: Annotated[str, Path(description="Document key of the enrichment source.")],
@@ -135,7 +148,11 @@ def reject_enrichment(
     )
 
 
-@router.post("/search", response_model=list[ExternalSpeciesResponse])
+@router.post(
+    "/search",
+    response_model=list[ExternalSpeciesResponse],
+    dependencies=[Depends(require_platform_admin)],
+)
 def search_external(body: ExternalSearchRequest, service: EnrichmentService = Depends(get_enrichment_service)):
     """Search an external source for species matching a query."""
     results = service.search_external(body.source_key, body.query)

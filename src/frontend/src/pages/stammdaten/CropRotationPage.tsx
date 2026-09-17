@@ -32,6 +32,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import { useFamilyFavorites } from '@/hooks/useFamilyFavorites';
 import * as rotationApi from '@/api/endpoints/cropRotation';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
@@ -61,6 +62,11 @@ export default function CropRotationPage() {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `POST /crop-rotation/successors` is installation-wide and carries
+  // `require_platform_admin` since #1402 C; the two GET reads beside it stay
+  // open. Both add affordances are gated, the toolbar button and the empty
+  // state's — offering one of two is how this drifts back (#1261).
+  const canEdit = useCanEditInstallationCatalogue();
   const { toggleFavorite, isFavorite } = useFamilyFavorites();
   const [families, setFamilies] = useState<BotanicalFamily[]>([]);
   const [rotationCounts, setRotationCounts] = useState<RotationCountsMap>({});
@@ -503,22 +509,24 @@ export default function CropRotationPage() {
             <Typography variant="subtitle2" color="text.secondary">
               {t('pages.cropRotation.successorsTitle')}
             </Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
-              data-testid="add-successor-button"
-            >
-              {t('pages.cropRotation.addSuccessor')}
-            </Button>
+            {canEdit && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setDialogOpen(true)}
+                data-testid="add-successor-button"
+              >
+                {t('pages.cropRotation.addSuccessor')}
+              </Button>
+            )}
           </Box>
           {successors.length === 0 ? (
             <EmptyState
               illustration={kamiMasterdata}
               message={t('pages.cropRotation.noSuccessors')}
-              actionLabel={t('pages.cropRotation.addSuccessor')}
-              onAction={() => setDialogOpen(true)}
+              actionLabel={canEdit ? t('pages.cropRotation.addSuccessor') : undefined}
+              onAction={canEdit ? () => setDialogOpen(true) : undefined}
             />
           ) : (
             <List>

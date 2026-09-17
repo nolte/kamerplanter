@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from app.common.error_ids import new_error_id
@@ -21,13 +22,57 @@ class KamerplanterError(Exception):
         super().__init__(message)
 
 
+def normalise_entity_name(entity: str) -> str:
+    """Fold an entity name into the stable, machine-readable form ``details[0].entity`` carries.
+
+    The ~150 raisers spell the same kind of thing every which way — ``"Task"``,
+    ``"attachment"``, ``"PlantInstance"``, ``"memberships"``,
+    ``"nutrient plan phase entry"``. Echoing that verbatim would hand a client a
+    value that changes whenever someone re-words a raiser, and would make
+    ``entity == "attachment"`` depend on a capital letter. Normalising here, once,
+    is what makes the field a contract rather than a debug string.
+
+    ``snake_case`` because that is the spelling the rest of the wire uses
+    (NFR-006 §2.1 fields, every payload key). Idempotent: feeding an already
+    normalised name back through returns it unchanged.
+    """
+    spaced = re.sub(r"[\s\-]+", "_", entity.strip())
+    # Two boundaries, so acronyms fold the way a reader expects:
+    # ``OidcProviderConfig`` -> ``oidc_provider_config``, not ``o_idc_…``.
+    spaced = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", spaced)
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", spaced)
+    return re.sub(r"_+", "_", spaced).strip("_").lower()
+
+
 class NotFoundError(KamerplanterError):
+    """404 with a machine-readable ``entity``, so two 404s can be told apart (#1437).
+
+    Every subclass of this one — ``AttachmentNotFoundError`` among them — carries
+    ``error_code="ENTITY_NOT_FOUND"``, so a route that resolves a parent and then a
+    child answers the *same* code for "the parent is gone" and "the child is gone",
+    differing only in the English ``message``. A client that has to act differently
+    on the two (``PhotoUpload`` must de-stage a photo only when the **attachment**
+    is the missing thing, never when the task is) had nothing to branch on.
+
+    The signal is therefore additive: the code and the status are unchanged, and
+    ``details[0]["entity"]`` names the missing entity in normalised form. Set here
+    for *every* ``NotFoundError`` rather than on one subclass — a field only one
+    branch populates is the exception a client then has to special-case.
+    """
+
     def __init__(self, entity: str, key: str) -> None:
         super().__init__(
             message=f"{entity} with key '{key}' not found.",
             error_code="ENTITY_NOT_FOUND",
             status_code=404,
-            details=[{"field": "key", "reason": f"No {entity} with key '{key}'.", "code": "ENTITY_NOT_FOUND"}],
+            details=[
+                {
+                    "field": "key",
+                    "reason": f"No {entity} with key '{key}'.",
+                    "code": "ENTITY_NOT_FOUND",
+                    "entity": normalise_entity_name(entity),
+                }
+            ],
         )
 
 
@@ -38,6 +83,41 @@ class DuplicateError(KamerplanterError):
             error_code="DUPLICATE_ENTRY",
             status_code=409,
             details=[{"field": field, "reason": f"Value '{value}' is already taken.", "code": "DUPLICATE_ENTRY"}],
+        )
+
+
+class WriteConflictError(KamerplanterError):
+    """ArangoDB refused a write as a write-write conflict (error code ``1200``).
+
+    Strictly distinct from :class:`DuplicateError` (code ``1210``), and the
+    distinction is the whole point of having a second type:
+
+    * ``1210`` — *unique constraint violated* — is a statement **about the
+      data**: a committed, visible document already occupies the unique key. A
+      caller may safely read it as "an equivalent record exists".
+    * ``1200`` — *conflict* — is a statement **about timing**: a concurrent
+      transaction holds the same document key or unique-index entry and this
+      write could not be serialized against it. It says nothing about whether
+      that other transaction went on to commit or to roll back, so it must
+      **never** be read as "an equivalent record exists". A caller that wants
+      that answer has to re-read and see for itself.
+
+    ``python-arango`` keeps the same separation: :data:`arango.errno.CONFLICT`
+    (1200) is a different constant from
+    :data:`arango.errno.UNIQUE_CONSTRAINT_VIOLATED` (1210), and the driver's own
+    bulk paths turn a per-document ``1200`` into ``DocumentRevisionError`` — a
+    revision/serialization failure — never into a uniqueness verdict.
+
+    409 like :class:`DuplicateError`, because the request is well-formed and
+    conflicts with the current state; a retry is the appropriate reaction.
+    """
+
+    def __init__(self, entity: str, reason: str = "a concurrent write held the same key") -> None:
+        super().__init__(
+            message=f"Write on '{entity}' conflicted with a concurrent write: {reason}.",
+            error_code="WRITE_CONFLICT",
+            status_code=409,
+            details=[{"field": "key", "reason": reason, "code": "WRITE_CONFLICT"}],
         )
 
 
@@ -134,6 +214,22 @@ class ValidationError(KamerplanterError):
             status_code=422,
             details=details,
         )
+
+
+class OAuthAutoLinkRefusedError(ValidationError):
+    """The OAuth address matches a local account, and one side is unverified (#1403).
+
+    A `ValidationError` subclass so existing handlers keep catching it, but its own
+    type so the OAuth callback can answer with a code the frontend can explain.
+    Without it the case collapses into the generic `provider_error` — "The provider
+    reported an error. Please try again later." — which is wrong in both halves:
+    the provider reported nothing wrong, and trying again cannot help.
+
+    That matters more since #1403 than before it. A provider that omits
+    `email_verified` now refuses the auto-link, and omitting it is the DEFAULT for
+    a GitHub provider registered without the `user:email` scope, so this is an
+    ordinary path rather than a corner.
+    """
 
 
 class WinterPathViolationError(KamerplanterError):

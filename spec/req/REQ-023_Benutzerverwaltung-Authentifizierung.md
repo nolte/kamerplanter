@@ -185,7 +185,8 @@ Da Refresh Tokens als HttpOnly Cookie übertragen werden, sind zustandsändernde
 Ein User kann mehrere Auth-Provider verknüpfen:
 - Matching erfolgt über **verifizierte E-Mail-Adresse**: Login mit Google (`max@example.com`) wird automatisch mit dem lokalen Account (`max@example.com`) verknüpft
 - Kein Auto-Link bei unverifizierter E-Mail (verhindert Account-Übernahme)
-- User kann jederzeit zusätzliche Provider verknüpfen oder entfernen (mindestens eine Auth-Methode muss bestehen bleiben)
+- User kann verknüpfte Provider jederzeit entfernen (mindestens eine Auth-Methode muss bestehen bleiben)
+- **Kein manuelles Verknüpfen:** ein zusätzlicher Provider entsteht nur über den Auto-Link beim Login mit ihm. Der dafür gedachte Endpunkt `POST /users/me/providers/{provider_slug}/link` existierte, hatte aber nie einen Aufrufer im Frontend und wurde mit #1416 entfernt (Betreiberentscheidung 2026-09-17). Wer den Auto-Link nicht erhält — etwa weil der Anbieter keinen `email_verified`-Anspruch liefert — meldet sich mit E-Mail und Passwort an; die beiden Konten bleiben getrennt.
 
 ### 1.1 Szenarien
 
@@ -511,8 +512,31 @@ class OAuthEngine:
         # Apple: sub, email, name (nur beim ersten Login — muss gespeichert werden!)
         # OIDC: sub, email, preferred_username, name, picture
 
-    def should_auto_link(self, existing_user: User, oauth_email: str) -> bool: ...
-        # True wenn existing_user.email == oauth_email UND existing_user.email_verified == True
+    def should_auto_link(
+        self, existing_email_verified: bool, oauth_email_verified: bool | None
+    ) -> bool: ...
+        # True nur wenn BEIDE Seiten bestätigt sind (#1403).
+        #
+        # Der zweite Parameter ist der `email_verified`-Anspruch des Anbieters und
+        # hat DREI Zustände: True, False und None — None heißt, der Anbieter hat
+        # nichts gesagt. Der Anspruch ist in OIDC optional, und viele Anbieter
+        # lassen ihn weg; GitHub führt ihn gar nicht auf `/user`, sondern pro
+        # Adresse auf `/user/emails` (dafür ist der Scope `user:email` nötig).
+        #
+        # **None lehnt ab.** Schweigen als Bestätigung zu werten reproduziert
+        # genau die Lücke, gegen die der Anspruch existiert: ein falsch
+        # konfigurierter oder kompromittierter Anbieter behauptet
+        # `email = opfer@example.org` und übernimmt das Konto, sofern das lokale
+        # Konto bestätigt ist — was jedes regulär registrierte ist. Der Aufrufer
+        # landet stattdessen auf „mit Passwort anmelden". Ein anschließendes
+        # manuelles Verknüpfen gibt es nicht (#1416); der Anbieter wird erst
+        # verknüpft, wenn er den Anspruch liefert.
+        #
+        # Bis #1403 reichte der Aufrufort ein literales `True` für den zweiten
+        # Parameter, der Anspruch wurde also nie gelesen. Dieselbe Annahme stand
+        # im Neuanlage-Pfad: ein über OAuth erzeugtes Konto galt unbesehen als
+        # bestätigt und erfüllte damit die erste Bedingung für jeden späteren
+        # Anbieter.
 ```
 
 **`LoginThrottleEngine`** — Brute-Force-Schutz (pure Logik):
@@ -620,7 +644,10 @@ class AuthService:
         # Invalidiert ALLE Refresh Tokens des Users, gibt Anzahl zurück
 
     # --- Account-Linking ---
-    async def link_provider(self, user_key: str, provider_slug: str, code: str, state: str) -> AuthProvider: ...
+    # Es gibt KEIN manuelles `link_provider`: verknüpft wird ausschließlich
+    # automatisch beim OAuth-Login (`complete_oauth` -> `should_auto_link`).
+    # Die frühere Methode und ihre Route hatten nie einen Aufrufer und wurden
+    # mit #1416 entfernt (Betreiberentscheidung 2026-09-17).
     async def unlink_provider(self, user_key: str, provider_key: str) -> None: ...
         # Fehler wenn es die letzte Auth-Methode wäre
 
@@ -1011,7 +1038,6 @@ class UserService:
 | GET | `/users/me` | Eigenes Profil abrufen | Ja |
 | PATCH | `/users/me` | Eigenes Profil aktualisieren | Ja |
 | GET | `/users/me/providers` | Verknüpfte Auth-Provider auflisten | Ja |
-| POST | `/users/me/providers/{provider_slug}/link` | Provider verknüpfen | Ja |
 | DELETE | `/users/me/providers/{provider_key}` | Provider-Verknüpfung entfernen | Ja |
 | POST | `/users/me/password` | Lokales Passwort setzen/ändern | Ja |
 | GET | `/users/me/sessions` | Aktive Sessions auflisten | Ja |

@@ -48,7 +48,13 @@ export default function FormTextField<T extends FieldValues>({
           rows={rows}
           minRows={minRows}
           maxRows={maxRows}
-          disabled={disabled}
+          // The explicit prop wins, but when it is absent react-hook-form's own value
+          // has to survive. `{...field}` already carries `field.disabled`, and a bare
+          // `disabled={disabled}` then overwrote it with `undefined` — which made
+          // `useForm({ disabled })` and `<Controller disabled>` silently inert for every
+          // field in this directory. Found by a #1402 C test that asserted a
+          // form-level-disabled field was actually disabled and got told it was not.
+          disabled={disabled ?? field.disabled}
           type={type}
           autoFocus={autoFocus}
           placeholder={placeholder}

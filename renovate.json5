@@ -1,6 +1,6 @@
 {
   extends: [
-    'github>nolte/gh-plumbing//renovate-configs/common#v2.0.0',
+    'github>nolte/gh-plumbing//renovate-configs/common#v2.1.0',
     'helpers:pinGitHubActionDigests',
   ],
   mode: 'full',
@@ -97,33 +97,67 @@
     // showed `WARN: pip-compile error`, and the `poetry` manager picked the
     // pyproject up instead and opened source-only pull requests that left the
     // locks stale (#1371). Poetry 2 reads PEP 621 `[project]` tables, so that
-    // manager is disabled for the backend and exactly one manager reads the
-    // file. (The side services' pyproject files are still read by `poetry`
-    // today; #1374 moves them to uv locks and this rule with them.)
+    // manager is disabled and exactly one manager reads the file.
+    //
+    // Disabled repository-wide, not per directory: since #1374 every Python
+    // tree here — the backend and the four side services — is a PEP 621 project
+    // with a uv.lock beside it, so there is no file left that `poetry` may
+    // legitimately own. Scoping the rule to a path is what let the side
+    // services keep a poetry-managed pyproject without a lock for months; a
+    // repository-wide `enabled: false` means a newly added pyproject cannot
+    // quietly acquire a second manager either.
     {
       matchManagers: [
         'poetry',
       ],
-      matchFileNames: [
-        'src/backend/**',
-      ],
       enabled: false,
     },
-    // The uv toolchain is referenced three times — `[tool.uv].required-version`
-    // in pyproject.toml (what Renovate relocks with), `uv==` in the workflows
-    // (regex manager below) and `ghcr.io/astral-sh/uv` in the Dockerfile — and
-    // the three are only meaningful together: a relock by a newer uv than the
-    // readers is the #1296 class. One pull request moves all of them.
+    // The uv toolchain is referenced in three KINDS of place, 17 times in total
+    // as of #1383 (counted, not remembered — `grep -rn 'required-version = "=='`,
+    // `grep -rn ghcr.io/astral-sh/uv --include=Dockerfile`, `grep -rn
+    // astral-sh/setup-uv@ .github/workflows/`):
+    //
+    //   * `[tool.uv].required-version` in five pyproject.toml — the backend and
+    //     the four side services (#1374). This is what Renovate itself relocks
+    //     with (its pep621 uv processor falls back to it when `constraints.uv`
+    //     is unset), read via the custom regex manager below.
+    //   * `ghcr.io/astral-sh/uv` in five Dockerfiles (dockerfile manager).
+    //   * `astral-sh/setup-uv` in seven workflow steps (github-actions manager).
+    //
+    // They are only meaningful together: a relock by a newer uv than the readers
+    // is the #1296 class. One pull request moves all of them.
+    //
+    // The ACTION joins this group rather than sitting in the generic
+    // `github-actions` one so that both halves of the resolver path are READ
+    // TOGETHER — not because either half silently changes the other. What is
+    // actually true, and all that is claimed here: with
+    // `version-file: src/backend/pyproject.toml` (#1383) the installed uv is
+    // decided by `[tool.uv].required-version` ALONE, so an action bump does not
+    // move the resolver. The reason to review them in one pull request is that
+    // the action is the code that reads, caches and installs that pin, and the
+    // pin is what it installs; a reviewer looking at either one in isolation is
+    // looking at half of the mechanism that produces five lock files.
+    // The generic `github-actions` rule above would otherwise have claimed it;
+    // this rule is later in the array and therefore wins on `groupName`.
+    //
+    // `automerge: false` is explicit for the same reason. The generic
+    // `github-actions` rule automerges minor/patch/digest, and everything else in
+    // this group changes the RESOLVER that produces five lock files — a change
+    // whose blast radius is every Python image here. It gets read before it
+    // lands.
     {
       groupName: 'uv toolchain',
       matchDatasources: [
         'pypi',
         'docker',
+        'github-tags',
       ],
       matchPackageNames: [
         'uv',
         'ghcr.io/astral-sh/uv',
+        'astral-sh/setup-uv',
       ],
+      automerge: false,
     },
     // The build backend uv is constrained to for the two sdist-only backend
     // dependencies (`[tool.uv].build-constraint-dependencies`), read by the
@@ -201,6 +235,63 @@
       matchUpdateTypes: [
         'major',
       ],
+    },
+    // ── Python side services (#1374) ────────────────────────────────────────
+    // The four service images used to install from a plain `requirements.txt`
+    // (two of them beside a pyproject.toml that only `poetry` read and nothing
+    // consumed). Each is now a PEP 621 project with its own hash-bearing
+    // uv.lock — one lock per service, deliberately not a workspace lock over
+    // all five trees, which would couple five release cycles.
+    //
+    // One group per image, as the backend groups are per tree: a bump to the
+    // embedding service must not drag the reranker image's rebuild into the
+    // same pull request. `update-lockfile` is what makes these rules fire at
+    // all — the service ranges are open (`>=x`, no upper bound), so every
+    // release is in range and the default strategy would propose nothing while
+    // the lock aged.
+    {
+      groupName: 'python inference-service',
+      // DINOv2 ONNX runtime plus the torch/onnx export toolchain in the `build` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'src/inference-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
+    },
+    {
+      groupName: 'python knowledge-service',
+      // RAG assistant runtime plus the watchfiles reloader in the `dev` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'src/knowledge-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
+    },
+    {
+      groupName: 'python embedding-service',
+      // embedding runtime plus the huggingface-hub download toolchain in the `build` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'docker/embedding-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
+    },
+    {
+      groupName: 'python reranker-service',
+      // reranker runtime plus the optimum export toolchain in the `build` dependency group.
+      matchManagers: [
+        'pep621',
+      ],
+      matchFileNames: [
+        'docker/reranker-service/**',
+      ],
+      rangeStrategy: 'update-lockfile',
     },
     // ── jsdom held at 29 until Testing Library catches up (#827) ─────────────
     // jsdom 30 reimplemented its CSS engine, and the new `getComputedStyle`
@@ -312,6 +403,15 @@
     // asdf manager `node`, and without the datasource filter those would be
     // pulled into the image group.
     //
+    // Workflow SERVICE containers are in here for the same reason: the
+    // github-actions manager extracts `jobs.<id>.services.<id>.image` as an
+    // ordinary docker dependency (`depType: service`), so the ArangoDB service
+    // of the `Integration tests (ArangoDB)` job in backend.yml lands in the same
+    // branch as the compose reference. Verified 2026-09-16 with
+    // `renovate --platform=local --dry-run=extract`, because a lane digest that
+    // drifted from the compose digest would mean CI and the dev stack measure
+    // against different servers (#1432).
+    //
     // No automerge. These are the databases the tests run against and the
     // browser the E2E suite drives; a green run is necessary but the merge
     // stays a decision.
@@ -351,6 +451,15 @@
       description: 'Age the uv version pinned in [tool.uv].required-version and the build backend pinned in build-constraint-dependencies.',
       managerFilePatterns: [
         '/^src/backend/pyproject\\.toml$/',
+        // The four side-service projects (#1374) pin the same uv EXACTly, so
+        // they belong to the same `uv toolchain` pull request as the backend
+        // pin, the workflow `uv==` lines and the Dockerfile image digest. A
+        // pyproject missing from this list would age apart silently — that is
+        // the #1296 class the group exists to prevent.
+        '/^src/inference-service/pyproject\\.toml$/',
+        '/^src/knowledge-service/pyproject\\.toml$/',
+        '/^docker/embedding-service/pyproject\\.toml$/',
+        '/^docker/reranker-service/pyproject\\.toml$/',
       ],
       matchStrings: [
         'required-version = "==(?<currentValue>[0-9][^"]*)"',
@@ -381,8 +490,16 @@
         '/^\\.github/workflows/[^/]+\\.ya?ml$/',
       ],
       matchStrings: [
-        // pip-style: 'pip-audit==2.10.1', 'uv==0.12.12'
-        "'(?<depName>pip-audit|pip-licenses|uv)==(?<currentValue>[0-9][^']*)'",
+        // pip-style: 'pip-audit==2.10.1', 'pip-licenses==5.5.5'
+        //
+        // `uv` was an alternative here until #1383. It is gone because the thing
+        // it matched is gone: no workflow carries a literal uv version any more
+        // (`astral-sh/setup-uv` reads `[tool.uv].required-version` instead), and
+        // tests/unit/guards/test_uv_pin_is_single.py fails the build if one comes
+        // back. Keeping a dead alternative would have suggested a reintroduced
+        // literal was still covered — it would be, but only until someone trusted
+        // that and skipped the guard.
+        "'(?<depName>pip-audit|pip-licenses)==(?<currentValue>[0-9][^']*)'",
         // npx-style: @stoplight/spectral-cli@6.16.2
         'npx --yes (?<depName>@[^@\\s]+/[^@\\s]+)@(?<currentValue>[0-9]\\S*)',
       ],
@@ -399,9 +516,15 @@
       //
       // Captures tag AND digest, so Renovate bumps them together. A tag bumped
       // without its digest would leave the workflow silently on the old image.
-      description: 'Update container images pinned in workflow env: values.',
+      description: 'Update container images pinned in workflow env: values and in Taskfile vars.',
       managerFilePatterns: [
         '/^\\.github/workflows/[^/]+\\.ya?ml$/',
+        // `.taskfiles/checks.yaml` pins the renovate/renovate CLI that
+        // `task renovate:dry-run` runs (#1383). Without this the pin would be
+        // immutable and unmaintained — the same half of the reproducibility
+        // problem the workflow env: pins were added for, and the shape #1177
+        // records: a floating tool silently changes what a check MEANS.
+        '/^\\.taskfiles/[^/]+\\.ya?ml$/',
       ],
       matchStrings: [
         'renovate: datasource=docker depName=(?<depName>\\S+)\\s*\\n\\s*[A-Z_]+:\\s*\\S+:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',

@@ -1,7 +1,7 @@
 """NFR-013 §2.2 — repository interface for the ``attachments`` collection."""
 
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, datetime
 from typing import Final
 
 from app.common.enums import AttachmentCategory
@@ -132,4 +132,33 @@ class IAttachmentRepository(ABC):
 
         When ``category`` is given the listing is restricted to that category.
         Returns ``(items, total)`` where ``total`` ignores pagination.
+        """
+
+    @abstractmethod
+    def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
+        """Task-category attachments older than *older_than* that nothing references.
+
+        Installation-wide, across tenants: the caller is a housekeeping sweep, and
+        each returned row carries its own ``tenant_key`` for the tenant-scoped
+        delete that follows.
+
+        Implementations MUST check every collection that can carry ``photo_refs``,
+        not only ``tasks`` — the result feeds a deletion, and a reference missed is
+        a photo destroyed.
+        """
+
+    @abstractmethod
+    def task_photo_delete_state(self, attachment_id: str, tenant_key: str, *, task_key: str) -> tuple[str, str | None]:
+        """``(state, created_by)`` for the task-photo delete route (#1393).
+
+        *state* is ``"shared"`` (some carrier other than *task_key* references it),
+        ``"task"`` (only the named task does), ``"staged"`` (nothing anywhere does) or
+        ``"missing"``.
+
+        Implementations MUST check every carrier, not only tasks: ``upload``
+        deduplicates by sha256 across the whole tenant and across categories, so one
+        stored object can be referenced from a plant gallery or a diary entry as well.
+
+        Answering all three in one query is the point — the caller runs inside an
+        interactive request, and the reference scan has no index to lean on.
         """

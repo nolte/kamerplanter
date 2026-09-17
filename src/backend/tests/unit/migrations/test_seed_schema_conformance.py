@@ -42,8 +42,10 @@ than recorded", not "the seed data validates".
 
 from __future__ import annotations
 
-import re
+import importlib.util
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 import yaml
@@ -53,103 +55,96 @@ import app.migrations
 _SEED = Path(app.migrations.__file__).parent / "seed_data"
 _SCHEMAS = _SEED / "schemas"
 
-#: ``# yaml-language-server: $schema=./schemas/<stem>.schema.yaml``
-_DIRECTIVE = re.compile(r"^#\s*yaml-language-server:\s*\$schema=\./schemas/([A-Za-z0-9_]+)\.schema\.yaml\s*$")
 
-#: Seed files that deliberately declare no schema. Listed explicitly so that a new
-#: file without a directive fails this module instead of disappearing from it.
-NO_SCHEMA_DECLARED: frozenset[str] = frozenset(
-    {
-        "fish_species.yaml",
-        "glossary_terms.yaml",
-        "hardiness_zones.yaml",
-        "substrate_defaults.yaml",
-        # "substrates.yaml" removed by #1152: it was the only one of the five that
-        # is 636 lines of numeric agronomic data feeding two engines, and the
-        # exemption was hiding three physically impossible records.
-    }
-)
+# ── The corpus rules live in the hook script, and are imported from there ─────
+#
+# ``NO_SCHEMA_DECLARED``, ``SCHEMA_DEBT_CEILING``, the directive pattern and the
+# validator used to be defined here, and ``.pre-commit-config.yaml`` carried a
+# separate list of twelve ``check-jsonschema`` hooks covering 20 of the 36 seed
+# files. Two enforcement paths over one rule, with different reach: a new seed
+# file that declared its schema was checked here and by no hook (#1406).
+#
+# The registers now live in ``scripts/check_seed_schema.py``, which the
+# ``seed-schema-conformance`` hook runs, and this module imports them from there.
+# One register, one validator, one verdict — the hook and this suite cannot drift
+# into two reaches again.
+#
+# Loaded **by path**, like ``test_seed_catalogue_page_size_check.py`` loads its
+# subject: the script lives outside the backend package. An unreachable script is
+# a hard failure here, not a skip — a suite that silently skips when its subject
+# is missing is precisely what hid this tier for its whole life (#1435).
 
-#: file name -> (max tolerated violations, what the debt is).
-#:
-#: Every entry states the *shape* of the mismatch, so a reviewer can tell a known
-#: gap from a new one without re-deriving it. Measured 2026-08-08 and re-measured
-#: against the merged #1034 tree: every count is unchanged, because that change
-#: corrected harvest/month *values* which were already schema-valid. A ceiling is a
-#: maximum, so none of them can be lowered on this evidence.
-SCHEMA_DEBT_CEILING: dict[str, tuple[int, str]] = {
-    # One stray list item: ``- Lamiaceae`` at adventskalender.yaml:1277 was left
-    # uncommented when the ``existing_families_needed`` block above it was commented
-    # out, so YAML parses it as ``treatment_disease_edges[6]`` — a bare string where
-    # the schema (and every sibling entry) has a ``[treatment, disease]`` pair. Inert
-    # today: no Python reads ``treatment_disease_edges`` at all. It survived #1034,
-    # which edited this file without touching the line, so it is not blocked on that
-    # change any more — it needs its own one-line data fix (out of scope here: this
-    # lane authors schemas, tests and backend logic, not seed data).
-    "adventskalender.yaml": (1, "stray '- Lamiaceae' parsed as treatment_disease_edges[6]"),
-    # The nutrient-plan dialect: phase entries carry ``product_name`` where the
-    # schema requires ``fertilizer_product_name``, plus per-plan extras
-    # (method_type/method_params, calcium_ppm/magnesium_ppm). One schema question
-    # across five files, not five.
-    "fertilizers.yaml": (129, "nutrient_plans[] phase-entry dialect + fertilizer storage/shelf-life fields"),
-    "nutrient_plans_hydro.yaml": (362, "phase-entry dialect: product_name vs fertilizer_product_name"),
-    "nutrient_plans_outdoor.yaml": (267, "nutrient_plans[] phase-entry dialect"),
-    "nutrient_plans_ro.yaml": (92, "nutrient_plans[] phase-entry dialect"),
-    "plagron.yaml": (182, "nutrient_plans[] phase-entry dialect"),
-    "gardol.yaml": (71, "nutrient_plans[] phase-entry dialect + method_type/method_params"),
-    # Unmodelled top-level and per-item keys.
-    "activities.yaml": (22, "restricted_sub_phases + category values outside the activity_category enum"),
-    "workflows.yaml": (31, "top-level workflow_phases + task_templates[].phase_name unmodelled"),
-    "botanical_families.yaml": (2, "top-level rotation_edges + families[].nitrogen_fixing unmodelled"),
-    "companion_planting.yaml": (1, "top-level family_compatible/family_incompatible unmodelled"),
-    "harvest_indicators.yaml": (1, "indicator_type 'days_since_sowing' missing from the enum"),
-}
+
+def _find_repo_root(start: Path) -> Path:
+    """Walk up from *start* to the checkout root, identified by its markers.
+
+    Args:
+        start: Any path inside the checkout.
+
+    Returns:
+        The directory holding both ``Taskfile.yaml`` and ``scripts/``.
+
+    Raises:
+        RuntimeError: If no ancestor carries both markers.
+    """
+    for candidate in (start, *start.parents):
+        if (candidate / "Taskfile.yaml").is_file() and (candidate / "scripts").is_dir():
+            return candidate
+    raise RuntimeError(f"no checkout root above {start} (looked for Taskfile.yaml + scripts/)")
+
+
+def _load_module_by_path(module_name: str, path: Path) -> ModuleType:
+    """Execute the module at *path* under *module_name* and return it.
+
+    Registration in ``sys.modules`` happens **before** ``exec_module`` because the
+    script defines ``@dataclass`` types, and ``dataclass`` resolves its own module
+    through ``sys.modules`` while the module body is still running.
+
+    Args:
+        module_name: Private name to register under.
+        path: The ``.py`` file to execute.
+
+    Returns:
+        The executed module.
+
+    Raises:
+        RuntimeError: If the file cannot be loaded as a module.
+    """
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:  # pragma: no cover — defensive
+        raise RuntimeError(f"{path} cannot be loaded as a Python module")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_SCRIPT = _find_repo_root(Path(__file__).resolve()) / "scripts" / "check_seed_schema.py"
+if not _SCRIPT.is_file():  # pragma: no cover — only on a partial checkout
+    raise RuntimeError(f"{_SCRIPT} does not exist — the seed-schema hook and this suite share it")
+
+checker = _load_module_by_path("_seed_schema_check_under_test", _SCRIPT)
+
+NO_SCHEMA_DECLARED = checker.NO_SCHEMA_DECLARED
+SCHEMA_DEBT_CEILING = checker.SCHEMA_DEBT_CEILING
 
 
 def _declared_schema(path: Path) -> str | None:
     """Return the schema stem the file's ``yaml-language-server`` directive names."""
-    with path.open(encoding="utf-8") as handle:
-        for line in handle:
-            match = _DIRECTIVE.match(line.rstrip("\n"))
-            if match:
-                return match.group(1)
-            if line.strip() and not line.lstrip().startswith("#"):
-                # Directives are header comments; stop at the first content line.
-                return None
-    return None
+    return checker.declared_schema(path)
 
 
 def _seed_files() -> list[tuple[Path, str]]:
     """Return every ``(path, schema_stem)`` pair discovered from the directives."""
-    return [(p, stem) for p in sorted(_SEED.glob("*.yaml")) if (stem := _declared_schema(p)) is not None]
+    return [(p, stem) for p in checker.seed_files(_SEED) if (stem := _declared_schema(p)) is not None]
 
 
 _DECLARING_FILES = _seed_files()
 
 
-def _build_validator(schema_stem: str):
-    jsonschema = pytest.importorskip("jsonschema")
-    referencing = pytest.importorskip("referencing")
-    from referencing.jsonschema import DRAFT202012
-
-    registry = referencing.Registry().with_resources(
-        [
-            (
-                yaml.safe_load(sf.read_text())["$id"],
-                referencing.Resource.from_contents(yaml.safe_load(sf.read_text()), default_specification=DRAFT202012),
-            )
-            for sf in _SCHEMAS.glob("*.schema.yaml")
-        ]
-    )
-    schema = yaml.safe_load((_SCHEMAS / f"{schema_stem}.schema.yaml").read_text())
-    return jsonschema.Draft202012Validator(schema, registry=registry)
-
-
 def _violations(path: Path, schema_stem: str) -> list[str]:
-    validator = _build_validator(schema_stem)
-    data = yaml.safe_load(path.read_text()) or {}
-    errors = sorted(validator.iter_errors(data), key=lambda e: list(e.absolute_path))
-    return [f"{list(e.absolute_path)}: {e.message}" for e in errors]
+    """Return every schema violation of *path*, through the hook script's validator."""
+    return checker.violations(path, schema_stem, _SCHEMAS)
 
 
 def test_every_seed_file_either_declares_a_schema_or_is_named() -> None:

@@ -85,3 +85,41 @@ describe('getFieldViolations', () => {
     expect(violations[0].field).toBe('query.limit');
   });
 });
+
+/**
+ * An envelope that carries no `details` at all.
+ *
+ * `ApiErrorResponse` declares `details` as required, and the interceptor builds
+ * the error straight from whatever the response body was — so the declaration is
+ * a promise about the *backend*, not about the value in hand. A proxy's own error
+ * page, an older deployment, or any non-envelope 4xx body leaves the field
+ * missing, and every reader here then walks `undefined`.
+ *
+ * Found by the #1437 work: `PhotoUpload` reads `err.details[0]?.entity` to decide
+ * whether a 404 means the attachment is gone, and a 404 without `details` threw a
+ * `TypeError` inside the catch block — turning a handled failure into an unhandled
+ * rejection with no message shown at all. Defaulted in the constructor, once,
+ * rather than at each reader.
+ */
+describe('an error envelope without details', () => {
+  function bodyWithoutDetails(): ApiError {
+    const body = {
+      error_id: 'err_2',
+      error_code: 'ENTITY_NOT_FOUND',
+      message: 'gone',
+      timestamp: '2026-09-16T00:00:00Z',
+      path: '/api/v1/t/test-tenant/tasks/tk1/photos/att-1',
+      method: 'DELETE',
+    } as unknown as ApiErrorResponse;
+    return new ApiError(body, 404);
+  }
+
+  it('reads as an empty detail list rather than undefined', () => {
+    expect(bodyWithoutDetails().details).toEqual([]);
+  });
+
+  it('lets the field readers run instead of throwing', () => {
+    expect(getFieldViolations(bodyWithoutDetails())).toEqual([]);
+    expect(getFieldErrors(bodyWithoutDetails())).toEqual({});
+  });
+});

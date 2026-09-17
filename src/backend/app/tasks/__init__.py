@@ -112,6 +112,14 @@ celery_app.conf.update(
             "schedule": 604800,
             "kwargs": {"full_sync": True},
         },
+        # #1393 — collect task photos that nothing references any more. At 03:40,
+        # after the retention sweeps and well away from the hourly jobs; the work is
+        # bounded by ``limit`` per run, so a large backlog drains over several nights
+        # rather than in one long transaction.
+        "storage-cleanup-orphaned-task-photos-daily": {
+            "task": "app.tasks.storage_tasks.cleanup_orphaned_task_photos",
+            "schedule": crontab(hour=3, minute=40),
+        },
         # REQ-031 KI-Assistent retention (§4.6)
         "ai-cleanup-conversations-daily": {
             "task": "ai.cleanup_expired_conversations",

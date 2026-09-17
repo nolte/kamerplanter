@@ -65,6 +65,7 @@ class PlantInstanceService:
         species_repo: ISpeciesRepository | None = None,
         planting_run_repo: IPlantingRunRepository | None = None,
         photo_cleanup: Callable[[PlantInstance], None] | None = None,
+        care_profile_bootstrap: Callable[[PlantInstance], None] | None = None,
         propagation_service: PropagationService | None = None,
         overwintering_materializer: OverwinteringMaterializer | None = None,
         overwintering_service: OverwinteringProfileService | None = None,
@@ -99,6 +100,10 @@ class PlantInstanceService:
         # is removed. Injected to avoid a service→service import cycle; no-op
         # when unwired (keeps the service usable in photo-less contexts).
         self._photo_cleanup = photo_cleanup
+        #: REQ-022 — gives a new plant its care profile. A callable rather than the
+        #: service, for the same reason ``photo_cleanup`` is one: importing
+        #: ``CareReminderService`` here would close an import cycle.
+        self._care_profile_bootstrap = care_profile_bootstrap
         # #1335 — the resolvers for the caller-supplied catalogue references a plant
         # carries. Optional, like every other collaborator here, so the service stays
         # constructible in pure-domain contexts; the production wiring supplies both
@@ -437,6 +442,26 @@ class PlantInstanceService:
         """
         require_owned_site(self._site_repo, site_key, tenant_key, entity_name, entity_key)
 
+    def _bootstrap_care_profile_for(self, created: PlantInstance) -> None:
+        """REQ-022 — give a stored plant its care profile, best-effort.
+
+        One helper rather than the call inlined at each site: two copies of a
+        best-effort block are two things that can drift, and what they would drift
+        about is whether a plant ever receives a reminder.
+
+        **Best-effort, but loudly.** `photo_cleanup` and the overwintering sync can
+        fail without costing the user a feature; this one carries the whole reminder
+        chain, so a failure is an `error` with its cause attached rather than a bare
+        warning. A plant is still created either way: a missing reminder is a defect,
+        a plant that could not be created because of one is lost user work.
+        """
+        if self._care_profile_bootstrap is None:
+            return
+        try:
+            self._care_profile_bootstrap(created)
+        except Exception:  # noqa: BLE001 — never fail plant creation for this
+            logger.error("care_profile_bootstrap_failed", plant_key=created.key, exc_info=True)
+
     def create_plant(self, plant: PlantInstance, skip_validation: bool = False) -> PlantInstance:
         # SEC (#719): reject a foreign/unknown site_key before any write, mirroring the
         # location create path — a client must not create a plant on another tenant's site.
@@ -540,6 +565,20 @@ class PlantInstanceService:
         # waiting for the lazy growing→pre_winter season transition. Best-effort: a
         # failure here must never fail plant creation.
         self._sync_overwintering_for_site(created)
+
+        # REQ-022 — the plant's care profile, created with the plant.
+        #
+        # Until #1422 review round 3 nothing created one at this point: the profile
+        # appeared the first time somebody *read* it, through `GET .../profile` or the
+        # tenant care dashboard, both of which persisted on a plain GET. Removing that
+        # write — a read must not write — exposed the dependency it had been hiding:
+        # the nightly generator iterates **stored profiles**, the first confirmation
+        # needs a task the generator produces, and the task needs a profile. A circle,
+        # broken until now by a side effect of viewing a page.
+        #
+        # Best-effort, like the overwintering materialisation above: a plant is created
+        # whether or not its care profile could be.
+        self._bootstrap_care_profile_for(created)
 
         return created
 
@@ -669,6 +708,11 @@ class PlantInstanceService:
         )
         # No slot_key → the repository creates the doc without a PLACED_IN edge.
         created = self._repo.create(pup)
+        # …and the pup is a plant, so it gets a care profile like one. This path
+        # bypasses `create_plant` — the module docstring has named that bypass since
+        # #1349 — and the bootstrap added in #1422 round 3 inherited the gap: a D10 pup
+        # would have received no care reminder, ever.
+        self._bootstrap_care_profile_for(created)
 
         # Initial phase-history entry for the pup (mirrors create_plant).
         if created.key and self._phase_repo:

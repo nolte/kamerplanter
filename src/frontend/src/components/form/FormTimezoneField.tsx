@@ -57,7 +57,9 @@ export default function FormTimezoneField<T extends FieldValues>({
             value={value || null}
             onChange={(_e, newVal) => field.onChange(newVal ?? '')}
             onBlur={field.onBlur}
-            disabled={disabled}
+            // `?? field.disabled` honours `useForm({ disabled })` / `<Controller disabled>`;
+            // a bare `disabled={disabled}` overwrites RHF's value with `undefined` (#1402 C).
+            disabled={disabled ?? field.disabled}
             disableClearable={required}
             autoHighlight
             fullWidth
