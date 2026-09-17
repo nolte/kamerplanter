@@ -71,6 +71,23 @@ $defs:
         maximum: 10.0
       water_retention:
         type: string
+        description: >-
+          The medium's retention band, declared PER TYPE by REQ-019 and NOT derived
+          from `water_holding_capacity_percent` (#1175). The two fields answer
+          different questions and the boundary between them is the point of this
+          note: the number is a measurement at one matric potential (container
+          capacity, pF 1 / EN 13041) and carries no method with it, while the enum
+          is a statement about how a type behaves in a grower's hands. REQ-019's
+          quantitative bands (low < 30 %, medium 30-60 %, high > 60 %) describe the
+          NUMBER's ranges; they are not a rule that produces the enum. Measured on
+          this catalogue: reading them as such makes 10 of the 27 records carrying
+          both fields inconsistent, in both directions (the rockwool slab at 80 %
+          is `medium`, six peat-based soils at 55-58 % are `high`), so it is not
+          the rule the data was built on. `water_retention` is also the ONLY signal
+          the per-event watering modifier consults (#1368) - rewriting an enum to
+          match its number changes a real watering recommendation, which is why the
+          per-type declarations are pinned in `test_substrate_invariants.py`
+          instead of being left to whoever reads the bands next.
         enum: [low, medium, high]
       air_porosity_percent:
         type: [number, "null"]

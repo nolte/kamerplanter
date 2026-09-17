@@ -39,12 +39,17 @@
 # that is the difference that has to be pinned.
 #
 # Why water and not CaCl₂, given that German declarations (DüMV) tend to state
-# CaCl₂: every consumer of this field compares it against a water measurement.
-# `SubstrateLifecycleManager` reads it beside a batch's `ph_history`, which a
-# grower fills from a meter in run-off or a slurry; `calculate_mix_properties`
-# averages it into a mix a grower then measures the same way; the MCP feeding
-# judgement passes it to a model reasoning in the grower's units. A CaCl₂ value
-# would read as "this medium is half a unit more acidic than your meter says".
+# CaCl₂: every reader of this field puts it in front of a water measurement.
+# `calculate_mix_properties` CEC-weights it into a mix a grower then measures with
+# a meter in run-off or a slurry; the `substrate_mix_engine` averages it the same
+# way for the API; `nutrient_calc` hands it to a model reasoning in the grower's
+# units. A CaCl₂ value would read as "this medium is half a unit more acidic than
+# your meter says".
+#
+# Every backticked name in this block is checked against the source by
+# `test_substrate_invariants.py`: a name claimed here has to be a place that
+# actually reads `ph_base`. The guard exists because an earlier draft of this
+# paragraph named a consumer that does not read the field at all.
 # The three sourced Plagron records are water-extract values, and the generic
 # records (white peat 3.8, sphagnum 4.2, coco 6.0) sit in the water-extract
 # literature ranges, not the CaCl₂ ones. So the convention is the one the data

@@ -27,10 +27,13 @@ data would be wrong.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+import app
 from app.migrations.yaml_loader import load_yaml
 
 #: Total porosity of even the lightest horticultural medium tops out around 95 %.
@@ -323,4 +326,216 @@ def test_a_non_substrate_declares_no_air_porosity() -> None:
 
     assert not offenders, "a non-substrate declares an air porosity: " + "; ".join(
         f"{n} ({v})" for n, v in sorted(offenders.items())
+    )
+
+
+# ── the retention enum is a per-type declaration, not a band of the number ───
+
+
+#: The `water_retention` values REQ-019 fixes **per substrate type**, quoted from
+#: its own type list: `orchid_bark` "hohe Luftdurchlässigkeit, […]
+#: `water_retention: low`" and `sphagnum` "Torfmoos für feuchtigkeitsliebende
+#: Epiphyten und Karnivoren — `water_retention: high`". The other ten types carry
+#: no such statement, and this table deliberately does not invent one for them:
+#: `soil` alone spans `medium` and `high` across real products.
+_TYPE_DECLARED_RETENTION: dict[str, str] = {
+    "orchid_bark": "low",
+    "sphagnum": "high",
+}
+
+#: REQ-019's quantitative ranges for ``water_holding_capacity_percent``: "low
+#: <30%, medium 30–60%, high >60%". Present here only so the test below can
+#: *state* the disagreement it permits; nothing derives an enum from them.
+#:
+#: Note which edge is open: ``medium`` is written as a closed 30–60 interval, so
+#: 60 is medium and only >60 is high. A first draft of this helper reused one
+#: exclusive comparison for both bounds and made 60 ``high``; the boundary test
+#: below caught it, which is why that test exists next to the rule.
+_WHC_LOW_CEILING = 30.0
+_WHC_MEDIUM_CEILING = 60.0
+
+
+def _whc_band(whc: float) -> str:
+    if whc < _WHC_LOW_CEILING:
+        return "low"
+    if whc <= _WHC_MEDIUM_CEILING:
+        return "medium"
+    return "high"
+
+
+def test_the_whc_bands_are_read_the_way_req_019_writes_them() -> None:
+    """Boundaries first, so the mapping below is a decision and not an accident.
+
+    REQ-019: "low <30%, medium 30–60%, high >60%". 30 and 60 are therefore the
+    *lower* edges of `medium` and `high`; a reading that put 30 in `low` would
+    move `Lechuza PON` across a band and change what the next test reports.
+    """
+    assert _whc_band(29.9) == "low"
+    assert _whc_band(30.0) == "medium"
+    assert _whc_band(60.0) == "medium"
+    assert _whc_band(60.1) == "high"
+
+
+def test_every_type_req_019_declares_a_retention_for_carries_that_value() -> None:
+    """The enum's authority is the **type**, never the record's WHC number (#1175).
+
+    This is the boundary the enum definition was missing. `water_retention` had no
+    documented rule at all — the schema listed three strings — while REQ-019 spells
+    quantitative bands next to `water_holding_capacity_percent` one line below it,
+    which reads like a derivation rule and is not one.
+
+    It bites here because #1175 sources `Sphagnum-Moos (getrocknet)` at WHC 28 %,
+    which falls in the `low` band while the record declares `high`. Correcting the
+    *enum* to match was the obvious move and is the wrong one, for two measured
+    reasons:
+
+    1. **The rule is not the catalogue's.** Applying the bands as a derivation
+       makes 10 of the 27 records carrying both fields inconsistent, in both
+       directions — `Steinwollmatte` holds 80 % and declares `medium`, and six
+       peat-based soils at 55–58 % declare `high`. A rule that ten records break
+       is a rule the data was never built on.
+    2. **It would change a watering recommendation.** Since #1368
+       `_apply_retention_modifier` consults this enum and nothing else; `high` is
+       ``*0.80`` and `low` is ``*1.25``, so flipping sphagnum would multiply every
+       per-event volume for that medium by 1.56 — the user-visible regression
+       #1368's engine fix exists to prevent, arriving through the data instead.
+
+    The number and the enum answer different questions: 28 vol-% is water held at
+    pF 1 (EN 13041), the same moss reads 85 vol-% after saturation and free
+    drainage (Müller & Glatzel 2021), and neither figure carries its method into
+    the field. The enum does not have that ambiguity because it is a type
+    statement. So the type declarations are what is pinned.
+    """
+    offenders = {
+        _label(e): f"type={e.get('type')} declares {e.get('water_retention')!r}, "
+        f"REQ-019 fixes {_TYPE_DECLARED_RETENTION[str(e.get('type'))]!r}"
+        for e in _substrates()
+        if str(e.get("type")) in _TYPE_DECLARED_RETENTION
+        and e.get("water_retention") != _TYPE_DECLARED_RETENTION[str(e.get("type"))]
+    }
+
+    assert not offenders, "water_retention contradicts the type REQ-019 declares it for: " + "; ".join(
+        f"{n} ({d})" for n, d in sorted(offenders.items())
+    )
+
+
+def test_a_retention_enum_is_allowed_to_disagree_with_its_own_whc_band() -> None:
+    """Pins the disagreement as **legal**, which is the other half of the rule.
+
+    Without this the next reader finds sphagnum at `high`/28 %, reads REQ-019's
+    bands as a derivation rule and "repairs" the catalogue — silently rescaling
+    the watering volume of every record it touches. Asserting that such records
+    exist, and naming how many, makes that edit fail loudly instead.
+
+    The count is deliberately a floor rather than an exact number: a new sourced
+    value may legitimately add a disagreement, and pinning equality would turn
+    this into a change detector. What must not happen is the set collapsing to
+    empty, because only a mass rewrite of the enums gets it there.
+    """
+    disagreeing = {
+        _label(e): f"{e.get('water_retention')} vs whc {e.get('water_holding_capacity_percent')} "
+        f"({_whc_band(float(e['water_holding_capacity_percent']))})"
+        for e in _substrates()
+        if e.get("water_holding_capacity_percent") is not None
+        and e.get("water_retention") != _whc_band(float(e["water_holding_capacity_percent"]))
+    }
+
+    assert "Sphagnum" in " ".join(disagreeing), (
+        "the sourced sphagnum record no longer disagrees with its WHC band. Either the "
+        "sourced 28 % was changed, or the enum was aligned to it — the second is the "
+        f"regression this test exists for (#1175, #1368). Disagreeing now: {sorted(disagreeing)}"
+    )
+    assert len(disagreeing) >= 5, (
+        "the enum/WHC disagreements have been mass-corrected. REQ-019's bands describe "
+        "water_holding_capacity_percent, not water_retention, and the enum is the only "
+        f"signal the watering modifier reads (#1368). Disagreeing now: {sorted(disagreeing)}"
+    )
+
+
+# ── the seed header may only name real readers of a field (#1175) ────────────
+
+
+#: Delimiters of the ``ph_base`` convention block in the seed file's header. The
+#: guard below is scoped to it rather than to the whole header, because the block
+#: is the part that argues *from* the code: it justifies the water-extract
+#: convention by naming who reads the field.
+_PH_BLOCK_START = "# pH CONVENTION"
+_PH_BLOCK_END = "substrates:"
+
+#: Backticked tokens that are field names, not code locations. They are what the
+#: block is *about*, so they are named constantly and resolve to nothing.
+_NOT_A_CODE_LOCATION = frozenset({"ph_base", "ph_history", "ec_base_ms"})
+
+_BACKTICKED = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`")
+
+
+def _ph_convention_block() -> str:
+    raw = (Path(app.__file__).parent / "migrations" / "seed_data" / "substrates.yaml").read_text(encoding="utf-8")
+    start = raw.index(_PH_BLOCK_START)
+    end = raw.index(_PH_BLOCK_END, start)
+    return raw[start:end]
+
+
+def _app_sources() -> list[Path]:
+    return sorted(Path(app.__file__).parent.rglob("*.py"))
+
+
+def _resolve(token: str) -> list[Path]:
+    """Return the source files that define ``token`` as a module, class or function.
+
+    A token that resolves nowhere is not checked — the block is prose and mentions
+    plenty of things that are not code. What must not happen is a token that *does*
+    name a place in the codebase while that place never touches the field.
+    """
+    definition = re.compile(rf"^\s*(?:def|class)\s+{re.escape(token)}\b", re.MULTILINE)
+    return [
+        path for path in _app_sources() if path.stem == token or definition.search(path.read_text(encoding="utf-8"))
+    ]
+
+
+def test_the_resolver_finds_a_real_reader_and_rejects_a_non_reader() -> None:
+    """Boundary first: the guard is only worth anything if resolution actually works.
+
+    ``SubstrateLifecycleManager`` is the counterexample on purpose. The seed header
+    named it as a reader of ``ph_base`` and it is not one — ``check_reusability``
+    reads ``batch.ph_history`` (the stdev of a grower's own readings) and
+    ``substrate.ec_base_ms``, never ``ph_base``. That is the measurement that
+    falsified the sentence, and it is pinned here so the guard below cannot quietly
+    become one that resolves nothing and passes on everything.
+    """
+    reader = _resolve("calculate_mix_properties")
+    assert reader, "calculate_mix_properties no longer resolves — the guard below would be vacuous"
+    assert any("ph_base" in p.read_text(encoding="utf-8") for p in reader)
+
+    non_reader = _resolve("SubstrateLifecycleManager")
+    assert non_reader, "SubstrateLifecycleManager no longer resolves"
+    assert not any("ph_base" in p.read_text(encoding="utf-8") for p in non_reader), (
+        "SubstrateLifecycleManager now reads ph_base. The seed header's argument was rewritten "
+        "under #1175 on the measurement that it does not; re-check the header."
+    )
+
+
+def test_every_code_location_the_ph_block_names_reads_ph_base() -> None:
+    """The header argues the pH convention *from* its readers, so the list must hold.
+
+    The sentence "every reader of this field puts it in front of a water
+    measurement" is the whole justification for storing pH-H₂O rather than the
+    CaCl₂ figure German declarations tend to publish — and a reader named there
+    that does not read the field makes the argument look stronger than it is while
+    being unfalsifiable by reading the file. An earlier draft named
+    ``SubstrateLifecycleManager``; nothing caught it, because prose in a YAML
+    comment is checked by nobody.
+    """
+    named = {t for t in _BACKTICKED.findall(_ph_convention_block()) if t not in _NOT_A_CODE_LOCATION}
+    liars = {}
+    for token in sorted(named):
+        paths = _resolve(token)
+        if not paths:
+            continue
+        if not any("ph_base" in path.read_text(encoding="utf-8") for path in paths):
+            liars[token] = ", ".join(str(p.relative_to(Path(app.__file__).parent.parent)) for p in paths)
+
+    assert not liars, (
+        "the pH-convention block in substrates.yaml names these as readers of ph_base, and they do not "
+        "read it: " + "; ".join(f"{n} ({where})" for n, where in sorted(liars.items()))
     )
