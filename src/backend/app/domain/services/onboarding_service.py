@@ -7,7 +7,7 @@ import structlog
 
 from app.common.datetimes import today_utc
 from app.common.enums import SiteType
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.engines.onboarding_engine import OnboardingEngine
 from app.domain.models.onboarding import OnboardingState, PlantConfig
@@ -38,14 +38,18 @@ class OnboardingService:
             return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
         # Auto-create initial state. Two concurrent cold reads both find the
         # collection empty and both try to insert; the unique index on
-        # ``user_key`` makes the loser's insert raise DuplicateError. Re-read and
-        # return the winner's document instead of surfacing a 409 (upsert
-        # semantics) — this is the auto-create race that used to mint duplicate
-        # singletons under parallel load.
+        # ``user_key`` refuses the loser. Re-read and return the winner's document
+        # instead of surfacing a 409 (upsert semantics) — this is the auto-create
+        # race that used to mint duplicate singletons under parallel load.
+        #
+        # BOTH refusals are caught (#1458): 1210 (DuplicateError) once the winner's
+        # unique-index entry is committed and visible, 1200 (WriteConflictError)
+        # while its transaction still holds it. See
+        # :meth:`UserPreferenceService.get_preferences` for the same pairing.
         state = OnboardingState(user_key=user_key)
         try:
             doc = self._repo.create(state)
-        except DuplicateError:
+        except DuplicateError, WriteConflictError:
             docs = self._repo.find_by_field("user_key", user_key)
             return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
         return OnboardingState(**doc)

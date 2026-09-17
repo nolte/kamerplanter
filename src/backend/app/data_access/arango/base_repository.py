@@ -622,6 +622,22 @@ class BaseArangoRepository[TModel: BaseModel]:
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
+            if e.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # The sibling of the mapping :meth:`_insert_doc` (#1436) and
+                # :meth:`create_edge` (#1292) already perform, and the one this path
+                # never inherited (#1458). An update races the same way an insert
+                # does — two writers reaching the same document key, or the same
+                # unique-index entry through a changed field — and the server answers
+                # 1200 when it could not serialize this write against the other
+                # transaction. Unmapped it left the driver exception raw, and every
+                # caller above turned it into a 500.
+                #
+                # Not a variant of 1210: it says a concurrent transaction HELD the
+                # entry, never that that transaction committed, so it can never be
+                # read as "the record already exists". The driver's message is
+                # deliberately not forwarded — it names the index and a document key,
+                # and this error's ``details`` are client-visible.
+                raise WriteConflictError(self._collection_name) from e
             raise
         return self._from_doc(result["new"])
 
@@ -656,6 +672,11 @@ class BaseArangoRepository[TModel: BaseModel]:
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
+            if e.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # Same reasoning as :meth:`_update_doc` above (#1458). A partial
+                # update merges disjoint keys, but two writers touching the SAME key
+                # still serialize, and the loser gets 1200 rather than 1210.
+                raise WriteConflictError(self._collection_name) from e
             raise
         return self._from_doc(result["new"])
 

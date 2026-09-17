@@ -13,7 +13,7 @@ from enum import StrEnum
 from unittest.mock import MagicMock
 
 import pytest
-from arango.exceptions import DocumentInsertError
+from arango.exceptions import DocumentInsertError, DocumentUpdateError
 from pydantic import BaseModel, Field
 
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
@@ -983,3 +983,101 @@ class TestDeleteEdges:
 
         with pytest.raises(ValueError, match="from_id or vertex_id"):
             repo.delete_edges("uses")
+
+
+# ── update: the same mapping, on the two helpers that never inherited it (#1458) ─
+
+
+def _update_conflict_error() -> DocumentUpdateError:
+    """ArangoDB's 1200 as a *document update* reports it.
+
+    Shape copied from the insert exemplars above — the server answers the same
+    ``[HTTP 409][ERR 1200]`` for an update it could not serialize against a
+    concurrent transaction holding the same document key. The message names the
+    key, which is why it is not forwarded to the client.
+    """
+    err = DocumentUpdateError.__new__(DocumentUpdateError)
+    err.error_code = 1200
+    err.error_message = (
+        "write-write conflict - in index idx_1876288907249713152 of type persistent "
+        "over 'user_key'; document key: 526429; indexed values: [\"users/42\"]"
+    )
+    return err
+
+
+class TestUpdateWriteConflictMapping:
+    """``_update_doc``/``_update_doc_fields`` mapped 1202 and 1210 only.
+
+    #1436 gave ``_insert_doc`` the 1200 mapping and #1292 gave it to
+    ``create_edge``; the two update helpers are the siblings that were never
+    served — the "guard implemented, siblings never served" class. A losing
+    updater therefore reached the service layer as a bare driver exception, and
+    every caller above turns that into a 500 for what is a retryable condition.
+    """
+
+    def test_full_update_maps_write_conflict_to_domain_error(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.update.side_effect = _update_conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.update("w1", Widget(name="Hammer"))
+
+        assert exc.value.error_code == "WRITE_CONFLICT"
+        assert exc.value.status_code == 409
+        assert "widgets" in exc.value.message
+
+    def test_partial_update_maps_write_conflict_to_domain_error(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.update.side_effect = _update_conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.update_fields("w1", {"color": "red"})
+
+        assert exc.value.error_code == "WRITE_CONFLICT"
+        assert exc.value.status_code == 409
+
+    def test_update_write_conflict_is_not_a_duplicate_error(self, mock_db):
+        """Collapsing 1200 into ``DuplicateError`` would let every existing
+        ``except DuplicateError`` read a timing failure as "it already exists"."""
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.update.side_effect = _update_conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.update("w1", Widget(name="Hammer"))
+
+        assert not isinstance(exc.value, DuplicateError)
+
+    def test_the_driver_message_is_not_forwarded_to_the_client(self):
+        """It names an index and a document key, and ``details`` are client-visible."""
+        repo = BoundRepo(MagicMock(), "widgets")
+        repo._db.collection.return_value.update.side_effect = _update_conflict_error()
+
+        with pytest.raises(WriteConflictError) as exc:
+            repo.update("w1", Widget(name="Hammer"))
+
+        assert "idx_1876288907249713152" not in str(exc.value.details)
+        assert "526429" not in str(exc.value.details)
+
+    def test_the_other_update_codes_still_answer_what_they_answered(self, mock_db):
+        """Additive: 1202 stays ``NotFoundError`` and 1210 stays ``DuplicateError``.
+
+        The mapping is inserted *after* both, so this is the control that the new
+        branch did not shadow either of them.
+        """
+        repo = BoundRepo(mock_db, "widgets")
+
+        missing = DocumentUpdateError.__new__(DocumentUpdateError)
+        missing.error_code = 1202
+        missing.error_message = "document not found"
+        mock_db.collection.return_value.update.side_effect = missing
+        with pytest.raises(NotFoundError):
+            repo.update("w1", Widget(name="Hammer"))
+
+        duplicate = DocumentUpdateError.__new__(DocumentUpdateError)
+        duplicate.error_code = 1210
+        duplicate.error_message = (
+            "unique constraint violated - in index 42 of type persistent over '[\"name\"]'; conflicting key: 7"
+        )
+        mock_db.collection.return_value.update.side_effect = duplicate
+        with pytest.raises(DuplicateError):
+            repo.update("w1", Widget(name="Hammer"))

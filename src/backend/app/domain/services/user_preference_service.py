@@ -1,6 +1,6 @@
 import structlog
 
-from app.common.exceptions import DuplicateError
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.models.user_preference import DashboardLayout, UserPreference
 from app.domain.services.dashboard_widget_catalog import WIDGET_BY_KEY
@@ -85,14 +85,21 @@ class UserPreferenceService:
             return UserPreference(**pick_singleton(docs, collection=col.USER_PREFERENCES, user_key=user_key))
         # Auto-create defaults. Two concurrent cold reads both find the
         # collection empty and both try to insert; the unique index on
-        # ``user_key`` makes the loser's insert raise DuplicateError. Re-read and
-        # return the winner's document instead of surfacing a 409 (upsert
-        # semantics) — this is the auto-create race that used to mint duplicate
-        # singletons under parallel load.
+        # ``user_key`` refuses the loser. Re-read and return the winner's document
+        # instead of surfacing a 409 (upsert semantics) — this is the auto-create
+        # race that used to mint duplicate singletons under parallel load.
+        #
+        # BOTH refusals are caught (#1458). Which one the loser gets is the
+        # server's decision about how far the winner had got: 1210
+        # (DuplicateError) once the winner's unique-index entry is committed and
+        # visible, 1200 (WriteConflictError) while its transaction still holds the
+        # entry. A handler that caught only DuplicateError was still a 500 under
+        # exactly the load the retry exists for — the same pairing
+        # ``care_reminder_service`` made for the profile+edge race (#1292).
         pref = UserPreference(user_key=user_key)
         try:
             doc = self._repo.create(pref)
-        except DuplicateError:
+        except DuplicateError, WriteConflictError:
             docs = self._repo.find_by_field("user_key", user_key)
             return UserPreference(**pick_singleton(docs, collection=col.USER_PREFERENCES, user_key=user_key))
         return UserPreference(**doc)
