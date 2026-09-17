@@ -25,6 +25,15 @@ class ICareReminderRepository(ABC):
     def get_all_profiles(self) -> list[CareProfile]: ...
 
     @abstractmethod
+    def count_plants_without_profile(self, *, tenant_key: str | None) -> int:
+        """Count non-removed plants with no ``CareProfile`` (#1444).
+
+        ``None`` counts the whole installation; the empty string is refused, never
+        read as "all tenants".
+        """
+        ...
+
+    @abstractmethod
     def create_confirmation(self, confirmation: CareConfirmation) -> CareConfirmation: ...
 
     @abstractmethod
