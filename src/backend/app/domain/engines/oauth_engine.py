@@ -12,8 +12,17 @@ import httpx
 import structlog
 
 from app.common.enums import AuthProviderType
+from app.common.exceptions import ValidationError
 from app.domain.models.auth import OAuthRedirect, OAuthUserInfo
-from app.domain.models.oidc_config import OidcProviderConfig
+from app.domain.models.oidc_config import (
+    GITHUB_EMAIL_SCOPES,
+    GITHUB_REQUIRED_SCOPE,
+    OidcProviderConfig,
+    ProviderScopeCheck,
+    is_github_provider,
+    scope_tokens,
+    scopes_grant_github_email,
+)
 
 logger = structlog.get_logger()
 
@@ -132,6 +141,74 @@ class OAuthEngine:
             resp.raise_for_status()
             return resp.json()
 
+    def check_provider_scopes(self, config: OidcProviderConfig) -> ProviderScopeCheck:
+        """Judge a configured scope list against what the provider branch needs (#1477).
+
+        Only GitHub has a requirement today: ``_fetch_github_user_info`` reads
+        ``GET /user/emails`` for the ``verified`` flag, and GitHub answers that
+        endpoint with 403 unless the token carries ``user:email`` (or its parent
+        scope ``user``). Without it every sign-in produces no claim, #1403 refuses
+        the auto-link, and the only trace is one log line per sign-in — far from
+        the administration screen where the scope list was typed.
+
+        This returns a verdict and raises nothing, so ``/{key}/test`` can report
+        on a configuration that already exists.
+        """
+        tokens = scope_tokens(config.scopes)
+
+        if not is_github_provider(config.provider_type):
+            return ProviderScopeCheck(
+                ok=True,
+                provider_type=config.provider_type,
+                configured_scopes=tokens,
+                detail="This provider type has no scope requirement beyond the OIDC defaults.",
+            )
+
+        if scopes_grant_github_email(config.scopes):
+            return ProviderScopeCheck(
+                ok=True,
+                provider_type=config.provider_type,
+                configured_scopes=tokens,
+                detail=(
+                    "The scopes grant read access to the GitHub address list, so sign-in can "
+                    "read the `verified` flag and auto-linking stays available."
+                ),
+            )
+
+        detail = (
+            "GitHub exposes the per-address `verified` flag only on `GET /user/emails`, which "
+            f"needs the `{GITHUB_REQUIRED_SCOPE}` scope (the parent scope `user` also grants it). "
+            "Without it every sign-in through this provider reports no verification, so accounts "
+            "are never auto-linked."
+        )
+        if any(token.lower() in GITHUB_EMAIL_SCOPES for token in tokens):
+            detail += (
+                " A scope differing only in case is configured: GitHub scope names are "
+                "lower-case and no other casing is recognised."
+            )
+        return ProviderScopeCheck(
+            ok=False,
+            provider_type=config.provider_type,
+            configured_scopes=tokens,
+            missing_scopes=[GITHUB_REQUIRED_SCOPE],
+            detail=detail,
+        )
+
+    def require_supported_scopes(self, config: OidcProviderConfig) -> None:
+        """Refuse a provider configuration whose scopes cannot serve its own branch.
+
+        The write routes of ``/admin/oidc-providers`` call this; the check itself
+        lives here, beside the request it protects, so a second write route
+        cannot spell the requirement differently.
+        """
+        check = self.check_provider_scopes(config)
+        if check.ok:
+            return
+        raise ValidationError(
+            f"Provider '{config.slug}' is missing the scope {', '.join(check.missing_scopes)}. {check.detail}",
+            details=[{"field": "scopes", "message": check.detail}],
+        )
+
     def extract_user_info(
         self,
         config: OidcProviderConfig,
@@ -141,7 +218,7 @@ class OAuthEngine:
         """Extract user info, dispatching to provider-specific logic."""
         provider_type = config.provider_type
 
-        if provider_type == "github":
+        if is_github_provider(provider_type):
             return self._fetch_github_user_info(access_token)
         elif provider_type == "apple":
             return self._extract_apple_user_info(token_response)
