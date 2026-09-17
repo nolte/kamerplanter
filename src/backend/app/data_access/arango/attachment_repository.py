@@ -88,6 +88,33 @@ TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
 )
 
 
+def aql_storage_key_stem(expression: str) -> str:
+    """AQL yielding the **object id** a storage key ends in — the second identity.
+
+    ``StorageKeyBuilder.build`` emits ``t/{tenant}/{cat}/{yyyy}/{mm}/{ulid}.{ext}``
+    and mints that ULID itself, so it is unrelated to the attachment's numeric
+    ``_key`` (NFR-013 §2.2, "two identities"). Comparing a ``photo_refs`` entry
+    against an attachment's *own* ``storage_key`` is therefore the only way to
+    connect the two, and this expression is the reduction both sides of that
+    comparison run through: the last path segment, without its extension.
+
+    **One definition, two consumers, on purpose.** The orphan sweep
+    (:meth:`ArangoAttachmentRepository._aql_unreferenced`) asks with it whether an
+    attachment is still referenced, and ``v0046_reconcile_photo_refs`` asks with it
+    which attachment a reference denotes, applying it to the *reference* as well as
+    to the attachment. Those two answering differently is exactly the root cause
+    #1438 records — a sweep that deletes what the repair still points at — so the
+    string is built here and transcribed nowhere.
+
+    Deliberately narrow: no thumbnail-suffix stripping, no query-string handling.
+    The wide, tolerant superset is :func:`aql_photo_ref_candidates`, whose output is
+    only ever used to *protect* a row. An id that is merely plausible must not
+    decide what a reference gets rewritten to — the candidate ``"320"`` derived from
+    ``/attachments/{id}/thumbnails/320`` would equal a real numeric ``_key``.
+    """
+    return f'FIRST(SPLIT(LAST(SPLIT({expression}, "/")), "."))'
+
+
 def aql_photo_ref_candidates(expression: str) -> str:
     """AQL yielding **every** id one ``photo_refs`` entry might denote.
 
@@ -428,9 +455,15 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         a photo whose bytes were also uploaded to another task, or to a plant
         gallery, was destroyed with the task and left a dangling reference behind.
 
-        ``photo_refs`` entries may be ids, API URIs or storage keys (``migrate_photo_refs``
-        exists for that, and is manual), so every candidate spelling is resolved
-        through :func:`aql_photo_ref_candidates`.
+        ``photo_refs`` entries may be ids, API URIs or storage keys, so every candidate
+        spelling is resolved through :func:`aql_photo_ref_candidates`. Note that
+        ``migrate_photo_refs`` does **not** collapse those spellings into one:
+        ``v0003`` runs it on every installation at startup, but since #1438 it only
+        rewrites the ``/attachments/{id}`` URI shape and leaves a storage key
+        verbatim — because the storage key's ULID is not a document key, so mapping
+        it needs this very catalogue. A storage-key entry therefore reaches this
+        query unchanged and is resolved here, by the ``storage_key`` comparison in
+        :meth:`_aql_unreferenced`.
         """
         # ``@ignored_task_key`` discounts one task's own references, for the route
         # that deletes a photo *from* that task. Applied to the tasks collection
@@ -513,7 +546,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         legacy rows and other carriers' writers, and each of those shapes is a path
         whose segments this resolves.
         """
-        storage_stem = f'FIRST(SPLIT(LAST(SPLIT({attachment_expression}.storage_key, "/")), "."))'
+        storage_stem = aql_storage_key_stem(f"{attachment_expression}.storage_key")
         return (
             f"{attachment_expression}._key NOT IN {candidates_expression}"
             f" AND ({attachment_expression}.storage_key == null"
