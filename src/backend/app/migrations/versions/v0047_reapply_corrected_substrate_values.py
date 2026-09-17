@@ -1,4 +1,4 @@
-"""v0046 — re-apply corrected substrate catalogue values to unmodified seed records (#1368).
+"""v0047 — re-apply corrected substrate catalogue values to unmodified seed records (#1368).
 
 ``seed_substrates.py`` skips any record whose ``(type, name_de or brand)`` already
 exists. It is a seeder, never an upsert — so every installation seeded before a
@@ -50,15 +50,18 @@ modifier); the sourced 28 vol-% value itself arrives with PR #1348 and is not on
 migration that wrote a number the seed file does not contain would make a fresh
 install and a migrated one disagree, which is the defect this exists to end.
 
-**On the version number.** ``0047`` was asked for, because an unmerged branch
-(``fix/2026-09-16-task-photo-refs``) already carries a ``v0046``. It is not
-available: ``discovery.validate_sequence`` enforces gapless numbering from
-``0001`` (M-1), so a ``0047`` with no ``0046`` beside it makes *every* discovery —
-application startup included — raise ``MigrationDiscoveryError: Non-contiguous
-version numbering: expected 0046, got 0047``. Measured on this branch before
-renumbering. Two open branches that each add a migration always collide this way;
-whichever lands second renames its module and its ``version`` string, which is
-mechanical and has no data implications while neither has been applied anywhere.
+**On the version number.** This migration was written as ``0046`` and renumbered
+to ``0047`` when the other open branch landed first: ``v0046_reconcile_photo_refs``
+is on ``develop`` as of ``60de4db9c``, so after merging it in, two ``0046`` modules
+sat side by side and ``discovery.validate_sequence`` refused the whole set with
+``MigrationDiscoveryError: Duplicate migration versions: [... '0046', '0046']`` —
+measured on this branch before renumbering. The number could not simply have been
+claimed as ``0047`` up front either: the same validator enforces gapless numbering
+from ``0001`` (M-1), so a ``0047`` with no ``0046`` beside it fails every discovery,
+application startup included. Two open branches that each add a migration always
+collide this way; whichever lands second renames its module and its ``version``
+string after merging, which is mechanical and has no data implications while
+neither has been applied anywhere.
 
 Idempotent (M-3): a re-run finds every eligible record already carrying the new
 value, so nothing matches the old one and ``changed == 0``.
@@ -265,7 +268,7 @@ class _Plan:
 
 
 class ReapplyCorrectedSubstrateValuesMigration(Migration):
-    version = "0046"
+    version = "0047"
     name = "reapply_corrected_substrate_values"
     description = "Re-apply corrected substrate catalogue values to unmodified seed records (#1368)."
     reversible = False

@@ -1,4 +1,4 @@
-"""v0046 re-applies corrected catalogue values to unmodified seed records (#1368).
+"""v0047 re-applies corrected catalogue values to unmodified seed records (#1368).
 
 The whole point of the migration is what it does *not* touch, so that is where the
 tests are: a record a tenant edited keeps the tenant's value, a record that is not
@@ -23,7 +23,7 @@ from typing import Any
 
 import pytest
 
-from app.migrations.versions.v0046_reapply_corrected_substrate_values import (
+from app.migrations.versions.v0047_reapply_corrected_substrate_values import (
     _ABSENT,
     _CORRECTIONS,
     ReapplyCorrectedSubstrateValuesMigration,
