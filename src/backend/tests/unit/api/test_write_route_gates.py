@@ -253,6 +253,11 @@ _CARE_PROFILE_SINKS = frozenset(
     {
         "col.insert() in app.data_access.arango.base_repository::BaseArangoRepository.create_edge",
         "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
+        # #1292: the loser of the profile+edge race deletes its own, never-linked
+        # profile document (CareReminderService._resolve_lost_profile_race). It is
+        # reachable only inside the may_create=True branch the witness already
+        # covers; the detector is path-insensitive, so the sink is named here.
+        "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
     }
 )
 
