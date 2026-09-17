@@ -27,6 +27,23 @@ source .venv/bin/activate
 
 Das installiert exakt die in `uv.lock` festgehaltenen Produktions- und Entwicklungsabhängigkeiten (hash-verifiziert), einschließlich pytest, pytest-asyncio und pytest-cov. uv installieren: <https://docs.astral.sh/uv/>.
 
+!!! warning "Der Aktivierungsschritt ist Pflicht — die Suite erzwingt ihn"
+
+    `src/backend/tests/conftest.py` bricht die Session beim Start ab, wenn der
+    Interpreter nicht zu diesem Checkout gehört (#1434). Geprüft wird zweierlei:
+
+    - **`import app` kommt aus diesem Baum.** Das Editable-Install eines anderen
+      Checkouts darf den Import nicht beantworten — sonst misst der Lauf einen
+      anderen Arbeitsbaum, als du gerade bearbeitest.
+    - **Der Interpreter ist ein venv** (`sys.prefix != sys.base_prefix`). Der
+      System-Interpreter hat nicht den hash-verifizierten Paketstand des Locks.
+
+    Der Abbruch ist ein **Fehler mit beiden Pfaden und der Erwartung**, kein Skip
+    und keine Warnung: Ein Lauf im falschen Interpreter hat vorher ohne Hinweis
+    Tests übersprungen und trotzdem grün gemeldet. `uv run --locked python -m
+    pytest …` ist gleichwertig zur Aktivierung — es zeigt `sys.prefix` auf
+    `src/backend/.venv` und wird nicht abgelehnt.
+
 ### Tests ausführen
 
 ```bash
@@ -94,23 +111,48 @@ Verfügbare Fixtures: `sample_species_data`, `sample_site_data`, `sample_locatio
 
 ### Integrationstests
 
-Integrationstests unter `tests/integration/` erfordern eine laufende ArangoDB-Instanz. Sie werden automatisch übersprungen, wenn keine Verbindung besteht:
+Integrationstests unter `tests/integration/` brauchen eine laufende ArangoDB-Instanz — sie sind die einzige Prüfung der Repository- und AQL-Schicht gegen eine echte Datenbank. In CI laufen sie als Pflicht-Lane (`Integration tests (ArangoDB)` in `backend.yml`) gegen einen Service-Container.
+
+Ob eine Datenbank da ist, entscheidet **eine** Stelle: `tests/integration/conftest.py`. Module hängen sich mit einem Marker an dieses Session-Fixture:
 
 ```python
-@pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available")
-class TestArangoSetup:
-    ...
+pytestmark = pytest.mark.usefixtures("arango_db")
 ```
+
+!!! warning "Fehlende Datenbank ist in CI ein Fehler, kein Skip"
+    Ist `CI` gesetzt und antwortet keine Datenbank, **scheitert** der Lauf und nennt die versuchte Adresse. Lokal wird stattdessen übersprungen — mit demselben Grund. Weil `task test:backend:integration` den Skip-Floor `--max-skipped 0` deklariert, wird aber auch dieser lokale Skip rot. Das ist Absicht: Vor dieser Regel meldete das Tier auf einem Runner `7 passed, 136 skipped` und Exit-Code 0, also grün, ohne etwas gemessen zu haben.
 
 Um sie gezielt auszuführen:
 
 ```bash
-# ArangoDB starten (z. B. via Docker Compose)
-docker-compose up -d arangodb
+# ArangoDB starten (Dev-Stack oder ein Wegwerf-Container)
+task dev:core
+# oder:
+docker run -d --rm --name kp-it-arango -p 8529:8529 \
+  -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 
-# Nur Integrationstests
-pytest tests/integration/ -v
+# Nur Integrationstests — dieselbe Invocation wie in CI
+task test:backend:integration
 ```
+
+Zeigt deine Datenbank woandershin, setzt du `ARANGODB_HOST`, `ARANGODB_PORT`, `ARANGODB_USERNAME` und `ARANGODB_PASSWORD` — dieselben Variablen, die die Anwendung liest. Eine Adresse steht in keinem Testmodul mehr fest verdrahtet.
+
+### Skip-Floor je Tier
+
+Ein übersprungener Test beendet pytest mit demselben Exit-Code wie ein bestandener. Ein Tier, das still aufgehört hat zu laufen, meldet deshalb grün. Jedes Tier-Target deklariert darum seine **gemessene** Skip-Zahl:
+
+```bash
+pytest tests/unit/ --max-skipped 1        # task test:backend:unit
+pytest tests/contracts/ --max-skipped 0   # task test:backend:contracts
+pytest tests/api/ --max-skipped 0         # task test:backend:api
+pytest tests/integration/ --max-skipped 0 # task test:backend:integration (braucht eine DB)
+```
+
+Werden mehr Tests übersprungen als deklariert, wird der Lauf rot und nennt **jeden** Skip-Grund — so ist der neue Skip erkennbar und die Zahl wird nicht blind gehoben.
+
+Die heutige `1` im Unit-Tier ist `tests/unit/migrations/test_e2e_admin_env_containment.py`: Der Test läuft über jede Konfigurationsdatei des Repositories und überspringt genau die eine Datei, die `E2E_PLATFORM_ADMIN_*` setzen darf. Dieser Skip ist die Allowlist selbst und damit dauerhaft.
+
+Einen neuen, begründeten Skip hebst du in `.taskfiles/backend.yaml` — im selben Commit, der ihn einführt. Der Skip wird damit eine sichtbare Entscheidung.
 
 ### Code Coverage
 

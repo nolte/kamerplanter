@@ -1,6 +1,105 @@
+"""Root fixtures for the backend suite, plus the two execution guards of #1434.
+
+The guards answer "did this tier actually run?": the interpreter check at session
+start refuses a session whose ``app`` comes from another checkout or whose
+interpreter is not a virtual environment, and ``--max-skipped N`` reddens a run
+that skipped more tests than the tier declares. Both mechanisms are pure
+functions in ``tests/support/execution_guards.py``; this module only supplies the
+live values and turns a message into a session failure.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 import pytest
 
+import app
 from app.common.exceptions import NotFoundError
+from tests.support.execution_guards import (
+    find_project_root,
+    interpreter_violation,
+    skip_floor_violation,
+)
+
+#: The checkout this conftest belongs to, found by walking up to the nearest
+#: ``pyproject.toml``. Computed from ``__file__`` rather than from the working
+#: directory: the working directory is exactly the thing that differs between a
+#: correct run and the worktree mix-up the guard exists to catch.
+_PROJECT_ROOT = find_project_root(Path(__file__))
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register ``--max-skipped`` — the tier's declared skip count (#1434)."""
+    parser.addoption(
+        "--max-skipped",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Fail the run if more than N tests were skipped. Each tier declares its "
+            "measured number in .taskfiles/backend.yaml; the failure lists every skip "
+            "reason so a new skip is identifiable."
+        ),
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Abort the session before collection if the interpreter is the wrong one (#1434).
+
+    Raises:
+        pytest.UsageError: naming both paths and the expectation. Deliberately an
+            error and not a skip or a warning — the failure class this guards
+            against is a run that looked green while measuring something else.
+    """
+    message = interpreter_violation(
+        app_file=app.__file__,
+        project_root=_PROJECT_ROOT,
+        prefix=sys.prefix,
+        base_prefix=sys.base_prefix,
+        executable=sys.executable,
+    )
+    if message is not None:
+        raise pytest.UsageError(message)
+
+
+def _render_skip(report: pytest.TestReport | pytest.CollectReport) -> str:
+    """Render one skip report the way ``-rs`` renders it: ``path:lineno: reason``."""
+    longrepr = report.longrepr
+    if isinstance(longrepr, tuple) and len(longrepr) == 3:
+        path, lineno, reason = longrepr
+        # pytest's own `-rs` summary drops this prefix; keeping the rendering
+        # identical is what lets a reader compare the two outputs line for line.
+        reason = str(reason).removeprefix("Skipped: ")
+        return f"{path}:{lineno}: {reason}"
+    return f"{report.nodeid}: {longrepr}"
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Redden a run that skipped more than its tier declares (#1434).
+
+    ``exitstatus`` is the value pytest computed; ``wrap_session`` returns
+    ``session.exitstatus`` after this hook, so assigning it here is what turns the
+    violation into the process's exit code.
+    """
+    max_skipped = session.config.getoption("--max-skipped")
+    if max_skipped is None:
+        return
+
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is None:  # pragma: no cover - only absent under -p no:terminal
+        return
+
+    reasons = [_render_skip(report) for report in reporter.stats.get("skipped", [])]
+    message = skip_floor_violation(max_skipped=max_skipped, reasons=reasons)
+    if message is None:
+        return
+
+    reporter.write_line("")
+    reporter.write_sep("=", "skip floor exceeded", red=True, bold=True)
+    reporter.write_line(message)
+    session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
 def wire_or_raise(

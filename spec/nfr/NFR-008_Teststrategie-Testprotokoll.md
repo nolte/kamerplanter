@@ -102,7 +102,7 @@ Praktisches Beispiel:
 | Stufe | Werkzeuge | Coverage-Ziel | Ausführung |
 |---|---|---|---|
 | **Unit-Tests** | pytest (Backend), vitest (Frontend) | ≥80% Line / ≥75% Branch (gesamt); ≥85% Line für Business-Logic-Layer (`services/`, `engines/`) | Lokal + CI |
-| **Integrationstests** | pytest + testcontainers (ArangoDB, Redis), vitest + MSW | ≥70% kritische Pfade (Service-Public-API, Engine-Public-API) | Lokal + CI |
+| **Integrationstests** | pytest gegen echte ArangoDB (Service-Container in CI, `docker run`/Dev-Stack lokal), vitest + MSW | ≥70% kritische Pfade (Service-Public-API, Engine-Public-API) | Lokal + **CI: ja, Pflicht** (Job `Integration tests (ArangoDB)`, #1432) |
 | **API-/Contract-Tests** | pytest + httpx (TestClient), Pydantic-Schema-Validation | 100% der öffentlichen Endpunkte (mind. Happy-Path + 1 Error-Path je Endpunkt) | Lokal + CI |
 | **E2E-Tests (Selenium)** | Selenium WebDriver, pytest-selenium, pytest-html | Kernfunktionen pro REQ (siehe NFR-008a §3.3 Liste) | Lokal |
 
@@ -953,6 +953,60 @@ pytest tests/e2e/ --generate-protocol
 #     ├── 001_dashboard-overview.png
 #     └── ...
 ```
+
+### 6.4 Ausführungs-Zusicherung je Teststufe
+
+Ein Teststufen-Lauf MUSS belegen, dass er tatsächlich ausgeführt hat. Ein grüner
+Exit-Code allein belegt das nicht: pytest beendet sich nach einem übersprungenen
+Test mit demselben Code wie nach einem bestandenen, und ein Lauf im falschen
+Interpreter misst einen anderen Paketstand — oder einen anderen Arbeitsbaum — als
+den, über den er berichtet. Beide Formen sind am 2026-09-16 an dieser Suite
+gemessen worden (#1434).
+
+**MUSS**: `src/backend/tests/conftest.py` bricht die Session beim Start ab, wenn
+`import app` nicht aus dem Checkout kommt, zu dem die conftest gehört (Aufwärtssuche
+nach `pyproject.toml`), oder wenn `sys.prefix == sys.base_prefix` gilt. Der Abbruch
+ist ein Fehler mit beiden Pfaden und der Erwartung — kein Skip und keine Warnung.
+Die Prüfung hängt bewusst nicht an `VIRTUAL_ENV`: `uv run --locked` setzt die
+Variable nicht und wäre sonst abgelehnt.
+
+**MUSS**: Jede Teststufe deklariert ihre **gemessene** Skip-Zahl als Vertrag über
+`--max-skipped N`, und zwar dort, wo die Stufe aufgerufen wird
+(`.taskfiles/backend.yaml`; für eine in einem Workflow inline aufgerufene Stufe
+in derselben Zeile). Überschreitet ein Lauf die Zahl, wird er rot.
+
+**MUSS**: Die Fehlermeldung nennt **jeden** Skip-Grund, nicht nur die Anzahl. Ohne
+die Gründe ist nicht erkennbar, welcher Skip neu ist, und die Zahl wird blind
+gehoben statt geprüft.
+
+**MUSS**: Ein neuer, begründeter Skip hebt die deklarierte Zahl in demselben
+Commit, der ihn einführt. Der Skip wird damit eine sichtbare Entscheidung statt
+einer stillen Reduktion des Testumfangs.
+
+**MUSS**: Eine Teststufe, die einen Dienst braucht, entscheidet die Verfügbarkeit
+dieses Dienstes **zentral** — nicht je Modul — und wertet sie umgebungsabhängig:
+in CI (`CI` gesetzt) ist ein fehlender Dienst ein **Fehler mit der versuchten
+Verbindungsadresse**, lokal darf es ein Skip mit demselben Grund sein. Ein
+modul-lokaler `skipif` verbietet sich: er macht die Stufe in CI grün, ohne dass
+sie etwas gemessen hat. Gemessen am 2026-09-16 für `tests/integration/`:
+neun Module mit eigener Probe ergaben auf einem Runner `7 passed, 136 skipped`
+und Exit-Code 0; mit der zentralen Regel ergibt derselbe Lauf 136 Fehler (#1432).
+
+**MUSS**: Die Adresse des Dienstes ist konfigurierbar (dieselben
+Umgebungsvariablen, die die Anwendung liest), nicht literal im Testmodul. Sonst
+kann keine Lane die Stufe auf ihren eigenen Container zeigen lassen.
+
+Stand 2026-09-16 (`pytest <Stufe> -q -rs`):
+
+| Teststufe | Deklarierte Skip-Zahl | Begründung |
+|---|---|---|
+| `tests/unit/` | 1 | `test_e2e_admin_env_containment.py:86` — der parametrisierte Guard überspringt die eine Konfigurationsdatei, die `E2E_PLATFORM_ADMIN_*` setzen darf; der Skip **ist** die Allowlist |
+| `tests/contracts/` | 0 | keine Skips |
+| `tests/api/` | 0 | keine Skips |
+| `tests/unit/api` + `tests/unit/guards` (Pflicht-Lane `backend-guards.yml`) | 0 | keine Skips |
+| `tests/integration/` | 0 | seit #1432 in CI Pflicht (Job `Integration tests (ArangoDB)` in `backend.yml`, ArangoDB als Service-Container): **mit** Datenbank 0 Skips (143 bestanden, gemessen 2026-09-16). Ohne Datenbank bricht `tests/integration/conftest.py` den Lauf ab, sobald `CI` gesetzt ist; lokal skippt es laut — und die deklarierte 0 rötet auch diesen Skip |
+
+---
 
 ---
 
