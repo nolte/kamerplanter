@@ -5,20 +5,12 @@ Requires: docker compose up arangodb
 """
 
 import pytest
+from arango import ArangoClient
 
-ARANGO_AVAILABLE = False
-try:
-    from arango import ArangoClient
-
-    client = ArangoClient(hosts="http://localhost:8529")
-    client.db("_system", username="root", password="rootpassword").version()
-    ARANGO_AVAILABLE = True
-    client.close()
-except Exception:
-    pass
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
 
-@pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available")
+@pytest.mark.usefixtures("arango_db")
 class TestArangoSetup:
     def test_collections_created(self):
         from app.config.settings import Settings
@@ -40,7 +32,7 @@ class TestArangoSetup:
         assert db.has_graph("kamerplanter_graph")
 
         # Cleanup
-        db_sys = ArangoClient(hosts="http://localhost:8529").db("_system", username="root", password="rootpassword")
+        db_sys = ArangoClient(hosts=ARANGO_URL).db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
         if db_sys.has_database("kamerplanter_test"):
             db_sys.delete_database("kamerplanter_test")
         conn.close()

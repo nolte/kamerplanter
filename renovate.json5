@@ -403,6 +403,15 @@
     // asdf manager `node`, and without the datasource filter those would be
     // pulled into the image group.
     //
+    // Workflow SERVICE containers are in here for the same reason: the
+    // github-actions manager extracts `jobs.<id>.services.<id>.image` as an
+    // ordinary docker dependency (`depType: service`), so the ArangoDB service
+    // of the `Integration tests (ArangoDB)` job in backend.yml lands in the same
+    // branch as the compose reference. Verified 2026-09-16 with
+    // `renovate --platform=local --dry-run=extract`, because a lane digest that
+    // drifted from the compose digest would mean CI and the dev stack measure
+    // against different servers (#1432).
+    //
     // No automerge. These are the databases the tests run against and the
     // browser the E2E suite drives; a green run is necessary but the merge
     // stays a decision.

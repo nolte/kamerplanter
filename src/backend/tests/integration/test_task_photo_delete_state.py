@@ -16,10 +16,11 @@ The three states and what each costs if the query gets it wrong:
 ``staged``   read as ``task``      → any member may delete any other member's staged
              upload through any task key of the tenant (the round-5 finding).
 
-Skipped when no ArangoDB answers on ``localhost:8529``. See the module docstring of
-``test_orphaned_task_photo_query.py`` for how to start one. That the tier does not run
-in CI is #1432; that this file therefore carries the only executing coverage of this
-query is the reason it is written as carefully as it is.
+Needs a real ArangoDB — see the module docstring of ``test_orphaned_task_photo_query.py``
+for how to start one; a missing database is a failure in CI and a loud skip locally
+(``conftest.py``). This file carries the only executing coverage of this query, which is
+the reason it is written as carefully as it is — and the reason #1432 put the tier into
+a gate instead of leaving it to self-skip.
 """
 
 from __future__ import annotations
@@ -27,12 +28,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
-ARANGO_URL = "http://localhost:8529"
-ARANGO_PASSWORD = "rootpassword"
 TEST_DATABASE = "kp_test_task_photo_delete_state"
 TENANT = "tenant-a"
 OTHER_TENANT = "tenant-b"
@@ -40,17 +41,8 @@ OWN_TASK = "task-own"
 OTHER_TASK = "task-other"
 UPLOADER = "user-uploader"
 
-ARANGO_AVAILABLE = False
-try:
-    from arango import ArangoClient
 
-    _probe = ArangoClient(hosts=ARANGO_URL)
-    _probe.db("_system", username="root", password=ARANGO_PASSWORD).version()
-    ARANGO_AVAILABLE = True
-except Exception:  # noqa: BLE001 — any failure means "no database here"
-    pass
-
-pytestmark = pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available on localhost:8529")
+pytestmark = pytest.mark.usefixtures("arango_db")
 
 #: Collections the query reads. Spelled out rather than imported from
 #: ``PHOTO_REF_COLLECTIONS``: a fixture built from the constant under test breaks its
@@ -87,11 +79,11 @@ def _attachment(key: str, *, tenant: str = TENANT, created_by: str = UPLOADER) -
 @pytest.fixture
 def db():
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username="root", password=ARANGO_PASSWORD)
+    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if system.has_database(TEST_DATABASE):
         system.delete_database(TEST_DATABASE)
     system.create_database(TEST_DATABASE)
-    database = client.db(TEST_DATABASE, username="root", password=ARANGO_PASSWORD)
+    database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     for name in _COLLECTIONS:
         database.create_collection(name)
     yield database
