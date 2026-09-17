@@ -581,6 +581,15 @@ class CareReminderEngine:
         2. FAMILY_CARE_MAP → CARE_STYLE_PRESETS (family-level generic)
         3. TROPICAL preset (default fallback)
 
+        Tier 1 became true in production with #1481 — until then no caller passed a
+        guide and the ranking described a parameter nothing filled. It is now
+        resolved with the family in ``resolve_care_inputs`` (the cultivar's
+        ``watering_guide_override`` ahead of the species' own, the precedence
+        ``WateringService`` already used), and
+        ``tests/unit/domain/services/test_care_profile_watering_guide.py`` requires
+        a production call site to exist, so this list cannot go back to being a
+        claim about nothing.
+
         ``botanical_family`` is the family **NAME** (``"Cactaceae"``) — what
         :data:`FAMILY_CARE_MAP` is keyed by — never the ``_key`` of a
         ``botanical_families`` document. Handing it the key is a type error, and

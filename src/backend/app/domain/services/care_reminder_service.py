@@ -33,7 +33,7 @@ from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
-from app.domain.models.species import Species
+from app.domain.models.species import Cultivar, Species, WateringGuide
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.notification_propagation_service import NotificationPropagationService
@@ -67,13 +67,17 @@ class CareInputs:
 
     ``family_name`` is the botanical family **name** — the value
     ``FAMILY_CARE_MAP`` is keyed by — never the ``_key`` the species stores.
+    ``watering_guide`` is the engine's tier-1 source, the cultivar's override
+    ahead of the species' own.
     """
 
     family_name: str | None = None
+    watering_guide: WateringGuide | None = None
 
 
 def resolve_care_inputs(
     species: Species | None,
+    cultivar: Cultivar | None = None,
     *,
     resolve_family_name: Callable[[str], str | None],
 ) -> CareInputs:
@@ -89,6 +93,11 @@ def resolve_care_inputs(
     repair migration passes a lookup into the family index it already batched — no
     caller can resolve it a fourth way.
 
+    The ``watering_guide`` travels with it. Until #1481 no production caller passed
+    one, so the tier ``auto_generate_profile``'s docstring calls "highest priority"
+    existed only in that docstring and every stored profile came from the family
+    preset or the ``TROPICAL`` fallback.
+
     A ``family_key`` that names no document is used **verbatim as the name** when it
     is not numeric — an installation whose species carry family names in that field
     is then served, which is the behaviour v0048 shipped with. A numeric key that
@@ -96,8 +105,10 @@ def resolve_care_inputs(
     ``TROPICAL``, and passing it on is the #1489 defect wearing a different value
     (the engine refuses it outright).
     """
+    guide = _watering_guide_of(species, cultivar)
+
     if species is None or not species.family_key:
-        return CareInputs()
+        return CareInputs(watering_guide=guide)
 
     family_key = species.family_key
     family_name = resolve_family_name(family_key)
@@ -109,7 +120,20 @@ def resolve_care_inputs(
             species_key=species.key,
             used_verbatim=family_name is not None,
         )
-    return CareInputs(family_name=family_name)
+    return CareInputs(family_name=family_name, watering_guide=guide)
+
+
+def _watering_guide_of(species: Species | None, cultivar: Cultivar | None) -> WateringGuide | None:
+    """The guide that governs this plant — the cultivar's override first (#1481).
+
+    The precedence is ``WateringService.get_volume_suggestion``'s
+    (``watering_service.py:321-325``), not a new one: ``cultivar_seed`` fills
+    ``watering_guide_override`` from the plant-info YAML, and two services
+    disagreeing about which guide governs one plant is the class this group closes.
+    """
+    if cultivar is not None and cultivar.watering_guide_override is not None:
+        return cultivar.watering_guide_override
+    return species.watering_guide if species is not None else None
 
 
 def _is_due(due_date: datetime | None) -> bool:
@@ -384,11 +408,15 @@ class CareReminderService:
         which they cannot disagree.
         """
         species = None
+        cultivar = None
         if self._plant_repo is not None and self._species_repo is not None:
             plant = self._plant_repo.get_by_key(plant_key)
-            if plant is not None and plant.species_key:
-                species = self._species_repo.get_by_key(plant.species_key)
-        return resolve_care_inputs(species, resolve_family_name=self._family_name)
+            if plant is not None:
+                if plant.species_key:
+                    species = self._species_repo.get_by_key(plant.species_key)
+                if plant.cultivar_key:
+                    cultivar = self._species_repo.get_cultivar_by_key(plant.cultivar_key)
+        return resolve_care_inputs(species, cultivar, resolve_family_name=self._family_name)
 
     def get_or_create_profile(
         self,
@@ -424,6 +452,7 @@ class CareReminderService:
         new_profile = self._engine.auto_generate_profile(
             botanical_family=inputs.family_name,
             plant_key=plant_key,
+            watering_guide=inputs.watering_guide,
         )
         if not may_create:
             # Generated, not stored. The caller is reading.
@@ -1529,6 +1558,7 @@ class CareReminderService:
         new_profile = self._engine.auto_generate_profile(
             botanical_family=inputs.family_name,
             plant_key=plant_key,
+            watering_guide=inputs.watering_guide,
         )
         new_data = new_profile.model_dump(exclude={"key", "created_at", "updated_at"})
         reset = CareProfile(**{**profile.model_dump(), **new_data})

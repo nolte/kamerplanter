@@ -58,9 +58,14 @@ numeric dangling one is dropped (it can only mean ``TROPICAL``, and since #1489 
 engine refuses a document key outright). The row is reported under
 ``family_unresolved`` either way.
 
-``watering_guide`` is deliberately **not** passed: no production caller passes one
-(#1481), so a backfill that synthesised one would give migrated plants presets no
-freshly created plant receives.
+``watering_guide`` is deliberately **not** passed: at the time this migration was
+written no production caller passed one (#1481), so a backfill that synthesised one
+would have given migrated plants presets no freshly created plant received. That
+premise has since changed — #1481 wired the guide into the creation path — and this
+migration is **not** edited for it: it is applied, and a migration that computes
+something different on re-run than it did on first run is not a migration. v0050
+repairs both fields over the population this one created, which is where the
+correction belongs.
 
 The profile carries ``plant_key`` and **no** ``tenant_key`` — the model has none;
 a ``CareProfile`` is tenant-anchored through its plant, the shape ``Location`` and
