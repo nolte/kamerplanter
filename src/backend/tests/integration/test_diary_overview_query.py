@@ -10,7 +10,9 @@ timestamp, and above all not that the persistent index
 seven more predicates hang off the same ``FOR`` loop. An index the query misses
 costs write throughput and buys nothing — and nothing in a unit test would say so.
 
-Skipped when no ArangoDB answers on ``localhost:8529``. Run it with::
+Runs in CI against a service container; locally it needs a database of its own
+(a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one
+with::
 
     docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_diary_overview_query.py -v
@@ -21,14 +23,14 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
+from arango import ArangoClient
 
 from app.common.enums import DiaryAnalysisState
 from app.data_access.arango import collections as col
 from app.data_access.arango.plant_diary_repository import ArangoPlantDiaryRepository
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
-ARANGO_URL = "http://localhost:8529"
-ARANGO_PASSWORD = "rootpassword"
 TEST_DATABASE = "kamerplanter_diary_overview_test"
 
 TENANT = "tenant-a"
@@ -37,18 +39,8 @@ FOREIGN_TENANT = "tenant-b"
 #: The index this query must keep reaching (migration ``v0033``).
 INDEX_FIELDS = ["tenant_key", "analysis_state", "analysis_requested_at"]
 
-ARANGO_AVAILABLE = False
-try:  # pragma: no cover - probe, not behaviour
-    from arango import ArangoClient
 
-    _probe = ArangoClient(hosts=ARANGO_URL)
-    _probe.db("_system", username="root", password=ARANGO_PASSWORD).version()
-    ARANGO_AVAILABLE = True
-    _probe.close()
-except Exception:  # noqa: BLE001 - any failure means "not available"
-    pass
-
-pytestmark = pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available on localhost:8529")
+pytestmark = pytest.mark.usefixtures("arango_db")
 
 NOW = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
 
@@ -86,11 +78,11 @@ def _entry(key: str, **fields) -> dict:
 @pytest.fixture(scope="module")
 def db():
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username="root", password=ARANGO_PASSWORD)
+    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if system.has_database(TEST_DATABASE):
         system.delete_database(TEST_DATABASE)
     system.create_database(TEST_DATABASE)
-    database = client.db(TEST_DATABASE, username="root", password=ARANGO_PASSWORD)
+    database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
 
     entries = database.create_collection(col.PLANT_DIARY_ENTRIES)
     # The index under test — the same definition ``collections.py`` bootstraps
