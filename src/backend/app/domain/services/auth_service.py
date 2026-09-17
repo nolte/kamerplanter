@@ -803,18 +803,18 @@ class AuthService:
                     # local account, and "that address exists here and is
                     # verified" is an account-enumeration answer. The remedy is
                     # the same either way.
-                    # Deliberately does not say WHICH side is unverified: the
-                    # caller of this endpoint is not necessarily the owner of the
-                    # local account, and "that address exists here and is
-                    # verified" is an account-enumeration answer.
                     #
                     # And deliberately does not advise linking from the account
-                    # settings, which the earlier wording did: the frontend has no
-                    # such control. `api/endpoints/auth.ts` exports `unlinkProvider`
-                    # and nothing that calls `POST /users/me/providers/{slug}`, so
-                    # that route has no consumer at all. Advice a reader cannot
-                    # follow is worse than none — it sends them looking for a
-                    # button that is not there.
+                    # settings, which the earlier wording did: there is no manual
+                    # link, on either side. `api/endpoints/auth.ts` exports
+                    # `unlinkProvider` and nothing that links, and the route that
+                    # would have served one — `POST /users/me/providers/{slug}/link`
+                    # — was removed with #1416 because it never had a consumer.
+                    # Advice a reader cannot follow is worse than none — it sends
+                    # them looking for a button that is not there.
+                    #
+                    # This branch is therefore the whole of the linking policy:
+                    # a provider is linked on the automatic path or not at all.
                     raise OAuthAutoLinkRefusedError(
                         "This email cannot be linked automatically. Sign in with your password instead.",
                     )
@@ -829,58 +829,6 @@ class AuthService:
 
         logger.info("oauth_login", provider=provider_slug, email=oauth_user.email)
         return self._create_tokens(user, user_agent, ip_address, is_persistent=True)
-
-    def link_provider(
-        self,
-        user_key: UserKey,
-        provider_slug: str,
-        code: str,
-        state: str,
-    ) -> AuthProviderInfo:
-        """Link an OAuth provider to an existing user account."""
-        if not self._oauth_engine or not self._oauth_state_store or not self._oidc_config_repo:
-            raise ValidationError("OAuth is not configured.")
-
-        state_data = self._oauth_state_store.get_and_delete(state)
-        if state_data is None:
-            raise InvalidTokenError("OAuth state")
-
-        config = self._oidc_config_repo.get_by_slug(provider_slug)
-        if config is None or not config.enabled:
-            raise NotFoundError("OidcProviderConfig", provider_slug)
-
-        client_secret = config.client_secret_encrypted
-        if self._encryption_engine:
-            client_secret = self._encryption_engine.decrypt(client_secret)
-
-        redirect_uri = f"{self._frontend_url}/auth/callback"
-        token_response = self._oauth_engine.exchange_code_for_tokens(
-            config,
-            code,
-            state_data["code_verifier"],
-            redirect_uri,
-            client_secret,
-        )
-        access_token = token_response.get("access_token", "")
-        oauth_user = self._oauth_engine.extract_user_info(config, token_response, access_token)
-
-        # Check not already linked to another user
-        existing = self._auth_provider_repo.get_by_provider(
-            oauth_user.provider,
-            oauth_user.provider_user_id,
-        )
-        if existing:
-            raise ValidationError("This provider account is already linked to another user.")
-
-        provider = self._create_oauth_provider(user_key, oauth_user, token_response)
-        return AuthProviderInfo(
-            key=provider.key or "",
-            provider=provider.provider,
-            provider_email=provider.provider_email,
-            provider_display_name=provider.provider_display_name,
-            linked_at=provider.linked_at,
-            last_used_at=provider.last_used_at,
-        )
 
     def _register_oauth_user(self, oauth_user: OAuthUserInfo) -> User:
         """Create a new user from OAuth info (no password).
