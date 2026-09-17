@@ -138,6 +138,14 @@ _CONTRACT_ERROR_CODES: dict[str, str] = {
     "VALIDATION_ERROR": "validation.error",
     "PAYLOAD_TOO_LARGE": "payload.too_large",
     "DUPLICATE_ENTRY": "conflict.duplicate",
+    # Additive (#1458, REQ-050 §4.0): no existing code changes meaning. A
+    # write-write conflict (ArangoDB 1200) is deliberately NOT folded into
+    # ``conflict.duplicate`` — 1210 says an equivalent record exists and a recipe
+    # may branch on that, while 1200 says only that a concurrent transaction held
+    # the key and the correct reaction is to re-read and retry. Publishing them
+    # under one code would make the retry-safe case indistinguishable from the
+    # terminal one.
+    "WRITE_CONFLICT": "conflict.write",
     "RATE_LIMIT_EXCEEDED": "rate_limit.exceeded",
 }
 
