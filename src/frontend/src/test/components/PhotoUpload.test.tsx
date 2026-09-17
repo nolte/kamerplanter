@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
 import { createStoreWithTenantRole, renderWithProviders } from '@/test/helpers';
 import PhotoUpload from '@/components/common/PhotoUpload';
+import i18n from '@/i18n';
 
 /**
  * PhotoUpload — the task-completion photo control (REQ-006).
@@ -37,6 +38,30 @@ function attachment(attachmentId = 'att-1') {
     byte_size: 3,
     original_filename: 'p.jpg',
   };
+}
+
+/**
+ * A 404 in the NFR-006 envelope, `details[0].entity` included (#1437).
+ *
+ * Which entity is missing is the whole question here: the delete route answers
+ * 404 both when the *attachment* is gone or refused and when the *task* is gone
+ * or foreign, with the same `ENTITY_NOT_FOUND` either way. Only `entity` tells
+ * them apart, so every 404 a test here serves carries it, exactly as the backend
+ * now does.
+ */
+function notFound(entity: 'task' | 'attachment') {
+  return HttpResponse.json(
+    {
+      error_id: 'e1',
+      error_code: 'ENTITY_NOT_FOUND',
+      message: `${entity} with key 'x' not found.`,
+      details: [{ field: 'key', reason: 'nope', code: 'ENTITY_NOT_FOUND', entity }],
+      timestamp: '2026-09-16T00:00:00Z',
+      path: '/api/v1/t/test-tenant/tasks/tk1/photos/att-1',
+      method: 'DELETE',
+    },
+    { status: 404 },
+  );
 }
 
 function blobResponse() {
@@ -295,6 +320,76 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       await waitFor(() => expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument());
       expect(onChange).not.toHaveBeenCalled();
     });
+
+    /**
+     * The 404 that means the opposite (#1437).
+     *
+     * The route resolves the task *first*, so a task that vanished — or was never
+     * the caller's — answers 404 before the attachment layer is reached. Nothing
+     * was deleted. De-staging on that answer told the user their photo was gone
+     * while it sat in storage counting against the tenant quota, with the orphan
+     * sweep shipping disabled and no surface left that reached it.
+     *
+     * Both 404s carry `ENTITY_NOT_FOUND`; `details[0].entity` is what separates
+     * them, which is why the backend now sets it for every `NotFoundError`.
+     *
+     * The generic `errors.notFound` toast ("resource not found") is what a user
+     * would read as "the photo is gone" — the exact misunderstanding this whole
+     * change exists to end. So this case gets its own message
+     * (`pages.tasks.photoRemoveTaskGone`) naming what actually happened: the task,
+     * not the photo.
+     */
+    it('keeps the photo when it is the task that is gone, and says so', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      server.use(http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () => notFound('task')));
+      const onChange = vi.fn();
+
+      renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await uploadOne(user);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+      onChange.mockClear();
+
+      await user.click(await screen.findByTestId('photo-remove-0'));
+
+      expect(await screen.findByText(i18n.t('pages.tasks.photoRemoveTaskGone'))).toBeInTheDocument();
+      expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    /**
+     * A 404 without the field at all — an old backend, or a proxy's own page.
+     *
+     * Keeping the entry is the conservative reading: the photo may well still be
+     * stored, and telling someone it is gone when it is not is the state this
+     * change set out to end. The cheap alternative — treat "no entity" as
+     * "attachment" — would have made the fix inert against exactly the deployment
+     * that has not shipped it yet.
+     */
+    it('keeps the photo on a 404 that names no entity', async () => {
+      const user = userEvent.setup();
+      server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
+      server.use(
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () =>
+          HttpResponse.json({ error_id: 'e1', error_code: 'ENTITY_NOT_FOUND', message: 'gone' }, { status: 404 }),
+        ),
+      );
+      const onChange = vi.fn();
+
+      renderWithProviders(<Harness initial={[]} onChange={onChange} />, {
+        store: createStoreWithTenantRole('lead'),
+      });
+      await uploadOne(user);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(['att-1']));
+      onChange.mockClear();
+
+      await user.click(await screen.findByTestId('photo-remove-0'));
+
+      await waitFor(() => expect(screen.getByTestId('photo-remove-0')).toBeInTheDocument());
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 
   /**
@@ -368,16 +463,11 @@ describe('PhotoUpload (REQ-006 — task photo upload)', () => {
       await user.upload(input as HTMLInputElement, new File(['x'], 'p.jpg', { type: 'image/jpeg' }));
     }
 
-    it('de-stages it on a 404 rather than leaving a dead control', async () => {
+    it('de-stages it on an attachment 404 rather than leaving a dead control', async () => {
       const user = userEvent.setup();
       server.use(http.get(ATTACHMENT_URI, () => blobResponse()));
       server.use(
-        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () =>
-          HttpResponse.json(
-            { error_id: 'e1', error_code: 'NOT_FOUND', message: 'attachment not found' },
-            { status: 404 },
-          ),
-        ),
+        http.delete('/api/v1/t/:slug/tasks/tk1/photos/:id', () => notFound('attachment')),
       );
       const onChange = vi.fn();
 

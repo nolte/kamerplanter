@@ -1122,6 +1122,10 @@ async def mark_acted(
     """Markiert eine Notification als bearbeitet (Actionable Button).
 
     action_id: z.B. 'confirm_watering' → loest CareConfirmation aus (REQ-022)
+
+    Nur der bestaetigende Zweig ist rangpflichtig (Abschnitt 7): Gelesen- und
+    Bearbeitet-Stempeln bleibt jedem Mitglied offen, das Bestaetigen einer
+    Pflegeerinnerung verlangt lead oder grower.
     """
     ...
 
@@ -1184,6 +1188,12 @@ EVENT_PHASE: Final = f"{DOMAIN}_phase"
 ### 4.2 Neue HA Platform: `notify`
 
 Die Kamerplanter HA-Integration registriert einen **Notify-Service**, ueber den HA-Automationen Kamerplanter-Aktionen bestaetigen koennen:
+
+!!! warning "Rangbedingung"
+    Der Rueckruf laeuft ueber `POST /{key}/act` und erbt dessen Rangbedingung
+    (Abschnitt 7): das Bestaetigen einer Pflegeerinnerung verlangt **lead oder
+    grower**. Ein Rueckruf im Namen eines `viewer` wird mit **403** abgewiesen —
+    die HA-Automation muss diesen Fall behandeln, statt Erfolg anzunehmen.
 
 ```python
 # notify.py (neue Platform in der HA-Integration)
@@ -1491,14 +1501,34 @@ Kein Kanal aktiv?
 |----------|------|-----------|
 | `GET /notifications` | JWT + Tenant | Nur eigene Notifications |
 | `POST /{key}/read` | JWT + Tenant | Nur eigene |
-| `POST /{key}/act` | JWT + Tenant | Loest CareConfirmation aus |
+| `POST /{key}/act` | JWT + Tenant; bestaetigender Zweig zusaetzlich lead/grower | Loest CareConfirmation aus |
 | `GET /preferences` | JWT + Tenant | Nur eigene |
 | `PUT /preferences` | JWT + Tenant | Nur eigene |
 | `GET /channels/status` | JWT + Tenant | — |
 | `POST /test` | JWT + Tenant | Rate-Limited (5/Stunde) |
 
+**Rangbedingung des Aktionsknopf-Rueckrufs (`POST /{key}/act`):**
+
+Der Endpunkt hat zwei Wirkungen, und nur eine davon ist rangpflichtig:
+
+- **Per-User-Zustand** (gelesen/bearbeitet stempeln) gehoert dem Adressaten der
+  Benachrichtigung. Er bleibt jedem Mitglied offen, unabhaengig von der Rolle —
+  auch einem `viewer`. Die Zeile gehoert ihm, nicht dem Mandanten.
+- **Der bestaetigende Zweig** — eine `care.*`-Benachrichtigung mit einer
+  Bestaetigungs-Aktion (`confirm`, `confirm_watering`, `done`) — legt eine
+  `CareConfirmation` und einen `WateringLog` an. Das sind genau die Schreibvorgaenge,
+  die `POST /watering-logs` einem `viewer` verweigert. Dieser Zweig verlangt deshalb
+  denselben Rang wie die Direktroute: **lead oder grower**
+  (`MembershipEngine.can_edit_resource`, REQ-049 §2.3).
+
+Ein Mitglied ohne diesen Rang erhaelt **403** und es wird **nichts** gestempelt. Das
+stille Ueberspringen der Bestaetigung waere die schlechtere Variante: die Erinnerung
+verschwaende aus dem Ungelesen-Zaehler, waehrend die Pflege nicht dokumentiert ist.
+Das Frontend blendet den Knopf fuer diese Aktionen ohne Schreibrecht aus — das ist
+Komfort, die Grenze liegt im Backend.
+
 **HA → Backend Kommunikation:**
-Die HA-Integration nutzt den bestehenden **Service Account** (REQ-023 v1.7) oder **API-Key** fuer Rueckkanal-Calls (Actionable Button Callbacks → CareConfirmation).
+Die HA-Integration nutzt den bestehenden **Service Account** (REQ-023 v1.7) oder **API-Key** fuer Rueckkanal-Calls (Actionable Button Callbacks → CareConfirmation). Der Rueckruf aus Abschnitt 4.2 laeuft ueber denselben Endpunkt und unterliegt damit derselben Rangbedingung.
 
 ## 8. Abhaengigkeiten
 

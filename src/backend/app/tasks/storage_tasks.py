@@ -148,11 +148,18 @@ def migrate_storage(  # type: ignore[no-untyped-def]
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=300)  # type: ignore[misc]
-def migrate_photo_refs(self, *, dry_run: bool = False) -> dict:  # type: ignore[no-untyped-def]
-    """NFR-013 §2.2 / AC-09 — normalise legacy ``photo_refs`` to attachment ids.
+def migrate_photo_refs(self, *, dry_run: bool = True) -> dict:  # type: ignore[no-untyped-def]
+    """NFR-013 §2.2 / AC-09 — rewrite legacy ``photo_refs`` API URIs to attachment ids.
 
-    Idempotent and non-destructive: already-normalised lists are a no-op and
-    unresolvable values are kept verbatim. Returns the migration report.
+    Idempotent and non-destructive: already-normalised lists are a no-op and every
+    value the normaliser cannot rewrite — a storage key included — is kept
+    verbatim. Returns the migration report.
+
+    **Defaults to ``dry_run=True`` since #1438**, which changes what a manual
+    trigger without arguments does: it reports instead of writing. The rewrite is
+    irreversible and this migration's premise was wrong once already (it reduced
+    working storage-key references to ids that resolve to nothing), so applying it
+    is now an explicit ``dry_run=False``.
     """
     from app.migrations.migrate_photo_refs import run
 
