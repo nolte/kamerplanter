@@ -121,4 +121,9 @@ jobs:
           # Read by tests/unit/api only — see the header. tests/unit/guards reads
           # files off disk and is indifferent to the mode.
           KAMERPLANTER_MODE: full
-        run: pytest tests/unit/api tests/unit/guards -q
+        # `--max-skipped 0` is this lane's skip floor (#1434): both directories
+        # measured 361 passed, 0 skipped on 2026-09-16, and a skipped test exits
+        # like a passed one — without the floor a guard that stopped collecting
+        # would leave the required lane green. The failure names every skip
+        # reason; raising the number belongs in the commit that justifies it.
+        run: pytest tests/unit/api tests/unit/guards -q --max-skipped 0

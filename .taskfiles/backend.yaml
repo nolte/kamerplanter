@@ -48,13 +48,28 @@ tasks:
   # conftest.py and __init__.py, so a new module cannot silently fall out of CI
   # by being dropped in the wrong place — every test file lives in a tier.
   #
-  # `tests/integration/` stays out and therefore runs LOCALLY ONLY — say that
-  # out loud, or it looks covered. It needs a real ArangoDB on localhost:8529,
-  # which no runner provides. It would not go red without one: every module is
-  # `skipif(not ARANGO_AVAILABLE)`, so on a runner it would report green having
-  # skipped 29 of 36 cases. A green gate that measured nothing is worse than an
-  # absent one. Run it against a dev stack (`task dev:core`, then
-  # `python -m pytest tests/integration/`) before changing repositories or AQL.
+  # `tests/integration/` runs in CI too since #1432, in its own job with an
+  # ArangoDB service container (`Integration tests (ArangoDB)` in backend.yml) —
+  # it is NOT part of the lint-test job above, because it is the one tier that
+  # needs a server.
+  #
+  # It could not be gated before, and the reason is worth keeping: each of its
+  # nine connecting modules carried its own copy of an `ARANGO_AVAILABLE` probe
+  # and skipped itself when nothing answered, so on a runner the tier reported
+  # `7 passed, 136 skipped` and exit code 0 — measured 2026-09-16. A green gate
+  # that measured nothing is worse than an absent one. The nine probes are
+  # now one `tests/integration/conftest.py`, whose rule is: a missing database is
+  # a FAILURE when `CI` is set, and a skip only on a developer machine. The
+  # `--max-skipped 0` below makes even that local skip a red run, so "I ran the
+  # tier" and "the tier ran" cannot come apart in either place.
+  #
+  # Locally it needs a server of its own:
+  #   task dev:core            # the dev stack, or:
+  #   docker run -d --rm --name kp-it-arango -p 8529:8529 \
+  #     -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+  # Point it elsewhere with ARANGODB_HOST / ARANGODB_PORT / ARANGODB_USERNAME /
+  # ARANGODB_PASSWORD (`Settings`' own names — some modules connect through
+  # `Settings`, others open a client directly, and both read these).
   #
   # `tests/unit/` and `tests/api/` carry a datastore guard (#978,
   # src/backend/tests/support/db_guard.py): any ArangoDB, TimescaleDB or Valkey
@@ -64,23 +79,53 @@ tasks:
   # `tests/contracts/` has no guard: it compares enums and JSON, builds no
   # service, and measured zero connection attempts. `tests/integration/` must
   # connect and is deliberately untouched.
+  #
+  # Each tier below declares its SKIP FLOOR with `--max-skipped N` (#1434,
+  # src/backend/tests/conftest.py). pytest's exit code treats a skipped test
+  # exactly like a passed one, so a tier whose cases quietly stopped executing
+  # stays green — which is how the api tier could hold "480 passed, 0 skipped"
+  # as prose for months with nothing checking it. The numbers are measured, not
+  # guessed (2026-09-16, `pytest <tier> -q -rs`):
+  #
+  #   tests/unit/       1 skip   tests/unit/migrations/test_e2e_admin_env_containment.py:86
+  #                             — `test_no_other_configuration_file_sets_the_e2e_admin_credentials`
+  #                               is parametrised over every configuration file in the repo and
+  #                               skips the ONE file that is allowed to set E2E_PLATFORM_ADMIN_*.
+  #                               The skip is the allowlist, so it is permanent by design.
+  #   tests/contracts/  0 skips
+  #   tests/api/        0 skips
+  #   tests/integration/ 0 skips — WITH a database. Without one the number is 136
+  #                      (the gate's whole point), so this floor is what turns a
+  #                      serverless local run from quietly green into red.
+  #
+  # Raising a number is the intended response to a new, justified skip — the
+  # failure lists every skip reason so the new one is identifiable, and the raise
+  # lands in the same commit that introduces it. `test:backend` above carries no
+  # floor: it includes tests/integration/, whose skip count is a function of
+  # whether a local ArangoDB is up (136 skips without one, measured the same day).
   test:backend:unit:
     desc: Backend unit tests — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/unit/ -v --tb=short {{.CLI_ARGS}}
+      - python -m pytest tests/unit/ -v --tb=short --max-skipped 1 {{.CLI_ARGS}}
 
   test:backend:contracts:
     desc: Backend contract tests (enum sync, i18n completeness) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/contracts/ -v --tb=short {{.CLI_ARGS}}
+      - python -m pytest tests/contracts/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   test:backend:api:
     desc: Backend API tests (routers via TestClient against fakes, no services) — the CI gate's exact invocation
     dir: src/backend
     cmds:
-      - python -m pytest tests/api/ -v --tb=short {{.CLI_ARGS}}
+      - python -m pytest tests/api/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
+
+  test:backend:integration:
+    desc: Backend integration tests (repositories and AQL against a real ArangoDB) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/integration/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   openapi:export:
     desc: |

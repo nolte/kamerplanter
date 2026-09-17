@@ -18,7 +18,9 @@ here, and each must protect its photo — a collection dropped from the tuple tu
 exactly one of these red, which is the point of having six cases rather than one
 parametrised over a list the code also supplies.
 
-Skipped when no ArangoDB answers on ``localhost:8529``. Run it with::
+Runs in CI against a service container; locally it needs a database of its own
+(a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one
+with::
 
     docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_orphaned_task_photo_query.py -v
@@ -29,14 +31,14 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import (
     ArangoAttachmentRepository,
 )
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
-ARANGO_URL = "http://localhost:8529"
-ARANGO_PASSWORD = "rootpassword"
 TEST_DATABASE = "kamerplanter_orphan_photo_test"
 
 TENANT = "tenant-a"
@@ -51,18 +53,8 @@ OLD = NOW - timedelta(hours=72)
 RECENT = NOW - timedelta(hours=1)
 CUTOFF = NOW - timedelta(hours=48)
 
-ARANGO_AVAILABLE = False
-try:  # pragma: no cover - probe, not behaviour
-    from arango import ArangoClient
 
-    _probe = ArangoClient(hosts=ARANGO_URL)
-    _probe.db("_system", username="root", password=ARANGO_PASSWORD).version()
-    ARANGO_AVAILABLE = True
-    _probe.close()
-except Exception:  # noqa: BLE001 - any failure means "not available"
-    pass
-
-pytestmark = pytest.mark.skipif(not ARANGO_AVAILABLE, reason="ArangoDB not available on localhost:8529")
+pytestmark = pytest.mark.usefixtures("arango_db")
 
 
 def _attachment(key: str, *, created_at: datetime, category: str = "task", tenant: str = TENANT) -> dict:
@@ -126,11 +118,11 @@ SPELLINGS_THAT_COST_A_PHOTO: list[str] = [
 @pytest.fixture(scope="module")
 def db():
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username="root", password=ARANGO_PASSWORD)
+    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
     if system.has_database(TEST_DATABASE):
         system.delete_database(TEST_DATABASE)
     system.create_database(TEST_DATABASE)
-    database = client.db(TEST_DATABASE, username="root", password=ARANGO_PASSWORD)
+    database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
 
     # From this file's own list, deliberately **not** from `PHOTO_REF_COLLECTIONS`.
     # Building the fixture out of the constant under test means dropping an entry
