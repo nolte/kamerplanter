@@ -70,6 +70,39 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     # Get all care profiles
     profiles = care_service._repo.get_all_profiles()
 
+    # #1444 — say out loud how many plants this loop CANNOT reach.
+    #
+    # The loop below iterates stored profiles. A plant that has none is therefore
+    # not "skipped": it never enters the iteration, no counter here is reached by
+    # it, and the run reports `created`/`skipped` figures that describe only the
+    # profiled population. Plants created before #1440 can be in that state — until
+    # then a profile appeared as a side effect of somebody opening the care
+    # dashboard, and #1422 removed that write.
+    #
+    # Reported, NOT repaired: creating the missing profiles is a migration's job
+    # (#1444 step 2), and a nightly beat that writes profiles would be the same
+    # "a read path persists on the side" shape #1422 was filed over — only moved
+    # into a task nobody watches. The warning exists so the gap is visible in the
+    # log until that migration runs.
+    #
+    # Best-effort: the count is diagnostics. A count that fails must not cost the
+    # installation a night of reminders, so it is logged as an error and the
+    # generation run continues.
+    try:
+        unprofiled_plants = care_service._repo.count_plants_without_profile(tenant_key=tenant_key)
+    except Exception:  # noqa: BLE001 — never fail a generation run over diagnostics
+        logger.error("care_profile_gap_count_failed", tenant_key=tenant_key, exc_info=True)
+    else:
+        if unprofiled_plants:
+            logger.warning(
+                "plants_without_care_profile",
+                count=unprofiled_plants,
+                tenant_key=tenant_key,
+                scope="tenant" if tenant_key is not None else "installation",
+                impact="these plants receive no REQ-022 reminder and are absent from created/skipped",
+                remedy="run scripts/audit_care_profiles.py, then the #1444 backfill migration",
+            )
+
     # Per-run caches for the winter-reminder context (REQ-022 §3.2, B1).
     species_cache: dict = {}
     cultivar_cache: dict = {}
