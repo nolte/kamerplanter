@@ -23,8 +23,18 @@ interface PlantPhotoLightboxProps {
   /** The photo to show full-size, or `null` when the lightbox is closed. */
   photo: PlantPhoto | null;
   onClose: () => void;
-  /** When true, the cover and delete action buttons are shown. */
+  /** When true, the non-destructive write actions (assess, edit, cover) are shown. */
   canWrite?: boolean;
+  /**
+   * When true, the destructive delete action is shown as well.
+   *
+   * Separate from {@link canWrite} on purpose: the backend gates `DELETE` on
+   * `Action.DELETE`, granted to a `lead` alone (REQ-024 §1a.1 / REQ-049 §2.3),
+   * while upload/cover/assess/edit are `CREATE`/`UPDATE` and open to a grower.
+   * Offering one predicate for both made the gallery show a grower a button
+   * that could only ever answer 403 (#1425).
+   */
+  canDelete?: boolean;
   /** Called when the user wants to set this photo as cover (write-only). */
   onSetCover?: (photo: PlantPhoto) => void;
   /** Called when the user wants to edit caption/date — caller opens the dialog. */
@@ -49,6 +59,7 @@ export default function PlantPhotoLightbox({
   photo,
   onClose,
   canWrite = false,
+  canDelete = false,
   onSetCover,
   onEdit,
   onAssess,
@@ -268,11 +279,12 @@ export default function PlantPhotoLightbox({
                 startIcon={<StarBorderIcon />}
                 onClick={handleSetCover}
                 sx={{ color: 'common.white' }}
+                data-testid="plant-photo-lightbox-set-cover"
               >
                 {t('pages.plantPhotos.setCover')}
               </Button>
             )}
-            {onDelete && (
+            {canDelete && onDelete && (
               <Button
                 size="small"
                 startIcon={<DeleteIcon />}
