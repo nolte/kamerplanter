@@ -246,7 +246,6 @@ export default function TaskQueuePage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
-
   // The plant filter is a *server-side scope*, not a filter over the answer
   // (#1484). ``GET /tasks/queue`` returns at most 200 rows and the completed
   // list at most 100, so a plant whose tasks sit past that cut was absent from
@@ -1219,8 +1218,8 @@ export default function TaskQueuePage() {
   // pick. `plantsLoading` is a one-shot flag, and a reload that already has rows
   // on screen keeps them until the new answer replaces them; only a load with
   // nothing to show falls back to the skeleton.
-  const loading =
-    plantsLoading || ((tasksLoading || careLoading) && taskQueue.length === 0 && careDashboard.length === 0);
+  const hasRowsOnScreen = taskQueue.length > 0 || careDashboard.length > 0;
+  const loading = plantsLoading || ((tasksLoading || careLoading) && !hasRowsOnScreen);
   if (loading) return <LoadingSkeleton variant="form" />;
 
   const totalItems =
