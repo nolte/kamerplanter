@@ -19,10 +19,12 @@
 # updating it leaves the guard measuring yesterday's requirement — which is a
 # gap in the MEASURING TOOL, not in the gate, and therefore invisible. The
 # `.github/settings.yml` cross-check in the test beside this file is the
-# tripwire for the half that is versioned here: every context this file lists
-# from the protection block must also appear in `.github/settings.yml`, which is
-# what the Probot Settings App syncs FROM, so a promotion made in the repository
-# without a commit reddens rather than passing unnoticed.
+# tripwire for BOTH sources: every context this file lists — from the protection
+# block and from the ruleset overlay alike — must also appear in
+# `.github/settings.yml`, which is what the Probot Settings App syncs FROM, so a
+# promotion made in the repository without a commit reddens rather than passing
+# unnoticed. The ruleset half was unversioned until #1491 and could only be
+# compared against itself.
 #
 # Measured 2026-09-17 on nolte/kamerplanter.
 measured_on: '2026-09-17'
@@ -37,8 +39,11 @@ branch_protection:
 # `gh api .../rules/branches/develop` — the ruleset overlay. It requires two
 # contexts the protection block does not (`chain-bench / Chain Bench`,
 # `security / Build`), so reading only the first source would leave them
-# unmeasured. Both come from `build-static-tests.yaml`, which carries no
-# `paths:` filter.
+# unmeasured. Both come from `build-static-tests.yaml`, whose only trigger is a
+# bare `on: push:` — no `paths:`, no `branches:` — so neither is the #1432 trap.
+# Since #1491 the ruleset is declared in `.github/settings.yml` under `rulesets:`
+# (ruleset id 17783737, `default-branch-protection`), and the test beside this
+# file holds this list to that declaration.
 rulesets:
   - static / Static CI Tests
   - chain-bench / Chain Bench
