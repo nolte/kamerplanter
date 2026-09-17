@@ -326,13 +326,46 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # THE uv pin (#1383). `version-file` makes the action read
+        # `[tool.uv].required-version` out of src/backend/pyproject.toml, so the
+        # uv this job runs cannot differ from the uv Renovate relocks with or the
+        # one the Dockerfile copies. It replaces a `python -m pip install` line
+        # carrying a literal uv version — the same value written out eight times
+        # across four workflows, held together only by the `uv toolchain`
+        # Renovate group.
+        # That group is a promise, not a mechanism: a ninth copy added without it
+        # would age unnoticed, which is the #1296 class (toolchain halves aging
+        # apart). tests/unit/guards/test_uv_pin_is_single.py is the permanent
+        # absence check that no such copy comes back.
+        #
+        # The cache key is src/backend/uv.lock rather than the action's default
+        # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
+        # five locks, and four of them have nothing to do with this job.
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+
       - name: Install dependencies
-        # Identical to the lint-test job above: install from the hash-verified
-        # lock and put the project environment on PATH, so the Taskfile target
-        # runs the locked pytest.
+        # Through the Taskfile, like every other command in this job (#1383).
+        # `task deps:sync` is `uv sync --locked --extra dev` and nothing else, so
+        # this is not indirection for its own sake: the invocation now exists
+        # ONCE, and a contributor running `task deps:sync` cannot end up with a
+        # different environment than the gate. Inlining it is how the two drift.
+        #
+        # `uv sync --locked` (NFR-009 §2.3) refuses a lock that no longer
+        # satisfies pyproject.toml and verifies every artifact against the hash
+        # the lock records, then installs the app package itself editable.
+        #
+        # The PATH prepend stays even though the Taskfile targets now run through
+        # `uv run --locked` and no longer need it: the steps below that are NOT
+        # Taskfile targets — `python app/migrations/seed_steckbrief_consistency.py`
+        # — still resolve a bare `python`, and removing the prepend would send
+        # them to the runner's interpreter.
         run: |
-          python -m pip install 'uv==0.12.15'
-          uv sync --locked --extra dev
+          task deps:sync
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Wait for ArangoDB
