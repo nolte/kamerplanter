@@ -1,0 +1,174 @@
+# Inventory of the portfolio-plugin skills and agents, plus the reasoned
+# exemptions from the no-shadowing rule. Consumed by
+# scripts/check_skill_plugin_shadowing.py (#1405).
+#
+# NAMES ONLY. This is not a copy of plugin content -- CLAUDE.md
+# §"Claude Code plugin adoption" forbids that, and an inventory is what lets the
+# check run in CI, where no claude-shared checkout exists. Regenerate with
+# `task check:plugin-shadowing -- --refresh` against a live checkout; the check
+# itself goes red when the two diverge, so the snapshot cannot rot unnoticed.
+marketplace_version: 0.1.11
+inventory:
+  nolte-claude-dev:
+    skills:
+    - agent-review
+    - skill-agent-catalog-apply
+    - skill-management
+    - skill-review
+    - skills-agents-sweep
+    agents:
+    - claude-plugin-developer
+  nolte-engineering:
+    skills:
+    - api-documentation-audit
+    - api-error-check
+    - bdd-scenario-generate
+    - dependency-audit
+    - deployment-chart-manage
+    - dockerfile-audit
+    - error-tracking-audit
+    - guard-coverage-check
+    - kpi-derive
+    - license-check
+    - maturity-assess
+    - observability-audit
+    - quality-gate
+    - release-regression-scope
+    - source-code-review
+    - test-cycle-orchestrate
+    - test-pyramid-check
+    - webview-ui-optimize
+    agents:
+    - api-documentation-scanner
+    - bdd-scenario-reviewer
+    - bjw-common-deployment-generator
+    - capability-maturity-scanner
+    - code-security-reviewer
+    - component-test-generator
+    - component-test-reviewer
+    - contract-test-generator
+    - contract-test-reviewer
+    - dependency-audit-scanner
+    - deployment-bestpractices-reviewer
+    - deployment-change-analyzer
+    - dockerfile-audit-scanner
+    - e2e-result-reviewer
+    - e2e-test-generator
+    - e2e-test-reviewer
+    - error-tracking-audit-scanner
+    - frontend-code-reviewer
+    - frontend-usability-optimizer
+    - fullstack-developer
+    - gdpr-data-protection-reviewer
+    - guard-coverage-scanner
+    - i18n-completeness-checker
+    - implementation-plan-author
+    - integration-test-generator
+    - integration-test-reviewer
+    - kpi-signal-scanner
+    - license-check-scanner
+    - observability-audit-scanner
+    - python-code-reviewer
+    - quality-gate-enforcer
+    - release-regression-scope-scanner
+    - test-case-extractor
+    - test-code-adapter
+    - test-result-analyzer
+    - unit-test-generator
+    - unit-test-reviewer
+    - webview-ui-expert
+  nolte-media:
+    skills:
+    - gemini-image-handoff
+    - image-generate
+    agents:
+    - graphic-prompt-generator
+    - png-to-transparent-svg
+  nolte-planning:
+    skills:
+    - feature-decompose
+    - mission-define
+    - mission-revise
+    - roadmap-init
+    - roadmap-plan
+    - roadmap-refine
+    - sprint-execute
+    - sprint-plan
+    - sprint-review
+    agents:
+    - feature-consistency-reviewer
+    - roadmap-coherence-reviewer
+    - sprint-readiness-reviewer
+  nolte-shared:
+    skills:
+    - audience-identify
+    - backstage-catalog-generate
+    - blog-author
+    - blog-author-trigger
+    - cicd-pipeline-design
+    - continuous-improvement-triage
+    - cookiecutter-template-manage
+    - docs-audience-tracks-apply
+    - docs-dry-refactor
+    - github-issue-templates-apply
+    - issue-batch-orchestrate
+    - issue-orchestrate
+    - lektorat-apply
+    - lektorat-auto-revise
+    - mermaid-diagrams-apply
+    - mkdocs-structure-apply
+    - permission-allowlist-maintain
+    - portfolio-audit
+    - portfolio-inflight-triage
+    - project-structure-apply
+    - pull-request-create
+    - pull-request-merge
+    - readme-structure-apply
+    - release-notes-curate
+    - release-publish-trigger
+    - requirements-elicit
+    - spec
+    - spec-drift-audit
+    - tech-stack-capture
+    - vocab-drift-audit
+    - workflow-health-triage
+    - working-copy-start
+    - yaml-json-schema
+    agents:
+    - audience-doc-author
+    - audience-review
+    - cicd-pipeline-reviewer
+    - cookiecutter-template-author
+    - diagram-opportunity-reviewer
+    - docs-freshness-checker
+    - lektorat-scanner
+    - link-rot-scanner
+    - mermaid-diagram-reviewer
+    - portfolio-inflight-collector
+    - portfolio-manifest-collector
+    - project-structure-reviewer
+    - prose-vale-curator
+    - security-requirements-reviewer
+    - spec-readiness-reviewer
+    - tech-stack-drift-reviewer
+    - tech-stack-fitness-reviewer
+    - vocab-drift-scanner
+
+# Reasoned exemptions from the no-shadowing rule. Each entry is a debt with a
+# named reason, not a permission: the check goes red when an entry stops
+# colliding (a stale exemption) and when an entry carries no reason, so the list
+# cannot quietly outlive its cause. Removing an entry is the goal, not keeping it.
+allowlist:
+  - local: fullstack-developer
+    reason: >-
+      Pre-existing shadow of nolte-engineering:fullstack-developer, surfaced by
+      this check on the day it was written (#1405) and deliberately left for its
+      own change: the local agent is the one the project's recorded practice
+      routes source-code work to, so retiring it needs the same
+      verify-before-remove parity pass #1405 ran for the two skills, not a
+      drive-by deletion.
+  - local: frontend-usability-optimizer
+    reason: >-
+      Pre-existing shadow of nolte-engineering:frontend-usability-optimizer,
+      same finding and same treatment as fullstack-developer above: measured by
+      #1405, parity not yet checked, retirement owed a separate change.
