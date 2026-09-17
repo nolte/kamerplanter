@@ -163,6 +163,17 @@ export interface ApiErrorDetail {
   field: string;
   reason: string;
   code: string;
+  /**
+   * Which resource is missing, in the backend's normalised `snake_case`
+   * spelling — `task`, `attachment`, `plant_instance` (NFR-006 §2.2a).
+   *
+   * Set by every `NotFoundError`, absent everywhere else, which is why it is
+   * optional. A route that resolves a parent and then a child answers the same
+   * `ENTITY_NOT_FOUND` and the same 404 for both, differing only in the English
+   * `message` a German UI may not parse — so this is the only thing a caller can
+   * branch on when the two cases mean different things (#1437).
+   */
+  entity?: string;
 }
 
 // Botanical Families

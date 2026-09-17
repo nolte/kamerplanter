@@ -5,7 +5,7 @@ Kamerplanter organizes its automated tests into four **test levels**. Each level
 | Level | Focus | Tooling | Location | Runs in CI |
 |-------|-------|---------|----------|------------|
 | [Unit](unit.md) | Individual functions/classes in isolation | pytest / vitest | `src/backend/tests/unit/`, `src/frontend/src/test/{store,hooks}/` | Yes |
-| [Integration](integration.md) | Interplay with a real database/API | pytest | `src/backend/tests/integration/`, `…/api/` | Yes (skipped when no DB) |
+| [Integration](integration.md) | Interplay with a real database/API | pytest | `src/backend/tests/integration/`, `…/api/` | Yes — required, against an ArangoDB service container |
 | [Component](component.md) | React components in the rendered DOM | vitest + Testing Library | `src/frontend/src/test/components/` | Yes |
 | [E2E](e2e.md) | Complete user workflows in a real browser | Selenium | `tests/e2e/` | No (local / on demand) |
 
