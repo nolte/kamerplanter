@@ -1004,7 +1004,7 @@ Stand 2026-09-16 (`pytest <Stufe> -q -rs`):
 | `tests/contracts/` | 0 | keine Skips |
 | `tests/api/` | 0 | keine Skips |
 | `tests/unit/api` + `tests/unit/guards` (Pflicht-Lane `backend-guards.yml`) | 0 | keine Skips |
-| `tests/integration/` | 0 | seit #1432 in CI Pflicht (Job `Integration tests (ArangoDB)` in `backend.yml`, ArangoDB als Service-Container): **mit** Datenbank 0 Skips (143 bestanden, gemessen 2026-09-16). Ohne Datenbank bricht `tests/integration/conftest.py` den Lauf ab, sobald `CI` gesetzt ist; lokal skippt es laut — und die deklarierte 0 rötet auch diesen Skip |
+| `tests/integration/` | 0 | seit #1432 in CI Pflicht (Job `Integration tests (ArangoDB)` in `backend-guards.yml`, ArangoDB als Service-Container): **mit** Datenbank 0 Skips (143 bestanden, gemessen 2026-09-16). Ohne Datenbank bricht `tests/integration/conftest.py` den Lauf ab, sobald `CI` gesetzt ist; lokal skippt es laut — und die deklarierte 0 rötet auch diesen Skip |
 
 ---
 

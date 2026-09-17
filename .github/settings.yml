@@ -127,6 +127,45 @@ branches:
           # reports a failure that does not trace to a real ungated route. Either
           # is a measurement, not a judgement call.
           - Write-route and tree guards
+          #
+          # #1432 — the repository and AQL tier against a real ArangoDB. It is
+          # the only measurement of that layer against a server, and until
+          # 2026-09-16 it ran in no lane at all: each connecting module probed
+          # `localhost:8529` itself and skipped when nothing answered, so on a
+          # runner the tier reported `7 passed, 136 skipped` and exit code 0.
+          # `tests/integration/conftest.py` now makes a missing database a
+          # FAILURE whenever `CI` is set, and `task test:backend:integration`
+          # declares `--max-skipped 0`, so a session that skipped anything is
+          # red. That is what made the tier gateable.
+          #
+          # RECONCILED WITH THE LIVE STATE ON 2026-09-17, NOT PROMOTED HERE. The
+          # context was already required live — `gh api …/branches/develop/
+          # protection --jq '.required_status_checks.contexts'` listed it while
+          # this file did not, which is the drift the header warns about and the
+          # pull-request workflow forbids. The line is added so the versioned
+          # declaration and the live state agree again; the promotion itself was
+          # made outside a commit.
+          #
+          # ITS JOB IS IN `backend-guards.yml`, NOT `backend.yml`, and that is
+          # load-bearing rather than tidy: it was promoted while defined in the
+          # path-filtered `backend.yml`, so a pull request touching nothing under
+          # `src/backend/**` never ran the workflow, never got the check run, and
+          # sat on "Expected — waiting for status to be reported" indefinitely.
+          # Measured 2026-09-17 with `gh pr view <n> --json statusCheckRollup`:
+          # #1470 (frontend only), #1475 (workflow only) and #1410 (docs only)
+          # each listed every other required context and not this one.
+          # `src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py`
+          # holds every context in this list to an unfiltered workflow, and
+          # cross-checks this block against its fixture copy of the live state.
+          #
+          # COST: ~2–3 minutes with a service container, against the 41 s of the
+          # guard lane it now shares a workflow with. Accepted because the
+          # alternative is not a cheaper lane but an unmeasured data layer.
+          #
+          # TAKEN BACK IF: it reports a failure that does not trace to a real
+          # repository or AQL defect, or the ArangoDB service container becomes a
+          # source of infrastructure flake. Either is a measurement.
+          - Integration tests (ArangoDB)
       enforce_admins: true
       # No `required_pull_request_reviews` block, deliberately — recorded here
       # because the CI/CD audit on 2026-08-01 flagged its absence and the live
