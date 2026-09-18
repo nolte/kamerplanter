@@ -26,6 +26,7 @@ import pytest
 
 from app.common.enums import CareStyleType
 from app.domain.engines.care_reminder_engine import CareReminderEngine
+from app.domain.models.care_reminder import CareProfile
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Species
 from app.domain.services.care_reminder_service import CareInputs, CareReminderService, resolve_care_inputs
@@ -44,7 +45,13 @@ def _species(**overrides) -> Species:
 
 
 def _service(species: Species | None, *, families: dict[str, str] | None = None):
-    """A service wired exactly as ``dependencies.get_care_reminder_service`` wires it."""
+    """A service carrying the collaborators the resolution needs, on doubles.
+
+    It is **not** everything ``dependencies.get_care_reminder_service`` passes —
+    claiming that would make this fixture an assertion about the production wiring
+    that nothing keeps true. What the production factory passes is held by
+    ``tests/unit/guards/test_care_profile_resolver_is_wired.py``.
+    """
     care_repo = MagicMock()
     care_repo.get_profile_by_plant_key.return_value = None
     care_repo.create_profile.side_effect = lambda profile: profile.model_copy(update={"key": "cp-new"})
@@ -186,3 +193,57 @@ class TestTheEngineRefusesAKey:
 
     def test_no_family_at_all_is_accepted(self) -> None:
         assert CareReminderEngine().auto_generate_profile(plant_key="p1").care_style == CareStyleType.TROPICAL
+
+
+class TestAUserEditDropsTheGeneratedMarker:
+    """#1489 review, SCR-007. ``auto_generated`` survived every edit, so it said
+    nothing about provenance — and the v0050 repair, which needs to tell "nobody
+    chose these values" from "somebody did", could only use it as a necessary
+    condition and decide the rest by comparing values. A user who set exactly the
+    fallback values would have been overwritten.
+
+    Marking edits from here on shrinks that window for every future repair. It does
+    not close it retroactively, which is why v0050 still compares values.
+    """
+
+    def _service_with(self, profile: CareProfile):
+        service, repo, _resolver = _service(_species())
+        repo.get_profile_by_plant_key.return_value = profile
+        repo.update_profile.side_effect = lambda key, updated: updated
+        return service, repo
+
+    def test_an_edit_clears_it(self) -> None:
+        service, _repo = self._service_with(CareProfile(key="cp1", plant_key="p1", auto_generated=True))
+
+        updated = service.update_profile("p1", {"watering_interval_days": 5}, user_key="u1")
+
+        assert updated.auto_generated is False
+
+    def test_a_no_op_write_does_not(self) -> None:
+        """The control. The care dialog loads a profile and saves it back; a PATCH
+        that changes nothing must not re-label every profile in the installation."""
+        stored = CareProfile(key="cp1", plant_key="p1", watering_interval_days=7, auto_generated=True)
+        service, _repo = self._service_with(stored)
+
+        updated = service.update_profile("p1", {"watering_interval_days": 7}, user_key="u1")
+
+        assert updated.auto_generated is True
+
+    def test_a_generated_profile_is_still_marked_generated(self) -> None:
+        """The other control: creation is not an edit."""
+        service, _repo, _resolver = _service(_species())
+
+        assert service.get_or_create_profile("p1", may_create=True).auto_generated is True
+
+
+class TestTheReadsAreNotDuplicated:
+    """SCR-009. The dashboard resolved a species for its listing and the preset
+    resolution read the same document again, per plant, inside the same call."""
+
+    def test_the_species_is_read_once_per_service_lifetime(self) -> None:
+        service, _repo, _resolver = _service(_species())
+
+        service.get_or_create_profile("p1", may_create=False)
+        service.get_or_create_profile("p1", may_create=False)
+
+        assert service._species_repo.get_by_key.call_count == 1  # type: ignore[union-attr]

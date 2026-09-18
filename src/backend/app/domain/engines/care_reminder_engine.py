@@ -569,6 +569,7 @@ class CareReminderEngine:
 
     def auto_generate_profile(
         self,
+        *,
         species_name: str | None = None,
         botanical_family: str | None = None,
         plant_key: str = "",
@@ -597,6 +598,13 @@ class CareReminderEngine:
         created since #1440 received the 7-day ``TROPICAL`` preset for good, because
         the profile is written once and read thereafter (#1489). A numeric value is
         therefore refused rather than silently missed.
+
+        **Every parameter is keyword-only**, and that is a guard rather than a style
+        choice: ``botanical_family`` is the second positional slot, so
+        ``auto_generate_profile(name, species.family_key, key)`` would re-introduce
+        #1489 in a spelling the AST guard (which reads keyword arguments) cannot see.
+        Measured before the change: every caller in ``app/`` and ``tests/`` already
+        used keywords, so the restriction costs nothing and closes the hole.
 
         ``species_name`` takes part in no decision here (measured 2026-09-17: the
         presets come from the family and the guide alone). It is kept because the
@@ -627,7 +635,11 @@ class CareReminderEngine:
 
         preset = dict(CARE_STYLE_PRESETS[care_style])
 
-        # Tier 2: Override preset values with species-specific WateringGuide
+        # TIER 1 — the species/cultivar WateringGuide overrides the family preset's
+        # watering fields (the comment said "Tier 2" and contradicted the docstring
+        # three lines up; #1489 review, SCR-014). It overrides the *watering* fields
+        # only: the care style and the fertilising/repotting/pest intervals stay the
+        # family's.
         if watering_guide is not None:
             preset["watering_interval_days"] = watering_guide.interval_days
             preset["watering_method"] = watering_guide.watering_method

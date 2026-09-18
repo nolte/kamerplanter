@@ -17,6 +17,14 @@ happens to be non-numeric, or a call on a path no test exercises.
 whose spelling ends in ``_key``. A name is not a type, so this is a heuristic; it is
 the heuristic that would have caught the defect on the day it was written, which is
 the only property being claimed for it.
+
+**And it reads keyword arguments only**, which was a hole while
+``auto_generate_profile`` still took positional ones: ``botanical_family`` was the
+second slot, so ``engine.auto_generate_profile(name, species.family_key, key)`` — the
+defect, spelled positionally — was invisible here. The engine's parameters are
+keyword-only since this review (SCR-006), which is what makes the keyword scan
+complete rather than approximate; ``TestThePositionalHoleIsClosed`` below holds that
+signature in place, because the guard's completeness now depends on it.
 """
 
 from __future__ import annotations
@@ -31,19 +39,31 @@ from tests.support.execution_guards import find_project_root
 
 _APP = find_project_root(Path(__file__)) / "app"
 
-#: Every call that produces care presets, not just the engine method that reads the
-#: map. **Measured, and it is the whole point of the set having four names**: the
-#: first version of this guard listed the two generators and stayed green against
-#: the actual #1489 defect, because ``_bootstrap_care_profile`` never called the
-#: engine — it passed ``species.family_key`` to ``get_or_create_profile``, which
-#: forwarded it. A guard that cannot see the line it exists for is the failure class
-#: this repository keeps paying for, so the predicate is the *argument travelling*,
-#: at every door it can enter by. ``generate_profile`` is named although nothing
-#: calls it today: a rename is how a guard quietly stops matching.
+#: Every call that could carry the argument, not just the engine method that reads
+#: the map. **Measured, and it is the whole point of the set having more than one
+#: name**: the first version of this guard listed the engine generators and stayed
+#: green against the actual #1489 defect, because ``_bootstrap_care_profile`` never
+#: called the engine — it passed ``species.family_key`` to ``get_or_create_profile``,
+#: which forwarded it. A guard that cannot see the line it exists for is the failure
+#: class this repository keeps paying for, so the predicate is the *argument
+#: travelling*, at every door it can enter by.
+#:
+#: Two of these names no longer take a ``botanical_family`` at all
+#: (``get_or_create_profile`` / ``reset_profile`` resolve their own inputs since
+#: #1489) and ``generate_profile`` does not exist anywhere. They are listed on
+#: purpose: re-introducing the parameter on the service — the exact regression this
+#: guard exists to prevent — must be caught by the guard and not only by the
+#: ``TypeError`` it would raise at runtime on a path some test may not walk.
 _GENERATORS = frozenset(
     {
+        # The engine, which reads FAMILY_CARE_MAP. Keyword-only since #1489's
+        # review (SCR-006) so the second positional slot cannot smuggle a key past
+        # the keyword scan below.
         "auto_generate_profile",
+        # Does not exist today. A rename of the above is how a guard quietly stops
+        # matching the thing it guards.
         "generate_profile",
+        # Take no such argument any more; a re-introduction is the regression.
         "get_or_create_profile",
         "reset_profile",
     }
@@ -250,3 +270,36 @@ class TestTheGuardAgainstTheRealTree:
         monkeypatch.setattr(sys.modules[__name__], "_APP", app)
 
         assert [o["where"] for o in scan_tree()] == ["app/dependencies.py:3"]
+
+
+class TestThePositionalHoleIsClosed:
+    """SCR-006. The keyword scan above is only complete while the argument *cannot*
+    be passed positionally — so the signature is part of this guard, not a detail
+    somewhere else."""
+
+    def test_the_engine_takes_the_family_keyword_only(self) -> None:
+        import inspect
+
+        from app.domain.engines.care_reminder_engine import CareReminderEngine
+
+        parameters = inspect.signature(CareReminderEngine.auto_generate_profile).parameters
+        positional = [
+            name
+            for name, parameter in parameters.items()
+            if name != "self" and parameter.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+        ]
+
+        assert positional == [], (
+            "`auto_generate_profile` accepts positional arguments again, so "
+            f"{positional} can carry a document key into `botanical_family` in a spelling this "
+            "guard's keyword scan cannot see (#1489 / SCR-006)"
+        )
+
+    def test_a_positional_call_is_refused_at_runtime(self) -> None:
+        """The same statement from the other side — the signature, exercised."""
+        import pytest as _pytest
+
+        from app.domain.engines.care_reminder_engine import CareReminderEngine
+
+        with _pytest.raises(TypeError):
+            CareReminderEngine().auto_generate_profile("Ocimum basilicum", "7242", "p1")  # type: ignore[misc]

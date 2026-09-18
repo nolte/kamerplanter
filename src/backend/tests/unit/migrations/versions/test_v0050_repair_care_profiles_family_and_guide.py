@@ -66,6 +66,8 @@ class _FakeAql:
     def __init__(self, collections: dict[str, list[dict[str, Any]]]) -> None:
         self._collections = collections
         self.queries: list[str] = []
+        #: The key sets the per-batch document read was asked for, in order.
+        self.batches: list[list[str]] = []
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
         bind_vars = bind_vars or {}
@@ -74,10 +76,17 @@ class _FakeAql:
 
         if stripped.startswith("FOR profile IN"):
             assert col.CARE_PROFILES in stripped
-            assert "auto_generated == true" in stripped, (
-                "the population must narrow to generated profiles; a hand-made one is nobody's to recompute"
-            )
-            return iter([dict(p) for p in self._collections.get(col.CARE_PROFILES, []) if p.get("auto_generated")])
+            profiles = self._collections.get(col.CARE_PROFILES, [])
+            if stripped.endswith("RETURN profile._key"):
+                # The population read: keys only, narrowed to generated profiles.
+                assert "auto_generated == true" in stripped, (
+                    "the population must narrow to generated profiles; a hand-made one is nobody's to recompute"
+                )
+                return iter([p["_key"] for p in profiles if p.get("auto_generated")])
+            # The per-batch document read.
+            batch = set(bind_vars["keys"])
+            self.batches.append(sorted(batch))
+            return iter([dict(p) for p in profiles if p["_key"] in batch])
 
         keys = set(bind_vars.get("keys", []))
         if stripped.startswith("FOR plant IN"):
@@ -356,16 +365,28 @@ class TestTheFrameworkContract:
         assert (dry_report.scanned, dry_report.changed) == (wet_report.scanned, wet_report.changed)
         assert dry_report.details["repaired"] == wet_report.details["repaired"]
 
-    def test_a_second_run_changes_nothing(self) -> None:
-        """M-3. The repaired profile no longer equals the fallback, so the criterion
-        that selected it no longer holds."""
+    def test_a_second_run_reports_the_repaired_row_as_already_correct(self) -> None:
+        """M-3, and the review finding SCR-002 in one case.
+
+        The repaired profile no longer equals the broken output, so a run that asks
+        "does this still look untouched?" **before** "is this already what it should
+        be?" files every row it repaired under ``skipped_user_edited`` — and an
+        operator reading a second run would see an installation of hand-edited
+        profiles that nobody edited. Both orders write nothing the second time; only
+        one of them says so truthfully.
+        """
         db = _db()
 
         assert migration.up(db).changed == 1  # type: ignore[arg-type]
         second = migration.up(db)  # type: ignore[arg-type]
 
         assert second.changed == 0
-        assert second.details["skipped_user_edited_total"] == 1
+        assert second.details["already_correct_total"] == 1
+        assert second.details["skipped_user_edited_total"] == 0, (
+            "a row this migration repaired itself is not a user edit — that was the classification "
+            "the reversed comparison order produced (SCR-002)"
+        )
+        assert db.writes[len(db.writes) :] == []
 
     def test_an_empty_database_is_a_noop(self) -> None:
         db = _db(profiles=[])
@@ -425,3 +446,207 @@ class TestTheResolutionIsNotCopied:
         from app.migrations.versions import v0050_repair_care_profiles_family_and_guide as module
 
         assert module.resolve_care_inputs is care_reminder_service.resolve_care_inputs
+
+
+# ── the review findings ───────────────────────────────────────────────────────
+
+
+class TestTheFrozenBrokenOutput:
+    """SCR-003. The population is historical, so the value that recognises it must
+    be historical too — not whatever the current engine happens to return."""
+
+    def test_the_literal_still_matches_todays_engine(self) -> None:
+        """The tripwire, and it is deliberately **not** self-updating.
+
+        When this goes red, ``CARE_STYLE_PRESETS[TROPICAL]`` (or a ``CareProfile``
+        default) has moved. That is the moment to decide whether the remaining
+        damaged population is still worth repairing — not the moment to paste the
+        new values in. Had the migration kept computing the old output from the live
+        engine, the same change would have made every damaged profile look
+        user-edited and this migration would have repaired nothing, silently.
+        """
+        from app.migrations.versions import v0050_repair_care_profiles_family_and_guide as module
+
+        live = module._comparable(_ENGINE.auto_generate_profile(plant_key=PLANT))
+
+        assert live == module._BROKEN_BOOTSTRAP_OUTPUT, (
+            "the frozen tier-3 output no longer matches the engine's. The presets changed: decide "
+            "whether profiles still holding the 2026-08 values are to be repaired, then update the "
+            "literal deliberately — do not sync it to make this pass."
+        )
+
+    def test_a_preset_change_does_not_make_the_migration_inert(self, monkeypatch) -> None:
+        """The property the literal buys, measured rather than argued.
+
+        The engine's TROPICAL preset is moved under the migration's feet. A run that
+        derived the broken output from the live engine would now see stored != output
+        and skip the row as user-edited; against the literal the repair still happens.
+        """
+        from app.domain.engines import care_reminder_engine as engine_module
+
+        # The stored document is built FIRST, from the historical preset — it is the
+        # 2026-08 row this migration exists for. Building it after the change would
+        # have been the test writing the future into the past.
+        db = _db()
+        moved = {**engine_module.CARE_STYLE_PRESETS[CareStyleType.TROPICAL], "watering_interval_days": 6}
+        monkeypatch.setitem(engine_module.CARE_STYLE_PRESETS, CareStyleType.TROPICAL, moved)
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.changed == 1, "the damaged row is still recognised after a preset change"
+        assert report.details["skipped_user_edited_total"] == 0
+
+
+class TestAnUnreadableDocumentDoesNotAbortTheRun:
+    """SCR-004. ``up()`` raising is a fatal startup (M-4, `framework/runner.py`), so
+    one legacy document must not cost an installation its boot."""
+
+    def test_a_profile_that_violates_the_model_is_reported(self) -> None:
+        db = _db(profiles=[_tropical_document(watering_interval_days=999)])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["unreadable_total"] == 1
+        assert report.details["unreadable"][0]["reason"] == "profile_document_unreadable"
+        assert db.writes == []
+
+    def test_an_unreadable_species_is_reported_not_silently_tropical(self) -> None:
+        """Without the species the recomputation equals the stored fallback, so the
+        row would otherwise be filed as ``already_correct`` — "we could not read it"
+        reported as "it is fine"."""
+        db = _db(species=[_species(watering_guide={"interval_days": 999})])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["unreadable_total"] == 1
+        assert report.details["unreadable"][0]["reason"] == "species_unreadable"
+        assert report.details["already_correct_total"] == 0
+        assert db.writes == []
+
+    def test_an_unreadable_cultivar_is_reported(self) -> None:
+        db = _db(
+            plants=[_plant(cultivar_key=CULTIVAR_KEY)],
+            cultivars=[
+                {
+                    "_key": CULTIVAR_KEY,
+                    "name": "Nana",
+                    "species_key": SPECIES_KEY,
+                    # Out of the `WateringGuide.interval_days` bound (1..90) — the
+                    # shape a document stored before a constraint tightened has.
+                    "watering_guide_override": {"interval_days": 999},
+                }
+            ],
+        )
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["unreadable_total"] == 1
+        assert report.details["unreadable"][0]["reason"] == "cultivar_unreadable"
+
+    def test_a_readable_neighbour_in_the_same_batch_is_still_repaired(self) -> None:
+        """The control: skipping the bad row must not skip the batch."""
+        db = _db(
+            profiles=[
+                _tropical_document(_key="cp-bad", plant_key="plant-bad", watering_interval_days=999),
+                _tropical_document(_key="cp-good", plant_key="plant-good"),
+            ],
+            plants=[_plant(_key="plant-bad"), _plant(_key="plant-good")],
+        )
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert (report.details["unreadable_total"], report.details["repaired_total"]) == (1, 1)
+
+
+class TestTheFamilyReporting:
+    """SCR-010."""
+
+    def test_a_dangling_family_key_is_reported(self) -> None:
+        db = _db(families=[])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["family_unresolved_total"] == 1
+        assert report.details["family_unresolved"][0]["family_key"] == FAMILY_KEY
+        assert report.details["already_correct_total"] == 1, (
+            "the verdict stands beside the observation: TROPICAL is all an unresolvable family can give"
+        )
+
+    def test_a_resolved_family_is_not_reported_as_unresolved(self) -> None:
+        report = migration.up(_db())  # type: ignore[arg-type]
+
+        assert report.details["family_unresolved_total"] == 0
+
+    def test_a_nameless_family_document_does_not_travel_as_an_empty_name(self) -> None:
+        """An empty ``name`` matches no map entry either — but it would be reported
+        as a resolved family, and the engine would be handed ``""``."""
+        db = _db(families=[{"_key": FAMILY_KEY, "name": ""}])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["family_unresolved_total"] == 1
+        assert report.details["already_correct"][0]["family_name"] is None
+
+
+class TestTheBatching:
+    """SCR-013: the run is batched, and the batching is observable."""
+
+    def test_the_population_is_fetched_in_batches(self) -> None:
+        from app.migrations.versions import v0050_repair_care_profiles_family_and_guide as module
+
+        size = module._BATCH_SIZE
+        profiles, plants = [], []
+        for index in range(size + 3):
+            plant_key = f"plant-{index}"
+            profiles.append(_tropical_document(_key=f"cp-{index}", plant_key=plant_key))
+            plants.append(_plant(_key=plant_key))
+        db = _db(profiles=profiles, plants=plants)
+
+        report = migration.up(db, dry_run=True)  # type: ignore[arg-type]
+
+        assert report.scanned == size + 3
+        assert [len(batch) for batch in db.aql.batches] == [size, 3]
+
+
+class TestEachMissingPieceOnItsOwn:
+    """SCR-008. The default fixture coupled three absences into one case: a plant
+    whose species document was missing was also a plant whose family was missing and
+    whose profile therefore could not be recomputed, so a single assertion stood for
+    three different data states. Each is now its own case, and each says what the
+    migration does **not** write."""
+
+    def test_a_species_key_naming_no_document(self) -> None:
+        db = _db(species=[])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["already_correct_total"] == 1, "nothing to resolve, so TROPICAL stands"
+        assert report.details["family_unresolved_total"] == 0, "the species is gone, not its family"
+        assert db.writes == []
+
+    def test_a_plant_with_no_species_key_at_all(self) -> None:
+        db = _db(plants=[_plant(species_key=None)])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["already_correct_total"] == 1
+        assert db.writes == []
+
+    def test_a_cultivar_key_naming_no_document(self) -> None:
+        """The species still resolves, so this is the one of the three that is still
+        repaired — which is exactly what coupling them hid."""
+        db = _db(plants=[_plant(cultivar_key="no-such-cultivar")])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["repaired_total"] == 1
+        assert _stored(db).care_style == CareStyleType.CACTUS
+
+    def test_a_species_whose_family_key_is_empty(self) -> None:
+        db = _db(species=[_species(family_key=None)])
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.details["already_correct_total"] == 1
+        assert report.details["family_unresolved_total"] == 0, "no family was named, so none is unresolved"
+        assert db.writes == []

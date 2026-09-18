@@ -52,6 +52,14 @@ def _species(**overrides) -> Species:
 
 
 def _service(species: Species | None, *, cultivar: Cultivar | None = None):
+    """A service carrying the collaborators the resolution needs, on doubles.
+
+    Deliberately *not* claimed to be wired "exactly as `dependencies` wires it" —
+    it is not: the production factory passes a dozen more repositories, and a
+    fixture that claims equivalence is how a test starts certifying a shape the
+    application does not have. That the production factory passes the resolver at
+    all is held by `tests/unit/guards/test_care_profile_resolver_is_wired.py`.
+    """
     care_repo = MagicMock()
     care_repo.get_profile_by_plant_key.return_value = None
     care_repo.create_profile.side_effect = lambda profile: profile.model_copy(update={"key": "cp-new"})
@@ -203,7 +211,13 @@ class TestTheDocstringTierIsBackedByACaller:
         import ast
         from pathlib import Path
 
-        app = Path(__file__).resolve().parents[4] / "app"
+        from tests.support.execution_guards import find_project_root
+
+        # `find_project_root` rather than `parents[4]`: a file moved one directory
+        # deeper would have pointed the scan at a directory that does not exist,
+        # `rglob` would have matched nothing, and the assertion below — "somebody
+        # passes the guide" — would have failed for a reason that is not the subject.
+        app = find_project_root(Path(__file__)) / "app"
         callers = []
         for path in sorted(app.rglob("*.py")):
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):

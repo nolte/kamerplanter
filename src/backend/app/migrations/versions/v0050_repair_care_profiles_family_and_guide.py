@@ -34,9 +34,21 @@ field on the model or written by v0048.
 
 So the criterion is **exact identity with what the defective bootstrap produced**:
 a profile is recomputed only when every field the generator writes still equals
-what ``auto_generate_profile`` returns with no family and no guide — the tier-3
-``TROPICAL`` fallback — for that plant. Anything else is reported as
-``skipped_user_edited`` and is not touched. A user who shortened one interval and
+:data:`_BROKEN_BOOTSTRAP_OUTPUT` — the tier-3 ``TROPICAL`` fallback as it stood
+between #1440 and #1489, **frozen as a literal**. Deriving it from the live engine
+would make this migration inert the day the presets move: every damaged profile
+would read as "user-edited" and the run would repair nothing while reporting
+cheerfully. Anything else is reported as ``skipped_user_edited`` and is not touched.
+
+The two questions are asked in this order: **already correct first**, identity with
+the broken output second. A profile this migration has repaired is no longer
+identical to the broken output, so the other order filed every repaired row under
+``skipped_user_edited`` on a second run — no wrong write, but a report that told the
+operator their installation was full of hand-edited profiles.
+
+``CareReminderService.update_profile`` now clears ``auto_generated`` on a real edit,
+so future repairs have a marker this one could not have. It marks going forward
+only, which is why the criterion here stays value-based. A user who shortened one interval and
 left the rest keeps their whole profile: the moment a profile stops being exactly
 the value nobody chose, this migration has no business deciding what part of it
 was deliberate.
@@ -74,6 +86,19 @@ as ``already_correct``, not as a change.
 
 ## Preconditions, idempotency, reversibility
 
+**No document can abort the run.** ``Species``, ``Cultivar`` and ``CareProfile``
+carry field constraints, and a stored document older than the current constraint
+raises ``ValidationError`` on hydration. Unhandled, one such row would fail ``up()``
+— and a failing pending migration is a fatal startup (``framework/runner.py``, M-4),
+so a single legacy document would keep an installation from booting. Each is
+hydrated on its own and a refusal is reported under ``unreadable`` (never as
+``already_correct``: "we could not read it" must not be filed as "it is fine").
+
+**Batched.** The population is read as keys and processed :data:`_BATCH_SIZE` at a
+time, each batch scoping its own plant/species/cultivar/family reads, because this
+runs under the startup lock where an installation-sized set of hydrated models is a
+memory profile nobody chose.
+
 ``care_profiles``, ``plant_instances``, ``species``, ``cultivars`` and
 ``botanical_families`` are created unconditionally by ``ensure_collections``, so a
 missing one means a partially bootstrapped or restored database — and it would
@@ -82,10 +107,10 @@ correct and stay tropical). The run then reports ``precondition_unmet`` and stay
 pending for a later boot (M-1) rather than being recorded applied over work it
 could not do.
 
-**Idempotent (M-3):** a repaired profile no longer equals the tier-3 fallback, so
-a second run classifies it as ``skipped_user_edited`` or ``already_correct`` and
-writes nothing. **Dry-run (M-5):** every category, every itemised row and every
-total is computed without a write, identically to the real run.
+**Idempotent (M-3):** a repaired profile already holds what the recomputation
+produces, so a second run classifies it as ``already_correct`` and writes nothing.
+**Dry-run (M-5):** every category, every itemised row and every total is computed
+without a write, identically to the real run.
 
 **Not reversible (M-6).** The previous values are the defect, and restoring them
 would be indistinguishable from overwriting an edit a user made in between. Every
@@ -97,10 +122,12 @@ exact), so a run can be read position by position before and after it happens.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, TypeVar
 
 import structlog
 from arango.database import StandardDatabase
+from pydantic import BaseModel, ValidationError
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
@@ -143,8 +170,89 @@ _LEARNED_FIELDS: frozenset[str] = frozenset({"watering_interval_learned", "ferti
 #: Never part of the comparison: assigned by the repository on write.
 _VOLATILE_FIELDS: frozenset[str] = frozenset({"updated_at"})
 
+#: **What the broken bootstrap actually wrote**, frozen as a literal (2026-09-17).
+#:
+#: This was computed from the live engine at first — and a migration that asks the
+#: *current* code what the *old* code produced is inert the moment the presets move:
+#: the next edit to ``CARE_STYLE_PRESETS[TROPICAL]`` would make every damaged profile
+#: look "user-edited" and this migration would repair nothing while reporting
+#: cheerfully. The population it has to recognise is historical, so the value has to
+#: be historical too.
+#:
+#: It is the tier-3 fallback ``auto_generate_profile()`` returned with no family and
+#: no guide between #1440 and #1489, in the shape :func:`_comparable` produces.
+#: ``tests/unit/migrations/versions/test_v0050_repair_care_profiles_family_and_guide.py``
+#: compares it against today's engine and goes red — with the reason — as soon as the
+#: two part ways, which is the signal to decide whether the remaining population is
+#: still worth repairing, not a licence to update the literal.
+_BROKEN_BOOTSTRAP_OUTPUT: dict[str, Any] = {
+    "adaptive_learning_enabled": True,
+    "auto_create_fertilizing_task": True,
+    "auto_create_pest_check_task": True,
+    "auto_create_repotting_task": True,
+    "auto_create_watering_task": True,
+    "auto_generated": True,
+    "care_style": "tropical",
+    "fertilizing_active_months": [3, 4, 5, 6, 7, 8, 9],
+    "fertilizing_interval_days": 14,
+    "humidity_check_enabled": True,
+    "humidity_check_interval_days": 7,
+    "location_check_enabled": False,
+    "location_check_months": [],
+    "notes": None,
+    "pest_check_interval_days": 14,
+    "repotting_interval_months": 24,
+    "water_quality_hint": None,
+    "watering_interval_days": 7,
+    "watering_method": "top_water",
+    "winter_watering_multiplier": 1.5,
+}
+
 #: How many rows each itemised list carries. Totals are always exact.
 _REPORT_SAMPLE_LIMIT = 500
+
+#: Profiles per batch. The population is read as keys and the documents are then
+#: fetched a batch at a time, because this runs under the startup migration lock and
+#: an installation-sized collection of hydrated models is not a memory profile
+#: anybody chose. Each batch also scopes its own plant/species/cultivar/family reads.
+_BATCH_SIZE = 1000
+
+#: The report categories. ``repaired``, ``skipped_user_edited``, ``already_correct``,
+#: ``plant_missing`` and ``unreadable`` are **exclusive** — every scanned profile
+#: lands in exactly one. ``family_unresolved`` is **additive**: it records a species
+#: whose ``family_key`` names no family document, which is an observation about the
+#: data rather than a verdict on the profile.
+_CATEGORIES: tuple[str, ...] = (
+    "repaired",
+    "skipped_user_edited",
+    "already_correct",
+    "plant_missing",
+    "unreadable",
+    "family_unresolved",
+)
+
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+
+@dataclass
+class _RunState:
+    """Counters and capped row lists, carried across the batches of one run."""
+
+    scanned: int = 0
+    totals: dict[str, int] = field(default_factory=lambda: dict.fromkeys(_CATEGORIES, 0))
+    buckets: dict[str, list[dict[str, Any]]] = field(default_factory=lambda: {name: [] for name in _CATEGORIES})
+
+    def count(self, category: str, row: Mapping[str, Any]) -> None:
+        """Count one row exactly, and itemise it up to :data:`_REPORT_SAMPLE_LIMIT`.
+
+        The total and the list are incremented together on purpose: they drifted
+        apart in the first draft of v0048's report, and a capped list beside an
+        exact counter is only readable while nothing can update one without the
+        other.
+        """
+        self.totals[category] += 1
+        if len(self.buckets[category]) < _REPORT_SAMPLE_LIMIT:
+            self.buckets[category].append(dict(row))
 
 
 def _comparable(profile: CareProfile) -> dict[str, Any]:
@@ -172,19 +280,39 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
     # ── reads ─────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _auto_generated_profiles(db: StandardDatabase) -> list[dict[str, Any]]:
-        """Every profile the system generated — the only population that can qualify.
+    def _auto_generated_profile_keys(db: StandardDatabase) -> list[str]:
+        """The ``_key`` of every profile the system generated — the whole population.
 
-        ``auto_generated`` is necessary and not sufficient (a user edit leaves it
-        ``true``), so it narrows the read and decides nothing; the per-profile
-        comparison does that.
+        Keys only, and then the documents in batches (:data:`_BATCH_SIZE`): this runs
+        under the startup migration lock, where holding an installation's entire
+        ``care_profiles`` collection as hydrated models is a memory profile nobody
+        chose. ``auto_generated`` is *necessary* and not sufficient (a user edit
+        leaves it ``true``), so it narrows the read and decides nothing — the
+        per-profile comparison does that.
+
+        The keys are taken once, up front, and the batches then fetch by key. Paging
+        the population with ``LIMIT``/``SKIP`` while writing into it would skip or
+        repeat rows; a key list taken under the lock cannot.
         """
-        query = f"FOR profile IN {col.CARE_PROFILES} FILTER profile.auto_generated == true RETURN profile"
-        return [dict(row) for row in db.aql.execute(query)]
+        query = f"FOR profile IN {col.CARE_PROFILES} FILTER profile.auto_generated == true RETURN profile._key"
+        return [str(key) for key in db.aql.execute(query)]
+
+    @staticmethod
+    def _profiles(db: StandardDatabase, profile_keys: list[str]) -> list[dict[str, Any]]:
+        """The full documents of one batch."""
+        query = f"FOR profile IN {col.CARE_PROFILES} FILTER profile._key IN @keys RETURN profile"
+        return [dict(row) for row in db.aql.execute(query, bind_vars={"keys": profile_keys})]
 
     @staticmethod
     def _plants(db: StandardDatabase, plant_keys: list[str]) -> dict[str, dict[str, Any]]:
-        """``plant _key → {species_key, cultivar_key, tenant_key, removed_on}``."""
+        """``plant _key → {species_key, cultivar_key, tenant_key, removed_on}``.
+
+        A projection to four scalars rather than a hydrated ``PlantInstance``: this
+        read must not be able to fail on a plant document that no longer satisfies
+        the model's constraints, because such a plant's *profile* is still this
+        migration's business (see :meth:`_hydrate` for the same reasoning where a
+        model is unavoidable).
+        """
         query = (
             f"FOR plant IN {col.PLANT_INSTANCES} FILTER plant._key IN @keys "
             "RETURN {key: plant._key, species: plant.species_key, cultivar: plant.cultivar_key, "
@@ -192,25 +320,61 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         )
         return {str(row["key"]): dict(row) for row in db.aql.execute(query, bind_vars={"keys": plant_keys})}
 
-    @staticmethod
-    def _species_index(db: StandardDatabase, species_keys: list[str]) -> dict[str, Species]:
+    @classmethod
+    def _species_index(cls, db: StandardDatabase, species_keys: list[str]) -> tuple[dict[str, Species], set[str]]:
+        """``species _key → Species``, plus the keys that would not hydrate.
+
+        ``Species`` and ``Cultivar`` carry field constraints, and a stored document
+        older than the current constraint raises ``ValidationError``. Unhandled, one
+        such row would abort ``up()`` — and the runner does not catch a failing
+        pending migration (``framework/runner.py``, M-4 fatal startup), so a single
+        legacy species document would keep the whole installation from booting. The
+        row is skipped and *reported* instead; the profiles that depend on it become
+        ``unreadable`` rather than silently "already correct".
+        """
         query = f"FOR s IN {col.SPECIES} FILTER s._key IN @keys RETURN s"
-        rows = db.aql.execute(query, bind_vars={"keys": species_keys})
-        return {str(row["_key"]): Species(**dict(row)) for row in rows}
+        return cls._hydrate(db.aql.execute(query, bind_vars={"keys": species_keys}), Species, "species")
+
+    @classmethod
+    def _cultivar_index(cls, db: StandardDatabase, cultivar_keys: list[str]) -> tuple[dict[str, Cultivar], set[str]]:
+        """``cultivar _key → Cultivar``, plus the keys that would not hydrate."""
+        query = f"FOR c IN {col.CULTIVARS} FILTER c._key IN @keys RETURN c"
+        return cls._hydrate(db.aql.execute(query, bind_vars={"keys": cultivar_keys}), Cultivar, "cultivars")
 
     @staticmethod
-    def _cultivar_index(db: StandardDatabase, cultivar_keys: list[str]) -> dict[str, Cultivar]:
-        query = f"FOR c IN {col.CULTIVARS} FILTER c._key IN @keys RETURN c"
-        return {
-            str(row["_key"]): Cultivar(**dict(row)) for row in db.aql.execute(query, bind_vars={"keys": cultivar_keys})
-        }
+    def _hydrate(rows: Any, model: type[_ModelT], collection: str) -> tuple[dict[str, _ModelT], set[str]]:
+        """Hydrate ``rows`` into ``model``, collecting the keys that refuse to."""
+        index: dict[str, _ModelT] = {}
+        unreadable: set[str] = set()
+        for row in rows:
+            document = dict(row)
+            key = str(document.get("_key") or "")
+            try:
+                index[key] = model(**document)
+            except ValidationError as exc:
+                unreadable.add(key)
+                logger.warning(
+                    "repair_care_profiles_document_unreadable",
+                    collection=collection,
+                    document_key=key,
+                    errors=exc.error_count(),
+                )
+        return index, unreadable
 
     @staticmethod
     def _family_names(db: StandardDatabase, family_keys: list[str]) -> dict[str, str]:
-        """``botanical_families _key → name`` — the value ``FAMILY_CARE_MAP`` keys by."""
+        """``botanical_families _key → name`` — the value ``FAMILY_CARE_MAP`` keys by.
+
+        A family whose ``name`` is empty or absent is left **out** of the index, so
+        the resolver answers ``None`` for it rather than handing the engine an empty
+        string: ``""`` matches no map entry either, but it travels as if it were a
+        name and would be reported as a resolved family.
+        """
         query = f"FOR f IN {col.BOTANICAL_FAMILIES} FILTER f._key IN @keys RETURN {{key: f._key, name: f.name}}"
         return {
-            str(row["key"]): str(row["name"] or "") for row in db.aql.execute(query, bind_vars={"keys": family_keys})
+            str(row["key"]): str(row["name"])
+            for row in db.aql.execute(query, bind_vars={"keys": family_keys})
+            if row.get("name")
         }
 
     # ── entry point ───────────────────────────────────────────────────────────
@@ -233,42 +397,100 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
             missing_collections=missing,
         )
 
-    def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:  # noqa: C901
+    def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
         unmet = self._preconditions_unmet(db, dry_run=dry_run)
         if unmet is not None:
             return unmet
 
-        profiles = self._auto_generated_profiles(db)
-        if not profiles:
+        profile_keys = self._auto_generated_profile_keys(db)
+        if not profile_keys:
             logger.info("repair_care_profiles_noop", scanned=0, changed=0, dry_run=dry_run)
             return self._report(dry_run=dry_run, scanned=0, changed=0)
 
-        plants = self._plants(db, sorted({str(p.get("plant_key") or "") for p in profiles if p.get("plant_key")}))
-        species = self._species_index(db, sorted({str(p["species"]) for p in plants.values() if p.get("species")}))
-        cultivars = self._cultivar_index(db, sorted({str(p["cultivar"]) for p in plants.values() if p.get("cultivar")}))
-        families = self._family_names(db, sorted({s.family_key for s in species.values() if s.family_key}))
-
         engine = CareReminderEngine()
         repository = ArangoCareReminderRepository(db)
+        state = _RunState()
 
-        buckets: dict[str, list[dict[str, Any]]] = {
-            "repaired": [],
-            "skipped_user_edited": [],
-            "already_correct": [],
-            "plant_missing": [],
-        }
-        totals: dict[str, int] = dict.fromkeys(buckets, 0)
+        for start in range(0, len(profile_keys), _BATCH_SIZE):
+            self._process_batch(
+                db,
+                profile_keys[start : start + _BATCH_SIZE],
+                engine=engine,
+                repository=repository,
+                state=state,
+                dry_run=dry_run,
+            )
+
+        logger.info(
+            "repair_care_profiles",
+            scanned=state.scanned,
+            changed=state.totals["repaired"],
+            skipped_user_edited=state.totals["skipped_user_edited"],
+            already_correct=state.totals["already_correct"],
+            plant_missing=state.totals["plant_missing"],
+            unreadable=state.totals["unreadable"],
+            family_unresolved=state.totals["family_unresolved"],
+            dry_run=dry_run,
+        )
+        details: dict[str, Any] = {}
+        for bucket, rows in state.buckets.items():
+            details[bucket] = rows
+            details[f"{bucket}_total"] = state.totals[bucket]
+        return self._report(
+            dry_run=dry_run,
+            scanned=state.scanned,
+            changed=state.totals["repaired"],
+            **details,
+        )
+
+    def _process_batch(  # noqa: C901, PLR0912
+        self,
+        db: StandardDatabase,
+        profile_keys: list[str],
+        *,
+        engine: CareReminderEngine,
+        repository: ArangoCareReminderRepository,
+        state: _RunState,
+        dry_run: bool,
+    ) -> None:
+        """Classify — and, unless ``dry_run``, repair — one batch of profiles."""
+        profiles = self._profiles(db, profile_keys)
+        state.scanned += len(profiles)
+
+        plants = self._plants(db, sorted({str(p.get("plant_key") or "") for p in profiles if p.get("plant_key")}))
+        species, unreadable_species = self._species_index(
+            db, sorted({str(p["species"]) for p in plants.values() if p.get("species")})
+        )
+        cultivars, unreadable_cultivars = self._cultivar_index(
+            db, sorted({str(p["cultivar"]) for p in plants.values() if p.get("cultivar")})
+        )
+        families = self._family_names(db, sorted({s.family_key for s in species.values() if s.family_key}))
 
         for document in profiles:
             profile_key = str(document.get("_key") or "")
             plant_key = str(document.get("plant_key") or "")
-            stored = CareProfile(**document)
-            plant = plants.get(plant_key)
 
+            try:
+                stored = CareProfile(**document)
+            except ValidationError as exc:
+                # The profile itself does not satisfy the model. Reported, never
+                # raised: `up()` failing is a fatal startup (M-4), and one legacy
+                # document must not cost an installation its boot.
+                state.count(
+                    "unreadable",
+                    {
+                        "profile_key": profile_key,
+                        "plant_key": plant_key or None,
+                        "reason": "profile_document_unreadable",
+                        "errors": exc.error_count(),
+                    },
+                )
+                continue
+
+            plant = plants.get(plant_key)
             if plant is None or plant.get("removed_on") is not None:
-                totals["plant_missing"] += 1
-                self._append(
-                    buckets["plant_missing"],
+                state.count(
+                    "plant_missing",
                     {
                         "profile_key": profile_key,
                         "plant_key": plant_key or None,
@@ -277,17 +499,26 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
                 )
                 continue
 
-            species_record = species.get(str(plant.get("species") or ""))
-            cultivar_record = cultivars.get(str(plant.get("cultivar") or ""))
+            species_key = str(plant.get("species") or "")
+            cultivar_key = str(plant.get("cultivar") or "")
+            if species_key in unreadable_species or cultivar_key in unreadable_cultivars:
+                state.count(
+                    "unreadable",
+                    {
+                        "profile_key": profile_key,
+                        "plant_key": plant_key,
+                        "reason": (
+                            "species_unreadable" if species_key in unreadable_species else "cultivar_unreadable"
+                        ),
+                        "species_key": species_key or None,
+                        "cultivar_key": cultivar_key or None,
+                    },
+                )
+                continue
 
-            # What the broken bootstrap produced for this plant: no family, no guide.
-            # Identity with it is the whole criterion — see the module docstring.
-            untouched = engine.auto_generate_profile(plant_key=plant_key)
-            inputs = resolve_care_inputs(
-                species_record,
-                cultivar_record,
-                resolve_family_name=families.get,
-            )
+            species_record = species.get(species_key)
+            cultivar_record = cultivars.get(cultivar_key)
+            inputs = resolve_care_inputs(species_record, cultivar_record, resolve_family_name=families.get)
             recomputed = engine.auto_generate_profile(
                 botanical_family=inputs.family_name,
                 plant_key=plant_key,
@@ -302,20 +533,42 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
                 "watering_interval_days": stored.watering_interval_days,
             }
 
-            if _comparable(stored) != _comparable(untouched):
-                totals["skipped_user_edited"] += 1
-                self._append(buckets["skipped_user_edited"], row)
+            # Additive, not a bucket: a species whose `family_key` names no family
+            # document can only be answered with TROPICAL, and that answer may well
+            # be `already_correct` below. The operator still has to see it — it is
+            # the difference between "correctly tropical" and "we could not tell".
+            if species_record is not None and species_record.family_key and inputs.family_name is None:
+                state.count(
+                    "family_unresolved",
+                    {
+                        "profile_key": profile_key,
+                        "plant_key": plant_key,
+                        "species_key": species_key,
+                        "family_key": species_record.family_key,
+                    },
+                )
+
+            # ORDER MATTERS, and the first version had it wrong. "Already correct"
+            # is asked FIRST: a profile this migration has already repaired is, by
+            # construction, no longer identical to the broken output — so asking
+            # "does it still look untouched?" first classified every repaired row as
+            # ``skipped_user_edited``, and a second run would have reported the whole
+            # installation as hand-edited. Nothing would have been written either way,
+            # but the report is how an operator reads the run, and that report lied.
+            if _comparable(recomputed) == _comparable(stored):
+                state.count("already_correct", {**row, "family_name": inputs.family_name})
                 continue
 
-            if _comparable(recomputed) == _comparable(stored):
-                totals["already_correct"] += 1
-                self._append(buckets["already_correct"], {**row, "family_name": inputs.family_name})
+            # Identity with what the broken bootstrap wrote is the whole criterion,
+            # against the FROZEN literal rather than today's engine — see
+            # :data:`_BROKEN_BOOTSTRAP_OUTPUT`.
+            if _comparable(stored) != _BROKEN_BOOTSTRAP_OUTPUT:
+                state.count("skipped_user_edited", row)
                 continue
 
             repaired = self._merge(stored, recomputed)
-            totals["repaired"] += 1
-            self._append(
-                buckets["repaired"],
+            state.count(
+                "repaired",
                 {
                     **row,
                     "family_name": inputs.family_name,
@@ -329,21 +582,6 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
                 repository.update_profile(profile_key, repaired)
                 self._clear_learned_intervals(repository, profile_key, stored)
 
-        logger.info(
-            "repair_care_profiles",
-            scanned=len(profiles),
-            changed=totals["repaired"],
-            skipped_user_edited=totals["skipped_user_edited"],
-            already_correct=totals["already_correct"],
-            plant_missing=totals["plant_missing"],
-            dry_run=dry_run,
-        )
-        details: dict[str, Any] = {}
-        for bucket, rows in buckets.items():
-            details[bucket] = rows
-            details[f"{bucket}_total"] = totals[bucket]
-        return self._report(dry_run=dry_run, scanned=len(profiles), changed=totals["repaired"], **details)
-
     # ── the write ─────────────────────────────────────────────────────────────
 
     @staticmethod
@@ -356,10 +594,10 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         """
         data = recomputed.model_dump()
         stored_data = stored.model_dump()
-        for field in _PRESERVED_FIELDS:
-            data[field] = stored_data[field]
-        for field in _LEARNED_FIELDS:
-            data[field] = None
+        for preserved in _PRESERVED_FIELDS:
+            data[preserved] = stored_data[preserved]
+        for learned in _LEARNED_FIELDS:
+            data[learned] = None
         data["auto_generated"] = True
         return CareProfile(**data)
 
@@ -388,13 +626,6 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
 
     # ── report plumbing ───────────────────────────────────────────────────────
 
-    @staticmethod
-    def _append(sink: list[dict[str, Any]], row: Mapping[str, Any]) -> None:
-        """Append one report row, up to :data:`_REPORT_SAMPLE_LIMIT`."""
-        if len(sink) >= _REPORT_SAMPLE_LIMIT:
-            return
-        sink.append(dict(row))
-
     def _report(
         self,
         *,
@@ -405,16 +636,10 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         **details: Any,
     ) -> MigrationReport:
         """One report shape for every exit, so a consumer never has to probe keys."""
-        payload: dict[str, Any] = {
-            "repaired": [],
-            "repaired_total": 0,
-            "skipped_user_edited": [],
-            "skipped_user_edited_total": 0,
-            "already_correct": [],
-            "already_correct_total": 0,
-            "plant_missing": [],
-            "plant_missing_total": 0,
-        }
+        payload: dict[str, Any] = {}
+        for category in _CATEGORIES:
+            payload[category] = []
+            payload[f"{category}_total"] = 0
         payload.update(details)
         return MigrationReport(
             version=self.version,

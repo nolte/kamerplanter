@@ -380,6 +380,11 @@ class CareReminderService:
         #: reads its families in one batched AQL pass.
         self._family_name_resolver = family_name_resolver
         self._family_name_cache: dict[str, str | None] = {}
+        #: Species read back during ONE service lifetime (the service is built per
+        #: request). The tenant dashboard resolved a species for its own listing and
+        #: the preset resolution then read the same document again per unprofiled
+        #: plant — two reads of one row inside one call (#1489 review, SCR-009).
+        self._species_cache: dict[str, Species | None] = {}
 
     # ── the care inputs (#1489/#1481) ────────────────────────────────────────
 
@@ -392,6 +397,18 @@ class CareReminderService:
         single call — so the memo bounds that to one read per distinct family.
         """
         if self._family_name_resolver is None:
+            # Not silent. The parameter is optional because 30-odd tests construct
+            # this service directly, but a *production* instance without it resolves
+            # no family and hands the engine `None` — which is #1489's outcome
+            # wearing a different cause. `tests/unit/guards/
+            # test_care_profile_resolver_is_wired.py` requires the injection in
+            # `dependencies.py`; this log is what an installation that got past the
+            # guard would show.
+            logger.warning(
+                "care_family_resolver_missing",
+                family_key=family_key,
+                consequence="care presets fall back to TROPICAL",
+            )
             return None
         if family_key not in self._family_name_cache:
             self._family_name_cache[family_key] = self._family_name_resolver(family_key)
@@ -412,8 +429,7 @@ class CareReminderService:
         if self._plant_repo is not None and self._species_repo is not None:
             plant = self._plant_repo.get_by_key(plant_key)
             if plant is not None:
-                if plant.species_key:
-                    species = self._species_repo.get_by_key(plant.species_key)
+                species = self._resolve_species(plant.species_key, self._species_cache)
                 if plant.cultivar_key:
                     cultivar = self._species_repo.get_cultivar_by_key(plant.cultivar_key)
         return resolve_care_inputs(species, cultivar, resolve_family_name=self._family_name)
@@ -557,6 +573,21 @@ class CareReminderService:
 
         data = profile.model_dump()
         data.update(updates)
+
+        # A profile a user edited is no longer auto-generated (#1489 review, SCR-007).
+        # `auto_generated` used to survive every edit, which made it useless as
+        # provenance — the v0050 repair migration therefore cannot use it as more
+        # than a necessary condition and falls back to comparing values, so a user
+        # who happens to set exactly the fallback values would have their edit
+        # overwritten. This marks edits from here on; it does not rewrite history,
+        # which is why v0050's criterion stays value-based.
+        #
+        # Only a change flips it: a PATCH that sets a field to the value it already
+        # holds is not an edit, and the round-trip the frontend's care dialog makes
+        # (load the profile, save it back untouched) must not silently re-label
+        # every profile in the installation.
+        if any(field in data and data[field] != getattr(profile, field) for field in updates):
+            data["auto_generated"] = False
 
         # An explicit interval edit takes precedence over the adaptive-learned
         # value: reset the learned interval (unless the caller set it in the same
@@ -1384,7 +1415,9 @@ class CareReminderService:
         plants, _total = self._plant_repo.get_all(offset=0, limit=500, tenant_key=tenant_key)
         active_plants = [p for p in plants if p.removed_on is None]
 
-        species_cache: dict[str, Species | None] = {}
+        # The service's own cache, not a local one: the preset resolution reads the
+        # same species again for every unprofiled plant in this listing (SCR-009).
+        species_cache = self._species_cache
         cultivar_traits_cache: dict[str, list[str]] = {}
         plant_data: list[dict] = []
 
@@ -1457,7 +1490,7 @@ class CareReminderService:
             plant_key, may_create=True
         )
         overwintering_profile = self._resolve_overwintering_profile(plant_key)
-        species = self._resolve_species(plant.species_key, {})
+        species = self._resolve_species(plant.species_key, self._species_cache)
         frost_sensitivity = species.frost_sensitivity if species else None
         cultivar_traits = self._resolve_cultivar_traits(plant.cultivar_key, {})
 
