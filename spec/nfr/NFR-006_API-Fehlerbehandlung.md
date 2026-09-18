@@ -189,15 +189,30 @@ Die Ausnahmen — die einzigen handgeschriebenen Entitätsnamen im Code:
 | `storage_object` | Blob im Objektspeicher (S3/Dateisystem) — unterhalb der Dokumentebene, Key in einem Bucket statt Modell. |
 
 **Additivität.** `error_code` und Status bleiben unverändert; ein Client, der auf
-`ENTITY_NOT_FOUND` matcht, bricht nicht. Die *Werte* sind es nicht: 13
-Schreibweisen wurden ersetzt (`tenants` → `tenant`, `memberships` → `membership`,
-`invitations` → `invitation`, `location_assignments` → `location_assignment`,
-`nutrient plan phase entry` → `nutrient_plan_phase_entry`, `object` →
-`storage_object`, `LifecycleConfig for species` → `lifecycle_config`,
-`NutrientProfile for phase` → `nutrient_profile`, `RequirementProfile for phase`
-→ `requirement_profile`, `PlantInstance in Run` → `planting_run_entry`, sowie die
-Collection-Namen der generischen Guards). Gemessen: der einzige Konsument des
-Feldes ist `PhotoUpload.tsx` mit `attachment` und `task` — beide unverändert.
+`ENTITY_NOT_FOUND` matcht, bricht nicht. Die *Werte* sind es nicht — neun
+veröffentlichte Werte haben sich geändert:
+
+| alt | neu |
+|---|---|
+| `tenants` | `tenant` |
+| `memberships` | `membership` |
+| `invitations` | `invitation` |
+| `location_assignments` | `location_assignment` |
+| `object` | `storage_object` |
+| `lifecycle_config_for_species` | `lifecycle_config` |
+| `nutrient_profile_for_phase` | `nutrient_profile` |
+| `requirement_profile_for_phase` | `requirement_profile` |
+| `plant_instance_in_run` | `planting_run_entry` |
+
+Dazu die Collection-Namen, die die generischen Guards zur Laufzeit durchreichten
+(`plant_instances`, `cultivars`, …) — sie sind jetzt der Modellname. Nicht
+betroffen sind Raiser, deren Prosa bereits auf denselben Wert faltete
+(`"nutrient plan phase entry"` → `nutrient_plan_phase_entry`); dort änderte sich
+nur die englische `message`.
+
+Gemessen statt angenommen: der einzige Konsument des Feldes im Repository ist
+`PhotoUpload.tsx` mit `attachment` und `task` — beide unverändert; unter
+`tests/e2e/` prüft keine Zusicherung das Feld.
 
 ---
 

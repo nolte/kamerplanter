@@ -372,3 +372,26 @@ def test_spec_lists_exactly_the_non_model_exceptions() -> None:
     listed = set(re.findall(r"^\|\s*`([a-z_]+)`\s*\|", rows, flags=re.MULTILINE))
 
     assert listed == set(NON_MODEL_ENTITY_NAMES)
+
+
+def test_the_collection_table_only_ever_yields_vocabulary() -> None:
+    """The two fallbacks the AST guard cannot see, measured instead.
+
+    ``BaseArangoRepository._require_entity_name()`` and
+    ``tenant_ownership.verify_entity_ownership`` used to fall back to the
+    *collection* name, and both are waved through the guard as derivations — an
+    expression the guard trusts is exactly where an unchecked value hides. This
+    states the property the trust rests on: every collection, mapped or not,
+    yields a published name.
+    """
+    from app.data_access.arango import collections as col
+    from app.data_access.arango.entity_names import COLLECTION_ENTITY_MODELS, entity_name_for_collection
+
+    every_collection = {
+        value for name, value in vars(col).items() if not name.startswith("_") and isinstance(value, str)
+    }
+    assert COLLECTION_ENTITY_MODELS.keys() <= every_collection, "the table names something that is not a collection"
+
+    outside = {entity_name_for_collection(name) for name in every_collection - set(COLLECTION_ENTITY_MODELS)}
+    assert outside <= {"resource"}
+    assert {entity_name_for_collection(name) for name in every_collection} <= entity_names()
