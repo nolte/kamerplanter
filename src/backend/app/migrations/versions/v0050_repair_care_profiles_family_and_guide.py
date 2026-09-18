@@ -607,9 +607,17 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         profile_key: str,
         stored: CareProfile,
     ) -> None:
-        """Null the learned intervals — a second write, because the first cannot.
+        """Null the learned intervals — a second write, kept for the reason below.
 
-        Measured: ``care_profiles`` is a **merge**-mode repository
+        **Superseded by #1506, deliberately not removed.**
+        ``ArangoCareReminderRepository`` now sets ``_update_is_full_replace``, so the
+        ``update_profile`` above already writes the two nulls and this call is a
+        redundant (idempotent) second write of the same values. It stays because a
+        migration's behaviour is history once it has run anywhere: removing a write
+        changes what a re-run does, which is not a change this issue measured. The
+        paragraph below records what was true when the migration was written.
+
+        Measured 2026-09-17: ``care_profiles`` was a **merge**-mode repository
         (``BaseArangoRepository._update_is_full_replace`` is ``False`` for it), so
         ``update_profile`` serialises with ``exclude_none=True`` and a field set to
         ``None`` is dropped from the payload rather than written as ``null`` — the
@@ -617,8 +625,8 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         is the path that writes ``keep_none=True``, so the clear goes through it,
         and only for a profile that actually holds a learned value.
 
-        (The same property means ``CareReminderService.reset_profile`` cannot clear
-        a field either; that is outside this migration and reported separately.)
+        (The same property meant ``CareReminderService.reset_profile`` could not clear
+        a field either; that was outside this migration and is what #1506 repaired.)
         """
         pending = {field: None for field in sorted(_LEARNED_FIELDS) if getattr(stored, field) is not None}
         if pending:

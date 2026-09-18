@@ -107,7 +107,16 @@ def update_profile(
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Update the plant's care profile with the supplied fields."""
-    updates = body.model_dump(exclude_none=True)
+    # `exclude_unset`, not `exclude_none` (#1506). Every field of `CareProfileUpdate`
+    # defaults to `None` for "not supplied", so `exclude_none` collapsed the two cases
+    # a PATCH has to distinguish: a field the body omitted and a field the body sent as
+    # `null`. The second is a clear — the care form sends `notes: null` the moment the
+    # user empties the box — and it was dropped here, one layer above the merge-mode
+    # repository that would have dropped it again. `model_fields_set` (what
+    # `exclude_unset` reads) is the only thing that knows the difference; a `null` for a
+    # field the profile cannot hold as one is refused by the schema with 422, so nothing
+    # unwritable reaches the service.
+    updates = body.model_dump(exclude_unset=True)
     updated = service.update_profile(plant_key, updates, user_key=user.key or "")
     return _profile_to_response(updated)
 
