@@ -167,7 +167,7 @@ class TenantService:
     def get_tenant(self, tenant_key: str) -> Tenant:
         tenant = self._tenant_repo.get_by_key(tenant_key)
         if not tenant:
-            raise NotFoundError("tenants", tenant_key)
+            raise NotFoundError("Tenant", tenant_key)
         return tenant
 
     def get_personal_tenant(self, user_key: str) -> Tenant | None:
@@ -198,7 +198,7 @@ class TenantService:
     def get_tenant_by_slug(self, slug: str) -> Tenant:
         tenant = self._tenant_repo.get_by_slug(slug)
         if not tenant:
-            raise NotFoundError("tenants", slug)
+            raise NotFoundError("Tenant", slug)
         return tenant
 
     def update_tenant(self, tenant_key: str, data: dict) -> Tenant:
@@ -240,7 +240,7 @@ class TenantService:
         if data.get("is_active") is False:
             tenant = self._tenant_repo.get_by_key(tenant_key)
             if not tenant:
-                raise NotFoundError("tenants", tenant_key)
+                raise NotFoundError("Tenant", tenant_key)
             if tenant.is_platform:
                 raise ForbiddenError("The platform tenant cannot be deactivated.")
 
@@ -253,7 +253,7 @@ class TenantService:
 
         tenant = self._tenant_repo.update_fields(tenant_key, data)
         if not tenant:
-            raise NotFoundError("tenants", tenant_key)
+            raise NotFoundError("Tenant", tenant_key)
         return tenant
 
     def delete_tenant(self, tenant_key: str) -> bool:
@@ -268,7 +268,7 @@ class TenantService:
         self._membership_repo.delete_all_for_tenant(tenant_key)
         deleted = self._tenant_repo.delete(tenant_key)
         if not deleted:
-            raise NotFoundError("tenants", tenant_key)
+            raise NotFoundError("Tenant", tenant_key)
         logger.info("tenant_deleted", tenant_key=tenant_key)
         return True
 
@@ -442,7 +442,7 @@ class TenantService:
         """
         tenant = self._tenant_repo.get_by_key(tenant_key)
         if not tenant:
-            raise NotFoundError("tenants", tenant_key)
+            raise NotFoundError("Tenant", tenant_key)
 
         existing = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if existing:
@@ -479,7 +479,7 @@ class TenantService:
         self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         return result
 
     def admin_remove_membership(
@@ -516,11 +516,11 @@ class TenantService:
         """
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         if tenant_key is not None and membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         if user_key is not None and membership.user_key != user_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         return membership
 
     def change_member_role(
@@ -544,11 +544,11 @@ class TenantService:
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
 
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         return result
 
     def change_member_scopes(
@@ -569,7 +569,7 @@ class TenantService:
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
 
         losing_management = membership.has_management and AdminScope.MANAGEMENT not in new_scopes
         if losing_management:
@@ -580,7 +580,7 @@ class TenantService:
 
         result = self._membership_repo.update_fields(membership_key, {"admin_scopes": list(new_scopes)})
         if not result:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         return result
 
     def remove_member(self, tenant_key: str, membership_key: str, actor_scopes: list[AdminScope]) -> bool:
@@ -589,7 +589,7 @@ class TenantService:
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
 
         if membership.has_management:
             self._guard_last_manager(tenant_key, "Cannot remove the last member with the management scope")
@@ -599,7 +599,7 @@ class TenantService:
     def leave_tenant(self, tenant_key: str, user_key: str) -> bool:
         membership = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if not membership:
-            raise NotFoundError("memberships", f"user={user_key}")
+            raise NotFoundError("Membership", f"user={user_key}")
 
         if membership.has_management:
             self._guard_last_manager(
@@ -677,18 +677,18 @@ class TenantService:
     def revoke_invitation(self, tenant_key: str, invitation_key: str) -> Invitation:
         invitation = self._invitation_repo.get_by_key(invitation_key)
         if not invitation or invitation.tenant_key != tenant_key:
-            raise NotFoundError("invitations", invitation_key)
+            raise NotFoundError("Invitation", invitation_key)
 
         result = self._invitation_repo.update_fields(invitation_key, {"status": InvitationStatus.REVOKED})
         if not result:
-            raise NotFoundError("invitations", invitation_key)
+            raise NotFoundError("Invitation", invitation_key)
         return result
 
     def accept_invitation(self, token: str, user_key: str) -> Membership:
         token_hash = self._invitation_engine.hash_token(token)
         invitation = self._invitation_repo.get_by_token_hash(token_hash)
         if not invitation:
-            raise NotFoundError("invitations", "token")
+            raise NotFoundError("Invitation", "token")
 
         is_expired = self._invitation_engine.is_expired(invitation.expires_at)
         is_pending = invitation.status == InvitationStatus.PENDING
@@ -745,7 +745,7 @@ class TenantService:
         # Verify membership belongs to tenant
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
 
         # Check for duplicate
         existing = self._assignment_repo.get_by_membership_and_location(membership_key, location_key)
@@ -774,17 +774,17 @@ class TenantService:
         """
         assignment = self._assignment_repo.get_by_key(assignment_key)
         if not assignment or assignment.tenant_key != tenant_key:
-            raise NotFoundError("location_assignments", assignment_key)
+            raise NotFoundError("LocationAssignment", assignment_key)
 
         result = self._assignment_repo.update_fields(assignment_key, data)
         if not result:
-            raise NotFoundError("location_assignments", assignment_key)
+            raise NotFoundError("LocationAssignment", assignment_key)
         return result
 
     def delete_assignment(self, tenant_key: str, assignment_key: str) -> bool:
         assignment = self._assignment_repo.get_by_key(assignment_key)
         if not assignment or assignment.tenant_key != tenant_key:
-            raise NotFoundError("location_assignments", assignment_key)
+            raise NotFoundError("LocationAssignment", assignment_key)
         return self._assignment_repo.delete(assignment_key)
 
     # --- Helpers ---

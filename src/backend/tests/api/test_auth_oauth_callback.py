@@ -86,7 +86,7 @@ def test_disabled_account_redirects_to_account_disabled():
     assert resp.headers["location"] == f"{FRONTEND_URL}/auth/callback?error=account_disabled"
 
 
-@pytest.mark.parametrize("exc", [NotFoundError("Oidc", "google"), ValidationError("nope")])
+@pytest.mark.parametrize("exc", [NotFoundError("OidcProviderConfig", "google"), ValidationError("nope")])
 def test_provider_errors_redirect_to_provider_error(exc):
     resp = _callback(_FakeAuthService(exc), "?code=abc&state=xyz")
 

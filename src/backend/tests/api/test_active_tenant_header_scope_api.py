@@ -176,7 +176,7 @@ class _FakeTenantService:
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
         tenant = self._by_slug.get(slug)
         if tenant is None:
-            raise NotFoundError("tenants", slug)
+            raise NotFoundError("Tenant", slug)
         return tenant
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:

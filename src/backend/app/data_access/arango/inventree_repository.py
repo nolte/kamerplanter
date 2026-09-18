@@ -19,6 +19,7 @@ from app.common.enums import LinkableEntityCollection
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.entity_names import entity_name_for_collection
 from app.domain.models.inventree import (
     Equipment,
     InvenTreeConnection,
@@ -132,7 +133,7 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
             # REQ-016 narrows the InvenTree-linkable set to fertilizers | tanks |
             # equipment (a subset of the shared ownership allowlist); reject
             # anything outside it before delegating.
-            raise NotFoundError(entity_collection, entity_key)
+            raise NotFoundError(entity_name_for_collection(entity_collection), entity_key)
         # Existence + tenant-ownership (globally-seeded rows stay linkable) via
         # the shared guard — fail-closed 404, no re-implementation (#517).
         self.verify_entity_ownership(entity_collection, entity_key, tenant_key)

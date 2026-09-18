@@ -144,7 +144,7 @@ class PhaseService:
     def get_lifecycle_by_species(self, species_key: str) -> LifecycleConfig:
         lc = self._repo.get_lifecycle_by_species(species_key)
         if lc is None:
-            raise NotFoundError("LifecycleConfig for species", species_key)
+            raise NotFoundError("LifecycleConfig", species_key)
         return lc
 
     def create_lifecycle(self, config: LifecycleConfig) -> LifecycleConfig:
@@ -239,7 +239,7 @@ class PhaseService:
     def get_requirement_profile(self, phase_key: PhaseKey) -> RequirementProfile:
         profile = self._repo.get_requirement_profile(phase_key)
         if profile is None:
-            raise NotFoundError("RequirementProfile for phase", phase_key)
+            raise NotFoundError("RequirementProfile", phase_key)
         return profile
 
     def create_requirement_profile(self, profile: RequirementProfile) -> RequirementProfile:
@@ -251,7 +251,7 @@ class PhaseService:
     def get_nutrient_profile(self, phase_key: PhaseKey) -> NutrientProfile:
         profile = self._repo.get_nutrient_profile(phase_key)
         if profile is None:
-            raise NotFoundError("NutrientProfile for phase", phase_key)
+            raise NotFoundError("NutrientProfile", phase_key)
         return profile
 
     def create_nutrient_profile(self, profile: NutrientProfile) -> NutrientProfile:

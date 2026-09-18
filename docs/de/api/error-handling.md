@@ -34,13 +34,16 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `details[].field` | String | Feldname oder Pfad zum fehlerhaften Wert |
 | `details[].reason` | String | Erläuterung des konkreten Problems |
 | `details[].code` | String | Maschinenlesbarer Detailcode |
-| `details[].entity` | String | **Optional.** Name der fehlenden Ressource in `snake_case` (`task`, `attachment`, `plant_instance`) — nur bei 404-Fehlern gesetzt |
+| `details[].entity` | String | **Optional.** Name der fehlenden Ressource in `snake_case` aus einem geschlossenen Vokabular (`task`, `attachment`, `plant_instance`) — nur bei 404-Fehlern gesetzt |
 | `timestamp` | String | Zeitpunkt des Fehlers (ISO 8601, UTC) |
 | `path` | String | URL-Pfad der fehlgeschlagenen Anfrage |
 | `method` | String | HTTP-Methode der fehlgeschlagenen Anfrage |
 
 !!! tip "Zwei 404 auf derselben Route unterscheiden"
     Eine Route, die erst eine Eltern- und dann eine Kindressource auflöst, antwortet in beiden Fällen mit `ENTITY_NOT_FOUND` und HTTP 404. Unterschieden werden sie über `details[0].entity` — nicht über `message`, die auf Englisch formuliert und jederzeit umformulierbar ist. Ein Client, der das Feld nicht kennt, verhält sich wie bisher: `error_code` und Status sind unverändert.
+
+!!! info "`entity` ist ein geschlossenes Vokabular"
+    Der Wert ist immer der `snake_case`-Name **einer** Ressourcenart: ein Name je Modell, immer Singular (`tenant`, nie `tenants`; `plant_instance`, nie `plant_instances`). Er ist nie ein Speicher-/Collection-Name und nie ein Freitext. Neben den Modellnamen gibt es neun benannte Ausnahmen für Dinge, die kein Modell sind — darunter `storage_object` (Datei im Objektspeicher), `session` (Anmeldesitzung), `mcp_tool` und `resource` (Rückfall, wenn der Server die Art nicht benennen darf). Vergleichen Sie den Wert exakt; ein unbekannter Wert sollte wie „keine Angabe" behandelt werden.
 
 !!! tip "error_id für Support nutzen"
     Die `error_id` wird im Server-Log protokolliert. Geben Sie diese ID bei der Fehlersuche oder in Support-Anfragen an — damit kann der Fehler serverseitig exakt nachvollzogen werden.

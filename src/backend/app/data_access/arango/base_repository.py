@@ -11,6 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango import tenant_ownership
+from app.data_access.arango.entity_names import entity_name_for_collection
 from app.data_access.arango.query_builder import AQLBuilder
 
 logger = structlog.get_logger(__name__)
@@ -199,7 +200,9 @@ class BaseArangoRepository[TModel: BaseModel]:
         model_cls = self._resolve_model_cls()
         if model_cls is not None:
             return model_cls.__name__
-        return self._collection_name
+        # A raw, model-less repository still must not publish its collection
+        # name as ``details[0].entity`` (#1465).
+        return entity_name_for_collection(self._collection_name)
 
     # ── Helpers (unchanged) ──────────────────────────────────────────────────
 

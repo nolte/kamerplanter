@@ -5,6 +5,7 @@ from arango.exceptions import DocumentInsertError
 
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
+from app.data_access.arango.entity_names import entity_name_for_collection
 
 # Catalogue collections whose rows carry a ``tenant_key`` ownership marker: some
 # rows are global (``tenant_key == ""``, e.g. seeded system catalogues), others
@@ -373,11 +374,11 @@ class FavoritesService:
 
         doc = self._db.collection(target_collection).get(target_key)
         if doc is None:
-            raise NotFoundError(target_collection, target_key)
+            raise NotFoundError(entity_name_for_collection(target_collection), target_key)
 
         row_tenant = doc.get("tenant_key") or ""
         if row_tenant not in ("", tenant_key):
-            raise NotFoundError(target_collection, target_key)
+            raise NotFoundError(entity_name_for_collection(target_collection), target_key)
 
     def _resolve_collection(self, key: str) -> str | None:
         """Resolve which document collection a key belongs to."""

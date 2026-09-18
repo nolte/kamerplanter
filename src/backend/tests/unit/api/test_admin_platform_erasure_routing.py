@@ -40,7 +40,7 @@ class TestDeleteTenantRouting:
 
     def test_missing_tenant_raises_not_found(self):
         tenant_service = MagicMock()
-        tenant_service.get_tenant.side_effect = NotFoundError("tenants", "ghost")
+        tenant_service.get_tenant.side_effect = NotFoundError("Tenant", "ghost")
 
         with pytest.raises(NotFoundError):
             mod.delete_tenant("ghost", _user=None, tenant_service=tenant_service)

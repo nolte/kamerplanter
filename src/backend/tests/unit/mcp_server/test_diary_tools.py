@@ -231,7 +231,7 @@ class _Attachments:
     async def open_thumbnail_stream(self, attachment: _Attachment, size: int):
         raw = self.renditions.get((attachment.key, size))
         if raw is None:
-            raise NotFoundError("object", f"{attachment.storage_key}_t{size}.webp")
+            raise NotFoundError("storage object", f"{attachment.storage_key}_t{size}.webp")
         self.thumbnail_reads.append((attachment.key, size))
         return _stream(raw)
 

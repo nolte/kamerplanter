@@ -67,7 +67,7 @@ class _FakeService:
 
     async def open_content_thumbnail_stream(self, content, size):
         if self._thumbnail_missing:
-            raise NotFoundError("thumbnail", str(size))
+            raise NotFoundError("storage object", str(size))
 
         async def _gen():
             yield b"thumb"

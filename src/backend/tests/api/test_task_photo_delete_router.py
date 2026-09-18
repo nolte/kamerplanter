@@ -339,11 +339,17 @@ class TestTheTwoNotFoundCasesAreDistinguishable:
     def test_the_entity_name_does_not_depend_on_how_the_raiser_spelled_it(self):
         """``NotFoundError("Task", …)`` and ``NotFoundError("task", …)`` both occur.
 
-        The call sites spell entities every which way — ``"PlantInstance"``,
+        The call sites used to spell entities every which way — ``"PlantInstance"``,
         ``"attachment"``, ``"memberships"``, ``"nutrient plan phase entry"`` — so a
         verbatim echo would hand the client a value that changes when someone
         re-words a raiser. Normalised in the constructor, once, rather than at each
         of the ~150 call sites.
+
+        #1465 has since closed the *vocabulary* those sites may draw from, so the
+        prose spelling below no longer occurs in ``app/``. The folding it exercises
+        still has to hold: it is what makes ``"Task"`` and ``"task"`` one value, and
+        it is the only thing standing between a re-worded raiser and a changed
+        published value.
         """
         assert NotFoundError("Task", "k").details[0]["entity"] == "task"
         assert NotFoundError("task", "k").details[0]["entity"] == "task"

@@ -210,6 +210,12 @@ _DECLARED_CULTIVAR_SURFACE: dict[str, _Surface] = {
 _MODULES_TOUCHING_CULTIVARS: dict[str, str] = {
     "data_access/arango/collections.py": "Declares the collection and its graph edges — the definition, not a read.",
     "data_access/arango/species_repository.py": "Owns the one narrowing read path plus the cultivar CRUD.",
+    "data_access/arango/entity_names.py": (
+        "Names the collection as a *key* in the collection→model table that gives "
+        "``details[0].entity`` its published name (#1465). It opens no query and "
+        "reads no document — the collection appears as a dict key next to "
+        "``Cultivar``, nothing more."
+    ),
     "data_access/arango/tenant_ownership.py": (
         "Write-path reference guard: ``cultivars`` is on the ownership-verifiable "
         "allowlist so ``plant_instance.cultivar_key`` cannot point at a foreign row "

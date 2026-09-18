@@ -335,7 +335,7 @@ class TestGetSpeciesLifecycle:
         """``ENTITY_NOT_FOUND`` was itself the finding — it routes the resolver's fallback."""
 
         service = MagicMock()
-        service.get_lifecycle_by_species.side_effect = NotFoundError("LifecycleConfig for species", "11507159")
+        service.get_lifecycle_by_species.side_effect = NotFoundError("LifecycleConfig", "11507159")
         ctx = _ctx(phase_service=service)
 
         result = await GetSpeciesLifecycle().run(ctx, GetSpeciesLifecycle.Input(species_key="11507159"))
