@@ -11,7 +11,7 @@ import secrets
 import httpx
 import structlog
 
-from app.common.enums import AuthProviderType
+from app.common.enums import AuthProviderType, OidcProviderType
 from app.common.exceptions import ValidationError
 from app.domain.models.auth import OAuthRedirect, OAuthUserInfo
 from app.domain.models.oidc_config import (
@@ -19,7 +19,9 @@ from app.domain.models.oidc_config import (
     GITHUB_REQUIRED_SCOPE,
     OidcProviderConfig,
     ProviderScopeCheck,
+    ProviderTypeCheck,
     is_github_provider,
+    is_known_provider_type,
     scope_tokens,
     scopes_grant_github_email,
 )
@@ -50,23 +52,41 @@ def _as_optional_bool(claim: object) -> bool | None:
     return None
 
 
-# Well-known endpoints for built-in providers
+# Well-known endpoints for built-in providers.
+#
+# Keyed from ``OidcProviderType`` so the vocabulary the API boundary enforces and
+# the table this dispatch reads cannot drift (#1497): a key the boundary refuses
+# would be unreachable, and a member missing here silently falls through to
+# discovery. ``tests/unit/domain/engines/test_provider_type_vocabulary.py`` holds
+# both directions. ``OidcProviderType.OIDC`` is absent on purpose — the generic
+# branch resolves its endpoints from the discovery document.
 _PROVIDER_ENDPOINTS: dict[str, dict[str, str]] = {
-    "google": {
+    OidcProviderType.GOOGLE.value: {
         "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
         "token_url": "https://oauth2.googleapis.com/token",
         "userinfo_url": "https://openidconnect.googleapis.com/v1/userinfo",
     },
-    "github": {
+    OidcProviderType.GITHUB.value: {
         "authorization_url": "https://github.com/login/oauth/authorize",
         "token_url": "https://github.com/login/oauth/access_token",
         "userinfo_url": "https://api.github.com/user",
     },
-    "apple": {
+    OidcProviderType.APPLE.value: {
         "authorization_url": "https://appleid.apple.com/auth/authorize",
         "token_url": "https://appleid.apple.com/auth/token",
         "userinfo_url": "",  # Apple doesn't have a userinfo endpoint; data is in id_token
     },
+}
+
+
+#: Which stored ``provider_type`` becomes which ``AuthProviderType`` on the link
+#: record. Keyed from ``OidcProviderType`` for the same reason as
+#: ``_PROVIDER_ENDPOINTS`` (#1497); anything not listed falls back to the generic
+#: ``AuthProviderType.OIDC``, which is what ``OidcProviderType.OIDC`` means.
+_AUTH_PROVIDER_BY_TYPE: dict[str, AuthProviderType] = {
+    OidcProviderType.GOOGLE.value: AuthProviderType.GOOGLE,
+    OidcProviderType.GITHUB.value: AuthProviderType.GITHUB,
+    OidcProviderType.APPLE.value: AuthProviderType.APPLE,
 }
 
 
@@ -101,7 +121,7 @@ class OAuthEngine:
             "code_challenge_method": "S256",
         }
         # Apple requires response_mode=form_post
-        if config.provider_type == "apple":
+        if config.provider_type == OidcProviderType.APPLE:
             params["response_mode"] = "form_post"
 
         query = "&".join(f"{k}={v}" for k, v in params.items())
@@ -140,6 +160,43 @@ class OAuthEngine:
             resp = client.post(token_url, data=data, headers=headers)
             resp.raise_for_status()
             return resp.json()
+
+    def check_provider_type(self, config: OidcProviderConfig) -> ProviderTypeCheck:
+        """Judge a stored ``provider_type`` against the vocabulary this engine dispatches on (#1497).
+
+        ``extract_user_info`` takes the GitHub branch on ``github`` and the Apple
+        branch on ``apple``, and ``_PROVIDER_ENDPOINTS`` is keyed the same way, so
+        a record typed ``GitHub`` is served by the GENERIC OIDC branch: no
+        well-known endpoints, no address-list request, and — before this — no
+        complaint anywhere.
+
+        Since #1497 the API boundary refuses such a spelling on create and update,
+        so this can only answer ``ok=False`` for a record written earlier. It
+        returns a verdict and raises nothing, exactly like
+        :meth:`check_provider_scopes`: refusing the read would take away the only
+        screen on which that record is visible, and there is no migration —
+        rewriting stored operator data on the strength of a measurement that found
+        no records at all would be guessing.
+        """
+        known = [member.value for member in OidcProviderType]
+        if is_known_provider_type(config.provider_type):
+            return ProviderTypeCheck(
+                ok=True,
+                provider_type=config.provider_type,
+                known_provider_types=known,
+                detail="This provider type is one the sign-in flow dispatches on.",
+            )
+        return ProviderTypeCheck(
+            ok=False,
+            provider_type=config.provider_type,
+            known_provider_types=known,
+            detail=(
+                f"'{config.provider_type}' is not a provider type this installation dispatches on, so "
+                "sign-in through it uses the generic OIDC branch: no well-known endpoints are filled "
+                f"in and no provider-specific step runs. The accepted values are {', '.join(known)}, "
+                "spelled lower-case. Correct the provider type with PUT on this configuration."
+            ),
+        )
 
     def check_provider_scopes(self, config: OidcProviderConfig) -> ProviderScopeCheck:
         """Judge a configured scope list against what the provider branch needs (#1477).
@@ -220,7 +277,7 @@ class OAuthEngine:
 
         if is_github_provider(provider_type):
             return self._fetch_github_user_info(access_token)
-        elif provider_type == "apple":
+        elif provider_type == OidcProviderType.APPLE:
             return self._extract_apple_user_info(token_response)
         else:
             # Google and generic OIDC — use userinfo endpoint
@@ -322,7 +379,7 @@ class OAuthEngine:
 
     def _extract_apple_user_info(self, token_response: dict) -> OAuthUserInfo:
         """Apple embeds user info in the id_token JWT."""
-        return self._extract_from_id_token(token_response, "apple")
+        return self._extract_from_id_token(token_response, OidcProviderType.APPLE.value)
 
     def _fetch_userinfo_endpoint(
         self,
@@ -470,9 +527,4 @@ class OAuthEngine:
 
     @staticmethod
     def _to_provider_type(provider_type: str) -> AuthProviderType:
-        mapping = {
-            "google": AuthProviderType.GOOGLE,
-            "github": AuthProviderType.GITHUB,
-            "apple": AuthProviderType.APPLE,
-        }
-        return mapping.get(provider_type, AuthProviderType.OIDC)
+        return _AUTH_PROVIDER_BY_TYPE.get(provider_type, AuthProviderType.OIDC)

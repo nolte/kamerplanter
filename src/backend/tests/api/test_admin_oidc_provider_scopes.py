@@ -12,66 +12,37 @@ carry a status field on the record — measured: no frontend calls any of the si
 gate existed; there is no migration, because nothing seeds an OIDC provider.
 """
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from cryptography.fernet import Fernet
-from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
-from fastapi.testclient import TestClient
-
-from app.api.v1.admin.oidc_providers.router import router as oidc_router
-from app.common.auth import require_platform_admin
-from app.common.dependencies import get_encryption_engine, get_oauth_engine, get_oidc_config_repo
-from app.common.error_handlers import app_error_handler, validation_error_handler
-from app.common.exceptions import KamerplanterError
-from app.domain.engines.encryption_engine import EncryptionEngine
-from app.domain.engines.oauth_engine import OAuthEngine
-from app.domain.models.oidc_config import OidcProviderConfig
-
-BASE = "/api/v1/admin/oidc-providers"
-
-DISCOVERY = {
-    "issuer": "https://idp.example",
-    "authorization_endpoint": "https://idp.example/authorize",
-    "token_endpoint": "https://idp.example/token",
-}
+from tests.support.oidc_admin import (
+    BASE,
+    DISCOVERY,
+    DISCOVERY_TARGET,
+    admin_client,
+    provider_repo,
+    stored_provider,
+)
 
 
-def _stored(provider_type: str = "github", scopes: list[str] | None = None) -> OidcProviderConfig:
-    return OidcProviderConfig(
-        _key="cfg1",
-        slug="gh",
-        display_name="GitHub",
-        provider_type=provider_type,
-        issuer_url="https://github.com",
-        client_id="cid",
-        scopes=["openid", "email", "profile"] if scopes is None else scopes,
-    )
+def _stored(provider_type: str = "github", scopes: list[str] | None = None):
+    return stored_provider(provider_type=provider_type, scopes=scopes)
 
 
-def _repo(stored: OidcProviderConfig | None = None) -> MagicMock:
-    repo = MagicMock()
-    repo.get_by_slug.return_value = None
-    repo.get_by_key.return_value = stored
-    repo.create.side_effect = lambda c: c.model_copy(update={"key": "cfg1"})
-    repo.update.side_effect = lambda key, c: c
-    return repo
+def _repo(stored=None) -> MagicMock:
+    return provider_repo(stored)
 
 
-def _client(repo: MagicMock) -> TestClient:
-    app = FastAPI()
-    app.include_router(oidc_router, prefix="/api/v1")
-    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
-    app.dependency_overrides[require_platform_admin] = lambda: SimpleNamespace(key="user_admin")
-    app.dependency_overrides[get_oidc_config_repo] = lambda: repo
-    app.dependency_overrides[get_encryption_engine] = lambda: EncryptionEngine(Fernet.generate_key().decode())
-    app.dependency_overrides[get_oauth_engine] = OAuthEngine
-    return TestClient(app)
+def _client(repo: MagicMock):
+    return admin_client(repo)
 
 
 def _create_body(**overrides) -> dict:
+    """The #1477 body: NO scopes by default, because the scope gate is the subject.
+
+    Deliberately not `tests.support.oidc_admin.create_body`, which carries
+    `user:email` so that a 422 there is about the provider type (#1497). Sharing
+    that default here would make every scope test pass for the wrong reason.
+    """
     body = {
         "slug": "gh",
         "display_name": "GitHub",
@@ -156,9 +127,8 @@ class TestTheTestEndpoint:
     """The path for configurations stored before the gate existed."""
 
     def _post_test(self, repo: MagicMock, *, discovery_raises: bool = False):
-        target = "app.domain.engines.oauth_engine.OAuthEngine.fetch_discovery_document"
         side_effect = RuntimeError("404 Not Found") if discovery_raises else None
-        with patch(target, side_effect=side_effect, return_value=DISCOVERY):
+        with patch(DISCOVERY_TARGET, side_effect=side_effect, return_value=DISCOVERY):
             return _client(repo).post(f"{BASE}/cfg1/test")
 
     def test_it_reports_the_missing_scope_as_a_structured_field(self) -> None:
