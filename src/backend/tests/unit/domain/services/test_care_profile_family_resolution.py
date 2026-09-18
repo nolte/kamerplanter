@@ -26,6 +26,7 @@ import pytest
 
 from app.common.enums import CareStyleType
 from app.domain.engines.care_reminder_engine import CareReminderEngine
+from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareProfile
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Species
@@ -52,9 +53,16 @@ def _service(species: Species | None, *, families: dict[str, str] | None = None)
     that nothing keeps true. What the production factory passes is held by
     ``tests/unit/guards/test_care_profile_resolver_is_wired.py``.
     """
-    care_repo = MagicMock()
+    # `spec` is the real interface: since #1292 the profile and its edge are ONE
+    # transactional write (`create_linked_profile`), and a bare MagicMock would
+    # happily answer the `create_profile` this fixture used to stub — a call the
+    # repository no longer has. The assertions below would then have been measuring
+    # a path production cannot take.
+    care_repo = MagicMock(spec=ICareReminderRepository)
     care_repo.get_profile_by_plant_key.return_value = None
-    care_repo.create_profile.side_effect = lambda profile: profile.model_copy(update={"key": "cp-new"})
+    care_repo.create_linked_profile.side_effect = lambda profile, _plant_key: profile.model_copy(
+        update={"key": "cp-new"}
+    )
 
     plant_repo = MagicMock()
     plant_repo.get_by_key.return_value = PlantInstance(
@@ -103,7 +111,7 @@ class TestTheBootstrapResolvesTheFamily:
         profile = service.get_or_create_profile("p1", may_create=False)
 
         assert profile.care_style == CareStyleType.CACTUS
-        repo.create_profile.assert_not_called()
+        repo.create_linked_profile.assert_not_called()
 
     def test_reset_resolves_it_too(self) -> None:
         """``POST …/reset-profile`` re-seeds from the presets; it took the same two

@@ -27,6 +27,7 @@ from unittest.mock import MagicMock
 
 from app.common.enums import CareStyleType, WateringMethod
 from app.domain.engines.care_reminder_engine import CareReminderEngine
+from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Cultivar, SeasonalWateringAdjustment, Species, WateringGuide
 from app.domain.services.care_reminder_service import CareReminderService, resolve_care_inputs
@@ -60,9 +61,16 @@ def _service(species: Species | None, *, cultivar: Cultivar | None = None):
     application does not have. That the production factory passes the resolver at
     all is held by `tests/unit/guards/test_care_profile_resolver_is_wired.py`.
     """
-    care_repo = MagicMock()
+    # `spec` is the real interface: since #1292 the profile and its edge are ONE
+    # transactional write (`create_linked_profile`), and a bare MagicMock would
+    # happily answer the `create_profile` this fixture used to stub — a call the
+    # repository no longer has. The assertions below would then have been measuring
+    # a path production cannot take.
+    care_repo = MagicMock(spec=ICareReminderRepository)
     care_repo.get_profile_by_plant_key.return_value = None
-    care_repo.create_profile.side_effect = lambda profile: profile.model_copy(update={"key": "cp-new"})
+    care_repo.create_linked_profile.side_effect = lambda profile, _plant_key: profile.model_copy(
+        update={"key": "cp-new"}
+    )
     care_repo.update_profile.side_effect = lambda key, profile: profile
 
     plant_repo = MagicMock()
@@ -148,7 +156,7 @@ class TestTheGuideReachesTheEngine:
         profile = service.get_or_create_profile("p1", may_create=False)
 
         assert profile.watering_interval_days == 4
-        repo.create_profile.assert_not_called()
+        repo.create_linked_profile.assert_not_called()
 
     def test_reset_re_seeds_from_the_guide(self) -> None:
         service, _repo = _service(_species(watering_guide=_guide()))

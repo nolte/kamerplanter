@@ -1,11 +1,17 @@
 """Integration test for #1292 — a lost care-profile race is not a 500.
 
 ``CareReminderService.get_or_create_profile(..., may_create=True)`` reads the
-plant's profile and, finding none, inserts a ``CareProfile`` plus a
-``has_care_profile`` edge. Nothing makes the pair atomic. The edge collection
-carries a **unique** persistent index over ``_from`` (``collections.py``) — the
-storage-level statement of "one care profile per plant" — so when two requests
-for the same plant overlap, the loser's edge insert is rejected.
+plant's profile and, finding none, writes a ``CareProfile`` plus a
+``has_care_profile`` edge. The edge collection carries a **unique** persistent
+index over ``_from`` (``collections.py``) — the storage-level statement of "one
+care profile per plant" — so when two requests for the same plant overlap, the
+loser is rejected.
+
+The two defects below were both the *pair not being atomic*: the document was
+committed and readable before its edge existed. Since round two they are a single
+stream transaction (``ArangoCareReminderRepository.create_linked_profile``), which
+is what the last test in this file measures. The history is kept because it is
+what each test is for, not because it still describes the code.
 
 Measured, in the ``e2e-nightly`` of 2026-09-14 (run 34814941664, profile
 ``mobile``), on ``GET /api/v1/care-reminders/plants/522789/profile``::
@@ -26,6 +32,21 @@ A sequential double call passes against the *unfixed* code and certifies nothing
 Hence the integration tier — never ``tests/unit``/``tests/api``, where a
 developer machine's ``localhost:8529`` turns an accidental connection into a local
 pass and a CI failure (#978).
+
+**The second defect, measured 2026-09-16 (#1292 round two).** The four-way race
+above went red in the required ``Integration tests (ArangoDB)`` lane of PR #1498
+with ``racers answered with different profiles: ['11770', '11772', '11772',
+'11772']`` while the surviving edge *and* the surviving document were both
+``11772``. Storage was consistent; one caller's ANSWER was not. The cause is the
+window between the profile insert and the edge insert: a loser's document was
+committed and readable through the non-unique ``plant_key`` field before its edge
+was refused, so a fourth caller's ``get_profile_by_plant_key`` returned the orphan
+and answered with it — moments before the loser deleted it again.
+``test_a_second_connection_never_sees_a_profile_before_its_edge`` below pins that
+window deterministically instead of waiting for the four-way race to hit it, and
+it carries a positive control: the same reader, run again after the writer has
+committed, must find the profile — otherwise its earlier ``None`` only says the
+reader was blind.
 
 **Falsification.** ``test_negative_control_without_the_index_duplicates`` runs the
 identical concurrent driver against the edge collection with the unique index
@@ -320,3 +341,112 @@ def test_negative_control_without_the_index_duplicates(db):
         "without the unique index — the racers are not actually overlapping, so the positive "
         "test proves nothing."
     )
+
+
+# ── the window between the two writes ────────────────────────────────────────
+
+
+def test_a_second_connection_never_sees_a_profile_before_its_edge(db, plant, monkeypatch):
+    """No reader may observe a care profile that is not yet linked (#1292).
+
+    **Deterministic, not timed.** The four-way race above reproduces this only when
+    the interleaving happens to land right; it did on 2026-09-16 and had not for two
+    days before. This test creates the interleaving instead of hoping for it: the
+    writer is suspended *inside* the profile write, at the instant the profile
+    document has been handed to the driver and the edge has not, and a **second
+    connection** then asks the exact question production asks —
+    ``get_profile_by_plant_key``, the non-unique ``plant_key`` field lookup that
+    ``get_or_create_profile`` opens with.
+
+    The suspension point is ``StandardCollection.insert`` on ``care_profiles``,
+    restricted to the writer thread. That is deliberately below the repository API
+    rather than a patch of one of its methods: ``TransactionDatabase.collection()``
+    hands back a ``StandardCollection`` too (measured against python-arango on
+    ArangoDB 3.12.8), so the same hook catches the write whether it goes through a
+    transaction or not, and the test cannot pass merely because the method it used
+    to patch was renamed.
+
+    Against the pre-fix code — ``create_profile`` committing, then
+    ``create_profile_edge`` — the reader sees the unlinked document and this is red.
+    Against the transactional write it sees nothing, because nothing is committed.
+    """
+    from arango.collection import StandardCollection
+
+    from app.data_access.arango import collections as col
+    from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
+
+    original_insert = StandardCollection.insert
+    writer_name = "profile-writer"
+    profile_written = threading.Event()
+    reader_finished = threading.Event()
+
+    def insert(self, document, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
+        result = original_insert(self, document, *args, **kwargs)
+        if self.name == col.CARE_PROFILES and threading.current_thread().name == writer_name:
+            profile_written.set()
+            # Bounded, so a future implementation that never reaches this point
+            # fails the assertion below instead of hanging the suite.
+            reader_finished.wait(timeout=30)
+        return result
+
+    monkeypatch.setattr(StandardCollection, "insert", insert)
+
+    writer_result: list[object] = []
+    observations: list[object] = []
+
+    def write() -> None:
+        conn, writer_db = _connect()
+        try:
+            writer_result.append(_make_service(writer_db).get_or_create_profile(plant, may_create=True))
+        except BaseException as exc:  # noqa: BLE001 — asserted on by the caller
+            writer_result.append(exc)
+        finally:
+            profile_written.set()  # never leave the reader waiting on a failed writer
+            conn.close()
+
+    def read_from_a_second_connection():  # noqa: ANN202
+        conn, reader_db = _connect()
+        try:
+            return ArangoCareReminderRepository(reader_db).get_profile_by_plant_key(plant)
+        finally:
+            conn.close()
+
+    def read() -> None:
+        try:
+            if not profile_written.wait(timeout=30):
+                observations.append("the writer never inserted a care-profile document")
+                return
+            observations.append(read_from_a_second_connection())
+        finally:
+            reader_finished.set()
+
+    writer = threading.Thread(target=write, name=writer_name)
+    reader = threading.Thread(target=read, name="profile-reader")
+    writer.start()
+    reader.start()
+    reader.join(timeout=60)
+    writer.join(timeout=60)
+
+    assert observations, "the reader never ran — the observation this test is built on did not happen"
+    seen = observations[0]
+    assert seen is None, (
+        "a second connection read a care profile while it had no has_care_profile edge: "
+        f"{seen!r}. That document is a loser's orphan the moment the edge insert is refused, "
+        "and answering a request with it is #1292."
+    )
+    assert writer_result, "the writer thread produced neither a profile nor an exception"
+    assert not isinstance(writer_result[0], BaseException), f"the writer failed: {writer_result[0]!r}"
+    assert len(_profile_docs(db, plant)) == 1
+    assert len(_profile_edges(db, plant)) == 1
+
+    # The positive control (SCR-010). `seen is None` is satisfied by a reader that
+    # is simply blind — a wrong database, a typo in the plant key, a connection
+    # that never saw anything. Running the SAME function once the writer has
+    # committed must find the profile; if it does not, the assertion above proved
+    # nothing about timing and everything about the reader.
+    after = read_from_a_second_connection()
+    assert after is not None and after.plant_key == plant, (
+        "the same reader cannot see the profile even after the writer committed — it was never "
+        "able to see anything, so its earlier `None` is not evidence"
+    )
+    assert after.key == _profile_edges(db, plant)[0]["_to"].split("/", 1)[-1]
