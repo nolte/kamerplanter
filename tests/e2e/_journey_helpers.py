@@ -332,14 +332,24 @@ def create_care_task(
     # plant filter was a client-side narrowing of a response the server caps at
     # 200 rows (#1484), so a taken filter did not mean the plant's cards had ever
     # been in the payload. The scope is a server-side query parameter now, but
-    # the message still states only what it read: whether the filter took, how
-    # many cards the last pass returned, and which keys those were. Naming the
-    # place to look is the reader's job, and it needs these numbers to do it.
+    # the message still states only what it read: whether the filter took, and
+    # what a read taken at this moment sees. Naming the place to look is the
+    # reader's job, and it needs these numbers to do it.
     try:
+        # Taken *here*, after the deadline — not carried out of the loop. It is a
+        # fresh navigation-free read, and ``get_task_keys`` waits for the queue's
+        # content itself, so what it returns describes the queue at diagnosis
+        # time and not the state of the pass that last failed to find the card.
+        # Saying which read this is matters: the two differ exactly when the card
+        # arrives late, which is the case the reader is here to judge.
         seen_keys = task_queue.get_task_keys()
-        observed = f"the last pass read {len(seen_keys)} task card(s), keys {seen_keys}"
+        shown = seen_keys[:10]
+        more = "" if len(seen_keys) <= len(shown) else f" (first {len(shown)} of {len(seen_keys)})"
+        observed = (
+            f"a read taken after the deadline saw {len(seen_keys)} task card(s), keys {shown}{more}"
+        )
     except WebDriverException as exc:
-        observed = f"the cards of the last pass could not be read ({type(exc).__name__})"
+        observed = f"the cards could not be read after the deadline ({type(exc).__name__})"
     scope = (
         f"the queue was scoped to plant '{instance_id}' server-side on at least one pass"
         if filter_took

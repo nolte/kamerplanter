@@ -173,7 +173,10 @@ class TestTheLookupDiagnosisStatesOnlyWhatItMeasured:
             "measured a scope, a count and a set of keys"
         )
         assert "scoped to plant '522789' server-side" in message
-        assert "read 2 task card(s)" in message
+        assert "a read taken after the deadline saw 2 task card(s)" in message, (
+            "the count comes from a fresh read here, not from the pass that failed to "
+            "find the card — a message that blurs the two describes the wrong moment"
+        )
         assert "other-1" in message
 
     def test_a_scope_that_never_took_names_the_cap_that_bounds_the_unscoped_read(self, monkeypatch):
@@ -188,7 +191,21 @@ class TestTheLookupDiagnosisStatesOnlyWhatItMeasured:
             "an unscoped read is bounded by the endpoint's cap — without that number "
             "the reader cannot tell a missing card from a truncated answer"
         )
-        assert "read 0 task card(s)" in message
+        assert "a read taken after the deadline saw 0 task card(s)" in message
+
+    def test_a_long_queue_is_summarised_rather_than_dumped(self, monkeypatch):
+        # Up to 200 keys in an assertion message buries the two facts that
+        # matter — how many, and whether any of them is the one being looked for.
+        queue = _task_queue_double(filter_takes=True, keys=[f"key-{i}" for i in range(60)])
+
+        with pytest.raises(AssertionError) as exc:
+            _journey_helpers.create_care_task(queue, PLANT, "watering task")
+
+        message = str(exc.value)
+        assert "saw 60 task card(s)" in message
+        assert "(first 10 of 60)" in message
+        assert "key-9" in message
+        assert "key-10" not in message
 
     def test_an_unreadable_queue_says_so_instead_of_inventing_a_count(self, monkeypatch):
         from selenium.common.exceptions import StaleElementReferenceException
@@ -199,4 +216,6 @@ class TestTheLookupDiagnosisStatesOnlyWhatItMeasured:
         with pytest.raises(AssertionError) as exc:
             _journey_helpers.create_care_task(queue, PLANT, "watering task")
 
-        assert "could not be read (StaleElementReferenceException)" in str(exc.value)
+        assert "could not be read after the deadline (StaleElementReferenceException)" in str(
+            exc.value
+        )

@@ -5,10 +5,12 @@ from __future__ import annotations
 import time
 from contextlib import suppress
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
@@ -44,6 +46,13 @@ class TaskQueuePage(BasePage):
 
     # ── Task cards ─────────────────────────────────────────────────────
     TASK_CARD = (By.CSS_SELECTOR, "[data-testid='task-card']")
+
+    # The card region, and the same region once it is not reloading. Since #1484
+    # a filter pick re-queries the server under a list that stays on screen, so
+    # "the skeleton is gone" no longer separates a settled list from one that is
+    # about to be replaced -- this attribute does.
+    QUEUE_CONTENT = (By.CSS_SELECTOR, "[data-testid='task-queue-content']")
+    QUEUE_CONTENT_IDLE = (By.CSS_SELECTOR, "[data-testid='task-queue-content'][aria-busy='false']")
 
     # ── Task sections (urgency groups) ─────────────────────────────────
     TASK_SECTION_OVERDUE = (By.CSS_SELECTOR, "[data-testid='task-section-overdue']")
@@ -263,12 +272,39 @@ class TaskQueuePage(BasePage):
         could drop the plant's cards before the page ever saw them, and a scoped
         lookup could still miss a card that existed.
 
+        It is also why the wait afterwards is :meth:`wait_for_queue_idle` and not
+        only ``wait_for_loading_complete``: the page no longer swaps in a
+        skeleton for this reload, so the absence of one says nothing, and the
+        cards still on screen are the *previous* plant's until the answer lands
+        (they are dimmed and made inert meanwhile, which would swallow a click).
+
         Returns True once a plant was selected.
         """
         if not self._select_autocomplete_option(self.FILTER_PLANT_INPUT, text):
             return False
         self.wait_for_loading_complete()
+        self.wait_for_queue_idle()
         return True
+
+    def wait_for_queue_idle(self, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Wait until the card region reports it is no longer reloading.
+
+        Positive-then-negative, which is what makes it falsifiable: the region
+        must be *present* carrying ``aria-busy='false'``, so an absent region --
+        a page still on its first paint, or a renamed test id -- does not read as
+        "idle" the way an absence-only poll would.
+
+        Returns whether the idle state was observed. It is deliberately not an
+        assertion: the callers pair it with a durable wait on the content they
+        actually need, and a harness that turned a missing optimisation into a
+        test failure would be worse than the wait it replaces.
+        """
+        with suppress(TimeoutException):
+            WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located(self.QUEUE_CONTENT_IDLE)
+            )
+            return True
+        return False
 
     def select_category_filter(self, category_text: str) -> None:
         """Open the category filter and select an option.
