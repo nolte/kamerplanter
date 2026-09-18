@@ -543,12 +543,16 @@
     "disclaimer": "AI answers may be incorrect. Please check the sources for critical decisions.",
     "dailyTip": {
       "heading": "Tip of the day",
-      "dismiss": "Dismiss tip of the day"
+      "dismiss": "Dismiss tip of the day",
+      "empty": "No tip has been generated for today yet.",
+      "generate": "Generate today's tip"
     },
     "tips": {
       "heading": "AI care tips",
       "refresh": "Refresh",
-      "learnMore": "Learn more"
+      "learnMore": "Learn more",
+      "empty": "No AI care tips generated yet. \u201cGenerate tips\u201d asks the knowledge service for advice on this plant.",
+      "generate": "Generate tips"
     },
     "why": {
       "tooltip": "Why?",

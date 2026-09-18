@@ -386,13 +386,6 @@ _PERSISTING_READ_FINDINGS: dict[str, str] = {
         "writes at all, which a safe method must not"
     ),
     "glossar.router.get_term": "the tenant-scoped sibling of the route above, same _store_cache write",
-    "ki_assistent.tenant_router.get_daily_tip": (
-        "AiAssistantService.get_daily_tip persists the generated card to the AI tip cache and writes an AI audit record"
-    ),
-    "ki_assistent.tenant_router.get_tips": (
-        "AiAssistantService.get_tips invalidates the tip cache, creates the generated card and "
-        "records an audit entry (ai_assistant_service.py:153, 208-210)"
-    ),
 }
 
 #: The ten findings **as measured** on 2026-09-16, by id. The ratchet, and it is

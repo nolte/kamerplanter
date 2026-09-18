@@ -130,31 +130,45 @@ class AiAssistantService:
 
     # ── Tips ───────────────────────────────────────────────────────────
 
-    def get_tips(
+    def get_tips(self, ctx: TenantContext, *, context_type: str, context_key: str) -> list[AiTipCard]:
+        """Return the stored tip cards for a plant/run context — **read-only**.
+
+        Requires ``ai_tenant_data_access``. An empty list is a legitimate answer:
+        nothing has been generated for this context yet, or everything that was
+        has expired or been dismissed.
+
+        Generation used to happen right here, on a cache miss, which made
+        ``GET /t/{slug}/ai/tips`` persist a tip card and an audit record while
+        answering — entry 6 of the #1443 detector inventory, filed as #1461 — and
+        made a read of a plant's detail page cost an LLM call. It lives in
+        :meth:`refresh_tips` now, behind the ``POST`` that existed for it all
+        along.
+        """
+        self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        return self._tip_cache.find_valid(ctx.tenant_key, context_type, context_key)
+
+    def refresh_tips(
         self,
         ctx: TenantContext,
         *,
         context_type: str,
         context_key: str,
         language: str = "de",
-        force: bool = False,
         allow_cloud: bool = False,
     ) -> list[AiTipCard]:
-        """Return tip cards for a plant/run context (cache-first, §4.4).
+        """Generate and persist the tip cards for a context (§4.4) — the write path.
 
         Requires ``ai_tenant_data_access``. On a Knowledge-Service outage returns
         rule-based fallback tips (HTTP 200) and audits ``knowledge_service_error``.
         ``allow_cloud`` mirrors the tenant ``ai_allow_cloud_providers`` flag and
         gates cloud provider use (SEC-001).
+
+        Always regenerates: this is what the caller asked for by choosing the
+        ``POST``. The previous cache-first behaviour belonged to the read half,
+        which is now :meth:`get_tips`.
         """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
-
-        if force:
-            self._tip_cache.invalidate_context(ctx.tenant_key, context_type, context_key)
-        else:
-            cached = self._tip_cache.find_valid(ctx.tenant_key, context_type, context_key)
-            if cached:
-                return cached
+        self._tip_cache.invalidate_context(ctx.tenant_key, context_type, context_key)
 
         question_context = self._resolve_context(ctx.tenant_key, context_type, context_key)
         question = self._tips.build_question(question_context, language)
@@ -223,8 +237,35 @@ class AiAssistantService:
         )
         return [persisted]
 
-    def get_daily_tip(self, ctx: TenantContext, *, language: str = "de", allow_cloud: bool = False) -> AiTipCard | None:
-        """Return a single daily tip for the dashboard (cache until midnight)."""
+    def get_daily_tip(self, ctx: TenantContext) -> AiTipCard | None:
+        """Return today's stored daily tip, or ``None`` — **read-only**.
+
+        ``None`` means nothing has been generated for today yet (or it was
+        dismissed). Generation used to happen here on a miss, which made
+        ``GET /t/{slug}/ai/daily-tip`` — a route the dashboard calls on every
+        load — persist a tip card and an audit record and pay for an LLM call:
+        entry 5 of the #1443 detector inventory, filed as #1461. It lives in
+        :meth:`refresh_daily_tip` now.
+        """
+        self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        today = datetime.now(UTC).date().isoformat()
+        cached = self._tip_cache.find_valid(ctx.tenant_key, "daily", today)
+        return cached[0] if cached else None
+
+    def refresh_daily_tip(
+        self, ctx: TenantContext, *, language: str = "de", allow_cloud: bool = False
+    ) -> AiTipCard | None:
+        """Generate and persist today's daily tip (§4.4) — the write path.
+
+        Returns the stored card when there already is one for today, so a second
+        request on the same day is idempotent rather than a second LLM call; the
+        dashboard reaches this through ``POST …/ai/daily-tip/refresh`` (grower).
+
+        A ``POST …/ai/tips/refresh?context_type=daily`` would not do: it builds a
+        ``care``/``medium`` card valid for 24 hours, whereas the daily tip is an
+        ``optimization``/``low`` card that expires at midnight. Reusing it would
+        have changed what the daily tip *is*.
+        """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
         today = datetime.now(UTC).date().isoformat()
         cached = self._tip_cache.find_valid(ctx.tenant_key, "daily", today)

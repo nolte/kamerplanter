@@ -543,12 +543,16 @@
     "disclaimer": "KI-Antworten können fehlerhaft sein. Bei kritischen Entscheidungen bitte die Quellen prüfen.",
     "dailyTip": {
       "heading": "Tipp des Tages",
-      "dismiss": "Tipp des Tages schließen"
+      "dismiss": "Tipp des Tages schließen",
+      "empty": "Für heute wurde noch kein Tipp erzeugt.",
+      "generate": "Tipp des Tages erzeugen"
     },
     "tips": {
       "heading": "KI-Pflegehinweise",
       "refresh": "Aktualisieren",
-      "learnMore": "Mehr erfahren"
+      "learnMore": "Mehr erfahren",
+      "empty": "Noch keine KI-Pflegehinweise erzeugt. Mit „Hinweise erzeugen“ fragst du den Wissensdienst nach Hinweisen zu dieser Pflanze.",
+      "generate": "Hinweise erzeugen"
     },
     "why": {
       "tooltip": "Warum?",
