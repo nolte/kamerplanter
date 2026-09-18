@@ -413,8 +413,29 @@ class _RecordingScopedImportService:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
-    def upload(self, content, entity_type, filename, duplicate_strategy, uploaded_by="", *, tenant_key=""):
-        self.calls.append(("upload", {"uploaded_by": uploaded_by, "tenant_key": tenant_key}))
+    def upload(
+        self,
+        content,
+        entity_type,
+        filename,
+        duplicate_strategy,
+        uploaded_by="",
+        *,
+        tenant_key="",
+        caller_role=None,
+        is_platform_admin=False,
+    ):
+        self.calls.append(
+            (
+                "upload",
+                {
+                    "uploaded_by": uploaded_by,
+                    "tenant_key": tenant_key,
+                    "caller_role": caller_role,
+                    "is_platform_admin": is_platform_admin,
+                },
+            )
+        )
         return ImportJob(
             _key="job1",
             entity_type=entity_type,
@@ -468,19 +489,67 @@ class TestImportJobsAreTenantScoped:
         )
 
         assert response.status_code == 202, response.text
-        assert service.calls == [("upload", {"uploaded_by": "user_1", "tenant_key": _TENANT})]
+        assert service.calls == [
+            (
+                "upload",
+                {
+                    "uploaded_by": "user_1",
+                    "tenant_key": _TENANT,
+                    "caller_role": TenantRole.GROWER,
+                    "is_platform_admin": False,
+                },
+            )
+        ]
 
     def test_a_viewer_may_not_stage_an_import(self, platform_admin_flag) -> None:
-        client, service = _import_client(platform_admin_flag, role=TenantRole.VIEWER)
+        """Driven through the REAL service, because that is where the rank now lives.
 
-        response = client.post(
+        Moving the gate off the route (review SCR-005) means a recording double
+        cannot refuse for it: a double that answered 202 here while the real service
+        raises would be the test certifying the recorder rather than the product.
+        """
+        platform_admin_flag(False)
+
+        class _Repo:
+            def get_or_raise(self, key):  # pragma: no cover - never reached
+                raise AssertionError("the gate must refuse before any repository call")
+
+        app = _app(
+            imports_router,
+            get_import_service,
+            ImportService(_Repo()),
+            platform_admin=False,
+            role=TenantRole.VIEWER,
+        )
+
+        response = TestClient(app).post(
             "/api/v1/import/upload",
             files={"file": ("rows.csv", b"scientific_name\nRosa canina\n", "text/csv")},
             data={"entity_type": EntityType.SPECIES.value, "duplicate_strategy": DuplicateStrategy.SKIP.value},
         )
 
         assert response.status_code == 403, response.text
-        assert service.calls == []
+
+    def test_a_platform_admin_may_stage_an_import_despite_the_viewer_rank(self, platform_admin_flag) -> None:
+        """The bypass the route-level gate could not express (review SCR-005).
+
+        The light-mode operator (REQ-027) holds no membership, so their context role
+        is the fail-safe VIEWER. Before the gate moved into the service they could
+        *confirm* an import — which has had the bypass since #1110 — but not stage
+        one, which is a capability split nobody chose.
+        """
+        platform_admin_flag(True)
+        service = _RecordingScopedImportService()
+        app = _app(imports_router, get_import_service, service, platform_admin=True, role=TenantRole.VIEWER)
+
+        response = TestClient(app).post(
+            "/api/v1/import/upload",
+            files={"file": ("rows.csv", b"scientific_name\nRosa canina\n", "text/csv")},
+            data={"entity_type": EntityType.SPECIES.value, "duplicate_strategy": DuplicateStrategy.SKIP.value},
+        )
+
+        assert response.status_code == 202, response.text
+        assert service.calls[0][1]["is_platform_admin"] is True
 
     def test_reading_one_job_is_scoped_to_the_callers_tenant(self, platform_admin_flag) -> None:
         client, service = _import_client(platform_admin_flag, role=TenantRole.VIEWER)
@@ -493,6 +562,31 @@ class TestImportJobsAreTenantScoped:
 
         assert client.get("/api/v1/import/jobs").status_code == 200
         assert service.calls == [("list_jobs", {"tenant_key": _TENANT})]
+
+    def test_reading_a_foreign_job_by_key_answers_404_through_the_route(self, platform_admin_flag) -> None:
+        """The route-level half of the ownership arm (review SCR-002).
+
+        The service double is replaced by the REAL service over a repository
+        holding one job of another tenant, so what answers is
+        ``ImportService.get_job``'s own arm reached through the mounted route —
+        the composition, which neither a service test nor a recorder double can
+        show.
+        """
+        platform_admin_flag(False)
+
+        class _Repo:
+            def get_or_raise(self, key):
+                return ImportJob(_key=key, entity_type=EntityType.SPECIES, tenant_key=_OTHER_TENANT)
+
+        app = _app(
+            imports_router,
+            get_import_service,
+            ImportService(_Repo()),
+            platform_admin=False,
+            role=TenantRole.LEAD,
+        )
+
+        assert TestClient(app).get("/api/v1/import/jobs/job1").status_code == 404
 
     def test_delete_hands_the_service_the_scope_and_the_rank(self, platform_admin_flag) -> None:
         client, service = _import_client(platform_admin_flag, role=TenantRole.LEAD)
@@ -642,3 +736,54 @@ class TestTheSignaturesRefuseAnOmission:
 
         with pytest.raises(TypeError):
             getattr(service, method)(*args)
+
+
+class TestTheGateAndTheFlagAreOneResolution:
+    """`require_platform_admin` resolves through `get_is_platform_admin` — SCR-006.
+
+    Every gated write in #1501 carries both: the route dependency that refuses and
+    the boolean the handler threads into its service. Before this they were two
+    independent dependency sub-graphs, so FastAPI resolved two of them and the
+    tenant store answered twice per request. Sharing the sub-dependency lets the
+    per-request cache answer the second — and, more than a saving, it makes the two
+    halves literally the same value, so the published refusal and the service's own
+    copy of the rule cannot disagree.
+    """
+
+    def test_the_tenant_store_is_consulted_once_per_gated_write(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
+
+        def _counting(_tenant_service, user_key: str) -> bool:
+            calls.append(user_key)
+            return True
+
+        monkeypatch.setattr(auth_mod, "is_platform_admin", _counting)
+        service = _RecordingPhaseSequenceService()
+        app = _app(
+            phase_sequences_router,
+            get_phase_sequence_service,
+            service,
+            platform_admin=True,
+            role=TenantRole.GROWER,
+        )
+
+        response = TestClient(app).delete("/api/v1/phase-definitions/pd1")
+
+        assert response.status_code == 204, response.text
+        # Two resolutions would mean the gate and the flag can drift; one cannot.
+        assert calls == ["user_1"], f"resolved {len(calls)} times: {calls}"
+
+    def test_the_gate_still_refuses_when_the_shared_answer_is_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The control. Routing the gate through a cache must not defang it."""
+        monkeypatch.setattr(auth_mod, "is_platform_admin", lambda _svc, _key: False)
+        service = _RecordingPhaseSequenceService()
+        app = _app(
+            phase_sequences_router,
+            get_phase_sequence_service,
+            service,
+            platform_admin=False,
+            role=TenantRole.GROWER,
+        )
+
+        assert TestClient(app).delete("/api/v1/phase-definitions/pd1").status_code == 403
+        assert service.calls == []

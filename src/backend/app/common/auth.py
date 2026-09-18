@@ -432,15 +432,25 @@ def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
 
 def require_platform_admin(
     user: User = Depends(get_current_user),
-    tenant_service: TenantService = Depends(get_tenant_service),
+    platform_admin: bool = Depends(get_is_platform_admin),
 ) -> User:
     """Require the user to be a platform admin (admin membership in platform tenant).
 
     In light mode (REQ-027) there is no platform tenant and only the single
     anonymous system user exists — that user is the sole operator and therefore
     treated as platform admin.
+
+    Resolved **through** :func:`get_is_platform_admin` rather than by calling
+    :func:`is_platform_admin` itself (#1501 review SCR-006). Both spellings give
+    the same answer — the boolean one is a thin wrapper over the same function —
+    but they are two different dependency objects, so a route carrying the gate
+    *and* threading the flag into its service (which is every write #1501 gates)
+    made FastAPI resolve two independent sub-graphs and hit the tenant store
+    twice per request. Sharing the sub-dependency lets the per-request dependency
+    cache answer the second one, and it also removes the possibility of the gate
+    and the flag disagreeing — they are now literally the same value.
     """
-    if not is_platform_admin(tenant_service, user.key or ""):
+    if not platform_admin:
         raise ForbiddenError("Platform admin role required.")
     return user
 
