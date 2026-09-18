@@ -1314,6 +1314,19 @@ export default function TaskQueuePage() {
   // made the error's own retry button unclickable.
   const rowsAreStale = isRefetching && taskQueueScope !== filterPlantKey;
 
+  // Naming the plant here, rather than only in the "active filter" chip above
+  // the list, is what tells someone who scopes to a plant with no tasks that
+  // the *plant* is the reason — not a stuck request or a filter combination
+  // they've lost track of. Falls back to the generic wording for every other
+  // filter combination, and to the plant key on the one render where the list
+  // has answered before `plants`/`plantNameMap` have (`filterPlantKey` is store
+  // state; the name is a local derivation of it).
+  const filteredEmptyMessage = filterPlantKey
+    ? t('pages.tasks.noTasksFilteredForPlant', {
+        plant: plantNameMap.get(filterPlantKey) ?? filterPlantKey,
+      })
+    : t('pages.tasks.noTasksFiltered');
+
   const totalItems =
     grouped.overdue.length + grouped.today.length + grouped.thisWeek.length + grouped.future.length;
 
@@ -1648,56 +1661,72 @@ export default function TaskQueuePage() {
           on a replaced skeleton: a reload now happens *under* a visible list,
           and without them the chip named the new plant while the rows below it
           were still the old plant's, with nothing announcing the change. */}
-      <Box
-        data-testid="task-queue-content"
-        aria-busy={isRefetching}
-        sx={
-          rowsAreStale
-            ? { opacity: 0.5, pointerEvents: 'none', transition: 'opacity 120ms' }
-            : undefined
-        }
-        inert={rowsAreStale ? true : undefined}
-      >
+      <Box data-testid="task-queue-content" aria-busy={isRefetching}>
         <LoadingStatus active={isRefetching} data-testid="task-queue-refetch-status" />
-        {queueError ? (
-          // A failed reload used to leave the previous scope's rows standing
-          // under the new chip, indistinguishable from an answer.
-          <Box data-testid="queue-error">
-            <ErrorDisplay error={queueError} onRetry={reloadQueue} />
+        {/* Dimming the rows below is a "these are about to change" cue, not a
+            "this is disabled" one — but opacity alone reads as either, and a
+            sighted user gets no live-region text. This is the visible half of
+            the busy signal, sitting outside the dimmed subtree so it stays at
+            full contrast while the rows under it fade (UI-NFR-002). */}
+        {isRefetching && (
+          <Box
+            data-testid="task-queue-refetch-indicator"
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
+          >
+            <CircularProgress size={16} aria-hidden="true" />
+            <Typography variant="body2" color="text.secondary">
+              {t('common.loading')}
+            </Typography>
           </Box>
-        ) : totalItems === 0 && !showCompleted ? (
-          hasActiveFilters ? (
-            // Contextual empty state when filters are active
-            <EmptyState
-              illustration={kamiTasks}
-              message={t('pages.tasks.noTasksFiltered')}
-              description={t('pages.tasks.noTasksFilteredDesc')}
-              actionLabel={t('common.clearFilters')}
-              onAction={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
-            />
-          ) : (
-            <EmptyState
-              illustration={kamiTasks}
-              message={t('pages.tasks.noTasks')}
-              description={t('pages.tasks.noTasksDesc')}
-              actionLabel={t('pages.tasks.createTask')}
-              onAction={() => setCreateOpen(true)}
-            />
-          )
-        ) : (
-          <>
-            {totalItems === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                {hasActiveFilters ? t('pages.tasks.noTasksFiltered') : t('pages.tasks.noTasks')}
-              </Typography>
-            )}
-            {renderSection('overdue', grouped.overdue)}
-            {renderSection('today', grouped.today)}
-            {renderSection('thisWeek', grouped.thisWeek)}
-            {renderSection('future', grouped.future)}
-            {showCompleted && renderCompletedSection(completedFiltered)}
-          </>
         )}
+        <Box
+          sx={
+            rowsAreStale
+              ? { opacity: 0.5, pointerEvents: 'none', transition: 'opacity 120ms' }
+              : undefined
+          }
+          inert={rowsAreStale ? true : undefined}
+        >
+          {queueError ? (
+            // A failed reload used to leave the previous scope's rows standing
+            // under the new chip, indistinguishable from an answer.
+            <Box data-testid="queue-error">
+              <ErrorDisplay error={queueError} onRetry={reloadQueue} />
+            </Box>
+          ) : totalItems === 0 && !showCompleted ? (
+            hasActiveFilters ? (
+              // Contextual empty state when filters are active
+              <EmptyState
+                illustration={kamiTasks}
+                message={filteredEmptyMessage}
+                description={t('pages.tasks.noTasksFilteredDesc')}
+                actionLabel={t('common.clearFilters')}
+                onAction={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
+              />
+            ) : (
+              <EmptyState
+                illustration={kamiTasks}
+                message={t('pages.tasks.noTasks')}
+                description={t('pages.tasks.noTasksDesc')}
+                actionLabel={t('pages.tasks.createTask')}
+                onAction={() => setCreateOpen(true)}
+              />
+            )
+          ) : (
+            <>
+              {totalItems === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  {hasActiveFilters ? filteredEmptyMessage : t('pages.tasks.noTasks')}
+                </Typography>
+              )}
+              {renderSection('overdue', grouped.overdue)}
+              {renderSection('today', grouped.today)}
+              {renderSection('thisWeek', grouped.thisWeek)}
+              {renderSection('future', grouped.future)}
+              {showCompleted && renderCompletedSection(completedFiltered)}
+            </>
+          )}
+        </Box>
       </Box>
 
       <TaskCreateDialog

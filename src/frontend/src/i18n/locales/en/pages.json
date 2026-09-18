@@ -3091,6 +3091,7 @@
       "noTasks": "No open tasks",
       "noTasksDesc": "All done! Create a new task or start a workflow.",
       "noTasksFiltered": "No tasks match this filter",
+      "noTasksFilteredForPlant": "No tasks for {{plant}}",
       "noTasksFilteredDesc": "No tasks found with the active filters. Clear filters to see all tasks.",
       "filterBarLabel": "Filter tasks",
       "filterSourceLabel": "Filter by source",

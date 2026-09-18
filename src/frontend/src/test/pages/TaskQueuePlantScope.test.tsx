@@ -232,8 +232,13 @@ describe('TaskQueuePage — the plant filter is a server-side scope (#1484)', ()
     await selectPlantFilter('Feige Gustav');
 
     await waitFor(() => expect(queueScopes).toContain(TARGET_PLANT_KEY));
+    // Names the plant, not just "this filter" — the reason there are no rows
+    // is the plant, and a filter-only wording would read the same whether the
+    // plant had no tasks or the request had simply not returned yet.
     expect(
-      await screen.findByText(i18n.t('pages.tasks.noTasksFiltered')),
+      await screen.findByText(
+        i18n.t('pages.tasks.noTasksFilteredForPlant', { plant: 'Feige Gustav' }),
+      ),
     ).toBeInTheDocument();
   });
 
@@ -288,7 +293,11 @@ describe('TaskQueuePage — the plant filter is a server-side scope (#1484)', ()
 
     await selectPlantFilter('Basilikum Bea');
     await waitFor(() => expect(queueScopes).toContain(OTHER_PLANT_KEY));
-    expect(await screen.findByText(i18n.t('pages.tasks.noTasksFiltered'))).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        i18n.t('pages.tasks.noTasksFilteredForPlant', { plant: 'Basilikum Bea' }),
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('filter-plant')).toBeInTheDocument();
     expect(screen.queryByTestId('loading-skeleton')).not.toBeInTheDocument();
 
