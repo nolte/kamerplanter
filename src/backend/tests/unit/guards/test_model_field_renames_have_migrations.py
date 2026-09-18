@@ -82,6 +82,70 @@ class _NoStoredDocuments:
     reason: str
 
 
+#: The two request DTOs ``oidc_config.py`` carried beside the persisted model, and
+#: the fields they declared. Named per field because the table is keyed per field:
+#: a shared verdict must still be re-checkable entry by entry.
+#:
+#: The evidence is checked, not only asserted:
+#: :class:`TestTheDeletedOidcRequestDtosWereNeverPersisted` holds the two facts the
+#: reason below rests on.
+_VANISHED_OIDC_REQUEST_FIELDS: tuple[tuple[str, str], ...] = tuple(
+    (class_name, field_name)
+    for class_name, fields in (
+        (
+            "OidcProviderConfigCreate",
+            (
+                "slug",
+                "display_name",
+                "provider_type",
+                "issuer_url",
+                "client_id",
+                "client_secret",
+                "scopes",
+                "authorization_url",
+                "token_url",
+                "userinfo_url",
+                "auto_discover",
+                "enabled",
+                "icon_url",
+                "default_tenant_key",
+            ),
+        ),
+        (
+            "OidcProviderConfigUpdate",
+            (
+                "display_name",
+                "provider_type",
+                "issuer_url",
+                "client_id",
+                "client_secret",
+                "scopes",
+                "authorization_url",
+                "token_url",
+                "userinfo_url",
+                "auto_discover",
+                "enabled",
+                "icon_url",
+                "default_tenant_key",
+            ),
+        ),
+    )
+    for field_name in fields
+)
+
+_UNCALLED_OIDC_REQUEST_DTO = _NoStoredDocuments(
+    "OidcProviderConfigCreate/Update were request DTOs sitting in the model module with "
+    "no caller anywhere in the repository — the admin router has always built its bodies "
+    "from app/api/v1/admin/oidc_providers/schemas.py — so no value ever reached a document "
+    "through them. The PERSISTED model in the same file, OidcProviderConfig, is untouched "
+    "and still declares every one of these names except client_secret, which the router "
+    "encrypts into client_secret_encrypted and never stores in the clear. Deleted in "
+    "302c742fd (#1497) on the review finding that maintaining them meant keeping a second, "
+    "unprotected copy of the request shape. Measured read-only on the kind dev cluster "
+    "2026-09-18: oidc_provider_configs holds zero documents."
+)
+
+
 #: Every field name that vanished from a model since the baseline commit.
 #:
 #: Add an entry when this test names a field you removed. ``_MigratedBy`` is the
@@ -96,6 +160,10 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     ("actuator.py", "Actuator", "last_changed_at"): _NoStoredDocuments(
         "Renamed to last_state_change in 426be8b4e (#561), same commit and same reason as `state` above."
     ),
+    **{
+        ("oidc_config.py", class_name, field_name): _UNCALLED_OIDC_REQUEST_DTO
+        for class_name, field_name in _VANISHED_OIDC_REQUEST_FIELDS
+    },
 }
 
 
@@ -407,6 +475,38 @@ class TestEveryVanishedFieldIsAccountedFor:
         assert len(verdict.reason) > len("".join(references)) + 40, (
             f"{key}: a reference on its own is not a reason — say what it shows: {verdict.reason!r}"
         )
+
+
+class TestTheDeletedOidcRequestDtosWereNeverPersisted:
+    """The evidence behind the `_UNCALLED_OIDC_REQUEST_DTO` verdict, as a check.
+
+    A `_NoStoredDocuments` reason is prose, and prose is what nobody re-reads. The
+    two facts this one rests on are decidable, so they are decided here: a later
+    change that makes the excuse false — persisting one of those names under a
+    different model, or dropping it from the persisted one — goes red instead of
+    leaving a sentence standing.
+    """
+
+    def _oidc_model_fields(self) -> set[str]:
+        source = (_REPO_ROOT / _MODELS_DIR / "oidc_config.py").read_text(encoding="utf-8")
+        return {field for class_name, field in _annotated_field_names(source) if class_name == "OidcProviderConfig"}
+
+    def test_the_persisted_model_still_declares_every_excused_name(self):
+        """Every name but one is still on the model the repository writes."""
+        excused = {field for _, field in _VANISHED_OIDC_REQUEST_FIELDS}
+        assert excused - self._oidc_model_fields() == {"client_secret"}
+
+    def test_the_one_exception_is_stored_encrypted_under_another_name(self):
+        """`client_secret` is the exception on purpose: it is never stored as-is."""
+        fields = self._oidc_model_fields()
+        assert "client_secret" not in fields
+        assert "client_secret_encrypted" in fields
+
+    def test_the_deleted_classes_are_really_gone(self):
+        """Otherwise the verdict would excuse fields that never vanished."""
+        source = (_REPO_ROOT / _MODELS_DIR / "oidc_config.py").read_text(encoding="utf-8")
+        classes = {class_name for class_name, _ in _annotated_field_names(source)}
+        assert classes.isdisjoint({"OidcProviderConfigCreate", "OidcProviderConfigUpdate"})
 
 
 class TestTheLaneThatRunsThisUnshallow:
