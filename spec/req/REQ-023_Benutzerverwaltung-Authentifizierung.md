@@ -1031,6 +1031,17 @@ class UserService:
 | GET | `/auth/oauth/{provider_slug}` | OAuth-Redirect initiieren | Nein |
 | GET | `/auth/oauth/{provider_slug}/callback` | OAuth-Callback verarbeiten | Nein |
 
+<!-- #1461 -->
+**Der Callback ist ein Schreibpfad mit GET-Verb.** Der Identity-Provider schickt den Nutzer
+per Browser-Redirect zurück; ein Redirect kann nur ein `GET` sein, ein anderes Verb steht
+protokollbedingt nicht zur Verfügung. Der Handler legt dabei den User an oder aktualisiert
+ihn, verknüpft den `AuthProvider` und stellt das Refresh-Token aus — er **persistiert also
+auf einem `GET`**, und das ist hier kein Defekt, sondern die Form, die OAuth2 vorgibt. Die
+Ausnahme ist an die gemessenen Schreibsenken gebunden (`_INTENTIONAL_PERSISTING_READS` in
+`tests/unit/api/test_write_route_gates.py`): erreicht der Handler eine Schreibstelle, die
+dort nicht steht, wird der Wächter rot. Für jeden anderen `GET` der API gilt unverändert,
+dass er nichts schreibt.
+
 **Router: `/api/v1/users`** — Benutzerverwaltung:
 
 | Methode | Pfad | Beschreibung | Auth |
@@ -1054,6 +1065,10 @@ class UserService:
 | PATCH | `/admin/oidc-providers/{slug}` | Provider aktualisieren | Plattform-Admin |
 | DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Plattform-Admin |
 | POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Plattform-Admin |
+
+**Geschlossenes Vokabular für `provider_type` (#1497).** `provider_type` ist an der API-Grenze auf `google | github | apple | oidc` beschränkt (Enum `OidcProviderType`); jede andere Schreibweise — auch `GitHub`, `GITHUB` oder `local` — lehnen `POST` und `PUT` mit `422` ab. Der Grund ist die Auswertung: `OAuthEngine.extract_user_info` verzweigt auf die exakte Schreibweise und die Tabelle der Well-known-Endpunkte trägt dieselben Werte als Schlüssel; ein Provider vom Typ `GitHub` wurde also gespeichert und danach **stillschweigend vom generischen OIDC-Zweig bedient** — ohne Well-known-Endpunkte, ohne den GitHub-Adressabruf und ohne jede Meldung. Das Datenmodell oben schrieb dieses `Literal` bereits vor; die Implementierung hatte es zu `str` verbreitert.
+
+Das Domänenmodell `OidcProviderConfig` behält bewusst `str`: das Repository baut dasselbe Modell beim **Lesen**, ein Enum dort machte eine vor dieser Prüfung gespeicherte Konfiguration unlesbar statt reparierbar. `POST /{key}/test` meldet den Befund für Bestandskonfigurationen im Antwortfeld `provider_type_check` (`ok`, `provider_type`, `known_provider_types`, `detail`). Es gibt keine Migration und keine Normalisierung beim Schreiben.
 
 **Scope-Anforderung GitHub (#1477).** Ein Provider mit `provider_type == "github"`, dessen `scopes` weder `user:email` noch den übergeordneten Scope `user` enthalten, wird von `POST` und `PATCH` mit `422` abgelehnt. GitHub liefert das `verified`-Merkmal einer Adresse nur über `GET /user/emails`, das ohne diesen Scope `403` antwortet; ohne ihn ist `email_verified` bei jeder Anmeldung leer und die automatische Kontoverknüpfung (§ REQ-023 OAuth-Callback) bleibt dauerhaft aus. `POST /{slug}/test` meldet denselben Befund für Bestandskonfigurationen im Antwortfeld `scope_check` (`ok`, `provider_type`, `configured_scopes`, `missing_scopes`, `detail`) — unabhängig davon, ob ein Discovery-Dokument abrufbar ist, denn GitHub veröffentlicht keins.
 

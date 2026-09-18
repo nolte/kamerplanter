@@ -813,6 +813,15 @@ class PrivacyService:
 | POST | `/privacy/export` | Datenexport beantragen | Ja | 15/20 |
 | GET | `/privacy/export/{key}` | Export-Status abfragen | Ja | 15/20 |
 | GET | `/privacy/export/{key}/download` | Export-Datei herunterladen | Ja | 15/20 |
+
+<!-- #1461 -->
+**Der Download-Endpunkt persistiert bewusst auf einem `GET`.** Er erhöht `download_count`
+am `DataExportRequest` (§4.2a) — der Art.-15-Nachweis *ist* die Abholung des Exports.
+Würde die Schreibung in eine eigene Anfrage wandern, hielte der Nachweis ein anderes
+Ereignis fest als das, das er belegen soll. Die Ausnahme ist an genau diese eine
+Schreibsenke gebunden (`_INTENTIONAL_PERSISTING_READS` in
+`tests/unit/api/test_write_route_gates.py`); jede weitere Schreibstelle auf demselben
+Handler macht den Wächter rot.
 | POST | `/privacy/email-change` | E-Mail-Änderung beantragen | Ja | 16 |<!-- rate-limited, s. u. -->
 | POST | `/privacy/email-change/confirm` | E-Mail-Änderung bestätigen | Nein (Token) | 16 |<!-- rate-limited, s. u. -->
 | POST | `/privacy/erasure` | Kontolöschung beantragen | Ja | 17 |

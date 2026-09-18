@@ -1010,6 +1010,26 @@ class AuthProviderType(StrEnum):
     OIDC = "oidc"
 
 
+class OidcProviderType(StrEnum):
+    """The provider kinds ``/admin/oidc-providers`` accepts (#1497).
+
+    The single source for the spelling: ``_PROVIDER_ENDPOINTS`` is keyed from it
+    and ``OAuthEngine.extract_user_info`` dispatches on its members, so a value
+    outside it is served by the generic OIDC branch — no well-known endpoints, no
+    GitHub address-list request, and no complaint anywhere. That is why the
+    request schemas validate against this enum rather than against ``str``.
+
+    Deliberately NOT ``AuthProviderType``, which carries ``LOCAL``: a federated
+    provider registered as ``local`` would take the generic branch while naming
+    the one authentication kind that has no federation at all.
+    """
+
+    GOOGLE = "google"
+    GITHUB = "github"
+    APPLE = "apple"
+    OIDC = "oidc"
+
+
 class EmailVerificationStatus(StrEnum):
     PENDING = "pending"
     VERIFIED = "verified"

@@ -803,6 +803,18 @@ Dekorative Zimmerpflanzen (Kits `zimmerpflanzen` und `zimmerpflanzen-haustierfre
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | `GET` | `/api/v1/user-preferences` | Aktuelle Präferenzen abfragen | Ja |
+
+<!-- #1461 -->
+**Lesen legt nichts an.** `GET /api/v1/onboarding/state` und
+`GET /api/v1/user-preferences` liefern für einen Nutzer ohne gespeicherten
+Datensatz die Vorgabewerte — denselben Inhalt, den ein frisch erzeugtes Dokument
+getragen hätte — und schreiben dabei **nichts** in die Datenbank. Das Dokument
+entsteht mit der **ersten Schreibung**: `PATCH …/onboarding/state`,
+`POST …/onboarding/complete`, `PATCH …/user-preferences`. Bis dahin ist `key` im
+Antwortkörper leer (`""`); jedes andere Feld ist unverändert, die Antwortform
+ändert sich also nicht. Vorher erzeugten beide `GET`s den Datensatz beim ersten
+kalten Lesen, was eine sichere HTTP-Methode zu einer Schreibung machte (#1461)
+und für jeden Nutzer eine Zeile anlegte, der die App bloß öffnete.
 | `PATCH` | `/api/v1/user-preferences` | Präferenzen aktualisieren (experience_level, locale, theme, temperature_unit) | Ja |
 
 <!-- Quelle: Favoriten-System v1.5 -->

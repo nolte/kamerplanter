@@ -141,9 +141,14 @@ export default function OnboardingWizard() {
         setPlantConfigs(onboardingState.plant_configs);
       }
     }
-    // Only run on initial load
+    // Only run on initial load. Keyed on `user_key`, not on `key`: since #1461
+    // reading the wizard state no longer creates the row, so `key` arrives empty
+    // and turns into a real document key on the first save — which would re-run
+    // this hydration over the user's in-progress edits. `user_key` is present
+    // from the first response and constant for the session, so the effect runs
+    // exactly once, which is what the line above always claimed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboardingState?.key]);
+  }, [onboardingState?.user_key]);
 
   // Dynamic steps based on experience level and favorites
   const wizardSteps = useMemo<{ id: WizardStepId; label: string }[]>(() => {
