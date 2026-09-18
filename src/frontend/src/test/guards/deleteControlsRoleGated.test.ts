@@ -134,6 +134,11 @@ const LEAD_ONLY: Record<string, string> = {
   deleteTask: 'require_permission(TASK, DELETE)',
   deleteTaskComment: 'require_permission(TASK, DELETE)',
   batchDelete: 'POST /tasks/batch/delete — require_permission(TASK, DELETE)',
+  // imports/router.py — ImportService.delete_job: own tenant (foreign → 404) then the
+  // lead-only can_delete_resource predicate (#1501). An import job is tenant-owned
+  // staged work, so it takes the tenant axis, not the platform-admin one its three
+  // #1501 siblings take.
+  deleteImportJob: 'ImportService.delete_job — own tenant (foreign → 404), then lead (can_delete_resource)',
   // watering_logs/tenant_router.py
   deleteWateringLog: 'require_permission("watering-log", DELETE)',
   // actuators/tenant_router.py — require_tenant_role(LEAD) on schedules/rules;
@@ -158,10 +163,6 @@ const NOT_LEAD_ONLY: Record<string, string> = {
   deleteAdminUser: 'admin/platform/router.py — require_platform_admin',
   removeTenantMember: 'admin/platform/router.py — require_platform_admin',
   removeUserFromTenant: 'admin/platform/router.py — require_platform_admin',
-  deleteActivity: 'activities/router.py — require_platform_admin (installation catalogue)',
-  deleteBotanicalFamily: 'botanical_families/router.py — platform admin only',
-  deleteGrowthPhase: 'growth_phases/router.py — require_platform_admin',
-  deleteLocationType: 'location_types/router.py — require_platform_admin',
   deleteOidcProvider: 'admin/oidc_providers/router.py — require_platform_admin',
   deleteHomeAssistantSettings: 'admin/settings/router.py — require_platform_admin',
   deletePlantIdentificationSettings: 'admin/settings/router.py — require_platform_admin',
@@ -182,14 +183,6 @@ const NOT_LEAD_ONLY: Record<string, string> = {
   detachPlant: 'planting_runs POST /{key}/plants/{key}/detach — require_permission(PLANTING_RUN, UPDATE)',
   deleteConnection: 'inventree/tenant_router.py — require_admin_scope(TECHNICAL), not the domain rank',
   deleteActuator: 'actuators/tenant_router.py — require_admin_scope(TECHNICAL), not the domain rank',
-  deleteImportJob: 'imports/router.py — NO role gate at all backend-side; gating the UI would remove a call the API accepts (backend gap, #1501)',
-  deletePhaseDefinition: 'phase_sequences/router.py — only get_current_user; no role gate backend-side (backend gap, #1501)',
-  deletePhaseSequence: 'phase_sequences/router.py — only get_current_user (backend gap, #1501)',
-  deleteSequenceEntry: 'phase_sequences/router.py — only get_current_user (backend gap, #1501)',
-  deletePest: 'ipm/router.py — global catalogue, no role gate backend-side (backend gap, #1501)',
-  deleteDisease: 'ipm/router.py — global catalogue, no role gate backend-side (backend gap, #1501)',
-  deleteTreatment: 'ipm/router.py — global catalogue, no role gate backend-side (backend gap, #1501)',
-  deleteGlossaryTerm: 'glossar/admin_router.py — admin surface',
   deleteTenant: 'tenants/router.py — require_admin_scope(MANAGEMENT), the orthogonal axis',
   removeMember: 'tenants/router.py — require_admin_scope(MANAGEMENT)',
   deleteAssignment: 'tenants/router.py — require_admin_scope(MANAGEMENT)',
@@ -200,12 +193,59 @@ const NOT_LEAD_ONLY: Record<string, string> = {
   deleteStarterKit: 'starter kits — platform admin surface',
 };
 
+/**
+ * Destructive endpoint functions whose backend route is gated on
+ * **platform admin** — #1501.
+ *
+ * A third class, because two were not enough. The rank axis (`canDelete`) and
+ * "no rank at all" do not describe an installation-wide catalogue: a row every
+ * tenant reads admits nobody below platform admin, so a *lead* is refused there
+ * exactly as a viewer is. Before #1501 these entries sat in
+ * {@link NOT_LEAD_ONLY} — literally true (the grant is not the lead one) and
+ * useless, because that list asks for no binding at all, so the four that were
+ * already gated and the six that were not looked identical.
+ *
+ * The predicate is `usePlatformAdmin` / `useCanEditInstallationCatalogue` (the
+ * latter is the former, named for this use). As on the rank axis, this is a **UX
+ * consequence of the gate and never a security control** — the API answers 403
+ * whatever the hook returns.
+ */
+const PLATFORM_ADMIN_ONLY: Record<string, string> = {
+  // Already gated when this class was introduced — they are what made the missing
+  // six visible by contrast.
+  deleteActivity: 'activities/router.py — require_platform_admin (installation catalogue)',
+  deleteBotanicalFamily: 'botanical_families/router.py — require_platform_admin_for_global_catalogue',
+  deleteGrowthPhase: 'growth_phases/router.py — require_platform_admin',
+  deleteLocationType: 'location_types/router.py — require_platform_admin (no frontend consumer today)',
+  // Closed by #1501. Measured: neither PhaseDefinition/PhaseSequence/PhaseSequenceEntry
+  // nor Pest/Disease/Treatment carries a tenant_key, so there is no ownership arm —
+  // these are the global-only shape, gated on the router AND in the service.
+  deletePhaseDefinition: 'phase_sequences/router.py — require_platform_admin + PhaseSequenceService (#1501)',
+  deletePhaseSequence: 'phase_sequences/router.py — require_platform_admin + PhaseSequenceService (#1501)',
+  deleteSequenceEntry: 'phase_sequences/router.py — require_platform_admin + PhaseSequenceService (#1501)',
+  deletePest: 'ipm/router.py — require_platform_admin + IpmService (#1501); no frontend consumer today',
+  deleteDisease: 'ipm/router.py — require_platform_admin + IpmService (#1501); no frontend consumer today',
+  deleteTreatment: 'ipm/router.py — require_platform_admin + IpmService (#1501); no frontend consumer today',
+  deleteGlossaryTerm: 'glossar/admin_router.py — router-level require_platform_admin; no frontend consumer today',
+};
+
+/** Role predicates that count as "the file reads the platform-admin grant". */
+const PLATFORM_ADMIN_PREDICATE = /usePlatformAdmin|useCanEditInstallationCatalogue/;
+
+/**
+ * Files reaching a platform-admin-only endpoint that must not carry the predicate.
+ * Keyed the same way as {@link ALLOWLIST} and checked for obsolescence the same way.
+ */
+const PLATFORM_ADMIN_ALLOWLIST: Record<string, string> = {};
+
 /** Files that reach a lead-only endpoint but must not carry `canDelete`, with the reason. */
 const ALLOWLIST: Record<string, string> = {
   'store/slices/calendarSlice.ts':
     'data layer, renders nothing; the control lives in CalendarPage, which is gated. Thunk indirection is covered by the leadOnlyThunks rule below.',
   'store/slices/tasksSlice.ts':
     'data layer, renders nothing; WorkflowTemplateListPage / WorkflowDetailPage carry the predicate.',
+  'store/slices/importSlice.ts':
+    'data layer, renders nothing. Measured #1501: the deleteImportJob thunk has NO UI consumer at all — ImportPage never dispatches it — so there is no control to bind. Delete the thunk or bind its future caller.',
 };
 
 /** Role predicates that count as "the file reads the delete grant". */
@@ -303,22 +343,105 @@ function leadOnlyReferences(src: string): string[] {
   return [...hits].sort();
 }
 
+
+/** The {@link leadOnlyReferences} sibling for the platform-admin class. */
+function platformAdminReferences(src: string): string[] {
+  const hits = new Set<string>();
+
+  for (const m of src.matchAll(
+    /import\s*\{([^}]*)\}\s*from\s*'@\/(?:api\/endpoints|store\/slices)\/([^']+)'/g,
+  )) {
+    for (const spec of m[1].split(',')) {
+      const original = spec.trim().split(/\s+as\s+/)[0].trim();
+      if (original && original in PLATFORM_ADMIN_ONLY) hits.add(original);
+    }
+  }
+
+  for (const m of src.matchAll(
+    /import\s*\*\s*as\s+([A-Za-z0-9_]+)\s+from\s*'@\/api\/endpoints\/([^']+)'/g,
+  )) {
+    const [, alias, moduleSpec] = m;
+    const stem = moduleSpec.split('/').pop() as string;
+    const exported = ENDPOINT_EXPORTS.get(stem) ?? new Set<string>();
+    for (const use of src.matchAll(new RegExp(`\\b${alias}\\.([A-Za-z0-9_]+)`, 'g'))) {
+      const name = use[1];
+      if (exported.has(name) && name in PLATFORM_ADMIN_ONLY) hits.add(name);
+    }
+  }
+
+  return [...hits].sort();
+}
+
 describe('#1467 — tenant delete controls are bound to the lead-only grant', () => {
   it('classifies every destructive endpoint export as lead-only or not', () => {
-    const classified = new Set([...Object.keys(LEAD_ONLY), ...Object.keys(NOT_LEAD_ONLY)]);
+    const classified = new Set([
+      ...Object.keys(LEAD_ONLY),
+      ...Object.keys(PLATFORM_ADMIN_ONLY),
+      ...Object.keys(NOT_LEAD_ONLY),
+    ]);
     const unclassified = [...ALL_DESTRUCTIVE].filter((n) => !classified.has(n)).sort();
     expect(
       unclassified,
       'A new destructive endpoint was added without deciding which role predicate its ' +
         'control needs. Measure the backend route ' +
         '(grep require_permission/require_tenant_role/require_admin_scope in the router) ' +
-        'and add it to LEAD_ONLY or NOT_LEAD_ONLY with the measured reason.',
+        'and add it to LEAD_ONLY, PLATFORM_ADMIN_ONLY or NOT_LEAD_ONLY with the measured reason.',
     ).toEqual([]);
   });
 
-  it('never classifies the same endpoint on both sides', () => {
-    const both = Object.keys(LEAD_ONLY).filter((n) => n in NOT_LEAD_ONLY);
-    expect(both).toEqual([]);
+  it('never classifies the same endpoint in two of the three lists', () => {
+    const lists: Record<string, Record<string, string>> = {
+      LEAD_ONLY,
+      PLATFORM_ADMIN_ONLY,
+      NOT_LEAD_ONLY,
+    };
+    const overlaps: string[] = [];
+    const names = Object.keys(lists);
+    for (let i = 0; i < names.length; i += 1) {
+      for (let j = i + 1; j < names.length; j += 1) {
+        for (const n of Object.keys(lists[names[i]])) {
+          if (n in lists[names[j]]) overlaps.push(`${n}: ${names[i]} + ${names[j]}`);
+        }
+      }
+    }
+    expect(overlaps).toEqual([]);
+  });
+
+  it('every platform-admin entry carries a measured reason', () => {
+    for (const [name, reason] of Object.entries(PLATFORM_ADMIN_ONLY)) {
+      expect(reason.length, `${name}: no usable reason`).toBeGreaterThan(20);
+    }
+  });
+
+  it('every UI file reaching a platform-admin-only write reads the platform-admin predicate', () => {
+    const offenders: string[] = [];
+    for (const [relPath, src] of ALL_SOURCES) {
+      if (relPath in PLATFORM_ADMIN_ALLOWLIST) continue;
+      const hits = platformAdminReferences(src);
+      if (hits.length === 0) continue;
+      if (PLATFORM_ADMIN_PREDICATE.test(src)) continue;
+      offenders.push(`${relPath} → ${hits.join(', ')}`);
+    }
+    expect(
+      offenders,
+      'These files offer a control for a route the backend grants to a PLATFORM ADMIN ' +
+        'only — an installation-wide catalogue, where a lead is refused exactly as a ' +
+        'viewer is (#1501). Bind the control to `useCanEditInstallationCatalogue()` ' +
+        '(see pages/stammdaten/ActivityDetailPage.tsx), or add a ' +
+        'PLATFORM_ADMIN_ALLOWLIST entry with the measured backend route.',
+    ).toEqual([]);
+  });
+
+  it('every platform-admin allowlist entry still names a file that still needs it', () => {
+    for (const [file, reason] of Object.entries(PLATFORM_ADMIN_ALLOWLIST)) {
+      expect(reason.length, `${file}: allowlist entry needs a reason`).toBeGreaterThan(20);
+      const src = ALL_SOURCES.get(file);
+      expect(src, `${file} does not exist — drop the allowlist entry`).toBeDefined();
+      expect(
+        platformAdminReferences(src as string),
+        `${file} no longer reaches a platform-admin-only write — drop the allowlist entry`,
+      ).not.toEqual([]);
+    }
   });
 
   it('every allowlist entry names a file that still exists and still needs the exemption', () => {
@@ -391,6 +514,34 @@ describe('#1467 — tenant delete controls are bound to the lead-only grant', ()
     expect(LEAD_ONLY_THUNKS.has('fetchCalendarEvents')).toBe(false);
     expect(
       leadOnlyReferences("import { fetchWorkflows } from '@/store/slices/tasksSlice';"),
+    ).toEqual([]);
+  });
+
+  it('sees a platform-admin reference through a rename and a namespace', () => {
+    expect(
+      platformAdminReferences(
+        "import { deletePhaseDefinition } from '@/api/endpoints/phaseSequences';",
+      ),
+    ).toEqual(['deletePhaseDefinition']);
+    expect(
+      platformAdminReferences(
+        "import { deletePhaseDefinition as dropIt } from '@/api/endpoints/phaseSequences';",
+      ),
+    ).toEqual(['deletePhaseDefinition']);
+    expect(
+      platformAdminReferences(
+        "import * as api from '@/api/endpoints/ipm';\nawait api.deletePest(key);",
+      ),
+    ).toEqual(['deletePest']);
+    // The two readers must not answer for each other's class, or an entry moved
+    // between the lists would keep passing under the old rule.
+    expect(
+      platformAdminReferences("import { deleteSite } from '@/api/endpoints/sites';"),
+    ).toEqual([]);
+    expect(
+      leadOnlyReferences(
+        "import { deletePhaseDefinition } from '@/api/endpoints/phaseSequences';",
+      ),
     ).toEqual([]);
   });
 });

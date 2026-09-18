@@ -51,12 +51,18 @@ def public_list_terms(
 
 @router.get("/term/{slug}", response_model=GlossaryTermAnswer)
 @limiter.limit(_TERM_RATE_LIMIT)
-async def public_get_term(
+def public_get_term(
     request: Request,
     slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
     language: Language = Query("de", description="Language of the returned explanation (de or en)."),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> GlossaryTermAnswer:
-    """Explain one term without auth (local provider only, §3.2, §6)."""
-    return await service.get_term(slug, language=language, expertise_level=expertise)
+    """Explain one term without auth (§3.2, §6) — a **read**.
+
+    Serves the cached RAG answer when there is one and the curated editorial
+    short definition (``is_fallback=true``) otherwise. It does not call the
+    Knowledge Service and it does not write (#1460): an anonymous caller must
+    not be able to choose when the installation pays for an LLM call.
+    """
+    return service.get_term(slug, language=language, expertise_level=expertise)

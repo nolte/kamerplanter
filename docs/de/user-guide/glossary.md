@@ -35,6 +35,17 @@ Die Erklärung, die du siehst, richtet sich nach deiner eingestellten [Erfahrung
 
 Nicht zu jedem Begriff findet die Wissensbasis einen ausreichend relevanten Treffer. In diesem Fall zeigt dir das Glossar ehrlich eine redaktionell gepflegte Kurzdefinition anstelle einer KI-generierten Antwort, gekennzeichnet mit dem Hinweis „Kurzdefinition (kein Wissensbasis-Treffer)". So bekommst du nie eine erfundene oder unsichere Antwort vorgegaukelt.
 
+## Ausführliche Erklärungen werden vorbereitet, nicht beim Lesen erzeugt
+
+Das Aufrufen eines Begriffs kostet nichts und stößt keine KI-Anfrage an: Das Glossar zeigt dir die **bereits vorbereitete** ausführliche Erklärung, und solange es für einen Begriff (in deiner Sprache und Erfahrungsstufe) noch keine gibt, siehst du die redaktionelle Kurzdefinition — dieselbe ehrliche Kennzeichnung wie oben.
+
+Vorbereitet werden die Erklärungen an zwei Stellen:
+
+- **automatisch**, nachdem der Betreiber die Wissensbasis neu eingelesen hat. Dabei wird der Zwischenspeicher geleert und im Hintergrund für den gesamten Begriffskatalog neu befüllt.
+- **auf Anforderung**, wenn jemand mit der Rolle Gärtner:in oder Leitung in seinem Garten eine Erklärung erzeugen lässt. Betrachter:innen und anonyme Besucher:innen können das nicht auslösen.
+
+Das ist Absicht: Jede KI-Erklärung kostet den Betreiber der Installation Rechenzeit oder Geld. Vorher entschied der erste Mensch, der einen Begriff anklickte, wann diese Kosten anfielen — im anonymen Light-Modus also jemand ganz ohne Konto. <!-- #1460 -->
+
 ## Fragezeichen-Symbol an Ort und Stelle
 
 !!! note "Teilweise verfügbar: Fragezeichen-Symbole auf anderen Seiten"
@@ -54,7 +65,7 @@ Das Glossar nutzt dieselbe instanzweite KI-Freischaltung wie der [KI-Assistent](
 
 Nutzt dein Garten (Mandant) einen Cloud-Provider als Standard-Provider, greift dennoch die reguläre Einwilligungsprüfung „KI-Verarbeitung über Cloud-Provider" (`ai_cloud_processing`), bevor eine Anfrage an den Cloud-Provider geht — siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster). Fehlt die Einwilligung oder lässt sich der zugehörige Nutzer nicht zweifelsfrei bestimmen, wird die Anfrage sicherheitshalber abgelehnt statt lokal umgeleitet.
 
-Jeder Glossar-Aufruf wird — wie beim KI-Assistenten — protokolliert, ohne dass Pflanzen- oder Kontodaten in der Anfrage an die Wissensbasis enthalten sind.
+Protokolliert wird — wie beim KI-Assistenten — jede **KI-Anfrage an die Wissensbasis**, ohne dass Pflanzen- oder Kontodaten darin enthalten sind. Das reine Lesen eines bereits vorbereiteten Begriffs erzeugt keine solche Anfrage und damit auch keinen Protokolleintrag; früher schrieb jeder anonyme Aufruf einen. <!-- #1460 -->
 
 ---
 
@@ -67,7 +78,10 @@ Jeder Glossar-Aufruf wird — wie beim KI-Assistenten — protokolliert, ohne da
     Das bedeutet, dass die Wissensbasis zu diesem Begriff keinen ausreichend relevanten Treffer gefunden hat. Statt eine unsichere KI-Antwort zu erfinden, zeigt dir das Glossar dann eine kurze, redaktionell geprüfte Definition.
 
 ??? question "Warum ändert sich die Erklärung, wenn ich meine Erfahrungsstufe wechsle?"
-    Die Erklärung wird passend zu deiner eingestellten Erfahrungsstufe erzeugt — Anfänger bekommen Alltagssprache, Experten konkrete Wertebereiche. Nach einem Stufenwechsel gilt das für neu abgerufene Erklärungen.
+    Erklärungen werden je Erfahrungsstufe getrennt vorbereitet — Anfänger bekommen Alltagssprache, Experten konkrete Wertebereiche. Nach einem Stufenwechsel siehst du die Fassung deiner neuen Stufe; ist für sie noch keine vorbereitet, zunächst die redaktionelle Kurzdefinition.
+
+??? question "Warum sehe ich zu einem Begriff nur die Kurzdefinition, obwohl KI aktiviert ist?"
+    Dann wurde für diesen Begriff in deiner Sprache und Erfahrungsstufe noch keine ausführliche Erklärung vorbereitet. Das Lesen selbst erzeugt keine — wer in seinem Garten Gärtner:in oder Leitung ist, kann sie anfordern, und nach einem Neueinlesen der Wissensbasis füllt der Betreiber den Katalog im Hintergrund wieder auf.
 
 ??? question "Warum sehe ich das Fragezeichen-Symbol noch nicht neben Begriffen auf anderen Seiten?"
     Die Einbindung in bestehende Seiten (Pflanzen-Detailseite, Dashboard, Substrat-Editor und weitere) ist noch nicht abgeschlossen. Bis dahin findest du dieselben Erklärungen über die [Glossar-Übersicht](#das-glossar-durchsuchen).

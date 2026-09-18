@@ -166,7 +166,7 @@
   "platformAdminGuard": {
     "title": "Platform administration",
     "noticeTitle": "This area is reserved for platform administration",
-    "description": "Tenants and user accounts of this installation are managed by platform administration only. Your account does not hold that permission — the server answers even this page's read requests with \u201c403 Forbidden\u201d, so there is nothing to show here. Ask the administrators of this installation if you need those rights.",
+    "description": "Tenants and user accounts of this installation are managed by platform administration only. Your account does not hold that permission — the server answers even this page's read requests with “403 Forbidden”, so there is nothing to show here. Ask the administrators of this installation if you need those rights.",
     "backToDashboard": "Go to dashboard"
   },
   "storageSettings": {
@@ -543,12 +543,16 @@
     "disclaimer": "AI answers may be incorrect. Please check the sources for critical decisions.",
     "dailyTip": {
       "heading": "Tip of the day",
-      "dismiss": "Dismiss tip of the day"
+      "dismiss": "Dismiss tip of the day",
+      "empty": "No tip has been generated for today yet.",
+      "generate": "Generate today's tip"
     },
     "tips": {
       "heading": "AI care tips",
       "refresh": "Refresh",
-      "learnMore": "Learn more"
+      "learnMore": "Learn more",
+      "empty": "No AI care tips generated yet. “Generate tips” asks the knowledge service for advice on this plant.",
+      "generate": "Generate tips"
     },
     "why": {
       "tooltip": "Why?",
@@ -573,7 +577,12 @@
     "errors": {
       "disabled": "The AI features are currently disabled for this garden. An administrator can enable them in the tenant settings.",
       "consentRequired": "This AI feature requires your consent to use your plant data. You can grant it in the privacy settings.",
-      "consentRequiredLink": "Go to privacy settings"
+      "consentRequiredLink": "Go to privacy settings",
+      "generateFailed": "The explanation could not be generated.",
+      "tipsGenerateFailed": "The tips could not be generated.",
+      "dailyTipGenerateFailed": "Today's tip could not be generated.",
+      "dailyTipGenerateEmpty": "No tip could be generated right now. Please try again later.",
+      "retry": "Try again"
     }
   },
   "components": {

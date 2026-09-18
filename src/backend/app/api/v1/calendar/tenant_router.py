@@ -1,4 +1,3 @@
-from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -10,6 +9,7 @@ from app.api.v1.calendar.schemas import (
     CalendarFeedFiltersSchema,
     CalendarFeedResponse,
     CalendarFeedUpdateRequest,
+    CalendarQueryParams,
     FrostConfigSchema,
     MonthSummarySchema,
     SeasonOverviewResponse,
@@ -20,7 +20,6 @@ from app.api.v1.calendar.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.datetimes import today_utc
 from app.common.dependencies import get_calendar_service
-from app.common.enums import CalendarEventCategory
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.core.permissions import Action, ResourceType
 from app.domain.models.calendar import (
@@ -83,23 +82,15 @@ def _feed_response(
 
 @router.get("/events")
 def get_calendar_events(
-    start: date = Query(..., description="Inclusive start date of the query window."),
-    end: date = Query(..., description="Inclusive end date of the query window."),
-    category: str | None = Query(default=None, description="Comma-separated list of event categories to include."),
+    params: Annotated[CalendarQueryParams, Query()],
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarEventsResponse:
     """Return calendar events for the tenant within a date window."""
     svc: CalendarService = get_calendar_service()
-    categories: list[CalendarEventCategory] = []
-    if category:
-        for c in category.split(","):
-            c = c.strip()
-            if c:
-                categories.append(CalendarEventCategory(c))
     query = CalendarEventsQuery(
-        start_date=start,
-        end_date=end,
-        categories=categories,
+        start_date=params.start,
+        end_date=params.end,
+        categories=params.category,
         tenant_key=ctx.tenant_key,
     )
     events = svc.get_events(query)
@@ -205,12 +196,11 @@ def create_feed(
 ) -> CalendarFeedResponse:
     """Create a subscribable iCal feed for the tenant's calendar."""
     svc: CalendarService = get_calendar_service()
-    cats = [CalendarEventCategory(c) for c in body.filters.categories]
     feed = CalendarFeed(
         name=body.name,
         tenant_key=ctx.tenant_key,
         user_key=ctx.user_key,
-        filters=CalendarFeedFilters(categories=cats, site_key=body.filters.site_key),
+        filters=CalendarFeedFilters(categories=body.filters.categories, site_key=body.filters.site_key),
     )
     created = svc.create_feed(feed)
     return _feed_response(created, request)
@@ -249,11 +239,10 @@ def update_feed(
     """Update a calendar feed's name, filters or active state."""
     svc: CalendarService = get_calendar_service()
     svc.get_feed(key, tenant_key=ctx.tenant_key)
-    cats = [CalendarEventCategory(c) for c in body.filters.categories]
     feed = CalendarFeed(
         name=body.name,
         is_active=body.is_active,
-        filters=CalendarFeedFilters(categories=cats, site_key=body.filters.site_key),
+        filters=CalendarFeedFilters(categories=body.filters.categories, site_key=body.filters.site_key),
     )
     updated = svc.update_feed(key, feed)
     return _feed_response(updated, request)

@@ -6,7 +6,15 @@ from app.domain.models.site import Location, Site, Slot
 
 class ISiteRepository(ABC):
     @abstractmethod
-    def get_all_sites(self, offset: int = 0, limit: int = 50) -> tuple[list[Site], int]: ...
+    def get_all_sites(self, offset: int = 0, limit: int = 50, tenant_key: str | None = None) -> tuple[list[Site], int]:
+        """Sites, optionally narrowed to one tenant.
+
+        ``tenant_key`` was already implemented by ``ArangoSiteRepository`` and
+        missing from this signature, so a caller reading the interface could not
+        see that scoping was available — and a second implementor would have
+        omitted it. Declared here now that the season overview depends on it.
+        """
+        ...
 
     @abstractmethod
     def find_site_docs_by_keys(self, keys: list[str]) -> list[dict]: ...

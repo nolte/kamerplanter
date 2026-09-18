@@ -189,10 +189,21 @@ err_<uuid4>
 |---|---|---|
 | 404 | `ENTITY_NOT_FOUND` | Referenzierte Entität existiert nicht |
 | 409 | `DUPLICATE_ENTRY` | Eintrag mit gleichem Schlüssel existiert bereits |
+| 409 | `WRITE_CONFLICT` | Gleichzeitiger Schreibvorgang hielt denselben Schlüssel; erneut lesen und wiederholen |
 | 422 | `INCOMPATIBLE_SUBSTRATE` | Substrat ist nicht kompatibel mit Spezies |
 | 422 | `INCOMPATIBLE_COMPANION` | Mischkultur-Konflikt am Standort |
 | 422 | `SLOT_OCCUPIED` | Stellplatz ist bereits belegt |
 | 422 | `PHASE_TRANSITION_INVALID` | Ungültiger Phasenübergang |
+
+`WRITE_CONFLICT` ist **nicht** eine Spielart von `DUPLICATE_ENTRY`, auch wenn beide 409 sind.
+`DUPLICATE_ENTRY` (ArangoDB-Code 1210) ist eine Aussage **über die Daten**: ein festgeschriebener,
+sichtbarer Datensatz belegt den eindeutigen Schlüssel — ein Client darf das als „ein
+gleichwertiger Datensatz existiert" lesen und muss seine Eingabe ändern. `WRITE_CONFLICT`
+(Code 1200) ist eine Aussage **über die Zeit**: eine gleichzeitige Transaktion hielt denselben
+Dokumentschlüssel oder Index-Eintrag, und ob sie festgeschrieben oder zurückgerollt hat, ist
+damit gerade nicht gesagt. Die richtige Reaktion ist deshalb erneut lesen und wiederholen, nicht
+die Eingabe ändern. Ein Client, der beide Codes gleich behandelt, verliert genau diese
+Unterscheidung.
 
 ---
 

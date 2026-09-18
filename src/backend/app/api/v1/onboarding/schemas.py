@@ -7,6 +7,11 @@ from app.domain.models.onboarding import PlantConfig
 
 
 class OnboardingStateResponse(BaseModel):
+    #: ``""`` until the row exists. Reading the wizard state no longer creates it
+    #: (#1461): a user who has not started the wizard gets the initial state, and
+    #: the first wizard action materialises the document. ``to_response``
+    #: coalesces an absent key to ``""`` everywhere in this API, so the response
+    #: shape is unchanged and this stays a required ``str``.
     key: str
     user_key: str
     completed: bool

@@ -631,6 +631,16 @@ Auf der Pflanzeninstanz-Detailseite ein Abschnitt **„Überwinterung"**, der da
 | Methode & Pfad | Zweck |
 |----------------|-------|
 | `GET /api/v1/t/{tenant_slug}/sites/{site_key}/season-state` | Aktuellen Saison-Zustand + Trigger-Quelle lesen |
+
+<!-- #1461 -->
+**Dieser `GET` rechnet, er schreibt nicht.** Existiert für den Standort noch kein
+`SeasonState`, berechnet der Endpunkt ihn **transient** aus Standort,
+Signal-Kaskade und Engine und liefert ihn ohne Dokumentschlüssel zurück.
+Persistiert wird der Zustand ausschließlich vom täglichen Celery-Task
+(`season.evaluate_all_sites`, §3.7) — und nur dort laufen auch die
+Übergangs-Seiteneffekte (Überwinterungsprofile materialisieren, Winter-/
+Frühjahrs-Aufgaben anlegen, §3.2). Vorher fiel der Lesepfad auf die vollständige
+Auswertung durch und löste beides auf einem einfachen `GET` aus (#1461).
 | `GET /api/v1/t/{tenant_slug}/season/overview` | Aggregierte Saison-/Ampel-Übersicht über alle Outdoor-Sites (Dashboard-Widget) |
 | `GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering` | Auto-materialisiertes OverwinteringProfile lesen (mit `auto_generated`/`user_overridden`/`derived_path`) |
 | `GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering/status` | Materialisierungs-Status ohne Profil-Zwang: `has_profile` / `hardiness_light` / `will_materialize` / `site_overwinterable` (4-State-Antwort, auch für Pflanzen ohne Profil; Folge-PR #410) |
