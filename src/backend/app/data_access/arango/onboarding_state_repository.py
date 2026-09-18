@@ -1,0 +1,43 @@
+"""The ``onboarding_states`` collection (REQ-020), with full-replace null semantics."""
+
+from arango.database import StandardDatabase
+
+from app.data_access.arango import collections as col
+from app.data_access.arango.base_repository import BaseArangoRepository
+
+
+class ArangoOnboardingStateRepository(BaseArangoRepository):
+    """Persistence for the onboarding wizard's per-user singleton state (#1516).
+
+    A class of its own rather than a bare ``BaseArangoRepository`` instance
+    because :attr:`BaseArangoRepository._update_is_full_replace` is a ``ClassVar``:
+    the null semantics belong to the collection, not to the call site that happens
+    to want them.
+
+    **What it repairs.** In the inherited merge mode a ``None`` never reached the
+    store, so ``OnboardingService.reset_wizard`` — which nulls ``completed_at``,
+    ``selected_kit_id``, ``selected_experience_level``, ``site_type``,
+    ``selected_site_key`` and ``plant_count`` — left every one of them in place.
+    The "reset" wizard reopened on the previous run's selections while reporting
+    ``completed=False``; the list-valued fields it resets in the same dict
+    (``plant_configs``, the two favourite lists) *did* land, because ``[]`` is not
+    ``None``, which is why the reset looked like it worked. The same drop hit
+    ``ensure_onboarding_state_for_user``'s ``completed_at: None`` on the
+    light-to-full takeover path (REQ-027).
+
+    **Every writer builds a full model from the stored state**, so none can lose a
+    field it never mentioned (measured 2026-09-18 over all five update call sites
+    in ``OnboardingService`` — the only writer of this collection; the user
+    repository's account cascade deletes rows, it does not update them):
+    ``save_progress``, ``complete_wizard``, ``ensure_onboarding_state_for_user``,
+    ``reset_wizard`` and ``skip_wizard`` each start from ``state.model_dump()``,
+    apply a literal ``dict.update`` and re-validate through ``OnboardingState``.
+
+    Raw mode is kept (FR-002 A3): the service wraps the returned ``dict`` into
+    :class:`~app.domain.models.onboarding.OnboardingState` itself.
+    """
+
+    _update_is_full_replace = True
+
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.ONBOARDING_STATES, raw=True)

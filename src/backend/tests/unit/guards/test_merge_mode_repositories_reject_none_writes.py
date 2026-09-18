@@ -52,6 +52,7 @@ entirely, which is what that resolution was added for.
 from __future__ import annotations
 
 import ast
+from importlib import import_module
 from pathlib import Path
 
 from tests.support.execution_guards import find_project_root
@@ -82,12 +83,18 @@ _KEEP_NONE_METHODS = frozenset({"update_fields", "update_fields_checked"})
 
 #: The measured inventory: ``module::function`` → the verdict, written out.
 #:
-#: ``REPAIRED`` — this change made the target repository full-replace, so the clear lands.
+#: ``REPAIRED (#NNNN)`` — the named change made the target repository full-replace,
+#: so the clear lands. Every one of them is measured against a real ArangoDB in
+#: ``tests/integration/test_merge_mode_null_clearing.py`` (or, for ``care_profiles``,
+#: ``test_care_profile_null_clearing.py``), and
+#: :class:`TestEveryRepairedSiteReachesAFullReplaceRepository` below re-derives the
+#: flag from the code rather than trusting this string.
 #: ``SAFE`` — the repository was already full-replace, the write path already keeps
 #: nulls, or the ``None`` never reaches a stored field at all.
 #: ``DEFECT #NNNN`` — measured to be dropped; tracked in its own issue, because
 #: flipping a repository needs its own writer×fields table and red-first pass
-#: (which is what #1506 was for ``care_profiles``), not a drive-by edit.
+#: (which is what #1506 was for ``care_profiles``), not a drive-by edit. No entry
+#: carries this verdict today — #1525 and #1516 closed the last of them.
 _REVIEWED: dict[str, str] = {
     # ── repaired by #1506 ────────────────────────────────────────────────────
     "care_reminder_service::update_profile": (
@@ -131,56 +138,102 @@ _REVIEWED: dict[str, str] = {
         "SAFE — `expected_scientific_name` is a local passed to the assessment call, not a field "
         "of the model that is written."
     ),
-    # ── measured defects of the same class, tracked in #1516 ─────────────────
+    # ── repaired by #1525 / #1516 ────────────────────────────────────────────
     #
-    # Each repository is its own change: flipping `_update_is_full_replace` alters
-    # null semantics for every writer of that collection, so each needs the
-    # writer×fields table and the red-first pass #1506 did for care_profiles. They
-    # are listed individually rather than as one line so a fix can retire its own
-    # entry without touching the others.
-    # Split out of #1516 in the #1506 review (SCR-004): same mechanism, a
-    # credential-/DSGVO-relevant consequence rather than a data-quality one.
+    # Each repository was its own measurement: flipping `_update_is_full_replace`
+    # alters null semantics for every writer of that collection, so each carries a
+    # writer×fields table on the flag itself (the shape #1506 used for
+    # care_profiles) plus a red-first pass against a real ArangoDB in
+    # `tests/integration/test_merge_mode_null_clearing.py`.
     "user_service::delete_account": (
-        "DEFECT #1525 (security) — the soft-delete nulls User.password_hash and avatar_url while "
-        "is_active/email/display_name are written, so the account reads as deleted and the stored "
-        "bcrypt hash survives. ArangoUserRepository is merge-mode."
+        "REPAIRED (#1525) — the soft-delete nulls User.password_hash and avatar_url; "
+        "ArangoUserRepository is full-replace, so the stored bcrypt hash is removed with the "
+        "same write that sets is_active/email/display_name."
     ),
     "privacy_service::request_erasure": (
-        "DEFECT #1525 (security) — the same soft-delete on the DSGVO Art. 17 erasure path; the "
-        "credential of an account whose erasure was requested is kept for the 90 days until the "
-        "hard delete runs."
+        "REPAIRED (#1525) — the same soft-delete on the DSGVO Art. 17 path; the credential no "
+        "longer survives the 90 days until the hard delete runs."
     ),
     "privacy_service::grant_consent": (
-        "DEFECT #1516 — re-granting a revoked consent nulls revoked_at and writes through "
-        "ArangoConsentRepository.update (merge mode): the record still carries its revocation."
+        "REPAIRED (#1516) — re-granting a revoked consent clears revoked_at (and the previous "
+        "grant's ip_address/user_agent when the new one supplies none); ArangoConsentRepository "
+        "is full-replace."
     ),
     "task_service::reopen_task": (
-        "DEFECT #1516 — a reopened task nulls completed_at, actual_duration_minutes, "
-        "completion_notes, difficulty_rating and quality_rating; all five survive."
+        "REPAIRED (#1516) — a reopened task drops completed_at, actual_duration_minutes, "
+        "completion_notes, difficulty_rating and quality_rating; ArangoTaskRepository is "
+        "full-replace."
     ),
     "phase_service::delete_phase_history": (
-        "DEFECT #1516 — reopening the previous phase nulls exited_at/actual_duration_days through "
-        "update_phase_history (merge mode), so the reopened phase stays closed. Its sibling "
-        "clears on the PlantInstance (current_phase_key/_started_at) do land — that repository "
-        "is full-replace — which is why the function looks half-correct."
+        "REPAIRED (#1516) — reopening the previous phase clears exited_at/actual_duration_days; "
+        "_PhaseHistoryRepository is full-replace. Its sibling clears on the PlantInstance "
+        "(current_phase_key/_started_at) always landed — that repository was already "
+        "full-replace — which is why the function looked half-correct."
     ),
     "phase_service::update_phase_history_dates": (
-        "DEFECT #1516 — nulls actual_duration_days when the exit date is removed; same path."
+        "REPAIRED (#1516) — clears actual_duration_days when the exit date is removed; same repository."
     ),
-    "planting_run_service::batch_update_phase_dates": ("DEFECT #1516 — the same clear on the batch path."),
+    "planting_run_service::batch_update_phase_dates": ("REPAIRED (#1516) — the same clear on the batch path."),
     "onboarding_service::reset_wizard": (
-        "DEFECT #1516 — the wizard reset nulls completed_at, site_type, selected_site_key, "
-        "selected_kit_id, selected_experience_level and plant_count; a merge-mode update keeps "
-        "them, so the 'reset' wizard reopens on the previous run's selections."
+        "REPAIRED (#1516) — the wizard reset clears completed_at, site_type, selected_site_key, "
+        "selected_kit_id, selected_experience_level and plant_count; "
+        "ArangoOnboardingStateRepository is full-replace."
     ),
     "onboarding_service::ensure_onboarding_state_for_user": (
-        "DEFECT #1516 — nulls completed_at on the same merge-mode repository."
+        "REPAIRED (#1516) — clears completed_at on the same repository (REQ-027 takeover path)."
     ),
     "notification_propagation_service::_update_single": (
-        "DEFECT #1516 — under `reset_read` it nulls read_at/acted_at so the row re-surfaces in "
-        "the badge, and ArangoNotificationRepository merges: the row stays read (#769's path)."
+        "REPAIRED (#1516) — under `reset_read` it clears read_at/acted_at so the row re-surfaces "
+        "in the badge (#769); ArangoNotificationRepository is full-replace."
     ),
 }
+
+
+#: ``module::function`` → the repository class the full-model write reaches, or
+#: ``None`` when the ``None`` never reaches a stored field at all.
+#:
+#: This is what turns :data:`_REVIEWED` from prose into something checkable. The
+#: scanner cannot resolve ``self._repo`` — the services take their repositories
+#: through an interface — so the resolution is declared here *once*, by hand, and
+#: :class:`TestEveryVerdictMatchesTheRepositoryItNames` then re-derives
+#: ``_update_is_full_replace`` from the class instead of believing the sentence.
+#:
+#: The consequence that matters: a verdict and its repository cannot drift apart.
+#: Marking a site ``REPAIRED`` without flipping the flag fails; flipping a flag
+#: back to merge mode while a site still claims ``REPAIRED`` fails; leaving a site
+#: at ``DEFECT`` after its repository became full-replace fails too — the direction
+#: an inventory of "known problems" normally rots in.
+_SITE_REPOSITORY: dict[str, str | None] = {
+    "care_reminder_service::update_profile": "care_reminder_repository.ArangoCareReminderRepository",
+    "dormancy_care_activator::activate": "care_reminder_repository.ArangoCareReminderRepository",
+    "dormancy_care_activator::deactivate": "care_reminder_repository.ArangoCareReminderRepository",
+    "plant_instance_service::remove_plant": "plant_instance_repository.ArangoPlantInstanceRepository",
+    "planting_run_service::_reassign_plant_slots": "plant_instance_repository.ArangoPlantInstanceRepository",
+    "actuator_service::_dispatch": None,
+    "care_reminder_service::confirm_reminder": None,
+    "favorites_service::_add_one": None,
+    "import_service::confirm": None,
+    "plant_photo_service::assess_photo": None,
+    "user_service::delete_account": "user_repository.ArangoUserRepository",
+    "privacy_service::request_erasure": "user_repository.ArangoUserRepository",
+    "privacy_service::grant_consent": "consent_repository.ArangoConsentRepository",
+    "task_service::reopen_task": "task_repository.ArangoTaskRepository",
+    "phase_service::delete_phase_history": "lifecycle_repository._PhaseHistoryRepository",
+    "phase_service::update_phase_history_dates": "lifecycle_repository._PhaseHistoryRepository",
+    "planting_run_service::batch_update_phase_dates": "lifecycle_repository._PhaseHistoryRepository",
+    "onboarding_service::reset_wizard": "onboarding_state_repository.ArangoOnboardingStateRepository",
+    "onboarding_service::ensure_onboarding_state_for_user": (
+        "onboarding_state_repository.ArangoOnboardingStateRepository"
+    ),
+    "notification_propagation_service::_update_single": "notification_repository.ArangoNotificationRepository",
+}
+
+
+def _is_full_replace(dotted: str) -> bool:
+    """``_update_is_full_replace`` as the class actually declares it."""
+    module_name, class_name = dotted.split(".")
+    module = import_module(f"app.data_access.arango.{module_name}")
+    return bool(getattr(module, class_name)._update_is_full_replace)
 
 
 # ── the scanner ──────────────────────────────────────────────────────────────
@@ -347,3 +400,72 @@ class TestTheScanStillSeesTheDefectItWasWrittenFor:
 
         assert _cleared_fields(fn) == {"analysis_error"}
         assert _full_model_update_calls(fn) == set()
+
+
+class TestEveryVerdictMatchesTheRepositoryItNames:
+    """The inventory's verdicts, re-derived from the repository classes themselves.
+
+    ``_REVIEWED`` is a wall of sentences, and a sentence keeps reading correctly
+    long after the code under it has moved — the failure this repository keeps
+    paying for. Each verdict names a consequence that is decided by exactly one
+    machine-readable fact, ``_update_is_full_replace`` on the repository the write
+    reaches, so that fact is read off the class here rather than believed.
+    """
+
+    def test_every_reviewed_site_declares_the_repository_it_writes_to(self):
+        """A new verdict has to name its repository, not just assert a conclusion."""
+        missing = sorted(set(_REVIEWED) - set(_SITE_REPOSITORY))
+        extra = sorted(set(_SITE_REPOSITORY) - set(_REVIEWED))
+
+        assert missing == [], f"_SITE_REPOSITORY does not resolve: {missing}"
+        assert extra == [], f"_SITE_REPOSITORY resolves sites _REVIEWED does not list: {extra}"
+
+    def test_a_repaired_or_safe_verdict_reaches_a_full_replace_repository(self):
+        """``REPAIRED``/``SAFE`` on a repository-backed site ⇒ the flag is actually on."""
+        merge_mode = sorted(
+            site
+            for site, dotted in _SITE_REPOSITORY.items()
+            if dotted is not None and not _REVIEWED[site].startswith("DEFECT") and not _is_full_replace(dotted)
+        )
+
+        assert merge_mode == [], (
+            "these sites are recorded as REPAIRED or SAFE but the repository they write to still "
+            f"merges, so the None they set is dropped: {merge_mode}"
+        )
+
+    def test_a_defect_verdict_is_removed_once_its_repository_is_repaired(self):
+        """``DEFECT`` ⇒ the flag is actually off, so the inventory cannot go stale.
+
+        The other direction of the same rule: once a repository is flipped, the
+        entry has to be rewritten. Without this half the inventory would keep
+        reporting repaired sites as open defects and nobody would notice.
+        """
+        repaired = sorted(
+            site
+            for site, dotted in _SITE_REPOSITORY.items()
+            if dotted is not None and _REVIEWED[site].startswith("DEFECT") and _is_full_replace(dotted)
+        )
+
+        assert repaired == [], (
+            "these sites are still recorded as DEFECT but their repository is full-replace now; "
+            f"rewrite the verdict to REPAIRED with the issue that did it: {repaired}"
+        )
+
+    def test_a_site_with_no_repository_cannot_claim_to_have_been_repaired(self):
+        """``None`` means the clear never reaches a stored field — nothing to repair."""
+        claiming = sorted(
+            site for site, dotted in _SITE_REPOSITORY.items() if dotted is None and _REVIEWED[site].startswith("REPAIR")
+        )
+
+        assert claiming == [], f"a site with no repository cannot be REPAIRED: {claiming}"
+
+    def test_the_flag_lookup_can_answer_false(self):
+        """Falsification: the derivation must be able to *see* merge mode.
+
+        Every repository in ``_SITE_REPOSITORY`` is full-replace today, so the three
+        assertions above would all hold against a ``_is_full_replace`` that returned
+        ``True`` unconditionally — vacuously. This pins it against a repository that
+        is deliberately still in merge mode.
+        """
+        assert _is_full_replace("task_repository.ArangoTaskRepository") is True
+        assert _is_full_replace("membership_repository.ArangoMembershipRepository") is False

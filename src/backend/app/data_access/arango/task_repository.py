@@ -33,6 +33,36 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     is_tenant_scoped = True
     _model_cls = Task
 
+    #: Full-replace null semantics for ``tasks`` (#1516).
+    #:
+    #: ``TaskService.reopen_task`` nulls the whole completion record —
+    #: ``completed_at``, ``actual_duration_minutes``, ``completion_notes``,
+    #: ``difficulty_rating``, ``quality_rating`` — and in the inherited merge mode
+    #: all five survived: a task back in ``pending`` still carried the completion
+    #: it was reopened out of, and the next completion overwrote only the fields it
+    #: happened to set.
+    #:
+    #: **Every writer starts from the stored task**, so none can lose a field it
+    #: never mentioned (measured 2026-09-18 over all eleven ``update_task`` call
+    #: sites):
+    #:
+    #: * ``TaskService`` — ``start_task``, ``complete_task``, ``skip_task``,
+    #:   ``reopen_task``, ``_reschedule_dependents``, ``batch_assign``,
+    #:   ``activate_phase_tasks``, ``create_or_refresh_task`` all load through
+    #:   ``get_task`` / ``get_task_by_key`` and mutate attributes
+    #: * ``TaskService.update_task`` — the router loads the task, deep-copies it for
+    #:   ``previous`` and ``setattr``s a ``TaskUpdate.model_dump(exclude_none=True)``
+    #:   onto it
+    #: * ``CareReminderService`` (×2) — ``find_open_care_task`` then attribute
+    #:   assignment
+    #:
+    #: The scope is this collection only: the workflow-template, phase,
+    #: task-template, execution and comment updaters below drive
+    #: ``collection.update`` themselves with ``self._to_doc(...)``'s default
+    #: ``exclude_none=True``, so they keep merge semantics and are untouched by
+    #: this flag.
+    _update_is_full_replace = True
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.TASKS)
 

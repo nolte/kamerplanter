@@ -18,6 +18,20 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
 
     _model_cls = Notification
 
+    #: Full-replace null semantics for ``notifications`` (#1516).
+    #:
+    #: ``NotificationPropagationService._update_single`` nulls ``read_at`` and
+    #: ``acted_at`` under ``reset_read`` so a notification whose subject materially
+    #: changed re-surfaces in the badge (#769). In the inherited merge mode both
+    #: were dropped and the row stayed read — the re-surfacing never happened.
+    #:
+    #: **The only full-model writer is that one**, and it starts from the stored
+    #: notification (``_safe_lookup`` → attribute assignment), so it cannot lose a
+    #: field it never mentioned. ``mark_read``/``mark_acted`` are hand-written AQL
+    #: ``UPDATE ... WITH`` statements and set their field explicitly; the engine
+    #: only ever ``create``s.
+    _update_is_full_replace = True
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, NOTIFICATIONS)
 

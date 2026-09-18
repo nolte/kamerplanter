@@ -121,9 +121,17 @@ class UserService:
         # Revoke all sessions
         self._refresh_token_repo.revoke_all_for_user(user_key)
 
-        # Soft-delete: deactivate
+        # Soft-delete: deactivate. The tombstone address has to survive `User`'s own
+        # `EmailStr`, because the repository re-validates the model before writing
+        # (#968) — `@deleted.local` did not: `email-validator` refuses every
+        # special-use/reserved name (`.local`, `.invalid`, `.test`), so this write
+        # raised `ValidationError` and **nothing** was persisted, not even
+        # `is_active = False`. Measured 2026-09-18 against a real ArangoDB while
+        # repairing #1525, which described the write as landing three of its five
+        # fields. `example.com` is RFC 2606's documentation domain: guaranteed
+        # undeliverable, and accepted by the validator.
         user.is_active = False
-        user.email = f"deleted_{user_key}@deleted.local"
+        user.email = f"deleted_{user_key}@deleted.example.com"
         user.display_name = "Deleted User"
         user.password_hash = None
         user.avatar_url = None
