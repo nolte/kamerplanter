@@ -1,5 +1,6 @@
 from pydantic import ValidationError as PydanticValidationError
 
+from app.common.enums import NutrientDemandLevel
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.engines.area_dosing_engine import AreaDosingCalculator, AreaDosingResult
@@ -214,7 +215,7 @@ class FertilizerService:
         fertilizer_keys: list[FertilizerKey],
         area_m2: float | None = None,
         location_key: str | None = None,
-        demand_level: str | None = None,
+        demand_level: NutrientDemandLevel | None = None,
         tenant_key: str = "",
     ) -> AreaDosingResult:
         """Compute per-area amounts for a set of fertilizers over a bed area.
