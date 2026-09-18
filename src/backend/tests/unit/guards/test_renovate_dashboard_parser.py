@@ -20,8 +20,18 @@ correct.
 ``renovate_dashboard_expected_after_1374.md`` is derived from it mechanically —
 the two service ``pyproject.toml`` moved from ``poetry`` to ``pep621``, the four
 deleted ``requirements.txt`` dropped, the two lock-less libraries left where
-``task renovate:dry-run`` measured them — and is the healthy state the lane must
-accept in silence.
+``task renovate:dry-run`` measured them. It WAS the healthy state; since #1464 it
+is a drift fixture, and ``TestThePre1464BodyIsNowCorrectlyRed`` below is the
+red-first proof for that change — six findings, each named.
+
+``renovate_dashboard_expected_after_1464.md`` is derived from it the same way and
+is the healthy state today: both libraries under ``pep621`` (seven trees), no
+``poetry`` at all, and the three ``tests/e2e`` manifests that the ``ignorePaths``
+override in ``renovate.json5`` admitted. Every number in it comes from
+``task renovate:dry-run`` run before and after that override on 2026-09-17 —
+``pep621`` 5 -> 7 files, ``poetry`` 2 -> absent, ``pip_requirements`` 2 -> 3,
+``npm`` 1 -> 2, ``dockerfile`` 8 -> 9, total 80 -> 83 — not from a guess about
+what Renovate would do.
 
 **Two measurements corrected the plan, in this order.** The #1383 analysis said
 ``poetry`` read "exactly the two side-service pyproject.toml". The real body
@@ -34,8 +44,16 @@ extraction, so ``poetry`` keeps extracting exactly those two and ``pep621``
 claims exactly the five trees that have a ``uv.lock``. A rule of the form
 "``poetry`` must not appear" would have alerted on a correct repository every
 day. The rule that survives the measurement is "no second manager inside a
-LOCKED tree", with the two lock-less libraries enumerated in
-``LOCKLESS_PYTHON_PROJECTS``.
+LOCKED tree", and the two lock-less libraries were enumerated in
+``LOCKLESS_PYTHON_PROJECTS`` rather than waved through.
+
+**#1464 then removed the premise rather than the rule.** Both libraries got a
+hash-bearing ``uv.lock``, so ``pep621`` claims them and ``poetry`` — which only
+ever extracted trees without one — leaves the inventory entirely. That is a
+CONSEQUENCE of locking them, measured after the fact, not a rule that
+``poetry`` must be absent: the rule is still "no second manager inside a locked
+tree", now over seven trees instead of five, and ``LOCKLESS_PYTHON_PROJECTS`` is
+empty.
 
 The healthy fixture is built to that measurement, not to the guess.
 
@@ -65,7 +83,8 @@ if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
 _SCRIPT = _REPO_ROOT / "scripts" / "ci" / "check_renovate_dashboard.py"
 _FIXTURES = Path(__file__).parent / "fixtures"
 _TODAY = _FIXTURES / "renovate_dashboard_2026-09-16.md"
-_HEALTHY = _FIXTURES / "renovate_dashboard_expected_after_1374.md"
+_PRE_1464 = _FIXTURES / "renovate_dashboard_expected_after_1374.md"
+_HEALTHY = _FIXTURES / "renovate_dashboard_expected_after_1464.md"
 
 
 def _load() -> ModuleType:
@@ -90,6 +109,12 @@ def todays_body() -> str:
     return _TODAY.read_text()
 
 
+@pytest.fixture
+def pre_1464_body() -> str:
+    """The state that was healthy BEFORE #1464 — and must not be, after it."""
+    return _PRE_1464.read_text()
+
+
 def _report(body: str) -> dict:
     return check.build_report(body, repo_root=_REPO_ROOT)
 
@@ -98,7 +123,7 @@ class TestTheFixturesAreTheRealThing:
     """A fixture that drifted from the source is a certificate of nothing."""
 
     def test_both_fixtures_exist_and_are_substantial(self) -> None:
-        for fixture in (_TODAY, _HEALTHY):
+        for fixture in (_TODAY, _PRE_1464, _HEALTHY):
             assert fixture.is_file(), f"{fixture} is missing"
             assert len(fixture.read_text().splitlines()) > 500, (
                 f"{fixture} is far shorter than a real dashboard body (~880 lines). A truncated fixture "
@@ -128,27 +153,145 @@ class TestTheFixturesAreTheRealThing:
             )
 
     def test_the_healthy_fixture_matches_the_dry_run_measurement(self, healthy_body: str) -> None:
-        """`task renovate:dry-run`, Renovate 44.94.1, 2026-09-16 — the numbers this fixture encodes."""
+        """`task renovate:dry-run`, Renovate 44.94.1, 2026-09-17 — the numbers this fixture encodes.
+
+        Compared as SETS, not as lists. The dashboard's ordering within a manager
+        is Renovate's rendering detail and differs from the order the same run's
+        JSON extract dump uses (measured on 2026-09-17: the dump sorts by path,
+        the dashboard does not). :func:`check.build_report` reads membership and
+        never order, so asserting a list here would make a correct repository red
+        on a day Renovate changed how it sorts — a defect in the measuring tool,
+        not in the thing measured.
+        """
         inventory = check.manager_inventory(healthy_body)
-        assert inventory["pep621"] == list(check.EXPECTED_PEP621_FILES), (
-            "the dry-run measured pep621 extracting exactly the five locked trees, in this order; "
+        assert set(inventory["pep621"]) == set(check.EXPECTED_PEP621_FILES), (
+            "the dry-run measured pep621 extracting exactly the seven locked trees; "
             f"the fixture says {inventory['pep621']}"
         )
-        assert inventory["poetry"] == list(check.LOCKLESS_PYTHON_PROJECTS), (
-            "the dry-run measured poetry still extracting the two lock-less libraries — `enabled: false` "
-            f"disables dependencies, not extraction; the fixture says {inventory.get('poetry')}"
+        assert "poetry" not in inventory, (
+            "the dry-run measured poetry leaving the inventory entirely once both shared libraries got a "
+            "uv.lock (#1464) — it only ever extracted the two lock-less ones; "
+            f"the fixture says {inventory.get('poetry')}"
         )
-        assert inventory["pip_requirements"] == ["docs/requirements.txt", "tools/rag-eval/requirements.txt"]
+        assert inventory["pip_requirements"] == [
+            "docs/requirements.txt",
+            "tests/e2e/requirements.txt",
+            "tools/rag-eval/requirements.txt",
+        ]
+        assert inventory["npm"] == ["src/frontend/package.json", "tests/e2e/package.json"]
 
-    def test_the_known_lockless_trees_really_have_no_lock(self) -> None:
-        """An allowlist entry that is no longer needed must not sit there unnoticed."""
-        for package_file in check.LOCKLESS_PYTHON_PROJECTS:
-            assert (_REPO_ROOT / package_file).is_file(), f"{package_file} does not exist"
-            assert not (_REPO_ROOT / package_file).with_name("uv.lock").is_file(), (
-                f"{package_file} now HAS a uv.lock, so it belongs in EXPECTED_PEP621_FILES, not in the "
-                "lock-less allowlist. An allowlist entry nobody revisits is how an exception outlives its "
-                "reason (#1456)."
-            )
+    def test_no_python_tree_in_the_checkout_is_lockless(self) -> None:
+        """#1464's own acceptance criterion, measured against the filesystem."""
+        assert check.lockless_python_trees(_REPO_ROOT) == [], (
+            "a pyproject.toml without a uv.lock beside it. LOCKLESS_PYTHON_PROJECTS is empty on purpose: "
+            "every Python tree here installs from a hash-bearing lock (NFR-009 §2.3)."
+        )
+
+
+class TestTheUnhashedRemainderIsReportedAndNotRed:
+    """The claim and its measuring tool must check the same sentence (#1491 review).
+
+    The wording next to `LOCKLESS_PYTHON_PROJECTS` said "every Python tree
+    installs from a hash-bearing lock" while the sweep beside it only read
+    `pyproject.toml`. Three `requirements.txt` — `tests/e2e/`, `docs/`,
+    `tools/rag-eval/` — installed with neither a lock nor hashes and nothing
+    measured it. The claim is now PEP 621 and the remainder has a number.
+
+    Reported, not red, on purpose: these predate #1464, and reddening the lane
+    for a decision nobody has made would fail a correct repository — the wrong
+    instrument for the observation.
+    """
+
+    def test_the_three_known_lists_are_exactly_what_the_sweep_finds(self) -> None:
+        assert check.unhashed_requirements_installs(_REPO_ROOT) == sorted(check.KNOWN_UNHASHED_REQUIREMENTS)
+
+    def test_they_do_not_alert(self, healthy_body: str) -> None:
+        """A reported category that reddens the lane is a gate, which this is not."""
+        report = _report(healthy_body)
+
+        assert report["alert"] is False
+        assert report["unhashed_requirements_installs"] == sorted(check.KNOWN_UNHASHED_REQUIREMENTS)
+        assert not any("requirements.txt" in finding for finding in report["findings"])
+
+    def test_the_green_render_still_names_them(self, healthy_body: str) -> None:
+        """Otherwise the number lives only in JSON, which is a number nobody reads."""
+        rendered = check.render(_report(healthy_body))
+
+        assert "reported, not a gate" in rendered
+        for requirements in check.KNOWN_UNHASHED_REQUIREMENTS:
+            assert requirements in rendered
+
+    def test_a_hash_bearing_list_is_not_reported(self, tmp_path: Path) -> None:
+        """pip's own `--hash=` form: a pinned list must not read as unpinned."""
+        (tmp_path / "requirements.txt").write_text("fastapi==0.115.0 --hash=sha256:" + "a" * 64 + "\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+    def test_a_list_beside_a_uv_lock_is_not_reported(self, tmp_path: Path) -> None:
+        (tmp_path / "requirements.txt").write_text("fastapi==0.115.0\n")
+        (tmp_path / "uv.lock").write_text("version = 1\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+    def test_an_unhashed_list_is_reported(self, tmp_path: Path) -> None:
+        """The positive control — otherwise the three greens above prove nothing."""
+        (tmp_path / "requirements.txt").write_text("fastapi==0.115.0\n")
+        (tmp_path / "nested").mkdir()
+        (tmp_path / "nested" / "requirements-dev.txt").write_text("ruff\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == [
+            "nested/requirements-dev.txt",
+            "requirements.txt",
+        ]
+
+    def test_a_virtualenv_is_not_swept(self, tmp_path: Path) -> None:
+        """A `.venv` holds other projects' requirement lists by the dozen."""
+        (tmp_path / ".venv").mkdir()
+        (tmp_path / ".venv" / "requirements.txt").write_text("whatever\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+
+class TestTheClaimsAreNoWiderThanTheMeasurement:
+    """#1491 review, W3: a claim wider than its instrument is invisible."""
+
+    def test_the_finding_text_says_pep_621_and_not_every_python_tree(self) -> None:
+        source = Path(check.__file__).read_text()
+
+        assert "Every PEP 621 tree in this repository installs from a hash-bearing lock" in source
+        assert "Every Python tree in this repository installs from a hash-bearing lock" not in source, (
+            "the finding claims more than `lockless_python_trees()` measures: it reads pyproject.toml only, "
+            "so three requirements.txt are outside it. Narrow the claim or widen the sweep — not neither."
+        )
+
+    def test_the_side_services_comment_says_pep_621_too(self) -> None:
+        """The same sentence in the other place it is written down."""
+        workflow = (_REPO_ROOT / ".github" / "workflows" / "side-services.yml").read_text()
+
+        assert "like every other PEP 621 tree in" in workflow
+        assert "like every other Python install in\n        # this repository. Until then" not in workflow
+
+
+class TestTheLocklessRegisterStaysEmpty:
+    def test_the_lockless_allowance_is_still_empty(self) -> None:
+        """An allowance register is how a workaround becomes the design (CI spec §H)."""
+        assert check.LOCKLESS_PYTHON_PROJECTS == (), (
+            f"LOCKLESS_PYTHON_PROJECTS has grown back to {check.LOCKLESS_PYTHON_PROJECTS}. #1464 emptied it; "
+            "a tree added here needs its argument in writing, not a line in a tuple."
+        )
+
+    def test_the_sweep_sees_every_python_tree_in_the_checkout(self) -> None:
+        """Otherwise `lockless_python_trees() == []` could be green having looked at nothing."""
+        swept = {
+            path.relative_to(_REPO_ROOT).as_posix()
+            for path in _REPO_ROOT.rglob("pyproject.toml")
+            if not check._SWEEP_EXCLUDED.intersection(path.relative_to(_REPO_ROOT).parts)
+        }
+        assert swept == set(check.EXPECTED_PEP621_FILES), (
+            f"the checkout holds {sorted(swept)} but EXPECTED_PEP621_FILES names "
+            f"{sorted(check.EXPECTED_PEP621_FILES)}. A Python tree that is in one and not the other is "
+            "either unobserved by Renovate or an expectation with nothing behind it."
+        )
 
 
 class TestTheUnchangedHealthyBodyIsGreen:
@@ -163,10 +306,14 @@ class TestTheUnchangedHealthyBodyIsGreen:
         report = _report(healthy_body)
         assert set(report["pep621_files"]) >= set(check.EXPECTED_PEP621_FILES)
         assert "pip-compile" not in report["managers"]
-        assert "poetry" in report["managers"], (
-            "the healthy state still HAS a poetry manager (over the two lock-less libraries). If this "
-            "fixture ever drops it, the green verdict below stops proving that a tolerated poetry is "
-            "tolerated for the right reason."
+        assert "poetry" not in report["managers"], (
+            "the healthy state has NO poetry manager since #1464: it only ever extracted the two shared "
+            "libraries, and it extracted them because they had no lock. A poetry that reappears means a "
+            "lock was removed."
+        )
+        assert report["observed_files"]["npm"] == ["src/frontend/package.json", "tests/e2e/package.json"], (
+            "green because it looked at the E2E suite too — `tests/e2e` sat behind an inherited "
+            "`ignorePaths` rule until #1464 and its absence produced no signal at all."
         )
         assert len(report["managers"]) > 5, f"only {report['managers']} — suspiciously few managers parsed"
 
@@ -187,13 +334,13 @@ class TestTodaysRealBodyIsCorrectlyRed:
         assert "`poetry` reads src/knowledge-service/pyproject.toml" in findings
         assert "docker/reranker-service/pyproject.toml" in findings
 
-    def test_it_does_not_blame_poetry_for_the_two_lock_less_libraries(self, todays_body: str) -> None:
-        """Measured tolerance, not an oversight — see LOCKLESS_PYTHON_PROJECTS."""
+    def test_it_now_blames_poetry_for_the_two_shared_libraries_as_well(self, todays_body: str) -> None:
+        """Tolerated until #1464, a finding after it — the libraries have locks now."""
         findings = "\n".join(_report(todays_body)["findings"])
-        for library in check.LOCKLESS_PYTHON_PROJECTS:
-            assert library not in findings, (
-                f"{library} is a shared library with no image and no lock; poetry reading it is the "
-                "measured healthy state (task renovate:dry-run, 2026-09-16), not a finding"
+        for library in ("src/libs/kp_vectordb/pyproject.toml", "src/libs/kp_errortracking/pyproject.toml"):
+            assert f"`poetry` reads {library}" in findings, (
+                f"{library} carries a uv.lock since #1464, so a second manager on it is #1371 verbatim — "
+                "the same rule that already covered the four service images"
             )
 
     def test_it_names_the_side_service_requirements_files(self, todays_body: str) -> None:
@@ -211,6 +358,48 @@ class TestTodaysRealBodyIsCorrectlyRed:
         findings = "\n".join(_report(todays_body)["findings"])
         assert "docs/requirements.txt" not in findings
         assert "tools/rag-eval/requirements.txt" not in findings
+
+
+class TestThePre1464BodyIsNowCorrectlyRed:
+    """The RED-FIRST proof for #1464, and it is a whole fixture rather than a flag.
+
+    ``renovate_dashboard_expected_after_1374.md`` was the healthy state until
+    #1464: two shared libraries under ``poetry`` with no lock, and no ``tests/e2e``
+    anywhere. Every rule this change adds has to turn exactly that body red, and
+    each for its own named reason — otherwise the new green fixture certifies
+    only that a fixture was written to match a checker.
+    """
+
+    def test_it_alerts(self, pre_1464_body: str) -> None:
+        assert _report(pre_1464_body)["alert"] is True
+
+    def test_it_names_the_two_libraries_as_missing_from_pep621(self, pre_1464_body: str) -> None:
+        findings = "\n".join(_report(pre_1464_body)["findings"])
+        assert "`pep621` does not list: src/libs/kp_vectordb/pyproject.toml" in findings
+        assert "src/libs/kp_errortracking/pyproject.toml" in findings
+
+    def test_it_names_poetry_on_both_libraries(self, pre_1464_body: str) -> None:
+        """They are LOCKED trees now, so a second manager on them is #1371 verbatim."""
+        findings = "\n".join(_report(pre_1464_body)["findings"])
+        assert "`poetry` reads src/libs/kp_vectordb/pyproject.toml" in findings
+        assert "`poetry` reads src/libs/kp_errortracking/pyproject.toml" in findings
+
+    @pytest.mark.parametrize(
+        ("manager", "package_file"),
+        [
+            ("pip_requirements", "tests/e2e/requirements.txt"),
+            ("npm", "tests/e2e/package.json"),
+            ("dockerfile", "tests/e2e/Dockerfile"),
+        ],
+    )
+    def test_it_names_every_unobserved_e2e_manifest(self, pre_1464_body: str, manager: str, package_file: str) -> None:
+        """An ignored path emits nothing at all; this is the only side it is visible from."""
+        findings = "\n".join(_report(pre_1464_body)["findings"])
+        assert f"`{manager}` does not read {package_file}" in findings
+
+    def test_it_is_red_for_exactly_the_reasons_this_change_closes(self, pre_1464_body: str) -> None:
+        """No stray extra finding — otherwise the fixture is describing a second defect."""
+        assert len(_report(pre_1464_body)["findings"]) == 6, _report(pre_1464_body)["findings"]
 
 
 class TestInjectedRepositoryProblems:
@@ -260,9 +449,11 @@ class TestInjectedInventoryDrift:
     def test_poetry_reaching_into_a_locked_tree_alerts(self, healthy_body: str) -> None:
         """#1371 verbatim: a second manager on a tree that has a lock."""
         body = healthy_body.replace(
-            "<details><summary>src/libs/kp_errortracking/pyproject.toml (4)</summary>",
+            "<details><summary>pre-commit (1)</summary>",
+            "<details><summary>poetry (1)</summary>\n<blockquote>\n\n"
             "<details><summary>src/backend/pyproject.toml (1)</summary>\n\n - `fastapi >=0.115.0`\n\n"
-            "</details>\n\n<details><summary>src/libs/kp_errortracking/pyproject.toml (4)</summary>",
+            "</details>\n\n</blockquote>\n</details>\n\n"
+            "<details><summary>pre-commit (1)</summary>",
             1,
         )
         report = _report(body)
@@ -316,7 +507,7 @@ class TestInjectedInventoryDrift:
 
     def test_pep621_vanishing_entirely_alerts_loudly(self, healthy_body: str) -> None:
         """The exact shape of the six silent weeks."""
-        body = healthy_body.replace("<summary>pep621 (5)</summary>", "<summary>pep666 (5)</summary>", 1)
+        body = healthy_body.replace("<summary>pep621 (7)</summary>", "<summary>pep666 (7)</summary>", 1)
         report = _report(body)
         assert report["alert"] is True
         assert any("absent from the inventory entirely" in f for f in report["findings"])
@@ -327,7 +518,7 @@ class TestInjectedInventoryDrift:
             target = tmp_path / package_file
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("[project]\nname = 'x'\n")
-        # Four of five get a lock; the backend deliberately does not.
+        # Every tree but the backend gets a lock; the backend deliberately does not.
         for package_file in check.EXPECTED_PEP621_FILES[1:]:
             (tmp_path / package_file).with_name("uv.lock").write_text("version = 1\n")
 
@@ -357,7 +548,7 @@ class TestTheBodyArrivesThroughAFile:
 
         written = json.loads(report_path.read_text())
         assert written["alert"] is False, f"the healthy fixture read from a file alerted: {written['findings']}"
-        assert written["pep621_files"] == list(check.EXPECTED_PEP621_FILES)
+        assert set(written["pep621_files"]) == set(check.EXPECTED_PEP621_FILES)
 
     def test_a_body_far_past_the_env_ceiling_still_goes_through(self, tmp_path: Path) -> None:
         """The ceiling the file route exists to clear, exercised rather than asserted in prose.

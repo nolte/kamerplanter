@@ -34,6 +34,7 @@ import OriginChip from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchWorkflows } from '@/store/slices/tasksSlice';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import type { WorkflowTemplate } from '@/api/types';
@@ -55,6 +56,9 @@ function WorkflowCard({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const theme = useTheme();
+  // `require_permission(TASK, DELETE)` on `DELETE /tasks/workflows/{key}` is
+  // lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
 
   return (
     <Card
@@ -215,13 +219,14 @@ function WorkflowCard({
           </IconButton>
         </Tooltip>
         {/* UI-NFR-018 R-013: hide delete action entirely for system data */}
-        {!workflow.is_system && (
+        {!workflow.is_system && canDelete && (
           <Tooltip title={t('common.delete')}>
             <IconButton
               size="small"
               color="error"
               onClick={() => onDelete(workflow.key)}
               aria-label={t('common.delete')}
+              data-testid="workflow-card-delete-button"
             >
               <DeleteIcon fontSize="small" />
             </IconButton>

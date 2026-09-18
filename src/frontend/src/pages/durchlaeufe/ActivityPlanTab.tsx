@@ -41,6 +41,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import LinkIcon from '@mui/icons-material/Link';
 import { Link } from 'react-router-dom';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as activityPlanApi from '@/api/endpoints/activityPlans';
 import * as taskApi from '@/api/endpoints/tasks';
@@ -333,6 +334,9 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
   const { t, i18n } = useTranslation();
   const { success, info } = useNotification();
   const { handleError } = useApiError();
+  // `DELETE /activity-plans/templates/{key}` carries
+  // `require_permission(TASK, DELETE)` — lead only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
 
   // Assigned tasks state
   const [assignedTasks, setAssignedTasks] = useState<TaskItem[]>([]);
@@ -921,15 +925,18 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                                   </Typography>
                                 </TableCell>
                                 <TableCell padding="checkbox">
-                                  <Tooltip title={t('pages.activityPlan.removeActivity')}>
-                                    <IconButton
-                                      size="small"
-                                      color="error"
-                                      onClick={() => handleRemoveTemplate(tt.key)}
-                                    >
-                                      <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                                    </IconButton>
-                                  </Tooltip>
+                                  {canDelete && (
+                                    <Tooltip title={t('pages.activityPlan.removeActivity')}>
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleRemoveTemplate(tt.key)}
+                                        data-testid="activity-plan-template-delete-button"
+                                      >
+                                        <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             );

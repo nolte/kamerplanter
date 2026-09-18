@@ -15,6 +15,7 @@ import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { PhaseHistoryEntry } from '@/api/types';
@@ -31,6 +32,9 @@ function formatDateTime(iso: string | null): string {
 
 export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
   const { t } = useTranslation();
+  // `DELETE .../phases/history/{key}` is guarded by
+  // `require_active_tenant_role(TenantRole.LEAD)` (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [history, setHistory] = useState<PhaseHistoryEntry[]>([]);
@@ -209,20 +213,22 @@ export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={t('common.delete')}>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeleteKey(r.key);
-                }}
-                color="error"
-                aria-label={t('common.delete')}
-                data-testid={`delete-phase-${r.key}`}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {canDelete && (
+              <Tooltip title={t('common.delete')}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteKey(r.key);
+                  }}
+                  color="error"
+                  aria-label={t('common.delete')}
+                  data-testid={`delete-phase-${r.key}`}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         );
       },
