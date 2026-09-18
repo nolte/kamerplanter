@@ -63,23 +63,29 @@ freshly created plant receives.
 The profile carries ``plant_key`` and **no** ``tenant_key`` — the model has none;
 a ``CareProfile`` is tenant-anchored through its plant, the shape ``Location`` and
 ``Slot`` have through their site. The write goes through
-``ArangoCareReminderRepository.create_profile`` + ``create_profile_edge``, the
-same two calls ``get_or_create_profile`` makes (``care_reminder_service.py:337-339``),
-rather than hand-written inserts, so the document shape and the edge cannot drift
-from the production path.
+``ArangoCareReminderRepository.create_linked_profile``, the single call
+``get_or_create_profile`` makes, rather than hand-written inserts, so the document
+shape and the edge cannot drift from the production path.
 
 ## The edge race, and why a loser is not an abort
 
-``get_or_create_profile`` writes profile and edge non-atomically, and
 ``has_care_profile`` carries a unique index on ``_from`` (``ensure_collections``),
 so a second writer for the same plant is refused with 1200/1210 (PR #1486). This
 migration runs under the migration lock during startup, with no concurrent
 requests — but a plant can *already* own an edge that points at a profile whose
 ``plant_key`` names somebody else (or nothing), and such a plant is inside the
 predicate while its ``_from`` slot is taken. Rather than abort a whole
-installation's backfill on it, the profile just written is deleted again and the
-plant is reported as ``already_profiled``: the migration leaves the database
-exactly as it found it for that row, and the audit will keep naming it.
+installation's backfill on it, that one plant is reported as ``already_profiled``
+and the run continues: since #1292 the profile and the edge are one transaction,
+so the refused attempt rolls itself back and the database is left exactly as it
+was found for that row, with nothing to delete afterwards. The audit will keep
+naming the plant.
+
+**Only those two rejections mean "the slot is taken".** Anything else a write can
+fail with — a transaction that cannot be opened, a commit that cannot be made, a
+connection that drops — is a *failed write*, and reporting it as
+``already_profiled`` would tell an operator the row was fine when it was not. Such
+a failure propagates and aborts the migration.
 
 **Idempotent (M-3):** the predicate excludes every plant this migration profiled,
 so a second run counts 0 and writes nothing. **Dry-run (M-5):** the full report —
@@ -109,7 +115,6 @@ from typing import Any
 
 import structlog
 from arango.database import StandardDatabase
-from arango.exceptions import ArangoError
 
 from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango import collections as col
@@ -396,7 +401,7 @@ class BackfillMissingCareProfilesMigration(Migration):
         profile: CareProfile,
         plant_key: str,
     ) -> str | None:
-        """Store profile and edge as the service does; ``None`` when the edge is taken.
+        """Store profile and edge as the service does; ``None`` **only** when the edge is taken.
 
         The call is ``get_or_create_profile``'s own. Since #1292 that is a single
         transactional write (``create_linked_profile``) rather than a profile insert
@@ -417,18 +422,30 @@ class BackfillMissingCareProfilesMigration(Migration):
         # ``as exc`` is not decoration: ``ruff format`` rewrites a parenthesised
         # tuple in a bare ``except`` into the Python-2 spelling this file went red
         # on once already, and the binding prevents that rewrite.
-        # ``WriteConflictError`` (ArangoDB ``1200``) belongs here beside ``1210``:
-        # it is the answer a still-open transaction produces on the same unique
-        # ``_from`` index, and it is NOT an ``ArangoError`` — it is a domain type, so
-        # it was falling through this handler and aborting the whole backfill (#1292).
-        except (DuplicateError, WriteConflictError, ArangoError) as exc:
+        #
+        # EXACTLY these two, and the narrowing is the point (SCR-002).
+        # ``WriteConflictError`` (ArangoDB ``1200``) belongs beside ``DuplicateError``
+        # (``1210``) because both are the unique ``_from`` index refusing a taken
+        # slot — and ``WriteConflictError`` is a domain type, not an ``ArangoError``,
+        # so it used to fall through and abort the backfill. ``ArangoError`` itself
+        # does NOT belong: it also covers ``TransactionInitError``,
+        # ``TransactionCommitError`` and every transport failure, and catching it
+        # here counted a write that never happened as ``profile_edge_already_present``
+        # — an operator reading the report would have seen a healthy row.
+        except (DuplicateError, WriteConflictError) as exc:
             logger.warning(
                 "backfill_missing_care_profiles_edge_taken",
                 plant_key=plant_key,
                 exc_info=exc,
             )
             return None
-        return stored.key or None
+        # ``stored.key`` is always set — the driver echoes ``_key`` back and
+        # ``create_linked_profile`` wraps the returned document — but an empty one
+        # would silently take the ``already_profiled`` branch above, which is the
+        # same lie in a different spelling. Fail loudly instead.
+        if not stored.key:  # pragma: no cover - defensive; see the comment above
+            raise RuntimeError(f"care profile for plant {plant_key!r} was stored without a key")
+        return stored.key
 
     # ── report plumbing ───────────────────────────────────────────────────────
 

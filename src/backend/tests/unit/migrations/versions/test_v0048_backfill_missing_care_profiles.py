@@ -25,7 +25,7 @@ import re
 from typing import Any
 
 import pytest
-from arango.exceptions import DocumentInsertError
+from arango.exceptions import DocumentInsertError, TransactionInitError
 
 from app.common.enums import CareStyleType
 from app.data_access.arango import collections as col
@@ -243,6 +243,8 @@ class _FakeDb:
         self._handles: dict[str, _FakeCollection] = {}
         self._states: dict[str, _CollectionState] = {}
         self.transactions: list[_FakeTransaction] = []
+        #: Raised by ``begin_transaction`` — a write that never happens at all.
+        self.refuse_transaction: Exception | None = None
 
     def has_collection(self, name: str) -> bool:
         return name in self.collections
@@ -261,6 +263,8 @@ class _FakeDb:
         return self._handles[name]
 
     def begin_transaction(self, write: list[str] | None = None, **_: Any) -> _FakeTransaction:
+        if self.refuse_transaction is not None:
+            raise self.refuse_transaction
         transaction = _FakeTransaction(self, write or [])
         self.transactions.append(transaction)
         return transaction
@@ -484,6 +488,25 @@ class TestUp:
         assert planned.details["created"] == [
             {key: value for key, value in applied.details["created"][0].items() if key != "profile_key"}
         ]
+
+    def test_a_failed_transaction_is_not_reported_as_already_profiled(self, db: _FakeDb) -> None:
+        """SCR-002: only a taken edge means "was already fine"; everything else is a failure.
+
+        ``_persist`` used to catch ``ArangoError``, which also covers
+        ``TransactionInitError``/``TransactionCommitError`` and every transport
+        failure — and its ``None`` return is counted as
+        ``profile_edge_already_present``. An operator reading that report would have
+        seen a healthy row for a plant whose write never happened, and the migration
+        would have reported success having written nothing.
+        """
+        db.refuse_transaction = TransactionInitError(
+            _ArangoResponse(1200, "cannot begin transaction"), _ArangoRequest()
+        )
+
+        with pytest.raises(TransactionInitError):
+            migration.up(db)
+
+        assert db.collections[col.CARE_PROFILES] == []
 
     def test_a_taken_edge_rolls_the_profile_back_and_reports_the_plant(self, db: _FakeDb) -> None:
         """The #1486 race, and the state that reaches it without any concurrency.

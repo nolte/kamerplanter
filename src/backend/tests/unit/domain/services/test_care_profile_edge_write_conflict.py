@@ -49,6 +49,7 @@ gate (#1432).
 
 from __future__ import annotations
 
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -57,7 +58,11 @@ from app.common.exceptions import DuplicateError, WriteConflictError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareProfile
-from app.domain.services.care_reminder_service import CareReminderService
+from app.domain.services.care_reminder_service import (
+    _RACE_REREAD_ATTEMPTS,
+    _RACE_REREAD_INTERVAL_SECONDS,
+    CareReminderService,
+)
 
 PLANT = "522789"
 
@@ -107,7 +112,11 @@ class TestLostProfileCreationRace:
 
         _service(repo).get_or_create_profile(PLANT, may_create=True)
 
-        repo.delete_profile.assert_not_called()
+        assert not hasattr(repo, "delete_profile"), (
+            "the repository offers a profile delete again; deleting the document while the edge "
+            "survives locks the plant out of ever getting a profile (every later create hits the "
+            "unique _from index and the edge resolves to nothing)"
+        )
 
     def test_the_profile_and_its_edge_are_written_by_one_call(self):
         """The invariant, stated as a call shape: there is no second write to lose.
@@ -129,7 +138,6 @@ class TestLostProfileCreationRace:
         assert linked_to == PLANT
         assert isinstance(written, CareProfile) and written.plant_key == PLANT
         repo.get_linked_profile.assert_not_called()
-        repo.delete_profile.assert_not_called()
         assert not hasattr(ICareReminderRepository, "create_profile_edge"), (
             "the two-step write is spellable again; the transactional guarantee is only as "
             "strong as the absence of a way to write the document on its own"
@@ -149,8 +157,6 @@ class TestLostProfileCreationRace:
         with pytest.raises(WriteConflictError):
             _service(repo).get_or_create_profile(PLANT, may_create=True)
 
-        repo.delete_profile.assert_not_called()
-
     def test_the_other_rejection_code_resolves_the_same_way(self):
         """ArangoDB answers this index with ``1210`` as well as with ``1200``.
 
@@ -169,7 +175,6 @@ class TestLostProfileCreationRace:
         result = _service(repo).get_or_create_profile(PLANT, may_create=True)
 
         assert result is winner
-        repo.delete_profile.assert_not_called()
 
     def test_the_other_rejection_code_also_keeps_propagating_when_nothing_is_linked(self):
         """The two-branch contract is not weakened for ``1210`` either."""
@@ -177,6 +182,78 @@ class TestLostProfileCreationRace:
 
         with pytest.raises(DuplicateError):
             _service(repo).get_or_create_profile(PLANT, may_create=True)
+
+    def test_a_1200_loser_re_reads_until_the_winner_commits(self):
+        """SCR-001: one read is not enough for ``1200``, and the transaction made it worse.
+
+        ``1200`` says a concurrent transaction HELD the unique ``_from`` entry — not
+        that it committed. Since #1292 that entry is held from the edge insert until
+        ``commit_transaction`` instead of for the microseconds a bare insert took, so
+        a loser can be refused while the winner's commit is still in flight. A single
+        re-read then answers ``None`` and the caller re-raises a 409 for a profile
+        that exists a moment later.
+
+        The double answers ``None`` twice and then the winner. Against a resolver
+        that reads once this raises, which is the red this test was written for.
+        """
+        winner = CareProfile(key="theirs", plant_key=PLANT)
+        repo = _losing_repo(winner=None)
+        repo.get_linked_profile.side_effect = [None, None, winner]
+
+        result = _service(repo).get_or_create_profile(PLANT, may_create=True)
+
+        assert result is winner
+        assert repo.get_linked_profile.call_count == 3, (
+            "the loop stopped re-reading; a winner committing after the first read is missed again"
+        )
+
+    def test_the_wait_is_bounded_and_then_the_conflict_stands(self):
+        """A winner that never appears stays a failure — the loop may not hide one.
+
+        Bounded at ``_RACE_REREAD_ATTEMPTS`` reads; after that the ``1200``
+        propagates, because reporting success would hand back a profile whose link
+        does not exist.
+        """
+        repo = _losing_repo(winner=None)
+
+        with pytest.raises(WriteConflictError):
+            _service(repo).get_or_create_profile(PLANT, may_create=True)
+
+        assert repo.get_linked_profile.call_count == _RACE_REREAD_ATTEMPTS
+
+    def test_the_loop_really_waits_rather_than_spinning(self):
+        """A retry loop that re-creates the bad moment is inert and looks robust.
+
+        This one does not re-attempt anything — it repeats a *read* against state
+        another transaction is committing — but "it sleeps between reads" is the
+        part that makes each iteration a genuinely later observation, so it is
+        measured rather than asserted in prose.
+        """
+        repo = _losing_repo(winner=None)
+        slept: list[float] = []
+
+        with (
+            mock.patch("app.domain.services.care_reminder_service.time.sleep", slept.append),
+            pytest.raises(WriteConflictError),
+        ):
+            _service(repo).get_or_create_profile(PLANT, may_create=True)
+
+        assert slept == [_RACE_REREAD_INTERVAL_SECONDS] * (_RACE_REREAD_ATTEMPTS - 1), (
+            "a sleep per gap between reads, and none after the last one"
+        )
+
+    def test_a_1210_loser_reads_exactly_once(self):
+        """``1210`` is a statement about committed data; re-reading would only add latency.
+
+        Kept apart from the ``1200`` branch deliberately: giving both the loop would
+        make a genuine duplicate-key failure take the full wait before answering.
+        """
+        repo = _losing_repo(winner=None, rejection=DuplicateError("has_care_profile", "_from", PLANT))
+
+        with pytest.raises(DuplicateError):
+            _service(repo).get_or_create_profile(PLANT, may_create=True)
+
+        assert repo.get_linked_profile.call_count == 1
 
     def test_a_read_never_reaches_the_conflicting_write_at_all(self):
         """``may_create=False`` still writes nothing — the #1422 boundary stays put."""

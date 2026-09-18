@@ -13,6 +13,7 @@ typo lives forever. They are small, so they are pinned rather than argued about.
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 
 import pytest
@@ -55,16 +56,31 @@ def _insert_error(code: int) -> DocumentInsertError:
 
 
 class _Collection:
-    def __init__(self, name: str, store: list[dict[str, Any]], refuse: Exception | None) -> None:
+    def __init__(
+        self,
+        name: str,
+        store: list[dict[str, Any]],
+        refuse: Exception | None,
+        keys: itertools.count[int],
+    ) -> None:
         self._name = name
         self._store = store
         self._refuse = refuse
+        self._keys = keys
+
+    def _next_key(self) -> str:
+        return f"cp-{next(self._keys)}"
 
     def insert(self, data: dict[str, Any], return_new: bool = False):
         if self._refuse is not None:
             raise self._refuse
         document = dict(data)
-        document["_key"] = document.get("_key") or "cp-1"
+        # ArangoDB assigns the key, and ``_to_doc`` pops any the caller sent — so a
+        # double that honoured a supplied ``_key`` would accept a document the real
+        # path cannot produce (the #1155 shape: a positive test certifying an
+        # impossible input).
+        document.pop("_key", None)
+        document["_key"] = self._next_key()
         document["_id"] = f"{self._name}/{document['_key']}"
         self._store.append(document)
         return {"new": dict(document)} if return_new else {"_key": document["_key"]}
@@ -76,11 +92,12 @@ class _Transaction:
         self._commit_error = commit_error
         self._abort_error = abort_error
         self.staged: dict[str, list[dict[str, Any]]] = {}
+        self._keys = itertools.count(1)
         self.aborted = False
         self.committed = False
 
     def collection(self, name: str) -> _Collection:
-        return _Collection(name, self.staged.setdefault(name, []), self._refusals.get(name))
+        return _Collection(name, self.staged.setdefault(name, []), self._refusals.get(name), self._keys)
 
     def commit_transaction(self) -> None:
         if self._commit_error is not None:
@@ -174,6 +191,38 @@ class TestARejectionIsTypedAndRollsBack:
             repo.create_linked_profile(_profile(), PLANT)
 
         assert db.transaction is not None and db.transaction.aborted
+
+
+class TestTheChecksCreateDoesAreStillDone:
+    """SCR-007: this writer bypasses ``BaseArangoRepository.create``, so it inherits nothing.
+
+    ``create_profile`` *was* ``super().create(profile)``, and ``create`` calls
+    ``_verify_owned_references`` before anything is persisted (#948). The first
+    draft of ``create_linked_profile`` dropped that silently — the repository
+    declares no owned references today, so nothing would have failed and the loss
+    would only have surfaced the day somebody added a declaration.
+    """
+
+    def test_a_reference_the_caller_does_not_own_is_refused_before_the_transaction(self, monkeypatch):
+        """Declared here rather than in production: the check must *run*, not the policy change.
+
+        Adding ``_owned_reference_fields`` to the repository for real would change
+        behaviour (a profile for an unknown plant would start failing) and belongs
+        to its own decision. What is measured is that a declaration, once made,
+        takes effect on this path — and that it takes effect *before*
+        ``begin_transaction``, so a rejected write opens no transaction at all.
+        """
+        repo, db = _repo()
+        monkeypatch.setattr(type(repo), "_owned_reference_fields", {"plant_key": col.PLANT_INSTANCES}, raising=False)
+        refused = RuntimeError("plant belongs to another tenant")
+        monkeypatch.setattr(
+            type(repo), "_verify_owned_references", lambda _self, _model, **_kw: (_ for _ in ()).throw(refused)
+        )
+
+        with pytest.raises(RuntimeError):
+            repo.create_linked_profile(_profile(), PLANT)
+
+        assert db.transaction is None, "the ownership check ran after the transaction was opened"
 
 
 class TestAFailingAbortNeverMasksTheRealError:

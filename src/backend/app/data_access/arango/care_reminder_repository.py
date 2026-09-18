@@ -124,9 +124,6 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
     def update_profile(self, key: CareProfileKey, profile: CareProfile) -> CareProfile:
         return super().update(key, profile)
 
-    def delete_profile(self, key: CareProfileKey) -> bool:
-        return super().delete(key)
-
     def get_all_profiles(self) -> list[CareProfile]:
         profiles, _ = super().get_all(offset=0, limit=10000)
         return profiles
@@ -263,12 +260,16 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         the caller as :class:`DuplicateError` (``1210``, the winner already
         committed) or :class:`WriteConflictError` (``1200``, the winner is still
         open — measured as ``timeout waiting to lock key``), through the same
-        :meth:`BaseArangoRepository._raise_mapped_insert_error` the non-transactional
+        :meth:`BaseArangoRepository._mapped_insert_error` the non-transactional
         paths use. ``CareReminderService`` resolves either by re-reading the edge.
         """
-        data = self._to_doc(profile)
-        data["created_at"] = self._now()
-        data["updated_at"] = self._now()
+        # This create does not go through ``BaseArangoRepository.create``, so the two
+        # things that method does for every other insert have to be invoked by hand:
+        # the declared foreign-reference ownership check (#948 — ``create_profile``
+        # inherited it and the first draft of this method silently dropped it), and
+        # the validate-and-stamp preamble.
+        self._verify_owned_references(profile)
+        data = self._insert_payload(profile)
         edge_from = f"{col.PLANT_INSTANCES}/{plant_key}"
 
         transaction = self._db.begin_transaction(write=[col.CARE_PROFILES, col.HAS_CARE_PROFILE])
@@ -286,7 +287,9 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
                 written = transaction.collection(col.CARE_PROFILES).insert(data, return_new=True)
                 inserted = cast(dict[str, Any], written)
             except DocumentInsertError as exc:
-                self._raise_mapped_insert_error(exc, col.CARE_PROFILES, data)
+                mapped = self._mapped_insert_error(exc, col.CARE_PROFILES, data)
+                if mapped is not None:
+                    raise mapped from exc
                 raise
             edge_data = {
                 "_from": edge_from,
@@ -296,7 +299,9 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
             try:
                 transaction.collection(col.HAS_CARE_PROFILE).insert(edge_data)
             except DocumentInsertError as exc:
-                self._raise_mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
+                mapped = self._mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
+                if mapped is not None:
+                    raise mapped from exc
                 raise
             try:
                 transaction.commit_transaction()
@@ -306,7 +311,9 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
                 # the same, because a deferred conflict is the server's choice, not
                 # the client's, and the alternative to a typed error here is the raw
                 # driver exception and the 500 this whole change exists to remove.
-                self._raise_mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
+                mapped = self._mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
+                if mapped is not None:
+                    raise mapped from exc
                 raise
         except BaseException:
             self._abort_quietly(transaction)

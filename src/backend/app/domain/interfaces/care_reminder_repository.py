@@ -26,14 +26,18 @@ class ICareReminderRepository(ABC):
 
         Raises :class:`DuplicateError`/:class:`WriteConflictError` when the plant
         already owns an edge; nothing is persisted in that case.
+
+        There is no ``delete_profile`` here either, for the same reason and since
+        the same review: deleting the document while the ``has_care_profile`` edge
+        survives leaves the plant permanently unable to get a profile — every later
+        create hits the unique ``_from`` index and the edge resolves to nothing, so
+        the race resolution re-raises for good. Its only caller was the orphan
+        cleanup this change removed.
         """
         ...
 
     @abstractmethod
     def update_profile(self, key: CareProfileKey, profile: CareProfile) -> CareProfile: ...
-
-    @abstractmethod
-    def delete_profile(self, key: CareProfileKey) -> bool: ...
 
     @abstractmethod
     def get_all_profiles(self) -> list[CareProfile]: ...

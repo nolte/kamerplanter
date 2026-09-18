@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime
 
 import structlog
@@ -263,6 +264,15 @@ def _template_to_profile(
     )
 
 
+#: How many times a ``1200`` loser re-reads the ``has_care_profile`` edge, and how
+#: long it waits between reads (#1292 / SCR-001). Six reads 50 ms apart bound the
+#: wait at 250 ms — long enough to outlive a two-insert transaction's commit,
+#: short enough that a genuinely failed write still answers the request promptly.
+#: A ``1210`` loser uses one read; see :meth:`CareReminderService._resolve_lost_profile_race`.
+_RACE_REREAD_ATTEMPTS = 6
+_RACE_REREAD_INTERVAL_SECONDS = 0.05
+
+
 class CareReminderService:
     def __init__(
         self,
@@ -335,14 +345,24 @@ class CareReminderService:
 
         try:
             return self._repo.create_linked_profile(new_profile, plant_key)
-        except DuplicateError, WriteConflictError:
-            winner = self._resolve_lost_profile_race(plant_key)
+        except (DuplicateError, WriteConflictError) as conflict:
+            # How many times the edge is re-read is decided by WHICH rejection this
+            # is, because the two say different things about the winner (SCR-001):
+            # ``1210`` is a statement about committed data, so one read settles it;
+            # ``1200`` says only that somebody HELD the entry, and the holder's
+            # commit may still be in flight. Measured after the transactional write
+            # landed: 90 of 90 losers in a 30-burst four-way race got ``1200`` and
+            # none got ``1210`` — the transaction holds the unique-index entry from
+            # the edge insert until the commit, so ``1200`` is now the normal loser
+            # answer and this is the branch that carries the flow.
+            attempts = 1 if isinstance(conflict, DuplicateError) else _RACE_REREAD_ATTEMPTS
+            winner = self._resolve_lost_profile_race(plant_key, attempts=attempts)
             if winner is None:
                 # The conflict was not a lost race — keep it propagating (409).
                 raise
             return winner
 
-    def _resolve_lost_profile_race(self, plant_key: str) -> CareProfile | None:
+    def _resolve_lost_profile_race(self, plant_key: str, *, attempts: int) -> CareProfile | None:
         """Answer a profile-creation race this caller lost, or re-raise (#1292).
 
         The ``has_care_profile`` edge carries a unique index over ``_from``, so it
@@ -382,8 +402,42 @@ class CareReminderService:
         The read is deliberately :meth:`get_linked_profile` and not
         ``get_profile_by_plant_key``: the field carries no unique index and cannot
         say which document is the linked one, the edge can.
+
+        **Why ``attempts`` and why it is keyword-only without a default.** For a
+        ``1210`` caller one read is not merely enough, it is exact: the winner is
+        committed by the time that code is produced. For a ``1200`` caller it is
+        not, and the atomic write made that worse rather than better — the unique
+        ``_from`` entry is now held from the edge insert until
+        ``commit_transaction`` instead of for the microseconds a bare insert took,
+        so a loser can be told "conflict" while the winner's commit is still in
+        flight and a single read would answer ``None`` and re-raise a 409 for a
+        profile that exists a moment later. The caller states which case it is; a
+        default would quietly give one of them the other's answer.
+
+        **This loop really waits.** It is worth saying because a retry loop that
+        re-creates the bad moment on every iteration is inert and looks robust
+        (the shape that has cost this project time before). Nothing here is
+        re-attempted: the write is not retried, the same read is repeated against
+        state *another transaction is committing*, so each iteration is a genuinely
+        later observation. It is bounded at
+        ``_RACE_REREAD_ATTEMPTS * _RACE_REREAD_INTERVAL_SECONDS`` and then gives up,
+        because a winner that never appears is a real failure and must stay one.
+        Sleeping is safe here: every caller of this path is a synchronous route
+        (FastAPI runs those in a worker thread) or a Celery task.
+
+        Measured local frequency of the case the loop exists for: **0 in 90 losers**
+        across 30 four-way bursts — the lock wait usually outlives the winner's
+        commit, so the first read already finds it. The loop is defence for the
+        widened window, not a repair of an observed local failure, and this number
+        is recorded here rather than implied.
         """
-        return self._repo.get_linked_profile(plant_key)
+        for attempt in range(attempts):
+            winner = self._repo.get_linked_profile(plant_key)
+            if winner is not None:
+                return winner
+            if attempt + 1 < attempts:
+                time.sleep(_RACE_REREAD_INTERVAL_SECONDS)
+        return None
 
     def _propagate(self, action) -> None:  # noqa: ANN001 — Callable[[NotificationPropagationService], None]
         """Run a notification-propagation ``action`` when the coupling is wired.

@@ -297,13 +297,13 @@ class BaseArangoRepository[TModel: BaseModel]:
             return field, ""
         return "field", ""
 
-    def _raise_mapped_insert_error(
+    def _mapped_insert_error(
         self,
         error: ArangoServerError,
         collection_name: str,
         data: dict[str, Any],
-    ) -> None:
-        """Re-raise a rejected insert as the domain's typed conflict, or return.
+    ) -> Exception | None:
+        """The domain conflict a rejected insert stands for, or ``None``.
 
         The single copy of a translation three write paths need: :meth:`_insert_doc`
         for documents, :meth:`create_edge` for edges, and — since #1292 —
@@ -323,14 +323,21 @@ class BaseArangoRepository[TModel: BaseModel]:
         is deliberately not forwarded in that case; it names an index and a document
         key, and these errors' ``details`` are client-visible.
 
-        Returns without raising for every other code, so the caller's own ``raise``
-        keeps an unrecognised driver failure propagating unchanged.
+        **Returns** the exception rather than raising it, so that every ``raise``
+        this module performs is visible at the site that performs it. The first
+        spelling raised from in here and relied on the caller writing a bare
+        ``raise`` underneath for the unrecognised codes; a reader of the call site
+        could not see which of the two happened, and dropping the trailing
+        ``raise`` would have swallowed an unknown driver failure silently. ``None``
+        means "not a conflict this layer translates" — the caller re-raises the
+        original.
         """
         if error.error_code == 1210:  # unique constraint violated
             field, value = self._describe_unique_conflict(error, data)
-            raise DuplicateError(collection_name, field, value) from error
+            return DuplicateError(collection_name, field, value)
         if error.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
-            raise WriteConflictError(collection_name) from error
+            return WriteConflictError(collection_name)
+        return None
 
     def _require_tenant_key(self, tenant_key: str, method: str) -> None:
         """Reject the empty-``tenant_key`` sentinel before issuing a scoped query.
@@ -601,24 +608,45 @@ class BaseArangoRepository[TModel: BaseModel]:
 
         return items, total
 
-    def _insert_doc(
+    def _insert_payload(
         self,
         model: BaseModel,
         *,
         default_now_fields: tuple[str, ...] = (),
     ) -> dict[str, Any]:
+        """Everything an insert does to a model *before* it reaches the driver.
+
+        Validate (through :meth:`_to_doc`, #968), stamp ``created_at``/``updated_at``,
+        back-fill the declared domain timestamps. Extracted from :meth:`_insert_doc`
+        so the transactional writer added in #1292
+        (``ArangoCareReminderRepository.create_linked_profile``), which cannot go
+        through ``_insert_doc`` because it writes through a transaction handle,
+        performs the *same* preamble instead of a second copy of it — a copy that
+        would have been the place the re-validation quietly stopped happening.
+        """
         data = self._to_doc(model)
         data["created_at"] = self._now()
         data["updated_at"] = self._now()
         for field in default_now_fields:
             if not data.get(field):
                 data[field] = self._now()
+        return data
+
+    def _insert_doc(
+        self,
+        model: BaseModel,
+        *,
+        default_now_fields: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        data = self._insert_payload(model, default_now_fields=default_now_fields)
         try:
             result = self.collection.insert(data, return_new=True)
         except DocumentInsertError as e:
             # #1436 for ``1200``, #1292 for the shared spelling: the mapping lives in
             # one place so the edge path and the transactional pair cannot drift from it.
-            self._raise_mapped_insert_error(e, self._collection_name, data)
+            mapped = self._mapped_insert_error(e, self._collection_name, data)
+            if mapped is not None:
+                raise mapped from e
             raise
         return self._from_doc(result["new"])
 
@@ -939,7 +967,9 @@ class BaseArangoRepository[TModel: BaseModel]:
             # into a 500 (#1292). Both codes are mapped because both were measured
             # on one such index; which one a loser gets is the server's decision
             # about how far the winner had got.
-            self._raise_mapped_insert_error(exc, edge_collection, edge_data)
+            mapped = self._mapped_insert_error(exc, edge_collection, edge_data)
+            if mapped is not None:
+                raise mapped from exc
             raise
         return result["new"]
 

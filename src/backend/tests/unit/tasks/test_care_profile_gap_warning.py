@@ -28,6 +28,8 @@ from unittest.mock import MagicMock
 import pytest
 import structlog
 
+from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+
 
 @pytest.fixture(autouse=True)
 def _mock_dependencies(monkeypatch):
@@ -55,6 +57,13 @@ def _wire(deps, *, unprofiled):
     ``created=0 skipped=0`` line was indistinguishable from "nothing was due".
     """
     care_service = MagicMock()
+    # The repository double is spec'd against the real interface (SCR-005, and the
+    # #1155 lesson). It was a bare MagicMock, and the assertion below then named
+    # `create_profile`/`create_profile_edge` — methods the repository has not had
+    # since #1292 — so the check could not fail whatever the run did. A spec'd
+    # double raises AttributeError on a name that no longer exists, which is what
+    # turns "asserted" back into "measured".
+    care_service._repo = MagicMock(spec=ICareReminderRepository)
     care_service._repo.get_all_profiles.return_value = []
     if isinstance(unprofiled, Exception):
         care_service._repo.count_plants_without_profile.side_effect = unprofiled
@@ -129,8 +138,7 @@ class TestUnprofiledPlantWarning:
         _run()
 
         service.get_or_create_profile.assert_not_called()
-        service._repo.create_profile.assert_not_called()
-        service._repo.create_profile_edge.assert_not_called()
+        service._repo.create_linked_profile.assert_not_called()
 
     def test_a_failing_count_costs_diagnostics_and_not_the_run(self, _mock_dependencies):
         """Best-effort: the count is diagnostics, the reminders are the feature."""

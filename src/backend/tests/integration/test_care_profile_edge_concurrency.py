@@ -327,16 +327,19 @@ def test_a_second_connection_never_sees_a_profile_before_its_edge(db, plant, mon
             profile_written.set()  # never leave the reader waiting on a failed writer
             conn.close()
 
+    def read_from_a_second_connection():  # noqa: ANN202
+        conn, reader_db = _connect()
+        try:
+            return ArangoCareReminderRepository(reader_db).get_profile_by_plant_key(plant)
+        finally:
+            conn.close()
+
     def read() -> None:
         try:
             if not profile_written.wait(timeout=30):
                 observations.append("the writer never inserted a care-profile document")
                 return
-            conn, reader_db = _connect()
-            try:
-                observations.append(ArangoCareReminderRepository(reader_db).get_profile_by_plant_key(plant))
-            finally:
-                conn.close()
+            observations.append(read_from_a_second_connection())
         finally:
             reader_finished.set()
 
@@ -354,6 +357,19 @@ def test_a_second_connection_never_sees_a_profile_before_its_edge(db, plant, mon
         f"{seen!r}. That document is a loser's orphan the moment the edge insert is refused, "
         "and answering a request with it is #1292."
     )
+    assert writer_result, "the writer thread produced neither a profile nor an exception"
     assert not isinstance(writer_result[0], BaseException), f"the writer failed: {writer_result[0]!r}"
     assert len(_profile_docs(db, plant)) == 1
     assert len(_profile_edges(db, plant)) == 1
+
+    # The positive control (SCR-010). `seen is None` is satisfied by a reader that
+    # is simply blind — a wrong database, a typo in the plant key, a connection
+    # that never saw anything. Running the SAME function once the writer has
+    # committed must find the profile; if it does not, the assertion above proved
+    # nothing about timing and everything about the reader.
+    after = read_from_a_second_connection()
+    assert after is not None and after.plant_key == plant, (
+        "the same reader cannot see the profile even after the writer committed — it was never "
+        "able to see anything, so its earlier `None` is not evidence"
+    )
+    assert after.key == _profile_edges(db, plant)[0]["_to"].split("/", 1)[-1]
