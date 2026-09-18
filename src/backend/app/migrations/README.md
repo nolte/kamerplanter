@@ -64,6 +64,16 @@ run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
    entfernt/umbenannt, MUSS **dieselbe** Änderung eine Migration mitliefern, die
    Bestandsdokumente überführt (Lehre aus Issue #306).
 
+   Für **Feldnamen in `app/domain/models/`** ist diese Regel seit #1468 gegatet:
+   `tests/unit/guards/test_model_field_renames_have_migrations.py` leitet aus der
+   Git-Historie ab, welche Modellfelder seit dem Framework-Baseline-Commit
+   verschwunden sind, und verlangt für jedes eine Migration — die das alte Feld im
+   **Code** nennen muss, eine Erwähnung im Docstring zählt nicht — oder einen
+   belegten Grund, warum kein Bestandsdokument betroffen sein kann. Anlass war
+   #1174: Modell und Seed-YAML wurden umbenannt, die gespeicherten Dokumente nicht,
+   und die CEC des gesamten Substratkatalogs las sich monatelang als `None`
+   (v0051 repariert das). Wer ein Feld umbenennt, trägt die Migration dort ein.
+
 5. **Bestehende Logik wiederverwenden:** Große Transformationen dürfen als reine
    Funktion in einem eigenen Modul liegen; der Version-Wrapper ruft sie nur auf
    (siehe `v0002`–`v0005`). Logik **nicht** duplizieren.
