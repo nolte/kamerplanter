@@ -36,6 +36,8 @@ import FormRow from '@/components/form/FormRow';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -79,6 +81,11 @@ export default function CultivarDetailPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `SpeciesService.delete_cultivar` is lead-only for an own row and platform-admin for a
+  // global seed row (REQ-049 §2.3, #808/#1090) — a grower gets neither (#1467).
+  const { canDelete } = useTenantPermissions();
+  const isPlatformAdmin = usePlatformAdmin();
+  const canDeleteCatalogue = canDelete || isPlatformAdmin;
   const [cultivar, setCultivar] = useState<Cultivar | null>(null);
   const [species, setSpecies] = useState<Species | null>(null);
   const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
@@ -271,8 +278,8 @@ export default function CultivarDetailPage() {
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-012: hide delete button for system data */}
-            {!isDeletionProtected && (
-              <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+            {!isDeletionProtected && canDeleteCatalogue && (
+              <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="cultivar-delete-button">
                 {t('common.delete')}
               </Button>
             )}

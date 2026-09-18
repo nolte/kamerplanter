@@ -82,7 +82,7 @@ vi.mock('@/api/endpoints/nutrient-plans', async () => {
 });
 
 import SpeciesDetailPage from '@/pages/stammdaten/SpeciesDetailPage';
-import { authState, createTestStore, renderWithProviders } from '../helpers';
+import { authState, createTestStore, renderWithProviders, tenantState } from '../helpers';
 
 /** Fully-populated species — every nullable field carries a value so the reset
  *  mapping and the onSubmit `|| null` / `?? default` arms take their truthy path. */
@@ -175,9 +175,12 @@ function makeStore(
   // The crop-rotation tab's add affordance writes an installation-wide catalogue
   // and is platform-admin-only since #1402 C. Every other case here is a normal
   // member, which is why this is opt-in rather than the default.
-  { platformAdmin = false }: { platformAdmin?: boolean } = {},
+  // #1467: `SpeciesService.delete_species` is lead-only for an own row, so the
+  // delete affordance needs a rank as well as an experience level.
+  { platformAdmin = false, role = 'lead' }: { platformAdmin?: boolean; role?: 'viewer' | 'grower' | 'lead' } = {},
 ) {
   return createTestStore({
+    ...tenantState(role),
     ...authState({ platformAdmin }),
     userPreferences: {
       preferences: {

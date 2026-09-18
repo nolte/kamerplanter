@@ -55,6 +55,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as plantApi from '@/api/endpoints/plantInstances';
@@ -234,6 +235,9 @@ export default function TaskDetailPage() {
   const { i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `require_permission(TASK, DELETE)` is lead-only (REQ-049 §2.3); the task and its
+  // comments share that route, so neither control is offered below a lead (#1467).
+  const { canDelete } = useTenantPermissions();
 
   const [task, setTask] = useState<TaskItem | null>(null);
   const [plantName, setPlantName] = useState<string | null>(null);
@@ -738,26 +742,34 @@ export default function TaskDetailPage() {
             The span is required: MUI does not fire pointer events on a disabled
             button, so a Tooltip wrapping it directly never opens.
           */}
-          <Tooltip
-            arrow
-            enterTouchDelay={0}
-            leaveTouchDelay={5000}
-            title={cannotDelete ? t('pages.tasks.cannotDeleteReopened') : ''}
-          >
-            <span>
-          <Button
-            variant="outlined"
-            size="small"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteOpen(true)}
-            disabled={cannotDelete}
-            data-testid="delete-task-button"
-          >
-            {t('common.delete')}
-          </Button>
-            </span>
-          </Tooltip>
+          {/*
+            The role axis hides instead of disabling: `cannotDelete` above is a
+            *state* a grower can act on once it clears, while a grower never gains
+            the delete grant at all, so a permanently dead control would only
+            mislead — the same call #1425 made for the photo gallery.
+          */}
+          {canDelete && (
+            <Tooltip
+              arrow
+              enterTouchDelay={0}
+              leaveTouchDelay={5000}
+              title={cannotDelete ? t('pages.tasks.cannotDeleteReopened') : ''}
+            >
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteOpen(true)}
+                  disabled={cannotDelete}
+                  data-testid="delete-task-button"
+                >
+                  {t('common.delete')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
         </Stack>
       </Box>
 
@@ -1278,9 +1290,11 @@ export default function TaskDetailPage() {
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteComment(c.key)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        {canDelete && (
+                          <IconButton size="small" color="error" onClick={() => handleDeleteComment(c.key)} data-testid="task-comment-delete-button">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        )}
                       </Box>
                     </Box>
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>

@@ -177,6 +177,53 @@ describe('CultivarListSection', () => {
     });
   });
 
+  // #1467 usability pass: `SpeciesService.delete_cultivar` is lead-only. The
+  // delete icon is this table's *only* actions-column content, so a grower
+  // must not be left with a permanently empty "Aktionen" column (header and
+  // all) — the whole column is omitted rather than rendering blank cells.
+  describe('delete-action role gating (#1467)', () => {
+    function storeWithRole(role: TenantRole) {
+      return createTestStore({
+        tenants: {
+          activeTenant: { key: 't1', slug: 'garten', name: 'Garten', role },
+          myTenants: [],
+          isLoading: false,
+          error: null,
+        },
+      });
+    }
+
+    it('omits the actions column entirely for a grower', async () => {
+      server.use(
+        http.get(CULTIVARS_URL, () =>
+          HttpResponse.json([makeCultivar({ key: 'cv-1', name: 'Sungold' })]),
+        ),
+      );
+      renderWithProviders(<CultivarListSection speciesKey="sp-1" />, {
+        store: storeWithRole('grower'),
+      });
+
+      await screen.findByText('Sungold');
+      expect(screen.queryByText(i18n.t('common.actions'))).toBeNull();
+      expect(screen.queryByTestId('cultivar-delete-cv-1')).toBeNull();
+    });
+
+    it('shows the actions column with the delete icon for a lead', async () => {
+      server.use(
+        http.get(CULTIVARS_URL, () =>
+          HttpResponse.json([makeCultivar({ key: 'cv-1', name: 'Sungold' })]),
+        ),
+      );
+      renderWithProviders(<CultivarListSection speciesKey="sp-1" />, {
+        store: storeWithRole('lead'),
+      });
+
+      await screen.findByText('Sungold');
+      expect(screen.getByText(i18n.t('common.actions'))).toBeInTheDocument();
+      expect(screen.getByTestId('cultivar-delete-cv-1')).toBeInTheDocument();
+    });
+  });
+
   it('cancels the delete confirmation without deleting', async () => {
     server.use(
       http.get(CULTIVARS_URL, () =>

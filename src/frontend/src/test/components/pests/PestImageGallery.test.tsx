@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import i18n from 'i18next';
 import PestImageGallery from '@/components/pests/PestImageGallery';
-import { createTestStore, renderWithProviders } from '../../helpers';
+import { createStoreWithTenantRole, createTestStore, renderWithProviders } from '../../helpers';
 import type { PestImage } from '@/api/types';
 
 vi.mock('@/api/endpoints/ipm', () => ({
@@ -90,6 +90,26 @@ describe('PestImageGallery', () => {
     await screen.findByTestId('pest-contribute-button');
     await userEvent.click(screen.getByTestId('pest-contribute-button'));
     expect(screen.getByTestId('pest-contribute-dialog-stub')).toBeInTheDocument();
+  });
+
+  it('offers the own-contribution delete to a lead only (#1467)', async () => {
+    // Owning the contribution is necessary but not sufficient: the route runs
+    // `require_attachment_permission(Action.DELETE)`, and the matrix grants
+    // ATTACHMENT/DELETE to a lead alone (REQ-049 §2.3).
+    vi.mocked(listPestImages).mockResolvedValue([img({ id: 'i1', is_own: true })]);
+    const { unmount } = renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />, {
+      store: createStoreWithTenantRole('grower'),
+    });
+    await screen.findByTestId('pest-detail-gallery');
+    expect(screen.queryByTestId('pest-image-delete')).toBeNull();
+    unmount();
+
+    vi.mocked(listPestImages).mockResolvedValue([img({ id: 'i1', is_own: true })]);
+    renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />, {
+      store: createStoreWithTenantRole('lead'),
+    });
+    await screen.findByTestId('pest-detail-gallery');
+    expect(await screen.findByTestId('pest-image-delete')).toBeInTheDocument();
   });
 
   it('opens a confirmation dialog when the delete button is clicked', async () => {
