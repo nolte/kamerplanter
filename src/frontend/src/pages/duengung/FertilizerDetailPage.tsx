@@ -54,6 +54,7 @@ import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -210,6 +211,8 @@ export default function FertilizerDetailPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `require_permission(FERTILIZER, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
 
   const [fertilizer, setFertilizer] = useState<Fertilizer | null>(null);
   const [stocks, setStocks] = useState<FertilizerStock[]>([]);
@@ -559,7 +562,7 @@ export default function FertilizerDetailPage() {
           {/* UI-NFR-018 R-001: Origin chip in meta row */}
           <OriginChip origin={fertilizerOrigin} />
           {/* UI-NFR-018 R-012: hide delete button for system data */}
-          {!isDeletionProtected && (
+          {!isDeletionProtected && canDelete && (
             <Button
               variant="outlined"
               color="error"

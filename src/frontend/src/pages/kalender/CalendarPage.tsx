@@ -68,6 +68,7 @@ import {
 } from '@/store/slices/calendarSlice';
 import { fetchSites } from '@/store/slices/sitesSlice';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import { confirmReminder } from '@/api/endpoints/careReminders';
 import type { CalendarEvent, CalendarEventCategory, CalendarFeed } from '@/api/types';
@@ -179,6 +180,8 @@ export default function CalendarPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const notification = useNotification();
+  // `require_permission(CALENDAR_FEED, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
   const { events, feeds, loading, feedsLoading, sowingEntries, sowingFrostConfig, sowingYear, sowingLoading, seasonOverview, seasonLoading } = useAppSelector((state) => state.calendar);
   const { sites } = useAppSelector((state) => state.sites);
 
@@ -870,19 +873,21 @@ export default function CalendarPage() {
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title={t('pages.calendar.deleteFeed')}>
-          <IconButton
-            size="small"
-            onClick={() => {
-              setDeleteFeedKey(feed.key);
-              setDeleteFeedName(feed.name);
-            }}
-            aria-label={t('pages.calendar.deleteFeed')}
-            data-testid={`feed-delete-${feed.key}`}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        {canDelete && (
+          <Tooltip title={t('pages.calendar.deleteFeed')}>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setDeleteFeedKey(feed.key);
+                setDeleteFeedName(feed.name);
+              }}
+              aria-label={t('pages.calendar.deleteFeed')}
+              data-testid={`feed-delete-${feed.key}`}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </ListItemSecondaryAction>
     </ListItem>
   );

@@ -24,6 +24,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import { useColumnFilters } from '@/hooks/useColumnFilters';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { fetchOverwinteringProfiles } from '@/store/slices/overwinteringProfilesSlice';
 import * as api from '@/api/endpoints/overwinteringProfiles';
@@ -84,6 +85,8 @@ export default function OverwinteringListPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `require_permission(OVERWINTERING_PROFILE, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
   const { items, loading } = useAppSelector((s) => s.overwinteringProfiles);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -380,20 +383,22 @@ export default function OverwinteringListPage() {
                 </IconButton>
               </Tooltip>
             )}
-            <Tooltip title={t('common.delete')}>
-              <IconButton
-                size="small"
-                color="error"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeleteTarget(r);
-                }}
-                data-testid={`delete-${r.key}`}
-                aria-label={t('common.delete')}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {canDelete && (
+              <Tooltip title={t('common.delete')}>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(r);
+                  }}
+                  data-testid={`delete-${r.key}`}
+                  aria-label={t('common.delete')}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         );
       },
@@ -467,26 +472,28 @@ export default function OverwinteringListPage() {
                 </IconButton>
               </Tooltip>
             )}
-            <Tooltip title={t('common.delete')}>
-              <IconButton
-                size="medium"
-                color="error"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeleteTarget(r);
-                }}
-                data-testid={`delete-mobile-${r.key}`}
-                aria-label={t('common.delete')}
-                sx={{ minWidth: 48, minHeight: 48 }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {canDelete && (
+              <Tooltip title={t('common.delete')}>
+                <IconButton
+                  size="medium"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(r);
+                  }}
+                  data-testid={`delete-mobile-${r.key}`}
+                  aria-label={t('common.delete')}
+                  sx={{ minWidth: 48, minHeight: 48 }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         }
       />
     ),
-    [subjectLabel, subjectTarget, subjectActionLabel, hardinessTooltip, monthLabel, navigate, t],
+    [subjectLabel, subjectTarget, subjectActionLabel, hardinessTooltip, monthLabel, navigate, t, canDelete],
   );
 
   return (

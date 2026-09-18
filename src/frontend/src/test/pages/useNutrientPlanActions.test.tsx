@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import { SnackbarProvider } from 'notistack';
+import { Provider } from 'react-redux';
+import { createStoreWithTenantRole } from '../helpers';
 import i18n from 'i18next';
 import type {
   NutrientPlan,
@@ -21,8 +23,16 @@ vi.mock('@/api/endpoints/nutrient-plans', () => ({
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import { useNutrientPlanActions } from '@/pages/duengung/nutrient-plan-detail/useNutrientPlanActions';
 
+// #1467: the hook now reads `useTenantPermissions`, so it needs a store. A lead
+// is the rank under test — the phase-entry delete is lead-only.
+const store = createStoreWithTenantRole('lead');
+
 function wrapper({ children }: { children: ReactNode }) {
-  return <SnackbarProvider>{children}</SnackbarProvider>;
+  return (
+    <Provider store={store}>
+      <SnackbarProvider>{children}</SnackbarProvider>
+    </Provider>
+  );
 }
 
 function makeDosage(overrides: Partial<FertilizerDosage> = {}): FertilizerDosage {

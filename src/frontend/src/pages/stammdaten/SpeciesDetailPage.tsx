@@ -40,6 +40,8 @@ import {
 } from './species-detail/speciesDetailSchema';
 import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -57,6 +59,11 @@ export default function SpeciesDetailPage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `SpeciesService.delete_species` is lead-only for an own row and platform-admin for a
+  // global seed row (REQ-049 §2.3, #808/#1090) — a grower gets neither (#1467).
+  const { canDelete } = useTenantPermissions();
+  const isPlatformAdmin = usePlatformAdmin();
+  const canDeleteCatalogue = canDelete || isPlatformAdmin;
   const { current, loading, error } = useAppSelector((s) => s.species);
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -224,7 +231,7 @@ export default function SpeciesDetailPage() {
                 : null,
               // UI-NFR-018 R-012: no delete entry at all for system data --
               // omitted rather than disabled, which is what the rule asks for.
-              !isDeletionProtected && {
+              !isDeletionProtected && canDeleteCatalogue && {
                 label: t('common.delete'),
                 icon: <DeleteIcon />,
                 color: 'error' as const,

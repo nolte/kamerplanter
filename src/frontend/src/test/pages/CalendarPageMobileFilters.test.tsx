@@ -3,12 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import { configureStore } from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import calendarReducer from '@/store/slices/calendarSlice';
 import sitesReducer from '@/store/slices/sitesSlice';
 import uiReducer from '@/store/slices/uiSlice';
 import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
-import { renderWithProviders, type TestStore } from '../helpers';
+import tenantsReducer from '@/store/slices/tenantSlice';
+import { renderWithProviders, tenantState, type TestStore } from '../helpers';
 import { server } from '../mocks/server';
 
 // Force the mobile branch: the category-filter disclosure only renders below
@@ -19,13 +20,18 @@ vi.mock('@mui/material/useMediaQuery', () => ({ default: () => true }));
 import CalendarPage from '@/pages/kalender/CalendarPage';
 
 function makeCalendarStore(): TestStore {
+  const rootReducer = combineReducers({
+    calendar: calendarReducer,
+    sites: sitesReducer,
+    ui: uiReducer,
+    userPreferences: userPreferencesReducer,
+    // #1467: the feed delete is lead-only, and `useTenantPermissions` reads this
+    // slice. Without it the page crashes on `state.tenants.activeTenant`.
+    tenants: tenantsReducer,
+  });
   return configureStore({
-    reducer: {
-      calendar: calendarReducer,
-      sites: sitesReducer,
-      ui: uiReducer,
-      userPreferences: userPreferencesReducer,
-    },
+    reducer: rootReducer,
+    preloadedState: tenantState('lead') as never,
   }) as unknown as TestStore;
 }
 

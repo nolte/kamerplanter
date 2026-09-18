@@ -19,6 +19,8 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/substrates';
 import type { Batch } from '@/api/types';
@@ -37,6 +39,11 @@ export default function BatchDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const notification = useNotification();
+  // `SubstrateService.delete_batch` is lead-only for an own batch and platform-admin
+  // for a global seed row, so neither rank may be offered to a grower (#1467).
+  const { canDelete } = useTenantPermissions();
+  const isPlatformAdmin = usePlatformAdmin();
+  const canDeleteBatch = canDelete || isPlatformAdmin;
   const { handleError } = useApiError();
   const [batch, setBatch] = useState<Batch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,9 +121,11 @@ export default function BatchDetailPage() {
       <PageTitle
         title={batch?.batch_id ?? t('entities.batch')}
         action={
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-            {t('common.delete')}
-          </Button>
+          canDeleteBatch ? (
+            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-batch-delete-button">
+              {t('common.delete')}
+            </Button>
+          ) : undefined
         }
       />
 

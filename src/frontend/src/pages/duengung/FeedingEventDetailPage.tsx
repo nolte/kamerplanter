@@ -34,6 +34,7 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import * as feedingApi from '@/api/endpoints/feeding-events';
@@ -63,6 +64,8 @@ export default function FeedingEventDetailPage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `require_permission("feeding-event", DELETE)` is lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
 
   const [event, setEvent] = useState<FeedingEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,13 +163,16 @@ export default function FeedingEventDetailPage() {
       <PageTitle
         title={event.timestamp ? new Date(event.timestamp).toLocaleString() : t('entities.feedingEvent')}
         action={
-          <Button
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteOpen(true)}
-          >
-            {t('common.delete')}
-          </Button>
+          canDelete ? (
+            <Button
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              data-testid="feeding-event-delete-button"
+            >
+              {t('common.delete')}
+            </Button>
+          ) : undefined
         }
       />
 
