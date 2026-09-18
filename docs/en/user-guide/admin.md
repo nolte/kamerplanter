@@ -71,6 +71,15 @@ The **Admin > Statistics** section provides an overview of:
 
 Under **Admin > OIDC Providers** you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
 
+!!! warning "The provider type is limited to four values"
+    Only `google`, `github`, `apple` and `oidc` are valid — lower-case. Anything else, including `GitHub` or `GITHUB`, is rejected with `422` on create and on update.
+
+    The reason: sign-in reads the type character by character. A provider registered as `GitHub` used to be stored and was then served by the **generic OIDC branch** — GitHub's well-known endpoints were not used, the GitHub address lookup never happened, and nothing complained.
+
+    `oidc` is the right value for any provider without special handling of its own (Keycloak, Authentik, Azure AD, Okta); its endpoints then come from the discovery document.
+
+    For providers stored before this check existed, `POST /api/v1/admin/oidc-providers/{key}/test` reports the finding in its `provider_type_check` field (`ok`, `provider_type`, `known_provider_types`, `detail`). Existing entries are **not** rewritten automatically — correct them with `PUT`.
+
 !!! warning "GitHub requires the `user:email` scope"
     A provider of type `github` whose scope list contains neither `user:email` nor the parent scope `user` is rejected with `422` on create and on update.
 

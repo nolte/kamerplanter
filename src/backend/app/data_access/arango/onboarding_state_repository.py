@@ -26,12 +26,16 @@ class ArangoOnboardingStateRepository(BaseArangoRepository):
     light-to-full takeover path (REQ-027).
 
     **Every writer builds a full model from the stored state**, so none can lose a
-    field it never mentioned (measured 2026-09-18 over all five update call sites
-    in ``OnboardingService`` — the only writer of this collection; the user
-    repository's account cascade deletes rows, it does not update them):
-    ``save_progress``, ``complete_wizard``, ``ensure_onboarding_state_for_user``,
-    ``reset_wizard`` and ``skip_wizard`` each start from ``state.model_dump()``,
-    apply a literal ``dict.update`` and re-validate through ``OnboardingState``.
+    field it never mentioned (re-measured 2026-09-18 after #1515 split the read from
+    the auto-create, over all five update call sites in ``OnboardingService`` — the
+    only writer of this collection; the user repository's account cascade deletes
+    rows, it does not update them): ``save_progress``, ``complete_wizard``,
+    ``ensure_onboarding_state_for_user``, ``reset_wizard`` and ``skip_wizard`` each
+    resolve the row through ``_materialise`` (which either returns the stored state
+    or ``create``s the singleton), then start from ``state.model_dump()``, apply a
+    literal ``dict.update`` and re-validate through ``OnboardingState``. The #1515
+    split changed *when* the row appears, not the shape of the model handed to
+    ``update``.
 
     Raw mode is kept (FR-002 A3): the service wraps the returned ``dict`` into
     :class:`~app.domain.models.onboarding.OnboardingState` itself.

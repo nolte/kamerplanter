@@ -23,7 +23,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.v1.glossar.deps import get_glossary_service
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_permission
+from app.core.permissions import Action, ResourceType
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
     GlossaryTermAnswer,
@@ -51,21 +52,43 @@ def list_terms(
 
 
 @router.get("/term/{slug}", response_model=GlossaryTermAnswer)
-async def get_term(
+def get_term(
     slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
     language: Language = Query("de", description="Language of the returned explanation (de or en)."),
-    ctx: TenantContext = Depends(get_current_tenant),
+    _ctx: TenantContext = Depends(get_current_tenant),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> GlossaryTermAnswer:
-    """Explain one term at the requested experience level (cache-first, §4.1).
+    """Explain one term at the requested experience level (§4.1) — a **read**.
+
+    The tenant-scoped sibling of the public route and the same answer: cached RAG
+    explanation, or the curated editorial short definition. It does not generate
+    and does not write (#1460); ``POST …/generate`` below is what does.
+    """
+    return service.get_term(slug, language=language, expertise_level=expertise)
+
+
+@router.post("/term/{slug}/generate", response_model=GlossaryTermAnswer)
+async def generate_term(
+    slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
+    expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
+    language: Language = Query("de", description="Language of the returned explanation (de or en)."),
+    ctx: TenantContext = Depends(require_permission(ResourceType.GLOSSARY, Action.CREATE)),
+    service: GlossaryService = Depends(get_glossary_service),
+) -> GlossaryTermAnswer:
+    """Ask the Knowledge Service for this term's explanation and cache it (§4.1).
+
+    The write half of the pair above (#1460). Gated on the domain role because it
+    spends an LLM call on the installation's behalf; idempotent while a cached
+    entry is still valid, so a second request is not a second call.
 
     ``context=null`` at the Knowledge Service — no tenant data leaves the backend.
     ``allow_cloud=True`` merely asks the service to *evaluate* the cloud gate: a
     consent check only fires when the tenant actually has a cloud default provider
-    (§6).
+    (§6). That gate lives here rather than on the read for the same reason the LLM
+    call does — with no call there is no cloud processing to consent to.
     """
-    return await service.get_term(
+    return await service.generate_term(
         slug,
         language=language,
         expertise_level=expertise,
