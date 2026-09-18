@@ -61,8 +61,11 @@ export default function PlantDiaryTab({
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
-  const { canEdit } = useTenantPermissions();
+  const { canEdit, canDelete } = useTenantPermissions();
   const canWrite = canEdit && !readOnly;
+  // Deleting a diary entry is lead-only backend-side
+  // (`require_permission("diary-entry", Action.DELETE)`), unlike editing (#1467).
+  const canDeleteEntry = canDelete && !readOnly;
 
   const [entries, setEntries] = useState<PlantDiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -282,6 +285,7 @@ export default function PlantDiaryTab({
               entry={entry}
               canRequestAnalysis={entry.can_request_analysis}
               canWrite={canWrite}
+              canDelete={canDeleteEntry}
               analysisBusy={analysisBusyKey === entry.key}
               onEdit={(target) => {
                 setEditTarget(target);

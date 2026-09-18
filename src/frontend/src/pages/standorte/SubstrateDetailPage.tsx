@@ -34,6 +34,8 @@ import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import BatchCreateDialog from './BatchCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/substrates';
 import Chip from '@mui/material/Chip';
@@ -63,6 +65,11 @@ export default function SubstrateDetailPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const notification = useNotification();
+  // `SubstrateService.delete_substrate`/`delete_batch` are lead-only for an own row
+  // and platform-admin for a global seed row — a grower gets neither (#1467).
+  const { canDelete } = useTenantPermissions();
+  const isPlatformAdmin = usePlatformAdmin();
+  const canDeleteSubstrate = canDelete || isPlatformAdmin;
   const { handleError } = useApiError();
   const [substrate, setSubstrate] = useState<Substrate | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -206,9 +213,11 @@ export default function SubstrateDetailPage() {
           <Button size="small" onClick={(e) => { e.stopPropagation(); checkReusability(r.key); }}>
             {t('pages.substrates.checkReusability')}
           </Button>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteBatchTarget(r); }}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          {canDeleteSubstrate && (
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteBatchTarget(r); }} data-testid="substrate-batch-row-delete-button">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
       ),
     },
@@ -236,9 +245,11 @@ export default function SubstrateDetailPage() {
             </Tooltip>
           )}
         </Box>
-        <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-          {t('common.delete')}
-        </Button>
+        {canDeleteSubstrate && (
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-delete-button">
+            {t('common.delete')}
+          </Button>
+        )}
       </Box>
 
       {substrate?.is_mix && substrate.mix_components?.length > 0 && (

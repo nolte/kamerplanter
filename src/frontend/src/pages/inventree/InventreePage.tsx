@@ -19,6 +19,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { kamiInventree } from '@/assets/brand/illustrations';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useEquipment } from '@/hooks/useEquipment';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -38,6 +39,8 @@ export default function InventreePage() {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `DELETE /equipment/{key}` carries `require_tenant_role(TenantRole.LEAD)` (#1467).
+  const { canDelete } = useTenantPermissions();
   const { equipment, connections, loading, reload } = useEquipment();
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
@@ -148,22 +151,24 @@ export default function InventreePage() {
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={t('common.delete')}>
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => setDeleteTarget(row)}
-                aria-label={t('common.delete')}
-                data-testid={`delete-equipment-${row.key}`}
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {canDelete && (
+              <Tooltip title={t('common.delete')}>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => setDeleteTarget(row)}
+                  aria-label={t('common.delete')}
+                  data-testid={`delete-equipment-${row.key}`}
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Stack>
         ),
       },
     ],
-    [t, handleEdit],
+    [t, handleEdit, canDelete],
   );
 
   return (

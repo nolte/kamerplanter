@@ -90,6 +90,7 @@ export function createStoreWithExpertise(
   { platformAdmin = false }: { platformAdmin?: boolean } = {},
 ): TestStore {
   return createTestStore({
+    ...LEAD_TENANT,
     ...authState({ platformAdmin }),
     userPreferences: {
       preferences: {
@@ -147,7 +148,7 @@ export function authState({ platformAdmin = false }: { platformAdmin?: boolean }
  * writes are offered. Extra preloaded slices are merged on top.
  */
 export function createPlatformAdminStore(preloadedState?: PreloadedState): TestStore {
-  return createTestStore({ ...authState({ platformAdmin: true }), ...(preloadedState ?? {}) });
+  return createTestStore({ ...LEAD_TENANT, ...authState({ platformAdmin: true }), ...(preloadedState ?? {}) });
 }
 
 type ModuleVisibilityState = 'enabled' | 'disabled';
@@ -164,6 +165,7 @@ export function createStoreWithModuleOverrides(
   smartHomeEnabled = false,
 ): TestStore {
   return createTestStore({
+    ...LEAD_TENANT,
     userPreferences: {
       preferences: {
         key: 'pref-1',
@@ -190,11 +192,11 @@ export function createStoreWithModuleOverrides(
  * auth-bootstrap / stale-slug-recovery window, in which the guard must NOT
  * restrict. Pass `createTestStore()` for that case rather than a role here.
  */
-export function createStoreWithTenantRole(
+export function tenantState(
   role: 'viewer' | 'grower' | 'lead',
   adminScopes: readonly string[] = [],
-): TestStore {
-  return createTestStore({
+): PreloadedState {
+  return {
     tenants: {
       activeTenant: {
         key: 'tenant-1',
@@ -214,8 +216,27 @@ export function createStoreWithTenantRole(
       isLoading: false,
       error: null,
     },
-  });
+  };
 }
+
+export function createStoreWithTenantRole(
+  role: 'viewer' | 'grower' | 'lead',
+  adminScopes: readonly string[] = [],
+): TestStore {
+  return createTestStore(tenantState(role, adminScopes));
+}
+
+/**
+ * The membership every convenience store seeds unless the suite says otherwise:
+ * an active tenant in which the acting user is a **lead** (#1467).
+ *
+ * Before #1467 these builders seeded no tenant at all, which made
+ * `useTenantPermissions()` answer `canDelete: false` everywhere. That was
+ * invisible while no control read the flag; the moment the destructive controls
+ * were bound to it, suites were asserting a control no *rendered* user had.
+ * A suite that wants a lower rank still passes `createStoreWithTenantRole`.
+ */
+const LEAD_TENANT = tenantState('lead');
 
 /**
  * Store seeded with the smart-home toggle enabled (issue #587). Sensor/actuator
@@ -223,8 +244,8 @@ export function createStoreWithTenantRole(
  * that UI need this store. Experience level is left unknown (matches the null
  * default), so expertise-gated behaviour is unchanged.
  */
-export function createStoreWithSmartHome(enabled = true): TestStore {
-  return createTestStore({
+export function smartHomeState(enabled = true): PreloadedState {
+  return {
     userPreferences: {
       preferences: {
         smart_home_enabled: enabled,
@@ -232,12 +253,34 @@ export function createStoreWithSmartHome(enabled = true): TestStore {
       loading: false,
       error: null,
     },
-  });
+  };
+}
+
+export function createStoreWithSmartHome(enabled = true): TestStore {
+  return createTestStore({ ...LEAD_TENANT, ...smartHomeState(enabled) });
+}
+
+/**
+ * The store a suite gets when it does not name one.
+ *
+ * Seeds an **active tenant in which the acting user is a lead** (#1467). Before
+ * that issue the default was `createTestStore()` — no active tenant — which made
+ * `useTenantPermissions()` answer `canDelete: false` for every page test. That
+ * was harmless only as long as no production control read the flag; once the
+ * destructive controls were bound to it, ~160 assertions in 29 suites were
+ * asserting a control that a *real* signed-in member does see.
+ *
+ * "No active tenant" stays expressible and stays a *different* input: pass
+ * `createTestStore()` explicitly, which is what the bootstrap / stale-slug
+ * suites already do (see {@link createStoreWithTenantRole}).
+ */
+export function defaultRenderStore(): TestStore {
+  return createTestStore(LEAD_TENANT);
 }
 
 export function renderWithProviders(
   ui: ReactElement,
-  { store = createTestStore(), route = '/' }: { store?: TestStore; route?: string } = {},
+  { store = defaultRenderStore(), route = '/' }: { store?: TestStore; route?: string } = {},
 ) {
   const router = createMemoryRouter(
     [{ path: '*', element: ui }],

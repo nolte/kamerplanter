@@ -31,6 +31,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSuccessionPlans } from '@/store/slices/successionPlansSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as successionApi from '@/api/endpoints/successionPlans';
 import * as speciesApi from '@/api/endpoints/species';
@@ -63,6 +64,8 @@ export default function SuccessionPlanListPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `require_permission(SUCCESSION_PLAN, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
   const { plans, loading } = useAppSelector((s) => s.successionPlans);
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
@@ -236,17 +239,19 @@ export default function SuccessionPlanListPage() {
               <EditIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title={t('common.delete')}>
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => setDeleteKey(p.key)}
-              aria-label={t('common.delete')}
-              data-testid={`delete-plan-${p.key}`}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {canDelete && (
+            <Tooltip title={t('common.delete')}>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => setDeleteKey(p.key)}
+                aria-label={t('common.delete')}
+                data-testid={`delete-plan-${p.key}`}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       ),
     },
@@ -341,14 +346,17 @@ export default function SuccessionPlanListPage() {
               >
                 {t('common.edit')}
               </Button>
-              <Button
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setDeleteKey(p.key)}
-                sx={{ minHeight: 48 }}
-              >
-                {t('common.delete')}
-              </Button>
+              {canDelete && (
+                <Button
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteKey(p.key)}
+                  sx={{ minHeight: 48 }}
+                  data-testid="succession-plan-card-delete-button"
+                >
+                  {t('common.delete')}
+                </Button>
+              )}
             </Box>
           </Box>
         )}
