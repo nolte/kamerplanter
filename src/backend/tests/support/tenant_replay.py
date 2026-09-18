@@ -75,8 +75,13 @@ def apply_predicates(
         if resolve is None or bind_name not in bind_vars:
             continue
         wanted = bind_vars[bind_name]
+        # A *string* bind var is a type error in AQL and a substring test in
+        # Python, so ``doc.origin IN @origins`` with ``@origins='pipelines'``
+        # would quietly select ``pipeline``. Nothing matches instead: the fake
+        # must never select rows the database would not.
+        collection = wanted if isinstance(wanted, (list, tuple, set, frozenset)) else ()
 
-        def contains(row: dict[str, Any], _r=resolve, _f=field, _w=wanted) -> bool:
+        def contains(row: dict[str, Any], _r=resolve, _f=field, _w=collection) -> bool:
             target = _r(row)
             return target is not None and target.get(_f) in _w
 

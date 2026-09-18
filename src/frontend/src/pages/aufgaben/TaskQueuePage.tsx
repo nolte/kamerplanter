@@ -76,6 +76,7 @@ import {
   fetchOverdueTasks,
   fetchCompletedTasks,
   setQueueScope,
+  resetQueue,
   sameQueueScope,
   EMPTY_QUEUE_SCOPE,
 } from '@/store/slices/tasksSlice';
@@ -292,12 +293,14 @@ export default function TaskQueuePage() {
   }, [dispatch]);
 
   // One writer for all three, so a filter control cannot narrow the page without
-  // narrowing the query: there is no other way to move a filter.
+  // narrowing the query: there is no other way to move a filter. The patch is
+  // merged by the reducer, not here — composing it against a render-time copy is
+  // what let "clear all filters" lose two of its three changes.
   const patchScope = useCallback(
     (patch: Partial<QueueScope>) => {
-      dispatch(setQueueScope({ ...queueScope, ...patch }));
+      dispatch(setQueueScope(patch));
     },
-    [dispatch, queueScope],
+    [dispatch],
   );
 
   const setFilterPlantKey = useCallback(
@@ -312,11 +315,18 @@ export default function TaskQueuePage() {
     (origin: OriginFilter) => patchScope({ origin }),
     [patchScope],
   );
+  // One patch, not three: three dispatches would each be merged in turn and work
+  // as well now, but saying "no filters" once is what the button means, and it
+  // issues one query instead of three.
+  const clearFilters = useCallback(() => patchScope(EMPTY_QUEUE_SCOPE), [patchScope]);
 
-  // The scope is store state, so it outlives this page unless it is cleared;
-  // a fresh visit must start on the whole tenant, not on the selection made last
-  // time — which the filter bar would not even be showing.
-  useEffect(() => () => { dispatch(setQueueScope(EMPTY_QUEUE_SCOPE)); }, [dispatch]);
+  // The queue is store state, so it outlives this page unless it is cleared. Both
+  // halves have to go: a fresh visit must start on the whole tenant rather than
+  // on the selection made last time (which the filter bar would not even be
+  // showing), and the narrowed *rows* must not stay behind either — the kiosk
+  // start screen counts `taskQueue` as "open tasks", so a filtered list left
+  // standing is a wrong number on another screen.
+  useEffect(() => () => { dispatch(resetQueue()); }, [dispatch]);
 
   // Only the async callbacks touch state here: the first call comes from an
   // effect, and `plantsLoading` already starts true. 200 is the endpoint's
@@ -657,6 +667,13 @@ export default function TaskQueuePage() {
       // The origin filter selects on *task* provenance; care reminders are a
       // distinct source, so any non-"all" origin selection hides them.
       if (originFilter !== 'all') continue;
+      // The same rule for the category, and it is load-bearing twice over
+      // (#1503). A care reminder carries no category, so a selection other than
+      // `care_reminder` is not about this source — and the de-duplication below
+      // reads its index out of `taskQueue`, which under such a scope contains no
+      // care rows at all. Without this line every reminder already covered by a
+      // care_reminder task would reappear as a second card.
+      if (filterCategory && filterCategory !== 'care_reminder') continue;
       // `GET /care-reminders/dashboard` takes only `hemisphere` — there is no
       // plant, category or origin scope to ask for, so this source stays
       // narrowed client-side. That is a deliberate asymmetry, not an oversight
@@ -685,7 +702,7 @@ export default function TaskQueuePage() {
     }
 
     return items;
-  }, [taskQueue, careDashboard, filterPlantKey, originFilter]);
+  }, [taskQueue, careDashboard, filterCategory, filterPlantKey, originFilter]);
 
   // Apply source filter
   const filtered = useMemo(() => {
@@ -1608,7 +1625,7 @@ export default function TaskQueuePage() {
             <Button
               size="small"
               startIcon={<ClearIcon />}
-              onClick={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
+              onClick={clearFilters}
               data-testid="clear-filters-button"
               sx={{ minHeight: 36, whiteSpace: 'nowrap' }}
             >
@@ -1724,7 +1741,7 @@ export default function TaskQueuePage() {
                 message={filteredEmptyMessage}
                 description={t('pages.tasks.noTasksFilteredDesc')}
                 actionLabel={t('common.clearFilters')}
-                onAction={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
+                onAction={clearFilters}
               />
             ) : (
               <EmptyState

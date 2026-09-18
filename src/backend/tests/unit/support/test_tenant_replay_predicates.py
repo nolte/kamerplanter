@@ -65,6 +65,22 @@ class TestTheInShape:
 
         assert _keys(result) == ["c"]
 
+    def test_a_string_bind_var_matches_nothing_rather_than_by_substring(self):
+        """``in`` over a *string* is a substring test in Python and a type error
+        in AQL. Left alone, ``doc.origin IN @origins`` with ``@origins='pipeline'``
+        would quietly select every row whose origin is a substring of it — the
+        double would be *looser* than the database it stands in for, which is the
+        one direction a fake must never be."""
+        result = apply_predicates(ROWS, "FOR doc IN tasks FILTER doc.origin IN @origins", {"origins": "pipelines"})
+
+        assert result == []
+
+    def test_a_tuple_or_set_is_a_collection_like_a_list(self):
+        for wanted in (("user", "system"), {"user", "system"}):
+            result = apply_predicates(ROWS, "FOR doc IN tasks FILTER doc.origin IN @origins", {"origins": wanted})
+
+            assert _keys(result) == ["a", "b"]
+
     def test_an_unbound_list_variable_is_skipped_rather_than_guessed_at(self):
         result = apply_predicates(ROWS, "FOR doc IN tasks FILTER doc.origin IN @origins", {})
 

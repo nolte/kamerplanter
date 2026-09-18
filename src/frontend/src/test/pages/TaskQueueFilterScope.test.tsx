@@ -20,7 +20,7 @@ import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
-import type { TaskItem } from '@/api/types';
+import type { PlantInstance, TaskItem } from '@/api/types';
 import { MACHINE_TASK_ORIGINS } from '@/api/types';
 
 vi.mock('react-router-dom', async (orig) => {
@@ -108,26 +108,68 @@ function rowsWithTargetPastTheCap(target: Partial<TaskItem>): TaskItem[] {
   return [...fillers, makeTask({ key: 'target', name: TARGET_NAME, name_de: TARGET_NAME, ...target })];
 }
 
-/** Every `(category, origins)` pair the page sent to `GET /tasks/queue`. */
-let queueQueries: { category: string | null; origins: string[] }[] = [];
+/** Every `(plantKey, category, origins)` triple the page sent to `GET /tasks/queue`. */
+let queueQueries: { plantKey: string | null; category: string | null; origins: string[] }[] = [];
 /** The same for `GET /tasks`, the completed list. */
-let completedQueries: { category: string | null; origins: string[] }[] = [];
+let completedQueries: { plantKey: string | null; category: string | null; origins: string[] }[] = [];
+
+const FILTER_PLANT_KEY = 'plant-1';
+const FILTER_PLANT_NAME = 'Feige Gustav';
+
+/** The one plant the filter offers; enough to drive the plant scope. */
+const PLANTS_FIXTURE = [
+  {
+    key: FILTER_PLANT_KEY,
+    instance_id: 'FIG-1',
+    species_key: 'species-1',
+    cultivar_key: null,
+    site_key: null,
+    location_key: null,
+    slot_key: null,
+    substrate_batch_key: null,
+    substrate_key: null,
+    plant_name: FILTER_PLANT_NAME,
+    planted_on: '2024-01-01',
+    removed_on: null,
+    termination_type: null,
+    termination_cause: null,
+    current_phase: 'vegetative',
+    current_phase_key: null,
+    current_phase_started_at: null,
+    container_volume_liters: null,
+    substrate_type_override: null,
+    species: null,
+    cultivar: null,
+    mother_key: null,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: null,
+  },
+] as unknown as PlantInstance[];
 
 function narrow(rows: TaskItem[], url: URL): TaskItem[] {
   const category = url.searchParams.get('category');
   const origins = url.searchParams.getAll('origin');
+  const plantKey = url.searchParams.get('plant_key') ?? url.searchParams.get('entity_key');
   return rows.filter(
-    (t) => (!category || t.category === category) && (!origins.length || origins.includes(t.origin)),
+    (t) =>
+      (!category || t.category === category) &&
+      (!origins.length || origins.includes(t.origin)) &&
+      (!plantKey || t.entity_key === plantKey),
   );
 }
 
-function seed(queueRows: TaskItem[], completedRows: TaskItem[] = []) {
+/** Care-dashboard entries the page merges into the same list as the tasks. */
+let careEntries: unknown[] = [];
+
+function seed(queueRows: TaskItem[], completedRows: TaskItem[] = [], care: unknown[] = []) {
+  careEntries = care;
   queueQueries = [];
   completedQueries = [];
   server.use(
     http.get(`${TASKS}/queue`, ({ request }) => {
       const url = new URL(request.url);
       queueQueries.push({
+        plantKey: url.searchParams.get('plant_key'),
         category: url.searchParams.get('category'),
         origins: url.searchParams.getAll('origin'),
       });
@@ -136,11 +178,12 @@ function seed(queueRows: TaskItem[], completedRows: TaskItem[] = []) {
       return HttpResponse.json(narrow(queueRows, url).slice(0, CAP));
     }),
     http.get(`${TASKS}/overdue`, () => HttpResponse.json([])),
-    http.get(`${CARE}/dashboard`, () => HttpResponse.json([])),
-    http.get(PLANTS, () => HttpResponse.json([])),
+    http.get(`${CARE}/dashboard`, () => HttpResponse.json(careEntries)),
+    http.get(PLANTS, () => HttpResponse.json(PLANTS_FIXTURE)),
     http.get(TASKS, ({ request }) => {
       const url = new URL(request.url);
       completedQueries.push({
+        plantKey: url.searchParams.get('entity_key'),
         category: url.searchParams.get('category'),
         origins: url.searchParams.getAll('origin'),
       });
@@ -237,22 +280,142 @@ describe('TaskQueuePage — category and origin are server-side scopes (#1503)',
       expect(await screen.findByText(TARGET_NAME)).toBeInTheDocument();
       await waitFor(() => expect(screen.queryByText('Köder')).not.toBeInTheDocument());
       expect(queueQueries[queueQueries.length - 1]).toEqual({
+        plantKey: null,
         category: 'ipm',
         origins: [...MACHINE_TASK_ORIGINS],
       });
     });
   });
 
+  describe('clearing the filters', () => {
+    it('drops every scope in one query, not only the one applied last', async () => {
+      // Three setters in one handler. While each of them composed the next scope
+      // from a render-time copy, the last dispatch won and the two before it were
+      // lost — the chips for plant and category stayed and the query kept
+      // carrying them, which is worse than not offering the button.
+      seed(rowsWithTargetPastTheCap({ category: 'ipm' }));
+      renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+      await screen.findByText('Füller 0');
+
+      await selectCategory('ipm');
+      await waitFor(() => expect(screen.getByTestId('active-filter-category')).toBeInTheDocument());
+      const plantInput = within(screen.getByTestId('filter-plant')).getByRole('combobox');
+      await userEvent.click(plantInput);
+      await userEvent.type(plantInput, 'Feige');
+      await userEvent.click(await screen.findByRole('option', { name: new RegExp(FILTER_PLANT_NAME, 'i') }));
+      await waitFor(() => expect(screen.getByTestId('active-filter-plant')).toBeInTheDocument());
+      await userEvent.click(screen.getByTestId('filter-origin-machine'));
+      await waitFor(() => expect(screen.getByTestId('active-filter-origin')).toBeInTheDocument());
+
+      await userEvent.click(screen.getByTestId('clear-filters-button'));
+
+      // Every chip is gone…
+      await waitFor(() => expect(screen.queryByTestId('active-filter-origin')).not.toBeInTheDocument());
+      expect(screen.queryByTestId('active-filter-category')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('active-filter-plant')).not.toBeInTheDocument();
+      // …and so is every parameter, in the query the page actually issued.
+      await waitFor(() => {
+        const last = queueQueries[queueQueries.length - 1];
+        expect(last).toEqual({ plantKey: null, category: null, origins: [] });
+      });
+    });
+  });
+
+  describe('the care source under a category scope', () => {
+    // The care dashboard is *not* narrowed server-side (it is a projection over
+    // at most 500 plants, not a capped page), so the page still narrows it. Two
+    // things have to hold once the queue is narrowed server-side.
+    const CARE_ENTRY = {
+      plant_key: 'plant-1',
+      plant_name: 'Feige Gustav',
+      reminder_type: 'watering',
+      urgency: 'due',
+      due_date: '2026-01-01',
+      days_until_due: 0,
+    };
+
+    it('hides the care entries when a category other than care_reminder is picked', async () => {
+      seed(rowsWithTargetPastTheCap({ category: 'ipm' }), [], [CARE_ENTRY]);
+      renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+      await screen.findByText('Füller 0');
+      // Care entries render as their own card; unfiltered they are on the page.
+      expect(await screen.findByTestId('care-card-care-plant-1-watering')).toBeInTheDocument();
+
+      await selectCategory('ipm');
+
+      expect(await screen.findByText(TARGET_NAME)).toBeInTheDocument();
+      // A category selection is a statement about what the user wants to see. The
+      // care source carries no category, so anything but `care_reminder` excludes
+      // it — the same rule the origin filter already applies.
+      expect(screen.queryByTestId('care-card-care-plant-1-watering')).not.toBeInTheDocument();
+    });
+
+    it('does not double the card when care_reminder itself is the scope', async () => {
+      // The page de-duplicates a care entry against the care_reminder *task* that
+      // already covers it, and it builds that dedup index out of `taskQueue`. Once
+      // the queue is narrowed server-side, the index is only populated when the
+      // scope actually contains care rows — which is exactly this case.
+      const careTask = makeTask({
+        key: 'care-task',
+        name: 'Feige Gustav — watering',
+        name_de: 'Feige Gustav — watering',
+        category: 'care_reminder',
+        entity_type: 'plant_instance',
+        entity_key: 'plant-1',
+      });
+      seed([careTask], [], [CARE_ENTRY]);
+      renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+      await screen.findByText('Feige Gustav — watering');
+
+      await selectCategory('care_reminder');
+
+      await waitFor(() => expect(queueQueries.map((q) => q.category)).toContain('care_reminder'));
+      expect(await screen.findByText('Feige Gustav — watering')).toBeInTheDocument();
+      // One card for the reminder, not one per source.
+      expect(screen.queryByTestId('care-card-care-plant-1-watering')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('leaving the page', () => {
+    it('does not leave the narrowed rows behind for another screen to count', async () => {
+      // `state.tasks.taskQueue` is read outside this page — the kiosk start screen
+      // shows its length as "open tasks" — so a list narrowed to one category and
+      // then abandoned is a wrong number somewhere else. Clearing the scope alone
+      // would not have helped: the rows are what is read.
+      seed(rowsWithTargetPastTheCap({ category: 'ipm' }));
+      const { store, unmount } = renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+      await screen.findByText('Füller 0');
+      await selectCategory('ipm');
+      await waitFor(() => expect(store.getState().tasks.taskQueue).toHaveLength(1));
+
+      unmount();
+
+      expect(store.getState().tasks.taskQueue).toEqual([]);
+      expect(store.getState().tasks.queueScope).toEqual({
+        plantKey: null,
+        category: null,
+        origin: 'all',
+      });
+      // …and the next visit shows its skeleton rather than an empty list that
+      // reads like an answer.
+      expect(store.getState().tasks.queueLoaded).toBe(false);
+    });
+  });
+
   describe('the completed list', () => {
-    it('carries the same scope into its own query', async () => {
+    it('reaches a completed task the cap had dropped, in its own section', async () => {
+      // Its own name, asserted inside the completed section: the queue above it
+      // holds a row matching the same filter, and a page-wide text query would be
+      // satisfied by *that* row while the completed list stayed unnarrowed.
+      const COMPLETED_TARGET = 'Ernte dokumentiert';
       const completed = [
         ...Array.from({ length: CAP }, (_, i) =>
           makeTask({ key: `done-${i}`, name: `Erledigt ${i}`, name_de: `Erledigt ${i}`, status: 'completed' }),
         ),
         makeTask({
           key: 'done-target',
-          name: TARGET_NAME,
-          name_de: TARGET_NAME,
+          name: COMPLETED_TARGET,
+          name_de: COMPLETED_TARGET,
           status: 'completed',
           category: 'ipm',
         }),
@@ -262,13 +425,22 @@ describe('TaskQueuePage — category and origin are server-side scopes (#1503)',
       await screen.findByText('Füller 0');
 
       await userEvent.click(within(screen.getByTestId('show-completed-toggle')).getByRole('switch'));
-      await screen.findByText('Erledigt 0');
+      const section = await screen.findByTestId('task-section-completed');
+      await within(section).findByText('Erledigt 0');
+      // The premise: unfiltered, the completed answer is capped and the target is
+      // genuinely absent from it.
+      expect(within(section).queryByText(COMPLETED_TARGET)).not.toBeInTheDocument();
+
       await selectCategory('ipm');
 
       await waitFor(() => expect(completedQueries.map((q) => q.category)).toContain('ipm'));
-      // The completed row past the cap is on the page — which is only possible
-      // because the *query* carried the category.
-      expect(await screen.findAllByText(TARGET_NAME)).not.toHaveLength(0);
+      expect(
+        await within(screen.getByTestId('task-section-completed')).findByText(COMPLETED_TARGET),
+      ).toBeInTheDocument();
+      // …and the rows the category excludes are gone from that section.
+      expect(
+        within(screen.getByTestId('task-section-completed')).queryByText('Erledigt 0'),
+      ).not.toBeInTheDocument();
     });
   });
 });

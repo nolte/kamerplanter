@@ -34,8 +34,18 @@ export interface QueueScope {
   origin: OriginFilter;
 }
 
-/** The whole tenant, every category, every origin. */
-export const EMPTY_QUEUE_SCOPE: QueueScope = { plantKey: null, category: null, origin: 'all' };
+/**
+ * The whole tenant, every category, every origin.
+ *
+ * Frozen because it is a shared module-level object that call sites spread from
+ * and hand to a reducer: a mutation would silently redefine "no filters" for
+ * every page that reads it.
+ */
+export const EMPTY_QUEUE_SCOPE: QueueScope = Object.freeze({
+  plantKey: null,
+  category: null,
+  origin: 'all',
+});
 
 /**
  * Structural comparison — the stamping below matches answers against the scope
@@ -93,6 +103,18 @@ interface TasksState {
   /** The scope the rows currently in `completedTasks` were fetched for. */
   completedTasksScope: QueueScope;
   /**
+   * The `requestId` of the most recently *started* queue query, and the same for
+   * the completed list.
+   *
+   * The scope stamp alone cannot order two queries for the **same** scope: going
+   * A → B → A leaves the first A's answer indistinguishable from the second's,
+   * so the older one can land last and overwrite the fresher rows for good.
+   * `createAsyncThunk` mints a `requestId` per dispatch, so "is this the answer
+   * to the query now in flight" is decidable without a counter of our own.
+   */
+  pendingQueueRequestId: string | null;
+  pendingCompletedRequestId: string | null;
+  /**
    * Queue-only loading flag. `loading` is shared with the workflow and task
    * list thunks, so a page showing the queue could not tell whose request was
    * in flight — and the queue is the one list that now reloads on a filter pick.
@@ -118,6 +140,8 @@ const initialState: TasksState = {
   queueScope: EMPTY_QUEUE_SCOPE,
   taskQueueScope: EMPTY_QUEUE_SCOPE,
   completedTasksScope: EMPTY_QUEUE_SCOPE,
+  pendingQueueRequestId: null,
+  pendingCompletedRequestId: null,
   queueLoading: false,
   queueError: null,
   queueLoaded: false,
@@ -260,16 +284,48 @@ const tasksSlice = createSlice({
       state.error = null;
     },
     /**
-     * Replace what both lists ask the server for. The querying effect keys on
+     * Change what both lists ask the server for. The querying effect keys on
      * these values; the answers are matched against them, so a scope change
      * invalidates whatever is still in flight.
      *
-     * A scope identical to the current one is a no-op rather than a fresh
-     * object, so re-selecting the value already active does not re-query.
+     * The payload is a **patch**, merged against the state, and that is load-
+     * bearing rather than convenience. While the caller composed the next scope
+     * itself, three filter changes dispatched from one handler — "clear all
+     * filters" — each composed from the same render-time copy, so the last
+     * dispatch overwrote the two before it and the cleared filters came back.
+     * Merging here means a sequence of patches composes no matter where the
+     * caller read the previous scope, or whether it read one at all.
+     *
+     * A patch that changes nothing is a no-op rather than a fresh object, so
+     * re-selecting the value already active does not re-query.
      */
-    setQueueScope(state, action: PayloadAction<QueueScope>) {
-      if (sameQueueScope(state.queueScope, action.payload)) return;
-      state.queueScope = action.payload;
+    setQueueScope(state, action: PayloadAction<Partial<QueueScope>>) {
+      const next = { ...state.queueScope, ...action.payload };
+      if (sameQueueScope(state.queueScope, next)) return;
+      state.queueScope = next;
+      state.queueError = null;
+      state.completedTasksError = null;
+    },
+
+    /**
+     * Forget the queue rows themselves, not only the scope.
+     *
+     * `taskQueue` is read outside this page — the kiosk start screen counts it
+     * as "open tasks" — so a narrowed list left standing after the queue page
+     * unmounts is a wrong number on another screen. Clearing the scope alone
+     * would not have helped: the rows are what is read.
+     */
+    resetQueue(state) {
+      // The ids go too: an answer still in flight when the page unmounts must not
+      // repopulate the list the next screen is about to read.
+      state.pendingQueueRequestId = null;
+      state.pendingCompletedRequestId = null;
+      state.taskQueue = [];
+      state.taskQueueScope = EMPTY_QUEUE_SCOPE;
+      state.completedTasks = [];
+      state.completedTasksScope = EMPTY_QUEUE_SCOPE;
+      state.queueScope = EMPTY_QUEUE_SCOPE;
+      state.queueLoaded = false;
       state.queueError = null;
       state.completedTasksError = null;
     },
@@ -314,18 +370,22 @@ const tasksSlice = createSlice({
         state.currentTask = action.payload;
       })
       // Task queue
-      .addCase(fetchTaskQueue.pending, (state) => {
+      .addCase(fetchTaskQueue.pending, (state, action) => {
         state.queueLoading = true;
         state.queueError = null;
+        state.pendingQueueRequestId = action.meta.requestId;
       })
       .addCase(fetchTaskQueue.fulfilled, (state, action) => {
-        // An answer to a scope the user has since left is dropped, not applied.
-        // Letting it win by arriving last is a real race and not a symmetric
-        // one: the unscoped query is the slow branch (the backend resolves
-        // blocking tasks per row over up to 200 rows), so "whole tenant → one
-        // plant" reliably ended with the tenant's rows under the plant's chip.
+        // Anything but the answer to the query now in flight is dropped, not
+        // applied. Letting an older answer win by arriving last is a real race
+        // and not a symmetric one: the unscoped query is the slow branch (the
+        // backend resolves blocking tasks per row over up to 200 rows), so
+        // "whole tenant → one plant" reliably ended with the tenant's rows under
+        // the plant's chip. The request id decides, because the scope alone
+        // cannot order two queries that ask the same question (A → B → A).
         // Leaving `queueLoading` alone here is deliberate: the newer query is
         // still running, and it owns the flag.
+        if (action.meta.requestId !== state.pendingQueueRequestId) return;
         if (!sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.queueLoading = false;
         state.queueLoaded = true;
@@ -335,6 +395,7 @@ const tasksSlice = createSlice({
       .addCase(fetchTaskQueue.rejected, (state, action) => {
         // `payload` is absent only when the thunk threw outside its own catch,
         // in which case there is no scope to compare and the failure is current.
+        if (action.meta.requestId !== state.pendingQueueRequestId) return;
         if (action.payload && !sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.queueLoading = false;
         state.queueLoaded = true;
@@ -346,17 +407,20 @@ const tasksSlice = createSlice({
       })
       // Completed tasks (separate loading flag so the queue skeleton is not
       // triggered when the "show completed" toggle lazily loads this list)
-      .addCase(fetchCompletedTasks.pending, (state) => {
+      .addCase(fetchCompletedTasks.pending, (state, action) => {
         state.completedTasksLoading = true;
         state.completedTasksError = null;
+        state.pendingCompletedRequestId = action.meta.requestId;
       })
       .addCase(fetchCompletedTasks.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.pendingCompletedRequestId) return;
         if (!sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.completedTasksLoading = false;
         state.completedTasks = action.payload.tasks;
         state.completedTasksScope = action.payload.scope;
       })
       .addCase(fetchCompletedTasks.rejected, (state, action) => {
+        if (action.meta.requestId !== state.pendingCompletedRequestId) return;
         if (action.payload && !sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.completedTasksLoading = false;
         // Dropping this message turned every failure into "no completed tasks".
@@ -365,5 +429,5 @@ const tasksSlice = createSlice({
   },
 });
 
-export const { clearCurrentTask, clearError, setQueueScope } = tasksSlice.actions;
+export const { clearCurrentTask, clearError, setQueueScope, resetQueue } = tasksSlice.actions;
 export default tasksSlice.reducer;

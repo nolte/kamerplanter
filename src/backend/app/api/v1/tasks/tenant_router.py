@@ -41,7 +41,7 @@ from app.api.v1.tasks.schemas import (
 )
 from app.common.auth import get_current_tenant, get_current_user, require_permission
 from app.common.dependencies import get_task_entity_guard, get_task_service
-from app.common.enums import TaskCategory, TaskOrigin
+from app.common.enums import TaskCategory, TaskOrigin, TaskStatus
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
@@ -353,8 +353,8 @@ def delete_task_template(
 @router.get("", response_model=list[TaskResponse])
 def list_tasks(
     pagination: PaginationParams = Depends(get_pagination),
-    status: str | None = Query(default=None, description="Filter by task status."),
-    category: str | None = Query(default=None, description="Filter by task category."),
+    status: TaskStatus | None = Query(default=None, description="Filter by task status."),
+    category: TaskCategory | None = Query(default=None, description="Filter by task category."),
     entity_type: str | None = Query(default=None, description="Filter by linked entity type."),
     entity_key: str | None = Query(default=None, description="Filter by linked entity key."),
     origin: list[TaskOrigin] | None = Query(
@@ -372,6 +372,12 @@ def list_tasks(
     ``origin`` was the one narrowing the completed-task list still had to do over
     the answer, and this list is capped too (the page asks for 100 rows), so the
     same #1503 argument applies: the predicate belongs in the query.
+
+    ``status`` and ``category`` are typed as their enums for the reason REQ-006
+    gives for the new parameters: a value the store cannot hold is rejected at the
+    boundary. As free strings they answered **200 with an empty list**, so a typo
+    (``complete`` for ``completed``) was indistinguishable from "no such tasks" —
+    the failure mode the whole #1503 class is about, one layer up.
     """
     filters: dict[str, str] = {}
     if status:

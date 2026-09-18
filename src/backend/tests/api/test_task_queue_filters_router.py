@@ -45,6 +45,7 @@ FOREIGN_TENANT_KEY = "tenant-b"
 QUEUE_CAP = 200
 
 OWN_PLANT = "plant-a1"
+OWN_RUN = "run-a1"
 
 #: Text that must never reach a caller of the other tenant.
 FOREIGN_MARKER = "geheime-fremde-notiz"
@@ -62,6 +63,16 @@ def _url(path: str) -> str:
 
 
 def _task(key: str, **overrides: Any) -> dict[str, Any]:
+    """A pending task of the caller's tenant.
+
+    ``entity_type`` is ``planting_run`` rather than ``plant_instance`` on
+    purpose. ``get_all_tasks`` carries an orphan guard that resolves
+    ``DOCUMENT(plant_instances/<entity_key>)`` for every plant-anchored row and
+    drops the ones whose plant is gone. The replaying double does not model
+    ``DOCUMENT``, so a plant-anchored fixture would pass here and return **no**
+    rows at all against a real database — a green test about a query that
+    answers nothing. The plant-branch cases below opt in explicitly, and say so.
+    """
     doc = {
         "_key": key,
         "_id": f"{col.TASKS}/{key}",
@@ -69,8 +80,8 @@ def _task(key: str, **overrides: Any) -> dict[str, Any]:
         "name": f"Task {key}",
         "category": "maintenance",
         "origin": "user",
-        "entity_type": "plant_instance",
-        "entity_key": OWN_PLANT,
+        "entity_type": "planting_run",
+        "entity_key": OWN_RUN,
         "status": "pending",
         "due_date": "2026-08-03T06:00:00+00:00",
     }
@@ -112,8 +123,11 @@ def _keys(resp) -> list[str]:
 def _rows_with_target_past_the_cap(**target_fields: str) -> tuple[list[dict[str, Any]], str]:
     """``QUEUE_CAP`` ordinary rows, then one carrying ``target_fields``.
 
-    The order is the one the queue's ``SORT doc.due_date ASC`` produces, so the
-    target really is the row the ``LIMIT`` drops.
+    The double pages the list in the order it is given — it does not sort — so
+    the ordering here *is* the one the ``LIMIT`` cuts. The ``due_date`` values
+    are chosen so that the real query's ``SORT doc.due_date ASC`` would produce
+    the same order, and the target is therefore the row a real database drops
+    too.
     """
     fillers = [_task(f"filler-{i:03d}", due_date=f"2026-08-03T06:00:{i % 60:02d}+00:00") for i in range(QUEUE_CAP)]
     target = _task("target", due_date="2026-09-01T06:00:00+00:00", **target_fields)
@@ -194,10 +208,15 @@ class TestTheOriginFilterReachesPastTheCap:
 class TestTheFiltersComposeWithTheOtherScopes:
     def test_the_plant_branch_takes_the_category_too(self):
         """The plant branch is uncapped, but a filter that only exists on one of
-        the two branches is a filter the page cannot rely on."""
+        the two branches is a filter the page cannot rely on.
+
+        These two rows are plant-anchored because the branch under test selects
+        on exactly that anchor; they do not travel through ``get_all_tasks`` and
+        its orphan guard, so the anchor costs nothing here.
+        """
         rows = [
-            _task("a", category="ipm"),
-            _task("b", category="maintenance"),
+            _task("a", category="ipm", entity_type="plant_instance", entity_key=OWN_PLANT),
+            _task("b", category="maintenance", entity_type="plant_instance", entity_key=OWN_PLANT),
         ]
         client = _client(rows)
 
@@ -208,8 +227,8 @@ class TestTheFiltersComposeWithTheOtherScopes:
 
     def test_the_plant_branch_takes_the_origin_too(self):
         rows = [
-            _task("a", origin="system"),
-            _task("b", origin="user"),
+            _task("a", origin="system", entity_type="plant_instance", entity_key=OWN_PLANT),
+            _task("b", origin="user", entity_type="plant_instance", entity_key=OWN_PLANT),
         ]
         client = _client(rows)
 
@@ -228,7 +247,7 @@ class TestTheFiltersComposeWithTheOtherScopes:
                 category="ipm",
                 tenant_key=FOREIGN_TENANT_KEY,
                 name=FOREIGN_MARKER,
-                entity_key="plant-b1",
+                entity_key="run-b1",
             ),
         ]
         client = _client(rows)
@@ -289,6 +308,41 @@ class TestTheCompletedListTakesAnOriginToo:
 
         assert resp.status_code == 200, resp.text
         assert sorted(_keys(resp)) == ["pipe", "sys"]
+
+    def test_an_unknown_status_is_422_rather_than_an_empty_list(self):
+        """The same boundary rule the new parameters follow (REQ-006). ``status``
+        and ``category`` predate #1503 as free strings, which meant a typo —
+        ``complete`` for ``completed`` — answered **200 with an empty list**: a
+        caller cannot tell "no such tasks" from "no such status"."""
+        client = _client([_task("done", status="completed")])
+
+        resp = client.get(_url("/tasks"), params={"status": "complete"})
+
+        assert resp.status_code == 422, resp.text
+
+    def test_an_unknown_category_is_422_rather_than_an_empty_list(self):
+        client = _client([_task("a", category="ipm")])
+
+        resp = client.get(_url("/tasks"), params={"category": "not-a-category"})
+
+        assert resp.status_code == 422, resp.text
+
+    def test_the_values_the_ui_actually_sends_still_answer(self):
+        """The other half of the boundary: tightening a published parameter must
+        not reject what the product sends. These are the exact triples the pages
+        issue (`TaskQueuePage` completed list, `PlantInstanceDetailPage` care
+        reminders)."""
+        rows = [_task("done", status="completed"), _task("care", category="care_reminder")]
+        client = _client(rows)
+
+        assert client.get(_url("/tasks"), params={"status": "completed"}).status_code == 200
+        assert (
+            client.get(
+                _url("/tasks"),
+                params={"status": "pending", "category": "care_reminder"},
+            ).status_code
+            == 200
+        )
 
     def test_an_unknown_origin_is_422_there_as_well(self):
         client = _client([])
