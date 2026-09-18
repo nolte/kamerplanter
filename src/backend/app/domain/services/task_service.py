@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -23,6 +24,14 @@ from app.domain.models.task import (
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 
 logger = structlog.get_logger(__name__)
+
+#: Rows the unscoped task queue answers with at most.
+#:
+#: Named rather than inline because it is the number the whole #1484/#1503 class
+#: turns on: anything past this cut is invisible to a caller that narrows the
+#: answer, so every filter has to be asked of the *server* — and a reader of
+#: either layer has to be able to find the cap that makes that true.
+QUEUE_LIMIT = 200
 
 # ── Update allow-lists (mass assignment, #965) ──
 #
@@ -913,8 +922,16 @@ class TaskService:
         limit: int = 50,
         filters: dict | None = None,
         tenant_key: str = "",
+        *,
+        origins: Sequence[str] | None = None,
     ) -> tuple[list[Task], int]:
-        return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key)
+        """The tenant's tasks, paged and narrowed.
+
+        ``origins`` is separate from ``filters`` for the reason spelled out on
+        :meth:`ITaskRepository.get_all_tasks`: the provenance filter is a
+        partition over several values, not one equality (#1503).
+        """
+        return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key, origins=origins)
 
     @staticmethod
     def _require_tenant_key(tenant_key: str, method: str) -> None:
@@ -1564,18 +1581,37 @@ class TaskService:
 
     # ── Task Queue ──
 
-    def get_task_queue(self, plant_key: str | None = None, *, tenant_key: str) -> list[Task]:
-        """The prioritised task queue of one tenant (#927).
+    def get_task_queue(
+        self,
+        plant_key: str | None = None,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """The prioritised task queue of one tenant (#927, #1503).
 
         Both branches are tenant-scoped: the per-plant one because ``plant_key``
         comes from a query parameter and used to select across tenants, the
         unfiltered one because it used to return the whole installation's pending
         tasks.
+
+        ``category`` and ``origins`` are narrowings of the **query**, not of its
+        answer. The unscoped branch is capped at :data:`QUEUE_LIMIT` rows, so a
+        caller that fetched the page and filtered it afterwards could only ever
+        see what the cap had already let through — a task matching the filter but
+        sorting past the cut simply was not in the payload (#1503, the shape
+        #1484 closed for ``plant_key``). Both are threaded into the query the
+        same way ``plant_key`` is, and both apply to either branch.
         """
         if plant_key:
-            tasks = self._repo.get_tasks_for_plant(plant_key, "pending", tenant_key=tenant_key)
+            tasks = self._repo.get_tasks_for_plant(
+                plant_key, "pending", tenant_key=tenant_key, category=category, origins=origins
+            )
         else:
-            tasks, _ = self._repo.get_pending_tasks(0, 200, tenant_key=tenant_key)
+            tasks, _ = self._repo.get_pending_tasks(
+                0, QUEUE_LIMIT, tenant_key=tenant_key, category=category, origins=origins
+            )
 
         # Deduplicate care_reminder tasks: keep only the newest per entity_key + name suffix
         tasks = self._deduplicate_care_tasks(tasks)

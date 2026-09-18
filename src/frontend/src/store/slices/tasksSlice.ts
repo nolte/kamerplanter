@@ -2,24 +2,60 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type {
   TaskItem,
+  TaskOrigin,
   TaskTemplate,
   WorkflowTemplate,
 } from '@/api/types';
-import { PLANT_INSTANCE_ENTITY_TYPE } from '@/api/types';
+import { MACHINE_TASK_ORIGINS, PLANT_INSTANCE_ENTITY_TYPE } from '@/api/types';
 import * as api from '@/api/endpoints/tasks';
 
 /**
+ * REQ-006: which tasks the user asked to see, by provenance. `machine` is a
+ * *partition* over {@link MACHINE_TASK_ORIGINS} rather than one origin value —
+ * see {@link originsFor}.
+ */
+export type OriginFilter = 'all' | 'machine' | 'user';
+
+/**
  * What the task queue and the completed list are currently asking the server
- * for: one plant instance, or the whole tenant.
+ * for: which plant, which category, whose provenance — or the whole tenant.
  *
  * The scope lives in the store rather than travelling as a thunk argument, and
- * that is the point (#1484). Both lists are capped server-side — 200 rows for
- * the queue, 100 for the completed list — so narrowing them in the component is
- * not a filter but a guess about what the cap left behind. Reading the scope
+ * that is the point (#1484, #1503). Both lists are capped server-side — 200 rows
+ * for the queue, 100 for the completed list — so narrowing them in the component
+ * is not a filter but a guess about what the cap left behind. Reading the scope
  * from the state means a call site cannot pass the wrong one, or forget it:
- * there is no argument to get wrong.
+ * there is no argument to get wrong, and a filter added to this object is asked
+ * of the server by construction rather than by remembering to.
  */
-export type QueueScope = string | null;
+export interface QueueScope {
+  plantKey: string | null;
+  category: string | null;
+  origin: OriginFilter;
+}
+
+/** The whole tenant, every category, every origin. */
+export const EMPTY_QUEUE_SCOPE: QueueScope = { plantKey: null, category: null, origin: 'all' };
+
+/**
+ * Structural comparison — the stamping below matches answers against the scope
+ * they were fetched for, and a `!==` on an object would call every answer stale
+ * because each patch produces a fresh object.
+ */
+export function sameQueueScope(a: QueueScope, b: QueueScope): boolean {
+  return a.plantKey === b.plantKey && a.category === b.category && a.origin === b.origin;
+}
+
+/**
+ * The wire form of {@link OriginFilter}: the repeated `origin` parameter, or
+ * `undefined` for "every origin" (an *absent* predicate — a present but empty
+ * list would mean "nothing matches").
+ */
+export function originsFor(origin: OriginFilter): readonly TaskOrigin[] | undefined {
+  if (origin === 'user') return ['user'];
+  if (origin === 'machine') return MACHINE_TASK_ORIGINS;
+  return undefined;
+}
 
 /** A queue/completed answer, stamped with the scope it was fetched for. */
 interface ScopedTasks {
@@ -79,9 +115,9 @@ const initialState: TasksState = {
   taskQueue: [],
   overdueTasks: [],
   completedTasks: [],
-  queueScope: null,
-  taskQueueScope: null,
-  completedTasksScope: null,
+  queueScope: EMPTY_QUEUE_SCOPE,
+  taskQueueScope: EMPTY_QUEUE_SCOPE,
+  completedTasksScope: EMPTY_QUEUE_SCOPE,
   queueLoading: false,
   queueError: null,
   queueLoaded: false,
@@ -166,7 +202,14 @@ export const fetchTaskQueue = createAsyncThunk<
 >('tasks/fetchQueue', async (_arg, { getState, rejectWithValue }) => {
   const scope = getState().tasks.queueScope;
   try {
-    return { scope, tasks: await api.getTaskQueue(scope ?? undefined) };
+    return {
+      scope,
+      tasks: await api.getTaskQueue({
+        plantKey: scope.plantKey,
+        category: scope.category,
+        origin: originsFor(scope.origin),
+      }),
+    };
   } catch (err) {
     // The scope travels with the failure for the same reason it travels with
     // the answer: the reducer has to know which question this was an answer to.
@@ -188,13 +231,17 @@ export const fetchCompletedTasks = createAsyncThunk<
 >('tasks/fetchCompleted', async (_arg, { getState, rejectWithValue }) => {
   const scope = getState().tasks.queueScope;
   try {
-    // The plant scope belongs in the query, not in a filter over the answer:
-    // past the 100-row cap the client had nothing left to filter (#1484). A
-    // plant-scoped task is exactly the `entity_type`/`entity_key` pair the list
-    // endpoint accepts.
+    // Every part of the scope belongs in the query, not in a filter over the
+    // answer: past the 100-row cap the client had nothing left to filter (#1484,
+    // #1503). A plant-scoped task is exactly the `entity_type`/`entity_key` pair
+    // the list endpoint accepts; `category` and `origin` it accepts by name.
     const tasks = await api.listTasks(0, 100, {
       status: 'completed',
-      ...(scope ? { entity_type: PLANT_INSTANCE_ENTITY_TYPE, entity_key: scope } : {}),
+      ...(scope.category ? { category: scope.category } : {}),
+      ...(originsFor(scope.origin) ? { origin: originsFor(scope.origin) } : {}),
+      ...(scope.plantKey
+        ? { entity_type: PLANT_INSTANCE_ENTITY_TYPE, entity_key: scope.plantKey }
+        : {}),
     });
     return { scope, tasks };
   } catch (err) {
@@ -213,12 +260,15 @@ const tasksSlice = createSlice({
       state.error = null;
     },
     /**
-     * Point the queue and the completed list at one plant, or at the whole
-     * tenant with `null`. The querying effect keys on this value; the answers
-     * are matched against it, so a scope change invalidates whatever is still
-     * in flight.
+     * Replace what both lists ask the server for. The querying effect keys on
+     * these values; the answers are matched against them, so a scope change
+     * invalidates whatever is still in flight.
+     *
+     * A scope identical to the current one is a no-op rather than a fresh
+     * object, so re-selecting the value already active does not re-query.
      */
     setQueueScope(state, action: PayloadAction<QueueScope>) {
+      if (sameQueueScope(state.queueScope, action.payload)) return;
       state.queueScope = action.payload;
       state.queueError = null;
       state.completedTasksError = null;
@@ -276,7 +326,7 @@ const tasksSlice = createSlice({
         // plant" reliably ended with the tenant's rows under the plant's chip.
         // Leaving `queueLoading` alone here is deliberate: the newer query is
         // still running, and it owns the flag.
-        if (action.payload.scope !== state.queueScope) return;
+        if (!sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.queueLoading = false;
         state.queueLoaded = true;
         state.taskQueue = action.payload.tasks;
@@ -285,7 +335,7 @@ const tasksSlice = createSlice({
       .addCase(fetchTaskQueue.rejected, (state, action) => {
         // `payload` is absent only when the thunk threw outside its own catch,
         // in which case there is no scope to compare and the failure is current.
-        if (action.payload && action.payload.scope !== state.queueScope) return;
+        if (action.payload && !sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.queueLoading = false;
         state.queueLoaded = true;
         state.queueError = action.payload?.message ?? failureMessage(action.error);
@@ -301,13 +351,13 @@ const tasksSlice = createSlice({
         state.completedTasksError = null;
       })
       .addCase(fetchCompletedTasks.fulfilled, (state, action) => {
-        if (action.payload.scope !== state.queueScope) return;
+        if (!sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.completedTasksLoading = false;
         state.completedTasks = action.payload.tasks;
         state.completedTasksScope = action.payload.scope;
       })
       .addCase(fetchCompletedTasks.rejected, (state, action) => {
-        if (action.payload && action.payload.scope !== state.queueScope) return;
+        if (action.payload && !sameQueueScope(action.payload.scope, state.queueScope)) return;
         state.completedTasksLoading = false;
         // Dropping this message turned every failure into "no completed tasks".
         state.completedTasksError = action.payload?.message ?? failureMessage(action.error);

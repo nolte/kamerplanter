@@ -41,7 +41,7 @@ from app.api.v1.tasks.schemas import (
 )
 from app.common.auth import get_current_tenant, get_current_user, require_permission
 from app.common.dependencies import get_task_entity_guard, get_task_service
-from app.common.enums import TaskOrigin
+from app.common.enums import TaskCategory, TaskOrigin
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
@@ -357,10 +357,22 @@ def list_tasks(
     category: str | None = Query(default=None, description="Filter by task category."),
     entity_type: str | None = Query(default=None, description="Filter by linked entity type."),
     entity_key: str | None = Query(default=None, description="Filter by linked entity key."),
+    origin: list[TaskOrigin] | None = Query(
+        default=None,
+        description=(
+            "Filter by task provenance (repeatable). "
+            "The UI's machine-generated selection is `origin=system&origin=pipeline`."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List the tenant's tasks (paginated), optionally filtered."""
+    """List the tenant's tasks (paginated), optionally filtered.
+
+    ``origin`` was the one narrowing the completed-task list still had to do over
+    the answer, and this list is capped too (the page asks for 100 rows), so the
+    same #1503 argument applies: the predicate belongs in the query.
+    """
     filters: dict[str, str] = {}
     if status:
         filters["status"] = status
@@ -370,7 +382,13 @@ def list_tasks(
         filters["entity_type"] = entity_type
     if entity_key:
         filters["entity_key"] = entity_key
-    tasks, _ = service.list_tasks(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    tasks, _ = service.list_tasks(
+        pagination.offset,
+        pagination.limit,
+        filters or None,
+        tenant_key=ctx.tenant_key,
+        origins=origin,
+    )
     return [_task_response(t) for t in tasks]
 
 
@@ -465,11 +483,34 @@ def create_task(
 @router.get("/queue", response_model=list[TaskResponse])
 def get_task_queue(
     plant_key: str | None = Query(default=None, description="Restrict the queue to a single plant instance."),
+    category: TaskCategory | None = Query(default=None, description="Restrict the queue to one task category."),
+    origin: list[TaskOrigin] | None = Query(
+        default=None,
+        description=(
+            "Restrict the queue to these provenances (repeatable). "
+            "The UI's machine-generated selection is `origin=system&origin=pipeline`."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """Return the prioritized task queue, optionally scoped to one plant."""
-    tasks = service.get_task_queue(plant_key, tenant_key=ctx.tenant_key)
+    """Return the prioritized task queue, optionally scoped and narrowed.
+
+    All three parameters are *scopes of the query*, not descriptions of what the
+    caller intends to keep. The unscoped queue answers at most
+    :data:`~app.domain.services.task_service.QUEUE_LIMIT` rows, so a caller that
+    fetched the page and narrowed it afterwards saw only what the cap had already
+    let through — a matching task sorting past the cut was never in the payload
+    (#1503, the shape #1484 closed for ``plant_key``).
+
+    ``origin`` is repeatable because the provenance filter is a **partition**:
+    "machine-generated" is ``system`` *and* ``pipeline``, and answering it must
+    not cost the caller two requests whose union it then assembles — which would
+    reintroduce the cap problem once each half is capped. Both parameters are
+    typed as their enums, so a value the store cannot hold is a 422 at the
+    boundary rather than a silently empty list.
+    """
+    tasks = service.get_task_queue(plant_key, tenant_key=ctx.tenant_key, category=category, origins=origin)
     return [_task_response(t) for t in tasks]
 
 

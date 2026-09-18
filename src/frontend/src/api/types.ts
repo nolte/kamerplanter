@@ -3823,6 +3823,29 @@ export interface TaskTemplateUpdate {
 /** REQ-006 FreeStyle task origin (#1082). Orthogonal to `TaskCategory`. */
 export type TaskOrigin = 'user' | 'system' | 'pipeline';
 
+/**
+ * The origins a *machine* produced — the "machine-generated" half of the task
+ * queue's provenance filter, which the server is asked for as a repeated
+ * `origin` parameter (#1503).
+ *
+ * `satisfies` rather than a plain annotation on purpose: it pins the array to
+ * exactly `Exclude<TaskOrigin, 'user'>`, so adding a fourth origin to
+ * {@link TaskOrigin} without listing it here is a *compile* error rather than a
+ * filter that silently stops returning the new kind.
+ */
+export const MACHINE_TASK_ORIGINS = ['system', 'pipeline'] as const satisfies readonly Exclude<
+  TaskOrigin,
+  'user'
+>[];
+
+/** Compile-time proof that {@link MACHINE_TASK_ORIGINS} covers every non-user origin. */
+type _EveryMachineOriginIsListed = Exclude<TaskOrigin, 'user'> extends
+  (typeof MACHINE_TASK_ORIGINS)[number]
+  ? true
+  : never;
+/** Instantiating it is what makes the check above run. */
+export const MACHINE_TASK_ORIGINS_ARE_EXHAUSTIVE: _EveryMachineOriginIsListed = true;
+
 export interface TaskItem {
   key: string;
   name: string;

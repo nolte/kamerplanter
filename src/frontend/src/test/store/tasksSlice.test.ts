@@ -13,7 +13,9 @@ import reducer, {
   fetchCompletedTasks,
   fetchOverdueTasks,
   setQueueScope,
+  EMPTY_QUEUE_SCOPE,
 } from '@/store/slices/tasksSlice';
+import { MACHINE_TASK_ORIGINS } from '@/api/types';
 import * as tasksApi from '@/api/endpoints/tasks';
 
 // Isolated module mock — no real HTTP, no handlers.ts.
@@ -31,9 +33,9 @@ const baseState = {
   taskQueue: [],
   overdueTasks: [],
   completedTasks: [],
-  queueScope: null,
-  taskQueueScope: null,
-  completedTasksScope: null,
+  queueScope: EMPTY_QUEUE_SCOPE,
+  taskQueueScope: EMPTY_QUEUE_SCOPE,
+  completedTasksScope: EMPTY_QUEUE_SCOPE,
   queueLoading: false,
   queueError: null,
   queueLoaded: false,
@@ -130,10 +132,10 @@ describe('tasksSlice', () => {
     const tasks = [{ key: 'task-1' }];
     const state = reducer(undefined, {
       type: fetchTaskQueue.fulfilled.type,
-      payload: { scope: null, tasks },
+      payload: { scope: EMPTY_QUEUE_SCOPE, tasks },
     });
     expect(state.taskQueue).toEqual(tasks);
-    expect(state.taskQueueScope).toBeNull();
+    expect(state.taskQueueScope).toEqual(EMPTY_QUEUE_SCOPE);
     expect(state.queueLoaded).toBe(true);
   });
 
@@ -146,21 +148,37 @@ describe('tasksSlice', () => {
   it('setQueueScope points both lists at one plant and clears stale errors', () => {
     const state = reducer(
       { ...baseState, queueError: 'boom', completedTasksError: 'boom' },
-      setQueueScope('plant-7'),
+      setQueueScope({ ...EMPTY_QUEUE_SCOPE, plantKey: 'plant-7' }),
     );
-    expect(state.queueScope).toBe('plant-7');
+    expect(state.queueScope).toEqual({ plantKey: 'plant-7', category: null, origin: 'all' });
     expect(state.queueError).toBeNull();
     expect(state.completedTasksError).toBeNull();
+  });
+
+  it('setQueueScope carries the category and the origin, not only the plant', () => {
+    const state = reducer(
+      baseState,
+      setQueueScope({ plantKey: null, category: 'ipm', origin: 'machine' }),
+    );
+    expect(state.queueScope).toEqual({ plantKey: null, category: 'ipm', origin: 'machine' });
+  });
+
+  it('setQueueScope with the scope already active is a no-op, so no refetch is triggered', () => {
+    // The querying effect keys on the scope's fields; a fresh object carrying
+    // the same values would re-query on every re-selection of the same filter.
+    const active = { ...baseState, queueScope: { plantKey: 'p1', category: 'ipm', origin: 'user' as const } };
+    const state = reducer(active, setQueueScope({ plantKey: 'p1', category: 'ipm', origin: 'user' }));
+    expect(state.queueScope).toBe(active.queueScope);
   });
 
   describe('an answer to a scope the user has left is dropped', () => {
     // The race is not symmetric: the unscoped query is the slow branch, so the
     // older answer arriving last was the *likely* order, not the rare one.
     it('fetchTaskQueue.fulfilled keeps the current scope\'s rows', () => {
-      const scoped = { ...baseState, queueScope: 'plant-B', queueLoading: true };
+      const scoped = { ...baseState, queueScope: { ...EMPTY_QUEUE_SCOPE, plantKey: 'plant-B' }, queueLoading: true };
       const state = reducer(scoped, {
         type: fetchTaskQueue.fulfilled.type,
-        payload: { scope: null, tasks: [{ key: 'whole-tenant' }] },
+        payload: { scope: EMPTY_QUEUE_SCOPE, tasks: [{ key: 'whole-tenant' }] },
       });
       expect(state.taskQueue).toEqual([]);
       // The newer query owns the flag and is still running.
@@ -168,20 +186,45 @@ describe('tasksSlice', () => {
     });
 
     it('fetchTaskQueue.rejected does not surface a stale failure', () => {
-      const scoped = { ...baseState, queueScope: 'plant-B', queueLoading: true };
+      const scoped = { ...baseState, queueScope: { ...EMPTY_QUEUE_SCOPE, plantKey: 'plant-B' }, queueLoading: true };
       const state = reducer(scoped, {
         type: fetchTaskQueue.rejected.type,
-        payload: { scope: 'plant-A', message: 'errors.network' },
+        payload: { scope: { ...EMPTY_QUEUE_SCOPE, plantKey: 'plant-A' }, message: 'errors.network' },
       });
       expect(state.queueError).toBeNull();
       expect(state.queueLoading).toBe(true);
     });
 
+    it('a scope differing only in category is just as stale as a different plant', () => {
+      // The stamp is compared field by field: an identity comparison would call
+      // every answer stale, and comparing only the plant would let the previous
+      // category's rows land under the new chip.
+      const scoped = { ...baseState, queueScope: { ...EMPTY_QUEUE_SCOPE, category: 'ipm' }, queueLoading: true };
+      const state = reducer(scoped, {
+        type: fetchTaskQueue.fulfilled.type,
+        payload: { scope: { ...EMPTY_QUEUE_SCOPE, category: 'harvest' }, tasks: [{ key: 'harvest-row' }] },
+      });
+      expect(state.taskQueue).toEqual([]);
+    });
+
+    it('an answer stamped with the very same scope object values is applied', () => {
+      const scope = { plantKey: 'plant-B', category: 'ipm', origin: 'machine' as const };
+      const scoped = { ...baseState, queueScope: scope, queueLoading: true };
+      const state = reducer(scoped, {
+        type: fetchTaskQueue.fulfilled.type,
+        // A structurally equal but distinct object — what the thunk actually
+        // hands back after a round trip.
+        payload: { scope: { ...scope }, tasks: [{ key: 'fresh' }] },
+      });
+      expect(state.taskQueue).toEqual([{ key: 'fresh' }]);
+      expect(state.queueLoading).toBe(false);
+    });
+
     it('fetchCompletedTasks.fulfilled keeps the current scope\'s rows', () => {
-      const scoped = { ...baseState, queueScope: 'plant-B', completedTasksLoading: true };
+      const scoped = { ...baseState, queueScope: { ...EMPTY_QUEUE_SCOPE, plantKey: 'plant-B' }, completedTasksLoading: true };
       const state = reducer(scoped, {
         type: fetchCompletedTasks.fulfilled.type,
-        payload: { scope: 'plant-A', tasks: [{ key: 'a-done' }] },
+        payload: { scope: { ...EMPTY_QUEUE_SCOPE, plantKey: 'plant-A' }, tasks: [{ key: 'a-done' }] },
       });
       expect(state.completedTasks).toEqual([]);
       expect(state.completedTasksLoading).toBe(true);
@@ -191,7 +234,7 @@ describe('tasksSlice', () => {
   it('fetchCompletedTasks.rejected keeps the failure instead of showing an empty list', () => {
     const state = reducer(undefined, {
       type: fetchCompletedTasks.rejected.type,
-      payload: { scope: null, message: 'errors.network' },
+      payload: { scope: EMPTY_QUEUE_SCOPE, message: 'errors.network' },
     });
     expect(state.completedTasksError).toBe('errors.network');
     expect(state.completedTasksLoading).toBe(false);
@@ -275,20 +318,58 @@ describe('tasksSlice thunks', () => {
     expect(store.getState().tasks.currentTask).toEqual({ key: 'task-9' });
   });
 
-  it('fetchTaskQueue reads the plant scope from the store, not from an argument', async () => {
+  it('fetchTaskQueue reads the scope from the store, not from an argument', async () => {
     mocked.getTaskQueue.mockResolvedValue([{ key: 'task-q' }] as never);
     const store = makeTasksStore();
-    store.dispatch(setQueueScope('pl1'));
+    store.dispatch(setQueueScope({ plantKey: 'pl1', category: null, origin: 'all' }));
     await store.dispatch(fetchTaskQueue());
-    expect(mocked.getTaskQueue).toHaveBeenCalledWith('pl1');
+    expect(mocked.getTaskQueue).toHaveBeenCalledWith({
+      plantKey: 'pl1',
+      category: null,
+      origin: undefined,
+    });
     expect(store.getState().tasks.taskQueue).toEqual([{ key: 'task-q' }]);
-    expect(store.getState().tasks.taskQueueScope).toBe('pl1');
+    expect(store.getState().tasks.taskQueueScope).toEqual({
+      plantKey: 'pl1',
+      category: null,
+      origin: 'all',
+    });
+  });
+
+  it('fetchTaskQueue asks the server for the category rather than filtering the answer', async () => {
+    mocked.getTaskQueue.mockResolvedValue([] as never);
+    const store = makeTasksStore();
+    store.dispatch(setQueueScope({ plantKey: null, category: 'ipm', origin: 'all' }));
+    await store.dispatch(fetchTaskQueue());
+    expect(mocked.getTaskQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'ipm' }),
+    );
+  });
+
+  it('the machine origin filter becomes every non-user origin in one request', async () => {
+    mocked.getTaskQueue.mockResolvedValue([] as never);
+    const store = makeTasksStore();
+    store.dispatch(setQueueScope({ plantKey: null, category: null, origin: 'machine' }));
+    await store.dispatch(fetchTaskQueue());
+    expect(mocked.getTaskQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ origin: MACHINE_TASK_ORIGINS }),
+    );
+  });
+
+  it('the user origin filter asks for exactly that one origin', async () => {
+    mocked.getTaskQueue.mockResolvedValue([] as never);
+    const store = makeTasksStore();
+    store.dispatch(setQueueScope({ plantKey: null, category: null, origin: 'user' }));
+    await store.dispatch(fetchTaskQueue());
+    expect(mocked.getTaskQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ origin: ['user'] }),
+    );
   });
 
   it('fetchCompletedTasks scopes the query through entity_type/entity_key', async () => {
     mocked.listTasks.mockResolvedValue([{ key: 'done-1' }] as never);
     const store = makeTasksStore();
-    store.dispatch(setQueueScope('pl1'));
+    store.dispatch(setQueueScope({ plantKey: 'pl1', category: null, origin: 'all' }));
     await store.dispatch(fetchCompletedTasks());
     expect(mocked.listTasks).toHaveBeenCalledWith(0, 100, {
       status: 'completed',
@@ -296,6 +377,20 @@ describe('tasksSlice thunks', () => {
       entity_key: 'pl1',
     });
     expect(store.getState().tasks.completedTasks).toEqual([{ key: 'done-1' }]);
+  });
+
+  it('fetchCompletedTasks carries the category and the origin into the query too', async () => {
+    // The completed list is capped at 100 rows, so narrowing its answer has the
+    // same blind spot the queue had (#1503).
+    mocked.listTasks.mockResolvedValue([] as never);
+    const store = makeTasksStore();
+    store.dispatch(setQueueScope({ plantKey: null, category: 'harvest', origin: 'machine' }));
+    await store.dispatch(fetchCompletedTasks());
+    expect(mocked.listTasks).toHaveBeenCalledWith(0, 100, {
+      status: 'completed',
+      category: 'harvest',
+      origin: MACHINE_TASK_ORIGINS,
+    });
   });
 
   it('a queue failure reaches the state as a message the page can show', async () => {

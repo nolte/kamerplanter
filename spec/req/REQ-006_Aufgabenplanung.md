@@ -199,6 +199,24 @@ Ein Analyse-Lauf über einen Tagebuch-Eintrag kann Bilder nachfordern, wenn die 
 
 Was der Nutzer beim Öffnen des Auftrags sieht, steht in REQ-051 §6.6; REQ-006 sagt nur, dass es eine gewöhnliche Aufgabe ist.
 
+### Filter der Aufgaben-Queue: serverseitige Einschränkungen
+
+<!-- Quelle: Issues #1484, #1503 -->
+
+Die Aufgaben-Queue (`GET /api/v1/t/{tenant_slug}/tasks/queue`) beantwortet höchstens **200 Zeilen**; die Liste der erledigten Aufgaben (`GET .../tasks`) wird von der Oberfläche mit 100 Zeilen abgefragt. Jede Einschränkung, die erst **auf die Antwort** angewandt wird, kann deshalb nur sehen, was die Kappung ohnehin durchgelassen hat: Eine Aufgabe, die zum gewählten Filter passt, aber hinter der Schnittkante einsortiert ist, liegt nicht in der Nutzlast — die Oberfläche meldet dann „keine Aufgaben zu diesem Filter" für einen Filter, der Treffer hat.
+
+**Regel:** Jeder Filter der Queue ist eine Einschränkung der **Abfrage**, nicht ihrer Antwort. Die Route nimmt dafür drei optionale, additive Parameter:
+
+| Parameter | Werte | Wirkung |
+|---|---|---|
+| `plant_key` | Dokumentschlüssel einer Pflanzeninstanz | Beschränkt die Queue auf diese Instanz (ungekappter Zweig). |
+| `category` | `TaskCategory` | Beschränkt auf eine fachliche Kategorie. |
+| `origin` | `TaskOrigin`, **wiederholbar** | Beschränkt auf die genannten Herkünfte. |
+
+`origin` ist wiederholbar, weil die Herkunftsauswahl der Oberfläche eine **Partition** ist: „maschinell erzeugt" bedeutet `system` **und** `pipeline` (siehe FreeStyle oben). Eine Auswahl darf nicht zwei Anfragen kosten, deren Vereinigung der Client bildet — jede Hälfte wäre erneut gekappt. Ein Wert, den der Speicher nicht tragen kann, wird an der Grenze mit **422** abgelehnt, nicht mit einer stillen Leermenge beantwortet. Alle drei Parameter gelten für **beide** Zweige der Queue (mit und ohne `plant_key`), damit ein angebotener Filter nicht davon abhängt, welcher Zweig gerade gewählt ist. `origin` steht aus demselben Grund auch an der Aufgabenliste.
+
+**Bewusste Asymmetrie — das Pflege-Dashboard:** `GET .../care-reminders/dashboard` nimmt weiterhin nur `hemisphere`; seine Einträge werden in der Queue-Oberfläche clientseitig eingeschränkt. Das ist kein übersehener Fall: Das Dashboard ist keine gekappte *Seite* von Erinnerungen, sondern eine Projektion über höchstens **500 Pflanzen** der Mandantschaft. Die Einschränkung verliert damit erst etwas, wenn eine Mandantschaft mehr als 500 Pflanzen führt — eine deutlich weitere Grenze als die 200 Zeilen der Queue. Wird diese Grenze relevant, ist der Weg derselbe wie oben: ein Parameter an der Route, keine Einschränkung der Antwort.
+
 ### Phasengebundene Workflow-Gestaltung
 
 Der Nutzer kann Workflows so gestalten, dass einzelne Tätigkeiten an bestimmte Wachstumsphasen gebunden sind und bei Phasenwechsel automatisch fällig werden. Jede Aufgabe innerhalb eines Workflows kann individuell konfiguriert werden.
