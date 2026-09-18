@@ -16,6 +16,7 @@ import {
   type ColumnFilterDef,
 } from '@/components/common/ColumnFilterBar';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import { fetchPests } from '@/store/slices/ipmSlice';
 import { fetchPestDetectionStatus } from '@/store/slices/pestDetectionSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -59,6 +60,11 @@ export default function PestListPage() {
   const dispatch = useAppDispatch();
   const { pests, loading } = useAppSelector((s) => s.ipm);
   const detectionStatus = useAppSelector((s) => s.pestDetection.status);
+  // #1501 — pests, diseases and treatments are the INSTALLATION-WIDE IPM
+  // catalogue (no tenant_key on any of the three models), so creating one is a
+  // platform-admin write backend-side. `origin: 'tenant'` on a created row marks
+  // it as hand-curated rather than seeded; it never was an ownership stamp.
+  const canCurate = useCanEditInstallationCatalogue();
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({
     defaultSort: { column: 'scientificName', direction: 'asc' },
@@ -217,14 +223,16 @@ export default function PestListPage() {
       <PageTitle
         title={t('pages.ipm.pestsTitle')}
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-button"
-          >
-            {t('pages.ipm.createPest')}
-          </Button>
+          canCurate ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-button"
+            >
+              {t('pages.ipm.createPest')}
+            </Button>
+          ) : undefined
         }
       />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -237,8 +245,11 @@ export default function PestListPage() {
         loading={loading}
         getRowKey={(r) => r.key}
         onRowClick={(r) => navigate(`/pflanzenschutz/pests/${r.key}`)}
-        emptyActionLabel={t('pages.ipm.createPest')}
-        onEmptyAction={() => setCreateOpen(true)}
+        // The description closes the understanding gap the hidden create control
+        // (header and empty state alike) leaves behind for a non-admin (#1501).
+        emptyDescription={canCurate ? undefined : t('pages.ipm.catalogueCreateDenied')}
+        emptyActionLabel={canCurate ? t('pages.ipm.createPest') : undefined}
+        onEmptyAction={canCurate ? () => setCreateOpen(true) : undefined}
         emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.pestsTitle')}

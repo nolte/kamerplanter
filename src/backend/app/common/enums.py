@@ -1113,6 +1113,9 @@ class CareStyleType(StrEnum):
     FROST_TENDER_CONTAINER = "frost_tender_container"
     WINTER_VEGETABLE = "winter_vegetable"
     SPRING_BULB = "spring_bulb"
+    # Presets for the two seeded families no houseplant/outdoor preset fits (#1505)
+    BROMELIAD = "bromeliad"
+    AQUATIC = "aquatic"
     CUSTOM = "custom"
 
 

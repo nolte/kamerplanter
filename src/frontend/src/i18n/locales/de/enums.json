@@ -891,6 +891,18 @@
       "mediterranean": "Mediterran",
       "fern": "Farn",
       "cactus": "Kaktus",
+      "outdoor_annual_veg": "Freiland-Gemüse (einjährig)",
+      "outdoor_annual_ornamental": "Freiland-Zierpflanze (einjährig)",
+      "outdoor_perennial": "Freiland-Staude",
+      "fruit_tree": "Obstbaum",
+      "berry_shrub": "Beerenstrauch",
+      "rose": "Rose",
+      "frost_tender_tuber": "Frostempfindliche Knolle",
+      "frost_tender_container": "Frostempfindliche Kübelpflanze",
+      "winter_vegetable": "Wintergemüse",
+      "spring_bulb": "Frühjahrs-Blumenzwiebel",
+      "bromeliad": "Bromelie",
+      "aquatic": "Wasserpflanze",
       "custom": "Benutzerdefiniert"
     },
     "reminderType": {

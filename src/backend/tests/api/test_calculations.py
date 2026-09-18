@@ -86,6 +86,40 @@ class TestVPDCalculation:
         assert "recommendation" in data
         assert data["vpd_kpa"] > 0
 
+    def test_a_misspelt_phase_is_rejected_at_the_boundary(self):
+        """`phase` selects the optimal VPD band; a miss silently classified against the default.
+
+        Nothing raised here — `classify_vpd` does `vpd_ranges.get(phase, (0.8, 1.2))`
+        — so `"Flowering"` was answered 200 with a *flowering-wrong* verdict
+        computed against the vegetative band, and the recommendation text even
+        quoted the misspelling back. That is the quieter half of the #1520 class
+        (review SCR-004): a wrong answer instead of an error.
+        """
+        client = _get_client()
+        response = client.post(
+            "/api/v1/calculations/vpd",
+            json={"temp_c": 25.0, "humidity_percent": 60.0, "phase": "Flowering"},
+        )
+        assert response.status_code == 422, response.json()
+        payload = response.json()
+        assert payload["error_code"] == "VALIDATION_ERROR"
+        locations = {d["field"].split(".", 1)[1] if "." in d["field"] else d["field"] for d in payload["details"]}
+        assert "phase" in locations, payload["details"]
+
+    def test_the_phase_actually_selects_the_band(self):
+        """The control: the same VPD is 'optimal' in flowering and 'high' in seedling.
+
+        Without this, a request whose `phase` was ignored outright would still
+        pass every assertion above.
+        """
+        client = _get_client()
+        payload = {"temp_c": 25.0, "humidity_percent": 55.0}
+        flowering = client.post("/api/v1/calculations/vpd", json={**payload, "phase": "flowering"}).json()
+        seedling = client.post("/api/v1/calculations/vpd", json={**payload, "phase": "seedling"}).json()
+        assert flowering["vpd_kpa"] == seedling["vpd_kpa"]
+        assert flowering["status"] == "optimal"
+        assert seedling["status"] == "high"
+
     def test_vpd_high_humidity(self):
         client = _get_client()
         response = client.post(

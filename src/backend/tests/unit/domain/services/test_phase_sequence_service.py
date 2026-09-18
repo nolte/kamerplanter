@@ -67,7 +67,7 @@ class TestCreateDefinition:
         defn = PhaseDefinition(name="Seedling", typical_duration_days=14)
         mock_repo.create_definition.return_value = defn
 
-        result = service.create_definition(defn)
+        result = service.create_definition(defn, is_platform_admin=True)
 
         assert result.name == "Seedling"
         mock_repo.create_definition.assert_called_once_with(defn)
@@ -83,7 +83,9 @@ class TestUpdateDefinition:
             typical_duration_days=30,
         )
 
-        service.update_definition("pd1", {"name": "Vegetative Updated", "typical_duration_days": 30})
+        service.update_definition(
+            "pd1", {"name": "Vegetative Updated", "typical_duration_days": 30}, is_platform_admin=True
+        )
 
         assert mock_repo.update_definition.called
 
@@ -91,7 +93,7 @@ class TestUpdateDefinition:
         mock_repo.get_definition_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.update_definition("nonexistent", {"name": "x"})
+            service.update_definition("nonexistent", {"name": "x"}, is_platform_admin=True)
 
 
 class TestDeleteDefinition:
@@ -102,7 +104,7 @@ class TestDeleteDefinition:
         mock_repo.get_definition_usage_count.return_value = 0
         mock_repo.delete_definition.return_value = True
 
-        result = service.delete_definition("pd1")
+        result = service.delete_definition("pd1", is_platform_admin=True)
 
         assert result is True
 
@@ -112,7 +114,7 @@ class TestDeleteDefinition:
         mock_repo.get_definition_by_key.return_value = defn
 
         with pytest.raises(ValidationError, match="system"):
-            service.delete_definition("pd1")
+            service.delete_definition("pd1", is_platform_admin=True)
 
     def test_rejects_in_use(self, service, mock_repo):
         defn = PhaseDefinition(name="Used Phase", typical_duration_days=7, is_system=False)
@@ -121,7 +123,7 @@ class TestDeleteDefinition:
         mock_repo.get_definition_usage_count.return_value = 3
 
         with pytest.raises(ValidationError, match="referenced"):
-            service.delete_definition("pd1")
+            service.delete_definition("pd1", is_platform_admin=True)
 
 
 # ── PhaseSequence tests ──
@@ -213,7 +215,7 @@ class TestCreateSequence:
         seq = PhaseSequence(name="New Sequence")
         mock_repo.create_sequence.return_value = seq
 
-        result = service.create_sequence(seq)
+        result = service.create_sequence(seq, is_platform_admin=True)
 
         assert result.name == "New Sequence"
 
@@ -226,7 +228,7 @@ class TestDeleteSequence:
         mock_repo.get_sequence_usage_count.return_value = 0
         mock_repo.delete_sequence.return_value = True
 
-        result = service.delete_sequence("ps1")
+        result = service.delete_sequence("ps1", is_platform_admin=True)
 
         assert result is True
 
@@ -236,7 +238,7 @@ class TestDeleteSequence:
         mock_repo.get_sequence_by_key.return_value = seq
 
         with pytest.raises(ValidationError, match="system"):
-            service.delete_sequence("ps1")
+            service.delete_sequence("ps1", is_platform_admin=True)
 
     def test_rejects_in_use(self, service, mock_repo):
         seq = PhaseSequence(name="Used Sequence", is_system=False)
@@ -245,7 +247,7 @@ class TestDeleteSequence:
         mock_repo.get_sequence_usage_count.return_value = 2
 
         with pytest.raises(ValidationError, match="referenced"):
-            service.delete_sequence("ps1")
+            service.delete_sequence("ps1", is_platform_admin=True)
 
 
 class TestCloneSequence:
@@ -258,7 +260,7 @@ class TestCloneSequence:
         cloned.key = "ps2"
         mock_repo.clone_sequence.return_value = cloned
 
-        result = service.clone_sequence("ps1", "Standard Staude (copy)")
+        result = service.clone_sequence("ps1", "Standard Staude (copy)", is_platform_admin=True)
 
         assert result.key == "ps2"
         assert result.is_system is False
@@ -269,7 +271,7 @@ class TestCloneSequence:
         mock_repo.get_sequence_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.clone_sequence("nonexistent", "Copy")
+            service.clone_sequence("nonexistent", "Copy", is_platform_admin=True)
 
         mock_repo.clone_sequence.assert_not_called()
 
@@ -294,7 +296,7 @@ class TestCreateEntry:
         )
         mock_repo.create_entry.return_value = entry
 
-        result = service.create_entry(entry)
+        result = service.create_entry(entry, is_platform_admin=True)
 
         mock_repo.get_sequence_by_key.assert_called_with("ps1")
         mock_repo.get_definition_by_key.assert_called_with("pd1")
@@ -309,7 +311,7 @@ class TestCreateEntry:
         )
 
         with pytest.raises(NotFoundError):
-            service.create_entry(entry)
+            service.create_entry(entry, is_platform_admin=True)
 
     def test_rejects_missing_definition(self, service, mock_repo):
         seq = PhaseSequence(name="Test")
@@ -323,7 +325,7 @@ class TestCreateEntry:
         )
 
         with pytest.raises(NotFoundError):
-            service.create_entry(entry)
+            service.create_entry(entry, is_platform_admin=True)
 
 
 class TestUpdateEntry:
@@ -341,7 +343,7 @@ class TestUpdateEntry:
         mock_repo.get_definition_by_key.return_value = new_defn
         mock_repo.update_entry.return_value = existing
 
-        service.update_entry("pse1", {"phase_definition_key": "pd2"})
+        service.update_entry("pse1", {"phase_definition_key": "pd2"}, is_platform_admin=True)
 
         mock_repo.get_definition_by_key.assert_called_with("pd2")
 
@@ -353,7 +355,7 @@ class TestDeleteEntry:
         mock_repo.get_entry_by_key.return_value = entry
         mock_repo.delete_entry.return_value = True
 
-        result = service.delete_entry("pse1")
+        result = service.delete_entry("pse1", is_platform_admin=True)
 
         assert result is True
 
@@ -361,7 +363,7 @@ class TestDeleteEntry:
         mock_repo.get_entry_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.delete_entry("nonexistent")
+            service.delete_entry("nonexistent", is_platform_admin=True)
 
 
 class TestReorderEntries:
@@ -377,7 +379,7 @@ class TestReorderEntries:
         mock_repo.reorder_entries.return_value = entries
 
         orders = [{"key": "pse1", "sequence_order": 1}, {"key": "pse2", "sequence_order": 0}]
-        result = service.reorder_entries("ps1", orders)
+        result = service.reorder_entries("ps1", orders, is_platform_admin=True)
 
         assert len(result) == 2
         mock_repo.reorder_entries.assert_called_once_with("ps1", orders)

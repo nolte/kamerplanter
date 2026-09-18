@@ -43,6 +43,13 @@ def pest_list(browser: WebDriver, base_url: str) -> PestListPage:
 class TestPestListPage:
     """Pest list display and interactions (Spec: TC-010-001, TC-010-003, TC-010-004)."""
 
+    # #1501 — the IPM catalogue is installation-wide (no ``tenant_key`` on Pest,
+    # Disease or Treatment), so its writes carry ``require_platform_admin`` and the
+    # list pages offer the create control only to a platform admin. The demo user is
+    # deliberately an ordinary member — a large part of this suite asserts what an
+    # ordinary member is refused — so this case runs as the seeded admin instead.
+    # No-op in light mode, where the sole operator already is one (REQ-027).
+    @pytest.mark.platform_admin
     @pytest.mark.smoke
     def test_page_renders_with_correct_structure(
         self,

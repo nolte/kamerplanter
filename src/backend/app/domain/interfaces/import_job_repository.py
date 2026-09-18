@@ -18,7 +18,16 @@ class IImportJobRepository(ABC):
     def update(self, key: ImportJobKey, job: ImportJob) -> ImportJob: ...
 
     @abstractmethod
-    def list_all(self, offset: int = 0, limit: int = 50) -> tuple[list[ImportJob], int]: ...
+    def list_all(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[ImportJob], int]:
+        """List import jobs, scoped to ``tenant_key`` when one is given (#1501).
+
+        ``None`` is the unscoped system-context read. Every HTTP caller passes the
+        tenant it resolved: a staged job carries the rows of an uploaded CSV, so an
+        unscoped list handed one tenant's upload to every other one.
+        """
+        ...
 
     @abstractmethod
     def delete(self, key: ImportJobKey) -> bool: ...

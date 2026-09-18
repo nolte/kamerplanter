@@ -20,7 +20,7 @@ from app.api.v1.ipm.schemas import (
     TreatmentTargetRef,
     TreatmentUpdate,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, get_is_platform_admin, require_platform_admin
 from app.common.dependencies import get_ipm_service, get_pest_inference_client
 from app.common.enums import DataOrigin
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
@@ -42,6 +42,24 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
     responses=AUTH_CRUD_RESPONSES,
 )
+
+# ── Authorisation (#1501) ───────────────────────────────────────────────────────
+#
+# Pests, diseases and treatments are the **installation-wide** IPM catalogue —
+# `tenant_router.py` states it and the models confirm it (no ``tenant_key`` on any
+# of the three). The router-level ``get_current_user`` therefore answered the
+# wrong question for the nine writes below: it established that somebody was
+# logged in, and any member of any tenant could then delete the pest row everyone
+# else's IPM plan resolves.
+#
+# Writes now carry ``require_platform_admin``, the gate their `growth_phases` and
+# `location_types` siblings have had all along. Reads stay on plain authentication:
+# every member consults this catalogue, and gating the router instead of its writes
+# would be the over-rejecting fix that ships looking correct.
+#
+# The service re-runs the same rule from ``is_platform_admin`` threaded in below —
+# see ``IpmService`` for why both halves exist and why neither is redundant.
+_PLATFORM_ADMIN = [Depends(require_platform_admin)]
 
 
 def _reference_image_counts() -> dict[str, int]:
@@ -121,11 +139,15 @@ def list_pests(
     return [_pest_response(p, ref_counts) for p in pests]
 
 
-@router.post("/pests", response_model=PestResponse, status_code=201)
-def create_pest(body: PestCreate, service: IpmService = Depends(get_ipm_service)):
-    """Create a new catalog pest."""
+@router.post("/pests", response_model=PestResponse, status_code=201, dependencies=_PLATFORM_ADMIN)
+def create_pest(
+    body: PestCreate,
+    is_platform_admin: bool = Depends(get_is_platform_admin),
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Create a new catalog pest. Platform admins only (#1501)."""
     pest = Pest(**body.model_dump())
-    created = service.create_pest(pest)
+    created = service.create_pest(pest, is_platform_admin=is_platform_admin)
     return _pest_response(created)
 
 
@@ -153,25 +175,27 @@ def get_pest(
     return _pest_response(service.get_pest(key), _reference_image_counts())
 
 
-@router.put("/pests/{key}", response_model=PestResponse)
+@router.put("/pests/{key}", response_model=PestResponse, dependencies=_PLATFORM_ADMIN)
 def update_pest(
     key: Annotated[str, Path(description="Document key of the pest.")],
     body: PestUpdate,
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Update an existing catalog pest."""
+    """Update an existing catalog pest. Platform admins only (#1501)."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_pest(key, data)
+    updated = service.update_pest(key, data, is_platform_admin=is_platform_admin)
     return _pest_response(updated)
 
 
-@router.delete("/pests/{key}", status_code=204)
+@router.delete("/pests/{key}", status_code=204, dependencies=_PLATFORM_ADMIN)
 def delete_pest(
     key: Annotated[str, Path(description="Document key of the pest.")],
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Delete a catalog pest."""
-    service.delete_pest(key)
+    """Delete a catalog pest. Platform admins only (#1501)."""
+    service.delete_pest(key, is_platform_admin=is_platform_admin)
 
 
 # -- Diseases --
@@ -187,11 +211,21 @@ def list_diseases(
     return [_disease_response(d) for d in diseases]
 
 
-@router.post("/diseases", response_model=DiseaseResponse, status_code=201)
-def create_disease(body: DiseaseCreate, service: IpmService = Depends(get_ipm_service)):
-    """Create a new catalog disease."""
+@router.post("/diseases", response_model=DiseaseResponse, status_code=201, dependencies=_PLATFORM_ADMIN)
+def create_disease(
+    body: DiseaseCreate,
+    is_platform_admin: bool = Depends(get_is_platform_admin),
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Create a new catalog disease. Platform admins only (#1501).
+
+    ``origin=DataOrigin.TENANT`` marks the row as hand-curated rather than seeded;
+    it is NOT an ownership stamp (``Disease`` carries no ``tenant_key``) and never
+    scoped a read. See ``IpmService`` — that marker is why this create read as a
+    tenant-local one.
+    """
     disease = Disease(**body.model_dump(), origin=DataOrigin.TENANT)
-    created = service.create_disease(disease)
+    created = service.create_disease(disease, is_platform_admin=is_platform_admin)
     return _disease_response(created)
 
 
@@ -204,25 +238,27 @@ def get_disease(
     return _disease_response(service.get_disease(key))
 
 
-@router.put("/diseases/{key}", response_model=DiseaseResponse)
+@router.put("/diseases/{key}", response_model=DiseaseResponse, dependencies=_PLATFORM_ADMIN)
 def update_disease(
     key: Annotated[str, Path(description="Document key of the disease.")],
     body: DiseaseUpdate,
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Update an existing catalog disease."""
+    """Update an existing catalog disease. Platform admins only (#1501)."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_disease(key, data)
+    updated = service.update_disease(key, data, is_platform_admin=is_platform_admin)
     return _disease_response(updated)
 
 
-@router.delete("/diseases/{key}", status_code=204)
+@router.delete("/diseases/{key}", status_code=204, dependencies=_PLATFORM_ADMIN)
 def delete_disease(
     key: Annotated[str, Path(description="Document key of the disease.")],
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Delete a catalog disease."""
-    service.delete_disease(key)
+    """Delete a catalog disease. Platform admins only (#1501)."""
+    service.delete_disease(key, is_platform_admin=is_platform_admin)
 
 
 # -- Treatments --
@@ -238,11 +274,15 @@ def list_treatments(
     return [_treatment_response(t) for t in treatments]
 
 
-@router.post("/treatments", response_model=TreatmentResponse, status_code=201)
-def create_treatment(body: TreatmentCreate, service: IpmService = Depends(get_ipm_service)):
-    """Create a new catalog treatment."""
+@router.post("/treatments", response_model=TreatmentResponse, status_code=201, dependencies=_PLATFORM_ADMIN)
+def create_treatment(
+    body: TreatmentCreate,
+    is_platform_admin: bool = Depends(get_is_platform_admin),
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Create a new catalog treatment. Platform admins only (#1501)."""
     treatment = Treatment(**body.model_dump(), origin=DataOrigin.TENANT)
-    created = service.create_treatment(treatment)
+    created = service.create_treatment(treatment, is_platform_admin=is_platform_admin)
     return _treatment_response(created)
 
 
@@ -280,22 +320,24 @@ def get_treatment(
     return _treatment_response(service.get_treatment(key))
 
 
-@router.put("/treatments/{key}", response_model=TreatmentResponse)
+@router.put("/treatments/{key}", response_model=TreatmentResponse, dependencies=_PLATFORM_ADMIN)
 def update_treatment(
     key: Annotated[str, Path(description="Document key of the treatment.")],
     body: TreatmentUpdate,
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Update an existing catalog treatment."""
+    """Update an existing catalog treatment. Platform admins only (#1501)."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_treatment(key, data)
+    updated = service.update_treatment(key, data, is_platform_admin=is_platform_admin)
     return _treatment_response(updated)
 
 
-@router.delete("/treatments/{key}", status_code=204)
+@router.delete("/treatments/{key}", status_code=204, dependencies=_PLATFORM_ADMIN)
 def delete_treatment(
     key: Annotated[str, Path(description="Document key of the treatment.")],
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Delete a catalog treatment."""
-    service.delete_treatment(key)
+    """Delete a catalog treatment. Platform admins only (#1501)."""
+    service.delete_treatment(key, is_platform_admin=is_platform_admin)
