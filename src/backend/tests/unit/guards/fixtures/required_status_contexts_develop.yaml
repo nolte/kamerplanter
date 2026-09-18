@@ -19,10 +19,12 @@
 # updating it leaves the guard measuring yesterday's requirement — which is a
 # gap in the MEASURING TOOL, not in the gate, and therefore invisible. The
 # `.github/settings.yml` cross-check in the test beside this file is the
-# tripwire for the half that is versioned here: every context this file lists
-# from the protection block must also appear in `.github/settings.yml`, which is
-# what the Probot Settings App syncs FROM, so a promotion made in the repository
-# without a commit reddens rather than passing unnoticed.
+# tripwire for BOTH sources: every context this file lists — from the protection
+# block and from the ruleset overlay alike — must also appear in
+# `.github/settings.yml`, which is what the Probot Settings App syncs FROM, so a
+# promotion made in the repository without a commit reddens rather than passing
+# unnoticed. The ruleset half was unversioned until #1491 and could only be
+# compared against itself.
 #
 # Measured 2026-09-17 on nolte/kamerplanter.
 measured_on: '2026-09-17'
@@ -37,9 +39,65 @@ branch_protection:
 # `gh api .../rules/branches/develop` — the ruleset overlay. It requires two
 # contexts the protection block does not (`chain-bench / Chain Bench`,
 # `security / Build`), so reading only the first source would leave them
-# unmeasured. Both come from `build-static-tests.yaml`, which carries no
-# `paths:` filter.
+# unmeasured. Both come from `build-static-tests.yaml`, whose only trigger is a
+# bare `on: push:` — no `paths:`, no `branches:` — so neither is the #1432 trap.
+# Since #1491 the ruleset is declared in `.github/settings.yml` under `rulesets:`
+# (ruleset id 17783737, `default-branch-protection`), and the test beside this
+# file holds this list to that declaration.
 rulesets:
   - static / Static CI Tests
   - chain-bench / Chain Bench
   - security / Build
+
+# The develop RULESET as the Probot Settings App would compare it — the SECOND
+# half of this fixture, added by the #1491 review.
+#
+# WHY THE WHOLE OBJECT AND NOT JUST THE CONTEXTS. The `rulesets:` list above is
+# the context NAMES, which is what branch protection is asked about. The App is
+# asked something stricter: `lib/plugins/rulesets.js` diffs with `deepEqual` over
+# the entire ruleset minus the server-owned keys, so `bypass_actors: []`, the
+# ORDER of `rules` and of `required_status_checks`, and any field GitHub starts
+# emitting (`integration_id` on a status check is the obvious candidate) are all
+# part of the comparison. A `settings.yml` block that agrees on the names and
+# differs on the shape passes a name check and makes the App re-PUT the ruleset
+# on every sync — which quietly replaces the versioned source with whatever the
+# App computed, i.e. loses exactly what #1491 established.
+#
+# MEASURED 2026-09-17 on the live ruleset: the `required_status_checks[]` entries
+# carry ONLY `context`; there is no `integration_id`. That is why the block in
+# `.github/settings.yml` carries only `context` too, and why this fixture is the
+# thing that will notice if it changes.
+#
+# HOW TO REFRESH IT — the exclusion set is the plugin's own, not a choice:
+#
+#   gh api repos/nolte/kamerplanter/rulesets/17783737 | python3 -c '
+#   import json,sys,yaml
+#   live = json.load(sys.stdin)
+#   ignored = ("id","_links","created_at","updated_at","source_type","source",
+#              "node_id","current_user_can_bypass")
+#   print(yaml.safe_dump({k:v for k,v in live.items() if k not in ignored},
+#                        sort_keys=False))'
+#
+# The test beside this file compares `.github/settings.yml`'s `rulesets:` entry
+# to this object with `==`, so a divergence in ANY field is red.
+ruleset_object:
+  name: default-branch-protection
+  target: branch
+  enforcement: active
+  conditions:
+    ref_name:
+      exclude: []
+      include:
+      - refs/heads/develop
+  rules:
+  - type: deletion
+  - type: required_status_checks
+    parameters:
+      strict_required_status_checks_policy: true
+      do_not_enforce_on_create: false
+      required_status_checks:
+      - context: static / Static CI Tests
+      - context: chain-bench / Chain Bench
+      - context: security / Build
+  - type: non_fast_forward
+  bypass_actors: []

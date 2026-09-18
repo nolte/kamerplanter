@@ -40,6 +40,7 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import * as wateringLogApi from '@/api/endpoints/watering-logs';
@@ -72,6 +73,8 @@ export default function WateringLogDetailPage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `require_permission("watering-log", DELETE)` is lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
 
   const [log, setLog] = useState<WateringLog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,18 +179,20 @@ export default function WateringLogDetailPage() {
       <PageTitle
         title={`${t('pages.wateringLogs.detail')} — ${loggedAtFormatted}`}
         action={
-          <Tooltip title={t('common.delete')}>
-            <Button
-              color="error"
-              variant="outlined"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteOpen(true)}
-              data-testid="delete-watering-log-button"
-              size="small"
-            >
-              {t('common.delete')}
-            </Button>
-          </Tooltip>
+          canDelete ? (
+            <Tooltip title={t('common.delete')}>
+              <Button
+                color="error"
+                variant="outlined"
+                startIcon={<DeleteIcon />}
+                onClick={() => setDeleteOpen(true)}
+                data-testid="delete-watering-log-button"
+                size="small"
+              >
+                {t('common.delete')}
+              </Button>
+            </Tooltip>
+          ) : undefined
         }
       />
 

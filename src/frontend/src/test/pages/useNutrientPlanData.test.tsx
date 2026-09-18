@@ -7,7 +7,7 @@ import { SnackbarProvider } from 'notistack';
 import i18n from 'i18next';
 import type { NutrientPlan, NutrientPlanPhaseEntry } from '@/api/types';
 import type { EditFormData } from '@/pages/duengung/nutrient-plan-detail/nutrientPlanSchema';
-import { createTestStore } from '../helpers';
+import { createStoreWithTenantRole } from '../helpers';
 
 let paramsKey: string | undefined = 'np-1';
 const navigate = vi.fn();
@@ -93,8 +93,10 @@ function makeEditData(overrides: Partial<EditFormData> = {}): EditFormData {
   };
 }
 
-function makeWrapper(route = '/plan') {
-  const store = createTestStore();
+// #1467: deleting a plan is lead-only, and the hook refuses below that rank.
+// `role` is a parameter so the refusal itself stays testable.
+function makeWrapper(route = '/plan', role: 'viewer' | 'grower' | 'lead' = 'lead') {
+  const store = createStoreWithTenantRole(role);
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <Provider store={store}>
@@ -106,8 +108,8 @@ function makeWrapper(route = '/plan') {
   };
 }
 
-async function renderLoaded(route = '/plan') {
-  const view = renderHook(() => useNutrientPlanData(), { wrapper: makeWrapper(route) });
+async function renderLoaded(route = '/plan', role: 'viewer' | 'grower' | 'lead' = 'lead') {
+  const view = renderHook(() => useNutrientPlanData(), { wrapper: makeWrapper(route, role) });
   await waitFor(() => expect(view.result.current.loading).toBe(false));
   return view;
 }
@@ -224,9 +226,18 @@ describe('useNutrientPlanData', () => {
 
   it('deletes the plan and navigates back to the list', async () => {
     const { result } = await renderLoaded();
+    expect(result.current.canDelete).toBe(true);
     await act(async () => result.current.onDelete());
     expect(planApi.deleteNutrientPlan).toHaveBeenCalledWith('np-1');
     expect(navigate).toHaveBeenCalledWith('/duengung/plans');
+  });
+
+  it('refuses to delete for a grower — the rank the backend refuses (#1467)', async () => {
+    const { result } = await renderLoaded('/plan', 'grower');
+    expect(result.current.canDelete).toBe(false);
+    await act(async () => result.current.onDelete());
+    expect(planApi.deleteNutrientPlan).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalledWith('/duengung/plans');
   });
 
   it('does not navigate when deletion fails', async () => {

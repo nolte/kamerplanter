@@ -37,16 +37,8 @@ export const fetchDashboard = createAsyncThunk(
 
 export const fetchProfile = createAsyncThunk(
   'careReminders/fetchProfile',
-  async ({
-    plantKey,
-    speciesName,
-    botanicalFamily,
-  }: {
-    plantKey: string;
-    speciesName?: string;
-    botanicalFamily?: string;
-  }) => {
-    return api.getOrCreateProfile(plantKey, speciesName, botanicalFamily);
+  async ({ plantKey }: { plantKey: string }) => {
+    return api.getOrCreateProfile(plantKey);
   },
 );
 

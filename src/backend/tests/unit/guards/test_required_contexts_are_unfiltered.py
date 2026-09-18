@@ -141,14 +141,26 @@ def job_reports(context: str, job_id: str, label: str) -> bool:
       value in parentheses. Matched on the prefix rather than by expanding the
       matrix, because the expansion is not what branch protection was told;
     * ``static / Static CI Tests`` — a job that ``uses:`` a reusable workflow,
-      reporting as ``<caller job id> / <reusable job name>``. Only the left half
-      belongs to this repository, so only the left half is matched.
+      reporting as ``<caller job LABEL> / <reusable job name>``. Only the left
+      half belongs to this repository, so only the left half is matched.
+
+    THE LEFT HALF IS THE LABEL, NOT THE JOB ID, and this cost a finding. Until
+    the class sweep of #1491 this function matched ``f"{job_id} / "`` alone,
+    which is right for ``static`` only because that job declares no ``name:`` —
+    when it does, GitHub builds the prefix from the name. Measured on the develop
+    head ``3145261cc`` with ``gh api .../check-runs``: the job ``coverage`` in
+    ``backend.yml``/``frontend.yml`` carries ``name: Coverage`` and reports as
+    ``Coverage / Python Coverage``, which the old predicate could not attribute
+    to any workflow in the tree. Nothing was red, because that context is not
+    required — but promoting it would have produced "no job produces this check
+    run" on a repository where one plainly does: a gap in the MEASURING TOOL, in
+    the direction that reads as a defect in the thing measured.
     """
     if context == label:
         return True
     if context.startswith(f"{label} (") and context.endswith(")"):
         return True
-    return context.startswith(f"{job_id} / ")
+    return context.startswith(f"{job_id} / ") or context.startswith(f"{label} / ")
 
 
 def workflows_defining(context: str, workflow_dir: Path) -> list[Path]:
@@ -187,6 +199,29 @@ def required_contexts() -> list[str]:
     return sorted(set(fixture["branch_protection"]) | set(fixture["rulesets"]))
 
 
+def declared_ruleset_contexts(settings: Any) -> set[str]:
+    """Every status-check context the ``rulesets:`` block of *settings* requires.
+
+    Reads the ruleset shape the GitHub API defines (and the Probot Settings App
+    mirrors): ``rulesets[].rules[]`` entries of type ``required_status_checks``
+    carry them under ``parameters.required_status_checks[].context``. A repository
+    without a ``rulesets:`` block yields the empty set rather than raising — that
+    is the state this guard was written against (#1491), and it has to be a
+    finding, not a crash.
+    """
+    contexts: set[str] = set()
+    rulesets = settings.get("rulesets") if isinstance(settings, dict) else None
+    for ruleset in rulesets or []:
+        for rule in (ruleset or {}).get("rules") or []:
+            if (rule or {}).get("type") != "required_status_checks":
+                continue
+            for check in ((rule.get("parameters") or {}).get("required_status_checks")) or []:
+                context = (check or {}).get("context")
+                if context:
+                    contexts.add(str(context))
+    return contexts
+
+
 class TestEveryRequiredContextCanReport:
     """The property, over the real tree."""
 
@@ -218,8 +253,12 @@ class TestEveryRequiredContextCanReport:
             )
 
 
-class TestTheFixtureIsHeldToTheVersionedHalf:
-    """A hand-copied fixture goes stale silently; this is the tripwire."""
+class TestTheFixtureIsHeldToItsVersionedSources:
+    """A hand-copied fixture goes stale silently; this is the tripwire.
+
+    Both halves are versioned since #1491: the protection block and the ruleset
+    overlay each have a declaration in ``.github/settings.yml`` to be held to.
+    """
 
     def test_every_protected_context_is_declared_in_settings_yml(self) -> None:
         """`.github/settings.yml` is what the Settings App syncs FROM, so it must agree."""
@@ -236,6 +275,105 @@ class TestTheFixtureIsHeldToTheVersionedHalf:
             "a commit is the gap this catches. Refresh the fixture from `gh api` (its header "
             "carries the commands) and reconcile settings.yml."
         )
+
+    def test_the_declared_ruleset_matches_the_live_one_field_for_field(self) -> None:
+        """The App compares the whole object, so the fixture must too (#1491 review).
+
+        `lib/plugins/rulesets.js` diffs with `deepEqual` over the entire ruleset
+        minus the server-owned keys. A declaration that agrees on the context
+        NAMES and differs on the shape — a missing `bypass_actors: []`, a
+        reordered `rules` array, an `integration_id` GitHub started emitting on a
+        status check — passes a name check and makes the App re-PUT the ruleset on
+        every sync. That silently replaces the versioned source with whatever the
+        App computed, which is exactly what #1491 established and would undo.
+
+        Measured on the live ruleset 2026-09-17: the `required_status_checks[]`
+        entries carry only `context`, no `integration_id`. This is the assertion
+        that will notice when that stops being true.
+        """
+        declared = _load(_SETTINGS)["rulesets"]
+        expected = _load(_FIXTURE)["ruleset_object"]
+
+        assert len(declared) == 1, (
+            f"`.github/settings.yml` declares {len(declared)} rulesets; the fixture describes one. The "
+            "Settings App DELETES every repository ruleset the list does not declare, so a second entry "
+            "is a decision that needs its own fixture half, not a silent addition."
+        )
+        assert declared[0] == expected, (
+            "The `rulesets:` block in .github/settings.yml and the fixture copy of the live ruleset differ.\n"
+            f"  declared: {declared[0]}\n"
+            f"  live     : {expected}\n"
+            "Compared field for field INCLUDING array order, because that is how the Probot Settings App "
+            "compares it (deepEqual minus id/_links/created_at/updated_at/source_type/source/node_id/"
+            "current_user_can_bypass). Refresh the fixture with the command in its own header, then "
+            "reconcile settings.yml — editing only the fixture hides the change instead of recording it."
+        )
+
+    def test_the_fixture_ruleset_and_its_context_list_agree(self) -> None:
+        """Two halves of one fixture; a hand-edit to either alone is the drift."""
+        from_object = declared_ruleset_contexts({"rulesets": [_load(_FIXTURE)["ruleset_object"]]})
+
+        assert from_object == set(_load(_FIXTURE)["rulesets"]), (
+            "The fixture's `rulesets:` name list and its `ruleset_object:` disagree. They are copies of "
+            "the same live state; refresh both from `gh api`."
+        )
+
+    def test_every_ruleset_context_is_declared_in_settings_yml(self) -> None:
+        """The ruleset overlay needs a versioned source too (#1491).
+
+        Until this landed, ``default-branch-protection`` (id 17783737) existed only
+        in the GitHub UI. It requires ``chain-bench / Chain Bench`` and
+        ``security / Build`` — two checks that really gate a merge to develop and
+        that no file in this repository mentioned, so nothing could review a change
+        to them and nothing would notice their removal. ``.github/settings.yml`` now
+        declares the ruleset, and this holds the declaration to the fixture copy of
+        the live state.
+        """
+        declared = declared_ruleset_contexts(_load(_SETTINGS))
+        fixture = set(_load(_FIXTURE)["rulesets"])
+
+        assert fixture == declared, (
+            "The fixture copy of the develop ruleset and the `rulesets:` block in "
+            ".github/settings.yml disagree.\n"
+            f"  only in the fixture : {sorted(fixture - declared)}\n"
+            f"  only in settings.yml: {sorted(declared - fixture)}\n"
+            "A ruleset changed in the GitHub UI without a commit is the gap this catches "
+            "(#1491). Refresh the fixture from `gh api repos/nolte/kamerplanter/rulesets/17783737` "
+            "and reconcile settings.yml; editing only the fixture hides the change instead of "
+            "recording it."
+        )
+
+
+class TestTheRulesetReaderCanGoRed:
+    """The extraction itself, over the shapes a settings file can take."""
+
+    _RULESETS = {
+        "rulesets": [
+            {
+                "name": "default-branch-protection",
+                "rules": [
+                    {"type": "deletion"},
+                    {
+                        "type": "required_status_checks",
+                        "parameters": {"required_status_checks": [{"context": "security / Build"}]},
+                    },
+                ],
+            }
+        ]
+    }
+
+    def test_a_declared_context_is_read(self) -> None:
+        assert declared_ruleset_contexts(self._RULESETS) == {"security / Build"}
+
+    def test_a_settings_file_without_rulesets_yields_nothing(self) -> None:
+        """The pre-#1491 state — it must be a FINDING, which means empty, not an error."""
+        assert declared_ruleset_contexts({"branches": []}) == set()
+
+    def test_rules_other_than_status_checks_are_ignored(self) -> None:
+        """`deletion` and `non_fast_forward` carry no contexts and must not be mistaken for one."""
+        without_checks = {"rulesets": [{"name": "x", "rules": [{"type": "non_fast_forward"}]}]}
+
+        assert declared_ruleset_contexts(without_checks) == set()
 
 
 class TestTheSweepCanGoRed:
@@ -351,6 +489,10 @@ class TestWhatCountsAsUnfiltered:
             ("Write-route and tree guards", "guards", "Write-route and tree guards", True),
             ("lint-test-build (22)", "lint-test-build", "lint-test-build", True),
             ("static / Static CI Tests", "static", "static", True),
+            # The same shape with a `name:` on the caller — GitHub builds the
+            # left half from the LABEL then, not from the id (#1491 sweep).
+            ("Coverage / Python Coverage", "coverage", "Coverage", True),
+            ("Coverage / Python Coverage", "coverage", "coverage", False),
             ("chain-bench / Chain Bench", "chain-bench", "chain-bench", True),
             ("lint-test-build (22)", "lint-test", "lint-test", False),
             ("Integration tests (ArangoDB)", "coverage", "Coverage", False),

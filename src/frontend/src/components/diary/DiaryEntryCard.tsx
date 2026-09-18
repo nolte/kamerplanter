@@ -36,8 +36,15 @@ interface DiaryEntryCardProps {
    * re-evaluates the rule unconditionally (AK-18a).
    */
   canRequestAnalysis?: boolean;
-  /** Whether editing/deleting is offered at all (write role, plant not removed). */
+  /** Whether editing is offered at all (write role, plant not removed). */
   canWrite?: boolean;
+  /**
+   * Whether *deleting* is offered. Separate from {@link DiaryEntryCardProps.canWrite}
+   * because `DELETE .../diary/{key}` carries `require_permission("diary-entry",
+   * Action.DELETE)` — lead only, while editing is grower-and-above (REQ-049 §2.3,
+   * #1467). Binding both to one flag offered a grower a control that only 403s.
+   */
+  canDelete?: boolean;
   onEdit?: (entry: PlantDiaryEntry) => void;
   onDelete?: (entry: PlantDiaryEntry) => void;
   /** Mark for analysis — also used to re-request after `completed`/`failed`. */
@@ -71,6 +78,7 @@ export default function DiaryEntryCard({
   entry,
   canRequestAnalysis,
   canWrite = false,
+  canDelete = false,
   onEdit,
   onDelete,
   onRequestAnalysis,
@@ -146,18 +154,20 @@ export default function DiaryEntryCard({
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title={t('pages.plantDiary.deleteEntry')}>
-                <span>
-                  <IconButton
-                    onClick={() => onDelete?.(entry)}
-                    aria-label={t('pages.plantDiary.deleteEntry')}
-                    sx={{ minWidth: 44, minHeight: 44 }}
-                    data-testid="diary-entry-delete"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
+              {canDelete && (
+                <Tooltip title={t('pages.plantDiary.deleteEntry')}>
+                  <span>
+                    <IconButton
+                      onClick={() => onDelete?.(entry)}
+                      aria-label={t('pages.plantDiary.deleteEntry')}
+                      sx={{ minWidth: 44, minHeight: 44 }}
+                      data-testid="diary-entry-delete"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
             </Box>
           )}
         </Box>

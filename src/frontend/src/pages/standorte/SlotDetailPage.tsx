@@ -18,6 +18,7 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
 import type { Slot } from '@/api/types';
@@ -39,6 +40,9 @@ export default function SlotDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const notification = useNotification();
+  // Deleting is lead-only backend-side (REQ-049 §2.3), so a grower must not be
+  // offered a control that can only answer 403 (#1467).
+  const { canDelete } = useTenantPermissions();
   const { handleError } = useApiError();
   const [slot, setSlot] = useState<Slot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,9 +105,11 @@ export default function SlotDetailPage() {
       <PageTitle
         title={slot?.slot_id ?? t('entities.slot')}
         action={
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-            {t('common.delete')}
-          </Button>
+          canDelete ? (
+            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="slot-delete-button">
+              {t('common.delete')}
+            </Button>
+          ) : undefined
         }
       />
 

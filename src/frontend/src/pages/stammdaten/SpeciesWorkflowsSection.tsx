@@ -26,6 +26,7 @@ import Tooltip from '@mui/material/Tooltip';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as activityPlanApi from '@/api/endpoints/activityPlans';
@@ -42,6 +43,9 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `require_permission(TASK, DELETE)` on `DELETE /tasks/workflows/{key}` is
+  // lead-only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
 
   const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -227,16 +231,19 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
                         <ContentCopyIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t('common.delete')}>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDeleteKey(wf.key); }}
-                        disabled={wf.is_system}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {canDelete && (
+                      <Tooltip title={t('common.delete')}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDeleteKey(wf.key); }}
+                          disabled={wf.is_system}
+                          data-testid="species-workflow-delete-button"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Box>
                 </CardContent>
               </CardActionArea>
