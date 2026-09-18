@@ -78,12 +78,18 @@ def test_cleanup_task_delegates_to_repo() -> None:
 
 
 def test_reingest_invalidation_task_delegates_to_repo() -> None:
+    from app.tasks.glossary_tasks import invalidate_after_reingest, warm_glossary_cache
+
     with (
         patch("app.tasks.glossary_tasks.ArangoConnection") as conn,
         patch("app.tasks.glossary_tasks.ArangoGlossaryTermCacheRepository") as repo_cls,
+        patch.object(warm_glossary_cache, "delay") as warm,
     ):
         conn.return_value.db = MagicMock()
         repo_cls.return_value.invalidate_all.return_value = 30
-        from app.tasks.glossary_tasks import invalidate_after_reingest
 
         assert invalidate_after_reingest() == 30
+        # #1460 — the read path no longer refills the cache, so the invalidation
+        # has to queue the refill itself. Without this, a reingest would leave
+        # every term on its editorial fallback until a grower pressed "generate".
+        warm.assert_called_once_with()

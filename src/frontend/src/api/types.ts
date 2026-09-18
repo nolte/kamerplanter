@@ -5851,6 +5851,13 @@ export interface AiTipCard {
 
 export interface AiTipListResponse {
   tips: AiTipCard[];
+  /**
+   * REQ-031 / #1461 — whether this caller may (re)generate the tips through
+   * `POST /ai/tips/refresh`. Since the read stopped generating on a cache miss,
+   * an empty `tips` means "nothing generated yet", and the server is the
+   * authority on who can do something about it (grower or lead).
+   */
+  refresh_available?: boolean;
 }
 
 export interface AiExplainRequest {

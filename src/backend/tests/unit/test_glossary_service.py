@@ -94,12 +94,12 @@ def _service(*, term, ks_ask, cache_hit=None, provider=None, consent_ok=True):
 # ── Scenario 1: cache-miss RAG success ─────────────────────────────
 
 
-async def test_get_term_rag_success_sends_context_null() -> None:
+async def test_generate_term_rag_success_sends_context_null() -> None:
     term = _term()
     ask = AsyncMock(return_value=_ask_result())
     service, _tr, cache_repo, adapter, _c = _service(term=term, ks_ask=ask)
 
-    answer = await service.get_term("vpd", language="de", expertise_level="beginner")
+    answer = await service.generate_term("vpd", language="de", expertise_level="beginner")
 
     adapter.ask.assert_awaited_once()
     assert adapter.ask.await_args.kwargs["context"] is None  # §4.1 step 5
@@ -114,31 +114,31 @@ async def test_get_term_rag_success_sends_context_null() -> None:
 # ── Scenario 2 + 10: low score / no sources → editorial fallback ───
 
 
-async def test_get_term_low_score_falls_back() -> None:
+async def test_generate_term_low_score_falls_back() -> None:
     term = _term()
     ask = AsyncMock(return_value=_ask_result(score=0.2))
     service, *_ = _service(term=term, ks_ask=ask)
 
-    answer = await service.get_term("vpd")
+    answer = await service.generate_term("vpd")
 
     assert answer.is_fallback is True
     assert answer.answer_text == "VPD Kurzdefinition."
     assert answer.sources == []
 
 
-async def test_get_term_no_sources_falls_back() -> None:
+async def test_generate_term_no_sources_falls_back() -> None:
     term = _term()
     ask = AsyncMock(return_value=_ask_result(sources=0))
     service, *_ = _service(term=term, ks_ask=ask)
 
-    answer = await service.get_term("vpd")
+    answer = await service.generate_term("vpd")
     assert answer.is_fallback is True
 
 
 # ── Scenario 5: cache-hit skips the KS ─────────────────────────────
 
 
-async def test_get_term_cache_hit_skips_ks() -> None:
+def test_get_term_cache_hit_skips_ks() -> None:
     term = _term()
     cached = GlossaryTermCacheEntry(
         term_slug="vpd",
@@ -151,7 +151,7 @@ async def test_get_term_cache_hit_skips_ks() -> None:
     ask = AsyncMock()
     service, _tr, cache_repo, adapter, _c = _service(term=term, ks_ask=ask, cache_hit=cached)
 
-    answer = await service.get_term("vpd")
+    answer = service.get_term("vpd")
 
     adapter.ask.assert_not_awaited()
     cache_repo.upsert.assert_not_called()
@@ -162,13 +162,13 @@ async def test_get_term_cache_hit_skips_ks() -> None:
 # ── Scenario 4: alias resolution ───────────────────────────────────
 
 
-async def test_get_term_resolves_alias_to_canonical_slug() -> None:
+def test_get_term_resolves_alias_to_canonical_slug() -> None:
     term = _term()
     ask = AsyncMock(return_value=_ask_result())
     service, term_repo, *_ = _service(term=term, ks_ask=ask)
     term_repo.resolve_slug.return_value = "vpd"  # alias → canonical
 
-    answer = await service.get_term("saettigungsdefizit", language="de")
+    answer = service.get_term("saettigungsdefizit", language="de")
 
     assert answer.slug == "vpd"
     assert answer.label == "VPD"
@@ -177,46 +177,46 @@ async def test_get_term_resolves_alias_to_canonical_slug() -> None:
 # ── Unknown term → 404 ─────────────────────────────────────────────
 
 
-async def test_get_term_unknown_raises_404() -> None:
+def test_get_term_unknown_raises_404() -> None:
     ask = AsyncMock()
     service, term_repo, *_ = _service(term=None, ks_ask=ask)
     term_repo.resolve_slug.return_value = None
 
     with pytest.raises(NotFoundError):
-        await service.get_term("does-not-exist")
+        service.get_term("does-not-exist")
     ask.assert_not_awaited()
 
 
 # ── Scenario 9: prompt-injection / bad input rejected before KS ────
 
 
-async def test_get_term_rejects_unsafe_slug() -> None:
+def test_get_term_rejects_unsafe_slug() -> None:
     ask = AsyncMock()
     service, *_ = _service(term=_term(), ks_ask=ask)
 
     with pytest.raises(ValidationError):
-        await service.get_term("<script>alert(1)</script>")
+        service.get_term("<script>alert(1)</script>")
     ask.assert_not_awaited()
 
 
-async def test_get_term_rejects_bad_expertise() -> None:
+def test_get_term_rejects_bad_expertise() -> None:
     ask = AsyncMock()
     service, *_ = _service(term=_term(), ks_ask=ask)
 
     with pytest.raises(ValidationError):
-        await service.get_term("vpd", expertise_level="ignore_previous_instructions")
+        service.get_term("vpd", expertise_level="ignore_previous_instructions")
     ask.assert_not_awaited()
 
 
 # ── Scenario 3: KS outage → graceful fallback ──────────────────────
 
 
-async def test_get_term_ks_outage_falls_back() -> None:
+async def test_generate_term_ks_outage_falls_back() -> None:
     term = _term()
     ask = AsyncMock(side_effect=KnowledgeServiceUnavailableError("down"))
     service, *_ = _service(term=term, ks_ask=ask)
 
-    answer = await service.get_term("vpd")
+    answer = await service.generate_term("vpd")
 
     assert answer.is_fallback is True
     assert answer.answer_text == "VPD Kurzdefinition."
@@ -235,7 +235,7 @@ async def test_expertise_level_shapes_the_question() -> None:
 
     service, *_ = _service(term=term, ks_ask=AsyncMock(side_effect=_capture))
 
-    await service.get_term("vpd", expertise_level="expert")
+    await service.generate_term("vpd", expertise_level="expert")
     assert "expert" in captured["question"]
     assert "VPD" in captured["question"]
 
@@ -258,7 +258,7 @@ async def test_tenant_cloud_provider_requires_consent() -> None:
     service, *_ = _service(term=term, ks_ask=ask, provider=cloud, consent_ok=False)
 
     with pytest.raises(ConsentRequiredError):
-        await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+        await service.generate_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
 
 
 async def test_tenant_cloud_provider_missing_user_key_fails_closed() -> None:
@@ -278,7 +278,7 @@ async def test_tenant_cloud_provider_missing_user_key_fails_closed() -> None:
     service, _tr, _cr, adapter, consent = _service(term=term, ks_ask=ask, provider=cloud)
 
     with pytest.raises(ConsentRequiredError):
-        await service.get_term("vpd", tenant_key="home", user_key=None, allow_cloud=True)
+        await service.generate_term("vpd", tenant_key="home", user_key=None, allow_cloud=True)
     adapter.ask.assert_not_awaited()
     consent.require_consent.assert_not_called()
 
@@ -316,7 +316,7 @@ async def test_tenant_cloud_provider_without_consent_guard_fails_closed() -> Non
     )
 
     with pytest.raises(ConsentRequiredError):
-        await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+        await service.generate_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
     adapter.ask.assert_not_awaited()
 
 
@@ -337,7 +337,7 @@ async def test_tenant_path_audit_is_attributed() -> None:
     audit = MagicMock()
     service._audit = audit  # noqa: SLF001 — assert the recorded attribution
 
-    await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+    await service.generate_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
 
     audit.record.assert_called_once()
     kwargs = audit.record.call_args.kwargs
@@ -354,7 +354,7 @@ async def test_public_path_audit_keeps_no_attribution() -> None:
     audit = MagicMock()
     service._audit = audit  # noqa: SLF001
 
-    await service.get_term("vpd")
+    await service.generate_term("vpd")
 
     kwargs = audit.record.call_args.kwargs
     assert kwargs["tenant_key"] == "glossary"
@@ -366,7 +366,7 @@ async def test_public_path_never_uses_cloud() -> None:
     ask = AsyncMock(return_value=_ask_result())
     service, *_ = _service(term=term, ks_ask=ask)
 
-    answer = await service.get_term("vpd")  # no tenant_key → public
+    answer = await service.generate_term("vpd")  # no tenant_key → public
     assert answer.uses_cloud_provider is False
 
 
@@ -383,7 +383,7 @@ async def test_tenant_local_provider_no_consent_no_cloud() -> None:
     ask = AsyncMock(return_value=_ask_result())
     service, _tr, _cr, _ad, consent = _service(term=term, ks_ask=ask, provider=local)
 
-    answer = await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+    answer = await service.generate_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
     assert answer.uses_cloud_provider is False
     consent.require_consent.assert_not_called()
 
@@ -402,7 +402,7 @@ def test_list_terms_available_without_ai_flag(monkeypatch) -> None:
     assert summaries[0].slug == "vpd"
 
 
-async def test_get_term_ai_flag_off_serves_editorial_fallback() -> None:
+async def test_generate_term_ai_flag_off_serves_editorial_fallback() -> None:
     # AI off → editorial fallback (is_fallback=true), no 404, no RAG/cache call.
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(settings, "ai_features_enabled", False)
@@ -410,7 +410,7 @@ async def test_get_term_ai_flag_off_serves_editorial_fallback() -> None:
         ask = AsyncMock()
         service, _tr, cache_repo, adapter, _c = _service(term=term, ks_ask=ask)
 
-        answer = await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+        answer = await service.generate_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
 
     adapter.ask.assert_not_awaited()  # RAG generation never runs (#684)
     cache_repo.find_valid.assert_not_called()  # cache bypassed
@@ -421,7 +421,7 @@ async def test_get_term_ai_flag_off_serves_editorial_fallback() -> None:
     assert answer.uses_tenant_data is False
 
 
-async def test_get_term_ai_flag_off_skips_cloud_consent_gate() -> None:
+async def test_generate_term_ai_flag_off_skips_cloud_consent_gate() -> None:
     # A cloud default provider must NOT trigger a consent check when AI is off:
     # no cloud call happens, so no consent is required (fallback path only).
     with pytest.MonkeyPatch.context() as mp:
@@ -438,7 +438,7 @@ async def test_get_term_ai_flag_off_skips_cloud_consent_gate() -> None:
         )
         service, _tr, _cr, adapter, consent = _service(term=term, ks_ask=AsyncMock(), provider=cloud)
 
-        answer = await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+        answer = await service.generate_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
 
     adapter.ask.assert_not_awaited()
     consent.require_consent.assert_not_called()

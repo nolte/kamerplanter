@@ -71,6 +71,15 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 Unter **Admin > OIDC-Provider** konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
 
+!!! warning "Der Provider-Typ ist auf vier Werte festgelegt"
+    Gültig sind ausschließlich `google`, `github`, `apple` und `oidc` — kleingeschrieben. Alles andere, auch `GitHub` oder `GITHUB`, wird beim Anlegen und beim Ändern mit `422` abgelehnt.
+
+    Grund: Die Anmeldung wertet den Typ zeichengenau aus. Ein als `GitHub` eingetragener Provider wurde bisher gespeichert und danach vom **generischen OIDC-Zweig** bedient — die bekannten Endpunkte von GitHub wurden nicht eingesetzt, der GitHub-Adressabruf unterblieb, und nichts hat sich beschwert.
+
+    `oidc` ist der richtige Wert für jeden Provider ohne eigene Sonderbehandlung (Keycloak, Authentik, Azure AD, Okta); die Endpunkte kommen dann aus dem Discovery-Dokument.
+
+    Für Provider, die vor dieser Prüfung gespeichert wurden, meldet `POST /api/v1/admin/oidc-providers/{key}/test` den Befund im Feld `provider_type_check` (`ok`, `provider_type`, `known_provider_types`, `detail`). Bestehende Einträge werden **nicht** automatisch umgeschrieben — korrigiere sie per `PUT`.
+
 !!! warning "GitHub braucht den Scope `user:email`"
     Ein Provider vom Typ `github`, dessen Scope-Liste weder `user:email` noch den übergeordneten Scope `user` enthält, wird beim Anlegen und beim Ändern mit `422` abgelehnt.
 
