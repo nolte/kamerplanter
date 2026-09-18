@@ -1,7 +1,7 @@
 """The care-profile recompute machinery, outside any ``Migration`` class (#1505).
 
 Two migrations recompute stored care profiles from the current engine: v0050
-(#1489/#1481, the profiles the broken bootstrap wrote) and v0052 (#1505, the
+(#1489/#1481, the profiles the broken bootstrap wrote) and v0053 (#1505, the
 profiles whose botanical family ``FAMILY_CARE_MAP`` only now covers). Everything
 but the *criterion* is the same work: the batched reads under the startup lock,
 the per-document hydration that keeps a legacy row from aborting ``up()``, the
@@ -11,7 +11,7 @@ REQ-047 season state, the learned-interval clear, and the report shape.
 Why a module and not a base class
 =================================
 
-The obvious move — have v0052 subclass v0050 and override one method — was the
+The obvious move — have v0053 subclass v0050 and override one method — was the
 first draft of #1505 and it is **wrong**, because ``Migration.checksum()`` hashes
 ``inspect.getsource(type(self))`` (``framework/base.py``). Extracting a seam from
 v0050's class changes v0050's class source, so every installation that had already
@@ -37,7 +37,7 @@ this stored profile still hold exactly what generated it, with no user edit?".
 That predicate is the *only* thing the two migrations disagree about:
 
 * v0050 asks for identity with a frozen literal of the tier-3 tropical preset.
-* v0052 asks for identity with what the generator produced before the family map
+* v0053 asks for identity with what the generator produced before the family map
   grew (tier 3 plus the plant's own ``WateringGuide``).
 
 The question **before** it — "is the recomputation already what the profile
@@ -58,7 +58,7 @@ from pydantic import BaseModel, ValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
-from app.domain.models.care_reminder import CareProfile
+from app.domain.models.care_reminder import SEASON_STATE_FIELDS, CareProfile
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.care_reminder_service import CareInputs, resolve_care_inputs
 from app.migrations.framework.report import MigrationReport
@@ -77,16 +77,12 @@ REQUIRED_COLLECTIONS: tuple[str, ...] = (
 #: Fields carried over from the stored profile onto the recomputed one. Identity
 #: (``_key``/``plant_key``), history (``created_at``) and the REQ-047 season state,
 #: which the state machine owns and no recomputation may take away.
-PRESERVED_FIELDS: frozenset[str] = frozenset(
-    {
-        "key",
-        "plant_key",
-        "created_at",
-        "dormancy_care_mode",
-        "dormancy_watering",
-        "dormancy_check_interval_days",
-    }
-)
+#:
+#: The season half is :data:`~app.domain.models.care_reminder.SEASON_STATE_FIELDS`
+#: rather than a third hand-written copy — ``CareReminderService.reset_profile`` and
+#: v0050 both take it from there (#1506 review), and this module exists precisely
+#: because copies drift.
+PRESERVED_FIELDS: frozenset[str] = frozenset({"key", "plant_key", "created_at"}) | SEASON_STATE_FIELDS
 
 #: Reset on a repair rather than compared: learned around the wrong base interval,
 #: and ``update_profile`` already resets them when the base is edited (#622).

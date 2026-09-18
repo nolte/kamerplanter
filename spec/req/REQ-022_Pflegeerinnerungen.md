@@ -635,7 +635,7 @@ Die **Zuordnung selbst** steht in `FAMILY_CARE_MAP` (`care_reminder_engine.py`) 
 
 `bromeliad` entsteht als Median der fünf Bromelien-Steckbriefe; `orchid` schied aus, weil es doppelt so oft düngt, wie ein extremer Schwachzehrer (so der Familiensatz) verträgt. `aquatic` übernimmt die Tabelle aus `nymphaea_alba.md` §4.1, die das fehlende Preset ausdrücklich benennt; die Gießerinnerung ist dort die wöchentliche Pegelkontrolle, keine Wassergabe.
 
-**Bestandsdaten:** Ein Pflegeprofil wird einmal geschrieben und danach nur noch gelesen, also trägt jede vorhandene Pflanze dieser Familien weiterhin das `tropical`-Preset. Migration `v0052` rechnet sie neu — mit der Maschinerie von v0050, aber einem anderen Kriterium, weil v0050 auf einer bereits gelaufenen Installation genau diese Zeilen als `already_correct` stehen ließ.
+**Bestandsdaten:** Ein Pflegeprofil wird einmal geschrieben und danach nur noch gelesen, also trägt jede vorhandene Pflanze dieser Familien weiterhin das `tropical`-Preset. Migration `v0053` rechnet sie neu — mit der Maschinerie von v0050, aber einem anderen Kriterium, weil v0050 auf einer bereits gelaufenen Installation genau diese Zeilen als `already_correct` stehen ließ.
 
 **Nicht Teil dieser Änderung** (bewusst, weil es Bestandsprofile umschreiben würde, ohne dass das Issue es entscheidet): `Lamiaceae` → `herb_tropical` steht gegen 8 von 10 Steckbriefe, die `mediterranean` sagen; `Primulaceae` → `outdoor_annual_ornamental` steht gegen zwei reine Zimmertopfpflanzen (Ardisia, Cyclamen persicum).
 

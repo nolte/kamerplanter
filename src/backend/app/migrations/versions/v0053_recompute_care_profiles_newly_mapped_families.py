@@ -1,4 +1,4 @@
-"""v0052 — recompute the care profiles whose family FAMILY_CARE_MAP only now knows (#1505).
+"""v0053 — recompute the care profiles whose family FAMILY_CARE_MAP only now knows (#1505).
 
 ``FAMILY_CARE_MAP`` covered 14 of the 63 botanical families the seeds create. The
 other 49 — Solanaceae, Brassicaceae, Rosaceae, Poaceae, Fabaceae and the rest of
@@ -215,7 +215,7 @@ def _is_pre_1505_generator_output(
 class RecomputeCareProfilesNewlyMappedFamiliesMigration(Migration):
     """The shared recompute run, with "untouched" meaning "the pre-#1505 output"."""
 
-    version = "0052"
+    version = "0053"
     name = "recompute_care_profiles_newly_mapped_families"
     description = (
         "Recompute the auto-generated care profiles that still hold the TROPICAL "
