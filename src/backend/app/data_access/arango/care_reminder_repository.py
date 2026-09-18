@@ -1,6 +1,9 @@
 from datetime import date
+from typing import Any, cast
 
-from arango.database import StandardDatabase
+import structlog
+from arango.database import StandardDatabase, TransactionDatabase
+from arango.exceptions import DocumentInsertError, TransactionCommitError
 
 from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.common.types import CareProfileKey
@@ -9,11 +12,14 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
+logger = structlog.get_logger()
+
 #: The one predicate for "a stored plant that has no ``CareProfile``" (#1444).
 #:
 #: **The link is the ``plant_key`` FIELD on the profile document, not the
-#: ``has_care_profile`` edge.** Both are written together by
-#: ``CareReminderService.get_or_create_profile``, but only the field is ever read
+#: ``has_care_profile`` edge.** Both are written together — since #1292 inside one
+#: transaction, by :meth:`ArangoCareReminderRepository.create_linked_profile` — but
+#: only the field is ever read
 #: back: the lookup is ``get_profile_by_plant_key`` →
 #: ``find_one_by_field("plant_key", …)``, and the nightly generator iterates
 #: ``get_all_profiles()`` and reads ``profile.plant_key``. Counting through the edge
@@ -153,14 +159,8 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
     def get_profile_by_plant_key(self, plant_key: str) -> CareProfile | None:
         return self.find_one_by_field("plant_key", plant_key)
 
-    def create_profile(self, profile: CareProfile) -> CareProfile:
-        return super().create(profile)
-
     def update_profile(self, key: CareProfileKey, profile: CareProfile) -> CareProfile:
         return super().update(key, profile)
-
-    def delete_profile(self, key: CareProfileKey) -> bool:
-        return super().delete(key)
 
     def get_all_profiles(self) -> list[CareProfile]:
         profiles, _ = super().get_all(offset=0, limit=10000)
@@ -272,10 +272,112 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
 
     # ── Edge operations ────────────────────────────────────────────────
 
-    def create_profile_edge(self, plant_key: str, profile_key: str) -> None:
-        plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
-        profile_id = f"{col.CARE_PROFILES}/{profile_key}"
-        self.create_edge(col.HAS_CARE_PROFILE, plant_id, profile_id)
+    def create_linked_profile(self, profile: CareProfile, plant_key: str) -> CareProfile:
+        """Insert the profile document **and** its ``has_care_profile`` edge atomically.
+
+        The single writer of a care profile, and the reason it is single (#1292).
+        The pair used to be two calls — ``create_profile`` then ``create_profile_edge``
+        — and between them the document was committed, indexed and readable while
+        nothing linked it yet. ``get_profile_by_plant_key`` reads the ``plant_key``
+        *field*, which carries no unique index, so any concurrent caller landing in
+        that window answered with a document that a moment later was deleted again
+        as a lost racer's orphan. Measured on 2026-09-16 in the required
+        ``Integration tests (ArangoDB)`` lane of PR #1498: four racers, three
+        answering ``11772`` and one answering ``11770``, with the surviving edge and
+        the surviving document both being ``11772``.
+
+        A **stream transaction** closes the window rather than narrowing it. Both
+        inserts go through one transaction handle and nothing is visible to another
+        connection until the commit, so there is no instant at which an unlinked
+        care profile exists for anyone to read. Measured against ArangoDB 3.12.8: a
+        second connection querying ``plant_key`` between the two inserts sees ``[]``,
+        and an aborted transaction leaves no document behind — which is why the
+        loser has nothing to clean up any more.
+
+        A rejection from the unique ``_from`` index on ``has_care_profile`` reaches
+        the caller as :class:`DuplicateError` (``1210``, the winner already
+        committed) or :class:`WriteConflictError` (``1200``, the winner is still
+        open — measured as ``timeout waiting to lock key``), through the same
+        :meth:`BaseArangoRepository._mapped_insert_error` the non-transactional
+        paths use. ``CareReminderService`` resolves either by re-reading the edge.
+        """
+        # This create does not go through ``BaseArangoRepository.create``, so the two
+        # things that method does for every other insert have to be invoked by hand:
+        # the declared foreign-reference ownership check (#948 — ``create_profile``
+        # inherited it and the first draft of this method silently dropped it), and
+        # the validate-and-stamp preamble.
+        self._verify_owned_references(profile)
+        data = self._insert_payload(profile)
+        edge_from = f"{col.PLANT_INSTANCES}/{plant_key}"
+
+        transaction = self._db.begin_transaction(write=[col.CARE_PROFILES, col.HAS_CARE_PROFILE])
+        try:
+            try:
+                # The ``cast`` is deliberately a SEPARATE statement rather than a
+                # wrapper around the call: the driver types every write as
+                # "dict | AsyncJob | BatchJob | bool" (a union only the batch/async
+                # executors can produce, while this repository holds a synchronous
+                # ``StandardDatabase``), but wrapping the call in ``cast(...)`` nests
+                # it one level deeper than the edge insert below, and the write-route
+                # detector walks breadth-first and records the FIRST sink it reaches
+                # per function. Written as a wrapper, the sink this method is pinned
+                # by in ``test_write_route_gates.py`` silently became the edge insert.
+                written = transaction.collection(col.CARE_PROFILES).insert(data, return_new=True)
+                inserted = cast(dict[str, Any], written)
+            except DocumentInsertError as exc:
+                mapped = self._mapped_insert_error(exc, col.CARE_PROFILES, data)
+                if mapped is not None:
+                    raise mapped from exc
+                raise
+            edge_data = {
+                "_from": edge_from,
+                "_to": f"{col.CARE_PROFILES}/{inserted['new']['_key']}",
+                "created_at": self._now(),
+            }
+            try:
+                transaction.collection(col.HAS_CARE_PROFILE).insert(edge_data)
+            except DocumentInsertError as exc:
+                mapped = self._mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
+                if mapped is not None:
+                    raise mapped from exc
+                raise
+            try:
+                transaction.commit_transaction()
+            except TransactionCommitError as exc:
+                # Not reached on a single server in any measurement taken here — the
+                # unique-index rejection arrives at the edge insert above. Mapped all
+                # the same, because a deferred conflict is the server's choice, not
+                # the client's, and the alternative to a typed error here is the raw
+                # driver exception and the 500 this whole change exists to remove.
+                mapped = self._mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
+                if mapped is not None:
+                    raise mapped from exc
+                raise
+        except BaseException:
+            self._abort_quietly(transaction)
+            raise
+        stored: CareProfile = self._wrap(self._from_doc(inserted["new"]))
+        return stored
+
+    @staticmethod
+    def _abort_quietly(transaction: TransactionDatabase) -> None:
+        """Roll the transaction back, never masking the failure that got us here.
+
+        An abort can fail on its own — the server may have torn the transaction
+        down already, which is precisely the case after a write-write conflict, and
+        the connection may be gone entirely. That secondary error must not replace
+        the primary one the caller is about to see, so it is logged and dropped.
+
+        Broad on purpose, and this is the one place in this module where that is
+        right: narrowing to :class:`ArangoError` would let a transport-level failure
+        (a dropped connection surfaces as a plain ``ConnectionError``) mask the
+        ``DuplicateError`` the caller is being raised for, turning a resolvable lost
+        race back into the 500 of #1292.
+        """
+        try:
+            transaction.abort_transaction()
+        except Exception:  # noqa: BLE001 — see the docstring; masking the primary error is worse
+            logger.warning("care_profile_transaction_abort_failed", exc_info=True)
 
     def get_linked_profile(self, plant_key: str) -> CareProfile | None:
         """Return the profile reachable from *plant_key* over ``has_care_profile``.
