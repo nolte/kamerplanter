@@ -109,6 +109,44 @@ def unprofiled_plant_count_aql(*, scoped: bool) -> str:
 class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareReminderRepository):
     _model_cls = CareProfile
 
+    #: A ``None`` on a written ``CareProfile`` means "clear this field" (#1506).
+    #:
+    #: Inherited as ``False``, this repository merged: :meth:`_update_doc` dumped the
+    #: model with ``exclude_none=True``, so a field a writer had set to ``None`` never
+    #: reached the payload and the stored value survived an update that meant to clear
+    #: it. Measured — ``reset_profile`` could not drop the note it was replacing,
+    #: ``DormancyCareActivator.deactivate`` could not drop the winter watering regime,
+    #: and v0050 had to clear the learned intervals in a second ``update_fields`` write.
+    #:
+    #: **Why the flag and not a per-call ``update_fields``.** Every writer of a care
+    #: profile builds a *full* model from the stored one before handing it to
+    #: :meth:`update_profile`, so none of them can lose a field it never mentioned
+    #: (measured 2026-09-18 over all five call sites):
+    #:
+    #: * ``CareReminderService.update_profile`` — ``CareProfile(**{**stored.model_dump(), **updates})``
+    #: * ``CareReminderService.reset_profile`` — ``CareProfile(**{**stored.model_dump(), **presets})``
+    #: * ``CareReminderService.confirm_reminder`` (×2, adaptive learning) —
+    #:   ``CareProfile(**{**stored.model_dump(), <learned interval>})``
+    #: * ``DormancyCareActivator.activate``/``deactivate`` — ``stored.model_copy(update={...})``
+    #: * the v0050 repair migration (``_merge``) — recomputed profile plus its
+    #:   ``_PRESERVED_FIELDS`` (identity, ``created_at``, the three dormancy fields)
+    #:   read off the stored one
+    #:
+    #: The alternative — each caller routing its nullable fields through
+    #: ``update_fields(..., keep_none=True)`` — is the #948 class: a guard opted into
+    #: at the call site, which the next writer silently does not opt into. This flag
+    #: is a property of the collection, so it cannot drift between siblings.
+    #:
+    #: Note that full-replace mode is still a *merge* at the storage level: an
+    #: attribute the model does not know keeps its stored value either way. What
+    #: changes is only that an explicit ``None`` now removes the attribute.
+    #:
+    #: ``tests/integration/test_care_profile_null_clearing.py`` measures this against
+    #: a real server — no double may invent ``keepNull`` semantics — and
+    #: ``tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py`` keeps
+    #: the repositories that stayed in merge mode honest.
+    _update_is_full_replace = True
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.CARE_PROFILES)
         self._confirmations = BaseArangoRepository[CareConfirmation](db, col.CARE_CONFIRMATIONS, CareConfirmation)
