@@ -265,11 +265,19 @@ class TestEnumBoundaryValidation:
         return body
 
     def _assert_boundary_rejection(self, response, field: str) -> None:
+        """422 naming the offending field, per NFR-006.
+
+        The comparison strips the *location* prefix FastAPI puts in front of the
+        path (``body``/``query``/``path``) — what the frontend's own error mapper
+        does (`src/utils/errors.ts`) — rather than taking the last dotted segment.
+        The last segment would also accept `something.else.substrate_type` and so
+        pass quietly if the subject moved (review SCR-007).
+        """
         assert response.status_code == 422, response.json()
         payload = response.json()
         assert payload["error_code"] == "VALIDATION_ERROR"
-        # NFR-006: the caller is told WHICH field it got wrong.
-        assert field in {detail["field"].split(".")[-1] for detail in payload["details"]}
+        locations = {d["field"].split(".", 1)[1] if "." in d["field"] else d["field"] for d in payload["details"]}
+        assert any(loc == field or loc.startswith(f"{field}.") for loc in locations), payload["details"]
 
     def test_flushing_rejects_misspelt_substrate(self, client):
         self._assert_boundary_rejection(
@@ -337,8 +345,25 @@ class TestEnumBoundaryValidation:
         )
 
     def test_area_dosing_accepts_canonical_demand_level(self, client):
+        """The control reaches the branch the level selects, not merely a 200.
+
+        `fert-a` carries no nitrogen, so the earlier version of this control could
+        not have produced the nitrogen warning at all — it would have passed
+        against an engine that ignored `demand_level` entirely (review SCR-002).
+        `hornspaene` is N=14, so the warning is evidence the value arrived.
+        """
         response = client.post(
             f"{self.BASE}/area-dosing",
-            json={"fertilizer_keys": ["fert-a"], "area_m2": 2.0, "demand_level": "nitrogen_fixer"},
+            json={"fertilizer_keys": ["hornspaene"], "area_m2": 2.0, "demand_level": "nitrogen_fixer"},
         )
         assert response.status_code == 200, response.json()
+        assert any("nitrogen" in w.lower() for w in response.json()["warnings"])
+
+    def test_area_dosing_without_a_demand_level_gets_no_nitrogen_warning(self, client):
+        """The other half of the control: the warning is the level's doing, not the fertilizer's."""
+        response = client.post(
+            f"{self.BASE}/area-dosing",
+            json={"fertilizer_keys": ["hornspaene"], "area_m2": 2.0},
+        )
+        assert response.status_code == 200, response.json()
+        assert not any("nitrogen" in w.lower() for w in response.json()["warnings"])

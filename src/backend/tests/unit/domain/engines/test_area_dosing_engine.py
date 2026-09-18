@@ -2,7 +2,8 @@
 
 import pytest
 
-from app.common.enums import FertilizerType, NutrientReleaseSpeed
+import app.domain.engines.area_dosing_engine as area_dosing_engine
+from app.common.enums import FertilizerType, NutrientDemandLevel, NutrientReleaseSpeed
 from app.domain.engines.area_dosing_engine import AreaDosingCalculator
 from app.domain.models.fertilizer import Fertilizer
 
@@ -55,8 +56,33 @@ class TestAreaDosing:
     def test_nitrogen_fixer_guard(self):
         calc = AreaDosingCalculator()
         n_fert = _fert("Blutmehl", application_rate_g_per_m2=50.0, npk_ratio=(12.0, 0.0, 0.0))
-        result = calc.calculate([n_fert], area_m2=1.0, demand_level="nitrogen_fixer")
+        result = calc.calculate([n_fert], area_m2=1.0, demand_level=NutrientDemandLevel.NITROGEN_FIXER)
         assert any("nitrogen" in w.lower() for w in result.warnings)
+
+    def test_another_demand_level_gets_no_nitrogen_warning(self):
+        """The control: the warning belongs to the fixer branch, not to every N fertilizer."""
+        calc = AreaDosingCalculator()
+        n_fert = _fert("Blutmehl", application_rate_g_per_m2=50.0, npk_ratio=(12.0, 0.0, 0.0))
+        result = calc.calculate([n_fert], area_m2=1.0, demand_level=NutrientDemandLevel.HEAVY_FEEDER)
+        assert not any("nitrogen" in w.lower() for w in result.warnings)
+
+
+class TestTheDemandLevelVocabularyHasOneSpelling:
+    """The branch is selected by the enum member, not by a copy of its value (review SCR-002).
+
+    The module used to carry ``NITROGEN_FIXER = "nitrogen_fixer"`` of its own. It
+    behaved identically — ``NutrientDemandLevel`` is a ``StrEnum`` — which is
+    exactly why nothing would have caught it drifting: rename or retire the enum
+    member and this branch goes silently unreachable while every test stays green.
+    """
+
+    def test_the_module_defines_no_second_spelling_of_a_demand_level(self):
+        duplicates = {
+            name: value
+            for name, value in vars(area_dosing_engine).items()
+            if name.isupper() and isinstance(value, str) and value in set(NutrientDemandLevel)
+        }
+        assert not duplicates, f"module-level copies of a NutrientDemandLevel value: {duplicates}"
 
     def test_zero_area_raises(self):
         calc = AreaDosingCalculator()

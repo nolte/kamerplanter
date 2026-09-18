@@ -19,7 +19,13 @@ class MixingProtocolRequest(BaseModel):
     target_volume_liters: float = Field(gt=0)
     target_ec_ms: float = Field(gt=0, le=10)
     target_ph: float = Field(ge=0, le=14)
-    # Aligned with EcBudgetRequest (le=2.0 for blended base water).
+    # NOT aligned with EcBudgetRequest, which caps the same quantity at 2.0
+    # (blended base water). The comment here claimed alignment while the bound
+    # said 5, and the two endpoints feed the same EcBudgetCalculator, so a base
+    # water between 2.0 and 5.0 is accepted through this route and refused
+    # through the other one. Recorded rather than silently changed: narrowing a
+    # live bound is a contract change that needs its own decision (review
+    # SCR-011 on #1527).
     base_water_ec: float = Field(ge=0, le=5)
     base_water_ph: float = Field(ge=0, le=14)
     fertilizer_keys: list[str] = Field(min_length=1)

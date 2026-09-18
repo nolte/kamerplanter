@@ -32,6 +32,20 @@ raises ``KeyError`` — counts too. The enum vocabulary is read from
 ``app.common.enums`` at runtime rather than matched by a name pattern, so an
 enum whose name follows no convention is still seen.
 
+**What this does NOT cover — read the scope, not the colour (review SCR-006).**
+The scan walks ``app/api`` only. A service, engine or task that converts a value
+the API layer forwarded as a free ``str`` is invisible here, and so is the
+quieter half of the same class: a value that is never converted at all but
+compared against a string literal or looked up in a dict
+(``vpd_ranges.get(phase, default)`` was one, ``demand_level == "nitrogen_fixer"``
+another — both silently return a *wrong answer* rather than a 500, and neither
+shows up as a conversion site anywhere). Green here means "no handler converts a
+request value itself", never "every enum-valued field is validated at the
+boundary". The invariant that would cover both is a property of the request
+schema — *a field whose value selects a branch carries its enum type* — and it is
+not decidable from the source text, which is why this test asserts the decidable
+half and names the rest.
+
 **Two deliberate silences**, both one-directional — they can hide a finding,
 never invent one, because a check with false positives gets switched off:
 
@@ -65,6 +79,14 @@ INJECTION_MARKERS = frozenset({"Depends", "Security"})
 
 #: Exceptions a caught ``try`` must name for the conversion to be considered handled.
 HANDLED_EXCEPTIONS = frozenset({"ValueError", "KeyError", "Exception"})
+
+#: Calls that do not launder a request value: they reshape the same string.
+#: ``"Tasks".strip().lower()`` is still what the caller typed, and
+#: ``body.category.split(",")`` is still a list of what the caller typed.
+STRING_METHODS = frozenset({"strip", "lstrip", "rstrip", "lower", "upper", "casefold", "replace", "split", "title"})
+
+#: Pure builtins that likewise only reshape a request value.
+PURE_BUILTINS = frozenset({"list", "set", "tuple", "sorted", "reversed", "str"})
 
 #: Every enum class the application defines centrally, by name.
 ENUM_NAMES = frozenset(
@@ -140,29 +162,71 @@ def _reads_request(node: ast.expr, names: set[str]) -> bool:
     return False
 
 
-def _tainted_names(node: ast.AST, request_params: set[str]) -> set[str]:
-    """Locals aliasing a request value, following assignments to a fixed point.
+def _is_request_derived(value: ast.expr, names: set[str]) -> bool:
+    """True when the expression is the caller's own value, possibly reshaped.
 
-    Taint stops at a call: the result of ``service.get(key)`` is whatever the
-    database holds, not what the caller typed.
+    Taint stops at a call — the result of ``service.get(key)`` is whatever the
+    database holds, not what the caller typed — **except** for calls that only
+    reshape a string (``.strip()``, ``.split(",")``, ``list(...)``). Laundering a
+    value through ``.strip().lower()`` was the third live instance of the class
+    (``calendar/tenant_router.py:88-98``), so the reshaping calls have to stay
+    transparent or the guard is blind to the very shape it exists for.
+    """
+    if not _reads_request(value, names):
+        return False
+    for sub in ast.walk(value):
+        if not isinstance(sub, ast.Call):
+            continue
+        func = sub.func
+        reshapes = (isinstance(func, ast.Attribute) and func.attr in STRING_METHODS) or (
+            isinstance(func, ast.Name) and func.id in PURE_BUILTINS
+        )
+        if not reshapes:
+            return False
+    return True
+
+
+def _bound_names(target: ast.expr) -> set[str]:
+    """Every plain name a binding target introduces (``a``, ``a, b``, ``[a, b]``)."""
+    names: set[str] = set()
+    for sub in ast.walk(target):
+        if isinstance(sub, ast.Name):
+            names.add(sub.id)
+    return names
+
+
+def _tainted_names(node: ast.AST, request_params: set[str]) -> set[str]:
+    """Locals aliasing a request value, to a fixed point.
+
+    Three binders, not one: assignment, ``for`` and a comprehension clause. The
+    first version of this guard followed assignments only, and three live sites
+    of the very class it was written for — two comprehensions and one ``for``
+    loop in ``calendar/tenant_router.py`` — stayed green under it (review
+    SCR-001). *Name a spelling of the same thing my pattern does not hit* is not
+    a rhetorical question; it had three answers.
     """
     tainted: set[str] = set()
     changed = True
     while changed:
         changed = False
-        for assign in ast.walk(node):
-            if not isinstance(assign, ast.Assign | ast.AnnAssign):
+        reachable = request_params | tainted
+        for binder in ast.walk(node):
+            if isinstance(binder, ast.Assign | ast.AnnAssign):
+                value, targets = binder.value, None
+                if value is None:
+                    continue
+                targets = binder.targets if isinstance(binder, ast.Assign) else [binder.target]
+            elif isinstance(binder, ast.For | ast.AsyncFor | ast.comprehension):
+                value, targets = binder.iter, [binder.target]
+            else:
                 continue
-            value = assign.value
-            if value is None or any(isinstance(sub, ast.Call) for sub in ast.walk(value)):
+            if not _is_request_derived(value, reachable):
                 continue
-            if not _reads_request(value, request_params | tainted):
-                continue
-            targets = assign.targets if isinstance(assign, ast.Assign) else [assign.target]
             for target in targets:
-                if isinstance(target, ast.Name) and target.id not in tainted:
-                    tainted.add(target.id)
-                    changed = True
+                for name in _bound_names(target):
+                    if name not in tainted:
+                        tainted.add(name)
+                        changed = True
     return tainted
 
 
@@ -292,6 +356,42 @@ def from_query(phase: str = Query("vegetative")):
     return PhaseName(phase)
 
 
+@router.get("/loop")
+def in_a_loop(category: str = Query("")):
+    """A `for` target is an alias too — the #1520 guard was blind to it (review SCR-001)."""
+    out = []
+    for c in category.split(","):
+        c = c.strip()
+        if c:
+            out.append(PhaseName(c))
+    return out
+
+
+@router.post("/comprehension")
+def in_a_comprehension(body: Req):
+    """The same, spelt as a comprehension — `calendar/tenant_router.py:208` is this."""
+    return [SubstrateType(c) for c in body.filters.categories]
+
+
+@router.post("/mapping")
+def from_a_mapping(payload: dict):
+    """A request value can arrive through a subscript."""
+    return PhaseName(payload["phase"])
+
+
+@router.post("/reflective")
+def reflective(body: Req, name: str = Query("phase")):
+    """...or through getattr, with the attribute name itself coming from the query."""
+    return PhaseName(getattr(body, name))
+
+
+@router.post("/stripped")
+def stripped(body: Req):
+    """A string method does not launder the value (review SCR-003)."""
+    raw = body.phase.strip().lower()
+    return PhaseName(raw)
+
+
 @router.post("/kwarg")
 def as_keyword(body: Req):
     """The value can arrive as a keyword argument."""
@@ -324,6 +424,12 @@ def handled(body: Req):
 def literal(body: Req):
     """Control: a constant is not request input."""
     return PhaseName("vegetative")
+
+
+@router.get("/rows")
+def over_rows(key: str, service: X = Depends(get_x)):
+    """Control: the loop runs over rows the service fetched, not over request input."""
+    return [PhaseName(row.phase) for row in service.list_rows(key)]
 '''
 
 
@@ -335,11 +441,16 @@ def test_the_detector_sees_every_spelling_of_the_defect():
         "as_keyword",
         "by_name",
         "flushing_protocol",
+        "from_a_mapping",
         "from_query",
+        "in_a_comprehension",
+        "in_a_loop",
+        "reflective",
+        "stripped",
     ]
 
 
-@pytest.mark.parametrize("control", ["injected", "stored", "handled", "literal"])
+@pytest.mark.parametrize("control", ["injected", "stored", "handled", "literal", "over_rows"])
 def test_the_detector_stays_silent_on_the_near_misses(control):
     """A check with false positives gets switched off, and then it guards nothing."""
     assert control not in {name for _, name, _, _ in scan_tree(ast.parse(_PROBE), "probe.py")}
