@@ -559,10 +559,12 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
                 state.count("already_correct", {**row, "family_name": inputs.family_name})
                 continue
 
-            # Identity with what the broken bootstrap wrote is the whole criterion,
-            # against the FROZEN literal rather than today's engine — see
-            # :data:`_BROKEN_BOOTSTRAP_OUTPUT`.
-            if _comparable(stored) != _BROKEN_BOOTSTRAP_OUTPUT:
+            # Identity with what the *generator* wrote is the whole criterion —
+            # here, against the FROZEN literal rather than today's engine (see
+            # :data:`_BROKEN_BOOTSTRAP_OUTPUT`). It is a method because v0051
+            # repairs a different population with the same machinery and needs a
+            # different "untouched" (#1505).
+            if not self._is_untouched_generator_output(stored, engine=engine, plant_key=plant_key, inputs=inputs):
                 state.count("skipped_user_edited", row)
                 continue
 
@@ -581,6 +583,32 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
             if not dry_run and profile_key:
                 repository.update_profile(profile_key, repaired)
                 self._clear_learned_intervals(repository, profile_key, stored)
+
+    # ── the criterion ─────────────────────────────────────────────────────────
+
+    def _is_untouched_generator_output(
+        self,
+        stored: CareProfile,
+        *,
+        engine: CareReminderEngine,
+        plant_key: str,
+        inputs: Any,
+    ) -> bool:
+        """Does ``stored`` still hold exactly what generated it, untouched by a user?
+
+        For **this** migration the answer is identity with :data:`_BROKEN_BOOTSTRAP_OUTPUT`:
+        the population is historical — what ``auto_generate_profile`` returned with no
+        family and no guide between #1440 and #1489 — so the value it is compared
+        against is historical too, and frozen. ``engine``, ``plant_key`` and ``inputs``
+        take no part in the answer here; they are the seam v0051 needs, whose
+        population is "whatever the generator produced *before* the family map grew"
+        and therefore depends on the plant's own watering guide.
+
+        Subclasses override this and nothing else: the surrounding order (already
+        correct first, see :meth:`_process_batch`), the merge, the learned-interval
+        clear and the report are shared, so the two runs cannot drift on them.
+        """
+        return _comparable(stored) == _BROKEN_BOOTSTRAP_OUTPUT
 
     # ── the write ─────────────────────────────────────────────────────────────
 

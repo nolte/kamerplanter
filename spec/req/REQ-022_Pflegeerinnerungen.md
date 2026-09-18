@@ -210,7 +210,7 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
 - **`:CareProfile`** — Pflegekonfiguration pro PlantInstance
   - Collection: `care_profiles`
   - Properties:
-    - `care_style: Literal['tropical', 'succulent', 'orchid', 'calathea', 'herb_tropical', 'mediterranean', 'fern', 'cactus', 'custom']`
+    - `care_style: Literal['tropical', 'succulent', 'orchid', 'calathea', 'herb_tropical', 'mediterranean', 'fern', 'cactus', 'bromeliad', 'outdoor_annual_veg', 'outdoor_annual_ornamental', 'outdoor_perennial', 'fruit_tree', 'berry_shrub', 'rose', 'frost_tender_tuber', 'frost_tender_container', 'winter_vegetable', 'spring_bulb', 'aquatic', 'custom']` <!-- Quelle: #1505 — die Liste führte nur die neun Zimmerpflanzen-Stile, während das Backend seit REQ-022 v2.5 §3.1 zehn Freiland-Stile vergibt -->
     - `watering_interval_days: int` (Default aus care_style-Preset, Sommer-Basiswert)
     - `winter_watering_multiplier: float` (Default aus care_style-Preset, z.B. 1.5 für tropical)
     - `fertilizing_interval_days: int`
@@ -552,6 +552,90 @@ Die Backend-Implementation (`care_reminder_engine.py`) MUSS um folgende Einträg
 
 <!-- Quelle: Agrarbiologie-Review AB-004, AB-016, 2026-03 -->
 Hinweis: Die `auto_generate_profile()`-Methode nutzt `FAMILY_CARE_MAP` als Fallback. Für Outdoor-Zierpflanzen mit `traits=['ornamental']` (lowercase, konsistent mit Cultivar-Validator) UND `is_indoor == false` am Standort SOLL der `outdoor_annual_ornamental`-Preset bevorzugt werden, auch wenn die Familie nicht in der Map ist.
+
+<!-- Quelle: Issue #1505, Messung 2026-09-18 -->
+**FAMILY_CARE_MAP-Abdeckung aller geseedeten Familien (#1505):**
+
+`FAMILY_CARE_MAP` war bis 2026-09-18 eine Zimmerpflanzen-Map: Sie kannte 14 der **63** botanischen Familien, die die Seeds anlegen. Tomate, Kohl und Rose fielen auf die dritte Stufe, das `tropical`-7-Tage-Zimmerpflanzen-Preset — sichtbar erst, seit #1489 der Engine tatsächlich den Familien-**Namen** übergibt.
+
+> **Messabweichung zur Issue-Zahl:** Das Issue zählte 18 Familien aus `botanical_families.yaml`. Das ist nicht der Katalog: sieben weitere Seed-Dateien (`plant_info_*.yaml`, `adventskalender.yaml`) bringen eigene `new_families:`-Blöcke mit, und sechs Familien werden ausschließlich über das `family`-Feld einer Art benannt. Alle werden beim Start über `app/migrations/seeds/registry.py` angewandt. Ebenso: nicht 11, sondern **eine** Map-Zeile (`Campanulaceae`) benennt eine nicht geseedete Familie.
+
+**Entscheidung (REQ-022):** Die Map deckt **jede geseedete Familie** ab. Das `tropical`-Preset bleibt die letzte Stufe für eine Familie, die kein Seed anlegt (selbst angelegte Art, Import) — es gibt **keinen** standortabhängigen Fallback.
+
+**Ableitungsregel je Familie, in dieser Reihenfolge:**
+
+1. Der `Pflege-Stil`-Wert, den die Steckbriefe der Familie in `spec/knowledge/plants/<art>.md` §4.1 (`care_profiles.care_style`) führen — 209 der 210 Dokumente haben einen —, als Mehrheit je Familie.
+2. Fehlt diese Mehrheit, steht sie unentschieden, lautet sie `custom` oder ist sie gar kein `CareStyleType` (zwei Dokumente sagen `temperate`, das es im Enum nie gab): der Stil, dessen Preset zur dominanten Kulturform der Familie in den Seeds passt (`plant_category`, `growth_habit`, `frost_sensitivity`). Jede solche Abweichung ist unten benannt.
+3. `CUSTOM` ist nie ein Familien-Default — als *Vorgabe* sind das die `tropical`-Zahlen unter einem Namen, der dem Nutzer nichts sagt.
+
+Eine Familienzuordnung ist notwendigerweise grob (Rosaceae trägt Apfelbaum und Erdbeere). Sie ist die **dritte** Stufe: eine Art mit `WateringGuide` überschreibt die Gießfelder (#1481), und der Nutzer kann das Profil jederzeit ändern. Gesucht ist also, welches Preset für die Arten, die diese Familie tatsächlich seedet, am wenigsten falsch ist — nicht, welches für alle richtig ist.
+
+| Familie | Care-Style | Quelle / Begründung |
+|---------|-----------|---------------------|
+| `Acanthaceae` | `calathea` | Steckbriefe 2/2 `calathea` (aphelandra_squarrosa, fittonia_albivenis) — hohe Luftfeuchte, weiches Wasser. |
+| `Aizoaceae` | `cactus` | lithops_spp.md `cactus` — extrem trockene Führung mit Ruhephase. |
+| `Apocynaceae` | `tropical` | Steckbriefe 2/3 `tropical` (hoya, stephanotis); Ceropegia weicht als Sukkulente ab. |
+| `Araliaceae` | `mediterranean` | Steckbriefe 2/3 `mediterranean` (fatsia, hedera) — kühltolerant, zwischen den Gaben abtrocknen. |
+| `Arecaceae` | `tropical` | Zimmerpalmen 4/4 `tropical`. |
+| `Asparagaceae` | `succulent` | Steckbriefe (dedupliziert) 4x `succulent` gegen 2x `tropical`; der Familiensatz warnt selbst vor der Heterogenität. Wasserspeichernde Blätter faulen im 7-Tage-Rhythmus. |
+| `Aspleniaceae` | `fern` | asplenium_nidus.md `fern`. |
+| `Asteraceae` | `outdoor_annual_veg` | Regel 2: 3x `mediterranean` / 3x `outdoor_annual_veg` / 2x `custom` (lactuca, dahlia); mit den beiden Gemüse-`custom`-Einträgen ergibt sich 5 von 10 für die Küchengarten-Lesart. **Preis:** Tagetes und Dahlie verlieren die Deadheading-Erinnerung. |
+| `Begoniaceae` | `tropical` | Regel 2: `calathea`/`tropical`-Gleichstand, der generische Stil gewinnt. |
+| `Bromeliaceae` | `bromeliad` | Regel 2: kein Preset passte — Trichter-Gießkultur, extremer Schwachzehrer. Neues Preset, Werte aus den fünf Steckbriefen. |
+| `Commelinaceae` | `tropical` | tradescantia_zebrina.md `tropical`. |
+| `Euphorbiaceae` | `tropical` | croton, poinsettia 2/2 `tropical`. |
+| `Gesneriaceae` | `calathea` | Steckbriefe 2/3 `calathea` (Streptocarpus) — von unten gießen, weiches Wasser. |
+| `Malvaceae` | `tropical` | hibiscus, pachira 2/2 `tropical`. |
+| `Nephrolepidaceae` | `fern` | nephrolepis_exaltata.md `fern`. |
+| `Oxalidaceae` | `tropical` | oxalis_triangularis.md `tropical`. |
+| `Piperaceae` | `succulent` | peperomia_obtusifolia.md `succulent` — fleischige Blätter, staunässeempfindlich. |
+| `Pteridaceae` | `fern` | adiantum_raddianum.md `fern`. |
+| `Rubiaceae` | `tropical` | Regel 2: coffea/gardenia-Gleichstand, beide warm-innen. |
+| `Strelitziaceae` | `tropical` | **Abweichung** von strelitzia_reginae.md (`mediterranean`): die Seeds sagen tropical_foliage, indoor, frostempfindlich. |
+| `Urticaceae` | `tropical` | Regel 2: pilea/soleirolia-Gleichstand, beide warm-innen. |
+| `Amaranthaceae` | `outdoor_annual_veg` | Rote Bete, Spinat — Freilandgemüse. |
+| `Amaryllidaceae` | `outdoor_annual_veg` | Regel 2: 4 der 6 Arten sind Küchen-Allium (Zwiebel, Lauch, Knoblauch, Schnittlauch); Clivia und Hippeastrum weichen als Zimmerzwiebeln ab. |
+| `Apiaceae` | `outdoor_annual_veg` | Steckbriefe 5/9 — Karotte, Sellerie, Pastinake. |
+| `Boraginaceae` | `outdoor_annual_veg` | phacelia_tanacetifolia.md — Gründüngung. |
+| `Brassicaceae` | `outdoor_annual_veg` | Steckbriefe 8/9. |
+| `Cannabaceae` | `herb_tropical` | **Abweichung** von humulus_lupulus.md (`mediterranean`): der Familiensatz sagt `typical_nutrient_demand: heavy`, und die zweite Art ist Cannabis sativa (indoor, Starkzehrer). Eine 30-Tage-Düngung widerspricht beidem. |
+| `Cucurbitaceae` | `outdoor_annual_veg` | Regel 2: 3/3-Gleichstand, alle sechs Arten sind frostempfindliches Freilandgemüse. |
+| `Fabaceae` | `outdoor_annual_veg` | Steckbriefe 6/8. |
+| `Poaceae` | `outdoor_annual_veg` | Getreide 6/6. |
+| `Solanaceae` | `outdoor_annual_veg` | Steckbriefe 5/6 — Tomate, Paprika, Kartoffel. Der Kernfall des Issues. |
+| `Tropaeolaceae` | `outdoor_annual_veg` | tropaeolum_majus.md. |
+| `Adoxaceae` | `outdoor_perennial` | sambucus, viburnum 2/2. |
+| `Buxaceae` | `mediterranean` | buxus_sempervirens.md. |
+| `Caprifoliaceae` | `mediterranean` | weigela_florida.md. |
+| `Cornaceae` | `mediterranean` | cornus_mas.md. |
+| `Ericaceae` | `berry_shrub` | Regel 2/3: alle drei Steckbriefe sagen `custom`. Vaccinium *ist* ein Beerenstrauch, und die Werte passen zum sauren, schwach gedüngten Ericaceen-Regime. Der Kalkfrei-Hinweis fehlt dem geteilten Preset noch. |
+| `Grossulariaceae` | `berry_shrub` | Regel 2/3: beide Steckbriefe `custom`; Johannis- und Stachelbeere sind namentlich die Pflanzen, für die `berry_shrub` geschrieben wurde. |
+| `Hydrangeaceae` | `outdoor_perennial` | **Regel 2:** hydrangea_macrophylla.md sagt `temperate` — kein `CareStyleType`. Winterharter Strauch mit hohem Wasserbedarf. |
+| `Iridaceae` | `frost_tender_tuber` | **Abweichung** von tigridia_pavonia.md (`mediterranean`): die Seeds sagen `bulb_tuber`, frostempfindlicher Geophyt — genau die Definition von `frost_tender_tuber`. |
+| `Nymphaeaceae` | `aquatic` | Regel 2: nymphaea_alba.md benennt das fehlende Preset selbst (kein Standard-Preset passe für aquatische Pflanzen). Neues Preset, Werte aus derselben Tabelle. |
+| `Paeoniaceae` | `outdoor_perennial` | paeonia_lactiflora.md. |
+| `Polemoniaceae` | `outdoor_perennial` | phlox_paniculata.md. |
+| `Polygonaceae` | `outdoor_perennial` | Regel 3: rheum_rhabarbarum.md sagt `custom`; Rhabarber ist eine winterharte Gemüsestaude. |
+| `Ranunculaceae` | `outdoor_perennial` | **Abweichung** von 2x `mediterranean` (clematis, helleborus): alle vier Arten sind winterharte Freilandstauden, Clematis und Rittersporn sind ausgesprochen durstig. |
+| `Rosaceae` | `fruit_tree` | Regel 2/3: 6 von 8 Steckbriefen sagen `custom`; 4 der 8 Arten sind die Obstbäume, die `fruit_tree` benennt. Rose und Rubus verdienen eigene Stile — eine Familienzuordnung kann sie ihnen nicht geben. |
+| `Saxifragaceae` | `outdoor_perennial` | astilbe_chinensis.md. |
+| `Verbenaceae` | `outdoor_annual_ornamental` | **Abweichung** von verbena (`mediterranean`): eine frostempfindliche Balkonbeetpflanze — der Anwendungsfall von `outdoor_annual_ornamental`. |
+| `Vitaceae` | `fruit_tree` | **Abweichung** von vitis (`mediterranean`): dessen 36-Monats-Umtopfintervall erzeugte eine Umtopf-Erinnerung für eine ausgepflanzte Rebe; `fruit_tree` deckelt bei 60 und düngt einmal im Frühjahr. |
+
+**Zwei neue Presets (Werte je Feld aus den Steckbriefen der geseedeten Arten):**
+
+| care_style | Gießen (Sommer) | Winter-Mult. | Düngen | Umtopfen | Schädlingsk. | Typische Pflanzen |
+|-----------|----------------|--------------|--------|----------|--------------|-------------------|
+| `bromeliad` | 7 Tage (in den Trichter, kalkfrei) | 1.5 | 28 Tage, Apr–Sep | 24 Monate | 21 Tage | Guzmania, Vriesea, Aechmea, Tillandsia |
+| `aquatic` | 7 Tage (Teichstand nachfüllen, 2–5 cm/Woche) | 4.0 | 30 Tage, Apr–Aug (Depot-Tabletten) | 48 Monate | 14 Tage | Seerose (Nymphaea) |
+
+`bromeliad` entsteht als Median der fünf Bromelien-Steckbriefe; `orchid` schied aus, weil es doppelt so oft düngt, wie ein extremer Schwachzehrer (so der Familiensatz) verträgt. `aquatic` übernimmt die Tabelle aus `nymphaea_alba.md` §4.1, die das fehlende Preset ausdrücklich benennt; die Gießerinnerung ist dort die wöchentliche Pegelkontrolle, keine Wassergabe.
+
+**Bestandsdaten:** Ein Pflegeprofil wird einmal geschrieben und danach nur noch gelesen, also trägt jede vorhandene Pflanze dieser Familien weiterhin das `tropical`-Preset. Migration `v0051` rechnet sie neu — mit der Maschinerie von v0050, aber einem anderen Kriterium, weil v0050 auf einer bereits gelaufenen Installation genau diese Zeilen als `already_correct` stehen ließ.
+
+**Nicht Teil dieser Änderung** (bewusst, weil es Bestandsprofile umschreiben würde, ohne dass das Issue es entscheidet): `Lamiaceae` → `herb_tropical` steht gegen 8 von 10 Steckbriefe, die `mediterranean` sagen; `Primulaceae` → `outdoor_annual_ornamental` steht gegen zwei reine Zimmertopfpflanzen (Ardisia, Cyclamen persicum).
+
+<!-- /Quelle: Issue #1505 -->
 
 **Deadheading-Guard für Self-Cleaning-Sorten (AB-016):**
 Cultivare mit `traits: ['self_cleaning']` (z.B. Surfinia-Petunien, Calibrachoa 'Million Bells') sollen KEINE Deadheading-Erinnerungen erhalten, auch wenn der Preset `deadheading_enabled: True` setzt. Die `CareReminderEngine` prüft vor der Deadheading-Generierung: `if 'self_cleaning' in cultivar.traits: skip deadheading`.
