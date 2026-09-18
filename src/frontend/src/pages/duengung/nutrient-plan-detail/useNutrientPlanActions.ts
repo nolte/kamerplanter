@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 /**
@@ -89,8 +90,13 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
   // Expanded rows for fertilizer dosages
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
+  // Only the phase-entry delete is lead-only: it maps to
+  // `require_permission(NUTRIENT_PLAN, DELETE)`. Channel and channel-fertilizer
+  // removals go through `PUT .../entries/{key}` (UPDATE) and stay grower-writable (#1467).
+  const { canDelete } = useTenantPermissions();
+
   const onDeleteEntry = useCallback(async () => {
-    if (!key || !deletingEntry) return;
+    if (!key || !deletingEntry || !canDelete) return;
     setDeletingEntryPending(true);
     try {
       await planApi.deletePhaseEntry(key, deletingEntry.key);
@@ -103,7 +109,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
     } finally {
       setDeletingEntryPending(false);
     }
-  }, [key, deletingEntry, notification, t, load, handleError]);
+  }, [key, deletingEntry, canDelete, notification, t, load, handleError]);
 
   const toggleExpanded = useCallback((entryKey: string) => {
     setExpandedEntries((prev) => {
@@ -415,6 +421,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
       removeFertAllOpen, removeFertAllPayload, removingFertAll, onConfirmRemoveFertilizerFromAll, cancelRemoveFertAll,
       fertDialogOpen, editingFertDosage, fertDialogExistingKeys, onSaveChannelFertilizer, closeFertDialog,
       wateringLogOpen, wateringLogChannel, onWateringLogged, closeWateringLog,
+      canDeletePhaseEntry: canDelete,
     }),
     [
       expandedEntries, toggleExpanded,
@@ -428,6 +435,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
       removeFertAllOpen, removeFertAllPayload, removingFertAll, onConfirmRemoveFertilizerFromAll, cancelRemoveFertAll,
       fertDialogOpen, editingFertDosage, fertDialogExistingKeys, onSaveChannelFertilizer, closeFertDialog,
       wateringLogOpen, wateringLogChannel, onWateringLogged, closeWateringLog,
+      canDelete,
     ],
   );
 }

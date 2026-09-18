@@ -30,18 +30,16 @@ export async function getDashboard(hemisphere = 'north'): Promise<CareDashboardE
   return data;
 }
 
-export async function getOrCreateProfile(
-  plantKey: string,
-  speciesName?: string,
-  botanicalFamily?: string,
-): Promise<CareProfile> {
-  const params: Record<string, string> = {};
-  if (speciesName) params.species_name = speciesName;
-  if (botanicalFamily) params.botanical_family = botanicalFamily;
-  const { data } = await client.get<CareProfile>(
-    `${BASE}/plants/${plantKey}/profile`,
-    { params },
-  );
+/**
+ * Read the plant's care profile, generating (but not storing) presets if it has none.
+ *
+ * The two preset inputs this used to send are gone (#1489). `botanical_family` was
+ * never sent by any caller, and `species_name` decided nothing — so the family, the
+ * one input that did decide, came from nobody and every generated profile was
+ * `TROPICAL`. The server resolves the plant's species and family itself.
+ */
+export async function getOrCreateProfile(plantKey: string): Promise<CareProfile> {
+  const { data } = await client.get<CareProfile>(`${BASE}/plants/${plantKey}/profile`);
   return data;
 }
 

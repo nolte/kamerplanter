@@ -34,13 +34,12 @@ WHAT IT CHECKS
    file Renovate extracted from. The expectation is not "pep621 appears
    somewhere" but the exact set:
 
-   * ``pep621`` extracts from all five LOCKED PEP 621 trees — the backend and
-     the four service images (#1374) — and from nothing except the two
-     lock-less shared libraries named in
-     :data:`KNOWN_LOCKLESS_PEP621_FILES`, which are enumerated rather than
-     waved through;
+   * ``pep621`` extracts from all seven LOCKED PEP 621 trees — the backend,
+     the four service images (#1374) and the two shared libraries (#1464) —
+     and from nothing else. :data:`KNOWN_LOCKLESS_PEP621_FILES` is EMPTY since
+     #1464: a Python tree without a lock is a finding, not an allowance;
    * no second manager (``poetry``, ``pip_requirements``, ``pip-compile``)
-     reads anything inside one of those five LOCKED trees — a path-scoped
+     reads anything inside one of those seven LOCKED trees — a path-scoped
      disable is what let the side services keep a second manager without a lock
      for months;
    * ``pip-compile`` does not appear at all.
@@ -85,56 +84,86 @@ from typing import Any
 
 REPORT_PATH = "renovate-health-report.json"
 
-#: The five PEP 621 trees ``pep621`` must extract from, and nothing else.
+#: The seven PEP 621 trees ``pep621`` must extract from, and nothing else.
 #: Order is the reading order of the repository, not an accident: backend first,
-#: then the four service images in the order renovate.json5 groups them.
+#: then the four service images in the order renovate.json5 groups them, then the
+#: two shared libraries locked by #1464.
 EXPECTED_PEP621_FILES: tuple[str, ...] = (
     "src/backend/pyproject.toml",
     "src/inference-service/pyproject.toml",
     "src/knowledge-service/pyproject.toml",
     "docker/embedding-service/pyproject.toml",
     "docker/reranker-service/pyproject.toml",
+    "src/libs/kp_vectordb/pyproject.toml",
+    "src/libs/kp_errortracking/pyproject.toml",
 )
 
-#: PEP 621 projects that legitimately have NO uv.lock, and why.
+#: PEP 621 projects that legitimately have NO uv.lock. EMPTY, and that is the
+#: point (#1464).
 #:
-#: MEASURED, and the measurement corrected this file twice. The #1383 analysis
-#: said ``poetry`` read "exactly the two side-service pyproject.toml"; the real
-#: #12 body of 2026-09-16 showed FOUR, with ``src/libs/kp_errortracking`` and
-#: ``src/libs/kp_vectordb`` in there too. The first version of this check then
-#: assumed those two would move under ``pep621`` once ``poetry`` was disabled
-#: repository-wide (#1374). ``task renovate:dry-run`` against this checkout
-#: (Renovate 44.94.1, 2026-09-16) says otherwise::
+#: It used to hold ``src/libs/kp_vectordb`` and ``src/libs/kp_errortracking``. The
+#: reason recorded for the allowance was that a shared library has no image of its
+#: own, so there is nothing that "installs from a lock" — true about images and
+#: false about installs: ``side-services.yml`` ran ``pip install -e '.[dev]'`` for
+#: kp_vectordb on a runner, and NFR-009 §2.3 is a property of the install. Both
+#: trees now carry a hash-bearing uv.lock and sit in
+#: :data:`EXPECTED_PEP621_FILES`.
 #:
-#:     pep621            fileCount 5   ← exactly EXPECTED_PEP621_FILES, each with its uv.lock
-#:     poetry            fileCount 2   ← src/libs/kp_errortracking, src/libs/kp_vectordb
-#:     pip_requirements  fileCount 2   ← docs/, tools/rag-eval/ only
+#: MEASURED after the change, ``task renovate:dry-run`` (Renovate 44.94.1,
+#: 2026-09-17)::
 #:
-#: So ``pep621`` claims a ``pyproject.toml`` that has a ``uv.lock`` beside it and
-#: ``poetry`` keeps the ones that do not, and ``enabled: false`` disables a
-#: manager's DEPENDENCIES without stopping its EXTRACTION — the manager stays in
-#: the inventory. A rule of the form "``poetry`` must not appear at all" would
-#: therefore have alerted on a correct repository every single day.
+#:     pep621            fileCount 7   ← exactly EXPECTED_PEP621_FILES
+#:     poetry            absent        ← it only ever held the two lockless libs
+#:     pip_requirements  fileCount 3   ← docs/, tools/rag-eval/, tests/e2e/
 #:
-#: The two entries are shared LIBRARIES with no image of their own, so there is
-#: nothing that "installs from a lock"; giving them one is a decision about the
-#: libraries' release shape, not a CI change (the same reason side-services.yml
-#: still pip-installs kp_vectordb). That decision is tracked as **#1464**; when
-#: it lands, these two entries move into :data:`EXPECTED_PEP621_FILES` and this
-#: allowance disappears — naming the issue is what keeps the interim from
-#: becoming permanent by default (CI spec §H). Enumerating them keeps the
-#: expectation EXACT
-#: — these two are allowed under either manager, an unknown file is not —
-#: instead of relaxing the rule to "pep621 lists at least the five", which would
-#: have stayed green through the whole #1371 episode.
-LOCKLESS_PYTHON_PROJECTS: tuple[str, ...] = (
-    "src/libs/kp_errortracking/pyproject.toml",
-    "src/libs/kp_vectordb/pyproject.toml",
-)
+#: ``poetry`` leaving the inventory entirely is a CONSEQUENCE, not a goal: it
+#: extracted those two trees precisely because they had no lock. The rule that
+#: matters is still :data:`MANAGERS_BANNED_FROM_LOCKED_TREES` — no second manager
+#: on a tree that has a lock — and it now covers seven trees instead of five.
+#:
+#: KEEPING THIS EMPTY IS THE RULE, not an accident of today's tree. An allowance
+#: register is how a workaround becomes the design (CI spec §H): a new PEP 621
+#: tree gets a lock, or the pull request that adds it argues for an entry here in
+#: writing. :func:`lockless_python_trees` measures the same property against the
+#: FILESYSTEM rather than against Renovate's inventory, so a tree Renovate does
+#: not extract at all — the failure mode an inventory check cannot see — is a
+#: finding too.
+#:
+#: THE SCOPE IS PEP 621, AND THAT IS NOW SAID OUT LOUD (#1491 review). The
+#: earlier wording claimed "every Python tree"; the sweep only ever read
+#: ``pyproject.toml``, so three ``requirements.txt`` — ``tests/e2e/``,
+#: ``docs/`` and ``tools/rag-eval/`` — installed with neither a lock nor hashes
+#: and no measurement said so. A claim wider than its measuring tool is the
+#: NFR-018 §1 shape, so both were brought together: the claim was narrowed and
+#: :func:`unhashed_requirements_installs` was added to report the remainder. The
+#: remainder itself is **#1509**.
+LOCKLESS_PYTHON_PROJECTS: tuple[str, ...] = ()
 
 #: Backwards-compatible alias: these files are also the ones allowed to appear
 #: under ``pep621`` without a lock, should Renovate's manager assignment change.
 KNOWN_LOCKLESS_PEP621_FILES: tuple[str, ...] = LOCKLESS_PYTHON_PROJECTS
+
+#: Files that must be OBSERVED by a named manager, keyed by that manager (#1464).
+#:
+#: `config:recommended` pulls in `:ignoreModulesAndTests`, whose `ignorePaths`
+#: includes ``**/tests/**``. That rule is written for a repository whose
+#: ``tests/`` holds fixtures; here it also swallowed ``tests/e2e/``, which is a
+#: shipped artefact — the image the nightly E2E matrix and the ``E2E smoke`` lane
+#: build. Its selenium, axe-core and base-image versions were unmanaged, and
+#: nothing said so: an ignored path produces no warning, no dashboard entry and
+#: no finding. ``renovate.json5`` now restates ``ignorePaths`` without
+#: ``**/tests/**``.
+#:
+#: This is the tripwire for that override. Absence is invisible by construction,
+#: so it has to be asserted from the other side: these three files must APPEAR in
+#: the inventory. Measured with ``task renovate:dry-run`` (Renovate 44.94.1,
+#: 2026-09-17) before and after the override — ``pip_requirements`` 2 -> 3 files,
+#: ``npm`` 1 -> 2, ``dockerfile`` 8 -> 9, and nothing else changed.
+EXPECTED_OBSERVED_FILES: dict[str, tuple[str, ...]] = {
+    "pip_requirements": ("tests/e2e/requirements.txt",),
+    "npm": ("tests/e2e/package.json",),
+    "dockerfile": ("tests/e2e/Dockerfile",),
+}
 
 #: Managers that must not appear in the inventory AT ALL. ``pip-compile`` is the
 #: manager whose six silent weeks this whole check exists for; it is no longer
@@ -252,6 +281,92 @@ def _lock_beside(package_file: str, repo_root: Path) -> bool:
     return (repo_root / package_file).with_name("uv.lock").is_file()
 
 
+#: Directories the pyproject sweep never descends into. Build and environment
+#: artefacts, not source: a virtualenv contains other projects' pyproject.toml by
+#: the hundred, and reporting those would drown the finding this check exists for.
+_SWEEP_EXCLUDED = frozenset(
+    {".git", ".venv", ".venv-docs", "node_modules", "site-packages", "__pycache__", ".mypy_cache", ".ruff_cache"}
+)
+
+
+#: ``requirements*.txt`` trees that are INSTALLED without hashes, and which are
+#: known. Reported, never a finding — see :func:`unhashed_requirements_installs`.
+KNOWN_UNHASHED_REQUIREMENTS: tuple[str, ...] = (
+    "docs/requirements.txt",
+    "tests/e2e/requirements.txt",
+    "tools/rag-eval/requirements.txt",
+)
+
+
+def unhashed_requirements_installs(repo_root: Path) -> list[str]:
+    """Every ``requirements*.txt`` with no hash-bearing lock beside it, sorted.
+
+    REPORTED, NOT A FINDING, on purpose. These predate #1464 and reddening the
+    Renovate-health lane for them would fail a correct repository for a decision
+    nobody has made yet — the wrong instrument. What was wrong before was
+    something else: the claim next to :data:`LOCKLESS_PYTHON_PROJECTS` said
+    "every Python tree installs from a hash-bearing lock" while the sweep beside
+    it only read ``pyproject.toml``. A claim wider than the thing that measures it
+    is invisible by construction (NFR-018 §1), so the claim was narrowed to PEP
+    621 and this function was added so the remainder has a number instead of a
+    silence.
+
+    "Hash-bearing lock beside it" means a ``uv.lock`` or a
+    ``requirements*.txt`` whose entries carry ``--hash=`` — pip's own form, so a
+    list that is pinned by hash is not reported as if it were not.
+
+    Args:
+        repo_root: Checkout root to sweep.
+
+    Returns:
+        The requirement lists installed without hash verification, sorted.
+        :data:`KNOWN_UNHASHED_REQUIREMENTS` records the three that exist today;
+        a fourth appearing is visible in the report rather than in nobody's log.
+
+    The decision for the three — lock, hash-pin in place, or record as out of
+    scope — is tracked as **#1509**, with the measured install sites. Naming the
+    issue is what keeps a reported-only category from becoming permanent by
+    default (CI spec §H).
+    """
+    found = []
+    for requirements in repo_root.rglob("requirements*.txt"):
+        relative = requirements.relative_to(repo_root)
+        if _SWEEP_EXCLUDED.intersection(relative.parts):
+            continue
+        if "--hash=" in requirements.read_text(encoding="utf-8", errors="replace"):
+            continue
+        if requirements.with_name("uv.lock").is_file():
+            continue
+        found.append(relative.as_posix())
+    return sorted(found)
+
+
+def lockless_python_trees(repo_root: Path) -> list[str]:
+    """Every ``pyproject.toml`` in the checkout with no ``uv.lock`` beside it.
+
+    Measured against the FILESYSTEM, deliberately, because the inventory check
+    above can only see what Renovate extracted. A Python tree that no manager
+    reads at all is invisible there and is exactly the worse case: unlocked AND
+    unobserved. Paths are returned relative to *repo_root*, sorted, so the
+    finding reads the same on every machine.
+
+    Args:
+        repo_root: Checkout root to sweep.
+
+    Returns:
+        The offending package files, sorted. Empty when every Python tree is
+        locked, which is the state #1464 established and this keeps.
+    """
+    found = []
+    for pyproject in repo_root.rglob("pyproject.toml"):
+        relative = pyproject.relative_to(repo_root)
+        if _SWEEP_EXCLUDED.intersection(relative.parts):
+            continue
+        if not pyproject.with_name("uv.lock").is_file():
+            found.append(relative.as_posix())
+    return sorted(found)
+
+
 def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
     """Decide whether the dashboard shows a problem or the inventory drifted.
 
@@ -283,7 +398,8 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
     if pep621 is None:
         findings.append(
             "`pep621` is absent from the inventory entirely. It is the ONLY manager that may read the "
-            "five pyproject.toml files here; its absence means the backend and every service image are "
+            "seven pyproject.toml files here; its absence means the backend, every service image and both "
+            "shared libraries are "
             "unmanaged, which is exactly the shape the pip-compile manager failed in for six weeks."
         )
         pep621 = []
@@ -337,6 +453,33 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
             "releases never reach the image (NFR-009 §2.3)."
         )
 
+    for manager, package_files in EXPECTED_OBSERVED_FILES.items():
+        seen = inventory.get(manager, [])
+        unobserved = [package_file for package_file in package_files if package_file not in seen]
+        if unobserved:
+            findings.append(
+                f"`{manager}` does not read "
+                + ", ".join(unobserved)
+                + ". These are shipped artefacts that an inherited `ignorePaths` rule used to swallow "
+                "(#1464); an ignored path produces no warning and no dashboard entry, so its absence is "
+                "only visible from this side. Check the `ignorePaths` override in renovate.json5."
+            )
+
+    # The same property, reached from the filesystem instead of from the
+    # dashboard (#1464). The inventory check above can only judge trees Renovate
+    # extracted; this one also catches a tree no manager reads, which is the
+    # worse case and the invisible one.
+    unlocked = [tree for tree in lockless_python_trees(repo_root) if tree not in LOCKLESS_PYTHON_PROJECTS]
+    if unlocked:
+        findings.append(
+            "Python tree without a uv.lock beside its pyproject.toml: "
+            + ", ".join(unlocked)
+            + ". Every PEP 621 tree in this repository installs from a hash-bearing lock (NFR-009 §2.3); "
+            "run `uv lock` in that directory and add the file to EXPECTED_PEP621_FILES. "
+            "LOCKLESS_PYTHON_PROJECTS is empty on purpose and an entry there needs the argument in "
+            "writing — an allowance register is how a workaround becomes the design (CI spec §H)."
+        )
+
     return {
         "alert": bool(findings),
         "findings": findings,
@@ -347,16 +490,31 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         "expected_pep621_files": list(EXPECTED_PEP621_FILES),
         "known_lockless_pep621_files": list(LOCKLESS_PYTHON_PROJECTS),
         "locks_verified_on_disk": [f for f in EXPECTED_PEP621_FILES if f not in locks_missing],
+        "lockless_python_trees": lockless_python_trees(repo_root),
+        # Reported, deliberately NOT appended to `findings`: these predate #1464
+        # and are a decision nobody has made, not a regression. The number exists
+        # so the claim above ("every PEP 621 tree") and the measurement agree on
+        # the same sentence.
+        "unhashed_requirements_installs": unhashed_requirements_installs(repo_root),
+        "observed_files": {manager: inventory.get(manager, []) for manager in EXPECTED_OBSERVED_FILES},
     }
 
 
 def render(report: dict[str, Any]) -> str:
     """A run-log summary of *report*, for the workflow's step output."""
     if not report["alert"]:
+        unhashed = report.get("unhashed_requirements_installs") or []
+        # Printed on a GREEN run too, which is the point: a reported-only
+        # category that appears solely in JSON is a number nobody reads.
+        remainder = (
+            f" Installed without hash verification (reported, not a gate): {', '.join(unhashed)}."
+            if unhashed
+            else ""
+        )
         return (
             "Renovate dashboard healthy: no repository problems, "
             f"pep621 extracts from all {len(report['expected_pep621_files'])} expected trees, "
-            f"managers seen: {', '.join(report['managers'])}."
+            f"managers seen: {', '.join(report['managers'])}." + remainder
         )
     return "Renovate dashboard drift:\n" + "\n".join(f"  - {finding}" for finding in report["findings"])
 

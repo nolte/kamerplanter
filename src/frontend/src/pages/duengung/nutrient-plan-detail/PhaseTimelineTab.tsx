@@ -43,6 +43,7 @@ export default function PhaseTimelineTab({
   onAddEntry,
   onEditEntry,
   onDeleteEntry,
+  canDeletePhaseEntry,
   onAddChannel,
   onEditChannel,
   onDeleteChannel,
@@ -61,6 +62,8 @@ export default function PhaseTimelineTab({
   onAddEntry: () => void;
   onEditEntry: (entry: NutrientPlanPhaseEntry) => void;
   onDeleteEntry: (entry: NutrientPlanPhaseEntry) => void;
+  /** Lead-only, per `require_permission(NUTRIENT_PLAN, DELETE)` (#1467). */
+  canDeletePhaseEntry: boolean;
   onAddChannel: (entryKey: string, existingIds: string[]) => void;
   onEditChannel: (entryKey: string, channel: DeliveryChannel) => void;
   onDeleteChannel: (entryKey: string, channelId: string) => void;
@@ -246,15 +249,18 @@ export default function PhaseTimelineTab({
                   <EditIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={t('common.delete')}>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry); }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              {canDeletePhaseEntry && (
+                <Tooltip title={t('common.delete')}>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry); }}
+                    data-testid="phase-entry-delete-button"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           </Box>
 

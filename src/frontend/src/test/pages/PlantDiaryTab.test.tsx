@@ -323,6 +323,23 @@ describe('PlantDiaryTab (REQ-051 §6.1)', () => {
     );
   });
 
+  it('offers the delete only to a lead, while a grower keeps editing (#1467)', async () => {
+    mockTab([entry({ key: 'e1' })]);
+
+    const { unmount } = renderWithProviders(<PlantDiaryTab plantInstanceKey={PLANT_KEY} />, {
+      store: storeWithRole('grower'),
+    });
+    expect(await screen.findByTestId('diary-entry-edit')).toBeInTheDocument();
+    expect(screen.queryByTestId('diary-entry-delete')).not.toBeInTheDocument();
+    unmount();
+
+    mockTab([entry({ key: 'e1' })]);
+    renderWithProviders(<PlantDiaryTab plantInstanceKey={PLANT_KEY} />, {
+      store: storeWithRole('lead'),
+    });
+    expect(await screen.findByTestId('diary-entry-delete')).toBeInTheDocument();
+  });
+
   it('deletes an entry after confirmation (AK-14)', async () => {
     const user = userEvent.setup();
     let deleted = false;
@@ -334,8 +351,10 @@ describe('PlantDiaryTab (REQ-051 §6.1)', () => {
       }),
     );
 
+    // A lead, not a grower: `DELETE .../diary/{key}` carries
+    // `require_permission("diary-entry", Action.DELETE)`, which is lead-only (#1467).
     renderWithProviders(<PlantDiaryTab plantInstanceKey={PLANT_KEY} />, {
-      store: storeWithRole('grower'),
+      store: storeWithRole('lead'),
     });
 
     await user.click(await screen.findByTestId('diary-entry-delete'));

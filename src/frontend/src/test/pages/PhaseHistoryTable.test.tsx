@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import i18n from 'i18next';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithTenantRole } from '../helpers';
 import type { PhaseHistoryEntry } from '@/api/types';
 
 // PhaseHistoryTable loads and mutates history through the phases endpoint module.
@@ -133,6 +133,25 @@ describe('PhaseHistoryTable', () => {
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
     // Editor stays open on failure; the table survives the rejected promise.
     expect(screen.getByTestId('save-phase-date-button')).toBeInTheDocument();
+  });
+
+  it('offers the row delete to a lead only — the rank the backend enforces (#1467)', async () => {
+    mockGet.mockResolvedValue([makeHistory()]);
+
+    const { unmount } = renderWithProviders(<PhaseHistoryTable plantKey="p1" />, {
+      store: createStoreWithTenantRole('grower'),
+    });
+    await screen.findByText('vegetative');
+    // The edit affordance stays: `PUT .../history/{key}` is grower-writable.
+    expect(screen.getByTestId('edit-phase-date-h-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('delete-phase-h-1')).toBeNull();
+    unmount();
+
+    renderWithProviders(<PhaseHistoryTable plantKey="p1" />, {
+      store: createStoreWithTenantRole('lead'),
+    });
+    await screen.findByText('vegetative');
+    expect(screen.getByTestId('delete-phase-h-1')).toBeInTheDocument();
   });
 
   it('deletes a phase after confirmation', async () => {

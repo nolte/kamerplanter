@@ -25,6 +25,7 @@ import { listPestImages, deletePestImage } from '@/api/endpoints/ipm';
 import { setPestContributionActive, setPestImageActive } from '@/api/endpoints/adminPestRecognition';
 import type { PestImage } from '@/api/types';
 import LoadingStatus from '@/components/common/LoadingStatus';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 
 interface PestImageGalleryProps {
   pestKey: string;
@@ -64,6 +65,10 @@ export default function PestImageGallery({ pestKey, pestName, detectionSlug = nu
   const { t } = useTranslation();
   const notification = useNotification();
   const isPlatformAdmin = usePlatformAdmin();
+  // `DELETE /ipm/pests/{key}/images/{id}` runs `require_attachment_permission(DELETE)`,
+  // and the matrix grants ATTACHMENT/DELETE to a lead only (REQ-049 §2.3) — owning the
+  // contribution is necessary but not sufficient (#1467).
+  const { canDelete } = useTenantPermissions();
   const [images, setImages] = useState<PestImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -441,7 +446,7 @@ export default function PestImageGallery({ pestKey, pestName, detectionSlug = nu
                  * contributions keep the delete affordance; foreign / recognition
                  * tiles get the admin curation toggle instead.
                  */}
-                {!isInspection && img.is_own && (
+                {!isInspection && img.is_own && canDelete && (
                   <Tooltip title={t('pages.pestDetail.imageDelete')}>
                     <IconButton
                       size="small"

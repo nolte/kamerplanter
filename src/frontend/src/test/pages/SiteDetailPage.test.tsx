@@ -4,13 +4,25 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse, delay } from 'msw';
 import i18n from 'i18next';
 import SiteDetailPage from '@/pages/standorte/SiteDetailPage';
-import { renderWithProviders, createStoreWithSmartHome } from '../helpers';
+import {
+  renderWithProviders,
+  createStoreWithSmartHome,
+  createTestStore,
+  smartHomeState,
+  tenantState,
+} from '../helpers';
 import { server } from '../mocks/server';
 
 // Issue #587: sensor UI is gated behind the smart-home toggle. Render with smart
 // home enabled by default; the disabled (hidden) case has a dedicated test.
 const renderPage = () =>
   renderWithProviders(<SiteDetailPage />, { store: createStoreWithSmartHome() });
+
+// #1467: the destructive controls are lead-only, so the rank has to be namable.
+const renderPageAs = (role: 'viewer' | 'grower' | 'lead') =>
+  renderWithProviders(<SiteDetailPage />, {
+    store: createTestStore({ ...smartHomeState(), ...tenantState(role) }),
+  });
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (orig) => {
@@ -345,6 +357,23 @@ describe('SiteDetailPage', () => {
     await user.click(await screen.findByTestId('confirm-dialog-confirm'));
 
     expect(await screen.findByText(i18n.t('errors.server'))).toBeTruthy();
+  });
+
+  it('offers neither destructive control to a grower, both to a lead (#1467)', async () => {
+    useSiteSensors([sensor]);
+
+    const { unmount } = renderPageAs('grower');
+    await screen.findByTestId('site-detail-page');
+    await screen.findByText('Temp Sensor');
+    expect(screen.queryByTestId('site-delete-button')).toBeNull();
+    expect(screen.queryByTestId('site-sensor-delete-button')).toBeNull();
+    unmount();
+
+    renderPageAs('lead');
+    await screen.findByTestId('site-detail-page');
+    await screen.findByText('Temp Sensor');
+    expect(screen.getByTestId('site-delete-button')).toBeInTheDocument();
+    expect(screen.getByTestId('site-sensor-delete-button')).toBeInTheDocument();
   });
 
   it('deletes the site through the confirm dialog and navigates to the list', async () => {

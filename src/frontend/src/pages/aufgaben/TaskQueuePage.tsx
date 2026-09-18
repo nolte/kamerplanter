@@ -71,6 +71,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTaskQueue, fetchOverdueTasks, fetchCompletedTasks } from '@/store/slices/tasksSlice';
 import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as careApi from '@/api/endpoints/careReminders';
@@ -204,6 +205,9 @@ export default function TaskQueuePage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `POST /tasks/batch/delete` carries `require_permission(TASK, DELETE)` — lead
+  // only (REQ-049 §2.3), so the bulk-delete action is not offered below it (#1467).
+  const { canDelete } = useTenantPermissions();
   const theme = useTheme();
   // Below `sm` the three 48px action targets, their 8px separations and the
   // border consume ~165px of a 361px card, which left the task name roughly
@@ -1323,22 +1327,24 @@ export default function TaskQueuePage() {
               </Button>
             </span>
           </Tooltip>
-          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
-            <span>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />}
-                onClick={handleBulkDelete}
-                disabled={selectedKeys.size === 0 || bulkLoading}
-                data-testid="bulk-delete-button"
-                sx={{ minHeight: 44 }}
-              >
-                {t('pages.tasks.bulkDelete')}
-              </Button>
-            </span>
-          </Tooltip>
+          {canDelete && (
+            <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />}
+                  onClick={handleBulkDelete}
+                  disabled={selectedKeys.size === 0 || bulkLoading}
+                  data-testid="bulk-delete-button"
+                  sx={{ minHeight: 44 }}
+                >
+                  {t('pages.tasks.bulkDelete')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
         </Paper>
       )}
 

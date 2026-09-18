@@ -40,6 +40,7 @@ import WeatherSourceSection from './WeatherSourceSection';
 import SiteClimateSection from './SiteClimateSection';
 import SensorCreateDialog from './SensorCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -68,6 +69,9 @@ export default function SiteDetailPage() {
   const { handleError } = useApiError();
   // Issue #587: sensor UI is gated behind the smart-home toggle.
   const { isSmartHomeEnabled } = useSmartHomeEnabled();
+  // Deleting is lead-only backend-side (`require_permission(SITE|SENSOR, DELETE)`),
+  // so a grower must not be offered a control that can only answer 403 (#1467).
+  const { canDelete } = useTenantPermissions();
   const { currentSite: current, loading, error } = useAppSelector((s) => s.sites);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -213,9 +217,11 @@ export default function SiteDetailPage() {
       <PageTitle
         title={current?.name ?? t('entities.site')}
         action={
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-            {t('common.delete')}
-          </Button>
+          canDelete ? (
+            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="site-delete-button">
+              {t('common.delete')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -328,9 +334,11 @@ export default function SiteDetailPage() {
                   <IconButton size="small" onClick={(e) => { e.stopPropagation(); setEditSensor(r); setSensorDialogOpen(true); }}>
                     <EditIcon fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteSensorKey(r.key); }}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  {canDelete && (
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteSensorKey(r.key); }} data-testid="site-sensor-delete-button">
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </Box>
               )},
             ] satisfies Column<Sensor>[]}
