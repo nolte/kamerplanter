@@ -86,7 +86,9 @@ def create_provider(
     config = OidcProviderConfig(
         slug=body.slug,
         display_name=body.display_name,
-        provider_type=body.provider_type,
+        # ``.value`` on purpose: what is persisted must be the bare spelling, not
+        # an enum member that happens to serialise like one today (#1497).
+        provider_type=body.provider_type.value,
         issuer_url=body.issuer_url,
         client_id=body.client_id,
         client_secret_encrypted=encryption.encrypt(body.client_secret),
@@ -137,7 +139,10 @@ def update_provider(
     if config is None:
         raise NotFoundError("OidcProviderConfig", key)
 
-    data = body.model_dump(exclude_none=True)
+    # ``mode="json"`` so an enum-typed request field (``provider_type``, #1497)
+    # lands on the ``str``-typed domain model as its bare value. ``setattr`` does
+    # not validate, so whatever is assigned here is what gets stored.
+    data = body.model_dump(exclude_none=True, mode="json")
     for field, value in data.items():
         if field == "client_secret":
             config.client_secret_encrypted = encryption.encrypt(value)
@@ -169,11 +174,12 @@ def test_provider(
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     oauth_engine: OAuthEngine = Depends(get_oauth_engine),
 ):
-    """Fetch and validate the OIDC discovery document, and judge the scope list.
+    """Fetch and validate the OIDC discovery document, and judge type and scopes.
 
-    The scope verdict (#1477) is reported on EVERY path, before the discovery
-    fetch. A provider stored before the write gate existed can only learn of the
-    missing `user:email` scope here — and GitHub publishes no
+    Both verdicts — the scope one (#1477) and the provider-type one (#1497) — are
+    reported on EVERY path, before the discovery fetch. A provider stored before
+    the write gate existed can only learn of the missing `user:email` scope — or
+    of its own unusable provider type — here, and GitHub publishes no
     `.well-known/openid-configuration` at all, so the discovery step always fails
     for exactly the provider type the check is about. Computing the verdict after
     an early return would have left it unreachable for GitHub.
@@ -183,11 +189,16 @@ def test_provider(
         raise NotFoundError("OidcProviderConfig", key)
 
     scope_check = oauth_engine.check_provider_scopes(config)
+    provider_type_check = oauth_engine.check_provider_type(config)
 
     try:
         discovery = oauth_engine.fetch_discovery_document(config.issuer_url)
     except Exception as e:
-        return OidcProviderTestResponse(message=f"Discovery fetch failed: {e}", scope_check=scope_check)
+        return OidcProviderTestResponse(
+            message=f"Discovery fetch failed: {e}",
+            scope_check=scope_check,
+            provider_type_check=provider_type_check,
+        )
 
     # Validate required fields
     required = ["authorization_endpoint", "token_endpoint", "issuer"]
@@ -196,6 +207,7 @@ def test_provider(
         return OidcProviderTestResponse(
             message=f"Discovery document missing fields: {', '.join(missing)}",
             scope_check=scope_check,
+            provider_type_check=provider_type_check,
         )
 
     # Save discovery document
@@ -210,4 +222,5 @@ def test_provider(
         f"Endpoints: authorization={discovery.get('authorization_endpoint', 'N/A')}, "
         f"token={discovery.get('token_endpoint', 'N/A')}",
         scope_check=scope_check,
+        provider_type_check=provider_type_check,
     )
