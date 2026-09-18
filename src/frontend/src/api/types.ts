@@ -4263,11 +4263,9 @@ export type CareStyleType =
   | 'cactus'
   // REQ-022 v2.5 outdoor presets (§3.1). The union carried only the nine
   // houseplant styles until #1505, so a profile the backend generated as
-  // `outdoor_annual_veg` was not assignable here and the Select in
-  // CareProfileForm had no option to show it. Kept in sync with the backend enum
-  // by tests/contracts/test_plant_property_enum_sync.py.
-  // NOTE: that gate parses this block with a single-quote regex — no apostrophes
-  // in these comments.
+  // `outdoor_annual_veg` was not assignable here and the form's Select had no
+  // option to show it. Kept in sync with the backend enum by
+  // tests/contracts/test_plant_property_enum_sync.py.
   | 'outdoor_annual_veg'
   | 'outdoor_annual_ornamental'
   | 'outdoor_perennial'

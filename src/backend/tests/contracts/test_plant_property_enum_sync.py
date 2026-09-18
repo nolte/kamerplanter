@@ -96,15 +96,26 @@ def _schema_enum_values(defs_key: str) -> set[str]:
     return set(defs[defs_key]["enum"])
 
 
+#: ``//`` line comments and ``/* … */`` blocks, stripped before the members are read.
+_TS_COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
+
+
 def _ts_union_values(type_name: str) -> set[str]:
     """Parse ``export type <type_name> = 'a' | 'b' | …;`` from types.ts.
 
     The declaration may span multiple lines and is terminated by ``;``.
+
+    Comments are removed first, because the member regex pairs single quotes and an
+    apostrophe in a comment shifts every pair after it — the union then reads as a
+    handful of garbage strings and the drift report becomes unreadable. That was
+    measured on this very gate while #1505 was being written; the first fix was a
+    note asking future comments to avoid apostrophes, which is a rule nobody can
+    enforce (review finding SCR-009).
     """
     text = _TYPES_TS.read_text(encoding="utf-8")
     match = re.search(rf"export type {re.escape(type_name)}\s*=\s*(.*?);", text, re.DOTALL)
     assert match is not None, f"types.ts has no 'export type {type_name}'"
-    return set(re.findall(r"'([^']+)'", match.group(1)))
+    return set(re.findall(r"'([^']+)'", _TS_COMMENT.sub("", match.group(1))))
 
 
 def _locale_enum_block(locale: str, i18n_key: str) -> dict[str, str]:
@@ -170,7 +181,7 @@ class TestTypeScriptOnlyEnumSync:
         text = _CARE_PROFILE_FORM.read_text(encoding="utf-8")
         match = re.search(r"const CARE_STYLES: CareStyleType\[\]\s*=\s*\[(.*?)\];", text, re.DOTALL)
         assert match is not None, "CareProfileForm.tsx has no 'const CARE_STYLES: CareStyleType[]' array"
-        offered = set(re.findall(r"'([^']+)'", match.group(1)))
+        offered = set(re.findall(r"'([^']+)'", _TS_COMMENT.sub("", match.group(1))))
         py = _enum_values(CareStyleType)
         assert py == offered, (
             "CareProfileForm CARE_STYLES drift: "

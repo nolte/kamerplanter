@@ -116,9 +116,13 @@ class TestSeededFamilyCoverage:
         seeded = _seeded_family_names()
         unseeded = sorted(name for name in FAMILY_CARE_MAP if name not in seeded)
         print(f"FAMILY_CARE_MAP entries naming no seeded family ({len(unseeded)}): {unseeded}")
-        assert len(unseeded) <= len(FAMILY_CARE_MAP) // 2, (
-            "more than half the map names families no seed creates — the map and the catalogue "
-            f"have drifted apart: {unseeded}"
+        # An absolute ceiling, not a fraction of the map's own size: tying the bound
+        # to `len(FAMILY_CARE_MAP)` let the map grow its way out of the check (review
+        # finding SCR-008). Measured today: exactly one (`Campanulaceae`).
+        assert len(unseeded) <= 3, (
+            f"{len(unseeded)} map entries name a family no seed creates: {unseeded}. One or two "
+            "are ordinary (a user-created or imported species); more means the map and the "
+            "catalogue have drifted apart."
         )
 
 
@@ -200,6 +204,29 @@ class TestNewPresets:
         assert preset["repotting_interval_months"] == 48
         # "false (aquatisch)".
         assert preset["humidity_check_enabled"] is False
+
+    def test_aquatic_does_not_generate_a_watering_task(self):
+        """Review finding SCR-010 — the reminder stays, the Gießprotokoll entry goes.
+
+        Completing a watering *task* writes a watering log against the plant
+        (``CareReminderService.record_care_task_completion``), which is the wrong
+        record for a plant standing in a pond. The weekly level check is still
+        reminded about, and ``water_quality_hint`` says what it is.
+        """
+        profile = CareReminderEngine().auto_generate_profile(botanical_family="Nymphaeaceae", plant_key="p1")
+        assert profile.auto_create_watering_task is False
+        assert profile.watering_interval_days == 7
+        assert profile.water_quality_hint is not None
+        assert profile.water_quality_hint.startswith("Pond-level check")
+
+    def test_no_other_preset_switches_the_watering_task_off(self):
+        """One exception, not a habit — every other style still creates the task."""
+        off = sorted(
+            style.value
+            for style, preset in CARE_STYLE_PRESETS.items()
+            if preset.get("auto_create_watering_task") is False
+        )
+        assert off == [CareStyleType.AQUATIC.value]
 
     def test_both_presets_produce_a_valid_profile(self):
         for style in (CareStyleType.BROMELIAD, CareStyleType.AQUATIC):

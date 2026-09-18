@@ -1,127 +1,53 @@
-"""v0050 — recompute the care profiles that fell to TROPICAL since #1440 (#1489/#1481).
+"""The care-profile recompute machinery, outside any ``Migration`` class (#1505).
 
-``_bootstrap_care_profile`` handed ``CareReminderEngine.auto_generate_profile`` the
-value of ``Species.family_key`` — the server-assigned numeric ``_key`` of a
-``botanical_families`` document — as ``botanical_family``, which
-``FAMILY_CARE_MAP`` keys by **name**. Nothing matched, the engine returned the
-``TROPICAL`` 7-day preset, and a care profile is written once and read thereafter:
-every plant created through ``create_plant``, ``_spawn_pup`` or
-``PlantingRunService.create_plants`` since #1440 carries tropical presets, a
-Cactaceae included. ``watering_guide`` — the tier the engine's docstring calls
-highest — was passed by nobody at all (#1481), so no stored profile has ever been
-shaped by its species' own watering data.
+Two migrations recompute stored care profiles from the current engine: v0050
+(#1489/#1481, the profiles the broken bootstrap wrote) and v0051 (#1505, the
+profiles whose botanical family ``FAMILY_CARE_MAP`` only now covers). Everything
+but the *criterion* is the same work: the batched reads under the startup lock,
+the per-document hydration that keeps a legacy row from aborting ``up()``, the
+order of the classification questions, the merge that preserves identity and the
+REQ-047 season state, the learned-interval clear, and the report shape.
 
-Both are fixed on the creation path. This migration is for the population that
-already exists.
+Why a module and not a base class
+=================================
 
-## The criterion, and why it is not the one the issue proposed
+The obvious move — have v0051 subclass v0050 and override one method — was the
+first draft of #1505 and it is **wrong**, because ``Migration.checksum()`` hashes
+``inspect.getsource(type(self))`` (``framework/base.py``). Extracting a seam from
+v0050's class changes v0050's class source, so every installation that had already
+applied v0050 would log ``migration_checksum_drift`` forever: applied migrations
+are immutable (M-7), and a correction ships as a new version, never as an edit.
 
-The plan called for "a numeric family field **or** values equal to the TROPICAL
-preset". Measured 2026-09-17: **``CareProfile`` has no family field at all**
-(``app/domain/models/care_reminder.py``) — the family is consumed by the engine
-and only the resulting ``care_style`` and interval values are stored. Half of the
-proposed criterion therefore cannot be evaluated against anything, and the whole
-weight falls on the second half.
+So v0050's source is frozen exactly as it shipped — ``tests/unit/migrations/
+versions/test_v0050_source_is_frozen.py`` pins its class checksum — and this
+module carries the machinery for everything that comes after it. It is therefore
+a **copy** of v0050's logic, which is the thing this project distrusts most: a
+copy is free to disagree with its original. That is why
+``tests/unit/migrations/support/test_care_profile_recompute_matches_v0050.py``
+drives this module with v0050's own criterion over v0050's own fixtures and
+requires the two reports to be equal, field for field. The copy cannot drift
+silently; it can only drift loudly.
 
-The provenance marker was measured too, because a marker would have been the
-better criterion: ``CareProfile.auto_generated`` exists and
-``auto_generate_profile`` sets it — but ``CareReminderService.update_profile``
-carries it through unchanged (``CareProfileUpdate`` does not expose it, and the
-update merges over the stored document), so a profile a user edited by hand still
-reads ``auto_generated: true``. It is a **necessary** condition here, never a
-sufficient one, and it is used as such. There is no ``source`` / ``generated_by``
-field on the model or written by v0048.
+What the caller supplies
+========================
 
-So the criterion is **exact identity with what the defective bootstrap produced**:
-a profile is recomputed only when every field the generator writes still equals
-:data:`_BROKEN_BOOTSTRAP_OUTPUT` — the tier-3 ``TROPICAL`` fallback as it stood
-between #1440 and #1489, **frozen as a literal**. Deriving it from the live engine
-would make this migration inert the day the presets move: every damaged profile
-would read as "user-edited" and the run would repair nothing while reporting
-cheerfully. Anything else is reported as ``skipped_user_edited`` and is not touched.
+A :class:`CareProfileRecompute` is built with the migration's ``version`` and
+``name`` (they go into the report) and one predicate, ``is_untouched`` — "does
+this stored profile still hold exactly what generated it, with no user edit?".
+That predicate is the *only* thing the two migrations disagree about:
 
-The two questions are asked in this order: **already correct first**, identity with
-the broken output second. A profile this migration has repaired is no longer
-identical to the broken output, so the other order filed every repaired row under
-``skipped_user_edited`` on a second run — no wrong write, but a report that told the
-operator their installation was full of hand-edited profiles.
+* v0050 asks for identity with a frozen literal of the tier-3 tropical preset.
+* v0051 asks for identity with what the generator produced before the family map
+  grew (tier 3 plus the plant's own ``WateringGuide``).
 
-``CareReminderService.update_profile`` now clears ``auto_generated`` on a real edit,
-so future repairs have a marker this one could not have. It marks going forward
-only, which is why the criterion here stays value-based. A user who shortened one interval and
-left the rest keeps their whole profile: the moment a profile stops being exactly
-the value nobody chose, this migration has no business deciding what part of it
-was deliberate.
-
-Two fields are deliberately outside the comparison:
-
-* ``watering_interval_learned`` / ``fertilizing_interval_learned`` are written by
-  the adaptive-learning engine from confirmations, not by a user — and they were
-  learned *around the wrong base interval*. They are **reset to ``None``** on a
-  repair, which is what ``update_profile`` already does when the base interval is
-  edited explicitly (``care_reminder_service.py``, #622). The clear needs its own
-  write: ``care_profiles`` is a merge-mode repository, so the full-model update
-  drops a ``None`` instead of storing it — see :meth:`_clear_learned_intervals`.
-* ``dormancy_care_mode`` / ``dormancy_watering`` / ``dormancy_check_interval_days``
-  are toggled by the REQ-047 season state machine, not the user. They are
-  **preserved** across the repair: comparing them would skip every plant whose site
-  happens to be wintering, and overwriting them would take a live season state
-  away.
-
-## What a repaired profile becomes
-
-The same call the creation path now makes: ``auto_generate_profile`` with the
-family **name** behind ``species.family_key`` and the plant's watering guide
-(the cultivar's ``watering_guide_override`` ahead of the species' own), through
-the shared :func:`~app.domain.services.care_reminder_service.resolve_care_inputs`
-— not a copy of that resolution. A copy is what produced the defect: three places
-resolved the family and the one that mattered did not.
-
-``_key``, ``plant_key``, ``created_at`` and the dormancy fields are carried over
-from the stored document; ``updated_at`` is the repository's.
-
-**A profile whose recomputation equals what it already holds is not written.** A
-plant of an unknown family with no guide *should* be TROPICAL, and it is reported
-as ``already_correct``, not as a change.
-
-## Preconditions, idempotency, reversibility
-
-**No document can abort the run.** ``Species``, ``Cultivar`` and ``CareProfile``
-carry field constraints, and a stored document older than the current constraint
-raises ``ValidationError`` on hydration. Unhandled, one such row would fail ``up()``
-— and a failing pending migration is a fatal startup (``framework/runner.py``, M-4),
-so a single legacy document would keep an installation from booting. Each is
-hydrated on its own and a refusal is reported under ``unreadable`` (never as
-``already_correct``: "we could not read it" must not be filed as "it is fine").
-
-**Batched.** The population is read as keys and processed :data:`_BATCH_SIZE` at a
-time, each batch scoping its own plant/species/cultivar/family reads, because this
-runs under the startup lock where an installation-sized set of hydrated models is a
-memory profile nobody chose.
-
-``care_profiles``, ``plant_instances``, ``species``, ``cultivars`` and
-``botanical_families`` are created unconditionally by ``ensure_collections``, so a
-missing one means a partially bootstrapped or restored database — and it would
-change what gets *written* (without the catalogues every profile would look
-correct and stay tropical). The run then reports ``precondition_unmet`` and stays
-pending for a later boot (M-1) rather than being recorded applied over work it
-could not do.
-
-**Idempotent (M-3):** a repaired profile already holds what the recomputation
-produces, so a second run classifies it as ``already_correct`` and writes nothing.
-**Dry-run (M-5):** every category, every itemised row and every total is computed
-without a write, identically to the real run.
-
-**Not reversible (M-6).** The previous values are the defect, and restoring them
-would be indistinguishable from overwriting an edit a user made in between. Every
-changed row is itemised in ``details["repaired"]`` with its before/after care
-style and watering interval (capped at 500 rows; the ``*_total`` counters are
-exact), so a run can be read position by position before and after it happens.
+The question **before** it — "is the recomputation already what the profile
+holds?" — is asked first and is not configurable, because getting that order
+wrong made v0050's second run report a whole installation as hand-edited.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
@@ -134,13 +60,12 @@ from app.data_access.arango.care_reminder_repository import ArangoCareReminderRe
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareProfile
 from app.domain.models.species import Cultivar, Species
-from app.domain.services.care_reminder_service import resolve_care_inputs
-from app.migrations.framework.base import Migration
+from app.domain.services.care_reminder_service import CareInputs, resolve_care_inputs
 from app.migrations.framework.report import MigrationReport
 
 logger = structlog.get_logger(__name__)
 
-#: Everything this migration reads from or writes to.
+#: Everything a recompute run reads from or writes to.
 REQUIRED_COLLECTIONS: tuple[str, ...] = (
     col.CARE_PROFILES,
     col.PLANT_INSTANCES,
@@ -152,7 +77,7 @@ REQUIRED_COLLECTIONS: tuple[str, ...] = (
 #: Fields carried over from the stored profile onto the recomputed one. Identity
 #: (``_key``/``plant_key``), history (``created_at``) and the REQ-047 season state,
 #: which the state machine owns and no recomputation may take away.
-_PRESERVED_FIELDS: frozenset[str] = frozenset(
+PRESERVED_FIELDS: frozenset[str] = frozenset(
     {
         "key",
         "plant_key",
@@ -165,64 +90,17 @@ _PRESERVED_FIELDS: frozenset[str] = frozenset(
 
 #: Reset on a repair rather than compared: learned around the wrong base interval,
 #: and ``update_profile`` already resets them when the base is edited (#622).
-_LEARNED_FIELDS: frozenset[str] = frozenset({"watering_interval_learned", "fertilizing_interval_learned"})
+LEARNED_FIELDS: frozenset[str] = frozenset({"watering_interval_learned", "fertilizing_interval_learned"})
 
 #: Never part of the comparison: assigned by the repository on write.
-_VOLATILE_FIELDS: frozenset[str] = frozenset({"updated_at"})
-
-#: **What the broken bootstrap actually wrote**, frozen as a literal (2026-09-17).
-#:
-#: This was computed from the live engine at first — and a migration that asks the
-#: *current* code what the *old* code produced is inert the moment the presets move:
-#: the next edit to ``CARE_STYLE_PRESETS[TROPICAL]`` would make every damaged profile
-#: look "user-edited" and this migration would repair nothing while reporting
-#: cheerfully. The population it has to recognise is historical, so the value has to
-#: be historical too.
-#:
-#: It is the tier-3 fallback ``auto_generate_profile()`` returned with no family and
-#: no guide between #1440 and #1489, in the shape :func:`_comparable` produces.
-#: ``tests/unit/migrations/versions/test_v0050_repair_care_profiles_family_and_guide.py``
-#: compares it against today's engine and goes red — with the reason — as soon as the
-#: two part ways, which is the signal to decide whether the remaining population is
-#: still worth repairing, not a licence to update the literal.
-_BROKEN_BOOTSTRAP_OUTPUT: dict[str, Any] = {
-    "adaptive_learning_enabled": True,
-    "auto_create_fertilizing_task": True,
-    "auto_create_pest_check_task": True,
-    "auto_create_repotting_task": True,
-    "auto_create_watering_task": True,
-    "auto_generated": True,
-    "care_style": "tropical",
-    "fertilizing_active_months": [3, 4, 5, 6, 7, 8, 9],
-    "fertilizing_interval_days": 14,
-    "humidity_check_enabled": True,
-    "humidity_check_interval_days": 7,
-    "location_check_enabled": False,
-    "location_check_months": [],
-    "notes": None,
-    "pest_check_interval_days": 14,
-    "repotting_interval_months": 24,
-    "water_quality_hint": None,
-    "watering_interval_days": 7,
-    "watering_method": "top_water",
-    "winter_watering_multiplier": 1.5,
-}
-
-#: How many rows each itemised list carries. Totals are always exact.
-_REPORT_SAMPLE_LIMIT = 500
-
-#: Profiles per batch. The population is read as keys and the documents are then
-#: fetched a batch at a time, because this runs under the startup migration lock and
-#: an installation-sized collection of hydrated models is not a memory profile
-#: anybody chose. Each batch also scopes its own plant/species/cultivar/family reads.
-_BATCH_SIZE = 1000
+VOLATILE_FIELDS: frozenset[str] = frozenset({"updated_at"})
 
 #: The report categories. ``repaired``, ``skipped_user_edited``, ``already_correct``,
 #: ``plant_missing`` and ``unreadable`` are **exclusive** — every scanned profile
 #: lands in exactly one. ``family_unresolved`` is **additive**: it records a species
 #: whose ``family_key`` names no family document, which is an observation about the
 #: data rather than a verdict on the profile.
-_CATEGORIES: tuple[str, ...] = (
+CATEGORIES: tuple[str, ...] = (
     "repaired",
     "skipped_user_edited",
     "already_correct",
@@ -231,19 +109,43 @@ _CATEGORIES: tuple[str, ...] = (
     "family_unresolved",
 )
 
+#: How many rows each itemised list carries. Totals are always exact.
+REPORT_SAMPLE_LIMIT = 500
+
+#: Profiles per batch. The population is read as keys and the documents are then
+#: fetched a batch at a time, because this runs under the startup migration lock and
+#: an installation-sized collection of hydrated models is not a memory profile
+#: anybody chose. Each batch also scopes its own plant/species/cultivar/family reads.
+BATCH_SIZE = 1000
+
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+#: ``(stored, engine, plant_key, inputs) -> bool`` — see the module docstring.
+UntouchedPredicate = Callable[[CareProfile, CareReminderEngine, str, CareInputs], bool]
+
+
+def comparable(profile: CareProfile) -> dict[str, Any]:
+    """The fields that decide "nobody has touched this profile".
+
+    Everything the model holds except identity, history, the season state, the
+    learned intervals and the write timestamp — so a field added to ``CareProfile``
+    later is compared by default. Defaulting to *compared* means a new field makes
+    a recompute run more conservative (more rows skipped), never less.
+    """
+    excluded = PRESERVED_FIELDS | LEARNED_FIELDS | VOLATILE_FIELDS
+    return {name: value for name, value in profile.model_dump(mode="json").items() if name not in excluded}
 
 
 @dataclass
-class _RunState:
+class RunState:
     """Counters and capped row lists, carried across the batches of one run."""
 
     scanned: int = 0
-    totals: dict[str, int] = field(default_factory=lambda: dict.fromkeys(_CATEGORIES, 0))
-    buckets: dict[str, list[dict[str, Any]]] = field(default_factory=lambda: {name: [] for name in _CATEGORIES})
+    totals: dict[str, int] = field(default_factory=lambda: dict.fromkeys(CATEGORIES, 0))
+    buckets: dict[str, list[dict[str, Any]]] = field(default_factory=lambda: {name: [] for name in CATEGORIES})
 
     def count(self, category: str, row: Mapping[str, Any]) -> None:
-        """Count one row exactly, and itemise it up to :data:`_REPORT_SAMPLE_LIMIT`.
+        """Count one row exactly, and itemise it up to :data:`REPORT_SAMPLE_LIMIT`.
 
         The total and the list are incremented together on purpose: they drifted
         apart in the first draft of v0048's report, and a capped list beside an
@@ -251,31 +153,17 @@ class _RunState:
         other.
         """
         self.totals[category] += 1
-        if len(self.buckets[category]) < _REPORT_SAMPLE_LIMIT:
+        if len(self.buckets[category]) < REPORT_SAMPLE_LIMIT:
             self.buckets[category].append(dict(row))
 
 
-def _comparable(profile: CareProfile) -> dict[str, Any]:
-    """The fields that decide "nobody has touched this profile".
+class CareProfileRecompute:
+    """One recompute run: the shared machinery plus the caller's criterion."""
 
-    Everything the model holds except identity, history, the season state, the
-    learned intervals and the write timestamp — so a field added to ``CareProfile``
-    later is compared by default. Defaulting to *compared* means a new field makes
-    this migration more conservative (more rows skipped), never less.
-    """
-    excluded = _PRESERVED_FIELDS | _LEARNED_FIELDS | _VOLATILE_FIELDS
-    return {field: value for field, value in profile.model_dump(mode="json").items() if field not in excluded}
-
-
-class RepairCareProfilesFamilyAndGuideMigration(Migration):
-    version = "0050"
-    name = "repair_care_profiles_family_and_guide"
-    description = (
-        "Recompute the auto-generated care profiles that still hold the TROPICAL "
-        "fallback the broken bootstrap produced, from the family name and the "
-        "species' watering guide (#1489, #1481)."
-    )
-    reversible = False
+    def __init__(self, *, version: str, name: str, is_untouched: UntouchedPredicate) -> None:
+        self.version = version
+        self.name = name
+        self._is_untouched = is_untouched
 
     # ── reads ─────────────────────────────────────────────────────────────────
 
@@ -283,12 +171,12 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
     def _auto_generated_profile_keys(db: StandardDatabase) -> list[str]:
         """The ``_key`` of every profile the system generated — the whole population.
 
-        Keys only, and then the documents in batches (:data:`_BATCH_SIZE`): this runs
+        Keys only, and then the documents in batches (:data:`BATCH_SIZE`): this runs
         under the startup migration lock, where holding an installation's entire
         ``care_profiles`` collection as hydrated models is a memory profile nobody
         chose. ``auto_generated`` is *necessary* and not sufficient (a user edit
-        leaves it ``true``), so it narrows the read and decides nothing — the
-        per-profile comparison does that.
+        leaves it ``true`` on profiles written before #1507), so it narrows the read
+        and decides nothing — the per-profile comparison does that.
 
         The keys are taken once, up front, and the batches then fetch by key. Paging
         the population with ``LIMIT``/``SKIP`` while writing into it would skip or
@@ -310,8 +198,8 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         A projection to four scalars rather than a hydrated ``PlantInstance``: this
         read must not be able to fail on a plant document that no longer satisfies
         the model's constraints, because such a plant's *profile* is still this
-        migration's business (see :meth:`_hydrate` for the same reasoning where a
-        model is unavoidable).
+        run's business (see :meth:`_hydrate` for the same reasoning where a model is
+        unavoidable).
         """
         query = (
             f"FOR plant IN {col.PLANT_INSTANCES} FILTER plant._key IN @keys "
@@ -354,7 +242,7 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
             except ValidationError as exc:
                 unreadable.add(key)
                 logger.warning(
-                    "repair_care_profiles_document_unreadable",
+                    "recompute_care_profiles_document_unreadable",
                     collection=collection,
                     document_key=key,
                     errors=exc.error_count(),
@@ -377,18 +265,29 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
             if row.get("name")
         }
 
-    # ── entry point ───────────────────────────────────────────────────────────
+    # ── entry points ──────────────────────────────────────────────────────────
 
-    def _preconditions_unmet(self, db: StandardDatabase, *, dry_run: bool) -> MigrationReport | None:
+    def preconditions_unmet(self, db: StandardDatabase, *, dry_run: bool) -> MigrationReport | None:
+        """``None`` when every required collection exists, else the pending report.
+
+        ``care_profiles``, ``plant_instances``, ``species``, ``cultivars`` and
+        ``botanical_families`` are created unconditionally by ``ensure_collections``,
+        so a missing one means a partially bootstrapped or restored database — and it
+        would change what gets *written* (without the catalogues every profile would
+        look correct and stay tropical). The run then reports ``precondition_unmet``
+        and stays pending for a later boot (M-1) rather than being recorded applied
+        over work it could not do.
+        """
         missing = [name for name in REQUIRED_COLLECTIONS if not db.has_collection(name)]
         if not missing:
             return None
         logger.warning(
-            "repair_care_profiles_precondition_unmet",
+            "recompute_care_profiles_precondition_unmet",
+            migration=self.version,
             missing_collections=missing,
             dry_run=dry_run,
         )
-        return self._report(
+        return self.report(
             dry_run=dry_run,
             scanned=0,
             changed=0,
@@ -397,24 +296,21 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
             missing_collections=missing,
         )
 
-    def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
-        unmet = self._preconditions_unmet(db, dry_run=dry_run)
-        if unmet is not None:
-            return unmet
-
+    def run(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
+        """Classify — and, unless ``dry_run``, recompute — the whole population."""
         profile_keys = self._auto_generated_profile_keys(db)
         if not profile_keys:
-            logger.info("repair_care_profiles_noop", scanned=0, changed=0, dry_run=dry_run)
-            return self._report(dry_run=dry_run, scanned=0, changed=0)
+            logger.info("recompute_care_profiles_noop", migration=self.version, scanned=0, changed=0, dry_run=dry_run)
+            return self.report(dry_run=dry_run, scanned=0, changed=0)
 
         engine = CareReminderEngine()
         repository = ArangoCareReminderRepository(db)
-        state = _RunState()
+        state = RunState()
 
-        for start in range(0, len(profile_keys), _BATCH_SIZE):
+        for start in range(0, len(profile_keys), BATCH_SIZE):
             self._process_batch(
                 db,
-                profile_keys[start : start + _BATCH_SIZE],
+                profile_keys[start : start + BATCH_SIZE],
                 engine=engine,
                 repository=repository,
                 state=state,
@@ -422,7 +318,8 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
             )
 
         logger.info(
-            "repair_care_profiles",
+            "recompute_care_profiles",
+            migration=self.version,
             scanned=state.scanned,
             changed=state.totals["repaired"],
             skipped_user_edited=state.totals["skipped_user_edited"],
@@ -436,7 +333,7 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         for bucket, rows in state.buckets.items():
             details[bucket] = rows
             details[f"{bucket}_total"] = state.totals[bucket]
-        return self._report(
+        return self.report(
             dry_run=dry_run,
             scanned=state.scanned,
             changed=state.totals["repaired"],
@@ -450,10 +347,10 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         *,
         engine: CareReminderEngine,
         repository: ArangoCareReminderRepository,
-        state: _RunState,
+        state: RunState,
         dry_run: bool,
     ) -> None:
-        """Classify — and, unless ``dry_run``, repair — one batch of profiles."""
+        """Classify — and, unless ``dry_run``, recompute — one batch of profiles."""
         profiles = self._profiles(db, profile_keys)
         state.scanned += len(profiles)
 
@@ -548,25 +445,22 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
                     },
                 )
 
-            # ORDER MATTERS, and the first version had it wrong. "Already correct"
-            # is asked FIRST: a profile this migration has already repaired is, by
-            # construction, no longer identical to the broken output — so asking
-            # "does it still look untouched?" first classified every repaired row as
-            # ``skipped_user_edited``, and a second run would have reported the whole
-            # installation as hand-edited. Nothing would have been written either way,
-            # but the report is how an operator reads the run, and that report lied.
-            if _comparable(recomputed) == _comparable(stored):
+            # ORDER MATTERS, and v0050's first draft had it wrong. "Already correct"
+            # is asked FIRST: a profile a run has already recomputed is, by
+            # construction, no longer what generated it — so asking "does it still
+            # look untouched?" first classified every recomputed row as
+            # ``skipped_user_edited``, and a second run reported the whole
+            # installation as hand-edited. Nothing would have been written either
+            # way, but the report is how an operator reads the run.
+            if comparable(recomputed) == comparable(stored):
                 state.count("already_correct", {**row, "family_name": inputs.family_name})
                 continue
 
-            # Identity with what the broken bootstrap wrote is the whole criterion,
-            # against the FROZEN literal rather than today's engine — see
-            # :data:`_BROKEN_BOOTSTRAP_OUTPUT`.
-            if _comparable(stored) != _BROKEN_BOOTSTRAP_OUTPUT:
+            if not self._is_untouched(stored, engine, plant_key, inputs):
                 state.count("skipped_user_edited", row)
                 continue
 
-            repaired = self._merge(stored, recomputed)
+            repaired = self.merge(stored, recomputed)
             state.count(
                 "repaired",
                 {
@@ -580,29 +474,29 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
 
             if not dry_run and profile_key:
                 repository.update_profile(profile_key, repaired)
-                self._clear_learned_intervals(repository, profile_key, stored)
+                self.clear_learned_intervals(repository, profile_key, stored)
 
     # ── the write ─────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _merge(stored: CareProfile, recomputed: CareProfile) -> CareProfile:
+    def merge(stored: CareProfile, recomputed: CareProfile) -> CareProfile:
         """The recomputed profile, wearing the stored one's identity and season state.
 
-        The learned intervals are dropped: they were learned around the interval
-        this run is replacing, which is the same reason ``update_profile`` resets
-        them on an explicit interval edit (#622).
+        The learned intervals are dropped: they were learned around the interval the
+        run is replacing, which is the same reason ``update_profile`` resets them on
+        an explicit interval edit (#622).
         """
         data = recomputed.model_dump()
         stored_data = stored.model_dump()
-        for preserved in _PRESERVED_FIELDS:
+        for preserved in PRESERVED_FIELDS:
             data[preserved] = stored_data[preserved]
-        for learned in _LEARNED_FIELDS:
+        for learned in LEARNED_FIELDS:
             data[learned] = None
         data["auto_generated"] = True
         return CareProfile(**data)
 
     @staticmethod
-    def _clear_learned_intervals(
+    def clear_learned_intervals(
         repository: ArangoCareReminderRepository,
         profile_key: str,
         stored: CareProfile,
@@ -616,17 +510,14 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         stored value survives an update that meant to clear it. ``update_fields``
         is the path that writes ``keep_none=True``, so the clear goes through it,
         and only for a profile that actually holds a learned value.
-
-        (The same property means ``CareReminderService.reset_profile`` cannot clear
-        a field either; that is outside this migration and reported separately.)
         """
-        pending = {field: None for field in sorted(_LEARNED_FIELDS) if getattr(stored, field) is not None}
+        pending = {name: None for name in sorted(LEARNED_FIELDS) if getattr(stored, name) is not None}
         if pending:
             repository.update_fields(profile_key, pending)
 
     # ── report plumbing ───────────────────────────────────────────────────────
 
-    def _report(
+    def report(
         self,
         *,
         dry_run: bool,
@@ -637,7 +528,7 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
     ) -> MigrationReport:
         """One report shape for every exit, so a consumer never has to probe keys."""
         payload: dict[str, Any] = {}
-        for category in _CATEGORIES:
+        for category in CATEGORIES:
             payload[category] = []
             payload[f"{category}_total"] = 0
         payload.update(details)
@@ -650,6 +541,3 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
             precondition_unmet=precondition_unmet,
             details=payload,
         )
-
-
-migration = RepairCareProfilesFamilyAndGuideMigration()

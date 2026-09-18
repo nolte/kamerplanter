@@ -24,6 +24,8 @@ from app.migrations.framework.report import IrreversibleMigrationError
 from app.migrations.versions import v0051_recompute_care_profiles_newly_mapped_families as v0051
 from app.migrations.versions.v0051_recompute_care_profiles_newly_mapped_families import (
     _PRE_1505_TROPICAL_FALLBACK,
+    _PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE,
+    _REFERENCE_GUIDE,
     migration,
     tropical_fallback_drift,
 )
@@ -86,8 +88,10 @@ class TestTheRecomputation:
         report = migration.up(db)  # type: ignore[arg-type]
 
         assert report.changed == 1
-        assert _stored(db).care_style is CareStyleType.OUTDOOR_ANNUAL_VEG == expected.care_style
-        assert _stored(db).watering_interval_days == expected.watering_interval_days == 3
+        assert expected.care_style is CareStyleType.OUTDOOR_ANNUAL_VEG
+        assert _stored(db).care_style is CareStyleType.OUTDOOR_ANNUAL_VEG
+        assert expected.watering_interval_days == 3
+        assert _stored(db).watering_interval_days == 3
 
     def test_a_profile_v0050_already_repaired_with_a_guide_is_recomputed_too(self) -> None:
         """The class v0050's frozen literal cannot see.
@@ -195,6 +199,49 @@ class TestTheDriftGuard:
         current = _ENGINE.auto_generate_profile(botanical_family=None, plant_key="")
         for field, expected in _PRE_1505_TROPICAL_FALLBACK.items():
             assert current.model_dump(mode="json")[field] == expected, field
+
+    def test_the_frozen_guide_overlay_matches_the_engine_field_for_field(self) -> None:
+        current = _ENGINE.auto_generate_profile(botanical_family=None, plant_key="", watering_guide=_REFERENCE_GUIDE)
+        for field, expected in _PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE.items():
+            assert current.model_dump(mode="json")[field] == expected, field
+
+    def test_a_moved_guide_overlay_refuses_the_run_too(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Review finding SCR-001 — the larger half of the criterion is guarded.
+
+        The criterion calls the engine **with** the plant's guide, so a change to the
+        tier-1 overlay (the computed winter multiplier, ``notes``, which fields it
+        writes) moves the yardstick just as a change to the tropical preset does. A
+        guard that only measured the no-guide path would stay green while every plant
+        with a guide was classified ``skipped_user_edited`` and left tropical — the
+        exact failure this migration exists to undo.
+
+        Red before the second frozen expectation existed: `tropical_fallback_drift`
+        returned `[]` here and the run swept on.
+        """
+        moved = {**_PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE, "winter_watering_multiplier": 3.75}
+        monkeypatch.setattr(v0051, "_PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE", moved)
+        db = _db(families=_family(NEWLY_MAPPED_FAMILY))
+
+        report = migration.up(db)  # type: ignore[arg-type]
+
+        assert report.precondition_unmet is True
+        assert report.details["reason"] == "tropical_fallback_moved"
+        # Prefixed, so the refusal names which half drifted.
+        assert report.details["changed_fields"] == ["guide:winter_watering_multiplier"]
+        assert not db.writes
+
+    def test_the_reference_guide_differs_from_tier_three_in_every_overlaid_field(self) -> None:
+        """A reference guide that overlaid nothing would guard nothing.
+
+        Each field the overlay writes has to differ from the tier-3 preset, or the
+        guide half of the drift check would be satisfied by the tier-3 half.
+        """
+        overlaid = ("watering_interval_days", "watering_method", "water_quality_hint", "notes")
+        for field in overlaid:
+            assert _PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE[field] != _PRE_1505_TROPICAL_FALLBACK[field], field
+        # The multiplier is computed (9 / 4), not copied — the field most likely to
+        # move unnoticed.
+        assert _PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE["winter_watering_multiplier"] == 2.25
 
 
 class TestTheFrameworkContract:

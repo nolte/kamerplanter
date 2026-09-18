@@ -570,57 +570,59 @@ Hinweis: Die `auto_generate_profile()`-Methode nutzt `FAMILY_CARE_MAP` als Fallb
 
 Eine Familienzuordnung ist notwendigerweise grob (Rosaceae trägt Apfelbaum und Erdbeere). Sie ist die **dritte** Stufe: eine Art mit `WateringGuide` überschreibt die Gießfelder (#1481), und der Nutzer kann das Profil jederzeit ändern. Gesucht ist also, welches Preset für die Arten, die diese Familie tatsächlich seedet, am wenigsten falsch ist — nicht, welches für alle richtig ist.
 
-| Familie | Care-Style | Quelle / Begründung |
-|---------|-----------|---------------------|
-| `Acanthaceae` | `calathea` | Steckbriefe 2/2 `calathea` (aphelandra_squarrosa, fittonia_albivenis) — hohe Luftfeuchte, weiches Wasser. |
-| `Aizoaceae` | `cactus` | lithops_spp.md `cactus` — extrem trockene Führung mit Ruhephase. |
-| `Apocynaceae` | `tropical` | Steckbriefe 2/3 `tropical` (hoya, stephanotis); Ceropegia weicht als Sukkulente ab. |
-| `Araliaceae` | `mediterranean` | Steckbriefe 2/3 `mediterranean` (fatsia, hedera) — kühltolerant, zwischen den Gaben abtrocknen. |
-| `Arecaceae` | `tropical` | Zimmerpalmen 4/4 `tropical`. |
-| `Asparagaceae` | `succulent` | Steckbriefe (dedupliziert) 4x `succulent` gegen 2x `tropical`; der Familiensatz warnt selbst vor der Heterogenität. Wasserspeichernde Blätter faulen im 7-Tage-Rhythmus. |
-| `Aspleniaceae` | `fern` | asplenium_nidus.md `fern`. |
-| `Asteraceae` | `outdoor_annual_veg` | Regel 2: 3x `mediterranean` / 3x `outdoor_annual_veg` / 2x `custom` (lactuca, dahlia); mit den beiden Gemüse-`custom`-Einträgen ergibt sich 5 von 10 für die Küchengarten-Lesart. **Preis:** Tagetes und Dahlie verlieren die Deadheading-Erinnerung. |
-| `Begoniaceae` | `tropical` | Regel 2: `calathea`/`tropical`-Gleichstand, der generische Stil gewinnt. |
-| `Bromeliaceae` | `bromeliad` | Regel 2: kein Preset passte — Trichter-Gießkultur, extremer Schwachzehrer. Neues Preset, Werte aus den fünf Steckbriefen. |
-| `Commelinaceae` | `tropical` | tradescantia_zebrina.md `tropical`. |
-| `Euphorbiaceae` | `tropical` | croton, poinsettia 2/2 `tropical`. |
-| `Gesneriaceae` | `calathea` | Steckbriefe 2/3 `calathea` (Streptocarpus) — von unten gießen, weiches Wasser. |
-| `Malvaceae` | `tropical` | hibiscus, pachira 2/2 `tropical`. |
-| `Nephrolepidaceae` | `fern` | nephrolepis_exaltata.md `fern`. |
-| `Oxalidaceae` | `tropical` | oxalis_triangularis.md `tropical`. |
-| `Piperaceae` | `succulent` | peperomia_obtusifolia.md `succulent` — fleischige Blätter, staunässeempfindlich. |
-| `Pteridaceae` | `fern` | adiantum_raddianum.md `fern`. |
-| `Rubiaceae` | `tropical` | Regel 2: coffea/gardenia-Gleichstand, beide warm-innen. |
-| `Strelitziaceae` | `tropical` | **Abweichung** von strelitzia_reginae.md (`mediterranean`): die Seeds sagen tropical_foliage, indoor, frostempfindlich. |
-| `Urticaceae` | `tropical` | Regel 2: pilea/soleirolia-Gleichstand, beide warm-innen. |
-| `Amaranthaceae` | `outdoor_annual_veg` | Rote Bete, Spinat — Freilandgemüse. |
-| `Amaryllidaceae` | `outdoor_annual_veg` | Regel 2: 4 der 6 Arten sind Küchen-Allium (Zwiebel, Lauch, Knoblauch, Schnittlauch); Clivia und Hippeastrum weichen als Zimmerzwiebeln ab. |
-| `Apiaceae` | `outdoor_annual_veg` | Steckbriefe 5/9 — Karotte, Sellerie, Pastinake. |
-| `Boraginaceae` | `outdoor_annual_veg` | phacelia_tanacetifolia.md — Gründüngung. |
-| `Brassicaceae` | `outdoor_annual_veg` | Steckbriefe 8/9. |
-| `Cannabaceae` | `herb_tropical` | **Abweichung** von humulus_lupulus.md (`mediterranean`): der Familiensatz sagt `typical_nutrient_demand: heavy`, und die zweite Art ist Cannabis sativa (indoor, Starkzehrer). Eine 30-Tage-Düngung widerspricht beidem. |
-| `Cucurbitaceae` | `outdoor_annual_veg` | Regel 2: 3/3-Gleichstand, alle sechs Arten sind frostempfindliches Freilandgemüse. |
-| `Fabaceae` | `outdoor_annual_veg` | Steckbriefe 6/8. |
-| `Poaceae` | `outdoor_annual_veg` | Getreide 6/6. |
-| `Solanaceae` | `outdoor_annual_veg` | Steckbriefe 5/6 — Tomate, Paprika, Kartoffel. Der Kernfall des Issues. |
-| `Tropaeolaceae` | `outdoor_annual_veg` | tropaeolum_majus.md. |
-| `Adoxaceae` | `outdoor_perennial` | sambucus, viburnum 2/2. |
-| `Buxaceae` | `mediterranean` | buxus_sempervirens.md. |
-| `Caprifoliaceae` | `mediterranean` | weigela_florida.md. |
-| `Cornaceae` | `mediterranean` | cornus_mas.md. |
-| `Ericaceae` | `berry_shrub` | Regel 2/3: alle drei Steckbriefe sagen `custom`. Vaccinium *ist* ein Beerenstrauch, und die Werte passen zum sauren, schwach gedüngten Ericaceen-Regime. Der Kalkfrei-Hinweis fehlt dem geteilten Preset noch. |
-| `Grossulariaceae` | `berry_shrub` | Regel 2/3: beide Steckbriefe `custom`; Johannis- und Stachelbeere sind namentlich die Pflanzen, für die `berry_shrub` geschrieben wurde. |
-| `Hydrangeaceae` | `outdoor_perennial` | **Regel 2:** hydrangea_macrophylla.md sagt `temperate` — kein `CareStyleType`. Winterharter Strauch mit hohem Wasserbedarf. |
-| `Iridaceae` | `frost_tender_tuber` | **Abweichung** von tigridia_pavonia.md (`mediterranean`): die Seeds sagen `bulb_tuber`, frostempfindlicher Geophyt — genau die Definition von `frost_tender_tuber`. |
-| `Nymphaeaceae` | `aquatic` | Regel 2: nymphaea_alba.md benennt das fehlende Preset selbst (kein Standard-Preset passe für aquatische Pflanzen). Neues Preset, Werte aus derselben Tabelle. |
-| `Paeoniaceae` | `outdoor_perennial` | paeonia_lactiflora.md. |
-| `Polemoniaceae` | `outdoor_perennial` | phlox_paniculata.md. |
-| `Polygonaceae` | `outdoor_perennial` | Regel 3: rheum_rhabarbarum.md sagt `custom`; Rhabarber ist eine winterharte Gemüsestaude. |
-| `Ranunculaceae` | `outdoor_perennial` | **Abweichung** von 2x `mediterranean` (clematis, helleborus): alle vier Arten sind winterharte Freilandstauden, Clematis und Rittersporn sind ausgesprochen durstig. |
-| `Rosaceae` | `fruit_tree` | Regel 2/3: 6 von 8 Steckbriefen sagen `custom`; 4 der 8 Arten sind die Obstbäume, die `fruit_tree` benennt. Rose und Rubus verdienen eigene Stile — eine Familienzuordnung kann sie ihnen nicht geben. |
-| `Saxifragaceae` | `outdoor_perennial` | astilbe_chinensis.md. |
-| `Verbenaceae` | `outdoor_annual_ornamental` | **Abweichung** von verbena (`mediterranean`): eine frostempfindliche Balkonbeetpflanze — der Anwendungsfall von `outdoor_annual_ornamental`. |
-| `Vitaceae` | `fruit_tree` | **Abweichung** von vitis (`mediterranean`): dessen 36-Monats-Umtopfintervall erzeugte eine Umtopf-Erinnerung für eine ausgepflanzte Rebe; `fruit_tree` deckelt bei 60 und düngt einmal im Frühjahr. |
+Die **Zuordnung selbst** steht in `FAMILY_CARE_MAP` (`care_reminder_engine.py`) und wird von dort in die Doku-Faktentabelle `docs/_generated/family-care-map.<locale>.md` generiert (`scripts/docs/gen_fact_tables.py`) — diese Spec führt sie nicht ein drittes Mal, sondern nur die Begründung je Familie. Dass die Tabelle der Ableitungsregel folgt, prüft `src/backend/tests/unit/domain/engines/test_family_care_map_derivation.py`: Der Test zählt die `Pflege-Stil`-Zeilen der Steckbriefe je Familie aus und verlangt entweder die Mehrheit oder einen begründeten Eintrag in seiner Abweichungsliste (unbenutzte Einträge sind rot).
+
+| Familie | Quelle / Begründung |
+|---------|---------------------|
+| `Acanthaceae` | Steckbriefe 2/2 `calathea` (aphelandra_squarrosa, fittonia_albivenis) — hohe Luftfeuchte, weiches Wasser. |
+| `Aizoaceae` | lithops_spp.md `cactus` — extrem trockene Führung mit Ruhephase. |
+| `Apocynaceae` | Steckbriefe 2/3 `tropical` (hoya, stephanotis); Ceropegia weicht als Sukkulente ab. |
+| `Araliaceae` | Steckbriefe 2/3 `mediterranean` (fatsia, hedera) — kühltolerant, zwischen den Gaben abtrocknen. |
+| `Arecaceae` | Zimmerpalmen 4/4 `tropical`. |
+| `Asparagaceae` | Regel 2, vollständige Auszählung: succulent 4 (aspidistra, d. angolensis, d. trifasciata, yucca), tropical 3 (chlorophytum, d. marginata 2x), custom 1 (asparagus_officinalis), fern 1 (asparagus_setaceus), cactus 1 (beaucarnea), temperate 1 (hosta — ebenfalls kein `CareStyleType`). 4 von 11 ist eine Pluralität, keine Mehrheit. **Preis, benannt:** Hosta und Asparagus officinalis sind Freilandstauden und tragen (gemessen) keinen `WateringGuide`, bekommen also 14 Tage, drench-and-drain und Winterfaktor 3.0. Trotzdem der geringere Schaden: 9 der 11 geseedeten Arten sind Zimmerpflanzen, 4 davon speichern Wasser im Blatt, und Wurzelfäule tötet, wo zwei trockene Wochen eine Hosta welken lassen. Ein art-spezifischer Care-Style-Override ist der eigentliche Fix (Folge-Issue). |
+| `Aspleniaceae` | asplenium_nidus.md `fern`. |
+| `Asteraceae` | Regel 2: 3x `mediterranean` / 3x `outdoor_annual_veg` / 2x `custom` (lactuca, dahlia); mit den beiden Gemüse-`custom`-Einträgen ergibt sich 5 von 10 für die Küchengarten-Lesart. **Preis:** Tagetes und Dahlie verlieren die Deadheading-Erinnerung. |
+| `Begoniaceae` | Regel 2: `calathea`/`tropical`-Gleichstand, der generische Stil gewinnt. |
+| `Bromeliaceae` | **Abweichung** von einer echten Regel-1-Mehrheit (`tropical` 3/5: vriesea, neoregelia, aechmea; guzmania und tillandsia sagen `orchid`). Keiner der beiden Stile passt: gegossen wird der Blatttrichter, nicht das Substrat, und der Familiensatz nennt die Familie einen extremen Schwachzehrer, dem die 14-Tage-Düngung von `orchid` widerspricht. Daher das neue `bromeliad`-Preset aus den fünf Steckbriefen. |
+| `Commelinaceae` | tradescantia_zebrina.md `tropical`. |
+| `Euphorbiaceae` | croton, poinsettia 2/2 `tropical`. |
+| `Gesneriaceae` | Steckbriefe 2/3 `calathea` (Streptocarpus) — von unten gießen, weiches Wasser. |
+| `Malvaceae` | hibiscus, pachira 2/2 `tropical`. |
+| `Nephrolepidaceae` | nephrolepis_exaltata.md `fern`. |
+| `Oxalidaceae` | oxalis_triangularis.md `tropical`. |
+| `Piperaceae` | peperomia_obtusifolia.md `succulent` — fleischige Blätter, staunässeempfindlich. |
+| `Pteridaceae` | adiantum_raddianum.md `fern`. |
+| `Rubiaceae` | Regel 2: coffea/gardenia-Gleichstand, beide warm-innen. |
+| `Strelitziaceae` | **Abweichung** von strelitzia_reginae.md (`mediterranean`): die Seeds sagen tropical_foliage, indoor, frostempfindlich. |
+| `Urticaceae` | Regel 2: pilea/soleirolia-Gleichstand, beide warm-innen. |
+| `Amaranthaceae` | Rote Bete, Spinat — Freilandgemüse. |
+| `Amaryllidaceae` | Regel 2: 4 der 6 Arten sind Küchen-Allium (Zwiebel, Lauch, Knoblauch, Schnittlauch); Clivia und Hippeastrum weichen als Zimmerzwiebeln ab. |
+| `Apiaceae` | Steckbriefe 5/9 — Karotte, Sellerie, Pastinake. |
+| `Boraginaceae` | phacelia_tanacetifolia.md — Gründüngung. |
+| `Brassicaceae` | Steckbriefe 8/9. |
+| `Cannabaceae` | **Abweichung** von humulus_lupulus.md (`mediterranean`): der Familiensatz sagt `typical_nutrient_demand: heavy`, und die zweite Art ist Cannabis sativa (indoor, Starkzehrer). Eine 30-Tage-Düngung widerspricht beidem. |
+| `Cucurbitaceae` | Regel 2: 3/3-Gleichstand, alle sechs Arten sind frostempfindliches Freilandgemüse. |
+| `Fabaceae` | Steckbriefe 6/8. |
+| `Poaceae` | Getreide 6/6. |
+| `Solanaceae` | Steckbriefe 5/6 — Tomate, Paprika, Kartoffel. Der Kernfall des Issues. |
+| `Tropaeolaceae` | tropaeolum_majus.md. |
+| `Adoxaceae` | sambucus, viburnum 2/2. |
+| `Buxaceae` | buxus_sempervirens.md. |
+| `Caprifoliaceae` | weigela_florida.md. |
+| `Cornaceae` | cornus_mas.md. |
+| `Ericaceae` | Regel 2/3: alle drei Steckbriefe sagen `custom`. Vaccinium *ist* ein Beerenstrauch, und die Werte passen zum sauren, schwach gedüngten Ericaceen-Regime. Der Kalkfrei-Hinweis fehlt dem geteilten Preset noch. |
+| `Grossulariaceae` | Regel 2/3: beide Steckbriefe `custom`; Johannis- und Stachelbeere sind namentlich die Pflanzen, für die `berry_shrub` geschrieben wurde. |
+| `Hydrangeaceae` | **Regel 2:** hydrangea_macrophylla.md sagt `temperate` — kein `CareStyleType` (das zweite solche Dokument ist hosta_spp.md, siehe Asparagaceae). Winterharter Strauch mit hohem Wasserbedarf. |
+| `Iridaceae` | **Abweichung** von tigridia_pavonia.md (`mediterranean`): die Seeds sagen `bulb_tuber`, frostempfindlicher Geophyt — genau die Definition von `frost_tender_tuber`. |
+| `Nymphaeaceae` | Regel 2: nymphaea_alba.md benennt das fehlende Preset selbst (kein Standard-Preset passe für aquatische Pflanzen). Neues Preset, Werte aus derselben Tabelle. |
+| `Paeoniaceae` | paeonia_lactiflora.md. |
+| `Polemoniaceae` | phlox_paniculata.md. |
+| `Polygonaceae` | Regel 3: rheum_rhabarbarum.md sagt `custom`; Rhabarber ist eine winterharte Gemüsestaude. |
+| `Ranunculaceae` | **Abweichung** von 2x `mediterranean` (clematis, helleborus): alle vier Arten sind winterharte Freilandstauden, Clematis und Rittersporn sind ausgesprochen durstig. |
+| `Rosaceae` | Regel 2/3: 6 von 8 Steckbriefen sagen `custom`; 4 der 8 Arten sind die Obstbäume, die `fruit_tree` benennt. Rose und Rubus verdienen eigene Stile — eine Familienzuordnung kann sie ihnen nicht geben. |
+| `Saxifragaceae` | astilbe_chinensis.md. |
+| `Verbenaceae` | **Abweichung** von verbena (`mediterranean`): eine frostempfindliche Balkonbeetpflanze — der Anwendungsfall von `outdoor_annual_ornamental`. |
+| `Vitaceae` | **Abweichung** von vitis (`mediterranean`): dessen 36-Monats-Umtopfintervall erzeugte eine Umtopf-Erinnerung für eine ausgepflanzte Rebe; `fruit_tree` deckelt bei 60 und düngt einmal im Frühjahr. |
 
 **Zwei neue Presets (Werte je Feld aus den Steckbriefen der geseedeten Arten):**
 
@@ -628,6 +630,8 @@ Eine Familienzuordnung ist notwendigerweise grob (Rosaceae trägt Apfelbaum und 
 |-----------|----------------|--------------|--------|----------|--------------|-------------------|
 | `bromeliad` | 7 Tage (in den Trichter, kalkfrei) | 1.5 | 28 Tage, Apr–Sep | 24 Monate | 21 Tage | Guzmania, Vriesea, Aechmea, Tillandsia |
 | `aquatic` | 7 Tage (Teichstand nachfüllen, 2–5 cm/Woche) | 4.0 | 30 Tage, Apr–Aug (Depot-Tabletten) | 48 Monate | 14 Tage | Seerose (Nymphaea) |
+
+**Entscheidung `aquatic` + Gieß-Task (Review SCR-010):** Die Gießerinnerung bleibt — ein Teich muss im Sommer wöchentlich nachgefüllt werden —, aber `auto_create_watering_task` steht als einziges Preset auf `false`. Grund: Das Abschließen einer Gieß-**Aufgabe** schreibt einen Gießprotokoll-Eintrag (`CareReminderService.record_care_task_completion`), und „2 Liter an der Seerose gegossen" ist ein Protokoll über eine Pflanze, die im Teich steht. Der Hinweistext im `water_quality_hint` sagt, worum es stattdessen geht (Pegelkontrolle). Nutzer können den Task pro Profil wieder einschalten.
 
 `bromeliad` entsteht als Median der fünf Bromelien-Steckbriefe; `orchid` schied aus, weil es doppelt so oft düngt, wie ein extremer Schwachzehrer (so der Familiensatz) verträgt. `aquatic` übernimmt die Tabelle aus `nymphaea_alba.md` §4.1, die das fehlende Preset ausdrücklich benennt; die Gießerinnerung ist dort die wöchentliche Pegelkontrolle, keine Wassergabe.
 

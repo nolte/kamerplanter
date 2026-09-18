@@ -370,6 +370,14 @@ CARE_STYLE_PRESETS: dict[CareStyleType, dict] = {
         # "false (aquatisch)".
         "humidity_check_enabled": False,
         "humidity_check_interval_days": 30,
+        # The only preset that switches this off (review finding SCR-010). The
+        # reminder itself stays — a pond really does need topping up weekly in
+        # summer, and the hint above says what the job is — but completing a
+        # *watering task* writes a Gießprotokoll entry
+        # (`CareReminderService.record_care_task_completion`), and "watered the
+        # water lily with 2 litres" is a log entry about a plant that stands in a
+        # pond. The user can switch it on per profile.
+        "auto_create_watering_task": False,
     },
     CareStyleType.CUSTOM: {
         "watering_interval_days": 7,
@@ -440,15 +448,32 @@ FAMILY_CARE_MAP: dict[str, CareStyleType] = {
     "Apocynaceae": CareStyleType.TROPICAL,  # hoya, stephanotis 2/3 (ceropegia: succulent)
     "Araliaceae": CareStyleType.MEDITERRANEAN,  # fatsia, hedera 2/3 — cool-tolerant, dries back
     "Arecaceae": CareStyleType.TROPICAL,  # indoor palms 4/4
-    # Rule 1 on the deduplicated docs (dracaena_marginata appears twice):
-    # succulent 4 (aspidistra, d. angolensis, d. trifasciata, yucca) vs tropical 2.
-    # The family record itself warns it is heterogeneous ("Artspezifische
-    # Pflegedaten beachten") — SUCCULENT is the safer default, since these store
-    # water and rot when watered on a 7-day tropical rhythm.
+    # Rule 2, and the full count (the first draft named only 6 of the 11 votes —
+    # review finding SCR-005): succulent 4 (aspidistra, d. angolensis,
+    # d. trifasciata, yucca), tropical 3 (chlorophytum, d. marginata x2),
+    # custom 1 (asparagus_officinalis), fern 1 (asparagus_setaceus), cactus 1
+    # (beaucarnea), temperate 1 (hosta — not a CareStyleType either). 4 of 11 is a
+    # plurality, not a majority, so this is a judgement and the family record agrees
+    # it has to be ("Artspezifische Pflegedaten beachten").
+    #
+    # SUCCULENT, and the price is named: **Hosta and Asparagus officinalis are
+    # outdoor perennials** and neither carries a WateringGuide (measured in the
+    # seeds), so tier 1 will not rescue them — they get 14 days, drench-and-drain
+    # and a 3.0 winter multiplier until a user edits the profile. It is still the
+    # lesser harm: 9 of the 11 seeded species are indoor, 4 of them store water in
+    # their leaves, and root rot from a 7-day rhythm kills where a dry fortnight
+    # makes a Hosta wilt. A species-level care-style override is the real fix and is
+    # filed as a follow-up.
     "Asparagaceae": CareStyleType.SUCCULENT,
     "Aspleniaceae": CareStyleType.FERN,  # asplenium_nidus.md: fern
     "Begoniaceae": CareStyleType.TROPICAL,  # rule 2: calathea/tropical tie, generic wins
-    "Bromeliaceae": CareStyleType.BROMELIAD,  # rule 2: no preset fitted — see CARE_STYLE_PRESETS
+    # **Deviation** from a real rule-1 majority (`tropical` 3/5: vriesea, neoregelia,
+    # aechmea; guzmania and tillandsia say `orchid`) — the first draft called this
+    # rule 2, which understated it (review finding SCR-004). Neither style fits: the
+    # water goes into the leaf funnel rather than the substrate, and the family
+    # record calls it an "extreme Schwachzehrer", which ORCHID's 14-day feeding
+    # contradicts. Hence the BROMELIAD preset, built from the five docs themselves.
+    "Bromeliaceae": CareStyleType.BROMELIAD,
     "Commelinaceae": CareStyleType.TROPICAL,  # tradescantia_zebrina.md: tropical
     "Euphorbiaceae": CareStyleType.TROPICAL,  # croton, poinsettia 2/2
     "Gesneriaceae": CareStyleType.CALATHEA,  # streptocarpus 2/3 — bottom water, soft water
