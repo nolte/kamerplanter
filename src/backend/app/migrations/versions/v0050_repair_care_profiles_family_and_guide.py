@@ -59,9 +59,13 @@ Two fields are deliberately outside the comparison:
   the adaptive-learning engine from confirmations, not by a user — and they were
   learned *around the wrong base interval*. They are **reset to ``None``** on a
   repair, which is what ``update_profile`` already does when the base interval is
-  edited explicitly (``care_reminder_service.py``, #622). The clear needs its own
-  write: ``care_profiles`` is a merge-mode repository, so the full-model update
-  drops a ``None`` instead of storing it — see :meth:`_clear_learned_intervals`.
+  edited explicitly (``care_reminder_service.py``, #622). The clear was given its
+  own write because ``care_profiles`` was a **merge-mode** repository when this
+  migration was written: the full-model update dropped a ``None`` instead of
+  storing it. #1506 made the repository full-replace, so the first write already
+  clears them and the second is redundant; it is kept rather than removed, because
+  a migration's behaviour is history once it has run — see
+  :meth:`_clear_learned_intervals`.
 * ``dormancy_care_mode`` / ``dormancy_watering`` / ``dormancy_check_interval_days``
   are toggled by the REQ-047 season state machine, not the user. They are
   **preserved** across the repair: comparing them would skip every plant whose site
@@ -132,7 +136,7 @@ from pydantic import BaseModel, ValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
-from app.domain.models.care_reminder import CareProfile
+from app.domain.models.care_reminder import SEASON_STATE_FIELDS, CareProfile
 from app.domain.models.species import Cultivar, Species
 from app.domain.services.care_reminder_service import resolve_care_inputs
 from app.migrations.framework.base import Migration
@@ -152,16 +156,12 @@ REQUIRED_COLLECTIONS: tuple[str, ...] = (
 #: Fields carried over from the stored profile onto the recomputed one. Identity
 #: (``_key``/``plant_key``), history (``created_at``) and the REQ-047 season state,
 #: which the state machine owns and no recomputation may take away.
-_PRESERVED_FIELDS: frozenset[str] = frozenset(
-    {
-        "key",
-        "plant_key",
-        "created_at",
-        "dormancy_care_mode",
-        "dormancy_watering",
-        "dormancy_check_interval_days",
-    }
-)
+#:
+#: The season half is :data:`~app.domain.models.care_reminder.SEASON_STATE_FIELDS`
+#: rather than a second hand-written copy (#1506 review, SCR-001):
+#: ``CareReminderService.reset_profile`` excludes exactly the same set, for exactly
+#: the same reason, and two literals is how the two rules drift apart.
+_PRESERVED_FIELDS: frozenset[str] = frozenset({"key", "plant_key", "created_at"}) | SEASON_STATE_FIELDS
 
 #: Reset on a repair rather than compared: learned around the wrong base interval,
 #: and ``update_profile`` already resets them when the base is edited (#622).
@@ -607,9 +607,22 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         profile_key: str,
         stored: CareProfile,
     ) -> None:
-        """Null the learned intervals — a second write, because the first cannot.
+        """Null the learned intervals — a second write, kept for the reason below.
 
-        Measured: ``care_profiles`` is a **merge**-mode repository
+        **Superseded by #1506, deliberately not removed.**
+        ``ArangoCareReminderRepository`` now sets ``_update_is_full_replace``, so the
+        ``update_profile`` above already clears the two intervals — precisely: it
+        *removes the attributes* from the stored document, and this second write then
+        puts them back as explicit ``null``\\ s. Both read back as ``None`` through
+        :class:`CareProfile`, whose defaults are ``None``, so the observable outcome
+        is the same and the sequence is idempotent; the difference is only in the
+        stored document's attribute set.
+
+        It stays because a migration's behaviour is history once it has run anywhere:
+        removing a write changes what a re-run does, which is not a change this issue
+        measured. The paragraph below records what was true when it was written.
+
+        Measured 2026-09-17: ``care_profiles`` was a **merge**-mode repository
         (``BaseArangoRepository._update_is_full_replace`` is ``False`` for it), so
         ``update_profile`` serialises with ``exclude_none=True`` and a field set to
         ``None`` is dropped from the payload rather than written as ``null`` — the
@@ -617,8 +630,8 @@ class RepairCareProfilesFamilyAndGuideMigration(Migration):
         is the path that writes ``keep_none=True``, so the clear goes through it,
         and only for a profile that actually holds a learned value.
 
-        (The same property means ``CareReminderService.reset_profile`` cannot clear
-        a field either; that is outside this migration and reported separately.)
+        (The same property meant ``CareReminderService.reset_profile`` could not clear
+        a field either; that was outside this migration and is what #1506 repaired.)
         """
         pending = {field: None for field in sorted(_LEARNED_FIELDS) if getattr(stored, field) is not None}
         if pending:
