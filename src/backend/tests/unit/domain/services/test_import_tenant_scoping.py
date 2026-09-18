@@ -46,13 +46,26 @@ def _service() -> tuple[ImportService, MagicMock, MagicMock]:
     return ImportService(MagicMock(), species_repo=species_repo, family_repo=family_repo), species_repo, family_repo
 
 
-def _staged_job(entity_type: EntityType, strategy: DuplicateStrategy = DuplicateStrategy.SKIP) -> ImportJob:
-    """A job in the one status `confirm` accepts, so the gate is what rejects — not the status."""
+def _staged_job(
+    entity_type: EntityType,
+    strategy: DuplicateStrategy = DuplicateStrategy.SKIP,
+    *,
+    tenant_key: str = _TENANT,
+) -> ImportJob:
+    """A job in the one status `confirm` accepts, so the gate is what rejects — not the status.
+
+    Owned by ``_TENANT`` by default since #1501: ``confirm`` now loads the job
+    *scoped*, so a job stamped ``""`` would 404 before any role gate ran and every
+    refusal below would pass for the wrong reason. Stamping it keeps the #1110
+    assertions measuring what they were written to measure — which gate refuses —
+    and :class:`TestTheJobItselfIsOwned` covers the ownership arm separately.
+    """
     return ImportJob(
         entity_type=entity_type,
         status=ImportJobStatus.PREVIEW_READY,
         filename="rows.csv",
         duplicate_strategy=strategy,
+        tenant_key=tenant_key,
     )
 
 
@@ -240,7 +253,10 @@ def test_full_mode_import_without_an_active_tenant_is_refused(monkeypatch):
     """
     monkeypatch.setattr(settings, "kamerplanter_mode", "full")
     svc, _, _ = _service()
-    _confirming(svc, _staged_job(EntityType.SPECIES))
+    # The job is stamped "" too: this caller has no active tenant, so the job they
+    # staged could not have been stamped with one either. Pairing them keeps the
+    # ValidationError below the thing that refuses, rather than the #1501 scope.
+    _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key=""))
 
     with pytest.raises(ValidationError):
         svc.confirm("job1", tenant_key="", caller_role=TenantRole.LEAD)

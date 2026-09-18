@@ -26,6 +26,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import PageTitle from '@/components/layout/PageTitle';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import MobileCard from '@/components/common/MobileCard';
@@ -172,6 +173,12 @@ export default function PhaseSequenceListPage() {
     pageSizeStorageKey: 'phaseSequences.pageSize',
   });
 
+  // #1501 — phase definitions, sequences and entries are an INSTALLATION-WIDE
+  // catalogue: no model here carries a tenant_key, so every write is gated on
+  // `require_platform_admin` backend-side. Hiding the controls from everyone else
+  // is the UX consequence, never the control — the API answers 403 regardless.
+  const canCurate = useCanEditInstallationCatalogue();
+
   const [sequences, setSequences] = useState<PhaseSequence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -303,8 +310,11 @@ export default function PhaseSequenceListPage() {
       searchable: false,
       render: (seq) => (
         <Box onClick={(e) => e.stopPropagation()}>
-          {/* UI-NFR-018 R-015: offer "copy as template" for read-only system data */}
-          {seq.is_system && (
+          {/* UI-NFR-018 R-015: offer "copy as template" for read-only system data.
+              #1501: cloning writes a new row into the same installation-wide
+              catalogue — PhaseSequence has no tenant_key — so it is a platform-admin
+              write like the delete below, not a tenant-local copy. */}
+          {canCurate && seq.is_system && (
             <Tooltip title={t('pages.phaseSequences.duplicateTooltip')}>
               <IconButton
                 size="small"
@@ -317,8 +327,9 @@ export default function PhaseSequenceListPage() {
               </IconButton>
             </Tooltip>
           )}
-          {/* UI-NFR-018 R-013: hide delete action for system data */}
-          {!seq.is_system && (
+          {/* UI-NFR-018 R-013: hide delete action for system data; #1501: and from
+              anyone who is not a platform admin. */}
+          {canCurate && !seq.is_system && (
             <Tooltip title={t('common.delete')}>
               <IconButton
                 size="small"
@@ -340,14 +351,16 @@ export default function PhaseSequenceListPage() {
       <PageTitle
         title={t('pages.phaseSequences.sequencesTitle')}
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-sequence-button"
-          >
-            {t('pages.phaseSequences.createSequence')}
-          </Button>
+          canCurate ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-sequence-button"
+            >
+              {t('pages.phaseSequences.createSequence')}
+            </Button>
+          ) : undefined
         }
       />
 

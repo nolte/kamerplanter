@@ -16,6 +16,7 @@ import OriginChip from '@/components/common/OriginChip';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -34,6 +35,12 @@ export default function PhaseDefinitionListPage() {
     defaultSort: { column: 'name', direction: 'asc' },
     pageSizeStorageKey: 'phaseDefinitions.pageSize',
   });
+
+  // #1501 — phase definitions, sequences and entries are an INSTALLATION-WIDE
+  // catalogue: neither model carries a tenant_key, so every write is gated on
+  // `require_platform_admin` backend-side. Hiding the controls from everyone else
+  // is the UX consequence, never the control — the API answers 403 regardless.
+  const canCurate = useCanEditInstallationCatalogue();
 
   const [definitions, setDefinitions] = useState<PhaseDefinition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,8 +172,9 @@ export default function PhaseDefinitionListPage() {
       searchable: false,
       render: (def) => (
         <Box onClick={(e) => e.stopPropagation()}>
-          {/* UI-NFR-018 R-011/R-013: hide edit/delete actions for system data */}
-          {!def.is_system && (
+          {/* UI-NFR-018 R-011/R-013: hide edit/delete actions for system data;
+              #1501: and from anyone who is not a platform admin. */}
+          {canCurate && !def.is_system && (
             <Tooltip title={t('common.edit')}>
               <IconButton
                 size="small"
@@ -177,7 +185,7 @@ export default function PhaseDefinitionListPage() {
               </IconButton>
             </Tooltip>
           )}
-          {!def.is_system && (
+          {canCurate && !def.is_system && (
             <Tooltip
               title={
                 def.usage_count > 0
@@ -208,14 +216,16 @@ export default function PhaseDefinitionListPage() {
       <PageTitle
         title={t('pages.phaseSequences.definitionsTitle')}
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreate}
-            data-testid="create-definition-button"
-          >
-            {t('pages.phaseSequences.createDefinition')}
-          </Button>
+          canCurate ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreate}
+              data-testid="create-definition-button"
+            >
+              {t('pages.phaseSequences.createDefinition')}
+            </Button>
+          ) : undefined
         }
       />
 

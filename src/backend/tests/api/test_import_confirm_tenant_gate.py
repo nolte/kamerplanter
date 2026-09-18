@@ -127,11 +127,25 @@ class TestTheRefusalReachesTheWire:
 
 
 class TestReadsAreUnaffected:
-    """The gate belongs on the write; staging and listing stay open to any member."""
+    """The gate belongs on the write; listing stays open to any member OF THE TENANT.
 
-    def test_listing_jobs_needs_no_tenant_role(self, service: _RecordingImportService) -> None:
-        service.list_jobs = lambda offset, limit: ([], 0)  # type: ignore[attr-defined]
+    #1501 narrowed what "unaffected" means: the read still needs no *rank*, but it
+    is now *scoped* — the route passes the caller's resolved tenant down. The
+    double is written to accept that keyword so this test cannot pass by the
+    service ignoring it, which is how the old two-parameter lambda would have
+    reported green against a route that had quietly dropped the scope.
+    """
+
+    def test_listing_jobs_needs_no_tenant_role_and_carries_the_tenant(self, service: _RecordingImportService) -> None:
+        seen: dict[str, object] = {}
+
+        def _list(offset, limit, *, tenant_key):
+            seen["tenant_key"] = tenant_key
+            return ([], 0)
+
+        service.list_jobs = _list  # type: ignore[attr-defined]
 
         response = _client(service, role=TenantRole.VIEWER).get("/api/v1/import/jobs")
 
         assert response.status_code == 200, response.text
+        assert seen["tenant_key"] == _TENANT

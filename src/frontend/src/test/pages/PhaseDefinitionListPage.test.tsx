@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, createTestStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type { PhaseDefinition } from '@/api/types';
 
@@ -14,6 +14,20 @@ vi.mock('react-router-dom', async (orig) => {
 });
 
 import PhaseDefinitionListPage from '@/pages/phasen/PhaseDefinitionListPage';
+
+/**
+ * Every case below drives an INSTALLATION-WIDE catalogue whose writes carry
+ * `require_platform_admin` since #1501 — PhaseDefinition, PhaseSequence and
+ * PhaseSequenceEntry carry no `tenant_key`, so one row is the row every tenant
+ * resolves. The suite therefore acts as a platform admin, and the non-admin half
+ * of the contract (reads still render, write affordances are gone) is asserted in
+ * this same file so the pair cannot drift apart.
+ */
+const renderAsAdmin = (
+  ui: Parameters<typeof renderWithProviders>[0],
+  options: Omit<NonNullable<Parameters<typeof renderWithProviders>[1]>, 'store'> = {},
+) => renderWithProviders(ui, { ...options, store: createPlatformAdminStore() });
+
 
 const LIST_URL = '/api/v1/phase-definitions';
 const DELETE_URL = '/api/v1/phase-definitions/:key';
@@ -60,7 +74,7 @@ describe('PhaseDefinitionListPage', () => {
 
   it('renders the loaded definition row', async () => {
     useDefinitions([makeDefinition()]);
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     expect(await screen.findByText('Vegetativ')).toBeInTheDocument();
     expect(screen.getByTestId('create-definition-button')).toBeInTheDocument();
@@ -71,7 +85,7 @@ describe('PhaseDefinitionListPage', () => {
     useDefinitions([
       makeDefinition({ display_name: '', display_name_de: '', usage_count: 4 }),
     ]);
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     // display_name empty -> falls back to raw name
     expect(await screen.findAllByText('vegetative')).toBeTruthy();
@@ -85,7 +99,7 @@ describe('PhaseDefinitionListPage', () => {
       makeDefinition({ key: 'b', name: 'beta', display_name_de: 'Beta', stress_tolerance: 'low', typical_duration_days: 40, usage_count: 9 }),
     ]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await screen.findByText('Alpha');
     const searchBox = within(screen.getByTestId('table-search-input')).getByRole('textbox');
@@ -125,7 +139,7 @@ describe('PhaseDefinitionListPage', () => {
     })) as unknown as typeof window.matchMedia;
     try {
       useDefinitions([makeDefinition()]);
-      renderWithProviders(<PhaseDefinitionListPage />);
+      renderAsAdmin(<PhaseDefinitionListPage />);
 
       expect(await screen.findByTestId('data-table-cards')).toBeInTheDocument();
       expect(screen.getByText('Vegetativ')).toBeInTheDocument();
@@ -137,7 +151,7 @@ describe('PhaseDefinitionListPage', () => {
   it('navigates to the definition detail on row click', async () => {
     useDefinitions([makeDefinition()]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await user.click(await screen.findByText('Vegetativ'));
     expect(mockNavigate).toHaveBeenCalledWith('/phasen/definitionen/def-1');
@@ -146,7 +160,7 @@ describe('PhaseDefinitionListPage', () => {
   it('opens the create dialog from the header action', async () => {
     useDefinitions([makeDefinition()]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await screen.findByText('Vegetativ');
     await user.click(screen.getByTestId('create-definition-button'));
@@ -156,7 +170,7 @@ describe('PhaseDefinitionListPage', () => {
   it('opens the edit dialog from the row action', async () => {
     useDefinitions([makeDefinition()]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await screen.findByText('Vegetativ');
     await user.click(screen.getByRole('button', { name: i18n.t('common.edit') }));
@@ -173,7 +187,7 @@ describe('PhaseDefinitionListPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await screen.findByText('Vegetativ');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -201,7 +215,7 @@ describe('PhaseDefinitionListPage', () => {
       ),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await screen.findByText('Vegetativ');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -226,7 +240,7 @@ describe('PhaseDefinitionListPage', () => {
       http.delete(DELETE_URL, () => new HttpResponse(null, { status: 500 })),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await screen.findByText('Vegetativ');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -245,7 +259,7 @@ describe('PhaseDefinitionListPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     expect((await screen.findAllByText(i18n.t('errors.server'))).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: i18n.t('common.retry') }));
@@ -255,7 +269,7 @@ describe('PhaseDefinitionListPage', () => {
   it('opens the create dialog from the empty-state action', async () => {
     useDefinitions([]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await user.click(
       await screen.findByRole('button', {
@@ -270,7 +284,7 @@ describe('PhaseDefinitionListPage', () => {
       makeDefinition({ key: 'inuse', name: 'inuse', display_name_de: 'InUse', usage_count: 3 }),
       makeDefinition({ key: 'sys', name: 'sys', display_name_de: 'SystemDef', is_system: true }),
     ]);
-    renderWithProviders(<PhaseDefinitionListPage />);
+    renderAsAdmin(<PhaseDefinitionListPage />);
 
     await screen.findByText('InUse');
     // In-use definition: delete button present but disabled.
@@ -279,5 +293,31 @@ describe('PhaseDefinitionListPage', () => {
     expect(deleteButtons[0]).toBeDisabled();
     // System definition has neither edit nor delete action.
     expect(screen.getByText('SystemDef')).toBeInTheDocument();
+  });
+
+
+  /**
+   * #1501 — the non-admin half. A grower of a tenant may READ the installation-wide
+   * catalogue and must be offered no control that writes it, because the API now
+   * answers 403 for every one of them. Asserted beside the admin cases so the pair
+   * cannot drift; `createTestStore()` seeds a signed-in non-admin.
+   */
+  it('offers a non-admin the list but no create, edit or delete control', async () => {
+    useDefinitions([
+      makeDefinition({ key: 'veg', name: 'veg', display_name_de: 'Vegetativ' }),
+    ]);
+    renderWithProviders(<PhaseDefinitionListPage />, { store: createTestStore() });
+
+    // The read still works — a catalogue nobody may read is as broken as one
+    // anybody may edit.
+    expect(await screen.findByText('Vegetativ')).toBeInTheDocument();
+
+    expect(screen.queryByTestId('create-definition-button')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('common.edit') }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('common.delete') }),
+    ).not.toBeInTheDocument();
   });
 });

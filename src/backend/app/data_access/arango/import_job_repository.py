@@ -15,5 +15,7 @@ class ArangoImportJobRepository(BaseArangoRepository[ImportJob], IImportJobRepos
     def save(self, job: ImportJob) -> ImportJob:
         return super().create(job)
 
-    def list_all(self, offset: int = 0, limit: int = 50) -> tuple[list[ImportJob], int]:
-        return super().get_all(offset, limit)
+    def list_all(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[ImportJob], int]:
+        return super().get_all(offset, limit, tenant_key)

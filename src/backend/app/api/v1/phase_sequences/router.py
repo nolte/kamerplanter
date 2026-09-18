@@ -18,7 +18,7 @@ from app.api.v1.phase_sequences.schemas import (
     PhaseSequenceSpeciesResponse,
     PhaseSequenceUpdate,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, get_is_platform_admin, require_platform_admin
 from app.common.dependencies import get_phase_sequence_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
@@ -31,6 +31,32 @@ from app.domain.models.user import User
 from app.domain.services.phase_sequence_service import PhaseSequenceService
 
 router = APIRouter(tags=["phase-sequences"], responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE})
+
+# ── Authorisation (#1501) ───────────────────────────────────────────────────────
+#
+# Phase definitions, phase sequences and their entries are **installation-wide**:
+# none of the three models carries a ``tenant_key``, so one row is the row every
+# tenant's lifecycle configuration resolves. That places them in exactly the class
+# `growth_phases`, `location_types` and `activities` already occupy, and they now
+# carry the same gate — ``require_platform_admin`` on the write, nothing on the
+# read (a catalogue nobody may read is as broken as one anybody may edit).
+#
+# Every write route carries the gate TWICE on purpose, and the two halves are not
+# redundant in the way that word usually means:
+#
+# * ``dependencies=[Depends(require_platform_admin)]`` refuses before the handler
+#   body runs, so the 403 is the route's published contract and appears in the
+#   OpenAPI document;
+# * ``is_platform_admin=Depends(get_is_platform_admin)`` threaded into the service
+#   is what a *non-HTTP* caller would meet. The service is the layer that owns the
+#   rule (`app/core/permissions.py` argues why a rule may live in only one place),
+#   and its argument is keyword-only with no default, so a future caller that
+#   forgets it gets a ``TypeError`` rather than a silent grant.
+#
+# Dropping either half is what "the two enforcement paths drift" looks like in
+# practice: the router copy alone leaves the service open to the next caller, the
+# service copy alone leaves the refusal undocumented.
+_PLATFORM_ADMIN = [Depends(require_platform_admin)]
 
 
 # ── Helper functions ──
@@ -114,15 +140,16 @@ def list_phase_definitions(
     "/phase-definitions",
     response_model=PhaseDefinitionResponse,
     status_code=201,
+    dependencies=_PLATFORM_ADMIN,
 )
 def create_phase_definition(
     body: PhaseDefinitionCreate,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Create a new phase definition."""
+    """Create a new phase definition. Platform admins only (#1501)."""
     defn = PhaseDefinition(**body.model_dump())
-    created = service.create_definition(defn)
+    created = service.create_definition(defn, is_platform_admin=is_platform_admin)
     return _def_response(created)
 
 
@@ -175,28 +202,29 @@ def list_species_for_definition(
 @router.put(
     "/phase-definitions/{key}",
     response_model=PhaseDefinitionResponse,
+    dependencies=_PLATFORM_ADMIN,
 )
 def update_phase_definition(
     key: Annotated[str, Path(description="Document key of the phase definition.")],
     body: PhaseDefinitionUpdate,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Update an existing phase definition."""
+    """Update an existing phase definition. Platform admins only (#1501)."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_definition(key, data)
+    updated = service.update_definition(key, data, is_platform_admin=is_platform_admin)
     usage = service._repo.get_definition_usage_count(key)
     return _def_response(updated, usage_count=usage)
 
 
-@router.delete("/phase-definitions/{key}", status_code=204)
+@router.delete("/phase-definitions/{key}", status_code=204, dependencies=_PLATFORM_ADMIN)
 def delete_phase_definition(
     key: Annotated[str, Path(description="Document key of the phase definition.")],
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Delete a phase definition."""
-    service.delete_definition(key)
+    """Delete a phase definition. Platform admins only (#1501)."""
+    service.delete_definition(key, is_platform_admin=is_platform_admin)
     return Response(status_code=204)
 
 
@@ -223,15 +251,16 @@ def list_phase_sequences(
     "/phase-sequences",
     response_model=PhaseSequenceResponse,
     status_code=201,
+    dependencies=_PLATFORM_ADMIN,
 )
 def create_phase_sequence(
     body: PhaseSequenceCreate,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Create a new phase sequence."""
+    """Create a new phase sequence. Platform admins only (#1501)."""
     seq = PhaseSequence(**body.model_dump())
-    created = service.create_sequence(seq)
+    created = service.create_sequence(seq, is_platform_admin=is_platform_admin)
     return to_response(created, PhaseSequenceResponse)
 
 
@@ -239,15 +268,21 @@ def create_phase_sequence(
     "/phase-sequences/{key}/clone",
     response_model=PhaseSequenceResponse,
     status_code=201,
+    dependencies=_PLATFORM_ADMIN,
 )
 def clone_phase_sequence(
     key: Annotated[str, Path(description="Document key of the phase sequence to clone.")],
     body: PhaseSequenceCloneRequest,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Duplicate a phase sequence into a new editable, tenant-owned copy (is_system=false)."""
-    cloned = service.clone_sequence(key, body.new_name)
+    """Duplicate a phase sequence into a new editable copy (is_system=false).
+
+    Platform admins only (#1501). The clone is **not** tenant-owned — this
+    docstring said it was, and that claim is why a global create read as a local
+    one; ``PhaseSequence`` carries no ``tenant_key`` at all.
+    """
+    cloned = service.clone_sequence(key, body.new_name, is_platform_admin=is_platform_admin)
     full = service.get_full_sequence(cloned.key or "")
     entries = [_entry_response(e) for e in full.get("entries", [])]
     return to_response(cloned, PhaseSequenceResponse, entries=entries)
@@ -288,30 +323,31 @@ def get_phase_sequence(
 @router.put(
     "/phase-sequences/{key}",
     response_model=PhaseSequenceResponse,
+    dependencies=_PLATFORM_ADMIN,
 )
 def update_phase_sequence(
     key: Annotated[str, Path(description="Document key of the phase sequence.")],
     body: PhaseSequenceUpdate,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Update a phase sequence and return it with its resolved entries."""
+    """Update a phase sequence and return it with its resolved entries. Platform admins only (#1501)."""
     data = body.model_dump(exclude_none=True)
-    service.update_sequence(key, data)
+    service.update_sequence(key, data, is_platform_admin=is_platform_admin)
     full = service.get_full_sequence(key)
     entries = [_entry_response(e) for e in full.get("entries", [])]
     seq = service.get_sequence(key)
     return to_response(seq, PhaseSequenceResponse, entries=entries)
 
 
-@router.delete("/phase-sequences/{key}", status_code=204)
+@router.delete("/phase-sequences/{key}", status_code=204, dependencies=_PLATFORM_ADMIN)
 def delete_phase_sequence(
     key: Annotated[str, Path(description="Document key of the phase sequence.")],
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Delete a phase sequence."""
-    service.delete_sequence(key)
+    """Delete a phase sequence. Platform admins only (#1501)."""
+    service.delete_sequence(key, is_platform_admin=is_platform_admin)
     return Response(status_code=204)
 
 
@@ -337,34 +373,36 @@ def list_entries(
     "/phase-sequences/{seq_key}/entries",
     response_model=PhaseSequenceEntryResponse,
     status_code=201,
+    dependencies=_PLATFORM_ADMIN,
 )
 def create_entry(
     seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
     body: PhaseSequenceEntryCreate,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Add an entry to a phase sequence."""
+    """Add an entry to a phase sequence. Platform admins only (#1501)."""
     entry = PhaseSequenceEntry(
         phase_sequence_key=seq_key,
         **body.model_dump(),
     )
-    created = service.create_entry(entry)
+    created = service.create_entry(entry, is_platform_admin=is_platform_admin)
     return _simple_entry_response(created)
 
 
 @router.put(
     "/phase-sequences/{seq_key}/entries/{key}",
     response_model=PhaseSequenceEntryResponse,
+    dependencies=_PLATFORM_ADMIN,
 )
 def update_entry(
     seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
     key: Annotated[str, Path(description="Document key of the phase-sequence entry.")],
     body: PhaseSequenceEntryUpdate,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Update a phase-sequence entry."""
+    """Update a phase-sequence entry. Platform admins only (#1501)."""
     # Verify entry belongs to sequence
     entry = service.get_entry(key)
     if entry.phase_sequence_key != seq_key:
@@ -372,42 +410,44 @@ def update_entry(
 
         raise ValidationError("Entry does not belong to this sequence.")
     data = body.model_dump(exclude_none=True)
-    updated = service.update_entry(key, data)
+    updated = service.update_entry(key, data, is_platform_admin=is_platform_admin)
     return _simple_entry_response(updated)
 
 
 @router.delete(
     "/phase-sequences/{seq_key}/entries/{key}",
     status_code=204,
+    dependencies=_PLATFORM_ADMIN,
 )
 def delete_entry(
     seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
     key: Annotated[str, Path(description="Document key of the phase-sequence entry.")],
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Delete a phase-sequence entry."""
+    """Delete a phase-sequence entry. Platform admins only (#1501)."""
     # Verify entry belongs to sequence
     entry = service.get_entry(key)
     if entry.phase_sequence_key != seq_key:
         from app.common.exceptions import ValidationError
 
         raise ValidationError("Entry does not belong to this sequence.")
-    service.delete_entry(key)
+    service.delete_entry(key, is_platform_admin=is_platform_admin)
     return Response(status_code=204)
 
 
 @router.post(
     "/phase-sequences/{seq_key}/entries/reorder",
     response_model=list[PhaseSequenceEntryResponse],
+    dependencies=_PLATFORM_ADMIN,
 )
 def reorder_entries(
     seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
     body: EntryReorderRequest,
-    _user: User = Depends(get_current_user),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """Reorder the entries of a phase sequence."""
+    """Reorder the entries of a phase sequence. Platform admins only (#1501)."""
     orders = [item.model_dump() for item in body.entries]
-    entries = service.reorder_entries(seq_key, orders)
+    entries = service.reorder_entries(seq_key, orders, is_platform_admin=is_platform_admin)
     return [_simple_entry_response(e) for e in entries]
