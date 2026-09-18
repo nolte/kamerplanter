@@ -8,7 +8,7 @@ migration that has already run therefore makes **every** such installation log
 immutable and a correction ships as a new version.
 
 This is not hypothetical. The first draft of #1505 extracted a seam from v0050's
-class so v0051 could subclass it and override one method — a clean-looking
+class so v0052 could subclass it and override one method — a clean-looking
 refactor that would have broken the checksum of an applied migration on every
 installation that had run #1507. The shared machinery now lives in
 ``app/migrations/support/care_profile_recompute.py`` instead, and this test is what
@@ -23,7 +23,7 @@ ratchet that every new migration has to feed, and three open PRs are adding
 migrations right now — this PR is not the place to make them all fail. v0050 is
 pinned because this PR is the one that was about to edit it.
 
-v0051 is **not** pinned: it has not shipped anywhere yet, and its version number
+v0052 is **not** pinned: it has not shipped anywhere yet, and its version number
 is still being negotiated with the other open migration PRs.
 """
 

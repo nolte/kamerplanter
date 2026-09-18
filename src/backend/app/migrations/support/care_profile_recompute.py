@@ -1,7 +1,7 @@
 """The care-profile recompute machinery, outside any ``Migration`` class (#1505).
 
 Two migrations recompute stored care profiles from the current engine: v0050
-(#1489/#1481, the profiles the broken bootstrap wrote) and v0051 (#1505, the
+(#1489/#1481, the profiles the broken bootstrap wrote) and v0052 (#1505, the
 profiles whose botanical family ``FAMILY_CARE_MAP`` only now covers). Everything
 but the *criterion* is the same work: the batched reads under the startup lock,
 the per-document hydration that keeps a legacy row from aborting ``up()``, the
@@ -11,7 +11,7 @@ REQ-047 season state, the learned-interval clear, and the report shape.
 Why a module and not a base class
 =================================
 
-The obvious move — have v0051 subclass v0050 and override one method — was the
+The obvious move — have v0052 subclass v0050 and override one method — was the
 first draft of #1505 and it is **wrong**, because ``Migration.checksum()`` hashes
 ``inspect.getsource(type(self))`` (``framework/base.py``). Extracting a seam from
 v0050's class changes v0050's class source, so every installation that had already
@@ -37,7 +37,7 @@ this stored profile still hold exactly what generated it, with no user edit?".
 That predicate is the *only* thing the two migrations disagree about:
 
 * v0050 asks for identity with a frozen literal of the tier-3 tropical preset.
-* v0051 asks for identity with what the generator produced before the family map
+* v0052 asks for identity with what the generator produced before the family map
   grew (tier 3 plus the plant's own ``WateringGuide``).
 
 The question **before** it — "is the recomputation already what the profile

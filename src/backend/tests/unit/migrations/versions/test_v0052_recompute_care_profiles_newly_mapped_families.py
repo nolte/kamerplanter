@@ -1,4 +1,4 @@
-"""Tests for v0051_recompute_care_profiles_newly_mapped_families (#1505).
+"""Tests for v0052_recompute_care_profiles_newly_mapped_families (#1505).
 
 The fake database, the document builders and the constants are v0050's — imported
 rather than copied, because the two migrations run the same machinery and a second
@@ -21,8 +21,8 @@ from app.data_access.arango import collections as col
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.species import WateringGuide
 from app.migrations.framework.report import IrreversibleMigrationError
-from app.migrations.versions import v0051_recompute_care_profiles_newly_mapped_families as v0051
-from app.migrations.versions.v0051_recompute_care_profiles_newly_mapped_families import (
+from app.migrations.versions import v0052_recompute_care_profiles_newly_mapped_families as v0052
+from app.migrations.versions.v0052_recompute_care_profiles_newly_mapped_families import (
     _PRE_1505_TROPICAL_FALLBACK,
     _PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE,
     _REFERENCE_GUIDE,
@@ -183,7 +183,7 @@ class TestTheDriftGuard:
         no longer identify.
         """
         moved = {**_PRE_1505_TROPICAL_FALLBACK, "watering_interval_days": 9}
-        monkeypatch.setattr(v0051, "_PRE_1505_TROPICAL_FALLBACK", moved)
+        monkeypatch.setattr(v0052, "_PRE_1505_TROPICAL_FALLBACK", moved)
         db = _db(families=_family(NEWLY_MAPPED_FAMILY))
 
         report = migration.up(db)  # type: ignore[arg-type]
@@ -219,7 +219,7 @@ class TestTheDriftGuard:
         returned `[]` here and the run swept on.
         """
         moved = {**_PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE, "winter_watering_multiplier": 3.75}
-        monkeypatch.setattr(v0051, "_PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE", moved)
+        monkeypatch.setattr(v0052, "_PRE_1505_TROPICAL_FALLBACK_WITH_GUIDE", moved)
         db = _db(families=_family(NEWLY_MAPPED_FAMILY))
 
         report = migration.up(db)  # type: ignore[arg-type]
@@ -245,8 +245,8 @@ class TestTheDriftGuard:
 
 
 class TestTheFrameworkContract:
-    def test_it_is_the_fifty_first_migration(self) -> None:
-        assert migration.version == "0051"
+    def test_it_is_the_fifty_second_migration(self) -> None:
+        assert migration.version == "0052"
 
     def test_it_is_not_reversible(self) -> None:
         assert migration.reversible is False

@@ -229,7 +229,7 @@ def test_the_fixture_actually_exercises_every_category() -> None:
 
 
 def test_the_plant_key_travels_into_the_criterion() -> None:
-    """The injected predicate is called with the arguments v0051 relies on."""
+    """The injected predicate is called with the arguments v0052 relies on."""
     seen: list[tuple[str, Any]] = []
 
     def record(stored: CareProfile, engine: Any, plant_key: str, inputs: Any) -> bool:
