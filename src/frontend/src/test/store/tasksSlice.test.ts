@@ -10,7 +10,9 @@ import reducer, {
   fetchTasks,
   fetchTask,
   fetchTaskQueue,
+  fetchCompletedTasks,
   fetchOverdueTasks,
+  setQueueScope,
 } from '@/store/slices/tasksSlice';
 import * as tasksApi from '@/api/endpoints/tasks';
 
@@ -29,7 +31,14 @@ const baseState = {
   taskQueue: [],
   overdueTasks: [],
   completedTasks: [],
+  queueScope: null,
+  taskQueueScope: null,
+  completedTasksScope: null,
+  queueLoading: false,
+  queueError: null,
+  queueLoaded: false,
   completedTasksLoading: false,
+  completedTasksError: null,
   loading: false,
   error: null,
 };
@@ -105,21 +114,87 @@ describe('tasksSlice', () => {
     expect(state.currentTask).toEqual(task);
   });
 
-  it('fetchTaskQueue.pending sets loading and clears prior error', () => {
-    const state = reducer({ ...baseState, error: 'old' }, { type: fetchTaskQueue.pending.type });
-    expect(state.loading).toBe(true);
-    expect(state.error).toBeNull();
+  it('fetchTaskQueue.pending sets the queue-only loading flag and clears prior error', () => {
+    const state = reducer(
+      { ...baseState, queueError: 'old' },
+      { type: fetchTaskQueue.pending.type },
+    );
+    expect(state.queueLoading).toBe(true);
+    expect(state.queueError).toBeNull();
+    // The shared flag stays out of it — `loading` belongs to the workflow and
+    // task-list thunks, and the queue is the list that reloads on a filter pick.
+    expect(state.loading).toBe(false);
   });
 
-  it('fetchTaskQueue.fulfilled stores the task queue', () => {
-    const queue = [{ key: 'task-1' }];
-    const state = reducer(undefined, { type: fetchTaskQueue.fulfilled.type, payload: queue });
-    expect(state.taskQueue).toEqual(queue);
+  it('fetchTaskQueue.fulfilled stores the queue and the scope it was fetched for', () => {
+    const tasks = [{ key: 'task-1' }];
+    const state = reducer(undefined, {
+      type: fetchTaskQueue.fulfilled.type,
+      payload: { scope: null, tasks },
+    });
+    expect(state.taskQueue).toEqual(tasks);
+    expect(state.taskQueueScope).toBeNull();
+    expect(state.queueLoaded).toBe(true);
   });
 
   it('fetchTaskQueue.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchTaskQueue.rejected.type, error: {} });
-    expect(state.error).toBe('errors.loadFailed');
+    expect(state.queueError).toBe('errors.loadFailed');
+    expect(state.queueLoaded).toBe(true);
+  });
+
+  it('setQueueScope points both lists at one plant and clears stale errors', () => {
+    const state = reducer(
+      { ...baseState, queueError: 'boom', completedTasksError: 'boom' },
+      setQueueScope('plant-7'),
+    );
+    expect(state.queueScope).toBe('plant-7');
+    expect(state.queueError).toBeNull();
+    expect(state.completedTasksError).toBeNull();
+  });
+
+  describe('an answer to a scope the user has left is dropped', () => {
+    // The race is not symmetric: the unscoped query is the slow branch, so the
+    // older answer arriving last was the *likely* order, not the rare one.
+    it('fetchTaskQueue.fulfilled keeps the current scope\'s rows', () => {
+      const scoped = { ...baseState, queueScope: 'plant-B', queueLoading: true };
+      const state = reducer(scoped, {
+        type: fetchTaskQueue.fulfilled.type,
+        payload: { scope: null, tasks: [{ key: 'whole-tenant' }] },
+      });
+      expect(state.taskQueue).toEqual([]);
+      // The newer query owns the flag and is still running.
+      expect(state.queueLoading).toBe(true);
+    });
+
+    it('fetchTaskQueue.rejected does not surface a stale failure', () => {
+      const scoped = { ...baseState, queueScope: 'plant-B', queueLoading: true };
+      const state = reducer(scoped, {
+        type: fetchTaskQueue.rejected.type,
+        payload: { scope: 'plant-A', message: 'errors.network' },
+      });
+      expect(state.queueError).toBeNull();
+      expect(state.queueLoading).toBe(true);
+    });
+
+    it('fetchCompletedTasks.fulfilled keeps the current scope\'s rows', () => {
+      const scoped = { ...baseState, queueScope: 'plant-B', completedTasksLoading: true };
+      const state = reducer(scoped, {
+        type: fetchCompletedTasks.fulfilled.type,
+        payload: { scope: 'plant-A', tasks: [{ key: 'a-done' }] },
+      });
+      expect(state.completedTasks).toEqual([]);
+      expect(state.completedTasksLoading).toBe(true);
+    });
+  });
+
+  it('fetchCompletedTasks.rejected keeps the failure instead of showing an empty list', () => {
+    const state = reducer(undefined, {
+      type: fetchCompletedTasks.rejected.type,
+      payload: { scope: null, message: 'errors.network' },
+    });
+    expect(state.completedTasksError).toBe('errors.network');
+    expect(state.completedTasksLoading).toBe(false);
   });
 
   it('fetchOverdueTasks.fulfilled stores overdue tasks', () => {
@@ -200,12 +275,35 @@ describe('tasksSlice thunks', () => {
     expect(store.getState().tasks.currentTask).toEqual({ key: 'task-9' });
   });
 
-  it('fetchTaskQueue forwards the plant key and stores the queue', async () => {
+  it('fetchTaskQueue reads the plant scope from the store, not from an argument', async () => {
     mocked.getTaskQueue.mockResolvedValue([{ key: 'task-q' }] as never);
     const store = makeTasksStore();
-    await store.dispatch(fetchTaskQueue('pl1'));
+    store.dispatch(setQueueScope('pl1'));
+    await store.dispatch(fetchTaskQueue());
     expect(mocked.getTaskQueue).toHaveBeenCalledWith('pl1');
     expect(store.getState().tasks.taskQueue).toEqual([{ key: 'task-q' }]);
+    expect(store.getState().tasks.taskQueueScope).toBe('pl1');
+  });
+
+  it('fetchCompletedTasks scopes the query through entity_type/entity_key', async () => {
+    mocked.listTasks.mockResolvedValue([{ key: 'done-1' }] as never);
+    const store = makeTasksStore();
+    store.dispatch(setQueueScope('pl1'));
+    await store.dispatch(fetchCompletedTasks());
+    expect(mocked.listTasks).toHaveBeenCalledWith(0, 100, {
+      status: 'completed',
+      entity_type: 'plant_instance',
+      entity_key: 'pl1',
+    });
+    expect(store.getState().tasks.completedTasks).toEqual([{ key: 'done-1' }]);
+  });
+
+  it('a queue failure reaches the state as a message the page can show', async () => {
+    mocked.getTaskQueue.mockRejectedValue(new Error('Network Error'));
+    const store = makeTasksStore();
+    await store.dispatch(fetchTaskQueue());
+    expect(store.getState().tasks.queueError).toBe('Network Error');
+    expect(store.getState().tasks.queueLoading).toBe(false);
   });
 
   it('fetchOverdueTasks stores overdue tasks', async () => {
