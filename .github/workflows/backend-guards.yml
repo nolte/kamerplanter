@@ -105,6 +105,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: tests/unit/guards/test_model_field_renames_have_migrations.py
+          # derives the model fields that vanished since the migration baseline from
+          # the history itself (#1468), and a shallow clone shows it none of them.
+          # It fails rather than skips on a shallow checkout — a guard that sees an
+          # empty population reports green while measuring nothing (NFR-018 §1) —
+          # which is what surfaced this line. Same reason `backend.yml` sets it.
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
