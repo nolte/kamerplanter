@@ -302,48 +302,57 @@ export default function PhaseSequenceListPage() {
       searchable: false,
       hideBelowBreakpoint: 'md',
     },
-    {
-      id: 'actions',
-      label: t('common.actions'),
-      align: 'right',
-      sortable: false,
-      searchable: false,
-      render: (seq) => (
-        <Box onClick={(e) => e.stopPropagation()}>
-          {/* UI-NFR-018 R-015: offer "copy as template" for read-only system data.
-              #1501: cloning writes a new row into the same installation-wide
-              catalogue — PhaseSequence has no tenant_key — so it is a platform-admin
-              write like the delete below, not a tenant-local copy. */}
-          {canCurate && seq.is_system && (
-            <Tooltip title={t('pages.phaseSequences.duplicateTooltip')}>
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => handleClone(seq)}
-                aria-label={t('pages.phaseSequences.duplicate')}
-                data-testid={`duplicate-sequence-${seq.key}`}
-              >
-                <ContentCopyIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-          {/* UI-NFR-018 R-013: hide delete action for system data; #1501: and from
-              anyone who is not a platform admin. */}
-          {canCurate && !seq.is_system && (
-            <Tooltip title={t('common.delete')}>
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => setDeleteKey(seq.key)}
-                aria-label={t('common.delete')}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-      ),
-    },
+    // Clone/delete are this column's only content for a non-admin, unlike every
+    // other column here, so gating them in `render` alone would leave a
+    // permanently empty "Aktionen" column, header and all, for anyone but a
+    // platform admin (#1467 usability pass; see CultivarListSection for the same
+    // fix). The whole column is omitted instead.
+    ...(canCurate
+      ? [
+          {
+            id: 'actions',
+            label: t('common.actions'),
+            align: 'right',
+            sortable: false,
+            searchable: false,
+            render: (seq) => (
+              <Box onClick={(e) => e.stopPropagation()}>
+                {/* UI-NFR-018 R-015: offer "copy as template" for read-only system
+                    data. #1501: cloning writes a new row into the same
+                    installation-wide catalogue — PhaseSequence has no tenant_key —
+                    so it is a platform-admin write like the delete below, not a
+                    tenant-local copy. */}
+                {seq.is_system && (
+                  <Tooltip title={t('pages.phaseSequences.duplicateTooltip')}>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleClone(seq)}
+                      aria-label={t('pages.phaseSequences.duplicate')}
+                      data-testid={`duplicate-sequence-${seq.key}`}
+                    >
+                      <ContentCopyIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {/* UI-NFR-018 R-013: hide delete action for system data. */}
+                {!seq.is_system && (
+                  <Tooltip title={t('common.delete')}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => setDeleteKey(seq.key)}
+                      aria-label={t('common.delete')}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            ),
+          } as Column<PhaseSequence>,
+        ]
+      : []),
   ];
 
   return (
@@ -379,8 +388,13 @@ export default function PhaseSequenceListPage() {
         tableState={tableState}
         ariaLabel={t('pages.phaseSequences.sequencesTitle')}
         emptyMessage={t('pages.phaseSequences.noSequences')}
-        emptyActionLabel={t('pages.phaseSequences.createSequence')}
-        onEmptyAction={() => setCreateOpen(true)}
+        // #1501 — the create control is a platform-admin write; offering it here
+        // for anyone else would be a control the API can only answer 403 to (the
+        // same "sibling nobody bound" class as the header button below). The
+        // description closes the understanding gap the missing button leaves.
+        emptyDescription={canCurate ? undefined : t('pages.phaseSequences.catalogueCreateDenied')}
+        emptyActionLabel={canCurate ? t('pages.phaseSequences.createSequence') : undefined}
+        onEmptyAction={canCurate ? () => setCreateOpen(true) : undefined}
         emptyIllustration={kamiPhaseVegetative}
         mobileCardRenderer={(seq) => (
           <MobileCard

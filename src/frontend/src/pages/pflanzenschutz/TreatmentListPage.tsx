@@ -134,6 +134,9 @@ export default function TreatmentListPage() {
         loading={loading}
         getRowKey={(r) => r.key}
         onRowClick={(r) => navigate(`/pflanzenschutz/treatments/${r.key}`)}
+        // The description closes the understanding gap the hidden create control
+        // (header and empty state alike) leaves behind for a non-admin (#1501).
+        emptyDescription={canCurate ? undefined : t('pages.ipm.catalogueCreateDenied')}
         emptyActionLabel={canCurate ? t('pages.ipm.createTreatment') : undefined}
         onEmptyAction={canCurate ? () => setCreateOpen(true) : undefined}
         emptyIllustration={kamiIpm}

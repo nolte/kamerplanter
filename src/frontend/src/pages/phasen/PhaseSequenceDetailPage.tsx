@@ -610,7 +610,12 @@ export default function PhaseSequenceDetailPage() {
                 <TableCell>{t('pages.phaseSequences.effectiveDuration')}</TableCell>
                 {hasTerminal && <TableCell>{t('pages.phaseSequences.isTerminal')}</TableCell>}
                 {hasHarvest && <TableCell>{t('pages.phaseSequences.allowsHarvest')}</TableCell>}
-                <TableCell align="right">{t('common.actions')}</TableCell>
+                {/* #1501 — reorder/edit/remove are this column's only content, and
+                    a non-admin gets none of them, so the header is omitted with
+                    the cells below rather than leaving a permanently empty
+                    "Aktionen" header for a catalogue nobody but a platform admin
+                    may write (#1467 usability pass). */}
+                {canCurate && <TableCell align="right">{t('common.actions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -667,9 +672,8 @@ export default function PhaseSequenceDetailPage() {
                       )}
                     </TableCell>
                   )}
+                  {canCurate && (
                   <TableCell align="right">
-                    {canCurate && (
-                    <>
                     <Tooltip title={t('pages.phaseSequences.moveUp')}>
                       <span>
                         <IconButton
@@ -721,9 +725,8 @@ export default function PhaseSequenceDetailPage() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    </>
-                    )}
                   </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
