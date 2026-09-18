@@ -2,7 +2,7 @@
 
 from arango.database import StandardDatabase
 
-from app.common.exceptions import DuplicateError
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.season_state_repository import ISeasonStateRepository
@@ -45,11 +45,16 @@ class ArangoSeasonStateRepository(BaseArangoRepository[SeasonState], ISeasonStat
 
         try:
             created = super().create(state)
-        except DuplicateError:
+        except DuplicateError, WriteConflictError:
             # B3 — two parallel evaluations of a state-less site both reached the
             # insert; the unique ``(tenant_key, site_key)`` index rejected the
             # loser. Re-read the winner and update it in place instead of 500-ing
             # the second reader.
+            #
+            # Both refusal codes (#1458): 1210 once the winner's index entry is
+            # committed and visible, 1200 while its transaction still holds it.
+            # Neither says this state exists — only the re-read below does, which
+            # is why the raise-through under it is kept.
             winner = self.get_by_site(state.site_key, state.tenant_key)
             if winner is not None and winner.key:
                 return super().update(winner.key, state)

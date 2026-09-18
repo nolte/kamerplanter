@@ -604,8 +604,33 @@ Alle KI-Endpunkte sind unter dem Pfadpraefix `/api/v1/.../ai/` erreichbar. Sie l
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `GET` | `/daily-tip` | Ein einziger personalisierter Tipp fuer Dashboard | Alle Rollen | `ai_tenant_data_access` |
+| `GET` | `/daily-tip` | Heutigen Tipp **lesen** (oder `null`) | Alle Rollen | `ai_tenant_data_access` |
+| `POST` | `/daily-tip/refresh` | Heutigen Tipp **erzeugen** (idempotent pro Tag) | Ab Gärtner | `ai_tenant_data_access` |
 | `POST` | `/daily-tip/dismiss` | Heutigen Daily-Tip wegklicken | Alle Rollen | — |
+
+<!-- #1461 -->
+**Kein `GET` erzeugt einen Tipp.** `GET /tips` und `GET /daily-tip` lesen
+ausschliesslich, was gespeichert ist. Vorher generierten beide bei einem
+Cache-Miss: sie riefen den Knowledge Service, legten die Tipp-Karte an und
+schrieben einen Audit-Datensatz — auf einer sicheren HTTP-Methode, und beim
+Daily-Tip bei **jedem** Dashboard-Aufruf (#1461). Erzeugt wird nur über
+`POST /tips/refresh` bzw. `POST /daily-tip/refresh`, beide ab Gärtner.
+
+Folgen für die Antworten:
+
+- `GET /tips` liefert bei fehlenden Tipps `{"tips": [], "refresh_available": <bool>}`.
+  `refresh_available` sagt, ob **dieser** Aufrufer den `POST` ausführen darf
+  (dieselbe Rangregel, die der Gate durchsetzt) — damit die Oberfläche einen
+  Gärtner, der etwas tun kann, von einem Betrachter unterscheiden kann, ohne die
+  Rangregel im Client zu wiederholen.
+- `GET /daily-tip` liefert `null`, wenn für heute nichts erzeugt wurde. Die
+  Dashboard-Karte bietet einem Gärtner dann ausdrücklich das Erzeugen an, statt
+  unsichtbar zu bleiben.
+- `POST /daily-tip/refresh` ist für den Tag idempotent: eine bereits erzeugte
+  Karte wird zurückgegeben, ein zweiter Klick ist kein zweiter LLM-Aufruf.
+- `POST /tips/refresh?context_type=daily` ist **kein** Ersatz: dieser Pfad baut
+  eine `care`/`medium`-Karte mit 24-Stunden-Gültigkeit, der Tipp des Tages ist
+  eine `optimization`/`low`-Karte, die um Mitternacht verfällt.
 
 **"Warum?" / Explain (NEU):**
 

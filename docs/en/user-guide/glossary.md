@@ -35,6 +35,17 @@ The explanation you see is tailored to your configured [experience level](onboar
 
 Not every term has a sufficiently relevant hit in the knowledge base. In that case, the glossary honestly shows you an editorially maintained short definition instead of an AI-generated answer, labeled "Short definition (no knowledge-base match)". This way you're never given a fabricated or unreliable answer.
 
+## Detailed explanations are prepared in advance, not produced while you read
+
+Opening a term costs nothing and triggers no AI request: the glossary shows you the explanation that has **already been prepared**, and as long as none exists for a term in your language and experience level, you see the editorial short definition — the same honest label as above.
+
+Explanations are prepared in two places:
+
+- **automatically**, after the operator re-ingests the knowledge base. The cache is cleared and then refilled in the background for the whole term catalogue.
+- **on request**, when somebody with the Gardener or Lead role in their garden has an explanation generated. Viewers and anonymous visitors cannot trigger it.
+
+That is deliberate: every AI explanation costs the installation's operator compute time or money. Previously, the first person to click a term decided when that cost was incurred — in anonymous Light Mode, somebody without an account at all. <!-- #1460 -->
+
 ## The inline question-mark icon
 
 !!! note "Partially available: question-mark icons on other pages"
@@ -54,7 +65,7 @@ The glossary uses the same instance-wide AI toggle as the [AI Assistant](ai-assi
 
 If your garden (tenant) uses a cloud provider as its default provider, the regular "AI processing via cloud provider" consent check (`ai_cloud_processing`) still applies before a request reaches the cloud provider — see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters). If consent is missing or the associated user can't be determined unambiguously, the request is rejected outright rather than silently redirected to a local model.
 
-Like the AI Assistant, every glossary call is logged without any plant or account data included in the request sent to the knowledge base.
+Like the AI Assistant, every **AI request to the knowledge base** is logged, without any plant or account data included in it. Simply reading an already-prepared term makes no such request and therefore writes no log entry; previously every anonymous call wrote one. <!-- #1460 -->
 
 ---
 
@@ -67,7 +78,10 @@ Like the AI Assistant, every glossary call is logged without any plant or accoun
     That means the knowledge base didn't find a sufficiently relevant match for this term. Instead of making up an unreliable AI answer, the glossary then shows you a short, editorially reviewed definition.
 
 ??? question "Why does the explanation change when I switch my experience level?"
-    The explanation is generated to match your configured experience level — beginners get everyday language, experts get concrete value ranges. This applies to explanations fetched after the level change.
+    Explanations are prepared separately per experience level — beginners get everyday language, experts get concrete value ranges. After a level change you see the version for your new level; if none has been prepared for it yet, the editorial short definition comes first.
+
+??? question "Why do I only see the short definition for a term even though AI is enabled?"
+    Then no detailed explanation has been prepared for that term in your language and experience level yet. Reading does not produce one — anybody who is a Gardener or Lead in their garden can request it, and after a knowledge-base re-ingest the operator refills the catalogue in the background.
 
 ??? question "Why don't I see the question-mark icon next to terms on other pages yet?"
     Rolling it out to existing pages (plant detail page, dashboard, substrate editor, and more) isn't finished yet. Until then, you can find the same explanations via the [glossary overview](#browsing-the-glossary).
