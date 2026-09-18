@@ -8,6 +8,7 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { glossaryApi } from '@/api';
 import type { GlossaryExpertiseLevel, GlossaryTermSummary } from '@/api/types';
@@ -19,6 +20,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import { kamiGlossar } from '@/assets/brand/illustrations';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useGlossaryTerm } from '@/hooks/useGlossaryTerm';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 
 /**
  * REQ-035 §5.2 — `<GlossaryPage>` term browser.
@@ -76,6 +78,7 @@ export default function GlossaryPage() {
   }, [terms]);
 
   const detail = useGlossaryTerm(selectedSlug, language, expertise);
+  const { canEdit } = useTenantPermissions();
 
   const handleBack = useCallback(() => setSelectedSlug(null), []);
 
@@ -157,6 +160,23 @@ export default function GlossaryPage() {
                         {t('pages.glossary.tooltip.fallbackHint')}
                       </Typography>
                     </Stack>
+                  )}
+                  {/* #1460 — reading a term no longer generates its detailed
+                      explanation, so a fallback answer stays a fallback until
+                      somebody asks. Producing one is a write on the server
+                      (`require_permission(glossary, create)`), so the control is
+                      absent for a viewer rather than present and refused. */}
+                  {detail.answer.is_fallback && canEdit && (
+                    <Button
+                      size="small"
+                      startIcon={<AutoAwesomeIcon />}
+                      onClick={() => void detail.generate()}
+                      disabled={detail.generating}
+                      sx={{ mt: 1, minHeight: 48 }}
+                      data-testid="glossary-detail-generate"
+                    >
+                      {t('pages.glossary.tooltip.generate')}
+                    </Button>
                   )}
                   {detail.answer.related_terms.length > 0 && (
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 2 }}>
